@@ -4,8 +4,13 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8f1f4872-15dd-4010-ab0b-56c20a7006cc" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" />
+    <list default="true" id="8f1f4872-15dd-4010-ab0b-56c20a7006cc" name="Changes" comment="delete old index.html from repo">
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/database/migrations/001_create_companies.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/database/migrations/002_create_fundamentals.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/database/migrations/003_create_prices.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/postgress.info" beforeDir="false" afterPath="$PROJECT_DIR$/docs/postgress.info" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -15,16 +20,81 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/svenclaes76/UV.git",
-    "accountId": "b8e67160-ab46-4537-a151-230c4854ba4e"
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "svenclaes76"
   }
 }]]></component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 5,
-  "fromUser": false
-}]]></component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/svenclaes76/UV.git&quot;,
+    &quot;accountId&quot;: &quot;b8e67160-ab46-4537-a151-230c4854ba4e&quot;
+  }
+}</component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0000016375836114" />
+      <entry key="MS500" value="1.0696371031762082" />
+      <entry key="S2" value="1.5137007196894818" />
+      <entry key="S5" value="1.7660975433143873" />
+      <entry key="S10" value="1.8752699830991506" />
+      <entry key="S30" value="1.9565639544300297" />
+      <entry key="S60" value="1.9780410841181206" />
+      <entry key="M2" value="1.9903289349093025" />
+      <entry key="M5" value="2.2629549475030943" />
+      <entry key="M10" value="3.549048422637979" />
+      <entry key="M15" value="4.785952129324667" />
+      <entry key="M30" value="7.007935513920569" />
+      <entry key="H1" value="8.713649267267506" />
+      <entry key="H2" value="9.77324186394778" />
+      <entry key="H4" value="10.3641671456484" />
+      <entry key="D1" value="10.890767530285789" />
+      <entry key="W1" value="10.984313600699165" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.6029054312108049" />
+      <entry key="MS500" value="0.9723359728497885" />
+      <entry key="S2" value="1.4867635494603095" />
+      <entry key="S5" value="1.7548612787716147" />
+      <entry key="S10" value="1.8695556831273898" />
+      <entry key="S30" value="1.954635634267834" />
+      <entry key="S60" value="1.9770738311431095" />
+      <entry key="M2" value="1.9898418431414542" />
+      <entry key="M5" value="2.2625522255330384" />
+      <entry key="M10" value="3.5483464456448095" />
+      <entry key="M15" value="4.78516300058994" />
+      <entry key="M30" value="7.007252524696918" />
+      <entry key="H1" value="8.713197083006545" />
+      <entry key="H2" value="9.772981394564761" />
+      <entry key="H4" value="10.364027325477597" />
+      <entry key="D1" value="10.890742803291811" />
+      <entry key="W1" value="10.984310032144036" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3EEB879ELwH51PvWRwf7YYlAMUn" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -47,8 +117,18 @@
     "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
     "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "postgresql"
+    ]
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\svenc\PycharmProjects\UV\docs" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -63,11 +143,43 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1779733685860</updated>
-      <workItem from="1779733686876" duration="1215000" />
+      <workItem from="1779733686876" duration="2785000" />
     </task>
+    <task id="LOCAL-00001" summary="delete old index.html from repo">
+      <option name="closed" value="true" />
+      <created>1779734955781</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1779734955782</updated>
+    </task>
+    <task id="LOCAL-00002" summary="delete old index.html from repo">
+      <option name="closed" value="true" />
+      <created>1779735014274</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1779735014274</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="delete old index.html from repo" />
+    <option name="LAST_COMMIT_MESSAGE" value="delete old index.html from repo" />
   </component>
 </project>
