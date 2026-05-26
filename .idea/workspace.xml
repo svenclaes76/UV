@@ -4,18 +4,86 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8f1f4872-15dd-4010-ab0b-56c20a7006cc" name="Changes" comment="delete old index.html from repo">
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/infra/database/migrations/001_create_companies.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/infra/database/migrations/002_create_fundamentals.sql" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/infra/database/migrations/003_create_prices.sql" afterDir="false" />
+    <list default="true" id="8f1f4872-15dd-4010-ab0b-56c20a7006cc" name="Changes" comment="database migration scripts">
+      <change afterPath="$PROJECT_DIR$/backend/app/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/database.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/dependencies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/api/screener_dto.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/api/stock_dto.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/api/valuation_dto.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/db/company.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/db/fundamentals.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/db/price.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/models/db/valuation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/repositories/fundamentals_repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/repositories/price_repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/repositories/screener_repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/repositories/stock_repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/repositories/valuation_repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/routers/health.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/routers/screener.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/routers/stocks.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/routers/valuations.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/services/screener_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/services/stock_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/services/valuation_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/valuation_core/dcf.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/valuation_core/hybrid.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/valuation_core/relative.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/valuation_core/scoring.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/valuation_core/utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/api-spec.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/architecture.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/data-sources.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/technical-architecture.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/valuation-models.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/api/screener.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/api/stocks.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/api/valuations.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/ScreenerPage.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/ScreenerTable.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/StockCard.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/StockTable.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/components/ValuationChart.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/pages/DashboardPage.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/pages/ScreenerPage.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/pages/StockDetailPage.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/ci/github-actions.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/ci/tests.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/docker/Dockerfile.backend" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/docker/Dockerfile.frontend" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/docker/docker-compose.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/k8s/api-deployment.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/k8s/api-service.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/k8s/jobs.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/k8s/postgres.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infra/schema.sql" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/fetch/fetch_fundamentals.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/fetch/fetch_metadata.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/fetch/fetch_prices.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/load/load_companies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/load/load_fundamentals.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/load/load_prices.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/transform/clean_fundamentals.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/transform/normalize_prices.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/valuation/run_dcf_all.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/valuation/run_relative_all.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/jobs/valuation/update_scores.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/postgress.info" beforeDir="false" afterPath="$PROJECT_DIR$/docs/postgress.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -34,23 +102,23 @@
 }</component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000016375836114" />
-      <entry key="MS500" value="1.0696371031762082" />
-      <entry key="S2" value="1.5137007196894818" />
-      <entry key="S5" value="1.7660975433143873" />
-      <entry key="S10" value="1.8752699830991506" />
-      <entry key="S30" value="1.9565639544300297" />
-      <entry key="S60" value="1.9780410841181206" />
-      <entry key="M2" value="1.9903289349093025" />
-      <entry key="M5" value="2.2629549475030943" />
-      <entry key="M10" value="3.549048422637979" />
-      <entry key="M15" value="4.785952129324667" />
-      <entry key="M30" value="7.007935513920569" />
-      <entry key="H1" value="8.713649267267506" />
-      <entry key="H2" value="9.77324186394778" />
-      <entry key="H4" value="10.3641671456484" />
-      <entry key="D1" value="10.890767530285789" />
-      <entry key="W1" value="10.984313600699165" />
+      <entry key="MS100" value="1.0014497371382676" />
+      <entry key="MS500" value="1.3089218896367072" />
+      <entry key="S2" value="2.835962423669765" />
+      <entry key="S5" value="4.248817157662311" />
+      <entry key="S10" value="5.01039745419998" />
+      <entry key="S30" value="5.6416231881018" />
+      <entry key="S60" value="5.862493051075935" />
+      <entry key="M2" value="6.211345203152911" />
+      <entry key="M5" value="7.030144699583737" />
+      <entry key="M10" value="8.41888607527569" />
+      <entry key="M15" value="9.713174954815347" />
+      <entry key="M30" value="12.17687734751012" />
+      <entry key="H1" value="14.18169479504247" />
+      <entry key="H2" value="15.470469874902278" />
+      <entry key="H4" value="16.202425176737037" />
+      <entry key="D1" value="16.86226331079027" />
+      <entry key="W1" value="16.980202180415834" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -72,23 +140,23 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.6029054312108049" />
-      <entry key="MS500" value="0.9723359728497885" />
-      <entry key="S2" value="1.4867635494603095" />
-      <entry key="S5" value="1.7548612787716147" />
-      <entry key="S10" value="1.8695556831273898" />
-      <entry key="S30" value="1.954635634267834" />
-      <entry key="S60" value="1.9770738311431095" />
-      <entry key="M2" value="1.9898418431414542" />
-      <entry key="M5" value="2.2625522255330384" />
-      <entry key="M10" value="3.5483464456448095" />
-      <entry key="M15" value="4.78516300058994" />
-      <entry key="M30" value="7.007252524696918" />
-      <entry key="H1" value="8.713197083006545" />
-      <entry key="H2" value="9.772981394564761" />
-      <entry key="H4" value="10.364027325477597" />
-      <entry key="D1" value="10.890742803291811" />
-      <entry key="W1" value="10.984310032144036" />
+      <entry key="MS100" value="0.9474387212717089" />
+      <entry key="MS500" value="1.2947562398671406" />
+      <entry key="S2" value="2.8277255561102352" />
+      <entry key="S5" value="4.243716937587943" />
+      <entry key="S10" value="5.007358952314857" />
+      <entry key="S30" value="5.640474492460667" />
+      <entry key="S60" value="5.86187782958139" />
+      <entry key="M2" value="6.210969578235314" />
+      <entry key="M5" value="7.0298330600739" />
+      <entry key="M10" value="8.418342901719772" />
+      <entry key="M15" value="9.712519918934856" />
+      <entry key="M30" value="12.17625435588607" />
+      <entry key="H1" value="14.181259854414165" />
+      <entry key="H2" value="15.470212332128256" />
+      <entry key="H4" value="16.202284977206965" />
+      <entry key="D1" value="16.862238223032882" />
+      <entry key="W1" value="16.98019855244849" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -143,7 +211,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1779733685860</updated>
-      <workItem from="1779733686876" duration="2785000" />
+      <workItem from="1779733686876" duration="7986000" />
     </task>
     <task id="LOCAL-00001" summary="delete old index.html from repo">
       <option name="closed" value="true" />
@@ -161,7 +229,23 @@
       <option name="project" value="LOCAL" />
       <updated>1779735014274</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="database migration scripts">
+      <option name="closed" value="true" />
+      <created>1779736785144</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1779736785144</updated>
+    </task>
+    <task id="LOCAL-00004" summary="database migration scripts">
+      <option name="closed" value="true" />
+      <created>1779736809283</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1779736809283</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -180,6 +264,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="delete old index.html from repo" />
-    <option name="LAST_COMMIT_MESSAGE" value="delete old index.html from repo" />
+    <MESSAGE value="database migration scripts" />
+    <option name="LAST_COMMIT_MESSAGE" value="database migration scripts" />
   </component>
 </project>
