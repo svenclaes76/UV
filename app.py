@@ -46,6 +46,45 @@ def load_screener_data() -> pd.DataFrame:
     return run_screener(stocks)
 
 
+def _compute_fair_values(info: dict) -> dict:
+    eps  = info.get("trailingEps")
+    bvps = info.get("bookValue")
+
+    # Graham Number: √(22.5 × EPS × BVPS) — requires positive EPS and BVPS
+    graham_number = None
+    if eps and bvps and eps > 0 and bvps > 0:
+        graham_number = round((22.5 * eps * bvps) ** 0.5, 2)
+
+    # PE Fair Value: EPS × 15 (Graham's assumed fair P/E for a no-growth company)
+    pe_fair_value = None
+    if eps and eps > 0:
+        pe_fair_value = round(eps * 15, 2)
+
+    # Graham Growth: EPS × (8.5 + 2g) where g is expected annual earnings growth (%)
+    # Uses earningsGrowth (TTM) as a proxy; clamped to [-5%, 25%] to avoid extremes.
+    graham_growth = None
+    raw_growth = info.get("earningsGrowth") or info.get("revenueGrowth")
+    if eps and eps > 0 and raw_growth is not None:
+        g = max(-5.0, min(25.0, raw_growth * 100))
+        graham_growth = round(eps * (8.5 + 2 * g), 2)
+        if graham_growth <= 0:
+            graham_growth = None
+
+    analyst_target = info.get("targetMeanPrice")
+
+    # Composite: average of all available positive estimates
+    estimates = [v for v in [graham_number, pe_fair_value, graham_growth, analyst_target]
+                 if v is not None and v > 0]
+    composite = round(sum(estimates) / len(estimates), 2) if estimates else None
+
+    return {
+        "graham_number": graham_number,
+        "pe_fair_value": pe_fair_value,
+        "graham_growth": graham_growth,
+        "fair_value":    composite,
+    }
+
+
 @st.cache_data(show_spinner=False, ttl=60)
 def _fetch_live_data(tickers: tuple) -> dict:
     result = {}
@@ -53,22 +92,20 @@ def _fetch_live_data(tickers: tuple) -> dict:
         try:
             info = yf.Ticker(t).info
             price = info.get("currentPrice") or info.get("regularMarketPrice")
-            analyst_target = info.get("targetMeanPrice")
-            eps = info.get("trailingEps")
-            bvps = info.get("bookValue")
-            graham = None
-            if eps and bvps and eps > 0 and bvps > 0:
-                graham = round((22.5 * eps * bvps) ** 0.5, 2)
             div_rate = info.get("trailingAnnualDividendRate") or 0
+            fv = _compute_fair_values(info)
             result[t] = {
                 "price":          price,
-                "analyst_target": analyst_target,
-                "graham_number":  graham,
+                "analyst_target": info.get("targetMeanPrice"),
                 "div_rate":       div_rate,
+                **fv,
             }
         except Exception:
-            result[t] = {"price": None, "analyst_target": None,
-                         "graham_number": None, "div_rate": None}
+            result[t] = {
+                "price": None, "analyst_target": None, "div_rate": None,
+                "graham_number": None, "pe_fair_value": None,
+                "graham_growth": None, "fair_value": None,
+            }
     return result
 
 
@@ -209,6 +246,9 @@ with tab_portfolio:
     pf["live_price"]      = pf["ticker"].map(lambda t: live_data[t]["price"])
     pf["analyst_target"]  = pf["ticker"].map(lambda t: live_data[t]["analyst_target"])
     pf["graham_number"]   = pf["ticker"].map(lambda t: live_data[t]["graham_number"])
+    pf["pe_fair_value"]   = pf["ticker"].map(lambda t: live_data[t]["pe_fair_value"])
+    pf["graham_growth"]   = pf["ticker"].map(lambda t: live_data[t]["graham_growth"])
+    pf["fair_value"]      = pf["ticker"].map(lambda t: live_data[t]["fair_value"])
     pf["div_rate"]        = pf["ticker"].map(lambda t: live_data[t]["div_rate"] or 0)
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
     pf["current_value"]   = pf["live_price"] * pf["shares"]
@@ -217,6 +257,7 @@ with tab_portfolio:
     pf["total_return"]    = pf["price_gain"] + pf["dividends"].fillna(0)
     pf["total_return_pct"] = (pf["total_return"] / pf["purchase_value"] * 100).round(2)
     pf["upside_pct"]      = ((pf["analyst_target"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
+    pf["fv_upside_pct"]   = ((pf["fair_value"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
 
     # Attach screener value score
     screener_scores = load_screener_data().set_index("Ticker")["Value Score"].to_dict()
@@ -253,9 +294,13 @@ with tab_portfolio:
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Live Price":     pf["live_price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Fair Value":     pf["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "FV Upside":      pf["fv_upside_pct"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
+            "Graham №":       pf["graham_number"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "PE Fair Value":  pf["pe_fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Graham Growth":  pf["graham_growth"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "Analyst Target": pf["analyst_target"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "Upside":         pf["upside_pct"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-            "Graham Number":  pf["graham_number"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Analyst Upside": pf["upside_pct"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Price Gain":     pf["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
@@ -270,9 +315,9 @@ with tab_portfolio:
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Price Gain %": st.column_config.NumberColumn("Price Gain %", format="%.2f%%"),
+                "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
                 "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
-                "Value Score": st.column_config.ProgressColumn(
+                "Value Score":    st.column_config.ProgressColumn(
                     "Value Score", min_value=0, max_value=100, format="%.1f"),
             },
             height=(len(pf) + 1) * 35 + 10,
