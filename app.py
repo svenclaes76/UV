@@ -15,7 +15,7 @@ from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        PORTFOLIO_FILE, save_watchlist, load_watchlist)
-from auth import register, login, verify_token
+from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
 def _cache_age_str() -> str:
     cache = _load_cache()
@@ -123,8 +123,12 @@ st.set_page_config(
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
     token = st.session_state.get("jwt_token")
-    if token and verify_token(token):
-        return  # already logged in
+    if token:
+        email, role = verify_token(token)
+        if email:
+            st.session_state["user_email"] = email
+            st.session_state["user_role"]  = role
+            return  # already logged in
 
     st.markdown("""
     <div style="max-width:400px;margin:80px auto 0;text-align:center;">
@@ -154,8 +158,10 @@ def _auth_wall():
             if st.button("Log in", use_container_width=True, type="primary"):
                 ok, result = login(email, password)
                 if ok:
-                    st.session_state["jwt_token"] = result
+                    _, role = verify_token(result)
+                    st.session_state["jwt_token"]  = result
                     st.session_state["user_email"] = email.strip().lower()
+                    st.session_state["user_role"]  = role
                     st.rerun()
                 else:
                     st.error(result)
@@ -192,14 +198,27 @@ st.markdown("""
 
 _hdr_left, _hdr_right = st.columns([6, 1])
 with _hdr_right:
-    user_email = st.session_state.get("user_email", "")
-    st.caption(user_email)
+    _role  = st.session_state.get("user_role", "normal")
+    _email = st.session_state.get("user_email", "")
+    _badge = {"administrator": "🔑", "demo": "👁️"}.get(_role, "")
+    st.caption(f"{_badge} {_email}")
     if st.button("Log out", use_container_width=True):
-        st.session_state.pop("jwt_token", None)
-        st.session_state.pop("user_email", None)
+        for _k in ("jwt_token", "user_email", "user_role"):
+            st.session_state.pop(_k, None)
         st.rerun()
 
-tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
+_current_role = st.session_state.get("user_role", "normal")
+_is_admin = _current_role == "administrator"
+_is_demo  = _current_role == "demo"
+
+if _is_demo:
+    (tab_screener,) = st.tabs(["Screener"])
+    tab_portfolio = None
+elif _is_admin:
+    tab_portfolio, tab_screener, tab_admin = st.tabs(["Portfolio", "Screener", "⚙️ Admin"])
+else:
+    tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
+    tab_admin = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -207,6 +226,9 @@ tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab_screener:
+    if _is_demo:
+        st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
+
     st.caption(
         "Ranks ~125 Brussels-listed stocks by a composite value score "
         "(P/E · P/B · EV/EBITDA · Debt/Equity · Dividend Yield)."
@@ -242,7 +264,10 @@ with tab_screener:
         "Value Score": df["Value Score"],
     })
 
-    st.markdown(f"**{len(df)}** stocks shown · check ★ to add to watchlist")
+    _all_cols_disabled = ["Company", "Ticker", "Price", "Mkt Cap", "P/E", "P/B",
+                          "EV/EBITDA", "Debt/Equity", "Div Yield", "Value Score"]
+    _watchlist_hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+    st.markdown(f"**{len(df)}** stocks shown · {_watchlist_hint}")
     edited = st.data_editor(
         display,
         use_container_width=True,
@@ -253,15 +278,15 @@ with tab_screener:
                 "Value Score", min_value=0, max_value=100, format="%.1f",
             ),
         },
-        disabled=["Company", "Ticker", "Price", "Mkt Cap", "P/E", "P/B",
-                  "EV/EBITDA", "Debt/Equity", "Div Yield", "Value Score"],
+        disabled=_all_cols_disabled if not _is_demo else _all_cols_disabled + ["★"],
         height=700,
     )
 
-    new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
-    if new_watchlist != watchlist:
-        save_watchlist(new_watchlist)
-        st.rerun()
+    if not _is_demo:
+        new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
+        if new_watchlist != watchlist:
+            save_watchlist(new_watchlist)
+            st.rerun()
 
     with st.expander("Score distribution"):
         st.bar_chart(
@@ -274,7 +299,7 @@ with tab_screener:
 # TAB 2 — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-with tab_portfolio:
+with tab_portfolio if tab_portfolio is not None else st.empty():
 
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
@@ -586,8 +611,9 @@ with tab_portfolio:
             st.bar_chart(sold.set_index("name")["total_return"].sort_values())
 
     # ── Re-upload option ──────────────────────────────────────────────────────
-    st.divider()
-    with st.expander("Re-upload portfolio file"):
+    if not _is_demo:
+      st.divider()
+    with st.expander("Re-upload portfolio file", expanded=False) if not _is_demo else st.empty():
         st.warning("This will replace your current portfolio data.")
         new_file = st.file_uploader("Upload new .xlsx", type=["xlsx"], key="reupload")
         if new_file:
@@ -604,3 +630,62 @@ with tab_portfolio:
                     st.rerun()
             except Exception as e:
                 st.error(f"Could not parse file: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — ADMIN (administrator only)
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _is_admin:
+    with tab_admin:
+        st.subheader("User management")
+
+        users = list_users()
+        if not users:
+            st.info("No users found.")
+        else:
+            for u in users:
+                col_email, col_role, col_save, col_del = st.columns([3, 2, 1, 1])
+                col_email.markdown(f"**{u['email']}**  \n<small>{u['created_at'][:10]}</small>",
+                                   unsafe_allow_html=True)
+                new_role = col_role.selectbox(
+                    "Role",
+                    options=list(ROLES),
+                    index=list(ROLES).index(u["role"]),
+                    key=f"role_{u['email']}",
+                    label_visibility="collapsed",
+                )
+                if col_save.button("Save", key=f"save_{u['email']}", use_container_width=True):
+                    ok, msg = set_role(u["email"], new_role)
+                    if ok:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+                current_email = st.session_state.get("user_email", "")
+                if u["email"] != current_email:
+                    if col_del.button("🗑️", key=f"del_{u['email']}", use_container_width=True,
+                                      help=f"Delete {u['email']}"):
+                        ok, msg = delete_user(u["email"])
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                else:
+                    col_del.markdown("&nbsp;", unsafe_allow_html=True)
+
+        st.divider()
+        st.subheader("Create account")
+        with st.form("admin_create_user"):
+            new_email    = st.text_input("Email")
+            new_password = st.text_input("Password", type="password")
+            new_role_sel = st.selectbox("Role", options=list(ROLES))
+            if st.form_submit_button("Create", use_container_width=True):
+                ok, msg = register(new_email, new_password, role=new_role_sel)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
