@@ -45,17 +45,12 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
         if raw.empty:
             raise ValueError("Empty download response")
 
-        # yfinance returns MultiIndex columns (Field, Ticker) for multiple tickers,
-        # plain columns (Field) for a single ticker.
-        single = len(tickers) == 1
+        # yf.download always returns MultiIndex columns (Field, Ticker) when
+        # given a list — even a single-element list.
         for t in tickers:
             try:
-                if single:
-                    closes  = raw["Close"].dropna()
-                    volumes = raw["Volume"].dropna()
-                else:
-                    closes  = raw["Close"][t].dropna()
-                    volumes = raw["Volume"][t].dropna()
+                closes  = raw["Close"][t].dropna()
+                volumes = raw["Volume"][t].dropna()
 
                 if len(closes) < 1:
                     continue
