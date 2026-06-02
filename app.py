@@ -283,14 +283,16 @@ with tab_portfolio:
     total_expected   = pf["expected_annual"].sum()
 
     st.subheader("Portfolio summary")
+    price_gain     = total_current - total_invested
+    price_gain_pct = price_gain / total_invested * 100 if total_invested else 0
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Invested",        f"€{total_invested:,.0f}")
-    c2.metric("Current value",   f"€{total_current:,.0f}",
-              delta=f"€{total_current - total_invested:+,.0f}")
-    c3.metric("Price gain",      f"€{total_current - total_invested:+,.0f}",
-              delta=f"{(total_current - total_invested) / total_invested * 100:+.1f}%")
-    c4.metric("Dividends received", f"€{total_dividends:,.0f}")
-    c5.metric("Total return",    f"€{total_return:+,.0f}",
+    c1.metric("Invested",            f"€{total_invested:,.0f}")
+    c2.metric("Current value",       f"€{total_current:,.0f}",
+              delta=f"€{price_gain:+,.0f}")
+    c3.metric("Price gain",          f"{price_gain_pct:+.1f}%",
+              delta=f"€{price_gain:+,.0f}")
+    c4.metric("Dividends received",  f"€{total_dividends:,.0f}")
+    c5.metric("Total return",        f"€{total_return:+,.0f}",
               delta=f"{total_return_pct:+.1f}%")
 
     st.divider()
@@ -306,7 +308,7 @@ with tab_portfolio:
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Live Price":     pf["live_price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "Fair Value":     pf["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "FV Upside":      pf["fv_upside_pct"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
+            "FV Upside %":    pf["fv_upside_pct"],
             "Analyst Target": pf["analyst_target"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
@@ -314,13 +316,14 @@ with tab_portfolio:
             "Total Return %": pf["total_return_pct"],
             "Value Score":    pf["value_score"],
             "Buy Date":       pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
-        })
+        }).sort_values("Total Return %", ascending=False)
 
         st.dataframe(
             positions,
             use_container_width=True,
             hide_index=True,
             column_config={
+                "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
                 "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
                 "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
                 "Value Score":    st.column_config.ProgressColumn(
@@ -355,8 +358,8 @@ with tab_portfolio:
                 price = live.get("price")
                 fv    = live.get("fair_value")
                 rows.append({
-                    "Ticker":         ticker,
                     "Company":        s.get("Name", ticker) if hasattr(s, "get") else ticker,
+                    "Ticker":         ticker,
                     "Live Price":     f"€{price:.2f}" if price else "—",
                     "Fair Value":     f"€{fv:.2f}" if fv else "—",
                     "FV Upside":      f"{(fv - price) / price * 100:+.1f}%" if fv and price else "—",
@@ -506,7 +509,7 @@ with tab_portfolio:
                 "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
                 "Annual Return %": sold["annual_return_pct"],
-"Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
+                "Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       pd.to_datetime(sold["date_out"]).dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
