@@ -10,6 +10,8 @@ import yfinance as yf
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
+from prices import fetch_prices
+
 from fetch_tickers import fetch_brussels_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
@@ -86,28 +88,46 @@ def _compute_fair_values(info: dict) -> dict:
     }
 
 
-@st.cache_data(show_spinner=False, ttl=60)
-def _fetch_live_data(tickers: tuple) -> dict:
+@st.cache_data(show_spinner=False, ttl=120)
+def _fetch_prices_cached(tickers: tuple) -> dict:
+    """Batch price feed — one HTTP call for all tickers, refreshed every 2 min."""
+    return fetch_prices(tickers)
+
+
+@st.cache_data(show_spinner=False, ttl=21_600)
+def _fetch_fundamentals(tickers: tuple) -> dict:
+    """
+    Per-ticker fundamentals (EPS, BVPS, analyst targets, div rate) via yf.info.
+    Cached for 6 h — these change quarterly, not by the minute.
+    """
     result = {}
+    _empty = {
+        "analyst_target": None, "div_rate": 0,
+        "graham_number": None, "pe_fair_value": None,
+        "graham_growth": None, "fair_value": None,
+    }
     for t in tickers:
         try:
             info = yf.Ticker(t).info
-            price = info.get("currentPrice") or info.get("regularMarketPrice")
-            div_rate = info.get("trailingAnnualDividendRate") or 0
-            fv = _compute_fair_values(info)
+            fv   = _compute_fair_values(info)
             result[t] = {
-                "price":          price,
                 "analyst_target": info.get("targetMeanPrice"),
-                "div_rate":       div_rate,
+                "div_rate":       info.get("trailingAnnualDividendRate") or 0,
                 **fv,
             }
         except Exception:
-            result[t] = {
-                "price": None, "analyst_target": None, "div_rate": None,
-                "graham_number": None, "pe_fair_value": None,
-                "graham_growth": None, "fair_value": None,
-            }
+            result[t] = dict(_empty)
     return result
+
+
+def _fetch_live_data(tickers: tuple) -> dict:
+    """Merge fast batch prices with slower-moving fundamentals."""
+    prices = _fetch_prices_cached(tickers)
+    fundas = _fetch_fundamentals(tickers)
+    return {
+        t: {**fundas.get(t, {}), **prices.get(t, {})}
+        for t in tickers
+    }
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -351,6 +371,8 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
     pf["total_return_pct"] = (pf["total_return"] / pf["purchase_value"] * 100).round(2)
     pf["upside_pct"]      = ((pf["analyst_target"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
     pf["fv_upside_pct"]   = ((pf["fair_value"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
+    pf["day_change_pct"]  = pf["ticker"].map(lambda t: live_data[t].get("day_change_pct"))
+    pf["prev_close"]      = pf["ticker"].map(lambda t: live_data[t].get("prev_close"))
 
     # Attach screener value score
     screener_scores = load_screener_data().set_index("Ticker")["Value Score"].to_dict()
@@ -389,6 +411,7 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Live Price":     pf["live_price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Day Chg %":      pf["day_change_pct"],
             "Fair Value":     pf["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "FV Upside %":    pf["fv_upside_pct"],
             "Analyst Target": pf["analyst_target"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
@@ -405,6 +428,7 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
             use_container_width=True,
             hide_index=True,
             column_config={
+                "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
                 "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
                 "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
                 "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
@@ -439,10 +463,12 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
                 live = wl_live.get(ticker, {})
                 price = live.get("price")
                 fv    = live.get("fair_value")
+                day_chg = live.get("day_change_pct")
                 rows.append({
                     "Company":        s.get("Name", ticker) if hasattr(s, "get") else ticker,
                     "Ticker":         ticker,
                     "Live Price":     f"€{price:.2f}" if price else "—",
+                    "Day Chg %":      day_chg,
                     "Fair Value":     f"€{fv:.2f}" if fv else "—",
                     "FV Upside":      f"{(fv - price) / price * 100:+.1f}%" if fv and price else "—",
                     "Analyst Target": f"€{live['analyst_target']:.2f}" if live.get("analyst_target") else "—",
@@ -458,6 +484,7 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
                 use_container_width=True,
                 hide_index=True,
                 column_config={
+                    "Day Chg %":   st.column_config.NumberColumn("Day Chg %",  format="%+.2f%%"),
                     "Value Score": st.column_config.ProgressColumn(
                         "Value Score", min_value=0, max_value=100, format="%.1f"),
                 },
