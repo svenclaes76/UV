@@ -162,6 +162,11 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
 def run_screener(stocks: list[dict]) -> pd.DataFrame:
     print(f"Fetching fundamentals for {len(stocks)} stocks...")
     df = fetch_fundamentals(stocks)
+    before = len(df)
+    df = df[df["Price"].notna()].reset_index(drop=True)
+    dropped = before - len(df)
+    if dropped:
+        print(f"  Dropped {dropped} ticker(s) with no price (likely delisted/inactive)")
     print("Computing value scores...")
     df = compute_scores(df)
     return df
