@@ -15,6 +15,7 @@ from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        PORTFOLIO_FILE, save_watchlist, load_watchlist)
+from auth import register, login, verify_token
 
 def _cache_age_str() -> str:
     cache = _load_cache()
@@ -117,6 +118,53 @@ st.set_page_config(
     layout="wide",
 )
 
+# ── Authentication gate ───────────────────────────────────────────────────────
+
+def _auth_wall():
+    """Show login/sign-up form and halt execution if not authenticated."""
+    token = st.session_state.get("jwt_token")
+    if token and verify_token(token):
+        return  # already logged in
+
+    st.markdown("""
+    <div style="max-width:400px;margin:80px auto 0;text-align:center;">
+      <div style="font-size:2rem;font-weight:800;margin-bottom:4px;">💎 UV</div>
+      <div style="color:#888;margin-bottom:32px;">Undervalued · Brussels stock screener</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col = st.columns([1, 2, 1])[1]
+    with col:
+        mode = st.radio("", ["Log in", "Sign up"], horizontal=True, label_visibility="collapsed")
+        email    = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+
+        if mode == "Sign up":
+            confirm = st.text_input("Confirm password", type="password")
+            if st.button("Create account", use_container_width=True, type="primary"):
+                if password != confirm:
+                    st.error("Passwords do not match.")
+                else:
+                    ok, msg = register(email, password)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+        else:
+            if st.button("Log in", use_container_width=True, type="primary"):
+                ok, result = login(email, password)
+                if ok:
+                    st.session_state["jwt_token"] = result
+                    st.session_state["user_email"] = email.strip().lower()
+                    st.rerun()
+                else:
+                    st.error(result)
+
+    st.stop()
+
+
+_auth_wall()
+
 st.markdown("""
 <div style="display:flex;align-items:center;gap:18px;margin-bottom:8px;">
   <svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
@@ -141,6 +189,15 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+_hdr_left, _hdr_right = st.columns([6, 1])
+with _hdr_right:
+    user_email = st.session_state.get("user_email", "")
+    st.caption(user_email)
+    if st.button("Log out", use_container_width=True):
+        st.session_state.pop("jwt_token", None)
+        st.session_state.pop("user_email", None)
+        st.rerun()
 
 tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
 
