@@ -1,17 +1,44 @@
 """Streamlit web app — Euronext Brussels value screener + portfolio tracker."""
 
 import math
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 from fetch_tickers import fetch_brussels_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
-                        load_portfolio, load_sold, load_div_hist, portfolio_exists)
+                       load_portfolio, load_sold, load_div_hist, portfolio_exists,
+                       PORTFOLIO_FILE)
+
+def _cache_age_str() -> str:
+    cache = _load_cache()
+    if not cache:
+        return "No cache yet"
+    timestamps = [
+        datetime.fromisoformat(v["fetched_at"])
+        for v in cache.values()
+        if v.get("fetched_at")
+    ]
+    if not timestamps:
+        return "No cache yet"
+    oldest = min(timestamps)
+    age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
+    if age_min < 60:
+        return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
+    return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
+
+
+def _fmt_mcap(v) -> str:
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "—"
+    return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
+
 
 @st.cache_data(show_spinner=False)
 def load_screener_data() -> pd.DataFrame:
@@ -92,23 +119,6 @@ with tab_screener:
     )
 
     # Cache age + refresh
-    def _cache_age_str() -> str:
-        cache = _load_cache()
-        if not cache:
-            return "No cache yet"
-        timestamps = [
-            datetime.fromisoformat(v["fetched_at"])
-            for v in cache.values()
-            if v.get("fetched_at")
-        ]
-        if not timestamps:
-            return "No cache yet"
-        oldest = min(timestamps)
-        age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
-        if age_min < 60:
-            return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
-        return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
-
     col_info, col_btn = st.columns([4, 1])
     with col_info:
         st.caption(_cache_age_str())
@@ -122,41 +132,20 @@ with tab_screener:
     with st.spinner("Loading screener data…"):
         df = load_screener_data()
 
-    # Sidebar filters
-    with st.sidebar:
-        st.header("Screener filters")
-        min_score  = st.slider("Min Value Score", 0, 100, 0)
-        max_pe     = st.number_input("Max P/E",               min_value=0.0, value=0.0, step=1.0,  help="0 = no filter")
-        max_pb     = st.number_input("Max P/B",               min_value=0.0, value=0.0, step=0.5,  help="0 = no filter")
-        min_div    = st.number_input("Min Dividend Yield (%)", min_value=0.0, value=0.0, step=0.5,  help="0 = no filter")
-        min_mcap_b = st.number_input("Min Market Cap (€B)",   min_value=0.0, value=0.0, step=0.1,  help="0 = no filter")
-        st.caption("**Value Score** is a composite percentile rank (0–100). Higher = relatively cheaper. Not financial advice.")
-
-    filtered = df[df["Value Score"] >= min_score].copy()
-    if max_pe     > 0: filtered = filtered[filtered["trailingPE"].isna()      | (filtered["trailingPE"]      <= max_pe)]
-    if max_pb     > 0: filtered = filtered[filtered["priceToBook"].isna()     | (filtered["priceToBook"]     <= max_pb)]
-    if min_div    > 0: filtered = filtered[filtered["dividendYield"].notna()  & (filtered["dividendYield"] * 100 >= min_div)]
-    if min_mcap_b > 0: filtered = filtered[filtered["Market Cap"].notna()     & (filtered["Market Cap"]      >= min_mcap_b * 1e9)]
-
-    def _fmt_mcap(v):
-        if v is None or (isinstance(v, float) and math.isnan(v)):
-            return "—"
-        return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
-
     display = pd.DataFrame({
-        "Company":     filtered["Name"],
-        "Ticker":      filtered["Ticker"],
-        "Price":       filtered["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-        "Mkt Cap":     filtered["Market Cap"].map(_fmt_mcap),
-        "P/E":         filtered["trailingPE"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "P/B":         filtered["priceToBook"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-        "EV/EBITDA":   filtered["enterpriseToEbitda"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Debt/Equity": filtered["debtToEquity"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Div Yield":   filtered["dividendYield"].map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-        "Value Score": filtered["Value Score"],
+        "Company":     df["Name"],
+        "Ticker":      df["Ticker"],
+        "Price":       df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+        "Mkt Cap":     df["Market Cap"].map(_fmt_mcap),
+        "P/E":         df["trailingPE"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "P/B":         df["priceToBook"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+        "EV/EBITDA":   df["enterpriseToEbitda"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "Debt/Equity": df["debtToEquity"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "Div Yield":   df["dividendYield"].map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+        "Value Score": df["Value Score"],
     })
 
-    st.markdown(f"**{len(filtered)}** stocks shown")
+    st.markdown(f"**{len(df)}** stocks shown")
     st.dataframe(
         display,
         use_container_width=True,
@@ -171,7 +160,7 @@ with tab_screener:
 
     with st.expander("Score distribution"):
         st.bar_chart(
-            filtered["Value Score"].dropna()
+            df["Value Score"].dropna()
             .value_counts(bins=10, sort=False).sort_index().rename("Count")
         )
 
@@ -200,7 +189,6 @@ with tab_portfolio:
                         st.success(f"Imported {len(pf)} open, {len(sold)} sold, {len(div_hist)} dividend records. Reloading…")
                         st.rerun()
                 except Exception as e:
-                    import traceback
                     st.error(f"Could not parse file: {e}")
                     st.code(traceback.format_exc())
         st.stop()
@@ -210,7 +198,6 @@ with tab_portfolio:
     if pf is None or pf.empty:
         st.error("Portfolio file is empty or corrupted.")
         if st.button("Remove and re-upload"):
-            from portfolio import PORTFOLIO_FILE
             PORTFOLIO_FILE.unlink(missing_ok=True)
             st.rerun()
         st.stop()
@@ -260,8 +247,7 @@ with tab_portfolio:
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
-        from streamlit_autorefresh import st_autorefresh as _autorefresh
-        _autorefresh(interval=60_000, key="portfolio_refresh")
+        st_autorefresh(interval=60_000, key="portfolio_refresh")
         positions = pd.DataFrame({
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
