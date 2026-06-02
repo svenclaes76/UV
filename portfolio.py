@@ -13,9 +13,10 @@ from pathlib import Path
 
 import pandas as pd
 
-PORTFOLIO_FILE = Path(__file__).parent / ".cache" / "portfolio.json"
-SOLD_FILE      = Path(__file__).parent / ".cache" / "sold.json"
-DIV_HIST_FILE  = Path(__file__).parent / ".cache" / "dividends_history.json"
+PORTFOLIO_FILE  = Path(__file__).parent / ".cache" / "portfolio.json"
+SOLD_FILE       = Path(__file__).parent / ".cache" / "sold.json"
+DIV_HIST_FILE   = Path(__file__).parent / ".cache" / "dividends_history.json"
+WATCHLIST_FILE  = Path(__file__).parent / ".cache" / "watchlist.json"
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────
@@ -41,6 +42,20 @@ def load_portfolio() -> pd.DataFrame | None:   return _load(PORTFOLIO_FILE)
 def load_sold() -> pd.DataFrame | None:        return _load(SOLD_FILE)
 def load_div_hist() -> pd.DataFrame | None:    return _load(DIV_HIST_FILE)
 def portfolio_exists() -> bool:                return PORTFOLIO_FILE.exists()
+
+
+def save_watchlist(tickers: set[str]) -> None:
+    WATCHLIST_FILE.parent.mkdir(exist_ok=True)
+    WATCHLIST_FILE.write_text(json.dumps(sorted(tickers), indent=2), encoding="utf-8")
+
+
+def load_watchlist() -> set[str]:
+    if not WATCHLIST_FILE.exists():
+        return set()
+    try:
+        return set(json.loads(WATCHLIST_FILE.read_text(encoding="utf-8")))
+    except Exception:
+        return set()
 
 
 # ── Excel parsing ─────────────────────────────────────────────────────────────

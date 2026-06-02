@@ -14,7 +14,7 @@ from fetch_tickers import fetch_brussels_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
-                       PORTFOLIO_FILE)
+                       PORTFOLIO_FILE, save_watchlist, load_watchlist)
 
 def _cache_age_str() -> str:
     cache = _load_cache()
@@ -169,7 +169,10 @@ with tab_screener:
     with st.spinner("Loading screener data…"):
         df = load_screener_data()
 
+    watchlist = load_watchlist()
+
     display = pd.DataFrame({
+        "★":           df["Ticker"].isin(watchlist),
         "Company":     df["Name"],
         "Ticker":      df["Ticker"],
         "Price":       df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
@@ -182,18 +185,26 @@ with tab_screener:
         "Value Score": df["Value Score"],
     })
 
-    st.markdown(f"**{len(df)}** stocks shown")
-    st.dataframe(
+    st.markdown(f"**{len(df)}** stocks shown · check ★ to add to watchlist")
+    edited = st.data_editor(
         display,
         use_container_width=True,
         hide_index=True,
         column_config={
+            "★": st.column_config.CheckboxColumn("★", width="small"),
             "Value Score": st.column_config.ProgressColumn(
                 "Value Score", min_value=0, max_value=100, format="%.1f",
             ),
         },
+        disabled=["Company", "Ticker", "Price", "Mkt Cap", "P/E", "P/B",
+                  "EV/EBITDA", "Debt/Equity", "Div Yield", "Value Score"],
         height=700,
     )
+
+    new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
+    if new_watchlist != watchlist:
+        save_watchlist(new_watchlist)
+        st.rerun()
 
     with st.expander("Score distribution"):
         st.bar_chart(
@@ -284,7 +295,7 @@ with tab_portfolio:
 
     st.divider()
 
-    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Sold"])
+    sub_positions, sub_watchlist, sub_dividends, sub_sold = st.tabs(["Positions", "Watchlist", "Dividends", "Sold"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
@@ -326,6 +337,46 @@ with tab_portfolio:
         with ch2:
             st.subheader("Portfolio allocation")
             st.bar_chart(pf.set_index("name")["current_value"].dropna().sort_values(ascending=False))
+
+    # ── Sub-tab: Watchlist ────────────────────────────────────────────────────
+    with sub_watchlist:
+        wl_tickers = load_watchlist()
+        if not wl_tickers:
+            st.info("No stocks on your watchlist yet. Check ★ next to any stock in the Screener tab to add it.")
+        else:
+            screener_df = load_screener_data().set_index("Ticker")
+            with st.spinner("Fetching live data for watchlist…"):
+                wl_live = _fetch_live_data(tuple(sorted(wl_tickers)))
+
+            rows = []
+            for ticker in sorted(wl_tickers):
+                s = screener_df.loc[ticker] if ticker in screener_df.index else {}
+                live = wl_live.get(ticker, {})
+                price = live.get("price")
+                fv    = live.get("fair_value")
+                rows.append({
+                    "Ticker":         ticker,
+                    "Company":        s.get("Name", ticker) if hasattr(s, "get") else ticker,
+                    "Live Price":     f"€{price:.2f}" if price else "—",
+                    "Fair Value":     f"€{fv:.2f}" if fv else "—",
+                    "FV Upside":      f"{(fv - price) / price * 100:+.1f}%" if fv and price else "—",
+                    "Analyst Target": f"€{live['analyst_target']:.2f}" if live.get("analyst_target") else "—",
+                    "P/E":            f"{s['trailingPE']:.1f}" if hasattr(s, "get") and pd.notna(s.get("trailingPE")) else "—",
+                    "P/B":            f"{s['priceToBook']:.2f}" if hasattr(s, "get") and pd.notna(s.get("priceToBook")) else "—",
+                    "Div Yield":      f"{s['dividendYield']*100:.2f}%" if hasattr(s, "get") and pd.notna(s.get("dividendYield")) else "—",
+                    "Value Score":    s.get("Value Score") if hasattr(s, "get") else None,
+                })
+
+            wl_df = pd.DataFrame(rows)
+            st.dataframe(
+                wl_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Value Score": st.column_config.ProgressColumn(
+                        "Value Score", min_value=0, max_value=100, format="%.1f"),
+                },
+            )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
