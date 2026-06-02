@@ -470,12 +470,21 @@ with tab_portfolio:
         if sold is None or sold.empty:
             st.info("No sold EBR: positions found in your portfolio file.")
         else:
-            sold["price_gain"]     = pd.to_numeric(sold["sale_value"], errors="coerce") - pd.to_numeric(sold["purchase_value"], errors="coerce")
-            sold["price_gain_pct"] = (sold["price_gain"] / pd.to_numeric(sold["purchase_value"], errors="coerce") * 100).round(2)
+            pv                     = pd.to_numeric(sold["purchase_value"], errors="coerce")
+            sv                     = pd.to_numeric(sold["sale_value"], errors="coerce")
+            sold["price_gain"]     = sv - pv
+            sold["price_gain_pct"] = (sold["price_gain"] / pv * 100).round(2)
             sold["dividends"]      = pd.to_numeric(sold["dividends"], errors="coerce").fillna(0)
             sold["total_return"]   = sold["price_gain"] + sold["dividends"]
-            sold["total_return_pct"] = (sold["total_return"] / pd.to_numeric(sold["purchase_value"], errors="coerce") * 100).round(2)
             sold["held_days"]      = (pd.to_datetime(sold["date_out"]) - pd.to_datetime(sold["date_in"])).dt.days
+
+            def _annual_return(row):
+                if pd.isna(row["held_days"]) or row["held_days"] <= 0 or pv[row.name] <= 0:
+                    return None
+                total_value = sv[row.name] + row["dividends"]
+                return ((total_value / pv[row.name]) ** (365 / row["held_days"]) - 1) * 100
+
+            sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
 
             # Summary cards
             s1, s2, s3, s4 = st.columns(4)
@@ -496,7 +505,7 @@ with tab_portfolio:
                 "Price Gain":      sold["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
                 "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
-                "Total Return %":  sold["total_return_pct"],
+                "Annual Return %": sold["annual_return_pct"],
                 "Held (days)":     sold["held_days"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
                 "Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       pd.to_datetime(sold["date_out"]).dt.strftime("%d-%m-%Y").fillna("—"),
@@ -507,8 +516,8 @@ with tab_portfolio:
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
-                    "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
+                    "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%"),
+                    "Annual Return %": st.column_config.NumberColumn("Annual Return %", format="%.2f%%"),
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
