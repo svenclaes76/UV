@@ -47,7 +47,7 @@ def _save_users(users: dict) -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def register(email: str, password: str, role: str = "normal") -> tuple[bool, str]:
+def register(email: str, password: str, role: str = "demo") -> tuple[bool, str]:
     """
     Create a new account. Returns (success, message).
     The first account ever created is promoted to administrator regardless of
