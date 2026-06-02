@@ -506,8 +506,7 @@ with tab_portfolio:
                 "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
                 "Annual Return %": sold["annual_return_pct"],
-                "Held (days)":     sold["held_days"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-                "Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
+"Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       pd.to_datetime(sold["date_out"]).dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
