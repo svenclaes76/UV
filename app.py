@@ -138,6 +138,19 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown("""
+<style>
+  /* Reduce Streamlit's generous default bottom padding */
+  .block-container { padding-top: 3rem !important; padding-bottom: 0.5rem !important; }
+  /* Tighten metric cards */
+  div[data-testid="metric-container"] { padding: 0.3rem 0.5rem !important; }
+  /* Compact tab bar */
+  div[data-testid="stTabs"] > div:first-child { margin-bottom: 0.25rem; }
+  /* Tighten caption spacing */
+  .stCaption { margin-bottom: 0 !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # ── Authentication gate ───────────────────────────────────────────────────────
 
 def _auth_wall():
@@ -151,49 +164,42 @@ def _auth_wall():
             return  # already logged in
 
     st.markdown("""
-    <div style="max-width:400px;margin:80px auto 0;text-align:center;">
-      <div style="font-size:2rem;font-weight:800;margin-bottom:4px;">💎 UV</div>
-      <div style="color:#888;margin-bottom:32px;">Undervalued · Brussels stock screener</div>
+    <style>
+      .login-wrap { max-width:320px; margin: 60px auto 0; }
+    </style>
+    <div class="login-wrap">
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="font-size:2rem;font-weight:800;margin-bottom:4px;">💎 UV</div>
+        <div style="color:#888;white-space:nowrap;">Undervalued · Portfolio tracker &amp; screener</div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
-    col = st.columns([1, 2, 1])[1]
+    _, col, _ = st.columns([1, 0.78, 1])
     with col:
-        mode = st.radio("", ["Log in", "Sign up"], horizontal=True, label_visibility="collapsed")
         email    = st.text_input("Email")
         password = st.text_input("Password", type="password")
-
-        if mode == "Sign up":
-            confirm = st.text_input("Confirm password", type="password")
-            if st.button("Create account", use_container_width=True, type="primary"):
-                if password != confirm:
-                    st.error("Passwords do not match.")
-                else:
-                    ok, msg = register(email, password)
-                    if ok:
-                        st.success(msg)
-                    else:
-                        st.error(msg)
-        else:
-            if st.button("Log in", use_container_width=True, type="primary"):
-                ok, result = login(email, password)
-                if ok:
-                    _, role = verify_token(result)
-                    st.session_state["jwt_token"]  = result
-                    st.session_state["user_email"] = email.strip().lower()
-                    st.session_state["user_role"]  = role
-                    st.rerun()
-                else:
-                    st.error(result)
+        if st.button("Log in", use_container_width=True, type="primary"):
+            ok, result = login(email, password)
+            if ok:
+                _, role = verify_token(result)
+                st.session_state["jwt_token"]  = result
+                st.session_state["user_email"] = email.strip().lower()
+                st.session_state["user_role"]  = role
+                st.rerun()
+            else:
+                st.error(result)
 
     st.stop()
 
 
 _auth_wall()
 
-st.markdown("""
-<div style="display:flex;align-items:center;gap:18px;margin-bottom:8px;">
-  <svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+_hdr_left, _hdr_right = st.columns([3, 2])
+with _hdr_left:
+    st.markdown("""
+<div style="display:flex;align-items:center;gap:14px;">
+  <svg width="44" height="44" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
     <rect width="56" height="56" rx="12" fill="#1a1d26"/>
     <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
           font-family="'Segoe UI',sans-serif" font-size="22" font-weight="800"
@@ -206,23 +212,29 @@ st.markdown("""
     </defs>
   </svg>
   <div>
-    <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:#fff;letter-spacing:-0.5px;">
+    <div style="font-size:1.5rem;font-weight:800;line-height:1.1;letter-spacing:-0.5px;">
       UV <span style="font-weight:300;color:#888;">· Undervalued</span>
     </div>
-    <div style="font-size:0.85rem;color:#666;margin-top:2px;">
-      Portfolio tracker &amp; stock screener
+    <div style="font-size:0.8rem;color:#888;margin-top:1px;">
+      Portfolio tracker &amp; screener
     </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-_hdr_left, _hdr_right = st.columns([6, 1])
 with _hdr_right:
     _role  = st.session_state.get("user_role", "normal")
     _email = st.session_state.get("user_email", "")
     _badge = {"administrator": "🔑", "demo": "👁️"}.get(_role, "")
-    st.caption(f"{_badge} {_email}")
-    if st.button("Log out", use_container_width=True):
+    st.markdown(
+        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:0.8rem;color:#888;">'
+        f'<span>{_badge} {_email}</span>'
+        f'<a href="/?logout=1" target="_self" style="color:#888;text-decoration:none;" '
+        f'onclick="window.location.search=\'?logout=1\'">log out</a></div>',
+        unsafe_allow_html=True,
+    )
+    if st.query_params.get("logout") == "1":
+        st.query_params.clear()
         for _k in ("jwt_token", "user_email", "user_role"):
             st.session_state.pop(_k, None)
         st.rerun()
@@ -249,17 +261,14 @@ with tab_screener:
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
-    st.caption(
+    col_desc, col_age, col_btn = st.columns([5, 2, 1])
+    col_desc.caption(
         "Ranks ~125 Brussels-listed stocks by a composite value score "
         "(P/E · P/B · EV/EBITDA · Debt/Equity · Dividend Yield)."
     )
-
-    # Cache age + refresh
-    col_info, col_btn = st.columns([4, 1])
-    with col_info:
-        st.caption(_cache_age_str())
+    col_age.caption(_cache_age_str())
     with col_btn:
-        if st.button("🔄 Refresh data", use_container_width=True):
+        if st.button("🔄 Refresh", use_container_width=True):
             if CACHE_FILE.exists():
                 CACHE_FILE.unlink()
             st.cache_data.clear()
@@ -299,7 +308,7 @@ with tab_screener:
             ),
         },
         disabled=_all_cols_disabled if not _is_demo else _all_cols_disabled + ["★"],
-        height=700,
+        height=500,
     )
 
     if not _is_demo:
@@ -386,7 +395,6 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
     total_return_pct = total_return / total_invested * 100 if total_invested else 0
     total_expected   = pf["expected_annual"].sum()
 
-    st.subheader("Portfolio summary")
     price_gain     = total_current - total_invested
     price_gain_pct = price_gain / total_invested * 100 if total_invested else 0
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -398,8 +406,6 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
     c4.metric("Dividends received",  f"€{total_dividends:,.0f}")
     c5.metric("Total return",        f"€{total_return:+,.0f}",
               delta=f"{total_return_pct:+.1f}%")
-
-    st.divider()
 
     sub_positions, sub_watchlist, sub_dividends, sub_sold = st.tabs(["Positions", "Watchlist", "Dividends", "Sold"])
 
@@ -438,7 +444,6 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
             height=(len(pf) + 1) * 35 + 10,
         )
 
-        st.divider()
         ch1, ch2 = st.columns(2)
         with ch1:
             st.subheader("P&L per position")
