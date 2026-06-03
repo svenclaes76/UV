@@ -1,17 +1,47 @@
 """Streamlit web app — Euronext Brussels value screener + portfolio tracker."""
 
 import math
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+
+from prices import fetch_prices
 
 from fetch_tickers import fetch_brussels_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
-                        load_portfolio, load_sold, load_div_hist, portfolio_exists)
+                       load_portfolio, load_sold, load_div_hist, portfolio_exists,
+                       PORTFOLIO_FILE, save_watchlist, load_watchlist)
+from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
+
+def _cache_age_str() -> str:
+    cache = _load_cache()
+    if not cache:
+        return "No cache yet"
+    timestamps = [
+        datetime.fromisoformat(v["fetched_at"])
+        for v in cache.values()
+        if v.get("fetched_at")
+    ]
+    if not timestamps:
+        return "No cache yet"
+    oldest = min(timestamps)
+    age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
+    if age_min < 60:
+        return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
+    return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
+
+
+def _fmt_mcap(v) -> str:
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "—"
+    return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
+
 
 @st.cache_data(show_spinner=False)
 def load_screener_data() -> pd.DataFrame:
@@ -19,30 +49,85 @@ def load_screener_data() -> pd.DataFrame:
     return run_screener(stocks)
 
 
-@st.cache_data(show_spinner=False, ttl=60)
-def _fetch_live_data(tickers: tuple) -> dict:
+def _compute_fair_values(info: dict) -> dict:
+    eps  = info.get("trailingEps")
+    bvps = info.get("bookValue")
+
+    # Graham Number: √(22.5 × EPS × BVPS) — requires positive EPS and BVPS
+    graham_number = None
+    if eps and bvps and eps > 0 and bvps > 0:
+        graham_number = round((22.5 * eps * bvps) ** 0.5, 2)
+
+    # PE Fair Value: EPS × 15 (Graham's assumed fair P/E for a no-growth company)
+    pe_fair_value = None
+    if eps and eps > 0:
+        pe_fair_value = round(eps * 15, 2)
+
+    # Graham Growth: EPS × (8.5 + 2g) where g is expected annual earnings growth (%)
+    # Uses earningsGrowth (TTM) as a proxy; clamped to [-5%, 25%] to avoid extremes.
+    graham_growth = None
+    raw_growth = info.get("earningsGrowth") or info.get("revenueGrowth")
+    if eps and eps > 0 and raw_growth is not None:
+        g = max(-5.0, min(25.0, raw_growth * 100))
+        graham_growth = round(eps * (8.5 + 2 * g), 2)
+        if graham_growth <= 0:
+            graham_growth = None
+
+    analyst_target = info.get("targetMeanPrice")
+
+    # Composite: average of all available positive estimates
+    estimates = [v for v in [graham_number, pe_fair_value, graham_growth, analyst_target]
+                 if v is not None and v > 0]
+    composite = round(sum(estimates) / len(estimates), 2) if estimates else None
+
+    return {
+        "graham_number": graham_number,
+        "pe_fair_value": pe_fair_value,
+        "graham_growth": graham_growth,
+        "fair_value":    composite,
+    }
+
+
+@st.cache_data(show_spinner=False, ttl=120)
+def _fetch_prices_cached(tickers: tuple) -> dict:
+    """Batch price feed — one HTTP call for all tickers, refreshed every 2 min."""
+    return fetch_prices(tickers)
+
+
+@st.cache_data(show_spinner=False, ttl=21_600)
+def _fetch_fundamentals(tickers: tuple) -> dict:
+    """
+    Per-ticker fundamentals (EPS, BVPS, analyst targets, div rate) via yf.info.
+    Cached for 6 h — these change quarterly, not by the minute.
+    """
     result = {}
+    _empty = {
+        "analyst_target": None, "div_rate": 0,
+        "graham_number": None, "pe_fair_value": None,
+        "graham_growth": None, "fair_value": None,
+    }
     for t in tickers:
         try:
             info = yf.Ticker(t).info
-            price = info.get("currentPrice") or info.get("regularMarketPrice")
-            analyst_target = info.get("targetMeanPrice")
-            eps = info.get("trailingEps")
-            bvps = info.get("bookValue")
-            graham = None
-            if eps and bvps and eps > 0 and bvps > 0:
-                graham = round((22.5 * eps * bvps) ** 0.5, 2)
-            div_rate = info.get("trailingAnnualDividendRate") or 0
+            fv   = _compute_fair_values(info)
             result[t] = {
-                "price":          price,
-                "analyst_target": analyst_target,
-                "graham_number":  graham,
-                "div_rate":       div_rate,
+                "analyst_target": info.get("targetMeanPrice"),
+                "div_rate":       info.get("trailingAnnualDividendRate") or 0,
+                **fv,
             }
         except Exception:
-            result[t] = {"price": None, "analyst_target": None,
-                         "graham_number": None, "div_rate": None}
+            result[t] = dict(_empty)
     return result
+
+
+def _fetch_live_data(tickers: tuple) -> dict:
+    """Merge fast batch prices with slower-moving fundamentals."""
+    prices = _fetch_prices_cached(tickers)
+    fundas = _fetch_fundamentals(tickers)
+    return {
+        t: {**fundas.get(t, {}), **prices.get(t, {})}
+        for t in tickers
+    }
 
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -52,6 +137,59 @@ st.set_page_config(
     page_icon="💎",
     layout="wide",
 )
+
+# ── Authentication gate ───────────────────────────────────────────────────────
+
+def _auth_wall():
+    """Show login/sign-up form and halt execution if not authenticated."""
+    token = st.session_state.get("jwt_token")
+    if token:
+        email, role = verify_token(token)
+        if email:
+            st.session_state["user_email"] = email
+            st.session_state["user_role"]  = role
+            return  # already logged in
+
+    st.markdown("""
+    <div style="max-width:400px;margin:80px auto 0;text-align:center;">
+      <div style="font-size:2rem;font-weight:800;margin-bottom:4px;">💎 UV</div>
+      <div style="color:#888;margin-bottom:32px;">Undervalued · Brussels stock screener</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col = st.columns([1, 2, 1])[1]
+    with col:
+        mode = st.radio("", ["Log in", "Sign up"], horizontal=True, label_visibility="collapsed")
+        email    = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+
+        if mode == "Sign up":
+            confirm = st.text_input("Confirm password", type="password")
+            if st.button("Create account", use_container_width=True, type="primary"):
+                if password != confirm:
+                    st.error("Passwords do not match.")
+                else:
+                    ok, msg = register(email, password)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+        else:
+            if st.button("Log in", use_container_width=True, type="primary"):
+                ok, result = login(email, password)
+                if ok:
+                    _, role = verify_token(result)
+                    st.session_state["jwt_token"]  = result
+                    st.session_state["user_email"] = email.strip().lower()
+                    st.session_state["user_role"]  = role
+                    st.rerun()
+                else:
+                    st.error(result)
+
+    st.stop()
+
+
+_auth_wall()
 
 st.markdown("""
 <div style="display:flex;align-items:center;gap:18px;margin-bottom:8px;">
@@ -78,7 +216,29 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
+_hdr_left, _hdr_right = st.columns([6, 1])
+with _hdr_right:
+    _role  = st.session_state.get("user_role", "normal")
+    _email = st.session_state.get("user_email", "")
+    _badge = {"administrator": "🔑", "demo": "👁️"}.get(_role, "")
+    st.caption(f"{_badge} {_email}")
+    if st.button("Log out", use_container_width=True):
+        for _k in ("jwt_token", "user_email", "user_role"):
+            st.session_state.pop(_k, None)
+        st.rerun()
+
+_current_role = st.session_state.get("user_role", "normal")
+_is_admin = _current_role == "administrator"
+_is_demo  = _current_role == "demo"
+
+if _is_demo:
+    (tab_screener,) = st.tabs(["Screener"])
+    tab_portfolio = None
+elif _is_admin:
+    tab_portfolio, tab_screener, tab_admin = st.tabs(["Portfolio", "Screener", "⚙️ Admin"])
+else:
+    tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
+    tab_admin = None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -86,29 +246,15 @@ tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
 # ══════════════════════════════════════════════════════════════════════════════
 
 with tab_screener:
+    if _is_demo:
+        st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
+
     st.caption(
         "Ranks ~125 Brussels-listed stocks by a composite value score "
         "(P/E · P/B · EV/EBITDA · Debt/Equity · Dividend Yield)."
     )
 
     # Cache age + refresh
-    def _cache_age_str() -> str:
-        cache = _load_cache()
-        if not cache:
-            return "No cache yet"
-        timestamps = [
-            datetime.fromisoformat(v["fetched_at"])
-            for v in cache.values()
-            if v.get("fetched_at")
-        ]
-        if not timestamps:
-            return "No cache yet"
-        oldest = min(timestamps)
-        age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
-        if age_min < 60:
-            return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
-        return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
-
     col_info, col_btn = st.columns([4, 1])
     with col_info:
         st.caption(_cache_age_str())
@@ -122,56 +268,49 @@ with tab_screener:
     with st.spinner("Loading screener data…"):
         df = load_screener_data()
 
-    # Sidebar filters
-    with st.sidebar:
-        st.header("Screener filters")
-        min_score  = st.slider("Min Value Score", 0, 100, 0)
-        max_pe     = st.number_input("Max P/E",               min_value=0.0, value=0.0, step=1.0,  help="0 = no filter")
-        max_pb     = st.number_input("Max P/B",               min_value=0.0, value=0.0, step=0.5,  help="0 = no filter")
-        min_div    = st.number_input("Min Dividend Yield (%)", min_value=0.0, value=0.0, step=0.5,  help="0 = no filter")
-        min_mcap_b = st.number_input("Min Market Cap (€B)",   min_value=0.0, value=0.0, step=0.1,  help="0 = no filter")
-        st.caption("**Value Score** is a composite percentile rank (0–100). Higher = relatively cheaper. Not financial advice.")
-
-    filtered = df[df["Value Score"] >= min_score].copy()
-    if max_pe     > 0: filtered = filtered[filtered["trailingPE"].isna()      | (filtered["trailingPE"]      <= max_pe)]
-    if max_pb     > 0: filtered = filtered[filtered["priceToBook"].isna()     | (filtered["priceToBook"]     <= max_pb)]
-    if min_div    > 0: filtered = filtered[filtered["dividendYield"].notna()  & (filtered["dividendYield"] * 100 >= min_div)]
-    if min_mcap_b > 0: filtered = filtered[filtered["Market Cap"].notna()     & (filtered["Market Cap"]      >= min_mcap_b * 1e9)]
-
-    def _fmt_mcap(v):
-        if v is None or (isinstance(v, float) and math.isnan(v)):
-            return "—"
-        return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
+    watchlist = load_watchlist()
 
     display = pd.DataFrame({
-        "Company":     filtered["Name"],
-        "Ticker":      filtered["Ticker"],
-        "Price":       filtered["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-        "Mkt Cap":     filtered["Market Cap"].map(_fmt_mcap),
-        "P/E":         filtered["trailingPE"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "P/B":         filtered["priceToBook"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-        "EV/EBITDA":   filtered["enterpriseToEbitda"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Debt/Equity": filtered["debtToEquity"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Div Yield":   filtered["dividendYield"].map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-        "Value Score": filtered["Value Score"],
+        "★":           df["Ticker"].isin(watchlist),
+        "Company":     df["Name"],
+        "Ticker":      df["Ticker"],
+        "Price":       df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+        "Mkt Cap":     df["Market Cap"].map(_fmt_mcap),
+        "P/E":         df["trailingPE"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "P/B":         df["priceToBook"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+        "EV/EBITDA":   df["enterpriseToEbitda"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "Debt/Equity": df["debtToEquity"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+        "Div Yield":   df["dividendYield"].map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+        "Value Score": df["Value Score"],
     })
 
-    st.markdown(f"**{len(filtered)}** stocks shown")
-    st.dataframe(
+    _all_cols_disabled = ["Company", "Ticker", "Price", "Mkt Cap", "P/E", "P/B",
+                          "EV/EBITDA", "Debt/Equity", "Div Yield", "Value Score"]
+    _watchlist_hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+    st.markdown(f"**{len(df)}** stocks shown · {_watchlist_hint}")
+    edited = st.data_editor(
         display,
         use_container_width=True,
         hide_index=True,
         column_config={
+            "★": st.column_config.CheckboxColumn("★", width="small"),
             "Value Score": st.column_config.ProgressColumn(
                 "Value Score", min_value=0, max_value=100, format="%.1f",
             ),
         },
+        disabled=_all_cols_disabled if not _is_demo else _all_cols_disabled + ["★"],
         height=700,
     )
 
+    if not _is_demo:
+        new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
+        if new_watchlist != watchlist:
+            save_watchlist(new_watchlist)
+            st.rerun()
+
     with st.expander("Score distribution"):
         st.bar_chart(
-            filtered["Value Score"].dropna()
+            df["Value Score"].dropna()
             .value_counts(bins=10, sort=False).sort_index().rename("Count")
         )
 
@@ -180,7 +319,7 @@ with tab_screener:
 # TAB 2 — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-with tab_portfolio:
+with tab_portfolio if tab_portfolio is not None else st.empty():
 
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
@@ -200,7 +339,6 @@ with tab_portfolio:
                         st.success(f"Imported {len(pf)} open, {len(sold)} sold, {len(div_hist)} dividend records. Reloading…")
                         st.rerun()
                 except Exception as e:
-                    import traceback
                     st.error(f"Could not parse file: {e}")
                     st.code(traceback.format_exc())
         st.stop()
@@ -210,7 +348,6 @@ with tab_portfolio:
     if pf is None or pf.empty:
         st.error("Portfolio file is empty or corrupted.")
         if st.button("Remove and re-upload"):
-            from portfolio import PORTFOLIO_FILE
             PORTFOLIO_FILE.unlink(missing_ok=True)
             st.rerun()
         st.stop()
@@ -222,6 +359,9 @@ with tab_portfolio:
     pf["live_price"]      = pf["ticker"].map(lambda t: live_data[t]["price"])
     pf["analyst_target"]  = pf["ticker"].map(lambda t: live_data[t]["analyst_target"])
     pf["graham_number"]   = pf["ticker"].map(lambda t: live_data[t]["graham_number"])
+    pf["pe_fair_value"]   = pf["ticker"].map(lambda t: live_data[t]["pe_fair_value"])
+    pf["graham_growth"]   = pf["ticker"].map(lambda t: live_data[t]["graham_growth"])
+    pf["fair_value"]      = pf["ticker"].map(lambda t: live_data[t]["fair_value"])
     pf["div_rate"]        = pf["ticker"].map(lambda t: live_data[t]["div_rate"] or 0)
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
     pf["current_value"]   = pf["live_price"] * pf["shares"]
@@ -230,6 +370,9 @@ with tab_portfolio:
     pf["total_return"]    = pf["price_gain"] + pf["dividends"].fillna(0)
     pf["total_return_pct"] = (pf["total_return"] / pf["purchase_value"] * 100).round(2)
     pf["upside_pct"]      = ((pf["analyst_target"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
+    pf["fv_upside_pct"]   = ((pf["fair_value"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
+    pf["day_change_pct"]  = pf["ticker"].map(lambda t: live_data[t].get("day_change_pct"))
+    pf["prev_close"]      = pf["ticker"].map(lambda t: live_data[t].get("prev_close"))
 
     # Attach screener value score
     screener_scores = load_screener_data().set_index("Ticker")["Value Score"].to_dict()
@@ -244,49 +387,52 @@ with tab_portfolio:
     total_expected   = pf["expected_annual"].sum()
 
     st.subheader("Portfolio summary")
+    price_gain     = total_current - total_invested
+    price_gain_pct = price_gain / total_invested * 100 if total_invested else 0
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Invested",        f"€{total_invested:,.0f}")
-    c2.metric("Current value",   f"€{total_current:,.0f}",
-              delta=f"€{total_current - total_invested:+,.0f}")
-    c3.metric("Price gain",      f"€{total_current - total_invested:+,.0f}",
-              delta=f"{(total_current - total_invested) / total_invested * 100:+.1f}%")
-    c4.metric("Dividends received", f"€{total_dividends:,.0f}")
-    c5.metric("Total return",    f"€{total_return:+,.0f}",
+    c1.metric("Invested",            f"€{total_invested:,.0f}")
+    c2.metric("Current value",       f"€{total_current:,.0f}",
+              delta=f"€{price_gain:+,.0f}")
+    c3.metric("Price gain",          f"{price_gain_pct:+.1f}%",
+              delta=f"€{price_gain:+,.0f}")
+    c4.metric("Dividends received",  f"€{total_dividends:,.0f}")
+    c5.metric("Total return",        f"€{total_return:+,.0f}",
               delta=f"{total_return_pct:+.1f}%")
 
     st.divider()
 
-    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Sold"])
+    sub_positions, sub_watchlist, sub_dividends, sub_sold = st.tabs(["Positions", "Watchlist", "Dividends", "Sold"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
-        from streamlit_autorefresh import st_autorefresh as _autorefresh
-        _autorefresh(interval=60_000, key="portfolio_refresh")
+        st_autorefresh(interval=60_000, key="portfolio_refresh")
         positions = pd.DataFrame({
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Live Price":     pf["live_price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Day Chg %":      pf["day_change_pct"],
+            "Fair Value":     pf["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "FV Upside %":    pf["fv_upside_pct"],
             "Analyst Target": pf["analyst_target"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "Upside":         pf["upside_pct"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-            "Graham Number":  pf["graham_number"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-            "Price Gain":     pf["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
             "Value Score":    pf["value_score"],
             "Buy Date":       pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
-        })
+        }).sort_values("Total Return %", ascending=False)
 
         st.dataframe(
             positions,
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Price Gain %": st.column_config.NumberColumn("Price Gain %", format="%.2f%%"),
+                "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
+                "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
+                "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
                 "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
-                "Value Score": st.column_config.ProgressColumn(
+                "Value Score":    st.column_config.ProgressColumn(
                     "Value Score", min_value=0, max_value=100, format="%.1f"),
             },
             height=(len(pf) + 1) * 35 + 10,
@@ -300,6 +446,49 @@ with tab_portfolio:
         with ch2:
             st.subheader("Portfolio allocation")
             st.bar_chart(pf.set_index("name")["current_value"].dropna().sort_values(ascending=False))
+
+    # ── Sub-tab: Watchlist ────────────────────────────────────────────────────
+    with sub_watchlist:
+        wl_tickers = load_watchlist()
+        if not wl_tickers:
+            st.info("No stocks on your watchlist yet. Check ★ next to any stock in the Screener tab to add it.")
+        else:
+            screener_df = load_screener_data().set_index("Ticker")
+            with st.spinner("Fetching live data for watchlist…"):
+                wl_live = _fetch_live_data(tuple(sorted(wl_tickers)))
+
+            rows = []
+            for ticker in sorted(wl_tickers):
+                s = screener_df.loc[ticker] if ticker in screener_df.index else {}
+                live = wl_live.get(ticker, {})
+                price = live.get("price")
+                fv    = live.get("fair_value")
+                day_chg = live.get("day_change_pct")
+                rows.append({
+                    "Company":        s.get("Name", ticker) if hasattr(s, "get") else ticker,
+                    "Ticker":         ticker,
+                    "Live Price":     f"€{price:.2f}" if price else "—",
+                    "Day Chg %":      day_chg,
+                    "Fair Value":     f"€{fv:.2f}" if fv else "—",
+                    "FV Upside":      f"{(fv - price) / price * 100:+.1f}%" if fv and price else "—",
+                    "Analyst Target": f"€{live['analyst_target']:.2f}" if live.get("analyst_target") else "—",
+                    "P/E":            f"{s['trailingPE']:.1f}" if hasattr(s, "get") and pd.notna(s.get("trailingPE")) else "—",
+                    "P/B":            f"{s['priceToBook']:.2f}" if hasattr(s, "get") and pd.notna(s.get("priceToBook")) else "—",
+                    "Div Yield":      f"{s['dividendYield']*100:.2f}%" if hasattr(s, "get") and pd.notna(s.get("dividendYield")) else "—",
+                    "Value Score":    s.get("Value Score") if hasattr(s, "get") else None,
+                })
+
+            wl_df = pd.DataFrame(rows)
+            st.dataframe(
+                wl_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Day Chg %":   st.column_config.NumberColumn("Day Chg %",  format="%+.2f%%"),
+                    "Value Score": st.column_config.ProgressColumn(
+                        "Value Score", min_value=0, max_value=100, format="%.1f"),
+                },
+            )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
@@ -393,12 +582,21 @@ with tab_portfolio:
         if sold is None or sold.empty:
             st.info("No sold EBR: positions found in your portfolio file.")
         else:
-            sold["price_gain"]     = pd.to_numeric(sold["sale_value"], errors="coerce") - pd.to_numeric(sold["purchase_value"], errors="coerce")
-            sold["price_gain_pct"] = (sold["price_gain"] / pd.to_numeric(sold["purchase_value"], errors="coerce") * 100).round(2)
+            pv                     = pd.to_numeric(sold["purchase_value"], errors="coerce")
+            sv                     = pd.to_numeric(sold["sale_value"], errors="coerce")
+            sold["price_gain"]     = sv - pv
+            sold["price_gain_pct"] = (sold["price_gain"] / pv * 100).round(2)
             sold["dividends"]      = pd.to_numeric(sold["dividends"], errors="coerce").fillna(0)
             sold["total_return"]   = sold["price_gain"] + sold["dividends"]
-            sold["total_return_pct"] = (sold["total_return"] / pd.to_numeric(sold["purchase_value"], errors="coerce") * 100).round(2)
             sold["held_days"]      = (pd.to_datetime(sold["date_out"]) - pd.to_datetime(sold["date_in"])).dt.days
+
+            def _annual_return(row):
+                if pd.isna(row["held_days"]) or row["held_days"] <= 0 or pv[row.name] <= 0:
+                    return None
+                total_value = sv[row.name] + row["dividends"]
+                return ((total_value / pv[row.name]) ** (365 / row["held_days"]) - 1) * 100
+
+            sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
 
             # Summary cards
             s1, s2, s3, s4 = st.columns(4)
@@ -419,8 +617,7 @@ with tab_portfolio:
                 "Price Gain":      sold["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
                 "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
-                "Total Return %":  sold["total_return_pct"],
-                "Held (days)":     sold["held_days"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
+                "Annual Return %": sold["annual_return_pct"],
                 "Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       pd.to_datetime(sold["date_out"]).dt.strftime("%d-%m-%Y").fillna("—"),
             })
@@ -430,8 +627,8 @@ with tab_portfolio:
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
-                    "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
+                    "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%"),
+                    "Annual Return %": st.column_config.NumberColumn("Annual Return %", format="%.2f%%"),
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
@@ -441,8 +638,9 @@ with tab_portfolio:
             st.bar_chart(sold.set_index("name")["total_return"].sort_values())
 
     # ── Re-upload option ──────────────────────────────────────────────────────
-    st.divider()
-    with st.expander("Re-upload portfolio file"):
+    if not _is_demo:
+      st.divider()
+    with st.expander("Re-upload portfolio file", expanded=False) if not _is_demo else st.empty():
         st.warning("This will replace your current portfolio data.")
         new_file = st.file_uploader("Upload new .xlsx", type=["xlsx"], key="reupload")
         if new_file:
@@ -459,3 +657,62 @@ with tab_portfolio:
                     st.rerun()
             except Exception as e:
                 st.error(f"Could not parse file: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — ADMIN (administrator only)
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _is_admin:
+    with tab_admin:
+        st.subheader("User management")
+
+        users = list_users()
+        if not users:
+            st.info("No users found.")
+        else:
+            for u in users:
+                col_email, col_role, col_save, col_del = st.columns([3, 2, 1, 1])
+                col_email.markdown(f"**{u['email']}**  \n<small>{u['created_at'][:10]}</small>",
+                                   unsafe_allow_html=True)
+                new_role = col_role.selectbox(
+                    "Role",
+                    options=list(ROLES),
+                    index=list(ROLES).index(u["role"]),
+                    key=f"role_{u['email']}",
+                    label_visibility="collapsed",
+                )
+                if col_save.button("Save", key=f"save_{u['email']}", use_container_width=True):
+                    ok, msg = set_role(u["email"], new_role)
+                    if ok:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+                current_email = st.session_state.get("user_email", "")
+                if u["email"] != current_email:
+                    if col_del.button("🗑️", key=f"del_{u['email']}", use_container_width=True,
+                                      help=f"Delete {u['email']}"):
+                        ok, msg = delete_user(u["email"])
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                else:
+                    col_del.markdown("&nbsp;", unsafe_allow_html=True)
+
+        st.divider()
+        st.subheader("Create account")
+        with st.form("admin_create_user"):
+            new_email    = st.text_input("Email")
+            new_password = st.text_input("Password", type="password")
+            new_role_sel = st.selectbox("Role", options=list(ROLES))
+            if st.form_submit_button("Create", use_container_width=True):
+                ok, msg = register(new_email, new_password, role=new_role_sel)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
