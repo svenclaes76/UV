@@ -1,5 +1,96 @@
 """Streamlit web app — Euronext Brussels value screener + portfolio tracker."""
 
+# ── Column help texts (shown as header tooltips and in the help dialog) ───────
+COLUMN_HELP = {
+    # ── Core ──────────────────────────────────────────────────────────────────
+    "★":             "Watchlist — check to add this stock to your personal watchlist.",
+    "Company":       "Full company name as reported by the exchange.",
+    "Ticker":        "Exchange ticker symbol on Euronext Brussels (.BR suffix).",
+    "Price":         "Current market price in EUR.",
+    "Fair Value":    (
+        "Weighted composite intrinsic value estimate from up to 5 models: "
+        "Graham Number, PE Fair Value, EPV, DDM (single + multi-stage), and Analyst Target. "
+        "Weights auto-adjust: DDM weight is zero for non-dividend payers or payout > 90%."
+    ),
+    "MoS %":         (
+        "Margin of Safety = (Fair Value − Price) / Fair Value. "
+        "Positive = stock trades below estimated fair value. "
+        "The algorithm requires MoS > 20–30% before a stock enters the buy zone."
+    ),
+    "TER %":         (
+        "Total Expected Return = Capital Gain % + Forward Dividend Yield + Expected DGR. "
+        "A complete 1-year return estimate. > 15% = attractive, 8–15% = acceptable, < 8% = unattractive."
+    ),
+    "Decision":      (
+        "Final signal from the composite score. "
+        "🟢 Strong Buy (score > 70) | 🟡 Monitor (40–70) | 🔴 Avoid (< 40). "
+        "Hard veto rules can force Avoid regardless of score: D/E > 5×, negative FCF, or dividend coverage < 1.0× with sustainability flag."
+    ),
+    "Value Score":   (
+        "Composite score 0–100. Formula: "
+        "30% × MoS rank + 18% × (100 − Risk rank) + 22% × Quality rank + 15% × Momentum rank + 15% × Dividend rank. "
+        "All components are percentile-ranked across the full universe before weighting."
+    ),
+    # ── Valuation models ──────────────────────────────────────────────────────
+    "Graham #":      (
+        "Graham Number = √(22.5 × EPS × BVPS). "
+        "A conservative deep-value floor. Price below this level suggests potential significant undervaluation."
+    ),
+    "PE Fair Val":   "PE Fair Value = EPS × 15. Graham's assumed fair multiple for a no-growth company.",
+    "EPV":           (
+        "Earnings Power Value = EBIT × (1 − tax rate) / WACC, scaled to price via the EV ratio. "
+        "A zero-growth downside anchor — what the business is worth as a going concern with no expansion."
+    ),
+    "DDM (1-stage)": (
+        "Single-stage Gordon Growth DDM: P = D₁ / (r − g). "
+        "Uses earnings growth as DGR proxy, capped at 5%. Best for stable, mature dividend payers."
+    ),
+    "DDM (2-stage)": (
+        "Two-stage DDM: 5-year high-growth phase (using earnings growth as proxy) "
+        "followed by a 2% stable terminal phase. Better captures dividend-growing companies."
+    ),
+    # ── Risk & size ───────────────────────────────────────────────────────────
+    "Risk Score":    (
+        "Composite risk level 0–10 (higher = riskier). "
+        "Average of 5 dimensions: financial health (D/E, current ratio, interest coverage), "
+        "earnings quality (FCF vs net income), market risk (beta), dividend risk (payout, coverage), "
+        "and liquidity (average daily volume). Then inverted so 0 = safest."
+    ),
+    "Mkt Cap":       "Market capitalisation = price × shares outstanding.",
+    "Beta":          "Market sensitivity vs index. Beta > 1 = more volatile; < 1 = more defensive.",
+    "Debt/Equity":   (
+        "Total debt / equity (yfinance reports as ×100, so 150 = 1.5×). "
+        "Lower = less leverage. Hard veto triggers at > 5×."
+    ),
+    # ── Multiples ─────────────────────────────────────────────────────────────
+    "P/E":           "Price-to-Earnings. Lower generally indicates cheaper valuation — compare within sector.",
+    "P/B":           "Price-to-Book. < 1 may signal undervaluation, especially for banks and asset-heavy companies.",
+    "EV/EBITDA":     "Enterprise Value / EBITDA. Capital-structure-neutral multiple. Lower = cheaper.",
+    # ── Quality ───────────────────────────────────────────────────────────────
+    "ROE %":         "Return on Equity — net income as % of shareholders' equity. > 15% is generally strong.",
+    "ROA %":         "Return on Assets — net income as % of total assets. Measures asset utilisation efficiency.",
+    "Op Margin %":   "Operating margin — operating income as % of revenue. Core profitability before interest and tax.",
+    "FCF Yield %":   "Free Cash Flow Yield = FCF / Market Cap. > 5% is typically attractive.",
+    # ── Growth ────────────────────────────────────────────────────────────────
+    "Rev Growth %":  "Year-over-year revenue growth. Positive = growing top line.",
+    "EPS Growth %":  (
+        "Year-over-year earnings-per-share growth. "
+        "Also used as a proxy for dividend growth rate (DGR) where direct DPS history is unavailable."
+    ),
+    # ── Dividends ─────────────────────────────────────────────────────────────
+    "Div Yield":     "Trailing dividend yield = annual DPS / price. Higher yield vs 5-year average may indicate undervaluation.",
+    "5yr Avg Yield": "5-year average dividend yield for this stock. Used as a benchmark: current yield above this suggests the stock may be cheap relative to its own history.",
+    "Payout Ratio":  "DPS / EPS. 30–70% = sustainable; > 85% = at risk of a cut.",
+    "Cash Payout":   "Cash payout ratio = (DPS × shares) / FCF. Should be < 80% to confirm free cash flow supports the dividend.",
+    "Div Coverage":  "Dividend coverage ratio = EPS / DPS. > 1.5× is safe; < 1.2× triggers a sustainability flag.",
+    "Div Flag":      (
+        "Dividend sustainability assessment. "
+        "✅ OK = all payout checks pass. "
+        "⚠️ At Risk = one or more thresholds breached: payout > 90%, cash payout > 80%, or coverage < 1.2×. "
+        "Flagged stocks require a higher Margin of Safety (+5–10 pp) to compensate."
+    ),
+}
+
 import math
 import traceback
 from datetime import datetime, timezone
@@ -18,6 +109,88 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        PORTFOLIO_FILE, save_watchlist, load_watchlist)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
+
+@st.dialog("⚙️ Admin — User management", width="large")
+def _show_admin_dialog():
+    users = list_users()
+    if not users:
+        st.info("No users found.")
+    else:
+        for u in users:
+            col_email, col_role, col_save, col_del = st.columns([3, 2, 1, 1])
+            col_email.markdown(f"**{u['email']}**  \n<small>{u['created_at'][:10]}</small>",
+                               unsafe_allow_html=True)
+            new_role = col_role.selectbox(
+                "Role",
+                options=list(ROLES),
+                index=list(ROLES).index(u["role"]),
+                key=f"dlg_role_{u['email']}",
+                label_visibility="collapsed",
+            )
+            if col_save.button("Save", key=f"dlg_save_{u['email']}", use_container_width=True):
+                ok, msg = set_role(u["email"], new_role)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+            current_email = st.session_state.get("user_email", "")
+            if u["email"] != current_email:
+                if col_del.button("🗑️", key=f"dlg_del_{u['email']}", use_container_width=True,
+                                  help=f"Delete {u['email']}"):
+                    ok, msg = delete_user(u["email"])
+                    if ok:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+            else:
+                col_del.markdown("&nbsp;", unsafe_allow_html=True)
+
+    st.divider()
+    st.subheader("Create account")
+    with st.form("dlg_admin_create_user"):
+        new_email    = st.text_input("Email")
+        new_password = st.text_input("Password", type="password")
+        new_role_sel = st.selectbox("Role", options=list(ROLES))
+        if st.form_submit_button("Create", use_container_width=True):
+            ok, msg = register(new_email, new_password, role=new_role_sel)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+
+
+@st.dialog("📖 Column Reference", width="large")
+def _show_help_dialog():
+    """Modal that explains every column in the screener."""
+    sections = {
+        "Core columns": ["★", "Company", "Ticker", "Price", "Fair Value",
+                         "MoS %", "TER %", "Decision", "Value Score"],
+        "Valuation models": ["Graham #", "PE Fair Val", "EPV",
+                             "DDM (1-stage)", "DDM (2-stage)"],
+        "Risk & size":      ["Risk Score", "Mkt Cap", "Beta", "Debt/Equity"],
+        "Multiples":        ["P/E", "P/B", "EV/EBITDA"],
+        "Quality":          ["ROE %", "ROA %", "Op Margin %", "FCF Yield %"],
+        "Growth":           ["Rev Growth %", "EPS Growth %"],
+        "Dividends":        ["Div Yield", "5yr Avg Yield", "Payout Ratio",
+                             "Cash Payout", "Div Coverage", "Div Flag"],
+    }
+    for section, cols in sections.items():
+        st.markdown(f"**{section}**")
+        for col in cols:
+            desc = COLUMN_HELP.get(col, "")
+            if desc:
+                st.markdown(
+                    f'<div style="display:flex;gap:10px;margin-bottom:6px;">'
+                    f'<span style="min-width:120px;font-weight:600;color:#a78bfa;">{col}</span>'
+                    f'<span style="color:#ccc;font-size:0.9rem;">{desc}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        st.divider()
+
 
 def _cache_age_str() -> str:
     cache = _load_cache()
@@ -140,14 +313,63 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  /* Reduce Streamlit's generous default bottom padding */
-  .block-container { padding-top: 3rem !important; padding-bottom: 0.5rem !important; }
+  /* Reduce default padding */
+  .block-container { padding-top: 1.5rem !important; padding-bottom: 0.5rem !important; }
   /* Tighten metric cards */
   div[data-testid="metric-container"] { padding: 0.3rem 0.5rem !important; }
-  /* Compact tab bar */
+  /* Compact inner tab bar (Portfolio sub-tabs) */
   div[data-testid="stTabs"] > div:first-child { margin-bottom: 0.25rem; }
   /* Tighten caption spacing */
   .stCaption { margin-bottom: 0 !important; }
+
+  /* ── Sidebar nav radio → styled nav items ────────────────────────────── */
+  /* Hide the group label */
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > label { display:none !important; }
+  /* Stack vertically, full width */
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  /* Each nav item */
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    color: #aaa !important;
+    transition: background 0.12s, color 0.12s !important;
+    width: 100% !important;
+  }
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label:hover {
+    background: rgba(255,255,255,0.06) !important;
+    color: #eee !important;
+  }
+  /* Active nav item */
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label:has(input:checked) {
+    background: rgba(79,142,247,0.15) !important;
+    color: #fff !important;
+  }
+  /* Hide radio circle */
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] input[type="radio"] { display:none !important; }
+  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label > div:first-child { display:none !important; }
+
+  /* Sidebar action buttons (admin / help) as plain text links */
+  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"] {
+    color: #666 !important;
+    font-size: 0.82rem !important;
+    padding: 2px 12px !important;
+    min-height: 0 !important;
+    height: auto !important;
+    line-height: 1.8 !important;
+    width: 100% !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"]:hover { color: #bbb !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,121 +417,259 @@ def _auth_wall():
 
 _auth_wall()
 
-_hdr_left, _hdr_right = st.columns([3, 2])
-with _hdr_left:
+_current_role = st.session_state.get("user_role", "normal")
+_is_admin = _current_role == "administrator"
+_is_demo  = _current_role == "demo"
+_email    = st.session_state.get("user_email", "")
+_badge    = {"administrator": "🔑", "demo": "👁️"}.get(_current_role, "")
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    # Logo + wordmark
     st.markdown("""
-<div style="display:flex;align-items:center;gap:14px;">
-  <svg width="44" height="44" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+<div style="display:flex;align-items:center;gap:10px;padding:4px 0 20px 0;">
+  <svg width="36" height="36" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
     <rect width="56" height="56" rx="12" fill="#1a1d26"/>
     <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
           font-family="'Segoe UI',sans-serif" font-size="22" font-weight="800"
-          fill="url(#g)">UV</text>
+          fill="url(#sg)">UV</text>
     <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="#4f8ef7"/>
         <stop offset="100%" stop-color="#a78bfa"/>
       </linearGradient>
     </defs>
   </svg>
   <div>
-    <div style="font-size:1.5rem;font-weight:800;line-height:1.1;letter-spacing:-0.5px;">
-      UV <span style="font-weight:300;color:#888;">· Undervalued</span>
+    <div style="font-size:1.1rem;font-weight:800;line-height:1.1;letter-spacing:-0.3px;">
+      UV <span style="font-weight:300;color:#666;">· Undervalued</span>
     </div>
-    <div style="font-size:0.8rem;color:#888;margin-top:1px;">
-      Portfolio tracker &amp; screener
-    </div>
+    <div style="font-size:0.72rem;color:#666;margin-top:1px;">Portfolio tracker &amp; screener</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-with _hdr_right:
-    _role  = st.session_state.get("user_role", "normal")
-    _email = st.session_state.get("user_email", "")
-    _badge = {"administrator": "🔑", "demo": "👁️"}.get(_role, "")
-    st.markdown(
-        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:0.8rem;color:#888;">'
-        f'<span>{_badge} {_email}</span>'
-        f'<a href="/?logout=1" target="_self" style="color:#888;text-decoration:none;" '
-        f'onclick="window.location.search=\'?logout=1\'">log out</a></div>',
-        unsafe_allow_html=True,
-    )
-    if st.query_params.get("logout") == "1":
-        st.query_params.clear()
-        for _k in ("jwt_token", "user_email", "user_role"):
-            st.session_state.pop(_k, None)
+    # Nav
+    _nav_options = ["🔍 Screener", "★ Watchlist"] if _is_demo else ["🔍 Screener", "★ Watchlist", "📁 Portfolio"]
+    _active_page = st.radio("Navigation", _nav_options, key="nav_page")
+
+    # Spacer pushes account section to bottom
+    st.markdown('<div style="flex:1;min-height:60px;"></div>', unsafe_allow_html=True)
+    st.divider()
+
+    # Admin + help
+    if _is_admin:
+        if st.button("⚙️ admin", type="tertiary", key="hdr_admin"):
+            st.session_state["show_admin"] = True
+            st.rerun()
+    if st.button("❓ help", type="tertiary", key="hdr_help"):
+        st.session_state["show_help"] = True
         st.rerun()
 
-_current_role = st.session_state.get("user_role", "normal")
-_is_admin = _current_role == "administrator"
-_is_demo  = _current_role == "demo"
+    # Account info + logout
+    st.markdown(
+        f'<div style="font-size:0.78rem;color:#555;padding:8px 12px 4px 12px;line-height:1.6;">'
+        f'{_badge} {_email}<br>'
+        f'<a href="/?logout=1" target="_self" style="color:#555;text-decoration:none;">log out</a>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-if _is_demo:
-    (tab_screener,) = st.tabs(["Screener"])
-    tab_portfolio = None
-elif _is_admin:
-    tab_portfolio, tab_screener, tab_admin = st.tabs(["Portfolio", "Screener", "⚙️ Admin"])
-else:
-    tab_portfolio, tab_screener = st.tabs(["Portfolio", "Screener"])
-    tab_admin = None
+# ── Logout query-param handler ────────────────────────────────────────────────
+if st.query_params.get("logout") == "1":
+    st.query_params.clear()
+    for _k in ("jwt_token", "user_email", "user_role"):
+        st.session_state.pop(_k, None)
+    st.rerun()
 
+if st.session_state.pop("show_admin", False):
+    _show_admin_dialog()
+
+if st.session_state.pop("show_help", False):
+    _show_help_dialog()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — VALUE SCREENER
+# PAGE — VALUE SCREENER
 # ══════════════════════════════════════════════════════════════════════════════
 
-with tab_screener:
+if _active_page == "🔍 Screener":
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
-    col_desc, col_age, col_btn = st.columns([5, 2, 1])
-    col_desc.caption(
-        "Ranks ~125 Brussels-listed stocks by a composite value score "
-        "(P/E · P/B · EV/EBITDA · Debt/Equity · Dividend Yield)."
-    )
-    col_age.caption(_cache_age_str())
-    with col_btn:
-        if st.button("🔄 Refresh", use_container_width=True):
-            if CACHE_FILE.exists():
-                CACHE_FILE.unlink()
-            st.cache_data.clear()
-            st.rerun()
 
     with st.spinner("Loading screener data…"):
         df = load_screener_data()
+        # If the cached DataFrame predates the algorithm rework, bust caches and
+        # rerun the script so the cleared cache takes effect from a clean start.
+        if "fair_value" not in df.columns or "Decision" not in df.columns:
+            try:
+                CACHE_FILE.write_text("{}", encoding="utf-8")
+            except OSError:
+                pass
+            st.cache_data.clear()
+            st.rerun()
 
     watchlist = load_watchlist()
 
-    display = pd.DataFrame({
-        "★":           df["Ticker"].isin(watchlist),
-        "Company":     df["Name"],
-        "Ticker":      df["Ticker"],
-        "Price":       df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-        "Mkt Cap":     df["Market Cap"].map(_fmt_mcap),
-        "P/E":         df["trailingPE"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "P/B":         df["priceToBook"].map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-        "EV/EBITDA":   df["enterpriseToEbitda"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Debt/Equity": df["debtToEquity"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-        "Div Yield":   df["dividendYield"].map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-        "Value Score": df["Value Score"],
-    })
+    def _fmt_mos(v):
+        if pd.isna(v):
+            return "—"
+        return f"{v:+.1f}%"
 
-    _all_cols_disabled = ["Company", "Ticker", "Price", "Mkt Cap", "P/E", "P/B",
-                          "EV/EBITDA", "Debt/Equity", "Div Yield", "Value Score"]
-    _watchlist_hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
-    st.markdown(f"**{len(df)}** stocks shown · {_watchlist_hint}")
-    edited = st.data_editor(
-        display,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "★": st.column_config.CheckboxColumn("★", width="small"),
-            "Value Score": st.column_config.ProgressColumn(
-                "Value Score", min_value=0, max_value=100, format="%.1f",
-            ),
+    def _fmt_decision(v):
+        return {"Strong Buy": "🟢 Strong Buy", "Monitor": "🟡 Monitor", "Avoid": "🔴 Avoid"}.get(v, v)
+
+    def _fmt_div_flag(v):
+        return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
+
+    # ── Column groups ─────────────────────────────────────────────────────────
+    # Core columns always shown; extra groups toggled via multiselect
+    CORE_COLS = {
+        "★":           (None,         None),
+        "Company":     ("Name",       lambda v: v),
+        "Ticker":      ("Ticker",     lambda v: v),
+        "Price":       ("Price",      lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+        "Fair Value":  ("fair_value", lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+        "MoS %":       ("MoS %",      _fmt_mos),
+        "TER %":       ("TER %",      lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
+        "Decision":    ("Decision",   _fmt_decision),
+        "Value Score": ("Value Score",lambda v: v),
+    }
+
+    EXTRA_GROUPS = {
+        "Valuation models": {
+            "Graham #":      ("graham_number",   lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "PE Fair Val":   ("pe_fair_value",   lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "EPV":           ("epv",             lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "DDM (1-stage)": ("ddm",             lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "DDM (2-stage)": ("ddm_multistage",  lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
         },
-        disabled=_all_cols_disabled if not _is_demo else _all_cols_disabled + ["★"],
-        height=500,
-    )
+        "Risk & size": {
+            "Risk Score":    ("Risk Score",      lambda v: v),
+            "Mkt Cap":       ("Market Cap",      _fmt_mcap),
+            "Beta":          ("beta",            lambda v: f"{v:.2f}"      if pd.notna(v) else "—"),
+            "Debt/Equity":   ("debtToEquity",    lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
+        },
+        "Multiples": {
+            "P/E":           ("trailingPE",          lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
+            "P/B":           ("priceToBook",          lambda v: f"{v:.2f}"      if pd.notna(v) else "—"),
+            "EV/EBITDA":     ("enterpriseToEbitda",   lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
+        },
+        "Quality": {
+            "ROE %":         ("returnOnEquity",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "ROA %":         ("returnOnAssets",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "Op Margin %":   ("operatingMargins", lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "FCF Yield %":   ("fcfYield",         lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+        },
+        "Growth": {
+            "Rev Growth %":  ("revenueGrowth",    lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "EPS Growth %":  ("earningsGrowth",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+        },
+        "Dividends": {
+            "Div Yield":     ("dividendYield",          lambda v: f"{v*100:.2f}%"  if pd.notna(v) else "—"),
+            "5yr Avg Yield": ("fiveYearAvgDividendYield",lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+            "Payout Ratio":  ("payoutRatio",            lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"),
+            "Cash Payout":   ("cashPayoutRatio",        lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"),
+            "Div Coverage":  ("dividendCoverage",       lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"),
+            "Div Flag":      ("Div Flag",               _fmt_div_flag),
+        },
+    }
+
+    # Column config for every possible column — help= adds hover tooltip on header
+    def _h(col): return COLUMN_HELP.get(col)
+
+    _col_config_map = {
+        "★":            st.column_config.CheckboxColumn("★",            width=40,  help=_h("★")),
+        "Company":      st.column_config.TextColumn(    "Company",      width=180, help=_h("Company")),
+        "Ticker":       st.column_config.TextColumn(    "Ticker",       width=90,  help=_h("Ticker")),
+        "Price":        st.column_config.TextColumn(    "Price",        width=80,  help=_h("Price")),
+        "Fair Value":   st.column_config.TextColumn(    "Fair Value",   width=90,  help=_h("Fair Value")),
+        "MoS %":        st.column_config.TextColumn(    "MoS %",        width=75,  help=_h("MoS %")),
+        "TER %":        st.column_config.TextColumn(    "TER %",        width=75,  help=_h("TER %")),
+        "Decision":     st.column_config.TextColumn(    "Decision",     width=130, help=_h("Decision")),
+        "Value Score":  st.column_config.ProgressColumn("Value Score",  width=120,
+                             min_value=0, max_value=100, format="%.1f", help=_h("Value Score")),
+        "Risk Score":   st.column_config.ProgressColumn("Risk Score",   width=110,
+                             min_value=0, max_value=10,  format="%.1f", help=_h("Risk Score")),
+        "Mkt Cap":      st.column_config.TextColumn(    "Mkt Cap",      width=80,  help=_h("Mkt Cap")),
+        "Beta":         st.column_config.TextColumn(    "Beta",         width=55,  help=_h("Beta")),
+        "Debt/Equity":  st.column_config.TextColumn(    "Debt/Equity",  width=95,  help=_h("Debt/Equity")),
+        "P/E":          st.column_config.TextColumn(    "P/E",          width=60,  help=_h("P/E")),
+        "P/B":          st.column_config.TextColumn(    "P/B",          width=60,  help=_h("P/B")),
+        "EV/EBITDA":    st.column_config.TextColumn(    "EV/EBITDA",    width=90,  help=_h("EV/EBITDA")),
+        **{c: st.column_config.TextColumn(c, width=100, help=_h(c))
+           for g in EXTRA_GROUPS.values() for c in g
+           if c not in ("Risk Score",)},
+    }
+
+    def _render_table(tab_df, key_suffix):
+        """Render the screener table with optional column groups."""
+        selected_groups = st.multiselect(
+            "➕ Add columns",
+            options=list(EXTRA_GROUPS.keys()),
+            default=[],
+            key=f"col_groups_{key_suffix}",
+            placeholder="Show additional column groups…",
+        )
+
+        # Build the display DataFrame from core cols + selected extras
+        display_data = {"★": tab_df["Ticker"].isin(watchlist)}
+        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
+            if field in tab_df.columns:
+                display_data[col] = tab_df[field].map(fmt).values
+            else:
+                display_data[col] = "—"
+
+        active_extra_cols = []
+        for group in selected_groups:
+            for col, (field, fmt) in EXTRA_GROUPS[group].items():
+                if field in tab_df.columns:
+                    display_data[col] = tab_df[field].map(fmt).values
+                else:
+                    display_data[col] = "—"
+                active_extra_cols.append(col)
+
+        display_df = pd.DataFrame(display_data)
+
+        all_data_cols = [c for c in display_df.columns if c != "★"]
+        col_config    = {c: _col_config_map[c] for c in display_df.columns if c in _col_config_map}
+        disabled_cols = all_data_cols if _is_demo else all_data_cols
+
+        edited = st.data_editor(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config=col_config,
+            disabled=disabled_cols if _is_demo else all_data_cols,
+            height=500,
+            key=f"table_{key_suffix}",
+        )
+        return edited
+
+    # Filter row: unvalued toggle + refresh button on same row
+    _valued     = df["fair_value"].notna()
+    _n_unvalued = (~_valued).sum()
+    _col_toggle, _col_refresh = st.columns([9, 1])
+    with _col_toggle:
+        _show_all = st.toggle(
+            f"Include {_n_unvalued} unvalued stocks (no fair value estimate available)",
+            value=False,
+            key="show_unvalued",
+        ) if _n_unvalued > 0 else False
+    with _col_refresh:
+        if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
+            try:
+                CACHE_FILE.write_text("{}", encoding="utf-8")
+            except OSError:
+                pass
+            st.cache_data.clear()
+            st.rerun()
+    _screener_df = df if _show_all else df[_valued].reset_index(drop=True)
+    _screener_df.index = range(1, len(_screener_df) + 1)
+
+    _hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+    st.markdown(f"**{len(_screener_df)}** stocks · {_hint}")
+    edited = _render_table(_screener_df, "main")
 
     if not _is_demo:
         new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
@@ -317,18 +677,89 @@ with tab_screener:
             save_watchlist(new_watchlist)
             st.rerun()
 
-    with st.expander("Score distribution"):
-        st.bar_chart(
-            df["Value Score"].dropna()
-            .value_counts(bins=10, sort=False).sort_index().rename("Count")
+    col_dist, col_decision = st.columns(2)
+    with col_dist:
+        with st.expander("Score distribution"):
+            st.bar_chart(
+                df["Value Score"].dropna()
+                .value_counts(bins=10, sort=False).sort_index().rename("Count")
+            )
+    with col_decision:
+        with st.expander("Decision breakdown"):
+            counts = df["Decision"].value_counts().rename("Count")
+            st.bar_chart(counts)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — WATCHLIST
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _active_page == "★ Watchlist":
+    with st.spinner("Loading screener data…"):
+        df = load_screener_data()
+        if "fair_value" not in df.columns or "Decision" not in df.columns:
+            try:
+                CACHE_FILE.write_text("{}", encoding="utf-8")
+            except OSError:
+                pass
+            st.cache_data.clear()
+            st.rerun()
+    watchlist = load_watchlist()
+
+    def _fmt_mos(v):
+        if pd.isna(v): return "—"
+        return f"{v:+.1f}%"
+    def _fmt_decision(v):
+        return {"Strong Buy": "🟢 Strong Buy", "Monitor": "🟡 Monitor", "Avoid": "🔴 Avoid"}.get(v, v)
+
+    wl_tickers = load_watchlist()
+    if not wl_tickers:
+        st.info("No stocks on your watchlist yet. Go to 🔍 Screener and check ★ next to any stock to add it.")
+    else:
+        wl_df = df[df["Ticker"].isin(wl_tickers)].reset_index(drop=True)
+        wl_df.index += 1
+        st.markdown(f"**{len(wl_df)}** stocks on watchlist · uncheck ★ to remove")
+        _wl_display = {
+            "★":          wl_df["Ticker"].isin(wl_tickers),
+            "Company":    wl_df["Name"],
+            "Ticker":     wl_df["Ticker"],
+            "Price":      wl_df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Fair Value": wl_df["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "MoS %":      wl_df["MoS %"].map(_fmt_mos),
+            "TER %":      wl_df["TER %"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
+            "Decision":   wl_df["Decision"].map(_fmt_decision),
+            "Value Score":wl_df["Value Score"],
+        }
+        _wl_edited = st.data_editor(
+            pd.DataFrame(_wl_display),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "★":           st.column_config.CheckboxColumn("★",           width=40),
+                "Company":     st.column_config.TextColumn(    "Company",     width=180),
+                "Ticker":      st.column_config.TextColumn(    "Ticker",      width=90),
+                "Price":       st.column_config.TextColumn(    "Price",       width=80),
+                "Fair Value":  st.column_config.TextColumn(    "Fair Value",  width=90),
+                "MoS %":       st.column_config.TextColumn(    "MoS %",       width=75),
+                "TER %":       st.column_config.TextColumn(    "TER %",       width=75),
+                "Decision":    st.column_config.TextColumn(    "Decision",    width=130),
+                "Value Score": st.column_config.ProgressColumn("Value Score", width=120,
+                                   min_value=0, max_value=100, format="%.1f"),
+            },
+            disabled=["Company","Ticker","Price","Fair Value","MoS %","TER %","Decision","Value Score"],
+            height=500,
+            key="table_watchlist",
         )
-
+        if not _is_demo:
+            still_watched = set(_wl_edited.loc[_wl_edited["★"], "Ticker"].tolist())
+            if still_watched != wl_tickers:
+                save_watchlist(still_watched)
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — PORTFOLIO
+# PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-with tab_portfolio if tab_portfolio is not None else st.empty():
+if _active_page == "📁 Portfolio" and not _is_demo:
 
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
@@ -407,7 +838,7 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
     c5.metric("Total return",        f"€{total_return:+,.0f}",
               delta=f"{total_return_pct:+.1f}%")
 
-    sub_positions, sub_watchlist, sub_dividends, sub_sold = st.tabs(["Positions", "Watchlist", "Dividends", "Sold"])
+    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
@@ -451,49 +882,6 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
         with ch2:
             st.subheader("Portfolio allocation")
             st.bar_chart(pf.set_index("name")["current_value"].dropna().sort_values(ascending=False))
-
-    # ── Sub-tab: Watchlist ────────────────────────────────────────────────────
-    with sub_watchlist:
-        wl_tickers = load_watchlist()
-        if not wl_tickers:
-            st.info("No stocks on your watchlist yet. Check ★ next to any stock in the Screener tab to add it.")
-        else:
-            screener_df = load_screener_data().set_index("Ticker")
-            with st.spinner("Fetching live data for watchlist…"):
-                wl_live = _fetch_live_data(tuple(sorted(wl_tickers)))
-
-            rows = []
-            for ticker in sorted(wl_tickers):
-                s = screener_df.loc[ticker] if ticker in screener_df.index else {}
-                live = wl_live.get(ticker, {})
-                price = live.get("price")
-                fv    = live.get("fair_value")
-                day_chg = live.get("day_change_pct")
-                rows.append({
-                    "Company":        s.get("Name", ticker) if hasattr(s, "get") else ticker,
-                    "Ticker":         ticker,
-                    "Live Price":     f"€{price:.2f}" if price else "—",
-                    "Day Chg %":      day_chg,
-                    "Fair Value":     f"€{fv:.2f}" if fv else "—",
-                    "FV Upside":      f"{(fv - price) / price * 100:+.1f}%" if fv and price else "—",
-                    "Analyst Target": f"€{live['analyst_target']:.2f}" if live.get("analyst_target") else "—",
-                    "P/E":            f"{s['trailingPE']:.1f}" if hasattr(s, "get") and pd.notna(s.get("trailingPE")) else "—",
-                    "P/B":            f"{s['priceToBook']:.2f}" if hasattr(s, "get") and pd.notna(s.get("priceToBook")) else "—",
-                    "Div Yield":      f"{s['dividendYield']*100:.2f}%" if hasattr(s, "get") and pd.notna(s.get("dividendYield")) else "—",
-                    "Value Score":    s.get("Value Score") if hasattr(s, "get") else None,
-                })
-
-            wl_df = pd.DataFrame(rows)
-            st.dataframe(
-                wl_df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Day Chg %":   st.column_config.NumberColumn("Day Chg %",  format="%+.2f%%"),
-                    "Value Score": st.column_config.ProgressColumn(
-                        "Value Score", min_value=0, max_value=100, format="%.1f"),
-                },
-            )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
@@ -664,60 +1052,3 @@ with tab_portfolio if tab_portfolio is not None else st.empty():
                 st.error(f"Could not parse file: {e}")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — ADMIN (administrator only)
-# ══════════════════════════════════════════════════════════════════════════════
-
-if _is_admin:
-    with tab_admin:
-        st.subheader("User management")
-
-        users = list_users()
-        if not users:
-            st.info("No users found.")
-        else:
-            for u in users:
-                col_email, col_role, col_save, col_del = st.columns([3, 2, 1, 1])
-                col_email.markdown(f"**{u['email']}**  \n<small>{u['created_at'][:10]}</small>",
-                                   unsafe_allow_html=True)
-                new_role = col_role.selectbox(
-                    "Role",
-                    options=list(ROLES),
-                    index=list(ROLES).index(u["role"]),
-                    key=f"role_{u['email']}",
-                    label_visibility="collapsed",
-                )
-                if col_save.button("Save", key=f"save_{u['email']}", use_container_width=True):
-                    ok, msg = set_role(u["email"], new_role)
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
-                current_email = st.session_state.get("user_email", "")
-                if u["email"] != current_email:
-                    if col_del.button("🗑️", key=f"del_{u['email']}", use_container_width=True,
-                                      help=f"Delete {u['email']}"):
-                        ok, msg = delete_user(u["email"])
-                        if ok:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
-                else:
-                    col_del.markdown("&nbsp;", unsafe_allow_html=True)
-
-        st.divider()
-        st.subheader("Create account")
-        with st.form("admin_create_user"):
-            new_email    = st.text_input("Email")
-            new_password = st.text_input("Password", type="password")
-            new_role_sel = st.selectbox("Role", options=list(ROLES))
-            if st.form_submit_button("Create", use_container_width=True):
-                ok, msg = register(new_email, new_password, role=new_role_sel)
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
