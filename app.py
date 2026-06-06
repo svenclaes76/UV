@@ -314,13 +314,49 @@ st.set_page_config(
 st.markdown("""
 <style>
   /* Reduce default padding */
-  .block-container { padding-top: 1.5rem !important; padding-bottom: 0.5rem !important; }
+  .block-container { padding-top: 4rem !important; padding-bottom: 0.5rem !important; }
   /* Tighten metric cards */
   div[data-testid="metric-container"] { padding: 0.3rem 0.5rem !important; }
-  /* Compact inner tab bar (Portfolio sub-tabs) */
+  /* Tab bar — ensure labels are always visible */
   div[data-testid="stTabs"] > div:first-child { margin-bottom: 0.25rem; }
+  button[data-testid="stTab"] { color: #888 !important; }
+  button[data-testid="stTab"]:hover { color: #ccc !important; }
+  button[data-testid="stTab"][aria-selected="true"] { color: #fff !important; }
   /* Tighten caption spacing */
   .stCaption { margin-bottom: 0 !important; }
+
+  /* ── Mini icon nav (always rendered; sidebar covers it when open) ───── */
+  .mini-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 48px;
+    background: #0e1117;
+    border-right: 1px solid #1e2433;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 14px;
+    gap: 18px;
+    z-index: 99;        /* sidebar sits above this, covering it when open */
+  }
+  .mini-nav span {
+    font-size: 1.3rem;
+    cursor: default;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+  }
+  .mini-nav span:hover { opacity: 1; }
+  /* Reposition sidebar expand button to sit right beside the mini nav */
+  [data-testid="collapsedControl"] {
+    left: 48px !important;
+    top: 14px !important;
+  }
+
+  /* ── Sidebar width ───────────────────────────────────────────────────── */
+  section[data-testid="stSidebar"] { min-width: 250px !important; max-width: 250px !important; width: 250px !important; z-index: 100 !important; }
+  section[data-testid="stSidebar"] > div:first-child { min-width: 250px !important; max-width: 250px !important; width: 250px !important; }
 
   /* ── Sidebar nav radio → styled nav items ────────────────────────────── */
   /* Hide the group label */
@@ -357,19 +393,25 @@ st.markdown("""
   section[data-testid="stSidebar"] div[data-testid="stRadio"] input[type="radio"] { display:none !important; }
   section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label > div:first-child { display:none !important; }
 
-  /* Sidebar action buttons (admin / help) as plain text links */
+  /* Sidebar admin / help buttons — styled like nav items */
   section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"] {
-    color: #666 !important;
-    font-size: 0.82rem !important;
-    padding: 2px 12px !important;
+    color: #aaa !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    padding: 8px 12px !important;
     min-height: 0 !important;
     height: auto !important;
-    line-height: 1.8 !important;
+    line-height: 1.4 !important;
     width: 100% !important;
     text-align: left !important;
     justify-content: flex-start !important;
+    border-radius: 8px !important;
+    background: transparent !important;
   }
-  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"]:hover { color: #bbb !important; }
+  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"]:hover {
+    background: rgba(255,255,255,0.06) !important;
+    color: #eee !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -427,19 +469,8 @@ _badge    = {"administrator": "🔑", "demo": "👁️"}.get(_current_role, "")
 with st.sidebar:
     # Logo + wordmark
     st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:4px 0 20px 0;">
-  <svg width="36" height="36" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
-    <rect width="56" height="56" rx="12" fill="#1a1d26"/>
-    <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
-          font-family="'Segoe UI',sans-serif" font-size="22" font-weight="800"
-          fill="url(#sg)">UV</text>
-    <defs>
-      <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#4f8ef7"/>
-        <stop offset="100%" stop-color="#a78bfa"/>
-      </linearGradient>
-    </defs>
-  </svg>
+<div style="display:flex;align-items:center;gap:10px;padding:0 0 20px 0;margin-top:-1rem;">
+  <div style="font-size:2rem;line-height:1;">💎</div>
   <div>
     <div style="font-size:1.1rem;font-weight:800;line-height:1.1;letter-spacing:-0.3px;">
       UV <span style="font-weight:300;color:#666;">· Undervalued</span>
@@ -450,14 +481,11 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
     # Nav
-    _nav_options = ["🔍 Screener", "★ Watchlist"] if _is_demo else ["🔍 Screener", "★ Watchlist", "📁 Portfolio"]
+    _nav_options = ["🔍 Screener"] if _is_demo else ["🔍 Screener", "📁 Portfolio"]
     _active_page = st.radio("Navigation", _nav_options, key="nav_page")
 
-    # Spacer pushes account section to bottom
-    st.markdown('<div style="flex:1;min-height:60px;"></div>', unsafe_allow_html=True)
-    st.divider()
-
-    # Admin + help
+    # Admin + help — spaced below nav, styled to match nav items
+    st.markdown('<div style="margin-top:2rem;">', unsafe_allow_html=True)
     if _is_admin:
         if st.button("⚙️ admin", type="tertiary", key="hdr_admin"):
             st.session_state["show_admin"] = True
@@ -465,15 +493,41 @@ with st.sidebar:
     if st.button("❓ help", type="tertiary", key="hdr_help"):
         st.session_state["show_help"] = True
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Account info + logout
+    # Email + logout pinned to bottom
     st.markdown(
-        f'<div style="font-size:0.78rem;color:#555;padding:8px 12px 4px 12px;line-height:1.6;">'
-        f'{_badge} {_email}<br>'
-        f'<a href="/?logout=1" target="_self" style="color:#555;text-decoration:none;">log out</a>'
-        f'</div>',
+        f"""
+<div class="sb-bottom">
+  <hr style="border-color:#222;margin:0 0 10px 0;">
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;color:#555;">
+    <span>{_badge} {_email}</span>
+    <a href="/?logout=1" target="_self"
+       style="color:#555;text-decoration:none;white-space:nowrap;">↪️ log out</a>
+  </div>
+</div>
+<style>
+  .sb-bottom {{ position:fixed; bottom:1rem; width:218px; }}
+</style>
+""",
         unsafe_allow_html=True,
     )
+
+# ── Mini icon nav (collapsed sidebar) ────────────────────────────────────────
+_mini_admin = "<span title='Admin'>⚙️</span>" if _is_admin else ""
+_mini_portfolio = "" if _is_demo else "<span title='Portfolio'>📁</span>"
+st.markdown(
+    f"""
+<div class="mini-nav">
+  <span title="UV — Undervalued">💎</span>
+  <span title="Screener">🔍</span>
+  {_mini_portfolio}
+  {_mini_admin}
+  <span title="Help">❓</span>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 # ── Logout query-param handler ────────────────────────────────────────────────
 if st.query_params.get("logout") == "1":
@@ -646,114 +700,81 @@ if _active_page == "🔍 Screener":
         )
         return edited
 
-    # Filter row: unvalued toggle + refresh button on same row
-    _valued     = df["fair_value"].notna()
-    _n_unvalued = (~_valued).sum()
-    _col_toggle, _col_refresh = st.columns([9, 1])
-    with _col_toggle:
-        _show_all = st.toggle(
-            f"Include {_n_unvalued} unvalued stocks (no fair value estimate available)",
-            value=False,
-            key="show_unvalued",
-        ) if _n_unvalued > 0 else False
-    with _col_refresh:
-        if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
-            try:
-                CACHE_FILE.write_text("{}", encoding="utf-8")
-            except OSError:
-                pass
-            st.cache_data.clear()
-            st.rerun()
-    _screener_df = df if _show_all else df[_valued].reset_index(drop=True)
-    _screener_df.index = range(1, len(_screener_df) + 1)
+    tab_watchlist, tab_brussels = st.tabs(["★ Watchlist", "Euronext Brussels"])
 
-    _hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
-    st.markdown(f"**{len(_screener_df)}** stocks · {_hint}")
-    edited = _render_table(_screener_df, "main")
-
-    if not _is_demo:
-        new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
-        if new_watchlist != watchlist:
-            save_watchlist(new_watchlist)
-            st.rerun()
-
-    col_dist, col_decision = st.columns(2)
-    with col_dist:
-        with st.expander("Score distribution"):
-            st.bar_chart(
-                df["Value Score"].dropna()
-                .value_counts(bins=10, sort=False).sort_index().rename("Count")
-            )
-    with col_decision:
-        with st.expander("Decision breakdown"):
-            counts = df["Decision"].value_counts().rename("Count")
-            st.bar_chart(counts)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE — WATCHLIST
-# ══════════════════════════════════════════════════════════════════════════════
-
-if _active_page == "★ Watchlist":
-    with st.spinner("Loading screener data…"):
-        df = load_screener_data()
-        if "fair_value" not in df.columns or "Decision" not in df.columns:
-            try:
-                CACHE_FILE.write_text("{}", encoding="utf-8")
-            except OSError:
-                pass
-            st.cache_data.clear()
-            st.rerun()
-    watchlist = load_watchlist()
-
-    def _fmt_mos(v):
-        if pd.isna(v): return "—"
-        return f"{v:+.1f}%"
-    def _fmt_decision(v):
-        return {"Strong Buy": "🟢 Strong Buy", "Monitor": "🟡 Monitor", "Avoid": "🔴 Avoid"}.get(v, v)
-
-    wl_tickers = load_watchlist()
-    if not wl_tickers:
-        st.info("No stocks on your watchlist yet. Go to 🔍 Screener and check ★ next to any stock to add it.")
-    else:
-        wl_df = df[df["Ticker"].isin(wl_tickers)].reset_index(drop=True)
-        wl_df.index += 1
-        st.markdown(f"**{len(wl_df)}** stocks on watchlist · uncheck ★ to remove")
-        _wl_display = {
-            "★":          wl_df["Ticker"].isin(wl_tickers),
-            "Company":    wl_df["Name"],
-            "Ticker":     wl_df["Ticker"],
-            "Price":      wl_df["Price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "Fair Value": wl_df["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "MoS %":      wl_df["MoS %"].map(_fmt_mos),
-            "TER %":      wl_df["TER %"].map(lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-            "Decision":   wl_df["Decision"].map(_fmt_decision),
-            "Value Score":wl_df["Value Score"],
-        }
-        _wl_edited = st.data_editor(
-            pd.DataFrame(_wl_display),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "★":           st.column_config.CheckboxColumn("★",           width=40),
-                "Company":     st.column_config.TextColumn(    "Company",     width=180),
-                "Ticker":      st.column_config.TextColumn(    "Ticker",      width=90),
-                "Price":       st.column_config.TextColumn(    "Price",       width=80),
-                "Fair Value":  st.column_config.TextColumn(    "Fair Value",  width=90),
-                "MoS %":       st.column_config.TextColumn(    "MoS %",       width=75),
-                "TER %":       st.column_config.TextColumn(    "TER %",       width=75),
-                "Decision":    st.column_config.TextColumn(    "Decision",    width=130),
-                "Value Score": st.column_config.ProgressColumn("Value Score", width=120,
-                                   min_value=0, max_value=100, format="%.1f"),
-            },
-            disabled=["Company","Ticker","Price","Fair Value","MoS %","TER %","Decision","Value Score"],
-            height=500,
-            key="table_watchlist",
-        )
-        if not _is_demo:
-            still_watched = set(_wl_edited.loc[_wl_edited["★"], "Ticker"].tolist())
-            if still_watched != wl_tickers:
-                save_watchlist(still_watched)
+    # ── Tab: Watchlist ────────────────────────────────────────────────────────
+    with tab_watchlist:
+        _wl_tickers = load_watchlist()
+        _wl_col, _wl_refresh = st.columns([9, 1])
+        with _wl_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="wl_refresh"):
+                try:
+                    CACHE_FILE.write_text("{}", encoding="utf-8")
+                except OSError:
+                    pass
+                st.cache_data.clear()
                 st.rerun()
+        if not _wl_tickers:
+            st.info("Check ★ next to any stock in Euronext Brussels to add it to your watchlist.")
+        else:
+            wl_df = df[df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+            wl_df.index += 1
+            with _wl_col:
+                st.markdown(f"**{len(wl_df)}** stocks · uncheck ★ to remove")
+            wl_edited = _render_table(wl_df, "watchlist")
+            if not _is_demo:
+                still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
+                if still_watched != _wl_tickers:
+                    save_watchlist(still_watched)
+                    st.rerun()
+
+    # ── Tab: Euronext Brussels ────────────────────────────────────────────────
+    with tab_brussels:
+        _valued     = df["fair_value"].notna()
+        _n_unvalued = (~_valued).sum()
+
+        # Single row: count (left) | toggle | refresh (right)
+        _br_col, _br_toggle, _br_refresh = st.columns([7, 2, 1])
+        with _br_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
+                try:
+                    CACHE_FILE.write_text("{}", encoding="utf-8")
+                except OSError:
+                    pass
+                st.cache_data.clear()
+                st.rerun()
+        with _br_toggle:
+            _show_all = st.toggle(
+                "unvalued stocks",
+                value=False,
+                key="show_unvalued",
+            ) if _n_unvalued > 0 else False
+
+        _screener_df = df if _show_all else df[_valued].reset_index(drop=True)
+        _screener_df.index = range(1, len(_screener_df) + 1)
+
+        _hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+        with _br_col:
+            st.markdown(f"**{len(_screener_df)}** stocks · {_hint}")
+        edited = _render_table(_screener_df, "main")
+
+        if not _is_demo:
+            new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
+            if new_watchlist != watchlist:
+                save_watchlist(new_watchlist)
+                st.rerun()
+
+        col_dist, col_decision = st.columns(2)
+        with col_dist:
+            with st.expander("Score distribution"):
+                st.bar_chart(
+                    df["Value Score"].dropna()
+                    .value_counts(bins=10, sort=False).sort_index().rename("Count")
+                )
+        with col_decision:
+            with st.expander("Decision breakdown"):
+                counts = df["Decision"].value_counts().rename("Count")
+                st.bar_chart(counts)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO
