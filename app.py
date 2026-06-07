@@ -744,8 +744,8 @@ if _page == "screener":
     # Column config for every possible column — help= adds hover tooltip on header
     _ch = COLUMN_HELP.get  # shorthand
     _col_config_map = {
-        "★":             st.column_config.CheckboxColumn("★",             width=55,  help=_ch("★")),
-        "Company":       st.column_config.TextColumn(    "Company",       width=180, help=_ch("Company")),
+        "★":             st.column_config.CheckboxColumn("★",             width=55,  pinned=True, help=_ch("★")),
+        "Company":       st.column_config.TextColumn(    "Company",       width=180, pinned=True, help=_ch("Company")),
         "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
         "Price":         st.column_config.TextColumn(    "Price",         width=80,  help=_ch("Price")),
         "💎 UV":         st.column_config.TextColumn(    "💎 UV",         width=90,  help=_ch("💎 UV")),
