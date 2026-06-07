@@ -988,7 +988,7 @@ if _page == "portfolio" and not _is_demo:
         _POS_EXTRA_GROUPS = {
             "Valuation": {
                 "💎 UV":          pf["fair_value"].map(_fmt_eur),
-                "FV Upside %":    pf["fv_upside_pct"],
+                "UV Upside %":    pf["fv_upside_pct"],
                 "Analyst Target": pf["analyst_target"].map(_fmt_eur),
             },
             "Valuation models": {
@@ -1062,7 +1062,7 @@ if _page == "portfolio" and not _is_demo:
 
         _pos_col_config = {
             "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
-            "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
+            "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
             "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
             "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f"),
