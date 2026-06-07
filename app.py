@@ -841,8 +841,8 @@ if _page == "screener":
         )
         return edited
 
-    tab_watchlist, tab_brussels, tab_amsterdam = st.tabs(
-        ["★ Watchlist", "Euronext Brussels", "Euronext Amsterdam"]
+    tab_watchlist, tab_amsterdam, tab_brussels = st.tabs(
+        ["★ Watchlist", "Euronext Amsterdam", "Euronext Brussels"]
     )
 
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
