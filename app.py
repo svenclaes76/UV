@@ -1226,7 +1226,7 @@ if _page == "portfolio" and not _is_demo:
         _core_cols = {"Company", "Ticker", "Shares", "Live Price", "Day Chg %",
                       "Invested", "Current", "Price Gain %", "Total Return %"}
 
-        positions = pd.DataFrame(pos_data).sort_values("Total Return %", ascending=False)
+        positions = pd.DataFrame(pos_data).sort_values("Company")
         _n_rows = len(positions)
 
         # Highlight extra columns with a subtle tint
@@ -1297,7 +1297,7 @@ if _page == "portfolio" and not _is_demo:
             "Net":       _net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Date":      pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
         })
-        st.dataframe(div_table, use_container_width=True, hide_index=True,
+        st.dataframe(div_table.sort_values("Company"), use_container_width=True, hide_index=True,
                      height=(len(pf) + 1) * 35 + 10)
 
         st.divider()
@@ -1383,7 +1383,7 @@ if _page == "portfolio" and not _is_demo:
             st.divider()
             st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
 
-            sold_table = pd.DataFrame({
+            sold_table = pd.DataFrame({  # sorted by Company below
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
                 "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
@@ -1398,7 +1398,7 @@ if _page == "portfolio" and not _is_demo:
             })
 
             st.dataframe(
-                sold_table,
+                sold_table.sort_values("Company"),
                 use_container_width=True,
                 hide_index=True,
                 column_config={
