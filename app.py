@@ -434,16 +434,47 @@ st.markdown("""
   .uv-nav-active     { background: rgba(79,142,247,0.14) !important; opacity: 1 !important; }
   .uv-nav-sep        { border: none; border-top: 1px solid rgba(128,128,128,0.2); margin: 5px 2px; }
   .uv-nav-icon       { font-size: 1rem; width: 1.25em; text-align: center; flex-shrink: 0; }
-  .uv-nav-utils { position: fixed; bottom: 62px; left: 0; width: 250px; padding: 0 16px 4px; box-sizing: border-box; }
+  .uv-nav-utils { position: fixed; bottom: 100px; left: 0; width: 250px; padding: 0 16px 4px; box-sizing: border-box; }
   .uv-bottom    {
-    position: fixed; bottom: 0; left: 0; width: 250px; padding: 8px 16px 15px;
+    position: fixed; bottom: 0; left: 0; width: 250px; padding: 10px 16px 15px;
     background: var(--sidebar-background-color, var(--secondary-background-color));
     border-top: 1px solid rgba(128,128,128,0.12); box-sizing: border-box;
   }
   .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .uv-role-badge   { display: inline-block; background: rgba(128,128,128,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: var(--text-color); opacity: 0.5; margin-right: 5px; vertical-align: middle; }
-  .uv-logout       { font-size: 0.75rem; color: var(--text-color); opacity: 0.4; text-decoration: none !important; transition: opacity 0.12s; }
-  .uv-logout:hover { opacity: 0.8; }
+  .uv-logout {
+    display: inline-flex; align-items: center;
+    padding: 0 12px; height: 32px; line-height: 32px;
+    font-size: 0.8rem; font-weight: 400;
+    color: var(--text-color) !important; text-decoration: none !important;
+    border: 1px solid rgba(128,128,128,0.4); border-radius: 6px;
+    background: transparent; transition: border-color 0.12s, opacity 0.12s;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .uv-logout:hover { border-color: rgba(128,128,128,0.8); opacity: 1; }
+  /* Edit positions dialog — constrained width */
+  [data-testid="stDialog"] [role="dialog"],
+  [data-testid="stModal"] > div,
+  div[aria-modal="true"],
+  div[aria-label="Edit positions"] {
+    max-width: 550px !important;
+    width: 550px !important;
+    min-width: 0 !important;
+  }
+  /* Action buttons (Add / Edit / View) — tight row */
+  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] {
+    gap: 6px !important;
+  }
+  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] button {
+    padding: 0px 12px !important;
+    height: 32px !important;
+    min-height: 0 !important;
+    font-size: 0.8rem !important;
+    font-weight: 400 !important;
+    line-height: 32px !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -583,9 +614,9 @@ with st.sidebar:
   </nav>
 </div>
 <div class="uv-bottom">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-    <div class="uv-bottom-email" style="margin:0;min-width:0;">{_role_badge_html}{_email}</div>
-    <a href="/?logout=1" target="_self" class="uv-logout" style="flex-shrink:0;">log out</a>
+  <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
+  <div style="text-align:center;">
+    <a href="/?logout=1" target="_self" class="uv-logout">🚪 Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -785,14 +816,30 @@ if _page == "screener":
 
     def _render_table(tab_df, key_suffix):
         """Render the screener table with optional column groups."""
-        selected_groups = st.multiselect(
-            "Add columns",
-            label_visibility="collapsed",
-            options=list(EXTRA_GROUPS.keys()),
-            default=[],
-            key=f"col_groups_{key_suffix}",
-            placeholder="Show additional column groups…",
-        )
+        _grp_key = f"col_groups_{key_suffix}"
+
+        @st.dialog("View", width="small")
+        def _dlg_view():
+            _sel = st.session_state.get(_grp_key, [])
+            for _grp in EXTRA_GROUPS.keys():
+                _checked = st.checkbox(_grp, value=(_grp in _sel), key=f"scr_colgrp_{key_suffix}_{_grp}")
+                if _checked and _grp not in _sel:
+                    _sel = _sel + [_grp]
+                elif not _checked and _grp in _sel:
+                    _sel = [g for g in _sel if g != _grp]
+            st.session_state[_grp_key] = _sel
+            if st.button("Apply", type="primary", use_container_width=True, key=f"scr_col_apply_{key_suffix}"):
+                st.rerun()
+
+        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
+        _vc, _ = st.columns([1, 8], gap="small")
+        with _vc:
+            _active = st.session_state.get(_grp_key, [])
+            _view_label = f"⊞ View ({len(_active)})" if _active else "⊞ View"
+            if st.button(_view_label, key=f"btn_view_{key_suffix}"):
+                _dlg_view()
+
+        selected_groups = st.session_state.get(_grp_key, [])
 
         # Score column: emoji colour prefix + value
         _score_emoji = {"Strong Buy": "🟢", "Monitor": "🟡", "Avoid": "🔴"}
@@ -1057,23 +1104,32 @@ if _page == "portfolio" and not _is_demo:
         for _, row in _all_screener.iterrows()
     }
 
-    @st.dialog("Add position")
+    @st.dialog("Add position", width="large")
     def _dlg_add_position():
-        ticker      = st.selectbox(
-            "Stock",
-            options=_ticker_options,
-            format_func=lambda t: _ticker_labels.get(t, t),
-        )
-        shares      = st.number_input("Number of stocks", min_value=1, step=1, format="%d")
-        total_price = st.number_input("Total purchase price (€)", min_value=0.01, step=0.01, format="%.2f")
-        pur_date    = st.date_input("Purchase date")
-        if st.button("Save", type="primary"):
+        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
+        with _c1:
+            ticker = st.selectbox("Company", options=_ticker_options, format_func=lambda t: _ticker_labels.get(t, t))
+        with _c2:
+            _shares_raw = st.text_input("Shares", value="1")
+        with _c3:
+            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
+        with _c4:
+            _invested_raw = st.text_input("Invested (€)", value="0.00")
+        _, _save_btn = st.columns([3, 1])
+        with _save_btn:
+            _do_save = st.button("💾 Save", key="dlg_add_save", use_container_width=True)
+        try:
+            shares      = max(1, int(_shares_raw.strip()))
+            total_price = float(_invested_raw.strip().replace(",", "."))
+        except ValueError:
+            shares, total_price = 1, 0.0
+        if _do_save and shares > 0 and total_price > 0:
             name = _ticker_labels.get(ticker, ticker).split("  (")[0]
             add_position({
                 "name":           name,
                 "google_ticker":  "",
                 "ticker":         ticker,
-                "shares":         int(shares),
+                "shares":         shares,
                 "purchase_price": round(total_price / shares, 4),
                 "purchase_value": round(total_price, 2),
                 "target_price":   None,
@@ -1104,15 +1160,18 @@ if _page == "portfolio" and not _is_demo:
                 "🗑️":          False,
                 "Company":     _edit_src["name"],
                 "Stocks":      pd.to_numeric(_edit_src["shares"], errors="coerce").fillna(0).astype(int),
-                "Total Price": (
+                "Invested": (
                     pd.to_numeric(_edit_src["purchase_price"], errors="coerce") *
                     pd.to_numeric(_edit_src["shares"],         errors="coerce")
                 ).round(2),
+                "Date":        pd.to_datetime(
+                    _edit_src["date_in"], format="mixed", dayfirst=False, errors="coerce"
+                ).dt.date,
             })
 
             _row_h  = 35
-            _header = 38
-            _height = _header + len(_tbl) * _row_h + 4
+            _header = 35
+            _height = _header + min(len(_tbl), 8) * _row_h
 
             _edited = st.data_editor(
                 _tbl.drop(columns="_idx"),
@@ -1121,10 +1180,11 @@ if _page == "portfolio" and not _is_demo:
                 num_rows="fixed",
                 height=_height,
                 column_config={
-                    "🗑️":          st.column_config.CheckboxColumn("🗑️",               width=40),
-                    "Company":     st.column_config.TextColumn("Company",              disabled=True, width="stretch"),
-                    "Stocks":      st.column_config.NumberColumn("Stocks",             min_value=1, step=1, format="%d", width=90),
-                    "Total Price": st.column_config.NumberColumn("Total Price (€)",    min_value=0.01, format="%.2f", width=130),
+                    "🗑️":          st.column_config.CheckboxColumn("🗑️",               width=55),
+                    "Company":     st.column_config.TextColumn("Company",              disabled=True),
+                    "Stocks":      st.column_config.NumberColumn("Shares",             min_value=1, step=1, format="%d"),
+                    "Invested":    st.column_config.NumberColumn("Invested (€)",        min_value=0.01, format="%.2f"),
+                    "Date":        st.column_config.DateColumn("Buy Date",             format="DD/MM/YYYY"),
                 },
                 key="dlg_edit_table",
             )
@@ -1133,33 +1193,27 @@ if _page == "portfolio" and not _is_demo:
             to_keep    = _edited[~_edited["🗑️"]]
             n_selected = len(to_delete)
 
-            col_save, col_del = st.columns([3, 1])
-            with col_save:
-                if st.button("💾 Save changes", type="primary", use_container_width=True):
+            _del_note, _save_col = st.columns([3, 1])
+            with _del_note:
+                if n_selected:
+                    st.caption(f"🗑️ {n_selected} selected for deletion")
+            with _save_col:
+                if st.button("💾 Save", key="dlg_edit_save", use_container_width=True):
                     for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
                         new_shares = max(1, int(row["Stocks"]))
-                        new_total  = float(row["Total Price"])
+                        new_total  = float(row["Invested"])
                         pf.at[orig_idx, "shares"]         = new_shares
                         pf.at[orig_idx, "purchase_price"] = round(new_total / new_shares, 4)
                         pf.at[orig_idx, "purchase_value"] = round(new_total, 2)
+                        if pd.notna(row["Date"]) and row["Date"] is not None:
+                            pf.at[orig_idx, "date_in"] = pd.Timestamp(row["Date"]).isoformat()
                     if to_delete:
                         del_orig = [int(_tbl.iloc[i]["_idx"]) for i in to_delete]
                         pf.drop(index=del_orig, inplace=True)
                         pf.reset_index(drop=True, inplace=True)
                     update_positions(pf)
                     st.rerun()
-            with col_del:
-                if n_selected:
-                    st.caption(f"{n_selected} selected for deletion")
-
-        _act_add, _act_edit, _ = st.columns([1, 1, 5])
-        with _act_add:
-            if st.button("➕ Add", use_container_width=True):
-                _dlg_add_position()
-        with _act_edit:
-            if st.button("✏️ Edit", use_container_width=True):
-                _dlg_edit_position()
 
         # ── Column groups (same groups as screener) ───────────────────────────
         _POS_EXTRA_GROUPS = {
@@ -1212,20 +1266,41 @@ if _page == "portfolio" and not _is_demo:
             },
         }
 
-        _pos_groups = st.multiselect(
-            "Add columns",
-            label_visibility="collapsed",
-            options=list(_POS_EXTRA_GROUPS.keys()),
-            default=[],
-            key="pos_col_groups",
-            placeholder="Show additional column groups…",
-        )
+        @st.dialog("View", width="small")
+        def _dlg_columns():
+            _sel = st.session_state.get("pos_col_groups", [])
+            for _grp in _POS_EXTRA_GROUPS.keys():
+                _checked = st.checkbox(_grp, value=(_grp in _sel), key=f"colgrp_{_grp}")
+                if _checked and _grp not in _sel:
+                    _sel = _sel + [_grp]
+                elif not _checked and _grp in _sel:
+                    _sel = [g for g in _sel if g != _grp]
+            st.session_state["pos_col_groups"] = _sel
+            if st.button("Apply", type="primary", use_container_width=True, key="btn_col_apply"):
+                st.rerun()
+
+        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
+        _c1, _c2, _c3, _ = st.columns([1, 1, 1, 6], gap="small")
+        with _c1:
+            if st.button("➕ Add", key="btn_add_pos"):
+                _dlg_add_position()
+        with _c2:
+            if st.button("✏️ Edit", key="btn_edit_pos"):
+                _dlg_edit_position()
+        with _c3:
+            _active_groups = st.session_state.get("pos_col_groups", [])
+            _col_label = f"⊞ View ({len(_active_groups)})" if _active_groups else "⊞ View"
+            if st.button(_col_label, key="btn_col_pos"):
+                _dlg_columns()
+
+        _pos_groups = st.session_state.get("pos_col_groups", [])
 
         # Build core positions DataFrame
         pos_data = {
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
+            "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d/%m/%Y").fillna("—"),
             "Live Price":     pf["live_price"].map(_fmt_eur),
             "Day Chg %":      pf["day_change_pct"],
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
@@ -1236,7 +1311,7 @@ if _page == "portfolio" and not _is_demo:
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
-        _core_cols = {"Company", "Ticker", "Shares", "Live Price", "Day Chg %",
+        _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price", "Day Chg %",
                       "Invested", "Current", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Company")
