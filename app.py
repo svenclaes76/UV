@@ -6,13 +6,14 @@ COLUMN_HELP = {
     "★":             "Watchlist — check to add this stock to your personal watchlist.",
     "Company":       "Full company name as reported by the exchange.",
     "Ticker":        "Exchange ticker symbol on Euronext Brussels (.BR suffix).",
-    "Price":         "Current market price in EUR.",
-    "Fair Value":    (
+    "Price":           "Current market price in EUR.",
+    "💎 UV":           (
         "Weighted composite intrinsic value estimate from up to 5 models: "
         "Graham Number, PE Fair Value, EPV, DDM (single + multi-stage), and Analyst Target. "
         "Weights auto-adjust: DDM weight is zero for non-dividend payers or payout > 90%."
     ),
-    "MoS %":         (
+    "Analyst Target": "Mean analyst consensus price target from Wall Street analysts covering the stock.",
+    "MoS %":          (
         "Margin of Safety = (Fair Value − Price) / Fair Value. "
         "Positive = stock trades below estimated fair value. "
         "The algorithm requires MoS > 20–30% before a stock enters the buy zone."
@@ -21,15 +22,11 @@ COLUMN_HELP = {
         "Total Expected Return = Capital Gain % + Forward Dividend Yield + Expected DGR. "
         "A complete 1-year return estimate. > 15% = attractive, 8–15% = acceptable, < 8% = unattractive."
     ),
-    "Decision":      (
-        "Final signal from the composite score. "
-        "🟢 Strong Buy (score > 70) | 🟡 Monitor (40–70) | 🔴 Avoid (< 40). "
-        "Hard veto rules can force Avoid regardless of score: D/E > 5×, negative FCF, or dividend coverage < 1.0× with sustainability flag."
-    ),
-    "Value Score":   (
-        "Composite score 0–100. Formula: "
-        "30% × MoS rank + 18% × (100 − Risk rank) + 22% × Quality rank + 15% × Momentum rank + 15% × Dividend rank. "
-        "All components are percentile-ranked across the full universe before weighting."
+    "Score":         (
+        "Composite score 0–100 with decision signal. "
+        "🟢 Strong Buy (> 70) · 🟡 Monitor (40–70) · 🔴 Avoid (< 40). "
+        "Formula: 30% × MoS rank + 18% × (100 − Risk rank) + 22% × Quality rank + 15% × Momentum rank + 15% × Dividend rank. "
+        "Hard veto rules force Avoid regardless of score: D/E > 5×, negative FCF, or dividend coverage < 1.0× with sustainability flag."
     ),
     # ── Valuation models ──────────────────────────────────────────────────────
     "Graham #":      (
@@ -99,6 +96,7 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 import streamlit as st
+import streamlit.components.v1 as st_components
 from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
@@ -110,8 +108,8 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        PORTFOLIO_FILE, save_watchlist, load_watchlist)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
-@st.dialog("⚙️ Admin — User management", width="large")
-def _show_admin_dialog():
+def _render_admin_users():
+    """User management UI — rendered inside the Settings page."""
     users = list_users()
     if not users:
         st.info("No users found.")
@@ -124,10 +122,10 @@ def _show_admin_dialog():
                 "Role",
                 options=list(ROLES),
                 index=list(ROLES).index(u["role"]),
-                key=f"dlg_role_{u['email']}",
+                key=f"adm_role_{u['email']}",
                 label_visibility="collapsed",
             )
-            if col_save.button("Save", key=f"dlg_save_{u['email']}", use_container_width=True):
+            if col_save.button("Save", key=f"adm_save_{u['email']}", use_container_width=True):
                 ok, msg = set_role(u["email"], new_role)
                 if ok:
                     st.success(msg)
@@ -136,7 +134,7 @@ def _show_admin_dialog():
                     st.error(msg)
             current_email = st.session_state.get("user_email", "")
             if u["email"] != current_email:
-                if col_del.button("🗑️", key=f"dlg_del_{u['email']}", use_container_width=True,
+                if col_del.button("🗑️", key=f"adm_del_{u['email']}", use_container_width=True,
                                   help=f"Delete {u['email']}"):
                     ok, msg = delete_user(u["email"])
                     if ok:
@@ -149,7 +147,7 @@ def _show_admin_dialog():
 
     st.divider()
     st.subheader("Create account")
-    with st.form("dlg_admin_create_user"):
+    with st.form("adm_create_user"):
         new_email    = st.text_input("Email")
         new_password = st.text_input("Password", type="password")
         new_role_sel = st.selectbox("Role", options=list(ROLES))
@@ -162,34 +160,43 @@ def _show_admin_dialog():
                 st.error(msg)
 
 
-@st.dialog("📖 Column Reference", width="large")
-def _show_help_dialog():
-    """Modal that explains every column in the screener."""
+def _render_help():
+    """Full-page column reference, one tab per section."""
     sections = {
-        "Core columns": ["★", "Company", "Ticker", "Price", "Fair Value",
-                         "MoS %", "TER %", "Decision", "Value Score"],
-        "Valuation models": ["Graham #", "PE Fair Val", "EPV",
+        "Core UV":          ["★", "Company", "Ticker", "Price", "Analyst Target", "💎 UV",
+                             "MoS %", "TER %", "Score"],
+        "Valuation":        ["Graham #", "PE Fair Val", "EPV",
                              "DDM (1-stage)", "DDM (2-stage)"],
-        "Risk & size":      ["Risk Score", "Mkt Cap", "Beta", "Debt/Equity"],
+        "Risk & Size":      ["Risk Score", "Mkt Cap", "Beta", "Debt/Equity"],
         "Multiples":        ["P/E", "P/B", "EV/EBITDA"],
         "Quality":          ["ROE %", "ROA %", "Op Margin %", "FCF Yield %"],
         "Growth":           ["Rev Growth %", "EPS Growth %"],
         "Dividends":        ["Div Yield", "5yr Avg Yield", "Payout Ratio",
                              "Cash Payout", "Div Coverage", "Div Flag"],
     }
-    for section, cols in sections.items():
-        st.markdown(f"**{section}**")
-        for col in cols:
-            desc = COLUMN_HELP.get(col, "")
-            if desc:
-                st.markdown(
-                    f'<div style="display:flex;gap:10px;margin-bottom:6px;">'
-                    f'<span style="min-width:120px;font-weight:600;color:#a78bfa;">{col}</span>'
-                    f'<span style="color:#ccc;font-size:0.9rem;">{desc}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-        st.divider()
+    tabs = st.tabs(list(sections.keys()))
+    for tab, (section, cols) in zip(tabs, sections.items()):
+        with tab:
+            for col in cols:
+                desc = COLUMN_HELP.get(col, "")
+                if desc:
+                    st.markdown(
+                        f'<div style="display:flex;gap:10px;margin-bottom:8px;">'
+                        f'<span style="min-width:120px;font-weight:600;color:#a78bfa;">{col}</span>'
+                        f'<span style="color:#ccc;font-size:0.9rem;">{desc}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+
+def _bust_cache() -> None:
+    """Wipe the screener disk cache, clear Streamlit's data cache, and rerun."""
+    try:
+        CACHE_FILE.write_text("{}", encoding="utf-8")
+    except OSError:
+        pass
+    st.cache_data.clear()
+    st.rerun()
 
 
 def _cache_age_str() -> str:
@@ -293,6 +300,11 @@ def _fetch_fundamentals(tickers: tuple) -> dict:
     return result
 
 
+def _fmt_eur(v) -> str:
+    """Format a value as a Euro price, or '—' if missing."""
+    return f"€{v:.2f}" if pd.notna(v) else "—"
+
+
 def _fetch_live_data(tickers: tuple) -> dict:
     """Merge fast batch prices with slower-moving fundamentals."""
     prices = _fetch_prices_cached(tickers)
@@ -313,109 +325,139 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-  /* Reduce default padding */
-  .block-container { padding-top: 4rem !important; padding-bottom: 0.5rem !important; }
-  /* Tighten metric cards */
-  div[data-testid="metric-container"] { padding: 0.3rem 0.5rem !important; }
-  /* Tab bar — ensure labels are always visible */
-  div[data-testid="stTabs"] > div:first-child { margin-bottom: 0.25rem; }
-  button[data-testid="stTab"] { color: #888 !important; }
-  button[data-testid="stTab"]:hover { color: #ccc !important; }
-  button[data-testid="stTab"][aria-selected="true"] { color: #fff !important; }
-  /* Tighten caption spacing */
+  /* Fade content in smoothly on each navigation */
+  .block-container { animation: uvFadeIn 0.18s ease; }
+  @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  /* Hide Streamlit top decoration bar (coloured stripe) — keep toolbar */
+  [data-testid="stDecoration"] { display: none !important; }
+  /* Remove top header bar height so content sits at the top */
+  header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .block-container          { padding-top: 2rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+  section[data-testid="stMain"] { width: 100% !important; }
+  section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+  section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
+
+  /* ── Sidebar — fixed width, smooth appearance ───────────────────────────── */
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"] > div:first-child { min-width: 250px !important; max-width: 250px !important; width: 250px !important; z-index: 100 !important; }
+  section[data-testid="stSidebar"] { transition: none !important; }
+
+  /* ── Hide sidebar collapse button ───────────────────────────────────────── */
+  [data-testid="collapsedControl"] { display: none !important; }
+
+  /* ── Tables ──────────────────────────────────────────────────────────────── */
+  [data-testid="stDataFrame"],
+  [data-testid="stDataFrameResizable"]            { width: 100% !important; }
+  [data-testid="stDataFrame"] .dvn-scroller .cell-wrapper--header svg,
+  [data-testid="stDataFrameResizable"] .dvn-scroller .cell-wrapper--header svg,
+  .glideDataEditor .headerCellName > svg,
+  .glideDataEditor [aria-label="Column menu"]     { display: none !important; }
+
+  /* ── Metric cards ────────────────────────────────────────────────────────── */
+  div[data-testid="metric-container"]                               { padding: 0.4rem 0.75rem !important; border-radius: 10px !important; background: rgba(128,128,128,0.05) !important; text-align: center !important; }
+  div[data-testid="metric-container"] label                         { display: block; text-align: center !important; font-size: 0.75rem !important; opacity: 0.6; }
+  div[data-testid="metric-container"] [data-testid="stMetricValue"] { text-align: center !important; font-size: 1.3rem !important; font-weight: 700 !important; }
+  div[data-testid="metric-container"] [data-testid="stMetricDelta"] { justify-content: center !important; }
+  /* Compact portfolio tab layout */
+  [data-testid="stTabsContent"] [data-testid="stVerticalBlock"] { gap: 0 !important; }
+  [data-testid="stTabsContent"] [data-testid="stColumns"]       { align-items: flex-start !important; }
+  [data-testid="stTabsContent"] [data-testid="column"]          { padding-bottom: 0 !important; }
+  [data-testid="stTabsContent"] [data-testid="metric-container"]{ margin-bottom: 0 !important; padding-bottom: 0.2rem !important; }
+  [data-testid="stTabsContent"] [data-testid="stMetricDelta"]   { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────────── */
+  div[data-testid="stTabs"] > div:first-child                    { margin-bottom: 0.5rem; }
+  div[data-testid="stTabsContent"]                               { padding-top: 0 !important; padding-bottom: 0 !important; }
+  /* Tighten element gaps and divider inside tab panels */
+  [data-testid="stTabsContent"] [data-testid="stVerticalBlock"]  { gap: 0.25rem !important; }
+  [data-testid="stTabsContent"] hr                               { margin-top: -1.5rem !important; margin-bottom: 0.25rem !important; }
+  button[data-testid="stTab"]                       { color: var(--text-color) !important; opacity: 0.5; font-weight: 500; }
+  button[data-testid="stTab"]:hover                 { opacity: 0.85 !important; }
+  button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; color: var(--text-color) !important; }
+
+  /* ── Misc spacing ────────────────────────────────────────────────────────── */
+  div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Mini icon nav (always rendered; sidebar covers it when open) ───── */
+  /* ── Mini icon nav ───────────────────────────────────────────────────────── */
   .mini-nav {
-    display: flex;
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100vh;
-    width: 48px;
-    background: #0e1117;
-    border-right: 1px solid #1e2433;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 14px;
-    gap: 18px;
-    z-index: 99;        /* sidebar sits above this, covering it when open */
+    display: flex; position: fixed; left: 0; top: 0; height: 100vh; width: 48px;
+    background: var(--sidebar-background-color, var(--secondary-background-color));
+    border-right: 1px solid rgba(128,128,128,0.12);
+    flex-direction: column; justify-content: space-between; align-items: center; z-index: 99;
   }
-  .mini-nav span {
-    font-size: 1.3rem;
-    cursor: default;
-    opacity: 0.55;
-    transition: opacity 0.15s;
+  .mini-nav-top, .mini-nav-bottom { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .mini-nav-top    { padding-top: 14px; }
+  .mini-nav-bottom { padding-bottom: 18px; }
+  .mini-nav-link {
+    font-size: 1.2rem; text-decoration: none !important; opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 8px;
   }
-  .mini-nav span:hover { opacity: 1; }
-  /* Reposition sidebar expand button to sit right beside the mini nav */
-  [data-testid="collapsedControl"] {
-    left: 48px !important;
-    top: 14px !important;
-  }
+  .mini-nav-link:hover { opacity: 1; background: rgba(128,128,128,0.1); }
+  .mini-nav-active     { opacity: 1 !important; background: rgba(79,142,247,0.18) !important; }
 
-  /* ── Sidebar width ───────────────────────────────────────────────────── */
-  section[data-testid="stSidebar"] { min-width: 250px !important; max-width: 250px !important; width: 250px !important; z-index: 100 !important; }
-  section[data-testid="stSidebar"] > div:first-child { min-width: 250px !important; max-width: 250px !important; width: 250px !important; }
-
-  /* ── Sidebar nav radio → styled nav items ────────────────────────────── */
-  /* Hide the group label */
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > label { display:none !important; }
-  /* Stack vertically, full width */
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 2px !important;
+  /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
+  .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 18px; margin-top: -1.8rem; }
+  .uv-logo-gem  { font-size: 2rem; line-height: 1; }
+  .uv-logo-name { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; color: var(--text-color); }
+  .uv-logo-sub  { font-size: 0.68rem; color: var(--text-color); opacity: 0.35; margin-top: 2px; }
+  .uv-nav       { display: flex; flex-direction: column; gap: 1px; }
+  .uv-nav-item  {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+    font-size: 0.92rem; font-weight: 500; color: var(--text-color); opacity: 0.45;
+    text-decoration: none !important; transition: background 0.12s, opacity 0.12s; white-space: nowrap;
   }
-  /* Each nav item */
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label {
-    display: flex !important;
-    align-items: center !important;
-    padding: 8px 12px !important;
-    border-radius: 8px !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    color: #aaa !important;
-    transition: background 0.12s, color 0.12s !important;
-    width: 100% !important;
+  .uv-nav-item:hover { background: rgba(128,128,128,0.08); opacity: 1; }
+  .uv-nav-active     { background: rgba(79,142,247,0.14) !important; opacity: 1 !important; }
+  .uv-nav-sep        { border: none; border-top: 1px solid rgba(128,128,128,0.2); margin: 5px 2px; }
+  .uv-nav-icon       { font-size: 1rem; width: 1.25em; text-align: center; flex-shrink: 0; }
+  .uv-nav-utils { position: fixed; bottom: 62px; left: 0; width: 250px; padding: 0 16px 4px; box-sizing: border-box; }
+  .uv-bottom    {
+    position: fixed; bottom: 0; left: 0; width: 250px; padding: 8px 16px 15px;
+    background: var(--sidebar-background-color, var(--secondary-background-color));
+    border-top: 1px solid rgba(128,128,128,0.12); box-sizing: border-box;
   }
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label:hover {
-    background: rgba(255,255,255,0.06) !important;
-    color: #eee !important;
-  }
-  /* Active nav item */
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label:has(input:checked) {
-    background: rgba(79,142,247,0.15) !important;
-    color: #fff !important;
-  }
-  /* Hide radio circle */
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] input[type="radio"] { display:none !important; }
-  section[data-testid="stSidebar"] div[data-testid="stRadio"] > div > label > div:first-child { display:none !important; }
-
-  /* Sidebar admin / help buttons — styled like nav items */
-  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"] {
-    color: #aaa !important;
-    font-size: 0.95rem !important;
-    font-weight: 500 !important;
-    padding: 8px 12px !important;
-    min-height: 0 !important;
-    height: auto !important;
-    line-height: 1.4 !important;
-    width: 100% !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
-    border-radius: 8px !important;
-    background: transparent !important;
-  }
-  section[data-testid="stSidebar"] button[data-testid="stBaseButton-tertiary"]:hover {
-    background: rgba(255,255,255,0.06) !important;
-    color: #eee !important;
-  }
+  .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .uv-role-badge   { display: inline-block; background: rgba(128,128,128,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: var(--text-color); opacity: 0.5; margin-right: 5px; vertical-align: middle; }
+  .uv-logout       { font-size: 0.75rem; color: var(--text-color); opacity: 0.4; text-decoration: none !important; transition: opacity 0.12s; }
+  .uv-logout:hover { opacity: 0.8; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Authentication gate ───────────────────────────────────────────────────────
+
+# Restore JWT from localStorage via _tok query param (set by nav links)
+_tok_param = st.query_params.get("_tok", "")
+if _tok_param:
+    if not st.session_state.get("jwt_token"):
+        _email_check, _role_check = verify_token(_tok_param)
+        if _email_check:
+            st.session_state["jwt_token"]  = _tok_param
+            st.session_state["user_email"] = _email_check
+            st.session_state["user_role"]  = _role_check
+    # Remove _tok silently without triggering a rerun — just update the browser URL via JS
+    del st.query_params["_tok"]
+
+# Inject JS that reads localStorage and, if a token is stored but no active
+# session exists, sets ?_tok= and reloads — bridges hard page reloads.
+_has_session = bool(st.session_state.get("jwt_token"))
+if not _has_session:
+    st_components.html("""
+<script>
+(function(){
+  var tok = localStorage.getItem('uv_jwt');
+  if (!tok) return;
+  var url = new URL(window.parent.location.href);
+  if (url.searchParams.get('_tok')) return;  // already set, avoid loop
+  url.searchParams.set('_tok', tok);
+  window.parent.location.replace(url.toString());
+})();
+</script>
+""", height=0)
 
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
@@ -450,6 +492,7 @@ def _auth_wall():
                 st.session_state["jwt_token"]  = result
                 st.session_state["user_email"] = email.strip().lower()
                 st.session_state["user_role"]  = role
+                st_components.html(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
                 st.rerun()
             else:
                 st.error(result)
@@ -463,90 +506,166 @@ _current_role = st.session_state.get("user_role", "normal")
 _is_admin = _current_role == "administrator"
 _is_demo  = _current_role == "demo"
 _email    = st.session_state.get("user_email", "")
-_badge    = {"administrator": "🔑", "demo": "👁️"}.get(_current_role, "")
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# Page routing via query params (default: screener)
+_page = st.query_params.get("page", "screener")
+if _is_demo and _page == "portfolio":
+    _page = "screener"
+
+# ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
+# Active classes are applied by JS (uvSetActive) so sidebar HTML is identical on
+# every rerun — React makes no DOM changes → zero sidebar flash.
+
+# _tok_qs embeds the JWT into fallback hrefs so the session survives a hard reload
+_jwt    = st.session_state.get("jwt_token", "")
+_tok_qs = f"&_tok={_jwt}" if _jwt else ""
+
+
+def _nav_link(page: str, icon: str, label: str, tok_qs: str,
+              extra_class: str = "uv-nav-item") -> str:
+    """Return an HTML nav anchor that triggers uvNav() (WebSocket) with an href fallback."""
+    href = f"?page={page}{tok_qs}"
+    return (
+        f'<a href="{href}" target="_self" data-uv-page="{page}" '
+        f'onclick="if(typeof uvNav===\'function\'){{uvNav(\'{page}\');return false;}}" '
+        f'class="{extra_class}">'
+        f'<span class="uv-nav-icon">{icon}</span>{label}</a>'
+    )
+
+
+_portfolio_item = _nav_link("portfolio", "📁", "Portfolio", _tok_qs) if not _is_demo else ""
+_admin_item     = _nav_link("settings",  "⚙️", "Settings",  _tok_qs) if _is_admin else ""
+
+_role_label = {"administrator": "🔑", "demo": "demo"}.get(_current_role, "")
+_role_badge_html = (
+    f'<span class="uv-role-badge">{_role_label}</span>'
+    if _role_label else ""
+)
+
 with st.sidebar:
-    # Logo + wordmark
-    st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:0 0 20px 0;margin-top:-1rem;">
-  <div style="font-size:2rem;line-height:1;">💎</div>
+    st.markdown(f"""
+<div class="uv-logo">
+  <div class="uv-logo-gem">💎</div>
   <div>
-    <div style="font-size:1.1rem;font-weight:800;line-height:1.1;letter-spacing:-0.3px;">
-      UV <span style="font-weight:300;color:#666;">· Undervalued</span>
-    </div>
-    <div style="font-size:0.72rem;color:#666;margin-top:1px;">Portfolio tracker &amp; screener</div>
+    <div class="uv-logo-name">UV <span style="font-weight:300;opacity:0.35;">· Undervalued</span></div>
+    <div class="uv-logo-sub">Portfolio tracker &amp; screener</div>
+  </div>
+</div>
+<nav class="uv-nav">
+  {_nav_link("dashboard", "💎", "Dashboard", _tok_qs)}
+  {_nav_link("screener",  "🔍", "Screener",  _tok_qs)}
+  {_portfolio_item}
+</nav>
+<div class="uv-nav-utils">
+  <hr class="uv-nav-sep" style="margin-bottom:6px;">
+  <nav class="uv-nav">
+    {_admin_item}
+    {_nav_link("help", "❓", "Help", _tok_qs)}
+  </nav>
+</div>
+<div class="uv-bottom">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <div class="uv-bottom-email" style="margin:0;min-width:0;">{_role_badge_html}{_email}</div>
+    <a href="/?logout=1" target="_self" class="uv-logout" style="flex-shrink:0;">log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-    # Nav
-    _nav_options = ["🔍 Screener"] if _is_demo else ["🔍 Screener", "📁 Portfolio"]
-    _active_page = st.radio("Navigation", _nav_options, key="nav_page")
-
-    # Admin + help — spaced below nav, styled to match nav items
-    st.markdown('<div style="margin-top:2rem;">', unsafe_allow_html=True)
-    if _is_admin:
-        if st.button("⚙️ admin", type="tertiary", key="hdr_admin"):
-            st.session_state["show_admin"] = True
-            st.rerun()
-    if st.button("❓ help", type="tertiary", key="hdr_help"):
-        st.session_state["show_help"] = True
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Email + logout pinned to bottom
-    st.markdown(
-        f"""
-<div class="sb-bottom">
-  <hr style="border-color:#222;margin:0 0 10px 0;">
-  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;color:#555;">
-    <span>{_badge} {_email}</span>
-    <a href="/?logout=1" target="_self"
-       style="color:#555;text-decoration:none;white-space:nowrap;">↪️ log out</a>
+# ── Mini icon nav (shown when sidebar is collapsed) ───────────────────────────
+# Active state is applied by uvSetActive() in JS — no Python active classes needed.
+_mini_admin     = _nav_link("settings",  "⚙️", "", _tok_qs, "mini-nav-link") if _is_admin else ""
+_mini_portfolio = _nav_link("portfolio", "📁", "", _tok_qs, "mini-nav-link") if not _is_demo else ""
+st.markdown(f"""
+<div class="mini-nav">
+  <div class="mini-nav-top">
+    {_nav_link("dashboard", "💎", "", _tok_qs, "mini-nav-link")}
+    {_nav_link("screener",  "🔍", "", _tok_qs, "mini-nav-link")}
+    {_mini_portfolio}
+  </div>
+  <div class="mini-nav-bottom">
+    {_mini_admin}
+    {_nav_link("help", "❓", "", _tok_qs, "mini-nav-link")}
   </div>
 </div>
-<style>
-  .sb-bottom {{ position:fixed; bottom:1rem; width:218px; }}
-</style>
-""",
-        unsafe_allow_html=True,
-    )
+""", unsafe_allow_html=True)
 
-# ── Mini icon nav (collapsed sidebar) ────────────────────────────────────────
-_mini_admin = "<span title='Admin'>⚙️</span>" if _is_admin else ""
-_mini_portfolio = "" if _is_demo else "<span title='Portfolio'>📁</span>"
-st.markdown(
-    f"""
-<div class="mini-nav">
-  <span title="UV — Undervalued">💎</span>
-  <span title="Screener">🔍</span>
-  {_mini_portfolio}
-  {_mini_admin}
-  <span title="Help">❓</span>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+# Navigation component — intercepts nav clicks via Streamlit.setComponentValue
+# so page switches happen over the existing WebSocket (no browser reload = no flash).
+_nav_target = st_components.html(f"""
+<script>
+// Apply active nav highlight via an injected <style> tag (not via Python classes).
+// This keeps sidebar HTML identical on every Python rerun → React no-op → no flash.
+function uvSetActive(page) {{
+  var doc = window.parent.document;
+  var s = doc.getElementById('_uv_nav_style');
+  if (!s) {{
+    s = doc.createElement('style');
+    s.id = '_uv_nav_style';
+    doc.head.appendChild(s);
+  }}
+  s.textContent =
+    '[data-uv-page="' + page + '"].uv-nav-item  {{ background:rgba(79,142,247,0.14)!important; opacity:1!important; }}' +
+    '[data-uv-page="' + page + '"].mini-nav-link {{ background:rgba(79,142,247,0.18)!important; opacity:1!important; }}';
+}}
+// Set initial active state from current page
+uvSetActive({repr(_page)});
 
-# ── Logout query-param handler ────────────────────────────────────────────────
+// Register uvNav — updates active style then notifies Python via WebSocket
+window.parent.uvNav = function(page) {{
+  uvSetActive(page);
+  Streamlit.setComponentValue(page);
+}};
+Streamlit.setFrameHeight(0);
+
+// Keep localStorage token fresh
+(function(){{
+  var tok = {repr(st.session_state.get('jwt_token', ''))};
+  if (tok) localStorage.setItem('uv_jwt', tok);
+}})();
+
+// Hide sidebar collapse/expand button
+(function hideBtn() {{
+  var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+  if (el) (el.closest('div') || el).style.setProperty('display','none','important');
+}})();
+new MutationObserver(function(){{
+  var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+  if (el) (el.closest('div') || el).style.setProperty('display','none','important');
+}}).observe(window.parent.document.body, {{childList:true, subtree:true}});
+</script>
+""", height=0)
+
+_valid_pages = {"dashboard", "screener", "portfolio", "settings", "help"}
+
+@st.fragment
+def _render_page():
+    """Handles nav clicks via WebSocket — updates query param without page reload."""
+    if isinstance(_nav_target, str) and _nav_target in _valid_pages:
+        st.query_params["page"] = _nav_target
+        st.rerun(scope="fragment")
+
+_render_page()
+
+# ── Logout handler (outside fragment so it can clear session properly) ────────
 if st.query_params.get("logout") == "1":
     st.query_params.clear()
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
+    st_components.html("<script>localStorage.removeItem('uv_jwt');</script>", height=0)
     st.rerun()
 
-if st.session_state.pop("show_admin", False):
-    _show_admin_dialog()
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
 
-if st.session_state.pop("show_help", False):
-    _show_help_dialog()
+if _page == "dashboard":
+    st.info("💎 Dashboard — coming soon.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — VALUE SCREENER
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _active_page == "🔍 Screener":
+if _page == "screener":
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
@@ -556,12 +675,7 @@ if _active_page == "🔍 Screener":
         # If the cached DataFrame predates the algorithm rework, bust caches and
         # rerun the script so the cleared cache takes effect from a clean start.
         if "fair_value" not in df.columns or "Decision" not in df.columns:
-            try:
-                CACHE_FILE.write_text("{}", encoding="utf-8")
-            except OSError:
-                pass
-            st.cache_data.clear()
-            st.rerun()
+            _bust_cache()
 
     watchlist = load_watchlist()
 
@@ -569,9 +683,6 @@ if _active_page == "🔍 Screener":
         if pd.isna(v):
             return "—"
         return f"{v:+.1f}%"
-
-    def _fmt_decision(v):
-        return {"Strong Buy": "🟢 Strong Buy", "Monitor": "🟡 Monitor", "Avoid": "🔴 Avoid"}.get(v, v)
 
     def _fmt_div_flag(v):
         return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
@@ -582,21 +693,21 @@ if _active_page == "🔍 Screener":
         "★":           (None,         None),
         "Company":     ("Name",       lambda v: v),
         "Ticker":      ("Ticker",     lambda v: v),
-        "Price":       ("Price",      lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-        "Fair Value":  ("fair_value", lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-        "MoS %":       ("MoS %",      _fmt_mos),
-        "TER %":       ("TER %",      lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-        "Decision":    ("Decision",   _fmt_decision),
-        "Value Score": ("Value Score",lambda v: v),
+        "Price":             ("Price",           _fmt_eur),
+        "Analyst Target":   ("targetMeanPrice", _fmt_eur),
+        "💎 UV":            ("fair_value",      _fmt_eur),
+        "MoS %":  ("MoS %", _fmt_mos),
+        "TER %":  ("TER %", lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
+        "Score":  (None,    None),   # built row-by-row below from Decision + Value Score
     }
 
     EXTRA_GROUPS = {
         "Valuation models": {
-            "Graham #":      ("graham_number",   lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "PE Fair Val":   ("pe_fair_value",   lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "EPV":           ("epv",             lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "DDM (1-stage)": ("ddm",             lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "DDM (2-stage)": ("ddm_multistage",  lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Graham #":      ("graham_number",  _fmt_eur),
+            "PE Fair Val":   ("pe_fair_value",  _fmt_eur),
+            "EPV":           ("epv",            _fmt_eur),
+            "DDM (1-stage)": ("ddm",            _fmt_eur),
+            "DDM (2-stage)": ("ddm_multistage", _fmt_eur),
         },
         "Risk & size": {
             "Risk Score":    ("Risk Score",      lambda v: v),
@@ -630,28 +741,27 @@ if _active_page == "🔍 Screener":
     }
 
     # Column config for every possible column — help= adds hover tooltip on header
-    def _h(col): return COLUMN_HELP.get(col)
-
+    _ch = COLUMN_HELP.get  # shorthand
     _col_config_map = {
-        "★":            st.column_config.CheckboxColumn("★",            width=40,  help=_h("★")),
-        "Company":      st.column_config.TextColumn(    "Company",      width=180, help=_h("Company")),
-        "Ticker":       st.column_config.TextColumn(    "Ticker",       width=90,  help=_h("Ticker")),
-        "Price":        st.column_config.TextColumn(    "Price",        width=80,  help=_h("Price")),
-        "Fair Value":   st.column_config.TextColumn(    "Fair Value",   width=90,  help=_h("Fair Value")),
-        "MoS %":        st.column_config.TextColumn(    "MoS %",        width=75,  help=_h("MoS %")),
-        "TER %":        st.column_config.TextColumn(    "TER %",        width=75,  help=_h("TER %")),
-        "Decision":     st.column_config.TextColumn(    "Decision",     width=130, help=_h("Decision")),
-        "Value Score":  st.column_config.ProgressColumn("Value Score",  width=120,
-                             min_value=0, max_value=100, format="%.1f", help=_h("Value Score")),
-        "Risk Score":   st.column_config.ProgressColumn("Risk Score",   width=110,
-                             min_value=0, max_value=10,  format="%.1f", help=_h("Risk Score")),
-        "Mkt Cap":      st.column_config.TextColumn(    "Mkt Cap",      width=80,  help=_h("Mkt Cap")),
-        "Beta":         st.column_config.TextColumn(    "Beta",         width=55,  help=_h("Beta")),
-        "Debt/Equity":  st.column_config.TextColumn(    "Debt/Equity",  width=95,  help=_h("Debt/Equity")),
-        "P/E":          st.column_config.TextColumn(    "P/E",          width=60,  help=_h("P/E")),
-        "P/B":          st.column_config.TextColumn(    "P/B",          width=60,  help=_h("P/B")),
-        "EV/EBITDA":    st.column_config.TextColumn(    "EV/EBITDA",    width=90,  help=_h("EV/EBITDA")),
-        **{c: st.column_config.TextColumn(c, width=100, help=_h(c))
+        "★":             st.column_config.CheckboxColumn("★",             width=55,  help=_ch("★")),
+        "Company":       st.column_config.TextColumn(    "Company",       width=180, help=_ch("Company")),
+        "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
+        "Price":         st.column_config.TextColumn(    "Price",         width=80,  help=_ch("Price")),
+        "💎 UV":         st.column_config.TextColumn(    "💎 UV",         width=90,  help=_ch("💎 UV")),
+        "Analyst Target":st.column_config.TextColumn(    "Analyst Target",width=110, help=_ch("Analyst Target")),
+        "MoS %":         st.column_config.TextColumn(    "MoS %",         width=75,  help=_ch("MoS %")),
+        "TER %":         st.column_config.TextColumn(    "TER %",         width=75,  help=_ch("TER %")),
+        "Score":         st.column_config.TextColumn(     "Score",         width=110,
+                             help="🟢 Strong Buy (>70)  ·  🟡 Monitor (40–70)  ·  🔴 Avoid (<40)"),
+        "Risk Score":    st.column_config.ProgressColumn("Risk Score",    width=110,
+                             min_value=0, max_value=10,  format="%.1f",   help=_ch("Risk Score")),
+        "Mkt Cap":       st.column_config.TextColumn(    "Mkt Cap",       width=80,  help=_ch("Mkt Cap")),
+        "Beta":          st.column_config.TextColumn(    "Beta",          width=55,  help=_ch("Beta")),
+        "Debt/Equity":   st.column_config.TextColumn(    "Debt/Equity",   width=95,  help=_ch("Debt/Equity")),
+        "P/E":           st.column_config.TextColumn(    "P/E",           width=60,  help=_ch("P/E")),
+        "P/B":           st.column_config.TextColumn(    "P/B",           width=60,  help=_ch("P/B")),
+        "EV/EBITDA":     st.column_config.TextColumn(    "EV/EBITDA",     width=90,  help=_ch("EV/EBITDA")),
+        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
            for g in EXTRA_GROUPS.values() for c in g
            if c not in ("Risk Score",)},
     }
@@ -666,10 +776,21 @@ if _active_page == "🔍 Screener":
             placeholder="Show additional column groups…",
         )
 
+        # Score column: emoji colour prefix + value
+        _score_emoji = {"Strong Buy": "🟢", "Monitor": "🟡", "Avoid": "🔴"}
+        def _fmt_score(row):
+            s = row.get("Value Score")
+            if pd.isna(s):
+                return "—"
+            e = _score_emoji.get(row.get("Decision", ""), "")
+            return f"{e} {s:.1f}" if e else f"{s:.1f}"
+
         # Build the display DataFrame from core cols + selected extras
         display_data = {"★": tab_df["Ticker"].isin(watchlist)}
         for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
-            if field in tab_df.columns:
+            if col == "Score":
+                display_data[col] = tab_df.apply(_fmt_score, axis=1).values
+            elif field in tab_df.columns:
                 display_data[col] = tab_df[field].map(fmt).values
             else:
                 display_data[col] = "—"
@@ -687,15 +808,19 @@ if _active_page == "🔍 Screener":
 
         all_data_cols = [c for c in display_df.columns if c != "★"]
         col_config    = {c: _col_config_map[c] for c in display_df.columns if c in _col_config_map}
-        disabled_cols = all_data_cols if _is_demo else all_data_cols
+        disabled_cols = list(display_df.columns) if _is_demo else all_data_cols
+
+        _row_h  = 35
+        _header = 38
+        _height = min(_header + len(display_df) * _row_h + 4, 800)
 
         edited = st.data_editor(
             display_df,
             use_container_width=True,
             hide_index=True,
             column_config=col_config,
-            disabled=disabled_cols if _is_demo else all_data_cols,
-            height=500,
+            disabled=disabled_cols,
+            height=_height,
             key=f"table_{key_suffix}",
         )
         return edited
@@ -704,16 +829,11 @@ if _active_page == "🔍 Screener":
 
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
-        _wl_tickers = load_watchlist()
+        _wl_tickers = watchlist
         _wl_col, _wl_refresh = st.columns([9, 1])
         with _wl_refresh:
             if st.button("🔄 refresh", type="tertiary", key="wl_refresh"):
-                try:
-                    CACHE_FILE.write_text("{}", encoding="utf-8")
-                except OSError:
-                    pass
-                st.cache_data.clear()
-                st.rerun()
+                _bust_cache()
         if not _wl_tickers:
             st.info("Check ★ next to any stock in Euronext Brussels to add it to your watchlist.")
         else:
@@ -737,12 +857,7 @@ if _active_page == "🔍 Screener":
         _br_col, _br_toggle, _br_refresh = st.columns([7, 2, 1])
         with _br_refresh:
             if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
-                try:
-                    CACHE_FILE.write_text("{}", encoding="utf-8")
-                except OSError:
-                    pass
-                st.cache_data.clear()
-                st.rerun()
+                _bust_cache()
         with _br_toggle:
             _show_all = st.toggle(
                 "unvalued stocks",
@@ -780,7 +895,7 @@ if _active_page == "🔍 Screener":
 # PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _active_page == "📁 Portfolio" and not _is_demo:
+if _page == "portfolio" and not _is_demo:
 
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
@@ -849,21 +964,19 @@ if _active_page == "📁 Portfolio" and not _is_demo:
 
     price_gain     = total_current - total_invested
     price_gain_pct = price_gain / total_invested * 100 if total_invested else 0
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Invested",            f"€{total_invested:,.0f}")
-    c2.metric("Current value",       f"€{total_current:,.0f}",
-              delta=f"€{price_gain:+,.0f}")
-    c3.metric("Price gain",          f"{price_gain_pct:+.1f}%",
-              delta=f"€{price_gain:+,.0f}")
-    c4.metric("Dividends received",  f"€{total_dividends:,.0f}")
-    c5.metric("Total return",        f"€{total_return:+,.0f}",
-              delta=f"{total_return_pct:+.1f}%")
 
+    st_autorefresh(interval=60_000, key="portfolio_refresh")
     sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
-        st_autorefresh(interval=60_000, key="portfolio_refresh")
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Invested",           f"€{total_invested:,.0f}")
+        c2.metric("Current value",      f"€{total_current:,.0f}",  delta=f"€{price_gain:+,.0f}")
+        c3.metric("Price gain",         f"{price_gain_pct:+.1f}%", delta=f"€{price_gain:+,.0f}")
+        c4.metric("Dividends received", f"€{total_dividends:,.0f}")
+        c5.metric("Total return",       f"€{total_return:+,.0f}",  delta=f"{total_return_pct:+.1f}%")
+        st.divider()
         positions = pd.DataFrame({
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
@@ -914,17 +1027,15 @@ if _active_page == "📁 Portfolio" and not _is_demo:
         else:
             total_hist = total_dividends
 
-        d1, d2, d3, d4 = st.columns(4)
-        d1.metric("Total received (history)", f"€{total_hist:,.2f}")
-        d2.metric("Current holdings received", f"€{total_dividends:,.2f}")
-        d3.metric("Expected next 12 mths",     f"€{total_expected:,.2f}")
-        d4.metric("Portfolio yield",
-                  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
-
+        _div_paying = int((pf["div_rate"] > 0).sum())
+        d1, d2, d3, d4, d5 = st.columns(5)
+        d1.metric("Total received",   f"€{total_hist:,.2f}")
+        d2.metric("Current holdings", f"€{total_dividends:,.2f}")
+        d3.metric("Expected 12 mths", f"€{total_expected:,.2f}")
+        d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
+        d5.metric("Paying positions", f"{_div_paying} / {len(pf)}")
+        st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
         st.divider()
-
-        # Per-position summary for current holdings
-        st.subheader("Current holdings — dividend summary")
         _gross = pf["dividends"].fillna(0)
         _tax   = (_gross * 0.30).round(2)
         _net   = (_gross - _tax).round(2)
@@ -1013,13 +1124,16 @@ if _active_page == "📁 Portfolio" and not _is_demo:
             sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
 
             # Summary cards
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("Positions sold",   len(sold))
-            s2.metric("Total invested",   f"€{pd.to_numeric(sold['purchase_value'], errors='coerce').sum():,.0f}")
-            s3.metric("Total proceeds",   f"€{pd.to_numeric(sold['sale_value'], errors='coerce').sum():,.0f}")
-            s4.metric("Total realised return", f"€{sold['total_return'].sum():+,.0f}",
-                      delta=f"{sold['total_return'].sum() / pd.to_numeric(sold['purchase_value'], errors='coerce').sum() * 100:+.1f}%")
-
+            _pv_sum   = pv.sum()
+            _tr_sum   = sold["total_return"].sum()
+            _avg_days = sold["held_days"].dropna().mean()
+            s1, s2, s3, s4, s5 = st.columns(5)
+            s1.metric("Positions sold",  len(sold))
+            s2.metric("Total invested",  f"€{_pv_sum:,.0f}")
+            s3.metric("Total proceeds",  f"€{sv.sum():,.0f}")
+            s4.metric("Realised return", f"€{_tr_sum:+,.0f}",
+                      delta=f"{_tr_sum / _pv_sum * 100:+.1f}%" if _pv_sum else "—")
+            s5.metric("Avg hold period", f"{_avg_days:.0f} days" if pd.notna(_avg_days) else "—")
             st.divider()
 
             sold_table = pd.DataFrame({
@@ -1053,7 +1167,7 @@ if _active_page == "📁 Portfolio" and not _is_demo:
 
     # ── Re-upload option ──────────────────────────────────────────────────────
     if not _is_demo:
-      st.divider()
+        st.divider()
     with st.expander("Re-upload portfolio file", expanded=False) if not _is_demo else st.empty():
         st.warning("This will replace your current portfolio data.")
         new_file = st.file_uploader("Upload new .xlsx", type=["xlsx"], key="reupload")
@@ -1072,4 +1186,22 @@ if _active_page == "📁 Portfolio" and not _is_demo:
             except Exception as e:
                 st.error(f"Could not parse file: {e}")
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — SETTINGS
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _page == "settings":
+    if _is_admin:
+        tab_admin, = st.tabs(["🔑 Users"])
+        with tab_admin:
+            _render_admin_users()
+    else:
+        st.info("No settings available for your account.")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — HELP
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _page == "help":
+    _render_help()
 
