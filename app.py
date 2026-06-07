@@ -1106,7 +1106,7 @@ if _page == "portfolio" and not _is_demo:
         if _show_edit:
             st.caption("Edit values inline · check **Delete** to remove a row · press **Save** to apply")
             _edit_df = pf[["name", "ticker", "shares", "purchase_price",
-                            "date_in", "account"]].copy()
+                            "date_in", "account"]].copy().sort_values("name")
             _edit_df.insert(0, "Delete", False)
             _edit_df["date_in"] = pd.to_datetime(_edit_df["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.date
 
