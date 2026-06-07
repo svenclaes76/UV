@@ -1098,9 +1098,10 @@ if _page == "portfolio" and not _is_demo:
         # ── CRUD actions ─────────────────────────────────────────────────────
         @st.dialog("Edit positions", width="large")
         def _dlg_edit_position():
-            _edit_src = pf.sort_values("name").reset_index()  # keep orig idx in 'index' col
+            _edit_src = pf.sort_values("name").reset_index()  # orig idx in 'index' col
             _tbl = pd.DataFrame({
                 "_idx":        _edit_src["index"],
+                "🗑️":          False,
                 "Company":     _edit_src["name"],
                 "Stocks":      pd.to_numeric(_edit_src["shares"], errors="coerce").fillna(0).astype(int),
                 "Total Price": (
@@ -1109,40 +1110,48 @@ if _page == "portfolio" and not _is_demo:
                 ).round(2),
             })
 
+            _row_h  = 35
+            _header = 38
+            _height = _header + len(_tbl) * _row_h + 4
+
             _edited = st.data_editor(
                 _tbl.drop(columns="_idx"),
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
+                height=_height,
                 column_config={
-                    "Company":     st.column_config.TextColumn("Company",       disabled=True, width="stretch"),
-                    "Stocks":      st.column_config.NumberColumn("Stocks",      min_value=1, step=1, format="%d"),
-                    "Total Price": st.column_config.NumberColumn("Total Price (€)", min_value=0.01, format="%.2f"),
+                    "🗑️":          st.column_config.CheckboxColumn("🗑️",               width=40),
+                    "Company":     st.column_config.TextColumn("Company",              disabled=True, width="stretch"),
+                    "Stocks":      st.column_config.NumberColumn("Stocks",             min_value=1, step=1, format="%d", width=90),
+                    "Total Price": st.column_config.NumberColumn("Total Price (€)",    min_value=0.01, format="%.2f", width=130),
                 },
                 key="dlg_edit_table",
             )
 
+            to_delete  = _edited[_edited["🗑️"]].index.tolist()
+            to_keep    = _edited[~_edited["🗑️"]]
+            n_selected = len(to_delete)
+
             col_save, col_del = st.columns([3, 1])
             with col_save:
                 if st.button("💾 Save changes", type="primary", use_container_width=True):
-                    for i, row in _edited.iterrows():
+                    for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
                         new_shares = max(1, int(row["Stocks"]))
                         new_total  = float(row["Total Price"])
                         pf.at[orig_idx, "shares"]         = new_shares
                         pf.at[orig_idx, "purchase_price"] = round(new_total / new_shares, 4)
                         pf.at[orig_idx, "purchase_value"] = round(new_total, 2)
+                    if to_delete:
+                        del_orig = [int(_tbl.iloc[i]["_idx"]) for i in to_delete]
+                        pf.drop(index=del_orig, inplace=True)
+                        pf.reset_index(drop=True, inplace=True)
                     update_positions(pf)
                     st.rerun()
             with col_del:
-                _del_company = st.selectbox("Delete", ["—"] + _tbl["Company"].tolist(),
-                                            label_visibility="collapsed")
-                if _del_company != "—":
-                    _del_idx = int(_tbl[_tbl["Company"] == _del_company]["_idx"].iloc[0])
-                    if st.button(f"🗑️ Delete {_del_company}", type="secondary",
-                                 use_container_width=True):
-                        update_positions(pf.drop(index=_del_idx).reset_index(drop=True))
-                        st.rerun()
+                if n_selected:
+                    st.caption(f"{n_selected} selected for deletion")
 
         _act_add, _act_edit, _ = st.columns([1, 1, 5])
         with _act_add:
