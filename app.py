@@ -957,7 +957,7 @@ if _page == "portfolio" and not _is_demo:
                 try:
                     pf, sold, div_hist = parse_excel(uploaded)
                     if pf.empty:
-                        st.error("No open EBR: positions found. Check that your file matches the expected format.")
+                        st.error("No open EBR:/EAM: positions found. Check that your file matches the expected format.")
                     else:
                         save_portfolio(pf)
                         save_sold(sold)
@@ -1000,8 +1000,10 @@ if _page == "portfolio" and not _is_demo:
     pf["day_change_pct"]  = pf["ticker"].map(lambda t: live_data[t].get("day_change_pct"))
     pf["prev_close"]      = pf["ticker"].map(lambda t: live_data[t].get("prev_close"))
 
-    # Attach screener data (value score + all extra column fields)
-    _scr = load_screener_data().set_index("Ticker")
+    # Attach screener data (value score + all extra column fields) — Brussels + Amsterdam
+    _scr = pd.concat(
+        [load_screener_data(), load_amsterdam_screener_data()], ignore_index=True
+    ).set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
     def _scr_col(field: str) -> "pd.Series":

@@ -80,15 +80,15 @@ def _read_sheet(file) -> pd.DataFrame:
         17: "date_out",
     })
 
-    # Keep only rows with a valid EBR: ticker
-    mask = raw["google_ticker"].astype(str).str.startswith("EBR:")
+    # Keep only rows with a valid EBR: (Brussels) or EAM: (Amsterdam) ticker
+    mask = raw["google_ticker"].astype(str).str.startswith(("EBR:", "EAM:"))
     return raw[mask].copy()
 
 
 def parse_excel(file) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Parse the portfolio Excel file.
-    Returns (open_positions, sold_positions, dividend_history) — all EBR: only.
+    Returns (open_positions, sold_positions, dividend_history) — EBR: and EAM: tickers.
     """
     df = _read_sheet(file)
 
@@ -97,7 +97,11 @@ def parse_excel(file) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["date_in"]  = pd.to_datetime(df["date_in"],  errors="coerce")
     df["date_out"] = pd.to_datetime(df["date_out"], errors="coerce")
-    df["ticker"]   = df["google_ticker"].str.split(":").str[1] + ".BR"
+    _suffix_map = {"EBR": ".BR", "EAM": ".AS"}
+    df["ticker"] = df["google_ticker"].apply(
+        lambda v: v.split(":")[1] + _suffix_map.get(v.split(":")[0], ".BR")
+        if isinstance(v, str) and ":" in v else None
+    )
 
     has_exit = df["date_out"].notna()
 
