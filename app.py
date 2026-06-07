@@ -1096,42 +1096,53 @@ if _page == "portfolio" and not _is_demo:
         st.divider()
 
         # ── CRUD actions ─────────────────────────────────────────────────────
-        _pos_names_sorted = pf.sort_values("name")["name"].tolist()
-
-        @st.dialog("Edit position")
+        @st.dialog("Edit positions", width="large")
         def _dlg_edit_position():
-            company = st.selectbox("Company", _pos_names_sorted)
-            _row    = pf[pf["name"] == company].iloc[0]
-            _idx    = pf[pf["name"] == company].index[0]
-            _cur_shares = int(_row.get("shares", 1) or 1)
-            _cur_total  = round(
-                float(_row.get("purchase_price", 0) or 0) * _cur_shares, 2
-            )
-            _cur_date = pd.to_datetime(
-                _row.get("date_in"), format="mixed", dayfirst=False, errors="coerce"
-            )
-            _cur_date = _cur_date.date() if pd.notna(_cur_date) else None
+            _edit_src = pf.sort_values("name").reset_index()  # keep orig idx in 'index' col
+            _tbl = pd.DataFrame({
+                "_idx":        _edit_src["index"],
+                "Company":     _edit_src["name"],
+                "Stocks":      pd.to_numeric(_edit_src["shares"], errors="coerce").fillna(0).astype(int),
+                "Total Price": (
+                    pd.to_numeric(_edit_src["purchase_price"], errors="coerce") *
+                    pd.to_numeric(_edit_src["shares"],         errors="coerce")
+                ).round(2),
+            })
 
-            shares      = st.number_input("Number of stocks", min_value=1, step=1,
-                                          value=_cur_shares, format="%d")
-            total_price = st.number_input("Total purchase price (€)", min_value=0.01,
-                                          step=0.01, value=_cur_total, format="%.2f")
-            pur_date    = st.date_input("Purchase date", value=_cur_date)
+            _edited = st.data_editor(
+                _tbl.drop(columns="_idx"),
+                use_container_width=True,
+                hide_index=True,
+                num_rows="fixed",
+                column_config={
+                    "Company":     st.column_config.TextColumn("Company",       disabled=True, width="stretch"),
+                    "Stocks":      st.column_config.NumberColumn("Stocks",      min_value=1, step=1, format="%d"),
+                    "Total Price": st.column_config.NumberColumn("Total Price (€)", min_value=0.01, format="%.2f"),
+                },
+                key="dlg_edit_table",
+            )
 
             col_save, col_del = st.columns([3, 1])
             with col_save:
-                if st.button("💾 Save", type="primary", use_container_width=True):
-                    pf.at[_idx, "shares"]         = int(shares)
-                    pf.at[_idx, "purchase_price"]  = round(total_price / shares, 4)
-                    pf.at[_idx, "purchase_value"]  = round(total_price, 2)
-                    pf.at[_idx, "date_in"]         = pd.Timestamp(pur_date).isoformat()
+                if st.button("💾 Save changes", type="primary", use_container_width=True):
+                    for i, row in _edited.iterrows():
+                        orig_idx = int(_tbl.iloc[i]["_idx"])
+                        new_shares = max(1, int(row["Stocks"]))
+                        new_total  = float(row["Total Price"])
+                        pf.at[orig_idx, "shares"]         = new_shares
+                        pf.at[orig_idx, "purchase_price"] = round(new_total / new_shares, 4)
+                        pf.at[orig_idx, "purchase_value"] = round(new_total, 2)
                     update_positions(pf)
                     st.rerun()
             with col_del:
-                if st.button("🗑️ Delete", type="secondary", use_container_width=True):
-                    updated = pf.drop(index=_idx).reset_index(drop=True)
-                    update_positions(updated)
-                    st.rerun()
+                _del_company = st.selectbox("Delete", ["—"] + _tbl["Company"].tolist(),
+                                            label_visibility="collapsed")
+                if _del_company != "—":
+                    _del_idx = int(_tbl[_tbl["Company"] == _del_company]["_idx"].iloc[0])
+                    if st.button(f"🗑️ Delete {_del_company}", type="secondary",
+                                 use_container_width=True):
+                        update_positions(pf.drop(index=_del_idx).reset_index(drop=True))
+                        st.rerun()
 
         _act_add, _act_edit, _ = st.columns([1, 1, 5])
         with _act_add:
