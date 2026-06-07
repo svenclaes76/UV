@@ -101,7 +101,7 @@ from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
 
-from fetch_tickers import fetch_brussels_tickers
+from fetch_tickers import fetch_brussels_tickers, fetch_amsterdam_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
@@ -230,6 +230,12 @@ def _fmt_div_flag(v) -> str:
 @st.cache_data(show_spinner=False)
 def load_screener_data() -> pd.DataFrame:
     stocks = fetch_brussels_tickers()
+    return run_screener(stocks)
+
+
+@st.cache_data(show_spinner=False)
+def load_amsterdam_screener_data() -> pd.DataFrame:
+    stocks = fetch_amsterdam_tickers()
     return run_screener(stocks)
 
 
@@ -675,7 +681,8 @@ if _page == "screener":
 
 
     with st.spinner("Loading screener data…"):
-        df = load_screener_data()
+        df     = load_screener_data()
+        df_ams = load_amsterdam_screener_data()
         # If the cached DataFrame predates the algorithm rework, bust caches and
         # rerun the script so the cleared cache takes effect from a clean start.
         if "fair_value" not in df.columns or "Decision" not in df.columns:
@@ -770,7 +777,8 @@ if _page == "screener":
     def _render_table(tab_df, key_suffix):
         """Render the screener table with optional column groups."""
         selected_groups = st.multiselect(
-            "➕ Add columns",
+            "Add columns",
+            label_visibility="collapsed",
             options=list(EXTRA_GROUPS.keys()),
             default=[],
             key=f"col_groups_{key_suffix}",
@@ -833,7 +841,9 @@ if _page == "screener":
         )
         return edited
 
-    tab_watchlist, tab_brussels = st.tabs(["★ Watchlist", "Euronext Brussels"])
+    tab_watchlist, tab_brussels, tab_amsterdam = st.tabs(
+        ["★ Watchlist", "Euronext Brussels", "Euronext Amsterdam"]
+    )
 
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
@@ -843,9 +853,10 @@ if _page == "screener":
             if st.button("🔄 refresh", type="tertiary", key="wl_refresh"):
                 _bust_cache()
         if not _wl_tickers:
-            st.info("Check ★ next to any stock in Euronext Brussels to add it to your watchlist.")
+            st.info("Check ★ next to any stock in Brussels or Amsterdam to add it to your watchlist.")
         else:
-            wl_df = df[df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+            _all_df = pd.concat([df, df_ams], ignore_index=True)
+            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
             wl_df.index += 1
             with _wl_col:
                 st.markdown(f"**{len(wl_df)}** stocks · uncheck ★ to remove")
@@ -861,7 +872,6 @@ if _page == "screener":
         _valued     = df["fair_value"].notna()
         _n_unvalued = (~_valued).sum()
 
-        # Single row: count (left) | toggle | refresh (right)
         _br_col, _br_toggle, _br_refresh = st.columns([7, 2, 1])
         with _br_refresh:
             if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
@@ -885,6 +895,37 @@ if _page == "screener":
             new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
             if new_watchlist != watchlist:
                 save_watchlist(new_watchlist)
+                st.rerun()
+
+    # ── Tab: Euronext Amsterdam ───────────────────────────────────────────────
+    with tab_amsterdam:
+        _ams_valued     = df_ams["fair_value"].notna()
+        _ams_n_unvalued = (~_ams_valued).sum()
+
+        _ams_col, _ams_toggle, _ams_refresh = st.columns([7, 2, 1])
+        with _ams_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="ams_refresh"):
+                _bust_cache()
+        with _ams_toggle:
+            _ams_show_all = st.toggle(
+                "unvalued stocks",
+                value=False,
+                key="ams_show_unvalued",
+            ) if _ams_n_unvalued > 0 else False
+
+        _ams_df = df_ams if _ams_show_all else df_ams[_ams_valued].reset_index(drop=True)
+        _ams_df.index = range(1, len(_ams_df) + 1)
+
+        _ams_hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+        with _ams_col:
+            st.markdown(f"**{len(_ams_df)}** stocks · {_ams_hint}")
+        ams_edited = _render_table(_ams_df, "ams")
+
+        if not _is_demo:
+            ams_new_watchlist = set(ams_edited.loc[ams_edited["★"], "Ticker"].tolist())
+            merged_watchlist  = (watchlist - set(df_ams["Ticker"])) | ams_new_watchlist
+            if merged_watchlist != watchlist:
+                save_watchlist(merged_watchlist)
                 st.rerun()
 
         col_dist, col_decision = st.columns(2)
@@ -1042,7 +1083,8 @@ if _page == "portfolio" and not _is_demo:
         }
 
         _pos_groups = st.multiselect(
-            "➕ Add columns",
+            "Add columns",
+            label_visibility="collapsed",
             options=list(_POS_EXTRA_GROUPS.keys()),
             default=[],
             key="pos_col_groups",

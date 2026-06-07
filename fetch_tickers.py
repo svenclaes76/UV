@@ -13,7 +13,8 @@ import requests
 import pandas as pd
 from io import StringIO
 
-STOCKANALYSIS_URL = "https://stockanalysis.com/list/euronext-brussels/"
+STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
+STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
 
 HEADERS = {
     "User-Agent": (
@@ -79,6 +80,66 @@ def _hardcoded_bel20() -> list[dict]:
     ]
     print(f"[fetch_tickers] Using hardcoded BEL20 ({len(entries)} stocks)")
     return [{"name": n, "isin": "", "ticker": f"{t}.BR", "mic": "XBRU"} for n, t in entries]
+
+
+def fetch_amsterdam_tickers() -> list[dict]:
+    """
+    Returns a list of dicts with keys: name, isin, ticker, mic.
+    Tries stockanalysis.com first, falls back to hardcoded AEX25.
+    """
+    try:
+        resp = requests.get(STOCKANALYSIS_AMS_URL, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        tables = pd.read_html(StringIO(resp.text))
+        if not tables:
+            raise ValueError("No tables found on page")
+
+        df = tables[0]
+        if "Symbol" not in df.columns or "Company Name" not in df.columns:
+            raise ValueError(f"Unexpected columns: {list(df.columns)}")
+
+        stocks = []
+        for _, row in df.iterrows():
+            symbol = str(row["Symbol"]).strip()
+            name   = str(row["Company Name"]).strip()
+            if not symbol or symbol == "nan":
+                continue
+            stocks.append({
+                "name":   name,
+                "isin":   "",
+                "ticker": f"{symbol}.AS",
+                "mic":    "XAMS",
+            })
+
+        if stocks:
+            print(f"[fetch_tickers] Loaded {len(stocks)} Amsterdam stocks from stockanalysis.com")
+            return stocks
+
+    except Exception as e:
+        print(f"[fetch_tickers] stockanalysis.com AMS failed: {e}. Falling back to AEX25.")
+
+    return _hardcoded_aex25()
+
+
+def _hardcoded_aex25() -> list[dict]:
+    """AEX25 constituents as a last-resort fallback."""
+    entries = [
+        ("ASML",            "ASML"),  ("Shell",           "SHEL"),
+        ("ING",             "INGA"),  ("Heineken",        "HEIA"),
+        ("Unilever",        "UNA"),   ("Philips",         "PHIA"),
+        ("ABN AMRO",        "ABN"),   ("Aegon",           "AGN"),
+        ("Akzo Nobel",      "AKZA"),  ("NN Group",        "NN"),
+        ("Wolters Kluwer",  "WKL"),   ("Randstad",        "RAND"),
+        ("ArcelorMittal",   "MT"),    ("DSM-Firmenich",   "DSFIR"),
+        ("Adyen",           "ADYEN"), ("ASR Nederland",   "ASRNL"),
+        ("Signify",         "LIGHT"), ("Flow Traders",    "FLOW"),
+        ("Fugro",           "FUR"),   ("Corbion",         "CRBN"),
+        ("OCI",             "OCI"),   ("SBM Offshore",    "SBMO"),
+        ("Aalberts",        "AALB"),  ("Besi",            "BESI"),
+        ("Just Eat",        "TKWY"),
+    ]
+    print(f"[fetch_tickers] Using hardcoded AEX25 ({len(entries)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}.AS", "mic": "XAMS"} for n, t in entries]
 
 
 if __name__ == "__main__":
