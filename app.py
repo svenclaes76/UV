@@ -987,9 +987,9 @@ if _page == "portfolio" and not _is_demo:
         # ── Column groups (same groups as screener) ───────────────────────────
         _POS_EXTRA_GROUPS = {
             "Valuation": {
+                "Analyst Target": pf["analyst_target"].map(_fmt_eur),
                 "💎 UV":          pf["fair_value"].map(_fmt_eur),
                 "UV Upside %":    pf["fv_upside_pct"],
-                "Analyst Target": pf["analyst_target"].map(_fmt_eur),
             },
             "Valuation models": {
                 "Graham #":       _scr_col("graham_number").map(_fmt_eur),
