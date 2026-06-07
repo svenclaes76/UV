@@ -1130,6 +1130,10 @@ if _page == "portfolio" and not _is_demo:
             if st.button("💾 Save changes", type="primary", key="pos_crud_save"):
                 to_delete = _edited[_edited["Delete"]].index.tolist()
                 to_keep   = _edited[~_edited["Delete"]].copy()
+                # Convert date column back to ISO string to match storage format
+                to_keep["date_in"] = pd.to_datetime(
+                    to_keep["date_in"], errors="coerce"
+                ).dt.strftime("%Y-%m-%dT%H:%M:%S").fillna("")
                 # Apply edits back to pf
                 for col in ["name", "ticker", "shares", "purchase_price", "date_in", "account"]:
                     pf.loc[to_keep.index, col] = to_keep[col].values
@@ -1138,7 +1142,6 @@ if _page == "portfolio" and not _is_demo:
                     pd.to_numeric(pf["shares"], errors="coerce") *
                     pd.to_numeric(pf["purchase_price"], errors="coerce")
                 ).round(2)
-                pf["date_in"] = pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce")
                 if to_delete:
                     pf = pf.drop(index=to_delete).reset_index(drop=True)
                 update_positions(pf)
