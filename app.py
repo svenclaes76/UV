@@ -1062,6 +1062,7 @@ if _page == "portfolio" and not _is_demo:
                       "Invested", "Current", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Total Return %", ascending=False)
+        _n_rows = len(positions)
 
         # Highlight extra columns with a subtle tint
         _extra_cols = [c for c in positions.columns if c not in _core_cols]
@@ -1082,7 +1083,7 @@ if _page == "portfolio" and not _is_demo:
 
         _row_h  = 35
         _header = 38
-        _height = min(_header + len(positions) * _row_h + 4, 800)
+        _height = min(_header + _n_rows * _row_h + 4, 800)
         st.dataframe(
             positions,
             use_container_width=True,
