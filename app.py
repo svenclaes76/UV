@@ -978,9 +978,9 @@ if _page == "portfolio" and not _is_demo:
     with sub_positions:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Invested",      f"€{total_invested:,.0f}")
-        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"€{price_gain:+,.0f}")
-        c3.metric("Price gain",    f"{price_gain_pct:+.1f}%", delta=f"€{price_gain:+,.0f}")
-        c4.metric("Total return",  f"€{total_return:+,.0f}",  delta=f"{total_return_pct:+.1f}%")
+        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"{price_gain_pct:+.1f}%")
+        c3.metric("Dividends",     f"€{total_dividends:,.0f}")
+        c4.metric("Total return",  f"€{total_return:,.0f}",   delta=f"{total_return_pct:+.1f}%")
         st.divider()
 
         # ── Column groups (same groups as screener) ───────────────────────────
@@ -1212,7 +1212,7 @@ if _page == "portfolio" and not _is_demo:
             s1.metric("Positions sold",  len(sold))
             s2.metric("Total invested",  f"€{_pv_sum:,.0f}")
             s3.metric("Total proceeds",  f"€{sv.sum():,.0f}")
-            s4.metric("Realised return", f"€{_tr_sum:+,.0f}",
+            s4.metric("Realised return", f"€{_tr_sum:,.0f}",
                       delta=f"{_tr_sum / _pv_sum * 100:+.1f}%" if _pv_sum else "—")
             st.divider()
             st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
