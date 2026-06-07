@@ -1096,56 +1096,50 @@ if _page == "portfolio" and not _is_demo:
         st.divider()
 
         # ── CRUD actions ─────────────────────────────────────────────────────
+        _pos_names_sorted = pf.sort_values("name")["name"].tolist()
+
+        @st.dialog("Edit position")
+        def _dlg_edit_position():
+            company = st.selectbox("Company", _pos_names_sorted)
+            _row    = pf[pf["name"] == company].iloc[0]
+            _idx    = pf[pf["name"] == company].index[0]
+            _cur_shares = int(_row.get("shares", 1) or 1)
+            _cur_total  = round(
+                float(_row.get("purchase_price", 0) or 0) * _cur_shares, 2
+            )
+            _cur_date = pd.to_datetime(
+                _row.get("date_in"), format="mixed", dayfirst=False, errors="coerce"
+            )
+            _cur_date = _cur_date.date() if pd.notna(_cur_date) else None
+
+            shares      = st.number_input("Number of stocks", min_value=1, step=1,
+                                          value=_cur_shares, format="%d")
+            total_price = st.number_input("Total purchase price (€)", min_value=0.01,
+                                          step=0.01, value=_cur_total, format="%.2f")
+            pur_date    = st.date_input("Purchase date", value=_cur_date)
+
+            col_save, col_del = st.columns([3, 1])
+            with col_save:
+                if st.button("💾 Save", type="primary", use_container_width=True):
+                    pf.at[_idx, "shares"]         = int(shares)
+                    pf.at[_idx, "purchase_price"]  = round(total_price / shares, 4)
+                    pf.at[_idx, "purchase_value"]  = round(total_price, 2)
+                    pf.at[_idx, "date_in"]         = pd.Timestamp(pur_date).isoformat()
+                    update_positions(pf)
+                    st.rerun()
+            with col_del:
+                if st.button("🗑️ Delete", type="secondary", use_container_width=True):
+                    updated = pf.drop(index=_idx).reset_index(drop=True)
+                    update_positions(updated)
+                    st.rerun()
+
         _act_add, _act_edit, _ = st.columns([1, 1, 5])
         with _act_add:
             if st.button("➕ Add", use_container_width=True):
                 _dlg_add_position()
         with _act_edit:
-            _show_edit = st.toggle("✏️ Edit / Remove", key="pos_edit_mode")
-
-        if _show_edit:
-            st.caption("Edit values inline · check **Delete** to remove a row · press **Save** to apply")
-            _edit_df = pf[["name", "ticker", "shares", "purchase_price",
-                            "date_in", "account"]].copy().sort_values("name")
-            _edit_df.insert(0, "Delete", False)
-            _edit_df["date_in"] = pd.to_datetime(_edit_df["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.date
-
-            _edited = st.data_editor(
-                _edit_df,
-                use_container_width=True,
-                hide_index=False,
-                num_rows="fixed",
-                column_config={
-                    "Delete":         st.column_config.CheckboxColumn("Delete", width=60),
-                    "name":           st.column_config.TextColumn("Company",        width=180),
-                    "ticker":         st.column_config.TextColumn("Ticker",         width=100),
-                    "shares":         st.column_config.NumberColumn("Shares",       width=90,  format="%.4f"),
-                    "purchase_price": st.column_config.NumberColumn("Buy Price (€)", width=110, format="%.4f"),
-                    "date_in":        st.column_config.DateColumn("Buy Date",        width=120),
-                    "account":        st.column_config.TextColumn("Account",        width=130),
-                },
-                key="pos_crud_editor",
-            )
-            if st.button("💾 Save changes", type="primary", key="pos_crud_save"):
-                to_delete = _edited[_edited["Delete"]].index.tolist()
-                to_keep   = _edited[~_edited["Delete"]].copy()
-                # Convert date column back to ISO string to match storage format
-                to_keep["date_in"] = pd.to_datetime(
-                    to_keep["date_in"], errors="coerce"
-                ).dt.strftime("%Y-%m-%dT%H:%M:%S").fillna("")
-                # Apply edits back to pf
-                for col in ["name", "ticker", "shares", "purchase_price", "date_in", "account"]:
-                    pf.loc[to_keep.index, col] = to_keep[col].values
-                # Recalculate purchase_value from updated shares × purchase_price
-                pf["purchase_value"] = (
-                    pd.to_numeric(pf["shares"], errors="coerce") *
-                    pd.to_numeric(pf["purchase_price"], errors="coerce")
-                ).round(2)
-                if to_delete:
-                    pf = pf.drop(index=to_delete).reset_index(drop=True)
-                update_positions(pf)
-                st.success(f"Saved · {len(to_delete)} row(s) deleted")
-                st.rerun()
+            if st.button("✏️ Edit", use_container_width=True):
+                _dlg_edit_position()
 
         # ── Column groups (same groups as screener) ───────────────────────────
         _POS_EXTRA_GROUPS = {
