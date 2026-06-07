@@ -83,65 +83,64 @@ def load_watchlist() -> set[str]:
 
 # ── Excel parsing ─────────────────────────────────────────────────────────────
 
-def _read_sheet(file) -> pd.DataFrame:
-    """Read the beleggingen sheet using positional column indices (robust across sections)."""
-    raw = pd.read_excel(file, sheet_name="beleggingen", header=None)
+_COL_NAMES = {
+    0:  "name",
+    1:  "google_ticker",
+    2:  "shares",
+    4:  "target_price",
+    6:  "purchase_value",
+    7:  "sale_value",
+    10: "dividends",
+    16: "date_in",
+    17: "date_out",
+}
 
-    # The column names we care about are at fixed positions regardless of section:
-    #  0: name   1: google_ticker   2: shares   4: target/sale_price
-    #  6: purchase_value   7: sale_value   10: dividends   16: date_in   17: date_out
-    raw.columns = range(len(raw.columns))
-    raw = raw.rename(columns={
-        0:  "name",
-        1:  "google_ticker",
-        2:  "shares",
-        4:  "target_price",
-        6:  "purchase_value",
-        7:  "sale_value",
-        10: "dividends",
-        16: "date_in",
-        17: "date_out",
-    })
+_SUFFIX_MAP = {"EBR": ".BR", "AMS": ".AS"}
 
-    # Keep only rows with a valid EBR: (Brussels) or EAM: (Amsterdam) ticker
-    mask = raw["google_ticker"].astype(str).str.startswith(("EBR:", "EAM:"))
-    return raw[mask].copy()
+# Fixed row ranges (1-indexed as in Excel, converted to 0-indexed iloc below)
+# Row 1 = header, rows 2-19 = positions, rows 20-91 = dividends, rows 95-110 = sold
+_ROWS_POSITIONS = slice(1, 19)    # Excel rows 2–19
+_ROWS_DIVIDENDS = slice(19, 91)   # Excel rows 20–91
+_ROWS_SOLD      = slice(94, 110)  # Excel rows 95–110
+
+
+def _prep_section(raw: "pd.DataFrame", rows: slice) -> "pd.DataFrame":
+    """Slice raw sheet, rename columns, add ticker, drop rows without a valid ticker."""
+    section = raw.iloc[rows].copy()
+    section.columns = range(len(section.columns))
+    section = section.rename(columns=_COL_NAMES)
+    mask = section["google_ticker"].astype(str).str.startswith(("EBR:", "AMS:"))
+    section = section[mask].copy()
+    section["ticker"] = section["google_ticker"].apply(
+        lambda v: v.split(":")[1] + _SUFFIX_MAP.get(v.split(":")[0], ".BR")
+        if isinstance(v, str) and ":" in v else None
+    )
+    return section
 
 
 def parse_excel(file) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Parse the portfolio Excel file.
-    Returns (open_positions, sold_positions, dividend_history) — EBR: and EAM: tickers.
+    Parse the portfolio Excel file using fixed row ranges.
+    Returns (open_positions, sold_positions, dividend_history).
     """
-    df = _read_sheet(file)
+    raw = pd.read_excel(file, sheet_name="beleggingen", header=None)
 
-    # Clean shared columns
-    for col in ["shares", "purchase_value", "sale_value", "dividends", "target_price"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["date_in"]  = pd.to_datetime(df["date_in"],  errors="coerce")
-    df["date_out"] = pd.to_datetime(df["date_out"], errors="coerce")
-    _suffix_map = {"EBR": ".BR", "EAM": ".AS"}
-    df["ticker"] = df["google_ticker"].apply(
-        lambda v: v.split(":")[1] + _suffix_map.get(v.split(":")[0], ".BR")
-        if isinstance(v, str) and ":" in v else None
-    )
+    open_df = _prep_section(raw, _ROWS_POSITIONS)
+    div_raw = _prep_section(raw, _ROWS_DIVIDENDS)
+    sold_df = _prep_section(raw, _ROWS_SOLD)
 
-    has_exit = df["date_out"].notna()
+    # Clean numeric/date columns
+    for df in [open_df, sold_df]:
+        for col in ["shares", "purchase_value", "sale_value", "dividends", "target_price"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df["date_in"]  = pd.to_datetime(df["date_in"],  errors="coerce")
+        df["date_out"] = pd.to_datetime(df["date_out"], errors="coerce")
 
-    # Open positions: no exit date, has a target price
-    open_df = df[~has_exit & df["target_price"].notna()].copy()
+    for col in ["shares", "purchase_value"]:
+        div_raw[col] = pd.to_numeric(div_raw[col], errors="coerce")
+    div_raw["date_in"] = pd.to_datetime(div_raw["date_in"], errors="coerce")
 
-    # Sold positions: has exit date and a meaningful purchase value
-    sold_df = df[has_exit & df["purchase_value"].notna() & (df["purchase_value"] > 100)].copy()
-
-    # Dividend history: no exit date, no target price, purchase_value is the dividend amount
-    div_df = df[
-        ~has_exit &
-        df["target_price"].isna() &
-        df["purchase_value"].notna() &
-        (df["purchase_value"] < 500) &
-        df["date_in"].notna()
-    ].copy()
+    div_df = div_raw[div_raw["date_in"].notna()].copy()
     div_df = div_df.rename(columns={"purchase_value": "amount", "date_in": "date"})
 
     open_cols = ["name", "google_ticker", "ticker", "shares",

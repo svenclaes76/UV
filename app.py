@@ -105,7 +105,8 @@ from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
-                       PORTFOLIO_FILE, save_watchlist, load_watchlist)
+                       PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE,
+                       save_watchlist, load_watchlist)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
 def _render_admin_users():
@@ -287,7 +288,7 @@ def _compute_fair_values(info: dict) -> dict:
     }
 
 
-@st.cache_data(show_spinner=False, ttl=120)
+@st.cache_data(show_spinner=False, ttl=300)
 def _fetch_prices_cached(tickers: tuple) -> dict:
     """Batch price feed — one HTTP call for all tickers, refreshed every 2 min."""
     return fetch_prices(tickers)
@@ -306,6 +307,9 @@ def _fetch_fundamentals(tickers: tuple) -> dict:
         "graham_growth": None, "fair_value": None,
     }
     for t in tickers:
+        if not t or not isinstance(t, str):
+            result[t] = dict(_empty)
+            continue
         try:
             info = yf.Ticker(t).info
             fv   = _compute_fair_values(info)
@@ -1006,15 +1010,18 @@ if _page == "portfolio" and not _is_demo:
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
         st.subheader("Import portfolio")
-        st.info("Upload your Excel file once. Only open EBR: positions will be imported.")
+        st.info("Upload your Excel file once. Open EBR: and EAM: positions will be imported.")
         uploaded = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"])
         if uploaded:
             with st.spinner("Parsing Excel…"):
                 try:
                     pf, sold, div_hist = parse_excel(uploaded)
                     if pf.empty:
-                        st.error("No open EBR:/EAM: positions found. Check that your file matches the expected format.")
+                        st.error("No open EBR:/AMS: positions found. Check that your file matches the expected format.")
                     else:
+                        PORTFOLIO_FILE.unlink(missing_ok=True)
+                        SOLD_FILE.unlink(missing_ok=True)
+                        DIV_HIST_FILE.unlink(missing_ok=True)
                         save_portfolio(pf)
                         save_sold(sold)
                         save_div_hist(div_hist)
@@ -1047,6 +1054,12 @@ if _page == "portfolio" and not _is_demo:
         _dirty = True
     if _dirty:
         save_portfolio(pf)
+
+    # ── Drop rows with no valid ticker ────────────────────────────────────────
+    pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
+    if pf.empty:
+        st.error("No valid tickers found in portfolio.")
+        st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
     with st.spinner("Fetching live prices & fair value estimates…"):
@@ -1139,7 +1152,7 @@ if _page == "portfolio" and not _is_demo:
             })
             st.rerun()
 
-    st_autorefresh(interval=60_000, key="portfolio_refresh")
+    st_autorefresh(interval=300_000, key="portfolio_refresh")
     sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
@@ -1375,6 +1388,7 @@ if _page == "portfolio" and not _is_demo:
         _gross = pf["dividends"].fillna(0)
         _tax   = (_gross * 0.30).round(2)
         _net   = (_gross - _tax).round(2)
+        _date_parsed = pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce")
         div_table = pd.DataFrame({
             "Company":   pf["name"],
             "Ticker":    pf["ticker"],
@@ -1383,9 +1397,11 @@ if _page == "portfolio" and not _is_demo:
             "Gross":     _gross.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Tax (30%)": _tax.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Net":       _net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-            "Date":      pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
+            "Date":      _date_parsed.dt.strftime("%d/%m/%Y").fillna("—"),
+            "_sort_date": _date_parsed,
         })
-        st.dataframe(div_table.sort_values("Company"), use_container_width=True, hide_index=True,
+        st.dataframe(div_table.sort_values("_sort_date", ascending=True).drop(columns="_sort_date"),
+                     use_container_width=True, hide_index=True,
                      height=(len(pf) + 1) * 35 + 10)
 
         st.divider()
@@ -1402,7 +1418,7 @@ if _page == "portfolio" and not _is_demo:
             hist_table = div_hist.copy()
             if selected_year != "All":
                 hist_table = hist_table[hist_table["date"].dt.year == selected_year]
-            hist_table = hist_table.sort_values("date", ascending=True)
+            hist_table = hist_table.sort_values("date", ascending=False)
             hist_shares = pd.to_numeric(hist_table.get("shares"), errors="coerce") if "shares" in hist_table.columns else None
             div_per_share = (hist_table["amount"] / hist_shares).round(4) if hist_shares is not None else None
             TAX_RATE = 0.30
