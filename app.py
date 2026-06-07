@@ -892,9 +892,10 @@ if _page == "screener":
         edited = _render_table(_screener_df, "main")
 
         if not _is_demo:
-            new_watchlist = set(edited.loc[edited["★"], "Ticker"].tolist())
-            if new_watchlist != watchlist:
-                save_watchlist(new_watchlist)
+            br_new = set(edited.loc[edited["★"], "Ticker"].tolist())
+            merged_br = (watchlist - set(df["Ticker"])) | br_new
+            if merged_br != watchlist:
+                save_watchlist(merged_br)
                 st.rerun()
 
     # ── Tab: Euronext Amsterdam ───────────────────────────────────────────────
