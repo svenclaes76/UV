@@ -799,21 +799,28 @@ if _page == "screener":
         active_extra_cols = []
         for group in selected_groups:
             for col, (field, fmt) in EXTRA_GROUPS[group].items():
-                if field in tab_df.columns:
-                    display_data[col] = tab_df[field].map(fmt).values
-                else:
-                    display_data[col] = "—"
+                display_data[col] = (
+                    tab_df[field].map(fmt).values if field in tab_df.columns else "—"
+                )
                 active_extra_cols.append(col)
 
         display_df = pd.DataFrame(display_data)
+        _n_rows = len(display_df)
 
-        all_data_cols = [c for c in display_df.columns if c != "★"]
-        col_config    = {c: _col_config_map[c] for c in display_df.columns if c in _col_config_map}
-        disabled_cols = list(display_df.columns) if _is_demo else all_data_cols
+        # Highlight extra columns with a subtle tint (same as positions table)
+        if active_extra_cols:
+            display_df = display_df.style.set_properties(
+                subset=active_extra_cols,
+                **{"background-color": "rgba(99, 102, 241, 0.07)"},
+            )
+
+        all_data_cols = [c for c in display_data.keys() if c != "★"]
+        col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
+        disabled_cols = list(display_data.keys()) if _is_demo else all_data_cols
 
         _row_h  = 35
         _header = 38
-        _height = min(_header + len(display_df) * _row_h + 4, 800)
+        _height = min(_header + _n_rows * _row_h + 4, 800)
 
         edited = st.data_editor(
             display_df,
