@@ -1073,6 +1073,7 @@ if _page == "portfolio" and not _is_demo:
             )
 
         _pos_col_config = {
+            "Company":        st.column_config.TextColumn("Company",         pinned=True),
             "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
             "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
