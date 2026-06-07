@@ -1059,28 +1059,27 @@ if _page == "portfolio" and not _is_demo:
 
     @st.dialog("Add position")
     def _dlg_add_position():
-        ticker = st.selectbox(
+        ticker      = st.selectbox(
             "Stock",
             options=_ticker_options,
             format_func=lambda t: _ticker_labels.get(t, t),
         )
-        shares    = st.number_input("Shares",                min_value=0.0001, step=1.0,  format="%.4f")
-        pur_price = st.number_input("Purchase price / share (€)", min_value=0.01,  step=0.01, format="%.4f")
-        pur_date  = st.date_input("Purchase date")
-        account   = st.text_input("Account", placeholder="e.g. Broker A")
+        shares      = st.number_input("Number of stocks", min_value=1, step=1, format="%d")
+        total_price = st.number_input("Total purchase price (€)", min_value=0.01, step=0.01, format="%.2f")
+        pur_date    = st.date_input("Purchase date")
         if st.button("Save", type="primary"):
             name = _ticker_labels.get(ticker, ticker).split("  (")[0]
             add_position({
                 "name":           name,
                 "google_ticker":  "",
                 "ticker":         ticker,
-                "shares":         shares,
-                "purchase_price": round(pur_price, 4),
-                "purchase_value": round(shares * pur_price, 2),
+                "shares":         int(shares),
+                "purchase_price": round(total_price / shares, 4),
+                "purchase_value": round(total_price, 2),
                 "target_price":   None,
                 "dividends":      0.0,
                 "date_in":        pd.Timestamp(pur_date).isoformat(),
-                "account":        account,
+                "account":        "",
             })
             st.rerun()
 
