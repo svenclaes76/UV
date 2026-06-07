@@ -1109,7 +1109,7 @@ if _page == "portfolio" and not _is_demo:
             _edit_df = pf[["name", "ticker", "shares", "purchase_price",
                             "date_in", "account"]].copy()
             _edit_df.insert(0, "Delete", False)
-            _edit_df["date_in"] = pd.to_datetime(_edit_df["date_in"], errors="coerce").dt.date
+            _edit_df["date_in"] = pd.to_datetime(_edit_df["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.date
 
             _edited = st.data_editor(
                 _edit_df,
@@ -1138,7 +1138,7 @@ if _page == "portfolio" and not _is_demo:
                     pd.to_numeric(pf["shares"], errors="coerce") *
                     pd.to_numeric(pf["purchase_price"], errors="coerce")
                 ).round(2)
-                pf["date_in"] = pd.to_datetime(pf["date_in"], errors="coerce")
+                pf["date_in"] = pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce")
                 if to_delete:
                     pf = pf.drop(index=to_delete).reset_index(drop=True)
                 update_positions(pf)
@@ -1192,7 +1192,7 @@ if _page == "portfolio" and not _is_demo:
             },
             "Score & date": {
                 "Value Score": pf["value_score"],
-                "Buy Date":    pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
+                "Buy Date":    pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
             },
         }
 
@@ -1292,7 +1292,7 @@ if _page == "portfolio" and not _is_demo:
             "Gross":     _gross.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Tax (30%)": _tax.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Net":       _net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-            "Date":      pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
+            "Date":      pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
         })
         st.dataframe(div_table, use_container_width=True, hide_index=True,
                      height=(len(pf) + 1) * 35 + 10)
@@ -1358,7 +1358,7 @@ if _page == "portfolio" and not _is_demo:
             sold["price_gain_pct"] = (sold["price_gain"] / pv * 100).round(2)
             sold["dividends"]      = pd.to_numeric(sold["dividends"], errors="coerce").fillna(0)
             sold["total_return"]   = sold["price_gain"] + sold["dividends"]
-            sold["held_days"]      = (pd.to_datetime(sold["date_out"]) - pd.to_datetime(sold["date_in"])).dt.days
+            sold["held_days"]      = (pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce") - pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce")).dt.days
 
             def _annual_return(row):
                 if pd.isna(row["held_days"]) or row["held_days"] <= 0 or pv[row.name] <= 0:
@@ -1390,8 +1390,8 @@ if _page == "portfolio" and not _is_demo:
                 "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
                 "Annual Return %": sold["annual_return_pct"],
-                "Buy Date":        pd.to_datetime(sold["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
-                "Sell Date":       pd.to_datetime(sold["date_out"]).dt.strftime("%d-%m-%Y").fillna("—"),
+                "Buy Date":        pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
+                "Sell Date":       pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
             st.dataframe(
