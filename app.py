@@ -223,6 +223,10 @@ def _fmt_mcap(v) -> str:
     return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
 
 
+def _fmt_div_flag(v) -> str:
+    return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
+
+
 @st.cache_data(show_spinner=False)
 def load_screener_data() -> pd.DataFrame:
     stocks = fetch_brussels_tickers()
@@ -684,9 +688,6 @@ if _page == "screener":
             return "—"
         return f"{v:+.1f}%"
 
-    def _fmt_div_flag(v):
-        return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
-
     # ── Column groups ─────────────────────────────────────────────────────────
     # Core columns always shown; extra groups toggled via multiselect
     CORE_COLS = {
@@ -950,9 +951,14 @@ if _page == "portfolio" and not _is_demo:
     pf["day_change_pct"]  = pf["ticker"].map(lambda t: live_data[t].get("day_change_pct"))
     pf["prev_close"]      = pf["ticker"].map(lambda t: live_data[t].get("prev_close"))
 
-    # Attach screener value score
-    screener_scores = load_screener_data().set_index("Ticker")["Value Score"].to_dict()
-    pf["value_score"] = pf["ticker"].map(screener_scores)
+    # Attach screener data (value score + all extra column fields)
+    _scr = load_screener_data().set_index("Ticker")
+    pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
+
+    def _scr_col(field: str) -> "pd.Series":
+        """Return screener field values aligned to portfolio tickers."""
+        col = _scr[field] if field in _scr.columns else pd.Series(dtype=object)
+        return pf["ticker"].map(col.to_dict())
 
     # ── Summary cards (shared across both sub-tabs) ───────────────────────────
     total_invested   = pf["purchase_value"].sum()
@@ -977,36 +983,101 @@ if _page == "portfolio" and not _is_demo:
         c4.metric("Dividends received", f"€{total_dividends:,.0f}")
         c5.metric("Total return",       f"€{total_return:+,.0f}",  delta=f"{total_return_pct:+.1f}%")
         st.divider()
-        positions = pd.DataFrame({
+
+        # ── Column groups (same groups as screener) ───────────────────────────
+        _POS_EXTRA_GROUPS = {
+            "Valuation": {
+                "Fair Value":     pf["fair_value"].map(_fmt_eur),
+                "FV Upside %":    pf["fv_upside_pct"],
+                "Analyst Target": pf["analyst_target"].map(_fmt_eur),
+            },
+            "Valuation models": {
+                "Graham #":       _scr_col("graham_number").map(_fmt_eur),
+                "PE Fair Val":    _scr_col("pe_fair_value").map(_fmt_eur),
+                "EPV":            _scr_col("epv").map(_fmt_eur),
+                "DDM (1-stage)":  _scr_col("ddm").map(_fmt_eur),
+                "DDM (2-stage)":  _scr_col("ddm_multistage").map(_fmt_eur),
+            },
+            "Risk & size": {
+                "Risk Score":  _scr_col("Risk Score"),
+                "Mkt Cap":     _scr_col("Market Cap").map(_fmt_mcap),
+                "Beta":        _scr_col("beta").map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+                "Debt/Equity": _scr_col("debtToEquity").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+            },
+            "Multiples": {
+                "P/E":       _scr_col("trailingPE").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+                "P/B":       _scr_col("priceToBook").map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
+                "EV/EBITDA": _scr_col("enterpriseToEbitda").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+            },
+            "Quality": {
+                "ROE %":       _scr_col("returnOnEquity").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "ROA %":       _scr_col("returnOnAssets").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "Op Margin %": _scr_col("operatingMargins").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "FCF Yield %": _scr_col("fcfYield").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            },
+            "Growth": {
+                "Rev Growth %": _scr_col("revenueGrowth").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "EPS Growth %": _scr_col("earningsGrowth").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            },
+            "Dividends": {
+                "Div/Share":     pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
+                "Expected Annual": pf["expected_annual"].map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
+                "Div Yield":     _scr_col("dividendYield").map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+                "5yr Avg Yield": _scr_col("fiveYearAvgDividendYield").map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+                "Payout Ratio":  _scr_col("payoutRatio").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "Cash Payout":   _scr_col("cashPayoutRatio").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "Div Coverage":  _scr_col("dividendCoverage").map(lambda v: f"{v:.2f}×" if pd.notna(v) else "—"),
+                "Div Flag":      _scr_col("Div Flag").map(_fmt_div_flag),
+            },
+            "Score & date": {
+                "Value Score": pf["value_score"],
+                "Buy Date":    pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
+            },
+        }
+
+        _pos_groups = st.multiselect(
+            "➕ Add columns",
+            options=list(_POS_EXTRA_GROUPS.keys()),
+            default=[],
+            key="pos_col_groups",
+            placeholder="Show additional column groups…",
+        )
+
+        # Build core positions DataFrame
+        pos_data = {
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-            "Live Price":     pf["live_price"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
+            "Live Price":     pf["live_price"].map(_fmt_eur),
             "Day Chg %":      pf["day_change_pct"],
-            "Fair Value":     pf["fair_value"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
-            "FV Upside %":    pf["fv_upside_pct"],
-            "Analyst Target": pf["analyst_target"].map(lambda v: f"€{v:.2f}" if pd.notna(v) else "—"),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
-            "Value Score":    pf["value_score"],
-            "Buy Date":       pd.to_datetime(pf["date_in"]).dt.strftime("%d-%m-%Y").fillna("—"),
-        }).sort_values("Total Return %", ascending=False)
+        }
+        for grp in _pos_groups:
+            pos_data.update(_POS_EXTRA_GROUPS[grp])
 
+        positions = pd.DataFrame(pos_data).sort_values("Total Return %", ascending=False)
+
+        _pos_col_config = {
+            "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
+            "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
+            "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
+            "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
+            "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f"),
+            "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f"),
+        }
+
+        _row_h  = 35
+        _header = 38
+        _height = min(_header + len(positions) * _row_h + 4, 800)
         st.dataframe(
             positions,
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
-                "FV Upside %":    st.column_config.NumberColumn("FV Upside %",    format="%+.1f%%"),
-                "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
-                "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
-                "Value Score":    st.column_config.ProgressColumn(
-                    "Value Score", min_value=0, max_value=100, format="%.1f"),
-            },
-            height=(len(pf) + 1) * 35 + 10,
+            column_config=_pos_col_config,
+            height=_height,
         )
 
         ch1, ch2 = st.columns(2)
@@ -1036,6 +1107,7 @@ if _page == "portfolio" and not _is_demo:
         d5.metric("Paying positions", f"{_div_paying} / {len(pf)}")
         st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
         st.divider()
+        st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
         _gross = pf["dividends"].fillna(0)
         _tax   = (_gross * 0.30).round(2)
         _net   = (_gross - _tax).round(2)
@@ -1135,6 +1207,7 @@ if _page == "portfolio" and not _is_demo:
                       delta=f"{_tr_sum / _pv_sum * 100:+.1f}%" if _pv_sum else "—")
             s5.metric("Avg hold period", f"{_avg_days:.0f} days" if pd.notna(_avg_days) else "—")
             st.divider()
+            st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
 
             sold_table = pd.DataFrame({
                 "Company":         sold["name"],
