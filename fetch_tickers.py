@@ -1,12 +1,12 @@
 """
-Fetches the full list of Euronext Brussels listed equities.
+Fetches the full list of Euronext Brussels and Amsterdam listed equities.
 
 Note: Euronext's official API (EWS) requires a paid commercial contract.
       Their live-site JSON endpoints require JavaScript execution and return
       empty rows when called directly.
 
-Primary source : stockanalysis.com — reliable public list of ~125 XBRU equities.
-Last resort    : hardcoded BEL20 constituents.
+Primary source : stockanalysis.com — reliable public lists.
+Last resort    : hardcoded BEL20 / AEX25 constituents.
 """
 
 import requests
@@ -25,13 +25,14 @@ HEADERS = {
 }
 
 
-def fetch_brussels_tickers() -> list[dict]:
+def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
+                              fallback_fn) -> list[dict]:
     """
-    Returns a list of dicts with keys: name, isin, ticker, mic.
-    Tries stockanalysis.com first, falls back to hardcoded BEL20.
+    Shared fetch logic for any stockanalysis.com exchange list.
+    On failure falls back to `fallback_fn()`.
     """
     try:
-        resp = requests.get(STOCKANALYSIS_URL, headers=HEADERS, timeout=20)
+        resp = requests.get(url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
         tables = pd.read_html(StringIO(resp.text))
         if not tables:
@@ -47,21 +48,32 @@ def fetch_brussels_tickers() -> list[dict]:
             name   = str(row["Company Name"]).strip()
             if not symbol or symbol == "nan":
                 continue
-            stocks.append({
-                "name":   name,
-                "isin":   "",
-                "ticker": f"{symbol}.BR",
-                "mic":    "XBRU",
-            })
+            stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
 
         if stocks:
-            print(f"[fetch_tickers] Loaded {len(stocks)} stocks from stockanalysis.com")
+            print(f"[fetch_tickers] Loaded {len(stocks)} {label} stocks from stockanalysis.com")
             return stocks
 
     except Exception as e:
-        print(f"[fetch_tickers] stockanalysis.com failed: {e}. Falling back to BEL20.")
+        print(f"[fetch_tickers] stockanalysis.com {label} failed: {e}. Using fallback.")
 
-    return _hardcoded_bel20()
+    return fallback_fn()
+
+
+def fetch_brussels_tickers() -> list[dict]:
+    """Returns Brussels (XBRU) stocks — stockanalysis.com with BEL20 fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_URL, suffix=".BR", mic="XBRU",
+        label="Brussels", fallback_fn=_hardcoded_bel20,
+    )
+
+
+def fetch_amsterdam_tickers() -> list[dict]:
+    """Returns Amsterdam (XAMS) stocks — stockanalysis.com with AEX25 fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_AMS_URL, suffix=".AS", mic="XAMS",
+        label="Amsterdam", fallback_fn=_hardcoded_aex25,
+    )
 
 
 def _hardcoded_bel20() -> list[dict]:
@@ -80,45 +92,6 @@ def _hardcoded_bel20() -> list[dict]:
     ]
     print(f"[fetch_tickers] Using hardcoded BEL20 ({len(entries)} stocks)")
     return [{"name": n, "isin": "", "ticker": f"{t}.BR", "mic": "XBRU"} for n, t in entries]
-
-
-def fetch_amsterdam_tickers() -> list[dict]:
-    """
-    Returns a list of dicts with keys: name, isin, ticker, mic.
-    Tries stockanalysis.com first, falls back to hardcoded AEX25.
-    """
-    try:
-        resp = requests.get(STOCKANALYSIS_AMS_URL, headers=HEADERS, timeout=20)
-        resp.raise_for_status()
-        tables = pd.read_html(StringIO(resp.text))
-        if not tables:
-            raise ValueError("No tables found on page")
-
-        df = tables[0]
-        if "Symbol" not in df.columns or "Company Name" not in df.columns:
-            raise ValueError(f"Unexpected columns: {list(df.columns)}")
-
-        stocks = []
-        for _, row in df.iterrows():
-            symbol = str(row["Symbol"]).strip()
-            name   = str(row["Company Name"]).strip()
-            if not symbol or symbol == "nan":
-                continue
-            stocks.append({
-                "name":   name,
-                "isin":   "",
-                "ticker": f"{symbol}.AS",
-                "mic":    "XAMS",
-            })
-
-        if stocks:
-            print(f"[fetch_tickers] Loaded {len(stocks)} Amsterdam stocks from stockanalysis.com")
-            return stocks
-
-    except Exception as e:
-        print(f"[fetch_tickers] stockanalysis.com AMS failed: {e}. Falling back to AEX25.")
-
-    return _hardcoded_aex25()
 
 
 def _hardcoded_aex25() -> list[dict]:
@@ -140,10 +113,3 @@ def _hardcoded_aex25() -> list[dict]:
     ]
     print(f"[fetch_tickers] Using hardcoded AEX25 ({len(entries)} stocks)")
     return [{"name": n, "isin": "", "ticker": f"{t}.AS", "mic": "XAMS"} for n, t in entries]
-
-
-if __name__ == "__main__":
-    tickers = fetch_brussels_tickers()
-    print(f"\nTotal: {len(tickers)} stocks")
-    for t in tickers[:10]:
-        print(t)

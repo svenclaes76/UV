@@ -88,7 +88,6 @@ COLUMN_HELP = {
     ),
 }
 
-import math
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -218,9 +217,18 @@ def _cache_age_str() -> str:
 
 
 def _fmt_mcap(v) -> str:
-    if v is None or (isinstance(v, float) and math.isnan(v)):
+    if pd.isna(v) or v is None:
         return "—"
     return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
+
+
+def _safe_pct(numerator: float, denominator: float) -> float:
+    """Return numerator/denominator*100, or 0 if denominator is zero."""
+    return numerator / denominator * 100 if denominator else 0
+
+
+_HINT_WATCHLIST = "check ★ to add to watchlist"
+_HINT_DEMO      = "read-only in demo mode"
 
 
 def _fmt_div_flag(v) -> str:
@@ -886,7 +894,7 @@ if _page == "screener":
         _screener_df = df if _show_all else df[_valued].reset_index(drop=True)
         _screener_df.index = range(1, len(_screener_df) + 1)
 
-        _hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+        _hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
         with _br_col:
             st.markdown(f"**{len(_screener_df)}** stocks · {_hint}")
         edited = _render_table(_screener_df, "main")
@@ -982,13 +990,18 @@ if _page == "portfolio" and not _is_demo:
     with st.spinner("Fetching live prices & fair value estimates…"):
         live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
 
-    pf["live_price"]      = pf["ticker"].map(lambda t: live_data[t]["price"])
-    pf["analyst_target"]  = pf["ticker"].map(lambda t: live_data[t]["analyst_target"])
-    pf["graham_number"]   = pf["ticker"].map(lambda t: live_data[t]["graham_number"])
-    pf["pe_fair_value"]   = pf["ticker"].map(lambda t: live_data[t]["pe_fair_value"])
-    pf["graham_growth"]   = pf["ticker"].map(lambda t: live_data[t]["graham_growth"])
-    pf["fair_value"]      = pf["ticker"].map(lambda t: live_data[t]["fair_value"])
-    pf["div_rate"]        = pf["ticker"].map(lambda t: live_data[t]["div_rate"] or 0)
+    def _lv(field, default=None):
+        return pf["ticker"].map(lambda t: live_data[t].get(field, default))
+
+    pf["live_price"]      = _lv("price")
+    pf["analyst_target"]  = _lv("analyst_target")
+    pf["graham_number"]   = _lv("graham_number")
+    pf["pe_fair_value"]   = _lv("pe_fair_value")
+    pf["graham_growth"]   = _lv("graham_growth")
+    pf["fair_value"]      = _lv("fair_value")
+    pf["div_rate"]        = _lv("div_rate", 0).map(lambda v: v or 0)
+    pf["day_change_pct"]  = _lv("day_change_pct")
+    pf["prev_close"]      = _lv("prev_close")
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
     pf["current_value"]   = pf["live_price"] * pf["shares"]
     pf["price_gain"]      = pf["current_value"] - pf["purchase_value"]
@@ -996,9 +1009,7 @@ if _page == "portfolio" and not _is_demo:
     pf["total_return"]    = pf["price_gain"] + pf["dividends"].fillna(0)
     pf["total_return_pct"] = (pf["total_return"] / pf["purchase_value"] * 100).round(2)
     pf["upside_pct"]      = ((pf["analyst_target"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
-    pf["fv_upside_pct"]   = ((pf["fair_value"] - pf["live_price"]) / pf["live_price"] * 100).round(1)
-    pf["day_change_pct"]  = pf["ticker"].map(lambda t: live_data[t].get("day_change_pct"))
-    pf["prev_close"]      = pf["ticker"].map(lambda t: live_data[t].get("prev_close"))
+    pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / pf["live_price"] * 100).round(1)
 
     # Attach screener data (value score + all extra column fields) — Brussels + Amsterdam
     _scr = pd.concat(
@@ -1015,12 +1026,11 @@ if _page == "portfolio" and not _is_demo:
     total_invested   = pf["purchase_value"].sum()
     total_current    = pf["current_value"].sum()
     total_dividends  = pf["dividends"].fillna(0).sum()
-    total_return     = total_current - total_invested + total_dividends
-    total_return_pct = total_return / total_invested * 100 if total_invested else 0
     total_expected   = pf["expected_annual"].sum()
-
-    price_gain     = total_current - total_invested
-    price_gain_pct = price_gain / total_invested * 100 if total_invested else 0
+    price_gain       = total_current - total_invested
+    total_return     = price_gain + total_dividends
+    price_gain_pct   = _safe_pct(price_gain,   total_invested)
+    total_return_pct = _safe_pct(total_return, total_invested)
 
     st_autorefresh(interval=60_000, key="portfolio_refresh")
     sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])

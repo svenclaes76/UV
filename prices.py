@@ -22,6 +22,12 @@ _EMPTY = {
 }
 
 
+def _day_change(price, prev_close) -> float | None:
+    if price and prev_close:
+        return round((price - prev_close) / prev_close * 100, 2)
+    return None
+
+
 def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
     """
     Batch-fetch latest price data for all tickers in a single HTTP call.
@@ -57,13 +63,12 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
 
                 price      = float(closes.iloc[-1])
                 prev_close = float(closes.iloc[-2]) if len(closes) >= 2 else None
-                day_chg    = ((price - prev_close) / prev_close * 100) if prev_close else None
                 volume     = int(volumes.iloc[-1]) if not volumes.empty else None
 
                 result[t] = {
                     "price":          round(price, 4),
                     "prev_close":     round(prev_close, 4) if prev_close else None,
-                    "day_change_pct": round(day_chg, 2) if day_chg is not None else None,
+                    "day_change_pct": _day_change(price, prev_close),
                     "volume":         volume,
                 }
             except Exception:
@@ -76,12 +81,10 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
                 fi = yf.Ticker(t).fast_info
                 price      = fi.get("last_price") or fi.get("regular_market_price")
                 prev_close = fi.get("previous_close") or fi.get("regular_market_previous_close")
-                day_chg    = ((price - prev_close) / prev_close * 100
-                              if price and prev_close else None)
                 result[t] = {
                     "price":          round(price, 4) if price else None,
                     "prev_close":     round(prev_close, 4) if prev_close else None,
-                    "day_change_pct": round(day_chg, 2) if day_chg is not None else None,
+                    "day_change_pct": _day_change(price, prev_close),
                     "volume":         fi.get("three_month_average_volume"),
                 }
             except Exception:
