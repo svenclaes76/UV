@@ -1058,7 +1058,18 @@ if _page == "portfolio" and not _is_demo:
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
+        _core_cols = {"Company", "Ticker", "Shares", "Live Price", "Day Chg %",
+                      "Invested", "Current", "Price Gain %", "Total Return %"}
+
         positions = pd.DataFrame(pos_data).sort_values("Total Return %", ascending=False)
+
+        # Highlight extra columns with a subtle tint
+        _extra_cols = [c for c in positions.columns if c not in _core_cols]
+        if _extra_cols:
+            positions = positions.style.set_properties(
+                subset=_extra_cols,
+                **{"background-color": "rgba(99, 102, 241, 0.07)"},
+            )
 
         _pos_col_config = {
             "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
