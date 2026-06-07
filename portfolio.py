@@ -67,6 +67,33 @@ def update_positions(df: pd.DataFrame) -> None:
     save_portfolio(df)
 
 
+def add_dividend(row: dict) -> None:
+    """Append a dividend record and update portfolio totals."""
+    df = load_div_hist()
+    new_row = pd.DataFrame([row])
+    df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
+    save_div_hist(df)
+    _sync_portfolio_dividends(df)
+
+
+def update_div_hist(df: pd.DataFrame) -> None:
+    """Persist updated dividend history and sync portfolio totals."""
+    save_div_hist(df)
+    _sync_portfolio_dividends(df)
+
+
+def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
+    """Recompute portfolio.dividends from div_hist totals per ticker."""
+    import pandas as _pd
+    pf = load_portfolio()
+    if pf is None:
+        return
+    div_df["amount"] = _pd.to_numeric(div_df["amount"], errors="coerce").fillna(0)
+    totals = div_df.groupby("ticker")["amount"].sum()
+    pf["dividends"] = pf["ticker"].map(totals).fillna(pf["dividends"].fillna(0))
+    save_portfolio(pf)
+
+
 def save_watchlist(tickers: set[str]) -> None:
     WATCHLIST_FILE.parent.mkdir(exist_ok=True)
     WATCHLIST_FILE.write_text(json.dumps(sorted(tickers), indent=2), encoding="utf-8")

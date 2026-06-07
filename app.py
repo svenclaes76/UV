@@ -105,6 +105,7 @@ from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
+                       add_dividend, update_div_hist,
                        PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE,
                        save_watchlist, load_watchlist)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
@@ -1384,7 +1385,134 @@ if _page == "portfolio" and not _is_demo:
         d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
         st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
         st.divider()
-        st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
+
+        # ── Dividend CRUD dialogs ─────────────────────────────────────────────
+        _div_ticker_options = pf["ticker"].tolist()
+        _div_ticker_labels  = {
+            row["ticker"]: f"{row['name']}  ({row['ticker']})"
+            for _, row in pf.iterrows()
+        }
+
+        @st.dialog("Add dividend", width="large")
+        def _dlg_add_dividend():
+            _c1, _c2, _c3, _c4 = st.columns([3, 1, 1, 2])
+            with _c1:
+                ticker = st.selectbox("Stock", options=_div_ticker_options,
+                                      format_func=lambda t: _div_ticker_labels.get(t, t),
+                                      key="dlg_add_div_ticker")
+            with _c2:
+                _shares_def = ""
+                _match = pf[pf["ticker"] == ticker]
+                if not _match.empty:
+                    _shares_def = str(int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0))
+                _shares_raw = st.text_input("Shares", value=_shares_def, key="dlg_add_div_shares")
+            with _c3:
+                _dps_raw = st.text_input("Div/Share (€)", value="0.0000", key="dlg_add_div_dps")
+            with _c4:
+                div_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_add_div_date")
+            _, _save_col = st.columns([3, 1])
+            with _save_col:
+                _do_save = st.button("💾 Save", key="dlg_add_div_save", use_container_width=True)
+            try:
+                _shares = max(1, int(_shares_raw.strip()))
+                _dps    = float(_dps_raw.strip().replace(",", "."))
+            except ValueError:
+                _shares, _dps = 1, 0.0
+            if _do_save and _shares > 0 and _dps > 0:
+                _row_match = pf[pf["ticker"] == ticker]
+                _name         = _row_match.iloc[0]["name"] if not _row_match.empty else ticker
+                _google_ticker = _row_match.iloc[0].get("google_ticker", "") if not _row_match.empty else ""
+                add_dividend({
+                    "name":          _name,
+                    "google_ticker": _google_ticker,
+                    "ticker":        ticker,
+                    "shares":        _shares,
+                    "amount":        round(_dps * _shares, 2),
+                    "date":          pd.Timestamp(div_date).isoformat(),
+                })
+                st.rerun()
+
+        @st.dialog("Edit dividends", width="large")
+        def _dlg_edit_dividends():
+            _dh = load_div_hist()
+            if _dh is None or _dh.empty:
+                st.info("No dividend history to edit.")
+                return
+            _dh = _dh.copy().reset_index(drop=True)
+            _dh["amount"] = pd.to_numeric(_dh["amount"], errors="coerce").fillna(0)
+            _dh["date"]   = pd.to_datetime(_dh["date"], errors="coerce")
+            _dh["shares"] = pd.to_numeric(_dh.get("shares"), errors="coerce").fillna(0).astype(int)
+
+            _tbl = pd.DataFrame({
+                "_idx":      range(len(_dh)),
+                "🗑️":        False,
+                "Company":   _dh["name"],
+                "Ticker":    _dh["ticker"],
+                "Shares":    _dh["shares"],
+                "Div/Share": (_dh["amount"] / _dh["shares"].replace(0, float("nan"))).round(4),
+                "Total (€)": _dh["amount"],
+                "Date":      _dh["date"].dt.date,
+            })
+
+            _row_h  = 35
+            _header = 35
+            _height = _header + min(len(_tbl), 10) * _row_h
+
+            _edited = st.data_editor(
+                _tbl.drop(columns="_idx"),
+                use_container_width=True,
+                hide_index=True,
+                num_rows="fixed",
+                height=_height,
+                column_config={
+                    "🗑️":        st.column_config.CheckboxColumn("🗑️",           width=55),
+                    "Company":   st.column_config.TextColumn("Company",          disabled=True),
+                    "Ticker":    st.column_config.TextColumn("Ticker",           disabled=True),
+                    "Shares":    st.column_config.NumberColumn("Shares",         min_value=1, step=1, format="%d"),
+                    "Div/Share": st.column_config.NumberColumn("Div/Share (€)",  min_value=0.0, format="%.4f"),
+                    "Total (€)": st.column_config.NumberColumn("Total (€)",      min_value=0.0, format="%.2f", disabled=True),
+                    "Date":      st.column_config.DateColumn("Date",             format="DD/MM/YYYY"),
+                },
+                key="dlg_edit_div_table",
+            )
+
+            to_delete  = _edited[_edited["🗑️"]].index.tolist()
+            to_keep    = _edited[~_edited["🗑️"]]
+            n_selected = len(to_delete)
+
+            _del_note, _save_col = st.columns([3, 1])
+            with _del_note:
+                if n_selected:
+                    st.caption(f"🗑️ {n_selected} selected for deletion")
+            with _save_col:
+                if st.button("💾 Save", key="dlg_edit_div_save", use_container_width=True):
+                    updated = []
+                    for i, row in to_keep.iterrows():
+                        orig_idx = int(_tbl.iloc[i]["_idx"])
+                        _new_shares = max(1, int(row["Shares"]))
+                        _new_dps    = float(row["Div/Share"]) if pd.notna(row["Div/Share"]) else 0.0
+                        updated.append({
+                            "name":          _dh.iloc[orig_idx]["name"],
+                            "google_ticker": _dh.iloc[orig_idx].get("google_ticker", ""),
+                            "ticker":        _dh.iloc[orig_idx]["ticker"],
+                            "shares":        _new_shares,
+                            "amount":        round(_new_dps * _new_shares, 2),
+                            "date":          pd.Timestamp(row["Date"]).isoformat() if pd.notna(row["Date"]) else _dh.iloc[orig_idx]["date"].isoformat(),
+                        })
+                    new_dh = pd.DataFrame(updated)
+                    update_div_hist(new_dh)
+                    st.rerun()
+
+        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
+        _da1, _da2, _ = st.columns([1, 1, 7], gap="small")
+        with _da1:
+            if st.button("➕ Add", key="btn_add_div"):
+                _dlg_add_dividend()
+        with _da2:
+            if st.button("✏️ Edit", key="btn_edit_div"):
+                _dlg_edit_dividends()
+
+        st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
         _gross = pf["dividends"].fillna(0)
         _tax   = (_gross * 0.30).round(2)
         _net   = (_gross - _tax).round(2)
