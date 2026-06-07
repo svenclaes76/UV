@@ -104,6 +104,7 @@ from fetch_tickers import fetch_brussels_tickers, fetch_amsterdam_tickers
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
+                       add_position, remove_positions, update_positions,
                        PORTFOLIO_FILE, save_watchlist, load_watchlist)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
@@ -986,6 +987,20 @@ if _page == "portfolio" and not _is_demo:
             st.rerun()
         st.stop()
 
+    # ── Migrate: ensure new fields exist ──────────────────────────────────────
+    _dirty = False
+    if "account" not in pf.columns:
+        pf["account"] = ""
+        _dirty = True
+    if "purchase_price" not in pf.columns:
+        pf["purchase_price"] = (
+            pd.to_numeric(pf["purchase_value"], errors="coerce") /
+            pd.to_numeric(pf["shares"],         errors="coerce")
+        ).round(4)
+        _dirty = True
+    if _dirty:
+        save_portfolio(pf)
+
     # ── Fetch live prices ─────────────────────────────────────────────────────
     with st.spinner("Fetching live prices & fair value estimates…"):
         live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
@@ -1032,6 +1047,43 @@ if _page == "portfolio" and not _is_demo:
     price_gain_pct   = _safe_pct(price_gain,   total_invested)
     total_return_pct = _safe_pct(total_return, total_invested)
 
+    # ── Add-position dialog ───────────────────────────────────────────────────
+    _all_screener = pd.concat(
+        [load_screener_data(), load_amsterdam_screener_data()], ignore_index=True
+    )[["Ticker", "Name"]].sort_values("Name")
+    _ticker_options = _all_screener["Ticker"].tolist()
+    _ticker_labels  = {
+        row["Ticker"]: f"{row['Name']}  ({row['Ticker']})"
+        for _, row in _all_screener.iterrows()
+    }
+
+    @st.dialog("Add position")
+    def _dlg_add_position():
+        ticker = st.selectbox(
+            "Stock",
+            options=_ticker_options,
+            format_func=lambda t: _ticker_labels.get(t, t),
+        )
+        shares    = st.number_input("Shares",                min_value=0.0001, step=1.0,  format="%.4f")
+        pur_price = st.number_input("Purchase price / share (€)", min_value=0.01,  step=0.01, format="%.4f")
+        pur_date  = st.date_input("Purchase date")
+        account   = st.text_input("Account", placeholder="e.g. Broker A")
+        if st.button("Save", type="primary"):
+            name = _ticker_labels.get(ticker, ticker).split("  (")[0]
+            add_position({
+                "name":           name,
+                "google_ticker":  "",
+                "ticker":         ticker,
+                "shares":         shares,
+                "purchase_price": round(pur_price, 4),
+                "purchase_value": round(shares * pur_price, 2),
+                "target_price":   None,
+                "dividends":      0.0,
+                "date_in":        pd.Timestamp(pur_date).isoformat(),
+                "account":        account,
+            })
+            st.rerun()
+
     st_autorefresh(interval=60_000, key="portfolio_refresh")
     sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
@@ -1043,6 +1095,55 @@ if _page == "portfolio" and not _is_demo:
         c3.metric("Dividends",     f"€{total_dividends:,.0f}")
         c4.metric("Total return",  f"€{total_return:,.0f}",   delta=f"{total_return_pct:+.1f}%")
         st.divider()
+
+        # ── CRUD actions ─────────────────────────────────────────────────────
+        _act_add, _act_edit, _ = st.columns([1, 1, 5])
+        with _act_add:
+            if st.button("➕ Add", use_container_width=True):
+                _dlg_add_position()
+        with _act_edit:
+            _show_edit = st.toggle("✏️ Edit / Remove", key="pos_edit_mode")
+
+        if _show_edit:
+            st.caption("Edit values inline · check **Delete** to remove a row · press **Save** to apply")
+            _edit_df = pf[["name", "ticker", "shares", "purchase_price",
+                            "date_in", "account"]].copy()
+            _edit_df.insert(0, "Delete", False)
+            _edit_df["date_in"] = pd.to_datetime(_edit_df["date_in"], errors="coerce").dt.date
+
+            _edited = st.data_editor(
+                _edit_df,
+                use_container_width=True,
+                hide_index=False,
+                num_rows="fixed",
+                column_config={
+                    "Delete":         st.column_config.CheckboxColumn("Delete", width=60),
+                    "name":           st.column_config.TextColumn("Company",        width=180),
+                    "ticker":         st.column_config.TextColumn("Ticker",         width=100),
+                    "shares":         st.column_config.NumberColumn("Shares",       width=90,  format="%.4f"),
+                    "purchase_price": st.column_config.NumberColumn("Buy Price (€)", width=110, format="%.4f"),
+                    "date_in":        st.column_config.DateColumn("Buy Date",        width=120),
+                    "account":        st.column_config.TextColumn("Account",        width=130),
+                },
+                key="pos_crud_editor",
+            )
+            if st.button("💾 Save changes", type="primary", key="pos_crud_save"):
+                to_delete = _edited[_edited["Delete"]].index.tolist()
+                to_keep   = _edited[~_edited["Delete"]].copy()
+                # Apply edits back to pf
+                for col in ["name", "ticker", "shares", "purchase_price", "date_in", "account"]:
+                    pf.loc[to_keep.index, col] = to_keep[col].values
+                # Recalculate purchase_value from updated shares × purchase_price
+                pf["purchase_value"] = (
+                    pd.to_numeric(pf["shares"], errors="coerce") *
+                    pd.to_numeric(pf["purchase_price"], errors="coerce")
+                ).round(2)
+                pf["date_in"] = pd.to_datetime(pf["date_in"], errors="coerce")
+                if to_delete:
+                    pf = pf.drop(index=to_delete).reset_index(drop=True)
+                update_positions(pf)
+                st.success(f"Saved · {len(to_delete)} row(s) deleted")
+                st.rerun()
 
         # ── Column groups (same groups as screener) ───────────────────────────
         _POS_EXTRA_GROUPS = {

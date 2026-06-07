@@ -44,6 +44,29 @@ def load_div_hist() -> pd.DataFrame | None:    return _load(DIV_HIST_FILE)
 def portfolio_exists() -> bool:                return PORTFOLIO_FILE.exists()
 
 
+# ── CRUD helpers ──────────────────────────────────────────────────────────────
+
+def add_position(row: dict) -> None:
+    """Append a new open position and persist."""
+    df = load_portfolio()
+    new_row = pd.DataFrame([row])
+    df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
+    save_portfolio(df)
+
+
+def remove_positions(indices: list[int]) -> None:
+    """Drop rows by integer index and persist."""
+    df = load_portfolio()
+    if df is None:
+        return
+    save_portfolio(df.drop(index=indices).reset_index(drop=True))
+
+
+def update_positions(df: pd.DataFrame) -> None:
+    """Persist a fully-updated positions DataFrame."""
+    save_portfolio(df)
+
+
 def save_watchlist(tickers: set[str]) -> None:
     WATCHLIST_FILE.parent.mkdir(exist_ok=True)
     WATCHLIST_FILE.write_text(json.dumps(sorted(tickers), indent=2), encoding="utf-8")
