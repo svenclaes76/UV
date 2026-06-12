@@ -220,7 +220,10 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
                 msg = str(e)
                 is_rate_limit = ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
                                  or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg)
-                is_crumb = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
+                is_crumb  = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
+                is_not_found = "404" in msg or "Not Found" in msg or "Quote not found" in msg
+                if is_not_found:
+                    break  # ticker doesn't exist on Yahoo — skip silently
                 if is_crumb:
                     _refresh_crumb()
                     time.sleep(3)
