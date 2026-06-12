@@ -31,10 +31,10 @@ HEADERS = {
 
 
 def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
-                              fallback_fn) -> list[dict]:
+                              fallback_fn, max_tickers: int | None = None) -> list[dict]:
     """
     Shared fetch logic for any stockanalysis.com exchange list.
-    Walks all pages (?page=1, ?page=2, …) until fewer than 500 rows are returned.
+    Walks pages until fewer than 500 rows are returned or max_tickers is reached.
     On failure falls back to `fallback_fn()`.
     """
     PAGE_SIZE = 500
@@ -63,9 +63,11 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                 seen.add(symbol)
                 stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
                 rows_this_page += 1
+                if max_tickers and len(stocks) >= max_tickers:
+                    break
 
-            if rows_this_page < PAGE_SIZE:
-                break   # last page
+            if rows_this_page < PAGE_SIZE or (max_tickers and len(stocks) >= max_tickers):
+                break
             page += 1
 
         if stocks:
@@ -129,10 +131,14 @@ def fetch_milan_tickers() -> list[dict]:
 
 
 def fetch_frankfurt_tickers() -> list[dict]:
-    """Returns Deutsche Börse (XETR) stocks — stockanalysis.com with DAX 40 fallback."""
+    """Returns Deutsche Börse (XETR) stocks — top 500 from stockanalysis.com, DAX 40 fallback.
+
+    The full Frankfurt list contains ~9000+ instruments (ETFs, warrants, etc.).
+    Capping at 500 keeps only the most prominent equities ranked by the source.
+    """
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
-        label="Frankfurt", fallback_fn=_hardcoded_dax40,
+        label="Frankfurt", fallback_fn=_hardcoded_dax40, max_tickers=500,
     )
 
 
@@ -165,10 +171,10 @@ def _hardcoded_dax40() -> list[dict]:
 
 
 def fetch_swiss_tickers() -> list[dict]:
-    """Returns SIX Swiss Exchange (XSWX) stocks — stockanalysis.com with SMI 20 fallback."""
+    """Returns SIX Swiss Exchange (XSWX) stocks — top 500 from stockanalysis.com, SMI 20 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_SWX_URL, suffix=".SW", mic="XSWX",
-        label="Swiss", fallback_fn=_hardcoded_smi20,
+        label="Swiss", fallback_fn=_hardcoded_smi20, max_tickers=500,
     )
 
 
