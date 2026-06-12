@@ -108,7 +108,8 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener, run_screener_from_df,
-                      fetch_fundamentals, fetch_fundamentals_nowait, get_fetch_progress)
+                      fetch_fundamentals, fetch_fundamentals_nowait,
+                      get_fetch_progress, cancel_background_fetch)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
@@ -200,7 +201,8 @@ def _render_help():
 
 
 def _bust_cache() -> None:
-    """Wipe the screener disk cache, clear Streamlit's data cache, and rerun."""
+    """Cancel any background fetch, wipe the screener disk cache, and rerun."""
+    cancel_background_fetch()
     try:
         CACHE_FILE.write_text("{}", encoding="utf-8")
     except OSError:

@@ -208,12 +208,20 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
 _bg_state: dict = {"done": 0, "total": 0, "running": False}
 _bg_state_lock = threading.Lock()
 _bg_thread: threading.Thread | None = None
+_bg_cancelled = threading.Event()  # set by cancel_background_fetch() to abort a running fetch
 
 
 def get_fetch_progress() -> dict:
     """Thread-safe snapshot of background fetch progress."""
     with _bg_state_lock:
         return _bg_state.copy()
+
+
+def cancel_background_fetch() -> None:
+    """Signal any running background fetch to stop and mark it as not running."""
+    _bg_cancelled.set()
+    with _bg_state_lock:
+        _bg_state["running"] = False
 
 
 def _df_from_cache(stocks: list[dict], cache: dict) -> pd.DataFrame:
@@ -234,16 +242,20 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
             pass
 
     def _fetch_and_store(stock):
+        if _bg_cancelled.is_set():
+            return
         ticker = stock["ticker"]
         row = None
         for attempt in range(MAX_RETRIES + 1):
+            if _bg_cancelled.is_set():
+                return
             try:
                 row = _fetch_one(ticker, stock)
                 break
             except Exception as e:
                 msg = str(e)
-                is_not_found = "404" in msg or "Not Found" in msg or "Quote not found" in msg
-                is_crumb     = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
+                is_not_found  = "404" in msg or "Not Found" in msg or "Quote not found" in msg
+                is_crumb      = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
                 is_rate_limit = ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
                                  or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg)
                 if is_not_found:
@@ -260,6 +272,8 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
                         continue
                 print(f"\n  Warning: could not fetch {ticker}: {e}")
                 break
+        if _bg_cancelled.is_set():
+            return
         if row is None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
@@ -269,8 +283,7 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
             done[0] += 1
             with _bg_state_lock:
                 _bg_state["done"] = done[0]
-            # Write to disk every 25 tickers so UI can pick up partial results
-            if done[0] % 25 == 0 or done[0] == len(stale):
+            if not _bg_cancelled.is_set() and (done[0] % 25 == 0 or done[0] == len(stale)):
                 with _file_lock:
                     _save_cache(cache)
             print(f"  Fetching [{done[0]}/{len(stale)}] {ticker}          ", end="\r")
@@ -278,7 +291,8 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         list(executor.map(_fetch_and_store, stale))
 
-    _save_cache(cache)
+    if not _bg_cancelled.is_set():
+        _save_cache(cache)
     print()
     with _bg_state_lock:
         _bg_state["running"] = False
@@ -314,6 +328,7 @@ def fetch_fundamentals_nowait(stocks: list[dict]) -> pd.DataFrame:
 
     if stale and (not _bg_thread or not _bg_thread.is_alive()):
         print(f"  {fresh_count} cached  |  {len(stale)} stale — starting background fetch")
+        _bg_cancelled.clear()  # reset any previous cancellation
         with _bg_state_lock:
             _bg_state.update({"done": 0, "total": len(stale), "running": True})
         random.shuffle(stale)
