@@ -1,0 +1,3 @@
+[server]
+sslCertFile = ".ssl/cert.pem"
+sslKeyFile  = ".ssl/key.pem"

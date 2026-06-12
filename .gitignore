@@ -1,0 +1,7 @@
+.env
+.cache/
+.ssl/
+__pycache__/
+*.pyc
+report.html
+.venv/

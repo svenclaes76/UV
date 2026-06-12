@@ -12,6 +12,11 @@ import json
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
+
+from crypto import read_encrypted, write_encrypted  # noqa: E402
 
 PORTFOLIO_FILE  = Path(__file__).parent / ".cache" / "portfolio.json"
 SOLD_FILE       = Path(__file__).parent / ".cache" / "sold.json"
@@ -22,15 +27,14 @@ WATCHLIST_FILE  = Path(__file__).parent / ".cache" / "watchlist.json"
 # ── Persistence ───────────────────────────────────────────────────────────────
 
 def _save(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(exist_ok=True)
-    path.write_text(df.to_json(orient="records", date_format="iso", indent=2), encoding="utf-8")
+    write_encrypted(path, df.to_json(orient="records", date_format="iso", indent=2))
 
 
 def _load(path: Path) -> pd.DataFrame | None:
     if not path.exists():
         return None
     try:
-        return pd.DataFrame(json.loads(path.read_text(encoding="utf-8")))
+        return pd.DataFrame(json.loads(read_encrypted(path)))
     except Exception:
         return None
 
@@ -142,15 +146,14 @@ def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
 
 
 def save_watchlist(tickers: set[str]) -> None:
-    WATCHLIST_FILE.parent.mkdir(exist_ok=True)
-    WATCHLIST_FILE.write_text(json.dumps(sorted(tickers), indent=2), encoding="utf-8")
+    write_encrypted(WATCHLIST_FILE, json.dumps(sorted(tickers), indent=2))
 
 
 def load_watchlist() -> set[str]:
     if not WATCHLIST_FILE.exists():
         return set()
     try:
-        return set(json.loads(WATCHLIST_FILE.read_text(encoding="utf-8")))
+        return set(json.loads(read_encrypted(WATCHLIST_FILE)))
     except Exception:
         return set()
 
