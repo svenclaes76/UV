@@ -102,6 +102,7 @@ import streamlit.components.v1 as st_components
 from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
+from backup import export_zip, export_excel, import_zip, backup_filename
 
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
@@ -1814,11 +1815,65 @@ if _page == "portfolio" and not _is_demo:
 
 if _page == "settings":
     if _is_admin:
-        tab_admin, = st.tabs(["🔑 Users"])
+        tab_admin, tab_backup = st.tabs(["🔑 Users", "💾 Backup & Restore"])
+    else:
+        tab_backup, = st.tabs(["💾 Backup & Restore"])
+
+    if _is_admin:
         with tab_admin:
             _render_admin_users()
-    else:
-        st.info("No settings available for your account.")
+
+    with tab_backup:
+        st.subheader("Export")
+        col_zip, col_xls = st.columns(2)
+
+        with col_zip:
+            st.markdown("**Encrypted backup (ZIP)**")
+            st.caption("Bundles all user data and the encryption key. "
+                       "Required for a full restore on another machine.")
+            try:
+                zip_bytes = export_zip()
+                st.download_button(
+                    "⬇️ Download backup.zip",
+                    data=zip_bytes,
+                    file_name=backup_filename("zip"),
+                    mime="application/zip",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Could not create ZIP: {e}")
+
+        with col_xls:
+            st.markdown("**Excel export**")
+            st.caption("Human-readable workbook with positions, dividends, "
+                       "sold history and watchlist. Useful for inspection or migration.")
+            try:
+                xls_bytes = export_excel()
+                st.download_button(
+                    "⬇️ Download backup.xlsx",
+                    data=xls_bytes,
+                    file_name=backup_filename("xlsx"),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Could not create Excel: {e}")
+
+        st.divider()
+        st.subheader("Restore from ZIP")
+        st.warning("Restoring will **overwrite** your current data. "
+                   "Download a backup first if you want to keep it.", icon="⚠️")
+        uploaded = st.file_uploader("Upload a backup ZIP", type="zip",
+                                    key="backup_restore_upload")
+        if uploaded:
+            if st.button("Restore", type="primary", key="btn_restore"):
+                try:
+                    restored = import_zip(uploaded.read())
+                    st.success(f"Restored: {', '.join(restored)}")
+                    st.cache_data.clear()
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — HELP

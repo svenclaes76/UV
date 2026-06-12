@@ -18,10 +18,20 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
 
-PORTFOLIO_FILE  = Path(__file__).parent / ".cache" / "portfolio.json"
-SOLD_FILE       = Path(__file__).parent / ".cache" / "sold.json"
-DIV_HIST_FILE   = Path(__file__).parent / ".cache" / "dividends_history.json"
-WATCHLIST_FILE  = Path(__file__).parent / ".cache" / "watchlist.json"
+_DATA_DIR  = Path(__file__).parent / "data"
+_CACHE_DIR = Path(__file__).parent / ".cache"
+_DATA_DIR.mkdir(exist_ok=True)
+
+PORTFOLIO_FILE  = _DATA_DIR / "portfolio.json"
+SOLD_FILE       = _DATA_DIR / "sold.json"
+DIV_HIST_FILE   = _DATA_DIR / "dividends_history.json"
+WATCHLIST_FILE  = _DATA_DIR / "watchlist.json"
+
+# Migrate existing files from .cache/ to data/ (one-time, silent)
+for _fname in ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json"):
+    _old, _new = _CACHE_DIR / _fname, _DATA_DIR / _fname
+    if _old.exists() and not _new.exists():
+        _old.rename(_new)
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────

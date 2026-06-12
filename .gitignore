@@ -1,5 +1,6 @@
 .env
 .cache/
+data/
 .ssl/
 __pycache__/
 *.pyc
