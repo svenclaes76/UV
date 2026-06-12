@@ -11,15 +11,35 @@ Stage 6  — Decision: Strong Buy (>70) | Monitor (40–70) | Avoid (<40) + hard
 Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE_TTL_HOURS.
 """
 
+import asyncio
 import contextlib
 import io
 import json
 import random
+import socket
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# Python 3.14 on Windows raises ConnectionResetError inside asyncio's ProactorEventLoop
+# cleanup callback when Yahoo Finance drops a connection mid-flight. The error is cosmetic
+# (the request already completed or failed) but floods the console. Suppress it here.
+try:
+    from asyncio.proactor_events import _ProactorBasePipeTransport
+
+    _orig_call_connection_lost = _ProactorBasePipeTransport._call_connection_lost
+
+    def _quiet_call_connection_lost(self, exc):
+        try:
+            _orig_call_connection_lost(self, exc)
+        except (ConnectionResetError, OSError):
+            pass
+
+    _ProactorBasePipeTransport._call_connection_lost = _quiet_call_connection_lost
+except Exception:
+    pass
 
 import numpy as np
 import pandas as pd
