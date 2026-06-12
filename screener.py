@@ -13,6 +13,7 @@ Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE
 
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,7 +42,8 @@ W_DIVIDEND = 0.15   # ε — dividend score
 SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
-MAX_WORKERS      = 10   # parallel yfinance requests
+MAX_WORKERS      = 4    # parallel yfinance requests — keep below rate limit
+REQUEST_DELAY    = 0.2  # seconds between requests per worker
 CACHE_TTL_HOURS  = 24
 CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"
 
@@ -207,6 +209,7 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
             print(f"\n  Warning: could not fetch {ticker}: {e}")
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
+        time.sleep(REQUEST_DELAY)
         with _lock:
             cache[ticker] = row
             _done[0] += 1
