@@ -1613,7 +1613,7 @@ if _page == "portfolio" and not _is_demo:
             if st.button("✏️ Edit", key="btn_edit_div"):
                 _dlg_edit_dividends()
         with _da_filter:
-            selected_year = st.selectbox("", _div_year_options, index=_div_year_default,
+            selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
                                          key="div_year_filter", label_visibility="collapsed")
 
         # Full dividend payment history
