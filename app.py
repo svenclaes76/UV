@@ -136,7 +136,7 @@ def _render_admin_users():
                 key=f"adm_role_{u['email']}",
                 label_visibility="collapsed",
             )
-            if col_save.button("Save", key=f"adm_save_{u['email']}", use_container_width=True):
+            if col_save.button("Save", key=f"adm_save_{u['email']}", width="stretch"):
                 ok, msg = set_role(u["email"], new_role)
                 if ok:
                     st.success(msg)
@@ -145,7 +145,7 @@ def _render_admin_users():
                     st.error(msg)
             current_email = st.session_state.get("user_email", "")
             if u["email"] != current_email:
-                if col_del.button("🗑️", key=f"adm_del_{u['email']}", use_container_width=True,
+                if col_del.button("🗑️", key=f"adm_del_{u['email']}", width="stretch",
                                   help=f"Delete {u['email']}"):
                     ok, msg = delete_user(u["email"])
                     if ok:
@@ -162,7 +162,7 @@ def _render_admin_users():
         new_email    = st.text_input("Email")
         new_password = st.text_input("Password", type="password")
         new_role_sel = st.selectbox("Role", options=list(ROLES))
-        if st.form_submit_button("Create", use_container_width=True):
+        if st.form_submit_button("Create", width="stretch"):
             ok, msg = register(new_email, new_password, role=new_role_sel)
             if ok:
                 st.success(msg)
@@ -592,7 +592,7 @@ def _auth_wall():
     with col:
         email    = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        if st.button("Log in", use_container_width=True, type="primary"):
+        if st.button("Log in", width="stretch", type="primary"):
             ok, result = login(email, password)
             if ok:
                 _, role = verify_token(result)
@@ -890,7 +890,7 @@ if _page == "screener":
                 elif not _checked and _grp in _sel:
                     _sel = [g for g in _sel if g != _grp]
             st.session_state[_grp_key] = _sel
-            if st.button("Apply", type="primary", use_container_width=True, key=f"scr_col_apply_{key_suffix}"):
+            if st.button("Apply", type="primary", width="stretch", key=f"scr_col_apply_{key_suffix}"):
                 st.rerun()
 
         # Apply score filter before building display
@@ -910,7 +910,7 @@ if _page == "screener":
         with _fc:
             if score_key:
                 _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-                with st.popover(_sf_cur, use_container_width=True):
+                with st.popover(_sf_cur, width="stretch"):
                     st.radio("", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
                              key=score_key, label_visibility="collapsed")
 
@@ -963,7 +963,7 @@ if _page == "screener":
 
         edited = st.data_editor(
             display_df,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config=col_config,
             disabled=disabled_cols,
@@ -1184,7 +1184,7 @@ if _page == "portfolio" and not _is_demo:
             _invested_raw = st.text_input("Invested (€)", value="0.00")
         _, _save_btn = st.columns([3, 1])
         with _save_btn:
-            _do_save = st.button("💾 Save", key="dlg_add_save", use_container_width=True)
+            _do_save = st.button("💾 Save", key="dlg_add_save", width="stretch")
         try:
             shares      = max(1, int(_shares_raw.strip()))
             total_price = float(_invested_raw.strip().replace(",", "."))
@@ -1242,7 +1242,7 @@ if _page == "portfolio" and not _is_demo:
 
             _edited = st.data_editor(
                 _tbl.drop(columns="_idx"),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 num_rows="fixed",
                 height=_height,
@@ -1265,7 +1265,7 @@ if _page == "portfolio" and not _is_demo:
                 if n_selected:
                     st.caption(f"🗑️ {n_selected} selected for deletion")
             with _save_col:
-                if st.button("💾 Save", key="dlg_edit_save", use_container_width=True):
+                if st.button("💾 Save", key="dlg_edit_save", width="stretch"):
                     for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
                         new_shares = max(1, int(row["Stocks"]))
@@ -1343,7 +1343,7 @@ if _page == "portfolio" and not _is_demo:
                 elif not _checked and _grp in _sel:
                     _sel = [g for g in _sel if g != _grp]
             st.session_state["pos_col_groups"] = _sel
-            if st.button("Apply", type="primary", use_container_width=True, key="btn_col_apply"):
+            if st.button("Apply", type="primary", width="stretch", key="btn_col_apply"):
                 st.rerun()
 
         @st.dialog("Sell position", width="large")
@@ -1371,7 +1371,7 @@ if _page == "portfolio" and not _is_demo:
                 _proceeds_raw = st.text_input("Proceeds (€)", value=_proceeds_def, key="dlg_sell_proceeds")
             _, _save_col = st.columns([3, 1])
             with _save_col:
-                _do_save = st.button("💾 Save", key="dlg_sell_save", use_container_width=True)
+                _do_save = st.button("💾 Save", key="dlg_sell_save", width="stretch")
             try:
                 _shares   = max(1, int(_shares_raw.strip()))
                 _proceeds = float(_proceeds_raw.strip().replace(",", "."))
@@ -1449,7 +1449,7 @@ if _page == "portfolio" and not _is_demo:
         _height = min(_header + _n_rows * _row_h + 4, 800)
         st.dataframe(
             positions,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config=_pos_col_config,
             height=_height,
@@ -1507,7 +1507,7 @@ if _page == "portfolio" and not _is_demo:
                 div_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_add_div_date")
             _, _save_col = st.columns([3, 1])
             with _save_col:
-                _do_save = st.button("💾 Save", key="dlg_add_div_save", use_container_width=True)
+                _do_save = st.button("💾 Save", key="dlg_add_div_save", width="stretch")
             try:
                 _shares = max(1, int(_shares_raw.strip()))
                 _dps    = float(_dps_raw.strip().replace(",", "."))
@@ -1555,7 +1555,7 @@ if _page == "portfolio" and not _is_demo:
 
             _edited = st.data_editor(
                 _tbl.drop(columns="_idx"),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 num_rows="fixed",
                 height=_height,
@@ -1580,7 +1580,7 @@ if _page == "portfolio" and not _is_demo:
                 if n_selected:
                     st.caption(f"🗑️ {n_selected} selected for deletion")
             with _save_col:
-                if st.button("💾 Save", key="dlg_edit_div_save", use_container_width=True):
+                if st.button("💾 Save", key="dlg_edit_div_save", width="stretch"):
                     updated = []
                     for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
@@ -1639,7 +1639,7 @@ if _page == "portfolio" and not _is_demo:
                 "Net":       net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
                 "Date":      hist_table["date"].dt.strftime("%d-%m-%Y"),
             })
-            st.dataframe(hist_display, use_container_width=True, hide_index=True,
+            st.dataframe(hist_display, width="stretch", hide_index=True,
                          height=(len(hist_display) + 1) * 35 + 10)
 
             st.divider()
@@ -1714,7 +1714,7 @@ if _page == "portfolio" and not _is_demo:
 
                 _edited = st.data_editor(
                     _tbl.drop(columns="_idx"),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     num_rows="fixed",
                     height=_height,
@@ -1737,7 +1737,7 @@ if _page == "portfolio" and not _is_demo:
                     if n_selected:
                         st.caption(f"🗑️ {n_selected} selected for deletion")
                 with _save_col:
-                    if st.button("💾 Save", key="dlg_edit_sold_save", use_container_width=True):
+                    if st.button("💾 Save", key="dlg_edit_sold_save", width="stretch"):
                         _sold_updated = sold.copy()
                         for i, row in to_keep.iterrows():
                             orig_idx = int(_tbl.iloc[i]["_idx"])
@@ -1774,7 +1774,7 @@ if _page == "portfolio" and not _is_demo:
 
             st.dataframe(
                 sold_table.sort_values("Company"),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config={
                     "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%"),
@@ -1837,7 +1837,7 @@ if _page == "settings":
                     data=zip_bytes,
                     file_name=backup_filename("zip"),
                     mime="application/zip",
-                    use_container_width=True,
+                    width="stretch",
                 )
             except Exception as e:
                 st.error(f"Could not create ZIP: {e}")
@@ -1853,7 +1853,7 @@ if _page == "settings":
                     data=xls_bytes,
                     file_name=backup_filename("xlsx"),
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
+                    width="stretch",
                 )
             except Exception as e:
                 st.error(f"Could not create Excel: {e}")
