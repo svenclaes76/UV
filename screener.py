@@ -16,7 +16,7 @@ import random
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -46,7 +46,8 @@ SCORE_AVOID      = 40
 MAX_WORKERS      = 4    # parallel yfinance requests
 REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
-CACHE_TTL_HOURS  = 24
+CACHE_TTL_HOURS  = 24   # base TTL; actual refresh is jittered ±4h per ticker
+CACHE_TTL_JITTER = 4    # hours of random jitter added to each ticker's TTL
 CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"
 
 # ── Fields fetched from yfinance ──────────────────────────────────────────────
@@ -110,11 +111,21 @@ def _save_cache(cache: dict) -> None:
 
 def _is_fresh(entry: dict) -> bool:
     try:
+        # Prefer explicit next_fetch_at (set with jitter); fall back to legacy age check
+        if "next_fetch_at" in entry:
+            return datetime.now(timezone.utc) < datetime.fromisoformat(entry["next_fetch_at"])
         fetched_at = datetime.fromisoformat(entry["fetched_at"])
         age_hours  = (datetime.now(timezone.utc) - fetched_at).total_seconds() / 3600
         return age_hours < CACHE_TTL_HOURS
     except Exception:
         return False
+
+
+def _next_fetch_at() -> str:
+    """Random refresh time: base TTL ± jitter, so fetches spread across the day."""
+    jitter_hours = random.uniform(-CACHE_TTL_JITTER, CACHE_TTL_JITTER)
+    delta_hours  = CACHE_TTL_HOURS + jitter_hours
+    return (datetime.now(timezone.utc) + timedelta(hours=delta_hours)).isoformat()
 
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
@@ -140,7 +151,8 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "Price":      _safe_float(price),
         "Currency":   info.get("currency", "EUR"),
         "Market Cap": _safe_float(mcap),
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at":    datetime.now(timezone.utc).isoformat(),
+        "next_fetch_at": _next_fetch_at(),
     }
 
     # Display multiples — sanity-bounded
