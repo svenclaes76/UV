@@ -105,6 +105,7 @@ from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
+                       sell_position,
                        add_dividend, update_div_hist,
                        PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE,
                        save_watchlist, load_watchlist)
@@ -1293,19 +1294,62 @@ if _page == "portfolio" and not _is_demo:
             if st.button("Apply", type="primary", use_container_width=True, key="btn_col_apply"):
                 st.rerun()
 
+        @st.dialog("Sell position", width="large")
+        def _dlg_sell_position():
+            _sell_sorted     = pf.sort_values("name")
+            _sell_ticker_options = _sell_sorted["ticker"].tolist()
+            _sell_ticker_labels  = {
+                row["ticker"]: f"{row['name']}  ({row['ticker']})"
+                for _, row in _sell_sorted.iterrows()
+            }
+            _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
+            with _c1:
+                ticker = st.selectbox("Company", options=_sell_ticker_options,
+                                      format_func=lambda t: _sell_ticker_labels.get(t, t),
+                                      key="dlg_sell_ticker")
+            _match = pf[pf["ticker"] == ticker]
+            with _c2:
+                _shares_def = str(int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0)) if not _match.empty else "0"
+                _shares_raw = st.text_input("Shares", value=_shares_def, key="dlg_sell_shares")
+            with _c3:
+                sell_date = st.date_input("Sell Date", format="DD/MM/YYYY", key="dlg_sell_date")
+            with _c4:
+                _current_val = pd.to_numeric(_match.iloc[0].get("current_value"), errors="coerce") if not _match.empty else 0.0
+                _proceeds_def = f"{_current_val:.2f}" if pd.notna(_current_val) and _current_val else "0.00"
+                _proceeds_raw = st.text_input("Proceeds (€)", value=_proceeds_def, key="dlg_sell_proceeds")
+            _, _save_col = st.columns([3, 1])
+            with _save_col:
+                _do_save = st.button("💾 Save", key="dlg_sell_save", use_container_width=True)
+            try:
+                _shares   = max(1, int(_shares_raw.strip()))
+                _proceeds = float(_proceeds_raw.strip().replace(",", "."))
+            except ValueError:
+                _shares, _proceeds = 1, 0.0
+            if _do_save and _shares > 0 and _proceeds > 0:
+                sell_position(
+                    ticker=ticker,
+                    shares=_shares,
+                    proceeds=_proceeds,
+                    sell_date=pd.Timestamp(sell_date).isoformat(),
+                )
+                st.rerun()
+
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _c1, _c2, _c3, _ = st.columns([1, 1, 1, 6], gap="small")
+        _c1, _c2, _c3, _c4, _ = st.columns([1, 1, 1, 1, 5], gap="small")
         with _c1:
-            if st.button("➕ Add", key="btn_add_pos"):
-                _dlg_add_position()
-        with _c2:
-            if st.button("✏️ Edit", key="btn_edit_pos"):
-                _dlg_edit_position()
-        with _c3:
             _active_groups = st.session_state.get("pos_col_groups", [])
             _col_label = f"⊞ View ({len(_active_groups)})" if _active_groups else "⊞ View"
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
+        with _c2:
+            if st.button("➕ Add", key="btn_add_pos"):
+                _dlg_add_position()
+        with _c3:
+            if st.button("✏️ Edit", key="btn_edit_pos"):
+                _dlg_edit_position()
+        with _c4:
+            if st.button("💰 Sell", key="btn_sell_pos"):
+                _dlg_sell_position()
 
         _pos_groups = st.session_state.get("pos_col_groups", [])
 
@@ -1316,17 +1360,17 @@ if _page == "portfolio" and not _is_demo:
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d/%m/%Y").fillna("—"),
             "Live Price":     pf["live_price"].map(_fmt_eur),
-            "Day Chg %":      pf["day_change_pct"],
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            "Dividend":       pf["dividends"].fillna(0).map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
         }
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
-        _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price", "Day Chg %",
-                      "Invested", "Current", "Price Gain %", "Total Return %"}
+        _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price",
+                      "Invested", "Current", "Dividend", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Company")
         _n_rows = len(positions)
@@ -1341,7 +1385,6 @@ if _page == "portfolio" and not _is_demo:
 
         _pos_col_config = {
             "Company":        st.column_config.TextColumn("Company",         pinned=True),
-            "Day Chg %":      st.column_config.NumberColumn("Day Chg %",      format="%+.2f%%"),
             "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
             "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
@@ -1513,31 +1556,9 @@ if _page == "portfolio" and not _is_demo:
                 _dlg_edit_dividends()
 
         st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-        _gross = pf["dividends"].fillna(0)
-        _tax   = (_gross * 0.30).round(2)
-        _net   = (_gross - _tax).round(2)
-        _date_parsed = pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce")
-        div_table = pd.DataFrame({
-            "Company":   pf["name"],
-            "Ticker":    pf["ticker"],
-            "Shares":    pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-            "Div/Share": pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
-            "Gross":     _gross.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-            "Tax (30%)": _tax.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-            "Net":       _net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-            "Date":      _date_parsed.dt.strftime("%d/%m/%Y").fillna("—"),
-            "_sort_date": _date_parsed,
-        })
-        st.dataframe(div_table.sort_values("_sort_date", ascending=True).drop(columns="_sort_date"),
-                     use_container_width=True, hide_index=True,
-                     height=(len(pf) + 1) * 35 + 10)
-
-        st.divider()
 
         # Full dividend payment history
         if div_hist is not None and not div_hist.empty:
-            st.subheader("Dividend history")
-
             years = sorted(div_hist["date"].dt.year.dropna().unique().astype(int), reverse=True)
             year_options = ["All"] + years
             default_idx = year_options.index(datetime.now().year) if datetime.now().year in year_options else 0
@@ -1546,7 +1567,7 @@ if _page == "portfolio" and not _is_demo:
             hist_table = div_hist.copy()
             if selected_year != "All":
                 hist_table = hist_table[hist_table["date"].dt.year == selected_year]
-            hist_table = hist_table.sort_values("date", ascending=False)
+            hist_table = hist_table.sort_values("date", ascending=False).reset_index(drop=True)
             hist_shares = pd.to_numeric(hist_table.get("shares"), errors="coerce") if "shares" in hist_table.columns else None
             div_per_share = (hist_table["amount"] / hist_shares).round(4) if hist_shares is not None else None
             TAX_RATE = 0.30
@@ -1601,7 +1622,12 @@ if _page == "portfolio" and not _is_demo:
                 total_value = sv[row.name] + row["dividends"]
                 return ((total_value / pv[row.name]) ** (365 / row["held_days"]) - 1) * 100
 
-            sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
+            # Use pre-computed annual_return_pct if present, otherwise compute on the fly
+            if "annual_return_pct" in sold.columns:
+                _computed = sold.apply(_annual_return, axis=1)
+                sold["annual_return_pct"] = sold["annual_return_pct"].combine_first(_computed).round(2)
+            else:
+                sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
 
             # Summary cards
             _pv_sum = pv.sum()
@@ -1613,7 +1639,69 @@ if _page == "portfolio" and not _is_demo:
             s4.metric("Realised return", f"€{_tr_sum:,.0f}",
                       delta=f"{_tr_sum / _pv_sum * 100:+.1f}%" if _pv_sum else "—")
             st.divider()
-            st.markdown('<div style="height:3.5rem"></div>', unsafe_allow_html=True)
+
+            # ── Edit sold dialog ──────────────────────────────────────────────
+            @st.dialog("Edit realised positions", width="large")
+            def _dlg_edit_sold():
+                _sold_src = sold.sort_values("name").reset_index()  # orig idx in 'index' col
+                _tbl = pd.DataFrame({
+                    "_idx":    _sold_src["index"],
+                    "🗑️":      False,
+                    "Company": _sold_src["name"],
+                    "Shares":  pd.to_numeric(_sold_src["shares"], errors="coerce").fillna(0).astype(int),
+                    "Proceeds (€)": pd.to_numeric(_sold_src["sale_value"], errors="coerce").fillna(0).round(2),
+                    "Sell Date":    pd.to_datetime(_sold_src["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.date,
+                })
+
+                _row_h  = 35
+                _header = 35
+                _height = _header + min(len(_tbl), 8) * _row_h
+
+                _edited = st.data_editor(
+                    _tbl.drop(columns="_idx"),
+                    use_container_width=True,
+                    hide_index=True,
+                    num_rows="fixed",
+                    height=_height,
+                    column_config={
+                        "🗑️":           st.column_config.CheckboxColumn("🗑️",            width=55),
+                        "Company":      st.column_config.TextColumn("Company",           disabled=True),
+                        "Shares":       st.column_config.NumberColumn("Shares",          min_value=1, step=1, format="%d"),
+                        "Proceeds (€)": st.column_config.NumberColumn("Proceeds (€)",   min_value=0.0, format="%.2f"),
+                        "Sell Date":    st.column_config.DateColumn("Sell Date",         format="DD/MM/YYYY"),
+                    },
+                    key="dlg_edit_sold_table",
+                )
+
+                to_delete  = _edited[_edited["🗑️"]].index.tolist()
+                to_keep    = _edited[~_edited["🗑️"]]
+                n_selected = len(to_delete)
+
+                _del_note, _save_col = st.columns([3, 1])
+                with _del_note:
+                    if n_selected:
+                        st.caption(f"🗑️ {n_selected} selected for deletion")
+                with _save_col:
+                    if st.button("💾 Save", key="dlg_edit_sold_save", use_container_width=True):
+                        _sold_updated = sold.copy()
+                        for i, row in to_keep.iterrows():
+                            orig_idx = int(_tbl.iloc[i]["_idx"])
+                            _sold_updated.at[orig_idx, "shares"]     = max(1, int(row["Shares"]))
+                            _sold_updated.at[orig_idx, "sale_value"] = round(float(row["Proceeds (€)"]), 2)
+                            if pd.notna(row["Sell Date"]) and row["Sell Date"] is not None:
+                                _sold_updated.at[orig_idx, "date_out"] = pd.Timestamp(row["Sell Date"]).isoformat()
+                        if to_delete:
+                            del_orig = [int(_tbl.iloc[i]["_idx"]) for i in to_delete]
+                            _sold_updated.drop(index=del_orig, inplace=True)
+                            _sold_updated.reset_index(drop=True, inplace=True)
+                        save_sold(_sold_updated)
+                        st.rerun()
+
+            st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
+            _se1, _ = st.columns([1, 8], gap="small")
+            with _se1:
+                if st.button("✏️ Edit", key="btn_edit_sold"):
+                    _dlg_edit_sold()
 
             sold_table = pd.DataFrame({  # sorted by Company below
                 "Company":         sold["name"],
@@ -1622,8 +1710,8 @@ if _page == "portfolio" and not _is_demo:
                 "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
                 "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
                 "Price Gain":      sold["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
-                "Price Gain %":    sold["price_gain_pct"],
                 "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
+                "Price Gain %":    sold["price_gain_pct"],
                 "Annual Return %": sold["annual_return_pct"],
                 "Buy Date":        pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),

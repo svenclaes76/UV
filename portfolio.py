@@ -67,6 +67,53 @@ def update_positions(df: pd.DataFrame) -> None:
     save_portfolio(df)
 
 
+def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> None:
+    """Move a position from portfolio to sold, persist both files."""
+    pf = load_portfolio()
+    if pf is None:
+        return
+    mask = pf["ticker"] == ticker
+    if not mask.any():
+        return
+    row = pf[mask].iloc[0].copy()
+    purchase_value = float(row.get("purchase_value") or 0)
+    dividends      = float(row.get("dividends") or 0)
+    # Compute annual return
+    try:
+        _date_in  = pd.to_datetime(row.get("date_in"),  errors="coerce")
+        _date_out = pd.to_datetime(sell_date,            errors="coerce")
+        _held_days = (_date_out - _date_in).days
+        if _held_days > 0 and purchase_value > 0:
+            _total_value = proceeds + dividends
+            annual_return_pct = round(
+                ((_total_value / purchase_value) ** (365 / _held_days) - 1) * 100, 2
+            )
+        else:
+            annual_return_pct = None
+    except Exception:
+        annual_return_pct = None
+    # Build sold record
+    sold_row = {
+        "name":              row.get("name", ""),
+        "google_ticker":     row.get("google_ticker", ""),
+        "ticker":            ticker,
+        "shares":            shares,
+        "purchase_value":    purchase_value,
+        "sale_value":        round(proceeds, 2),
+        "dividends":         dividends,
+        "date_in":           row.get("date_in", ""),
+        "date_out":          sell_date,
+        "annual_return_pct": annual_return_pct,
+    }
+    sold_df = load_sold()
+    new_row = pd.DataFrame([sold_row])
+    sold_df = pd.concat([sold_df, new_row], ignore_index=True) if sold_df is not None else new_row
+    save_sold(sold_df)
+    # Remove from portfolio
+    pf = pf[~mask].reset_index(drop=True)
+    save_portfolio(pf)
+
+
 def add_dividend(row: dict) -> None:
     """Append a dividend record and update portfolio totals."""
     df = load_div_hist()
