@@ -20,6 +20,11 @@ from pathlib import Path
 
 import bcrypt
 import jwt
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
+
+from crypto import read_encrypted, write_encrypted  # noqa: E402
 
 USERS_FILE  = Path(__file__).parent / ".cache" / "users.json"
 _JWT_SECRET = os.environ.get("AUTH_SECRET") or secrets.token_hex(32)
@@ -34,15 +39,14 @@ ROLES = ("administrator", "normal", "demo")
 def _load_users() -> dict:
     if USERS_FILE.exists():
         try:
-            return json.loads(USERS_FILE.read_text(encoding="utf-8"))
+            return json.loads(read_encrypted(USERS_FILE))
         except Exception:
             pass
     return {}
 
 
 def _save_users(users: dict) -> None:
-    USERS_FILE.parent.mkdir(exist_ok=True)
-    USERS_FILE.write_text(json.dumps(users, indent=2), encoding="utf-8")
+    write_encrypted(USERS_FILE, json.dumps(users, indent=2))
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
