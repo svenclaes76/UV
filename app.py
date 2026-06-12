@@ -341,9 +341,9 @@ def _compute_fair_values(info: dict) -> dict:
     }
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=60)
 def _fetch_prices_cached(tickers: tuple) -> dict:
-    """Batch price feed — one HTTP call for all tickers, refreshed every 2 min."""
+    """Batch price feed — one HTTP call for all tickers, refreshed every 60s."""
     return fetch_prices(tickers)
 
 
@@ -1206,7 +1206,7 @@ if _page == "portfolio" and not _is_demo:
             })
             st.rerun()
 
-    st_autorefresh(interval=300_000, key="portfolio_refresh")
+    st_autorefresh(interval=60_000, key="portfolio_refresh")
     sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
