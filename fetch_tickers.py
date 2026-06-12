@@ -10,9 +10,16 @@ Primary source : stockanalysis.com — reliable public lists.
 Last resort    : hardcoded index constituents.
 """
 
+import json
+from pathlib import Path
+
 import requests
 import pandas as pd
 from io import StringIO
+import yfinance as yf
+
+_EXCEPTIONS_FILE  = Path(__file__).parent / ".cache" / "frankfurt_exceptions.json"
+_VALIDATE_BATCH   = 30   # rejected symbols to probe per fetch run
 
 STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
 STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
@@ -130,10 +137,51 @@ def fetch_milan_tickers() -> list[dict]:
     )
 
 
-_EQUITY_EXCEPTIONS = {"P911", "1COV"}  # real equities that don't match the pattern
+def _load_exceptions() -> dict[str, bool]:
+    """Load {symbol: is_equity} cache from disk."""
+    if _EXCEPTIONS_FILE.exists():
+        try:
+            return json.loads(_EXCEPTIONS_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"P911": True, "1COV": True}  # seed with known exceptions
 
 
-def _is_equity_symbol(symbol: str) -> bool:
+def _save_exceptions(data: dict[str, bool]) -> None:
+    _EXCEPTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _EXCEPTIONS_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _is_valid_on_yahoo(symbol: str) -> bool:
+    """Quick probe: True if Yahoo Finance knows this ticker as an equity."""
+    try:
+        info = yf.Ticker(f"{symbol}.DE").fast_info
+        return getattr(info, "last_price", None) is not None
+    except Exception:
+        return False
+
+
+def _auto_validate(rejected: list[str], exceptions: dict[str, bool]) -> dict[str, bool]:
+    """
+    Check up to _VALIDATE_BATCH symbols not yet in the exceptions cache.
+    Updates and returns the cache dict; caller is responsible for saving.
+    """
+    unchecked = [s for s in rejected if s not in exceptions][:_VALIDATE_BATCH]
+    if not unchecked:
+        return exceptions
+    print(f"[fetch_tickers] Validating {len(unchecked)} new Frankfurt symbols against Yahoo…")
+    found = []
+    for sym in unchecked:
+        valid = _is_valid_on_yahoo(sym)
+        exceptions[sym] = valid
+        if valid:
+            found.append(sym)
+    if found:
+        print(f"[fetch_tickers] Auto-added Frankfurt exceptions: {found}")
+    return exceptions
+
+
+def _is_equity_symbol(symbol: str, exceptions: dict[str, bool] | None = None) -> bool:
     """
     True for symbols that look like real equities on Frankfurt/XETR.
 
@@ -144,10 +192,10 @@ def _is_equity_symbol(symbol: str) -> bool:
 
     Rejected patterns (ETFs, warrants, structured products):
       - Start with a digit:      1YD0, 3V6, 4AB0
-      - Multiple digits:         TL01, FB20, CMC1X, ASM0 (ends 0 = certificate series)
+      - Multiple digits:         TL01, FB20, ASM0 (ends 0 = certificate series)
       - Digit not at end:        A1BC
     """
-    if symbol in _EQUITY_EXCEPTIONS:
+    if exceptions and exceptions.get(symbol):
         return True
     if not symbol or len(symbol) > 4 or not symbol.isupper():
         return False
@@ -158,7 +206,6 @@ def _is_equity_symbol(symbol: str) -> bool:
         return False
     if digits and not symbol[-1].isdigit():
         return False
-    # Symbols ending in 0 are almost always certificate series, not equities
     if symbol.endswith("0"):
         return False
     return True
@@ -170,7 +217,14 @@ def fetch_frankfurt_tickers() -> list[dict]:
         STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
         label="Frankfurt", fallback_fn=_hardcoded_dax40,
     )
-    filtered = [s for s in all_tickers if _is_equity_symbol(s["ticker"].removesuffix(".DE"))]
+    exceptions = _load_exceptions()
+    symbols     = [s["ticker"].removesuffix(".DE") for s in all_tickers]
+    rejected    = [sym for sym in symbols if not _is_equity_symbol(sym, exceptions)]
+
+    exceptions  = _auto_validate(rejected, exceptions)
+    _save_exceptions(exceptions)
+
+    filtered = [s for s in all_tickers if _is_equity_symbol(s["ticker"].removesuffix(".DE"), exceptions)]
     print(f"[fetch_tickers] Frankfurt: {len(filtered)}/{len(all_tickers)} kept after equity filter")
     return filtered
 
