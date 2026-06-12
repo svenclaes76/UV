@@ -211,7 +211,8 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
                 break
             except Exception as e:
                 msg = str(e)
-                if "429" in msg or "Too Many Requests" in msg or "Rate limited" in msg:
+                if ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
+                        or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg):
                     wait = 2 ** attempt * 5   # 5s, 10s, 20s, 40s
                     if attempt < MAX_RETRIES:
                         time.sleep(wait)
