@@ -568,6 +568,11 @@ if not _has_session:
 
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
+    # Fast path: token + email already verified this session — skip re-verification
+    # on every rerun (e.g. st_autorefresh) to prevent ghost login flashes.
+    if st.session_state.get("jwt_token") and st.session_state.get("user_email"):
+        return
+
     token = st.session_state.get("jwt_token")
     if token:
         email, role = verify_token(token)
