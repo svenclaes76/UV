@@ -1166,7 +1166,7 @@ if _page == "portfolio" and not _is_demo:
     total_return_pct = _safe_pct(total_return, total_invested)
 
     # ── Add-position dialog ───────────────────────────────────────────────────
-    _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name")
+    _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
     _ticker_options = _all_screener["Ticker"].tolist()
     _ticker_labels  = {
         row["Ticker"]: f"{row['Name']}  ({row['Ticker']})"
@@ -1223,7 +1223,7 @@ if _page == "portfolio" and not _is_demo:
         # ── CRUD actions ─────────────────────────────────────────────────────
         @st.dialog("Edit positions", width="large")
         def _dlg_edit_position():
-            _edit_src = pf.sort_values("name").reset_index()  # orig idx in 'index' col
+            _edit_src = pf.sort_values("name", key=lambda s: s.str.lower()).reset_index()  # orig idx in 'index' col
             _tbl = pd.DataFrame({
                 "_idx":        _edit_src["index"],
                 "🗑️":          False,
@@ -1350,7 +1350,7 @@ if _page == "portfolio" and not _is_demo:
 
         @st.dialog("Sell position", width="large")
         def _dlg_sell_position():
-            _sell_sorted     = pf.sort_values("name")
+            _sell_sorted     = pf.sort_values("name", key=lambda s: s.str.lower())
             _sell_ticker_options = _sell_sorted["ticker"].tolist()
             _sell_ticker_labels  = {
                 row["ticker"]: f"{row['name']}  ({row['ticker']})"
@@ -1426,7 +1426,7 @@ if _page == "portfolio" and not _is_demo:
         _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price",
                       "Invested", "Current", "Dividend", "Price Gain %", "Total Return %"}
 
-        positions = pd.DataFrame(pos_data).sort_values("Company")
+        positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
 
         # Highlight extra columns with a subtle tint
@@ -1700,7 +1700,7 @@ if _page == "portfolio" and not _is_demo:
             # ── Edit sold dialog ──────────────────────────────────────────────
             @st.dialog("Edit realised positions", width="large")
             def _dlg_edit_sold():
-                _sold_src = sold.sort_values("name").reset_index()  # orig idx in 'index' col
+                _sold_src = sold.sort_values("name", key=lambda s: s.str.lower()).reset_index()  # orig idx in 'index' col
                 _tbl = pd.DataFrame({
                     "_idx":    _sold_src["index"],
                     "🗑️":      False,
@@ -1775,7 +1775,7 @@ if _page == "portfolio" and not _is_demo:
             })
 
             st.dataframe(
-                sold_table.sort_values("Company"),
+                sold_table.sort_values("Company", key=lambda s: s.str.lower()),
                 width="stretch",
                 hide_index=True,
                 column_config={
