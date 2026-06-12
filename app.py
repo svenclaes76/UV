@@ -98,7 +98,6 @@ load_dotenv(Path(__file__).parent / ".env")
 import pandas as pd
 import yfinance as yf
 import streamlit as st
-import streamlit.components.v1 as st_components
 from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
@@ -554,7 +553,7 @@ if _tok_param:
 # session exists, sets ?_tok= and reloads — bridges hard page reloads.
 _has_session = bool(st.session_state.get("jwt_token"))
 if not _has_session:
-    st_components.html("""
+    st.iframe("""
 <script>
 (function(){
   var tok = localStorage.getItem('uv_jwt');
@@ -600,7 +599,7 @@ def _auth_wall():
                 st.session_state["jwt_token"]  = result
                 st.session_state["user_email"] = email.strip().lower()
                 st.session_state["user_role"]  = role
-                st_components.html(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
+                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
                 st.rerun()
             else:
                 st.error(result)
@@ -699,7 +698,7 @@ st.markdown(f"""
 
 # Navigation component — intercepts nav clicks via Streamlit.setComponentValue
 # so page switches happen over the existing WebSocket (no browser reload = no flash).
-_nav_target = st_components.html(f"""
+_nav_target = st.iframe(f"""
 <script>
 // Apply active nav highlight via an injected <style> tag (not via Python classes).
 // This keeps sidebar HTML identical on every Python rerun → React no-op → no flash.
@@ -759,7 +758,7 @@ if st.query_params.get("logout") == "1":
     st.query_params.clear()
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
-    st_components.html("<script>localStorage.removeItem('uv_jwt');</script>", height=0)
+    st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=0)
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
