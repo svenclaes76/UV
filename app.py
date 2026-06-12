@@ -1802,7 +1802,6 @@ if _page == "portfolio" and not _is_demo:
                     save_portfolio(new_pf)
                     save_sold(new_sold)
                     save_div_hist(new_div_hist)
-                    st.cache_data.clear()
                     st.success(f"Portfolio updated with {len(new_pf)} positions.")
                     st.rerun()
             except Exception as e:
