@@ -107,7 +107,8 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
-                      run_screener, run_screener_from_df, fetch_fundamentals)
+                      run_screener, run_screener_from_df,
+                      fetch_fundamentals, fetch_fundamentals_nowait, get_fetch_progress)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
@@ -245,9 +246,21 @@ def _fmt_div_flag(v) -> str:
     return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
 
 
+def _cache_version() -> str:
+    """Changes whenever the fundamentals JSON file is updated on disk."""
+    try:
+        return str(int(CACHE_FILE.stat().st_mtime))
+    except OSError:
+        return "0"
+
+
 @st.cache_data(show_spinner=False)
-def _load_all_screener_data() -> tuple:
-    """Fetch fundamentals for all exchanges in one pass, then score each separately."""
+def _load_all_screener_data(cache_version: str) -> tuple:  # noqa: ARG001
+    """
+    Build screener DataFrames from whatever is in the cache right now.
+    cache_version is the file mtime — changing it busts Streamlit's result cache
+    so the UI re-reads the JSON file as the background fetch writes new batches.
+    """
     br_stocks  = fetch_brussels_tickers()
     ams_stocks = fetch_amsterdam_tickers()
     par_stocks = fetch_paris_tickers()
@@ -256,8 +269,8 @@ def _load_all_screener_data() -> tuple:
     swx_stocks = fetch_swiss_tickers()
     all_stocks = br_stocks + ams_stocks + par_stocks + mil_stocks + etr_stocks + swx_stocks
 
-    print(f"Fetching fundamentals for {len(all_stocks)} stocks across all exchanges…")
-    all_fund = fetch_fundamentals(all_stocks)
+    print(f"Loading screener data for {len(all_stocks)} stocks…")
+    all_fund = fetch_fundamentals_nowait(all_stocks)
 
     br_tickers  = {s["ticker"] for s in br_stocks}
     ams_tickers = {s["ticker"] for s in ams_stocks}
@@ -265,6 +278,10 @@ def _load_all_screener_data() -> tuple:
     mil_tickers = {s["ticker"] for s in mil_stocks}
     etr_tickers = {s["ticker"] for s in etr_stocks}
     swx_tickers = {s["ticker"] for s in swx_stocks}
+
+    if all_fund.empty:
+        empty = pd.DataFrame()
+        return empty, empty, empty, empty, empty, empty
 
     df     = run_screener_from_df(all_fund[all_fund["Ticker"].isin(br_tickers)])
     df_ams = run_screener_from_df(all_fund[all_fund["Ticker"].isin(ams_tickers)])
@@ -275,12 +292,12 @@ def _load_all_screener_data() -> tuple:
     return df, df_ams, df_par, df_mil, df_etr, df_swx
 
 
-def load_screener_data()           -> pd.DataFrame: return _load_all_screener_data()[0]
-def load_amsterdam_screener_data() -> pd.DataFrame: return _load_all_screener_data()[1]
-def load_paris_screener_data()     -> pd.DataFrame: return _load_all_screener_data()[2]
-def load_milan_screener_data()     -> pd.DataFrame: return _load_all_screener_data()[3]
-def load_frankfurt_screener_data() -> pd.DataFrame: return _load_all_screener_data()[4]
-def load_swiss_screener_data()     -> pd.DataFrame: return _load_all_screener_data()[5]
+def load_screener_data()           -> pd.DataFrame: return _load_all_screener_data(_cache_version())[0]
+def load_amsterdam_screener_data() -> pd.DataFrame: return _load_all_screener_data(_cache_version())[1]
+def load_paris_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[2]
+def load_milan_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[3]
+def load_frankfurt_screener_data() -> pd.DataFrame: return _load_all_screener_data(_cache_version())[4]
+def load_swiss_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[5]
 
 
 def _compute_fair_values(info: dict) -> dict:
@@ -757,12 +774,19 @@ if _page == "screener":
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
-    with st.spinner("Loading screener data…"):
-        df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data()
-        # If the cached DataFrame predates the algorithm rework, bust caches and
-        # rerun the script so the cleared cache takes effect from a clean start.
-        if "fair_value" not in df.columns or "Decision" not in df.columns:
-            _bust_cache()
+    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version())
+    if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
+        _bust_cache()
+
+    @st.fragment(run_every=10)
+    def _fetch_progress_banner():
+        prog = get_fetch_progress()
+        if prog["running"] and prog["total"] > 0:
+            pct  = prog["done"] / prog["total"]
+            st.progress(pct, text=f"Fetching fresh data in background… {prog['done']}/{prog['total']} tickers")
+            st.rerun()
+
+    _fetch_progress_banner()
 
     watchlist = load_watchlist()
 

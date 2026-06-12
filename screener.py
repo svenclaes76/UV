@@ -12,6 +12,7 @@ Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE
 """
 
 import json
+import random
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -190,22 +191,33 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     return row
 
 
-def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
-    cache      = _load_cache()
-    stale      = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
-    fresh      = [s for s in stocks if _is_fresh(cache.get(s["ticker"], {}))]
-    _lock      = threading.Lock()
-    _done      = [0]
+# ── Background fetch state (shared across all Streamlit sessions) ─────────────
 
-    if stale:
-        print(f"  {len(fresh)} cached  |  {len(stale)} to fetch")
-    else:
-        print(f"  All {len(fresh)} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
+_bg_state: dict = {"done": 0, "total": 0, "running": False}
+_bg_state_lock = threading.Lock()
+_bg_thread: threading.Thread | None = None
+
+
+def get_fetch_progress() -> dict:
+    """Thread-safe snapshot of background fetch progress."""
+    with _bg_state_lock:
+        return _bg_state.copy()
+
+
+def _df_from_cache(stocks: list[dict], cache: dict) -> pd.DataFrame:
+    rows = [cache[s["ticker"]] for s in stocks if s["ticker"] in cache]
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def _run_fetch(stale: list[dict], cache: dict) -> None:
+    """Blocking fetch of stale tickers; updates cache file incrementally."""
+    _file_lock = threading.Lock()
+    _row_lock  = threading.Lock()
+    done       = [0]
 
     def _refresh_crumb():
-        """Force yfinance to obtain a fresh session crumb."""
         try:
-            yf.Ticker("AAPL").fast_info  # lightweight call that re-authenticates
+            yf.Ticker("AAPL").fast_info
         except Exception:
             pass
 
@@ -218,19 +230,19 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
                 break
             except Exception as e:
                 msg = str(e)
+                is_not_found = "404" in msg or "Not Found" in msg or "Quote not found" in msg
+                is_crumb     = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
                 is_rate_limit = ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
                                  or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg)
-                is_crumb  = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
-                is_not_found = "404" in msg or "Not Found" in msg or "Quote not found" in msg
                 if is_not_found:
-                    break  # ticker doesn't exist on Yahoo — skip silently
+                    break
                 if is_crumb:
                     _refresh_crumb()
                     time.sleep(3)
                     if attempt < MAX_RETRIES:
                         continue
                 elif is_rate_limit:
-                    wait = 2 ** attempt * 5   # 5s, 10s, 20s, 40s
+                    wait = 2 ** attempt * 5
                     if attempt < MAX_RETRIES:
                         time.sleep(wait)
                         continue
@@ -240,19 +252,65 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
         time.sleep(REQUEST_DELAY)
-        with _lock:
+        with _row_lock:
             cache[ticker] = row
-            _done[0] += 1
-            print(f"  Fetching [{_done[0]}/{len(stale)}] {ticker}          ", end="\r")
+            done[0] += 1
+            with _bg_state_lock:
+                _bg_state["done"] = done[0]
+            # Write to disk every 25 tickers so UI can pick up partial results
+            if done[0] % 25 == 0 or done[0] == len(stale):
+                with _file_lock:
+                    _save_cache(cache)
+            print(f"  Fetching [{done[0]}/{len(stale)}] {ticker}          ", end="\r")
 
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        list(executor.map(_fetch_and_store, stale))
+
+    _save_cache(cache)
+    print()
+    with _bg_state_lock:
+        _bg_state["running"] = False
+
+
+def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
+    """Blocking fetch — returns only after all stale tickers are refreshed."""
+    cache = _load_cache()
+    stale = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
+    fresh_count = len(stocks) - len(stale)
     if stale:
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            list(executor.map(_fetch_and_store, stale))
-        _save_cache(cache)
-        print()
+        print(f"  {fresh_count} cached  |  {len(stale)} to fetch")
+        with _bg_state_lock:
+            _bg_state.update({"done": 0, "total": len(stale), "running": True})
+        random.shuffle(stale)
+        _run_fetch(stale, cache)
+    else:
+        print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
+    return _df_from_cache(stocks, cache)
 
-    rows = [cache[s["ticker"]] for s in stocks if s["ticker"] in cache]
-    return pd.DataFrame(rows)
+
+def fetch_fundamentals_nowait(stocks: list[dict]) -> pd.DataFrame:
+    """
+    Return cached data immediately.
+    Stale tickers are refreshed in a background thread — the JSON cache file
+    is written incrementally, so callers that re-read the cache will pick up
+    new data as it arrives without waiting for the full fetch to finish.
+    """
+    global _bg_thread
+    cache = _load_cache()
+    stale = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
+    fresh_count = len(stocks) - len(stale)
+
+    if stale and (not _bg_thread or not _bg_thread.is_alive()):
+        print(f"  {fresh_count} cached  |  {len(stale)} stale — starting background fetch")
+        with _bg_state_lock:
+            _bg_state.update({"done": 0, "total": len(stale), "running": True})
+        random.shuffle(stale)
+        _bg_thread = threading.Thread(target=_run_fetch, args=(stale, cache), daemon=True)
+        _bg_thread.start()
+    elif not stale:
+        print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
+
+    return _df_from_cache(stocks, cache)
 
 
 # ── Stage 2: Fair value estimation ───────────────────────────────────────────
