@@ -42,8 +42,9 @@ W_DIVIDEND = 0.15   # ε — dividend score
 SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
-MAX_WORKERS      = 4    # parallel yfinance requests — keep below rate limit
-REQUEST_DELAY    = 0.2  # seconds between requests per worker
+MAX_WORKERS      = 4    # parallel yfinance requests
+REQUEST_DELAY    = 0.3  # seconds between requests per worker
+MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
 CACHE_TTL_HOURS  = 24
 CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"
 
@@ -203,10 +204,21 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
 
     def _fetch_and_store(stock):
         ticker = stock["ticker"]
-        try:
-            row = _fetch_one(ticker, stock)
-        except Exception as e:
-            print(f"\n  Warning: could not fetch {ticker}: {e}")
+        row = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                row = _fetch_one(ticker, stock)
+                break
+            except Exception as e:
+                msg = str(e)
+                if "429" in msg or "Too Many Requests" in msg or "Rate limited" in msg:
+                    wait = 2 ** attempt * 5   # 5s, 10s, 20s, 40s
+                    if attempt < MAX_RETRIES:
+                        time.sleep(wait)
+                        continue
+                print(f"\n  Warning: could not fetch {ticker}: {e}")
+                break
+        if row is None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
         time.sleep(REQUEST_DELAY)

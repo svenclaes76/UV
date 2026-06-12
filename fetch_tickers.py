@@ -81,18 +81,18 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
 
 
 def fetch_brussels_tickers() -> list[dict]:
-    """Returns Brussels (XBRU) stocks — top 500 from stockanalysis.com, BEL20 fallback."""
+    """Returns Brussels (XBRU) stocks — stockanalysis.com with BEL20 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_URL, suffix=".BR", mic="XBRU",
-        label="Brussels", fallback_fn=_hardcoded_bel20, max_tickers=500,
+        label="Brussels", fallback_fn=_hardcoded_bel20,
     )
 
 
 def fetch_amsterdam_tickers() -> list[dict]:
-    """Returns Amsterdam (XAMS) stocks — top 500 from stockanalysis.com, AEX25 fallback."""
+    """Returns Amsterdam (XAMS) stocks — stockanalysis.com with AEX25 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_AMS_URL, suffix=".AS", mic="XAMS",
-        label="Amsterdam", fallback_fn=_hardcoded_aex25, max_tickers=500,
+        label="Amsterdam", fallback_fn=_hardcoded_aex25,
     )
 
 
@@ -115,30 +115,26 @@ def _hardcoded_bel20() -> list[dict]:
 
 
 def fetch_paris_tickers() -> list[dict]:
-    """Returns Euronext Paris (XPAR) stocks — top 500 from stockanalysis.com, CAC40 fallback."""
+    """Returns Euronext Paris (XPAR) stocks — stockanalysis.com with CAC40 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_PAR_URL, suffix=".PA", mic="XPAR",
-        label="Paris", fallback_fn=_hardcoded_cac40, max_tickers=500,
+        label="Paris", fallback_fn=_hardcoded_cac40,
     )
 
 
 def fetch_milan_tickers() -> list[dict]:
-    """Returns Borsa Italiana (XMIL) stocks — top 500 from stockanalysis.com, FTSE MIB fallback."""
+    """Returns Borsa Italiana (XMIL) stocks — stockanalysis.com with FTSE MIB fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_MIL_URL, suffix=".MI", mic="XMIL",
-        label="Milan", fallback_fn=_hardcoded_ftse_mib, max_tickers=500,
+        label="Milan", fallback_fn=_hardcoded_ftse_mib,
     )
 
 
 def fetch_frankfurt_tickers() -> list[dict]:
-    """Returns Deutsche Börse (XETR) stocks — top 500 from stockanalysis.com, DAX 40 fallback.
-
-    The full Frankfurt list contains ~9000+ instruments (ETFs, warrants, etc.).
-    Capping at 500 keeps only the most prominent equities ranked by the source.
-    """
+    """Returns Deutsche Börse (XETR) stocks — stockanalysis.com with DAX 40 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
-        label="Frankfurt", fallback_fn=_hardcoded_dax40, max_tickers=500,
+        label="Frankfurt", fallback_fn=_hardcoded_dax40,
     )
 
 
@@ -171,10 +167,10 @@ def _hardcoded_dax40() -> list[dict]:
 
 
 def fetch_swiss_tickers() -> list[dict]:
-    """Returns SIX Swiss Exchange (XSWX) stocks — top 500 from stockanalysis.com, SMI 20 fallback."""
+    """Returns SIX Swiss Exchange (XSWX) stocks — stockanalysis.com with SMI 20 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_SWX_URL, suffix=".SW", mic="XSWX",
-        label="Swiss", fallback_fn=_hardcoded_smi20, max_tickers=500,
+        label="Swiss", fallback_fn=_hardcoded_smi20,
     )
 
 
