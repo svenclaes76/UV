@@ -30,14 +30,16 @@ HEADERS = {
 }
 
 
+PAGE_SIZE = 500
+
+
 def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
-                              fallback_fn, max_tickers: int | None = None) -> list[dict]:
+                              fallback_fn) -> list[dict]:
     """
-    Shared fetch logic for any stockanalysis.com exchange list.
-    Walks pages until fewer than 500 rows are returned or max_tickers is reached.
-    On failure falls back to `fallback_fn()`.
+    Fetch all pages of a stockanalysis.com exchange list.
+    Stops when a page returns fewer than PAGE_SIZE rows.
+    Falls back to `fallback_fn()` on any error.
     """
-    PAGE_SIZE = 500
     try:
         stocks: list[dict] = []
         seen: set[str] = set()
@@ -63,10 +65,8 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                 seen.add(symbol)
                 stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
                 rows_this_page += 1
-                if max_tickers and len(stocks) >= max_tickers:
-                    break
 
-            if rows_this_page < PAGE_SIZE or (max_tickers and len(stocks) >= max_tickers):
+            if rows_this_page < PAGE_SIZE:
                 break
             page += 1
 

@@ -135,11 +135,10 @@ def update_div_hist(df: pd.DataFrame) -> None:
 
 def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
     """Recompute portfolio.dividends from div_hist totals per ticker."""
-    import pandas as _pd
     pf = load_portfolio()
     if pf is None:
         return
-    div_df["amount"] = _pd.to_numeric(div_df["amount"], errors="coerce").fillna(0)
+    div_df["amount"] = pd.to_numeric(div_df["amount"], errors="coerce").fillna(0)
     totals = div_df.groupby("ticker")["amount"].sum()
     pf["dividends"] = pf["ticker"].map(totals).fillna(pf["dividends"].fillna(0))
     save_portfolio(pf)

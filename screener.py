@@ -572,9 +572,7 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
     ]
-    for field in all_fields:
-        if field not in df.columns:
-            df[field] = None
+    df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
     fv_cols = df.apply(_fair_value_models, axis=1, result_type="expand")
