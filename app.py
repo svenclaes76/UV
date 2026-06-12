@@ -564,7 +564,7 @@ if not _has_session:
   window.parent.location.replace(url.toString());
 })();
 </script>
-""", height=0)
+""", height=1)
 
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
@@ -599,7 +599,7 @@ def _auth_wall():
                 st.session_state["jwt_token"]  = result
                 st.session_state["user_email"] = email.strip().lower()
                 st.session_state["user_role"]  = role
-                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
+                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
                 st.rerun()
             else:
                 st.error(result)
@@ -740,7 +740,7 @@ new MutationObserver(function(){{
   if (el) (el.closest('div') || el).style.setProperty('display','none','important');
 }}).observe(window.parent.document.body, {{childList:true, subtree:true}});
 </script>
-""", height=0)
+""", height=1)
 
 _valid_pages = {"dashboard", "screener", "portfolio", "settings", "help"}
 
@@ -758,7 +758,7 @@ if st.query_params.get("logout") == "1":
     st.query_params.clear()
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
-    st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=0)
+    st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=1)
     st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
