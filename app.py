@@ -208,7 +208,7 @@ def _bust_cache() -> None:
         CACHE_FILE.write_text("{}", encoding="utf-8")
     except OSError:
         pass
-    st.cache_data.clear()
+    _load_all_screener_data.clear()  # clear only the screener cache, not auth caches
     st.rerun()
 
 
