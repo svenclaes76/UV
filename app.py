@@ -1134,8 +1134,8 @@ if _page == "portfolio" and not _is_demo:
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
     pf["current_value"]   = pf["live_price"] * pf["shares"]
     pf["price_gain"]      = pf["current_value"] - pf["purchase_value"]
-    _cost = pf["purchase_value"].replace(0, pd.NA)
-    _price = pf["live_price"].replace(0, pd.NA)
+    _cost = pf["purchase_value"].replace(0, float("nan"))
+    _price = pf["live_price"].replace(0, float("nan"))
     pf["price_gain_pct"]  = (pf["price_gain"] / _cost * 100).round(2)
     pf["total_return"]    = pf["price_gain"] + pf["dividends"].fillna(0)
     pf["total_return_pct"] = (pf["total_return"] / _cost * 100).round(2)
