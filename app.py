@@ -103,7 +103,8 @@ from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
 
-from fetch_tickers import fetch_brussels_tickers, fetch_amsterdam_tickers
+from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
+                            fetch_paris_tickers, fetch_milan_tickers)
 from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
@@ -251,6 +252,18 @@ def load_screener_data() -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def load_amsterdam_screener_data() -> pd.DataFrame:
     stocks = fetch_amsterdam_tickers()
+    return run_screener(stocks)
+
+
+@st.cache_data(show_spinner=False)
+def load_paris_screener_data() -> pd.DataFrame:
+    stocks = fetch_paris_tickers()
+    return run_screener(stocks)
+
+
+@st.cache_data(show_spinner=False)
+def load_milan_screener_data() -> pd.DataFrame:
+    stocks = fetch_milan_tickers()
     return run_screener(stocks)
 
 
@@ -728,10 +741,11 @@ if _page == "screener":
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
-
     with st.spinner("Loading screener data…"):
-        df     = load_screener_data()
-        df_ams = load_amsterdam_screener_data()
+        df      = load_screener_data()
+        df_ams  = load_amsterdam_screener_data()
+        df_par  = load_paris_screener_data()
+        df_mil  = load_milan_screener_data()
         # If the cached DataFrame predates the algorithm rework, bust caches and
         # rerun the script so the cleared cache takes effect from a clean start.
         if "fair_value" not in df.columns or "Decision" not in df.columns:
@@ -823,8 +837,8 @@ if _page == "screener":
            if c not in ("Risk Score",)},
     }
 
-    def _render_table(tab_df, key_suffix):
-        """Render the screener table with optional column groups."""
+    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, hint=""):
+        """Render the screener table with optional column groups and score filter."""
         _grp_key = f"col_groups_{key_suffix}"
 
         @st.dialog("View", width="small")
@@ -840,13 +854,26 @@ if _page == "screener":
             if st.button("Apply", type="primary", use_container_width=True, key=f"scr_col_apply_{key_suffix}"):
                 st.rerun()
 
+        # Apply score filter before building display
+        if score_key:
+            _sf_sel = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
+            tab_df = _apply_score_filter(tab_df, _sf_sel)
+        tab_df = tab_df.reset_index(drop=True)
+        tab_df.index = range(1, len(tab_df) + 1)
+
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _vc, _ = st.columns([1, 8], gap="small")
+        _vc, _, _fc = st.columns([1, 6, 2], gap="small")
         with _vc:
             _active = st.session_state.get(_grp_key, [])
             _view_label = f"⊞ View ({len(_active)})" if _active else "⊞ View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
+        with _fc:
+            if score_key:
+                _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
+                with st.popover(_sf_cur, use_container_width=True):
+                    st.radio("", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
+                             key=score_key, label_visibility="collapsed")
 
         selected_groups = st.session_state.get(_grp_key, [])
 
@@ -906,9 +933,26 @@ if _page == "screener":
         )
         return edited
 
-    tab_watchlist, tab_amsterdam, tab_brussels = st.tabs(
-        ["★ Watchlist", "Euronext Amsterdam", "Euronext Brussels"]
+    tab_watchlist, tab_milan, tab_amsterdam, tab_brussels, tab_paris = st.tabs(
+        ["★ Watchlist", "Borsa Italiana", "Euronext Amsterdam",
+         "Euronext Brussels", "Euronext Paris"]
     )
+
+    _SCORE_OPTIONS = [
+        "🟢 Strong Buy (> 70)",
+        "🟡 Monitor (40–70)",
+        "🔴 Avoid (< 40)",
+        "All scores",
+    ]
+
+    def _apply_score_filter(df_in: pd.DataFrame, sel: str) -> pd.DataFrame:
+        if sel == "🟢 Strong Buy (> 70)":
+            return df_in[df_in["Decision"] == "Strong Buy"].reset_index(drop=True)
+        if sel == "🟡 Monitor (40–70)":
+            return df_in[df_in["Decision"] == "Monitor"].reset_index(drop=True)
+        if sel == "🔴 Avoid (< 40)":
+            return df_in[df_in["Decision"] == "Avoid"].reset_index(drop=True)
+        return df_in.reset_index(drop=True)
 
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
@@ -918,14 +962,17 @@ if _page == "screener":
             if st.button("🔄 refresh", type="tertiary", key="wl_refresh"):
                 _bust_cache()
         if not _wl_tickers:
-            st.info("Check ★ next to any stock in Brussels or Amsterdam to add it to your watchlist.")
-        else:
-            _all_df = pd.concat([df, df_ams], ignore_index=True)
-            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            wl_df.index += 1
             with _wl_col:
-                st.markdown(f"**{len(wl_df)}** stocks · uncheck ★ to remove")
-            wl_edited = _render_table(wl_df, "watchlist")
+                st.info("Check ★ next to any stock in Brussels, Amsterdam, Paris or Milan to add it to your watchlist.")
+        else:
+            _all_df = pd.concat([df, df_ams, df_par, df_mil], ignore_index=True)
+            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+            _wl_filtered = _apply_score_filter(wl_df, st.session_state.get("wl_score_filter", _SCORE_OPTIONS[3]))
+            with _wl_col:
+                st.markdown(f"**{len(_wl_filtered)}** stocks · uncheck ★ to remove")
+            wl_edited = _render_table(wl_df, "watchlist",
+                                      score_key="wl_score_filter",
+                                      score_default=_SCORE_OPTIONS[3])
             if not _is_demo:
                 still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
                 if still_watched != _wl_tickers:
@@ -938,23 +985,24 @@ if _page == "screener":
         _n_unvalued = (~_valued).sum()
 
         _br_col, _br_toggle, _br_refresh = st.columns([7, 2, 1])
-        with _br_refresh:
-            if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
-                _bust_cache()
         with _br_toggle:
             _show_all = st.toggle(
                 "unvalued stocks",
                 value=False,
                 key="show_unvalued",
             ) if _n_unvalued > 0 else False
+        with _br_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="screener_refresh"):
+                _bust_cache()
 
         _screener_df = df if _show_all else df[_valued].reset_index(drop=True)
-        _screener_df.index = range(1, len(_screener_df) + 1)
-
         _hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        _br_filtered = _apply_score_filter(_screener_df, st.session_state.get("br_score_filter", _SCORE_OPTIONS[0]))
         with _br_col:
-            st.markdown(f"**{len(_screener_df)}** stocks · {_hint}")
-        edited = _render_table(_screener_df, "main")
+            st.markdown(f"**{len(_br_filtered)}** stocks · {_hint}")
+        edited = _render_table(_screener_df, "main",
+                               score_key="br_score_filter",
+                               score_default=_SCORE_OPTIONS[0])
 
         if not _is_demo:
             br_new = set(edited.loc[edited["★"], "Ticker"].tolist())
@@ -969,23 +1017,24 @@ if _page == "screener":
         _ams_n_unvalued = (~_ams_valued).sum()
 
         _ams_col, _ams_toggle, _ams_refresh = st.columns([7, 2, 1])
-        with _ams_refresh:
-            if st.button("🔄 refresh", type="tertiary", key="ams_refresh"):
-                _bust_cache()
         with _ams_toggle:
             _ams_show_all = st.toggle(
                 "unvalued stocks",
                 value=False,
                 key="ams_show_unvalued",
             ) if _ams_n_unvalued > 0 else False
+        with _ams_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="ams_refresh"):
+                _bust_cache()
 
         _ams_df = df_ams if _ams_show_all else df_ams[_ams_valued].reset_index(drop=True)
-        _ams_df.index = range(1, len(_ams_df) + 1)
-
-        _ams_hint = "check ★ to add to watchlist" if not _is_demo else "read-only in demo mode"
+        _ams_hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        _ams_filtered = _apply_score_filter(_ams_df, st.session_state.get("ams_score_filter", _SCORE_OPTIONS[0]))
         with _ams_col:
-            st.markdown(f"**{len(_ams_df)}** stocks · {_ams_hint}")
-        ams_edited = _render_table(_ams_df, "ams")
+            st.markdown(f"**{len(_ams_filtered)}** stocks · {_ams_hint}")
+        ams_edited = _render_table(_ams_df, "ams",
+                                   score_key="ams_score_filter",
+                                   score_default=_SCORE_OPTIONS[0])
 
         if not _is_demo:
             ams_new_watchlist = set(ams_edited.loc[ams_edited["★"], "Ticker"].tolist())
@@ -1005,6 +1054,70 @@ if _page == "screener":
             with st.expander("Decision breakdown"):
                 counts = df["Decision"].value_counts().rename("Count")
                 st.bar_chart(counts)
+
+    # ── Tab: Euronext Paris ───────────────────────────────────────────────────
+    with tab_paris:
+        _par_valued     = df_par["fair_value"].notna()
+        _par_n_unvalued = (~_par_valued).sum()
+
+        _par_col, _par_toggle, _par_refresh = st.columns([7, 2, 1])
+        with _par_toggle:
+            _par_show_all = st.toggle(
+                "unvalued stocks",
+                value=False,
+                key="par_show_unvalued",
+            ) if _par_n_unvalued > 0 else False
+        with _par_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="par_refresh"):
+                _bust_cache()
+
+        _par_df = df_par if _par_show_all else df_par[_par_valued].reset_index(drop=True)
+        _par_hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        _par_filtered = _apply_score_filter(_par_df, st.session_state.get("par_score_filter", _SCORE_OPTIONS[0]))
+        with _par_col:
+            st.markdown(f"**{len(_par_filtered)}** stocks · {_par_hint}")
+        par_edited = _render_table(_par_df, "par",
+                                   score_key="par_score_filter",
+                                   score_default=_SCORE_OPTIONS[0])
+
+        if not _is_demo:
+            par_new_watchlist = set(par_edited.loc[par_edited["★"], "Ticker"].tolist())
+            merged_par = (watchlist - set(df_par["Ticker"])) | par_new_watchlist
+            if merged_par != watchlist:
+                save_watchlist(merged_par)
+                st.rerun()
+
+    # ── Tab: Borsa Italiana ───────────────────────────────────────────────────
+    with tab_milan:
+        _mil_valued     = df_mil["fair_value"].notna()
+        _mil_n_unvalued = (~_mil_valued).sum()
+
+        _mil_col, _mil_toggle, _mil_refresh = st.columns([7, 2, 1])
+        with _mil_toggle:
+            _mil_show_all = st.toggle(
+                "unvalued stocks",
+                value=False,
+                key="mil_show_unvalued",
+            ) if _mil_n_unvalued > 0 else False
+        with _mil_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="mil_refresh"):
+                _bust_cache()
+
+        _mil_df = df_mil if _mil_show_all else df_mil[_mil_valued].reset_index(drop=True)
+        _mil_hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        _mil_filtered = _apply_score_filter(_mil_df, st.session_state.get("mil_score_filter", _SCORE_OPTIONS[0]))
+        with _mil_col:
+            st.markdown(f"**{len(_mil_filtered)}** stocks · {_mil_hint}")
+        mil_edited = _render_table(_mil_df, "mil",
+                                   score_key="mil_score_filter",
+                                   score_default=_SCORE_OPTIONS[0])
+
+        if not _is_demo:
+            mil_new_watchlist = set(mil_edited.loc[mil_edited["★"], "Ticker"].tolist())
+            merged_mil = (watchlist - set(df_mil["Ticker"])) | mil_new_watchlist
+            if merged_mil != watchlist:
+                save_watchlist(merged_mil)
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO
@@ -1093,7 +1206,8 @@ if _page == "portfolio" and not _is_demo:
 
     # Attach screener data (value score + all extra column fields) — Brussels + Amsterdam
     _scr = pd.concat(
-        [load_screener_data(), load_amsterdam_screener_data()], ignore_index=True
+        [load_screener_data(), load_amsterdam_screener_data(),
+         load_paris_screener_data(), load_milan_screener_data()], ignore_index=True
     ).set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
@@ -1114,7 +1228,8 @@ if _page == "portfolio" and not _is_demo:
 
     # ── Add-position dialog ───────────────────────────────────────────────────
     _all_screener = pd.concat(
-        [load_screener_data(), load_amsterdam_screener_data()], ignore_index=True
+        [load_screener_data(), load_amsterdam_screener_data(),
+         load_paris_screener_data(), load_milan_screener_data()], ignore_index=True
     )[["Ticker", "Name"]].sort_values("Name")
     _ticker_options = _all_screener["Ticker"].tolist()
     _ticker_labels  = {

@@ -1,12 +1,13 @@
 """
-Fetches the full list of Euronext Brussels and Amsterdam listed equities.
+Fetches the full list of Euronext Brussels, Amsterdam, Paris (EPA) and
+Borsa Italiana (BIT) listed equities.
 
 Note: Euronext's official API (EWS) requires a paid commercial contract.
       Their live-site JSON endpoints require JavaScript execution and return
       empty rows when called directly.
 
 Primary source : stockanalysis.com — reliable public lists.
-Last resort    : hardcoded BEL20 / AEX25 constituents.
+Last resort    : hardcoded index constituents.
 """
 
 import requests
@@ -15,6 +16,8 @@ from io import StringIO
 
 STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
 STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
+STOCKANALYSIS_PAR_URL = "https://stockanalysis.com/list/euronext-paris/"
+STOCKANALYSIS_MIL_URL = "https://stockanalysis.com/list/borsa-italiana/"
 
 HEADERS = {
     "User-Agent": (
@@ -29,26 +32,39 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                               fallback_fn) -> list[dict]:
     """
     Shared fetch logic for any stockanalysis.com exchange list.
+    Walks all pages (?page=1, ?page=2, …) until fewer than 500 rows are returned.
     On failure falls back to `fallback_fn()`.
     """
+    PAGE_SIZE = 500
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
-        resp.raise_for_status()
-        tables = pd.read_html(StringIO(resp.text))
-        if not tables:
-            raise ValueError("No tables found on page")
+        stocks: list[dict] = []
+        seen: set[str] = set()
+        page = 1
+        while True:
+            page_url = f"{url}?page={page}" if page > 1 else url
+            resp = requests.get(page_url, headers=HEADERS, timeout=20)
+            resp.raise_for_status()
+            tables = pd.read_html(StringIO(resp.text))
+            if not tables:
+                raise ValueError("No tables found on page")
 
-        df = tables[0]
-        if "Symbol" not in df.columns or "Company Name" not in df.columns:
-            raise ValueError(f"Unexpected columns: {list(df.columns)}")
+            df = tables[0]
+            if "Symbol" not in df.columns or "Company Name" not in df.columns:
+                raise ValueError(f"Unexpected columns: {list(df.columns)}")
 
-        stocks = []
-        for _, row in df.iterrows():
-            symbol = str(row["Symbol"]).strip()
-            name   = str(row["Company Name"]).strip()
-            if not symbol or symbol == "nan":
-                continue
-            stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
+            rows_this_page = 0
+            for _, row in df.iterrows():
+                symbol = str(row["Symbol"]).strip()
+                name   = str(row["Company Name"]).strip()
+                if not symbol or symbol == "nan" or symbol in seen:
+                    continue
+                seen.add(symbol)
+                stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
+                rows_this_page += 1
+
+            if rows_this_page < PAGE_SIZE:
+                break   # last page
+            page += 1
 
         if stocks:
             print(f"[fetch_tickers] Loaded {len(stocks)} {label} stocks from stockanalysis.com")
@@ -94,6 +110,22 @@ def _hardcoded_bel20() -> list[dict]:
     return [{"name": n, "isin": "", "ticker": f"{t}.BR", "mic": "XBRU"} for n, t in entries]
 
 
+def fetch_paris_tickers() -> list[dict]:
+    """Returns Euronext Paris (XPAR) stocks — stockanalysis.com with CAC40 fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_PAR_URL, suffix=".PA", mic="XPAR",
+        label="Paris", fallback_fn=_hardcoded_cac40,
+    )
+
+
+def fetch_milan_tickers() -> list[dict]:
+    """Returns Borsa Italiana (XMIL) stocks — stockanalysis.com with FTSE MIB fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_MIL_URL, suffix=".MI", mic="XMIL",
+        label="Milan", fallback_fn=_hardcoded_ftse_mib,
+    )
+
+
 def _hardcoded_aex25() -> list[dict]:
     """AEX25 constituents as a last-resort fallback."""
     entries = [
@@ -113,3 +145,59 @@ def _hardcoded_aex25() -> list[dict]:
     ]
     print(f"[fetch_tickers] Using hardcoded AEX25 ({len(entries)} stocks)")
     return [{"name": n, "isin": "", "ticker": f"{t}.AS", "mic": "XAMS"} for n, t in entries]
+
+
+def _hardcoded_cac40() -> list[dict]:
+    """CAC 40 constituents as a last-resort fallback."""
+    entries = [
+        ("Air Liquide",        "AI"),    ("Airbus",           "AIR"),
+        ("AXA",                "CS"),    ("BNP Paribas",      "BNP"),
+        ("Bouygues",           "EN"),    ("Capgemini",        "CAP"),
+        ("Carrefour",          "CA"),    ("Compagnie de Saint-Gobain", "SGO"),
+        ("Crédit Agricole",    "ACA"),   ("Danone",           "BN"),
+        ("Dassault Systèmes",  "DSY"),   ("Engie",            "ENGI"),
+        ("EssilorLuxottica",   "EL"),    ("Hermès",           "RMS"),
+        ("Kering",             "KER"),   ("Legrand",          "LR"),
+        ("L'Oréal",            "OR"),    ("LVMH",             "MC"),
+        ("Michelin",           "ML"),    ("Orange",           "ORA"),
+        ("Pernod Ricard",      "RI"),    ("Publicis Groupe",  "PUB"),
+        ("Renault",            "RNO"),   ("Safran",           "SAF"),
+        ("Sanofi",             "SAN"),   ("Schneider Electric","SU"),
+        ("Société Générale",   "GLE"),   ("Stellantis",       "STLAM"),
+        ("STMicroelectronics", "STM"),   ("TotalEnergies",    "TTE"),
+        ("Unibail-Rodamco",    "URW"),   ("Veolia",           "VIE"),
+        ("Vinci",              "DG"),    ("Vivendi",          "VIV"),
+        ("Worldline",          "WLN"),   ("Accor",            "AC"),
+        ("ArcelorMittal",      "MT"),    ("Teleperformance",  "TEP"),
+        ("Thales",             "HO"),    ("Valeo",            "FR"),
+    ]
+    print(f"[fetch_tickers] Using hardcoded CAC40 ({len(entries)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}.PA", "mic": "XPAR"} for n, t in entries]
+
+
+def _hardcoded_ftse_mib() -> list[dict]:
+    """FTSE MIB constituents as a last-resort fallback."""
+    entries = [
+        ("Amplifon",           "AMP"),   ("Assicurazioni Generali", "G"),
+        ("Atlantia",           "ATL"),   ("Banca Mediolanum",  "BMED"),
+        ("Banco BPM",          "BAMI"),  ("BPER Banca",        "BPE"),
+        ("Buzzi",              "BZU"),   ("CNH Industrial",    "CNHI"),
+        ("DiaSorin",           "DIA"),   ("ENI",               "ENI"),
+        ("Enel",               "ENEL"),  ("Ferrari",           "RACE"),
+        ("FinecoBank",         "FBK"),   ("Infrastrutture Wireless","INWIT"),
+        ("Intesa Sanpaolo",    "ISP"),   ("Iveco Group",       "IVG"),
+        ("Leonardo",           "LDO"),   ("Mediobanca",        "MB"),
+        ("Moncler",            "MONC"),  ("Nexi",              "NEXI"),
+        ("Pirelli",            "PIRC"),  ("Poste Italiane",    "PST"),
+        ("Prysmian",           "PRY"),   ("Recordati",         "REC"),
+        ("Saipem",             "SPM"),   ("Snam",              "SRG"),
+        ("STMicroelectronics", "STMMI"), ("Telecom Italia",    "TIT"),
+        ("Tenaris",            "TEN"),   ("Terna",             "TRN"),
+        ("UniCredit",          "UCG"),   ("Unipol",            "UNI"),
+        ("Webuild",            "WBD"),   ("Brunello Cucinelli","BC"),
+        ("De' Longhi",         "DLG"),   ("Interpump Group",   "IP"),
+        ("OVS",                "OVS"),   ("Salvatore Ferragamo","SFER"),
+        ("Tod's",              "TOD"),   ("Tamburi",           "TIP"),
+    ]
+    print(f"[fetch_tickers] Using hardcoded FTSE MIB ({len(entries)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}.MI", "mic": "XMIL"} for n, t in entries]
