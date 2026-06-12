@@ -104,7 +104,8 @@ from streamlit_autorefresh import st_autorefresh
 from prices import fetch_prices
 
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
-                            fetch_paris_tickers, fetch_milan_tickers)
+                            fetch_paris_tickers, fetch_milan_tickers,
+                            fetch_frankfurt_tickers)
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener, run_screener_from_df, fetch_fundamentals)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
@@ -245,13 +246,14 @@ def _fmt_div_flag(v) -> str:
 
 
 @st.cache_data(show_spinner=False)
-def _load_all_screener_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _load_all_screener_data() -> tuple:
     """Fetch fundamentals for all exchanges in one pass, then score each separately."""
     br_stocks  = fetch_brussels_tickers()
     ams_stocks = fetch_amsterdam_tickers()
     par_stocks = fetch_paris_tickers()
     mil_stocks = fetch_milan_tickers()
-    all_stocks = br_stocks + ams_stocks + par_stocks + mil_stocks
+    etr_stocks = fetch_frankfurt_tickers()
+    all_stocks = br_stocks + ams_stocks + par_stocks + mil_stocks + etr_stocks
 
     print(f"Fetching fundamentals for {len(all_stocks)} stocks across all exchanges…")
     all_fund = fetch_fundamentals(all_stocks)
@@ -260,18 +262,21 @@ def _load_all_screener_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
     ams_tickers = {s["ticker"] for s in ams_stocks}
     par_tickers = {s["ticker"] for s in par_stocks}
     mil_tickers = {s["ticker"] for s in mil_stocks}
+    etr_tickers = {s["ticker"] for s in etr_stocks}
 
     df     = run_screener_from_df(all_fund[all_fund["Ticker"].isin(br_tickers)])
     df_ams = run_screener_from_df(all_fund[all_fund["Ticker"].isin(ams_tickers)])
     df_par = run_screener_from_df(all_fund[all_fund["Ticker"].isin(par_tickers)])
     df_mil = run_screener_from_df(all_fund[all_fund["Ticker"].isin(mil_tickers)])
-    return df, df_ams, df_par, df_mil
+    df_etr = run_screener_from_df(all_fund[all_fund["Ticker"].isin(etr_tickers)])
+    return df, df_ams, df_par, df_mil, df_etr
 
 
-def load_screener_data()          -> pd.DataFrame: return _load_all_screener_data()[0]
+def load_screener_data()           -> pd.DataFrame: return _load_all_screener_data()[0]
 def load_amsterdam_screener_data() -> pd.DataFrame: return _load_all_screener_data()[1]
-def load_paris_screener_data()    -> pd.DataFrame: return _load_all_screener_data()[2]
-def load_milan_screener_data()    -> pd.DataFrame: return _load_all_screener_data()[3]
+def load_paris_screener_data()     -> pd.DataFrame: return _load_all_screener_data()[2]
+def load_milan_screener_data()     -> pd.DataFrame: return _load_all_screener_data()[3]
+def load_frankfurt_screener_data() -> pd.DataFrame: return _load_all_screener_data()[4]
 
 
 def _compute_fair_values(info: dict) -> dict:
@@ -749,7 +754,7 @@ if _page == "screener":
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
     with st.spinner("Loading screener data…"):
-        df, df_ams, df_par, df_mil = _load_all_screener_data()
+        df, df_ams, df_par, df_mil, df_etr = _load_all_screener_data()
         # If the cached DataFrame predates the algorithm rework, bust caches and
         # rerun the script so the cleared cache takes effect from a clean start.
         if "fair_value" not in df.columns or "Decision" not in df.columns:
@@ -937,9 +942,9 @@ if _page == "screener":
         )
         return edited
 
-    tab_watchlist, tab_milan, tab_amsterdam, tab_brussels, tab_paris = st.tabs(
-        ["★ Watchlist", "Borsa Italiana", "Euronext Amsterdam",
-         "Euronext Brussels", "Euronext Paris"]
+    tab_watchlist, tab_milan, tab_etr, tab_amsterdam, tab_brussels, tab_paris = st.tabs(
+        ["★ Watchlist", "Borsa Italiana", "Deutsche Börse",
+         "Euronext Amsterdam", "Euronext Brussels", "Euronext Paris"]
     )
 
     _SCORE_OPTIONS = [
@@ -969,7 +974,7 @@ if _page == "screener":
             with _wl_col:
                 st.info("Check ★ next to any stock in Brussels, Amsterdam, Paris or Milan to add it to your watchlist.")
         else:
-            _all_df = pd.concat([df, df_ams, df_par, df_mil], ignore_index=True)
+            _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr], ignore_index=True)
             wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
             _wl_filtered = _apply_score_filter(wl_df, st.session_state.get("wl_score_filter", _SCORE_OPTIONS[3]))
             with _wl_col:
@@ -1123,6 +1128,38 @@ if _page == "screener":
                 save_watchlist(merged_mil)
                 st.rerun()
 
+    # ── Tab: Deutsche Börse ───────────────────────────────────────────────────
+    with tab_etr:
+        _etr_valued     = df_etr["fair_value"].notna()
+        _etr_n_unvalued = (~_etr_valued).sum()
+
+        _etr_col, _etr_toggle, _etr_refresh = st.columns([7, 2, 1])
+        with _etr_toggle:
+            _etr_show_all = st.toggle(
+                "unvalued stocks",
+                value=False,
+                key="etr_show_unvalued",
+            ) if _etr_n_unvalued > 0 else False
+        with _etr_refresh:
+            if st.button("🔄 refresh", type="tertiary", key="etr_refresh"):
+                _bust_cache()
+
+        _etr_df = df_etr if _etr_show_all else df_etr[_etr_valued].reset_index(drop=True)
+        _etr_hint = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        _etr_filtered = _apply_score_filter(_etr_df, st.session_state.get("etr_score_filter", _SCORE_OPTIONS[0]))
+        with _etr_col:
+            st.markdown(f"**{len(_etr_filtered)}** stocks · {_etr_hint}")
+        etr_edited = _render_table(_etr_df, "etr",
+                                   score_key="etr_score_filter",
+                                   score_default=_SCORE_OPTIONS[0])
+
+        if not _is_demo:
+            etr_new_watchlist = set(etr_edited.loc[etr_edited["★"], "Ticker"].tolist())
+            merged_etr = (watchlist - set(df_etr["Ticker"])) | etr_new_watchlist
+            if merged_etr != watchlist:
+                save_watchlist(merged_etr)
+                st.rerun()
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1132,14 +1169,14 @@ if _page == "portfolio" and not _is_demo:
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
         st.subheader("Import portfolio")
-        st.info("Upload your Excel file once. Open EBR:, AMS:, EPA: and BIT: positions will be imported.")
+        st.info("Upload your Excel file once. Open EBR:, AMS:, EPA:, BIT: and ETR: positions will be imported.")
         uploaded = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"])
         if uploaded:
             with st.spinner("Parsing Excel…"):
                 try:
                     pf, sold, div_hist = parse_excel(uploaded)
                     if pf.empty:
-                        st.error("No open EBR:/AMS:/EPA:/BIT: positions found. Check that your file matches the expected format.")
+                        st.error("No open EBR:/AMS:/EPA:/BIT:/ETR: positions found. Check that your file matches the expected format.")
                     else:
                         PORTFOLIO_FILE.unlink(missing_ok=True)
                         SOLD_FILE.unlink(missing_ok=True)
@@ -1211,7 +1248,8 @@ if _page == "portfolio" and not _is_demo:
     # Attach screener data (value score + all extra column fields) — Brussels + Amsterdam
     _scr = pd.concat(
         [load_screener_data(), load_amsterdam_screener_data(),
-         load_paris_screener_data(), load_milan_screener_data()], ignore_index=True
+         load_paris_screener_data(), load_milan_screener_data(),
+         load_frankfurt_screener_data()], ignore_index=True
     ).set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
@@ -1233,7 +1271,8 @@ if _page == "portfolio" and not _is_demo:
     # ── Add-position dialog ───────────────────────────────────────────────────
     _all_screener = pd.concat(
         [load_screener_data(), load_amsterdam_screener_data(),
-         load_paris_screener_data(), load_milan_screener_data()], ignore_index=True
+         load_paris_screener_data(), load_milan_screener_data(),
+         load_frankfurt_screener_data()], ignore_index=True
     )[["Ticker", "Name"]].sort_values("Name")
     _ticker_options = _all_screener["Ticker"].tolist()
     _ticker_labels  = {

@@ -1,6 +1,6 @@
 """
-Fetches the full list of Euronext Brussels, Amsterdam, Paris (EPA) and
-Borsa Italiana (BIT) listed equities.
+Fetches the full list of Euronext Brussels, Amsterdam, Paris (EPA),
+Borsa Italiana (BIT) and Deutsche Börse (ETR) listed equities.
 
 Note: Euronext's official API (EWS) requires a paid commercial contract.
       Their live-site JSON endpoints require JavaScript execution and return
@@ -18,6 +18,7 @@ STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
 STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
 STOCKANALYSIS_PAR_URL = "https://stockanalysis.com/list/euronext-paris/"
 STOCKANALYSIS_MIL_URL = "https://stockanalysis.com/list/borsa-italiana/"
+STOCKANALYSIS_ETR_URL = "https://stockanalysis.com/list/frankfurt-stock-exchange/"
 
 HEADERS = {
     "User-Agent": (
@@ -124,6 +125,42 @@ def fetch_milan_tickers() -> list[dict]:
         STOCKANALYSIS_MIL_URL, suffix=".MI", mic="XMIL",
         label="Milan", fallback_fn=_hardcoded_ftse_mib,
     )
+
+
+def fetch_frankfurt_tickers() -> list[dict]:
+    """Returns Deutsche Börse (XETR) stocks — stockanalysis.com with DAX 40 fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
+        label="Frankfurt", fallback_fn=_hardcoded_dax40,
+    )
+
+
+def _hardcoded_dax40() -> list[dict]:
+    """DAX 40 constituents as a last-resort fallback."""
+    entries = [
+        ("Adidas",                  "ADS"),   ("Airbus",              "AIR"),
+        ("Allianz",                 "ALV"),   ("BASF",                "BAS"),
+        ("Bayer",                   "BAYN"),  ("Beiersdorf",          "BEI"),
+        ("BMW",                     "BMW"),   ("Brenntag",            "BNR"),
+        ("Commerzbank",             "CBK"),   ("Continental",         "CON"),
+        ("Covestro",                "1COV"),  ("Daimler Truck",       "DTG"),
+        ("Deutsche Bank",           "DBK"),   ("Deutsche Börse",      "DB1"),
+        ("Deutsche Post",           "DHL"),   ("Deutsche Telekom",    "DTE"),
+        ("E.ON",                    "EOAN"),  ("Fresenius",           "FRE"),
+        ("Fresenius Medical Care",  "FME"),   ("Hannover Re",         "HNR1"),
+        ("Heidelberg Materials",    "HEIG"),  ("Henkel",              "HEN3"),
+        ("Infineon",                "IFX"),   ("Mercedes-Benz",       "MBG"),
+        ("Merck",                   "MRK"),   ("MTU Aero Engines",    "MTX"),
+        ("Münchener Rück",          "MUV2"),  ("Porsche AG",          "P911"),
+        ("Porsche SE",              "PAH3"),  ("Qiagen",              "QIA"),
+        ("RWE",                     "RWE"),   ("SAP",                 "SAP"),
+        ("Sartorius",               "SRT3"),  ("Siemens",             "SIE"),
+        ("Siemens Energy",          "ENR"),   ("Siemens Healthineers","SHL"),
+        ("Symrise",                 "SY1"),   ("Volkswagen",          "VOW3"),
+        ("Vonovia",                 "VNA"),   ("Zalando",             "ZAL"),
+    ]
+    print(f"[fetch_tickers] Using hardcoded DAX40 ({len(entries)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}.DE", "mic": "XETR"} for n, t in entries]
 
 
 def _hardcoded_aex25() -> list[dict]:
