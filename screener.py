@@ -11,6 +11,8 @@ Stage 6  — Decision: Strong Buy (>70) | Monitor (40–70) | Avoid (<40) + hard
 Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE_TTL_HOURS.
 """
 
+import contextlib
+import io
 import json
 import random
 import threading
@@ -250,7 +252,8 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
             if _bg_cancelled.is_set():
                 return
             try:
-                row = _fetch_one(ticker, stock)
+                with contextlib.redirect_stderr(io.StringIO()):
+                    row = _fetch_one(ticker, stock)
                 break
             except Exception as e:
                 msg = str(e)
@@ -761,10 +764,14 @@ def run_screener_from_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _score_and_clean(df: pd.DataFrame) -> pd.DataFrame:
+    if "Price" not in df.columns:
+        df["Price"] = None
     before  = len(df)
     df      = df[df["Price"].notna()].reset_index(drop=True)
     dropped = before - len(df)
     if dropped:
         print(f"  Dropped {dropped} ticker(s) with no price (likely delisted/inactive)")
+    if df.empty:
+        return df
     print("Computing valuation scores...")
     return compute_scores(df)
