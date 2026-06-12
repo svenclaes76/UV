@@ -81,18 +81,18 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
 
 
 def fetch_brussels_tickers() -> list[dict]:
-    """Returns Brussels (XBRU) stocks — stockanalysis.com with BEL20 fallback."""
+    """Returns Brussels (XBRU) stocks — top 500 from stockanalysis.com, BEL20 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_URL, suffix=".BR", mic="XBRU",
-        label="Brussels", fallback_fn=_hardcoded_bel20,
+        label="Brussels", fallback_fn=_hardcoded_bel20, max_tickers=500,
     )
 
 
 def fetch_amsterdam_tickers() -> list[dict]:
-    """Returns Amsterdam (XAMS) stocks — stockanalysis.com with AEX25 fallback."""
+    """Returns Amsterdam (XAMS) stocks — top 500 from stockanalysis.com, AEX25 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_AMS_URL, suffix=".AS", mic="XAMS",
-        label="Amsterdam", fallback_fn=_hardcoded_aex25,
+        label="Amsterdam", fallback_fn=_hardcoded_aex25, max_tickers=500,
     )
 
 
@@ -115,18 +115,18 @@ def _hardcoded_bel20() -> list[dict]:
 
 
 def fetch_paris_tickers() -> list[dict]:
-    """Returns Euronext Paris (XPAR) stocks — stockanalysis.com with CAC40 fallback."""
+    """Returns Euronext Paris (XPAR) stocks — top 500 from stockanalysis.com, CAC40 fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_PAR_URL, suffix=".PA", mic="XPAR",
-        label="Paris", fallback_fn=_hardcoded_cac40,
+        label="Paris", fallback_fn=_hardcoded_cac40, max_tickers=500,
     )
 
 
 def fetch_milan_tickers() -> list[dict]:
-    """Returns Borsa Italiana (XMIL) stocks — stockanalysis.com with FTSE MIB fallback."""
+    """Returns Borsa Italiana (XMIL) stocks — top 500 from stockanalysis.com, FTSE MIB fallback."""
     return _fetch_via_stockanalysis(
         STOCKANALYSIS_MIL_URL, suffix=".MI", mic="XMIL",
-        label="Milan", fallback_fn=_hardcoded_ftse_mib,
+        label="Milan", fallback_fn=_hardcoded_ftse_mib, max_tickers=500,
     )
 
 
