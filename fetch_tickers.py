@@ -1,6 +1,6 @@
 """
 Fetches the full list of Euronext Brussels, Amsterdam, Paris (EPA),
-Borsa Italiana (BIT) and Deutsche Börse (ETR) listed equities.
+Borsa Italiana (BIT), Deutsche Börse (ETR) and SIX Swiss Exchange (SWX) listed equities.
 
 Note: Euronext's official API (EWS) requires a paid commercial contract.
       Their live-site JSON endpoints require JavaScript execution and return
@@ -19,6 +19,7 @@ STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
 STOCKANALYSIS_PAR_URL = "https://stockanalysis.com/list/euronext-paris/"
 STOCKANALYSIS_MIL_URL = "https://stockanalysis.com/list/borsa-italiana/"
 STOCKANALYSIS_ETR_URL = "https://stockanalysis.com/list/frankfurt-stock-exchange/"
+STOCKANALYSIS_SWX_URL = "https://stockanalysis.com/list/six-swiss-exchange/"
 
 HEADERS = {
     "User-Agent": (
@@ -161,6 +162,34 @@ def _hardcoded_dax40() -> list[dict]:
     ]
     print(f"[fetch_tickers] Using hardcoded DAX40 ({len(entries)} stocks)")
     return [{"name": n, "isin": "", "ticker": f"{t}.DE", "mic": "XETR"} for n, t in entries]
+
+
+def fetch_swiss_tickers() -> list[dict]:
+    """Returns SIX Swiss Exchange (XSWX) stocks — stockanalysis.com with SMI 20 fallback."""
+    return _fetch_via_stockanalysis(
+        STOCKANALYSIS_SWX_URL, suffix=".SW", mic="XSWX",
+        label="Swiss", fallback_fn=_hardcoded_smi20,
+    )
+
+
+def _hardcoded_smi20() -> list[dict]:
+    """SMI 20 constituents as a last-resort fallback."""
+    entries = [
+        ("ABB",                 "ABBN"),  ("Alcon",            "ALC"),
+        ("Geberit",             "GEBN"),  ("Givaudan",         "GIVN"),
+        ("Holcim",              "HOLN"),  ("Julius Baer",      "BAER"),
+        ("Kühne+Nagel",         "KNIN"),  ("Lindt & Sprüngli", "LISP"),
+        ("Lonza",               "LONN"),  ("Nestlé",           "NESN"),
+        ("Novartis",            "NOVN"),  ("Partners Group",   "PGHN"),
+        ("Richemont",           "CFR"),   ("Roche",            "ROG"),
+        ("Schindler",           "SCHN"),  ("SGS",              "SGSN"),
+        ("Sika",                "SIKA"),  ("Sonova",           "SOON"),
+        ("Swiss Life",          "SLHN"),  ("Swiss Re",         "SREN"),
+        ("Swisscom",            "SCMN"),  ("UBS",              "UBSG"),
+        ("Zurich Insurance",    "ZURN"),
+    ]
+    print(f"[fetch_tickers] Using hardcoded SMI20 ({len(entries)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}.SW", "mic": "XSWX"} for n, t in entries]
 
 
 def _hardcoded_aex25() -> list[dict]:

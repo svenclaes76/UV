@@ -172,7 +172,7 @@ _COL_NAMES = {
     17: "date_out",
 }
 
-_SUFFIX_MAP = {"EBR": ".BR", "AMS": ".AS", "EPA": ".PA", "BIT": ".MI", "ETR": ".DE"}
+_SUFFIX_MAP = {"EBR": ".BR", "AMS": ".AS", "EPA": ".PA", "BIT": ".MI", "ETR": ".DE", "SWX": ".SW"}
 
 # Fixed row ranges (1-indexed as in Excel, converted to 0-indexed iloc below)
 # Row 1 = header, rows 2-19 = positions, rows 20-91 = dividends, rows 95-110 = sold
@@ -186,7 +186,7 @@ def _prep_section(raw: "pd.DataFrame", rows: slice) -> "pd.DataFrame":
     section = raw.iloc[rows].copy()
     section.columns = range(len(section.columns))
     section = section.rename(columns=_COL_NAMES)
-    mask = section["google_ticker"].astype(str).str.startswith(("EBR:", "AMS:", "EPA:", "BIT:", "ETR:"))
+    mask = section["google_ticker"].astype(str).str.startswith(("EBR:", "AMS:", "EPA:", "BIT:", "ETR:", "SWX:"))
     section = section[mask].copy()
     section["ticker"] = section["google_ticker"].apply(
         lambda v: v.split(":")[1] + _SUFFIX_MAP.get(v.split(":")[0], ".BR")
