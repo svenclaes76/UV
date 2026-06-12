@@ -43,7 +43,7 @@ SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
 MAX_WORKERS      = 4    # parallel yfinance requests
-REQUEST_DELAY    = 0.3  # seconds between requests per worker
+REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
 CACHE_TTL_HOURS  = 24
 CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"

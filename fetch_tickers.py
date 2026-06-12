@@ -130,12 +130,44 @@ def fetch_milan_tickers() -> list[dict]:
     )
 
 
+def _is_equity_symbol(symbol: str) -> bool:
+    """
+    True for symbols that look like real equities on Frankfurt/XETR.
+
+    Real German equity tickers (DAX/MDAX/SDAX):
+      - 1–4 chars, uppercase
+      - At most one digit, and only as the last character (e.g. DB1, VOW3, MUV2)
+      - Never start with a digit
+
+    Rejected patterns (ETFs, warrants, structured products):
+      - Start with a digit:      1YD0, 3V6, 4AB0
+      - Multiple digits:         TL01, FB20, CMC1X, ASM0 (ends 0 = certificate series)
+      - Digit not at end:        A1BC
+    """
+    if not symbol or len(symbol) > 4 or not symbol.isupper():
+        return False
+    if symbol[0].isdigit():
+        return False
+    digits = [c for c in symbol if c.isdigit()]
+    if len(digits) > 1:
+        return False
+    if digits and not symbol[-1].isdigit():
+        return False
+    # Symbols ending in 0 are almost always certificate series, not equities
+    if symbol.endswith("0"):
+        return False
+    return True
+
+
 def fetch_frankfurt_tickers() -> list[dict]:
     """Returns Deutsche Börse (XETR) stocks — stockanalysis.com with DAX 40 fallback."""
-    return _fetch_via_stockanalysis(
+    all_tickers = _fetch_via_stockanalysis(
         STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
         label="Frankfurt", fallback_fn=_hardcoded_dax40,
     )
+    filtered = [s for s in all_tickers if _is_equity_symbol(s["ticker"].removesuffix(".DE"))]
+    print(f"[fetch_tickers] Frankfurt: {len(filtered)}/{len(all_tickers)} kept after equity filter")
+    return filtered
 
 
 def _hardcoded_dax40() -> list[dict]:
