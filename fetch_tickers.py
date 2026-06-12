@@ -130,6 +130,9 @@ def fetch_milan_tickers() -> list[dict]:
     )
 
 
+_EQUITY_EXCEPTIONS = {"P911", "1COV"}  # real equities that don't match the pattern
+
+
 def _is_equity_symbol(symbol: str) -> bool:
     """
     True for symbols that look like real equities on Frankfurt/XETR.
@@ -144,6 +147,8 @@ def _is_equity_symbol(symbol: str) -> bool:
       - Multiple digits:         TL01, FB20, CMC1X, ASM0 (ends 0 = certificate series)
       - Digit not at end:        A1BC
     """
+    if symbol in _EQUITY_EXCEPTIONS:
+        return True
     if not symbol or len(symbol) > 4 or not symbol.isupper():
         return False
     if symbol[0].isdigit():
