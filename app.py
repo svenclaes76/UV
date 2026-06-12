@@ -1547,22 +1547,25 @@ if _page == "portfolio" and not _is_demo:
                     st.rerun()
 
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _da1, _da2, _ = st.columns([1, 1, 7], gap="small")
+
+        # Compute year options here so the selectbox can live in the toolbar row
+        _div_years        = sorted(div_hist["date"].dt.year.dropna().unique().astype(int), reverse=True) if div_hist is not None and not div_hist.empty else []
+        _div_year_options = ["All"] + _div_years
+        _div_year_default = _div_year_options.index(datetime.now().year) if datetime.now().year in _div_year_options else 0
+
+        _da1, _da2, _da_gap, _da_filter = st.columns([1, 1, 5, 2], gap="small")
         with _da1:
             if st.button("➕ Add", key="btn_add_div"):
                 _dlg_add_dividend()
         with _da2:
             if st.button("✏️ Edit", key="btn_edit_div"):
                 _dlg_edit_dividends()
-
-        st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
+        with _da_filter:
+            selected_year = st.selectbox("", _div_year_options, index=_div_year_default,
+                                         key="div_year_filter", label_visibility="collapsed")
 
         # Full dividend payment history
         if div_hist is not None and not div_hist.empty:
-            years = sorted(div_hist["date"].dt.year.dropna().unique().astype(int), reverse=True)
-            year_options = ["All"] + years
-            default_idx = year_options.index(datetime.now().year) if datetime.now().year in year_options else 0
-            selected_year = st.selectbox("Filter by year", year_options, index=default_idx, key="div_year_filter")
 
             hist_table = div_hist.copy()
             if selected_year != "All":
