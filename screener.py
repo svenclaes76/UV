@@ -202,6 +202,13 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
     else:
         print(f"  All {len(fresh)} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
 
+    def _refresh_crumb():
+        """Force yfinance to obtain a fresh session crumb."""
+        try:
+            yf.Ticker("AAPL").fast_info  # lightweight call that re-authenticates
+        except Exception:
+            pass
+
     def _fetch_and_store(stock):
         ticker = stock["ticker"]
         row = None
@@ -211,8 +218,15 @@ def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
                 break
             except Exception as e:
                 msg = str(e)
-                if ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
-                        or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg):
+                is_rate_limit = ("429" in msg or "Too Many Requests" in msg or "Rate limited" in msg
+                                 or "ConnectionResetError" in msg or "10054" in msg or "RemoteDisconnected" in msg)
+                is_crumb = "401" in msg or "Invalid Crumb" in msg or "Unauthorized" in msg
+                if is_crumb:
+                    _refresh_crumb()
+                    time.sleep(3)
+                    if attempt < MAX_RETRIES:
+                        continue
+                elif is_rate_limit:
                     wait = 2 ** attempt * 5   # 5s, 10s, 20s, 40s
                     if attempt < MAX_RETRIES:
                         time.sleep(wait)
