@@ -12,7 +12,8 @@ Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE
 """
 
 import json
-import time
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,8 +41,8 @@ W_DIVIDEND = 0.15   # ε — dividend score
 SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
-RATE_LIMIT_DELAY = 0.3
-CACHE_TTL_HOURS  = 1
+MAX_WORKERS      = 10   # parallel yfinance requests
+CACHE_TTL_HOURS  = 24
 CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"
 
 # ── Fields fetched from yfinance ──────────────────────────────────────────────
@@ -187,29 +188,33 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
 
 
 def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
-    cache = _load_cache()
-    stale = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
-    fresh = [s for s in stocks if _is_fresh(cache.get(s["ticker"], {}))]
+    cache      = _load_cache()
+    stale      = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
+    fresh      = [s for s in stocks if _is_fresh(cache.get(s["ticker"], {}))]
+    _lock      = threading.Lock()
+    _done      = [0]
 
     if stale:
         print(f"  {len(fresh)} cached  |  {len(stale)} to fetch")
     else:
         print(f"  All {len(fresh)} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
 
-    for i, stock in enumerate(stale, 1):
+    def _fetch_and_store(stock):
         ticker = stock["ticker"]
-        print(f"  Fetching [{i}/{len(stale)}] {ticker}          ", end="\r")
         try:
-            row           = _fetch_one(ticker, stock)
-            cache[ticker] = row
+            row = _fetch_one(ticker, stock)
         except Exception as e:
             print(f"\n  Warning: could not fetch {ticker}: {e}")
-            if ticker not in cache:
-                cache[ticker] = {"Name": stock["name"], "Ticker": ticker,
-                                 "ISIN": stock["isin"], "fetched_at": ""}
-        time.sleep(RATE_LIMIT_DELAY)
+            row = {"Name": stock["name"], "Ticker": ticker,
+                   "ISIN": stock["isin"], "fetched_at": ""}
+        with _lock:
+            cache[ticker] = row
+            _done[0] += 1
+            print(f"  Fetching [{_done[0]}/{len(stale)}] {ticker}          ", end="\r")
 
     if stale:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            list(executor.map(_fetch_and_store, stale))
         _save_cache(cache)
         print()
 
@@ -631,11 +636,19 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
 def run_screener(stocks: list[dict]) -> pd.DataFrame:
     print(f"Fetching fundamentals for {len(stocks)} stocks...")
     df = fetch_fundamentals(stocks)
+    return _score_and_clean(df)
+
+
+def run_screener_from_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Score and clean a DataFrame that was already fetched (avoids re-fetching)."""
+    return _score_and_clean(df.copy())
+
+
+def _score_and_clean(df: pd.DataFrame) -> pd.DataFrame:
     before  = len(df)
     df      = df[df["Price"].notna()].reset_index(drop=True)
     dropped = before - len(df)
     if dropped:
         print(f"  Dropped {dropped} ticker(s) with no price (likely delisted/inactive)")
     print("Computing valuation scores...")
-    df = compute_scores(df)
-    return df
+    return compute_scores(df)

@@ -105,7 +105,8 @@ from prices import fetch_prices
 
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers)
-from screener import CACHE_FILE, CACHE_TTL_HOURS, _load_cache, run_screener
+from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
+                      run_screener, run_screener_from_df, fetch_fundamentals)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
@@ -244,27 +245,33 @@ def _fmt_div_flag(v) -> str:
 
 
 @st.cache_data(show_spinner=False)
-def load_screener_data() -> pd.DataFrame:
-    stocks = fetch_brussels_tickers()
-    return run_screener(stocks)
+def _load_all_screener_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Fetch fundamentals for all exchanges in one pass, then score each separately."""
+    br_stocks  = fetch_brussels_tickers()
+    ams_stocks = fetch_amsterdam_tickers()
+    par_stocks = fetch_paris_tickers()
+    mil_stocks = fetch_milan_tickers()
+    all_stocks = br_stocks + ams_stocks + par_stocks + mil_stocks
+
+    print(f"Fetching fundamentals for {len(all_stocks)} stocks across all exchanges…")
+    all_fund = fetch_fundamentals(all_stocks)
+
+    br_tickers  = {s["ticker"] for s in br_stocks}
+    ams_tickers = {s["ticker"] for s in ams_stocks}
+    par_tickers = {s["ticker"] for s in par_stocks}
+    mil_tickers = {s["ticker"] for s in mil_stocks}
+
+    df     = run_screener_from_df(all_fund[all_fund["Ticker"].isin(br_tickers)])
+    df_ams = run_screener_from_df(all_fund[all_fund["Ticker"].isin(ams_tickers)])
+    df_par = run_screener_from_df(all_fund[all_fund["Ticker"].isin(par_tickers)])
+    df_mil = run_screener_from_df(all_fund[all_fund["Ticker"].isin(mil_tickers)])
+    return df, df_ams, df_par, df_mil
 
 
-@st.cache_data(show_spinner=False)
-def load_amsterdam_screener_data() -> pd.DataFrame:
-    stocks = fetch_amsterdam_tickers()
-    return run_screener(stocks)
-
-
-@st.cache_data(show_spinner=False)
-def load_paris_screener_data() -> pd.DataFrame:
-    stocks = fetch_paris_tickers()
-    return run_screener(stocks)
-
-
-@st.cache_data(show_spinner=False)
-def load_milan_screener_data() -> pd.DataFrame:
-    stocks = fetch_milan_tickers()
-    return run_screener(stocks)
+def load_screener_data()          -> pd.DataFrame: return _load_all_screener_data()[0]
+def load_amsterdam_screener_data() -> pd.DataFrame: return _load_all_screener_data()[1]
+def load_paris_screener_data()    -> pd.DataFrame: return _load_all_screener_data()[2]
+def load_milan_screener_data()    -> pd.DataFrame: return _load_all_screener_data()[3]
 
 
 def _compute_fair_values(info: dict) -> dict:
@@ -742,10 +749,7 @@ if _page == "screener":
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
     with st.spinner("Loading screener data…"):
-        df      = load_screener_data()
-        df_ams  = load_amsterdam_screener_data()
-        df_par  = load_paris_screener_data()
-        df_mil  = load_milan_screener_data()
+        df, df_ams, df_par, df_mil = _load_all_screener_data()
         # If the cached DataFrame predates the algorithm rework, bust caches and
         # rerun the script so the cleared cache takes effect from a clean start.
         if "fair_value" not in df.columns or "Decision" not in df.columns:
@@ -1128,14 +1132,14 @@ if _page == "portfolio" and not _is_demo:
     # ── Upload (once) ─────────────────────────────────────────────────────────
     if not portfolio_exists():
         st.subheader("Import portfolio")
-        st.info("Upload your Excel file once. Open EBR: and EAM: positions will be imported.")
+        st.info("Upload your Excel file once. Open EBR:, AMS:, EPA: and BIT: positions will be imported.")
         uploaded = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"])
         if uploaded:
             with st.spinner("Parsing Excel…"):
                 try:
                     pf, sold, div_hist = parse_excel(uploaded)
                     if pf.empty:
-                        st.error("No open EBR:/AMS: positions found. Check that your file matches the expected format.")
+                        st.error("No open EBR:/AMS:/EPA:/BIT: positions found. Check that your file matches the expected format.")
                     else:
                         PORTFOLIO_FILE.unlink(missing_ok=True)
                         SOLD_FILE.unlink(missing_ok=True)
@@ -1727,7 +1731,7 @@ if _page == "portfolio" and not _is_demo:
     with sub_sold:
         sold = load_sold()
         if sold is None or sold.empty:
-            st.info("No sold EBR: positions found in your portfolio file.")
+            st.info("No sold positions found in your portfolio file.")
         else:
             pv                     = pd.to_numeric(sold["purchase_value"], errors="coerce")
             sv                     = pd.to_numeric(sold["sale_value"], errors="coerce")
@@ -1863,7 +1867,7 @@ if _page == "portfolio" and not _is_demo:
             try:
                 new_pf, new_sold, new_div_hist = parse_excel(new_file)
                 if new_pf.empty:
-                    st.error("No open EBR: positions found.")
+                    st.error("No open positions found.")
                 else:
                     save_portfolio(new_pf)
                     save_sold(new_sold)
