@@ -96,6 +96,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 import pandas as pd
+import plotly.graph_objects as go
 import yfinance as yf
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
@@ -237,6 +238,31 @@ def _loading_screen(message: str = "Loading…"):
         yield
     finally:
         _slot.empty()
+
+
+_CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
+
+def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:
+    """Render a static (non-zoomable) horizontal bar chart via Plotly."""
+    fig = go.Figure(go.Bar(
+        x=series.values,
+        y=series.index.tolist(),
+        orientation="h",
+        marker_color=color or [
+            "#ef5350" if v < 0 else "#4f8ef7" for v in series.values
+        ],
+    ))
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=28 if title else 8, b=0),
+        title=title or None,
+        height=max(200, len(series) * 28 + 60),
+        xaxis=dict(fixedrange=True),
+        yaxis=dict(fixedrange=True, autorange="reversed"),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(size=12),
+    )
+    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
 
 
 def _bust_cache() -> None:
@@ -1526,12 +1552,19 @@ if _page == "portfolio" and not _is_demo:
         )
 
         ch1, ch2 = st.columns(2)
+        _pf_sorted = (
+            pf.dropna(subset=["price_gain"])
+              .sort_values("value_score", ascending=False, na_position="last")
+        )
         with ch1:
             st.subheader("P&L per position")
-            st.bar_chart(pf.set_index("name")["price_gain"].dropna().sort_values())
+            _static_bar(_pf_sorted.set_index("name")["price_gain"])
         with ch2:
             st.subheader("Portfolio allocation")
-            st.bar_chart(pf.set_index("name")["current_value"].dropna().sort_values(ascending=False))
+            _static_bar(
+                _pf_sorted.set_index("name")["current_value"].dropna(),
+                color="#4f8ef7",
+            )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
@@ -1716,14 +1749,16 @@ if _page == "portfolio" and not _is_demo:
             ch3, ch4 = st.columns(2)
             with ch3:
                 st.subheader("Total received per stock")
-                st.bar_chart(
-                    div_hist.groupby("name")["amount"].sum().sort_values(ascending=False)
+                _static_bar(
+                    div_hist.groupby("name")["amount"].sum().sort_values(ascending=False),
+                    color="#4caf80",
                 )
             with ch4:
                 st.subheader("Dividends by year")
                 by_year = div_hist.copy()
                 by_year["year"] = by_year["date"].dt.year
-                st.bar_chart(by_year.groupby("year")["amount"].sum())
+                _yr_series = by_year.groupby("year")["amount"].sum().sort_index()
+                _static_bar(_yr_series.rename(index=str), color="#4caf80")
         else:
             st.info("Re-upload your Excel file to load full dividend history.")
 
@@ -1855,7 +1890,7 @@ if _page == "portfolio" and not _is_demo:
 
             st.divider()
             st.subheader("Realised return per position")
-            st.bar_chart(sold.set_index("name")["total_return"].sort_values())
+            _static_bar(sold.set_index("name")["total_return"].sort_values(ascending=False))
 
     # ── Re-upload option ──────────────────────────────────────────────────────
     if not _is_demo:
