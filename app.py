@@ -1759,7 +1759,7 @@ if _page == "portfolio" and not _is_demo:
                 )
             with ch4:
                 st.subheader("Dividends by year")
-                by_year = div_hist.copy()
+                by_year = div_hist.dropna(subset=["name"]).copy()
                 by_year["year"] = by_year["date"].dt.year
                 _yr_series = by_year.groupby("year")["amount"].sum().sort_index()
                 _static_bar(_yr_series.rename(index=str), color="#4caf80")
