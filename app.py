@@ -244,8 +244,8 @@ _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:
     """Render a static (non-zoomable) horizontal bar chart via Plotly."""
-    _idx = series.index.astype(str).str.strip()
-    series = series[(_idx != "") & (_idx != "nan") & (_idx != "None") & (_idx != "undefined")]
+    _bad = {"", "nan", "none", "undefined", "<na>"}
+    series = series[[pd.notna(x) and str(x).strip().lower() not in _bad for x in series.index]]
     series = series.dropna()
     fig = go.Figure(go.Bar(
         x=series.values,
