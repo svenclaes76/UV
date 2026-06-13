@@ -605,6 +605,10 @@ st.markdown("""
     white-space: nowrap !important;
     width: 100% !important;
   }
+  /* Screener toolbar row — vertically centre the stock-count text with the toggle/button */
+  [data-testid="stHorizontalBlock"]:has([data-testid="stToggle"]) [data-testid="stMarkdown"] p {
+    margin: 0; line-height: 38px;
+  }
   /* JS-bridge iframes are purely functional — collapse them visually */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
     margin: 0 !important; padding: 0 !important; overflow: hidden !important; line-height: 0 !important; }
