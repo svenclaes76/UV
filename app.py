@@ -1354,7 +1354,7 @@ if _page == "portfolio" and not _is_demo:
                 height=_height,
                 column_config={
                     "🗑️":          st.column_config.CheckboxColumn("🗑️",               width=55),
-                    "Company":     st.column_config.TextColumn("Company",              disabled=True),
+                    "Company":     st.column_config.TextColumn("Company",              disabled=True, pinned=True),
                     "Stocks":      st.column_config.NumberColumn("Shares",             min_value=1, step=1, format="%d"),
                     "Invested":    st.column_config.NumberColumn("Invested (€)",        min_value=0.01, format="%.2f"),
                     "Date":        st.column_config.DateColumn("Buy Date",             format="DD/MM/YYYY"),
@@ -1676,7 +1676,7 @@ if _page == "portfolio" and not _is_demo:
                 height=_height,
                 column_config={
                     "🗑️":        st.column_config.CheckboxColumn("🗑️",           width=55),
-                    "Company":   st.column_config.TextColumn("Company",          disabled=True),
+                    "Company":   st.column_config.TextColumn("Company",          disabled=True, pinned=True),
                     "Ticker":    st.column_config.TextColumn("Ticker",           disabled=True),
                     "Shares":    st.column_config.NumberColumn("Shares",         min_value=1, step=1, format="%d"),
                     "Div/Share": st.column_config.NumberColumn("Div/Share (€)",  min_value=0.0, format="%.4f"),
@@ -1839,7 +1839,7 @@ if _page == "portfolio" and not _is_demo:
                     height=_height,
                     column_config={
                         "🗑️":           st.column_config.CheckboxColumn("🗑️",            width=55),
-                        "Company":      st.column_config.TextColumn("Company",           disabled=True),
+                        "Company":      st.column_config.TextColumn("Company",           disabled=True, pinned=True),
                         "Shares":       st.column_config.NumberColumn("Shares",          min_value=1, step=1, format="%d"),
                         "Proceeds (€)": st.column_config.NumberColumn("Proceeds (€)",   min_value=0.0, format="%.2f"),
                         "Sell Date":    st.column_config.DateColumn("Sell Date",         format="DD/MM/YYYY"),
