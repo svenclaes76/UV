@@ -110,6 +110,7 @@ from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       get_fetch_progress, cancel_background_fetch,
                       clear_live_cache, _file_lock)
+from settings import load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
@@ -259,38 +260,44 @@ def _cache_version() -> str:
 
 
 @st.cache_data(show_spinner=False)
-def _load_all_screener_data(cache_version: str) -> tuple:  # noqa: ARG001
+def _load_all_screener_data(cache_version: str, enabled: tuple) -> tuple:  # noqa: ARG001
     """
     Build screener DataFrames from whatever is in the cache right now.
-    cache_version is the file mtime — changing it busts Streamlit's result cache
-    so the UI re-reads the JSON file as the background fetch writes new batches.
+    cache_version (file mtime) and enabled (active exchanges) both bust the
+    Streamlit cache when they change so the UI stays in sync automatically.
     """
-    br_stocks  = fetch_brussels_tickers()
-    ams_stocks = fetch_amsterdam_tickers()
-    par_stocks = fetch_paris_tickers()
-    mil_stocks = fetch_milan_tickers()
-    etr_stocks = fetch_frankfurt_tickers()
-    swx_stocks = fetch_swiss_tickers()
-    all_stocks = br_stocks + ams_stocks + par_stocks + mil_stocks + etr_stocks + swx_stocks
+    _fetch_map = {
+        "brussels":  (fetch_brussels_tickers,  ".BR"),
+        "amsterdam": (fetch_amsterdam_tickers, ".AS"),
+        "paris":     (fetch_paris_tickers,     ".PA"),
+        "milan":     (fetch_milan_tickers,     ".MI"),
+        "frankfurt": (fetch_frankfurt_tickers, ".DE"),
+        "swiss":     (fetch_swiss_tickers,     ".SW"),
+    }
+    enabled_set = set(enabled)
+    empty = pd.DataFrame(columns=["Ticker"])
+
+    stock_lists: dict[str, list[dict]] = {}
+    all_stocks: list[dict] = []
+    for key, (fetch_fn, _) in _fetch_map.items():
+        if key in enabled_set:
+            stocks = fetch_fn()
+            stock_lists[key] = stocks
+            all_stocks.extend(stocks)
 
     print(f"Loading screener data for {len(all_stocks)} stocks…")
     all_fund = fetch_fundamentals_nowait(all_stocks)
 
     if all_fund.empty:
-        empty = pd.DataFrame(columns=["Ticker"])
-        return empty, empty, empty, empty, empty, empty
+        return tuple(empty for _ in ALL_EXCHANGES)
 
     def _exchange_df(stock_list):
         tickers = {s["ticker"] for s in stock_list}
         return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)])
 
-    return (
-        _exchange_df(br_stocks),
-        _exchange_df(ams_stocks),
-        _exchange_df(par_stocks),
-        _exchange_df(mil_stocks),
-        _exchange_df(etr_stocks),
-        _exchange_df(swx_stocks),
+    return tuple(
+        _exchange_df(stock_lists[key]) if key in stock_lists else empty
+        for key in ALL_EXCHANGES
     )
 
 
@@ -773,7 +780,9 @@ if _page == "screener":
     if _is_demo:
         st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
 
-    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version())
+    _settings = load_settings()
+    _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
+    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
 
@@ -979,11 +988,20 @@ if _page == "screener":
             st.info("No screener data yet. Data will appear once the background fetch completes.")
         st.stop()
 
-    tab_watchlist, tab_milan, tab_etr, tab_amsterdam, tab_brussels, tab_paris, tab_swx = st.tabs(
-        ["★ Watchlist", "Borsa Italiana", "Deutsche Börse",
-         "Euronext Amsterdam", "Euronext Brussels", "Euronext Paris",
-         "SIX Swiss Exchange"]
-    )
+    # Exchange tab order mirrors ALL_EXCHANGES; map key → (label, render_key, dataframe)
+    _EXCHANGE_TAB_META = [
+        ("brussels",  "Euronext Brussels",  "br",  df),
+        ("amsterdam", "Euronext Amsterdam", "ams", df_ams),
+        ("paris",     "Euronext Paris",     "par", df_par),
+        ("milan",     "Borsa Italiana",     "mil", df_mil),
+        ("frankfurt", "Deutsche Börse",     "etr", df_etr),
+        ("swiss",     "SIX Swiss Exchange", "swx", df_swx),
+    ]
+    _active_tabs = [(key, label, rkey, data)
+                    for key, label, rkey, data in _EXCHANGE_TAB_META
+                    if key in set(_enabled)]
+    _tab_labels  = ["★ Watchlist"] + [label for _, label, _, _ in _active_tabs]
+    tab_watchlist, *_exchange_tabs = st.tabs(_tab_labels)
 
     _SCORE_OPTIONS = [
         "🟢 Strong Buy (> 70)",
@@ -1055,12 +1073,9 @@ if _page == "screener":
                 save_watchlist(merged)
                 st.rerun()
 
-    with tab_brussels: _render_exchange_tab(df,     "br")
-    with tab_amsterdam: _render_exchange_tab(df_ams, "ams")
-    with tab_paris:    _render_exchange_tab(df_par, "par")
-    with tab_milan:    _render_exchange_tab(df_mil, "mil")
-    with tab_etr:      _render_exchange_tab(df_etr, "etr")
-    with tab_swx:      _render_exchange_tab(df_swx, "swx")
+    for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
+        with _tab:
+            _render_exchange_tab(_data, _rkey)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO
@@ -1150,7 +1165,8 @@ if _page == "portfolio" and not _is_demo:
     pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / _price * 100).round(1)
 
     # All screener data combined — used for value score lookup and add-position dialog
-    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version())), ignore_index=True)
+    _pf_enabled = tuple(load_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), _pf_enabled)), ignore_index=True)
     _scr = _all_scr_df.set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
@@ -1818,13 +1834,32 @@ if _page == "portfolio" and not _is_demo:
 
 if _page == "settings":
     if _is_admin:
-        tab_admin, tab_backup = st.tabs(["🔑 Users", "💾 Backup & Restore"])
+        tab_admin, tab_backup, tab_screener = st.tabs(["🔑 Users", "💾 Backup & Restore", "⚙️ Screener"])
     else:
-        tab_backup, = st.tabs(["💾 Backup & Restore"])
+        tab_backup, tab_screener = st.tabs(["💾 Backup & Restore", "⚙️ Screener"])
 
     if _is_admin:
         with tab_admin:
             _render_admin_users()
+
+    with tab_screener:
+        st.subheader("Screener Exchanges")
+        st.caption("Choose which exchanges are included in the screener and portfolio analysis.")
+        _cur_settings = load_settings()
+        _cur_enabled  = set(_cur_settings.get("enabled_exchanges", ALL_EXCHANGES))
+        _new_enabled: list[str] = []
+        for _exkey, _exlabel in EXCHANGE_LABELS.items():
+            if st.checkbox(_exlabel, value=_exkey in _cur_enabled, key=f"scr_exch_{_exkey}"):
+                _new_enabled.append(_exkey)
+        if st.button("💾 Save", key="btn_save_screener_settings", type="primary"):
+            if not _new_enabled:
+                st.error("At least one exchange must be enabled.")
+            else:
+                _cur_settings["enabled_exchanges"] = _new_enabled
+                save_settings(_cur_settings)
+                _load_all_screener_data.clear()
+                st.success("Screener settings saved.")
+                st.rerun()
 
     with tab_backup:
         st.subheader("Export")

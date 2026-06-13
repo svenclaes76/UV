@@ -23,10 +23,11 @@ from portfolio import (
     PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE, WATCHLIST_FILE, _DATA_DIR,
     load_portfolio, load_sold, load_div_hist, load_watchlist,
 )
+from settings import SETTINGS_FILE
 
 _ENV_FILE = Path(__file__).parent / ".env"
 
-_USER_FILES = [PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE, WATCHLIST_FILE]
+_USER_FILES = [PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE, WATCHLIST_FILE, SETTINGS_FILE]
 _ZIP_DATA_PREFIX = "data/"
 
 
