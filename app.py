@@ -245,20 +245,26 @@ _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:
     """Render a static (non-zoomable) horizontal bar chart via Plotly."""
     _bad = {"", "nan", "none", "undefined", "<na>"}
-    series = series[[pd.notna(x) and str(x).strip().lower() not in _bad for x in series.index]]
-    series = series.dropna()
+    _pairs = [
+        (str(k), v) for k, v in zip(series.index, series.values)
+        if pd.notna(k) and pd.notna(v)
+        and str(k).strip().lower() not in _bad
+    ]
+    if not _pairs:
+        return
+    _labels, _vals = zip(*_pairs)
     fig = go.Figure(go.Bar(
-        x=series.values,
-        y=series.index.tolist(),
+        x=list(_vals),
+        y=list(_labels),
         orientation="h",
         marker_color=color or [
-            "#ef5350" if v < 0 else "#4f8ef7" for v in series.values
+            "#ef5350" if v < 0 else "#4f8ef7" for v in _vals
         ],
     ))
     fig.update_layout(
         margin=dict(l=0, r=0, t=28 if title else 24, b=0),
         title=title or None,
-        height=max(200, len(series) * 32 + 60),
+        height=max(200, len(_labels) * 32 + 60),
         xaxis=dict(fixedrange=True),
         yaxis=dict(fixedrange=True, autorange="reversed"),
         paper_bgcolor="rgba(0,0,0,0)",
