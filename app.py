@@ -122,7 +122,7 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        add_position, remove_positions, update_positions,
                        sell_position,
                        add_dividend, update_div_hist,
-                       save_watchlist, load_watchlist, set_user, user_data_dir,
+                       save_watchlist, load_watchlist, set_user, user_data_dir, portfolio_exists,
                        load_value_history, record_value_snapshot, backfill_value_history)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
