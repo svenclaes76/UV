@@ -5,86 +5,87 @@ COLUMN_HELP = {
     # ── Core ──────────────────────────────────────────────────────────────────
     "★":             "Watchlist — check to add this stock to your personal watchlist.",
     "Company":       "Full company name as reported by the exchange.",
-    "Ticker":        "Exchange ticker symbol on Euronext Brussels (.BR suffix).",
-    "Price":           "Current market price in EUR.",
-    "💎 UV":           (
+    "Ticker":        "Exchange ticker symbol (suffix indicates the exchange: .BR Brussels · .AS Amsterdam · .PA Paris · .MI Milan · .DE Frankfurt · .SW Zurich).",
+    "Price":         "Current market price in the stock's local currency.",
+    "💎 UV":         (
         "Weighted composite intrinsic value estimate from up to 5 models: "
         "Graham Number, PE Fair Value, EPV, DDM (single + multi-stage), and Analyst Target. "
-        "Weights auto-adjust: DDM weight is zero for non-dividend payers or payout > 90%."
+        "Weights adjust automatically: DDM weight is zero for non-dividend payers or payout > 90%."
     ),
-    "Analyst Target": "Mean analyst consensus price target from Wall Street analysts covering the stock.",
-    "MoS %":          (
+    "Analyst Target": "Mean analyst consensus price target from covering analysts.",
+    "MoS %":         (
         "Margin of Safety = (Fair Value − Price) / Fair Value. "
-        "Positive = stock trades below estimated fair value. "
-        "The algorithm requires MoS > 20–30% before a stock enters the buy zone."
+        "Positive = stock trades below estimated fair value; negative = above it. "
+        "A buffer of 20–30% is typically required before a stock enters the buy zone."
     ),
     "TER %":         (
         "Total Expected Return = Capital Gain % + Forward Dividend Yield + Expected DGR. "
-        "A complete 1-year return estimate. > 15% = attractive, 8–15% = acceptable, < 8% = unattractive."
+        "A combined 1-year return estimate. > 15% = attractive · 8–15% = acceptable · < 8% = unattractive."
     ),
     "Score":         (
         "Composite score 0–100 with decision signal. "
         "🟢 Strong Buy (> 70) · 🟡 Monitor (40–70) · 🔴 Avoid (< 40). "
-        "Formula: 30% × MoS rank + 18% × (100 − Risk rank) + 22% × Quality rank + 15% × Momentum rank + 15% × Dividend rank. "
+        "Formula: 30% MoS rank + 18% (100 − Risk rank) + 22% Quality rank + 15% Momentum rank + 15% Dividend rank. "
         "Hard veto rules force Avoid regardless of score: D/E > 5×, negative FCF, or dividend coverage < 1.0× with sustainability flag."
     ),
     # ── Valuation models ──────────────────────────────────────────────────────
     "Graham #":      (
         "Graham Number = √(22.5 × EPS × BVPS). "
-        "A conservative deep-value floor. Price below this level suggests potential significant undervaluation."
+        "A conservative deep-value floor based on earnings and book value. "
+        "Price below this level suggests potential significant undervaluation."
     ),
-    "PE Fair Val":   "PE Fair Value = EPS × 15. Graham's assumed fair multiple for a no-growth company.",
+    "PE Fair Val":   "PE Fair Value = EPS × 15. Graham's assumed fair multiple for a no-growth company. Simple earnings-based floor.",
     "EPV":           (
-        "Earnings Power Value = EBIT × (1 − tax rate) / WACC, scaled to price via the EV ratio. "
-        "A zero-growth downside anchor — what the business is worth as a going concern with no expansion."
+        "Earnings Power Value = EBIT × (1 − tax rate) / WACC, scaled to per-share via the EV ratio. "
+        "A zero-growth anchor — what the business is worth as a going concern with no future expansion assumed."
     ),
     "DDM (1-stage)": (
         "Single-stage Gordon Growth DDM: P = D₁ / (r − g). "
         "Uses earnings growth as DGR proxy, capped at 5%. Best for stable, mature dividend payers."
     ),
     "DDM (2-stage)": (
-        "Two-stage DDM: 5-year high-growth phase (using earnings growth as proxy) "
-        "followed by a 2% stable terminal phase. Better captures dividend-growing companies."
+        "Two-stage DDM: 5-year high-growth phase (earnings growth as proxy) "
+        "followed by a 2% stable terminal growth rate. Better captures companies still growing their dividend."
     ),
     # ── Risk & size ───────────────────────────────────────────────────────────
     "Risk Score":    (
         "Composite risk level 0–10 (higher = riskier). "
         "Average of 5 dimensions: financial health (D/E, current ratio, interest coverage), "
         "earnings quality (FCF vs net income), market risk (beta), dividend risk (payout, coverage), "
-        "and liquidity (average daily volume). Then inverted so 0 = safest."
+        "and liquidity (average daily volume). Inverted so 0 = lowest risk."
     ),
-    "Mkt Cap":       "Market capitalisation = price × shares outstanding.",
-    "Beta":          "Market sensitivity vs index. Beta > 1 = more volatile; < 1 = more defensive.",
+    "Mkt Cap":       "Market capitalisation = current price × shares outstanding.",
+    "Beta":          "Market sensitivity vs benchmark index. > 1 = amplifies market moves; < 1 = more defensive.",
     "Debt/Equity":   (
-        "Total debt / equity (yfinance reports as ×100, so 150 = 1.5×). "
-        "Lower = less leverage. Hard veto triggers at > 5×."
+        "Total debt / equity. yfinance reports this as ×100 — so 150 = 1.5×. "
+        "Lower = less financial leverage. Hard veto triggers at > 5× (D/E > 500 in raw data)."
     ),
     # ── Multiples ─────────────────────────────────────────────────────────────
-    "P/E":           "Price-to-Earnings. Lower generally indicates cheaper valuation — compare within sector.",
-    "P/B":           "Price-to-Book. < 1 may signal undervaluation, especially for banks and asset-heavy companies.",
-    "EV/EBITDA":     "Enterprise Value / EBITDA. Capital-structure-neutral multiple. Lower = cheaper.",
+    "P/E":           "Price-to-Earnings ratio. Lower generally indicates cheaper valuation — always compare within the same sector.",
+    "P/B":           "Price-to-Book ratio. < 1 may signal undervaluation, particularly for banks and asset-heavy companies.",
+    "EV/EBITDA":     "Enterprise Value / EBITDA. Capital-structure-neutral valuation multiple — useful for comparing companies with different debt levels. Lower = cheaper.",
     # ── Quality ───────────────────────────────────────────────────────────────
-    "ROE %":         "Return on Equity — net income as % of shareholders' equity. > 15% is generally strong.",
-    "ROA %":         "Return on Assets — net income as % of total assets. Measures asset utilisation efficiency.",
-    "Op Margin %":   "Operating margin — operating income as % of revenue. Core profitability before interest and tax.",
-    "FCF Yield %":   "Free Cash Flow Yield = FCF / Market Cap. > 5% is typically attractive.",
+    "ROE %":         "Return on Equity = net income / shareholders' equity. Measures how efficiently the company generates profit from equity. > 15% is generally strong.",
+    "ROA %":         "Return on Assets = net income / total assets. Measures how efficiently the company uses its asset base to generate earnings.",
+    "Op Margin %":   "Operating margin = operating income / revenue. Core profitability before interest and tax — a measure of business quality.",
+    "FCF Yield %":   "Free Cash Flow Yield = FCF / Market Cap. > 5% suggests the business generates meaningful cash relative to its price.",
     # ── Growth ────────────────────────────────────────────────────────────────
     "Rev Growth %":  "Year-over-year revenue growth. Positive = growing top line.",
     "EPS Growth %":  (
         "Year-over-year earnings-per-share growth. "
-        "Also used as a proxy for dividend growth rate (DGR) where direct DPS history is unavailable."
+        "Also used as a proxy for the dividend growth rate (DGR) where direct DPS history is unavailable."
     ),
     # ── Dividends ─────────────────────────────────────────────────────────────
-    "Div Yield":     "Trailing dividend yield = annual DPS / price. Higher yield vs 5-year average may indicate undervaluation.",
-    "5yr Avg Yield": "5-year average dividend yield for this stock. Used as a benchmark: current yield above this suggests the stock may be cheap relative to its own history.",
-    "Payout Ratio":  "DPS / EPS. 30–70% = sustainable; > 85% = at risk of a cut.",
-    "Cash Payout":   "Cash payout ratio = (DPS × shares) / FCF. Should be < 80% to confirm free cash flow supports the dividend.",
+    "Div Yield":     "Trailing dividend yield = annual DPS / current price. A yield significantly above the 5-year average may indicate the stock is cheap relative to its own history.",
+    "5yr Avg Yield": "5-year average dividend yield for this stock. Benchmark for the current yield — current yield above this suggests potential undervaluation on an income basis.",
+    "Payout Ratio":  "Earnings payout ratio = DPS / EPS. 30–70% = sustainable range; > 85% = elevated risk of a dividend cut.",
+    "Cash Payout":   "Cash payout ratio = (DPS × shares) / FCF. Should be < 80% to confirm the dividend is backed by free cash flow, not just reported earnings.",
     "Div Coverage":  "Dividend coverage ratio = EPS / DPS. > 1.5× is safe; < 1.2× triggers a sustainability flag.",
     "Div Flag":      (
         "Dividend sustainability assessment. "
         "✅ OK = all payout checks pass. "
-        "⚠️ At Risk = one or more thresholds breached: payout > 90%, cash payout > 80%, or coverage < 1.2×. "
-        "Flagged stocks require a higher Margin of Safety (+5–10 pp) to compensate."
+        "⚠️ At Risk = one or more thresholds breached: payout ratio > 90%, cash payout > 80%, or coverage < 1.2×. "
+        "Flagged stocks require an additional Margin of Safety buffer (+5–10 pp) to compensate for income risk."
     ),
 }
 
@@ -113,6 +114,7 @@ from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       get_fetch_progress, cancel_background_fetch,
                       clear_live_cache, _file_lock)
+import risk as _risk_module
 from settings import (load_shared_settings, save_shared_settings,
                       load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
@@ -864,6 +866,7 @@ with st.sidebar:
   {_nav_link("dashboard", "💎", "Dashboard", _tok_qs)}
   {_portfolio_item}
   {_nav_link("screener",  "🔍", "Screener",  _tok_qs)}
+  {_nav_link("risk",      "⚠️", "Risk",      _tok_qs)}
 </nav>
 <div class="uv-nav-utils">
   <hr class="uv-nav-sep" style="margin-bottom:6px;">
@@ -887,6 +890,7 @@ st.markdown(f"""
     {_nav_link("dashboard", "💎", "", _tok_qs, "mini-nav-link")}
     {_mini_portfolio}
     {_nav_link("screener",  "🔍", "", _tok_qs, "mini-nav-link")}
+    {_nav_link("risk",      "⚠️", "", _tok_qs, "mini-nav-link")}
   </div>
   <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "❓", "", _tok_qs, "mini-nav-link")}</div>
 </div>
@@ -1688,12 +1692,40 @@ if _page == "portfolio":
             )
 
         _pos_col_config = {
-            "Company":        st.column_config.TextColumn("Company",         pinned=True),
-            "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%"),
-            "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%"),
-            "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%"),
-            "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f"),
-            "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f"),
+            "Company":        st.column_config.TextColumn("Company",         pinned=True,
+                                  help="Company name"),
+            "Ticker":         st.column_config.TextColumn("Ticker",
+                                  help="Exchange ticker symbol"),
+            "Shares":         st.column_config.TextColumn("Shares",
+                                  help="Number of shares held"),
+            "Buy Date":       st.column_config.TextColumn("Buy Date",
+                                  help="Date the position was opened"),
+            "Live Price":     st.column_config.TextColumn("Live Price",
+                                  help="Latest market price fetched from yfinance"),
+            "Invested":       st.column_config.TextColumn("Invested",
+                                  help="Total amount invested (purchase price × shares)"),
+            "Current":        st.column_config.TextColumn("Current",
+                                  help="Current market value (live price × shares)"),
+            "Dividend":       st.column_config.TextColumn("Dividend",
+                                  help="Total dividends received for this position since purchase"),
+            "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%",
+                                  help="Price appreciation since purchase: (current value − invested) / invested"),
+            "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%",
+                                  help="Total return including dividends: (price gain + dividends) / invested"),
+            "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%",
+                                  help="Upside to the UV fair value estimate: (fair value − live price) / live price"),
+            "Analyst Target": st.column_config.TextColumn("Analyst Target",
+                                  help="Mean analyst consensus price target"),
+            "Upside %":       st.column_config.NumberColumn("Upside %",       format="%+.1f%%",
+                                  help="Upside to the analyst consensus target: (target − live price) / live price"),
+            "Day Chg %":      st.column_config.TextColumn("Day Chg %",
+                                  help="Intraday price change vs previous close"),
+            "Div/Yr":         st.column_config.TextColumn("Div/Yr",
+                                  help="Expected annual dividend income from this position (forward rate × shares)"),
+            "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f",
+                                  help="UV composite score 0–100. 🟢 Strong Buy >70 · 🟡 Monitor 40–70 · 🔴 Avoid <40"),
+            "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f",
+                                  help="UV risk score 0–10 (displayed as 0–100). Higher = riskier. Aggregates financial health, earnings quality, beta, dividend risk, and liquidity."),
         }
 
         _row_h  = 35
@@ -1921,7 +1953,25 @@ if _page == "portfolio":
                 "Date":      hist_table["date"].dt.strftime("%d-%m-%Y"),
             })
             st.dataframe(hist_display, width="stretch", hide_index=True,
-                         height=(len(hist_display) + 1) * 35 + 10)
+                         height=(len(hist_display) + 1) * 35 + 10,
+                         column_config={
+                             "Company":   st.column_config.TextColumn("Company",   pinned=True,
+                                              help="Company name"),
+                             "Ticker":    st.column_config.TextColumn("Ticker",
+                                              help="Exchange ticker symbol"),
+                             "Shares":    st.column_config.TextColumn("Shares",
+                                              help="Number of shares held at the time of the dividend payment"),
+                             "Div/Share": st.column_config.TextColumn("Div/Share",
+                                              help="Dividend per share = total amount ÷ shares"),
+                             "Gross":     st.column_config.TextColumn("Gross",
+                                              help="Total gross dividend received before tax"),
+                             "Tax (30%)": st.column_config.TextColumn("Tax (30%)",
+                                              help="Belgian withholding tax estimated at 30% of gross dividend"),
+                             "Net":       st.column_config.TextColumn("Net",
+                                              help="Net dividend after 30% withholding tax"),
+                             "Date":      st.column_config.TextColumn("Date",
+                                              help="Date the dividend was received or recorded"),
+                         })
 
             st.divider()
             ch3, ch4 = st.columns(2)
@@ -2076,7 +2126,15 @@ if _page == "portfolio":
                 "Date":        _ct["date"].dt.strftime("%d-%m-%Y"),
             })
             st.dataframe(_ct_display, width="stretch", hide_index=True,
-                         height=(len(_ct_display) + 1) * 35 + 10)
+                         height=(len(_ct_display) + 1) * 35 + 10,
+                         column_config={
+                             "Description": st.column_config.TextColumn("Description",
+                                                help="Free-text label for this cash transaction"),
+                             "Amount (€)":  st.column_config.TextColumn("Amount (€)",
+                                                help="Transaction amount. Positive = deposit into the account; negative = withdrawal or fee."),
+                             "Date":        st.column_config.TextColumn("Date",
+                                                help="Date the transaction was recorded"),
+                         })
         else:
             st.info("No cash transactions yet. Click ➕ Add to record a deposit or withdrawal.")
 
@@ -2200,9 +2258,28 @@ if _page == "portfolio":
                 width="stretch",
                 hide_index=True,
                 column_config={
-                    "Company":         st.column_config.TextColumn("Company",           pinned=True),
-                    "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%"),
-                    "Annual Return %": st.column_config.NumberColumn("Annual Return %", format="%.2f%%"),
+                    "Company":         st.column_config.TextColumn("Company",           pinned=True,
+                                           help="Company name"),
+                    "Ticker":          st.column_config.TextColumn("Ticker",
+                                           help="Exchange ticker symbol"),
+                    "Shares":          st.column_config.TextColumn("Shares",
+                                           help="Number of shares sold"),
+                    "Invested":        st.column_config.TextColumn("Invested",
+                                           help="Total amount originally invested (purchase price × shares)"),
+                    "Proceeds":        st.column_config.TextColumn("Proceeds",
+                                           help="Total sale proceeds received"),
+                    "Price Gain":      st.column_config.TextColumn("Price Gain",
+                                           help="Absolute price gain/loss: proceeds − invested"),
+                    "Dividends":       st.column_config.TextColumn("Dividends",
+                                           help="Total dividends collected while the position was held"),
+                    "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%",
+                                           help="Price gain as a percentage of the original investment"),
+                    "Annual Return %": st.column_config.NumberColumn("Annual Return %", format="%.2f%%",
+                                           help="Annualised total return (price gain + dividends) using the CAGR formula over the holding period"),
+                    "Buy Date":        st.column_config.TextColumn("Buy Date",
+                                           help="Date the position was opened"),
+                    "Sell Date":       st.column_config.TextColumn("Sell Date",
+                                           help="Date the position was closed"),
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
@@ -2330,4 +2407,654 @@ if _page == "settings":
 
 if _page == "help":
     _render_help()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — PORTFOLIO RISK
+# ══════════════════════════════════════════════════════════════════════════════
+
+if _page == "risk":
+    pf = load_portfolio()
+    if pf is None or pf.empty:
+        st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
+        st.stop()
+
+    # ── Enrich portfolio with live prices, fair values, sector, country ───────
+    with _loading_screen("Fetching live data for risk assessment…"):
+        _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
+
+    def _rlv(field, default=None):
+        return pf["ticker"].map(lambda t: _risk_live.get(t, {}).get(field, default))
+
+    pf["live_price"]      = _rlv("price")
+    pf["current_value"]   = pf["live_price"] * pf["shares"]
+    pf["fair_value"]      = _rlv("fair_value")
+    pf["sector"]          = _rlv("sector")
+    pf["country"]         = _rlv("country")
+    pf["div_rate"]        = _rlv("div_rate", 0).map(lambda v: v or 0)
+    pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
+
+    _risk_full_cache = _load_cache()
+
+    # ── Income portfolio toggle ───────────────────────────────────────────────
+    _c_hdr, _c_tog = st.columns([5, 1])
+    with _c_hdr:
+        st.subheader("Portfolio Risk Assessment")
+    with _c_tog:
+        _income_portfolio = st.toggle("Income mode", value=False, key="risk_income_toggle",
+                                      help="Elevates income risk weight in composite score")
+
+    # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
+    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio))
+    _risk_cached    = st.session_state.get("_risk_report_cache", {})
+    _risk_report: _risk_module.RiskReport | None = None
+
+    if (_risk_cached.get("key") == _risk_cache_key and "report" in _risk_cached):
+        _gen_at = datetime.fromisoformat(_risk_cached["report"].generated_at)
+        _age_s  = (datetime.now(timezone.utc) - _gen_at).total_seconds()
+        if _age_s < 3600:
+            _risk_report = _risk_cached["report"]
+
+    if _risk_report is None:
+        with st.spinner("Running risk assessment — fetching 5-year price history and computing metrics…"):
+            try:
+                _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio)
+                st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
+            except Exception as _risk_err:
+                st.error(f"Risk assessment failed: {_risk_err}")
+                st.stop()
+
+    r = _risk_report
+
+    # ── Composite score banner ────────────────────────────────────────────────
+    _score_color = {
+        "Low risk":      "#22c55e",
+        "Moderate risk": "#eab308",
+        "Elevated risk": "#f97316",
+        "High risk":     "#ef4444",
+        "Critical risk": "#7f1d1d",
+    }.get(r.composite.label, "#6b7280")
+
+    st.markdown(f"""
+<div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.25rem;
+            border-radius:12px;background:rgba(128,128,128,0.07);margin-bottom:1rem;">
+  <div style="font-size:2.8rem;font-weight:900;color:{_score_color};line-height:1;">
+    {r.composite.score:.0f}
+  </div>
+  <div>
+    <div style="font-size:1.1rem;font-weight:700;color:{_score_color};">{r.composite.label}</div>
+    <div style="font-size:0.82rem;opacity:0.6;margin-top:2px;">{r.composite.action}</div>
+    <div style="font-size:0.75rem;opacity:0.4;margin-top:2px;">
+      €{r.portfolio_value:,.0f} · {r.n_positions} positions ·
+      updated {datetime.fromisoformat(r.generated_at).strftime("%H:%M UTC")}
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Hard / soft triggers ──────────────────────────────────────────────────
+    if r.rebalance.hard_triggers:
+        for msg in r.rebalance.hard_triggers:
+            st.error(f"🚨 {msg}", icon=None)
+    elif not r.rebalance.soft_triggers:
+        st.success("No rebalancing triggers detected.", icon="✅")
+
+    if r.rebalance.soft_triggers:
+        with st.expander(f"⚠️ {len(r.rebalance.soft_triggers)} soft trigger(s)", expanded=False):
+            for msg in r.rebalance.soft_triggers:
+                st.warning(msg, icon=None)
+
+    st.divider()
+
+    # ── Sub-score bar chart ───────────────────────────────────────────────────
+    _sub_scores = r.composite.sub_scores
+    _ss_fig = go.Figure(go.Bar(
+        x=list(_sub_scores.keys()),
+        y=list(_sub_scores.values()),
+        marker_color=[
+            "#22c55e" if v < 25 else "#eab308" if v < 50 else "#f97316" if v < 70 else "#ef4444"
+            for v in _sub_scores.values()
+        ],
+        text=[f"{v:.0f}" for v in _sub_scores.values()],
+        textposition="outside",
+    ))
+    _ss_fig.update_layout(
+        height=220, margin=dict(t=20, b=0, l=0, r=0),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(range=[0, 115], showgrid=False, visible=False),
+        xaxis=dict(showgrid=False),
+        font=dict(color="white"),
+        showlegend=False,
+    )
+    st.plotly_chart(_ss_fig, use_container_width=True)
+
+    # ── Detail tabs ───────────────────────────────────────────────────────────
+    (_t_pos, _t_conc, _t_quant, _t_factor,
+     _t_income, _t_stress, _t_mc, _t_rebal) = st.tabs([
+        "Positions", "Concentration", "Volatility & VaR",
+        "Factor Exposure", "Income Risk", "Stress Tests",
+        "Monte Carlo", "Rebalancing",
+    ])
+
+    # ── Tab: Positions ────────────────────────────────────────────────────────
+    with _t_pos:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Each row profiles one portfolio position. Risk Rating aggregates all dimensions "
+                "into a single label — **Low / Medium / High / Critical** — based on weight, beta, "
+                "valuation, financial health and earnings quality. Use this table to quickly spot "
+                "positions that deserve closer review before looking at portfolio-level metrics."
+            )
+        _pos_rows = []
+        for p in r.position_profiles:
+            _pos_rows.append({
+                "Company":         p.name,
+                "Ticker":          p.ticker,
+                "Weight":          f"{p.weight:.1%}",
+                "Beta":            f"{p.beta:.2f}" if p.beta is not None else "—",
+                "VaR 95% 1d":      f"€{p.var_95_1d_eur:,.0f}" if p.var_95_1d_eur else "—",
+                "MoS":             f"{p.mos:.1%}" if p.mos is not None else "—",
+                "Valuation":       p.valuation_flag,
+                "Div":             p.div_sustainability or "—",
+                "Fin Health":      f"{p.financial_health:.1f}/10",
+                "Earn Quality":    f"{p.earnings_quality:.1f}/10",
+                "Risk Rating":     p.rating,
+            })
+        _pos_df = pd.DataFrame(_pos_rows)
+        _row_h = 35
+        st.dataframe(
+            _pos_df,
+            hide_index=True,
+            use_container_width=True,
+            height=35 + min(len(_pos_df), 20) * _row_h,
+            column_config={
+                "Company":      st.column_config.TextColumn("Company",     pinned=True,
+                                    help="Company name"),
+                "Ticker":       st.column_config.TextColumn("Ticker",
+                                    help="Exchange ticker symbol"),
+                "Weight":       st.column_config.TextColumn("Weight",
+                                    help="Position value as a % of total portfolio. >10% = concentrated; >15% triggers a hard flag."),
+                "Beta":         st.column_config.TextColumn("Beta",
+                                    help="Market sensitivity (regression vs index). >1 = amplifies market moves; <1 = more defensive. >1.3 adds to risk rating."),
+                "VaR 95% 1d":   st.column_config.TextColumn("VaR 95% 1d",
+                                    help="Maximum expected 1-day loss for this position at 95% confidence. Estimated as position value × |beta| × market daily vol × 1.645."),
+                "MoS":          st.column_config.TextColumn("MoS",
+                                    help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the UV model estimate."),
+                "Valuation":    st.column_config.TextColumn("Valuation",
+                                    help="Undervalued (MoS >10%) · Fairly Valued (MoS 0–10%) · Overvalued (MoS <0%). Overvalued positions add to the risk rating."),
+                "Div":          st.column_config.TextColumn("Div",
+                                    help="Dividend sustainability flag from the UV screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
+                "Fin Health":   st.column_config.TextColumn("Fin Health",
+                                    help="Financial health score 0–10 (higher = healthier). Average of D/E ratio, current ratio, and interest coverage. <5 adds to risk rating."),
+                "Earn Quality": st.column_config.TextColumn("Earn Quality",
+                                    help="Earnings quality score 0–10. Measures FCF vs net income — high accruals (earnings without cash backing) score lower. <3 adds to risk rating."),
+                "Risk Rating":  st.column_config.TextColumn("Risk Rating",
+                                    help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
+            },
+        )
+
+    # ── Tab: Concentration ────────────────────────────────────────────────────
+    with _t_conc:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Concentration risk measures how much of the portfolio depends on a small number "
+                "of positions, sectors, or geographies. The **HHI** (Herfindahl-Hirschman Index) "
+                "is the sum of squared weights — closer to 0 means well spread, above 0.18 is "
+                "highly concentrated. Flags trigger at >15% single position, >30% single sector, "
+                "or >60% single country. Dividend HHI applies the same logic to income streams."
+            )
+        c = r.concentration
+        _cc1, _cc2, _cc3 = st.columns(3)
+        _cc1.metric("HHI", f"{c.hhi:.3f}", help=c.hhi_label)
+        _cc2.metric("Top-1 weight", f"{c.top1_weight:.1%}", delta="⚠️ Flag" if c.top1_flag else "✓ OK",
+                    delta_color="inverse" if c.top1_flag else "off")
+        _cc3.metric("Top-3 weight", f"{c.top3_weight:.1%}", delta="⚠️ Flag" if c.top3_flag else "✓ OK",
+                    delta_color="inverse" if c.top3_flag else "off")
+
+        st.caption(f"**Concentration:** {c.hhi_label}  |  Top-5: {c.top5_weight:.1%}")
+
+        _conc_c1, _conc_c2 = st.columns(2)
+        with _conc_c1:
+            st.markdown("**Sector weights**")
+            if c.sector_weights:
+                _sec_fig = go.Figure(go.Bar(
+                    x=list(c.sector_weights.keys()),
+                    y=[v * 100 for v in c.sector_weights.values()],
+                    marker_color=["#ef4444" if v > 0.30 else "#4f8ef7" for v in c.sector_weights.values()],
+                    text=[f"{v:.0%}" for v in c.sector_weights.values()],
+                    textposition="outside",
+                ))
+                _sec_fig.add_hline(y=30, line_dash="dot", line_color="orange",
+                                   annotation_text="30% threshold", annotation_position="top right")
+                _sec_fig.update_layout(
+                    height=260, margin=dict(t=20, b=60, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    yaxis=dict(title="Weight %", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
+                    xaxis=dict(tickangle=-30),
+                    font=dict(color="white"), showlegend=False,
+                )
+                st.plotly_chart(_sec_fig, use_container_width=True)
+            if c.sector_flag:
+                st.warning(f"Sector concentration: {c.largest_sector} at {c.sector_weights.get(c.largest_sector or '', 0):.0%}")
+
+        with _conc_c2:
+            st.markdown("**Geographic weights**")
+            if c.geo_weights:
+                _geo_fig = go.Figure(go.Pie(
+                    labels=list(c.geo_weights.keys()),
+                    values=list(c.geo_weights.values()),
+                    hole=0.4,
+                    textinfo="label+percent",
+                ))
+                _geo_fig.update_layout(
+                    height=260, margin=dict(t=10, b=10, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"), showlegend=False,
+                )
+                st.plotly_chart(_geo_fig, use_container_width=True)
+            if c.geo_flag:
+                st.warning(f"Geographic concentration: {c.largest_geo} at {c.geo_weights.get(c.largest_geo or '', 0):.0%}")
+
+        if c.div_hhi is not None:
+            st.caption(f"Dividend income HHI: {c.div_hhi:.3f} | Top-3 income share: {c.div_top3_pct:.0%}"
+                       + (" ⚠️" if c.income_concentration_flag else ""))
+
+    # ── Tab: Volatility & VaR ─────────────────────────────────────────────────
+    with _t_quant:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "**Beta** measures overall market sensitivity — above 1.2 means the portfolio "
+                "amplifies market swings, below 0.8 is defensive. **Annual Vol** is the standard "
+                "deviation of daily returns scaled to a year; above 20% is high. "
+                "**VaR** is the maximum expected 1-day loss at a given confidence level — "
+                "e.g. a 95% VaR of €500 means only 1 day in 20 should lose more than that. "
+                "**CVaR** (Expected Shortfall) is the *average* loss on those worst days, capturing "
+                "tail risk beyond VaR. **MDD** is the largest peak-to-trough drawdown observed in the "
+                "historical window. The correlation heatmap shows how positions move together — "
+                "pairs above 0.80 provide little diversification benefit."
+            )
+        q = r.quant
+        _qc1, _qc2, _qc3, _qc4 = st.columns(4)
+        _qc1.metric("Portfolio Beta", f"{q.portfolio_beta:.2f}", help=q.beta_label)
+        _qc2.metric("Annual Vol",
+                    f"{q.volatility_annual:.1%}" if q.volatility_annual else "N/A",
+                    help=q.volatility_label)
+        _qc3.metric("Sharpe",  f"{q.sharpe:.2f}"  if q.sharpe  else "N/A", help=q.ratio_label)
+        _qc4.metric("Sortino", f"{q.sortino:.2f}" if q.sortino else "N/A")
+
+        st.divider()
+
+        _vc1, _vc2, _vc3 = st.columns(3)
+        _vc1.metric("VaR 95% (1d)", f"€{q.var_95_1d_eur:,.0f}" if q.var_95_1d_eur else "N/A",
+                    help="Maximum expected 1-day loss at 95% confidence (historical simulation)")
+        _vc2.metric("VaR 99% (1d)", f"€{q.var_99_1d_eur:,.0f}" if q.var_99_1d_eur else "N/A")
+        _vc3.metric("CVaR 95% (1d)", f"€{q.cvar_95_1d_eur:,.0f}" if q.cvar_95_1d_eur else "N/A",
+                    help="Expected loss in the worst 5% of scenarios (Expected Shortfall)")
+
+        st.divider()
+
+        _mc1, _mc2, _mc3 = st.columns(3)
+        _mc1.metric("MDD 1y", f"{q.mdd_1y:.1%}" if q.mdd_1y else "N/A",
+                    help=f"Max drawdown over last 12 months — {q.mdd_label}")
+        _mc2.metric("MDD 3y", f"{q.mdd_3y:.1%}" if q.mdd_3y else "N/A")
+        _mc3.metric("MDD 5y", f"{q.mdd_5y:.1%}" if q.mdd_5y else "N/A")
+
+        if not q.returns_available:
+            st.info("Historical price data unavailable — quantitative metrics use beta-proxy estimates.")
+
+        if q.corr_matrix is not None and len(q.corr_matrix) > 1:
+            st.divider()
+            st.markdown("**Return correlation matrix (last 252 trading days)**")
+            _corr = q.corr_matrix.round(2)
+            _heat = go.Figure(go.Heatmap(
+                z=_corr.values,
+                x=list(_corr.columns),
+                y=list(_corr.index),
+                colorscale="RdBu_r",
+                zmin=-1, zmax=1,
+                text=_corr.values.round(2),
+                texttemplate="%{text}",
+                showscale=True,
+            ))
+            _heat.update_layout(
+                height=max(300, len(_corr) * 40 + 80),
+                margin=dict(t=20, b=60, l=80, r=20),
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white"),
+                xaxis=dict(tickangle=-30),
+            )
+            st.plotly_chart(_heat, use_container_width=True)
+            if q.high_corr_pairs:
+                _pairs_str = ", ".join(f"**{a}/{b}** ({c:.2f})" for a, b, c in q.high_corr_pairs)
+                st.warning(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification")
+            if q.effective_diversification is not None:
+                st.caption(f"Effective diversification score: {q.effective_diversification:.2f} "
+                           f"(1 − avg pairwise correlation)")
+
+    # ── Tab: Factor Exposure ──────────────────────────────────────────────────
+    with _t_factor:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Factor analysis decomposes portfolio returns into known systematic risk factors "
+                "using the **Fama-French 5-factor model** (+ momentum). Each bar is a *factor loading* — "
+                "how much the portfolio moves per unit of that factor's return. "
+                "A loading above **±1.5** signals a concentrated factor bet. "
+                "**R²** shows what fraction of return variance the model explains; above 0.6 means "
+                "the portfolio is factor-dominated. **Alpha** is the annualised return not explained "
+                "by any factor — positive alpha suggests genuine stock-picking skill, negative suggests "
+                "the portfolio underperforms its factor exposures.  \n\n"
+                "Factors: **Mkt-RF** market premium · **SMB** small vs large cap · "
+                "**HML** value vs growth · **RMW** high vs low profitability · "
+                "**CMA** conservative vs aggressive investment · **WML** momentum."
+            )
+        f = r.factor
+        if not f.available:
+            st.info("Factor analysis unavailable. " + (f.flags[0] if f.flags else ""))
+            st.caption("Install `pandas-datareader` and ensure internet access to Fama-French data library.")
+        else:
+            _fc1, _fc2 = st.columns(2)
+            _fc1.metric("R²", f"{f.r_squared:.3f}" if f.r_squared else "—",
+                        help="Fraction of portfolio return variance explained by the 5-factor model")
+            _fc2.metric("Alpha (ann.)", f"{f.alpha_annualised:.2%}" if f.alpha_annualised else "—",
+                        help="Annualised abnormal return above factor model prediction")
+
+            if f.loadings:
+                _fac_fig = go.Figure(go.Bar(
+                    x=list(f.loadings.keys()),
+                    y=list(f.loadings.values()),
+                    marker_color=["#ef4444" if abs(v) > 1.5 else "#4f8ef7" for v in f.loadings.values()],
+                    text=[f"{v:+.2f}" for v in f.loadings.values()],
+                    textposition="outside",
+                ))
+                _fac_fig.add_hline(y=1.5,  line_dash="dot", line_color="orange")
+                _fac_fig.add_hline(y=-1.5, line_dash="dot", line_color="orange")
+                _fac_fig.update_layout(
+                    height=280, margin=dict(t=30, b=20, l=0, r=0),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    yaxis=dict(title="Factor Loading", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
+                    font=dict(color="white"), showlegend=False,
+                )
+                st.plotly_chart(_fac_fig, use_container_width=True)
+
+            if f.flags:
+                for _msg in f.flags:
+                    st.warning(_msg)
+
+            st.caption("Mkt-RF: market | SMB: small vs large | HML: value vs growth | "
+                       "RMW: profitability | CMA: investment | WML: momentum (if available). "
+                       "Red bars = loading >1.5 — concentrated factor bet. "
+                       "Dashed lines = ±1.5 threshold.")
+
+    # ── Tab: Income Risk ──────────────────────────────────────────────────────
+    with _t_income:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Income risk measures how vulnerable the portfolio's dividend stream is. "
+                "**Portfolio Yield** is total expected annual dividends divided by current portfolio value. "
+                "**Weighted DGR** (Dividend Growth Rate) is the income-weighted average of each payer's "
+                "earnings growth — a DGR below inflation (~2.5%) means purchasing power of income erodes. "
+                "The **top-3 cut scenario** simulates the income impact if the three largest dividend "
+                "payers each cut their dividend by 50% — a standard stress test for income concentration. "
+                "Positions flagged for sustainability have at least one of: payout ratio >80%, "
+                "cash payout ratio >80%, or dividend coverage ratio <1.2×."
+            )
+        inc = r.income
+        _ic1, _ic2, _ic3 = st.columns(3)
+        _ic1.metric("Portfolio Yield", f"{inc.portfolio_yield:.2%}")
+        _ic2.metric("Annual Income", f"€{inc.total_annual_income:,.0f}")
+        _ic3.metric("Weighted DGR",
+                    f"{inc.weighted_dgr:.1%}" if inc.weighted_dgr is not None else "N/A",
+                    help="Income-weighted dividend growth rate (earnings growth proxy)")
+
+        st.divider()
+
+        _ic4, _ic5 = st.columns(2)
+        _ic4.metric("Top-3 cut scenario (50%)",
+                    f"€{inc.top3_cut_eur:,.0f}" if inc.top3_cut_eur else "N/A",
+                    help="Income at risk if top-3 dividend payers cut by 50%")
+        _ic5.metric("Income at risk",
+                    f"{inc.top3_cut_pct:.1%}" if inc.top3_cut_pct else "N/A",
+                    delta="⚠️ Flag" if inc.income_concentration_flag else "✓ OK",
+                    delta_color="inverse" if inc.income_concentration_flag else "off")
+
+        if inc.top3_income_shares:
+            st.markdown("**Top income contributors**")
+            _inc_rows = [{"Ticker": t, "Share of income": f"{sh:.1%}"}
+                         for t, sh in inc.top3_income_shares]
+            st.dataframe(pd.DataFrame(_inc_rows), hide_index=True, use_container_width=False,
+                         column_config={
+                             "Ticker":         st.column_config.TextColumn("Ticker",
+                                                   help="Exchange ticker symbol of the dividend payer"),
+                             "Share of income": st.column_config.TextColumn("Share of income",
+                                                   help="This payer's expected annual dividend as a fraction of total portfolio income. High concentration here amplifies the impact of a dividend cut."),
+                         })
+
+        if inc.flagged_payers:
+            st.warning(f"Sustainability concerns ({inc.flagged_income_pct:.0%} of income): "
+                       + ", ".join(inc.flagged_payers))
+
+    # ── Tab: Stress Tests ─────────────────────────────────────────────────────
+    with _t_stress:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Stress tests show how the portfolio might perform under adverse conditions.  \n\n"
+                "**Historical scenarios** replay four real market crises. Portfolio drawdown is "
+                "estimated as *portfolio beta × index drawdown* — a beta of 0.8 during a −50% "
+                "crash implies a −40% portfolio loss. This is an approximation; actual losses "
+                "depend on individual stock behaviour during the specific period.  \n\n"
+                "**Hypothetical scenarios** apply targeted shocks: the rate-rise scenario uses "
+                "each stock's P/E as a duration proxy (high P/E = more sensitive to higher rates); "
+                "the recession scenario applies a 25% earnings cut to cyclical sectors and 10% to "
+                "defensives; the sector crash applies a −40% shock to the largest sector holding; "
+                "the credit crunch penalises high-leverage positions proportionally to D/E ratio."
+            )
+        st.markdown("**Historical scenarios** *(beta-adjusted approximation)*")
+        _hist_rows = [{
+            "Scenario":          s.name,
+            "Period":            s.period,
+            "Index drawdown":    f"{s.index_drawdown:.0%}" if s.index_drawdown else "—",
+            "Est. portfolio DD": f"{s.portfolio_drawdown:.1%}" if s.portfolio_drawdown else "—",
+            "Est. value loss":   f"€{s.portfolio_value_loss:,.0f}" if s.portfolio_value_loss else "—",
+        } for s in r.stress.historical]
+        st.dataframe(pd.DataFrame(_hist_rows), hide_index=True, use_container_width=True,
+            column_config={
+                "Scenario":          st.column_config.TextColumn("Scenario",
+                                         help="Name of the historical market crisis"),
+                "Period":            st.column_config.TextColumn("Period",
+                                         help="Approximate date range of the crisis"),
+                "Index drawdown":    st.column_config.TextColumn("Index drawdown",
+                                         help="Actual S&P 500 peak-to-trough drawdown during the crisis"),
+                "Est. portfolio DD": st.column_config.TextColumn("Est. portfolio DD",
+                                         help="Estimated portfolio drawdown = portfolio beta × index drawdown"),
+                "Est. value loss":   st.column_config.TextColumn("Est. value loss",
+                                         help="Estimated euro loss at current portfolio value"),
+            })
+
+        st.caption("Drawdown estimated as portfolio beta × index drawdown. "
+                   "For tickers with ≥5 years of history, actual returns are used where available.")
+
+        st.divider()
+        st.markdown("**Hypothetical factor scenarios**")
+        _factor_rows = [{
+            "Scenario":           s["name"],
+            "Description":        s["description"],
+            "Est. portfolio loss": f"{s['estimated_portfolio_impact']:.1%}",
+            "Est. value loss €":  f"€{s['estimated_loss_eur']:,.0f}",
+            **({"Note": s["note"]} if "note" in s else {}),
+        } for s in r.stress.factor_scenarios]
+        st.dataframe(pd.DataFrame(_factor_rows), hide_index=True, use_container_width=True,
+            column_config={
+                "Scenario":            st.column_config.TextColumn("Scenario",
+                                           help="Name of the hypothetical shock"),
+                "Description":         st.column_config.TextColumn("Description",
+                                           help="How the shock is modelled"),
+                "Est. portfolio loss":  st.column_config.TextColumn("Est. portfolio loss",
+                                           help="Estimated portfolio return impact as a percentage"),
+                "Est. value loss €":   st.column_config.TextColumn("Est. value loss €",
+                                           help="Estimated euro loss at current portfolio value"),
+                "Note":                st.column_config.TextColumn("Note",
+                                           help="Additional context for this scenario"),
+            })
+
+    # ── Tab: Monte Carlo ──────────────────────────────────────────────────────
+    with _t_mc:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Monte Carlo simulation runs **10,000 random return paths** over 1, 3, and 5 years, "
+                "drawing daily returns from the historical return distribution of the portfolio. "
+                "The fan chart shows the range of outcomes: the dark line is the median path, "
+                "the inner band covers the 25th–75th percentile (50% of paths), and the outer "
+                "band covers the 5th–95th percentile (90% of paths).  \n\n"
+                "**P5** is the worst-case outcome at 5% probability — what the portfolio could be "
+                "worth in a persistently bad scenario. **P(loss)** is the fraction of simulated "
+                "paths that end below the starting value. When historical price data is unavailable, "
+                "returns are estimated from portfolio beta and a 5% market risk premium."
+            )
+        _mcs = [r.stress.mc_1y, r.stress.mc_3y, r.stress.mc_5y]
+        _mc_cols = st.columns(3)
+        for _col, _mc in zip(_mc_cols, _mcs):
+            _col.metric(
+                f"{_mc.horizon_years}y median return", f"{_mc.p50:.1%}",
+                help=f"P5: {_mc.p05:.1%} | P95: {_mc.p95:.1%} | P(loss): {_mc.prob_loss:.0%}",
+            )
+
+        # Fan chart — portfolio value over time
+        _years = [0, 1, 3, 5]
+        _pv    = r.portfolio_value
+        _fan_fig = go.Figure()
+
+        def _build_fan(mc_list: list, color: str, label: str) -> None:
+            pts_p05 = [_pv] + [_pv * (1 + m.p05) for m in mc_list]
+            pts_p25 = [_pv] + [_pv * (1 + m.p25) for m in mc_list]
+            pts_p50 = [_pv] + [_pv * (1 + m.p50) for m in mc_list]
+            pts_p75 = [_pv] + [_pv * (1 + m.p75) for m in mc_list]
+            pts_p95 = [_pv] + [_pv * (1 + m.p95) for m in mc_list]
+            _fan_fig.add_trace(go.Scatter(
+                x=_years, y=pts_p95, mode="lines",
+                line=dict(width=0), showlegend=False, hoverinfo="skip",
+            ))
+            _fan_fig.add_trace(go.Scatter(
+                x=_years, y=pts_p05, mode="lines",
+                line=dict(width=0), fill="tonexty",
+                fillcolor=f"rgba{(*_hex_to_rgb(color), 0.12)}",
+                showlegend=False, hoverinfo="skip",
+            ))
+            _fan_fig.add_trace(go.Scatter(
+                x=_years, y=pts_p75, mode="lines",
+                line=dict(width=0), showlegend=False, hoverinfo="skip",
+            ))
+            _fan_fig.add_trace(go.Scatter(
+                x=_years, y=pts_p25, mode="lines",
+                line=dict(width=0), fill="tonexty",
+                fillcolor=f"rgba{(*_hex_to_rgb(color), 0.20)}",
+                showlegend=False, hoverinfo="skip",
+            ))
+            _fan_fig.add_trace(go.Scatter(
+                x=_years, y=pts_p50, mode="lines+markers",
+                line=dict(color=color, width=2),
+                name=f"Median ({label})",
+                hovertemplate="%{y:€,.0f}<extra></extra>",
+            ))
+
+        def _hex_to_rgb(h: str) -> tuple:
+            h = h.lstrip("#")
+            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+        _build_fan(_mcs, "#4f8ef7", "portfolio")
+        _fan_fig.add_hline(y=_pv, line_dash="dot", line_color="rgba(255,255,255,0.3)",
+                           annotation_text="Current value", annotation_position="bottom right")
+        _fan_fig.update_layout(
+            height=360, margin=dict(t=20, b=40, l=60, r=20),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(title="Portfolio value (€)", tickprefix="€",
+                       tickformat=",.0f", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
+            xaxis=dict(title="Years", tickvals=[0, 1, 3, 5]),
+            font=dict(color="white"), legend=dict(x=0.02, y=0.98),
+        )
+        st.plotly_chart(_fan_fig, use_container_width=True)
+
+        st.markdown("**Scenario probability table**")
+        _mc_tbl = pd.DataFrame([
+            {
+                "Horizon":     f"{m.horizon_years}y",
+                "P5 (worst)":  f"{m.p05:.1%}",
+                "P25":         f"{m.p25:.1%}",
+                "Median":      f"{m.p50:.1%}",
+                "P75":         f"{m.p75:.1%}",
+                "P95 (best)":  f"{m.p95:.1%}",
+                "P(loss)":     f"{m.prob_loss:.0%}",
+            }
+            for m in _mcs
+        ])
+        st.dataframe(_mc_tbl, hide_index=True, use_container_width=False,
+            column_config={
+                "Horizon":    st.column_config.TextColumn("Horizon",
+                                  help="Simulation time horizon"),
+                "P5 (worst)": st.column_config.TextColumn("P5 (worst)",
+                                  help="5th percentile total return — only 5% of paths perform worse than this"),
+                "P25":        st.column_config.TextColumn("P25",
+                                  help="25th percentile total return"),
+                "Median":     st.column_config.TextColumn("Median",
+                                  help="50th percentile — the most likely single outcome across all simulated paths"),
+                "P75":        st.column_config.TextColumn("P75",
+                                  help="75th percentile total return"),
+                "P95 (best)": st.column_config.TextColumn("P95 (best)",
+                                  help="95th percentile total return — only 5% of paths perform better than this"),
+                "P(loss)":    st.column_config.TextColumn("P(loss)",
+                                  help="Probability of a negative total return over this horizon"),
+            })
+        st.caption(f"10,000 Monte Carlo paths · daily returns drawn from historical distribution "
+                   f"{'(actual returns)' if r.quant.returns_available else '(beta-proxy estimate)'}")
+
+    # ── Tab: Rebalancing ──────────────────────────────────────────────────────
+    with _t_rebal:
+        with st.expander("ℹ️ How to read this tab", expanded=False):
+            st.markdown(
+                "Rebalancing signals are split into two tiers:  \n\n"
+                "**Hard triggers** require immediate action — they indicate a threshold breach "
+                "that materially increases portfolio risk (e.g. single position >20%, beta >1.5, "
+                "99% VaR exceeding 3% of portfolio, or a Critical-rated position).  \n\n"
+                "**Soft triggers** are advisory — worth reviewing and planning around, but not "
+                "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, "
+                "or a High-rated position).  \n\n"
+                "The **actions table** maps each issue to a concrete next step. Prioritise "
+                "hard-trigger actions first, then work through soft triggers in order of their "
+                "impact on the composite risk score."
+            )
+        if r.rebalance.actions:
+            _act_df = pd.DataFrame(r.rebalance.actions)
+            st.dataframe(
+                _act_df,
+                hide_index=True,
+                use_container_width=True,
+                height=35 + min(len(_act_df), 15) * 40,
+                column_config={
+                    "ticker": st.column_config.TextColumn("Ticker / Scope",
+                                  help="The position or scope (e.g. 'Portfolio', a sector name, or a ticker) this action applies to"),
+                    "issue":  st.column_config.TextColumn("Issue",
+                                  help="The specific risk threshold or flag that triggered this action"),
+                    "action": st.column_config.TextColumn("Recommended Action",
+                                  help="Suggested rebalancing step to address the issue"),
+                },
+            )
+        else:
+            st.success("No immediate rebalancing actions required.")
+
+        st.divider()
+
+        if r.rebalance.hard_triggers:
+            st.markdown("**Hard triggers** *(act immediately)*")
+            for msg in r.rebalance.hard_triggers:
+                st.error(f"🚨 {msg}", icon=None)
+
+        if r.rebalance.soft_triggers:
+            st.markdown("**Soft triggers** *(review and plan)*")
+            for msg in r.rebalance.soft_triggers:
+                st.warning(f"⚠️ {msg}", icon=None)
+
+        st.divider()
+        st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "
+                   "Refreshes automatically after 1 hour or when portfolio changes.")
+        if st.button("🔄 Refresh risk report", key="risk_refresh_btn"):
+            st.session_state.pop("_risk_report_cache", None)
+            st.rerun()
 
