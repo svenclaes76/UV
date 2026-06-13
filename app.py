@@ -791,7 +791,6 @@ if _page == "screener":
         if prog["running"] and prog["total"] > 0:
             pct  = prog["done"] / prog["total"]
             st.progress(pct, text=f"Fetching fresh data in background… {prog['done']}/{prog['total']} tickers")
-            st.rerun()
 
     _fetch_progress_banner()
 
@@ -916,7 +915,7 @@ if _page == "screener":
             if score_key:
                 _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
                 with st.popover(_sf_cur, width="stretch"):
-                    st.radio("", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
+                    st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
                              key=score_key, label_visibility="collapsed")
 
         selected_groups = st.session_state.get(_grp_key, [])
@@ -976,6 +975,15 @@ if _page == "screener":
             key=f"table_{key_suffix}",
         )
         return edited
+
+    _any_data = any("Ticker" in d.columns for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
+    if not _any_data:
+        prog = get_fetch_progress()
+        if prog["running"]:
+            st.info(f"Fetching data… {prog['done']}/{prog['total']} tickers complete. The screener will appear automatically.")
+        else:
+            st.info("No screener data yet. Data will appear once the background fetch completes.")
+        st.stop()
 
     tab_watchlist, tab_milan, tab_etr, tab_amsterdam, tab_brussels, tab_paris, tab_swx = st.tabs(
         ["★ Watchlist", "Borsa Italiana", "Deutsche Börse",
