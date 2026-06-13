@@ -2,47 +2,52 @@
 Backup and restore for user data.
 
 Export options:
-  - Encrypted ZIP  : data/ files + .env bundled; fully restorable on any machine
+  - Encrypted ZIP  : per-user data dir + .env bundled; fully restorable on any machine
   - Excel workbook : human-readable export of positions, dividends, sold history
 
 Import:
-  - Encrypted ZIP  : extracts data/ files + .env, replacing existing data
+  - Encrypted ZIP  : extracts files back into the current user's data dir + .env
 """
 
 from __future__ import annotations
 
 import io
-import json
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-from portfolio import (
-    PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE, WATCHLIST_FILE, _DATA_DIR,
-    load_portfolio, load_sold, load_div_hist, load_watchlist,
-)
-from settings import SETTINGS_FILE
+from portfolio import user_data_dir, load_portfolio, load_sold, load_div_hist, load_watchlist
+from settings import _settings_file, _SHARED_FILE
 
-_ENV_FILE = Path(__file__).parent / ".env"
-
-_USER_FILES = [PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE, WATCHLIST_FILE, SETTINGS_FILE]
+_ENV_FILE        = Path(__file__).parent / ".env"
 _ZIP_DATA_PREFIX = "data/"
+_ZIP_SETTINGS_KEY        = "data/settings.json"
+_ZIP_SHARED_SETTINGS_KEY = "data/shared_settings.json"
+
+_PORTFOLIO_FILENAMES = ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json")
 
 
 # ── Export ────────────────────────────────────────────────────────────────────
 
-def export_zip() -> bytes:
+def export_zip(email: str = "") -> bytes:
     """
-    Bundle all user data files + .env into an in-memory ZIP.
+    Bundle the current user's data files + settings + .env into an in-memory ZIP.
     Returns the raw ZIP bytes for download.
     """
     buf = io.BytesIO()
+    udir = user_data_dir(email)
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path in _USER_FILES:
+        for fname in _PORTFOLIO_FILENAMES:
+            path = udir / fname
             if path.exists():
-                zf.write(path, arcname=f"{_ZIP_DATA_PREFIX}{path.name}")
+                zf.write(path, arcname=f"{_ZIP_DATA_PREFIX}{fname}")
+        settings_path = _settings_file(email) if email else None
+        if settings_path and settings_path.exists():
+            zf.write(settings_path, arcname=_ZIP_SETTINGS_KEY)
+        if _SHARED_FILE.exists():
+            zf.write(_SHARED_FILE, arcname=_ZIP_SHARED_SETTINGS_KEY)
         if _ENV_FILE.exists():
             zf.write(_ENV_FILE, arcname=".env")
     return buf.getvalue()
@@ -53,21 +58,28 @@ def export_excel() -> bytes:
     Export all user data as a human-readable Excel workbook.
     Returns raw bytes suitable for st.download_button.
     """
+    pf   = load_portfolio()
+    sold = load_sold()
+    div  = load_div_hist()
+    wl   = load_watchlist()
+
+    has_data = (
+        (pf   is not None and not pf.empty) or
+        (sold  is not None and not sold.empty) or
+        (div   is not None and not div.empty) or
+        bool(wl)
+    )
+    if not has_data:
+        raise ValueError("No portfolio data found to export.")
+
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        pf = load_portfolio()
         if pf is not None and not pf.empty:
             pf.to_excel(writer, sheet_name="Positions", index=False)
-
-        sold = load_sold()
         if sold is not None and not sold.empty:
             sold.to_excel(writer, sheet_name="Sold", index=False)
-
-        div = load_div_hist()
         if div is not None and not div.empty:
             div.to_excel(writer, sheet_name="Dividends", index=False)
-
-        wl = load_watchlist()
         if wl:
             pd.DataFrame(sorted(wl), columns=["Ticker"]).to_excel(
                 writer, sheet_name="Watchlist", index=False
@@ -77,13 +89,14 @@ def export_excel() -> bytes:
 
 # ── Import ────────────────────────────────────────────────────────────────────
 
-def import_zip(zip_bytes: bytes) -> list[str]:
+def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
     """
-    Restore user data from a previously exported ZIP.
+    Restore user data from a previously exported ZIP into the current user's dirs.
     Returns a list of restored file names.
     Raises ValueError for invalid/unrecognised ZIPs.
     """
     restored: list[str] = []
+    udir = user_data_dir(email)
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
             names = zf.namelist()
@@ -92,13 +105,22 @@ def import_zip(zip_bytes: bytes) -> list[str]:
             if not has_data and not has_env:
                 raise ValueError("ZIP does not contain recognisable backup files.")
 
-            _DATA_DIR.mkdir(exist_ok=True)
             for name in names:
-                if name.startswith(_ZIP_DATA_PREFIX):
+                if name == _ZIP_SHARED_SETTINGS_KEY:
+                    _SHARED_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    _SHARED_FILE.write_bytes(zf.read(name))
+                    restored.append("shared settings")
+                elif name == _ZIP_SETTINGS_KEY:
+                    dest = _settings_file(email) if email else None
+                    if dest:
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        dest.write_bytes(zf.read(name))
+                        restored.append("settings")
+                elif name.startswith(_ZIP_DATA_PREFIX):
                     fname = name[len(_ZIP_DATA_PREFIX):]
-                    dest  = _DATA_DIR / fname
-                    dest.write_bytes(zf.read(name))
-                    restored.append(f"data/{fname}")
+                    if fname in _PORTFOLIO_FILENAMES:
+                        (udir / fname).write_bytes(zf.read(name))
+                        restored.append(fname)
                 elif name == ".env":
                     _ENV_FILE.write_bytes(zf.read(name))
                     restored.append(".env")

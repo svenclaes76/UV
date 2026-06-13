@@ -106,71 +106,133 @@ from backup import export_zip, export_excel, import_zip, backup_filename
 
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
-                            fetch_frankfurt_tickers, fetch_swiss_tickers)
+                            fetch_frankfurt_tickers, fetch_swiss_tickers,
+                            _hardcoded_bel20, _hardcoded_aex25, _hardcoded_cac40,
+                            _hardcoded_ftse_mib, _hardcoded_dax40, _hardcoded_smi20)
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       get_fetch_progress, cancel_background_fetch,
                       clear_live_cache, _file_lock)
-from settings import load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS
+from settings import (load_shared_settings, save_shared_settings,
+                      load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
-                       load_portfolio, load_sold, load_div_hist, portfolio_exists,
+                       load_portfolio, load_sold, load_div_hist,
                        add_position, remove_positions, update_positions,
                        sell_position,
                        add_dividend, update_div_hist,
-                       PORTFOLIO_FILE, SOLD_FILE, DIV_HIST_FILE,
-                       save_watchlist, load_watchlist)
+                       save_cash, load_cash,
+                       save_watchlist, load_watchlist, set_user, user_data_dir)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
+
+@st.dialog("Add user", width="large")
+def _dlg_add_user():
+    _c1, _c2, _c3 = st.columns([3, 1, 2])
+    with _c1:
+        new_email = st.text_input("Email")
+    with _c2:
+        new_password = st.text_input("Password", type="password")
+    with _c3:
+        new_role_sel = st.selectbox("Role", options=list(ROLES))
+    _, _save_col = st.columns([3, 1])
+    with _save_col:
+        if st.button("💾 Save", key="dlg_add_user_save", width="stretch"):
+            ok, msg = register(new_email, new_password, role=new_role_sel)
+            if ok:
+                st.rerun()
+            else:
+                st.error(msg)
+
+
+@st.dialog("Edit users", width="large")
+def _dlg_edit_user(users: list[dict]):
+    current_email = st.session_state.get("user_email", "")
+    _tbl = pd.DataFrame([
+        {
+            "🗑️":      False,
+            "Email":   u["email"],
+            "Role":    u["role"],
+            "Created": u["created_at"][:10],
+        }
+        for u in users
+    ])
+
+    _row_h  = 35
+    _header = 35
+    _height = _header + min(len(_tbl), 8) * _row_h
+
+    _edited = st.data_editor(
+        _tbl,
+        width="stretch",
+        hide_index=True,
+        num_rows="fixed",
+        height=_height,
+        column_config={
+            "🗑️":      st.column_config.CheckboxColumn("🗑️",    width=55),
+            "Email":   st.column_config.TextColumn("Email",    disabled=True, pinned=True),
+            "Role":    st.column_config.SelectboxColumn("Role", options=list(ROLES)),
+            "Created": st.column_config.TextColumn("Created",  disabled=True),
+        },
+        key="dlg_edit_user_table",
+    )
+
+    to_delete  = _edited[_edited["🗑️"]].index.tolist()
+    to_keep    = _edited[~_edited["🗑️"]]
+    n_selected = len(to_delete)
+
+    _del_note, _save_col = st.columns([3, 1])
+    with _del_note:
+        if n_selected:
+            st.caption(f"🗑️ {n_selected} selected for deletion")
+    with _save_col:
+        if st.button("💾 Save", key="dlg_edit_user_save", width="stretch"):
+            for _, row in to_keep.iterrows():
+                set_role(row["Email"], row["Role"])
+            for i in to_delete:
+                email = _tbl.iloc[i]["Email"]
+                if email != current_email:
+                    delete_user(email)
+            st.rerun()
+
 
 def _render_admin_users():
     """User management UI — rendered inside the Settings page."""
     users = list_users()
+
+    _u1, _u2, _ = st.columns([1, 1, 6], gap="small")
+    with _u1:
+        if st.button("➕ Add", key="btn_add_user"):
+            _dlg_add_user()
+    with _u2:
+        if st.button("✏️ Edit", key="btn_edit_user", disabled=not users):
+            _dlg_edit_user(users)
+
     if not users:
         st.info("No users found.")
-    else:
-        for u in users:
-            col_email, col_role, col_save, col_del = st.columns([3, 2, 1, 1])
-            col_email.markdown(f"**{u['email']}**  \n<small>{u['created_at'][:10]}</small>",
-                               unsafe_allow_html=True)
-            new_role = col_role.selectbox(
-                "Role",
-                options=list(ROLES),
-                index=list(ROLES).index(u["role"]),
-                key=f"adm_role_{u['email']}",
-                label_visibility="collapsed",
-            )
-            if col_save.button("Save", key=f"adm_save_{u['email']}", width="stretch"):
-                ok, msg = set_role(u["email"], new_role)
-                if ok:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-            current_email = st.session_state.get("user_email", "")
-            if u["email"] != current_email:
-                if col_del.button("🗑️", key=f"adm_del_{u['email']}", width="stretch",
-                                  help=f"Delete {u['email']}"):
-                    ok, msg = delete_user(u["email"])
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-            else:
-                col_del.markdown("&nbsp;", unsafe_allow_html=True)
+        return
 
-    st.divider()
-    st.subheader("Create account")
-    with st.form("adm_create_user"):
-        new_email    = st.text_input("Email")
-        new_password = st.text_input("Password", type="password")
-        new_role_sel = st.selectbox("Role", options=list(ROLES))
-        if st.form_submit_button("Create", width="stretch"):
-            ok, msg = register(new_email, new_password, role=new_role_sel)
-            if ok:
-                st.success(msg)
-                st.rerun()
-            else:
-                st.error(msg)
+    _row_h  = 35
+    _header = 38
+    _height = min(_header + len(users) * _row_h + 4, 600)
+
+    user_df = pd.DataFrame([
+        {
+            "Email":      u["email"],
+            "Role":       u["role"],
+            "Created":    u["created_at"][:10],
+        }
+        for u in users
+    ])
+    st.dataframe(
+        user_df,
+        width="stretch",
+        hide_index=True,
+        height=_height,
+        column_config={
+            "Email":   st.column_config.TextColumn("Email",   pinned=True),
+            "Role":    st.column_config.TextColumn("Role"),
+            "Created": st.column_config.TextColumn("Created"),
+        },
+    )
 
 
 def _render_help():
@@ -318,7 +380,6 @@ def _safe_pct(numerator: float, denominator: float) -> float:
 
 
 _HINT_WATCHLIST = "check ★ to add to watchlist"
-_HINT_DEMO      = "read-only in demo mode"
 
 
 def _fmt_div_flag(v) -> str:
@@ -616,7 +677,7 @@ st.markdown("""
 
 # ── Authentication gate ───────────────────────────────────────────────────────
 
-# Restore JWT from localStorage via _tok query param (set by nav links)
+# Restore JWT from _tok query param (legacy / external deep-links)
 _tok_param = st.query_params.get("_tok", "")
 if _tok_param:
     if not st.session_state.get("jwt_token"):
@@ -625,13 +686,13 @@ if _tok_param:
             st.session_state["jwt_token"]  = _tok_param
             st.session_state["user_email"] = _email_check
             st.session_state["user_role"]  = _role_check
-    # Remove _tok silently without triggering a rerun — just update the browser URL via JS
+        else:
+            # Token invalid or expired — purge from localStorage to break any redirect loop
+            st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=1)
     del st.query_params["_tok"]
 
-# Inject JS that reads localStorage and, if a token is stored but no active
-# session exists, sets ?_tok= and reloads — bridges hard page reloads.
-# If the JS redirect fails silently (CSP/sandbox), _auth_wall() below is
-# still the guaranteed fallback — always shows the login form.
+# If no active Streamlit session, recover the JWT from localStorage and
+# redirect with _tok so the session is restored on next load.
 _has_session = bool(st.session_state.get("jwt_token"))
 if not _has_session:
     st.iframe("""
@@ -695,43 +756,47 @@ def _auth_wall():
     st.stop()
 
 
+# ── Logout handler — runs before auth wall so it works even without a session ──
+if st.query_params.get("logout") == "1":
+    st.query_params.clear()
+    for _k in ("jwt_token", "user_email", "user_role"):
+        st.session_state.pop(_k, None)
+    st.rerun()
+
 _auth_wall()
 
-_current_role = st.session_state.get("user_role", "normal")
-_is_admin = _current_role == "administrator"
-_is_demo  = _current_role == "demo"
-_email    = st.session_state.get("user_email", "")
+_email        = st.session_state.get("user_email", "")
+_current_role = st.session_state.get("user_role", "user")
+_is_admin     = _current_role == "admin"
+set_user(_email)
 
 # Page routing via query params (default: screener)
 _page = st.query_params.get("page", "screener")
-if _is_demo and _page == "portfolio":
-    _page = "screener"
+
 
 # ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
 # Active classes are applied by JS (uvSetActive) so sidebar HTML is identical on
 # every rerun — React makes no DOM changes → zero sidebar flash.
 
-# _tok_qs embeds the JWT into fallback hrefs so the session survives a hard reload
 _jwt    = st.session_state.get("jwt_token", "")
 _tok_qs = f"&_tok={_jwt}" if _jwt else ""
 
 
 def _nav_link(page: str, icon: str, label: str, tok_qs: str,
               extra_class: str = "uv-nav-item") -> str:
-    """Return an HTML nav anchor that triggers uvNav() (WebSocket) with an href fallback."""
+    """Return an HTML nav anchor for page navigation."""
     href = f"?page={page}{tok_qs}"
     return (
         f'<a href="{href}" target="_self" data-uv-page="{page}" '
-        f'onclick="if(typeof uvNav===\'function\'){{uvNav(\'{page}\');return false;}}" '
         f'class="{extra_class}">'
         f'<span class="uv-nav-icon">{icon}</span>{label}</a>'
     )
 
 
-_portfolio_item = _nav_link("portfolio", "📁", "Portfolio", _tok_qs) if not _is_demo else ""
-_admin_item     = _nav_link("settings",  "⚙️", "Settings",  _tok_qs) if _is_admin else ""
+_portfolio_item = _nav_link("portfolio", "📁", "Portfolio", _tok_qs)
+_settings_item  = _nav_link("settings",  "⚙️", "Settings",  _tok_qs)
 
-_role_label = {"administrator": "🔑", "demo": "demo"}.get(_current_role, "")
+_role_label = {"admin": "🔑"}.get(_current_role, "")
 _role_badge_html = (
     f'<span class="uv-role-badge">{_role_label}</span>'
     if _role_label else ""
@@ -748,106 +813,59 @@ with st.sidebar:
 </div>
 <nav class="uv-nav">
   {_nav_link("dashboard", "💎", "Dashboard", _tok_qs)}
-  {_nav_link("screener",  "🔍", "Screener",  _tok_qs)}
   {_portfolio_item}
+  {_nav_link("screener",  "🔍", "Screener",  _tok_qs)}
 </nav>
 <div class="uv-nav-utils">
   <hr class="uv-nav-sep" style="margin-bottom:6px;">
-  <nav class="uv-nav">
-    {_admin_item}
-    {_nav_link("help", "❓", "Help", _tok_qs)}
-  </nav>
+  <nav class="uv-nav">{_settings_item}{_nav_link("help", "❓", "Help", _tok_qs)}</nav>
 </div>
 <div class="uv-bottom">
   <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
   <div style="text-align:center;">
-    <a href="/?logout=1" target="_self" class="uv-logout">🚪 Log out</a>
+    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">🚪 Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ── Mini icon nav (shown when sidebar is collapsed) ───────────────────────────
 # Active state is applied by uvSetActive() in JS — no Python active classes needed.
-_mini_admin     = _nav_link("settings",  "⚙️", "", _tok_qs, "mini-nav-link") if _is_admin else ""
-_mini_portfolio = _nav_link("portfolio", "📁", "", _tok_qs, "mini-nav-link") if not _is_demo else ""
+_mini_admin     = _nav_link("settings",  "⚙️", "", _tok_qs, "mini-nav-link")
+_mini_portfolio = _nav_link("portfolio", "📁", "", _tok_qs, "mini-nav-link")
 st.markdown(f"""
 <div class="mini-nav">
   <div class="mini-nav-top">
     {_nav_link("dashboard", "💎", "", _tok_qs, "mini-nav-link")}
-    {_nav_link("screener",  "🔍", "", _tok_qs, "mini-nav-link")}
     {_mini_portfolio}
+    {_nav_link("screener",  "🔍", "", _tok_qs, "mini-nav-link")}
   </div>
-  <div class="mini-nav-bottom">
-    {_mini_admin}
-    {_nav_link("help", "❓", "", _tok_qs, "mini-nav-link")}
-  </div>
+  <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "❓", "", _tok_qs, "mini-nav-link")}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Navigation component — intercepts nav clicks via Streamlit.setComponentValue
-# so page switches happen over the existing WebSocket (no browser reload = no flash).
-_nav_target = st.iframe(f"""
+# Active nav highlight via Python-injected CSS (no JS bridge needed).
+st.markdown(f"""<style>
+[data-uv-page="{_page}"].uv-nav-item  {{ background:rgba(79,142,247,0.14)!important; opacity:1!important; }}
+[data-uv-page="{_page}"].mini-nav-link {{ background:rgba(79,142,247,0.18)!important; opacity:1!important; }}
+</style>""", unsafe_allow_html=True)
+
+# Keep localStorage token fresh + hide sidebar collapse button.
+st.iframe(f"""
 <script>
-// Apply active nav highlight via an injected <style> tag (not via Python classes).
-// This keeps sidebar HTML identical on every Python rerun → React no-op → no flash.
-function uvSetActive(page) {{
-  var doc = window.parent.document;
-  var s = doc.getElementById('_uv_nav_style');
-  if (!s) {{
-    s = doc.createElement('style');
-    s.id = '_uv_nav_style';
-    doc.head.appendChild(s);
-  }}
-  s.textContent =
-    '[data-uv-page="' + page + '"].uv-nav-item  {{ background:rgba(79,142,247,0.14)!important; opacity:1!important; }}' +
-    '[data-uv-page="' + page + '"].mini-nav-link {{ background:rgba(79,142,247,0.18)!important; opacity:1!important; }}';
-}}
-// Set initial active state from current page
-uvSetActive({repr(_page)});
-
-// Register uvNav — updates active style then notifies Python via WebSocket
-window.parent.uvNav = function(page) {{
-  uvSetActive(page);
-  Streamlit.setComponentValue(page);
-}};
-Streamlit.setFrameHeight(0);
-
-// Keep localStorage token fresh
 (function(){{
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
+  (function hideBtn() {{
+    var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
+  }})();
+  new MutationObserver(function(){{
+    var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
+  }}).observe(window.parent.document.body, {{childList:true, subtree:true}});
 }})();
-
-// Hide sidebar collapse/expand button
-(function hideBtn() {{
-  var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
-  if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-}})();
-new MutationObserver(function(){{
-  var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
-  if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-}}).observe(window.parent.document.body, {{childList:true, subtree:true}});
 </script>
 """, height=1)
-
-_valid_pages = {"dashboard", "screener", "portfolio", "settings", "help"}
-
-@st.fragment
-def _render_page():
-    """Handles nav clicks via WebSocket — updates query param without page reload."""
-    if isinstance(_nav_target, str) and _nav_target in _valid_pages:
-        st.query_params["page"] = _nav_target
-        st.rerun(scope="fragment")
-
-_render_page()
-
-# ── Logout handler (outside fragment so it can clear session properly) ────────
-if st.query_params.get("logout") == "1":
-    st.query_params.clear()
-    for _k in ("jwt_token", "user_email", "user_role"):
-        st.session_state.pop(_k, None)
-    st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=1)
-    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — DASHBOARD
@@ -861,10 +879,7 @@ if _page == "dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 
 if _page == "screener":
-    if _is_demo:
-        st.info("👁️ Demo mode — read only. Sign up for a full account to track a portfolio and manage your watchlist.")
-
-    _settings = load_settings()
+    _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     with _loading_screen("Loading screener data…"):
         df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
@@ -993,12 +1008,15 @@ if _page == "screener":
         tab_df.index = range(1, n_shown + 1)
 
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _vc, _, _fc = st.columns([1, 6, 2], gap="small")
+        _vc, _bc, _, _fc = st.columns([1, 1, 5, 2], gap="small")
         with _vc:
             _active = st.session_state.get(_grp_key, [])
             _view_label = f"⊞ View ({len(_active)})" if _active else "⊞ View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
+        with _bc:
+            if st.button("🛒 Buy", key=f"btn_buy_{key_suffix}"):
+                _dlg_buy_screener()
         with _fc:
             if score_key:
                 _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
@@ -1047,7 +1065,7 @@ if _page == "screener":
 
         all_data_cols = [c for c in display_data.keys() if c != "★"]
         col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        disabled_cols = list(display_data.keys()) if _is_demo else all_data_cols
+        disabled_cols = all_data_cols
 
         _row_h  = 35
         _header = 38
@@ -1072,6 +1090,58 @@ if _page == "screener":
         else:
             st.info("No screener data yet. Data will appear once the background fetch completes.")
         st.stop()
+
+    # ── Buy dialog (shared across all screener tabs) ──────────────────────────
+    _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
+    _scr_sorted = _scr_all_df[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values("Name", key=lambda s: s.str.lower())
+    _scr_t_opts   = _scr_sorted["Ticker"].tolist()
+    _scr_t_labels = {row["Ticker"]: f"{row['Name']}  ({row['Ticker']})" for _, row in _scr_sorted.iterrows()}
+    _scr_price_map = _scr_all_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict()
+
+    @st.dialog("Buy stock", width="large")
+    def _dlg_buy_screener():
+        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
+        with _c1:
+            ticker = st.selectbox("Company", options=_scr_t_opts, format_func=lambda t: _scr_t_labels.get(t, t))
+        with _c2:
+            shares = st.number_input("Shares", min_value=1, step=1, value=1)
+        with _c3:
+            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
+        with _c4:
+            _price    = float(_scr_price_map.get(ticker) or 0.0)
+            total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
+                                          value=round(_price * shares, 2), format="%.2f")
+        _, _save_btn = st.columns([3, 1])
+        with _save_btn:
+            _do_save = st.button("💾 Save", key="dlg_buy_scr_save", width="stretch")
+        if _do_save and shares > 0 and total_price > 0:
+            name = _scr_t_labels.get(ticker, ticker).split("  (")[0]
+            add_position({
+                "name":           name,
+                "google_ticker":  "",
+                "ticker":         ticker,
+                "shares":         shares,
+                "purchase_price": round(total_price / shares, 4),
+                "purchase_value": round(total_price, 2),
+                "target_price":   None,
+                "dividends":      0.0,
+                "date_in":        pd.Timestamp(pur_date).isoformat(),
+                "account":        "",
+            })
+            st.rerun()
+
+    # ── Index constituents — derived from the same hardcoded lists used by the screener ──
+    def _index_set(fn) -> frozenset[str]:
+        return frozenset(s["ticker"] for s in fn())
+
+    _INDEX_TICKERS: dict[str, tuple[str, frozenset[str]]] = {
+        "br":  ("BEL 20",  _index_set(_hardcoded_bel20)),
+        "ams": ("AEX",     _index_set(_hardcoded_aex25)),
+        "par": ("CAC 40",  _index_set(_hardcoded_cac40)),
+        "mil": ("MIB ESG", _index_set(_hardcoded_ftse_mib)),
+        "etr": ("DAX",     _index_set(_hardcoded_dax40)),
+        "swx": ("SMI",     _index_set(_hardcoded_smi20)),
+    }
 
     # Exchange tab order mirrors ALL_EXCHANGES; map key → (label, render_key, dataframe)
     _EXCHANGE_TAB_META = [
@@ -1115,7 +1185,7 @@ if _page == "screener":
                 _bust_cache()
         if not _wl_tickers:
             with _wl_col:
-                st.info("Check ★ next to any stock in Brussels, Amsterdam, Paris or Milan to add it to your watchlist.")
+                st.info("Check ★ next to any stock in the screener to add it to your watchlist.")
         else:
             _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
             wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
@@ -1124,39 +1194,44 @@ if _page == "screener":
                                              score_default=_SCORE_OPTIONS[3])
             with _wl_col:
                 st.markdown(f"**{n_wl}** stocks · uncheck ★ to remove")
-            if not _is_demo:
-                still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
-                if still_watched != _wl_tickers:
-                    save_watchlist(still_watched)
-                    st.rerun()
+            still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
+            if still_watched != _wl_tickers:
+                save_watchlist(still_watched)
+                st.rerun()
 
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
-        valued     = exchange_df["fair_value"].notna()
-        n_unvalued = (~valued).sum()
-        hint       = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
+        valued      = exchange_df["fair_value"].notna()
+        n_unvalued  = (~valued).sum()
+        hint        = _HINT_WATCHLIST
+        _idx_info   = _INDEX_TICKERS.get(key)
+        _idx_name   = _idx_info[0] if _idx_info else None
+        _idx_tickers = _idx_info[1] if _idx_info else frozenset()
 
-        cnt_col, toggle_col, refresh_col = st.columns([7, 2, 1], vertical_alignment="center")
-        with toggle_col:
-            show_all = st.toggle("unvalued stocks", value=False,
+        cnt_col, _ti1, _ti2, refresh_col = st.columns([4, 1, 1, 1], vertical_alignment="center")
+        with _ti1:
+            idx_only = st.toggle(_idx_name, value=not _is_admin, key=f"{key}_idx_only") if _idx_name else False
+        with _ti2:
+            show_all = st.toggle("unvalued", value=False,
                                  key=f"{key}_show_unvalued") if n_unvalued > 0 else False
         with refresh_col:
             if st.button("🔄 refresh", type="tertiary", key=f"{key}_refresh"):
                 _bust_cache()
 
         tab_df = exchange_df if show_all else exchange_df[valued].reset_index(drop=True)
+        if idx_only and _idx_tickers:
+            tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
         edited, n_shown = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
         with cnt_col:
             st.markdown(f"**{n_shown}** stocks · {hint}")
 
-        if not _is_demo:
-            new_wl = set(edited.loc[edited["★"], "Ticker"].tolist())
-            merged = (watchlist - set(exchange_df["Ticker"])) | new_wl
-            if merged != watchlist:
-                save_watchlist(merged)
-                st.rerun()
+        new_wl = set(edited.loc[edited["★"], "Ticker"].tolist())
+        merged = (watchlist - set(exchange_df["Ticker"])) | new_wl
+        if merged != watchlist:
+            save_watchlist(merged)
+            st.rerun()
 
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
@@ -1166,60 +1241,89 @@ if _page == "screener":
 # PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "portfolio" and not _is_demo:
-
-    # ── Upload (once) ─────────────────────────────────────────────────────────
-    if not portfolio_exists():
-        st.subheader("Import portfolio")
-        st.info("Upload your Excel file once. Open EBR:, AMS:, EPA:, BIT:, ETR: and SWX: positions will be imported.")
-        uploaded = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"])
-        if uploaded:
-            with st.spinner("Parsing Excel…"):
-                try:
-                    pf, sold, div_hist = parse_excel(uploaded)
-                    if pf.empty:
-                        st.error("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format.")
-                    else:
-                        PORTFOLIO_FILE.unlink(missing_ok=True)
-                        SOLD_FILE.unlink(missing_ok=True)
-                        DIV_HIST_FILE.unlink(missing_ok=True)
-                        save_portfolio(pf)
-                        save_sold(sold)
-                        save_div_hist(div_hist)
-                        st.success(f"Imported {len(pf)} open, {len(sold)} sold, {len(div_hist)} dividend records. Reloading…")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Could not parse file: {e}")
-                    st.code(traceback.format_exc())
-        st.stop()
+if _page == "portfolio":
 
     # ── Load saved portfolio ───────────────────────────────────────────────────
     pf = load_portfolio()
-    if pf is None or pf.empty:
-        st.error("Portfolio file is empty or corrupted.")
-        if st.button("Remove and re-upload"):
-            PORTFOLIO_FILE.unlink(missing_ok=True)
-            st.rerun()
-        st.stop()
+    if pf is None:
+        pf = pd.DataFrame()
 
     # ── Migrate: ensure new fields exist ──────────────────────────────────────
-    _dirty = False
-    if "account" not in pf.columns:
-        pf["account"] = ""
-        _dirty = True
-    if "purchase_price" not in pf.columns:
-        pf["purchase_price"] = (
-            pd.to_numeric(pf["purchase_value"], errors="coerce") /
-            pd.to_numeric(pf["shares"],         errors="coerce")
-        ).round(4)
-        _dirty = True
-    if _dirty:
-        save_portfolio(pf)
+    if not pf.empty:
+        _dirty = False
+        if "account" not in pf.columns:
+            pf["account"] = ""
+            _dirty = True
+        if "purchase_price" not in pf.columns:
+            pf["purchase_price"] = (
+                pd.to_numeric(pf["purchase_value"], errors="coerce") /
+                pd.to_numeric(pf["shares"],         errors="coerce")
+            ).round(4)
+            _dirty = True
+        if _dirty:
+            save_portfolio(pf)
 
-    # ── Drop rows with no valid ticker ────────────────────────────────────────
-    pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
+        # ── Drop rows with no valid ticker ────────────────────────────────────
+        pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
+
+    # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
+    with _loading_screen("Loading screener data…"):
+        _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
+    _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
+    _ticker_options = _all_screener["Ticker"].tolist()
+    _ticker_labels  = {
+        row["Ticker"]: f"{row['Name']}  ({row['Ticker']})"
+        for _, row in _all_screener.iterrows()
+    }
+    _port_price_map = _all_scr_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict()
+
+    @st.dialog("Add position", width="large")
+    def _dlg_add_position():
+        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
+        with _c1:
+            ticker = st.selectbox("Company", options=_ticker_options, format_func=lambda t: _ticker_labels.get(t, t))
+        with _c2:
+            shares = st.number_input("Shares", min_value=1, step=1, value=1)
+        with _c3:
+            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
+        with _c4:
+            _price      = float(_port_price_map.get(ticker) or 0.0)
+            total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
+                                          value=round(_price * shares, 2), format="%.2f")
+        _, _save_btn = st.columns([3, 1])
+        with _save_btn:
+            _do_save = st.button("💾 Save", key="dlg_add_save", width="stretch")
+        if _do_save and shares > 0 and total_price > 0:
+            name = _ticker_labels.get(ticker, ticker).split("  (")[0]
+            add_position({
+                "name":           name,
+                "google_ticker":  "",
+                "ticker":         ticker,
+                "shares":         shares,
+                "purchase_price": round(total_price / shares, 4),
+                "purchase_value": round(total_price, 2),
+                "target_price":   None,
+                "dividends":      0.0,
+                "date_in":        pd.Timestamp(pur_date).isoformat(),
+                "account":        "",
+            })
+            st.rerun()
+
+    st_autorefresh(interval=60_000, key="portfolio_refresh")
+
     if pf.empty:
-        st.error("No valid tickers found in portfolio.")
+        # ── Empty portfolio — show Add button only ────────────────────────────
+        sub_positions, sub_dividends, sub_sold, sub_cash = st.tabs(["Positions", "Dividends", "Realised", "Cash"])
+        with sub_positions:
+            if st.button("🛒 Buy", key="btn_add_pos_empty"):
+                _dlg_add_position()
+            st.info("Your portfolio is empty. Click 🛒 Buy to add your first position.")
+        with sub_dividends:
+            st.info("No positions yet. Add stocks in the Positions tab first.")
+        with sub_cash:
+            st.info("No cash transactions yet.")
+        with sub_sold:
+            st.info("No sold positions yet.")
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
@@ -1249,9 +1353,6 @@ if _page == "portfolio" and not _is_demo:
     pf["upside_pct"]      = ((pf["analyst_target"] - pf["live_price"]) / _price * 100).round(1)
     pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / _price * 100).round(1)
 
-    # All screener data combined — used for value score lookup and add-position dialog
-    with _loading_screen("Loading screener data for enrichment…"):
-        _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
     _scr = _all_scr_df.set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
@@ -1269,51 +1370,7 @@ if _page == "portfolio" and not _is_demo:
     price_gain_pct   = _safe_pct(price_gain,   total_invested)
     total_return_pct = _safe_pct(total_return, total_invested)
 
-    # ── Add-position dialog ───────────────────────────────────────────────────
-    _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
-    _ticker_options = _all_screener["Ticker"].tolist()
-    _ticker_labels  = {
-        row["Ticker"]: f"{row['Name']}  ({row['Ticker']})"
-        for _, row in _all_screener.iterrows()
-    }
-
-    @st.dialog("Add position", width="large")
-    def _dlg_add_position():
-        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
-        with _c1:
-            ticker = st.selectbox("Company", options=_ticker_options, format_func=lambda t: _ticker_labels.get(t, t))
-        with _c2:
-            _shares_raw = st.text_input("Shares", value="1")
-        with _c3:
-            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
-        with _c4:
-            _invested_raw = st.text_input("Invested (€)", value="0.00")
-        _, _save_btn = st.columns([3, 1])
-        with _save_btn:
-            _do_save = st.button("💾 Save", key="dlg_add_save", width="stretch")
-        try:
-            shares      = max(1, int(_shares_raw.strip()))
-            total_price = float(_invested_raw.strip().replace(",", "."))
-        except ValueError:
-            shares, total_price = 1, 0.0
-        if _do_save and shares > 0 and total_price > 0:
-            name = _ticker_labels.get(ticker, ticker).split("  (")[0]
-            add_position({
-                "name":           name,
-                "google_ticker":  "",
-                "ticker":         ticker,
-                "shares":         shares,
-                "purchase_price": round(total_price / shares, 4),
-                "purchase_value": round(total_price, 2),
-                "target_price":   None,
-                "dividends":      0.0,
-                "date_in":        pd.Timestamp(pur_date).isoformat(),
-                "account":        "",
-            })
-            st.rerun()
-
-    st_autorefresh(interval=60_000, key="portfolio_refresh")
-    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
+    sub_positions, sub_dividends, sub_sold, sub_cash = st.tabs(["Positions", "Dividends", "Realised", "Cash"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
@@ -1500,7 +1557,7 @@ if _page == "portfolio" and not _is_demo:
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
         with _c2:
-            if st.button("➕ Add", key="btn_add_pos"):
+            if st.button("🛒 Buy", key="btn_add_pos"):
                 _dlg_add_position()
         with _c3:
             if st.button("✏️ Edit", key="btn_edit_pos"):
@@ -1776,6 +1833,144 @@ if _page == "portfolio" and not _is_demo:
         else:
             st.info("Re-upload your Excel file to load full dividend history.")
 
+    # ── Sub-tab: Cash ────────────────────────────────────────────────────────
+    with sub_cash:
+        cash_hist = load_cash()
+        if cash_hist is not None and not cash_hist.empty:
+            cash_hist["amount"] = pd.to_numeric(cash_hist["amount"], errors="coerce")
+            cash_hist["date"]   = pd.to_datetime(cash_hist["date"], errors="coerce")
+            _cash_in  = cash_hist[cash_hist["amount"] > 0]["amount"].sum()
+            _cash_out = cash_hist[cash_hist["amount"] < 0]["amount"].sum()
+            _cash_bal = cash_hist["amount"].sum()
+        else:
+            _cash_in = _cash_out = _cash_bal = 0.0
+
+        ca1, ca2, ca3 = st.columns(3)
+        ca1.metric("Balance",   f"€{_cash_bal:,.2f}")
+        ca2.metric("Total in",  f"€{_cash_in:,.2f}")
+        ca3.metric("Total out", f"€{abs(_cash_out):,.2f}")
+        st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+        st.divider()
+
+        @st.dialog("Add cash transaction", width="large")
+        def _dlg_add_cash():
+            _c1, _c2, _c3 = st.columns([3, 2, 2])
+            with _c1:
+                description = st.text_input("Description", key="dlg_cash_desc")
+            with _c2:
+                amount_raw = st.text_input("Amount (€)", value="0.00",
+                                           help="Positive = deposit, negative = withdrawal",
+                                           key="dlg_cash_amount")
+            with _c3:
+                cash_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_cash_date")
+            _, _save_col = st.columns([3, 1])
+            with _save_col:
+                _do_save = st.button("💾 Save", key="dlg_add_cash_save", width="stretch")
+            try:
+                amount = float(amount_raw.strip().replace(",", "."))
+            except ValueError:
+                amount = 0.0
+            if _do_save and amount != 0.0:
+                _ch = load_cash()
+                new_row = pd.DataFrame([{
+                    "description": description,
+                    "amount":      round(amount, 2),
+                    "date":        pd.Timestamp(cash_date).isoformat(),
+                }])
+                _ch = pd.concat([_ch, new_row], ignore_index=True) if _ch is not None else new_row
+                save_cash(_ch)
+                st.rerun()
+
+        @st.dialog("Edit cash transactions", width="large")
+        def _dlg_edit_cash():
+            _ch = load_cash()
+            if _ch is None or _ch.empty:
+                st.info("No cash transactions to edit.")
+                return
+            _ch = _ch.copy().reset_index(drop=True)
+            _ch["amount"] = pd.to_numeric(_ch["amount"], errors="coerce").fillna(0)
+            _ch["date"]   = pd.to_datetime(_ch["date"], errors="coerce")
+
+            _tbl = pd.DataFrame({
+                "_idx":        range(len(_ch)),
+                "🗑️":          False,
+                "Description": _ch["description"],
+                "Amount (€)":  _ch["amount"],
+                "Date":        _ch["date"].dt.date,
+            })
+
+            _row_h  = 35
+            _header = 35
+            _height = _header + min(len(_tbl), 10) * _row_h
+
+            _edited = st.data_editor(
+                _tbl.drop(columns="_idx"),
+                width="stretch",
+                hide_index=True,
+                num_rows="fixed",
+                height=_height,
+                column_config={
+                    "🗑️":          st.column_config.CheckboxColumn("🗑️",              width=55),
+                    "Description": st.column_config.TextColumn("Description",         pinned=True),
+                    "Amount (€)":  st.column_config.NumberColumn("Amount (€)",        format="%.2f"),
+                    "Date":        st.column_config.DateColumn("Date",                format="DD/MM/YYYY"),
+                },
+                key="dlg_edit_cash_table",
+            )
+
+            to_delete  = _edited[_edited["🗑️"]].index.tolist()
+            to_keep    = _edited[~_edited["🗑️"]]
+            n_selected = len(to_delete)
+
+            _del_note, _save_col = st.columns([3, 1])
+            with _del_note:
+                if n_selected:
+                    st.caption(f"🗑️ {n_selected} selected for deletion")
+            with _save_col:
+                if st.button("💾 Save", key="dlg_edit_cash_save", width="stretch"):
+                    updated = []
+                    for i, row in to_keep.iterrows():
+                        orig_idx = int(_tbl.iloc[i]["_idx"])
+                        updated.append({
+                            "description": row["Description"],
+                            "amount":      round(float(row["Amount (€)"]), 2),
+                            "date":        pd.Timestamp(row["Date"]).isoformat() if pd.notna(row["Date"]) else _ch.iloc[orig_idx]["date"].isoformat(),
+                        })
+                    save_cash(pd.DataFrame(updated))
+                    st.rerun()
+
+        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
+
+        _cash_years        = sorted(cash_hist["date"].dt.year.dropna().unique().astype(int), reverse=True) if cash_hist is not None and not cash_hist.empty else []
+        _cash_year_options = ["All"] + _cash_years
+        _cash_year_default = _cash_year_options.index(datetime.now().year) if datetime.now().year in _cash_year_options else 0
+
+        _ca1, _ca2, _ca_gap, _ca_filter = st.columns([1, 1, 5, 2], gap="small")
+        with _ca1:
+            if st.button("➕ Add", key="btn_add_cash"):
+                _dlg_add_cash()
+        with _ca2:
+            if st.button("✏️ Edit", key="btn_edit_cash", disabled=(cash_hist is None or cash_hist.empty)):
+                _dlg_edit_cash()
+        with _ca_filter:
+            _cash_year_sel = st.selectbox("Year", _cash_year_options, index=_cash_year_default,
+                                          key="cash_year_filter", label_visibility="collapsed")
+
+        if cash_hist is not None and not cash_hist.empty:
+            _ct = cash_hist.copy()
+            if _cash_year_sel != "All":
+                _ct = _ct[_ct["date"].dt.year == _cash_year_sel]
+            _ct = _ct.sort_values("date", ascending=False).reset_index(drop=True)
+            _ct_display = pd.DataFrame({
+                "Description": _ct["description"],
+                "Amount (€)":  _ct["amount"].map(lambda v: f"€{v:+,.2f}" if pd.notna(v) else "—"),
+                "Date":        _ct["date"].dt.strftime("%d-%m-%Y"),
+            })
+            st.dataframe(_ct_display, width="stretch", hide_index=True,
+                         height=(len(_ct_display) + 1) * 35 + 10)
+        else:
+            st.info("No cash transactions yet. Click ➕ Add to record a deposit or withdrawal.")
+
     # ── Sub-tab: Sold ─────────────────────────────────────────────────────────
     with sub_sold:
         sold = load_sold()
@@ -1911,25 +2106,6 @@ if _page == "portfolio" and not _is_demo:
                     .sort_values(ascending=False)
             )
 
-    # ── Re-upload option ──────────────────────────────────────────────────────
-    if not _is_demo:
-        st.divider()
-    with st.expander("Re-upload portfolio file", expanded=False) if not _is_demo else st.empty():
-        st.warning("This will replace your current portfolio data.")
-        new_file = st.file_uploader("Upload new .xlsx", type=["xlsx"], key="reupload")
-        if new_file:
-            try:
-                new_pf, new_sold, new_div_hist = parse_excel(new_file)
-                if new_pf.empty:
-                    st.error("No open positions found.")
-                else:
-                    save_portfolio(new_pf)
-                    save_sold(new_sold)
-                    save_div_hist(new_div_hist)
-                    st.success(f"Portfolio updated with {len(new_pf)} positions.")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Could not parse file: {e}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — SETTINGS
@@ -1937,18 +2113,61 @@ if _page == "portfolio" and not _is_demo:
 
 if _page == "settings":
     if _is_admin:
-        tab_admin, tab_backup, tab_screener = st.tabs(["🔑 Users", "💾 Backup & Restore", "⚙️ Screener"])
+        tab_admin, tab_screener, tab_import, tab_export, tab_backup = st.tabs(["🔑 Users", "⚙️ Screener", "📂 Import", "📥 Export", "💾 Backup & Restore"])
     else:
-        tab_backup, tab_screener = st.tabs(["💾 Backup & Restore", "⚙️ Screener"])
+        tab_export, = st.tabs(["📥 Export"])
 
     if _is_admin:
         with tab_admin:
             _render_admin_users()
 
-    with tab_screener:
+        with tab_import:
+            st.subheader("Import portfolio")
+            st.caption("Upload an Excel file to import positions, sold history and dividends. "
+                       "This will replace all existing portfolio data for this account.")
+            _imp_file = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"], key="imp_portfolio")
+            if _imp_file:
+                with st.spinner("Parsing Excel…"):
+                    try:
+                        _imp_pf, _imp_sold, _imp_div = parse_excel(_imp_file)
+                        if _imp_pf.empty:
+                            st.error("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format.")
+                        else:
+                            _udir = user_data_dir(_email)
+                            (_udir / "portfolio.json").unlink(missing_ok=True)
+                            (_udir / "sold.json").unlink(missing_ok=True)
+                            (_udir / "dividends_history.json").unlink(missing_ok=True)
+                            save_portfolio(_imp_pf)
+                            save_sold(_imp_sold)
+                            save_div_hist(_imp_div)
+                            st.success(f"Imported {len(_imp_pf)} open, {len(_imp_sold)} sold, {len(_imp_div)} dividend records.")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Could not parse file: {e}")
+                        st.code(traceback.format_exc())
+
+    with tab_export:
+        st.subheader("Excel export")
+        st.caption("Human-readable workbook with positions, dividends, "
+                   "sold history and watchlist. Useful for inspection or migration.")
+        try:
+            xls_bytes = export_excel()
+            st.download_button(
+                "⬇️ Download backup.xlsx",
+                data=xls_bytes,
+                file_name=backup_filename("xlsx"),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        except ValueError:
+            st.info("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export.")
+        except Exception as e:
+            st.error(f"Could not create Excel: {e}")
+
+    if _is_admin:
+      with tab_screener:
         st.subheader("Screener Exchanges")
         st.caption("Choose which exchanges are included in the screener and portfolio analysis.")
-        _cur_settings = load_settings()
+        _cur_settings = load_shared_settings()
         _cur_enabled  = set(_cur_settings.get("enabled_exchanges", ALL_EXCHANGES))
         _new_enabled: list[str] = []
         for _exkey, _exlabel in sorted(EXCHANGE_LABELS.items(), key=lambda x: x[1]):
@@ -1959,46 +2178,26 @@ if _page == "settings":
                 st.error("At least one exchange must be enabled.")
             else:
                 _cur_settings["enabled_exchanges"] = _new_enabled
-                save_settings(_cur_settings)
+                save_shared_settings(_cur_settings)
                 _load_all_screener_data.clear()
                 st.success("Screener settings saved.")
                 st.rerun()
 
-    with tab_backup:
-        st.subheader("Export")
-        col_zip, col_xls = st.columns(2)
-
-        with col_zip:
-            st.markdown("**Encrypted backup (ZIP)**")
-            st.caption("Bundles all user data and the encryption key. "
-                       "Required for a full restore on another machine.")
-            try:
-                zip_bytes = export_zip()
-                st.download_button(
-                    "⬇️ Download backup.zip",
-                    data=zip_bytes,
-                    file_name=backup_filename("zip"),
-                    mime="application/zip",
-                    width="stretch",
-                )
-            except Exception as e:
-                st.error(f"Could not create ZIP: {e}")
-
-        with col_xls:
-            st.markdown("**Excel export**")
-            st.caption("Human-readable workbook with positions, dividends, "
-                       "sold history and watchlist. Useful for inspection or migration.")
-            try:
-                xls_bytes = export_excel()
-                st.download_button(
-                    "⬇️ Download backup.xlsx",
-                    data=xls_bytes,
-                    file_name=backup_filename("xlsx"),
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    width="stretch",
-                )
-            except Exception as e:
-                st.error(f"Could not create Excel: {e}")
+    if _is_admin:
+      with tab_backup:
+        st.subheader("Encrypted backup (ZIP)")
+        st.caption("Bundles all user data and the encryption key. "
+                   "Required for a full restore on another machine.")
+        try:
+            zip_bytes = export_zip(_email)
+            st.download_button(
+                "⬇️ Download backup.zip",
+                data=zip_bytes,
+                file_name=backup_filename("zip"),
+                mime="application/zip",
+            )
+        except Exception as e:
+            st.error(f"Could not create ZIP: {e}")
 
         st.divider()
         st.subheader("Restore from ZIP")
@@ -2009,7 +2208,7 @@ if _page == "settings":
         if uploaded:
             if st.button("Restore", type="primary", key="btn_restore"):
                 try:
-                    restored = import_zip(uploaded.read())
+                    restored = import_zip(uploaded.read(), _email)
                     st.success(f"Restored: {', '.join(restored)}")
                     st.cache_data.clear()
                     st.rerun()

@@ -2,12 +2,11 @@
 Email/password authentication with bcrypt hashing and JWT sessions.
 
 Roles:
-  administrator — full access + user management panel
-  normal        — full access to screener and portfolio
-  demo          — read-only screener; portfolio and watchlist editing disabled
+  admin — full access + user management panel
+  user  — full access to screener and portfolio
 
 Users are stored in .cache/users.json. The first account created is
-automatically assigned the administrator role. The JWT secret is read from
+automatically assigned the admin role. The JWT secret is read from
 the AUTH_SECRET environment variable; a random fallback is generated at
 startup (sessions survive until the process restarts).
 """
@@ -31,7 +30,7 @@ _JWT_SECRET = os.environ.get("AUTH_SECRET") or secrets.token_hex(32)
 _JWT_ALGO   = "HS256"
 _JWT_TTL_H  = 24
 
-ROLES = ("administrator", "normal", "demo")
+ROLES = ("admin", "user")
 
 
 # ── User store ────────────────────────────────────────────────────────────────
@@ -51,10 +50,10 @@ def _save_users(users: dict) -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def register(email: str, password: str, role: str = "demo") -> tuple[bool, str]:
+def register(email: str, password: str, role: str = "user") -> tuple[bool, str]:
     """
     Create a new account. Returns (success, message).
-    The first account ever created is promoted to administrator regardless of
+    The first account ever created is promoted to admin regardless of
     the role argument. Fails if email already registered or inputs are invalid.
     """
     email = email.strip().lower()
@@ -69,8 +68,8 @@ def register(email: str, password: str, role: str = "demo") -> tuple[bool, str]:
     if email in users:
         return False, "An account with this email already exists."
 
-    # Bootstrap: first user becomes administrator
-    effective_role = "administrator" if not users else role
+    # Bootstrap: first user becomes admin
+    effective_role = "admin" if not users else role
 
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     users[email] = {
@@ -95,7 +94,7 @@ def login(email: str, password: str) -> tuple[bool, str]:
     token = jwt.encode(
         {
             "sub":  email,
-            "role": user.get("role", "normal"),
+            "role": user.get("role", "user"),
             "exp":  datetime.now(timezone.utc) + timedelta(hours=_JWT_TTL_H),
             "iat":  datetime.now(timezone.utc),
         },
@@ -111,7 +110,7 @@ def verify_token(token: str) -> tuple[str, str] | tuple[None, None]:
     """
     try:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
-        return payload["sub"], payload.get("role", "normal")
+        return payload["sub"], payload.get("role", "user")
     except jwt.PyJWTError:
         return None, None
 

@@ -8,6 +8,7 @@ The 'beleggingen' sheet has two main sections:
 Both sections share the same column indices for the data we need.
 """
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,20 +19,30 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
 
-_DATA_DIR  = Path(__file__).parent / "data"
+_BASE_DIR  = Path(__file__).parent / "data" / "portfolio"
 _CACHE_DIR = Path(__file__).parent / ".cache"
-_DATA_DIR.mkdir(exist_ok=True)
+_BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-PORTFOLIO_FILE  = _DATA_DIR / "portfolio.json"
-SOLD_FILE       = _DATA_DIR / "sold.json"
-DIV_HIST_FILE   = _DATA_DIR / "dividends_history.json"
-WATCHLIST_FILE  = _DATA_DIR / "watchlist.json"
+# Active user set once per session via set_user()
+_active_email: str = ""
 
-# Migrate existing files from .cache/ to data/ (one-time, silent)
-for _fname in ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json"):
-    _old, _new = _CACHE_DIR / _fname, _DATA_DIR / _fname
-    if _old.exists() and not _new.exists():
-        _old.rename(_new)
+
+def set_user(email: str) -> None:
+    global _active_email
+    _active_email = email.strip().lower()
+
+
+def _user_dir(email: str = "") -> Path:
+    e = (email or _active_email).strip().lower()
+    slug = hashlib.sha256(e.encode()).hexdigest()[:16] if e else "default"
+    d = _BASE_DIR / slug
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def user_data_dir(email: str = "") -> Path:
+    """Public accessor used by backup."""
+    return _user_dir(email)
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────
@@ -49,13 +60,13 @@ def _load(path: Path) -> pd.DataFrame | None:
         return None
 
 
-def save_portfolio(df: pd.DataFrame) -> None:  _save(df, PORTFOLIO_FILE)
-def save_sold(df: pd.DataFrame) -> None:       _save(df, SOLD_FILE)
-def save_div_hist(df: pd.DataFrame) -> None:   _save(df, DIV_HIST_FILE)
-def load_portfolio() -> pd.DataFrame | None:   return _load(PORTFOLIO_FILE)
-def load_sold() -> pd.DataFrame | None:        return _load(SOLD_FILE)
-def load_div_hist() -> pd.DataFrame | None:    return _load(DIV_HIST_FILE)
-def portfolio_exists() -> bool:                return PORTFOLIO_FILE.exists()
+def save_portfolio(df: pd.DataFrame) -> None:  _save(df, _user_dir() / "portfolio.json")
+def save_sold(df: pd.DataFrame) -> None:       _save(df, _user_dir() / "sold.json")
+def save_div_hist(df: pd.DataFrame) -> None:   _save(df, _user_dir() / "dividends_history.json")
+def load_portfolio() -> pd.DataFrame | None:   return _load(_user_dir() / "portfolio.json")
+def load_sold() -> pd.DataFrame | None:        return _load(_user_dir() / "sold.json")
+def load_div_hist() -> pd.DataFrame | None:    return _load(_user_dir() / "dividends_history.json")
+def portfolio_exists() -> bool:                return (_user_dir() / "portfolio.json").exists()
 
 
 # ── CRUD helpers ──────────────────────────────────────────────────────────────
@@ -154,15 +165,19 @@ def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
     save_portfolio(pf)
 
 
+def save_cash(df: pd.DataFrame) -> None:    _save(df, _user_dir() / "cash.json")
+def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json")
+
 def save_watchlist(tickers: set[str]) -> None:
-    write_encrypted(WATCHLIST_FILE, json.dumps(sorted(tickers), indent=2))
+    write_encrypted(_user_dir() / "watchlist.json", json.dumps(sorted(tickers), indent=2))
 
 
 def load_watchlist() -> set[str]:
-    if not WATCHLIST_FILE.exists():
+    path = _user_dir() / "watchlist.json"
+    if not path.exists():
         return set()
     try:
-        return set(json.loads(read_encrypted(WATCHLIST_FILE)))
+        return set(json.loads(read_encrypted(path)))
     except Exception:
         return set()
 
