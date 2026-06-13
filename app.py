@@ -1853,23 +1853,23 @@ if _page == "portfolio":
         )
         _donut_chart(_bd_series)
 
-        # ── 3. P&L per position + Portfolio allocation ────────────────────────
+        # ── 3. Portfolio allocation + P&L per position ───────────────────────
         st.divider()
         ch1, ch2 = st.columns(2)
         with ch1:
-            st.subheader("P&L per position")
-            _static_bar(
-                pf.dropna(subset=["price_gain", "name"])
-                  .groupby("name")["price_gain"].sum()
-                  .sort_values(ascending=False)
-            )
-        with ch2:
             st.subheader("Portfolio allocation")
             _static_bar(
                 pf.dropna(subset=["current_value", "name"])
                   .groupby("name")["current_value"].sum()
                   .sort_values(ascending=False),
                 color="#4f8ef7",
+            )
+        with ch2:
+            st.subheader("P&L per position")
+            _static_bar(
+                pf.dropna(subset=["price_gain", "name"])
+                  .groupby("name")["price_gain"].sum()
+                  .sort_values(ascending=False)
             )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
