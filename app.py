@@ -252,7 +252,8 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
     ]
     if not _pairs:
         return
-    _labels, _vals = zip(*_pairs)
+    # Reverse so highest value is at top in natural Plotly order (avoids autorange="reversed" artifact)
+    _labels, _vals = zip(*reversed(_pairs))
     fig = go.Figure(go.Bar(
         x=list(_vals),
         y=list(_labels),
@@ -266,7 +267,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         title=title or None,
         height=max(200, len(_labels) * 32 + 60),
         xaxis=dict(fixedrange=True),
-        yaxis=dict(fixedrange=True, autorange="reversed"),
+        yaxis=dict(fixedrange=True),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12),
