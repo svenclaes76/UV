@@ -531,6 +531,9 @@ st.markdown("""
     white-space: nowrap !important;
     width: 100% !important;
   }
+  /* JS-bridge iframes are purely functional — collapse them visually */
+  [data-testid="stIFrame"] iframe { display: block !important; height: 1px !important; overflow: hidden !important; visibility: hidden !important; }
+  [data-testid="stIFrame"] { margin: 0 !important; padding: 0 !important; line-height: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -567,7 +570,7 @@ if not _has_session and not _tok_param and not _show_login:
   window.parent.location.replace(url.toString());
 })();
 </script>
-""", height=0)
+""", height=1)
     st.markdown("""
     <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
       <div style="color:#888;font-size:0.9rem;">Loading…</div>
@@ -615,7 +618,7 @@ def _auth_wall():
                 st.session_state["jwt_token"]  = result
                 st.session_state["user_email"] = email.strip().lower()
                 st.session_state["user_role"]  = role
-                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
+                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
                 st.rerun()
             else:
                 st.error(result)
