@@ -1896,6 +1896,7 @@ if _page == "portfolio" and not _is_demo:
                 width="stretch",
                 hide_index=True,
                 column_config={
+                    "Company":         st.column_config.TextColumn("Company",           pinned=True),
                     "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%"),
                     "Annual Return %": st.column_config.NumberColumn("Annual Return %", format="%.2f%%"),
                 },
