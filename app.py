@@ -1858,7 +1858,7 @@ if _page == "settings":
         _cur_settings = load_settings()
         _cur_enabled  = set(_cur_settings.get("enabled_exchanges", ALL_EXCHANGES))
         _new_enabled: list[str] = []
-        for _exkey, _exlabel in EXCHANGE_LABELS.items():
+        for _exkey, _exlabel in sorted(EXCHANGE_LABELS.items(), key=lambda x: x[1]):
             if st.checkbox(_exlabel, value=_exkey in _cur_enabled, key=f"scr_exch_{_exkey}"):
                 _new_enabled.append(_exkey)
         if st.button("💾 Save", key="btn_save_screener_settings", type="primary"):
