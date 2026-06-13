@@ -1469,7 +1469,7 @@ if _page == "portfolio":
     with sub_positions:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Invested",      f"€{total_invested:,.0f}")
-        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"{price_gain_pct:+.1f}%")
+        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"€{price_gain:+,.0f} ({price_gain_pct:+.1f}%)")
         c3.metric("Dividends",     f"€{total_dividends:,.0f}")
         c4.metric("Total return",  f"€{total_return:,.0f}",   delta=f"{total_return_pct:+.1f}%")
         st.divider()
@@ -1670,6 +1670,7 @@ if _page == "portfolio":
             "Live Price":     pf["live_price"].map(_fmt_eur),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            "Price Gain":     pf["price_gain"],
             "Dividend":       pf["dividends"].fillna(0).map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
@@ -1678,7 +1679,7 @@ if _page == "portfolio":
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
         _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price",
-                      "Invested", "Current", "Dividend", "Price Gain %", "Total Return %"}
+                      "Invested", "Current", "Price Gain", "Dividend", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
@@ -1706,6 +1707,8 @@ if _page == "portfolio":
                                   help="Total amount invested (purchase price × shares)"),
             "Current":        st.column_config.TextColumn("Current",
                                   help="Current market value (live price × shares)"),
+            "Price Gain":     st.column_config.NumberColumn("Price Gain (€)", format="€%.0f",
+                                  help="Unrealised gain/loss in euros: current value − invested"),
             "Dividend":       st.column_config.TextColumn("Dividend",
                                   help="Total dividends received for this position since purchase"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%",
