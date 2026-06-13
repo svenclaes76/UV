@@ -1753,15 +1753,15 @@ if _page == "portfolio" and not _is_demo:
             ch3, ch4 = st.columns(2)
             with ch3:
                 st.subheader("Total received per stock")
+                _div_clean = div_hist[div_hist["name"].astype(str).str.strip().isin(["", "nan", "None"]) == False]
                 _static_bar(
-                    div_hist.dropna(subset=["name"])
-                            .groupby("name")["amount"].sum()
-                            .sort_values(ascending=False),
+                    _div_clean.groupby("name")["amount"].sum()
+                              .sort_values(ascending=False),
                     color="#4caf80",
                 )
             with ch4:
                 st.subheader("Dividends by year")
-                by_year = div_hist.dropna(subset=["name"]).copy()
+                by_year = _div_clean.copy()
                 by_year["year"] = by_year["date"].dt.year
                 _yr_series = by_year.groupby("year")["amount"].sum().sort_index()
                 _static_bar(_yr_series.rename(index=str), color="#4caf80")
