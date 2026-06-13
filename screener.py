@@ -11,35 +11,21 @@ Stage 6  — Decision: Strong Buy (>70) | Monitor (40–70) | Avoid (<40) + hard
 Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE_TTL_HOURS.
 """
 
-import asyncio
 import contextlib
 import io
 import json
+import logging
 import random
-import socket
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Python 3.14 on Windows raises ConnectionResetError inside asyncio's ProactorEventLoop
-# cleanup callback when Yahoo Finance drops a connection mid-flight. The error is cosmetic
-# (the request already completed or failed) but floods the console. Suppress it here.
-try:
-    from asyncio.proactor_events import _ProactorBasePipeTransport
-
-    _orig_call_connection_lost = _ProactorBasePipeTransport._call_connection_lost
-
-    def _quiet_call_connection_lost(self, exc):
-        try:
-            _orig_call_connection_lost(self, exc)
-        except (ConnectionResetError, OSError):
-            pass
-
-    _ProactorBasePipeTransport._call_connection_lost = _quiet_call_connection_lost
-except Exception:
-    pass
+# Python 3.14 on Windows: asyncio ProactorEventLoop logs ConnectionResetError noise when
+# Yahoo Finance drops a connection mid-flight. Suppress at the logger level — less fragile
+# than patching private CPython internals.
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 
 import numpy as np
 import pandas as pd
@@ -228,9 +214,12 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
 # ── Background fetch state (shared across all Streamlit sessions) ─────────────
 
 _bg_state: dict = {"done": 0, "total": 0, "running": False}
-_bg_state_lock = threading.Lock()
+_bg_state_lock  = threading.Lock()
 _bg_thread: threading.Thread | None = None
-_bg_cancelled = threading.Event()  # set by cancel_background_fetch() to abort a running fetch
+_bg_cancelled   = threading.Event()   # set by cancel_background_fetch() to abort a running fetch
+_file_lock      = threading.Lock()    # guards all CACHE_FILE writes (bust + incremental saves)
+_row_lock       = threading.Lock()    # guards cache dict + done counter inside _run_fetch
+_live_cache: dict = {}                # in-process mirror of the JSON file; avoids disk reads on reruns
 
 
 def get_fetch_progress() -> dict:
@@ -246,16 +235,19 @@ def cancel_background_fetch() -> None:
         _bg_state["running"] = False
 
 
+def clear_live_cache() -> None:
+    """Clear the in-process cache (call before wiping the cache file)."""
+    _live_cache.clear()
+
+
 def _df_from_cache(stocks: list[dict], cache: dict) -> pd.DataFrame:
     rows = [cache[s["ticker"]] for s in stocks if s["ticker"] in cache]
-    return pd.DataFrame(rows) if rows else pd.DataFrame()
+    return pd.DataFrame(rows) if rows else pd.DataFrame(columns=["Ticker"])
 
 
 def _run_fetch(stale: list[dict], cache: dict) -> None:
     """Blocking fetch of stale tickers; updates cache file incrementally."""
-    _file_lock = threading.Lock()
-    _row_lock  = threading.Lock()
-    done       = [0]
+    done = 0
 
     def _refresh_crumb():
         try:
@@ -264,6 +256,7 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
             pass
 
     def _fetch_and_store(stock):
+        nonlocal done
         if _bg_cancelled.is_set():
             return
         ticker = stock["ticker"]
@@ -301,66 +294,75 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
         time.sleep(REQUEST_DELAY)
+        # Narrow critical section: only dict write + counter; save check happens outside
         with _row_lock:
             cache[ticker] = row
-            done[0] += 1
-            with _bg_state_lock:
-                _bg_state["done"] = done[0]
-            if not _bg_cancelled.is_set() and (done[0] % 25 == 0 or done[0] == len(stale)):
-                with _file_lock:
-                    _save_cache(cache)
-            print(f"  Fetching [{done[0]}/{len(stale)}] {ticker}          ", end="\r")
+            done += 1
+            current = done
+        with _bg_state_lock:
+            _bg_state["done"] = current
+        if not _bg_cancelled.is_set() and (current % 25 == 0 or current == len(stale)):
+            with _file_lock:
+                _save_cache(cache)
+        print(f"  Fetching [{current}/{len(stale)}] {ticker}          ", end="\r")
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         list(executor.map(_fetch_and_store, stale))
 
     if not _bg_cancelled.is_set():
-        _save_cache(cache)
+        with _file_lock:
+            _save_cache(cache)
     print()
     with _bg_state_lock:
         _bg_state["running"] = False
 
 
+def _warm_live_cache() -> None:
+    """Populate _live_cache from disk on first call (cold start only)."""
+    if not _live_cache:
+        _live_cache.update(_load_cache())
+
+
 def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
     """Blocking fetch — returns only after all stale tickers are refreshed."""
-    cache = _load_cache()
-    stale = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
+    _warm_live_cache()
+    stale = [s for s in stocks if not _is_fresh(_live_cache.get(s["ticker"], {}))]
     fresh_count = len(stocks) - len(stale)
     if stale:
         print(f"  {fresh_count} cached  |  {len(stale)} to fetch")
         with _bg_state_lock:
             _bg_state.update({"done": 0, "total": len(stale), "running": True})
         random.shuffle(stale)
-        _run_fetch(stale, cache)
+        _run_fetch(stale, _live_cache)
     else:
         print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
-    return _df_from_cache(stocks, cache)
+    return _df_from_cache(stocks, _live_cache)
 
 
 def fetch_fundamentals_nowait(stocks: list[dict]) -> pd.DataFrame:
     """
     Return cached data immediately.
-    Stale tickers are refreshed in a background thread — the JSON cache file
-    is written incrementally, so callers that re-read the cache will pick up
-    new data as it arrives without waiting for the full fetch to finish.
+    Stale tickers are refreshed in a background thread — both the JSON file and
+    _live_cache are updated incrementally, so UI reruns pick up new data without
+    a full disk read on every rerun.
     """
     global _bg_thread
-    cache = _load_cache()
-    stale = [s for s in stocks if not _is_fresh(cache.get(s["ticker"], {}))]
+    _warm_live_cache()
+    stale = [s for s in stocks if not _is_fresh(_live_cache.get(s["ticker"], {}))]
     fresh_count = len(stocks) - len(stale)
 
     if stale and (not _bg_thread or not _bg_thread.is_alive()):
         print(f"  {fresh_count} cached  |  {len(stale)} stale — starting background fetch")
-        _bg_cancelled.clear()  # reset any previous cancellation
+        _bg_cancelled.clear()
         with _bg_state_lock:
             _bg_state.update({"done": 0, "total": len(stale), "running": True})
         random.shuffle(stale)
-        _bg_thread = threading.Thread(target=_run_fetch, args=(stale, cache), daemon=True)
+        _bg_thread = threading.Thread(target=_run_fetch, args=(stale, _live_cache), daemon=True)
         _bg_thread.start()
     elif not stale:
         print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
 
-    return _df_from_cache(stocks, cache)
+    return _df_from_cache(stocks, _live_cache)
 
 
 # ── Stage 2: Fair value estimation ───────────────────────────────────────────

@@ -109,7 +109,8 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener, run_screener_from_df,
                       fetch_fundamentals, fetch_fundamentals_nowait,
-                      get_fetch_progress, cancel_background_fetch)
+                      get_fetch_progress, cancel_background_fetch,
+                      clear_live_cache, _file_lock)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist, portfolio_exists,
                        add_position, remove_positions, update_positions,
@@ -203,11 +204,13 @@ def _render_help():
 def _bust_cache() -> None:
     """Cancel any background fetch, wipe the screener disk cache, and rerun."""
     cancel_background_fetch()
-    try:
-        CACHE_FILE.write_text("{}", encoding="utf-8")
-    except OSError:
-        pass
-    _load_all_screener_data.clear()  # clear only the screener cache, not auth caches
+    clear_live_cache()
+    with _file_lock:   # prevents a concurrent background save from landing after our wipe
+        try:
+            CACHE_FILE.write_text("{}", encoding="utf-8")
+        except OSError:
+            pass
+    _load_all_screener_data.clear()
     st.rerun()
 
 
@@ -274,32 +277,22 @@ def _load_all_screener_data(cache_version: str) -> tuple:  # noqa: ARG001
     print(f"Loading screener data for {len(all_stocks)} stocks…")
     all_fund = fetch_fundamentals_nowait(all_stocks)
 
-    br_tickers  = {s["ticker"] for s in br_stocks}
-    ams_tickers = {s["ticker"] for s in ams_stocks}
-    par_tickers = {s["ticker"] for s in par_stocks}
-    mil_tickers = {s["ticker"] for s in mil_stocks}
-    etr_tickers = {s["ticker"] for s in etr_stocks}
-    swx_tickers = {s["ticker"] for s in swx_stocks}
-
     if all_fund.empty:
-        empty = pd.DataFrame()
+        empty = pd.DataFrame(columns=["Ticker"])
         return empty, empty, empty, empty, empty, empty
 
-    df     = run_screener_from_df(all_fund[all_fund["Ticker"].isin(br_tickers)])
-    df_ams = run_screener_from_df(all_fund[all_fund["Ticker"].isin(ams_tickers)])
-    df_par = run_screener_from_df(all_fund[all_fund["Ticker"].isin(par_tickers)])
-    df_mil = run_screener_from_df(all_fund[all_fund["Ticker"].isin(mil_tickers)])
-    df_etr = run_screener_from_df(all_fund[all_fund["Ticker"].isin(etr_tickers)])
-    df_swx = run_screener_from_df(all_fund[all_fund["Ticker"].isin(swx_tickers)])
-    return df, df_ams, df_par, df_mil, df_etr, df_swx
+    def _exchange_df(stock_list):
+        tickers = {s["ticker"] for s in stock_list}
+        return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)])
 
-
-def load_screener_data()           -> pd.DataFrame: return _load_all_screener_data(_cache_version())[0]
-def load_amsterdam_screener_data() -> pd.DataFrame: return _load_all_screener_data(_cache_version())[1]
-def load_paris_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[2]
-def load_milan_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[3]
-def load_frankfurt_screener_data() -> pd.DataFrame: return _load_all_screener_data(_cache_version())[4]
-def load_swiss_screener_data()     -> pd.DataFrame: return _load_all_screener_data(_cache_version())[5]
+    return (
+        _exchange_df(br_stocks),
+        _exchange_df(ams_stocks),
+        _exchange_df(par_stocks),
+        _exchange_df(mil_stocks),
+        _exchange_df(etr_stocks),
+        _exchange_df(swx_stocks),
+    )
 
 
 def _compute_fair_values(info: dict) -> dict:
@@ -880,7 +873,7 @@ if _page == "screener":
            if c not in ("Risk Score",)},
     }
 
-    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, hint=""):
+    def _render_table(tab_df, key_suffix, score_key=None, score_default=None):
         """Render the screener table with optional column groups and score filter."""
         _grp_key = f"col_groups_{key_suffix}"
 
@@ -901,8 +894,10 @@ if _page == "screener":
         if score_key:
             _sf_sel = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
             tab_df = _apply_score_filter(tab_df, _sf_sel)
-        tab_df = tab_df.reset_index(drop=True)
-        tab_df.index = range(1, len(tab_df) + 1)
+        else:
+            tab_df = tab_df.reset_index(drop=True)
+        n_shown = len(tab_df)
+        tab_df.index = range(1, n_shown + 1)
 
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
         _vc, _, _fc = st.columns([1, 6, 2], gap="small")
@@ -974,9 +969,9 @@ if _page == "screener":
             height=_height,
             key=f"table_{key_suffix}",
         )
-        return edited
+        return edited, n_shown
 
-    _any_data = any("Ticker" in d.columns for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
+    _any_data = any(not d.empty for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
     if not _any_data:
         prog = get_fetch_progress()
         if prog["running"]:
@@ -998,14 +993,16 @@ if _page == "screener":
         "All scores",
     ]
 
+    _DECISION_MAP = {
+        "🟢 Strong Buy (> 70)": "Strong Buy",
+        "🟡 Monitor (40–70)":   "Monitor",
+        "🔴 Avoid (< 40)":      "Avoid",
+    }
+
     def _apply_score_filter(df_in: pd.DataFrame, sel: str) -> pd.DataFrame:
-        if sel == "🟢 Strong Buy (> 70)":
-            return df_in[df_in["Decision"] == "Strong Buy"].reset_index(drop=True)
-        if sel == "🟡 Monitor (40–70)":
-            return df_in[df_in["Decision"] == "Monitor"].reset_index(drop=True)
-        if sel == "🔴 Avoid (< 40)":
-            return df_in[df_in["Decision"] == "Avoid"].reset_index(drop=True)
-        return df_in.reset_index(drop=True)
+        decision = _DECISION_MAP.get(sel)
+        out = df_in[df_in["Decision"] == decision] if decision else df_in
+        return out.reset_index(drop=True)
 
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
@@ -1020,12 +1017,11 @@ if _page == "screener":
         else:
             _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
             wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            _wl_filtered = _apply_score_filter(wl_df, st.session_state.get("wl_score_filter", _SCORE_OPTIONS[3]))
+            wl_edited, n_wl = _render_table(wl_df, "watchlist",
+                                             score_key="wl_score_filter",
+                                             score_default=_SCORE_OPTIONS[3])
             with _wl_col:
-                st.markdown(f"**{len(_wl_filtered)}** stocks · uncheck ★ to remove")
-            wl_edited = _render_table(wl_df, "watchlist",
-                                      score_key="wl_score_filter",
-                                      score_default=_SCORE_OPTIONS[3])
+                st.markdown(f"**{n_wl}** stocks · uncheck ★ to remove")
             if not _is_demo:
                 still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
                 if still_watched != _wl_tickers:
@@ -1046,13 +1042,12 @@ if _page == "screener":
             if st.button("🔄 refresh", type="tertiary", key=f"{key}_refresh"):
                 _bust_cache()
 
-        tab_df   = exchange_df if show_all else exchange_df[valued].reset_index(drop=True)
-        filtered = _apply_score_filter(tab_df, st.session_state.get(f"{key}_score_filter", _SCORE_OPTIONS[0]))
+        tab_df = exchange_df if show_all else exchange_df[valued].reset_index(drop=True)
+        edited, n_shown = _render_table(tab_df, key,
+                                        score_key=f"{key}_score_filter",
+                                        score_default=_SCORE_OPTIONS[0])
         with cnt_col:
-            st.markdown(f"**{len(filtered)}** stocks · {hint}")
-        edited = _render_table(tab_df, key,
-                               score_key=f"{key}_score_filter",
-                               score_default=_SCORE_OPTIONS[0])
+            st.markdown(f"**{n_shown}** stocks · {hint}")
 
         if not _is_demo:
             new_wl = set(edited.loc[edited["★"], "Ticker"].tolist())
@@ -1156,11 +1151,7 @@ if _page == "portfolio" and not _is_demo:
     pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / _price * 100).round(1)
 
     # All screener data combined — used for value score lookup and add-position dialog
-    _all_scr_df = pd.concat(
-        [load_screener_data(), load_amsterdam_screener_data(),
-         load_paris_screener_data(), load_milan_screener_data(),
-         load_frankfurt_screener_data(), load_swiss_screener_data()], ignore_index=True
-    )
+    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version())), ignore_index=True)
     _scr = _all_scr_df.set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 

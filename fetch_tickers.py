@@ -63,7 +63,6 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
             if "Symbol" not in df.columns or "Company Name" not in df.columns:
                 raise ValueError(f"Unexpected columns: {list(df.columns)}")
 
-            rows_this_page = 0
             for _, row in df.iterrows():
                 symbol = str(row["Symbol"]).strip()
                 name   = str(row["Company Name"]).strip()
@@ -71,9 +70,8 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                     continue
                 seen.add(symbol)
                 stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
-                rows_this_page += 1
 
-            if rows_this_page < PAGE_SIZE:
+            if len(df) < PAGE_SIZE:
                 break
             page += 1
 
@@ -103,9 +101,13 @@ def fetch_amsterdam_tickers() -> list[dict]:
     )
 
 
+def _build_hardcoded(pairs: list[tuple[str, str]], suffix: str, mic: str, label: str) -> list[dict]:
+    print(f"[fetch_tickers] Using hardcoded {label} ({len(pairs)} stocks)")
+    return [{"name": n, "isin": "", "ticker": f"{t}{suffix}", "mic": mic} for n, t in pairs]
+
+
 def _hardcoded_bel20() -> list[dict]:
-    """BEL20 constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("AB InBev",        "ABI"),  ("Ageas",          "AGS"),
         ("Ahold Delhaize",  "AD"),   ("Aperam",         "APAM"),
         ("Argenx",          "ARGX"), ("Cofinimmo",      "COFB"),
@@ -116,9 +118,7 @@ def _hardcoded_bel20() -> list[dict]:
         ("Proximus",        "PROX"), ("Sofina",         "SOF"),
         ("Solvay",          "SOLB"), ("UCB",            "UCB"),
         ("Umicore",         "UMI"),  ("WDP",            "WDP"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded BEL20 ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.BR", "mic": "XBRU"} for n, t in entries]
+    ], ".BR", "XBRU", "BEL20")
 
 
 def fetch_paris_tickers() -> list[dict]:
@@ -230,8 +230,7 @@ def fetch_frankfurt_tickers() -> list[dict]:
 
 
 def _hardcoded_dax40() -> list[dict]:
-    """DAX 40 constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("Adidas",                  "ADS"),   ("Airbus",              "AIR"),
         ("Allianz",                 "ALV"),   ("BASF",                "BAS"),
         ("Bayer",                   "BAYN"),  ("Beiersdorf",          "BEI"),
@@ -252,9 +251,7 @@ def _hardcoded_dax40() -> list[dict]:
         ("Siemens Energy",          "ENR"),   ("Siemens Healthineers","SHL"),
         ("Symrise",                 "SY1"),   ("Volkswagen",          "VOW3"),
         ("Vonovia",                 "VNA"),   ("Zalando",             "ZAL"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded DAX40 ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.DE", "mic": "XETR"} for n, t in entries]
+    ], ".DE", "XETR", "DAX40")
 
 
 def fetch_swiss_tickers() -> list[dict]:
@@ -266,8 +263,7 @@ def fetch_swiss_tickers() -> list[dict]:
 
 
 def _hardcoded_smi20() -> list[dict]:
-    """SMI 20 constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("ABB",                 "ABBN"),  ("Alcon",            "ALC"),
         ("Geberit",             "GEBN"),  ("Givaudan",         "GIVN"),
         ("Holcim",              "HOLN"),  ("Julius Baer",      "BAER"),
@@ -280,14 +276,11 @@ def _hardcoded_smi20() -> list[dict]:
         ("Swiss Life",          "SLHN"),  ("Swiss Re",         "SREN"),
         ("Swisscom",            "SCMN"),  ("UBS",              "UBSG"),
         ("Zurich Insurance",    "ZURN"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded SMI20 ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.SW", "mic": "XSWX"} for n, t in entries]
+    ], ".SW", "XSWX", "SMI20")
 
 
 def _hardcoded_aex25() -> list[dict]:
-    """AEX25 constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("ASML",            "ASML"),  ("Shell",           "SHEL"),
         ("ING",             "INGA"),  ("Heineken",        "HEIA"),
         ("Unilever",        "UNA"),   ("Philips",         "PHIA"),
@@ -301,14 +294,11 @@ def _hardcoded_aex25() -> list[dict]:
         ("OCI",             "OCI"),   ("SBM Offshore",    "SBMO"),
         ("Aalberts",        "AALB"),  ("Besi",            "BESI"),
         ("Just Eat",        "TKWY"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded AEX25 ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.AS", "mic": "XAMS"} for n, t in entries]
+    ], ".AS", "XAMS", "AEX25")
 
 
 def _hardcoded_cac40() -> list[dict]:
-    """CAC 40 constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("Air Liquide",        "AI"),    ("Airbus",           "AIR"),
         ("AXA",                "CS"),    ("BNP Paribas",      "BNP"),
         ("Bouygues",           "EN"),    ("Capgemini",        "CAP"),
@@ -329,14 +319,11 @@ def _hardcoded_cac40() -> list[dict]:
         ("Worldline",          "WLN"),   ("Accor",            "AC"),
         ("ArcelorMittal",      "MT"),    ("Teleperformance",  "TEP"),
         ("Thales",             "HO"),    ("Valeo",            "FR"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded CAC40 ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.PA", "mic": "XPAR"} for n, t in entries]
+    ], ".PA", "XPAR", "CAC40")
 
 
 def _hardcoded_ftse_mib() -> list[dict]:
-    """FTSE MIB constituents as a last-resort fallback."""
-    entries = [
+    return _build_hardcoded([
         ("Amplifon",           "AMP"),   ("Assicurazioni Generali", "G"),
         ("Atlantia",           "ATL"),   ("Banca Mediolanum",  "BMED"),
         ("Banco BPM",          "BAMI"),  ("BPER Banca",        "BPE"),
@@ -357,6 +344,4 @@ def _hardcoded_ftse_mib() -> list[dict]:
         ("De' Longhi",         "DLG"),   ("Interpump Group",   "IP"),
         ("OVS",                "OVS"),   ("Salvatore Ferragamo","SFER"),
         ("Tod's",              "TOD"),   ("Tamburi",           "TIP"),
-    ]
-    print(f"[fetch_tickers] Using hardcoded FTSE MIB ({len(entries)} stocks)")
-    return [{"name": n, "isin": "", "ticker": f"{t}.MI", "mic": "XMIL"} for n, t in entries]
+    ], ".MI", "XMIL", "FTSE MIB")

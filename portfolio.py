@@ -195,7 +195,7 @@ def _prep_section(raw: "pd.DataFrame", rows: slice) -> "pd.DataFrame":
     section = raw.iloc[rows].copy()
     section.columns = range(len(section.columns))
     section = section.rename(columns=_COL_NAMES)
-    mask = section["google_ticker"].astype(str).str.startswith(("EBR:", "AMS:", "EPA:", "BIT:", "ETR:", "SWX:"))
+    mask = section["google_ticker"].astype(str).str.startswith(tuple(f"{k}:" for k in _SUFFIX_MAP))
     section = section[mask].copy()
     section["ticker"] = section["google_ticker"].apply(
         lambda v: v.split(":")[1] + _SUFFIX_MAP.get(v.split(":")[0], ".BR")
