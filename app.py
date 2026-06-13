@@ -225,15 +225,14 @@ from contextlib import contextmanager
 def _loading_screen(message: str = "Loading…"):
     """Show a branded full-page loading screen, then hand off to real content."""
     _slot = st.empty()
-    with _slot.container():
-        st.markdown(f"""{_LOADING_CSS}
-        <div class="uv-loading-wrap">
-          <div class="uv-loading-logo">💎</div>
-          <div class="uv-loading-title">UV · Undervalued</div>
-          <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
-          <div class="uv-spinner"></div>
-          <div class="uv-loading-msg">{message}</div>
-        </div>""", unsafe_allow_html=True)
+    _slot.markdown(f"""{_LOADING_CSS}
+<div class="uv-loading-wrap">
+  <div class="uv-loading-logo">💎</div>
+  <div class="uv-loading-title">UV · Undervalued</div>
+  <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
+  <div class="uv-spinner"></div>
+  <div class="uv-loading-msg">{message}</div>
+</div>""", unsafe_allow_html=True)
     try:
         yield
     finally:
