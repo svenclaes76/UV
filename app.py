@@ -532,8 +532,11 @@ st.markdown("""
     width: 100% !important;
   }
   /* JS-bridge iframes are purely functional — collapse them visually */
-  [data-testid="stIFrame"] iframe { display: block !important; height: 1px !important; overflow: hidden !important; visibility: hidden !important; }
-  [data-testid="stIFrame"] { margin: 0 !important; padding: 0 !important; line-height: 0 !important; }
+  [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
+    margin: 0 !important; padding: 0 !important; overflow: hidden !important; line-height: 0 !important; }
+  [data-testid="stIFrame"] > div,
+  [data-testid="stIFrame"] iframe { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
+    overflow: hidden !important; visibility: hidden !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -572,8 +575,28 @@ if not _has_session and not _tok_param and not _show_login:
 </script>
 """, height=1)
     st.markdown("""
-    <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
-      <div style="color:#888;font-size:0.9rem;">Loading…</div>
+    <style>
+      @keyframes uv-spin { to { transform: rotate(360deg); } }
+      .uv-loading-wrap {
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; height: 70vh; gap: 20px;
+      }
+      .uv-loading-logo  { font-size: 2.4rem; }
+      .uv-loading-title { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+      .uv-loading-sub   { font-size: 0.78rem; opacity: 0.45; margin-top: -10px; }
+      .uv-spinner {
+        width: 28px; height: 28px; border: 3px solid rgba(128,128,128,0.2);
+        border-top-color: #4f8ef7; border-radius: 50%;
+        animation: uv-spin 0.8s linear infinite;
+      }
+      .uv-loading-msg { font-size: 0.82rem; opacity: 0.5; }
+    </style>
+    <div class="uv-loading-wrap">
+      <div class="uv-loading-logo">💎</div>
+      <div class="uv-loading-title">UV · Undervalued</div>
+      <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
+      <div class="uv-spinner"></div>
+      <div class="uv-loading-msg">Checking session…</div>
     </div>""", unsafe_allow_html=True)
     st.stop()
 
@@ -797,7 +820,8 @@ if _page == "screener":
 
     _settings = load_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
-    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
+    with st.spinner("Loading screener data…"):
+        df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
 
