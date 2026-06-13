@@ -1128,7 +1128,7 @@ if _page == "dashboard":
             if not _db_upcoming.empty:
                 _db_div_disp = pd.DataFrame({
                     "Company":  _db_upcoming["Name"].values,
-                    "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d %b %Y"),
+                    "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d-%m-%Y"),
                     "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
                                   .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
                 })
@@ -1919,7 +1919,7 @@ if _page == "portfolio":
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-            "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d/%m/%Y").fillna("—"),
+            "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
             "Live Price":     pf["live_price"].map(_fmt_eur),
             "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
