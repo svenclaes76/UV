@@ -554,51 +554,24 @@ if _tok_param:
     # Remove _tok silently without triggering a rerun — just update the browser URL via JS
     del st.query_params["_tok"]
 
-# Inject JS that reads localStorage and bridges hard page reloads.
-# JS sets ?_tok=<token> if a token is found, or ?_login=1 if not.
-# This lets the server distinguish "waiting for redirect" from "no token at all",
-# avoiding a flash of the login form while the redirect is in flight.
-_has_session  = bool(st.session_state.get("jwt_token"))
-_show_login   = st.query_params.get("_login", "") == "1"
-
-if not _has_session and not _tok_param and not _show_login:
+# Inject JS that reads localStorage and, if a token is stored but no active
+# session exists, sets ?_tok= and reloads — bridges hard page reloads.
+# If the JS redirect fails silently (CSP/sandbox), _auth_wall() below is
+# still the guaranteed fallback — always shows the login form.
+_has_session = bool(st.session_state.get("jwt_token"))
+if not _has_session:
     st.iframe("""
 <script>
 (function(){
   var tok = localStorage.getItem('uv_jwt');
+  if (!tok) return;
   var url = new URL(window.parent.location.href);
-  if (url.searchParams.get('_tok') || url.searchParams.get('_login')) return;
-  if (tok) { url.searchParams.set('_tok', tok); }
-  else      { url.searchParams.set('_login', '1'); }
+  if (url.searchParams.get('_tok')) return;
+  url.searchParams.set('_tok', tok);
   window.parent.location.replace(url.toString());
 })();
 </script>
 """, height=1)
-    st.markdown("""
-    <style>
-      @keyframes uv-spin { to { transform: rotate(360deg); } }
-      .uv-loading-wrap {
-        display: flex; flex-direction: column; align-items: center;
-        justify-content: center; height: 70vh; gap: 20px;
-      }
-      .uv-loading-logo  { font-size: 2.4rem; }
-      .uv-loading-title { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
-      .uv-loading-sub   { font-size: 0.78rem; opacity: 0.45; margin-top: -10px; }
-      .uv-spinner {
-        width: 28px; height: 28px; border: 3px solid rgba(128,128,128,0.2);
-        border-top-color: #4f8ef7; border-radius: 50%;
-        animation: uv-spin 0.8s linear infinite;
-      }
-      .uv-loading-msg { font-size: 0.82rem; opacity: 0.5; }
-    </style>
-    <div class="uv-loading-wrap">
-      <div class="uv-loading-logo">💎</div>
-      <div class="uv-loading-title">UV · Undervalued</div>
-      <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
-      <div class="uv-spinner"></div>
-      <div class="uv-loading-msg">Checking session…</div>
-    </div>""", unsafe_allow_html=True)
-    st.stop()
 
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
@@ -617,13 +590,15 @@ def _auth_wall():
 
     st.markdown("""
     <style>
-      .login-wrap { max-width:320px; margin: 60px auto 0; }
+      .login-wrap { display:flex; flex-direction:column; align-items:center; margin: 56px auto 28px; }
+      .login-logo  { font-size:2.4rem; margin-bottom:10px; }
+      .login-title { font-size:1.1rem; font-weight:700; letter-spacing:-0.3px; margin-bottom:4px; }
+      .login-sub   { font-size:0.78rem; opacity:0.45; }
     </style>
     <div class="login-wrap">
-      <div style="text-align:center;margin-bottom:32px;">
-        <div style="font-size:2rem;font-weight:800;margin-bottom:4px;">💎 UV</div>
-        <div style="color:#888;white-space:nowrap;">Undervalued · Portfolio tracker &amp; screener</div>
-      </div>
+      <div class="login-logo">💎</div>
+      <div class="login-title">UV · Undervalued</div>
+      <div class="login-sub">Portfolio tracker &amp; screener</div>
     </div>
     """, unsafe_allow_html=True)
 
