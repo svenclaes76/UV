@@ -1557,14 +1557,14 @@ if _page == "portfolio" and not _is_demo:
             _static_bar(
                 pf.dropna(subset=["price_gain"])
                   .set_index("name")["price_gain"]
-                  .sort_values(ascending=True)   # highest gain at top (autorange="reversed")
+                  .sort_values(ascending=False)  # highest gain at top (autorange="reversed")
             )
         with ch2:
             st.subheader("Portfolio allocation")
             _static_bar(
                 pf.dropna(subset=["current_value"])
                   .set_index("name")["current_value"]
-                  .sort_values(ascending=True),
+                  .sort_values(ascending=False),
                 color="#4f8ef7",
             )
 
