@@ -272,7 +272,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12),
     )
-    st.plotly_chart(fig, use_container_width=True, config=_CHART_CONFIG)
+    st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
 
 def _bust_cache() -> None:
