@@ -2506,7 +2506,7 @@ if _page == "portfolio":
             })
 
             st.dataframe(
-                sold_table.sort_values("Company", key=lambda s: s.str.lower()),
+                sold_table.sort_values("Sell Date", ascending=False),
                 width="stretch",
                 hide_index=True,
                 column_config={
