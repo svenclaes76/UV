@@ -152,6 +152,13 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     mcap  = info.get("marketCap")
     price = info.get("currentPrice") or info.get("regularMarketPrice")
 
+    def _unix_to_date(ts) -> str | None:
+        """Convert a Unix timestamp (int) from yfinance to an ISO date string."""
+        try:
+            return datetime.utcfromtimestamp(int(ts)).strftime("%d/%m/%Y") if ts else None
+        except Exception:
+            return None
+
     row = {
         "Name":       info.get("shortName") or stock["name"],
         "Ticker":     ticker,
@@ -159,6 +166,10 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "Price":      _safe_float(price),
         "Currency":   info.get("currency", "EUR"),
         "Market Cap": _safe_float(mcap),
+        "sector":              info.get("sector") or None,
+        "country":             info.get("country") or None,
+        "exDividendDate":      _unix_to_date(info.get("exDividendDate")),
+        "dividendDate":        _unix_to_date(info.get("dividendDate")),
         "fetched_at":    datetime.now(timezone.utc).isoformat(),
         "next_fetch_at": _next_fetch_at(),
     }

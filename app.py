@@ -126,7 +126,7 @@ from auth import register, login, verify_token, list_users, set_role, delete_use
 
 @st.dialog("Add user", width="large")
 def _dlg_add_user():
-    _c1, _c2, _c3 = st.columns([3, 1, 2])
+    _c1, _c2, _c3 = st.columns([3, 3, 2])
     with _c1:
         new_email = st.text_input("Email")
     with _c2:
@@ -337,6 +337,52 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
 
+def _donut_chart(series: "pd.Series", title: str = "") -> None:
+    """Render a static donut chart showing proportional breakdown of a value series."""
+    _bad = {"", "nan", "none", "undefined", "<na>", "n/a"}
+    _clean = series[series.index.map(lambda k: pd.notna(k) and str(k).strip().lower() not in _bad)]
+    _clean = _clean[_clean > 0]
+    if _clean.empty:
+        st.info("No data available for this breakdown.")
+        return
+    _labels = [str(k) for k in _clean.index]
+    _vals   = _clean.values.tolist()
+    _total  = sum(_vals)
+    _pcts   = [v / _total * 100 for v in _vals]
+    # Show pct inside slice only when slice is wide enough to fit text
+    _text   = [f"{p:.1f}%" if p >= 4 else "" for p in _pcts]
+    fig = go.Figure(go.Pie(
+        labels=_labels,
+        values=_vals,
+        hole=0.52,
+        text=_text,
+        textinfo="text",
+        textposition="inside",
+        insidetextorientation="horizontal",
+        hovertemplate="%{label}: €%{value:,.0f} (%{percent})<extra></extra>",
+        marker=dict(line=dict(color="rgba(0,0,0,0.15)", width=1)),
+    ))
+    _n = len(_labels)
+    fig.update_layout(
+        margin=dict(l=10, r=10, t=36 if title else 10, b=10),
+        title=dict(text=title or ""),
+        height=max(340, 24 * _n + 60),
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            x=1.02, xanchor="left",
+            y=1.0,  yanchor="top",
+            font=dict(size=11),
+            itemwidth=30,
+            tracegroupgap=2,
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(size=12),
+    )
+    st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
+
+
 def _bust_cache() -> None:
     """Cancel any background fetch, wipe the screener disk cache, and rerun."""
     cancel_background_fetch()
@@ -492,6 +538,7 @@ def _fetch_fundamentals(tickers: tuple) -> dict:
         "analyst_target": None, "div_rate": 0,
         "graham_number": None, "pe_fair_value": None,
         "graham_growth": None, "fair_value": None,
+        "sector": None, "country": None,
     }
     for t in tickers:
         if not t or not isinstance(t, str):
@@ -503,6 +550,8 @@ def _fetch_fundamentals(tickers: tuple) -> dict:
             result[t] = {
                 "analyst_target": info.get("targetMeanPrice"),
                 "div_rate":       info.get("trailingAnnualDividendRate") or 0,
+                "sector":         info.get("sector") or None,
+                "country":        info.get("country") or None,
                 **fv,
             }
         except Exception:
@@ -952,6 +1001,12 @@ if _page == "screener":
             "Cash Payout":   ("cashPayoutRatio",        lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"),
             "Div Coverage":  ("dividendCoverage",       lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"),
             "Div Flag":      ("Div Flag",               _fmt_div_flag),
+            "Ex-Div Date":   ("exDividendDate",         lambda v: v if pd.notna(v) else "—"),
+            "Div Date":      ("dividendDate",           lambda v: v if pd.notna(v) else "—"),
+        },
+        "Geography & Sector": {
+            "Sector":  ("sector",  lambda v: v if pd.notna(v) else "—"),
+            "Country": ("country", lambda v: v if pd.notna(v) else "—"),
         },
     }
 
@@ -976,14 +1031,19 @@ if _page == "screener":
         "P/E":           st.column_config.TextColumn(    "P/E",           width=60,  help=_ch("P/E")),
         "P/B":           st.column_config.TextColumn(    "P/B",           width=60,  help=_ch("P/B")),
         "EV/EBITDA":     st.column_config.TextColumn(    "EV/EBITDA",     width=90,  help=_ch("EV/EBITDA")),
+        "Sector":        st.column_config.TextColumn("Sector",     width=140),
+        "Country":       st.column_config.TextColumn("Country",    width=120),
+        "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105),
+        "Div Date":      st.column_config.TextColumn("Div Date",    width=95),
         **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
            for g in EXTRA_GROUPS.values() for c in g
-           if c not in ("Risk Score",)},
+           if c not in ("Risk Score", "Sector", "Country")},
     }
 
     def _render_table(tab_df, key_suffix, score_key=None, score_default=None):
-        """Render the screener table with optional column groups and score filter."""
-        _grp_key = f"col_groups_{key_suffix}"
+        """Render the screener table with optional column groups, score filter, and sector filter."""
+        _grp_key    = f"col_groups_{key_suffix}"
+        _sector_key = f"sector_filter_{key_suffix}"
 
         @st.dialog("View", width="small")
         def _dlg_view():
@@ -998,25 +1058,52 @@ if _page == "screener":
             if st.button("Apply", type="primary", width="stretch", key=f"scr_col_apply_{key_suffix}"):
                 st.rerun()
 
-        # Apply score filter before building display
+        # ── Collect available sector values ───────────────────────────────────
+        _sector_vals = (
+            sorted(v for v in tab_df["sector"].dropna().unique() if str(v).strip())
+            if "sector" in tab_df.columns else []
+        )
+
+        # ── Apply score filter ────────────────────────────────────────────────
         if score_key:
             _sf_sel = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
             tab_df = _apply_score_filter(tab_df, _sf_sel)
         else:
             tab_df = tab_df.reset_index(drop=True)
+
+        # ── Apply sector filter ───────────────────────────────────────────────
+        _sec_sel = st.session_state.get(_sector_key, "All sectors")
+        if _sec_sel and _sec_sel != "All sectors":
+            _sec_col = tab_df["sector"] if "sector" in tab_df.columns else pd.Series("", index=tab_df.index)
+            tab_df = tab_df[_sec_col == _sec_sel].reset_index(drop=True)
+
         n_shown = len(tab_df)
         tab_df.index = range(1, n_shown + 1)
 
+        # ── Toolbar ───────────────────────────────────────────────────────────
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _vc, _bc, _, _fc = st.columns([1, 1, 5, 2], gap="small")
+        _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
+
         with _vc:
             _active = st.session_state.get(_grp_key, [])
             _view_label = f"⊞ View ({len(_active)})" if _active else "⊞ View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
+
         with _bc:
             if st.button("🛒 Buy", key=f"btn_buy_{key_suffix}"):
                 _dlg_buy_screener()
+
+        with _sc:
+            _sec_cur = st.session_state.get(_sector_key, "All sectors")
+            if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
+                _sec_cur = "All sectors"
+            with st.popover(_sec_cur, width="stretch"):
+                _sec_opts = ["All sectors"] + _sector_vals
+                st.radio("Sector filter", _sec_opts,
+                         index=_sec_opts.index(_sec_cur),
+                         key=_sector_key, label_visibility="collapsed")
+
         with _fc:
             if score_key:
                 _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
@@ -1342,6 +1429,8 @@ if _page == "portfolio":
     pf["div_rate"]        = _lv("div_rate", 0).map(lambda v: v or 0)
     pf["day_change_pct"]  = _lv("day_change_pct")
     pf["prev_close"]      = _lv("prev_close")
+    pf["sector"]          = _lv("sector")
+    pf["country"]         = _lv("country")
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
     pf["current_value"]   = pf["live_price"] * pf["shares"]
     pf["price_gain"]      = pf["current_value"] - pf["purchase_value"]
@@ -1634,6 +1723,26 @@ if _page == "portfolio":
                   .sort_values(ascending=False),
                 color="#4f8ef7",
             )
+
+        st.divider()
+        _bd_options = {"Sector": "sector", "Country": "country"}
+        _bd_by = st.radio(
+            "Breakdown",
+            options=list(_bd_options.keys()),
+            key="pos_breakdown_by",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.subheader(f"{_bd_by} breakdown")
+        _bd_field = _bd_options[_bd_by]
+        _bd_series = (
+            pf.dropna(subset=["current_value"])
+              .assign(**{_bd_field: pf[_bd_field].fillna("Unknown")})
+              .groupby(_bd_field)["current_value"]
+              .sum()
+              .sort_values(ascending=False)
+        )
+        _donut_chart(_bd_series)
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
