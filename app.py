@@ -605,10 +605,6 @@ st.markdown("""
     white-space: nowrap !important;
     width: 100% !important;
   }
-  /* Screener toolbar row — vertically centre the stock-count text with the toggle/button */
-  [data-testid="stHorizontalBlock"]:has([data-testid="stToggle"]) [data-testid="stMarkdown"] p {
-    margin: 0; line-height: 38px;
-  }
   /* JS-bridge iframes are purely functional — collapse them visually */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
     margin: 0 !important; padding: 0 !important; overflow: hidden !important; line-height: 0 !important; }
@@ -1140,7 +1136,7 @@ if _page == "screener":
         n_unvalued = (~valued).sum()
         hint       = _HINT_WATCHLIST if not _is_demo else _HINT_DEMO
 
-        cnt_col, toggle_col, refresh_col = st.columns([7, 2, 1])
+        cnt_col, toggle_col, refresh_col = st.columns([7, 2, 1], vertical_alignment="center")
         with toggle_col:
             show_all = st.toggle("unvalued stocks", value=False,
                                  key=f"{key}_show_unvalued") if n_unvalued > 0 else False
