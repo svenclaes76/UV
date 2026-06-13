@@ -255,9 +255,9 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         ],
     ))
     fig.update_layout(
-        margin=dict(l=0, r=0, t=28 if title else 8, b=0),
+        margin=dict(l=0, r=0, t=28 if title else 24, b=0),
         title=title or None,
-        height=max(200, len(series) * 28 + 60),
+        height=max(200, len(series) * 32 + 60),
         xaxis=dict(fixedrange=True),
         yaxis=dict(fixedrange=True, autorange="reversed"),
         paper_bgcolor="rgba(0,0,0,0)",
