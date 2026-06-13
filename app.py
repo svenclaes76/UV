@@ -1763,76 +1763,7 @@ if _page == "portfolio":
             height=_height,
         )
 
-        # ── 1. Portfolio value over time ──────────────────────────────────────
-        st.divider()
-        _vh_title_col, _vh_btn_col = st.columns([4, 1])
-        with _vh_title_col:
-            st.subheader("Portfolio value over time")
-        with _vh_btn_col:
-            if st.button("↺ Rebuild history", key="rebuild_value_history", help="Fetch full price history from Yahoo Finance"):
-                with st.spinner("Fetching price history…"):
-                    _sold_df = load_sold()
-                    _n = backfill_value_history(pf, _sold_df)
-                st.success(f"Built {_n} data points.")
-                st.rerun()
-
-        _vh = load_value_history()
-        if _vh is not None and not _vh.empty and len(_vh) >= 2:
-            import plotly.graph_objects as go
-            _vh["date"]     = pd.to_datetime(_vh["date"])
-            _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
-            _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
-            _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
-
-            _has_spx   = "benchmark_spx"   in _vh.columns and _vh["benchmark_spx"].notna().any()
-            _has_stoxx = "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any()
-
-            if _has_spx or _has_stoxx:
-                _cb_cols = st.columns([1, 1, 4])
-                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=True, key="vh_show_spx",   disabled=not _has_spx)
-                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=True, key="vh_show_stoxx", disabled=not _has_stoxx)
-            else:
-                _show_spx = _show_stoxx = False
-
-            _vfig = go.Figure()
-            _vfig.add_trace(go.Scatter(
-                x=_vh["date"], y=_vh["value"],
-                mode="lines", name="Portfolio value",
-                line=dict(color="#4f8ef7", width=2),
-                fill="tozeroy",
-                fillcolor="rgba(79,142,247,0.08)",
-            ))
-            _vfig.add_trace(go.Scatter(
-                x=_vh["date"], y=_vh["invested"],
-                mode="lines", name="Amount invested",
-                line=dict(color="#aaaaaa", width=1.5, dash="dot"),
-            ))
-            if _has_spx and _show_spx:
-                _vfig.add_trace(go.Scatter(
-                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
-                    mode="lines", name="S&P 500 (same invested)",
-                    line=dict(color="#f4a026", width=1.5, dash="dash"),
-                ))
-            if _has_stoxx and _show_stoxx:
-                _vfig.add_trace(go.Scatter(
-                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
-                    mode="lines", name="Euro Stoxx 50 (same invested)",
-                    line=dict(color="#a855f7", width=1.5, dash="dash"),
-                ))
-            _vfig.update_layout(
-                margin=dict(l=0, r=0, t=32, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                yaxis=dict(tickprefix="€", tickformat=",.0f"),
-                xaxis=dict(showgrid=False),
-                hovermode="x unified",
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
-        else:
-            st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
-
-        # ── 2. Gain / loss heatmap ───────────────────────────────────────────
+        # ── 1. Gain / loss heatmap ───────────────────────────────────────────
         st.divider()
         _hm_mode_col, _ = st.columns([2, 5])
         _hm_mode = _hm_mode_col.radio(
@@ -1901,6 +1832,75 @@ if _page == "portfolio":
             st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
         else:
             st.caption("No return data available.")
+
+        # ── 2. Portfolio value over time ──────────────────────────────────────
+        st.divider()
+        _vh_title_col, _vh_btn_col = st.columns([4, 1])
+        with _vh_title_col:
+            st.subheader("Portfolio value over time")
+        with _vh_btn_col:
+            if st.button("↺ Rebuild history", key="rebuild_value_history", help="Fetch full price history from Yahoo Finance"):
+                with st.spinner("Fetching price history…"):
+                    _sold_df = load_sold()
+                    _n = backfill_value_history(pf, _sold_df)
+                st.success(f"Built {_n} data points.")
+                st.rerun()
+
+        _vh = load_value_history()
+        if _vh is not None and not _vh.empty and len(_vh) >= 2:
+            import plotly.graph_objects as go
+            _vh["date"]     = pd.to_datetime(_vh["date"])
+            _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
+            _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
+            _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
+
+            _has_spx   = "benchmark_spx"   in _vh.columns and _vh["benchmark_spx"].notna().any()
+            _has_stoxx = "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any()
+
+            if _has_spx or _has_stoxx:
+                _cb_cols = st.columns([1, 1, 4])
+                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=True, key="vh_show_spx",   disabled=not _has_spx)
+                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=True, key="vh_show_stoxx", disabled=not _has_stoxx)
+            else:
+                _show_spx = _show_stoxx = False
+
+            _vfig = go.Figure()
+            _vfig.add_trace(go.Scatter(
+                x=_vh["date"], y=_vh["value"],
+                mode="lines", name="Portfolio value",
+                line=dict(color="#4f8ef7", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(79,142,247,0.08)",
+            ))
+            _vfig.add_trace(go.Scatter(
+                x=_vh["date"], y=_vh["invested"],
+                mode="lines", name="Amount invested",
+                line=dict(color="#aaaaaa", width=1.5, dash="dot"),
+            ))
+            if _has_spx and _show_spx:
+                _vfig.add_trace(go.Scatter(
+                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
+                    mode="lines", name="S&P 500 (same invested)",
+                    line=dict(color="#f4a026", width=1.5, dash="dash"),
+                ))
+            if _has_stoxx and _show_stoxx:
+                _vfig.add_trace(go.Scatter(
+                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
+                    mode="lines", name="Euro Stoxx 50 (same invested)",
+                    line=dict(color="#a855f7", width=1.5, dash="dash"),
+                ))
+            _vfig.update_layout(
+                margin=dict(l=0, r=0, t=32, b=0),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                yaxis=dict(tickprefix="€", tickformat=",.0f"),
+                xaxis=dict(showgrid=False),
+                hovermode="x unified",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
+        else:
+            st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
 
         # ── 3. Sector / country breakdown ─────────────────────────────────────
         st.divider()
