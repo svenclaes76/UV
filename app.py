@@ -925,7 +925,242 @@ st.iframe(f"""
 # ══════════════════════════════════════════════════════════════════════════════
 
 if _page == "dashboard":
-    st.info("💎 Dashboard — coming soon.")
+    st.title("Dashboard")
+
+    # ── Load portfolio data ────────────────────────────────────────────────────
+    if not portfolio_exists():
+        st.info("No portfolio found. Upload your Excel file in Settings to get started.")
+        st.stop()
+
+    _db_pf = load_portfolio()
+    if _db_pf is None or _db_pf.empty:
+        st.info("Your portfolio is empty.")
+        st.stop()
+
+    # Enrich with live prices
+    _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
+    _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
+    for _col, _key in [("live_price", "price"), ("day_change_pct", "day_change_pct"),
+                        ("prev_close", "prev_close")]:
+        _db_pf[_col] = _db_pf["ticker"].map(lambda t, k=_key: _db_prices.get(t, {}).get(k))
+
+    _db_pf["purchase_value"] = pd.to_numeric(_db_pf["purchase_value"], errors="coerce")
+    _db_pf["shares"]         = pd.to_numeric(_db_pf["shares"],         errors="coerce")
+    _db_pf["live_price"]     = pd.to_numeric(_db_pf["live_price"],     errors="coerce")
+    _db_pf["dividends"]      = pd.to_numeric(_db_pf["dividends"],      errors="coerce").fillna(0)
+
+    _db_cost          = _db_pf["purchase_value"].where(_db_pf["purchase_value"] > 0)
+    _db_pf["current_value"] = (_db_pf["shares"] * _db_pf["live_price"]).where(
+        _db_pf["live_price"].notna(), _db_pf["purchase_value"])
+    _db_pf["price_gain"]     = _db_pf["current_value"] - _db_pf["purchase_value"]
+    _db_pf["price_gain_pct"] = (_db_pf["price_gain"] / _db_cost * 100).round(2)
+    _db_pf["day_change_pct"] = pd.to_numeric(_db_pf["day_change_pct"], errors="coerce")
+
+    _db_invested  = _db_pf["purchase_value"].sum()
+    _db_current   = _db_pf["current_value"].sum()
+    _db_gain      = _db_current - _db_invested
+    _db_gain_pct  = _safe_pct(_db_gain, _db_invested)
+    _db_divs      = _db_pf["dividends"].sum()
+    _db_total_ret = _db_gain + _db_divs
+    _db_ret_pct   = _safe_pct(_db_total_ret, _db_invested)
+
+    # Avg margin of safety from screener cache
+    _db_scr = _all_scr_df[_all_scr_df["Ticker"].isin(_db_tickers)].copy() if "_all_scr_df" in dir() else pd.DataFrame()
+    _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
+    _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
+
+    # ── Row 1: KPI cards ──────────────────────────────────────────────────────
+    _k1, _k2, _k3, _k4 = st.columns(4)
+    _k1.metric("Current value",  f"€{_db_current:,.0f}",
+               delta=f"€{_db_gain:+,.0f} ({_db_gain_pct:+.1f}%)")
+    _k2.metric("Total return",   f"€{_db_total_ret:,.0f}",
+               delta=f"{_db_ret_pct:+.1f}%")
+    _k3.metric("Dividends",      f"€{_db_divs:,.0f}")
+    _k4.metric("Avg UV upside",
+               f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
+               help="Average margin of safety across your positions based on UV fair value")
+    st.divider()
+
+    # ── Row 2: Heatmap + Allocation ───────────────────────────────────────────
+    _hm_col, _al_col = st.columns(2)
+
+    with _hm_col:
+        st.subheader("Today's performance")
+        _db_hm = _db_pf.dropna(subset=["name", "current_value", "day_change_pct"]).copy()
+        if not _db_hm.empty:
+            import plotly.graph_objects as go
+            _clamp  = 5.0
+            _normed = _db_hm["day_change_pct"].clip(-_clamp, _clamp) / _clamp
+            _colors = [
+                f"rgba({int(220*(1-v))},{int(220*((v+1)/2))},{int(60*(1-abs(v)))},0.85)"
+                for v in _normed
+            ]
+            _hm_labels = [
+                f"<b>{row['name']}</b><br>{row['day_change_pct']:+.2f}%"
+                for _, row in _db_hm.iterrows()
+            ]
+            _hm_hover = [
+                f"<b>{row['name']}</b><br>Day: {row['day_change_pct']:+.2f}%<br>Value: €{row['current_value']:,.0f}"
+                for _, row in _db_hm.iterrows()
+            ]
+            _hm_fig = go.Figure(go.Treemap(
+                labels=_db_hm["name"].tolist(),
+                parents=[""] * len(_db_hm),
+                values=_db_hm["current_value"].tolist(),
+                text=_hm_labels,
+                customdata=_hm_hover,
+                hovertemplate="%{customdata}<extra></extra>",
+                textinfo="text",
+                marker=dict(colors=_colors, line=dict(width=2, color="rgba(0,0,0,0.3)")),
+            ))
+            _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
+                                  paper_bgcolor="rgba(0,0,0,0)", height=280)
+            st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
+        else:
+            st.caption("No daily price data available.")
+
+    with _al_col:
+        st.subheader("Allocation")
+        _db_al = (
+            _db_pf.dropna(subset=["current_value"])
+              .assign(sector=_db_pf["sector"].fillna("Unknown"))
+              .groupby("sector")["current_value"].sum()
+              .sort_values(ascending=False)
+        )
+        _donut_chart(_db_al)
+
+    st.divider()
+
+    # ── Row 3: Portfolio value over time (full width) ─────────────────────────
+    st.subheader("Portfolio value over time")
+    _db_vh = load_value_history()
+    if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
+        import plotly.graph_objects as go
+        _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
+        _db_vh["value"]    = pd.to_numeric(_db_vh["value"],    errors="coerce")
+        _db_vh["invested"] = pd.to_numeric(_db_vh["invested"], errors="coerce")
+        _db_vh = _db_vh.dropna(subset=["date", "value"]).sort_values("date")
+
+        _db_has_spx   = "benchmark_spx"   in _db_vh.columns and _db_vh["benchmark_spx"].notna().any()
+        _db_has_stoxx = "benchmark_stoxx" in _db_vh.columns and _db_vh["benchmark_stoxx"].notna().any()
+
+        if _db_has_spx or _db_has_stoxx:
+            _db_cb = st.columns([1, 1, 5])
+            _db_show_spx   = _db_cb[0].checkbox("S&P 500",      value=False, key="db_show_spx",   disabled=not _db_has_spx)
+            _db_show_stoxx = _db_cb[1].checkbox("Euro Stoxx 50", value=False, key="db_show_stoxx", disabled=not _db_has_stoxx)
+        else:
+            _db_show_spx = _db_show_stoxx = False
+
+        _db_vfig = go.Figure()
+        _db_vfig.add_trace(go.Scatter(
+            x=_db_vh["date"], y=_db_vh["value"],
+            mode="lines", name="Portfolio value",
+            line=dict(color="#4f8ef7", width=2),
+            fill="tozeroy", fillcolor="rgba(79,142,247,0.08)",
+        ))
+        _db_vfig.add_trace(go.Scatter(
+            x=_db_vh["date"], y=_db_vh["invested"],
+            mode="lines", name="Amount invested",
+            line=dict(color="#aaaaaa", width=1.5, dash="dot"),
+        ))
+        if _db_has_spx and _db_show_spx:
+            _db_vfig.add_trace(go.Scatter(
+                x=_db_vh["date"], y=pd.to_numeric(_db_vh["benchmark_spx"], errors="coerce"),
+                mode="lines", name="S&P 500 (same invested)",
+                line=dict(color="#f4a026", width=1.5, dash="dash"),
+            ))
+        if _db_has_stoxx and _db_show_stoxx:
+            _db_vfig.add_trace(go.Scatter(
+                x=_db_vh["date"], y=pd.to_numeric(_db_vh["benchmark_stoxx"], errors="coerce"),
+                mode="lines", name="Euro Stoxx 50 (same invested)",
+                line=dict(color="#a855f7", width=1.5, dash="dash"),
+            ))
+        _db_vfig.update_layout(
+            margin=dict(l=0, r=0, t=8, b=0),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            yaxis=dict(tickprefix="€", tickformat=",.0f"),
+            xaxis=dict(showgrid=False),
+            hovermode="x unified",
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(_db_vfig, width="stretch", config=_CHART_CONFIG)
+    else:
+        st.caption("No history yet — go to Portfolio → Positions and click **↺ Rebuild history**.")
+
+    st.divider()
+
+    # ── Row 4: Top movers + Upcoming dividends ────────────────────────────────
+    _mv_col, _div_col = st.columns(2)
+
+    with _mv_col:
+        st.subheader("Top movers today")
+        _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
+        _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
+        _db_mv = _db_mv.dropna(subset=["day_change_pct"]).sort_values("day_change_pct", ascending=False)
+        _db_top = pd.concat([_db_mv.head(3), _db_mv.tail(3)]).drop_duplicates()
+        if not _db_top.empty:
+            _db_top_disp = pd.DataFrame({
+                "Company":  _db_top["name"].values,
+                "Day %":    _db_top["day_change_pct"].map(lambda v: f"{v:+.2f}%"),
+                "Value":    _db_top["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            })
+            st.dataframe(_db_top_disp, hide_index=True, width="stretch",
+                         height=len(_db_top_disp) * 35 + 38,
+                         column_config={
+                             "Day %": st.column_config.TextColumn("Day %"),
+                         })
+        else:
+            st.caption("No daily price data available.")
+
+    with _div_col:
+        st.subheader("Upcoming dividends")
+        if not _db_scr.empty and "exDividendDate" in _db_scr.columns:
+            _db_div_scr = _db_scr[_db_scr["Ticker"].isin(_db_tickers)].copy()
+            _db_div_scr["exDividendDate"] = pd.to_datetime(
+                _db_div_scr["exDividendDate"], errors="coerce")
+            _today = pd.Timestamp.today().normalize()
+            _db_upcoming = (
+                _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
+                  .sort_values("exDividendDate")
+                  .head(6)
+            )
+            if not _db_upcoming.empty:
+                _db_div_disp = pd.DataFrame({
+                    "Company":  _db_upcoming["Name"].values,
+                    "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d %b %Y"),
+                    "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
+                                  .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+                })
+                st.dataframe(_db_div_disp, hide_index=True, width="stretch",
+                             height=len(_db_div_disp) * 35 + 38)
+            else:
+                st.caption("No upcoming ex-dividend dates found.")
+        else:
+            st.caption("Screener data not loaded.")
+
+    st.divider()
+
+    # ── Row 5: Risk snapshot ──────────────────────────────────────────────────
+    st.subheader("Risk snapshot")
+    _db_risk_cache = _load_cache()
+    if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
+        try:
+            _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
+            _r1, _r2, _r3, _r4 = st.columns(4)
+            _r1.metric("Portfolio beta",   f"{_db_report.quant.portfolio_beta:.2f}",
+                       help="Sensitivity to broad market moves. >1 = more volatile than market.")
+            _r2.metric("Annual volatility",
+                       f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—",
+                       help="Annualised standard deviation of portfolio returns.")
+            _r3.metric("Risk score",       f"{_db_report.composite.total:.0f} / 100",
+                       help="Composite risk score — lower is safer. See Risk page for full breakdown.")
+            _r4.metric("Max drawdown",
+                       f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—",
+                       help="Largest peak-to-trough decline in the past 5 years.")
+            st.caption("→ [Full risk analysis](?page=risk&" + _tok_qs + ")")
+        except Exception:
+            st.caption("Risk data not available — visit the Risk page to compute it.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — VALUE SCREENER
