@@ -1404,7 +1404,7 @@ if _page == "portfolio":
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
-        sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
+        sub_positions, sub_sold, sub_dividends = st.tabs(["Positions", "Realised", "Dividends"])
         with sub_positions:
             if st.button("🛒 Buy", key="btn_add_pos_empty"):
                 _dlg_add_position()
@@ -1481,7 +1481,7 @@ if _page == "portfolio":
     if total_current > 0:
         record_value_snapshot(total_invested, total_current)
 
-    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
+    sub_positions, sub_sold, sub_dividends = st.tabs(["Positions", "Realised", "Dividends"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
