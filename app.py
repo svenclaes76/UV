@@ -1763,44 +1763,7 @@ if _page == "portfolio":
             height=_height,
         )
 
-        ch1, ch2 = st.columns(2)
-        with ch1:
-            st.subheader("P&L per position")
-            _static_bar(
-                pf.dropna(subset=["price_gain", "name"])
-                  .groupby("name")["price_gain"].sum()
-                  .sort_values(ascending=False)
-            )
-        with ch2:
-            st.subheader("Portfolio allocation")
-            _static_bar(
-                pf.dropna(subset=["current_value", "name"])
-                  .groupby("name")["current_value"].sum()
-                  .sort_values(ascending=False),
-                color="#4f8ef7",
-            )
-
-        st.divider()
-        _bd_options = {"Sector": "sector", "Country": "country"}
-        _bd_by = st.radio(
-            "Breakdown",
-            options=list(_bd_options.keys()),
-            key="pos_breakdown_by",
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        st.subheader(f"{_bd_by} breakdown")
-        _bd_field = _bd_options[_bd_by]
-        _bd_series = (
-            pf.dropna(subset=["current_value"])
-              .assign(**{_bd_field: pf[_bd_field].fillna("Unknown")})
-              .groupby(_bd_field)["current_value"]
-              .sum()
-              .sort_values(ascending=False)
-        )
-        _donut_chart(_bd_series)
-
-        # ── Value over time chart ─────────────────────────────────────────────
+        # ── 1. Portfolio value over time ──────────────────────────────────────
         st.divider()
         _vh_title_col, _vh_btn_col = st.columns([4, 1])
         with _vh_title_col:
@@ -1868,6 +1831,46 @@ if _page == "portfolio":
             st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
         else:
             st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
+
+        # ── 2. Sector / country breakdown ─────────────────────────────────────
+        st.divider()
+        _bd_options = {"Sector": "sector", "Country": "country"}
+        _bd_by = st.radio(
+            "Breakdown",
+            options=list(_bd_options.keys()),
+            key="pos_breakdown_by",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.subheader(f"{_bd_by} breakdown")
+        _bd_field = _bd_options[_bd_by]
+        _bd_series = (
+            pf.dropna(subset=["current_value"])
+              .assign(**{_bd_field: pf[_bd_field].fillna("Unknown")})
+              .groupby(_bd_field)["current_value"]
+              .sum()
+              .sort_values(ascending=False)
+        )
+        _donut_chart(_bd_series)
+
+        # ── 3. P&L per position + Portfolio allocation ────────────────────────
+        st.divider()
+        ch1, ch2 = st.columns(2)
+        with ch1:
+            st.subheader("P&L per position")
+            _static_bar(
+                pf.dropna(subset=["price_gain", "name"])
+                  .groupby("name")["price_gain"].sum()
+                  .sort_values(ascending=False)
+            )
+        with ch2:
+            st.subheader("Portfolio allocation")
+            _static_bar(
+                pf.dropna(subset=["current_value", "name"])
+                  .groupby("name")["current_value"].sum()
+                  .sort_values(ascending=False),
+                color="#4f8ef7",
+            )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
