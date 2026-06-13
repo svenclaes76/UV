@@ -821,8 +821,8 @@ _current_role = st.session_state.get("user_role", "user")
 _is_admin     = _current_role == "admin"
 set_user(_email)
 
-# Page routing via query params (default: screener)
-_page = st.query_params.get("page", "screener")
+# Page routing via query params (default: dashboard)
+_page = st.query_params.get("page", "dashboard")
 
 
 # ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
