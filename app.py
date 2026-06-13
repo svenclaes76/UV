@@ -1555,14 +1555,14 @@ if _page == "portfolio" and not _is_demo:
         with ch1:
             st.subheader("P&L per position")
             _static_bar(
-                pf.dropna(subset=["price_gain"])
+                pf.dropna(subset=["price_gain", "name"])
                   .set_index("name")["price_gain"]
-                  .sort_values(ascending=False)  # highest gain at top (autorange="reversed")
+                  .sort_values(ascending=False)
             )
         with ch2:
             st.subheader("Portfolio allocation")
             _static_bar(
-                pf.dropna(subset=["current_value"])
+                pf.dropna(subset=["current_value", "name"])
                   .set_index("name")["current_value"]
                   .sort_values(ascending=False),
                 color="#4f8ef7",
@@ -1752,7 +1752,9 @@ if _page == "portfolio" and not _is_demo:
             with ch3:
                 st.subheader("Total received per stock")
                 _static_bar(
-                    div_hist.groupby("name")["amount"].sum().sort_values(ascending=False),
+                    div_hist.dropna(subset=["name"])
+                            .groupby("name")["amount"].sum()
+                            .sort_values(ascending=False),
                     color="#4caf80",
                 )
             with ch4:
@@ -1892,7 +1894,11 @@ if _page == "portfolio" and not _is_demo:
 
             st.divider()
             st.subheader("Realised return per position")
-            _static_bar(sold.set_index("name")["total_return"].sort_values(ascending=False))
+            _static_bar(
+                sold.dropna(subset=["name"])
+                    .set_index("name")["total_return"]
+                    .sort_values(ascending=False)
+            )
 
     # ── Re-upload option ──────────────────────────────────────────────────────
     if not _is_demo:
