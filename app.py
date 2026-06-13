@@ -600,9 +600,6 @@ if not _has_session and not _tok_param and not _show_login:
     </div>""", unsafe_allow_html=True)
     st.stop()
 
-if _show_login:
-    del st.query_params["_login"]
-
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
     # Fast path: token + email already verified this session — skip re-verification
