@@ -1,0 +1,10 @@
+bcrypt
+cryptography
+openpyxl
+pandas
+plotly
+python-dotenv
+PyJWT
+streamlit
+streamlit-autorefresh
+yfinance
