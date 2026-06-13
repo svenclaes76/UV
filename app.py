@@ -1832,7 +1832,77 @@ if _page == "portfolio":
         else:
             st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
 
-        # ── 2. Sector / country breakdown ─────────────────────────────────────
+        # ── 2. Gain / loss heatmap ───────────────────────────────────────────
+        st.divider()
+        _hm_mode_col, _ = st.columns([2, 5])
+        _hm_mode = _hm_mode_col.radio(
+            "Return",
+            options=["Total return", "Daily return"],
+            horizontal=True,
+            key="hm_mode",
+            label_visibility="collapsed",
+        )
+        st.subheader(f"Gain / loss heatmap — {_hm_mode.lower()}")
+
+        _hm_df = pf.dropna(subset=["name", "current_value"]).copy()
+        _hm_df["current_value"] = pd.to_numeric(_hm_df["current_value"], errors="coerce")
+
+        if _hm_mode == "Daily return":
+            _hm_df["_ret"] = pd.to_numeric(_hm_df["day_change_pct"], errors="coerce")
+            _ret_label = "Day %"
+        else:
+            _hm_df["_ret"] = pd.to_numeric(_hm_df["price_gain_pct"], errors="coerce")
+            _ret_label = "Total %"
+
+        _hm_df = _hm_df.dropna(subset=["_ret", "current_value"])
+
+        if not _hm_df.empty:
+            import plotly.graph_objects as go
+
+            _clamp  = 10.0  # colour saturates at ±10 %
+            _normed = _hm_df["_ret"].clip(-_clamp, _clamp) / _clamp  # –1 … +1
+
+            _colors = [
+                f"rgba({int(220*(1-v))},{int(220*((v+1)/2))},{int(60*(1-abs(v)))},0.85)"
+                for v in _normed
+            ]
+
+            _labels = [
+                f"<b>{row['name']}</b><br>{row['_ret']:+.2f}%"
+                for _, row in _hm_df.iterrows()
+            ]
+            _hover = [
+                (
+                    f"<b>{row['name']}</b><br>"
+                    f"{_ret_label}: {row['_ret']:+.2f}%<br>"
+                    f"Value: €{row['current_value']:,.0f}"
+                )
+                for _, row in _hm_df.iterrows()
+            ]
+
+            _hm_fig = go.Figure(go.Treemap(
+                labels=_hm_df["name"].tolist(),
+                parents=[""] * len(_hm_df),
+                values=_hm_df["current_value"].tolist(),
+                text=_labels,
+                customdata=_hover,
+                hovertemplate="%{customdata}<extra></extra>",
+                textinfo="text",
+                marker=dict(
+                    colors=_colors,
+                    line=dict(width=2, color="rgba(0,0,0,0.3)"),
+                ),
+            ))
+            _hm_fig.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor="rgba(0,0,0,0)",
+                height=340,
+            )
+            st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
+        else:
+            st.caption("No return data available.")
+
+        # ── 3. Sector / country breakdown ─────────────────────────────────────
         st.divider()
         _bd_options = {"Sector": "sector", "Country": "country"}
         _bd_by = st.radio(
