@@ -1566,14 +1566,14 @@ if _page == "portfolio" and not _is_demo:
             st.subheader("P&L per position")
             _static_bar(
                 pf.dropna(subset=["price_gain", "name"])
-                  .set_index("name")["price_gain"]
+                  .groupby("name")["price_gain"].sum()
                   .sort_values(ascending=False)
             )
         with ch2:
             st.subheader("Portfolio allocation")
             _static_bar(
                 pf.dropna(subset=["current_value", "name"])
-                  .set_index("name")["current_value"]
+                  .groupby("name")["current_value"].sum()
                   .sort_values(ascending=False),
                 color="#4f8ef7",
             )
@@ -1906,7 +1906,7 @@ if _page == "portfolio" and not _is_demo:
             st.subheader("Realised return per position")
             _static_bar(
                 sold.dropna(subset=["name"])
-                    .set_index("name")["total_return"]
+                    .groupby("name")["total_return"].sum()
                     .sort_values(ascending=False)
             )
 
