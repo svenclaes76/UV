@@ -1552,17 +1552,19 @@ if _page == "portfolio" and not _is_demo:
         )
 
         ch1, ch2 = st.columns(2)
-        _pf_sorted = (
-            pf.dropna(subset=["price_gain"])
-              .sort_values("value_score", ascending=False, na_position="last")
-        )
         with ch1:
             st.subheader("P&L per position")
-            _static_bar(_pf_sorted.set_index("name")["price_gain"])
+            _static_bar(
+                pf.dropna(subset=["price_gain"])
+                  .set_index("name")["price_gain"]
+                  .sort_values(ascending=True)   # highest gain at top (autorange="reversed")
+            )
         with ch2:
             st.subheader("Portfolio allocation")
             _static_bar(
-                _pf_sorted.set_index("name")["current_value"].dropna(),
+                pf.dropna(subset=["current_value"])
+                  .set_index("name")["current_value"]
+                  .sort_values(ascending=True),
                 color="#4f8ef7",
             )
 
