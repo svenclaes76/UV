@@ -1856,8 +1856,8 @@ if _page == "portfolio":
 
             if _has_spx or _has_stoxx:
                 _cb_cols = st.columns([1, 1, 4])
-                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=True, key="vh_show_spx",   disabled=not _has_spx)
-                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=True, key="vh_show_stoxx", disabled=not _has_stoxx)
+                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=False, key="vh_show_spx",   disabled=not _has_spx)
+                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=False, key="vh_show_stoxx", disabled=not _has_stoxx)
             else:
                 _show_spx = _show_stoxx = False
 
