@@ -168,6 +168,134 @@ def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
 def save_cash(df: pd.DataFrame) -> None:    _save(df, _user_dir() / "cash.json")
 def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json")
 
+
+# ── Value history ─────────────────────────────────────────────────────────────
+
+def load_value_history() -> pd.DataFrame | None:
+    return _load(_user_dir() / "value_history.json")
+
+
+def save_value_history(df: pd.DataFrame) -> None:
+    _save(df, _user_dir() / "value_history.json")
+
+
+def record_value_snapshot(invested: float, value: float) -> None:
+    """Upsert today's portfolio value snapshot (one row per calendar day)."""
+    import datetime
+    today = datetime.date.today().isoformat()
+    hist = load_value_history()
+    if hist is None or hist.empty:
+        hist = pd.DataFrame(columns=["date", "invested", "value"])
+    # Replace today's entry if it exists, otherwise append
+    hist = hist[hist["date"] != today]
+    new_row = pd.DataFrame([{"date": today, "invested": round(invested, 2), "value": round(value, 2)}])
+    hist = pd.concat([hist, new_row], ignore_index=True)
+    hist = hist.sort_values("date").reset_index(drop=True)
+    save_value_history(hist)
+
+def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None = None) -> int:
+    """
+    Rebuild full portfolio value history from yfinance price data.
+    Combines open + sold positions, fetches daily OHLC, and saves one row per trading day.
+    Returns the number of data points written.
+    """
+    import datetime
+    import yfinance as yf
+
+    # Build a unified list of (ticker, shares, date_in, date_out)
+    segments: list[dict] = []
+
+    for _, row in open_df.iterrows():
+        ticker = str(row.get("ticker", "") or "").strip()
+        shares = pd.to_numeric(row.get("shares"), errors="coerce")
+        date_in = pd.to_datetime(row.get("date_in"), errors="coerce")
+        purchase_value = pd.to_numeric(row.get("purchase_value"), errors="coerce")
+        if not ticker or pd.isna(shares) or pd.isna(date_in):
+            continue
+        segments.append({
+            "ticker": ticker,
+            "shares": shares,
+            "date_in": date_in,
+            "date_out": pd.Timestamp(datetime.date.today()),
+            "purchase_value": float(purchase_value) if pd.notna(purchase_value) else 0.0,
+        })
+
+    if sold_df is not None and not sold_df.empty:
+        for _, row in sold_df.iterrows():
+            ticker = str(row.get("ticker", "") or "").strip()
+            shares = pd.to_numeric(row.get("shares"), errors="coerce")
+            date_in = pd.to_datetime(row.get("date_in"), errors="coerce")
+            date_out = pd.to_datetime(row.get("date_out"), errors="coerce")
+            purchase_value = pd.to_numeric(row.get("purchase_value"), errors="coerce")
+            if not ticker or pd.isna(shares) or pd.isna(date_in) or pd.isna(date_out):
+                continue
+            segments.append({
+                "ticker": ticker,
+                "shares": shares,
+                "date_in": date_in,
+                "date_out": date_out,
+                "purchase_value": float(purchase_value) if pd.notna(purchase_value) else 0.0,
+            })
+
+    if not segments:
+        return 0
+
+    # Date range covering all positions
+    earliest = min(s["date_in"] for s in segments)
+    latest   = pd.Timestamp(datetime.date.today())
+
+    # Fetch daily close prices for all unique tickers at once
+    tickers = list({s["ticker"] for s in segments})
+    raw = yf.download(
+        tickers,
+        start=earliest.strftime("%Y-%m-%d"),
+        end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+        auto_adjust=True,
+        progress=False,
+    )
+
+    if raw.empty:
+        return 0
+
+    # Extract Close prices; handle single-ticker (flat) vs multi-ticker (MultiIndex)
+    if isinstance(raw.columns, pd.MultiIndex):
+        close = raw["Close"]
+    else:
+        close = raw[["Close"]].rename(columns={"Close": tickers[0]})
+
+    close = close.ffill()
+
+    # Build a daily date index (trading days present in data)
+    all_dates = close.index
+
+    # For each date sum value of all positions active on that day
+    rows = []
+    for date in all_dates:
+        total_value    = 0.0
+        total_invested = 0.0
+        for seg in segments:
+            if seg["date_in"] <= date <= seg["date_out"]:
+                ticker = seg["ticker"]
+                if ticker in close.columns:
+                    price = close.at[date, ticker]
+                    if pd.notna(price):
+                        total_value += seg["shares"] * float(price)
+                        total_invested += seg["purchase_value"]
+        if total_value > 0:
+            rows.append({
+                "date":     date.date().isoformat(),
+                "invested": round(total_invested, 2),
+                "value":    round(total_value, 2),
+            })
+
+    if not rows:
+        return 0
+
+    new_hist = pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
+    save_value_history(new_hist)
+    return len(new_hist)
+
+
 def save_watchlist(tickers: set[str]) -> None:
     write_encrypted(_user_dir() / "watchlist.json", json.dumps(sorted(tickers), indent=2))
 

@@ -123,7 +123,8 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        sell_position,
                        add_dividend, update_div_hist,
                        save_cash, load_cash,
-                       save_watchlist, load_watchlist, set_user, user_data_dir)
+                       save_watchlist, load_watchlist, set_user, user_data_dir,
+                       load_value_history, record_value_snapshot, backfill_value_history)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
 @st.dialog("Add user", width="large")
@@ -1463,6 +1464,26 @@ if _page == "portfolio":
     price_gain_pct   = _safe_pct(price_gain,   total_invested)
     total_return_pct = _safe_pct(total_return, total_invested)
 
+    # Auto-backfill missing trading days — check BEFORE recording today's snapshot
+    # so first-ever load (empty history) correctly triggers the full backfill
+    _vh_check = load_value_history()
+    _yesterday = (pd.Timestamp.today() - pd.Timedelta(days=1)).normalize()
+    _last_date = (
+        pd.to_datetime(_vh_check["date"]).max()
+        if _vh_check is not None and not _vh_check.empty
+        else pd.Timestamp("1970-01-01")
+    )
+    _needs_backfill = (
+        total_current > 0
+        and (_last_date < _yesterday or (_vh_check is None or len(_vh_check) <= 1))
+    )
+    if _needs_backfill:
+        with st.spinner("Updating value history…"):
+            backfill_value_history(pf, load_sold())
+
+    if total_current > 0:
+        record_value_snapshot(total_invested, total_current)
+
     sub_positions, sub_dividends, sub_sold, sub_cash = st.tabs(["Positions", "Dividends", "Realised", "Cash"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
@@ -1778,6 +1799,53 @@ if _page == "portfolio":
               .sort_values(ascending=False)
         )
         _donut_chart(_bd_series)
+
+        # ── Value over time chart ─────────────────────────────────────────────
+        st.divider()
+        _vh_title_col, _vh_btn_col = st.columns([4, 1])
+        with _vh_title_col:
+            st.subheader("Portfolio value over time")
+        with _vh_btn_col:
+            if st.button("↺ Rebuild history", key="rebuild_value_history", help="Fetch full price history from Yahoo Finance"):
+                with st.spinner("Fetching price history…"):
+                    _sold_df = load_sold()
+                    _n = backfill_value_history(pf, _sold_df)
+                st.success(f"Built {_n} data points.")
+                st.rerun()
+
+        _vh = load_value_history()
+        if _vh is not None and not _vh.empty and len(_vh) >= 2:
+            import plotly.graph_objects as go
+            _vh["date"]     = pd.to_datetime(_vh["date"])
+            _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
+            _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
+            _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
+
+            _vfig = go.Figure()
+            _vfig.add_trace(go.Scatter(
+                x=_vh["date"], y=_vh["value"],
+                mode="lines", name="Portfolio value",
+                line=dict(color="#4f8ef7", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(79,142,247,0.08)",
+            ))
+            _vfig.add_trace(go.Scatter(
+                x=_vh["date"], y=_vh["invested"],
+                mode="lines", name="Amount invested",
+                line=dict(color="#aaaaaa", width=1.5, dash="dot"),
+            ))
+            _vfig.update_layout(
+                margin=dict(l=0, r=0, t=32, b=0),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                yaxis=dict(tickprefix="€", tickformat=",.0f"),
+                xaxis=dict(showgrid=False),
+                hovermode="x unified",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
+        else:
+            st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
