@@ -267,7 +267,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         title=title or None,
         height=max(200, len(_labels) * 32 + 60),
         xaxis=dict(fixedrange=True),
-        yaxis=dict(fixedrange=True),
+        yaxis=dict(fixedrange=True, categoryorder="array", categoryarray=list(_labels)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12),
