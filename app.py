@@ -2491,7 +2491,10 @@ if _page == "portfolio":
                 if st.button("✏️ Edit", key="btn_edit_sold"):
                     _dlg_edit_sold()
 
-            sold_table = pd.DataFrame({  # sorted by Company below
+            _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
+            sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
+
+            sold_table = pd.DataFrame({
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
                 "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
@@ -2502,11 +2505,11 @@ if _page == "portfolio":
                 "Price Gain %":    sold["price_gain_pct"],
                 "Annual Return %": sold["annual_return_pct"],
                 "Buy Date":        pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
-                "Sell Date":       pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
+                "Sell Date":       sold["_sort_date"].dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
             st.dataframe(
-                sold_table.sort_values("Sell Date", ascending=False),
+                sold_table,
                 width="stretch",
                 hide_index=True,
                 column_config={
