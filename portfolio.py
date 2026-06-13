@@ -244,10 +244,11 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     earliest = min(s["date_in"] for s in segments)
     latest   = pd.Timestamp(datetime.date.today())
 
-    # Fetch daily close prices for all unique tickers at once
+    # Fetch daily close prices for all unique tickers + S&P 500 benchmark
     tickers = list({s["ticker"] for s in segments})
+    fetch_tickers = tickers + ["^GSPC"]
     raw = yf.download(
-        tickers,
+        fetch_tickers,
         start=earliest.strftime("%Y-%m-%d"),
         end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
         auto_adjust=True,
@@ -261,9 +262,22 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     if isinstance(raw.columns, pd.MultiIndex):
         close = raw["Close"]
     else:
-        close = raw[["Close"]].rename(columns={"Close": tickers[0]})
+        close = raw[["Close"]].rename(columns={"Close": fetch_tickers[0]})
 
     close = close.ffill()
+
+    # Build S&P 500 benchmark: for each investment event (date_in, purchase_value),
+    # simulate buying that amount of ^GSPC on that day and holding forever.
+    # benchmark_units maps each event to the number of ^GSPC units purchased.
+    spx = close["^GSPC"] if "^GSPC" in close.columns else None
+    benchmark_tranches: list[dict] = []
+    if spx is not None:
+        for seg in segments:
+            # Use the first available SPX price on or after date_in
+            spx_on_day = spx[spx.index >= seg["date_in"]]
+            if not spx_on_day.empty and pd.notna(spx_on_day.iloc[0]):
+                units = seg["purchase_value"] / float(spx_on_day.iloc[0])
+                benchmark_tranches.append({"date_in": seg["date_in"], "units": units})
 
     # Build a daily date index (trading days present in data)
     all_dates = close.index
@@ -281,11 +295,21 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
                     if pd.notna(price):
                         total_value += seg["shares"] * float(price)
                         total_invested += seg["purchase_value"]
+
         if total_value > 0:
+            # Benchmark: sum units of ^GSPC bought on or before this date × today's price
+            benchmark_value = 0.0
+            if spx is not None and date in spx.index and pd.notna(spx.at[date]):
+                spx_price = float(spx.at[date])
+                for tranche in benchmark_tranches:
+                    if tranche["date_in"] <= date:
+                        benchmark_value += tranche["units"] * spx_price
+
             rows.append({
-                "date":     date.date().isoformat(),
-                "invested": round(total_invested, 2),
-                "value":    round(total_value, 2),
+                "date":      date.date().isoformat(),
+                "invested":  round(total_invested, 2),
+                "value":     round(total_value, 2),
+                "benchmark": round(benchmark_value, 2) if benchmark_value > 0 else None,
             })
 
     if not rows:
