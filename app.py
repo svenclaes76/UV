@@ -1165,8 +1165,7 @@ if _page == "portfolio" and not _is_demo:
     pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / _price * 100).round(1)
 
     # All screener data combined — used for value score lookup and add-position dialog
-    _pf_enabled = tuple(load_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), _pf_enabled)), ignore_index=True)
+    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
     _scr = _all_scr_df.set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
