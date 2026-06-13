@@ -122,7 +122,6 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        add_position, remove_positions, update_positions,
                        sell_position,
                        add_dividend, update_div_hist,
-                       save_cash, load_cash,
                        save_watchlist, load_watchlist, set_user, user_data_dir,
                        load_value_history, record_value_snapshot, backfill_value_history)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
@@ -1405,15 +1404,13 @@ if _page == "portfolio":
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
-        sub_positions, sub_dividends, sub_sold, sub_cash = st.tabs(["Positions", "Dividends", "Realised", "Cash"])
+        sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
         with sub_positions:
             if st.button("🛒 Buy", key="btn_add_pos_empty"):
                 _dlg_add_position()
             st.info("Your portfolio is empty. Click 🛒 Buy to add your first position.")
         with sub_dividends:
             st.info("No positions yet. Add stocks in the Positions tab first.")
-        with sub_cash:
-            st.info("No cash transactions yet.")
         with sub_sold:
             st.info("No sold positions yet.")
         st.stop()
@@ -1484,7 +1481,7 @@ if _page == "portfolio":
     if total_current > 0:
         record_value_snapshot(total_invested, total_current)
 
-    sub_positions, sub_dividends, sub_sold, sub_cash = st.tabs(["Positions", "Dividends", "Realised", "Cash"])
+    sub_positions, sub_dividends, sub_sold = st.tabs(["Positions", "Dividends", "Realised"])
 
     # ── Sub-tab: Positions ────────────────────────────────────────────────────
     with sub_positions:
@@ -2157,152 +2154,6 @@ if _page == "portfolio":
                 _static_bar(_yr_series.rename(index=str), color="#4caf80")
         else:
             st.info("Re-upload your Excel file to load full dividend history.")
-
-    # ── Sub-tab: Cash ────────────────────────────────────────────────────────
-    with sub_cash:
-        cash_hist = load_cash()
-        if cash_hist is not None and not cash_hist.empty:
-            cash_hist["amount"] = pd.to_numeric(cash_hist["amount"], errors="coerce")
-            cash_hist["date"]   = pd.to_datetime(cash_hist["date"], errors="coerce")
-            _cash_in  = cash_hist[cash_hist["amount"] > 0]["amount"].sum()
-            _cash_out = cash_hist[cash_hist["amount"] < 0]["amount"].sum()
-            _cash_bal = cash_hist["amount"].sum()
-        else:
-            _cash_in = _cash_out = _cash_bal = 0.0
-
-        ca1, ca2, ca3 = st.columns(3)
-        ca1.metric("Balance",   f"€{_cash_bal:,.2f}")
-        ca2.metric("Total in",  f"€{_cash_in:,.2f}")
-        ca3.metric("Total out", f"€{abs(_cash_out):,.2f}")
-        st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
-        st.divider()
-
-        @st.dialog("Add cash transaction", width="large")
-        def _dlg_add_cash():
-            _c1, _c2, _c3 = st.columns([3, 2, 2])
-            with _c1:
-                description = st.text_input("Description", key="dlg_cash_desc")
-            with _c2:
-                amount_raw = st.text_input("Amount (€)", value="0.00",
-                                           help="Positive = deposit, negative = withdrawal",
-                                           key="dlg_cash_amount")
-            with _c3:
-                cash_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_cash_date")
-            _, _save_col = st.columns([3, 1])
-            with _save_col:
-                _do_save = st.button("💾 Save", key="dlg_add_cash_save", width="stretch")
-            try:
-                amount = float(amount_raw.strip().replace(",", "."))
-            except ValueError:
-                amount = 0.0
-            if _do_save and amount != 0.0:
-                _ch = load_cash()
-                new_row = pd.DataFrame([{
-                    "description": description,
-                    "amount":      round(amount, 2),
-                    "date":        pd.Timestamp(cash_date).isoformat(),
-                }])
-                _ch = pd.concat([_ch, new_row], ignore_index=True) if _ch is not None else new_row
-                save_cash(_ch)
-                st.rerun()
-
-        @st.dialog("Edit cash transactions", width="large")
-        def _dlg_edit_cash():
-            _ch = load_cash()
-            if _ch is None or _ch.empty:
-                st.info("No cash transactions to edit.")
-                return
-            _ch = _ch.copy().reset_index(drop=True)
-            _ch["amount"] = pd.to_numeric(_ch["amount"], errors="coerce").fillna(0)
-            _ch["date"]   = pd.to_datetime(_ch["date"], errors="coerce")
-
-            _tbl = pd.DataFrame({
-                "_idx":        range(len(_ch)),
-                "🗑️":          False,
-                "Description": _ch["description"],
-                "Amount (€)":  _ch["amount"],
-                "Date":        _ch["date"].dt.date,
-            })
-
-            _row_h  = 35
-            _header = 35
-            _height = _header + min(len(_tbl), 10) * _row_h
-
-            _edited = st.data_editor(
-                _tbl.drop(columns="_idx"),
-                width="stretch",
-                hide_index=True,
-                num_rows="fixed",
-                height=_height,
-                column_config={
-                    "🗑️":          st.column_config.CheckboxColumn("🗑️",              width=55),
-                    "Description": st.column_config.TextColumn("Description",         pinned=True),
-                    "Amount (€)":  st.column_config.NumberColumn("Amount (€)",        format="%.2f"),
-                    "Date":        st.column_config.DateColumn("Date",                format="DD/MM/YYYY"),
-                },
-                key="dlg_edit_cash_table",
-            )
-
-            to_delete  = _edited[_edited["🗑️"]].index.tolist()
-            to_keep    = _edited[~_edited["🗑️"]]
-            n_selected = len(to_delete)
-
-            _del_note, _save_col = st.columns([3, 1])
-            with _del_note:
-                if n_selected:
-                    st.caption(f"🗑️ {n_selected} selected for deletion")
-            with _save_col:
-                if st.button("💾 Save", key="dlg_edit_cash_save", width="stretch"):
-                    updated = []
-                    for i, row in to_keep.iterrows():
-                        orig_idx = int(_tbl.iloc[i]["_idx"])
-                        updated.append({
-                            "description": row["Description"],
-                            "amount":      round(float(row["Amount (€)"]), 2),
-                            "date":        pd.Timestamp(row["Date"]).isoformat() if pd.notna(row["Date"]) else _ch.iloc[orig_idx]["date"].isoformat(),
-                        })
-                    save_cash(pd.DataFrame(updated))
-                    st.rerun()
-
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-
-        _cash_years        = sorted(cash_hist["date"].dt.year.dropna().unique().astype(int), reverse=True) if cash_hist is not None and not cash_hist.empty else []
-        _cash_year_options = ["All"] + _cash_years
-        _cash_year_default = _cash_year_options.index(datetime.now().year) if datetime.now().year in _cash_year_options else 0
-
-        _ca1, _ca2, _ca_gap, _ca_filter = st.columns([1, 1, 5, 2], gap="small")
-        with _ca1:
-            if st.button("➕ Add", key="btn_add_cash"):
-                _dlg_add_cash()
-        with _ca2:
-            if st.button("✏️ Edit", key="btn_edit_cash", disabled=(cash_hist is None or cash_hist.empty)):
-                _dlg_edit_cash()
-        with _ca_filter:
-            _cash_year_sel = st.selectbox("Year", _cash_year_options, index=_cash_year_default,
-                                          key="cash_year_filter", label_visibility="collapsed")
-
-        if cash_hist is not None and not cash_hist.empty:
-            _ct = cash_hist.copy()
-            if _cash_year_sel != "All":
-                _ct = _ct[_ct["date"].dt.year == _cash_year_sel]
-            _ct = _ct.sort_values("date", ascending=False).reset_index(drop=True)
-            _ct_display = pd.DataFrame({
-                "Description": _ct["description"],
-                "Amount (€)":  _ct["amount"].map(lambda v: f"€{v:+,.2f}" if pd.notna(v) else "—"),
-                "Date":        _ct["date"].dt.strftime("%d-%m-%Y"),
-            })
-            st.dataframe(_ct_display, width="stretch", hide_index=True,
-                         height=(len(_ct_display) + 1) * 35 + 10,
-                         column_config={
-                             "Description": st.column_config.TextColumn("Description",
-                                                help="Free-text label for this cash transaction"),
-                             "Amount (€)":  st.column_config.TextColumn("Amount (€)",
-                                                help="Transaction amount. Positive = deposit into the account; negative = withdrawal or fee."),
-                             "Date":        st.column_config.TextColumn("Date",
-                                                help="Date the transaction was recorded"),
-                         })
-        else:
-            st.info("No cash transactions yet. Click ➕ Add to record a deposit or withdrawal.")
 
     # ── Sub-tab: Sold ─────────────────────────────────────────────────────────
     with sub_sold:
