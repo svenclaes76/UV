@@ -548,22 +548,34 @@ if _tok_param:
     # Remove _tok silently without triggering a rerun — just update the browser URL via JS
     del st.query_params["_tok"]
 
-# Inject JS that reads localStorage and, if a token is stored but no active
-# session exists, sets ?_tok= and reloads — bridges hard page reloads.
-_has_session = bool(st.session_state.get("jwt_token"))
-if not _has_session:
+# Inject JS that reads localStorage and bridges hard page reloads.
+# JS sets ?_tok=<token> if a token is found, or ?_login=1 if not.
+# This lets the server distinguish "waiting for redirect" from "no token at all",
+# avoiding a flash of the login form while the redirect is in flight.
+_has_session  = bool(st.session_state.get("jwt_token"))
+_show_login   = st.query_params.get("_login", "") == "1"
+
+if not _has_session and not _tok_param and not _show_login:
     st.iframe("""
 <script>
 (function(){
   var tok = localStorage.getItem('uv_jwt');
-  if (!tok) return;
   var url = new URL(window.parent.location.href);
-  if (url.searchParams.get('_tok')) return;  // already set, avoid loop
-  url.searchParams.set('_tok', tok);
+  if (url.searchParams.get('_tok') || url.searchParams.get('_login')) return;
+  if (tok) { url.searchParams.set('_tok', tok); }
+  else      { url.searchParams.set('_login', '1'); }
   window.parent.location.replace(url.toString());
 })();
 </script>
-""", height=1)
+""", height=0)
+    st.markdown("""
+    <div style="display:flex;align-items:center;justify-content:center;height:60vh;">
+      <div style="color:#888;font-size:0.9rem;">Loading…</div>
+    </div>""", unsafe_allow_html=True)
+    st.stop()
+
+if _show_login:
+    del st.query_params["_login"]
 
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
@@ -603,7 +615,7 @@ def _auth_wall():
                 st.session_state["jwt_token"]  = result
                 st.session_state["user_email"] = email.strip().lower()
                 st.session_state["user_role"]  = role
-                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
+                st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=0)
                 st.rerun()
             else:
                 st.error(result)
