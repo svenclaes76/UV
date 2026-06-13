@@ -107,8 +107,7 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
-                      run_screener, run_screener_from_df,
-                      fetch_fundamentals, fetch_fundamentals_nowait,
+                      run_screener_from_df, fetch_fundamentals_nowait,
                       get_fetch_progress, cancel_background_fetch,
                       clear_live_cache, _file_lock)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,

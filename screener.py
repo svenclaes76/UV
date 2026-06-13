@@ -323,20 +323,6 @@ def _warm_live_cache() -> None:
         _live_cache.update(_load_cache())
 
 
-def fetch_fundamentals(stocks: list[dict]) -> pd.DataFrame:
-    """Blocking fetch — returns only after all stale tickers are refreshed."""
-    _warm_live_cache()
-    stale = [s for s in stocks if not _is_fresh(_live_cache.get(s["ticker"], {}))]
-    fresh_count = len(stocks) - len(stale)
-    if stale:
-        print(f"  {fresh_count} cached  |  {len(stale)} to fetch")
-        with _bg_state_lock:
-            _bg_state.update({"done": 0, "total": len(stale), "running": True})
-        random.shuffle(stale)
-        _run_fetch(stale, _live_cache)
-    else:
-        print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
-    return _df_from_cache(stocks, _live_cache)
 
 
 def fetch_fundamentals_nowait(stocks: list[dict]) -> pd.DataFrame:
@@ -773,11 +759,6 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
     df.index += 1
     return df
 
-
-def run_screener(stocks: list[dict]) -> pd.DataFrame:
-    print(f"Fetching fundamentals for {len(stocks)} stocks...")
-    df = fetch_fundamentals(stocks)
-    return _score_and_clean(df)
 
 
 def run_screener_from_df(df: pd.DataFrame) -> pd.DataFrame:
