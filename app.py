@@ -1834,11 +1834,17 @@ if _page == "portfolio":
                 mode="lines", name="Amount invested",
                 line=dict(color="#aaaaaa", width=1.5, dash="dot"),
             ))
-            if "benchmark" in _vh.columns and _vh["benchmark"].notna().any():
+            if "benchmark_spx" in _vh.columns and _vh["benchmark_spx"].notna().any():
                 _vfig.add_trace(go.Scatter(
-                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark"], errors="coerce"),
+                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
                     mode="lines", name="S&P 500 (same invested)",
                     line=dict(color="#f4a026", width=1.5, dash="dash"),
+                ))
+            if "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any():
+                _vfig.add_trace(go.Scatter(
+                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
+                    mode="lines", name="Euro Stoxx 50 (same invested)",
+                    line=dict(color="#a855f7", width=1.5, dash="dash"),
                 ))
             _vfig.update_layout(
                 margin=dict(l=0, r=0, t=32, b=0),
