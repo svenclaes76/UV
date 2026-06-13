@@ -201,6 +201,45 @@ def _render_help():
                     )
 
 
+_LOADING_CSS = """
+<style>
+  @keyframes uv-spin { to { transform: rotate(360deg); } }
+  .uv-loading-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 65vh; gap: 18px;
+  }
+  .uv-loading-logo  { font-size: 2.4rem; }
+  .uv-loading-title { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+  .uv-loading-sub   { font-size: 0.78rem; opacity: 0.45; margin-top: -10px; }
+  .uv-spinner {
+    width: 28px; height: 28px; border: 3px solid rgba(128,128,128,0.2);
+    border-top-color: #4f8ef7; border-radius: 50%;
+    animation: uv-spin 0.8s linear infinite;
+  }
+  .uv-loading-msg { font-size: 0.82rem; opacity: 0.5; }
+</style>"""
+
+from contextlib import contextmanager
+
+@contextmanager
+def _loading_screen(message: str = "Loading…"):
+    """Show a branded full-page loading screen, then hand off to real content."""
+    _slot = st.empty()
+    with _slot.container():
+        st.markdown(f"""{_LOADING_CSS}
+        <div class="uv-loading-wrap">
+          <div class="uv-loading-logo">💎</div>
+          <div class="uv-loading-title">UV · Undervalued</div>
+          <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
+          <div class="uv-spinner"></div>
+          <div class="uv-loading-msg">{message}</div>
+        </div>""", unsafe_allow_html=True)
+    try:
+        yield
+    finally:
+        _slot.empty()
+
+
 def _bust_cache() -> None:
     """Cancel any background fetch, wipe the screener disk cache, and rerun."""
     cancel_background_fetch()
@@ -792,7 +831,7 @@ if _page == "screener":
 
     _settings = load_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
-    with st.spinner("Loading screener data…"):
+    with _loading_screen("Loading screener data…"):
         df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
@@ -1149,7 +1188,7 @@ if _page == "portfolio" and not _is_demo:
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
-    with st.spinner("Fetching live prices & fair value estimates…"):
+    with _loading_screen("Fetching live prices & fair values…"):
         live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
 
     def _lv(field, default=None):
@@ -1176,7 +1215,8 @@ if _page == "portfolio" and not _is_demo:
     pf["fv_upside_pct"]   = ((pf["fair_value"]     - pf["live_price"]) / _price * 100).round(1)
 
     # All screener data combined — used for value score lookup and add-position dialog
-    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
+    with _loading_screen("Loading screener data for enrichment…"):
+        _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
     _scr = _all_scr_df.set_index("Ticker")
     pf["value_score"] = pf["ticker"].map(_scr["Value Score"].to_dict() if "Value Score" in _scr.columns else {})
 
