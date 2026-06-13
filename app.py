@@ -1821,6 +1821,16 @@ if _page == "portfolio":
             _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
             _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
 
+            _has_spx   = "benchmark_spx"   in _vh.columns and _vh["benchmark_spx"].notna().any()
+            _has_stoxx = "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any()
+
+            if _has_spx or _has_stoxx:
+                _cb_cols = st.columns([1, 1, 4])
+                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=True, key="vh_show_spx",   disabled=not _has_spx)
+                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=True, key="vh_show_stoxx", disabled=not _has_stoxx)
+            else:
+                _show_spx = _show_stoxx = False
+
             _vfig = go.Figure()
             _vfig.add_trace(go.Scatter(
                 x=_vh["date"], y=_vh["value"],
@@ -1834,13 +1844,13 @@ if _page == "portfolio":
                 mode="lines", name="Amount invested",
                 line=dict(color="#aaaaaa", width=1.5, dash="dot"),
             ))
-            if "benchmark_spx" in _vh.columns and _vh["benchmark_spx"].notna().any():
+            if _has_spx and _show_spx:
                 _vfig.add_trace(go.Scatter(
                     x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
                     mode="lines", name="S&P 500 (same invested)",
                     line=dict(color="#f4a026", width=1.5, dash="dash"),
                 ))
-            if "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any():
+            if _has_stoxx and _show_stoxx:
                 _vfig.add_trace(go.Scatter(
                     x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
                     mode="lines", name="Euro Stoxx 50 (same invested)",
