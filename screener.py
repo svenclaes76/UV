@@ -696,6 +696,7 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
+        "exDividendDate", "dividendDate",
     ]
     df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 

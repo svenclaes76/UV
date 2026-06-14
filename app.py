@@ -7,7 +7,7 @@ COLUMN_HELP = {
     "Company":       "Full company name as reported by the exchange.",
     "Ticker":        "Exchange ticker symbol (suffix indicates the exchange: .BR Brussels · .AS Amsterdam · .PA Paris · .MI Milan · .DE Frankfurt · .SW Zurich).",
     "Price":         "Current market price in the stock's local currency.",
-    "💎 UV":         (
+    "UV":         (
         "Weighted composite intrinsic value estimate from up to 5 models: "
         "Graham Number, PE Fair Value, EPV, DDM (single + multi-stage), and Analyst Target. "
         "Weights adjust automatically: DDM weight is zero for non-dividend payers or payout > 90%."
@@ -137,7 +137,7 @@ def _dlg_add_user():
         new_role_sel = st.selectbox("Role", options=list(ROLES))
     _, _save_col = st.columns([3, 1])
     with _save_col:
-        if st.button("💾 Save", key="dlg_add_user_save", width="stretch"):
+        if st.button("Save", key="dlg_add_user_save", width="stretch"):
             ok, msg = register(new_email, new_password, role=new_role_sel)
             if ok:
                 st.rerun()
@@ -184,9 +184,9 @@ def _dlg_edit_user(users: list[dict]):
     _del_note, _save_col = st.columns([3, 1])
     with _del_note:
         if n_selected:
-            st.caption(f"🗑️ {n_selected} selected for deletion")
+            st.caption(f"{n_selected} selected for deletion")
     with _save_col:
-        if st.button("💾 Save", key="dlg_edit_user_save", width="stretch"):
+        if st.button("Save", key="dlg_edit_user_save", width="stretch"):
             for _, row in to_keep.iterrows():
                 set_role(row["Email"], row["Role"])
             for i in to_delete:
@@ -198,14 +198,16 @@ def _dlg_edit_user(users: list[dict]):
 
 def _render_admin_users():
     """User management UI — rendered inside the Settings page."""
+    st.subheader("User management")
+    st.caption("Add, edit, or remove user accounts. The first account created is automatically assigned the admin role.")
     users = list_users()
 
     _u1, _u2, _ = st.columns([1, 1, 6], gap="small")
     with _u1:
-        if st.button("➕ Add", key="btn_add_user"):
+        if st.button("Add", key="btn_add_user"):
             _dlg_add_user()
     with _u2:
-        if st.button("✏️ Edit", key="btn_edit_user", disabled=not users):
+        if st.button("Edit", key="btn_edit_user", disabled=not users):
             _dlg_edit_user(users)
 
     if not users:
@@ -240,7 +242,7 @@ def _render_admin_users():
 def _render_help():
     """Full-page column reference, one tab per section."""
     sections = {
-        "Core UV":          ["★", "Company", "Ticker", "Price", "Analyst Target", "💎 UV",
+        "Core":             ["★", "Company", "Ticker", "Price", "Analyst Target", "UV",
                              "MoS %", "TER %", "Score"],
         "Valuation":        ["Graham #", "PE Fair Val", "EPV",
                              "DDM (1-stage)", "DDM (2-stage)"],
@@ -250,20 +252,66 @@ def _render_help():
         "Growth":           ["Rev Growth %", "EPS Growth %"],
         "Dividends":        ["Div Yield", "5yr Avg Yield", "Payout Ratio",
                              "Cash Payout", "Div Coverage", "Div Flag"],
+        "Portfolio Risk":   [],
     }
+
+    def _help_row(col: str, desc: str) -> None:
+        st.markdown(
+            f'<div style="display:flex;gap:12px;margin-bottom:10px;padding-bottom:10px;'
+            f'border-bottom:0.5px solid rgba(255,255,255,0.07);">'
+            f'<span style="min-width:130px;font-size:0.8rem;font-weight:500;'
+            f'letter-spacing:0.04em;text-transform:uppercase;color:#1DD6A4;'
+            f'font-family:\'SF Mono\',\'Fira Code\',\'Cascadia Code\',monospace;'
+            f'padding-top:1px;">{col}</span>'
+            f'<span style="color:#F5F7FA;font-size:0.88rem;opacity:0.75;line-height:1.5;">{desc}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     tabs = st.tabs(list(sections.keys()))
     for tab, (section, cols) in zip(tabs, sections.items()):
         with tab:
-            for col in cols:
-                desc = COLUMN_HELP.get(col, "")
-                if desc:
-                    st.markdown(
-                        f'<div style="display:flex;gap:10px;margin-bottom:8px;">'
-                        f'<span style="min-width:120px;font-weight:600;color:#a78bfa;">{col}</span>'
-                        f'<span style="color:#ccc;font-size:0.9rem;">{desc}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
+            if section == "Portfolio Risk":
+                _risk_help_rows = [
+                    ("Composite score",   "Weighted aggregate of six sub-scores (0–100, higher = more risk). Sub-scores: Concentration 25%, Volatility 20%, Tail risk 20%, Factor exposure 15%, Fundamental 15%, Income risk 5%."),
+                    ("Position Weight",   "Position value as a percentage of total portfolio. Above 10% is concentrated; above 15% triggers a hard rebalancing flag."),
+                    ("Beta",              "Market sensitivity estimated by regression against the benchmark index. Above 1.2 amplifies market swings; below 0.8 is defensive. A portfolio beta above 1.5 triggers a hard flag."),
+                    ("VaR 95% (1d)",      "Maximum expected 1-day loss at 95% confidence using historical simulation. Interpreted as: on average, only 1 trading day in 20 should lose more than this amount."),
+                    ("CVaR 95% (1d)",     "Expected Shortfall — the average loss on the worst 5% of days. Captures tail risk that VaR alone understates."),
+                    ("MDD",               "Maximum drawdown: the largest peak-to-trough decline observed over the measurement period (1y / 3y / 5y windows)."),
+                    ("HHI",               "Herfindahl-Hirschman Index — sum of squared portfolio weights. Ranges from near 0 (fully diversified) to 1 (single position). Above 0.18 is considered highly concentrated."),
+                    ("Factor loading",    "Sensitivity of portfolio returns to a systematic risk factor (Fama-French 5-factor model + momentum). A loading above ±1.5 signals a concentrated factor bet."),
+                    ("R²",                "Fraction of portfolio return variance explained by the factor model. Above 0.6 means the portfolio is predominantly factor-driven rather than stock-specific."),
+                    ("Alpha",             "Annualised return above what the factor model predicts. Positive alpha suggests stock selection adds value beyond systematic factor exposure."),
+                    ("Portfolio Yield",   "Total expected annual dividend income divided by current portfolio value. Computed from each holding's dividend rate and share count."),
+                    ("Weighted DGR",      "Income-weighted dividend growth rate — proxy for how fast the dividend stream is growing. Below ~2.5% means purchasing power of income erodes in real terms."),
+                    ("Top-3 cut (50%)",   "Stress scenario: income impact if the three largest dividend payers each cut their dividend by 50%. Quantifies income concentration risk."),
+                    ("Hard trigger",      "A threshold breach that materially increases risk and requires prompt action (e.g. position >20%, portfolio beta >1.5, or a Critical-rated position)."),
+                    ("Soft trigger",      "An advisory signal worth monitoring and planning around, but not requiring same-day action (e.g. sector overweight, Sharpe below 1.0, or a High-rated position)."),
+                    ("Monte Carlo P5",    "5th percentile portfolio value after simulating 10,000 random return paths — the worst-case outcome at 5% probability over the stated horizon."),
+                    ("P(loss)",           "Probability of a negative total return over the simulation horizon, derived from the fraction of Monte Carlo paths that finish below the starting value."),
+                ]
+                for col, desc in _risk_help_rows:
+                    _help_row(col, desc)
+            else:
+                for col in cols:
+                    desc = COLUMN_HELP.get(col, "")
+                    if desc:
+                        _help_row(col, desc)
+
+
+def _risk_note(body: str) -> None:
+    """Brand-aligned collapsible methodology note for risk page tabs."""
+    import re as _re
+    html = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
+    html = html.replace("  \n\n", "<br><br>").replace("\n\n", "<br><br>").replace("  \n", "<br>")
+    st.markdown(
+        f'<details class="uv-note">'
+        f'<summary class="uv-note-summary">Methodology</summary>'
+        f'<div class="uv-note-body">{html}</div>'
+        f'</details>',
+        unsafe_allow_html=True,
+    )
 
 
 _LOADING_CSS = """
@@ -271,14 +319,20 @@ _LOADING_CSS = """
   @keyframes uv-spin { to { transform: rotate(360deg); } }
   .uv-loading-wrap {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; height: 65vh; gap: 18px;
+    justify-content: center; height: 65vh; gap: 16px;
   }
-  .uv-loading-logo  { font-size: 2.4rem; }
-  .uv-loading-title { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
-  .uv-loading-sub   { font-size: 0.78rem; opacity: 0.45; margin-top: -10px; }
+  .uv-loading-icon {
+    width: 56px; height: 56px;
+  }
+  .uv-loading-wordmark {
+    font-size: 1.6rem; font-weight: 500; letter-spacing: -0.03em;
+    color: #F5F7FA; line-height: 1;
+  }
+  .uv-loading-wordmark span { color: #1A8C6E; }
+  .uv-loading-sub { font-size: 0.78rem; opacity: 0.45; margin-top: -8px; }
   .uv-spinner {
     width: 28px; height: 28px; border: 3px solid rgba(128,128,128,0.2);
-    border-top-color: #4f8ef7; border-radius: 50%;
+    border-top-color: #1DD6A4; border-radius: 50%;
     animation: uv-spin 0.8s linear infinite;
   }
   .uv-loading-msg { font-size: 0.82rem; opacity: 0.5; }
@@ -292,9 +346,14 @@ def _loading_screen(message: str = "Loading…"):
     _slot = st.empty()
     _slot.markdown(f"""{_LOADING_CSS}
 <div class="uv-loading-wrap">
-  <div class="uv-loading-logo">💎</div>
-  <div class="uv-loading-title">UV · Undervalued</div>
-  <div class="uv-loading-sub">Portfolio tracker &amp; screener</div>
+  <svg class="uv-loading-icon" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+    <rect width="56" height="56" rx="14" fill="#0D1F3C"/>
+    <polyline points="14,14 28,38 42,14" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="28" cy="38" r="4.5" fill="#1DD6A4"/>
+    <circle cx="28" cy="38" r="7" fill="none" stroke="#1DD6A4" stroke-width="1.5" opacity="0.5"/>
+  </svg>
+  <div class="uv-loading-wordmark">uval<span>u</span></div>
+  <div class="uv-loading-sub">Find value before the market does.</div>
   <div class="uv-spinner"></div>
   <div class="uv-loading-msg">{message}</div>
 </div>""", unsafe_allow_html=True)
@@ -323,7 +382,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         y=list(_labels),
         orientation="h",
         marker_color=color or [
-            "#ef5350" if v < 0 else "#4f8ef7" for v in _vals
+            "#ef5350" if v < 0 else "#1DD6A4" for v in _vals
         ],
     ))
     fig.update_layout(
@@ -339,6 +398,24 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
 
+# Brand-aligned categorical palette for donut / pie charts.
+# Stays in the teal-blue-sage family; red/orange reserved for danger signals only.
+_DONUT_PALETTE = [
+    "#1DD6A4",  # Mint Pulse      — primary slot
+    "#1A8C6E",  # Signal Teal
+    "#5B8FA8",  # Steel blue
+    "#2BA5A5",  # Mid teal
+    "#3D7AB5",  # Slate blue
+    "#8BA888",  # Sage green
+    "#4A6B8A",  # Navy blue
+    "#6B9E8A",  # Muted teal-green
+    "#2D6B7A",  # Deep teal
+    "#A0B8B0",  # Silver teal
+    "#7A9EBF",  # Powder blue
+    "#5E8C7A",  # Forest teal
+]
+
+
 def _donut_chart(series: "pd.Series", title: str = "") -> None:
     """Render a static donut chart showing proportional breakdown of a value series."""
     _bad = {"", "nan", "none", "undefined", "<na>", "n/a"}
@@ -351,8 +428,9 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
     _vals   = _clean.values.tolist()
     _total  = sum(_vals)
     _pcts   = [v / _total * 100 for v in _vals]
-    # Show pct inside slice only when slice is wide enough to fit text
     _text   = [f"{p:.1f}%" if p >= 4 else "" for p in _pcts]
+    _n      = len(_labels)
+    _colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_n)]
     fig = go.Figure(go.Pie(
         labels=_labels,
         values=_vals,
@@ -362,9 +440,12 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         textposition="inside",
         insidetextorientation="horizontal",
         hovertemplate="%{label}: €%{value:,.0f} (%{percent})<extra></extra>",
-        marker=dict(line=dict(color="rgba(0,0,0,0.15)", width=1)),
+        marker=dict(
+            colors=_colors,
+            line=dict(color="#0D1F3C", width=2),
+        ),
+        textfont=dict(color="#F5F7FA", size=12),
     ))
-    _n = len(_labels)
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
@@ -374,13 +455,13 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
             orientation="v",
             x=1.02, xanchor="left",
             y=1.0,  yanchor="top",
-            font=dict(size=11),
+            font=dict(size=11, color="#F5F7FA"),
             itemwidth=30,
             tracegroupgap=2,
         ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12),
+        font=dict(size=12, color="#F5F7FA"),
     )
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
@@ -427,7 +508,21 @@ def _safe_pct(numerator: float, denominator: float) -> float:
     return numerator / denominator * 100 if denominator else 0
 
 
-_HINT_WATCHLIST = "check ★ to add to watchlist"
+def _hm_color(v: float) -> str:
+    """Brand-aligned treemap cell color. v in [-1, 1]: negative=danger, zero=navy, positive=teal."""
+    if v >= 0:
+        r = int(13  + v * (29  - 13))
+        g = int(31  + v * (214 - 31))
+        b = int(60  + v * (164 - 60))
+    else:
+        t = -v
+        r = int(13  + t * (163 - 13))
+        g = int(31  + t * (45  - 31))
+        b = int(60  + t * (45  - 60))
+    return f"rgb({r},{g},{b})"
+
+
+_HINT_WATCHLIST = "check the star column to add to watchlist"
 
 
 def _fmt_div_flag(v) -> str:
@@ -579,33 +674,65 @@ def _fetch_live_data(tickers: tuple) -> dict:
 # ── Page config ───────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="UV — Undervalued",
-    page_icon="💎",
+    page_title="uvalu",
+    page_icon="favicon.svg",
     layout="wide",
 )
 
+# Lock the favicon permanently via a MutationObserver so Streamlit's rerun
+# animation can never swap it back to the default diamond.
+st.markdown("""
+<script>
+(function(){
+  var HREF = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNiIgZmlsbD0iIzBEMUYzQyIvPgogIDxwb2x5bGluZSBwb2ludHM9IjE2LDE2IDMyLDQ0IDQ4LDE2IiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMy4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjQ0IiByPSI1IiBmaWxsPSIjMURENkE0Ii8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSI0NCIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMURENkE0IiBzdHJva2Utd2lkdGg9IjEuNSIgb3BhY2l0eT0iMC41Ii8+Cjwvc3ZnPgo=';
+  function pin() {
+    var ico = document.querySelector("link[rel*='icon']");
+    if (!ico) { ico = document.createElement('link'); document.head.appendChild(ico); }
+    if (ico.href !== HREF) { ico.rel = 'icon'; ico.type = 'image/svg+xml'; ico.href = HREF; }
+  }
+  pin();
+  if (window._uvFaviconObs) window._uvFaviconObs.disconnect();
+  window._uvFaviconObs = new MutationObserver(pin);
+  window._uvFaviconObs.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+})();
+</script>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
-  /* Fade content in smoothly on each navigation */
+  /* ── Brand tokens ────────────────────────────────────────────────────────── */
+  :root {
+    --uv-teal:        #1A8C6E;
+    --uv-mint:        #1DD6A4;
+    --uv-navy:        #0D1F3C;
+    --uv-surface:     #F5F7FA;
+    --uv-pos-bg:      #E8F5F0;
+    --uv-pos-txt:     #0F6E56;
+    --uv-cau-bg:      #FDF0E8;
+    --uv-cau-txt:     #854F0B;
+    --uv-neg-bg:      #FCEAEA;
+    --uv-neg-txt:     #A32D2D;
+    --uv-muted:       #5F5E5A;
+  }
+
+  /* ── Page transitions ────────────────────────────────────────────────────── */
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
-  /* Hide Streamlit top decoration bar (coloured stripe) — keep toolbar */
+
+  /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }
-  /* Remove top header bar height so content sits at the top */
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
 
-  /* ── Layout ─────────────────────────────────────────────────────────────── */
-  .block-container          { padding-top: 2rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+  /* ── Layout ──────────────────────────────────────────────────────────────── */
+  .block-container { padding-top: 2rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
 
-  /* ── Sidebar — fixed width, smooth appearance ───────────────────────────── */
+  /* ── Sidebar — fixed width ───────────────────────────────────────────────── */
   section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child { min-width: 250px !important; max-width: 250px !important; width: 250px !important; z-index: 100 !important; }
+  section[data-testid="stSidebar"] > div:first-child { min-width: 220px !important; max-width: 220px !important; width: 220px !important; z-index: 100 !important; }
   section[data-testid="stSidebar"] { transition: none !important; }
-
-  /* ── Hide sidebar collapse button ───────────────────────────────────────── */
   [data-testid="collapsedControl"] { display: none !important; }
 
   /* ── Tables ──────────────────────────────────────────────────────────────── */
@@ -617,11 +744,24 @@ st.markdown("""
   .glideDataEditor [aria-label="Column menu"]     { display: none !important; }
 
   /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"]                               { padding: 0.4rem 0.75rem !important; border-radius: 10px !important; background: rgba(128,128,128,0.05) !important; text-align: center !important; }
-  div[data-testid="metric-container"] label                         { display: block; text-align: center !important; font-size: 0.75rem !important; opacity: 0.6; }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] { text-align: center !important; font-size: 1.3rem !important; font-weight: 700 !important; }
+  div[data-testid="metric-container"] {
+    padding: 12px 16px !important; border-radius: 12px !important;
+    background: rgba(29,214,164,0.05) !important;
+    border: 0.5px solid rgba(29,214,164,0.15) !important;
+    text-align: center !important;
+  }
+  div[data-testid="metric-container"] label {
+    display: block; text-align: center !important;
+    font-size: 0.72rem !important; font-weight: 500 !important;
+    letter-spacing: 0.06em !important; text-transform: uppercase !important;
+    opacity: 0.5;
+  }
+  div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    text-align: center !important; font-size: 1.35rem !important;
+    font-weight: 500 !important; letter-spacing: -0.02em !important;
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace !important;
+  }
   div[data-testid="metric-container"] [data-testid="stMetricDelta"] { justify-content: center !important; }
-  /* Compact portfolio tab layout */
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"] { gap: 0 !important; }
   [data-testid="stTabsContent"] [data-testid="stColumns"]       { align-items: flex-start !important; }
   [data-testid="stTabsContent"] [data-testid="column"]          { padding-bottom: 0 !important; }
@@ -631,12 +771,131 @@ st.markdown("""
   /* ── Tabs ────────────────────────────────────────────────────────────────── */
   div[data-testid="stTabs"] > div:first-child                    { margin-bottom: 0.5rem; }
   div[data-testid="stTabsContent"]                               { padding-top: 0 !important; padding-bottom: 0 !important; }
-  /* Tighten element gaps and divider inside tab panels */
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"]  { gap: 0.25rem !important; }
   [data-testid="stTabsContent"] hr                               { margin-top: -1.5rem !important; margin-bottom: 0.25rem !important; }
   button[data-testid="stTab"]                       { color: var(--text-color) !important; opacity: 0.5; font-weight: 500; }
   button[data-testid="stTab"]:hover                 { opacity: 0.85 !important; }
   button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; color: var(--text-color) !important; }
+
+  /* ── Signal badges ───────────────────────────────────────────────────────── */
+  .uv-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
+  }
+  .uv-badge-buy     { background: #E8F5F0; color: #0F6E56; }
+  .uv-badge-monitor { background: #FDF0E8; color: #854F0B; }
+  .uv-badge-avoid   { background: #FCEAEA; color: #A32D2D; }
+  .uv-badge-veto    { background: #0D1F3C; color: #ffffff; border: 0.5px solid rgba(255,255,255,0.2); }
+
+  /* ── Stock detail card ───────────────────────────────────────────────────── */
+  .uv-detail-card {
+    background: rgba(15,38,71,0.6); border: 0.5px solid rgba(29,214,164,0.2);
+    border-radius: 12px; padding: 20px 24px; margin-top: 16px;
+  }
+  .uv-detail-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+  .uv-detail-company { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+  .uv-detail-ticker  {
+    font-size: 13px; font-weight: 500; opacity: 0.5;
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
+  }
+  .uv-metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
+  .uv-metric-cell { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px 12px; }
+  .uv-metric-label {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.06em; opacity: 0.45; margin-bottom: 4px;
+  }
+  .uv-metric-value {
+    font-size: 16px; font-weight: 500;
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
+    letter-spacing: -0.01em;
+  }
+  .uv-model-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 0.5px solid rgba(255,255,255,0.06);
+    font-size: 13px;
+  }
+  .uv-model-row:last-child { border-bottom: none; }
+  .uv-model-label { opacity: 0.5; }
+  .uv-model-value { font-family: "SF Mono","Fira Code","Cascadia Code",monospace; font-weight: 500; }
+  .uv-section-label {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.06em; opacity: 0.4; margin: 16px 0 8px;
+  }
+
+  /* ── Risk callout banner ─────────────────────────────────────────────────── */
+  .uv-risk-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(29,214,164,0.06); border: 0.5px solid rgba(29,214,164,0.2);
+    border-radius: 12px; padding: 14px 20px; margin-bottom: 0;
+  }
+  .uv-risk-banner-left { display: flex; align-items: center; gap: 14px; }
+  .uv-risk-score-circle {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 2px solid #1DD6A4; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0;
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
+    font-size: 15px; font-weight: 500; color: #1DD6A4;
+  }
+  .uv-risk-banner-label  { font-size: 13px; font-weight: 500; }
+  .uv-risk-banner-sub    { font-size: 11px; opacity: 0.45; margin-top: 2px; }
+  .uv-risk-banner a      { color: #1DD6A4 !important; font-size: 12px; text-decoration: none; opacity: 0.8; }
+  .uv-risk-banner a:hover { opacity: 1; }
+
+  /* ── Risk methodology notes ─────────────────────────────────────────────── */
+  .uv-note {
+    border-left: 2px solid #1A8C6E; background: rgba(26,140,110,0.06);
+    border-radius: 0 6px 6px 0; padding: 10px 14px; margin-bottom: 16px;
+  }
+  .uv-note-summary {
+    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #1A8C6E; cursor: pointer;
+    list-style: none; outline: none; user-select: none;
+  }
+  .uv-note-summary::-webkit-details-marker { display: none; }
+  .uv-note-summary::before {
+    content: "+ "; font-weight: 700; color: #1DD6A4;
+  }
+  details[open] .uv-note-summary::before { content: "− "; }
+  .uv-note-body {
+    font-size: 0.88rem; color: #F5F7FA; opacity: 0.75;
+    margin-top: 10px; line-height: 1.6;
+  }
+
+  /* ── Metric delta brand colors ───────────────────────────────────────────── */
+  [data-testid="stMetricDelta"] svg { display: none; }
+  [data-testid="stMetricDelta"] { border-radius: 4px; padding: 1px 6px; font-size: 0.8rem !important; }
+  [data-testid="stMetricDelta"][data-direction="increase"] {
+    color: #1DD6A4 !important; background: rgba(29,214,164,0.12);
+  }
+  [data-testid="stMetricDelta"][data-direction="increase"]::before { content: "↑ "; }
+  [data-testid="stMetricDelta"][data-direction="decrease"] {
+    color: #F5B5B5 !important; background: rgba(163,45,45,0.20);
+  }
+  [data-testid="stMetricDelta"][data-direction="decrease"]::before { content: "↓ "; }
+
+  /* ── Login page ──────────────────────────────────────────────────────────── */
+  .login-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    margin: 64px auto 32px;
+  }
+  .uv-wordmark {
+    font-size: 2.6rem; font-weight: 500; letter-spacing: -0.03em;
+    margin-bottom: 8px; line-height: 1;
+  }
+  .uv-wordmark-accent { color: #1A8C6E; }
+  .login-sub { font-size: 0.82rem; opacity: 0.4; margin-bottom: 4px; }
+  /* match key icon colour to the eye icon */
+  [data-testid="stTextInput"] svg {
+    color: rgba(245,247,250,0.55) !important;
+    fill:  rgba(245,247,250,0.55) !important;
+  }
+  [data-testid="stTextInput"] svg path,
+  [data-testid="stTextInput"] svg rect,
+  [data-testid="stTextInput"] svg circle {
+    fill:   rgba(245,247,250,0.55) !important;
+    stroke: rgba(245,247,250,0.55) !important;
+  }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
@@ -646,78 +905,91 @@ st.markdown("""
   .mini-nav {
     display: flex; position: fixed; left: 0; top: 0; height: 100vh; width: 48px;
     background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-right: 1px solid rgba(128,128,128,0.12);
+    border-right: 0.5px solid rgba(29,214,164,0.12);
     flex-direction: column; justify-content: space-between; align-items: center; z-index: 99;
   }
   .mini-nav-top, .mini-nav-bottom { display: flex; flex-direction: column; align-items: center; gap: 16px; }
   .mini-nav-top    { padding-top: 14px; }
   .mini-nav-bottom { padding-bottom: 18px; }
   .mini-nav-link {
-    font-size: 1.2rem; text-decoration: none !important; opacity: 0.4;
+    font-size: 1.2rem; text-decoration: none !important; opacity: 0.35;
     transition: opacity 0.15s, background 0.15s;
     display: flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; border-radius: 8px;
   }
-  .mini-nav-link:hover { opacity: 1; background: rgba(128,128,128,0.1); }
-  .mini-nav-active     { opacity: 1 !important; background: rgba(79,142,247,0.18) !important; }
+  .mini-nav-link:hover { opacity: 1; background: rgba(29,214,164,0.08); }
+  .mini-nav-active     { opacity: 1 !important; background: rgba(29,214,164,0.15) !important; }
 
   /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
-  .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 18px; margin-top: -1.8rem; }
-  .uv-logo-gem  { font-size: 2rem; line-height: 1; }
-  .uv-logo-name { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.3px; color: var(--text-color); }
-  .uv-logo-sub  { font-size: 0.68rem; color: var(--text-color); opacity: 0.35; margin-top: 2px; }
+  .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
+  .uv-logo-wordmark {
+    font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
+    line-height: 1; color: #F5F7FA;
+  }
+  .uv-logo-accent { color: #1A8C6E; }
+  .uv-logo-sub  { font-size: 0.65rem; color: var(--text-color); opacity: 0.3; margin-top: 3px; }
   .uv-nav       { display: flex; flex-direction: column; gap: 1px; }
   .uv-nav-item  {
     display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
-    font-size: 0.92rem; font-weight: 500; color: var(--text-color); opacity: 0.45;
+    font-size: 0.9rem; font-weight: 500; color: var(--text-color); opacity: 0.4;
     text-decoration: none !important; transition: background 0.12s, opacity 0.12s; white-space: nowrap;
   }
-  .uv-nav-item:hover { background: rgba(128,128,128,0.08); opacity: 1; }
-  .uv-nav-active     { background: rgba(79,142,247,0.14) !important; opacity: 1 !important; }
-  .uv-nav-sep        { border: none; border-top: 1px solid rgba(128,128,128,0.2); margin: 5px 2px; }
+  .uv-nav-item:hover { background: rgba(29,214,164,0.07); opacity: 0.85; }
+  .uv-nav-active     { background: rgba(29,214,164,0.12) !important; opacity: 1 !important; }
+  .uv-nav-sep        { border: none; border-top: 0.5px solid rgba(255,255,255,0.1); margin: 6px 2px; }
   .uv-nav-icon       { font-size: 1rem; width: 1.25em; text-align: center; flex-shrink: 0; }
-  .uv-nav-utils { position: fixed; bottom: 100px; left: 0; width: 250px; padding: 0 16px 4px; box-sizing: border-box; }
+  .uv-nav-utils { position: fixed; bottom: 96px; left: 0; width: 220px; padding: 0 16px 4px; box-sizing: border-box; }
   .uv-bottom    {
-    position: fixed; bottom: 0; left: 0; width: 250px; padding: 10px 16px 15px;
+    position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
     background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-top: 1px solid rgba(128,128,128,0.12); box-sizing: border-box;
+    border-top: 0.5px solid rgba(255,255,255,0.08); box-sizing: border-box;
   }
-  .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-  .uv-role-badge   { display: inline-block; background: rgba(128,128,128,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: var(--text-color); opacity: 0.5; margin-right: 5px; vertical-align: middle; }
+  .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .uv-role-badge   { display: inline-block; background: rgba(29,214,164,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: #1DD6A4; margin-right: 5px; vertical-align: middle; }
   .uv-logout {
     display: inline-flex; align-items: center;
-    padding: 0 12px; height: 32px; line-height: 32px;
-    font-size: 0.8rem; font-weight: 400;
+    padding: 0 12px; height: 30px; line-height: 30px;
+    font-size: 0.78rem; font-weight: 400;
     color: var(--text-color) !important; text-decoration: none !important;
-    border: 1px solid rgba(128,128,128,0.4); border-radius: 6px;
+    border: 0.5px solid rgba(255,255,255,0.2); border-radius: 6px;
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
   }
-  .uv-logout:hover { border-color: rgba(128,128,128,0.8); opacity: 1; }
-  /* Edit positions dialog — constrained width */
+  .uv-logout:hover { border-color: rgba(29,214,164,0.5); color: #1DD6A4 !important; }
+
+  /* ── Dialogs ─────────────────────────────────────────────────────────────── */
   [data-testid="stDialog"] [role="dialog"],
   [data-testid="stModal"] > div,
   div[aria-modal="true"],
   div[aria-label="Edit positions"] {
-    max-width: 550px !important;
-    width: 550px !important;
-    min-width: 0 !important;
+    max-width: 550px !important; width: 550px !important; min-width: 0 !important;
   }
-  /* Action buttons (Add / Edit / View) — tight row */
-  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] {
-    gap: 6px !important;
-  }
+
+  /* ── Compact action button rows ──────────────────────────────────────────── */
+  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] { gap: 6px !important; }
   [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] button {
-    padding: 0px 12px !important;
-    height: 32px !important;
-    min-height: 0 !important;
-    font-size: 0.8rem !important;
-    font-weight: 400 !important;
-    line-height: 32px !important;
-    white-space: nowrap !important;
-    width: 100% !important;
+    padding: 0px 12px !important; height: 32px !important; min-height: 0 !important;
+    font-size: 0.8rem !important; font-weight: 400 !important;
+    line-height: 32px !important; white-space: nowrap !important; width: 100% !important;
   }
-  /* JS-bridge iframes are purely functional — collapse them visually */
+
+  /* ── Heading typography — brand spec ────────────────────────────────────── */
+  [data-testid="stHeadingWithActionElements"] h1,
+  [data-testid="stHeading"] h1 {
+    font-size: 1.5rem !important; font-weight: 500 !important;
+    letter-spacing: -0.02em !important; margin-bottom: 0.5rem !important;
+  }
+  [data-testid="stHeadingWithActionElements"] h2,
+  [data-testid="stHeading"] h2 {
+    font-size: 1.1rem !important; font-weight: 500 !important;
+    letter-spacing: -0.01em !important; margin-bottom: 0.25rem !important;
+  }
+  /* Lighten dividers — less visual noise */
+  [data-testid="stDivider"] hr, hr {
+    border-color: rgba(255,255,255,0.07) !important; margin: 8px 0 !important;
+  }
+
+  /* ── JS bridge iframes ───────────────────────────────────────────────────── */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
     margin: 0 !important; padding: 0 !important; overflow: hidden !important; line-height: 0 !important; }
   [data-testid="stIFrame"] > div,
@@ -775,16 +1047,9 @@ def _auth_wall():
             return  # already logged in
 
     st.markdown("""
-    <style>
-      .login-wrap { display:flex; flex-direction:column; align-items:center; margin: 56px auto 28px; }
-      .login-logo  { font-size:2.4rem; margin-bottom:10px; }
-      .login-title { font-size:1.1rem; font-weight:700; letter-spacing:-0.3px; margin-bottom:4px; }
-      .login-sub   { font-size:0.78rem; opacity:0.45; }
-    </style>
     <div class="login-wrap">
-      <div class="login-logo">💎</div>
-      <div class="login-title">UV · Undervalued</div>
-      <div class="login-sub">Portfolio tracker &amp; screener</div>
+      <div class="uv-wordmark">uval<span class="uv-wordmark-accent">u</span></div>
+      <div class="login-sub">Find value before the market does.</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -844,62 +1109,57 @@ def _nav_link(page: str, icon: str, label: str, tok_qs: str,
     )
 
 
-_portfolio_item = _nav_link("portfolio", "📁", "Portfolio", _tok_qs)
-_settings_item  = _nav_link("settings",  "⚙️", "Settings",  _tok_qs)
+_portfolio_item = _nav_link("portfolio", "▣", "Portfolio", _tok_qs)
+_settings_item  = _nav_link("settings",  "⊞", "Settings",  _tok_qs)
 
-_role_label = {"admin": "🔑"}.get(_current_role, "")
-_role_badge_html = (
-    f'<span class="uv-role-badge">{_role_label}</span>'
-    if _role_label else ""
-)
+_role_badge_html = ""
 
 with st.sidebar:
     st.markdown(f"""
 <div class="uv-logo">
-  <div class="uv-logo-gem">💎</div>
   <div>
-    <div class="uv-logo-name">UV <span style="font-weight:300;opacity:0.35;">· Undervalued</span></div>
-    <div class="uv-logo-sub">Portfolio tracker &amp; screener</div>
+    <div class="uv-logo-wordmark">uval<span class="uv-logo-accent">u</span></div>
+    <div class="uv-logo-sub">Find value before the market does.</div>
   </div>
 </div>
 <nav class="uv-nav">
-  {_nav_link("dashboard", "💎", "Dashboard", _tok_qs)}
+  {_nav_link("dashboard", "◈", "Dashboard", _tok_qs)}
   {_portfolio_item}
-  {_nav_link("screener",  "🔍", "Screener",  _tok_qs)}
-  {_nav_link("risk",      "⚠️", "Risk",      _tok_qs)}
+  {_nav_link("risk",      "◎", "Risk",      _tok_qs)}
+  {_nav_link("screener",  "⊹", "Screener",  _tok_qs)}
 </nav>
 <div class="uv-nav-utils">
   <hr class="uv-nav-sep" style="margin-bottom:6px;">
-  <nav class="uv-nav">{_settings_item}{_nav_link("help", "❓", "Help", _tok_qs)}</nav>
+  <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
 </div>
 <div class="uv-bottom">
   <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
   <div style="text-align:center;">
-    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">🚪 Log out</a>
+    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ── Mini icon nav (shown when sidebar is collapsed) ───────────────────────────
 # Active state is applied by uvSetActive() in JS — no Python active classes needed.
-_mini_admin     = _nav_link("settings",  "⚙️", "", _tok_qs, "mini-nav-link")
-_mini_portfolio = _nav_link("portfolio", "📁", "", _tok_qs, "mini-nav-link")
+_mini_admin     = _nav_link("settings",  "⚙", "", _tok_qs, "mini-nav-link")
+_mini_portfolio = _nav_link("portfolio", "◻", "", _tok_qs, "mini-nav-link")
 st.markdown(f"""
 <div class="mini-nav">
   <div class="mini-nav-top">
-    {_nav_link("dashboard", "💎", "", _tok_qs, "mini-nav-link")}
+    {_nav_link("dashboard", "◈", "", _tok_qs, "mini-nav-link")}
     {_mini_portfolio}
-    {_nav_link("screener",  "🔍", "", _tok_qs, "mini-nav-link")}
-    {_nav_link("risk",      "⚠️", "", _tok_qs, "mini-nav-link")}
+    {_nav_link("risk",      "◎", "", _tok_qs, "mini-nav-link")}
+    {_nav_link("screener",  "⊹", "", _tok_qs, "mini-nav-link")}
   </div>
-  <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "❓", "", _tok_qs, "mini-nav-link")}</div>
+  <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "?", "", _tok_qs, "mini-nav-link")}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # Active nav highlight via Python-injected CSS (no JS bridge needed).
 st.markdown(f"""<style>
-[data-uv-page="{_page}"].uv-nav-item  {{ background:rgba(79,142,247,0.14)!important; opacity:1!important; }}
-[data-uv-page="{_page}"].mini-nav-link {{ background:rgba(79,142,247,0.18)!important; opacity:1!important; }}
+[data-uv-page="{_page}"].uv-nav-item  {{ background:rgba(29,214,164,0.12)!important; opacity:1!important; }}
+[data-uv-page="{_page}"].mini-nav-link {{ background:rgba(29,214,164,0.15)!important; opacity:1!important; }}
 </style>""", unsafe_allow_html=True)
 
 # Keep localStorage token fresh + hide sidebar collapse button.
@@ -929,7 +1189,25 @@ if _page == "dashboard":
 
     # ── Load portfolio data ────────────────────────────────────────────────────
     if not portfolio_exists():
-        st.info("No portfolio found. Upload your Excel file in Settings to get started.")
+        _scr_link = f"?page=screener{_tok_qs}"
+        _set_link  = f"?page=settings{_tok_qs}"
+        st.markdown(f"""
+<div style="margin:48px auto;max-width:480px;text-align:center;">
+  <div style="font-size:2rem;margin-bottom:16px;">◈</div>
+  <div style="font-size:1.1rem;font-weight:500;margin-bottom:8px;">No portfolio yet</div>
+  <div style="font-size:0.85rem;opacity:0.5;margin-bottom:24px;line-height:1.6;">
+    Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings.
+  </div>
+  <a href="{_scr_link}" target="_self" style="
+    display:inline-block;padding:8px 20px;border-radius:8px;
+    background:#1A8C6E;color:#fff;text-decoration:none;font-size:0.88rem;font-weight:500;
+    margin-right:8px;">Open screener</a>
+  <a href="{_set_link}" target="_self" style="
+    display:inline-block;padding:8px 20px;border-radius:8px;
+    border:0.5px solid rgba(255,255,255,0.2);color:inherit;
+    text-decoration:none;font-size:0.88rem;">Import portfolio</a>
+</div>
+""", unsafe_allow_html=True)
         st.stop()
 
     _db_pf = load_portfolio()
@@ -965,36 +1243,82 @@ if _page == "dashboard":
     _db_ret_pct   = _safe_pct(_db_total_ret, _db_invested)
 
     # Avg margin of safety from screener cache
-    _db_scr = _all_scr_df[_all_scr_df["Ticker"].isin(_db_tickers)].copy() if "_all_scr_df" in dir() else pd.DataFrame()
+    _db_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _db_all_scr = pd.concat(list(_load_all_screener_data(_cache_version(), _db_enabled)), ignore_index=True)
+    _db_scr = _db_all_scr[_db_all_scr["Ticker"].isin(_db_tickers)].copy()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
+
+    # Forward annual income: dividendYield × current_value per holding
+    _db_fwd_income = None
+    if not _db_scr.empty and "dividendYield" in _db_scr.columns:
+        _db_pf_cv = _db_pf.set_index("ticker")["current_value"]
+        _db_scr_dy = _db_scr.set_index("Ticker")["dividendYield"]
+        _db_scr_dy = pd.to_numeric(_db_scr_dy, errors="coerce").fillna(0)
+        _db_fwd_income = (_db_pf_cv.reindex(_db_scr_dy.index).fillna(0) * _db_scr_dy).sum()
 
     # ── Row 1: KPI cards ──────────────────────────────────────────────────────
     _k1, _k2, _k3, _k4 = st.columns(4)
     _k1.metric("Current value",  f"€{_db_current:,.0f}",
-               delta=f"€{_db_gain:+,.0f} ({_db_gain_pct:+.1f}%)")
+               delta=f"{_db_gain_pct:+.1f}% (€{_db_gain:+,.0f})")
     _k2.metric("Total return",   f"€{_db_total_ret:,.0f}",
                delta=f"{_db_ret_pct:+.1f}%")
-    _k3.metric("Dividends",      f"€{_db_divs:,.0f}")
-    _k4.metric("Avg UV upside",
+    if _db_fwd_income is not None:
+        _k3.metric("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
+                   help="Estimated forward 12-month dividend income (yield × current value per holding)")
+    else:
+        _k3.metric("Dividends received", f"€{_db_divs:,.0f}")
+    _k4.metric("Avg fair value upside",
                f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-               help="Average margin of safety across your positions based on UV fair value")
-    st.divider()
+               help="Average margin of safety across your positions based on the fair value estimate")
 
-    # ── Row 2: Heatmap + Allocation ───────────────────────────────────────────
-    _hm_col, _al_col = st.columns(2)
+    # ── Row 2: Risk banner ────────────────────────────────────────────────────
+    _db_risk_cache = _load_cache()
+    if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
+        try:
+            _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
+            _risk_score = _db_report.composite.total
+            _risk_label = (
+                "Low risk" if _risk_score < 35
+                else "Moderate risk" if _risk_score < 65
+                else "Elevated risk"
+            )
+            _risk_link = f"?page=risk{_tok_qs}"
+            _beta_str  = f"{_db_report.quant.portfolio_beta:.2f}"
+            _vol_str   = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
+            _dd_str    = f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—"
+            st.markdown(f"""
+<div class="uv-risk-banner" style="margin-top:16px;">
+  <div class="uv-risk-banner-left">
+    <div class="uv-risk-score-circle">{_risk_score:.0f}</div>
+    <div>
+      <div class="uv-risk-banner-label">{_risk_label}</div>
+      <div class="uv-risk-banner-sub">
+        Beta&nbsp;<b>{_beta_str}</b> &nbsp;·&nbsp;
+        Volatility&nbsp;<b>{_vol_str}</b> &nbsp;·&nbsp;
+        Max drawdown&nbsp;<b>{_dd_str}</b>
+      </div>
+    </div>
+  </div>
+  <a href="{_risk_link}" target="_self">Full risk analysis →</a>
+</div>
+""", unsafe_allow_html=True)
+        except Exception:
+            pass
+
+    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    # ── Row 3: Today's performance + Top movers ───────────────────────────────
+    _DB_ROW_H = 300  # shared height for treemap + movers table
+    _hm_col, _mv_col = st.columns(2, gap="large")
 
     with _hm_col:
         st.subheader("Today's performance")
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         _db_hm = _db_pf.dropna(subset=["name", "current_value", "day_change_pct"]).copy()
         if not _db_hm.empty:
-            import plotly.graph_objects as go
             _clamp  = 5.0
             _normed = _db_hm["day_change_pct"].clip(-_clamp, _clamp) / _clamp
-            _colors = [
-                f"rgba({int(220*(1-v))},{int(220*((v+1)/2))},{int(60*(1-abs(v)))},0.85)"
-                for v in _normed
-            ]
+            _colors = [_hm_color(v) for v in _normed]
             _hm_labels = [
                 f"<b>{row['name']}</b><br>{row['day_change_pct']:+.2f}%"
                 for _, row in _db_hm.iterrows()
@@ -1011,16 +1335,43 @@ if _page == "dashboard":
                 customdata=_hm_hover,
                 hovertemplate="%{customdata}<extra></extra>",
                 textinfo="text",
-                marker=dict(colors=_colors, line=dict(width=2, color="rgba(0,0,0,0.3)")),
+                textfont=dict(color="#F5F7FA", size=13),
+                marker=dict(colors=_colors, line=dict(width=2, color="#0D1F3C")),
             ))
             _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
-                                  paper_bgcolor="rgba(0,0,0,0)", height=280)
-            st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
+                                  paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(_hm_fig, width="stretch", height=_DB_ROW_H, config=_CHART_CONFIG)
         else:
             st.caption("No daily price data available.")
 
+    with _mv_col:
+        st.subheader("Top movers today")
+        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
+        _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
+        _db_mv = _db_mv.dropna(subset=["day_change_pct"])
+        _db_mv["_abs"] = _db_mv["day_change_pct"].abs()
+        _db_top = _db_mv.sort_values("_abs", ascending=False).head(7)
+        _db_top = _db_top.sort_values("day_change_pct", ascending=False)
+        if not _db_top.empty:
+            _db_top_disp = pd.DataFrame({
+                "Company":  _db_top["name"].values,
+                "Day %":    _db_top["day_change_pct"].map(lambda v: f"{v:+.2f}%"),
+                "Value":    _db_top["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            })
+            _mv_row_h = len(_db_top_disp) * 35 + 38
+            st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
+            st.dataframe(_db_top_disp, hide_index=True, width="stretch", height=_mv_row_h,
+                         column_config={"Day %": st.column_config.TextColumn("Day %")})
+        else:
+            st.caption("No daily price data available.")
+
+    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    # ── Row 4: Sector allocation + Upcoming dividends ─────────────────────────
+    _al_col, _div_col = st.columns(2, gap="large")
+
     with _al_col:
-        st.subheader("Allocation")
+        st.subheader("Sector allocation")
         _db_al = (
             _db_pf.dropna(subset=["current_value"])
               .assign(sector=_db_pf["sector"].fillna("Unknown"))
@@ -1029,9 +1380,39 @@ if _page == "dashboard":
         )
         _donut_chart(_db_al)
 
-    st.divider()
+    with _div_col:
+        st.subheader("Upcoming dividends")
+        st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
+        if not _db_scr.empty:
+            _db_div_scr = _db_scr.copy()
+            _db_div_scr["exDividendDate"] = pd.to_datetime(
+                _db_div_scr.get("exDividendDate"), errors="coerce")
+            _today = pd.Timestamp.today().normalize()
+            _has_dates = _db_div_scr["exDividendDate"].notna().any()
+            if _has_dates:
+                _db_upcoming = (
+                    _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
+                      .sort_values("exDividendDate")
+                      .head(6)
+                )
+                if not _db_upcoming.empty:
+                    _db_div_disp = pd.DataFrame({
+                        "Company":  _db_upcoming["Name"].values,
+                        "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d-%m-%Y"),
+                        "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
+                                      .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
+                    })
+                    st.dataframe(_db_div_disp, hide_index=True, width="stretch",
+                                 height=len(_db_div_disp) * 35 + 38)
+                else:
+                    st.caption("No upcoming ex-dividend dates in the next 30 days.")
+            else:
+                st.caption("Ex-dividend dates not yet in cache — click Refresh in the screener.")
+        else:
+            st.caption("No screener data available for your holdings.")
 
-    # ── Row 3: Portfolio value over time (full width) ─────────────────────────
+    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    # ── Row 5: Portfolio value over time (full width) ─────────────────────────
     st.subheader("Portfolio value over time")
     _db_vh = load_value_history()
     if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
@@ -1055,25 +1436,25 @@ if _page == "dashboard":
         _db_vfig.add_trace(go.Scatter(
             x=_db_vh["date"], y=_db_vh["value"],
             mode="lines", name="Portfolio value",
-            line=dict(color="#4f8ef7", width=2),
-            fill="tozeroy", fillcolor="rgba(79,142,247,0.08)",
+            line=dict(color="#1DD6A4", width=2),
+            fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
         ))
         _db_vfig.add_trace(go.Scatter(
             x=_db_vh["date"], y=_db_vh["invested"],
             mode="lines", name="Amount invested",
-            line=dict(color="#aaaaaa", width=1.5, dash="dot"),
+            line=dict(color="rgba(245,247,250,0.35)", width=1.5, dash="dot"),
         ))
         if _db_has_spx and _db_show_spx:
             _db_vfig.add_trace(go.Scatter(
                 x=_db_vh["date"], y=pd.to_numeric(_db_vh["benchmark_spx"], errors="coerce"),
                 mode="lines", name="S&P 500 (same invested)",
-                line=dict(color="#f4a026", width=1.5, dash="dash"),
+                line=dict(color="#5B8FA8", width=1.5, dash="dash"),
             ))
         if _db_has_stoxx and _db_show_stoxx:
             _db_vfig.add_trace(go.Scatter(
                 x=_db_vh["date"], y=pd.to_numeric(_db_vh["benchmark_stoxx"], errors="coerce"),
                 mode="lines", name="Euro Stoxx 50 (same invested)",
-                line=dict(color="#a855f7", width=1.5, dash="dash"),
+                line=dict(color="#8BA888", width=1.5, dash="dash"),
             ))
         _db_vfig.update_layout(
             margin=dict(l=0, r=0, t=8, b=0),
@@ -1086,85 +1467,19 @@ if _page == "dashboard":
         )
         st.plotly_chart(_db_vfig, width="stretch", config=_CHART_CONFIG)
     else:
-        st.caption("No history yet — go to Portfolio → Positions and click **↺ Rebuild history**.")
-
-    st.divider()
-
-    # ── Row 4: Top movers + Upcoming dividends ────────────────────────────────
-    _mv_col, _div_col = st.columns(2)
-
-    with _mv_col:
-        st.subheader("Top movers today")
-        _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
-        _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
-        _db_mv = _db_mv.dropna(subset=["day_change_pct"]).sort_values("day_change_pct", ascending=False)
-        _db_top = pd.concat([_db_mv.head(3), _db_mv.tail(3)]).drop_duplicates()
-        if not _db_top.empty:
-            _db_top_disp = pd.DataFrame({
-                "Company":  _db_top["name"].values,
-                "Day %":    _db_top["day_change_pct"].map(lambda v: f"{v:+.2f}%"),
-                "Value":    _db_top["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-            })
-            st.dataframe(_db_top_disp, hide_index=True, width="stretch",
-                         height=len(_db_top_disp) * 35 + 38,
-                         column_config={
-                             "Day %": st.column_config.TextColumn("Day %"),
-                         })
-        else:
-            st.caption("No daily price data available.")
-
-    with _div_col:
-        st.subheader("Upcoming dividends")
-        if not _db_scr.empty and "exDividendDate" in _db_scr.columns:
-            _db_div_scr = _db_scr[_db_scr["Ticker"].isin(_db_tickers)].copy()
-            _db_div_scr["exDividendDate"] = pd.to_datetime(
-                _db_div_scr["exDividendDate"], errors="coerce")
-            _today = pd.Timestamp.today().normalize()
-            _db_upcoming = (
-                _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
-                  .sort_values("exDividendDate")
-                  .head(6)
-            )
-            if not _db_upcoming.empty:
-                _db_div_disp = pd.DataFrame({
-                    "Company":  _db_upcoming["Name"].values,
-                    "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d-%m-%Y"),
-                    "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
-                                  .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-                })
-                st.dataframe(_db_div_disp, hide_index=True, width="stretch",
-                             height=len(_db_div_disp) * 35 + 38)
-            else:
-                st.caption("No upcoming ex-dividend dates found.")
-        else:
-            st.caption("Screener data not loaded.")
-
-    st.divider()
-
-    # ── Row 5: Risk snapshot ──────────────────────────────────────────────────
-    st.subheader("Risk snapshot")
-    _db_risk_cache = _load_cache()
-    if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
-        try:
-            _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
-            _r1, _r2, _r3, _r4 = st.columns(4)
-            _r1.metric("Portfolio beta",   f"{_db_report.quant.portfolio_beta:.2f}",
-                       help="Sensitivity to broad market moves. >1 = more volatile than market.")
-            _r2.metric("Annual volatility",
-                       f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—",
-                       help="Annualised standard deviation of portfolio returns.")
-            _r3.metric("Risk score",       f"{_db_report.composite.total:.0f} / 100",
-                       help="Composite risk score — lower is safer. See Risk page for full breakdown.")
-            _r4.metric("Max drawdown",
-                       f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—",
-                       help="Largest peak-to-trough decline in the past 5 years.")
-            st.caption("→ [Full risk analysis](?page=risk&" + _tok_qs + ")")
-        except Exception:
-            st.caption("Risk data not available — visit the Risk page to compute it.")
+        st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — VALUE SCREENER
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ── Shared cell formatters ──────────────────────────────────────────────────
+_f_pct1 = lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"
+_f_pct2 = lambda v: f"{v*100:.2f}%"  if pd.notna(v) else "—"
+_f_f1   = lambda v: f"{v:.1f}"       if pd.notna(v) else "—"
+_f_f2   = lambda v: f"{v:.2f}"       if pd.notna(v) else "—"
+_f_mult = lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"
+_f_str  = lambda v: v                if pd.notna(v) else "—"
 
 if _page == "screener":
     _settings = load_shared_settings()
@@ -1185,10 +1500,48 @@ if _page == "screener":
 
     watchlist = load_watchlist()
 
+    # ── Portfolio fit context (sector/country/beta weights from current portfolio) ──
+    _scr_pf_context: dict | None = None
+    _scr_pf = load_portfolio()
+    if _scr_pf is not None and not _scr_pf.empty:
+        _all_scr = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
+        _lu_cols = ["Ticker"] + [c for c in ("sector", "country", "beta", "Price") if c in _all_scr.columns]
+        _all_scr_lu = (
+            _all_scr[_lu_cols]
+            .drop_duplicates("Ticker")
+            .rename(columns={"Ticker": "ticker"})
+        )
+        _pf_m = _scr_pf.merge(_all_scr_lu, on="ticker", how="left")
+        _price_col = "Price" if "Price" in _pf_m.columns else None
+        if _price_col:
+            _pf_m["_val"] = (
+                pd.to_numeric(_pf_m["shares"], errors="coerce") *
+                pd.to_numeric(_pf_m[_price_col], errors="coerce")
+            )
+        else:
+            _pf_m["_val"] = pd.to_numeric(_pf_m["shares"], errors="coerce")
+        _pf_total = _pf_m["_val"].sum()
+        if _pf_total > 0:
+            _scr_pf_context = {
+                "total": _pf_total,
+                "sector_weights": (
+                    _pf_m[_pf_m["sector"].notna()].groupby("sector")["_val"].sum() / _pf_total
+                    if "sector" in _pf_m.columns else pd.Series(dtype=float)
+                ),
+                "country_weights": (
+                    _pf_m[_pf_m["country"].notna()].groupby("country")["_val"].sum() / _pf_total
+                    if "country" in _pf_m.columns else pd.Series(dtype=float)
+                ),
+                "portfolio_beta": (
+                    (pd.to_numeric(_pf_m["beta"], errors="coerce") * _pf_m["_val"]).sum() / _pf_total
+                    if "beta" in _pf_m.columns else float("nan")
+                ),
+            }
+
     def _fmt_mos(v):
-        if pd.isna(v):
-            return "—"
-        return f"{v:+.1f}%"
+        return "—" if pd.isna(v) else f"{v:+.1f}%"
+
+
 
     # ── Column groups ─────────────────────────────────────────────────────────
     # Core columns always shown; extra groups toggled via multiselect
@@ -1198,7 +1551,7 @@ if _page == "screener":
         "Ticker":      ("Ticker",     lambda v: v),
         "Price":             ("Price",           _fmt_eur),
         "Analyst Target":   ("targetMeanPrice", _fmt_eur),
-        "💎 UV":            ("fair_value",      _fmt_eur),
+        "UV":            ("fair_value",      _fmt_eur),
         "MoS %":  ("MoS %", _fmt_mos),
         "TER %":  ("TER %", lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
         "Score":  (None,    None),   # built row-by-row below from Decision + Value Score
@@ -1212,40 +1565,40 @@ if _page == "screener":
             "DDM (1-stage)": ("ddm",            _fmt_eur),
             "DDM (2-stage)": ("ddm_multistage", _fmt_eur),
         },
-        "Risk & size": {
-            "Risk Score":    ("Risk Score",      lambda v: v),
-            "Mkt Cap":       ("Market Cap",      _fmt_mcap),
-            "Beta":          ("beta",            lambda v: f"{v:.2f}"      if pd.notna(v) else "—"),
-            "Debt/Equity":   ("debtToEquity",    lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
+        "Risk": {
+            "Risk Score":  ("Risk Score",        lambda v: v),
+            "Beta":        ("beta",              _f_f2),
+            "Debt/Equity": ("debtToEquity",      _f_f1),
+            "Mkt Cap":     ("Market Cap",        _fmt_mcap),
         },
         "Multiples": {
-            "P/E":           ("trailingPE",          lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
-            "P/B":           ("priceToBook",          lambda v: f"{v:.2f}"      if pd.notna(v) else "—"),
-            "EV/EBITDA":     ("enterpriseToEbitda",   lambda v: f"{v:.1f}"      if pd.notna(v) else "—"),
+            "P/E":       ("trailingPE",        _f_f1),
+            "P/B":       ("priceToBook",        _f_f2),
+            "EV/EBITDA": ("enterpriseToEbitda", _f_f1),
         },
         "Quality": {
-            "ROE %":         ("returnOnEquity",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-            "ROA %":         ("returnOnAssets",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-            "Op Margin %":   ("operatingMargins", lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-            "FCF Yield %":   ("fcfYield",         lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "ROE %":       ("returnOnEquity",   _f_pct1),
+            "ROA %":       ("returnOnAssets",   _f_pct1),
+            "Op Margin %": ("operatingMargins", _f_pct1),
+            "FCF Yield %": ("fcfYield",         _f_pct1),
         },
         "Growth": {
-            "Rev Growth %":  ("revenueGrowth",    lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-            "EPS Growth %":  ("earningsGrowth",   lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+            "Rev Growth %": ("revenueGrowth",  _f_pct1),
+            "EPS Growth %": ("earningsGrowth", _f_pct1),
         },
         "Dividends": {
-            "Div Yield":     ("dividendYield",          lambda v: f"{v*100:.2f}%"  if pd.notna(v) else "—"),
-            "5yr Avg Yield": ("fiveYearAvgDividendYield",lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-            "Payout Ratio":  ("payoutRatio",            lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"),
-            "Cash Payout":   ("cashPayoutRatio",        lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"),
-            "Div Coverage":  ("dividendCoverage",       lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"),
-            "Div Flag":      ("Div Flag",               _fmt_div_flag),
-            "Ex-Div Date":   ("exDividendDate",         lambda v: v if pd.notna(v) else "—"),
-            "Div Date":      ("dividendDate",           lambda v: v if pd.notna(v) else "—"),
+            "Div Yield":     ("dividendYield",            _f_pct2),
+            "5yr Avg Yield": ("fiveYearAvgDividendYield", _f_pct2),
+            "Payout Ratio":  ("payoutRatio",              _f_pct1),
+            "Cash Payout":   ("cashPayoutRatio",          _f_pct1),
+            "Div Coverage":  ("dividendCoverage",         _f_mult),
+            "Div Flag":      ("Div Flag",                 _fmt_div_flag),
+            "Ex-Div Date":   ("exDividendDate",           _f_str),
+            "Div Date":      ("dividendDate",             _f_str),
         },
-        "Geography & Sector": {
-            "Sector":  ("sector",  lambda v: v if pd.notna(v) else "—"),
-            "Country": ("country", lambda v: v if pd.notna(v) else "—"),
+        "Geography": {
+            "Sector":  ("sector",  _f_str),
+            "Country": ("country", _f_str),
         },
     }
 
@@ -1256,12 +1609,12 @@ if _page == "screener":
         "Company":       st.column_config.TextColumn(    "Company",       width=180, pinned=True, help=_ch("Company")),
         "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
         "Price":         st.column_config.TextColumn(    "Price",         width=80,  help=_ch("Price")),
-        "💎 UV":         st.column_config.TextColumn(    "💎 UV",         width=90,  help=_ch("💎 UV")),
+        "UV":         st.column_config.TextColumn(    "Fair Value",  width=90,  help=_ch("UV")),
         "Analyst Target":st.column_config.TextColumn(    "Analyst Target",width=110, help=_ch("Analyst Target")),
         "MoS %":         st.column_config.TextColumn(    "MoS %",         width=75,  help=_ch("MoS %")),
         "TER %":         st.column_config.TextColumn(    "TER %",         width=75,  help=_ch("TER %")),
         "Score":         st.column_config.TextColumn(     "Score",         width=110,
-                             help="🟢 Strong Buy (>70)  ·  🟡 Monitor (40–70)  ·  🔴 Avoid (<40)"),
+                             help="BUY (>70) · MONITOR (40–70) · AVOID (<40)"),
         "Risk Score":    st.column_config.ProgressColumn("Risk Score",    width=110,
                              min_value=0, max_value=10,  format="%.1f",   help=_ch("Risk Score")),
         "Mkt Cap":       st.column_config.TextColumn(    "Mkt Cap",       width=80,  help=_ch("Mkt Cap")),
@@ -1270,8 +1623,8 @@ if _page == "screener":
         "P/E":           st.column_config.TextColumn(    "P/E",           width=60,  help=_ch("P/E")),
         "P/B":           st.column_config.TextColumn(    "P/B",           width=60,  help=_ch("P/B")),
         "EV/EBITDA":     st.column_config.TextColumn(    "EV/EBITDA",     width=90,  help=_ch("EV/EBITDA")),
-        "Sector":        st.column_config.TextColumn("Sector",     width=140),
-        "Country":       st.column_config.TextColumn("Country",    width=120),
+        "Sector":        st.column_config.TextColumn("Sector",      width=150),
+        "Country":       st.column_config.TextColumn("Country",     width=120),
         "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105),
         "Div Date":      st.column_config.TextColumn("Div Date",    width=95),
         **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
@@ -1325,12 +1678,12 @@ if _page == "screener":
 
         with _vc:
             _active = st.session_state.get(_grp_key, [])
-            _view_label = f"⊞ View ({len(_active)})" if _active else "⊞ View"
+            _view_label = f"View ({len(_active)})" if _active else "View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
 
         with _bc:
-            if st.button("🛒 Buy", key=f"btn_buy_{key_suffix}"):
+            if st.button("Buy", key=f"btn_buy_{key_suffix}"):
                 _dlg_buy_screener()
 
         with _sc:
@@ -1352,14 +1705,19 @@ if _page == "screener":
 
         selected_groups = st.session_state.get(_grp_key, [])
 
-        # Score column: emoji colour prefix + value
-        _score_emoji = {"Strong Buy": "🟢", "Monitor": "🟡", "Avoid": "🔴"}
+        # Column group discoverability hint
+        _avail_groups = [g for g in EXTRA_GROUPS if g not in selected_groups]
+        if _avail_groups:
+            st.caption("Additional columns: " + " · ".join(_avail_groups))
+
+        # Score column: text signal prefix + value (no emoji per brand guidelines)
+        _score_prefix = {"Strong Buy": "BUY", "Monitor": "MON", "Avoid": "AVD"}
         def _fmt_score(row):
             s = row.get("Value Score")
             if pd.isna(s):
                 return "—"
-            e = _score_emoji.get(row.get("Decision", ""), "")
-            return f"{e} {s:.1f}" if e else f"{s:.1f}"
+            p = _score_prefix.get(row.get("Decision", ""), "")
+            return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
         # Build the display DataFrame from core cols + selected extras
         display_data = {"★": tab_df["Ticker"].isin(watchlist)}
@@ -1439,7 +1797,7 @@ if _page == "screener":
                                           value=round(_price * shares, 2), format="%.2f")
         _, _save_btn = st.columns([3, 1])
         with _save_btn:
-            _do_save = st.button("💾 Save", key="dlg_buy_scr_save", width="stretch")
+            _do_save = st.button("Save", key="dlg_buy_scr_save", width="stretch")
         if _do_save and shares > 0 and total_price > 0:
             name = _scr_t_labels.get(ticker, ticker).split("  (")[0]
             add_position({
@@ -1471,30 +1829,30 @@ if _page == "screener":
 
     # Exchange tab order mirrors ALL_EXCHANGES; map key → (label, render_key, dataframe)
     _EXCHANGE_TAB_META = [
-        ("brussels",  "Euronext Brussels",  "br",  df),
-        ("amsterdam", "Euronext Amsterdam", "ams", df_ams),
-        ("paris",     "Euronext Paris",     "par", df_par),
-        ("milan",     "Borsa Italiana",     "mil", df_mil),
-        ("frankfurt", "Deutsche Börse",     "etr", df_etr),
-        ("swiss",     "SIX Swiss Exchange", "swx", df_swx),
+        ("brussels",  "Brussels",  "br",  df),
+        ("amsterdam", "Amsterdam", "ams", df_ams),
+        ("paris",     "Paris",     "par", df_par),
+        ("milan",     "Milan",     "mil", df_mil),
+        ("frankfurt", "Frankfurt", "etr", df_etr),
+        ("swiss",     "Swiss",     "swx", df_swx),
     ]
     _active_tabs = [(key, label, rkey, data)
                     for key, label, rkey, data in _EXCHANGE_TAB_META
                     if key in set(_enabled)]
-    _tab_labels  = ["★ Watchlist"] + [label for _, label, _, _ in _active_tabs]
+    _tab_labels  = ["Watchlist"] + [label for _, label, _, _ in _active_tabs]
     tab_watchlist, *_exchange_tabs = st.tabs(_tab_labels)
 
     _SCORE_OPTIONS = [
-        "🟢 Strong Buy (> 70)",
-        "🟡 Monitor (40–70)",
-        "🔴 Avoid (< 40)",
+        "BUY  (> 70)",
+        "MONITOR  (40–70)",
+        "AVOID  (< 40)",
         "All scores",
     ]
 
     _DECISION_MAP = {
-        "🟢 Strong Buy (> 70)": "Strong Buy",
-        "🟡 Monitor (40–70)":   "Monitor",
-        "🔴 Avoid (< 40)":      "Avoid",
+        "BUY  (> 70)": "Strong Buy",
+        "MONITOR  (40–70)":   "Monitor",
+        "AVOID  (< 40)":      "Avoid",
     }
 
     def _apply_score_filter(df_in: pd.DataFrame, sel: str) -> pd.DataFrame:
@@ -1507,7 +1865,7 @@ if _page == "screener":
         _wl_tickers = watchlist
         _wl_col, _wl_refresh = st.columns([9, 1])
         with _wl_refresh:
-            if st.button("🔄 refresh", type="tertiary", key="wl_refresh"):
+            if st.button("Refresh", type="tertiary", key="wl_refresh"):
                 _bust_cache()
         if not _wl_tickers:
             with _wl_col:
@@ -1525,6 +1883,200 @@ if _page == "screener":
                 save_watchlist(still_watched)
                 st.rerun()
 
+    def _render_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
+        """Render a branded detail card for a single screener stock."""
+        decision = str(row.get("Decision", ""))
+        score    = row.get("Value Score")
+        badge_class = {
+            "Strong Buy": "uv-badge-buy",
+            "Monitor":    "uv-badge-monitor",
+            "Avoid":      "uv-badge-avoid",
+        }.get(decision, "uv-badge-avoid")
+        badge_label = {
+            "Strong Buy": "BUY",
+            "Monitor":    "MONITOR",
+            "Avoid":      "AVOID",
+        }.get(decision, decision.upper() if decision else "—")
+        if row.get("veto"):
+            badge_class, badge_label = "uv-badge-veto", "VETO"
+
+        score_str = f"{score:.1f} / 100" if pd.notna(score) else "—"
+
+        def _fv(field, fmt=None):
+            v = row.get(field)
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                return "—"
+            return fmt(v) if fmt else str(v)
+
+        price_str = _fv("Price", _fmt_eur)
+        uv_str    = _fv("fair_value", _fmt_eur)
+        mos_str   = _fv("MoS %", lambda v: f"{v:+.1f}%")
+        ter_str   = _fv("TER %", lambda v: f"{v:+.1f}%")
+
+        st.markdown(f"""
+<div class="uv-detail-card">
+  <div class="uv-detail-header">
+    <span class="uv-detail-company">{row.get('Name','—')}</span>
+    <span class="uv-detail-ticker">{row.get('Ticker','')}</span>
+    <span class="uv-badge {badge_class}">{badge_label}</span>
+  </div>
+  <div class="uv-metric-grid">
+    <div class="uv-metric-cell">
+      <div class="uv-metric-label">Price</div>
+      <div class="uv-metric-value">{price_str}</div>
+    </div>
+    <div class="uv-metric-cell">
+      <div class="uv-metric-label">Fair value</div>
+      <div class="uv-metric-value">{uv_str}</div>
+    </div>
+    <div class="uv-metric-cell">
+      <div class="uv-metric-label">Margin of safety</div>
+      <div class="uv-metric-value">{mos_str}</div>
+    </div>
+    <div class="uv-metric-cell">
+      <div class="uv-metric-label">Score</div>
+      <div class="uv-metric-value">{score_str}</div>
+    </div>
+  </div>
+""", unsafe_allow_html=True)
+
+        _dc1, _dc2 = st.columns(2)
+
+        with _dc1:
+            st.markdown('<div class="uv-section-label">Valuation models</div>', unsafe_allow_html=True)
+            models = [
+                ("Graham number",   _fv("graham_number",  _fmt_eur)),
+                ("PE fair value",   _fv("pe_fair_value",  _fmt_eur)),
+                ("EPV",             _fv("epv",            _fmt_eur)),
+                ("DDM (1-stage)",   _fv("ddm",            _fmt_eur)),
+                ("DDM (2-stage)",   _fv("ddm_multistage", _fmt_eur)),
+                ("Analyst target",  _fv("targetMeanPrice", _fmt_eur)),
+            ]
+            rows_html = "".join(
+                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+                f'<span class="uv-model-value">{val}</span></div>'
+                for lbl, val in models
+            )
+            st.markdown(rows_html, unsafe_allow_html=True)
+
+            st.markdown('<div class="uv-section-label">Dividends</div>', unsafe_allow_html=True)
+            divs = [
+                ("Yield",        _fv("dividendYield",   lambda v: f"{v*100:.2f}%")),
+                ("Payout ratio", _fv("payoutRatio",     lambda v: f"{v*100:.1f}%")),
+                ("Coverage",     _fv("dividendCoverage",lambda v: f"{v:.2f}×")),
+                ("5yr avg yield",_fv("fiveYearAvgDividendYield", lambda v: f"{v*100:.2f}%")),
+            ]
+            divs_html = "".join(
+                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+                f'<span class="uv-model-value">{val}</span></div>'
+                for lbl, val in divs
+            )
+            st.markdown(divs_html, unsafe_allow_html=True)
+
+        with _dc2:
+            st.markdown('<div class="uv-section-label">Quality & multiples</div>', unsafe_allow_html=True)
+            quality = [
+                ("P/E",           _fv("trailingPE",         lambda v: f"{v:.1f}×")),
+                ("P/B",           _fv("priceToBook",         lambda v: f"{v:.2f}×")),
+                ("EV/EBITDA",     _fv("enterpriseToEbitda",  lambda v: f"{v:.1f}×")),
+                ("ROE",           _fv("returnOnEquity",      lambda v: f"{v*100:.1f}%")),
+                ("Op margin",     _fv("operatingMargins",    lambda v: f"{v*100:.1f}%")),
+                ("FCF yield",     _fv("fcfYield",            lambda v: f"{v*100:.1f}%")),
+            ]
+            qual_html = "".join(
+                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+                f'<span class="uv-model-value">{val}</span></div>'
+                for lbl, val in quality
+            )
+            st.markdown(qual_html, unsafe_allow_html=True)
+
+            st.markdown('<div class="uv-section-label">Risk & size</div>', unsafe_allow_html=True)
+            risk_rows = [
+                ("Beta",       _fv("beta",          lambda v: f"{v:.2f}")),
+                ("Debt/equity",_fv("debtToEquity",  lambda v: f"{v:.1f}")),
+                ("Mkt cap",    _fv("Market Cap",     _fmt_mcap)),
+                ("Risk score", _fv("Risk Score",     lambda v: f"{v:.1f} / 10")),
+            ]
+            risk_html = "".join(
+                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+                f'<span class="uv-model-value">{val}</span></div>'
+                for lbl, val in risk_rows
+            )
+            st.markdown(risk_html, unsafe_allow_html=True)
+
+        # ── Portfolio fit block ───────────────────────────────────────────────
+        if pf_context and pf_context.get("total", 0) > 0:
+            _pf_sector  = row.get("sector")
+            _pf_country = row.get("country")
+            _pf_beta    = row.get("beta")
+            _sw = pf_context["sector_weights"]
+            _cw = pf_context["country_weights"]
+            _pb = pf_context["portfolio_beta"]
+
+            def _fit_badge(label: str, detail: str, severity: str) -> str:
+                colors = {
+                    "ok":      ("#0F6E56", "#E8F5F0"),
+                    "caution": ("#854F0B", "#FDF0E8"),
+                    "warn":    ("#A32D2D", "#FCEAEA"),
+                    "neutral": ("#3a4a60", "#1e2d45"),
+                }
+                tc, bg = colors.get(severity, colors["neutral"])
+                return (
+                    f'<div class="uv-model-row">'
+                    f'<span class="uv-model-label">{label}</span>'
+                    f'<span style="display:flex;align-items:center;gap:6px;">'
+                    f'<span style="font-family:monospace;font-size:0.82rem;color:#F5F7FA;">{detail}</span>'
+                    f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
+                    f'background:{bg};color:{tc};letter-spacing:0.05em;">'
+                    f'{"OK" if severity=="ok" else "HIGH" if severity=="warn" else "NOTE" if severity=="caution" else "—"}'
+                    f'</span></span></div>'
+                )
+
+            # Sector
+            _sec_w = float(_sw.get(_pf_sector, 0)) if _pf_sector and _pf_sector in _sw.index else 0.0
+            if not _pf_sector or _pf_sector not in _sw.index:
+                _sec_html = _fit_badge("Sector", _pf_sector or "Unknown", "neutral")
+            elif _sec_w > 0.30:
+                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf — already high)", "warn")
+            elif _sec_w > 0.15:
+                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf)", "caution")
+            else:
+                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf)", "ok")
+
+            # Country
+            _cnt_w = float(_cw.get(_pf_country, 0)) if _pf_country and _pf_country in _cw.index else 0.0
+            if not _pf_country or _pf_country not in _cw.index:
+                _cnt_html = _fit_badge("Country", _pf_country or "Unknown", "neutral")
+            elif _cnt_w > 0.50:
+                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf — already high)", "warn")
+            elif _cnt_w > 0.30:
+                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf)", "caution")
+            else:
+                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf)", "ok")
+
+            # Beta vs portfolio beta
+            try:
+                _sb = float(_pf_beta)
+                _beta_delta = _sb - _pb
+                if abs(_beta_delta) < 0.05:
+                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — neutral", "neutral")
+                elif _beta_delta > 0.2:
+                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — raises market risk", "warn")
+                elif _beta_delta > 0:
+                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — slight increase", "caution")
+                else:
+                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — reduces market risk", "ok")
+            except (TypeError, ValueError):
+                _beta_html = _fit_badge("Beta vs portfolio", "—", "neutral")
+
+            st.markdown(
+                f'<div class="uv-section-label" style="margin-top:0.75rem;">Portfolio fit</div>'
+                + _sec_html + _cnt_html + _beta_html,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
         valued      = exchange_df["fair_value"].notna()
@@ -1541,12 +2093,31 @@ if _page == "screener":
             show_all = st.toggle("unvalued", value=False,
                                  key=f"{key}_show_unvalued") if n_unvalued > 0 else False
         with refresh_col:
-            if st.button("🔄 refresh", type="tertiary", key=f"{key}_refresh"):
+            if st.button("Refresh", type="tertiary", key=f"{key}_refresh"):
                 _bust_cache()
 
         tab_df = exchange_df if show_all else exchange_df[valued].reset_index(drop=True)
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
+
+        # ── Stock detail panel (above table) ──────────────────────────────────
+        if not tab_df.empty:
+            _detail_opts = ["— select a stock —"] + [
+                f"{row['Name']}  ({row['Ticker']})"
+                for _, row in tab_df.iterrows()
+            ]
+            _sel = st.selectbox(
+                "Stock detail",
+                _detail_opts,
+                key=f"{key}_detail_sel",
+                label_visibility="collapsed",
+            )
+            if _sel != _detail_opts[0]:
+                _sel_ticker = _sel.split("(")[-1].rstrip(")")
+                _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
+                if not _sel_rows.empty:
+                    _render_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
+
         edited, n_shown = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
@@ -1618,7 +2189,7 @@ if _page == "portfolio":
                                           value=round(_price * shares, 2), format="%.2f")
         _, _save_btn = st.columns([3, 1])
         with _save_btn:
-            _do_save = st.button("💾 Save", key="dlg_add_save", width="stretch")
+            _do_save = st.button("Save", key="dlg_add_save", width="stretch")
         if _do_save and shares > 0 and total_price > 0:
             name = _ticker_labels.get(ticker, ticker).split("  (")[0]
             add_position({
@@ -1641,7 +2212,7 @@ if _page == "portfolio":
         # ── Empty portfolio — show Add button only ────────────────────────────
         sub_positions, sub_sold, sub_dividends = st.tabs(["Positions", "Realised", "Dividends"])
         with sub_positions:
-            if st.button("🛒 Buy", key="btn_add_pos_empty"):
+            if st.button("Buy", key="btn_add_pos_empty"):
                 _dlg_add_position()
             st.info("Your portfolio is empty. Click 🛒 Buy to add your first position.")
         with sub_dividends:
@@ -1722,7 +2293,7 @@ if _page == "portfolio":
     with sub_positions:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Invested",      f"€{total_invested:,.0f}")
-        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"€{price_gain:+,.0f} ({price_gain_pct:+.1f}%)")
+        c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"{price_gain_pct:+.1f}% (€{price_gain:+,.0f})")
         c3.metric("Dividends",     f"€{total_dividends:,.0f}")
         c4.metric("Total return",  f"€{total_return:,.0f}",   delta=f"{total_return_pct:+.1f}%")
         st.divider()
@@ -1772,9 +2343,9 @@ if _page == "portfolio":
             _del_note, _save_col = st.columns([3, 1])
             with _del_note:
                 if n_selected:
-                    st.caption(f"🗑️ {n_selected} selected for deletion")
+                    st.caption(f"{n_selected} selected for deletion")
             with _save_col:
-                if st.button("💾 Save", key="dlg_edit_save", width="stretch"):
+                if st.button("Save", key="dlg_edit_save", width="stretch"):
                     for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
                         new_shares = max(1, int(row["Stocks"]))
@@ -1794,49 +2365,53 @@ if _page == "portfolio":
         # ── Column groups (same groups as screener) ───────────────────────────
         _POS_EXTRA_GROUPS = {
             "Valuation": {
-                "Analyst Target": pf["analyst_target"].map(_fmt_eur),
-                "💎 UV":          pf["fair_value"].map(_fmt_eur),
-                "UV Upside %":    pf["fv_upside_pct"],
+                "Analyst Target":      pf["analyst_target"].map(_fmt_eur),
+                "Fair Value":          pf["fair_value"].map(_fmt_eur),
+                "Fair Value Upside %": pf["fv_upside_pct"],
             },
             "Valuation models": {
-                "Graham #":       _scr_col("graham_number").map(_fmt_eur),
-                "PE Fair Val":    _scr_col("pe_fair_value").map(_fmt_eur),
-                "EPV":            _scr_col("epv").map(_fmt_eur),
-                "DDM (1-stage)":  _scr_col("ddm").map(_fmt_eur),
-                "DDM (2-stage)":  _scr_col("ddm_multistage").map(_fmt_eur),
+                "Graham #":      _scr_col("graham_number").map(_fmt_eur),
+                "PE Fair Val":   _scr_col("pe_fair_value").map(_fmt_eur),
+                "EPV":           _scr_col("epv").map(_fmt_eur),
+                "DDM (1-stage)": _scr_col("ddm").map(_fmt_eur),
+                "DDM (2-stage)": _scr_col("ddm_multistage").map(_fmt_eur),
             },
-            "Risk & size": {
+            "Risk": {
                 "Risk Score":  _scr_col("Risk Score"),
+                "Beta":        _scr_col("beta").map(_f_f2),
+                "Debt/Equity": _scr_col("debtToEquity").map(_f_f1),
                 "Mkt Cap":     _scr_col("Market Cap").map(_fmt_mcap),
-                "Beta":        _scr_col("beta").map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-                "Debt/Equity": _scr_col("debtToEquity").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
             },
             "Multiples": {
-                "P/E":       _scr_col("trailingPE").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
-                "P/B":       _scr_col("priceToBook").map(lambda v: f"{v:.2f}" if pd.notna(v) else "—"),
-                "EV/EBITDA": _scr_col("enterpriseToEbitda").map(lambda v: f"{v:.1f}" if pd.notna(v) else "—"),
+                "P/E":       _scr_col("trailingPE").map(_f_f1),
+                "P/B":       _scr_col("priceToBook").map(_f_f2),
+                "EV/EBITDA": _scr_col("enterpriseToEbitda").map(_f_f1),
             },
             "Quality": {
-                "ROE %":       _scr_col("returnOnEquity").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "ROA %":       _scr_col("returnOnAssets").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "Op Margin %": _scr_col("operatingMargins").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "FCF Yield %": _scr_col("fcfYield").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "ROE %":       _scr_col("returnOnEquity").map(_f_pct1),
+                "ROA %":       _scr_col("returnOnAssets").map(_f_pct1),
+                "Op Margin %": _scr_col("operatingMargins").map(_f_pct1),
+                "FCF Yield %": _scr_col("fcfYield").map(_f_pct1),
             },
             "Growth": {
-                "Rev Growth %": _scr_col("revenueGrowth").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "EPS Growth %": _scr_col("earningsGrowth").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
+                "Rev Growth %": _scr_col("revenueGrowth").map(_f_pct1),
+                "EPS Growth %": _scr_col("earningsGrowth").map(_f_pct1),
             },
             "Dividends": {
-                "Div/Share":     pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
+                "Div/Share":       pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
                 "Expected Annual": pf["expected_annual"].map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-                "Div Yield":     _scr_col("dividendYield").map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-                "5yr Avg Yield": _scr_col("fiveYearAvgDividendYield").map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-                "Payout Ratio":  _scr_col("payoutRatio").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "Cash Payout":   _scr_col("cashPayoutRatio").map(lambda v: f"{v*100:.1f}%" if pd.notna(v) else "—"),
-                "Div Coverage":  _scr_col("dividendCoverage").map(lambda v: f"{v:.2f}×" if pd.notna(v) else "—"),
-                "Div Flag":      _scr_col("Div Flag").map(_fmt_div_flag),
+                "Div Yield":       _scr_col("dividendYield").map(_f_pct2),
+                "5yr Avg Yield":   _scr_col("fiveYearAvgDividendYield").map(_f_pct2),
+                "Payout Ratio":    _scr_col("payoutRatio").map(_f_pct1),
+                "Cash Payout":     _scr_col("cashPayoutRatio").map(_f_pct1),
+                "Div Coverage":    _scr_col("dividendCoverage").map(_f_mult),
+                "Div Flag":        _scr_col("Div Flag").map(_fmt_div_flag),
             },
-            "Score & date": {
+            "Geography": {
+                "Sector":  _scr_col("sector").map(_f_str),
+                "Country": _scr_col("country").map(_f_str),
+            },
+            "Score": {
                 "Value Score": pf["value_score"],
                 "Buy Date":    pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
             },
@@ -1880,7 +2455,7 @@ if _page == "portfolio":
                 _proceeds_raw = st.text_input("Proceeds (€)", value=_proceeds_def, key="dlg_sell_proceeds")
             _, _save_col = st.columns([3, 1])
             with _save_col:
-                _do_save = st.button("💾 Save", key="dlg_sell_save", width="stretch")
+                _do_save = st.button("Save", key="dlg_sell_save", width="stretch")
             try:
                 _shares   = max(1, int(_shares_raw.strip()))
                 _proceeds = float(_proceeds_raw.strip().replace(",", "."))
@@ -1899,25 +2474,30 @@ if _page == "portfolio":
         _c1, _c2, _c3, _c4, _ = st.columns([1, 1, 1, 1, 5], gap="small")
         with _c1:
             _active_groups = st.session_state.get("pos_col_groups", [])
-            _col_label = f"⊞ View ({len(_active_groups)})" if _active_groups else "⊞ View"
+            _col_label = f"View ({len(_active_groups)})" if _active_groups else "View"
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
         with _c2:
-            if st.button("🛒 Buy", key="btn_add_pos"):
+            if st.button("Buy", key="btn_add_pos"):
                 _dlg_add_position()
         with _c3:
-            if st.button("✏️ Edit", key="btn_edit_pos"):
+            if st.button("Edit", key="btn_edit_pos"):
                 _dlg_edit_position()
         with _c4:
-            if st.button("💰 Sell", key="btn_sell_pos"):
+            if st.button("Sell", key="btn_sell_pos"):
                 _dlg_sell_position()
 
         _pos_groups = st.session_state.get("pos_col_groups", [])
+
+        # Signal column from screener Decision field
+        _decision_map = _scr["Decision"].to_dict() if "Decision" in _scr.columns else {}
+        _signal_labels = {"Strong Buy": "BUY", "Monitor": "MONITOR", "Avoid": "AVOID"}
 
         # Build core positions DataFrame
         pos_data = {
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
+            "Signal":         pf["ticker"].map(lambda t: _signal_labels.get(_decision_map.get(t, ""), "—")),
             "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
             "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
             "Live Price":     pf["live_price"].map(_fmt_eur),
@@ -1931,7 +2511,7 @@ if _page == "portfolio":
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
-        _core_cols = {"Company", "Ticker", "Shares", "Buy Date", "Live Price",
+        _core_cols = {"Company", "Ticker", "Signal", "Shares", "Buy Date", "Live Price",
                       "Invested", "Current", "Price Gain", "Dividend", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
@@ -1950,6 +2530,8 @@ if _page == "portfolio":
                                   help="Company name"),
             "Ticker":         st.column_config.TextColumn("Ticker",
                                   help="Exchange ticker symbol"),
+            "Signal":         st.column_config.TextColumn("Signal",          width=90,
+                                  help="Current fair value signal for this holding: BUY · MONITOR · AVOID"),
             "Shares":         st.column_config.TextColumn("Shares",
                                   help="Number of shares held"),
             "Buy Date":       st.column_config.TextColumn("Buy Date",
@@ -1968,8 +2550,8 @@ if _page == "portfolio":
                                   help="Price appreciation since purchase: (current value − invested) / invested"),
             "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%",
                                   help="Total return including dividends: (price gain + dividends) / invested"),
-            "UV Upside %":    st.column_config.NumberColumn("UV Upside %",    format="%+.1f%%",
-                                  help="Upside to the UV fair value estimate: (fair value − live price) / live price"),
+            "Fair Value Upside %": st.column_config.NumberColumn("Fair Value Upside %", format="%+.1f%%",
+                                  help="Upside to the fair value estimate: (fair value − live price) / live price"),
             "Analyst Target": st.column_config.TextColumn("Analyst Target",
                                   help="Mean analyst consensus price target"),
             "Upside %":       st.column_config.NumberColumn("Upside %",       format="%+.1f%%",
@@ -1979,9 +2561,9 @@ if _page == "portfolio":
             "Div/Yr":         st.column_config.TextColumn("Div/Yr",
                                   help="Expected annual dividend income from this position (forward rate × shares)"),
             "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f",
-                                  help="UV composite score 0–100. 🟢 Strong Buy >70 · 🟡 Monitor 40–70 · 🔴 Avoid <40"),
+                                  help="Fair value composite score 0–100. BUY >70 · MONITOR 40–70 · AVOID <40"),
             "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f",
-                                  help="UV risk score 0–10 (displayed as 0–100). Higher = riskier. Aggregates financial health, earnings quality, beta, dividend risk, and liquidity."),
+                                  help="Fair value risk score 0–10 (displayed as 0–100). Higher = riskier. Aggregates financial health, earnings quality, beta, dividend risk, and liquidity."),
         }
 
         _row_h  = 35
@@ -1995,184 +2577,164 @@ if _page == "portfolio":
             height=_height,
         )
 
-        # ── 1. Gain / loss heatmap ───────────────────────────────────────────
-        st.divider()
-        _hm_mode_col, _ = st.columns([2, 5])
-        _hm_mode = _hm_mode_col.radio(
-            "Return",
-            options=["Total return", "Daily return"],
-            horizontal=True,
-            key="hm_mode",
-            label_visibility="collapsed",
-        )
-        st.subheader(f"Gain / loss heatmap — {_hm_mode.lower()}")
+        # ── Charts — tabbed to reduce scroll ─────────────────────────────────
+        _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
 
-        _hm_df = pf.dropna(subset=["name", "current_value"]).copy()
-        _hm_df["current_value"] = pd.to_numeric(_hm_df["current_value"], errors="coerce")
-
-        if _hm_mode == "Daily return":
-            _hm_df["_ret"] = pd.to_numeric(_hm_df["day_change_pct"], errors="coerce")
-            _ret_label = "Day %"
-        else:
-            _hm_df["_ret"] = pd.to_numeric(_hm_df["price_gain_pct"], errors="coerce")
-            _ret_label = "Total %"
-
-        _hm_df = _hm_df.dropna(subset=["_ret", "current_value"])
-
-        if not _hm_df.empty:
-            import plotly.graph_objects as go
-
-            _clamp  = 10.0  # colour saturates at ±10 %
-            _normed = _hm_df["_ret"].clip(-_clamp, _clamp) / _clamp  # –1 … +1
-
-            _colors = [
-                f"rgba({int(220*(1-v))},{int(220*((v+1)/2))},{int(60*(1-abs(v)))},0.85)"
-                for v in _normed
-            ]
-
-            _labels = [
-                f"<b>{row['name']}</b><br>{row['_ret']:+.2f}%"
-                for _, row in _hm_df.iterrows()
-            ]
-            _hover = [
-                (
-                    f"<b>{row['name']}</b><br>"
-                    f"{_ret_label}: {row['_ret']:+.2f}%<br>"
-                    f"Value: €{row['current_value']:,.0f}"
-                )
-                for _, row in _hm_df.iterrows()
-            ]
-
-            _hm_fig = go.Figure(go.Treemap(
-                labels=_hm_df["name"].tolist(),
-                parents=[""] * len(_hm_df),
-                values=_hm_df["current_value"].tolist(),
-                text=_labels,
-                customdata=_hover,
-                hovertemplate="%{customdata}<extra></extra>",
-                textinfo="text",
-                marker=dict(
-                    colors=_colors,
-                    line=dict(width=2, color="rgba(0,0,0,0.3)"),
-                ),
-            ))
-            _hm_fig.update_layout(
-                margin=dict(l=0, r=0, t=0, b=0),
-                paper_bgcolor="rgba(0,0,0,0)",
-                height=340,
+        with _ch_perf:
+            _hm_mode_col, _ = st.columns([2, 5])
+            _hm_mode = _hm_mode_col.radio(
+                "Return",
+                options=["Total return", "Daily return"],
+                horizontal=True,
+                key="hm_mode",
+                label_visibility="collapsed",
             )
-            st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
-        else:
-            st.caption("No return data available.")
+            st.subheader(f"Gain / loss — {_hm_mode.lower()}")
 
-        # ── 2. Portfolio value over time ──────────────────────────────────────
-        st.divider()
-        _vh_title_col, _vh_btn_col = st.columns([4, 1])
-        with _vh_title_col:
-            st.subheader("Portfolio value over time")
-        with _vh_btn_col:
-            if st.button("↺ Rebuild history", key="rebuild_value_history", help="Fetch full price history from Yahoo Finance"):
-                with st.spinner("Fetching price history…"):
-                    _sold_df = load_sold()
-                    _n = backfill_value_history(pf, _sold_df)
-                st.success(f"Built {_n} data points.")
-                st.rerun()
+            _hm_df = pf.dropna(subset=["name", "current_value"]).copy()
+            _hm_df["current_value"] = pd.to_numeric(_hm_df["current_value"], errors="coerce")
 
-        _vh = load_value_history()
-        if _vh is not None and not _vh.empty and len(_vh) >= 2:
-            import plotly.graph_objects as go
-            _vh["date"]     = pd.to_datetime(_vh["date"])
-            _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
-            _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
-            _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
-
-            _has_spx   = "benchmark_spx"   in _vh.columns and _vh["benchmark_spx"].notna().any()
-            _has_stoxx = "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any()
-
-            if _has_spx or _has_stoxx:
-                _cb_cols = st.columns([1, 1, 4])
-                _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=False, key="vh_show_spx",   disabled=not _has_spx)
-                _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=False, key="vh_show_stoxx", disabled=not _has_stoxx)
+            if _hm_mode == "Daily return":
+                _hm_df["_ret"] = pd.to_numeric(_hm_df["day_change_pct"], errors="coerce")
+                _ret_label = "Day %"
             else:
-                _show_spx = _show_stoxx = False
+                _hm_df["_ret"] = pd.to_numeric(_hm_df["price_gain_pct"], errors="coerce")
+                _ret_label = "Total %"
 
-            _vfig = go.Figure()
-            _vfig.add_trace(go.Scatter(
-                x=_vh["date"], y=_vh["value"],
-                mode="lines", name="Portfolio value",
-                line=dict(color="#4f8ef7", width=2),
-                fill="tozeroy",
-                fillcolor="rgba(79,142,247,0.08)",
-            ))
-            _vfig.add_trace(go.Scatter(
-                x=_vh["date"], y=_vh["invested"],
-                mode="lines", name="Amount invested",
-                line=dict(color="#aaaaaa", width=1.5, dash="dot"),
-            ))
-            if _has_spx and _show_spx:
-                _vfig.add_trace(go.Scatter(
-                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
-                    mode="lines", name="S&P 500 (same invested)",
-                    line=dict(color="#f4a026", width=1.5, dash="dash"),
+            _hm_df = _hm_df.dropna(subset=["_ret", "current_value"])
+
+            if not _hm_df.empty:
+                import plotly.graph_objects as go
+                _clamp  = 10.0
+                _normed = _hm_df["_ret"].clip(-_clamp, _clamp) / _clamp
+                _colors = [_hm_color(v) for v in _normed]
+                _labels = [f"<b>{row['name']}</b><br>{row['_ret']:+.2f}%" for _, row in _hm_df.iterrows()]
+                _hover  = [
+                    f"<b>{row['name']}</b><br>{_ret_label}: {row['_ret']:+.2f}%<br>Value: €{row['current_value']:,.0f}"
+                    for _, row in _hm_df.iterrows()
+                ]
+                _hm_fig = go.Figure(go.Treemap(
+                    labels=_hm_df["name"].tolist(),
+                    parents=[""] * len(_hm_df),
+                    values=_hm_df["current_value"].tolist(),
+                    text=_labels,
+                    customdata=_hover,
+                    hovertemplate="%{customdata}<extra></extra>",
+                    textinfo="text",
+                    textfont=dict(color="#F5F7FA", size=13),
+                    marker=dict(colors=_colors, line=dict(width=2, color="#0D1F3C")),
                 ))
-            if _has_stoxx and _show_stoxx:
+                _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
+                                      paper_bgcolor="rgba(0,0,0,0)", height=340)
+                st.plotly_chart(_hm_fig, width="stretch", config=_CHART_CONFIG)
+
+                st.subheader("P&L per position")
+                _static_bar(
+                    pf.dropna(subset=["price_gain", "name"])
+                      .groupby("name")["price_gain"].sum()
+                      .sort_values(ascending=False)
+                )
+            else:
+                st.caption("No return data available.")
+
+        with _ch_value:
+            _vh_title_col, _vh_btn_col = st.columns([4, 1])
+            with _vh_title_col:
+                st.subheader("Portfolio value over time")
+            with _vh_btn_col:
+                if st.button("Rebuild history", key="rebuild_value_history",
+                             help="Fetch full price history from Yahoo Finance"):
+                    with st.spinner("Fetching price history…"):
+                        _sold_df = load_sold()
+                        _n = backfill_value_history(pf, _sold_df)
+                    st.success(f"Built {_n} data points.")
+                    st.rerun()
+
+            _vh = load_value_history()
+            if _vh is not None and not _vh.empty and len(_vh) >= 2:
+                import plotly.graph_objects as go
+                _vh["date"]     = pd.to_datetime(_vh["date"])
+                _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
+                _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
+                _vh = _vh.dropna(subset=["date", "value"]).sort_values("date")
+
+                _has_spx   = "benchmark_spx"   in _vh.columns and _vh["benchmark_spx"].notna().any()
+                _has_stoxx = "benchmark_stoxx" in _vh.columns and _vh["benchmark_stoxx"].notna().any()
+
+                if _has_spx or _has_stoxx:
+                    _cb_cols = st.columns([1, 1, 4])
+                    _show_spx   = _cb_cols[0].checkbox("S&P 500",      value=False, key="vh_show_spx",   disabled=not _has_spx)
+                    _show_stoxx = _cb_cols[1].checkbox("Euro Stoxx 50", value=False, key="vh_show_stoxx", disabled=not _has_stoxx)
+                else:
+                    _show_spx = _show_stoxx = False
+
+                _vfig = go.Figure()
                 _vfig.add_trace(go.Scatter(
-                    x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
-                    mode="lines", name="Euro Stoxx 50 (same invested)",
-                    line=dict(color="#a855f7", width=1.5, dash="dash"),
+                    x=_vh["date"], y=_vh["value"],
+                    mode="lines", name="Portfolio value",
+                    line=dict(color="#1DD6A4", width=2),
+                    fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
                 ))
-            _vfig.update_layout(
-                margin=dict(l=0, r=0, t=32, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                yaxis=dict(tickprefix="€", tickformat=",.0f"),
-                xaxis=dict(showgrid=False),
-                hovermode="x unified",
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
-        else:
-            st.caption("No history yet — click **↺ Rebuild history** to fetch it from Yahoo Finance.")
+                _vfig.add_trace(go.Scatter(
+                    x=_vh["date"], y=_vh["invested"],
+                    mode="lines", name="Amount invested",
+                    line=dict(color="rgba(245,247,250,0.35)", width=1.5, dash="dot"),
+                ))
+                if _has_spx and _show_spx:
+                    _vfig.add_trace(go.Scatter(
+                        x=_vh["date"], y=pd.to_numeric(_vh["benchmark_spx"], errors="coerce"),
+                        mode="lines", name="S&P 500 (same invested)",
+                        line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                    ))
+                if _has_stoxx and _show_stoxx:
+                    _vfig.add_trace(go.Scatter(
+                        x=_vh["date"], y=pd.to_numeric(_vh["benchmark_stoxx"], errors="coerce"),
+                        mode="lines", name="Euro Stoxx 50 (same invested)",
+                        line=dict(color="#8BA888", width=1.5, dash="dash"),
+                    ))
+                _vfig.update_layout(
+                    margin=dict(l=0, r=0, t=32, b=0),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                    yaxis=dict(tickprefix="€", tickformat=",.0f"),
+                    xaxis=dict(showgrid=False),
+                    hovermode="x unified",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(_vfig, width="stretch", config=_CHART_CONFIG)
+            else:
+                st.caption("No history yet — click **Rebuild history** to fetch it from Yahoo Finance.")
 
-        # ── 3. Sector / country breakdown ─────────────────────────────────────
-        st.divider()
-        _bd_options = {"Sector": "sector", "Country": "country"}
-        _bd_by = st.radio(
-            "Breakdown",
-            options=list(_bd_options.keys()),
-            key="pos_breakdown_by",
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-        st.subheader(f"{_bd_by} breakdown")
-        _bd_field = _bd_options[_bd_by]
-        _bd_series = (
-            pf.dropna(subset=["current_value"])
-              .assign(**{_bd_field: pf[_bd_field].fillna("Unknown")})
-              .groupby(_bd_field)["current_value"]
-              .sum()
-              .sort_values(ascending=False)
-        )
-        _donut_chart(_bd_series)
+        with _ch_breakdown:
+            _bd_col1, _bd_col2 = st.columns(2)
+            with _bd_col1:
+                _bd_options = {"Sector": "sector", "Country": "country", "Position": "name"}
+                _bd_by = st.radio(
+                    "Breakdown",
+                    options=list(_bd_options.keys()),
+                    key="pos_breakdown_by",
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
+                st.subheader(f"{_bd_by} breakdown")
+                _bd_field = _bd_options[_bd_by]
+                _bd_series = (
+                    pf.dropna(subset=["current_value"])
+                      .assign(**{_bd_field: pf[_bd_field].fillna("Unknown")})
+                      .groupby(_bd_field)["current_value"]
+                      .sum()
+                      .sort_values(ascending=False)
+                )
+                _donut_chart(_bd_series)
 
-        # ── 3. Portfolio allocation + P&L per position ───────────────────────
-        st.divider()
-        ch1, ch2 = st.columns(2)
-        with ch1:
-            st.subheader("Portfolio allocation")
-            _static_bar(
-                pf.dropna(subset=["current_value", "name"])
-                  .groupby("name")["current_value"].sum()
-                  .sort_values(ascending=False),
-                color="#4f8ef7",
-            )
-        with ch2:
-            st.subheader("P&L per position")
-            _static_bar(
-                pf.dropna(subset=["price_gain", "name"])
-                  .groupby("name")["price_gain"].sum()
-                  .sort_values(ascending=False)
-            )
+            with _bd_col2:
+                st.subheader("Allocation by position")
+                _static_bar(
+                    pf.dropna(subset=["current_value", "name"])
+                      .groupby("name")["current_value"].sum()
+                      .sort_values(ascending=False),
+                    color="#1DD6A4",
+                )
 
     # ── Sub-tab: Dividends ────────────────────────────────────────────────────
     with sub_dividends:
@@ -2218,7 +2780,7 @@ if _page == "portfolio":
                 div_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_add_div_date")
             _, _save_col = st.columns([3, 1])
             with _save_col:
-                _do_save = st.button("💾 Save", key="dlg_add_div_save", width="stretch")
+                _do_save = st.button("Save", key="dlg_add_div_save", width="stretch")
             try:
                 _shares = max(1, int(_shares_raw.strip()))
                 _dps    = float(_dps_raw.strip().replace(",", "."))
@@ -2289,9 +2851,9 @@ if _page == "portfolio":
             _del_note, _save_col = st.columns([3, 1])
             with _del_note:
                 if n_selected:
-                    st.caption(f"🗑️ {n_selected} selected for deletion")
+                    st.caption(f"{n_selected} selected for deletion")
             with _save_col:
-                if st.button("💾 Save", key="dlg_edit_div_save", width="stretch"):
+                if st.button("Save", key="dlg_edit_div_save", width="stretch"):
                     updated = []
                     for i, row in to_keep.iterrows():
                         orig_idx = int(_tbl.iloc[i]["_idx"])
@@ -2318,10 +2880,10 @@ if _page == "portfolio":
 
         _da1, _da2, _da_gap, _da_filter = st.columns([1, 1, 5, 2], gap="small")
         with _da1:
-            if st.button("➕ Add", key="btn_add_div"):
+            if st.button("Add", key="btn_add_div"):
                 _dlg_add_dividend()
         with _da2:
-            if st.button("✏️ Edit", key="btn_edit_div"):
+            if st.button("Edit", key="btn_edit_div"):
                 _dlg_edit_dividends()
         with _da_filter:
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
@@ -2468,9 +3030,9 @@ if _page == "portfolio":
                 _del_note, _save_col = st.columns([3, 1])
                 with _del_note:
                     if n_selected:
-                        st.caption(f"🗑️ {n_selected} selected for deletion")
+                        st.caption(f"{n_selected} selected for deletion")
                 with _save_col:
-                    if st.button("💾 Save", key="dlg_edit_sold_save", width="stretch"):
+                    if st.button("Save", key="dlg_edit_sold_save", width="stretch"):
                         _sold_updated = sold.copy()
                         for i, row in to_keep.iterrows():
                             orig_idx = int(_tbl.iloc[i]["_idx"])
@@ -2488,7 +3050,7 @@ if _page == "portfolio":
             st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
             _se1, _ = st.columns([1, 8], gap="small")
             with _se1:
-                if st.button("✏️ Edit", key="btn_edit_sold"):
+                if st.button("Edit", key="btn_edit_sold"):
                     _dlg_edit_sold()
 
             _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
@@ -2554,9 +3116,9 @@ if _page == "portfolio":
 
 if _page == "settings":
     if _is_admin:
-        tab_admin, tab_screener, tab_import, tab_export, tab_backup = st.tabs(["🔑 Users", "⚙️ Screener", "📂 Import", "📥 Export", "💾 Backup & Restore"])
+        tab_admin, tab_screener, tab_backup, tab_import, tab_export = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export"])
     else:
-        tab_export, = st.tabs(["📥 Export"])
+        tab_export, = st.tabs(["Export"])
 
     if _is_admin:
         with tab_admin:
@@ -2594,7 +3156,7 @@ if _page == "settings":
         try:
             xls_bytes = export_excel()
             st.download_button(
-                "⬇️ Download backup.xlsx",
+                "Download backup.xlsx",
                 data=xls_bytes,
                 file_name=backup_filename("xlsx"),
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2606,7 +3168,7 @@ if _page == "settings":
 
     if _is_admin:
       with tab_screener:
-        st.subheader("Screener Exchanges")
+        st.subheader("Screener selection")
         st.caption("Choose which exchanges are included in the screener and portfolio analysis.")
         _cur_settings = load_shared_settings()
         _cur_enabled  = set(_cur_settings.get("enabled_exchanges", ALL_EXCHANGES))
@@ -2614,7 +3176,7 @@ if _page == "settings":
         for _exkey, _exlabel in sorted(EXCHANGE_LABELS.items(), key=lambda x: x[1]):
             if st.checkbox(_exlabel, value=_exkey in _cur_enabled, key=f"scr_exch_{_exkey}"):
                 _new_enabled.append(_exkey)
-        if st.button("💾 Save", key="btn_save_screener_settings", type="primary"):
+        if st.button("Save", key="btn_save_screener_settings", type="primary"):
             if not _new_enabled:
                 st.error("At least one exchange must be enabled.")
             else:
@@ -2632,7 +3194,7 @@ if _page == "settings":
         try:
             zip_bytes = export_zip(_email)
             st.download_button(
-                "⬇️ Download backup.zip",
+                "Download backup.zip",
                 data=zip_bytes,
                 file_name=backup_filename("zip"),
                 mime="application/zip",
@@ -2666,6 +3228,35 @@ if _page == "help":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO RISK
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _trigger_card(msg: str, kind: str = "hard") -> None:
+    """Render a branded hard (danger) or soft (advisory) trigger card."""
+    if kind == "hard":
+        border = "#A32D2D"
+        bg     = "rgba(163,45,45,0.10)"
+        badge_bg   = "rgba(163,45,45,0.20)"
+        badge_text = "#F5B5B5"
+        label  = "ACT"
+        symbol = "!"
+    else:
+        border = "#5B8FA8"
+        bg     = "rgba(91,143,168,0.08)"
+        badge_bg   = "rgba(91,143,168,0.18)"
+        badge_text = "#A8CBE0"
+        label  = "REVIEW"
+        symbol = "→"
+    st.markdown(f"""
+<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
+            border-left:3px solid {border};border-radius:6px;
+            background:{bg};margin-bottom:0.4rem;">
+  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
+              background:{badge_bg};color:{badge_text};
+              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
+    {symbol} {label}
+  </div>
+  <div style="font-size:0.88rem;color:#F5F7FA;line-height:1.4;">{msg}</div>
+</div>""", unsafe_allow_html=True)
+
 
 if _page == "risk":
     pf = load_portfolio()
@@ -2722,12 +3313,12 @@ if _page == "risk":
 
     # ── Composite score banner ────────────────────────────────────────────────
     _score_color = {
-        "Low risk":      "#22c55e",
-        "Moderate risk": "#eab308",
-        "Elevated risk": "#f97316",
-        "High risk":     "#ef4444",
+        "Low risk":      "#1DD6A4",
+        "Moderate risk": "#5B8FA8",
+        "Elevated risk": "#8BA888",
+        "High risk":     "#A32D2D",
         "Critical risk": "#7f1d1d",
-    }.get(r.composite.label, "#6b7280")
+    }.get(r.composite.label, "#F5F7FA")
 
     st.markdown(f"""
 <div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.25rem;
@@ -2749,14 +3340,24 @@ if _page == "risk":
     # ── Hard / soft triggers ──────────────────────────────────────────────────
     if r.rebalance.hard_triggers:
         for msg in r.rebalance.hard_triggers:
-            st.error(f"🚨 {msg}", icon=None)
+            _trigger_card(msg, "hard")
     elif not r.rebalance.soft_triggers:
-        st.success("No rebalancing triggers detected.", icon="✅")
+        st.markdown("""
+<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
+            border-left:3px solid #1DD6A4;border-radius:6px;
+            background:rgba(29,214,164,0.07);margin-bottom:0.4rem;">
+  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
+              background:rgba(29,214,164,0.18);color:#1DD6A4;
+              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
+    ✓ OK
+  </div>
+  <div style="font-size:0.88rem;color:#F5F7FA;">No rebalancing triggers detected.</div>
+</div>""", unsafe_allow_html=True)
 
     if r.rebalance.soft_triggers:
-        with st.expander(f"⚠️ {len(r.rebalance.soft_triggers)} soft trigger(s)", expanded=False):
+        with st.expander(f"{len(r.rebalance.soft_triggers)} soft trigger(s) — review and plan", expanded=False):
             for msg in r.rebalance.soft_triggers:
-                st.warning(msg, icon=None)
+                _trigger_card(msg, "soft")
 
     st.divider()
 
@@ -2766,7 +3367,7 @@ if _page == "risk":
         x=list(_sub_scores.keys()),
         y=list(_sub_scores.values()),
         marker_color=[
-            "#22c55e" if v < 25 else "#eab308" if v < 50 else "#f97316" if v < 70 else "#ef4444"
+            "#1DD6A4" if v < 25 else "#5B8FA8" if v < 50 else "#8BA888" if v < 70 else "#A32D2D"
             for v in _sub_scores.values()
         ],
         text=[f"{v:.0f}" for v in _sub_scores.values()],
@@ -2792,13 +3393,12 @@ if _page == "risk":
 
     # ── Tab: Positions ────────────────────────────────────────────────────────
     with _t_pos:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Each row profiles one portfolio position. Risk Rating aggregates all dimensions "
-                "into a single label — **Low / Medium / High / Critical** — based on weight, beta, "
-                "valuation, financial health and earnings quality. Use this table to quickly spot "
-                "positions that deserve closer review before looking at portfolio-level metrics."
-            )
+        _risk_note(
+            "Each row profiles one portfolio position. Risk Rating aggregates all dimensions "
+            "into a single label — **Low / Medium / High / Critical** — based on weight, beta, "
+            "valuation, financial health and earnings quality. Use this table to quickly spot "
+            "positions that deserve closer review before looking at portfolio-level metrics."
+        )
         _pos_rows = []
         for p in r.position_profiles:
             _pos_rows.append({
@@ -2833,11 +3433,11 @@ if _page == "risk":
                 "VaR 95% 1d":   st.column_config.TextColumn("VaR 95% 1d",
                                     help="Maximum expected 1-day loss for this position at 95% confidence. Estimated as position value × |beta| × market daily vol × 1.645."),
                 "MoS":          st.column_config.TextColumn("MoS",
-                                    help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the UV model estimate."),
+                                    help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the fair value model estimate."),
                 "Valuation":    st.column_config.TextColumn("Valuation",
                                     help="Undervalued (MoS >10%) · Fairly Valued (MoS 0–10%) · Overvalued (MoS <0%). Overvalued positions add to the risk rating."),
                 "Div":          st.column_config.TextColumn("Div",
-                                    help="Dividend sustainability flag from the UV screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
+                                    help="Dividend sustainability flag from the fair value screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
                 "Fin Health":   st.column_config.TextColumn("Fin Health",
                                     help="Financial health score 0–10 (higher = healthier). Average of D/E ratio, current ratio, and interest coverage. <5 adds to risk rating."),
                 "Earn Quality": st.column_config.TextColumn("Earn Quality",
@@ -2849,14 +3449,13 @@ if _page == "risk":
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Concentration risk measures how much of the portfolio depends on a small number "
-                "of positions, sectors, or geographies. The **HHI** (Herfindahl-Hirschman Index) "
-                "is the sum of squared weights — closer to 0 means well spread, above 0.18 is "
-                "highly concentrated. Flags trigger at >15% single position, >30% single sector, "
-                "or >60% single country. Dividend HHI applies the same logic to income streams."
-            )
+        _risk_note(
+            "Concentration risk measures how much of the portfolio depends on a small number "
+            "of positions, sectors, or geographies. The **HHI** (Herfindahl-Hirschman Index) "
+            "is the sum of squared weights — closer to 0 means well spread, above 0.18 is "
+            "highly concentrated. Flags trigger at >15% single position, >30% single sector, "
+            "or >60% single country. Dividend HHI applies the same logic to income streams."
+        )
         c = r.concentration
         _cc1, _cc2, _cc3 = st.columns(3)
         _cc1.metric("HHI", f"{c.hhi:.3f}", help=c.hhi_label)
@@ -2874,11 +3473,11 @@ if _page == "risk":
                 _sec_fig = go.Figure(go.Bar(
                     x=list(c.sector_weights.keys()),
                     y=[v * 100 for v in c.sector_weights.values()],
-                    marker_color=["#ef4444" if v > 0.30 else "#4f8ef7" for v in c.sector_weights.values()],
+                    marker_color=["#A32D2D" if v > 0.30 else "#1DD6A4" for v in c.sector_weights.values()],
                     text=[f"{v:.0%}" for v in c.sector_weights.values()],
                     textposition="outside",
                 ))
-                _sec_fig.add_hline(y=30, line_dash="dot", line_color="orange",
+                _sec_fig.add_hline(y=30, line_dash="dot", line_color="rgba(245,247,250,0.35)",
                                    annotation_text="30% threshold", annotation_position="top right")
                 _sec_fig.update_layout(
                     height=260, margin=dict(t=20, b=60, l=0, r=0),
@@ -2889,25 +3488,29 @@ if _page == "risk":
                 )
                 st.plotly_chart(_sec_fig, use_container_width=True)
             if c.sector_flag:
-                st.warning(f"Sector concentration: {c.largest_sector} at {c.sector_weights.get(c.largest_sector or '', 0):.0%}")
+                _trigger_card(f"Sector concentration: {c.largest_sector} at {c.sector_weights.get(c.largest_sector or '', 0):.0%}", "soft")
 
         with _conc_c2:
             st.markdown("**Geographic weights**")
             if c.geo_weights:
+                _geo_n = len(c.geo_weights)
+                _geo_colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_geo_n)]
                 _geo_fig = go.Figure(go.Pie(
                     labels=list(c.geo_weights.keys()),
                     values=list(c.geo_weights.values()),
                     hole=0.4,
                     textinfo="label+percent",
+                    marker=dict(colors=_geo_colors, line=dict(color="#0D1F3C", width=2)),
+                    textfont=dict(color="#F5F7FA"),
                 ))
                 _geo_fig.update_layout(
                     height=260, margin=dict(t=10, b=10, l=0, r=0),
                     paper_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="white"), showlegend=False,
+                    font=dict(color="#F5F7FA"), showlegend=False,
                 )
                 st.plotly_chart(_geo_fig, use_container_width=True)
             if c.geo_flag:
-                st.warning(f"Geographic concentration: {c.largest_geo} at {c.geo_weights.get(c.largest_geo or '', 0):.0%}")
+                _trigger_card(f"Geographic concentration: {c.largest_geo} at {c.geo_weights.get(c.largest_geo or '', 0):.0%}", "soft")
 
         if c.div_hhi is not None:
             st.caption(f"Dividend income HHI: {c.div_hhi:.3f} | Top-3 income share: {c.div_top3_pct:.0%}"
@@ -2915,43 +3518,38 @@ if _page == "risk":
 
     # ── Tab: Volatility & VaR ─────────────────────────────────────────────────
     with _t_quant:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "**Beta** measures overall market sensitivity — above 1.2 means the portfolio "
-                "amplifies market swings, below 0.8 is defensive. **Annual Vol** is the standard "
-                "deviation of daily returns scaled to a year; above 20% is high. "
-                "**VaR** is the maximum expected 1-day loss at a given confidence level — "
-                "e.g. a 95% VaR of €500 means only 1 day in 20 should lose more than that. "
-                "**CVaR** (Expected Shortfall) is the *average* loss on those worst days, capturing "
-                "tail risk beyond VaR. **MDD** is the largest peak-to-trough drawdown observed in the "
-                "historical window. The correlation heatmap shows how positions move together — "
-                "pairs above 0.80 provide little diversification benefit."
-            )
+        _risk_note(
+            "**Beta** measures overall market sensitivity — above 1.2 means the portfolio "
+            "amplifies market swings, below 0.8 is defensive. **Annual Vol** is the standard "
+            "deviation of daily returns scaled to a year; above 20% is high. "
+            "**VaR** is the maximum expected 1-day loss at a given confidence level — "
+            "e.g. a 95% VaR of €500 means only 1 day in 20 should lose more than that. "
+            "**CVaR** (Expected Shortfall) is the average loss on those worst days, capturing "
+            "tail risk beyond VaR. **MDD** is the largest peak-to-trough drawdown observed in the "
+            "historical window. The correlation heatmap shows how positions move together — "
+            "pairs above 0.80 provide little diversification benefit."
+        )
         q = r.quant
-        _qc1, _qc2, _qc3, _qc4 = st.columns(4)
+        _qc1, _qc2, _qc3, _qc4, _qc5 = st.columns(5)
         _qc1.metric("Portfolio Beta", f"{q.portfolio_beta:.2f}", help=q.beta_label)
         _qc2.metric("Annual Vol",
                     f"{q.volatility_annual:.1%}" if q.volatility_annual else "N/A",
                     help=q.volatility_label)
         _qc3.metric("Sharpe",  f"{q.sharpe:.2f}"  if q.sharpe  else "N/A", help=q.ratio_label)
         _qc4.metric("Sortino", f"{q.sortino:.2f}" if q.sortino else "N/A")
-
-        st.divider()
-
-        _vc1, _vc2, _vc3 = st.columns(3)
-        _vc1.metric("VaR 95% (1d)", f"€{q.var_95_1d_eur:,.0f}" if q.var_95_1d_eur else "N/A",
+        _qc5.metric("VaR 95% (1d)", f"€{q.var_95_1d_eur:,.0f}" if q.var_95_1d_eur else "N/A",
                     help="Maximum expected 1-day loss at 95% confidence (historical simulation)")
-        _vc2.metric("VaR 99% (1d)", f"€{q.var_99_1d_eur:,.0f}" if q.var_99_1d_eur else "N/A")
-        _vc3.metric("CVaR 95% (1d)", f"€{q.cvar_95_1d_eur:,.0f}" if q.cvar_95_1d_eur else "N/A",
-                    help="Expected loss in the worst 5% of scenarios (Expected Shortfall)")
 
         st.divider()
 
-        _mc1, _mc2, _mc3 = st.columns(3)
-        _mc1.metric("MDD 1y", f"{q.mdd_1y:.1%}" if q.mdd_1y else "N/A",
+        _vc1, _vc2, _vc3, _vc4, _vc5 = st.columns(5)
+        _vc1.metric("VaR 99% (1d)", f"€{q.var_99_1d_eur:,.0f}" if q.var_99_1d_eur else "N/A")
+        _vc2.metric("CVaR 95% (1d)", f"€{q.cvar_95_1d_eur:,.0f}" if q.cvar_95_1d_eur else "N/A",
+                    help="Expected loss in the worst 5% of scenarios (Expected Shortfall)")
+        _vc3.metric("MDD 1y", f"{q.mdd_1y:.1%}" if q.mdd_1y else "N/A",
                     help=f"Max drawdown over last 12 months — {q.mdd_label}")
-        _mc2.metric("MDD 3y", f"{q.mdd_3y:.1%}" if q.mdd_3y else "N/A")
-        _mc3.metric("MDD 5y", f"{q.mdd_5y:.1%}" if q.mdd_5y else "N/A")
+        _vc4.metric("MDD 3y", f"{q.mdd_3y:.1%}" if q.mdd_3y else "N/A")
+        _vc5.metric("MDD 5y", f"{q.mdd_5y:.1%}" if q.mdd_5y else "N/A")
 
         if not q.returns_available:
             st.info("Historical price data unavailable — quantitative metrics use beta-proxy estimates.")
@@ -2964,7 +3562,11 @@ if _page == "risk":
                 z=_corr.values,
                 x=list(_corr.columns),
                 y=list(_corr.index),
-                colorscale="RdBu_r",
+                colorscale=[
+                    [0.0, "#A32D2D"],
+                    [0.5, "#0D1F3C"],
+                    [1.0, "#1DD6A4"],
+                ],
                 zmin=-1, zmax=1,
                 text=_corr.values.round(2),
                 texttemplate="%{text}",
@@ -2980,27 +3582,26 @@ if _page == "risk":
             st.plotly_chart(_heat, use_container_width=True)
             if q.high_corr_pairs:
                 _pairs_str = ", ".join(f"**{a}/{b}** ({c:.2f})" for a, b, c in q.high_corr_pairs)
-                st.warning(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification")
+                _trigger_card(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification", "soft")
             if q.effective_diversification is not None:
                 st.caption(f"Effective diversification score: {q.effective_diversification:.2f} "
                            f"(1 − avg pairwise correlation)")
 
     # ── Tab: Factor Exposure ──────────────────────────────────────────────────
     with _t_factor:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Factor analysis decomposes portfolio returns into known systematic risk factors "
-                "using the **Fama-French 5-factor model** (+ momentum). Each bar is a *factor loading* — "
-                "how much the portfolio moves per unit of that factor's return. "
-                "A loading above **±1.5** signals a concentrated factor bet. "
-                "**R²** shows what fraction of return variance the model explains; above 0.6 means "
-                "the portfolio is factor-dominated. **Alpha** is the annualised return not explained "
-                "by any factor — positive alpha suggests genuine stock-picking skill, negative suggests "
-                "the portfolio underperforms its factor exposures.  \n\n"
-                "Factors: **Mkt-RF** market premium · **SMB** small vs large cap · "
-                "**HML** value vs growth · **RMW** high vs low profitability · "
-                "**CMA** conservative vs aggressive investment · **WML** momentum."
-            )
+        _risk_note(
+            "Factor analysis decomposes portfolio returns into known systematic risk factors "
+            "using the **Fama-French 5-factor model** (+ momentum). Each bar is a factor loading — "
+            "how much the portfolio moves per unit of that factor's return. "
+            "A loading above **±1.5** signals a concentrated factor bet. "
+            "**R²** shows what fraction of return variance the model explains; above 0.6 means "
+            "the portfolio is factor-dominated. **Alpha** is the annualised return not explained "
+            "by any factor — positive alpha suggests genuine stock-picking skill, negative suggests "
+            "the portfolio underperforms its factor exposures.\n\n"
+            "Factors: **Mkt-RF** market premium · **SMB** small vs large cap · "
+            "**HML** value vs growth · **RMW** high vs low profitability · "
+            "**CMA** conservative vs aggressive investment · **WML** momentum."
+        )
         f = r.factor
         if not f.available:
             st.info("Factor analysis unavailable. " + (f.flags[0] if f.flags else ""))
@@ -3016,12 +3617,12 @@ if _page == "risk":
                 _fac_fig = go.Figure(go.Bar(
                     x=list(f.loadings.keys()),
                     y=list(f.loadings.values()),
-                    marker_color=["#ef4444" if abs(v) > 1.5 else "#4f8ef7" for v in f.loadings.values()],
+                    marker_color=["#A32D2D" if abs(v) > 1.5 else "#1DD6A4" for v in f.loadings.values()],
                     text=[f"{v:+.2f}" for v in f.loadings.values()],
                     textposition="outside",
                 ))
-                _fac_fig.add_hline(y=1.5,  line_dash="dot", line_color="orange")
-                _fac_fig.add_hline(y=-1.5, line_dash="dot", line_color="orange")
+                _fac_fig.add_hline(y=1.5,  line_dash="dot", line_color="rgba(245,247,250,0.35)")
+                _fac_fig.add_hline(y=-1.5, line_dash="dot", line_color="rgba(245,247,250,0.35)")
                 _fac_fig.update_layout(
                     height=280, margin=dict(t=30, b=20, l=0, r=0),
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -3032,7 +3633,7 @@ if _page == "risk":
 
             if f.flags:
                 for _msg in f.flags:
-                    st.warning(_msg)
+                    _trigger_card(_msg, "soft")
 
             st.caption("Mkt-RF: market | SMB: small vs large | HML: value vs growth | "
                        "RMW: profitability | CMA: investment | WML: momentum (if available). "
@@ -3041,34 +3642,29 @@ if _page == "risk":
 
     # ── Tab: Income Risk ──────────────────────────────────────────────────────
     with _t_income:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Income risk measures how vulnerable the portfolio's dividend stream is. "
-                "**Portfolio Yield** is total expected annual dividends divided by current portfolio value. "
-                "**Weighted DGR** (Dividend Growth Rate) is the income-weighted average of each payer's "
-                "earnings growth — a DGR below inflation (~2.5%) means purchasing power of income erodes. "
-                "The **top-3 cut scenario** simulates the income impact if the three largest dividend "
-                "payers each cut their dividend by 50% — a standard stress test for income concentration. "
-                "Positions flagged for sustainability have at least one of: payout ratio >80%, "
-                "cash payout ratio >80%, or dividend coverage ratio <1.2×."
-            )
+        _risk_note(
+            "Income risk measures how vulnerable the portfolio's dividend stream is. "
+            "**Portfolio Yield** is total expected annual dividends divided by current portfolio value. "
+            "**Weighted DGR** (Dividend Growth Rate) is the income-weighted average of each payer's "
+            "earnings growth — a DGR below inflation (~2.5%) means purchasing power of income erodes. "
+            "The **top-3 cut scenario** simulates the income impact if the three largest dividend "
+            "payers each cut their dividend by 50% — a standard stress test for income concentration. "
+            "Positions flagged for sustainability have at least one of: payout ratio >80%, "
+            "cash payout ratio >80%, or dividend coverage ratio <1.2×."
+        )
         inc = r.income
-        _ic1, _ic2, _ic3 = st.columns(3)
+        _ic1, _ic2, _ic3, _ic4, _ic5 = st.columns(5)
         _ic1.metric("Portfolio Yield", f"{inc.portfolio_yield:.2%}")
         _ic2.metric("Annual Income", f"€{inc.total_annual_income:,.0f}")
         _ic3.metric("Weighted DGR",
                     f"{inc.weighted_dgr:.1%}" if inc.weighted_dgr is not None else "N/A",
                     help="Income-weighted dividend growth rate (earnings growth proxy)")
-
-        st.divider()
-
-        _ic4, _ic5 = st.columns(2)
-        _ic4.metric("Top-3 cut scenario (50%)",
+        _ic4.metric("Top-3 cut scenario",
                     f"€{inc.top3_cut_eur:,.0f}" if inc.top3_cut_eur else "N/A",
                     help="Income at risk if top-3 dividend payers cut by 50%")
         _ic5.metric("Income at risk",
                     f"{inc.top3_cut_pct:.1%}" if inc.top3_cut_pct else "N/A",
-                    delta="⚠️ Flag" if inc.income_concentration_flag else "✓ OK",
+                    delta="Flag" if inc.income_concentration_flag else "OK",
                     delta_color="inverse" if inc.income_concentration_flag else "off")
 
         if inc.top3_income_shares:
@@ -3084,24 +3680,26 @@ if _page == "risk":
                          })
 
         if inc.flagged_payers:
-            st.warning(f"Sustainability concerns ({inc.flagged_income_pct:.0%} of income): "
-                       + ", ".join(inc.flagged_payers))
+            _trigger_card(
+                f"Sustainability concerns ({inc.flagged_income_pct:.0%} of income): "
+                + ", ".join(inc.flagged_payers),
+                "soft",
+            )
 
     # ── Tab: Stress Tests ─────────────────────────────────────────────────────
     with _t_stress:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Stress tests show how the portfolio might perform under adverse conditions.  \n\n"
-                "**Historical scenarios** replay four real market crises. Portfolio drawdown is "
-                "estimated as *portfolio beta × index drawdown* — a beta of 0.8 during a −50% "
-                "crash implies a −40% portfolio loss. This is an approximation; actual losses "
-                "depend on individual stock behaviour during the specific period.  \n\n"
-                "**Hypothetical scenarios** apply targeted shocks: the rate-rise scenario uses "
-                "each stock's P/E as a duration proxy (high P/E = more sensitive to higher rates); "
-                "the recession scenario applies a 25% earnings cut to cyclical sectors and 10% to "
-                "defensives; the sector crash applies a −40% shock to the largest sector holding; "
-                "the credit crunch penalises high-leverage positions proportionally to D/E ratio."
-            )
+        _risk_note(
+            "Stress tests show how the portfolio might perform under adverse conditions.\n\n"
+            "**Historical scenarios** replay four real market crises. Portfolio drawdown is "
+            "estimated as portfolio beta × index drawdown — a beta of 0.8 during a −50% "
+            "crash implies a −40% portfolio loss. This is an approximation; actual losses "
+            "depend on individual stock behaviour during the specific period.\n\n"
+            "**Hypothetical scenarios** apply targeted shocks: the rate-rise scenario uses "
+            "each stock's P/E as a duration proxy (high P/E = more sensitive to higher rates); "
+            "the recession scenario applies a 25% earnings cut to cyclical sectors and 10% to "
+            "defensives; the sector crash applies a −40% shock to the largest sector holding; "
+            "the credit crunch penalises high-leverage positions proportionally to D/E ratio."
+        )
         st.markdown("**Historical scenarios** *(beta-adjusted approximation)*")
         _hist_rows = [{
             "Scenario":          s.name,
@@ -3112,7 +3710,7 @@ if _page == "risk":
         } for s in r.stress.historical]
         st.dataframe(pd.DataFrame(_hist_rows), hide_index=True, use_container_width=True,
             column_config={
-                "Scenario":          st.column_config.TextColumn("Scenario",
+                "Scenario":          st.column_config.TextColumn("Scenario", width=220, pinned=True,
                                          help="Name of the historical market crisis"),
                 "Period":            st.column_config.TextColumn("Period",
                                          help="Approximate date range of the crisis"),
@@ -3134,11 +3732,10 @@ if _page == "risk":
             "Description":        s["description"],
             "Est. portfolio loss": f"{s['estimated_portfolio_impact']:.1%}",
             "Est. value loss €":  f"€{s['estimated_loss_eur']:,.0f}",
-            **({"Note": s["note"]} if "note" in s else {}),
         } for s in r.stress.factor_scenarios]
         st.dataframe(pd.DataFrame(_factor_rows), hide_index=True, use_container_width=True,
             column_config={
-                "Scenario":            st.column_config.TextColumn("Scenario",
+                "Scenario":            st.column_config.TextColumn("Scenario", width=220, pinned=True,
                                            help="Name of the hypothetical shock"),
                 "Description":         st.column_config.TextColumn("Description",
                                            help="How the shock is modelled"),
@@ -3146,24 +3743,21 @@ if _page == "risk":
                                            help="Estimated portfolio return impact as a percentage"),
                 "Est. value loss €":   st.column_config.TextColumn("Est. value loss €",
                                            help="Estimated euro loss at current portfolio value"),
-                "Note":                st.column_config.TextColumn("Note",
-                                           help="Additional context for this scenario"),
             })
 
     # ── Tab: Monte Carlo ──────────────────────────────────────────────────────
     with _t_mc:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Monte Carlo simulation runs **10,000 random return paths** over 1, 3, and 5 years, "
-                "drawing daily returns from the historical return distribution of the portfolio. "
-                "The fan chart shows the range of outcomes: the dark line is the median path, "
-                "the inner band covers the 25th–75th percentile (50% of paths), and the outer "
-                "band covers the 5th–95th percentile (90% of paths).  \n\n"
-                "**P5** is the worst-case outcome at 5% probability — what the portfolio could be "
-                "worth in a persistently bad scenario. **P(loss)** is the fraction of simulated "
-                "paths that end below the starting value. When historical price data is unavailable, "
-                "returns are estimated from portfolio beta and a 5% market risk premium."
-            )
+        _risk_note(
+            "Monte Carlo simulation runs **10,000 random return paths** over 1, 3, and 5 years, "
+            "drawing daily returns from the historical return distribution of the portfolio. "
+            "The fan chart shows the range of outcomes: the dark line is the median path, "
+            "the inner band covers the 25th–75th percentile (50% of paths), and the outer "
+            "band covers the 5th–95th percentile (90% of paths).\n\n"
+            "**P5** is the worst-case outcome at 5% probability — what the portfolio could be "
+            "worth in a persistently bad scenario. **P(loss)** is the fraction of simulated "
+            "paths that end below the starting value. When historical price data is unavailable, "
+            "returns are estimated from portfolio beta and a 5% market risk premium."
+        )
         _mcs = [r.stress.mc_1y, r.stress.mc_3y, r.stress.mc_5y]
         _mc_cols = st.columns(3)
         for _col, _mc in zip(_mc_cols, _mcs):
@@ -3214,7 +3808,7 @@ if _page == "risk":
             h = h.lstrip("#")
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
-        _build_fan(_mcs, "#4f8ef7", "portfolio")
+        _build_fan(_mcs, "#1DD6A4", "portfolio")
         _fan_fig.add_hline(y=_pv, line_dash="dot", line_color="rgba(255,255,255,0.3)",
                            annotation_text="Current value", annotation_position="bottom right")
         _fan_fig.update_layout(
@@ -3262,19 +3856,18 @@ if _page == "risk":
 
     # ── Tab: Rebalancing ──────────────────────────────────────────────────────
     with _t_rebal:
-        with st.expander("ℹ️ How to read this tab", expanded=False):
-            st.markdown(
-                "Rebalancing signals are split into two tiers:  \n\n"
-                "**Hard triggers** require immediate action — they indicate a threshold breach "
-                "that materially increases portfolio risk (e.g. single position >20%, beta >1.5, "
-                "99% VaR exceeding 3% of portfolio, or a Critical-rated position).  \n\n"
-                "**Soft triggers** are advisory — worth reviewing and planning around, but not "
-                "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, "
-                "or a High-rated position).  \n\n"
-                "The **actions table** maps each issue to a concrete next step. Prioritise "
-                "hard-trigger actions first, then work through soft triggers in order of their "
-                "impact on the composite risk score."
-            )
+        _risk_note(
+            "Rebalancing signals are split into two tiers.\n\n"
+            "**Hard triggers** require immediate action — they indicate a threshold breach "
+            "that materially increases portfolio risk (e.g. single position >20%, beta >1.5, "
+            "99% VaR exceeding 3% of portfolio, or a Critical-rated position).\n\n"
+            "**Soft triggers** are advisory — worth reviewing and planning around, but not "
+            "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, "
+            "or a High-rated position).\n\n"
+            "The **actions table** maps each issue to a concrete next step. Prioritise "
+            "hard-trigger actions first, then work through soft triggers in order of their "
+            "impact on the composite risk score."
+        )
         if r.rebalance.actions:
             _act_df = pd.DataFrame(r.rebalance.actions)
             st.dataframe(
@@ -3299,17 +3892,17 @@ if _page == "risk":
         if r.rebalance.hard_triggers:
             st.markdown("**Hard triggers** *(act immediately)*")
             for msg in r.rebalance.hard_triggers:
-                st.error(f"🚨 {msg}", icon=None)
+                _trigger_card(msg, "hard")
 
         if r.rebalance.soft_triggers:
             st.markdown("**Soft triggers** *(review and plan)*")
             for msg in r.rebalance.soft_triggers:
-                st.warning(f"⚠️ {msg}", icon=None)
+                _trigger_card(msg, "soft")
 
         st.divider()
         st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "
                    "Refreshes automatically after 1 hour or when portfolio changes.")
-        if st.button("🔄 Refresh risk report", key="risk_refresh_btn"):
+        if st.button("Refresh risk report", key="risk_refresh_btn"):
             st.session_state.pop("_risk_report_cache", None)
             st.rerun()
 
