@@ -1,49 +1,99 @@
 # UV — Undervalued
 
-A value screener and portfolio tracker for Euronext Brussels-listed stocks.
+A Streamlit web app for European stock analysis and personal portfolio management. UV combines a multi-exchange value screener, live portfolio tracking, dividend management, and quantitative risk assessment in a single secure application.
 
-## What it does
+> Not financial advice.
 
-- **Screener** — fetches fundamentals for ~125 Brussels stocks via yfinance and ranks them by a composite value score (P/E, P/B, EV/EBITDA, Debt/Equity, Dividend Yield). Higher score = relatively cheaper.
-- **Portfolio tracker** — import your positions from an Excel file, then track live prices, analyst targets, Graham numbers, P&L, dividends, and sold positions in one dashboard.
+---
+
+## Features
+
+- **Screener** — ranks 750+ stocks across 6 European exchanges using a 6-stage valuation algorithm (Graham Number, PE Fair Value, EPV, DDM, Analyst Target). Each stock receives a composite score and a Buy / Monitor / Avoid signal.
+- **Portfolio tracker** — track open positions with live prices, unrealised P&L, and benchmark comparison. Manage realised trades and dividend history.
+- **Dashboard** — KPI cards, performance heatmap, sector allocation, portfolio value chart with S&P 500 / Euro Stoxx 50 overlays, and a risk snapshot.
+- **Risk assessment** — 8-stage quantitative analysis: concentration (Herfindahl), volatility, Value-at-Risk, factor exposure, stress tests (Dot-com / 2008 / COVID / 2022), and 10,000-path Monte Carlo simulation.
+- **Multi-user** — email/password authentication with JWT sessions. First registered user becomes admin. Per-user data is isolated and encrypted at rest.
+
+---
 
 ## Requirements
 
 - Python 3.11+
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- [uv](https://github.com/astral-sh/uv) package manager (recommended) or pip
+
+---
 
 ## Install
 
 ```bash
+# Clone the repo and install dependencies
 uv sync
 ```
 
 Or with pip:
 
 ```bash
-pip install streamlit pandas yfinance openpyxl streamlit-autorefresh
+pip install -r requirements.txt
 ```
 
-## Run
+---
 
-**Web app (recommended)**
+## Configuration
+
+Create a `.env` file in the project root (never commit this):
+
+```env
+AUTH_SECRET=<64-char hex string>
+ENCRYPTION_KEY=<64-char hex string>
+```
+
+Generate both values with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Run that command twice — once for each key.
+
+---
+
+## Run
 
 ```bash
 streamlit run app.py
 ```
 
-**CLI report** — generates a standalone `report.html` and opens it in your browser:
+The app runs on `https://localhost:8501`. On first launch a self-signed TLS certificate is generated automatically; accept the browser warning for localhost.
 
-```bash
-python main.py
-```
+Register the first account — it is automatically granted the **admin** role.
 
-## Portfolio import
+---
 
-On first launch, upload your broker Excel file (sheet name: `beleggingen`). The app reads open positions, sold positions, and dividend history automatically. Data is cached locally in `.cache/` and never leaves your machine.
+## Data storage
 
-## How the value score works
+All user data is stored locally and never sent to a third party:
 
-Each metric is percentile-ranked across the full Brussels universe (0–100). The final score is the average of all five percentiles. Scores are cached for 1 hour to avoid hammering the yfinance API.
+| Path | Contents |
+|---|---|
+| `.cache/users.json` | User accounts (bcrypt-hashed passwords) |
+| `.cache/fundamentals.json` | Screener fundamentals cache (24 h TTL) |
+| `data/portfolio/{hash}/` | Per-user portfolio, sold positions, dividends, watchlist, value history |
+| `data/settings/{hash}.json` | Per-user settings (encrypted) |
+| `data/settings/shared.json` | Admin settings (enabled exchanges) |
 
-> Not financial advice.
+`{hash}` is a SHA-256 digest of the user's email address.
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [docs/user-guide.md](docs/user-guide.md) | Feature walkthrough for end users |
+| [docs/architecture.md](docs/architecture.md) | Codebase structure and data flow |
+| [docs/configuration.md](docs/configuration.md) | All settings, env vars, and constants |
+| [docs/stock_valuation_algorithm.md](docs/stock_valuation_algorithm.md) | 6-stage valuation pipeline with formulas |
+| [docs/portfolio_risk_assessment_algorithm.md](docs/portfolio_risk_assessment_algorithm.md) | 8-stage risk assessment methodology |
+| [docs/uvalu-brand-guidelines.md](docs/uvalu-brand-guidelines.md) | Visual identity — colours, typography, logo usage |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and notable changes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, conventions, and PR process |
