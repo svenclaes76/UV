@@ -1122,8 +1122,28 @@ _LIGHT_CSS = """
   }
   .block-container { background-color: #F5F7FA !important; }
 
-  /* ── Sidebar stays Deep Navy (brand-fixed) ───────────────────────────────── */
-  /* No sidebar overrides — sidebar is always on #0D1F3C */
+  /* ── Sidebar + bottom bar (same surface, matching dark-mode behaviour) ──── */
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"] > div:first-child {
+    background-color: #FFFFFF !important;
+  }
+  .uv-bottom { background: #FFFFFF !important; border-top-color: #E5E7EB !important; }
+  .mini-nav  { background: #FFFFFF !important; border-right-color: #E5E7EB !important; }
+  /* Nav item text + icon */
+  .uv-nav-item         { color: #3B4D63 !important; }
+  .uv-nav-item:hover   { background: rgba(0,0,0,0.04) !important; opacity: 1 !important; }
+  .uv-nav-active, [data-uv-page].uv-nav-item  { color: #1A8C6E !important; background: rgba(26,140,110,0.10) !important; }
+  .mini-nav-link       { color: #3B4D63 !important; }
+  /* Separator */
+  .uv-nav-sep { border-top-color: #E5E7EB !important; }
+  /* Logo wordmark */
+  .uv-logo-wordmark { color: #0D1F3C !important; }
+  .uv-logo-accent   { color: #1A8C6E !important; }
+  .uv-logo-sub      { color: #5F5E5A !important; opacity: 1 !important; }
+  /* Bottom bar email + logout */
+  .uv-bottom-email  { color: #3B4D63 !important; opacity: 1 !important; }
+  .uv-logout        { color: #3B4D63 !important; border-color: #CBD0D9 !important; }
+  .uv-logout:hover  { color: #1A8C6E !important; border-color: #1A8C6E !important; }
 
   /* ── Typography ──────────────────────────────────────────────────────────── */
   p, li, span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
@@ -1176,16 +1196,21 @@ _LIGHT_CSS = """
   }
   div[data-baseweb="input"],
   div[data-baseweb="textarea"] { border-color: #E5E7EB !important; }
+  /* Selectbox trigger — match secondary button style */
   div[data-baseweb="select"] > div:first-child {
     background-color: #FFFFFF !important;
     color: #0D1F3C !important;
-    border-color: #E5E7EB !important;
+    border-color: #CBD0D9 !important;
+    border-width: 0.5px !important;
+    border-radius: 8px !important;
   }
+  div[data-baseweb="select"] > div:first-child:hover { background-color: #EEF1F5 !important; }
   /* Select dropdown menu */
   [data-baseweb="popover"] [role="listbox"],
   [data-baseweb="menu"] {
     background-color: #FFFFFF !important;
-    border-color: #E5E7EB !important;
+    border: 0.5px solid #E5E7EB !important;
+    border-radius: 8px !important;
   }
   [data-baseweb="option"], [role="option"] {
     background-color: #FFFFFF !important;
