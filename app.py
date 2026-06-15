@@ -1172,17 +1172,13 @@ with st.sidebar:
   <hr class="uv-nav-sep" style="margin-bottom:6px;">
   <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
 </div>
-<div style="padding:0 10px 6px;display:flex;align-items:center;gap:6px;">
-  <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
-     style="font-size:0.72rem;opacity:0.45;text-decoration:none;color:var(--text-color);
-            display:flex;align-items:center;gap:4px;letter-spacing:0.04em;text-transform:uppercase;">
-    {'◑' if _ui_theme == 'system' else ('☀' if _ui_theme == 'dark' else '☾')} {'System' if _ui_theme == 'system' else ('Light' if _ui_theme == 'dark' else 'Dark')}
-  </a>
-</div>
 <div class="uv-bottom">
   <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
-  <div style="text-align:center;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
     <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+    <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
+       title="Theme: {_ui_theme} — click to cycle"
+       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'◑' if _ui_theme == 'system' else ('☀' if _ui_theme == 'dark' else '☾')}</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
