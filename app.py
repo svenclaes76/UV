@@ -1169,6 +1169,7 @@ _LIGHT_CSS = """
 
   /* ── Buttons: secondary — bordered ghost ─────────────────────────────────── */
   [data-testid="stBaseButton-secondary"],
+  [data-testid="stPopoverButton"],
   [data-testid="stDownloadButton"] > button,
   [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
     background-color: transparent !important;
@@ -1176,6 +1177,7 @@ _LIGHT_CSS = """
     border: 0.5px solid rgba(0,0,0,0.15) !important;
   }
   [data-testid="stBaseButton-secondary"]:hover,
+  [data-testid="stPopoverButton"]:hover,
   [data-testid="stDownloadButton"] > button:hover,
   [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]):hover {
     background-color: #EEF1F5 !important;
