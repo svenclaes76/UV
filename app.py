@@ -1278,7 +1278,9 @@ _LIGHT_CSS = """
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
   /* ── Dataframe / element toolbar ────────────────────────────────────────── */
-  [data-testid="stElementToolbar"] {
+  [data-testid="stElementToolbar"],
+  [class*="ElementToolbar"],
+  [class*="Toolbar"][class*="element"] {
     background-color: #FFFFFF !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
     border: none !important;
@@ -1286,7 +1288,8 @@ _LIGHT_CSS = """
   [data-testid="stElementToolbarButton"],
   [data-testid="stBaseButton-header"],
   [data-testid="stBaseButton-headerNoPadding"],
-  [data-testid="stElementToolbar"] button {
+  [data-testid="stElementToolbar"] button,
+  [class*="ElementToolbar"] button {
     background-color: transparent !important;
     color: #3B4D63 !important;
     border: none !important;
@@ -1295,7 +1298,16 @@ _LIGHT_CSS = """
   [data-testid="stElementToolbarButton"]:hover,
   [data-testid="stBaseButton-header"]:hover,
   [data-testid="stBaseButton-headerNoPadding"]:hover,
-  [data-testid="stElementToolbar"] button:hover {
+  [data-testid="stElementToolbar"] button:hover,
+  [class*="ElementToolbar"] button:hover {
+    background-color: #EEF1F5 !important;
+    color: #0D1F3C !important;
+  }
+  /* Kill active/selected state background on toolbar buttons */
+  [data-testid="stElementToolbarButton"][aria-pressed="true"],
+  [data-testid="stBaseButton-header"][aria-pressed="true"],
+  [data-testid="stElementToolbar"] button[aria-pressed="true"],
+  [class*="ElementToolbar"] button[aria-pressed="true"] {
     background-color: #EEF1F5 !important;
     color: #0D1F3C !important;
   }
