@@ -30,8 +30,7 @@ _SHARED_FILE   = _DATA_DIR / "shared.json"
 _SHARED_DEFAULTS: dict = {"enabled_exchanges": ALL_EXCHANGES}
 
 _USER_DEFAULTS: dict = {
-    "ui_theme":        "dark",   # "dark" | "light"
-    "ui_accent":       "#1DD6A4",  # hex colour string
+    "ui_theme": "system",  # "system" | "dark" | "light"
 }
 
 

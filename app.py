@@ -1087,78 +1087,43 @@ _is_admin     = _current_role == "admin"
 set_user(_email)
 
 # ── Per-user UI preferences ───────────────────────────────────────────────────
-_user_prefs  = load_settings(_email) if _email else {}
-_ui_theme    = _user_prefs.get("ui_theme", "dark")
-_ui_accent   = _user_prefs.get("ui_accent", "#1DD6A4")
+_user_prefs = load_settings(_email) if _email else {}
+_ui_theme   = _user_prefs.get("ui_theme", "system")  # "system" | "dark" | "light"
 
-# Derive a darker shade of the accent for hover/secondary use
-def _darken_hex(h: str, factor: float = 0.65) -> str:
-    h = h.lstrip("#")
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f"#{int(r*factor):02x}{int(g*factor):02x}{int(b*factor):02x}"
-
-_ui_accent_dark = _darken_hex(_ui_accent)
-
-if _ui_theme == "light":
-    st.markdown(f"""
-<style>
-  /* ── Light-mode overrides ────────────────────────────────────────────────── */
-  :root, [data-testid="stApp"] {{
+_LIGHT_CSS = """
+  :root, [data-testid="stApp"] {
     --background-color:           #FFFFFF !important;
     --secondary-background-color: #F0F4F8 !important;
     --text-color:                 #0D1F3C !important;
-    --primary-color:              {_ui_accent} !important;
-  }}
-  [data-testid="stApp"],
-  .stApp {{ background-color: #FFFFFF !important; color: #0D1F3C !important; }}
-  section[data-testid="stSidebar"] > div:first-child {{ background-color: #F0F4F8 !important; }}
-  section[data-testid="stSidebar"] {{ background-color: #F0F4F8 !important; }}
-  /* nav links */
-  .uv-nav-item {{ color: #0D1F3C !important; }}
-  .uv-nav-item:hover {{ background: rgba(0,0,0,0.06) !important; }}
-  .uv-nav-item.uv-active {{ background: rgba(0,0,0,0.08) !important; color: #0D1F3C !important; }}
-  /* sidebar footer */
-  .uv-bottom-email {{ color: #0D1F3C !important; opacity: 0.5 !important; }}
-  /* metric cards */
-  div[data-testid="metric-container"] {{
+  }
+  [data-testid="stApp"], .stApp { background-color: #FFFFFF !important; color: #0D1F3C !important; }
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"] > div:first-child { background-color: #F0F4F8 !important; }
+  .uv-nav-item                { color: #0D1F3C !important; }
+  .uv-nav-item:hover          { background: rgba(0,0,0,0.06) !important; }
+  .uv-nav-item.uv-active      { background: rgba(0,0,0,0.08) !important; color: #0D1F3C !important; }
+  .uv-bottom-email            { color: #0D1F3C !important; opacity: 0.5 !important; }
+  div[data-testid="metric-container"] {
     background: rgba(0,0,0,0.03) !important;
     border-color: rgba(0,0,0,0.08) !important;
-  }}
-  /* veto badge adapts to light bg */
-  .uv-badge-veto {{ background: #E8ECF2 !important; color: #0D1F3C !important; border-color: rgba(0,0,0,0.1) !important; }}
-  /* positive/negative delta */
-  [data-testid="stMetricDelta"] [data-testid="stMetricDeltaIcon-Up"] ~ div,
-  .uv-delta-pos {{ color: #0F6E56 !important; background: rgba(15,110,86,0.10) !important; }}
-  /* general text inputs / selectboxes */
+  }
+  .uv-badge-veto { background: #E8ECF2 !important; color: #0D1F3C !important; border-color: rgba(0,0,0,0.1) !important; }
   div[data-baseweb="input"] input,
-  div[data-baseweb="select"] {{ background: #FFFFFF !important; color: #0D1F3C !important; }}
-  /* tab underline stays accent */
-  button[data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: {_ui_accent} !important; }}
-</style>
-""", unsafe_allow_html=True)
+  div[data-baseweb="select"] { background: #FFFFFF !important; color: #0D1F3C !important; }
+"""
 
-if _ui_accent != "#1DD6A4":
-    st.markdown(f"""
-<style>
-  /* ── Custom accent colour ────────────────────────────────────────────────── */
-  :root {{
-    --uv-mint: {_ui_accent} !important;
-    --uv-teal: {_ui_accent_dark} !important;
-  }}
-  .uv-role-badge {{ color: {_ui_accent} !important; background: color-mix(in srgb, {_ui_accent} 12%, transparent) !important; }}
-  .uv-logo-accent, .uv-wordmark-accent {{ color: {_ui_accent_dark} !important; }}
-  [data-testid="stMetricDelta"] {{ color: {_ui_accent} !important; background: color-mix(in srgb, {_ui_accent} 12%, transparent) !important; }}
-  button[data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: {_ui_accent} !important; color: {_ui_accent} !important; }}
-  div[data-testid="metric-container"] {{ border-color: color-mix(in srgb, {_ui_accent} 20%, transparent) !important; background: color-mix(in srgb, {_ui_accent} 5%, transparent) !important; }}
-</style>
-""", unsafe_allow_html=True)
+if _ui_theme == "light":
+    st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
+elif _ui_theme == "system":
+    st.markdown(f"<style>@media (prefers-color-scheme: light) {{{_LIGHT_CSS}}}</style>",
+                unsafe_allow_html=True)
 
 # Page routing via query params (default: dashboard)
 _page = st.query_params.get("page", "dashboard")
 
 # Quick theme toggle via ?_uitheme= query param
 _qp_theme = st.query_params.get("_uitheme", "")
-if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
+if _qp_theme in ("dark", "light", "system") and _email and _qp_theme != _ui_theme:
     _user_prefs["ui_theme"] = _qp_theme
     save_settings(_user_prefs, _email)
     _ui_theme = _qp_theme
@@ -1208,10 +1173,10 @@ with st.sidebar:
   <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
 </div>
 <div style="padding:0 10px 6px;display:flex;align-items:center;gap:6px;">
-  <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else 'dark'}" target="_self"
+  <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
      style="font-size:0.72rem;opacity:0.45;text-decoration:none;color:var(--text-color);
             display:flex;align-items:center;gap:4px;letter-spacing:0.04em;text-transform:uppercase;">
-    {'☀' if _ui_theme == 'dark' else '☾'} {'Light' if _ui_theme == 'dark' else 'Dark'}
+    {'◑' if _ui_theme == 'system' else ('☀' if _ui_theme == 'dark' else '☾')} {'System' if _ui_theme == 'system' else ('Light' if _ui_theme == 'dark' else 'Dark')}
   </a>
 </div>
 <div class="uv-bottom">
@@ -3302,29 +3267,26 @@ if _page == "settings":
 
     with tab_appearance:
         st.subheader("Appearance")
-        st.caption("Customise the look and feel of the app. Changes apply immediately on save.")
+        st.caption("Controls when the app uses a light background. \"System\" follows your OS dark/light preference.")
 
-        _ap_prefs = load_settings(_email) if _email else {}
+        _ap_prefs    = load_settings(_email) if _email else {}
+        _theme_opts  = ["system", "dark", "light"]
+        _theme_labels = {"system": "System", "dark": "Dark", "light": "Light"}
+        _cur_theme   = _ap_prefs.get("ui_theme", "system")
 
         _theme_choice = st.radio(
             "Theme",
-            options=["dark", "light"],
-            index=0 if _ap_prefs.get("ui_theme", "dark") == "dark" else 1,
+            options=_theme_opts,
+            format_func=lambda x: _theme_labels[x],
+            index=_theme_opts.index(_cur_theme) if _cur_theme in _theme_opts else 0,
             horizontal=True,
             key="ap_theme_radio",
         )
 
-        _accent_choice = st.color_picker(
-            "Accent colour",
-            value=_ap_prefs.get("ui_accent", "#1DD6A4"),
-            key="ap_accent_picker",
-        )
-
         if st.button("Save appearance", type="primary", key="btn_save_appearance"):
-            _ap_prefs["ui_theme"]  = _theme_choice
-            _ap_prefs["ui_accent"] = _accent_choice
+            _ap_prefs["ui_theme"] = _theme_choice
             save_settings(_ap_prefs, _email)
-            st.success("Appearance saved — reload the page to apply.")
+            st.success("Appearance saved.")
             st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
