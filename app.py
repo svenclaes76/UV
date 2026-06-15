@@ -1105,6 +1105,11 @@ _user_prefs      = load_settings(_email) if _email else {}
 _ui_theme        = _user_prefs.get("ui_theme", "system")  # "system" | "dark" | "light"
 _ui_effective_light = _ui_theme == "light"  # charts can only be themed for explicit light; system follows OS via CSS
 
+# Shared chart palette tokens — resolved once, used in every Plotly figure
+_c_axis      = "#5F5E5A"                    if _ui_effective_light else "rgba(245,247,250,0.55)"
+_c_grid      = "rgba(0,0,0,0.07)"           if _ui_effective_light else "rgba(255,255,255,0.06)"
+_c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(245,247,250,0.35)"
+
 _LIGHT_CSS = """
   /* ── Streamlit theme variables ───────────────────────────────────────────── */
   :root {
@@ -1702,7 +1707,7 @@ if _page == "dashboard":
         _db_vfig.add_trace(go.Scatter(
             x=_db_vh["date"], y=_db_vh["invested"],
             mode="lines", name="Amount invested",
-            line=dict(color="rgba(245,247,250,0.35)", width=1.5, dash="dot"),
+            line=dict(color=_c_invested, width=1.5, dash="dot"),
         ))
         if _db_has_spx and _db_show_spx:
             _db_vfig.add_trace(go.Scatter(
@@ -1718,10 +1723,13 @@ if _page == "dashboard":
             ))
         _db_vfig.update_layout(
             margin=dict(l=0, r=0, t=8, b=0),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-            yaxis=dict(tickprefix="€", tickformat=",.0f"),
-            xaxis=dict(showgrid=False),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                        font=dict(color=_c_axis)),
+            yaxis=dict(tickprefix="€", tickformat=",.0f",
+                       tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+            xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
             hovermode="x unified",
+            font=dict(color=_c_axis),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
         )
@@ -2938,7 +2946,7 @@ if _page == "portfolio":
                 _vfig.add_trace(go.Scatter(
                     x=_vh["date"], y=_vh["invested"],
                     mode="lines", name="Amount invested",
-                    line=dict(color="rgba(245,247,250,0.35)", width=1.5, dash="dot"),
+                    line=dict(color=_c_invested, width=1.5, dash="dot"),
                 ))
                 if _has_spx and _show_spx:
                     _vfig.add_trace(go.Scatter(
@@ -2954,10 +2962,13 @@ if _page == "portfolio":
                     ))
                 _vfig.update_layout(
                     margin=dict(l=0, r=0, t=32, b=0),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                    yaxis=dict(tickprefix="€", tickformat=",.0f"),
-                    xaxis=dict(showgrid=False),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                                font=dict(color=_c_axis)),
+                    yaxis=dict(tickprefix="€", tickformat=",.0f",
+                               tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
                     hovermode="x unified",
+                    font=dict(color=_c_axis),
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
                 )
