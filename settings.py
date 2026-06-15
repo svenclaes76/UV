@@ -29,7 +29,10 @@ EXCHANGE_LABELS: dict[str, str] = {
 _SHARED_FILE   = _DATA_DIR / "shared.json"
 _SHARED_DEFAULTS: dict = {"enabled_exchanges": ALL_EXCHANGES}
 
-_USER_DEFAULTS: dict = {}
+_USER_DEFAULTS: dict = {
+    "ui_theme":        "dark",   # "dark" | "light"
+    "ui_accent":       "#1DD6A4",  # hex colour string
+}
 
 
 def _settings_file(email: str) -> Path:

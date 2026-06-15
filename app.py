@@ -1086,9 +1086,84 @@ _current_role = st.session_state.get("user_role", "user")
 _is_admin     = _current_role == "admin"
 set_user(_email)
 
+# ── Per-user UI preferences ───────────────────────────────────────────────────
+_user_prefs  = load_settings(_email) if _email else {}
+_ui_theme    = _user_prefs.get("ui_theme", "dark")
+_ui_accent   = _user_prefs.get("ui_accent", "#1DD6A4")
+
+# Derive a darker shade of the accent for hover/secondary use
+def _darken_hex(h: str, factor: float = 0.65) -> str:
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"#{int(r*factor):02x}{int(g*factor):02x}{int(b*factor):02x}"
+
+_ui_accent_dark = _darken_hex(_ui_accent)
+
+if _ui_theme == "light":
+    st.markdown(f"""
+<style>
+  /* ── Light-mode overrides ────────────────────────────────────────────────── */
+  :root, [data-testid="stApp"] {{
+    --background-color:           #FFFFFF !important;
+    --secondary-background-color: #F0F4F8 !important;
+    --text-color:                 #0D1F3C !important;
+    --primary-color:              {_ui_accent} !important;
+  }}
+  [data-testid="stApp"],
+  .stApp {{ background-color: #FFFFFF !important; color: #0D1F3C !important; }}
+  section[data-testid="stSidebar"] > div:first-child {{ background-color: #F0F4F8 !important; }}
+  section[data-testid="stSidebar"] {{ background-color: #F0F4F8 !important; }}
+  /* nav links */
+  .uv-nav-item {{ color: #0D1F3C !important; }}
+  .uv-nav-item:hover {{ background: rgba(0,0,0,0.06) !important; }}
+  .uv-nav-item.uv-active {{ background: rgba(0,0,0,0.08) !important; color: #0D1F3C !important; }}
+  /* sidebar footer */
+  .uv-bottom-email {{ color: #0D1F3C !important; opacity: 0.5 !important; }}
+  /* metric cards */
+  div[data-testid="metric-container"] {{
+    background: rgba(0,0,0,0.03) !important;
+    border-color: rgba(0,0,0,0.08) !important;
+  }}
+  /* veto badge adapts to light bg */
+  .uv-badge-veto {{ background: #E8ECF2 !important; color: #0D1F3C !important; border-color: rgba(0,0,0,0.1) !important; }}
+  /* positive/negative delta */
+  [data-testid="stMetricDelta"] [data-testid="stMetricDeltaIcon-Up"] ~ div,
+  .uv-delta-pos {{ color: #0F6E56 !important; background: rgba(15,110,86,0.10) !important; }}
+  /* general text inputs / selectboxes */
+  div[data-baseweb="input"] input,
+  div[data-baseweb="select"] {{ background: #FFFFFF !important; color: #0D1F3C !important; }}
+  /* tab underline stays accent */
+  button[data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: {_ui_accent} !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+if _ui_accent != "#1DD6A4":
+    st.markdown(f"""
+<style>
+  /* ── Custom accent colour ────────────────────────────────────────────────── */
+  :root {{
+    --uv-mint: {_ui_accent} !important;
+    --uv-teal: {_ui_accent_dark} !important;
+  }}
+  .uv-role-badge {{ color: {_ui_accent} !important; background: color-mix(in srgb, {_ui_accent} 12%, transparent) !important; }}
+  .uv-logo-accent, .uv-wordmark-accent {{ color: {_ui_accent_dark} !important; }}
+  [data-testid="stMetricDelta"] {{ color: {_ui_accent} !important; background: color-mix(in srgb, {_ui_accent} 12%, transparent) !important; }}
+  button[data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: {_ui_accent} !important; color: {_ui_accent} !important; }}
+  div[data-testid="metric-container"] {{ border-color: color-mix(in srgb, {_ui_accent} 20%, transparent) !important; background: color-mix(in srgb, {_ui_accent} 5%, transparent) !important; }}
+</style>
+""", unsafe_allow_html=True)
+
 # Page routing via query params (default: dashboard)
 _page = st.query_params.get("page", "dashboard")
 
+# Quick theme toggle via ?_uitheme= query param
+_qp_theme = st.query_params.get("_uitheme", "")
+if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
+    _user_prefs["ui_theme"] = _qp_theme
+    save_settings(_user_prefs, _email)
+    _ui_theme = _qp_theme
+    st.query_params.pop("_uitheme", None)
+    st.rerun()
 
 # ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
 # Active classes are applied by JS (uvSetActive) so sidebar HTML is identical on
@@ -1131,6 +1206,13 @@ with st.sidebar:
 <div class="uv-nav-utils">
   <hr class="uv-nav-sep" style="margin-bottom:6px;">
   <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
+</div>
+<div style="padding:0 10px 6px;display:flex;align-items:center;gap:6px;">
+  <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else 'dark'}" target="_self"
+     style="font-size:0.72rem;opacity:0.45;text-decoration:none;color:var(--text-color);
+            display:flex;align-items:center;gap:4px;letter-spacing:0.04em;text-transform:uppercase;">
+    {'☀' if _ui_theme == 'dark' else '☾'} {'Light' if _ui_theme == 'dark' else 'Dark'}
+  </a>
 </div>
 <div class="uv-bottom">
   <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
@@ -3116,9 +3198,9 @@ if _page == "portfolio":
 
 if _page == "settings":
     if _is_admin:
-        tab_admin, tab_screener, tab_backup, tab_import, tab_export = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export"])
+        tab_admin, tab_screener, tab_backup, tab_import, tab_export, tab_appearance = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export", "Appearance"])
     else:
-        tab_export, = st.tabs(["Export"])
+        tab_export, tab_appearance = st.tabs(["Export", "Appearance"])
 
     if _is_admin:
         with tab_admin:
@@ -3217,6 +3299,33 @@ if _page == "settings":
                     st.rerun()
                 except ValueError as e:
                     st.error(str(e))
+
+    with tab_appearance:
+        st.subheader("Appearance")
+        st.caption("Customise the look and feel of the app. Changes apply immediately on save.")
+
+        _ap_prefs = load_settings(_email) if _email else {}
+
+        _theme_choice = st.radio(
+            "Theme",
+            options=["dark", "light"],
+            index=0 if _ap_prefs.get("ui_theme", "dark") == "dark" else 1,
+            horizontal=True,
+            key="ap_theme_radio",
+        )
+
+        _accent_choice = st.color_picker(
+            "Accent colour",
+            value=_ap_prefs.get("ui_accent", "#1DD6A4"),
+            key="ap_accent_picker",
+        )
+
+        if st.button("Save appearance", type="primary", key="btn_save_appearance"):
+            _ap_prefs["ui_theme"]  = _theme_choice
+            _ap_prefs["ui_accent"] = _accent_choice
+            save_settings(_ap_prefs, _email)
+            st.success("Appearance saved — reload the page to apply.")
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — HELP
