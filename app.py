@@ -1174,7 +1174,7 @@ with st.sidebar:
 </div>
 <div class="uv-bottom">
   <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
     <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
     <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
        title="Theme: {_ui_theme} — click to cycle"
