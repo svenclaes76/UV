@@ -1167,23 +1167,33 @@ _LIGHT_CSS = """
   div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
   div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
 
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
-  [data-testid="stButton"] > button {
+  /* ── Buttons — catch all Streamlit button variants ──────────────────────── */
+  button[data-testid],
+  [data-testid="stButton"] > button,
+  [data-testid="stBaseButton-secondary"],
+  [data-testid="stBaseButton-tertiary"],
+  [data-testid="stDownloadButton"] > button,
+  [data-testid="stFormSubmitButton"] > button {
     background-color: #FFFFFF !important;
     color: #0D1F3C !important;
     border: 0.5px solid #CBD0D9 !important;
   }
-  [data-testid="stButton"] > button:hover {
+  button[data-testid]:hover,
+  [data-testid="stButton"] > button:hover,
+  [data-testid="stBaseButton-secondary"]:hover,
+  [data-testid="stBaseButton-tertiary"]:hover,
+  [data-testid="stDownloadButton"] > button:hover,
+  [data-testid="stFormSubmitButton"] > button:hover {
     background-color: #EEF1F5 !important;
     border-color: #CBD0D9 !important;
   }
-  [data-testid="stButton"] > button[kind="primary"],
-  [data-testid="stBaseButton-primary"] {
+  [data-testid="stBaseButton-primary"],
+  [data-testid="stButton"] > button[data-testid="stBaseButton-primary"],
+  [data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-primary"] {
     background-color: #1A8C6E !important;
     color: #FFFFFF !important;
     border: none !important;
   }
-  [data-testid="stButton"] > button[kind="primary"]:hover,
   [data-testid="stBaseButton-primary"]:hover {
     background-color: #0F6E56 !important;
   }
