@@ -1277,29 +1277,7 @@ _LIGHT_CSS = """
   /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
-  /* ── Dataframe / element toolbar (hover overlay) ────────────────────────── */
-  [data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButton"],
-  [data-testid="stBaseButton-header"],
-  [data-testid="stBaseButton-headerNoPadding"],
-  [data-testid="stElementToolbar"] button {
-    background-color: transparent !important;
-    color: #0D1F3C !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButton"]:hover,
-  [data-testid="stBaseButton-header"]:hover,
-  [data-testid="stBaseButton-headerNoPadding"]:hover,
-  [data-testid="stElementToolbar"] button:hover {
-    background-color: rgba(13,31,60,0.07) !important;
-    color: #0D1F3C !important;
-  }
-  /* Glide Data Grid column menu button (separate from toolbar) */
+  /* Glide Data Grid column menu button */
   .glideDataEditor [aria-label="Column menu"],
   .cell-wrapper--header button {
     background-color: #EEF1F5 !important;
