@@ -1279,16 +1279,17 @@ _LIGHT_CSS = """
 
   /* ── Dataframe / element toolbar (hover overlay) ────────────────────────── */
   [data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+    background-color: #FFFFFF !important;
+    border: 0.5px solid #E5E7EB !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+    /* border-radius left as-is so it matches the dark-mode pill shape */
   }
   [data-testid="stElementToolbarButton"],
   [data-testid="stBaseButton-header"],
   [data-testid="stBaseButton-headerNoPadding"],
   [data-testid="stElementToolbar"] button {
     background-color: transparent !important;
-    color: #5F5E5A !important;
+    color: #3B4D63 !important;
     border: none !important;
     box-shadow: none !important;
   }
@@ -1296,7 +1297,7 @@ _LIGHT_CSS = """
   [data-testid="stBaseButton-header"]:hover,
   [data-testid="stBaseButton-headerNoPadding"]:hover,
   [data-testid="stElementToolbar"] button:hover {
-    background-color: rgba(0,0,0,0.06) !important;
+    background-color: #EEF1F5 !important;
     color: #0D1F3C !important;
   }
   /* Glide Data Grid column menu button (separate from toolbar) */
