@@ -1282,8 +1282,8 @@ _LIGHT_CSS = """
   [data-testid="stBaseButton-header"],
   [data-testid="stBaseButton-headerNoPadding"],
   [data-testid="stElementToolbar"] button {
-    background-color: transparent !important;
-    color: #5F5E5A !important;
+    background-color: #0D1F3C !important;
+    color: #FFFFFF !important;
     border: none !important;
     box-shadow: none !important;
   }
@@ -1291,8 +1291,8 @@ _LIGHT_CSS = """
   [data-testid="stBaseButton-header"]:hover,
   [data-testid="stBaseButton-headerNoPadding"]:hover,
   [data-testid="stElementToolbar"] button:hover {
-    background-color: rgba(0,0,0,0.06) !important;
-    color: #0D1F3C !important;
+    background-color: #1A2F4E !important;
+    color: #FFFFFF !important;
   }
   /* Glide Data Grid column menu button (separate from toolbar) */
   .glideDataEditor [aria-label="Column menu"],
