@@ -1272,12 +1272,20 @@ _LIGHT_CSS = """
   /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
-  /* ── Tooltips ────────────────────────────────────────────────────────────── */
-  [data-testid="stTooltipContent"] {
+  /* ── Tooltips (Streamlit + baseweb + dataframe header) ──────────────────── */
+  [data-testid="stTooltipContent"],
+  [data-baseweb="tooltip"],
+  [role="tooltip"],
+  div[class*="tooltip"],
+  div[class*="Tooltip"] {
     background-color: #FFFFFF !important;
     color: #0D1F3C !important;
     border: 0.5px solid #E5E7EB !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
   }
+  [data-testid="stTooltipContent"] *,
+  [data-baseweb="tooltip"] *,
+  [role="tooltip"] * { color: #0D1F3C !important; }
 
   /* ── Signal badge veto variant only (others already correct) ─────────────── */
   .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
