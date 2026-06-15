@@ -1173,12 +1173,14 @@ with st.sidebar:
   <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
 </div>
 <div class="uv-bottom">
-  <div class="uv-bottom-email" style="margin-bottom:8px;">{_role_badge_html}{_email}</div>
-  <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
-    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="uv-bottom-email">{_role_badge_html}{_email}</div>
     <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
        title="Theme: {_ui_theme} — click to cycle"
        style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'◑' if _ui_theme == 'system' else ('☀' if _ui_theme == 'dark' else '☾')}</a>
+  </div>
+  <div style="text-align:center;">
+    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
