@@ -1277,6 +1277,38 @@ _LIGHT_CSS = """
   /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
+  /* ── Dataframe / element toolbar ────────────────────────────────────────── */
+  [data-testid="stElementToolbar"] {
+    background-color: #FFFFFF !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
+    border: none !important;
+  }
+  [data-testid="stElementToolbarButton"],
+  [data-testid="stBaseButton-header"],
+  [data-testid="stBaseButton-headerNoPadding"],
+  [data-testid="stElementToolbar"] button {
+    background-color: transparent !important;
+    color: #3B4D63 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stElementToolbarButton"]:hover,
+  [data-testid="stBaseButton-header"]:hover,
+  [data-testid="stBaseButton-headerNoPadding"]:hover,
+  [data-testid="stElementToolbar"] button:hover {
+    background-color: #EEF1F5 !important;
+    color: #0D1F3C !important;
+  }
+
+  /* ── Tooltip rounded corners (match dark mode) ───────────────────────────── */
+  [data-testid="stTooltipContent"],
+  [data-baseweb="tooltip"],
+  [role="tooltip"],
+  div[class*="tooltip"],
+  div[class*="Tooltip"] {
+    border-radius: 8px !important;
+  }
+
   /* Glide Data Grid column menu button */
   .glideDataEditor [aria-label="Column menu"],
   .cell-wrapper--header button {
