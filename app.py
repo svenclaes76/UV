@@ -1280,6 +1280,8 @@ _LIGHT_CSS = """
 
   /* ── Spinner / progress ──────────────────────────────────────────────────── */
   [data-testid="stSpinner"] { color: #0D1F3C !important; }
+  [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
+  [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
 """
 
 if _ui_theme == "light":
