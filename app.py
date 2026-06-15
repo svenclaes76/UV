@@ -1167,16 +1167,16 @@ _LIGHT_CSS = """
   div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
   div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
 
-  /* ── Buttons — catch all Streamlit button variants ──────────────────────── */
+  /* ── Buttons — ghost default (matches dark-mode feel), filled on primary ─── */
   button[data-testid],
   [data-testid="stButton"] > button,
   [data-testid="stBaseButton-secondary"],
   [data-testid="stBaseButton-tertiary"],
   [data-testid="stDownloadButton"] > button,
   [data-testid="stFormSubmitButton"] > button {
-    background-color: #FFFFFF !important;
+    background-color: transparent !important;
     color: #0D1F3C !important;
-    border: 0.5px solid #CBD0D9 !important;
+    border: 0.5px solid rgba(0,0,0,0.15) !important;
   }
   button[data-testid]:hover,
   [data-testid="stButton"] > button:hover,
@@ -1185,7 +1185,7 @@ _LIGHT_CSS = """
   [data-testid="stDownloadButton"] > button:hover,
   [data-testid="stFormSubmitButton"] > button:hover {
     background-color: #EEF1F5 !important;
-    border-color: #CBD0D9 !important;
+    border-color: rgba(0,0,0,0.2) !important;
   }
   [data-testid="stBaseButton-primary"],
   [data-testid="stButton"] > button[data-testid="stBaseButton-primary"],
