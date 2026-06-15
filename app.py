@@ -1272,6 +1272,16 @@ _LIGHT_CSS = """
   /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
+  /* ── Glide Data Grid column menu button ─────────────────────────────────── */
+  .glideDataEditor [aria-label="Column menu"],
+  .gdg-column-menu-button,
+  .cell-wrapper--header button {
+    background-color: #EEF1F5 !important;
+    color: #0D1F3C !important;
+    border: 0.5px solid #E5E7EB !important;
+    box-shadow: none !important;
+  }
+
   /* ── Tooltips (Streamlit + baseweb + dataframe header) ──────────────────── */
   [data-testid="stTooltipContent"],
   [data-baseweb="tooltip"],
