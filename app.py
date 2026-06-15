@@ -1167,36 +1167,38 @@ _LIGHT_CSS = """
   div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
   div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
 
-  /* ── Buttons — ghost default (matches dark-mode feel), filled on primary ─── */
-  button[data-testid],
-  [data-testid="stButton"] > button,
+  /* ── Buttons: secondary — bordered ghost ─────────────────────────────────── */
   [data-testid="stBaseButton-secondary"],
-  [data-testid="stBaseButton-tertiary"],
   [data-testid="stDownloadButton"] > button,
-  [data-testid="stFormSubmitButton"] > button {
+  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
     background-color: transparent !important;
     color: #0D1F3C !important;
     border: 0.5px solid rgba(0,0,0,0.15) !important;
   }
-  button[data-testid]:hover,
-  [data-testid="stButton"] > button:hover,
   [data-testid="stBaseButton-secondary"]:hover,
-  [data-testid="stBaseButton-tertiary"]:hover,
   [data-testid="stDownloadButton"] > button:hover,
-  [data-testid="stFormSubmitButton"] > button:hover {
+  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]):hover {
     background-color: #EEF1F5 !important;
     border-color: rgba(0,0,0,0.2) !important;
   }
-  [data-testid="stBaseButton-primary"],
-  [data-testid="stButton"] > button[data-testid="stBaseButton-primary"],
-  [data-testid="stFormSubmitButton"] > button[data-testid="stBaseButton-primary"] {
+  /* ── Buttons: tertiary — fully invisible, like dark mode ─────────────────── */
+  [data-testid="stBaseButton-tertiary"] {
+    background-color: transparent !important;
+    color: rgba(13,31,60,0.35) !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stBaseButton-tertiary"]:hover {
+    background-color: rgba(0,0,0,0.04) !important;
+    color: #0D1F3C !important;
+  }
+  /* ── Buttons: primary — filled teal ─────────────────────────────────────── */
+  [data-testid="stBaseButton-primary"] {
     background-color: #1A8C6E !important;
     color: #FFFFFF !important;
     border: none !important;
   }
-  [data-testid="stBaseButton-primary"]:hover {
-    background-color: #0F6E56 !important;
-  }
+  [data-testid="stBaseButton-primary"]:hover { background-color: #0F6E56 !important; }
 
   /* ── Inputs / selects / text areas ──────────────────────────────────────── */
   div[data-baseweb="input"] input,
