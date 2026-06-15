@@ -393,7 +393,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         yaxis=dict(fixedrange=True, categoryorder="array", categoryarray=list(_labels)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12),
+        font=dict(size=12, color="#0D1F3C" if _ui_effective_light else "#F5F7FA"),
     )
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
@@ -442,10 +442,11 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         hovertemplate="%{label}: €%{value:,.0f} (%{percent})<extra></extra>",
         marker=dict(
             colors=_colors,
-            line=dict(color="#0D1F3C", width=2),
+            line=dict(color="#F5F7FA" if _ui_effective_light else "#0D1F3C", width=2),
         ),
-        textfont=dict(color="#F5F7FA", size=12),
+        textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=12),
     ))
+    _chart_text = "#0D1F3C" if _ui_effective_light else "#F5F7FA"
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
@@ -455,13 +456,13 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
             orientation="v",
             x=1.02, xanchor="left",
             y=1.0,  yanchor="top",
-            font=dict(size=11, color="#F5F7FA"),
+            font=dict(size=11, color=_chart_text),
             itemwidth=30,
             tracegroupgap=2,
         ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12, color="#F5F7FA"),
+        font=dict(size=12, color=_chart_text),
     )
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
@@ -509,16 +510,29 @@ def _safe_pct(numerator: float, denominator: float) -> float:
 
 
 def _hm_color(v: float) -> str:
-    """Brand-aligned treemap cell color. v in [-1, 1]: negative=danger, zero=navy, positive=teal."""
-    if v >= 0:
-        r = int(13  + v * (29  - 13))
-        g = int(31  + v * (214 - 31))
-        b = int(60  + v * (164 - 60))
+    """Brand-aligned treemap cell color. v in [-1, 1]: negative=danger, zero=surface, positive=teal."""
+    if _ui_effective_light:
+        # Light mode: interpolate from page surface (#F5F7FA) outward
+        if v >= 0:
+            r = int(245 + v * (29  - 245))
+            g = int(247 + v * (214 - 247))
+            b = int(250 + v * (164 - 250))
+        else:
+            t = -v
+            r = int(245 + t * (163 - 245))
+            g = int(247 + t * (45  - 247))
+            b = int(250 + t * (45  - 250))
     else:
-        t = -v
-        r = int(13  + t * (163 - 13))
-        g = int(31  + t * (45  - 31))
-        b = int(60  + t * (45  - 60))
+        # Dark mode: interpolate from Deep Navy (#0D1F3C)
+        if v >= 0:
+            r = int(13  + v * (29  - 13))
+            g = int(31  + v * (214 - 31))
+            b = int(60  + v * (164 - 60))
+        else:
+            t = -v
+            r = int(13  + t * (163 - 13))
+            g = int(31  + t * (45  - 31))
+            b = int(60  + t * (45  - 60))
     return f"rgb({r},{g},{b})"
 
 
@@ -1087,29 +1101,150 @@ _is_admin     = _current_role == "admin"
 set_user(_email)
 
 # ── Per-user UI preferences ───────────────────────────────────────────────────
-_user_prefs = load_settings(_email) if _email else {}
-_ui_theme   = _user_prefs.get("ui_theme", "system")  # "system" | "dark" | "light"
+_user_prefs      = load_settings(_email) if _email else {}
+_ui_theme        = _user_prefs.get("ui_theme", "system")  # "system" | "dark" | "light"
+_ui_effective_light = _ui_theme == "light"  # charts can only be themed for explicit light; system follows OS via CSS
 
 _LIGHT_CSS = """
-  :root, [data-testid="stApp"] {
-    --background-color:           #FFFFFF !important;
-    --secondary-background-color: #F0F4F8 !important;
+  /* ── Streamlit theme variables ───────────────────────────────────────────── */
+  :root {
+    --background-color:           #F5F7FA !important;
+    --secondary-background-color: #FFFFFF !important;
     --text-color:                 #0D1F3C !important;
+    --primary-color:              #1A8C6E !important;
   }
-  [data-testid="stApp"], .stApp { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child { background-color: #F0F4F8 !important; }
-  .uv-nav-item                { color: #0D1F3C !important; }
-  .uv-nav-item:hover          { background: rgba(0,0,0,0.06) !important; }
-  .uv-nav-item.uv-active      { background: rgba(0,0,0,0.08) !important; color: #0D1F3C !important; }
-  .uv-bottom-email            { color: #0D1F3C !important; opacity: 0.5 !important; }
+
+  /* ── App surface ─────────────────────────────────────────────────────────── */
+  [data-testid="stApp"], .stApp,
+  section[data-testid="stMain"] {
+    background-color: #F5F7FA !important;
+    color: #0D1F3C !important;
+  }
+  .block-container { background-color: #F5F7FA !important; }
+
+  /* ── Sidebar stays Deep Navy (brand-fixed) ───────────────────────────────── */
+  /* No sidebar overrides — sidebar is always on #0D1F3C */
+
+  /* ── Typography ──────────────────────────────────────────────────────────── */
+  p, li, span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
+    color: #0D1F3C !important;
+  }
+  h1, h2, h3, h4, h5, h6 { color: #0D1F3C !important; }
+  [data-testid="stCaptionContainer"], small, caption { color: #5F5E5A !important; }
+
+  /* ── Cards / panels ──────────────────────────────────────────────────────── */
+  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
+  [data-testid="stExpander"] { background-color: #FFFFFF !important; }
+  details[data-testid="stExpander"] { border-color: #E5E7EB !important; }
+  details[data-testid="stExpander"] summary,
+  details[data-testid="stExpander"] summary span { color: #0D1F3C !important; }
+
+  /* ── Metric cards ────────────────────────────────────────────────────────── */
   div[data-testid="metric-container"] {
-    background: rgba(0,0,0,0.03) !important;
-    border-color: rgba(0,0,0,0.08) !important;
+    background: #F5F7FA !important;
+    border: 0.5px solid #E5E7EB !important;
   }
-  .uv-badge-veto { background: #E8ECF2 !important; color: #0D1F3C !important; border-color: rgba(0,0,0,0.1) !important; }
+  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
+  div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  [data-testid="stButton"] > button {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
+    border: 0.5px solid #CBD0D9 !important;
+  }
+  [data-testid="stButton"] > button:hover {
+    background-color: #EEF1F5 !important;
+    border-color: #CBD0D9 !important;
+  }
+  [data-testid="stButton"] > button[kind="primary"],
+  [data-testid="stBaseButton-primary"] {
+    background-color: #1A8C6E !important;
+    color: #FFFFFF !important;
+    border: none !important;
+  }
+  [data-testid="stButton"] > button[kind="primary"]:hover,
+  [data-testid="stBaseButton-primary"]:hover {
+    background-color: #0F6E56 !important;
+  }
+
+  /* ── Inputs / selects / text areas ──────────────────────────────────────── */
   div[data-baseweb="input"] input,
-  div[data-baseweb="select"] { background: #FFFFFF !important; color: #0D1F3C !important; }
+  div[data-baseweb="textarea"] textarea {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
+  }
+  div[data-baseweb="input"],
+  div[data-baseweb="textarea"] { border-color: #E5E7EB !important; }
+  div[data-baseweb="select"] > div:first-child {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
+    border-color: #E5E7EB !important;
+  }
+  /* Select dropdown menu */
+  [data-baseweb="popover"] [role="listbox"],
+  [data-baseweb="menu"] {
+    background-color: #FFFFFF !important;
+    border-color: #E5E7EB !important;
+  }
+  [data-baseweb="option"], [role="option"] {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
+  }
+  [data-baseweb="option"]:hover, [role="option"]:hover { background-color: #EEF1F5 !important; }
+
+  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
+  [data-testid="stCheckbox"] label { color: #0D1F3C !important; }
+  [data-testid="stCheckbox"] span[role="checkbox"],
+  [data-baseweb="checkbox"] span {
+    background-color: #FFFFFF !important;
+    border-color: #CBD0D9 !important;
+  }
+  [data-testid="stCheckbox"] span[aria-checked="true"],
+  [data-baseweb="checkbox"] span[data-checked] {
+    background-color: #1A8C6E !important;
+    border-color: #1A8C6E !important;
+  }
+
+  /* ── Radio buttons ───────────────────────────────────────────────────────── */
+  [data-testid="stRadio"] label, [data-testid="stRadio"] span { color: #0D1F3C !important; }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────────── */
+  [data-testid="stTabs"] { border-bottom-color: #E5E7EB !important; }
+  button[data-testid="stTab"] { color: #3B4D63 !important; }
+  button[data-testid="stTab"][aria-selected="true"] { color: #0D1F3C !important; border-bottom-color: #1A8C6E !important; }
+
+  /* ── Data tables ─────────────────────────────────────────────────────────── */
+  [data-testid="stDataFrame"] canvas,
+  [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
+  /* Restore signal colours that would be broken by the invert */
+  /* (signal badge HTML overlays are not canvas, so they are unaffected) */
+
+  /* ── File uploader ───────────────────────────────────────────────────────── */
+  [data-testid="stFileUploader"] section {
+    background-color: #FFFFFF !important;
+    border-color: #E5E7EB !important;
+  }
+  [data-testid="stFileUploader"] span { color: #3B4D63 !important; }
+
+  /* ── Dividers ────────────────────────────────────────────────────────────── */
+  hr { border-color: #E5E7EB !important; }
+
+  /* ── Alert / info / warning boxes ───────────────────────────────────────── */
+  [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
+
+  /* ── Tooltips ────────────────────────────────────────────────────────────── */
+  [data-testid="stTooltipContent"] {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
+    border: 0.5px solid #E5E7EB !important;
+  }
+
+  /* ── Signal badge veto variant only (others already correct) ─────────────── */
+  .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
+
+  /* ── Spinner / progress ──────────────────────────────────────────────────── */
+  [data-testid="stSpinner"] { color: #0D1F3C !important; }
 """
 
 if _ui_theme == "light":
@@ -1380,8 +1515,8 @@ if _page == "dashboard":
                 customdata=_hm_hover,
                 hovertemplate="%{customdata}<extra></extra>",
                 textinfo="text",
-                textfont=dict(color="#F5F7FA", size=13),
-                marker=dict(colors=_colors, line=dict(width=2, color="#0D1F3C")),
+                textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=13),
+                marker=dict(colors=_colors, line=dict(width=2, color="#F5F7FA" if _ui_effective_light else "#0D1F3C")),
             ))
             _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
                                   paper_bgcolor="rgba(0,0,0,0)")
