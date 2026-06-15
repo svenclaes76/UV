@@ -89,6 +89,7 @@ COLUMN_HELP = {
     ),
 }
 
+import json as _json
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1360,6 +1361,29 @@ elif _ui_theme == "system":
     st.markdown(f"<style>@media (prefers-color-scheme: light) {{{_LIGHT_CSS}}}</style>",
                 unsafe_allow_html=True)
 
+# Pre-inject theme from localStorage so login screen + nav flash are minimised.
+# This JS runs in the Streamlit main frame and applies the light CSS immediately
+# before Python finishes rendering — giving near-instant theme on all pages.
+_css_js = _json.dumps(_LIGHT_CSS)   # properly JS-escaped CSS string
+st.markdown(f"""<script>
+(function(){{
+  try {{
+    var t = localStorage.getItem('uv_theme') || 'system';
+    var light = t === 'light' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    var sid = 'uv-pre-theme';
+    var existing = document.getElementById(sid);
+    if (light && !existing) {{
+      var s = document.createElement('style');
+      s.id = sid;
+      s.textContent = {_css_js};
+      (document.head || document.documentElement).appendChild(s);
+    }} else if (!light && existing) {{
+      existing.remove();
+    }}
+  }} catch(e) {{}}
+}})();
+</script>""", unsafe_allow_html=True)
+
 # Page routing via query params (default: dashboard)
 _page = st.query_params.get("page", "dashboard")
 
@@ -1453,16 +1477,50 @@ st.markdown(f"""<style>
 st.iframe(f"""
 <script>
 (function(){{
+  var par = window.parent;
+
+  // ── JWT persistence ────────────────────────────────────────────────────────
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
+
+  // ── Theme persistence: keep localStorage in sync so login screen & flash
+  //    can read it before Python finishes rendering ───────────────────────────
+  localStorage.setItem('uv_theme', {_json.dumps(_ui_theme)});
+
+  // ── Cancel any pending hard-navigation fallback from previous render ───────
+  if (par._uvNavTimer) {{ clearTimeout(par._uvNavTimer); par._uvNavTimer = null; }}
+
+  // ── Hide Streamlit sidebar collapse button ────────────────────────────────
   (function hideBtn() {{
-    var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+    var el = par.document.querySelector('[data-testid="collapsedControl"]');
     if (el) (el.closest('div') || el).style.setProperty('display','none','important');
   }})();
   new MutationObserver(function(){{
-    var el = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+    var el = par.document.querySelector('[data-testid="collapsedControl"]');
     if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-  }}).observe(window.parent.document.body, {{childList:true, subtree:true}});
+  }}).observe(par.document.body, {{childList:true, subtree:true}});
+
+  // ── Soft navigation: intercept sidebar nav links so Streamlit reruns via
+  //    pushState+popstate instead of doing a full page reload (avoids flash) ──
+  par.document.querySelectorAll('a[data-uv-page]').forEach(function(a) {{
+    if (a._uvP) return; a._uvP = true;
+    a.addEventListener('click', function(e) {{
+      e.preventDefault();
+      var href = this.href;
+      try {{
+        par.history.pushState({{uv:1}}, '', new URL(href, par.location.href).search);
+        par.dispatchEvent(new PopStateEvent('popstate'));
+      }} catch(_) {{
+        par.location.href = href; return;
+      }}
+      // Fallback: if Streamlit doesn't rerun within 700ms, navigate normally.
+      // The iframe re-executing on next render will clearTimeout above.
+      par._uvNavTimer = setTimeout(function() {{
+        par._uvNavTimer = null;
+        par.location.href = href;
+      }}, 700);
+    }});
+  }});
 }})();
 </script>
 """, height=1)
