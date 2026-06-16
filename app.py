@@ -1333,8 +1333,8 @@ _LIGHT_CSS = """
     stroke: #5F5E5A !important;
     color: #5F5E5A !important;
   }
-  /* ── Toggle switch track (inactive) ─────────────────────────────────────── */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
+  /* ── Toggle switch track — scoped to income toggle only ─────────────────── */
+  .st-key-risk_income_toggle label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: rgba(0,0,0,0.18) !important;
   }
   /* ── Toggle / widget label text ─────────────────────────────────────────── */
