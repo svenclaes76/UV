@@ -315,28 +315,27 @@ def _risk_note(body: str) -> None:
     )
 
 
-_LOADING_CSS = """
-<style>
-  @keyframes uv-spin { to { transform: rotate(360deg); } }
-  .uv-loading-wrap {
+def _loading_css() -> str:
+    light = globals().get("_ui_effective_light", False)
+    text  = "#0D1F3C" if light else "#F5F7FA"
+    return f"""<style>
+  @keyframes uv-spin {{ to {{ transform: rotate(360deg); }} }}
+  .uv-loading-wrap {{
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 65vh; gap: 16px;
-  }
-  .uv-loading-icon {
-    width: 56px; height: 56px;
-  }
-  .uv-loading-wordmark {
+  }}
+  .uv-loading-icon {{ width: 56px; height: 56px; }}
+  .uv-loading-wordmark {{
     font-size: 1.6rem; font-weight: 500; letter-spacing: -0.03em;
-    color: #F5F7FA; line-height: 1;
-  }
-  .uv-loading-wordmark span { color: #1A8C6E; }
-  .uv-loading-sub { font-size: 0.78rem; opacity: 0.45; margin-top: -8px; }
-  .uv-spinner {
+    color: {text}; line-height: 1;
+  }}
+  .uv-loading-sub {{ font-size: 0.78rem; opacity: 0.45; margin-top: -8px; color: {text}; }}
+  .uv-spinner {{
     width: 28px; height: 28px; border: 3px solid rgba(128,128,128,0.2);
     border-top-color: #1DD6A4; border-radius: 50%;
     animation: uv-spin 0.8s linear infinite;
-  }
-  .uv-loading-msg { font-size: 0.82rem; opacity: 0.5; }
+  }}
+  .uv-loading-msg {{ font-size: 0.82rem; opacity: 0.5; color: {text}; }}
 </style>"""
 
 from contextlib import contextmanager
@@ -345,7 +344,7 @@ from contextlib import contextmanager
 def _loading_screen(message: str = "Loading…"):
     """Show a branded full-page loading screen, then hand off to real content."""
     _slot = st.empty()
-    _slot.markdown(f"""{_LOADING_CSS}
+    _slot.markdown(f"""{_loading_css()}
 <div class="uv-loading-wrap">
   <svg class="uv-loading-icon" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
     <rect width="56" height="56" rx="14" fill="#0D1F3C"/>
@@ -353,7 +352,7 @@ def _loading_screen(message: str = "Loading…"):
     <circle cx="28" cy="38" r="4.5" fill="#1DD6A4"/>
     <circle cx="28" cy="38" r="7" fill="none" stroke="#1DD6A4" stroke-width="1.5" opacity="0.5"/>
   </svg>
-  <div class="uv-loading-wordmark">uval<span>u</span></div>
+  <div class="uv-loading-wordmark">uval<span class="uv-logo-accent">u</span></div>
   <div class="uv-loading-sub">Find value before the market does.</div>
   <div class="uv-spinner"></div>
   <div class="uv-loading-msg">{message}</div>
@@ -1278,49 +1277,43 @@ _LIGHT_CSS = """
   /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
 
-  /* ── Dataframe / element toolbar ────────────────────────────────────────── */
-  [data-testid="stElementToolbar"],
-  [class*="ElementToolbar"],
-  [class*="Toolbar"][class*="element"] {
+  /* ── Toolbar: outer wrapper transparent, inner pill white ───────────────── */
+  [data-testid="stElementToolbar"] { background-color: transparent !important; }
+  [data-testid="stElementToolbarButtonContainer"] {
     background-color: #FFFFFF !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
-    border: none !important;
-  }
-  [data-testid="stElementToolbarButton"],
-  [data-testid="stBaseButton-header"],
-  [data-testid="stBaseButton-headerNoPadding"],
-  [data-testid="stElementToolbar"] button,
-  [class*="ElementToolbar"] button {
-    background-color: transparent !important;
-    color: #3B4D63 !important;
-    border: none !important;
+    color: #0D1F3C !important;
     box-shadow: none !important;
+    border: none !important;
   }
-  [data-testid="stElementToolbarButton"]:hover,
-  [data-testid="stBaseButton-header"]:hover,
-  [data-testid="stBaseButton-headerNoPadding"]:hover,
-  [data-testid="stElementToolbar"] button:hover,
-  [class*="ElementToolbar"] button:hover {
-    background-color: #EEF1F5 !important;
-    color: #0D1F3C !important;
+  [data-testid="stElementToolbarButtonContainer"] *,
+  [data-testid="stElementToolbarButtonContainer"] *:hover,
+  [data-testid="stElementToolbarButtonContainer"] *:focus,
+  [data-testid="stElementToolbarButtonContainer"] *:focus-visible,
+  [data-testid="stElementToolbarButtonContainer"] *:active {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    color: #3B4D63 !important;
   }
-  /* Kill active/selected state background on toolbar buttons */
-  [data-testid="stElementToolbarButton"][aria-pressed="true"],
-  [data-testid="stBaseButton-header"][aria-pressed="true"],
-  [data-testid="stElementToolbar"] button[aria-pressed="true"],
-  [class*="ElementToolbar"] button[aria-pressed="true"] {
-    background-color: #EEF1F5 !important;
-    color: #0D1F3C !important;
+  /* dataframe container border (rgba white → invisible on dark, visible on light) */
+  [data-testid="stDataFrameResizable"] {
+    border-color: rgba(0,0,0,0.08) !important;
   }
-
-  /* ── Tooltip rounded corners (match dark mode) ───────────────────────────── */
   [data-testid="stTooltipContent"],
-  [data-baseweb="tooltip"],
-  [role="tooltip"],
-  div[class*="tooltip"],
-  div[class*="Tooltip"] {
+  [data-baseweb="tooltip"], [role="tooltip"],
+  div[class*="tooltip"], div[class*="Tooltip"],
+  [data-baseweb="tooltip"] > div,
+  [data-baseweb="tooltip"] > div > div,
+  [role="tooltip"] > div,
+  [role="tooltip"] > div > div {
+    background-color: #FFFFFF !important;
+    color: #0D1F3C !important;
     border-radius: 8px !important;
   }
+  [data-testid="stTooltipContent"] *,
+  [data-baseweb="tooltip"] *,
+  [role="tooltip"] * { color: #0D1F3C !important; background-color: #FFFFFF !important; }
 
   /* Glide Data Grid column menu button */
   .glideDataEditor [aria-label="Column menu"],
@@ -1331,23 +1324,22 @@ _LIGHT_CSS = """
     box-shadow: none !important;
   }
 
-  /* ── Tooltips (Streamlit + baseweb + dataframe header) ──────────────────── */
-  [data-testid="stTooltipContent"],
-  [data-baseweb="tooltip"],
-  [role="tooltip"],
-  div[class*="tooltip"],
-  div[class*="Tooltip"] {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-    border: 0.5px solid #E5E7EB !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
-  }
-  [data-testid="stTooltipContent"] *,
-  [data-baseweb="tooltip"] *,
-  [role="tooltip"] * { color: #0D1F3C !important; }
-
   /* ── Signal badge veto variant only (others already correct) ─────────────── */
   .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
+  .uv-note-body { color: #3B4D63 !important; opacity: 1 !important; }
+  /* ── Help/info icon: override stroke (SVG uses stroke not fill) ──────────── */
+  [data-testid="stTooltipHoverTarget"] svg,
+  [data-testid="stTooltipHoverTarget"] svg.icon {
+    stroke: #5F5E5A !important;
+    color: #5F5E5A !important;
+  }
+  /* ── Toggle switch track (inactive) ─────────────────────────────────────── */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
+    background-color: rgba(0,0,0,0.18) !important;
+  }
+  /* ── Toggle / widget label text ─────────────────────────────────────────── */
+  [data-testid="stWidgetLabel"] p,
+  [data-testid="stCheckbox"] p { color: #0D1F3C !important; }
 
   /* ── Spinner / progress ──────────────────────────────────────────────────── */
   [data-testid="stSpinner"] { color: #0D1F3C !important; }
@@ -1379,6 +1371,27 @@ st.markdown(f"""<script>
       (document.head || document.documentElement).appendChild(s);
     }} else if (!light && existing) {{
       existing.remove();
+    }}
+
+    // MutationObserver: stamp inline styles on toolbar buttons so Emotion can't override them
+    if (light) {{
+      var fixToolbar = function(root) {{
+        (root || document).querySelectorAll(
+          '[data-testid="stElementToolbarButtonContainer"] button'
+        ).forEach(function(btn) {{
+          btn.style.setProperty('border', 'none', 'important');
+          btn.style.setProperty('outline', 'none', 'important');
+          btn.style.setProperty('box-shadow', 'none', 'important');
+          btn.style.setProperty('background-color', 'transparent', 'important');
+        }});
+      }};
+      fixToolbar();
+      var obs = new MutationObserver(function(muts) {{
+        muts.forEach(function(m) {{
+          if (m.addedNodes.length) fixToolbar();
+        }});
+      }});
+      obs.observe(document.body || document.documentElement, {{childList: true, subtree: true}});
     }}
   }} catch(e) {{}}
 }})();
@@ -1487,9 +1500,6 @@ st.iframe(f"""
   //    can read it before Python finishes rendering ───────────────────────────
   localStorage.setItem('uv_theme', {_json.dumps(_ui_theme)});
 
-  // ── Cancel any pending hard-navigation fallback from previous render ───────
-  if (par._uvNavTimer) {{ clearTimeout(par._uvNavTimer); par._uvNavTimer = null; }}
-
   // ── Hide Streamlit sidebar collapse button ────────────────────────────────
   (function hideBtn() {{
     var el = par.document.querySelector('[data-testid="collapsedControl"]');
@@ -1500,27 +1510,6 @@ st.iframe(f"""
     if (el) (el.closest('div') || el).style.setProperty('display','none','important');
   }}).observe(par.document.body, {{childList:true, subtree:true}});
 
-  // ── Soft navigation: intercept sidebar nav links so Streamlit reruns via
-  //    pushState+popstate instead of doing a full page reload (avoids flash) ──
-  par.document.querySelectorAll('a[data-uv-page]').forEach(function(a) {{
-    if (a._uvP) return; a._uvP = true;
-    a.addEventListener('click', function(e) {{
-      e.preventDefault();
-      var href = this.href;
-      try {{
-        par.history.pushState({{uv:1}}, '', new URL(href, par.location.href).search);
-        par.dispatchEvent(new PopStateEvent('popstate'));
-      }} catch(_) {{
-        par.location.href = href; return;
-      }}
-      // Fallback: if Streamlit doesn't rerun within 700ms, navigate normally.
-      // The iframe re-executing on next render will clearTimeout above.
-      par._uvNavTimer = setTimeout(function() {{
-        par._uvNavTimer = null;
-        par.location.href = href;
-      }}, 700);
-    }});
-  }});
 }})();
 </script>
 """, height=1)
@@ -3606,20 +3595,22 @@ if _page == "help":
 
 def _trigger_card(msg: str, kind: str = "hard") -> None:
     """Render a branded hard (danger) or soft (advisory) trigger card."""
+    _light = globals().get("_ui_effective_light", False)
     if kind == "hard":
-        border = "#A32D2D"
-        bg     = "rgba(163,45,45,0.10)"
+        border     = "#A32D2D"
+        bg         = "rgba(163,45,45,0.10)"
         badge_bg   = "rgba(163,45,45,0.20)"
-        badge_text = "#F5B5B5"
-        label  = "ACT"
-        symbol = "!"
+        badge_text = "#A32D2D" if _light else "#F5B5B5"
+        label      = "ACT"
+        symbol     = "!"
     else:
-        border = "#5B8FA8"
-        bg     = "rgba(91,143,168,0.08)"
+        border     = "#5B8FA8"
+        bg         = "rgba(91,143,168,0.08)"
         badge_bg   = "rgba(91,143,168,0.18)"
-        badge_text = "#A8CBE0"
-        label  = "REVIEW"
-        symbol = "→"
+        badge_text = "#2E6080" if _light else "#A8CBE0"
+        label      = "REVIEW"
+        symbol     = "→"
+    msg_color = "#0D1F3C" if _light else "#F5F7FA"
     st.markdown(f"""
 <div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
             border-left:3px solid {border};border-radius:6px;
@@ -3629,7 +3620,7 @@ def _trigger_card(msg: str, kind: str = "hard") -> None:
               font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
     {symbol} {label}
   </div>
-  <div style="font-size:0.88rem;color:#F5F7FA;line-height:1.4;">{msg}</div>
+  <div style="font-size:0.88rem;color:{msg_color};line-height:1.4;">{msg}</div>
 </div>""", unsafe_allow_html=True)
 
 
@@ -3657,7 +3648,16 @@ if _page == "risk":
     _risk_full_cache = _load_cache()
 
     # ── Income portfolio toggle ───────────────────────────────────────────────
-    _c_hdr, _c_tog = st.columns([5, 1])
+    st.markdown("""<style>
+      .st-key-risk_income_toggle {
+        display: flex !important; justify-content: flex-end !important;
+        align-items: center !important; padding-top: 0.35rem !important;
+      }
+      [data-testid="stColumn"]:has(.st-key-risk_income_toggle) {
+        padding-right: 0 !important;
+      }
+    </style>""", unsafe_allow_html=True)
+    _c_hdr, _c_tog = st.columns([4, 2])
     with _c_hdr:
         st.subheader("Portfolio Risk Assessment")
     with _c_tog:
@@ -3747,13 +3747,14 @@ if _page == "risk":
         ],
         text=[f"{v:.0f}" for v in _sub_scores.values()],
         textposition="outside",
+        textfont=dict(color=_c_axis),
     ))
     _ss_fig.update_layout(
         height=220, margin=dict(t=20, b=0, l=0, r=0),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         yaxis=dict(range=[0, 115], showgrid=False, visible=False),
-        xaxis=dict(showgrid=False),
-        font=dict(color="white"),
+        xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+        font=dict(color=_c_axis),
         showlegend=False,
     )
     st.plotly_chart(_ss_fig, use_container_width=True)
@@ -3851,15 +3852,18 @@ if _page == "risk":
                     marker_color=["#A32D2D" if v > 0.30 else "#1DD6A4" for v in c.sector_weights.values()],
                     text=[f"{v:.0%}" for v in c.sector_weights.values()],
                     textposition="outside",
+                    textfont=dict(color=_c_axis),
                 ))
-                _sec_fig.add_hline(y=30, line_dash="dot", line_color="rgba(245,247,250,0.35)",
-                                   annotation_text="30% threshold", annotation_position="top right")
+                _sec_fig.add_hline(y=30, line_dash="dot", line_color=_c_grid,
+                                   annotation_text="30% threshold", annotation_position="top right",
+                                   annotation_font_color=_c_axis)
                 _sec_fig.update_layout(
                     height=260, margin=dict(t=20, b=60, l=0, r=0),
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    yaxis=dict(title="Weight %", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
-                    xaxis=dict(tickangle=-30),
-                    font=dict(color="white"), showlegend=False,
+                    yaxis=dict(title="Weight %", showgrid=True, gridcolor=_c_grid,
+                               tickfont=dict(color=_c_axis), title_font=dict(color=_c_axis)),
+                    xaxis=dict(tickangle=-30, tickfont=dict(color=_c_axis)),
+                    font=dict(color=_c_axis), showlegend=False,
                 )
                 st.plotly_chart(_sec_fig, use_container_width=True)
             if c.sector_flag:
@@ -3870,18 +3874,30 @@ if _page == "risk":
             if c.geo_weights:
                 _geo_n = len(c.geo_weights)
                 _geo_colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_geo_n)]
+                _geo_total = sum(c.geo_weights.values())
+                _geo_pcts  = [v / _geo_total * 100 for v in c.geo_weights.values()]
+                _geo_text  = [f"{p:.1f}%" if p >= 4 else "" for p in _geo_pcts]
                 _geo_fig = go.Figure(go.Pie(
                     labels=list(c.geo_weights.keys()),
                     values=list(c.geo_weights.values()),
-                    hole=0.4,
-                    textinfo="label+percent",
-                    marker=dict(colors=_geo_colors, line=dict(color="#0D1F3C", width=2)),
-                    textfont=dict(color="#F5F7FA"),
+                    hole=0.52,
+                    text=_geo_text,
+                    textinfo="text",
+                    textposition="inside",
+                    insidetextorientation="horizontal",
+                    hovertemplate="%{label}: %{percent}<extra></extra>",
+                    marker=dict(colors=_geo_colors,
+                                line=dict(color="#F5F7FA" if _ui_effective_light else "#0D1F3C", width=2)),
+                    textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=12),
                 ))
                 _geo_fig.update_layout(
-                    height=260, margin=dict(t=10, b=10, l=0, r=0),
+                    height=max(260, 24 * _geo_n + 60),
+                    margin=dict(t=10, b=10, l=0, r=10),
                     paper_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#F5F7FA"), showlegend=False,
+                    showlegend=True,
+                    legend=dict(orientation="v", x=1.02, xanchor="left", y=1.0, yanchor="top",
+                                font=dict(size=11, color=_c_axis), itemwidth=30),
+                    font=dict(color=_c_axis),
                 )
                 st.plotly_chart(_geo_fig, use_container_width=True)
             if c.geo_flag:
@@ -3933,27 +3949,35 @@ if _page == "risk":
             st.divider()
             st.markdown("**Return correlation matrix (last 252 trading days)**")
             _corr = q.corr_matrix.round(2)
+            _heat_mid = "#EEF1F5" if _ui_effective_light else "#0D1F3C"
             _heat = go.Figure(go.Heatmap(
                 z=_corr.values,
                 x=list(_corr.columns),
                 y=list(_corr.index),
                 colorscale=[
                     [0.0, "#A32D2D"],
-                    [0.5, "#0D1F3C"],
+                    [0.5, _heat_mid],
                     [1.0, "#1DD6A4"],
                 ],
                 zmin=-1, zmax=1,
                 text=_corr.values.round(2),
                 texttemplate="%{text}",
+                textfont=dict(color=_c_axis),
                 showscale=True,
             ))
             _heat.update_layout(
                 height=max(300, len(_corr) * 40 + 80),
                 margin=dict(t=20, b=60, l=80, r=20),
                 paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white"),
-                xaxis=dict(tickangle=-30),
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color=_c_axis),
+                xaxis=dict(tickangle=-30, tickfont=dict(color=_c_axis),
+                           showline=False, zeroline=False, ticks=""),
+                yaxis=dict(tickfont=dict(color=_c_axis),
+                           showline=False, zeroline=False, ticks=""),
             )
+            _heat.update_traces(showscale=True,
+                                colorbar=dict(outlinewidth=0, tickfont=dict(color=_c_axis)))
             st.plotly_chart(_heat, use_container_width=True)
             if q.high_corr_pairs:
                 _pairs_str = ", ".join(f"**{a}/{b}** ({c:.2f})" for a, b, c in q.high_corr_pairs)
@@ -3995,14 +4019,18 @@ if _page == "risk":
                     marker_color=["#A32D2D" if abs(v) > 1.5 else "#1DD6A4" for v in f.loadings.values()],
                     text=[f"{v:+.2f}" for v in f.loadings.values()],
                     textposition="outside",
+                    textfont=dict(color=_c_axis),
                 ))
-                _fac_fig.add_hline(y=1.5,  line_dash="dot", line_color="rgba(245,247,250,0.35)")
-                _fac_fig.add_hline(y=-1.5, line_dash="dot", line_color="rgba(245,247,250,0.35)")
+                _fac_fig.add_hline(y=1.5,  line_dash="dot", line_color=_c_grid,
+                                   annotation_text="±1.5", annotation_font_color=_c_axis)
+                _fac_fig.add_hline(y=-1.5, line_dash="dot", line_color=_c_grid)
                 _fac_fig.update_layout(
                     height=280, margin=dict(t=30, b=20, l=0, r=0),
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    yaxis=dict(title="Factor Loading", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
-                    font=dict(color="white"), showlegend=False,
+                    yaxis=dict(title="Factor Loading", showgrid=True, gridcolor=_c_grid,
+                               tickfont=dict(color=_c_axis), title_font=dict(color=_c_axis)),
+                    xaxis=dict(tickfont=dict(color=_c_axis)),
+                    font=dict(color=_c_axis), showlegend=False,
                 )
                 st.plotly_chart(_fac_fig, use_container_width=True)
 
@@ -4077,24 +4105,24 @@ if _page == "risk":
         )
         st.markdown("**Historical scenarios** *(beta-adjusted approximation)*")
         _hist_rows = [{
-            "Scenario":          s.name,
-            "Period":            s.period,
-            "Index drawdown":    f"{s.index_drawdown:.0%}" if s.index_drawdown else "—",
-            "Est. portfolio DD": f"{s.portfolio_drawdown:.1%}" if s.portfolio_drawdown else "—",
-            "Est. value loss":   f"€{s.portfolio_value_loss:,.0f}" if s.portfolio_value_loss else "—",
+            "Scenario":       s.name,
+            "Period":         s.period,
+            "Index drawdown": s.index_drawdown * 100 if s.index_drawdown else None,
+            "Est. DD":        s.portfolio_drawdown * 100 if s.portfolio_drawdown else None,
+            "Est. loss €":    s.portfolio_value_loss if s.portfolio_value_loss else None,
         } for s in r.stress.historical]
         st.dataframe(pd.DataFrame(_hist_rows), hide_index=True, use_container_width=True,
             column_config={
-                "Scenario":          st.column_config.TextColumn("Scenario", width=220, pinned=True,
-                                         help="Name of the historical market crisis"),
-                "Period":            st.column_config.TextColumn("Period",
-                                         help="Approximate date range of the crisis"),
-                "Index drawdown":    st.column_config.TextColumn("Index drawdown",
-                                         help="Actual S&P 500 peak-to-trough drawdown during the crisis"),
-                "Est. portfolio DD": st.column_config.TextColumn("Est. portfolio DD",
-                                         help="Estimated portfolio drawdown = portfolio beta × index drawdown"),
-                "Est. value loss":   st.column_config.TextColumn("Est. value loss",
-                                         help="Estimated euro loss at current portfolio value"),
+                "Scenario":       st.column_config.TextColumn("Scenario", width=200, pinned=True,
+                                      help="Name of the historical market crisis"),
+                "Period":         st.column_config.TextColumn("Period",
+                                      help="Approximate date range of the crisis"),
+                "Index drawdown": st.column_config.NumberColumn("Index drawdown", format="%.0f%%",
+                                      help="Actual S&P 500 peak-to-trough drawdown during the crisis"),
+                "Est. DD":        st.column_config.NumberColumn("Est. portfolio DD", format="%.1f%%", width=180,
+                                      help="Estimated portfolio drawdown = portfolio beta × index drawdown"),
+                "Est. loss €":    st.column_config.NumberColumn("Est. value loss €", format="€%.0f", width=160,
+                                      help="Estimated euro loss at current portfolio value"),
             })
 
         st.caption("Drawdown estimated as portfolio beta × index drawdown. "
@@ -4103,21 +4131,21 @@ if _page == "risk":
         st.divider()
         st.markdown("**Hypothetical factor scenarios**")
         _factor_rows = [{
-            "Scenario":           s["name"],
-            "Description":        s["description"],
-            "Est. portfolio loss": f"{s['estimated_portfolio_impact']:.1%}",
-            "Est. value loss €":  f"€{s['estimated_loss_eur']:,.0f}",
+            "Scenario":    s["name"],
+            "Description": s["description"],
+            "Est. DD":     s["estimated_portfolio_impact"] * 100,
+            "Est. loss €": s["estimated_loss_eur"],
         } for s in r.stress.factor_scenarios]
         st.dataframe(pd.DataFrame(_factor_rows), hide_index=True, use_container_width=True,
             column_config={
-                "Scenario":            st.column_config.TextColumn("Scenario", width=220, pinned=True,
-                                           help="Name of the hypothetical shock"),
-                "Description":         st.column_config.TextColumn("Description",
-                                           help="How the shock is modelled"),
-                "Est. portfolio loss":  st.column_config.TextColumn("Est. portfolio loss",
-                                           help="Estimated portfolio return impact as a percentage"),
-                "Est. value loss €":   st.column_config.TextColumn("Est. value loss €",
-                                           help="Estimated euro loss at current portfolio value"),
+                "Scenario":    st.column_config.TextColumn("Scenario", width=200, pinned=True,
+                                   help="Name of the hypothetical shock"),
+                "Description": st.column_config.TextColumn("Description",
+                                   help="How the shock is modelled"),
+                "Est. DD":     st.column_config.NumberColumn("Est. portfolio loss", format="%.1f%%", width=180,
+                                   help="Estimated portfolio return impact as a percentage"),
+                "Est. loss €": st.column_config.NumberColumn("Est. value loss €", format="€%.0f", width=160,
+                                   help="Estimated euro loss at current portfolio value"),
             })
 
     # ── Tab: Monte Carlo ──────────────────────────────────────────────────────
@@ -4184,15 +4212,19 @@ if _page == "risk":
             return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
         _build_fan(_mcs, "#1DD6A4", "portfolio")
-        _fan_fig.add_hline(y=_pv, line_dash="dot", line_color="rgba(255,255,255,0.3)",
-                           annotation_text="Current value", annotation_position="bottom right")
+        _fan_fig.add_hline(y=_pv, line_dash="dot", line_color=_c_grid,
+                           annotation_text="Current value", annotation_position="bottom right",
+                           annotation_font_color=_c_axis)
         _fan_fig.update_layout(
             height=360, margin=dict(t=20, b=40, l=60, r=20),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             yaxis=dict(title="Portfolio value (€)", tickprefix="€",
-                       tickformat=",.0f", showgrid=True, gridcolor="rgba(128,128,128,0.15)"),
-            xaxis=dict(title="Years", tickvals=[0, 1, 3, 5]),
-            font=dict(color="white"), legend=dict(x=0.02, y=0.98),
+                       tickformat=",.0f", showgrid=True, gridcolor=_c_grid,
+                       tickfont=dict(color=_c_axis), title_font=dict(color=_c_axis)),
+            xaxis=dict(title="Years", tickvals=[0, 1, 3, 5],
+                       tickfont=dict(color=_c_axis), title_font=dict(color=_c_axis)),
+            font=dict(color=_c_axis),
+            legend=dict(x=0.02, y=0.98, font=dict(color=_c_axis)),
         )
         st.plotly_chart(_fan_fig, use_container_width=True)
 
