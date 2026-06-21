@@ -736,7 +736,11 @@ st.markdown("""
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
 
   /* ── Layout ──────────────────────────────────────────────────────────────── */
-  .block-container { padding-top: 2rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+  .block-container { padding-top: 0.75rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+
+  /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
+  .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
+  [data-testid="stColumn"]:has(.st-key-risk_income_toggle) { padding-right: 0 !important; }
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
@@ -1086,12 +1090,13 @@ def _auth_wall():
 
 # ── Logout handler — runs before auth wall so it works even without a session ──
 if st.query_params.get("logout") == "1":
+    _logout_theme = st.query_params.get("theme", "dark")
     st.query_params.clear()
+    if _logout_theme != "dark":
+        st.query_params["theme"] = _logout_theme
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
     st.rerun()
-
-_auth_wall()
 
 _email        = st.session_state.get("user_email", "")
 _current_role = st.session_state.get("user_role", "user")
@@ -1100,7 +1105,7 @@ set_user(_email)
 
 # ── Per-user UI preferences ───────────────────────────────────────────────────
 _user_prefs      = load_settings(_email) if _email else {}
-_ui_theme        = _user_prefs.get("ui_theme", "dark")  # "dark" | "light"
+_ui_theme        = _user_prefs.get("ui_theme", st.query_params.get("theme", "dark")) if _email else st.query_params.get("theme", "dark")  # "dark" | "light"
 _ui_effective_light = _ui_theme == "light"
 
 # Shared chart palette tokens — resolved once, used in every Plotly figure
@@ -1264,6 +1269,15 @@ _LIGHT_CSS = """
   [data-testid="stSpinner"] { color: #0D1F3C !important; }
   [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
   [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
+  /* ── Toggle switch tracks ────────────────────────────────────────────────── */
+  label[data-baseweb="checkbox"] > div:first-of-type {
+    background-color: #8A96A8 !important;
+    opacity: 1 !important;
+  }
+  /* Reset for regular checkboxes — higher specificity wins */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
+    background-color: transparent !important;
+  }
   /* ── Toggle switch track — scoped to income toggle only ─────────────────── */
   .st-key-risk_income_toggle label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: rgba(0,0,0,0.18) !important;
@@ -1309,8 +1323,12 @@ _LIGHT_CSS = """
   }
 """
 
-if _ui_effective_light:
+# ── Theme CSS injection (before auth wall so login screen is themed) ─────────
+_pre_theme = st.query_params.get("theme", "dark") if not _ui_effective_light else "light"
+if _ui_effective_light or _pre_theme == "light":
     st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
+
+_auth_wall()
 
 # Pre-inject from localStorage to avoid flash on page load
 _css_js = _json.dumps(_LIGHT_CSS)
@@ -1393,7 +1411,7 @@ with st.sidebar:
        style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
   </div>
   <div style="text-align:center;">
-    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+    <a href="/?logout=1&theme={_ui_theme}" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1452,8 +1470,6 @@ st.iframe(f"""
 # ══════════════════════════════════════════════════════════════════════════════
 
 if _page == "dashboard":
-    st.title("Dashboard")
-
     # ── Load portfolio data ────────────────────────────────────────────────────
     if not portfolio_exists():
         _scr_link = f"?page=screener{_tok_qs}"
@@ -2356,7 +2372,7 @@ if _page == "screener":
         _idx_name   = _idx_info[0] if _idx_info else None
         _idx_tickers = _idx_info[1] if _idx_info else frozenset()
 
-        cnt_col, _ti1, _ti2, refresh_col = st.columns([4, 1, 1, 1], vertical_alignment="center")
+        cnt_col, _ti1, _ti2, refresh_col = st.columns([5, 2, 2, 1], vertical_alignment="center")
         with _ti1:
             idx_only = st.toggle(_idx_name, value=not _is_admin, key=f"{key}_idx_only") if _idx_name else False
         with _ti2:
@@ -2434,8 +2450,8 @@ if _page == "portfolio":
         pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
-    with _loading_screen("Loading screener data…"):
-        _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), tuple(ALL_EXCHANGES))), ignore_index=True)
+    _pf_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), _pf_enabled)), ignore_index=True)
     _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
     _ticker_options = _all_screener["Ticker"].tolist()
     _ticker_labels  = {
@@ -3572,18 +3588,7 @@ if _page == "risk":
     _risk_full_cache = _load_cache()
 
     # ── Income portfolio toggle ───────────────────────────────────────────────
-    st.markdown("""<style>
-      .st-key-risk_income_toggle {
-        display: flex !important; justify-content: flex-end !important;
-        align-items: center !important; padding-top: 0.35rem !important;
-      }
-      [data-testid="stColumn"]:has(.st-key-risk_income_toggle) {
-        padding-right: 0 !important;
-      }
-    </style>""", unsafe_allow_html=True)
     _c_hdr, _c_tog = st.columns([4, 2])
-    with _c_hdr:
-        st.subheader("Portfolio Risk Assessment")
     with _c_tog:
         _income_portfolio = st.toggle("Income mode", value=False, key="risk_income_toggle",
                                       help="Elevates income risk weight in composite score")
