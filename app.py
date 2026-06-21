@@ -512,7 +512,6 @@ def _safe_pct(numerator: float, denominator: float) -> float:
 def _hm_color(v: float) -> str:
     """Brand-aligned treemap cell color. v in [-1, 1]: negative=danger, zero=surface, positive=teal."""
     if _ui_effective_light:
-        # Light mode: interpolate from page surface (#F5F7FA) outward
         if v >= 0:
             r = int(245 + v * (29  - 245))
             g = int(247 + v * (214 - 247))
@@ -523,7 +522,6 @@ def _hm_color(v: float) -> str:
             g = int(247 + t * (45  - 247))
             b = int(250 + t * (45  - 250))
     else:
-        # Dark mode: interpolate from Deep Navy (#0D1F3C)
         if v >= 0:
             r = int(13  + v * (29  - 13))
             g = int(31  + v * (214 - 31))
@@ -1102,8 +1100,8 @@ set_user(_email)
 
 # ── Per-user UI preferences ───────────────────────────────────────────────────
 _user_prefs      = load_settings(_email) if _email else {}
-_ui_theme        = _user_prefs.get("ui_theme", "system")  # "system" | "dark" | "light"
-_ui_effective_light = _ui_theme == "light"  # charts can only be themed for explicit light; system follows OS via CSS
+_ui_theme        = _user_prefs.get("ui_theme", "dark")  # "dark" | "light"
+_ui_effective_light = _ui_theme == "light"
 
 # Shared chart palette tokens — resolved once, used in every Plotly figure
 _c_axis      = "#5F5E5A"                    if _ui_effective_light else "rgba(245,247,250,0.55)"
@@ -1127,28 +1125,24 @@ _LIGHT_CSS = """
   }
   .block-container { background-color: #F5F7FA !important; }
 
-  /* ── Sidebar + bottom bar (same surface, matching dark-mode behaviour) ──── */
+  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
   section[data-testid="stSidebar"],
   section[data-testid="stSidebar"] > div:first-child {
     background-color: #FFFFFF !important;
   }
   .uv-bottom { background: #FFFFFF !important; border-top-color: #E5E7EB !important; }
   .mini-nav  { background: #FFFFFF !important; border-right-color: #E5E7EB !important; }
-  /* Nav item text + icon */
   .uv-nav-item         { color: #3B4D63 !important; }
   .uv-nav-item:hover   { background: rgba(0,0,0,0.04) !important; opacity: 1 !important; }
-  .uv-nav-active, [data-uv-page].uv-nav-item  { color: #1A8C6E !important; background: rgba(26,140,110,0.10) !important; }
+  .uv-nav-active, [data-uv-page].uv-nav-item { color: #1A8C6E !important; background: rgba(26,140,110,0.10) !important; }
   .mini-nav-link       { color: #3B4D63 !important; }
-  /* Separator */
-  .uv-nav-sep { border-top-color: #E5E7EB !important; }
-  /* Logo wordmark */
-  .uv-logo-wordmark { color: #0D1F3C !important; }
-  .uv-logo-accent   { color: #1A8C6E !important; }
-  .uv-logo-sub      { color: #5F5E5A !important; opacity: 1 !important; }
-  /* Bottom bar email + logout */
-  .uv-bottom-email  { color: #3B4D63 !important; opacity: 1 !important; }
-  .uv-logout        { color: #3B4D63 !important; border-color: #CBD0D9 !important; }
-  .uv-logout:hover  { color: #1A8C6E !important; border-color: #1A8C6E !important; }
+  .uv-nav-sep          { border-top-color: #E5E7EB !important; }
+  .uv-logo-wordmark    { color: #0D1F3C !important; }
+  .uv-logo-accent      { color: #1A8C6E !important; }
+  .uv-logo-sub         { color: #5F5E5A !important; opacity: 1 !important; }
+  .uv-bottom-email     { color: #3B4D63 !important; opacity: 1 !important; }
+  .uv-logout           { color: #3B4D63 !important; border-color: #CBD0D9 !important; }
+  .uv-logout:hover     { color: #1A8C6E !important; border-color: #1A8C6E !important; }
 
   /* ── Typography ──────────────────────────────────────────────────────────── */
   p, li, span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
@@ -1172,7 +1166,7 @@ _LIGHT_CSS = """
   div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
   div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
 
-  /* ── Buttons: secondary — bordered ghost ─────────────────────────────────── */
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
   [data-testid="stBaseButton-secondary"],
   [data-testid="stPopoverButton"],
   [data-testid="stDownloadButton"] > button,
@@ -1188,7 +1182,6 @@ _LIGHT_CSS = """
     background-color: #EEF1F5 !important;
     border-color: rgba(0,0,0,0.2) !important;
   }
-  /* ── Buttons: tertiary — fully invisible, like dark mode ─────────────────── */
   [data-testid="stBaseButton-tertiary"] {
     background-color: transparent !important;
     color: rgba(13,31,60,0.35) !important;
@@ -1199,7 +1192,6 @@ _LIGHT_CSS = """
     background-color: rgba(0,0,0,0.04) !important;
     color: #0D1F3C !important;
   }
-  /* ── Buttons: primary — filled teal ─────────────────────────────────────── */
   [data-testid="stBaseButton-primary"] {
     background-color: #1A8C6E !important;
     color: #FFFFFF !important;
@@ -1207,7 +1199,7 @@ _LIGHT_CSS = """
   }
   [data-testid="stBaseButton-primary"]:hover { background-color: #0F6E56 !important; }
 
-  /* ── Inputs / selects / text areas ──────────────────────────────────────── */
+  /* ── Inputs / selects ────────────────────────────────────────────────────── */
   div[data-baseweb="input"] input,
   div[data-baseweb="textarea"] textarea {
     background-color: #FFFFFF !important;
@@ -1215,7 +1207,6 @@ _LIGHT_CSS = """
   }
   div[data-baseweb="input"],
   div[data-baseweb="textarea"] { border-color: #E5E7EB !important; }
-  /* Selectbox trigger — match secondary button style */
   div[data-baseweb="select"] > div:first-child {
     background-color: #FFFFFF !important;
     color: #0D1F3C !important;
@@ -1224,17 +1215,13 @@ _LIGHT_CSS = """
     border-radius: 8px !important;
   }
   div[data-baseweb="select"] > div:first-child:hover { background-color: #EEF1F5 !important; }
-  /* Select dropdown menu */
   [data-baseweb="popover"] [role="listbox"],
   [data-baseweb="menu"] {
     background-color: #FFFFFF !important;
     border: 0.5px solid #E5E7EB !important;
     border-radius: 8px !important;
   }
-  [data-baseweb="option"], [role="option"] {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-  }
+  [data-baseweb="option"], [role="option"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
   [data-baseweb="option"]:hover, [role="option"]:hover { background-color: #EEF1F5 !important; }
 
   /* ── Checkboxes ──────────────────────────────────────────────────────────── */
@@ -1250,19 +1237,15 @@ _LIGHT_CSS = """
     border-color: #1A8C6E !important;
   }
 
-  /* ── Radio buttons ───────────────────────────────────────────────────────── */
+  /* ── Radio / Tabs ────────────────────────────────────────────────────────── */
   [data-testid="stRadio"] label, [data-testid="stRadio"] span { color: #0D1F3C !important; }
-
-  /* ── Tabs ────────────────────────────────────────────────────────────────── */
   [data-testid="stTabs"] { border-bottom-color: #E5E7EB !important; }
   button[data-testid="stTab"] { color: #3B4D63 !important; }
   button[data-testid="stTab"][aria-selected="true"] { color: #0D1F3C !important; border-bottom-color: #1A8C6E !important; }
 
-  /* ── Data tables ─────────────────────────────────────────────────────────── */
+  /* ── Data tables (canvas invert) ─────────────────────────────────────────── */
   [data-testid="stDataFrame"] canvas,
   [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
-  /* Restore signal colours that would be broken by the invert */
-  /* (signal badge HTML overlays are not canvas, so they are unaffected) */
 
   /* ── File uploader ───────────────────────────────────────────────────────── */
   [data-testid="stFileUploader"] section {
@@ -1271,127 +1254,79 @@ _LIGHT_CSS = """
   }
   [data-testid="stFileUploader"] span { color: #3B4D63 !important; }
 
-  /* ── Dividers ────────────────────────────────────────────────────────────── */
+  /* ── Misc ────────────────────────────────────────────────────────────────── */
   hr { border-color: #E5E7EB !important; }
-
-  /* ── Alert / info / warning boxes ───────────────────────────────────────── */
   [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-
-  /* ── Toolbar: outer wrapper transparent, inner pill white ───────────────── */
-  [data-testid="stElementToolbar"] { background-color: transparent !important; }
-  [data-testid="stElementToolbarButtonContainer"] {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"] *,
-  [data-testid="stElementToolbarButtonContainer"] *:hover,
-  [data-testid="stElementToolbarButtonContainer"] *:focus,
-  [data-testid="stElementToolbarButtonContainer"] *:focus-visible,
-  [data-testid="stElementToolbarButtonContainer"] *:active {
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: none !important;
-    outline: none !important;
-    color: #3B4D63 !important;
-  }
-  /* dataframe container border (rgba white → invisible on dark, visible on light) */
-  [data-testid="stDataFrameResizable"] {
-    border-color: rgba(0,0,0,0.08) !important;
-  }
-  [data-testid="stTooltipContent"],
-  [data-baseweb="tooltip"], [role="tooltip"],
-  div[class*="tooltip"], div[class*="Tooltip"],
-  [data-baseweb="tooltip"] > div,
-  [data-baseweb="tooltip"] > div > div,
-  [role="tooltip"] > div,
-  [role="tooltip"] > div > div {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-    border-radius: 8px !important;
-  }
-  [data-testid="stTooltipContent"] *,
-  [data-baseweb="tooltip"] *,
-  [role="tooltip"] * { color: #0D1F3C !important; background-color: #FFFFFF !important; }
-
-  /* Glide Data Grid column menu button */
-  .glideDataEditor [aria-label="Column menu"],
-  .cell-wrapper--header button {
-    background-color: #EEF1F5 !important;
-    color: #0D1F3C !important;
-    border: 0.5px solid #E5E7EB !important;
-    box-shadow: none !important;
-  }
-
-  /* ── Signal badge veto variant only (others already correct) ─────────────── */
   .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
-  .uv-note-body { color: #3B4D63 !important; opacity: 1 !important; }
-  /* ── Help/info icon: override stroke (SVG uses stroke not fill) ──────────── */
-  [data-testid="stTooltipHoverTarget"] svg,
-  [data-testid="stTooltipHoverTarget"] svg.icon {
-    stroke: #5F5E5A !important;
-    color: #5F5E5A !important;
-  }
+  .uv-note-body  { color: #3B4D63 !important; opacity: 1 !important; }
+  [data-testid="stWidgetLabel"] p,
+  [data-testid="stCheckbox"] p { color: #0D1F3C !important; }
+  [data-testid="stSpinner"] { color: #0D1F3C !important; }
+  [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
+  [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
   /* ── Toggle switch track — scoped to income toggle only ─────────────────── */
   .st-key-risk_income_toggle label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: rgba(0,0,0,0.18) !important;
   }
-  /* ── Toggle / widget label text ─────────────────────────────────────────── */
-  [data-testid="stWidgetLabel"] p,
-  [data-testid="stCheckbox"] p { color: #0D1F3C !important; }
+  /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
+  [data-baseweb="tooltip"] { background-color: transparent !important; }
+  [data-baseweb="tooltip"] > div > div,
+  [data-baseweb="tooltip"] > div > div > div,
+  [role="tooltip"],
+  [role="tooltip"] > div,
+  [data-testid="stTooltipContent"],
+  [data-testid="stTooltipContent"] > div {
+    background-color: #F5F7FA !important;
+    color: #0D1F3C !important;
+    border-radius: 8px !important;
+  }
+  [data-baseweb="tooltip"] span,
+  [data-baseweb="tooltip"] p,
+  [role="tooltip"] span,
+  [role="tooltip"] p,
+  [data-testid="stTooltipContent"] span,
+  [data-testid="stTooltipContent"] p { color: #0D1F3C !important; }
 
-  /* ── Spinner / progress ──────────────────────────────────────────────────── */
-  [data-testid="stSpinner"] { color: #0D1F3C !important; }
-  [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
-  [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
+  /* ── Toolbar pill: force light background (doubled attr beats Emotion specificity) ── */
+  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
+    background-color: #FFFFFF !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+    border: none !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
+    background-color: transparent !important;
+    color: #3B4D63 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
+    background-color: #EEF1F5 !important;
+  }
 """
 
-if _ui_theme == "light":
+if _ui_effective_light:
     st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
-elif _ui_theme == "system":
-    st.markdown(f"<style>@media (prefers-color-scheme: light) {{{_LIGHT_CSS}}}</style>",
-                unsafe_allow_html=True)
 
-# Pre-inject theme from localStorage so login screen + nav flash are minimised.
-# This JS runs in the Streamlit main frame and applies the light CSS immediately
-# before Python finishes rendering — giving near-instant theme on all pages.
-_css_js = _json.dumps(_LIGHT_CSS)   # properly JS-escaped CSS string
+# Pre-inject from localStorage to avoid flash on page load
+_css_js = _json.dumps(_LIGHT_CSS)
 st.markdown(f"""<script>
 (function(){{
   try {{
-    var t = localStorage.getItem('uv_theme') || 'system';
-    var light = t === 'light' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    var t = localStorage.getItem('uv_theme') || 'dark';
     var sid = 'uv-pre-theme';
     var existing = document.getElementById(sid);
-    if (light && !existing) {{
+    if (t === 'light' && !existing) {{
       var s = document.createElement('style');
       s.id = sid;
       s.textContent = {_css_js};
       (document.head || document.documentElement).appendChild(s);
-    }} else if (!light && existing) {{
+    }} else if (t !== 'light' && existing) {{
       existing.remove();
-    }}
-
-    // MutationObserver: stamp inline styles on toolbar buttons so Emotion can't override them
-    if (light) {{
-      var fixToolbar = function(root) {{
-        (root || document).querySelectorAll(
-          '[data-testid="stElementToolbarButtonContainer"] button'
-        ).forEach(function(btn) {{
-          btn.style.setProperty('border', 'none', 'important');
-          btn.style.setProperty('outline', 'none', 'important');
-          btn.style.setProperty('box-shadow', 'none', 'important');
-          btn.style.setProperty('background-color', 'transparent', 'important');
-        }});
-      }};
-      fixToolbar();
-      var obs = new MutationObserver(function(muts) {{
-        muts.forEach(function(m) {{
-          if (m.addedNodes.length) fixToolbar();
-        }});
-      }});
-      obs.observe(document.body || document.documentElement, {{childList: true, subtree: true}});
     }}
   }} catch(e) {{}}
 }})();
@@ -1402,10 +1337,9 @@ _page = st.query_params.get("page", "dashboard")
 
 # Quick theme toggle via ?_uitheme= query param
 _qp_theme = st.query_params.get("_uitheme", "")
-if _qp_theme in ("dark", "light", "system") and _email and _qp_theme != _ui_theme:
+if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
     _user_prefs["ui_theme"] = _qp_theme
     save_settings(_user_prefs, _email)
-    _ui_theme = _qp_theme
     st.query_params.pop("_uitheme", None)
     st.rerun()
 
@@ -1454,9 +1388,9 @@ with st.sidebar:
 <div class="uv-bottom">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div class="uv-bottom-email">{_role_badge_html}{_email}</div>
-    <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else ('system' if _ui_theme == 'light' else 'dark')}" target="_self"
-       title="Theme: {_ui_theme} — click to cycle"
-       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'◑' if _ui_theme == 'system' else ('☀' if _ui_theme == 'dark' else '☾')}</a>
+    <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else 'dark'}" target="_self"
+       title="Switch to {'light' if _ui_theme == 'dark' else 'dark'} mode"
+       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
   </div>
   <div style="text-align:center;">
     <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
@@ -1496,8 +1430,7 @@ st.iframe(f"""
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
 
-  // ── Theme persistence: keep localStorage in sync so login screen & flash
-  //    can read it before Python finishes rendering ───────────────────────────
+  // ── Theme persistence ──────────────────────────────────────────────────────
   localStorage.setItem('uv_theme', {_json.dumps(_ui_theme)});
 
   // ── Hide Streamlit sidebar collapse button ────────────────────────────────
@@ -3558,28 +3491,19 @@ if _page == "settings":
                 except ValueError as e:
                     st.error(str(e))
 
+
     with tab_appearance:
         st.subheader("Appearance")
-        st.caption("Controls when the app uses a light background. \"System\" follows your OS dark/light preference.")
-
-        _ap_prefs    = load_settings(_email) if _email else {}
-        _theme_opts  = ["system", "dark", "light"]
-        _theme_labels = {"system": "System", "dark": "Dark", "light": "Light"}
-        _cur_theme   = _ap_prefs.get("ui_theme", "system")
-
-        _theme_choice = st.radio(
-            "Theme",
-            options=_theme_opts,
-            format_func=lambda x: _theme_labels[x],
-            index=_theme_opts.index(_cur_theme) if _cur_theme in _theme_opts else 0,
-            horizontal=True,
-            key="ap_theme_radio",
-        )
-
-        if st.button("Save appearance", type="primary", key="btn_save_appearance"):
+        _ap_prefs   = load_settings(_email) if _email else {}
+        _cur_theme  = _ap_prefs.get("ui_theme", "dark")
+        _theme_choice = st.radio("Theme", ["dark", "light"],
+                                 format_func=lambda x: x.capitalize(),
+                                 index=0 if _cur_theme == "dark" else 1,
+                                 horizontal=True, key="ap_theme_radio")
+        if st.button("Save", type="primary", key="btn_save_appearance"):
             _ap_prefs["ui_theme"] = _theme_choice
             save_settings(_ap_prefs, _email)
-            st.success("Appearance saved.")
+            st.success("Saved.")
             st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
