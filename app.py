@@ -385,15 +385,16 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
             "#ef5350" if v < 0 else "#1DD6A4" for v in _vals
         ],
     ))
+    _ax_color = "#3B4D63" if _ui_effective_light else "#F5F7FA"
     fig.update_layout(
         margin=dict(l=0, r=0, t=28 if title else 24, b=0),
         title=dict(text=title or ""),
         height=max(200, len(_labels) * 32 + 60),
-        xaxis=dict(fixedrange=True),
-        yaxis=dict(fixedrange=True, categoryorder="array", categoryarray=list(_labels)),
+        xaxis=dict(fixedrange=True, tickfont=dict(color=_ax_color)),
+        yaxis=dict(fixedrange=True, categoryorder="array", categoryarray=list(_labels), tickfont=dict(color=_ax_color)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12, color="#0D1F3C" if _ui_effective_light else "#F5F7FA"),
+        font=dict(size=12, color=_ax_color),
     )
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
@@ -727,6 +728,10 @@ st.markdown("""
     --uv-muted:       #5F5E5A;
   }
 
+  /* ── Subheader spacing ───────────────────────────────────────────────────── */
+  [data-testid="stHeadingWithActionElements"] { margin-top: 0.5rem !important; margin-bottom: 0.15rem !important; padding: 0 !important; }
+  [data-testid="stHeadingWithActionElements"] h3 { margin: 0 !important; padding: 0 !important; font-size: 1.1rem !important; line-height: 1.3 !important; }
+
   /* ── Page transitions ────────────────────────────────────────────────────── */
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -736,7 +741,7 @@ st.markdown("""
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
 
   /* ── Layout ──────────────────────────────────────────────────────────────── */
-  .block-container { padding-top: 0.75rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+  .block-container { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
 
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
   .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
@@ -1091,6 +1096,11 @@ def _auth_wall():
 # ── Logout handler — runs before auth wall so it works even without a session ──
 if st.query_params.get("logout") == "1":
     _logout_theme = st.query_params.get("theme", "dark")
+    _logout_email = st.session_state.get("user_email", "")
+    if _logout_email:
+        _logout_prefs = load_settings(_logout_email)
+        _logout_prefs["ui_theme"] = _logout_theme
+        save_settings(_logout_prefs, _logout_email)
     st.query_params.clear()
     if _logout_theme != "dark":
         st.query_params["theme"] = _logout_theme
@@ -1269,6 +1279,18 @@ _LIGHT_CSS = """
   [data-testid="stSpinner"] { color: #0D1F3C !important; }
   [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
   [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
+  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
+  [data-baseweb="popover"] { background: #FFFFFF !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important; border: 1px solid #E2E6EC !important; overflow: hidden !important; }
+  [data-baseweb="popover"] > div,
+  [data-baseweb="menu"],
+  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
+  [data-baseweb="menu"] li { color: #0D1F3C !important; background: transparent !important; }
+  [data-baseweb="menu"] li:hover { background-color: #EEF1F5 !important; }
+  [data-baseweb="popover"] label[data-baseweb="radio"][data-baseweb="radio"] > div > div:first-child { background-color: #F5F7FA !important; border-color: #C8CDD6 !important; }
+  [data-baseweb="popover"] [aria-selected="true"] label[data-baseweb="radio"][data-baseweb="radio"] > div > div:first-child { background-color: #1DD6A4 !important; border-color: #1DD6A4 !important; }
+  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
+  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
+
   /* ── Toggle switch tracks ────────────────────────────────────────────────── */
   label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: #8A96A8 !important;
@@ -1282,6 +1304,7 @@ _LIGHT_CSS = """
   .st-key-risk_income_toggle label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: rgba(0,0,0,0.18) !important;
   }
+
   /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
   [data-baseweb="tooltip"] { background-color: transparent !important; }
   [data-baseweb="tooltip"] > div > div,
@@ -1596,7 +1619,6 @@ if _page == "dashboard":
 
     with _hm_col:
         st.subheader("Today's performance")
-        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         _db_hm = _db_pf.dropna(subset=["name", "current_value", "day_change_pct"]).copy()
         if not _db_hm.empty:
             _clamp  = 5.0
@@ -1629,7 +1651,6 @@ if _page == "dashboard":
 
     with _mv_col:
         st.subheader("Top movers today")
-        st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
         _db_mv = _db_mv.dropna(subset=["day_change_pct"])
@@ -1643,7 +1664,6 @@ if _page == "dashboard":
                 "Value":    _db_top["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             })
             _mv_row_h = len(_db_top_disp) * 35 + 38
-            st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
             st.dataframe(_db_top_disp, hide_index=True, width="stretch", height=_mv_row_h,
                          column_config={"Day %": st.column_config.TextColumn("Day %")})
         else:
@@ -1665,7 +1685,6 @@ if _page == "dashboard":
 
     with _div_col:
         st.subheader("Upcoming dividends")
-        st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
@@ -1770,19 +1789,19 @@ _f_str  = lambda v: v                if pd.notna(v) else "—"
 if _page == "screener":
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
-    with _loading_screen("Loading screener data…"):
-        df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
+    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
 
-    @st.fragment(run_every=10)
-    def _fetch_progress_banner():
-        prog = get_fetch_progress()
-        if prog["running"] and prog["total"] > 0:
-            pct  = prog["done"] / prog["total"]
-            st.progress(pct, text=f"Fetching fresh data in background… {prog['done']}/{prog['total']} tickers")
+    _any_data = any(not d.empty for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
 
-    _fetch_progress_banner()
+    _prog = get_fetch_progress()
+    if _prog["running"] and _prog["total"] > 0:
+        _pct = _prog["done"] / _prog["total"]
+        st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
+        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
+    elif not _any_data:
+        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
 
     watchlist = load_watchlist()
 
@@ -2051,15 +2070,6 @@ if _page == "screener":
             key=f"table_{key_suffix}",
         )
         return edited, n_shown
-
-    _any_data = any(not d.empty for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
-    if not _any_data:
-        prog = get_fetch_progress()
-        if prog["running"]:
-            st.info(f"Fetching data… {prog['done']}/{prog['total']} tickers complete. The screener will appear automatically.")
-        else:
-            st.info("No screener data yet. Data will appear once the background fetch completes.")
-        st.stop()
 
     # ── Buy dialog (shared across all screener tabs) ──────────────────────────
     _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
@@ -2508,8 +2518,7 @@ if _page == "portfolio":
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
-    with _loading_screen("Fetching live prices & fair values…"):
-        live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
+    live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
 
     def _lv(field, default=None):
         return pf["ticker"].map(lambda t: live_data[t].get(field, default))
@@ -2907,8 +2916,8 @@ if _page == "portfolio":
                     customdata=_hover,
                     hovertemplate="%{customdata}<extra></extra>",
                     textinfo="text",
-                    textfont=dict(color="#F5F7FA", size=13),
-                    marker=dict(colors=_colors, line=dict(width=2, color="#0D1F3C")),
+                    textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=13),
+                    marker=dict(colors=_colors, line=dict(width=2, color="#F5F7FA" if _ui_effective_light else "#0D1F3C")),
                 ))
                 _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
                                       paper_bgcolor="rgba(0,0,0,0)", height=340)
@@ -3571,8 +3580,7 @@ if _page == "risk":
         st.stop()
 
     # ── Enrich portfolio with live prices, fair values, sector, country ───────
-    with _loading_screen("Fetching live data for risk assessment…"):
-        _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
+    _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
 
     def _rlv(field, default=None):
         return pf["ticker"].map(lambda t: _risk_live.get(t, {}).get(field, default))
@@ -3590,8 +3598,7 @@ if _page == "risk":
     # ── Income portfolio toggle ───────────────────────────────────────────────
     _c_hdr, _c_tog = st.columns([4, 2])
     with _c_tog:
-        _income_portfolio = st.toggle("Income mode", value=False, key="risk_income_toggle",
-                                      help="Elevates income risk weight in composite score")
+        _income_portfolio = st.toggle("Income mode", value=False, key="risk_income_toggle")
 
     # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
     _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio))
@@ -3605,13 +3612,12 @@ if _page == "risk":
             _risk_report = _risk_cached["report"]
 
     if _risk_report is None:
-        with st.spinner("Running risk assessment — fetching 5-year price history and computing metrics…"):
-            try:
-                _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio)
-                st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
-            except Exception as _risk_err:
-                st.error(f"Risk assessment failed: {_risk_err}")
-                st.stop()
+        try:
+            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio)
+            st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
+        except Exception as _risk_err:
+            st.error(f"Risk assessment failed: {_risk_err}")
+            st.stop()
 
     r = _risk_report
 
