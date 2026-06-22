@@ -1286,8 +1286,6 @@ _LIGHT_CSS = """
   [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
   [data-baseweb="menu"] li { color: #0D1F3C !important; background: transparent !important; }
   [data-baseweb="menu"] li:hover { background-color: #EEF1F5 !important; }
-  [data-baseweb="popover"] label[data-baseweb="radio"][data-baseweb="radio"] > div > div:first-child { background-color: #F5F7FA !important; border-color: #C8CDD6 !important; }
-  [data-baseweb="popover"] [aria-selected="true"] label[data-baseweb="radio"][data-baseweb="radio"] > div > div:first-child { background-color: #1DD6A4 !important; border-color: #1DD6A4 !important; }
   [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
   [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
 
