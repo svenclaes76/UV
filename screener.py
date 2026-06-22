@@ -506,7 +506,7 @@ def _dividend_sustainability_flag(row: pd.Series) -> str:
 # ── Stage 4: Risk scoring ─────────────────────────────────────────────────────
 
 def _clamp(v, lo, hi):
-    return max(lo, min(hi, v))
+    return float(np.clip(v, lo, hi))
 
 
 def _financial_health_score(row: pd.Series) -> float:
