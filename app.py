@@ -315,8 +315,7 @@ def _risk_note(body: str) -> None:
     )
 
 
-def _loading_css() -> str:
-    light = globals().get("_ui_effective_light", False)
+def _loading_css(light: bool = False) -> str:
     text  = "#0D1F3C" if light else "#F5F7FA"
     return f"""<style>
   @keyframes uv-spin {{ to {{ transform: rotate(360deg); }} }}
@@ -344,7 +343,7 @@ from contextlib import contextmanager
 def _loading_screen(message: str = "Loading…"):
     """Show a branded full-page loading screen, then hand off to real content."""
     _slot = st.empty()
-    _slot.markdown(f"""{_loading_css()}
+    _slot.markdown(f"""{_loading_css(_ui_effective_light)}
 <div class="uv-loading-wrap">
   <svg class="uv-loading-icon" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
     <rect width="56" height="56" rx="14" fill="#0D1F3C"/>
@@ -443,11 +442,10 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         hovertemplate="%{label}: €%{value:,.0f} (%{percent})<extra></extra>",
         marker=dict(
             colors=_colors,
-            line=dict(color="#F5F7FA" if _ui_effective_light else "#0D1F3C", width=2),
+            line=dict(color=_c_surface, width=2),
         ),
-        textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=12),
+        textfont=dict(color=_c_text, size=12),
     ))
-    _chart_text = "#0D1F3C" if _ui_effective_light else "#F5F7FA"
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
@@ -457,13 +455,13 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
             orientation="v",
             x=1.02, xanchor="left",
             y=1.0,  yanchor="top",
-            font=dict(size=11, color=_chart_text),
+            font=dict(size=11, color=_c_text),
             itemwidth=30,
             tracegroupgap=2,
         ),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12, color=_chart_text),
+        font=dict(size=12, color=_c_text),
     )
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
@@ -512,26 +510,11 @@ def _safe_pct(numerator: float, denominator: float) -> float:
 
 def _hm_color(v: float) -> str:
     """Brand-aligned treemap cell color. v in [-1, 1]: negative=danger, zero=surface, positive=teal."""
-    if _ui_effective_light:
-        if v >= 0:
-            r = int(245 + v * (29  - 245))
-            g = int(247 + v * (214 - 247))
-            b = int(250 + v * (164 - 250))
-        else:
-            t = -v
-            r = int(245 + t * (163 - 245))
-            g = int(247 + t * (45  - 247))
-            b = int(250 + t * (45  - 250))
-    else:
-        if v >= 0:
-            r = int(13  + v * (29  - 13))
-            g = int(31  + v * (214 - 31))
-            b = int(60  + v * (164 - 60))
-        else:
-            t = -v
-            r = int(13  + t * (163 - 13))
-            g = int(31  + t * (45  - 31))
-            b = int(60  + t * (45  - 60))
+    zero    = (245, 247, 250) if _ui_effective_light else (13, 31, 60)
+    pos_end = (29, 214, 164)
+    neg_end = (163, 45, 45)
+    t, end  = (v, pos_end) if v >= 0 else (-v, neg_end)
+    r, g, b = (int(s + t * (e - s)) for s, e in zip(zero, end))
     return f"rgb({r},{g},{b})"
 
 
@@ -1138,6 +1121,8 @@ _ui_effective_light = _ui_theme == "light"
 _c_axis      = "#5F5E5A"                    if _ui_effective_light else "rgba(245,247,250,0.55)"
 _c_grid      = "rgba(0,0,0,0.07)"           if _ui_effective_light else "rgba(255,255,255,0.06)"
 _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(245,247,250,0.35)"
+_c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
+_c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
 
 _LIGHT_CSS = """
   /* ── Streamlit theme variables ───────────────────────────────────────────── */
@@ -1449,9 +1434,6 @@ _DARK_CSS = """
     border: none !important;
   }
 
-  /* ── Inputs / selects ────────────────────────────────────────────────────── */
-  [data-baseweb="select"] > div:first-child { background-color: #0F2647 !important; color: #F5F7FA !important; border-color: rgba(255,255,255,0.15) !important; }
-
   /* ── Checkboxes ──────────────────────────────────────────────────────────── */
   [data-testid="stCheckbox"] span[role="checkbox"],
   [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
@@ -1593,9 +1575,6 @@ st.iframe(f"""
   // ── JWT persistence ────────────────────────────────────────────────────────
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
-
-  // ── Theme persistence ──────────────────────────────────────────────────────
-  localStorage.setItem('uv_theme', {_json.dumps(_ui_theme)});
 
   // ── Hide Streamlit sidebar collapse button ────────────────────────────────
   (function hideBtn() {{
@@ -1763,8 +1742,8 @@ if _page == "dashboard":
                 customdata=_hm_hover,
                 hovertemplate="%{customdata}<extra></extra>",
                 textinfo="text",
-                textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=13),
-                marker=dict(colors=_colors, line=dict(width=2, color="#F5F7FA" if _ui_effective_light else "#0D1F3C")),
+                textfont=dict(color=_c_text, size=13),
+                marker=dict(colors=_colors, line=dict(width=2, color=_c_surface)),
             ))
             _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
                                   paper_bgcolor="rgba(0,0,0,0)")
@@ -3041,8 +3020,8 @@ if _page == "portfolio":
                     customdata=_hover,
                     hovertemplate="%{customdata}<extra></extra>",
                     textinfo="text",
-                    textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=13),
-                    marker=dict(colors=_colors, line=dict(width=2, color="#F5F7FA" if _ui_effective_light else "#0D1F3C")),
+                    textfont=dict(color=_c_text, size=13),
+                    marker=dict(colors=_colors, line=dict(width=2, color=_c_surface)),
                 ))
                 _hm_fig.update_layout(margin=dict(l=0, r=0, t=0, b=0),
                                       paper_bgcolor="rgba(0,0,0,0)", height=340)
@@ -3669,22 +3648,21 @@ if _page == "help":
 
 def _trigger_card(msg: str, kind: str = "hard") -> None:
     """Render a branded hard (danger) or soft (advisory) trigger card."""
-    _light = globals().get("_ui_effective_light", False)
     if kind == "hard":
         border     = "#A32D2D"
         bg         = "rgba(163,45,45,0.10)"
         badge_bg   = "rgba(163,45,45,0.20)"
-        badge_text = "#A32D2D" if _light else "#F5B5B5"
+        badge_text = "#A32D2D" if _ui_effective_light else "#F5B5B5"
         label      = "ACT"
         symbol     = "!"
     else:
         border     = "#5B8FA8"
         bg         = "rgba(91,143,168,0.08)"
         badge_bg   = "rgba(91,143,168,0.18)"
-        badge_text = "#2E6080" if _light else "#A8CBE0"
+        badge_text = "#2E6080" if _ui_effective_light else "#A8CBE0"
         label      = "REVIEW"
         symbol     = "→"
-    msg_color = "#0D1F3C" if _light else "#F5F7FA"
+    msg_color = _c_text
     st.markdown(f"""
 <div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
             border-left:3px solid {border};border-radius:6px;
@@ -3947,8 +3925,8 @@ if _page == "risk":
                     insidetextorientation="horizontal",
                     hovertemplate="%{label}: %{percent}<extra></extra>",
                     marker=dict(colors=_geo_colors,
-                                line=dict(color="#F5F7FA" if _ui_effective_light else "#0D1F3C", width=2)),
-                    textfont=dict(color="#0D1F3C" if _ui_effective_light else "#F5F7FA", size=12),
+                                line=dict(color=_c_surface, width=2)),
+                    textfont=dict(color=_c_text, size=12),
                 ))
                 _geo_fig.update_layout(
                     height=max(260, 24 * _geo_n + 60),
