@@ -713,6 +713,9 @@ st.markdown("""
 
 st.markdown("""
 <style>
+  /* ── Prevent black flash on page transitions ─────────────────────────────── */
+  html, body { background-color: #F5F7FA !important; }
+
   /* ── Brand tokens ────────────────────────────────────────────────────────── */
   :root {
     --uv-teal:        #1A8C6E;
@@ -797,6 +800,13 @@ st.markdown("""
   button[data-testid="stTab"]                       { color: var(--text-color) !important; opacity: 0.5; font-weight: 500; }
   button[data-testid="stTab"]:hover                 { opacity: 0.85 !important; }
   button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; color: var(--text-color) !important; }
+
+  /* ── Password reveal button ─────────────────────────────────────────────── */
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #0D1F3C !important; fill: #0D1F3C !important; stroke: #0D1F3C !important; opacity: 0.6; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
 
   /* ── Signal badges ───────────────────────────────────────────────────────── */
   .uv-badge {
@@ -1082,10 +1092,16 @@ def _auth_wall():
             ok, result = login(email, password)
             if ok:
                 _, role = verify_token(result)
+                _login_email = email.strip().lower()
                 st.session_state["jwt_token"]  = result
-                st.session_state["user_email"] = email.strip().lower()
+                st.session_state["user_email"] = _login_email
                 st.session_state["user_role"]  = role
                 st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
+                _login_theme = load_settings(_login_email).get("ui_theme", "dark")
+                if _login_theme != "dark":
+                    st.query_params["theme"] = _login_theme
+                else:
+                    st.query_params.pop("theme", None)
                 st.rerun()
             else:
                 st.error(result)
@@ -1258,9 +1274,7 @@ _LIGHT_CSS = """
   button[data-testid="stTab"] { color: #3B4D63 !important; }
   button[data-testid="stTab"][aria-selected="true"] { color: #0D1F3C !important; border-bottom-color: #1A8C6E !important; }
 
-  /* ── Data tables (canvas invert) ─────────────────────────────────────────── */
-  [data-testid="stDataFrame"] canvas,
-  [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
+  /* ── Data tables — no invert needed; base=light renders canvas correctly ── */
 
   /* ── File uploader ───────────────────────────────────────────────────────── */
   [data-testid="stFileUploader"] section {
@@ -1344,32 +1358,143 @@ _LIGHT_CSS = """
   }
 """
 
-# ── Theme CSS injection (before auth wall so login screen is themed) ─────────
-_pre_theme = st.query_params.get("theme", "dark") if not _ui_effective_light else "light"
-if _ui_effective_light or _pre_theme == "light":
+_DARK_CSS = """
+  /* ── Streamlit theme variables ───────────────────────────────────────────── */
+  :root {
+    --background-color:           #0D1F3C !important;
+    --secondary-background-color: #0F2647 !important;
+    --text-color:                 #F5F7FA !important;
+    --primary-color:              #1DD6A4 !important;
+  }
+
+  /* ── App surface ─────────────────────────────────────────────────────────── */
+  html, body { background-color: #0D1F3C !important; }
+  [data-testid="stApp"], .stApp,
+  section[data-testid="stMain"] {
+    background-color: #0D1F3C !important;
+    color: #F5F7FA !important;
+  }
+  .block-container { background-color: #0D1F3C !important; }
+
+  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"] > div:first-child {
+    background-color: #0F2647 !important;
+  }
+  .uv-bottom { background: #0F2647 !important; border-top-color: rgba(255,255,255,0.08) !important; }
+  .mini-nav  { background: #0F2647 !important; border-right-color: rgba(255,255,255,0.08) !important; }
+
+  /* ── Typography ──────────────────────────────────────────────────────────── */
+  p, li, h1, h2, h3, h4, h5, h6,
+  span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
+    color: #F5F7FA !important;
+  }
+  [data-testid="stCaptionContainer"], small, caption { color: rgba(245,247,250,0.55) !important; }
+
+  /* ── Cards / panels ──────────────────────────────────────────────────────── */
+  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
+  [data-testid="stExpander"] { background-color: #0F2647 !important; }
+  details[data-testid="stExpander"] { border-color: rgba(255,255,255,0.08) !important; }
+
+  /* ── Metric cards ────────────────────────────────────────────────────────── */
+  div[data-testid="metric-container"] {
+    background: #0F2647 !important;
+    border: 0.5px solid rgba(255,255,255,0.08) !important;
+  }
+  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #F5F7FA !important; }
+  div[data-testid="metric-container"] label { color: rgba(245,247,250,0.55) !important; }
+
+  /* ── Inputs / selects ────────────────────────────────────────────────────── */
+  div[data-baseweb="input"] input,
+  div[data-baseweb="textarea"] textarea {
+    background-color: #0F2647 !important;
+    color: #F5F7FA !important;
+  }
+  div[data-baseweb="input"],
+  div[data-baseweb="textarea"] { border-color: rgba(255,255,255,0.15) !important; }
+  div[data-baseweb="select"] > div:first-child {
+    background-color: #0F2647 !important;
+    color: #F5F7FA !important;
+    border-color: rgba(255,255,255,0.15) !important;
+  }
+
+  /* ── Data tables — invert light canvas back to dark ─────────────────────── */
+  [data-testid="stDataFrame"] canvas,
+  [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
+
+  /* ── Password reveal button ─────────────────────────────────────────────── */
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #F5F7FA !important; fill: #F5F7FA !important; stroke: #F5F7FA !important; opacity: 0.85; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  [data-testid="stBaseButton-secondary"],
+  [data-testid="stPopoverButton"],
+  [data-testid="stDownloadButton"] > button,
+  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
+    background-color: transparent !important;
+    color: #F5F7FA !important;
+    border: 0.5px solid rgba(255,255,255,0.2) !important;
+  }
+  [data-testid="stBaseButton-secondary"]:hover,
+  [data-testid="stPopoverButton"]:hover,
+  [data-testid="stDownloadButton"] > button:hover {
+    background-color: rgba(255,255,255,0.08) !important;
+  }
+  [data-testid="stBaseButton-primary"] {
+    background-color: #1DD6A4 !important;
+    color: #0D1F3C !important;
+    border: none !important;
+  }
+
+  /* ── Inputs / selects ────────────────────────────────────────────────────── */
+  [data-baseweb="select"] > div:first-child { background-color: #0F2647 !important; color: #F5F7FA !important; border-color: rgba(255,255,255,0.15) !important; }
+
+  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
+  [data-testid="stCheckbox"] span[role="checkbox"],
+  [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────────── */
+  button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
+  button[data-testid="stTab"][aria-selected="true"] { color: #F5F7FA !important; border-bottom-color: #1DD6A4 !important; }
+
+  /* ── Misc ────────────────────────────────────────────────────────────────── */
+  hr { border-color: rgba(255,255,255,0.08) !important; }
+  [data-testid="stAlert"] { background-color: #0F2647 !important; color: #F5F7FA !important; }
+  [data-testid="stWidgetLabel"] p,
+  [data-testid="stCheckbox"] p { color: #F5F7FA !important; }
+  [data-testid="stProgressBar"] > div { background-color: rgba(255,255,255,0.12) !important; }
+"""
+
+# ── Theme CSS injection (before auth wall so login/loading screen is themed) ──
+if _ui_effective_light:
     st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
+else:
+    st.markdown(f"<style>{_DARK_CSS}</style>", unsafe_allow_html=True)
 
-_auth_wall()
-
-# Pre-inject from localStorage to avoid flash on page load
-_css_js = _json.dumps(_LIGHT_CSS)
+# Sync localStorage with server-side theme so next page load uses correct CSS
+_light_css_js = _json.dumps(_LIGHT_CSS)
+_dark_css_js  = _json.dumps(_DARK_CSS)
+_server_theme = _json.dumps(_ui_theme)
 st.markdown(f"""<script>
 (function(){{
   try {{
-    var t = localStorage.getItem('uv_theme') || 'dark';
+    var t = {_server_theme};
+    localStorage.setItem('uv_theme', t);
     var sid = 'uv-pre-theme';
     var existing = document.getElementById(sid);
-    if (t === 'light' && !existing) {{
-      var s = document.createElement('style');
-      s.id = sid;
-      s.textContent = {_css_js};
-      (document.head || document.documentElement).appendChild(s);
-    }} else if (t !== 'light' && existing) {{
-      existing.remove();
-    }}
+    if (existing) existing.remove();
+    var s = document.createElement('style');
+    s.id = sid;
+    s.textContent = t === 'light' ? {_light_css_js} : {_dark_css_js};
+    (document.head || document.documentElement).appendChild(s);
   }} catch(e) {{}}
 }})();
 </script>""", unsafe_allow_html=True)
+
+_auth_wall()
 
 # Page routing via query params (default: dashboard)
 _page = st.query_params.get("page", "dashboard")
@@ -1649,6 +1774,7 @@ if _page == "dashboard":
 
     with _mv_col:
         st.subheader("Top movers today")
+        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
         _db_mv = _db_mv.dropna(subset=["day_change_pct"])
@@ -1683,6 +1809,7 @@ if _page == "dashboard":
 
     with _div_col:
         st.subheader("Upcoming dividends")
+        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(

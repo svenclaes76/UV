@@ -3,8 +3,8 @@ sslCertFile = ".ssl/cert.pem"
 sslKeyFile  = ".ssl/key.pem"
 
 [theme]
-base                  = "dark"
+base                  = "light"
 primaryColor          = "#1DD6A4"
-backgroundColor       = "#0D1F3C"
-secondaryBackgroundColor = "#0F2647"
-textColor             = "#F5F7FA"
+backgroundColor       = "#F5F7FA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor             = "#0D1F3C"
