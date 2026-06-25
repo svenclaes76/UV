@@ -2317,20 +2317,56 @@ if _page == "screener":
         # Force all tab panels to the same height so the dialog doesn't resize on switch
         st.markdown("""
 <style>
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
-    height: 460px;
-    overflow-y: hidden;
+/* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
+[data-testid="stDialog"] > div {
+    width: 860px !important;
+    min-width: 860px !important;
+    max-width: 860px !important;
 }
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] > div {
+/* ── Hide redundant "Stock details" title ─────────────────────── */
+[data-testid="stDialog"] div[role="dialog"] > div:first-child {
+    display: none !important;
+}
+
+/* ── Fixed dialog height across all tabs ──────────────────────── */
+[data-testid="stDialog"] div[role="dialog"] {
+    min-height: 540px !important;
+    height: 540px !important;
+}
+
+/* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow-y: scroll !important;
+    box-sizing: border-box;
+    scrollbar-width: none !important;       /* Firefox */
+    -ms-overflow-style: none !important;    /* IE/Edge */
+}
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"]::-webkit-scrollbar {
+    display: none !important;               /* Chrome/Safari */
+}
+/* Remove bottom gap Streamlit adds between widgets */
+[data-testid="stDialog"] div[role="tabpanel"] [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+[data-testid="stDialog"] div[role="tabpanel"] > div {
     padding-bottom: 0 !important;
 }
+
+/* ── Compact typography inside dialog ─────────────────────────── */
 [data-testid="stDialog"] .uv-model-row {
     padding: 3px 0;
     font-size: 12px;
 }
 [data-testid="stDialog"] .uv-section-label {
-    margin: 10px 0 4px;
+    margin: 24px 0 10px;
     font-size: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+[data-testid="stDialog"] .uv-section-label:first-child {
+    margin-top: 8px;
 }
 [data-testid="stDialog"] .uv-metric-grid {
     margin-bottom: 12px !important;
@@ -2340,6 +2376,9 @@ if _page == "screener":
 }
 [data-testid="stDialog"] .uv-metric-label {
     font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 [data-testid="stDialog"] .uv-metric-value {
     font-size: 1.1rem;
@@ -2361,7 +2400,7 @@ if _page == "screener":
         if row.get("veto"):
             badge_class, badge_label = "uv-badge-veto", "VETO"
 
-        score_str = f"{score:.1f} / 100" if pd.notna(score) else "—"
+        score_str = f"{score:.1f}%" if pd.notna(score) else "—"
 
         def _fv(field, fmt=None):
             v = row.get(field)
@@ -2402,9 +2441,9 @@ if _page == "screener":
   <div class="uv-metric-cell"><div class="uv-metric-label">Fair value</div>
     <div class="uv-metric-value">{uv_str}</div></div>
   <div class="uv-metric-cell"><div class="uv-metric-label">Margin of safety</div>
-    <div class="uv-metric-value">{mos_str}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Total exp. return</div>
-    <div class="uv-metric-value">{ter_str}</div></div>
+    <div class="uv-metric-value" style="white-space:nowrap;">{mos_str}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Exp. return</div>
+    <div class="uv-metric-value" style="white-space:nowrap;">{ter_str}</div></div>
   <div class="uv-metric-cell"><div class="uv-metric-label">Score</div>
     <div class="uv-metric-value">{score_str}</div></div>
 </div>""", unsafe_allow_html=True)
@@ -2633,7 +2672,7 @@ if _page == "screener":
             _all_tips = _risk_tips + _pf_tips
             if _all_tips:
                 st.markdown(
-                    '<div class="uv-section-label" style="margin-top:14px;">Signals</div>'
+                    '<div class="uv-section-label" style="margin-top:40px;">Signals</div>'
                     + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
                     unsafe_allow_html=True,
                 )
