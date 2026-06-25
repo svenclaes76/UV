@@ -1913,22 +1913,48 @@ if _page == "screener":
     _scr_pf_context: dict | None = None
     _scr_pf = load_portfolio()
     if _scr_pf is not None and not _scr_pf.empty:
-        _all_scr = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
-        _lu_cols = ["Ticker"] + [c for c in ("sector", "country", "beta", "Price") if c in _all_scr.columns]
-        _all_scr_lu = (
-            _all_scr[_lu_cols]
-            .drop_duplicates("Ticker")
-            .rename(columns={"Ticker": "ticker"})
-        )
-        _pf_m = _scr_pf.merge(_all_scr_lu, on="ticker", how="left")
-        _price_col = "Price" if "Price" in _pf_m.columns else None
-        if _price_col:
-            _pf_m["_val"] = (
-                pd.to_numeric(_pf_m["shares"], errors="coerce") *
-                pd.to_numeric(_pf_m[_price_col], errors="coerce")
+        # Look up sector/country/price for every portfolio position directly from
+        # the app's own fundamentals cache — covers all tickers ever fetched, not
+        # just those in the current screener exchange lists.
+        _fund_cache = _load_cache()
+        _suffix_to_country = {
+            ".BR": "Belgium", ".AS": "Netherlands", ".PA": "France",
+            ".MI": "Italy",   ".DE": "Germany",     ".SW": "Switzerland",
+        }
+        _pf_m = _scr_pf.copy()
+        for _col in ("sector", "country", "Price"):
+            _pf_m[_col] = None
+        for _idx, _prow in _pf_m.iterrows():
+            _tick = str(_prow.get("ticker", ""))
+            _cached = _fund_cache.get(_tick, {})
+            _pf_m.at[_idx, "sector"]  = _cached.get("sector") or None
+            _pf_m.at[_idx, "country"] = _cached.get("country") or None
+            _pf_m.at[_idx, "Price"]   = _cached.get("Price") or None
+        # Infer country from exchange suffix as final fallback
+        _missing_country = _pf_m["country"].isna()
+        if _missing_country.any():
+            _pf_m.loc[_missing_country, "country"] = _pf_m.loc[_missing_country, "ticker"].apply(
+                lambda t: next((c for s, c in _suffix_to_country.items() if str(t).endswith(s)), None)
             )
-        else:
-            _pf_m["_val"] = pd.to_numeric(_pf_m["shares"], errors="coerce")
+
+        # Market value: shares × current price from cache, fallback to purchase_value / purchase_price
+        _pf_m["_val"] = (
+            pd.to_numeric(_pf_m["shares"], errors="coerce") *
+            pd.to_numeric(_pf_m["Price"], errors="coerce")
+        )
+        # Fill missing market values with purchase_value or shares × purchase_price
+        _missing_val = _pf_m["_val"].isna()
+        if _missing_val.any():
+            if "purchase_value" in _pf_m.columns:
+                _pf_m.loc[_missing_val, "_val"] = pd.to_numeric(
+                    _pf_m.loc[_missing_val, "purchase_value"], errors="coerce"
+                )
+            _still_missing = _pf_m["_val"].isna()
+            if _still_missing.any() and "purchase_price" in _pf_m.columns:
+                _pf_m.loc[_still_missing, "_val"] = (
+                    pd.to_numeric(_pf_m.loc[_still_missing, "shares"], errors="coerce") *
+                    pd.to_numeric(_pf_m.loc[_still_missing, "purchase_price"], errors="coerce")
+                )
         _pf_total = _pf_m["_val"].sum()
         if _pf_total > 0:
             _scr_pf_context = {
@@ -2146,6 +2172,7 @@ if _page == "screener":
                 )
                 active_extra_cols.append(col)
 
+        display_data["⋮"] = [False] * len(tab_df)
         display_df = pd.DataFrame(display_data)
         _n_rows = len(display_df)
 
@@ -2158,7 +2185,8 @@ if _page == "screener":
 
         all_data_cols = [c for c in display_data.keys() if c != "★"]
         col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        disabled_cols = all_data_cols
+        col_config["⋮"] = st.column_config.CheckboxColumn("⋮", width="small", help="View stock details")
+        disabled_cols = [c for c in all_data_cols if c != "⋮"]
 
         _row_h  = 35
         _header = 38
@@ -2283,8 +2311,41 @@ if _page == "screener":
                 save_watchlist(still_watched)
                 st.rerun()
 
-    def _render_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
-        """Render a branded detail card for a single screener stock."""
+    @st.dialog("Stock details", width="large")
+    def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
+        """4-tab stock detail modal — consistent height across all tabs."""
+        # Force all tab panels to the same height so the dialog doesn't resize on switch
+        st.markdown("""
+<style>
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
+    height: 460px;
+    overflow-y: hidden;
+}
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] > div {
+    padding-bottom: 0 !important;
+}
+[data-testid="stDialog"] .uv-model-row {
+    padding: 3px 0;
+    font-size: 12px;
+}
+[data-testid="stDialog"] .uv-section-label {
+    margin: 10px 0 4px;
+    font-size: 10px;
+}
+[data-testid="stDialog"] .uv-metric-grid {
+    margin-bottom: 12px !important;
+}
+[data-testid="stDialog"] .uv-metric-cell {
+    padding: 8px 10px;
+}
+[data-testid="stDialog"] .uv-metric-label {
+    font-size: 10px;
+}
+[data-testid="stDialog"] .uv-metric-value {
+    font-size: 1.1rem;
+}
+</style>""", unsafe_allow_html=True)
+
         decision = str(row.get("Decision", ""))
         score    = row.get("Value Score")
         badge_class = {
@@ -2308,174 +2369,321 @@ if _page == "screener":
                 return "—"
             return fmt(v) if fmt else str(v)
 
-        price_str = _fv("Price", _fmt_eur)
-        uv_str    = _fv("fair_value", _fmt_eur)
-        mos_str   = _fv("MoS %", lambda v: f"{v:+.1f}%")
-        ter_str   = _fv("TER %", lambda v: f"{v:+.1f}%")
+        def _rows_html(pairs):
+            return "".join(
+                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+                f'<span class="uv-model-value">{val}</span></div>'
+                for lbl, val in pairs
+            )
 
+        # ── Header: company name · ticker · decision badge ────────────────────
         st.markdown(f"""
-<div class="uv-detail-card">
-  <div class="uv-detail-header">
-    <span class="uv-detail-company">{row.get('Name','—')}</span>
-    <span class="uv-detail-ticker">{row.get('Ticker','')}</span>
-    <span class="uv-badge {badge_class}">{badge_label}</span>
-  </div>
-  <div class="uv-metric-grid">
-    <div class="uv-metric-cell">
-      <div class="uv-metric-label">Price</div>
-      <div class="uv-metric-value">{price_str}</div>
-    </div>
-    <div class="uv-metric-cell">
-      <div class="uv-metric-label">Fair value</div>
-      <div class="uv-metric-value">{uv_str}</div>
-    </div>
-    <div class="uv-metric-cell">
-      <div class="uv-metric-label">Margin of safety</div>
-      <div class="uv-metric-value">{mos_str}</div>
-    </div>
-    <div class="uv-metric-cell">
-      <div class="uv-metric-label">Score</div>
-      <div class="uv-metric-value">{score_str}</div>
-    </div>
-  </div>
-""", unsafe_allow_html=True)
+<div class="uv-detail-header" style="margin-bottom:0.75rem;">
+  <span class="uv-detail-company">{row.get('Name','—')}</span>
+  <span class="uv-detail-ticker">{row.get('Ticker','')}</span>
+  <span class="uv-badge {badge_class}">{badge_label}</span>
+</div>""", unsafe_allow_html=True)
 
-        _dc1, _dc2 = st.columns(2)
+        _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
+            ["Today", "Value over time", "Risk", "Valuation"]
+        )
 
-        with _dc1:
-            st.markdown('<div class="uv-section-label">Valuation models</div>', unsafe_allow_html=True)
-            models = [
-                ("Graham number",   _fv("graham_number",  _fmt_eur)),
-                ("PE fair value",   _fv("pe_fair_value",  _fmt_eur)),
-                ("EPV",             _fv("epv",            _fmt_eur)),
-                ("DDM (1-stage)",   _fv("ddm",            _fmt_eur)),
-                ("DDM (2-stage)",   _fv("ddm_multistage", _fmt_eur)),
-                ("Analyst target",  _fv("targetMeanPrice", _fmt_eur)),
-            ]
-            rows_html = "".join(
-                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-                f'<span class="uv-model-value">{val}</span></div>'
-                for lbl, val in models
-            )
-            st.markdown(rows_html, unsafe_allow_html=True)
+        # ── Tab 1: Today ──────────────────────────────────────────────────────
+        with _tab_today:
+            # Key metrics strip
+            price_str = _fv("Price",      _fmt_eur)
+            uv_str    = _fv("fair_value", _fmt_eur)
+            mos_str   = _fv("MoS %",      lambda v: f"{v:+.1f}%")
+            ter_str   = _fv("TER %",      lambda v: f"{v:+.1f}%")
+            st.markdown(f"""
+<div class="uv-metric-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px;">
+  <div class="uv-metric-cell"><div class="uv-metric-label">Price</div>
+    <div class="uv-metric-value">{price_str}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Fair value</div>
+    <div class="uv-metric-value">{uv_str}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Margin of safety</div>
+    <div class="uv-metric-value">{mos_str}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Total exp. return</div>
+    <div class="uv-metric-value">{ter_str}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Score</div>
+    <div class="uv-metric-value">{score_str}</div></div>
+</div>""", unsafe_allow_html=True)
 
-            st.markdown('<div class="uv-section-label">Dividends</div>', unsafe_allow_html=True)
-            divs = [
-                ("Yield",        _fv("dividendYield",   lambda v: f"{v*100:.2f}%")),
-                ("Payout ratio", _fv("payoutRatio",     lambda v: f"{v*100:.1f}%")),
-                ("Coverage",     _fv("dividendCoverage",lambda v: f"{v:.2f}×")),
-                ("5yr avg yield",_fv("fiveYearAvgDividendYield", lambda v: f"{v*100:.2f}%")),
-            ]
-            divs_html = "".join(
-                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-                f'<span class="uv-model-value">{val}</span></div>'
-                for lbl, val in divs
-            )
-            st.markdown(divs_html, unsafe_allow_html=True)
-
-        with _dc2:
-            st.markdown('<div class="uv-section-label">Quality & multiples</div>', unsafe_allow_html=True)
-            quality = [
-                ("P/E",           _fv("trailingPE",         lambda v: f"{v:.1f}×")),
-                ("P/B",           _fv("priceToBook",         lambda v: f"{v:.2f}×")),
-                ("EV/EBITDA",     _fv("enterpriseToEbitda",  lambda v: f"{v:.1f}×")),
-                ("ROE",           _fv("returnOnEquity",      lambda v: f"{v*100:.1f}%")),
-                ("Op margin",     _fv("operatingMargins",    lambda v: f"{v*100:.1f}%")),
-                ("FCF yield",     _fv("fcfYield",            lambda v: f"{v*100:.1f}%")),
-            ]
-            qual_html = "".join(
-                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-                f'<span class="uv-model-value">{val}</span></div>'
-                for lbl, val in quality
-            )
-            st.markdown(qual_html, unsafe_allow_html=True)
-
-            st.markdown('<div class="uv-section-label">Risk & size</div>', unsafe_allow_html=True)
-            risk_rows = [
-                ("Beta",       _fv("beta",          lambda v: f"{v:.2f}")),
-                ("Debt/equity",_fv("debtToEquity",  lambda v: f"{v:.1f}")),
-                ("Mkt cap",    _fv("Market Cap",     _fmt_mcap)),
-                ("Risk score", _fv("Risk Score",     lambda v: f"{v:.1f} / 10")),
-            ]
-            risk_html = "".join(
-                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-                f'<span class="uv-model-value">{val}</span></div>'
-                for lbl, val in risk_rows
-            )
-            st.markdown(risk_html, unsafe_allow_html=True)
-
-        # ── Portfolio fit block ───────────────────────────────────────────────
-        if pf_context and pf_context.get("total", 0) > 0:
-            _pf_sector  = row.get("sector")
-            _pf_country = row.get("country")
-            _pf_beta    = row.get("beta")
-            _sw = pf_context["sector_weights"]
-            _cw = pf_context["country_weights"]
-            _pb = pf_context["portfolio_beta"]
-
-            def _fit_badge(label: str, detail: str, severity: str) -> str:
-                colors = {
-                    "ok":      ("#0F6E56", "#E8F5F0"),
-                    "caution": ("#854F0B", "#FDF0E8"),
-                    "warn":    ("#A32D2D", "#FCEAEA"),
-                    "neutral": ("#3a4a60", "#1e2d45"),
-                }
-                tc, bg = colors.get(severity, colors["neutral"])
+            # Three-column detail grid — single markdown block, no inter-widget gaps
+            _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
+            _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
+            def _col_html(label, rows):
                 return (
-                    f'<div class="uv-model-row">'
-                    f'<span class="uv-model-label">{label}</span>'
-                    f'<span style="display:flex;align-items:center;gap:6px;">'
-                    f'<span style="font-family:monospace;font-size:0.82rem;color:#F5F7FA;">{detail}</span>'
-                    f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
-                    f'background:{bg};color:{tc};letter-spacing:0.05em;">'
-                    f'{"OK" if severity=="ok" else "HIGH" if severity=="warn" else "NOTE" if severity=="caution" else "—"}'
-                    f'</span></span></div>'
+                    f'<div><div class="uv-section-label">{label}</div>'
+                    + _rows_html(rows)
+                    + '</div>'
                 )
-
-            # Sector
-            _sec_w = float(_sw.get(_pf_sector, 0)) if _pf_sector and _pf_sector in _sw.index else 0.0
-            if not _pf_sector or _pf_sector not in _sw.index:
-                _sec_html = _fit_badge("Sector", _pf_sector or "Unknown", "neutral")
-            elif _sec_w > 0.30:
-                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf — already high)", "warn")
-            elif _sec_w > 0.15:
-                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf)", "caution")
-            else:
-                _sec_html = _fit_badge("Sector", f"{_pf_sector} ({_sec_w:.0%} of pf)", "ok")
-
-            # Country
-            _cnt_w = float(_cw.get(_pf_country, 0)) if _pf_country and _pf_country in _cw.index else 0.0
-            if not _pf_country or _pf_country not in _cw.index:
-                _cnt_html = _fit_badge("Country", _pf_country or "Unknown", "neutral")
-            elif _cnt_w > 0.50:
-                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf — already high)", "warn")
-            elif _cnt_w > 0.30:
-                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf)", "caution")
-            else:
-                _cnt_html = _fit_badge("Country", f"{_pf_country} ({_cnt_w:.0%} of pf)", "ok")
-
-            # Beta vs portfolio beta
-            try:
-                _sb = float(_pf_beta)
-                _beta_delta = _sb - _pb
-                if abs(_beta_delta) < 0.05:
-                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — neutral", "neutral")
-                elif _beta_delta > 0.2:
-                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — raises market risk", "warn")
-                elif _beta_delta > 0:
-                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — slight increase", "caution")
-                else:
-                    _beta_html = _fit_badge("Beta vs portfolio", f"{_sb:.2f} (pf {_pb:.2f}) — reduces market risk", "ok")
-            except (TypeError, ValueError):
-                _beta_html = _fit_badge("Beta vs portfolio", "—", "neutral")
-
             st.markdown(
-                f'<div class="uv-section-label" style="margin-top:0.75rem;">Portfolio fit</div>'
-                + _sec_html + _cnt_html + _beta_html,
+                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 20px;">'
+                + _col_html("Dividends", [
+                    ("DPS",          _dps_str),
+                    ("Yield",        _fv("dividendYield",    lambda v: f"{v*100:.2f}%")),
+                    ("Payout ratio", _fv("payoutRatio",      lambda v: f"{v*100:.1f}%")),
+                    ("Coverage",     _fv("dividendCoverage", lambda v: f"{v:.2f}×")),
+                    ("Ex-div date",  _fv("exDividendDate")),
+                    ("Pay date",     _fv("dividendDate")),
+                ])
+                + _col_html("Quality & multiples", [
+                    ("P/E",       _fv("trailingPE",        lambda v: f"{v:.1f}×")),
+                    ("P/B",       _fv("priceToBook",        lambda v: f"{v:.2f}×")),
+                    ("EV/EBITDA", _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
+                    ("ROE",       _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
+                    ("ROA",       _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
+                    ("Op margin", _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
+                ])
+                + _col_html("Growth", [
+                    ("EPS",     _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
+                    ("Revenue", _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
+                ])
+                + '</div>',
                 unsafe_allow_html=True,
             )
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        # ── Tab 2: Value over time ─────────────────────────────────────────────
+        with _tab_hist:
+            # Small context strip above the chart
+            _fv_val = row.get("fair_value")
+            _at_val = row.get("targetMeanPrice")
+            _price  = row.get("Price")
+            st.markdown(f"""
+<div class="uv-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+  <div class="uv-metric-cell"><div class="uv-metric-label">Current price</div>
+    <div class="uv-metric-value">{_fv("Price", _fmt_eur)}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Fair value</div>
+    <div class="uv-metric-value">{_fv("fair_value", _fmt_eur)}</div></div>
+  <div class="uv-metric-cell"><div class="uv-metric-label">Margin of safety</div>
+    <div class="uv-metric-value">{_fv("MoS %", lambda v: f"{v:+.1f}%")}</div></div>
+</div>""", unsafe_allow_html=True)
+
+            import yfinance as yf
+            _ticker_sym = str(row.get("Ticker", ""))
+            with st.spinner("Loading price history…"):
+                try:
+                    _hist = yf.Ticker(_ticker_sym).history(period="2y")
+                except Exception:
+                    _hist = pd.DataFrame()
+            if _hist.empty:
+                st.caption("No price history available.")
+            else:
+                _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
+                _fig_h = go.Figure()
+                _fig_h.add_trace(go.Scatter(
+                    x=_hist.index, y=_hist["Close"],
+                    mode="lines", name="Price",
+                    line=dict(color="#1DD6A4", width=2),
+                    fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
+                ))
+                if pd.notna(_fv_val):
+                    _fig_h.add_hline(
+                        y=float(_fv_val),
+                        line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                        annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                        annotation_position="top left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                if pd.notna(_at_val):
+                    _fig_h.add_hline(
+                        y=float(_at_val),
+                        line=dict(color=_c_invested, width=1.5, dash="dot"),
+                        annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
+                        annotation_position="bottom left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                _fig_h.update_layout(
+                    margin=dict(l=0, r=0, t=8, b=0),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                xanchor="left", x=0, font=dict(color=_c_axis)),
+                    yaxis=dict(tickprefix="€", tickformat=",.2f",
+                               tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+                    hovermode="x unified",
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(_fig_h, width="stretch", height=290, config=_CHART_CONFIG)
+
+        # ── Tab 3: Risk ───────────────────────────────────────────────────────
+        with _tab_risk:
+            _has_pf = pf_context and pf_context.get("total", 0) > 0
+
+            def _signal_card(sev: str, text: str) -> str:
+                styles = {
+                    "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.18)",  "HIGH"),
+                    "caution": ("#854F0B", "rgba(133,79,11,0.07)",  "rgba(133,79,11,0.16)",  "NOTE"),
+                    "ok":      ("#0F6E56", "rgba(15,110,86,0.07)",  "rgba(15,110,86,0.16)",  "OK"),
+                    "neutral": ("#5F5E5A", "rgba(0,0,0,0.04)",      "rgba(0,0,0,0.09)",      "INFO"),
+                }
+                bc, bg, bbg, label = styles.get(sev, styles["neutral"])
+                return (
+                    f'<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0.6rem;'
+                    f'border-left:3px solid {bc};border-radius:5px;background:{bg};margin-bottom:4px;">'
+                    f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
+                    f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
+                    f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{label}</div>'
+                    f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;">{text}</div></div>'
+                )
+
+            # ── 2-column: Risk & Size | Concentration ─────────────────────────
+            _left_col, _right_col = st.columns(2, gap="large")
+            with _left_col:
+                st.markdown('<div class="uv-section-label">Risk & size</div>', unsafe_allow_html=True)
+                st.markdown(_rows_html([
+                    ("Beta",               _fv("beta",              lambda v: f"{v:.2f}")),
+                    ("Debt/equity",        _fv("debtToEquity",      lambda v: f"{v:.1f}")),
+                    ("Current ratio",      _fv("currentRatio",      lambda v: f"{v:.2f}")),
+                    ("Interest coverage",  _fv("interestCoverage",  lambda v: f"{v:.1f}×")),
+                    ("Risk score",         _fv("Risk Score",        lambda v: f"{v:.1f} / 10")),
+                ]), unsafe_allow_html=True)
+
+            # ── Concentration (portfolio fit) — right column ──────────────────
+            _pf_tips: list[tuple[str, str]] = []
+            if _has_pf:
+                _pf_sector  = row.get("sector")
+                _pf_country = row.get("country")
+                _sw = pf_context["sector_weights"]
+                _cw = pf_context["country_weights"]
+
+                def _fit_badge(label: str, value_str: str, severity: str) -> str:
+                    colors = {
+                        "ok":      ("#0F6E56", "#E8F5F0", "OK"),
+                        "caution": ("#854F0B", "#FDF0E8", "NOTE"),
+                        "warn":    ("#A32D2D", "#FCEAEA", "HIGH"),
+                        "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
+                    }
+                    tc, bg, blabel = colors.get(severity, colors["neutral"])
+                    return (
+                        f'<div class="uv-model-row" style="display:grid;'
+                        f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
+                        f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
+                        f'<span style="font-size:0.82rem;">{value_str}</span>'
+                        f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
+                        f'background:{bg};color:{tc};letter-spacing:0.05em;text-align:center;">'
+                        f'{blabel}</span></div>'
+                    )
+
+                _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
+                if not _pf_sector:
+                    _sec_sev = "neutral"; _sec_val = "Unknown"
+                    _sec_tip = "Sector data not available for this stock."
+                elif _sec_w > 0.30:
+                    _sec_sev = "warn";    _sec_val = _pf_sector
+                    _sec_tip = f"Your portfolio already has {_sec_w:.0%} in {_pf_sector}. Adding this stock increases sector concentration significantly."
+                elif _sec_w > 0.15:
+                    _sec_sev = "caution"; _sec_val = _pf_sector
+                    _sec_tip = f"{_pf_sector} is at {_sec_w:.0%} of your portfolio. Consider whether further exposure fits your targets."
+                elif _sec_w > 0:
+                    _sec_sev = "ok";      _sec_val = _pf_sector
+                    _sec_tip = f"Low {_pf_sector} exposure ({_sec_w:.0%}) — this stock adds sector diversification."
+                else:
+                    _sec_sev = "neutral"; _sec_val = _pf_sector
+                    _sec_tip = f"{_pf_sector} is not yet in your portfolio — this adds a new sector."
+
+                _cnt_w = float(_cw.get(_pf_country, 0) or 0) if _pf_country else 0.0
+                if not _pf_country:
+                    _cnt_sev = "neutral"; _cnt_val = "Unknown"
+                    _cnt_tip = "Country data not available for this stock."
+                elif _cnt_w > 0.50:
+                    _cnt_sev = "warn";    _cnt_val = _pf_country
+                    _cnt_tip = f"Your portfolio is already {_cnt_w:.0%} in {_pf_country}. Adding more increases geographic concentration."
+                elif _cnt_w > 0.30:
+                    _cnt_sev = "caution"; _cnt_val = _pf_country
+                    _cnt_tip = f"{_pf_country} already represents {_cnt_w:.0%} of your portfolio. Monitor geographic balance."
+                elif _cnt_w > 0:
+                    _cnt_sev = "ok";      _cnt_val = _pf_country
+                    _cnt_tip = f"Low {_pf_country} exposure ({_cnt_w:.0%}) — adding this stock improves geographic diversification."
+                else:
+                    _cnt_sev = "neutral"; _cnt_val = _pf_country
+                    _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
+
+                with _right_col:
+                    st.markdown(
+                        '<div class="uv-section-label">Concentration</div>'
+                        + _fit_badge("Sector",  _sec_val, _sec_sev)
+                        + _fit_badge("Country", _cnt_val, _cnt_sev),
+                        unsafe_allow_html=True,
+                    )
+                _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
+
+            # ── Signals (full width below) ────────────────────────────────────
+            _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
+            _risk_tips: list[tuple[str, str]] = []
+            if pd.notna(_beta_v):
+                _b = float(_beta_v)
+                if _b < 0.5:    _risk_tips.append(("neutral", f"Beta {_b:.2f} — very low market sensitivity; moves much less than the index."))
+                elif _b < 1.0:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — below-average sensitivity; relatively defensive."))
+                elif _b < 1.3:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — close to market; moves broadly in line with the index."))
+                else:           _risk_tips.append(("caution", f"Beta {_b:.2f} — high sensitivity; expect amplified swings vs the market."))
+            if pd.notna(_de_v):
+                _de = float(_de_v)
+                if _de > 5:    _risk_tips.append(("caution", f"Debt/equity {_de:.1f} — high leverage; normal for some sectors (financials, utilities) but worth monitoring in others."))
+                elif _de > 2:  _risk_tips.append(("neutral", f"Debt/equity {_de:.1f} — moderate leverage; monitor interest coverage relative to sector peers."))
+                else:          _risk_tips.append(("neutral", f"Debt/equity {_de:.1f} — conservative leverage."))
+            if pd.notna(_rs_v):
+                _rs = float(_rs_v)
+                if _rs <= 3:   _risk_tips.append(("ok",      f"Risk score {_rs:.1f}/10 — low overall risk profile."))
+                elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate risk; review individual factors."))
+                else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated risk; proceed with caution."))
+
+            _all_tips = _risk_tips + _pf_tips
+            if _all_tips:
+                st.markdown(
+                    '<div class="uv-section-label" style="margin-top:14px;">Signals</div>'
+                    + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
+                    unsafe_allow_html=True,
+                )
+
+        # ── Tab 4: Valuation ──────────────────────────────────────────────────
+        with _tab_val:
+            _val_models = [
+                ("Graham number",  "graham_number"),
+                ("PE fair value",  "pe_fair_value"),
+                ("DDM",            "ddm"),
+                ("Analyst target", "targetMeanPrice"),
+            ]
+            _price = row.get("Price")
+            _valid_models = [
+                (lbl, float(row.get(field)))
+                for lbl, field in _val_models
+                if row.get(field) is not None and pd.notna(row.get(field))
+            ]
+            if _valid_models and pd.notna(_price):
+                _vlabels = [lbl for lbl, _ in _valid_models]
+                _vvalues = [val for _, val in _valid_models]
+                _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
+                _fig_v   = go.Figure()
+                _fig_v.add_trace(go.Bar(
+                    x=_vvalues, y=_vlabels, orientation="h",
+                    marker_color=_vcolors,
+                    text=[_fmt_eur(v) for v in _vvalues],
+                    textposition="outside",
+                    cliponaxis=False,
+                ))
+                _fig_v.add_vline(
+                    x=float(_price),
+                    line=dict(color=_c_axis, width=2),
+                    annotation_text=f"Price {_fmt_eur(float(_price))}",
+                    annotation_position="top",
+                    annotation_font=dict(color=_c_axis, size=11),
+                )
+                _fig_v.update_layout(
+                    margin=dict(l=0, r=80, t=28, b=8),
+                    bargap=0.25,
+                    xaxis=dict(tickprefix="€", tickformat=",.0f",
+                               tickfont=dict(color=_c_axis), showgrid=False),
+                    yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(_fig_v, width="stretch", height=340, config=_CHART_CONFIG)
+            else:
+                st.caption("Not enough model data to render chart.")
 
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
@@ -2500,27 +2708,16 @@ if _page == "screener":
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
 
-        # ── Stock detail panel (above table) ──────────────────────────────────
-        if not tab_df.empty:
-            _detail_opts = ["— select a stock —"] + [
-                f"{row['Name']}  ({row['Ticker']})"
-                for _, row in tab_df.iterrows()
-            ]
-            _sel = st.selectbox(
-                "Stock detail",
-                _detail_opts,
-                key=f"{key}_detail_sel",
-                label_visibility="collapsed",
-            )
-            if _sel != _detail_opts[0]:
-                _sel_ticker = _sel.split("(")[-1].rstrip(")")
-                _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
-                if not _sel_rows.empty:
-                    _render_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
-
         edited, n_shown = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
+
+        if "⋮" in edited.columns and edited["⋮"].any():
+            _kebab_ticker = edited.loc[edited["⋮"], "Ticker"].iloc[0]
+            _kebab_rows   = tab_df[tab_df["Ticker"] == _kebab_ticker]
+            if not _kebab_rows.empty:
+                _dlg_stock_detail(_kebab_rows.iloc[0], _tok_qs, _scr_pf_context)
+
         with cnt_col:
             st.markdown(f"**{n_shown}** stocks · {hint}")
 
