@@ -2087,14 +2087,16 @@ if _page == "screener":
         """Render the screener table with optional column groups, score filter, and sector filter."""
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
-        _tbl_key    = f"table_{key_suffix}"
-        # Clear checkbox only when dialog truly closes, not on in-dialog reruns (e.g. star toggle)
+        # Use a reset counter as key suffix — incrementing forces st.data_editor to reinitialise
+        _reset_count = st.session_state.get(f"_tbl_reset_{key_suffix}", 0)
         if st.session_state.pop(f"_clear_{key_suffix}", False):
             if st.session_state.pop("_dlg_star_rerun", False):
                 # Star was clicked — re-arm flag so checkbox clears on the actual close rerun
                 st.session_state[f"_clear_{key_suffix}"] = True
             else:
-                st.session_state.pop(_tbl_key, None)
+                _reset_count += 1
+                st.session_state[f"_tbl_reset_{key_suffix}"] = _reset_count
+        _tbl_key = f"table_{key_suffix}_{_reset_count}"
 
         @st.dialog("View", width="small")
         def _dlg_view():
@@ -2215,7 +2217,6 @@ if _page == "screener":
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
 
-        _tbl_key = f"table_{key_suffix}"
         edited = st.data_editor(
             display_df,
             width="stretch",
