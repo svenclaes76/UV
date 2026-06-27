@@ -2088,9 +2088,13 @@ if _page == "screener":
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
         _tbl_key    = f"table_{key_suffix}"
-        # Clear checkbox state at render start if flagged (set when dialog was opened)
+        # Clear checkbox only when dialog truly closes, not on in-dialog reruns (e.g. star toggle)
         if st.session_state.pop(f"_clear_{key_suffix}", False):
-            st.session_state.pop(_tbl_key, None)
+            if st.session_state.pop("_dlg_star_rerun", False):
+                # Star was clicked — re-arm flag so checkbox clears on the actual close rerun
+                st.session_state[f"_clear_{key_suffix}"] = True
+            else:
+                st.session_state.pop(_tbl_key, None)
 
         @st.dialog("View", width="small")
         def _dlg_view():
@@ -2477,6 +2481,7 @@ div[data-baseweb="modal"] {
         # Hidden functional button — wired to the star span via JS below
         if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
             save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+            st.session_state["_dlg_star_rerun"] = True
             st.rerun()
         _st_components.html("""<script>
 (function wire() {
