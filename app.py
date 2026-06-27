@@ -1473,6 +1473,21 @@ st.markdown(f"""<script>
     s.textContent = t === 'light' ? {_light_css_js} : {_dark_css_js};
     (document.head || document.documentElement).appendChild(s);
   }} catch(e) {{}}
+
+  // Fix BaseWeb modal: move it to <body> to escape Streamlit's transform stacking
+  // context, then constrain it to the main content area (right of sidebar).
+  try {{
+    function _applyModalFix(modal) {{
+      var bd = modal.firstElementChild;
+      if (bd) bd.style.setProperty('background', 'transparent', 'important');
+      modal.style.setProperty('padding-left', '260px', 'important');
+    }}
+    var _modalObs = new MutationObserver(function() {{
+      var modal = document.querySelector('div[data-baseweb="modal"]');
+      if (modal) _applyModalFix(modal);
+    }});
+    _modalObs.observe(document.body, {{childList: true, subtree: true}});
+  }} catch(e) {{}}
 }})();
 </script>""", unsafe_allow_html=True)
 
@@ -2317,6 +2332,15 @@ if _page == "screener":
         # Force all tab panels to the same height so the dialog doesn't resize on switch
         st.markdown("""
 <style>
+/* ── Remove backdrop colour, keep structure intact ── */
+div[data-baseweb="modal"] > div:first-child {
+    background: transparent !important;
+}
+/* ── Push flex-centering into the main area (right of sidebar) ── */
+div[data-baseweb="modal"] {
+    padding-left: 260px !important;
+}
+
 /* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
 [data-testid="stDialog"] > div {
     width: 860px !important;
@@ -2356,7 +2380,7 @@ if _page == "screener":
 
 /* ── Compact typography inside dialog ─────────────────────────── */
 [data-testid="stDialog"] .uv-model-row {
-    padding: 3px 0;
+    padding: 6px 0;
     font-size: 12px;
 }
 [data-testid="stDialog"] .uv-section-label {
@@ -2424,7 +2448,7 @@ if _page == "screener":
 </div>""", unsafe_allow_html=True)
 
         _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
-            ["Today", "Value over time", "Risk", "Valuation"]
+            ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
         )
 
         # ── Tab 1: Today ──────────────────────────────────────────────────────
@@ -2448,7 +2472,7 @@ if _page == "screener":
     <div class="uv-metric-value">{score_str}</div></div>
 </div>""", unsafe_allow_html=True)
 
-            # Three-column detail grid — single markdown block, no inter-widget gaps
+            # Two-column detail grid — Dividends left, Quality + Growth right
             _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
             _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
             def _col_html(label, rows):
@@ -2457,17 +2481,8 @@ if _page == "screener":
                     + _rows_html(rows)
                     + '</div>'
                 )
-            st.markdown(
-                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 20px;">'
-                + _col_html("Dividends", [
-                    ("DPS",          _dps_str),
-                    ("Yield",        _fv("dividendYield",    lambda v: f"{v*100:.2f}%")),
-                    ("Payout ratio", _fv("payoutRatio",      lambda v: f"{v*100:.1f}%")),
-                    ("Coverage",     _fv("dividendCoverage", lambda v: f"{v:.2f}×")),
-                    ("Ex-div date",  _fv("exDividendDate")),
-                    ("Pay date",     _fv("dividendDate")),
-                ])
-                + _col_html("Quality & multiples", [
+            _right_col_html = (
+                _col_html("Quality & multiples", [
                     ("P/E",       _fv("trailingPE",        lambda v: f"{v:.1f}×")),
                     ("P/B",       _fv("priceToBook",        lambda v: f"{v:.2f}×")),
                     ("EV/EBITDA", _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
@@ -2478,6 +2493,18 @@ if _page == "screener":
                 + _col_html("Growth", [
                     ("EPS",     _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
                     ("Revenue", _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
+                ])
+            )
+            st.markdown(
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">'
+                + f'<div>{_right_col_html}</div>'
+                + _col_html("Dividends", [
+                    ("DPS",          _dps_str),
+                    ("Yield",        _fv("dividendYield",    lambda v: f"{v*100:.2f}%")),
+                    ("Payout ratio", _fv("payoutRatio",      lambda v: f"{v*100:.1f}%")),
+                    ("Coverage",     _fv("dividendCoverage", lambda v: f"{v:.2f}×")),
+                    ("Ex-div date",  _fv("exDividendDate")),
+                    ("Pay date",     _fv("dividendDate")),
                 ])
                 + '</div>',
                 unsafe_allow_html=True,
