@@ -2087,9 +2087,7 @@ if _page == "screener":
         """Render the screener table with optional column groups, score filter, and sector filter."""
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
-        # Appending a reset counter to the key forces st.data_editor to reinitialise from default data
-        _reset_count = st.session_state.get(f"_tbl_reset_{key_suffix}", 0)
-        _tbl_key = f"table_{key_suffix}_{_reset_count}"
+        _tbl_key    = f"table_{key_suffix}"
 
         @st.dialog("View", width="small")
         def _dlg_view():
@@ -2867,8 +2865,10 @@ div[data-baseweb="modal"] {
                 _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
                 _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
                 if not _wl_sel_rows.empty:
-                    # Bump key so checkbox is unchecked on next render
-                    st.session_state["_tbl_reset_watchlist"] = st.session_state.get("_tbl_reset_watchlist", 0) + 1
+                    # Clear the checkbox immediately in data_editor's session state
+                    _wl_tbl_ss = st.session_state.get("table_watchlist", {})
+                    if isinstance(_wl_tbl_ss, dict):
+                        _wl_tbl_ss["edited_rows"] = {}
                     st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                     st.session_state["_dlg_open_src"]    = "watchlist"
                     _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
@@ -2917,7 +2917,10 @@ div[data-baseweb="modal"] {
             _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
             _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
             if not _sel_rows.empty:
-                st.session_state[f"_tbl_reset_{key}"] = st.session_state.get(f"_tbl_reset_{key}", 0) + 1
+                # Clear the checkbox immediately in data_editor's session state
+                _ex_tbl_ss = st.session_state.get(f"table_{key}", {})
+                if isinstance(_ex_tbl_ss, dict):
+                    _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
                 _dlg_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
