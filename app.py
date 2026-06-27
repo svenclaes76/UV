@@ -101,6 +101,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import streamlit as st
+import streamlit.components.v1 as _st_components
 from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
@@ -518,7 +519,7 @@ def _hm_color(v: float) -> str:
     return f"rgb({r},{g},{b})"
 
 
-_HINT_WATCHLIST = "check the star column to add to watchlist"
+_HINT_WATCHLIST = "click → to view details · star in popup to add to watchlist"
 
 
 def _fmt_div_flag(v) -> str:
@@ -2086,6 +2087,10 @@ if _page == "screener":
         """Render the screener table with optional column groups, score filter, and sector filter."""
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
+        _tbl_key    = f"table_{key_suffix}"
+        # Clear checkbox state at render start if flagged (set when dialog was opened)
+        if st.session_state.pop(f"_clear_{key_suffix}", False):
+            st.session_state.pop(_tbl_key, None)
 
         @st.dialog("View", width="small")
         def _dlg_view():
@@ -2170,7 +2175,7 @@ if _page == "screener":
             return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
         # Build the display DataFrame from core cols + selected extras
-        display_data = {"★": tab_df["Ticker"].isin(watchlist)}
+        display_data = {"→": [False] * len(tab_df)}
         for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
             if col == "Score":
                 display_data[col] = tab_df.apply(_fmt_score, axis=1).values
@@ -2187,7 +2192,6 @@ if _page == "screener":
                 )
                 active_extra_cols.append(col)
 
-        display_data["⋮"] = [False] * len(tab_df)
         display_df = pd.DataFrame(display_data)
         _n_rows = len(display_df)
 
@@ -2198,15 +2202,16 @@ if _page == "screener":
                 **{"background-color": "rgba(99, 102, 241, 0.07)"},
             )
 
-        all_data_cols = [c for c in display_data.keys() if c != "★"]
+        all_data_cols = list(display_data.keys())
         col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        col_config["⋮"] = st.column_config.CheckboxColumn("⋮", width="small", help="View stock details")
-        disabled_cols = [c for c in all_data_cols if c != "⋮"]
+        col_config["→"] = st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True)
+        disabled_cols = [c for c in all_data_cols if c != "→"]
 
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
 
+        _tbl_key = f"table_{key_suffix}"
         edited = st.data_editor(
             display_df,
             width="stretch",
@@ -2214,9 +2219,9 @@ if _page == "screener":
             column_config=col_config,
             disabled=disabled_cols,
             height=_height,
-            key=f"table_{key_suffix}",
+            key=_tbl_key,
         )
-        return edited, n_shown
+        return edited, n_shown, key_suffix
 
     # ── Buy dialog (shared across all screener tabs) ──────────────────────────
     _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
@@ -2312,19 +2317,21 @@ if _page == "screener":
                 _bust_cache()
         if not _wl_tickers:
             with _wl_col:
-                st.info("Check ★ next to any stock in the screener to add it to your watchlist.")
+                st.info("Open any stock's details popup and click ★ to add it to your watchlist.")
         else:
             _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
             wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            wl_edited, n_wl = _render_table(wl_df, "watchlist",
+            wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
                                              score_key="wl_score_filter",
                                              score_default=_SCORE_OPTIONS[3])
             with _wl_col:
-                st.markdown(f"**{n_wl}** stocks · uncheck ★ to remove")
-            still_watched = set(wl_edited.loc[wl_edited["★"], "Ticker"].tolist())
-            if still_watched != _wl_tickers:
-                save_watchlist(still_watched)
-                st.rerun()
+                st.markdown(f"**{n_wl}** stocks · click → to view details")
+            if "→" in wl_edited.columns and wl_edited["→"].any():
+                _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
+                _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
+                if not _wl_sel_rows.empty:
+                    st.session_state[f"_clear_{_wl_tbl_key}"] = True
+                    _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
 
     @st.dialog("Stock details", width="large")
     def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
@@ -2354,8 +2361,12 @@ div[data-baseweb="modal"] {
 
 /* ── Fixed dialog height across all tabs ──────────────────────── */
 [data-testid="stDialog"] div[role="dialog"] {
-    min-height: 540px !important;
-    height: 540px !important;
+    min-height: 600px !important;
+    height: 600px !important;
+}
+/* ── Remove default top padding inside tab panels ─────────────── */
+[data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
+    padding-top: 0 !important;
 }
 
 /* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
@@ -2380,17 +2391,17 @@ div[data-baseweb="modal"] {
 
 /* ── Compact typography inside dialog ─────────────────────────── */
 [data-testid="stDialog"] .uv-model-row {
-    padding: 6px 0;
+    padding: 1px 0;
     font-size: 12px;
 }
 [data-testid="stDialog"] .uv-section-label {
-    margin: 24px 0 10px;
+    margin: 20px 0 8px;
     font-size: 10px;
-    padding-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 [data-testid="stDialog"] .uv-section-label:first-child {
-    margin-top: 8px;
+    margin-top: 0;
 }
 [data-testid="stDialog"] .uv-metric-grid {
     margin-bottom: 12px !important;
@@ -2406,6 +2417,16 @@ div[data-baseweb="modal"] {
 }
 [data-testid="stDialog"] .uv-metric-value {
     font-size: 1.1rem;
+}
+/* ── Star toggle button — hidden visually, wired via JS ── */
+[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
+    visibility: hidden !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -2439,92 +2460,86 @@ div[data-baseweb="modal"] {
                 for lbl, val in pairs
             )
 
-        # ── Header: company name · ticker · decision badge ────────────────────
+        # ── Header: company name · ticker · decision badge · watchlist star ──
+        _dlg_ticker   = str(row.get("Ticker", ""))
+        _in_watchlist = _dlg_ticker in watchlist
+        _star_lbl  = "★" if _in_watchlist else "☆"
+        _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
         st.markdown(f"""
 <div class="uv-detail-header" style="margin-bottom:0.75rem;">
   <span class="uv-detail-company">{row.get('Name','—')}</span>
-  <span class="uv-detail-ticker">{row.get('Ticker','')}</span>
+  <span class="uv-detail-ticker">{_dlg_ticker}</span>
   <span class="uv-badge {badge_class}">{badge_label}</span>
+  <span id="uv-star-icon" title="{_star_help}"
+        style="font-size:1.5rem;margin-left:10px;cursor:pointer;vertical-align:middle;line-height:1;user-select:none;"
+        >{_star_lbl}</span>
 </div>""", unsafe_allow_html=True)
+        # Hidden functional button — wired to the star span via JS below
+        if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
+            save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+            st.rerun()
+        _st_components.html("""<script>
+(function wire() {
+  var pdoc = window.parent.document;
+  var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
+  var star = pdoc.getElementById('uv-star-icon');
+  if (btn && star) {
+    star.onclick = function() { btn.click(); };
+  } else {
+    setTimeout(wire, 80);
+  }
+})();
+</script>""", height=0)
 
         _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
             ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
         )
 
-        # ── Tab 1: Today ──────────────────────────────────────────────────────
+        # ── Tab 1: Snapshot ───────────────────────────────────────────────────
         with _tab_today:
-            # Key metrics strip
-            price_str = _fv("Price",      _fmt_eur)
-            uv_str    = _fv("fair_value", _fmt_eur)
-            mos_str   = _fv("MoS %",      lambda v: f"{v:+.1f}%")
-            ter_str   = _fv("TER %",      lambda v: f"{v:+.1f}%")
-            st.markdown(f"""
-<div class="uv-metric-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px;">
-  <div class="uv-metric-cell"><div class="uv-metric-label">Price</div>
-    <div class="uv-metric-value">{price_str}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Fair value</div>
-    <div class="uv-metric-value">{uv_str}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Margin of safety</div>
-    <div class="uv-metric-value" style="white-space:nowrap;">{mos_str}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Exp. return</div>
-    <div class="uv-metric-value" style="white-space:nowrap;">{ter_str}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Score</div>
-    <div class="uv-metric-value">{score_str}</div></div>
-</div>""", unsafe_allow_html=True)
-
-            # Two-column detail grid — Dividends left, Quality + Growth right
             _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
             _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
+
             def _col_html(label, rows):
                 return (
-                    f'<div><div class="uv-section-label">{label}</div>'
-                    + _rows_html(rows)
-                    + '</div>'
+                    f'<div><div class="uv-section-label" style="margin-top:0;">{label}</div>'
+                    + _rows_html(rows) + '</div>'
                 )
-            _right_col_html = (
-                _col_html("Quality & multiples", [
-                    ("P/E",       _fv("trailingPE",        lambda v: f"{v:.1f}×")),
-                    ("P/B",       _fv("priceToBook",        lambda v: f"{v:.2f}×")),
-                    ("EV/EBITDA", _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
-                    ("ROE",       _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
-                    ("ROA",       _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
-                    ("Op margin", _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
-                ])
-                + _col_html("Growth", [
-                    ("EPS",     _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
-                    ("Revenue", _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
-                ])
-            )
+
             st.markdown(
-                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">'
-                + f'<div>{_right_col_html}</div>'
-                + _col_html("Dividends", [
-                    ("DPS",          _dps_str),
-                    ("Yield",        _fv("dividendYield",    lambda v: f"{v*100:.2f}%")),
-                    ("Payout ratio", _fv("payoutRatio",      lambda v: f"{v*100:.1f}%")),
-                    ("Coverage",     _fv("dividendCoverage", lambda v: f"{v:.2f}×")),
-                    ("Ex-div date",  _fv("exDividendDate")),
-                    ("Pay date",     _fv("dividendDate")),
+                '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">'
+                + _col_html("Valuation", [
+                    ("Price",       _fv("Price",      _fmt_eur)),
+                    ("Fair value",  _fv("fair_value", _fmt_eur)),
+                    ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
+                    ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
+                    ("Score",       score_str),
+                ])
+                + _col_html("Quality", [
+                    ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
+                    ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
+                    ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
+                    ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
+                    ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
+                    ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
+                ])
+                + _col_html("Dividends & growth", [
+                    ("DPS",         _dps_str),
+                    ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
+                    ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
+                    ("Ex-div",      _fv("exDividendDate")),
+                    ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
+                    ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
                 ])
                 + '</div>',
                 unsafe_allow_html=True,
             )
 
-        # ── Tab 2: Value over time ─────────────────────────────────────────────
+        # ── Tab 2: Price history ───────────────────────────────────────────────
         with _tab_hist:
-            # Small context strip above the chart
             _fv_val = row.get("fair_value")
             _at_val = row.get("targetMeanPrice")
             _price  = row.get("Price")
-            st.markdown(f"""
-<div class="uv-metric-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-  <div class="uv-metric-cell"><div class="uv-metric-label">Current price</div>
-    <div class="uv-metric-value">{_fv("Price", _fmt_eur)}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Fair value</div>
-    <div class="uv-metric-value">{_fv("fair_value", _fmt_eur)}</div></div>
-  <div class="uv-metric-cell"><div class="uv-metric-label">Margin of safety</div>
-    <div class="uv-metric-value">{_fv("MoS %", lambda v: f"{v:+.1f}%")}</div></div>
-</div>""", unsafe_allow_html=True)
 
             import yfinance as yf
             _ticker_sym = str(row.get("Ticker", ""))
@@ -2572,7 +2587,7 @@ div[data-baseweb="modal"] {
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
                 )
-                st.plotly_chart(_fig_h, width="stretch", height=290, config=_CHART_CONFIG)
+                st.plotly_chart(_fig_h, width="stretch", height=360, config=_CHART_CONFIG)
 
         # ── Tab 3: Risk ───────────────────────────────────────────────────────
         with _tab_risk:
@@ -2595,19 +2610,19 @@ div[data-baseweb="modal"] {
                     f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;">{text}</div></div>'
                 )
 
-            # ── 2-column: Risk & Size | Concentration ─────────────────────────
-            _left_col, _right_col = st.columns(2, gap="large")
+            # ── 2-column: Risk | Portfolio fit ────────────────────────────────
+            _left_col, _mid_col = st.columns([1, 1], gap="large")
             with _left_col:
-                st.markdown('<div class="uv-section-label">Risk & size</div>', unsafe_allow_html=True)
+                st.markdown('<div class="uv-section-label" style="margin-top:0;">Risk & size</div>', unsafe_allow_html=True)
                 st.markdown(_rows_html([
-                    ("Beta",               _fv("beta",              lambda v: f"{v:.2f}")),
-                    ("Debt/equity",        _fv("debtToEquity",      lambda v: f"{v:.1f}")),
-                    ("Current ratio",      _fv("currentRatio",      lambda v: f"{v:.2f}")),
-                    ("Interest coverage",  _fv("interestCoverage",  lambda v: f"{v:.1f}×")),
-                    ("Risk score",         _fv("Risk Score",        lambda v: f"{v:.1f} / 10")),
+                    ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
+                    ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
+                    ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
+                    ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
+                    ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
                 ]), unsafe_allow_html=True)
 
-            # ── Concentration (portfolio fit) — right column ──────────────────
+            # ── Portfolio concentration — middle column ───────────────────────
             _pf_tips: list[tuple[str, str]] = []
             if _has_pf:
                 _pf_sector  = row.get("sector")
@@ -2624,7 +2639,7 @@ div[data-baseweb="modal"] {
                     }
                     tc, bg, blabel = colors.get(severity, colors["neutral"])
                     return (
-                        f'<div class="uv-model-row" style="display:grid;'
+                        f'<div class="uv-model-row" style="display:grid;padding:2px 0;'
                         f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
                         f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
                         f'<span style="font-size:0.82rem;">{value_str}</span>'
@@ -2667,39 +2682,39 @@ div[data-baseweb="modal"] {
                     _cnt_sev = "neutral"; _cnt_val = _pf_country
                     _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
 
-                with _right_col:
+                with _mid_col:
                     st.markdown(
-                        '<div class="uv-section-label">Concentration</div>'
+                        '<div class="uv-section-label" style="margin-top:0;">Portfolio fit</div>'
                         + _fit_badge("Sector",  _sec_val, _sec_sev)
                         + _fit_badge("Country", _cnt_val, _cnt_sev),
                         unsafe_allow_html=True,
                     )
                 _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
 
-            # ── Signals (full width below) ────────────────────────────────────
+            # ── Signals — right column ────────────────────────────────────────
             _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
             _risk_tips: list[tuple[str, str]] = []
             if pd.notna(_beta_v):
                 _b = float(_beta_v)
-                if _b < 0.5:    _risk_tips.append(("neutral", f"Beta {_b:.2f} — very low market sensitivity; moves much less than the index."))
-                elif _b < 1.0:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — below-average sensitivity; relatively defensive."))
-                elif _b < 1.3:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — close to market; moves broadly in line with the index."))
-                else:           _risk_tips.append(("caution", f"Beta {_b:.2f} — high sensitivity; expect amplified swings vs the market."))
+                if _b < 0.5:    _risk_tips.append(("neutral", f"Beta {_b:.2f} — low volatility."))
+                elif _b < 1.0:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — below market."))
+                elif _b < 1.3:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — in line with market."))
+                else:           _risk_tips.append(("caution", f"Beta {_b:.2f} — high volatility."))
             if pd.notna(_de_v):
                 _de = float(_de_v)
-                if _de > 5:    _risk_tips.append(("caution", f"Debt/equity {_de:.1f} — high leverage; normal for some sectors (financials, utilities) but worth monitoring in others."))
-                elif _de > 2:  _risk_tips.append(("neutral", f"Debt/equity {_de:.1f} — moderate leverage; monitor interest coverage relative to sector peers."))
-                else:          _risk_tips.append(("neutral", f"Debt/equity {_de:.1f} — conservative leverage."))
+                if _de > 5:    _risk_tips.append(("caution", f"D/E {_de:.1f} — high leverage."))
+                elif _de > 2:  _risk_tips.append(("neutral", f"D/E {_de:.1f} — moderate leverage."))
+                else:          _risk_tips.append(("neutral", f"D/E {_de:.1f} — conservative."))
             if pd.notna(_rs_v):
                 _rs = float(_rs_v)
-                if _rs <= 3:   _risk_tips.append(("ok",      f"Risk score {_rs:.1f}/10 — low overall risk profile."))
-                elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate risk; review individual factors."))
-                else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated risk; proceed with caution."))
+                if _rs <= 3:   _risk_tips.append(("ok",      f"Risk score {_rs:.1f}/10 — low."))
+                elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate."))
+                else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated."))
 
             _all_tips = _risk_tips + _pf_tips
             if _all_tips:
                 st.markdown(
-                    '<div class="uv-section-label" style="margin-top:40px;">Signals</div>'
+                    '<div class="uv-section-label" style="margin-top:20px;">Signals</div>'
                     + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
                     unsafe_allow_html=True,
                 )
@@ -2747,7 +2762,7 @@ div[data-baseweb="modal"] {
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
                 )
-                st.plotly_chart(_fig_v, width="stretch", height=340, config=_CHART_CONFIG)
+                st.plotly_chart(_fig_v, width="stretch", height=280, config=_CHART_CONFIG)
             else:
                 st.caption("Not enough model data to render chart.")
 
@@ -2774,24 +2789,19 @@ div[data-baseweb="modal"] {
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
 
-        edited, n_shown = _render_table(tab_df, key,
+        edited, n_shown, _tbl_key = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
 
-        if "⋮" in edited.columns and edited["⋮"].any():
-            _kebab_ticker = edited.loc[edited["⋮"], "Ticker"].iloc[0]
-            _kebab_rows   = tab_df[tab_df["Ticker"] == _kebab_ticker]
-            if not _kebab_rows.empty:
-                _dlg_stock_detail(_kebab_rows.iloc[0], _tok_qs, _scr_pf_context)
+        if "→" in edited.columns and edited["→"].any():
+            _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
+            _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
+            if not _sel_rows.empty:
+                st.session_state[f"_clear_{_tbl_key}"] = True
+                _dlg_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
 
         with cnt_col:
-            st.markdown(f"**{n_shown}** stocks · {hint}")
-
-        new_wl = set(edited.loc[edited["★"], "Ticker"].tolist())
-        merged = (watchlist - set(exchange_df["Ticker"])) | new_wl
-        if merged != watchlist:
-            save_watchlist(merged)
-            st.rerun()
+            st.markdown(f"**{n_shown}** stocks · click → to view details")
 
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
