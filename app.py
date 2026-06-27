@@ -2312,31 +2312,6 @@ if _page == "screener":
         out = df_in[df_in["Decision"] == decision] if decision else df_in
         return out.reset_index(drop=True)
 
-    # ── Tab: Watchlist ────────────────────────────────────────────────────────
-    with tab_watchlist:
-        _wl_tickers = watchlist
-        _wl_col, _wl_refresh = st.columns([9, 1])
-        with _wl_refresh:
-            if st.button("Refresh", type="tertiary", key="wl_refresh"):
-                _bust_cache()
-        if not _wl_tickers:
-            with _wl_col:
-                st.info("Open any stock's details popup and click ★ to add it to your watchlist.")
-        else:
-            _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
-            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
-                                             score_key="wl_score_filter",
-                                             score_default=_SCORE_OPTIONS[3])
-            with _wl_col:
-                st.markdown(f"**{n_wl}** stocks · click → to view details")
-            if "→" in wl_edited.columns and wl_edited["→"].any():
-                _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
-                _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
-                if not _wl_sel_rows.empty:
-                    st.session_state[f"_clear_{_wl_tbl_key}"] = True
-                    _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
-
     @st.dialog("Stock details", width="large")
     def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
         """4-tab stock detail modal — consistent height across all tabs."""
@@ -2873,6 +2848,32 @@ div[data-baseweb="modal"] {
                         else:             _mdl_tips.append(("warn",    f"{lbl} {_fmt_eur(v)} — {abs(diff):.1f}% below price."))
             if _mdl_tips:
                 st.markdown(_signals_block(_mdl_tips), unsafe_allow_html=True)
+
+    # ── Tab: Watchlist ────────────────────────────────────────────────────────
+    with tab_watchlist:
+        _wl_tickers = watchlist
+        _wl_col, _wl_refresh = st.columns([9, 1])
+        with _wl_refresh:
+            if st.button("Refresh", type="tertiary", key="wl_refresh"):
+                _bust_cache()
+        if not _wl_tickers:
+            with _wl_col:
+                st.info("Open any stock's details popup and click ★ to add it to your watchlist.")
+        else:
+            _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
+            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+            wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
+                                             score_key="wl_score_filter",
+                                             score_default=_SCORE_OPTIONS[3])
+            with _wl_col:
+                st.markdown(f"**{n_wl}** stocks · click → to view details")
+            if "→" in wl_edited.columns and wl_edited["→"].any():
+                _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
+                _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
+                if not _wl_sel_rows.empty:
+                    st.session_state[f"_clear_{_wl_tbl_key}"] = True
+                    _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
+
 
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
