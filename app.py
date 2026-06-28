@@ -1289,13 +1289,13 @@ _LIGHT_CSS = """
   [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
   [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
 
-  /* ── Toggle switch tracks ────────────────────────────────────────────────── */
-  [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:first-of-type {
+  /* ── Toggle tracks (div) vs checkbox boxes (span) — selectors don't overlap ─ */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: #8A96A8 !important;
     opacity: 1 !important;
   }
-  /* checked track: use primary green */
-  [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] > div:first-of-type {
+  /* checked: primary green */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
     background-color: #0F6E56 !important;
   }
 
@@ -1435,17 +1435,15 @@ _DARK_CSS = """
   [data-testid="stCheckbox"] span[role="checkbox"],
   [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
 
-  /* ── Toggle switches — unchecked track ──────────────────────────────────── */
-  [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:first-of-type {
-    background-color: rgba(255,255,255,0.22) !important;
+  /* ── Toggle tracks (div) vs checkbox boxes (span) — selectors don't overlap ─ */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
+    background-color: rgba(255,255,255,0.28) !important;
     opacity: 1 !important;
   }
-  /* checked track uses primary color — keep it */
-  [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] > div:first-of-type {
+  /* checked: accent green */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
     background-color: #1DD6A4 !important;
   }
-  /* toggle label text */
-  [data-testid="stToggle"] p { color: #F5F7FA !important; }
 
   /* ── Tabs ────────────────────────────────────────────────────────────────── */
   button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
