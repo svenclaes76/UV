@@ -2156,7 +2156,7 @@ overflow: hidden !important;
         save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
         st.session_state["_dlg_star_rerun"] = True
         st.rerun()
-    st.iframe("""<script>
+    _st_components.html("""<script>
 (function wire() {
   var pdoc = window.parent.document;
   var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
@@ -2167,7 +2167,7 @@ star.onclick = function() { btn.click(); };
 setTimeout(wire, 80);
   }
 })();
-</script>""", height=0)
+</script>""", height=0)  # noqa: RUF100  (st.iframe requires height>0; v1.html accepts 0)
 
     def _signal_card(sev: str, text: str) -> str:
         _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
