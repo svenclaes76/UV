@@ -3094,9 +3094,18 @@ if _page == "portfolio":
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
     _pf_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    # Combine active + sold tickers so both get fetched at screener cadence
+    _sold_early  = load_sold()
+    _sold_tickers = tuple(_sold_early["ticker"].dropna().tolist()) if _sold_early is not None and not _sold_early.empty else ()
+    _sold_names   = tuple(_sold_early["name"].dropna().tolist())   if _sold_early is not None and not _sold_early.empty else ()
     _pf_tickers  = tuple(pf["ticker"].tolist())
     _pf_names    = tuple(pf["name"].tolist())
-    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(_cache_version(), _pf_enabled, _pf_tickers, _pf_names)
+    _extra_tickers = tuple(dict.fromkeys(_pf_tickers + _sold_tickers))  # dedup, preserve order
+    _extra_names   = tuple(
+        {**dict(zip(_sold_tickers, _sold_names)), **dict(zip(_pf_tickers, _pf_names))}[t]
+        for t in _extra_tickers
+    )
+    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(_cache_version(), _pf_enabled, _extra_tickers, _extra_names)
     _all_scr_df = pd.concat(_pf_exch_dfs + [_pf_extra_df], ignore_index=True)
     _pf_dlg_pending: list = []  # at most one dialog call per render
     _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
@@ -4236,9 +4245,17 @@ if _page == "risk":
         st.stop()
 
     _risk_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _risk_sold     = load_sold()
+    _risk_sold_tickers = tuple(_risk_sold["ticker"].dropna().tolist()) if _risk_sold is not None and not _risk_sold.empty else ()
+    _risk_sold_names   = tuple(_risk_sold["name"].dropna().tolist())   if _risk_sold is not None and not _risk_sold.empty else ()
     _risk_tickers  = tuple(pf["ticker"].tolist())
     _risk_names    = tuple(pf["name"].tolist())
-    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(_cache_version(), _risk_enabled, _risk_tickers, _risk_names)
+    _risk_extra_tickers = tuple(dict.fromkeys(_risk_tickers + _risk_sold_tickers))
+    _risk_extra_names   = tuple(
+        {**dict(zip(_risk_sold_tickers, _risk_sold_names)), **dict(zip(_risk_tickers, _risk_names))}[t]
+        for t in _risk_extra_tickers
+    )
+    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(_cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names)
     _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
     _risk_dlg_pending: list = []
 
