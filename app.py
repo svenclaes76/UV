@@ -2402,6 +2402,14 @@ div[data-baseweb="modal"] {
 [data-testid="stDialog"] .uv-metric-value {
     font-size: 1.1rem;
 }
+/* ── Close (×) button — force visible in dark mode ─────── */
+[data-testid="stDialog"] button[aria-label="Close"] {
+    color: var(--text-color) !important;
+    opacity: 0.7;
+}
+[data-testid="stDialog"] button[aria-label="Close"]:hover {
+    opacity: 1;
+}
 /* ── Star toggle button — hidden visually, wired via JS ── */
 [data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
     visibility: hidden !important;
