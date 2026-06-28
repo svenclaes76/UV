@@ -1290,17 +1290,13 @@ _LIGHT_CSS = """
   [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
 
   /* ── Toggle switch tracks ────────────────────────────────────────────────── */
-  label[data-baseweb="checkbox"] > div:first-of-type {
+  [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:first-of-type {
     background-color: #8A96A8 !important;
     opacity: 1 !important;
   }
-  /* Reset for regular checkboxes — higher specificity wins */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
-    background-color: transparent !important;
-  }
-  /* ── Toggle switch track — scoped to income toggle only ─────────────────── */
-  .st-key-risk_income_toggle label[data-baseweb="checkbox"] > div:first-of-type {
-    background-color: rgba(0,0,0,0.18) !important;
+  /* checked track: use primary green */
+  [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] > div:first-of-type {
+    background-color: #0F6E56 !important;
   }
 
   /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
@@ -1438,6 +1434,18 @@ _DARK_CSS = """
   /* ── Checkboxes ──────────────────────────────────────────────────────────── */
   [data-testid="stCheckbox"] span[role="checkbox"],
   [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
+
+  /* ── Toggle switches — unchecked track ──────────────────────────────────── */
+  [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:first-of-type {
+    background-color: rgba(255,255,255,0.22) !important;
+    opacity: 1 !important;
+  }
+  /* checked track uses primary color — keep it */
+  [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] > div:first-of-type {
+    background-color: #1DD6A4 !important;
+  }
+  /* toggle label text */
+  [data-testid="stToggle"] p { color: #F5F7FA !important; }
 
   /* ── Tabs ────────────────────────────────────────────────────────────────── */
   button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
