@@ -1443,6 +1443,57 @@ _DARK_CSS = """
   button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
   button[data-testid="stTab"][aria-selected="true"] { color: #F5F7FA !important; border-bottom-color: #1DD6A4 !important; }
 
+  /* ── Tooltips ───────────────────────────────────────────────────────────── */
+  [data-baseweb="tooltip"] { background-color: transparent !important; }
+  [data-baseweb="tooltip"] > div > div,
+  [data-baseweb="tooltip"] > div > div > div,
+  [role="tooltip"],
+  [role="tooltip"] > div,
+  [data-testid="stTooltipContent"],
+  [data-testid="stTooltipContent"] > div {
+    background-color: #0F2647 !important;
+    color: #F5F7FA !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+  }
+  [data-baseweb="tooltip"] span,
+  [data-baseweb="tooltip"] p,
+  [role="tooltip"] span,
+  [role="tooltip"] p,
+  [data-testid="stTooltipContent"] span,
+  [data-testid="stTooltipContent"] p { color: #F5F7FA !important; }
+
+  /* ── Toolbar pill (hover actions on table/chart) ─────────────────────────── */
+  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
+    background-color: #0F2647 !important;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.35) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
+    background-color: transparent !important;
+    color: #F5F7FA !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
+    background-color: rgba(255,255,255,0.08) !important;
+  }
+
+  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
+  [data-baseweb="popover"] { background: #0F2647 !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.40) !important; border: 1px solid rgba(255,255,255,0.08) !important; overflow: hidden !important; }
+  [data-baseweb="popover"] > div,
+  [data-baseweb="menu"],
+  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
+  [data-baseweb="menu"] li { color: #F5F7FA !important; background: transparent !important; }
+  [data-baseweb="menu"] li:hover { background-color: rgba(255,255,255,0.08) !important; }
+  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
+  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
+
   /* ── Decision badges — dark mode overrides ──────────────────────────────── */
   .uv-badge-buy     { background: rgba(15,110,86,0.22)  !important; color: #1DD6A4 !important; }
   .uv-badge-monitor { background: rgba(133,79,11,0.22)  !important; color: #D4903A !important; }
