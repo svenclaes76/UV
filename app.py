@@ -1443,6 +1443,11 @@ _DARK_CSS = """
   button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
   button[data-testid="stTab"][aria-selected="true"] { color: #F5F7FA !important; border-bottom-color: #1DD6A4 !important; }
 
+  /* ── Decision badges — dark mode overrides ──────────────────────────────── */
+  .uv-badge-buy     { background: rgba(15,110,86,0.22)  !important; color: #1DD6A4 !important; }
+  .uv-badge-monitor { background: rgba(133,79,11,0.22)  !important; color: #D4903A !important; }
+  .uv-badge-avoid   { background: rgba(163,45,45,0.22)  !important; color: #E05C5C !important; }
+
   /* ── Misc ────────────────────────────────────────────────────────────────── */
   hr { border-color: rgba(255,255,255,0.08) !important; }
   [data-testid="stAlert"] { background-color: #0F2647 !important; color: #F5F7FA !important; }
@@ -2363,6 +2368,12 @@ div[data-baseweb="modal"] {
 }
 
 /* ── Compact typography inside dialog ─────────────────────────── */
+[data-testid="stDialog"] .uv-model-row,
+[data-testid="stDialog"] .uv-model-label,
+[data-testid="stDialog"] .uv-model-value,
+[data-testid="stDialog"] .uv-section-label {
+    color: var(--text-color) !important;
+}
 [data-testid="stDialog"] .uv-model-row {
     padding: 3px 0;
     font-size: 12px;
@@ -2481,7 +2492,7 @@ div[data-baseweb="modal"] {
                 f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
                 f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
                 f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{lbl}</div>'
-                f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;">{text}</div></div>'
+                f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;color:{_c_text};">{text}</div></div>'
             )
 
         def _signals_block(tips):
