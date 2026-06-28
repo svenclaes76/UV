@@ -331,34 +331,34 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     return len(new_hist)
 
 
-def save_watchlist(tickers: set[str]) -> None:
-    write_encrypted(_user_dir() / "watchlist.json", json.dumps(sorted(tickers), indent=2))
+def _save_user_json(filename: str, data) -> None:
+    write_encrypted(_user_dir() / filename, json.dumps(data, indent=2))
 
 
-def load_watchlist() -> set[str]:
-    path = _user_dir() / "watchlist.json"
+def _load_user_json(filename: str, default):
+    path = _user_dir() / filename
     if not path.exists():
-        return set()
-    try:
-        return set(json.loads(read_encrypted(path)))
-    except Exception:
-        return set()
-
-
-def save_manual_tickers(tickers: dict[str, str]) -> None:
-    """Persist manually added foreign-market tickers as {ticker: name}."""
-    write_encrypted(_user_dir() / "manual_tickers.json", json.dumps(tickers, indent=2))
-
-
-def load_manual_tickers() -> dict[str, str]:
-    """Return manually added foreign-market tickers as {ticker: name}."""
-    path = _user_dir() / "manual_tickers.json"
-    if not path.exists():
-        return {}
+        return default
     try:
         return json.loads(read_encrypted(path))
     except Exception:
-        return {}
+        return default
+
+
+def save_watchlist(tickers: set[str]) -> None:
+    _save_user_json("watchlist.json", sorted(tickers))
+
+
+def load_watchlist() -> set[str]:
+    return set(_load_user_json("watchlist.json", []))
+
+
+def save_manual_tickers(tickers: dict[str, str]) -> None:
+    _save_user_json("manual_tickers.json", tickers)
+
+
+def load_manual_tickers() -> dict[str, str]:
+    return _load_user_json("manual_tickers.json", {})
 
 
 # ── Excel parsing ─────────────────────────────────────────────────────────────

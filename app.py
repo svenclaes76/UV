@@ -2745,7 +2745,7 @@ if _page == "screener":
            if c not in ("Risk Score", "Sector", "Country")},
     }
 
-    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, show_add_ticker=False):
+    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, extra_toolbar_action=None):
         """Render the screener table with optional column groups, score filter, and sector filter."""
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
@@ -2787,36 +2787,11 @@ if _page == "screener":
         tab_df.index = range(1, n_shown + 1)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
-        if show_add_ticker:
-            @st.dialog("Add stock", width="small")
-            def _dlg_add_ticker():
-                _t = st.text_input("Ticker symbol", placeholder="e.g. AAPL, 7203.T, BP.L")
-                _, _add_save_col = st.columns([3, 1])
-                with _add_save_col:
-                    _do_add = st.button("Save", key=f"dlg_add_confirm_{key_suffix}", width="stretch")
-                if _do_add:
-                    _sym = _t.strip().upper()
-                    if _sym:
-                        try:
-                            _info = yf.Ticker(_sym).info
-                            _name = _info.get("shortName") or _info.get("longName") or _sym
-                            if not _info.get("regularMarketPrice") and not _info.get("currentPrice"):
-                                st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
-                            else:
-                                _mt = load_manual_tickers()
-                                _mt[_sym] = _name
-                                save_manual_tickers(_mt)
-                                save_watchlist(watchlist | {_sym})
-                                st.rerun()
-                        except Exception:
-                            st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
-
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        if show_add_ticker:
+        if extra_toolbar_action:
             _vc, _ac, _bc, _, _sc, _fc = st.columns([1, 1, 1, 2, 2, 2], gap="small")
         else:
             _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
-            _ac = None
 
         with _vc:
             _active = st.session_state.get(_grp_key, [])
@@ -2824,10 +2799,11 @@ if _page == "screener":
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
 
-        if _ac is not None:
+        if extra_toolbar_action:
+            _btn_label, _btn_cb = extra_toolbar_action
             with _ac:
-                if st.button("Add", key=f"btn_add_{key_suffix}"):
-                    _dlg_add_ticker()
+                if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
+                    _btn_cb()
 
         with _bc:
             if st.button("Buy", key=f"btn_buy_{key_suffix}"):
@@ -3006,23 +2982,47 @@ if _page == "screener":
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
         _wl_tickers = watchlist
+
+        @st.dialog("Add stock", width="small")
+        def _dlg_add_ticker():
+            _t = st.text_input("Ticker symbol", placeholder="e.g. AAPL, 7203.T, BP.L")
+            _, _save_col = st.columns([3, 1])
+            with _save_col:
+                _do_add = st.button("Save", key="dlg_add_confirm_watchlist", width="stretch")
+            if _do_add:
+                _sym = _t.strip().upper()
+                if _sym:
+                    _not_found = f"Ticker **{_sym}** not found. Check the symbol and try again."
+                    try:
+                        _info = yf.Ticker(_sym).info
+                        _name = _info.get("shortName") or _info.get("longName") or _sym
+                        if not _info.get("regularMarketPrice") and not _info.get("currentPrice"):
+                            st.error(_not_found)
+                        else:
+                            _mt = load_manual_tickers()
+                            _mt[_sym] = _name
+                            save_manual_tickers(_mt)
+                            save_watchlist(watchlist | {_sym})
+                            st.rerun()
+                    except Exception:
+                        st.error(_not_found)
+
         _wl_col, _wl_refresh = st.columns([9, 1])
         with _wl_refresh:
             if st.button("Refresh", type="tertiary", key="wl_refresh"):
                 _bust_cache()
-        _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx, _scr_extra_df], ignore_index=True)
-        wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-        if wl_df.empty:
-            with _wl_col:
+        _wl_all_df = pd.concat([_scr_all_df, _scr_extra_df], ignore_index=True)
+        wl_df = _wl_all_df[_wl_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+        with _wl_col:
+            if wl_df.empty:
                 st.info("Open any stock's details popup and click ★ to add it to your watchlist, "
                         "or use **Add** to add a stock from any market.")
-        else:
-            with _wl_col:
+            else:
                 st.markdown(f"**{len(wl_df)}** stocks · click → to view details")
         wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
                                          score_key="wl_score_filter",
                                          score_default=_SCORE_OPTIONS[3],
-                                         show_add_ticker=True)
+                                         extra_toolbar_action=("Add", _dlg_add_ticker))
         _wl_star = st.session_state.get("_dlg_star_rerun", False)
         _wl_src  = st.session_state.get("_dlg_open_src", "")
         if "→" in wl_edited.columns and wl_edited["→"].any():
