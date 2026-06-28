@@ -535,11 +535,17 @@ def _cache_version() -> str:
 
 
 @st.cache_data(show_spinner=False)
-def _load_all_screener_data(cache_version: str, enabled: tuple) -> tuple:  # noqa: ARG001
+def _load_all_screener_data(cache_version: str, enabled: tuple,
+                            extra_tickers: tuple = (), extra_names: tuple = ()) -> tuple:  # noqa: ARG001
     """
     Build screener DataFrames from whatever is in the cache right now.
-    cache_version (file mtime) and enabled (active exchanges) both bust the
-    Streamlit cache when they change so the UI stays in sync automatically.
+    cache_version (file mtime), enabled exchanges, and extra_tickers (portfolio
+    stocks from disabled exchanges) all bust the Streamlit cache when they change.
+
+    extra_tickers are folded into the single fetch_fundamentals_nowait call so
+    they share the same background-fetch thread, cache file, and refresh cadence
+    as the screener.  A scored DataFrame for those tickers is returned as the
+    last element of the tuple (after the per-exchange DataFrames).
     """
     _fetch_map = {
         "brussels":  (fetch_brussels_tickers,  ".BR"),
@@ -560,20 +566,38 @@ def _load_all_screener_data(cache_version: str, enabled: tuple) -> tuple:  # noq
             stock_lists[key] = stocks
             all_stocks.extend(stocks)
 
+    # Add extra (portfolio) tickers not already covered by enabled exchanges
+    _exchange_ticker_set = {s["ticker"] for s in all_stocks}
+    _extra_stocks = [
+        {"ticker": t, "name": n, "isin": ""}
+        for t, n in zip(extra_tickers, extra_names)
+        if t not in _exchange_ticker_set
+    ]
+    all_stocks.extend(_extra_stocks)
+
     print(f"Loading screener data for {len(all_stocks)} stocks…")
     all_fund = fetch_fundamentals_nowait(all_stocks)
 
     if all_fund.empty:
-        return tuple(empty for _ in ALL_EXCHANGES)
+        return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
 
     def _exchange_df(stock_list):
         tickers = {s["ticker"] for s in stock_list}
         return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)])
 
-    return tuple(
+    exchange_dfs = tuple(
         _exchange_df(stock_lists[key]) if key in stock_lists else empty
         for key in ALL_EXCHANGES
     )
+
+    # Scored df for the extra portfolio tickers
+    if _extra_stocks:
+        _extra_tset = {s["ticker"] for s in _extra_stocks}
+        _extra_df   = run_screener_from_df(all_fund[all_fund["Ticker"].isin(_extra_tset)])
+    else:
+        _extra_df = empty
+
+    return exchange_dfs + (_extra_df,)
 
 
 def _compute_fair_values(info: dict) -> dict:
@@ -1730,7 +1754,7 @@ if _page == "dashboard":
 
     # Avg margin of safety from screener cache
     _db_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    _db_all_scr = pd.concat(list(_load_all_screener_data(_cache_version(), _db_enabled)), ignore_index=True)
+    _db_all_scr = pd.concat(list(_load_all_screener_data(_cache_version(), _db_enabled)[:-1]), ignore_index=True)
     _db_scr = _db_all_scr[_db_all_scr["Ticker"].isin(_db_tickers)].copy()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
@@ -2537,7 +2561,7 @@ setTimeout(wire, 80);
 if _page == "screener":
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
-    df, df_ams, df_par, df_mil, df_etr, df_swx = _load_all_screener_data(_cache_version(), _enabled)
+    df, df_ams, df_par, df_mil, df_etr, df_swx, _ = _load_all_screener_data(_cache_version(), _enabled)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
 
@@ -3069,8 +3093,11 @@ if _page == "portfolio":
         pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
-    _pf_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), _pf_enabled)), ignore_index=True)
+    _pf_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _pf_tickers  = tuple(pf["ticker"].tolist())
+    _pf_names    = tuple(pf["name"].tolist())
+    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(_cache_version(), _pf_enabled, _pf_tickers, _pf_names)
+    _all_scr_df = pd.concat(_pf_exch_dfs + [_pf_extra_df], ignore_index=True)
     _pf_dlg_pending: list = []  # at most one dialog call per render
     _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
     _ticker_options = _all_screener["Ticker"].tolist()
@@ -4208,8 +4235,11 @@ if _page == "risk":
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
         st.stop()
 
-    _risk_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    _risk_scr_df  = pd.concat(list(_load_all_screener_data(_cache_version(), _risk_enabled)), ignore_index=True)
+    _risk_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _risk_tickers  = tuple(pf["ticker"].tolist())
+    _risk_names    = tuple(pf["name"].tolist())
+    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(_cache_version(), _risk_enabled, _risk_tickers, _risk_names)
+    _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
     _risk_dlg_pending: list = []
 
     # ── Enrich portfolio with live prices, fair values, sector, country ───────
