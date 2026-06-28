@@ -4372,7 +4372,7 @@ if _page == "risk":
         font=dict(color=_c_axis),
         showlegend=False,
     )
-    st.plotly_chart(_ss_fig, use_container_width=True)
+    st.plotly_chart(_ss_fig, width='stretch')
 
     # ── Detail tabs ───────────────────────────────────────────────────────────
     (_t_pos, _t_conc, _t_quant, _t_factor,
@@ -4411,7 +4411,7 @@ if _page == "risk":
         _risk_pos_edited = st.data_editor(
             _pos_df,
             hide_index=True,
-            use_container_width=True,
+            width='stretch',
             disabled=[c for c in _pos_df.columns if c != "→"],
             height=35 + min(len(_pos_df), 20) * _row_h,
             key="risk_positions_table",
@@ -4492,7 +4492,7 @@ if _page == "risk":
                     xaxis=dict(tickangle=-30, tickfont=dict(color=_c_axis)),
                     font=dict(color=_c_axis), showlegend=False,
                 )
-                st.plotly_chart(_sec_fig, use_container_width=True)
+                st.plotly_chart(_sec_fig, width='stretch')
             if c.sector_flag:
                 _trigger_card(f"Sector concentration: {c.largest_sector} at {c.sector_weights.get(c.largest_sector or '', 0):.0%}", "soft")
 
@@ -4526,7 +4526,7 @@ if _page == "risk":
                                 font=dict(size=11, color=_c_axis), itemwidth=30),
                     font=dict(color=_c_axis),
                 )
-                st.plotly_chart(_geo_fig, use_container_width=True)
+                st.plotly_chart(_geo_fig, width='stretch')
             if c.geo_flag:
                 _trigger_card(f"Geographic concentration: {c.largest_geo} at {c.geo_weights.get(c.largest_geo or '', 0):.0%}", "soft")
 
@@ -4605,7 +4605,7 @@ if _page == "risk":
             )
             _heat.update_traces(showscale=True,
                                 colorbar=dict(outlinewidth=0, tickfont=dict(color=_c_axis)))
-            st.plotly_chart(_heat, use_container_width=True)
+            st.plotly_chart(_heat, width='stretch')
             if q.high_corr_pairs:
                 _pairs_str = ", ".join(f"**{a}/{b}** ({c:.2f})" for a, b, c in q.high_corr_pairs)
                 _trigger_card(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification", "soft")
@@ -4659,7 +4659,7 @@ if _page == "risk":
                     xaxis=dict(tickfont=dict(color=_c_axis)),
                     font=dict(color=_c_axis), showlegend=False,
                 )
-                st.plotly_chart(_fac_fig, use_container_width=True)
+                st.plotly_chart(_fac_fig, width='stretch')
 
             if f.flags:
                 for _msg in f.flags:
@@ -4701,7 +4701,7 @@ if _page == "risk":
             st.markdown("**Top income contributors**")
             _inc_rows = [{"Ticker": t, "Share of income": f"{sh:.1%}"}
                          for t, sh in inc.top3_income_shares]
-            st.dataframe(pd.DataFrame(_inc_rows), hide_index=True, use_container_width=False,
+            st.dataframe(pd.DataFrame(_inc_rows), hide_index=True, width='content',
                          column_config={
                              "Ticker":         st.column_config.TextColumn("Ticker",
                                                    help="Exchange ticker symbol of the dividend payer"),
@@ -4738,7 +4738,7 @@ if _page == "risk":
             "Est. DD":        s.portfolio_drawdown * 100 if s.portfolio_drawdown else None,
             "Est. loss €":    s.portfolio_value_loss if s.portfolio_value_loss else None,
         } for s in r.stress.historical]
-        st.dataframe(pd.DataFrame(_hist_rows), hide_index=True, use_container_width=True,
+        st.dataframe(pd.DataFrame(_hist_rows), hide_index=True, width='stretch',
             column_config={
                 "Scenario":       st.column_config.TextColumn("Scenario", width=200, pinned=True,
                                       help="Name of the historical market crisis"),
@@ -4763,7 +4763,7 @@ if _page == "risk":
             "Est. DD":     s["estimated_portfolio_impact"] * 100,
             "Est. loss €": s["estimated_loss_eur"],
         } for s in r.stress.factor_scenarios]
-        st.dataframe(pd.DataFrame(_factor_rows), hide_index=True, use_container_width=True,
+        st.dataframe(pd.DataFrame(_factor_rows), hide_index=True, width='stretch',
             column_config={
                 "Scenario":    st.column_config.TextColumn("Scenario", width=200, pinned=True,
                                    help="Name of the hypothetical shock"),
@@ -4853,7 +4853,7 @@ if _page == "risk":
             font=dict(color=_c_axis),
             legend=dict(x=0.02, y=0.98, font=dict(color=_c_axis)),
         )
-        st.plotly_chart(_fan_fig, use_container_width=True)
+        st.plotly_chart(_fan_fig, width='stretch')
 
         st.markdown("**Scenario probability table**")
         _mc_tbl = pd.DataFrame([
@@ -4868,7 +4868,7 @@ if _page == "risk":
             }
             for m in _mcs
         ])
-        st.dataframe(_mc_tbl, hide_index=True, use_container_width=False,
+        st.dataframe(_mc_tbl, hide_index=True, width='content',
             column_config={
                 "Horizon":    st.column_config.TextColumn("Horizon",
                                   help="Simulation time horizon"),
@@ -4907,7 +4907,7 @@ if _page == "risk":
             st.dataframe(
                 _act_df,
                 hide_index=True,
-                use_container_width=True,
+                width='stretch',
                 height=35 + min(len(_act_df), 15) * 40,
                 column_config={
                     "ticker": st.column_config.TextColumn("Ticker / Scope",
