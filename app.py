@@ -2228,7 +2228,7 @@ if _page == "screener":
             return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
         # Build the display DataFrame from core cols + selected extras
-        display_data = {"→": ["→"] * len(tab_df)}
+        display_data = {"→": [False] * len(tab_df)}
         for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
             if col == "Score":
                 display_data[col] = tab_df.apply(_fmt_score, axis=1).values
@@ -2257,33 +2257,23 @@ if _page == "screener":
 
         all_data_cols = list(display_data.keys())
         col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        col_config["→"] = st.column_config.TextColumn("→", width="small", help="Click row to view details", pinned=True)
+        col_config["→"] = st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True)
+        disabled_cols = [c for c in all_data_cols if c != "→"]
 
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
 
-        result = st.dataframe(
+        edited = st.data_editor(
             display_df,
             width="stretch",
             hide_index=True,
             column_config=col_config,
+            disabled=disabled_cols,
             height=_height,
             key=_tbl_key,
-            on_select="rerun",
-            selection_mode="single-row",
         )
-
-        sel_ticker = None
-        sel_rows = result.selection.rows
-        if sel_rows:
-            idx = sel_rows[0]
-            if 0 <= idx < len(display_df if not hasattr(display_df, "data") else display_df.data):
-                # display_df may be a Styler; extract raw df for iloc
-                _raw = display_df.data if hasattr(display_df, "data") else display_df
-                sel_ticker = str(_raw.iloc[idx].get("Ticker", "") if "Ticker" in _raw.columns else "")
-
-        return sel_ticker, n_shown, key_suffix
+        return edited, n_shown, key_suffix
 
     # ── Buy dialog (shared across all screener tabs) ──────────────────────────
     _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
@@ -2946,21 +2936,22 @@ div[data-baseweb="modal"] {
         else:
             _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
             wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            wl_sel_ticker, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
-                                               score_key="wl_score_filter",
-                                               score_default=_SCORE_OPTIONS[3])
+            wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
+                                             score_key="wl_score_filter",
+                                             score_default=_SCORE_OPTIONS[3])
             with _wl_col:
-                st.markdown(f"**{n_wl}** stocks · click a row to view details")
+                st.markdown(f"**{n_wl}** stocks · click → to view details")
             _wl_star = st.session_state.get("_dlg_star_rerun", False)
             _wl_src  = st.session_state.get("_dlg_open_src", "")
-            if wl_sel_ticker:
-                _wl_sel_rows = wl_df[wl_df["Ticker"] == wl_sel_ticker]
+            if "→" in wl_edited.columns and wl_edited["→"].any():
+                _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
+                _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
                 if not _wl_sel_rows.empty:
-                    # Reset row selection so it clears on next render
-                    _wl_ss = st.session_state.get("table_watchlist", {})
-                    if isinstance(_wl_ss, dict) and "selection" in _wl_ss:
-                        _wl_ss["selection"]["rows"] = []
-                    st.session_state["_dlg_open_ticker"] = wl_sel_ticker
+                    # Clear the checkbox immediately in data_editor's session state
+                    _wl_tbl_ss = st.session_state.get("table_watchlist", {})
+                    if isinstance(_wl_tbl_ss, dict):
+                        _wl_tbl_ss["edited_rows"] = {}
+                    st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                     st.session_state["_dlg_open_src"]    = "watchlist"
                     _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
             elif _wl_star and _wl_src == "watchlist":
@@ -2998,20 +2989,21 @@ div[data-baseweb="modal"] {
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
 
-        sel_ticker, n_shown, _tbl_key = _render_table(tab_df, key,
-                                           score_key=f"{key}_score_filter",
-                                           score_default=_SCORE_OPTIONS[0])
+        edited, n_shown, _tbl_key = _render_table(tab_df, key,
+                                        score_key=f"{key}_score_filter",
+                                        score_default=_SCORE_OPTIONS[0])
 
         _ex_star = st.session_state.get("_dlg_star_rerun", False)
         _ex_src  = st.session_state.get("_dlg_open_src", "")
-        if sel_ticker:
-            _sel_rows = tab_df[tab_df["Ticker"] == sel_ticker]
+        if "→" in edited.columns and edited["→"].any():
+            _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
+            _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
             if not _sel_rows.empty:
-                # Reset row selection so it clears on next render
-                _ex_ss = st.session_state.get(f"table_{key}", {})
-                if isinstance(_ex_ss, dict) and "selection" in _ex_ss:
-                    _ex_ss["selection"]["rows"] = []
-                st.session_state["_dlg_open_ticker"] = sel_ticker
+                # Clear the checkbox immediately in data_editor's session state
+                _ex_tbl_ss = st.session_state.get(f"table_{key}", {})
+                if isinstance(_ex_tbl_ss, dict):
+                    _ex_tbl_ss["edited_rows"] = {}
+                st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
                 _dlg_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
         elif _ex_star and _ex_src == key:
@@ -3026,7 +3018,7 @@ div[data-baseweb="modal"] {
             st.session_state.pop("_dlg_open_src", None)
 
         with cnt_col:
-            st.markdown(f"**{n_shown}** stocks · click a row to view details")
+            st.markdown(f"**{n_shown}** stocks · click → to view details")
 
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
