@@ -2350,6 +2350,10 @@ if _page == "screener":
     _tab_labels  = ["Watchlist"] + [label for _, label, _, _ in _active_tabs]
     tab_watchlist, *_exchange_tabs = st.tabs(_tab_labels)
 
+    # Collect at most one pending dialog call; dispatched once after all tab code runs
+    # to avoid StreamlitDuplicateElementId (all tab code executes every rerun).
+    _dlg_pending: list = []
+
     _SCORE_OPTIONS = [
         "BUY  (> 70)",
         "MONITOR  (40–70)",
@@ -2960,14 +2964,14 @@ div[data-baseweb="modal"] {
                         _wl_tbl_ss["edited_rows"] = {}
                     st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                     st.session_state["_dlg_open_src"]    = "watchlist"
-                    _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
+                    _dlg_pending.append((_wl_sel_rows.iloc[0], _tok_qs, None))
             elif _wl_star and _wl_src == "watchlist":
                 st.session_state.pop("_dlg_star_rerun", None)
                 _t = st.session_state.get("_dlg_open_ticker")
                 if _t:
                     _r = wl_df[wl_df["Ticker"] == _t]
                     if not _r.empty:
-                        _dlg_stock_detail(_r.iloc[0], _tok_qs, None)
+                        _dlg_pending.append((_r.iloc[0], _tok_qs, None))
             elif not _wl_star and _wl_src == "watchlist":
                 st.session_state.pop("_dlg_open_ticker", None)
                 st.session_state.pop("_dlg_open_src", None)
@@ -3011,14 +3015,14 @@ div[data-baseweb="modal"] {
                     _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
-                _dlg_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
+                _dlg_pending.append((_sel_rows.iloc[0], _tok_qs, _scr_pf_context))
         elif _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_star_rerun", None)
             _t = st.session_state.get("_dlg_open_ticker")
             if _t:
                 _r = tab_df[tab_df["Ticker"] == _t]
                 if not _r.empty:
-                    _dlg_stock_detail(_r.iloc[0], _tok_qs, _scr_pf_context)
+                    _dlg_pending.append((_r.iloc[0], _tok_qs, _scr_pf_context))
         elif not _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_open_ticker", None)
             st.session_state.pop("_dlg_open_src", None)
@@ -3029,6 +3033,10 @@ div[data-baseweb="modal"] {
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
             _render_exchange_tab(_data, _rkey)
+
+    # Dispatch at most one dialog per render cycle to avoid duplicate element IDs
+    if _dlg_pending:
+        _dlg_stock_detail(*_dlg_pending[0])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — PORTFOLIO
