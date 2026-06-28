@@ -1894,7 +1894,7 @@ if _page == "dashboard":
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
-                _db_div_scr.get("exDividendDate"), errors="coerce")
+                _db_div_scr.get("exDividendDate"), errors="coerce", dayfirst=True)
             _today = pd.Timestamp.today().normalize()
             _has_dates = _db_div_scr["exDividendDate"].notna().any()
             if _has_dates:
@@ -2156,7 +2156,7 @@ overflow: hidden !important;
         save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
         st.session_state["_dlg_star_rerun"] = True
         st.rerun()
-    _st_components.html("""<script>
+    st.iframe("""<script>
 (function wire() {
   var pdoc = window.parent.document;
   var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
