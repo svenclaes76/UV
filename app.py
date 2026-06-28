@@ -1968,6 +1968,572 @@ _f_f2   = lambda v: f"{v:.2f}"       if pd.notna(v) else "—"
 _f_mult = lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"
 _f_str  = lambda v: v                if pd.notna(v) else "—"
 
+watchlist = load_watchlist()
+
+@st.dialog("Stock details", width="large")
+def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
+    """4-tab stock detail modal — consistent height across all tabs."""
+    # Force all tab panels to the same height so the dialog doesn't resize on switch
+    st.markdown("""
+<style>
+/* ── Remove backdrop colour, keep structure intact ── */
+div[data-baseweb="modal"] > div:first-child {
+background: transparent !important;
+}
+/* ── Push flex-centering into the main area (right of sidebar) ── */
+div[data-baseweb="modal"] {
+padding-left: 260px !important;
+}
+
+/* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
+[data-testid="stDialog"] > div {
+width: 860px !important;
+min-width: 860px !important;
+max-width: 860px !important;
+}
+/* ── Hide redundant "Stock details" title ─────────────────────── */
+[data-testid="stDialog"] div[role="dialog"] > div:first-child {
+display: none !important;
+}
+
+/* ── Fixed dialog height across all tabs ──────────────────────── */
+[data-testid="stDialog"] div[role="dialog"] {
+min-height: 600px !important;
+height: 600px !important;
+background: var(--background-color) !important;
+color: var(--text-color) !important;
+}
+/* ── Remove default top padding inside tab panels ─────────────── */
+[data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
+padding-top: 0 !important;
+}
+
+/* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
+height: auto !important;
+min-height: 0 !important;
+overflow-y: scroll !important;
+box-sizing: border-box;
+scrollbar-width: none !important;       /* Firefox */
+-ms-overflow-style: none !important;    /* IE/Edge */
+}
+[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"]::-webkit-scrollbar {
+display: none !important;               /* Chrome/Safari */
+}
+/* Remove bottom gap Streamlit adds between widgets */
+[data-testid="stDialog"] div[role="tabpanel"] [data-testid="stVerticalBlock"] {
+gap: 0 !important;
+}
+[data-testid="stDialog"] div[role="tabpanel"] > div {
+padding-bottom: 0 !important;
+}
+
+/* ── Compact typography inside dialog ─────────────────────────── */
+[data-testid="stDialog"] .uv-model-row,
+[data-testid="stDialog"] .uv-model-label,
+[data-testid="stDialog"] .uv-model-value,
+[data-testid="stDialog"] .uv-section-label {
+color: var(--text-color) !important;
+}
+[data-testid="stDialog"] .uv-model-row {
+padding: 3px 0;
+font-size: 12px;
+}
+[data-testid="stDialog"] .uv-section-label {
+margin: 20px 0 8px;
+font-size: 10px;
+padding-bottom: 4px;
+border-bottom: 1px solid rgba(128,128,128,0.20);
+}
+[data-testid="stDialog"] .uv-section-label:first-child {
+margin-top: 0;
+}
+[data-testid="stDialog"] .uv-metric-grid {
+margin-bottom: 12px !important;
+}
+[data-testid="stDialog"] .uv-metric-cell {
+padding: 8px 10px;
+}
+[data-testid="stDialog"] .uv-metric-label {
+font-size: 10px;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+[data-testid="stDialog"] .uv-metric-value {
+font-size: 1.1rem;
+}
+/* ── Close (×) button — force visible in dark mode ─────── */
+[data-testid="stDialog"] button[aria-label="Close"] {
+color: var(--text-color) !important;
+opacity: 0.7;
+}
+[data-testid="stDialog"] button[aria-label="Close"]:hover {
+opacity: 1;
+}
+/* ── Star toggle button — hidden visually, wired via JS ── */
+[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
+visibility: hidden !important;
+position: absolute !important;
+width: 0 !important;
+height: 0 !important;
+padding: 0 !important;
+margin: 0 !important;
+overflow: hidden !important;
+}
+</style>""", unsafe_allow_html=True)
+
+    decision = str(row.get("Decision", ""))
+    score    = row.get("Value Score")
+    badge_class = {
+        "Strong Buy": "uv-badge-buy",
+        "Monitor":    "uv-badge-monitor",
+        "Avoid":      "uv-badge-avoid",
+    }.get(decision, "uv-badge-avoid")
+    badge_label = {
+        "Strong Buy": "BUY",
+        "Monitor":    "MONITOR",
+        "Avoid":      "AVOID",
+    }.get(decision, decision.upper() if decision else "—")
+    if row.get("veto"):
+        badge_class, badge_label = "uv-badge-veto", "VETO"
+
+    score_str = f"{score:.1f}%" if pd.notna(score) else "—"
+
+    def _fv(field, fmt=None):
+        v = row.get(field)
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return "—"
+        return fmt(v) if fmt else str(v)
+
+    def _rows_html(pairs):
+        return "".join(
+            f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
+            f'<span class="uv-model-value">{val}</span></div>'
+            for lbl, val in pairs
+        )
+
+    # ── Header: company name · ticker · decision badge · watchlist star ──
+    _dlg_ticker   = str(row.get("Ticker", ""))
+    _in_watchlist = _dlg_ticker in watchlist
+    _star_lbl  = "★" if _in_watchlist else "☆"
+    _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
+    st.markdown(f"""
+<div class="uv-detail-header" style="margin-bottom:0.75rem;">
+  <span class="uv-detail-company">{row.get('Name','—')}</span>
+  <span class="uv-detail-ticker">{_dlg_ticker}</span>
+  <span class="uv-badge {badge_class}">{badge_label}</span>
+  <span id="uv-star-icon" title="{_star_help}"
+    style="font-size:1.5rem;margin-left:10px;cursor:pointer;vertical-align:middle;line-height:1;user-select:none;"
+    >{_star_lbl}</span>
+</div>""", unsafe_allow_html=True)
+    # Hidden functional button — wired to the star span via JS below
+    if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
+        save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+        st.session_state["_dlg_star_rerun"] = True
+        st.rerun()
+    _st_components.html("""<script>
+(function wire() {
+  var pdoc = window.parent.document;
+  var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
+  var star = pdoc.getElementById('uv-star-icon');
+  if (btn && star) {
+star.onclick = function() { btn.click(); };
+  } else {
+setTimeout(wire, 80);
+  }
+})();
+</script>""", height=0)
+
+    def _signal_card(sev: str, text: str) -> str:
+        _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
+        _n_bbg = "rgba(0,0,0,0.10)"      if _ui_effective_light else "rgba(255,255,255,0.12)"
+        _sc_styles = {
+            "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.20)",  "HIGH"),
+            "caution": ("#854F0B", "rgba(133,79,11,0.08)",  "rgba(133,79,11,0.18)",  "NOTE"),
+            "ok":      ("#0F6E56", "rgba(15,110,86,0.08)",  "rgba(15,110,86,0.18)",  "OK"),
+            "neutral": ("#5F5E5A", _n_bg,                   _n_bbg,                  "INFO"),
+        }
+        bc, bg, bbg, lbl = _sc_styles.get(sev, _sc_styles["neutral"])
+        return (
+            f'<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0.6rem;'
+            f'border-left:3px solid {bc};border-radius:5px;background:{bg};margin-bottom:4px;">'
+            f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
+            f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
+            f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{lbl}</div>'
+            f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;color:{_c_text};">{text}</div></div>'
+        )
+
+    def _signals_block(tips):
+        if not tips:
+            return ""
+        return (
+            '<div class="uv-section-label" style="margin-top:16px;">Signals</div>'
+            + "".join(_signal_card(sev, tip) for sev, tip in tips)
+        )
+
+    _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
+        ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
+    )
+
+    # ── Tab 1: Snapshot ───────────────────────────────────────────────────
+    with _tab_today:
+        _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
+        _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
+
+        def _col_html(label, rows):
+            return (
+                f'<div><div class="uv-section-label" style="margin-top:0;">{label}</div>'
+                + _rows_html(rows) + '</div>'
+            )
+
+        st.markdown(
+            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">'
+            + _col_html("Valuation", [
+                ("Price",       _fv("Price",      _fmt_eur)),
+                ("Fair value",  _fv("fair_value", _fmt_eur)),
+                ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
+                ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
+                ("Score",       score_str),
+            ])
+            + _col_html("Quality", [
+                ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
+                ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
+                ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
+                ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
+                ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
+                ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
+            ])
+            + _col_html("Dividends & growth", [
+                ("DPS",         _dps_str),
+                ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
+                ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
+                ("Ex-div",      _fv("exDividendDate")),
+                ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
+                ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
+            ])
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+        # ── Snapshot signals ──────────────────────────────────────────────
+        _snap_tips = []
+        _sc_v = row.get("Value Score"); _mos_v = row.get("MoS %"); _fv_v = row.get("fair_value")
+        _eg_v = row.get("earningsGrowth"); _rg_v = row.get("revenueGrowth")
+        _dy_v = row.get("dividendYield")
+        if pd.notna(_sc_v):
+            sc = float(_sc_v)
+            if sc >= 70:   _snap_tips.append(("ok",      f"Score {sc:.1f} — strong buy signal across valuation and quality criteria."))
+            elif sc >= 40: _snap_tips.append(("neutral",  f"Score {sc:.1f} — monitor; does not yet meet the buy threshold."))
+            else:          _snap_tips.append(("warn",     f"Score {sc:.1f} — below buy threshold; review fundamentals before investing."))
+        if pd.notna(_mos_v) and pd.notna(_fv_v):
+            m = float(_mos_v)
+            if m >= 30:    _snap_tips.append(("ok",      f"Margin of safety {m:+.1f}% — significant discount to fair value {_fmt_eur(float(_fv_v))}."))
+            elif m >= 10:  _snap_tips.append(("neutral",  f"Margin of safety {m:+.1f}% — modest discount; limited downside buffer."))
+            elif m >= 0:   _snap_tips.append(("caution",  f"Stock near fair value ({m:+.1f}%) — little buffer if estimates prove optimistic."))
+            else:          _snap_tips.append(("warn",     f"Stock {abs(m):.1f}% above fair value {_fmt_eur(float(_fv_v))} — consider waiting for a pullback."))
+        if pd.notna(_eg_v):
+            g = float(_eg_v) * 100
+            if g >= 15:    _snap_tips.append(("ok",      f"EPS growth {g:+.1f}% — strong earnings momentum."))
+            elif g >= 0:   _snap_tips.append(("neutral",  f"EPS growth {g:+.1f}% — modest positive trend."))
+            else:          _snap_tips.append(("caution",  f"EPS growth {g:+.1f}% — earnings contracting; verify if temporary."))
+        if pd.notna(_rg_v):
+            g = float(_rg_v) * 100
+            if g >= 10:    _snap_tips.append(("ok",      f"Revenue growth {g:+.1f}% — healthy top-line expansion."))
+            elif g >= 0:   _snap_tips.append(("neutral",  f"Revenue growth {g:+.1f}% — slow but positive."))
+            else:          _snap_tips.append(("caution",  f"Revenue declining {g:+.1f}% — assess competitive position."))
+        if pd.notna(_dy_v) and float(_dy_v) > 0:
+            dy = float(_dy_v) * 100
+            if dy >= 4:    _snap_tips.append(("ok",      f"Dividend yield {dy:.2f}% — attractive income level."))
+            elif dy >= 2:  _snap_tips.append(("neutral",  f"Dividend yield {dy:.2f}% — moderate income."))
+        if _snap_tips:
+            st.markdown(_signals_block(_snap_tips), unsafe_allow_html=True)
+
+    # ── Tab 2: Price history ───────────────────────────────────────────────
+    with _tab_hist:
+        _fv_val = row.get("fair_value")
+        _at_val = row.get("targetMeanPrice")
+        _price  = row.get("Price")
+
+        import yfinance as yf
+        _ticker_sym = str(row.get("Ticker", ""))
+        with st.spinner("Loading price history…"):
+            try:
+                _hist = yf.Ticker(_ticker_sym).history(period="2y")
+            except Exception:
+                _hist = pd.DataFrame()
+        if _hist.empty:
+            st.caption("No price history available.")
+        else:
+            _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
+            _fig_h = go.Figure()
+            _fig_h.add_trace(go.Scatter(
+                x=_hist.index, y=_hist["Close"],
+                mode="lines", name="Price",
+                line=dict(color="#1DD6A4", width=2),
+                fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
+            ))
+            if pd.notna(_fv_val):
+                _fig_h.add_hline(
+                    y=float(_fv_val),
+                    line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                    annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                    annotation_position="top left",
+                    annotation_font=dict(color=_c_axis, size=11),
+                )
+            if pd.notna(_at_val):
+                _fig_h.add_hline(
+                    y=float(_at_val),
+                    line=dict(color=_c_invested, width=1.5, dash="dot"),
+                    annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
+                    annotation_position="bottom left",
+                    annotation_font=dict(color=_c_axis, size=11),
+                )
+            _fig_h.update_layout(
+                margin=dict(l=0, r=0, t=8, b=0),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                            xanchor="left", x=0, font=dict(color=_c_axis)),
+                yaxis=dict(tickprefix="€", tickformat=",.2f",
+                           tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+                hovermode="x unified",
+                font=dict(color=_c_axis),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
+            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+            # ── Price history signals ─────────────────────────────────────
+            _hist_tips = []
+            if pd.notna(_price) and pd.notna(_fv_val):
+                _gap = (float(_fv_val) - float(_price)) / float(_price) * 100
+                if _gap >= 20:   _hist_tips.append(("ok",      f"Price {_fmt_eur(float(_price))} is {_gap:.1f}% below fair value {_fmt_eur(float(_fv_val))} — significant upside potential."))
+                elif _gap >= 5:  _hist_tips.append(("neutral",  f"Price {_fmt_eur(float(_price))} is {_gap:.1f}% below fair value — modest upside."))
+                elif _gap >= -5: _hist_tips.append(("caution",  f"Price is near fair value {_fmt_eur(float(_fv_val))} — limited margin of safety."))
+                else:            _hist_tips.append(("warn",     f"Price {_fmt_eur(float(_price))} is {abs(_gap):.1f}% above fair value {_fmt_eur(float(_fv_val))} — overvalued vs model."))
+            if pd.notna(_price) and pd.notna(_at_val):
+                _at_gap = (float(_at_val) - float(_price)) / float(_price) * 100
+                if _at_gap >= 15:  _hist_tips.append(("ok",     f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside from current price."))
+                elif _at_gap >= 5: _hist_tips.append(("neutral", f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside."))
+                elif _at_gap >= 0: _hist_tips.append(("caution", f"Analyst target {_fmt_eur(float(_at_val))} is near current price — limited consensus upside."))
+                else:              _hist_tips.append(("warn",    f"Analyst target {_fmt_eur(float(_at_val))} is {abs(_at_gap):.1f}% below current price — analysts see downside."))
+            if not _hist.empty:
+                _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
+                _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
+                if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
+                elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
+                if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
+                elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
+            if _hist_tips:
+                st.markdown(_signals_block(_hist_tips), unsafe_allow_html=True)
+
+    # ── Tab 3: Risk ───────────────────────────────────────────────────────
+    with _tab_risk:
+        _has_pf = pf_context and pf_context.get("total", 0) > 0
+
+        # ── Compute portfolio fit data first ──────────────────────────────
+        _pf_tips: list[tuple[str, str]] = []
+        _pf_html = ""
+        if _has_pf:
+            _pf_sector  = row.get("sector")
+            _pf_country = row.get("country")
+            _sw = pf_context["sector_weights"]
+            _cw = pf_context["country_weights"]
+
+            def _fit_badge(label: str, value_str: str, severity: str) -> str:
+                if _ui_effective_light:
+                    colors = {
+                        "ok":      ("#0F6E56", "#E8F5F0",           "OK"),
+                        "caution": ("#854F0B", "#FDF0E8",           "NOTE"),
+                        "warn":    ("#A32D2D", "#FCEAEA",           "HIGH"),
+                        "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
+                    }
+                else:
+                    colors = {
+                        "ok":      ("#1DD6A4", "rgba(15,110,86,0.20)",  "OK"),
+                        "caution": ("#D4903A", "rgba(133,79,11,0.20)",  "NOTE"),
+                        "warn":    ("#E05C5C", "rgba(163,45,45,0.20)",  "HIGH"),
+                        "neutral": ("#9A9A95", "rgba(255,255,255,0.07)","—"),
+                    }
+                tc, bg, blabel = colors.get(severity, colors["neutral"])
+                return (
+                    f'<div class="uv-model-row" style="display:grid;padding:3px 0;'
+                    f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
+                    f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
+                    f'<span style="font-size:0.82rem;">{value_str}</span>'
+                    f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
+                    f'background:{bg};color:{tc};letter-spacing:0.05em;text-align:center;">'
+                    f'{blabel}</span></div>'
+                )
+
+            _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
+            if not _pf_sector:
+                _sec_sev = "neutral"; _sec_val = "Unknown"
+                _sec_tip = "Sector data not available for this stock."
+            elif _sec_w > 0.30:
+                _sec_sev = "warn";    _sec_val = _pf_sector
+                _sec_tip = f"Your portfolio already has {_sec_w:.0%} in {_pf_sector}. Adding this stock increases sector concentration significantly."
+            elif _sec_w > 0.15:
+                _sec_sev = "caution"; _sec_val = _pf_sector
+                _sec_tip = f"{_pf_sector} is at {_sec_w:.0%} of your portfolio. Consider whether further exposure fits your targets."
+            elif _sec_w > 0:
+                _sec_sev = "ok";      _sec_val = _pf_sector
+                _sec_tip = f"Low {_pf_sector} exposure ({_sec_w:.0%}) — this stock adds sector diversification."
+            else:
+                _sec_sev = "neutral"; _sec_val = _pf_sector
+                _sec_tip = f"{_pf_sector} is not yet in your portfolio — this adds a new sector."
+
+            _cnt_w = float(_cw.get(_pf_country, 0) or 0) if _pf_country else 0.0
+            if not _pf_country:
+                _cnt_sev = "neutral"; _cnt_val = "Unknown"
+                _cnt_tip = "Country data not available for this stock."
+            elif _cnt_w > 0.50:
+                _cnt_sev = "warn";    _cnt_val = _pf_country
+                _cnt_tip = f"Your portfolio is already {_cnt_w:.0%} in {_pf_country}. Adding more increases geographic concentration."
+            elif _cnt_w > 0.30:
+                _cnt_sev = "caution"; _cnt_val = _pf_country
+                _cnt_tip = f"{_pf_country} already represents {_cnt_w:.0%} of your portfolio. Monitor geographic balance."
+            elif _cnt_w > 0:
+                _cnt_sev = "ok";      _cnt_val = _pf_country
+                _cnt_tip = f"Low {_pf_country} exposure ({_cnt_w:.0%}) — adding this stock improves geographic diversification."
+            else:
+                _cnt_sev = "neutral"; _cnt_val = _pf_country
+                _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
+
+            _pf_html = (
+                '<div class="uv-section-label" style="margin-top:0;">Portfolio fit</div>'
+                + _fit_badge("Sector",  _sec_val, _sec_sev)
+                + _fit_badge("Country", _cnt_val, _cnt_sev)
+            )
+            _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
+
+        # ── Single HTML grid — guarantees row alignment ───────────────────
+        _risk_rows_html = _rows_html([
+            ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
+            ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
+            ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
+            ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
+            ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
+        ])
+        st.markdown(
+            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">'
+            + f'<div><div class="uv-section-label" style="margin-top:0;">Risk & size</div>{_risk_rows_html}</div>'
+            + f'<div>{_pf_html}</div>'
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Signals — right column ────────────────────────────────────────
+        _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
+        _risk_tips: list[tuple[str, str]] = []
+        if pd.notna(_beta_v):
+            _b = float(_beta_v)
+            if _b < 0.5:    _risk_tips.append(("neutral", f"Beta {_b:.2f} — low volatility."))
+            elif _b < 1.0:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — below market."))
+            elif _b < 1.3:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — in line with market."))
+            else:           _risk_tips.append(("caution", f"Beta {_b:.2f} — high volatility."))
+        if pd.notna(_de_v):
+            _de = float(_de_v)
+            if _de > 5:    _risk_tips.append(("caution", f"D/E {_de:.1f} — high leverage."))
+            elif _de > 2:  _risk_tips.append(("neutral", f"D/E {_de:.1f} — moderate leverage."))
+            else:          _risk_tips.append(("neutral", f"D/E {_de:.1f} — conservative."))
+        if pd.notna(_rs_v):
+            _rs = float(_rs_v)
+            if _rs <= 3:   _risk_tips.append(("ok",      f"Risk score {_rs:.1f}/10 — low."))
+            elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate."))
+            else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated."))
+
+        _all_tips = _risk_tips + _pf_tips
+        if _all_tips:
+            st.markdown(
+                '<div class="uv-section-label" style="margin-top:24px;">Signals</div>'
+                + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
+                unsafe_allow_html=True,
+            )
+
+
+    # ── Tab 4: Valuation ──────────────────────────────────────────────────
+    with _tab_val:
+        _val_models = [
+            ("Graham number",  "graham_number"),
+            ("PE fair value",  "pe_fair_value"),
+            ("DDM",            "ddm"),
+            ("Analyst target", "targetMeanPrice"),
+        ]
+        _price = row.get("Price")
+        _valid_models = [
+            (lbl, float(row.get(field)))
+            for lbl, field in _val_models
+            if row.get(field) is not None and pd.notna(row.get(field))
+        ]
+        if _valid_models and pd.notna(_price):
+            _vlabels = [lbl for lbl, _ in _valid_models]
+            _vvalues = [val for _, val in _valid_models]
+            _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
+            _fig_v   = go.Figure()
+            _fig_v.add_trace(go.Bar(
+                x=_vvalues, y=_vlabels, orientation="h",
+                marker_color=_vcolors,
+                text=[_fmt_eur(v) for v in _vvalues],
+                textposition="outside",
+                cliponaxis=False,
+            ))
+            _fig_v.add_vline(
+                x=float(_price),
+                line=dict(color=_c_axis, width=2),
+                annotation_text=f"Price {_fmt_eur(float(_price))}",
+                annotation_position="top",
+                annotation_font=dict(color=_c_axis, size=11),
+            )
+            _fig_v.update_layout(
+                margin=dict(l=0, r=80, t=28, b=8),
+                bargap=0.25,
+                xaxis=dict(tickprefix="€", tickformat=",.0f",
+                           tickfont=dict(color=_c_axis), showgrid=False),
+                yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                font=dict(color=_c_axis),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
+            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="min-height:220px"></div>', unsafe_allow_html=True)
+            st.caption("Not enough model data to render chart.")
+        # ── Model signals ─────────────────────────────────────────────────
+        _mdl_tips = []
+        _mdl_price = row.get("Price")
+        _mdl_all = [
+            ("Graham number",  "graham_number"),
+            ("PE fair value",  "pe_fair_value"),
+            ("DDM",            "ddm"),
+            ("Analyst target", "targetMeanPrice"),
+        ]
+        if pd.notna(_mdl_price):
+            _mdl_valid = [(l, float(row.get(f))) for l, f in _mdl_all if row.get(f) is not None and pd.notna(row.get(f))]
+            _n_above = sum(1 for _, v in _mdl_valid if v > float(_mdl_price))
+            _n_total = len(_mdl_valid)
+            if _n_total > 0:
+                if _n_above == _n_total:
+                    _mdl_tips.append(("ok",      f"All {_n_total} models above current price — broad consensus of undervaluation."))
+                elif _n_above >= _n_total // 2 + 1:
+                    _mdl_tips.append(("neutral",  f"{_n_above}/{_n_total} models above current price — majority suggests undervaluation."))
+                elif _n_above > 0:
+                    _mdl_tips.append(("caution",  f"Only {_n_above}/{_n_total} models above current price — mixed valuation signals."))
+                else:
+                    _mdl_tips.append(("warn",     f"No models above current price — all estimates suggest overvaluation."))
+            for lbl, fld in _mdl_all:
+                v = row.get(fld)
+                if v is not None and pd.notna(v):
+                    v = float(v); p = float(_mdl_price)
+                    diff = (v - p) / p * 100
+                    if diff >= 20:    _mdl_tips.append(("ok",     f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
+                    elif diff >= 5:   _mdl_tips.append(("neutral", f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
+                    elif diff >= -5:  _mdl_tips.append(("caution", f"{lbl} {_fmt_eur(v)} — near current price ({diff:+.1f}%)."))
+                    else:             _mdl_tips.append(("warn",    f"{lbl} {_fmt_eur(v)} — {abs(diff):.1f}% below price."))
+        if _mdl_tips:
+            st.markdown(_signals_block(_mdl_tips), unsafe_allow_html=True)
+
+
 if _page == "screener":
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
@@ -2370,569 +2936,6 @@ if _page == "screener":
         out = df_in[df_in["Decision"] == decision] if decision else df_in
         return out.reset_index(drop=True)
 
-    @st.dialog("Stock details", width="large")
-    def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
-        """4-tab stock detail modal — consistent height across all tabs."""
-        # Force all tab panels to the same height so the dialog doesn't resize on switch
-        st.markdown("""
-<style>
-/* ── Remove backdrop colour, keep structure intact ── */
-div[data-baseweb="modal"] > div:first-child {
-    background: transparent !important;
-}
-/* ── Push flex-centering into the main area (right of sidebar) ── */
-div[data-baseweb="modal"] {
-    padding-left: 260px !important;
-}
-
-/* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
-[data-testid="stDialog"] > div {
-    width: 860px !important;
-    min-width: 860px !important;
-    max-width: 860px !important;
-}
-/* ── Hide redundant "Stock details" title ─────────────────────── */
-[data-testid="stDialog"] div[role="dialog"] > div:first-child {
-    display: none !important;
-}
-
-/* ── Fixed dialog height across all tabs ──────────────────────── */
-[data-testid="stDialog"] div[role="dialog"] {
-    min-height: 600px !important;
-    height: 600px !important;
-    background: var(--background-color) !important;
-    color: var(--text-color) !important;
-}
-/* ── Remove default top padding inside tab panels ─────────────── */
-[data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
-    padding-top: 0 !important;
-}
-
-/* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
-    height: auto !important;
-    min-height: 0 !important;
-    overflow-y: scroll !important;
-    box-sizing: border-box;
-    scrollbar-width: none !important;       /* Firefox */
-    -ms-overflow-style: none !important;    /* IE/Edge */
-}
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"]::-webkit-scrollbar {
-    display: none !important;               /* Chrome/Safari */
-}
-/* Remove bottom gap Streamlit adds between widgets */
-[data-testid="stDialog"] div[role="tabpanel"] [data-testid="stVerticalBlock"] {
-    gap: 0 !important;
-}
-[data-testid="stDialog"] div[role="tabpanel"] > div {
-    padding-bottom: 0 !important;
-}
-
-/* ── Compact typography inside dialog ─────────────────────────── */
-[data-testid="stDialog"] .uv-model-row,
-[data-testid="stDialog"] .uv-model-label,
-[data-testid="stDialog"] .uv-model-value,
-[data-testid="stDialog"] .uv-section-label {
-    color: var(--text-color) !important;
-}
-[data-testid="stDialog"] .uv-model-row {
-    padding: 3px 0;
-    font-size: 12px;
-}
-[data-testid="stDialog"] .uv-section-label {
-    margin: 20px 0 8px;
-    font-size: 10px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(128,128,128,0.20);
-}
-[data-testid="stDialog"] .uv-section-label:first-child {
-    margin-top: 0;
-}
-[data-testid="stDialog"] .uv-metric-grid {
-    margin-bottom: 12px !important;
-}
-[data-testid="stDialog"] .uv-metric-cell {
-    padding: 8px 10px;
-}
-[data-testid="stDialog"] .uv-metric-label {
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-[data-testid="stDialog"] .uv-metric-value {
-    font-size: 1.1rem;
-}
-/* ── Close (×) button — force visible in dark mode ─────── */
-[data-testid="stDialog"] button[aria-label="Close"] {
-    color: var(--text-color) !important;
-    opacity: 0.7;
-}
-[data-testid="stDialog"] button[aria-label="Close"]:hover {
-    opacity: 1;
-}
-/* ── Star toggle button — hidden visually, wired via JS ── */
-[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
-    visibility: hidden !important;
-    position: absolute !important;
-    width: 0 !important;
-    height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-}
-</style>""", unsafe_allow_html=True)
-
-        decision = str(row.get("Decision", ""))
-        score    = row.get("Value Score")
-        badge_class = {
-            "Strong Buy": "uv-badge-buy",
-            "Monitor":    "uv-badge-monitor",
-            "Avoid":      "uv-badge-avoid",
-        }.get(decision, "uv-badge-avoid")
-        badge_label = {
-            "Strong Buy": "BUY",
-            "Monitor":    "MONITOR",
-            "Avoid":      "AVOID",
-        }.get(decision, decision.upper() if decision else "—")
-        if row.get("veto"):
-            badge_class, badge_label = "uv-badge-veto", "VETO"
-
-        score_str = f"{score:.1f}%" if pd.notna(score) else "—"
-
-        def _fv(field, fmt=None):
-            v = row.get(field)
-            if v is None or (isinstance(v, float) and pd.isna(v)):
-                return "—"
-            return fmt(v) if fmt else str(v)
-
-        def _rows_html(pairs):
-            return "".join(
-                f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-                f'<span class="uv-model-value">{val}</span></div>'
-                for lbl, val in pairs
-            )
-
-        # ── Header: company name · ticker · decision badge · watchlist star ──
-        _dlg_ticker   = str(row.get("Ticker", ""))
-        _in_watchlist = _dlg_ticker in watchlist
-        _star_lbl  = "★" if _in_watchlist else "☆"
-        _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
-        st.markdown(f"""
-<div class="uv-detail-header" style="margin-bottom:0.75rem;">
-  <span class="uv-detail-company">{row.get('Name','—')}</span>
-  <span class="uv-detail-ticker">{_dlg_ticker}</span>
-  <span class="uv-badge {badge_class}">{badge_label}</span>
-  <span id="uv-star-icon" title="{_star_help}"
-        style="font-size:1.5rem;margin-left:10px;cursor:pointer;vertical-align:middle;line-height:1;user-select:none;"
-        >{_star_lbl}</span>
-</div>""", unsafe_allow_html=True)
-        # Hidden functional button — wired to the star span via JS below
-        if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
-            save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
-            st.session_state["_dlg_star_rerun"] = True
-            st.rerun()
-        _st_components.html("""<script>
-(function wire() {
-  var pdoc = window.parent.document;
-  var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
-  var star = pdoc.getElementById('uv-star-icon');
-  if (btn && star) {
-    star.onclick = function() { btn.click(); };
-  } else {
-    setTimeout(wire, 80);
-  }
-})();
-</script>""", height=0)
-
-        def _signal_card(sev: str, text: str) -> str:
-            _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
-            _n_bbg = "rgba(0,0,0,0.10)"      if _ui_effective_light else "rgba(255,255,255,0.12)"
-            _sc_styles = {
-                "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.20)",  "HIGH"),
-                "caution": ("#854F0B", "rgba(133,79,11,0.08)",  "rgba(133,79,11,0.18)",  "NOTE"),
-                "ok":      ("#0F6E56", "rgba(15,110,86,0.08)",  "rgba(15,110,86,0.18)",  "OK"),
-                "neutral": ("#5F5E5A", _n_bg,                   _n_bbg,                  "INFO"),
-            }
-            bc, bg, bbg, lbl = _sc_styles.get(sev, _sc_styles["neutral"])
-            return (
-                f'<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0.6rem;'
-                f'border-left:3px solid {bc};border-radius:5px;background:{bg};margin-bottom:4px;">'
-                f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
-                f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
-                f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{lbl}</div>'
-                f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;color:{_c_text};">{text}</div></div>'
-            )
-
-        def _signals_block(tips):
-            if not tips:
-                return ""
-            return (
-                '<div class="uv-section-label" style="margin-top:16px;">Signals</div>'
-                + "".join(_signal_card(sev, tip) for sev, tip in tips)
-            )
-
-        _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
-            ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
-        )
-
-        # ── Tab 1: Snapshot ───────────────────────────────────────────────────
-        with _tab_today:
-            _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
-            _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
-
-            def _col_html(label, rows):
-                return (
-                    f'<div><div class="uv-section-label" style="margin-top:0;">{label}</div>'
-                    + _rows_html(rows) + '</div>'
-                )
-
-            st.markdown(
-                '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">'
-                + _col_html("Valuation", [
-                    ("Price",       _fv("Price",      _fmt_eur)),
-                    ("Fair value",  _fv("fair_value", _fmt_eur)),
-                    ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
-                    ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
-                    ("Score",       score_str),
-                ])
-                + _col_html("Quality", [
-                    ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
-                    ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
-                    ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
-                    ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
-                    ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
-                    ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
-                ])
-                + _col_html("Dividends & growth", [
-                    ("DPS",         _dps_str),
-                    ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
-                    ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
-                    ("Ex-div",      _fv("exDividendDate")),
-                    ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
-                    ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
-                ])
-                + '</div>',
-                unsafe_allow_html=True,
-            )
-            # ── Snapshot signals ──────────────────────────────────────────────
-            _snap_tips = []
-            _sc_v = row.get("Value Score"); _mos_v = row.get("MoS %"); _fv_v = row.get("fair_value")
-            _eg_v = row.get("earningsGrowth"); _rg_v = row.get("revenueGrowth")
-            _dy_v = row.get("dividendYield")
-            if pd.notna(_sc_v):
-                sc = float(_sc_v)
-                if sc >= 70:   _snap_tips.append(("ok",      f"Score {sc:.1f} — strong buy signal across valuation and quality criteria."))
-                elif sc >= 40: _snap_tips.append(("neutral",  f"Score {sc:.1f} — monitor; does not yet meet the buy threshold."))
-                else:          _snap_tips.append(("warn",     f"Score {sc:.1f} — below buy threshold; review fundamentals before investing."))
-            if pd.notna(_mos_v) and pd.notna(_fv_v):
-                m = float(_mos_v)
-                if m >= 30:    _snap_tips.append(("ok",      f"Margin of safety {m:+.1f}% — significant discount to fair value {_fmt_eur(float(_fv_v))}."))
-                elif m >= 10:  _snap_tips.append(("neutral",  f"Margin of safety {m:+.1f}% — modest discount; limited downside buffer."))
-                elif m >= 0:   _snap_tips.append(("caution",  f"Stock near fair value ({m:+.1f}%) — little buffer if estimates prove optimistic."))
-                else:          _snap_tips.append(("warn",     f"Stock {abs(m):.1f}% above fair value {_fmt_eur(float(_fv_v))} — consider waiting for a pullback."))
-            if pd.notna(_eg_v):
-                g = float(_eg_v) * 100
-                if g >= 15:    _snap_tips.append(("ok",      f"EPS growth {g:+.1f}% — strong earnings momentum."))
-                elif g >= 0:   _snap_tips.append(("neutral",  f"EPS growth {g:+.1f}% — modest positive trend."))
-                else:          _snap_tips.append(("caution",  f"EPS growth {g:+.1f}% — earnings contracting; verify if temporary."))
-            if pd.notna(_rg_v):
-                g = float(_rg_v) * 100
-                if g >= 10:    _snap_tips.append(("ok",      f"Revenue growth {g:+.1f}% — healthy top-line expansion."))
-                elif g >= 0:   _snap_tips.append(("neutral",  f"Revenue growth {g:+.1f}% — slow but positive."))
-                else:          _snap_tips.append(("caution",  f"Revenue declining {g:+.1f}% — assess competitive position."))
-            if pd.notna(_dy_v) and float(_dy_v) > 0:
-                dy = float(_dy_v) * 100
-                if dy >= 4:    _snap_tips.append(("ok",      f"Dividend yield {dy:.2f}% — attractive income level."))
-                elif dy >= 2:  _snap_tips.append(("neutral",  f"Dividend yield {dy:.2f}% — moderate income."))
-            if _snap_tips:
-                st.markdown(_signals_block(_snap_tips), unsafe_allow_html=True)
-
-        # ── Tab 2: Price history ───────────────────────────────────────────────
-        with _tab_hist:
-            _fv_val = row.get("fair_value")
-            _at_val = row.get("targetMeanPrice")
-            _price  = row.get("Price")
-
-            import yfinance as yf
-            _ticker_sym = str(row.get("Ticker", ""))
-            with st.spinner("Loading price history…"):
-                try:
-                    _hist = yf.Ticker(_ticker_sym).history(period="2y")
-                except Exception:
-                    _hist = pd.DataFrame()
-            if _hist.empty:
-                st.caption("No price history available.")
-            else:
-                _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
-                _fig_h = go.Figure()
-                _fig_h.add_trace(go.Scatter(
-                    x=_hist.index, y=_hist["Close"],
-                    mode="lines", name="Price",
-                    line=dict(color="#1DD6A4", width=2),
-                    fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
-                ))
-                if pd.notna(_fv_val):
-                    _fig_h.add_hline(
-                        y=float(_fv_val),
-                        line=dict(color="#5B8FA8", width=1.5, dash="dash"),
-                        annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
-                        annotation_position="top left",
-                        annotation_font=dict(color=_c_axis, size=11),
-                    )
-                if pd.notna(_at_val):
-                    _fig_h.add_hline(
-                        y=float(_at_val),
-                        line=dict(color=_c_invested, width=1.5, dash="dot"),
-                        annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
-                        annotation_position="bottom left",
-                        annotation_font=dict(color=_c_axis, size=11),
-                    )
-                _fig_h.update_layout(
-                    margin=dict(l=0, r=0, t=8, b=0),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                                xanchor="left", x=0, font=dict(color=_c_axis)),
-                    yaxis=dict(tickprefix="€", tickformat=",.2f",
-                               tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                    xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
-                    hovermode="x unified",
-                    font=dict(color=_c_axis),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
-                st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-                # ── Price history signals ─────────────────────────────────────
-                _hist_tips = []
-                if pd.notna(_price) and pd.notna(_fv_val):
-                    _gap = (float(_fv_val) - float(_price)) / float(_price) * 100
-                    if _gap >= 20:   _hist_tips.append(("ok",      f"Price {_fmt_eur(float(_price))} is {_gap:.1f}% below fair value {_fmt_eur(float(_fv_val))} — significant upside potential."))
-                    elif _gap >= 5:  _hist_tips.append(("neutral",  f"Price {_fmt_eur(float(_price))} is {_gap:.1f}% below fair value — modest upside."))
-                    elif _gap >= -5: _hist_tips.append(("caution",  f"Price is near fair value {_fmt_eur(float(_fv_val))} — limited margin of safety."))
-                    else:            _hist_tips.append(("warn",     f"Price {_fmt_eur(float(_price))} is {abs(_gap):.1f}% above fair value {_fmt_eur(float(_fv_val))} — overvalued vs model."))
-                if pd.notna(_price) and pd.notna(_at_val):
-                    _at_gap = (float(_at_val) - float(_price)) / float(_price) * 100
-                    if _at_gap >= 15:  _hist_tips.append(("ok",     f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside from current price."))
-                    elif _at_gap >= 5: _hist_tips.append(("neutral", f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside."))
-                    elif _at_gap >= 0: _hist_tips.append(("caution", f"Analyst target {_fmt_eur(float(_at_val))} is near current price — limited consensus upside."))
-                    else:              _hist_tips.append(("warn",    f"Analyst target {_fmt_eur(float(_at_val))} is {abs(_at_gap):.1f}% below current price — analysts see downside."))
-                if not _hist.empty:
-                    _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
-                    _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
-                    if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
-                    elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
-                    if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
-                    elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
-                if _hist_tips:
-                    st.markdown(_signals_block(_hist_tips), unsafe_allow_html=True)
-
-        # ── Tab 3: Risk ───────────────────────────────────────────────────────
-        with _tab_risk:
-            _has_pf = pf_context and pf_context.get("total", 0) > 0
-
-            # ── Compute portfolio fit data first ──────────────────────────────
-            _pf_tips: list[tuple[str, str]] = []
-            _pf_html = ""
-            if _has_pf:
-                _pf_sector  = row.get("sector")
-                _pf_country = row.get("country")
-                _sw = pf_context["sector_weights"]
-                _cw = pf_context["country_weights"]
-
-                def _fit_badge(label: str, value_str: str, severity: str) -> str:
-                    if _ui_effective_light:
-                        colors = {
-                            "ok":      ("#0F6E56", "#E8F5F0",           "OK"),
-                            "caution": ("#854F0B", "#FDF0E8",           "NOTE"),
-                            "warn":    ("#A32D2D", "#FCEAEA",           "HIGH"),
-                            "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
-                        }
-                    else:
-                        colors = {
-                            "ok":      ("#1DD6A4", "rgba(15,110,86,0.20)",  "OK"),
-                            "caution": ("#D4903A", "rgba(133,79,11,0.20)",  "NOTE"),
-                            "warn":    ("#E05C5C", "rgba(163,45,45,0.20)",  "HIGH"),
-                            "neutral": ("#9A9A95", "rgba(255,255,255,0.07)","—"),
-                        }
-                    tc, bg, blabel = colors.get(severity, colors["neutral"])
-                    return (
-                        f'<div class="uv-model-row" style="display:grid;padding:3px 0;'
-                        f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
-                        f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
-                        f'<span style="font-size:0.82rem;">{value_str}</span>'
-                        f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
-                        f'background:{bg};color:{tc};letter-spacing:0.05em;text-align:center;">'
-                        f'{blabel}</span></div>'
-                    )
-
-                _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
-                if not _pf_sector:
-                    _sec_sev = "neutral"; _sec_val = "Unknown"
-                    _sec_tip = "Sector data not available for this stock."
-                elif _sec_w > 0.30:
-                    _sec_sev = "warn";    _sec_val = _pf_sector
-                    _sec_tip = f"Your portfolio already has {_sec_w:.0%} in {_pf_sector}. Adding this stock increases sector concentration significantly."
-                elif _sec_w > 0.15:
-                    _sec_sev = "caution"; _sec_val = _pf_sector
-                    _sec_tip = f"{_pf_sector} is at {_sec_w:.0%} of your portfolio. Consider whether further exposure fits your targets."
-                elif _sec_w > 0:
-                    _sec_sev = "ok";      _sec_val = _pf_sector
-                    _sec_tip = f"Low {_pf_sector} exposure ({_sec_w:.0%}) — this stock adds sector diversification."
-                else:
-                    _sec_sev = "neutral"; _sec_val = _pf_sector
-                    _sec_tip = f"{_pf_sector} is not yet in your portfolio — this adds a new sector."
-
-                _cnt_w = float(_cw.get(_pf_country, 0) or 0) if _pf_country else 0.0
-                if not _pf_country:
-                    _cnt_sev = "neutral"; _cnt_val = "Unknown"
-                    _cnt_tip = "Country data not available for this stock."
-                elif _cnt_w > 0.50:
-                    _cnt_sev = "warn";    _cnt_val = _pf_country
-                    _cnt_tip = f"Your portfolio is already {_cnt_w:.0%} in {_pf_country}. Adding more increases geographic concentration."
-                elif _cnt_w > 0.30:
-                    _cnt_sev = "caution"; _cnt_val = _pf_country
-                    _cnt_tip = f"{_pf_country} already represents {_cnt_w:.0%} of your portfolio. Monitor geographic balance."
-                elif _cnt_w > 0:
-                    _cnt_sev = "ok";      _cnt_val = _pf_country
-                    _cnt_tip = f"Low {_pf_country} exposure ({_cnt_w:.0%}) — adding this stock improves geographic diversification."
-                else:
-                    _cnt_sev = "neutral"; _cnt_val = _pf_country
-                    _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
-
-                _pf_html = (
-                    '<div class="uv-section-label" style="margin-top:0;">Portfolio fit</div>'
-                    + _fit_badge("Sector",  _sec_val, _sec_sev)
-                    + _fit_badge("Country", _cnt_val, _cnt_sev)
-                )
-                _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
-
-            # ── Single HTML grid — guarantees row alignment ───────────────────
-            _risk_rows_html = _rows_html([
-                ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
-                ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
-                ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
-                ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
-                ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
-            ])
-            st.markdown(
-                '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">'
-                + f'<div><div class="uv-section-label" style="margin-top:0;">Risk & size</div>{_risk_rows_html}</div>'
-                + f'<div>{_pf_html}</div>'
-                + '</div>',
-                unsafe_allow_html=True,
-            )
-
-            # ── Signals — right column ────────────────────────────────────────
-            _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
-            _risk_tips: list[tuple[str, str]] = []
-            if pd.notna(_beta_v):
-                _b = float(_beta_v)
-                if _b < 0.5:    _risk_tips.append(("neutral", f"Beta {_b:.2f} — low volatility."))
-                elif _b < 1.0:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — below market."))
-                elif _b < 1.3:  _risk_tips.append(("neutral", f"Beta {_b:.2f} — in line with market."))
-                else:           _risk_tips.append(("caution", f"Beta {_b:.2f} — high volatility."))
-            if pd.notna(_de_v):
-                _de = float(_de_v)
-                if _de > 5:    _risk_tips.append(("caution", f"D/E {_de:.1f} — high leverage."))
-                elif _de > 2:  _risk_tips.append(("neutral", f"D/E {_de:.1f} — moderate leverage."))
-                else:          _risk_tips.append(("neutral", f"D/E {_de:.1f} — conservative."))
-            if pd.notna(_rs_v):
-                _rs = float(_rs_v)
-                if _rs <= 3:   _risk_tips.append(("ok",      f"Risk score {_rs:.1f}/10 — low."))
-                elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate."))
-                else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated."))
-
-            _all_tips = _risk_tips + _pf_tips
-            if _all_tips:
-                st.markdown(
-                    '<div class="uv-section-label" style="margin-top:24px;">Signals</div>'
-                    + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
-                    unsafe_allow_html=True,
-                )
-
-
-        # ── Tab 4: Valuation ──────────────────────────────────────────────────
-        with _tab_val:
-            _val_models = [
-                ("Graham number",  "graham_number"),
-                ("PE fair value",  "pe_fair_value"),
-                ("DDM",            "ddm"),
-                ("Analyst target", "targetMeanPrice"),
-            ]
-            _price = row.get("Price")
-            _valid_models = [
-                (lbl, float(row.get(field)))
-                for lbl, field in _val_models
-                if row.get(field) is not None and pd.notna(row.get(field))
-            ]
-            if _valid_models and pd.notna(_price):
-                _vlabels = [lbl for lbl, _ in _valid_models]
-                _vvalues = [val for _, val in _valid_models]
-                _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
-                _fig_v   = go.Figure()
-                _fig_v.add_trace(go.Bar(
-                    x=_vvalues, y=_vlabels, orientation="h",
-                    marker_color=_vcolors,
-                    text=[_fmt_eur(v) for v in _vvalues],
-                    textposition="outside",
-                    cliponaxis=False,
-                ))
-                _fig_v.add_vline(
-                    x=float(_price),
-                    line=dict(color=_c_axis, width=2),
-                    annotation_text=f"Price {_fmt_eur(float(_price))}",
-                    annotation_position="top",
-                    annotation_font=dict(color=_c_axis, size=11),
-                )
-                _fig_v.update_layout(
-                    margin=dict(l=0, r=80, t=28, b=8),
-                    bargap=0.25,
-                    xaxis=dict(tickprefix="€", tickformat=",.0f",
-                               tickfont=dict(color=_c_axis), showgrid=False),
-                    yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                    font=dict(color=_c_axis),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
-                st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="min-height:220px"></div>', unsafe_allow_html=True)
-                st.caption("Not enough model data to render chart.")
-            # ── Model signals ─────────────────────────────────────────────────
-            _mdl_tips = []
-            _mdl_price = row.get("Price")
-            _mdl_all = [
-                ("Graham number",  "graham_number"),
-                ("PE fair value",  "pe_fair_value"),
-                ("DDM",            "ddm"),
-                ("Analyst target", "targetMeanPrice"),
-            ]
-            if pd.notna(_mdl_price):
-                _mdl_valid = [(l, float(row.get(f))) for l, f in _mdl_all if row.get(f) is not None and pd.notna(row.get(f))]
-                _n_above = sum(1 for _, v in _mdl_valid if v > float(_mdl_price))
-                _n_total = len(_mdl_valid)
-                if _n_total > 0:
-                    if _n_above == _n_total:
-                        _mdl_tips.append(("ok",      f"All {_n_total} models above current price — broad consensus of undervaluation."))
-                    elif _n_above >= _n_total // 2 + 1:
-                        _mdl_tips.append(("neutral",  f"{_n_above}/{_n_total} models above current price — majority suggests undervaluation."))
-                    elif _n_above > 0:
-                        _mdl_tips.append(("caution",  f"Only {_n_above}/{_n_total} models above current price — mixed valuation signals."))
-                    else:
-                        _mdl_tips.append(("warn",     f"No models above current price — all estimates suggest overvaluation."))
-                for lbl, fld in _mdl_all:
-                    v = row.get(fld)
-                    if v is not None and pd.notna(v):
-                        v = float(v); p = float(_mdl_price)
-                        diff = (v - p) / p * 100
-                        if diff >= 20:    _mdl_tips.append(("ok",     f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
-                        elif diff >= 5:   _mdl_tips.append(("neutral", f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
-                        elif diff >= -5:  _mdl_tips.append(("caution", f"{lbl} {_fmt_eur(v)} — near current price ({diff:+.1f}%)."))
-                        else:             _mdl_tips.append(("warn",    f"{lbl} {_fmt_eur(v)} — {abs(diff):.1f}% below price."))
-            if _mdl_tips:
-                st.markdown(_signals_block(_mdl_tips), unsafe_allow_html=True)
-
     # ── Tab: Watchlist ────────────────────────────────────────────────────────
     with tab_watchlist:
         _wl_tickers = watchlist
@@ -3068,6 +3071,7 @@ if _page == "portfolio":
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
     _pf_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
     _all_scr_df = pd.concat(list(_load_all_screener_data(_cache_version(), _pf_enabled)), ignore_index=True)
+    _pf_dlg_pending: list = []  # at most one dialog call per render
     _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
     _ticker_options = _all_screener["Ticker"].tolist()
     _ticker_labels  = {
@@ -3417,16 +3421,10 @@ if _page == "portfolio":
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
-
-        # Highlight extra columns with a subtle tint
-        _extra_cols = [c for c in positions.columns if c not in _core_cols]
-        if _extra_cols:
-            positions = positions.style.set_properties(
-                subset=_extra_cols,
-                **{"background-color": "rgba(99, 102, 241, 0.07)"},
-            )
+        positions.insert(0, "→", False)
 
         _pos_col_config = {
+            "→":              st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
             "Company":        st.column_config.TextColumn("Company",         pinned=True,
                                   help="Company name"),
             "Ticker":         st.column_config.TextColumn("Ticker",
@@ -3470,13 +3468,23 @@ if _page == "portfolio":
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
-        st.dataframe(
+        _pf_pos_edited = st.data_editor(
             positions,
             width="stretch",
             hide_index=True,
             column_config=_pos_col_config,
+            disabled=[c for c in positions.columns if c != "→"],
             height=_height,
+            key="pf_positions_table",
         )
+        if _pf_pos_edited["→"].any():
+            _pf_sel = _pf_pos_edited.loc[_pf_pos_edited["→"], "Ticker"].iloc[0]
+            _pf_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _pf_sel]
+            if not _pf_scr_row.empty:
+                _pf_tbl_ss = st.session_state.get("pf_positions_table", {})
+                if isinstance(_pf_tbl_ss, dict):
+                    _pf_tbl_ss["edited_rows"] = {}
+                _pf_dlg_pending.append((_pf_scr_row.iloc[0], _tok_qs, None))
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
         _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
@@ -3961,6 +3969,7 @@ if _page == "portfolio":
             sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
 
             sold_table = pd.DataFrame({
+                "→":               False,
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
                 "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
@@ -3974,11 +3983,14 @@ if _page == "portfolio":
                 "Sell Date":       sold["_sort_date"].dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
-            st.dataframe(
+            _sold_edited = st.data_editor(
                 sold_table,
                 width="stretch",
                 hide_index=True,
+                disabled=[c for c in sold_table.columns if c != "→"],
+                key="pf_sold_table",
                 column_config={
+                    "→":               st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                     "Company":         st.column_config.TextColumn("Company",           pinned=True,
                                            help="Company name"),
                     "Ticker":          st.column_config.TextColumn("Ticker",
@@ -4004,6 +4016,14 @@ if _page == "portfolio":
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
+            if _sold_edited["→"].any():
+                _sold_sel = _sold_edited.loc[_sold_edited["→"], "Ticker"].iloc[0]
+                _sold_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _sold_sel]
+                if not _sold_scr_row.empty:
+                    _sold_tbl_ss = st.session_state.get("pf_sold_table", {})
+                    if isinstance(_sold_tbl_ss, dict):
+                        _sold_tbl_ss["edited_rows"] = {}
+                    _pf_dlg_pending.append((_sold_scr_row.iloc[0], _tok_qs, None))
 
             st.divider()
             st.subheader("Realised return per position")
@@ -4012,6 +4032,10 @@ if _page == "portfolio":
                     .groupby("name")["total_return"].sum()
                     .sort_values(ascending=False)
             )
+
+    # Dispatch at most one detail dialog per render
+    if _pf_dlg_pending:
+        _dlg_stock_detail(*_pf_dlg_pending[0])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4184,6 +4208,10 @@ if _page == "risk":
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
         st.stop()
 
+    _risk_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    _risk_scr_df  = pd.concat(list(_load_all_screener_data(_cache_version(), _risk_enabled)), ignore_index=True)
+    _risk_dlg_pending: list = []
+
     # ── Enrich portfolio with live prices, fair values, sector, country ───────
     _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
 
@@ -4318,6 +4346,7 @@ if _page == "risk":
         _pos_rows = []
         for p in r.position_profiles:
             _pos_rows.append({
+                "→":               False,
                 "Company":         p.name,
                 "Ticker":          p.ticker,
                 "Weight":          f"{p.weight:.1%}",
@@ -4332,12 +4361,15 @@ if _page == "risk":
             })
         _pos_df = pd.DataFrame(_pos_rows)
         _row_h = 35
-        st.dataframe(
+        _risk_pos_edited = st.data_editor(
             _pos_df,
             hide_index=True,
             use_container_width=True,
+            disabled=[c for c in _pos_df.columns if c != "→"],
             height=35 + min(len(_pos_df), 20) * _row_h,
+            key="risk_positions_table",
             column_config={
+                "→":            st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                 "Company":      st.column_config.TextColumn("Company",     pinned=True,
                                     help="Company name"),
                 "Ticker":       st.column_config.TextColumn("Ticker",
@@ -4362,6 +4394,14 @@ if _page == "risk":
                                     help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
             },
         )
+        if _risk_pos_edited["→"].any():
+            _risk_sel = _risk_pos_edited.loc[_risk_pos_edited["→"], "Ticker"].iloc[0]
+            _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
+            if not _risk_scr_row.empty:
+                _risk_tbl_ss = st.session_state.get("risk_positions_table", {})
+                if isinstance(_risk_tbl_ss, dict):
+                    _risk_tbl_ss["edited_rows"] = {}
+                _risk_dlg_pending.append((_risk_scr_row.iloc[0], _tok_qs, None))
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
@@ -4852,4 +4892,8 @@ if _page == "risk":
         if st.button("Refresh risk report", key="risk_refresh_btn"):
             st.session_state.pop("_risk_report_cache", None)
             st.rerun()
+
+    # Dispatch at most one detail dialog per render
+    if _risk_dlg_pending:
+        _dlg_stock_detail(*_risk_dlg_pending[0])
 
