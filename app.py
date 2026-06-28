@@ -2334,6 +2334,8 @@ div[data-baseweb="modal"] {
 [data-testid="stDialog"] div[role="dialog"] {
     min-height: 600px !important;
     height: 600px !important;
+    background: var(--background-color) !important;
+    color: var(--text-color) !important;
 }
 /* ── Remove default top padding inside tab panels ─────────────── */
 [data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
@@ -2369,7 +2371,7 @@ div[data-baseweb="modal"] {
     margin: 20px 0 8px;
     font-size: 10px;
     padding-bottom: 4px;
-    border-bottom: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid rgba(128,128,128,0.20);
 }
 [data-testid="stDialog"] .uv-section-label:first-child {
     margin-top: 0;
@@ -2464,11 +2466,13 @@ div[data-baseweb="modal"] {
 </script>""", height=0)
 
         def _signal_card(sev: str, text: str) -> str:
+            _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
+            _n_bbg = "rgba(0,0,0,0.10)"      if _ui_effective_light else "rgba(255,255,255,0.12)"
             _sc_styles = {
-                "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.18)",  "HIGH"),
-                "caution": ("#854F0B", "rgba(133,79,11,0.07)",  "rgba(133,79,11,0.16)",  "NOTE"),
-                "ok":      ("#0F6E56", "rgba(15,110,86,0.07)",  "rgba(15,110,86,0.16)",  "OK"),
-                "neutral": ("#5F5E5A", "rgba(0,0,0,0.04)",      "rgba(0,0,0,0.09)",      "INFO"),
+                "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.20)",  "HIGH"),
+                "caution": ("#854F0B", "rgba(133,79,11,0.08)",  "rgba(133,79,11,0.18)",  "NOTE"),
+                "ok":      ("#0F6E56", "rgba(15,110,86,0.08)",  "rgba(15,110,86,0.18)",  "OK"),
+                "neutral": ("#5F5E5A", _n_bg,                   _n_bbg,                  "INFO"),
             }
             bc, bg, bbg, lbl = _sc_styles.get(sev, _sc_styles["neutral"])
             return (
@@ -2656,12 +2660,20 @@ div[data-baseweb="modal"] {
                 _cw = pf_context["country_weights"]
 
                 def _fit_badge(label: str, value_str: str, severity: str) -> str:
-                    colors = {
-                        "ok":      ("#0F6E56", "#E8F5F0", "OK"),
-                        "caution": ("#854F0B", "#FDF0E8", "NOTE"),
-                        "warn":    ("#A32D2D", "#FCEAEA", "HIGH"),
-                        "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
-                    }
+                    if _ui_effective_light:
+                        colors = {
+                            "ok":      ("#0F6E56", "#E8F5F0",           "OK"),
+                            "caution": ("#854F0B", "#FDF0E8",           "NOTE"),
+                            "warn":    ("#A32D2D", "#FCEAEA",           "HIGH"),
+                            "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
+                        }
+                    else:
+                        colors = {
+                            "ok":      ("#1DD6A4", "rgba(15,110,86,0.20)",  "OK"),
+                            "caution": ("#D4903A", "rgba(133,79,11,0.20)",  "NOTE"),
+                            "warn":    ("#E05C5C", "rgba(163,45,45,0.20)",  "HIGH"),
+                            "neutral": ("#9A9A95", "rgba(255,255,255,0.07)","—"),
+                        }
                     tc, bg, blabel = colors.get(severity, colors["neutral"])
                     return (
                         f'<div class="uv-model-row" style="display:grid;padding:3px 0;'
