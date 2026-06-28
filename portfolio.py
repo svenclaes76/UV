@@ -345,6 +345,22 @@ def load_watchlist() -> set[str]:
         return set()
 
 
+def save_manual_tickers(tickers: dict[str, str]) -> None:
+    """Persist manually added foreign-market tickers as {ticker: name}."""
+    write_encrypted(_user_dir() / "manual_tickers.json", json.dumps(tickers, indent=2))
+
+
+def load_manual_tickers() -> dict[str, str]:
+    """Return manually added foreign-market tickers as {ticker: name}."""
+    path = _user_dir() / "manual_tickers.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(read_encrypted(path))
+    except Exception:
+        return {}
+
+
 # ── Excel parsing ─────────────────────────────────────────────────────────────
 
 _COL_NAMES = {

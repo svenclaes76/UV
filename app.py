@@ -124,7 +124,8 @@ from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        add_position, remove_positions, update_positions,
                        sell_position,
                        add_dividend, update_div_hist,
-                       save_watchlist, load_watchlist, set_user, user_data_dir, portfolio_exists,
+                       save_watchlist, load_watchlist, save_manual_tickers, load_manual_tickers,
+                       set_user, user_data_dir, portfolio_exists,
                        load_value_history, record_value_snapshot, backfill_value_history)
 from auth import register, login, verify_token, list_users, set_role, delete_user, ROLES
 
@@ -2154,6 +2155,11 @@ overflow: hidden !important;
     # Hidden functional button — wired to the star span via JS below
     if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
         save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+        if _in_watchlist:
+            _mt = load_manual_tickers()
+            if _dlg_ticker in _mt:
+                del _mt[_dlg_ticker]
+                save_manual_tickers(_mt)
         st.session_state["_dlg_star_rerun"] = True
         st.rerun()
     _st_components.html("""<script>
@@ -2561,7 +2567,11 @@ setTimeout(wire, 80);
 if _page == "screener":
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
-    df, df_ams, df_par, df_mil, df_etr, df_swx, _ = _load_all_screener_data(_cache_version(), _enabled)
+    _manual_tickers_map  = load_manual_tickers()
+    _manual_ticker_keys  = tuple(_manual_tickers_map.keys())
+    _manual_ticker_names = tuple(_manual_tickers_map.values())
+    df, df_ams, df_par, df_mil, df_etr, df_swx, _scr_extra_df = _load_all_screener_data(
+        _cache_version(), _enabled, _manual_ticker_keys, _manual_ticker_names)
     if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
         _bust_cache()
 
@@ -2735,7 +2745,7 @@ if _page == "screener":
            if c not in ("Risk Score", "Sector", "Country")},
     }
 
-    def _render_table(tab_df, key_suffix, score_key=None, score_default=None):
+    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, show_add_ticker=False):
         """Render the screener table with optional column groups, score filter, and sector filter."""
         _grp_key    = f"col_groups_{key_suffix}"
         _sector_key = f"sector_filter_{key_suffix}"
@@ -2777,14 +2787,47 @@ if _page == "screener":
         tab_df.index = range(1, n_shown + 1)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
+        if show_add_ticker:
+            @st.dialog("Add stock", width="small")
+            def _dlg_add_ticker():
+                _t = st.text_input("Ticker symbol", placeholder="e.g. AAPL, 7203.T, BP.L")
+                _, _add_save_col = st.columns([3, 1])
+                with _add_save_col:
+                    _do_add = st.button("Save", key=f"dlg_add_confirm_{key_suffix}", width="stretch")
+                if _do_add:
+                    _sym = _t.strip().upper()
+                    if _sym:
+                        try:
+                            _info = yf.Ticker(_sym).info
+                            _name = _info.get("shortName") or _info.get("longName") or _sym
+                            if not _info.get("regularMarketPrice") and not _info.get("currentPrice"):
+                                st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
+                            else:
+                                _mt = load_manual_tickers()
+                                _mt[_sym] = _name
+                                save_manual_tickers(_mt)
+                                save_watchlist(watchlist | {_sym})
+                                st.rerun()
+                        except Exception:
+                            st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
+
         st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
+        if show_add_ticker:
+            _vc, _ac, _bc, _, _sc, _fc = st.columns([1, 1, 1, 2, 2, 2], gap="small")
+        else:
+            _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
+            _ac = None
 
         with _vc:
             _active = st.session_state.get(_grp_key, [])
             _view_label = f"View ({len(_active)})" if _active else "View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
+
+        if _ac is not None:
+            with _ac:
+                if st.button("Add", key=f"btn_add_{key_suffix}"):
+                    _dlg_add_ticker()
 
         with _bc:
             if st.button("Buy", key=f"btn_buy_{key_suffix}"):
@@ -2967,39 +3010,41 @@ if _page == "screener":
         with _wl_refresh:
             if st.button("Refresh", type="tertiary", key="wl_refresh"):
                 _bust_cache()
-        if not _wl_tickers:
+        _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx, _scr_extra_df], ignore_index=True)
+        wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
+        if wl_df.empty:
             with _wl_col:
-                st.info("Open any stock's details popup and click ★ to add it to your watchlist.")
+                st.info("Open any stock's details popup and click ★ to add it to your watchlist, "
+                        "or use **Add** to add a stock from any market.")
         else:
-            _all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
-            wl_df = _all_df[_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-            wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
-                                             score_key="wl_score_filter",
-                                             score_default=_SCORE_OPTIONS[3])
             with _wl_col:
-                st.markdown(f"**{n_wl}** stocks · click → to view details")
-            _wl_star = st.session_state.get("_dlg_star_rerun", False)
-            _wl_src  = st.session_state.get("_dlg_open_src", "")
-            if "→" in wl_edited.columns and wl_edited["→"].any():
-                _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
-                _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
-                if not _wl_sel_rows.empty:
-                    _wl_tbl_ss = st.session_state.get("table_watchlist", {})
-                    if isinstance(_wl_tbl_ss, dict):
-                        _wl_tbl_ss["edited_rows"] = {}
-                    st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
-                    st.session_state["_dlg_open_src"]    = "watchlist"
-                    _dlg_pending.append((_wl_sel_rows.iloc[0], _tok_qs, None))
-            elif _wl_star and _wl_src == "watchlist":
-                st.session_state.pop("_dlg_star_rerun", None)
-                _t = st.session_state.get("_dlg_open_ticker")
-                if _t:
-                    _r = wl_df[wl_df["Ticker"] == _t]
-                    if not _r.empty:
-                        _dlg_pending.append((_r.iloc[0], _tok_qs, None))
-            elif not _wl_star and _wl_src == "watchlist":
-                st.session_state.pop("_dlg_open_ticker", None)
-                st.session_state.pop("_dlg_open_src", None)
+                st.markdown(f"**{len(wl_df)}** stocks · click → to view details")
+        wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
+                                         score_key="wl_score_filter",
+                                         score_default=_SCORE_OPTIONS[3],
+                                         show_add_ticker=True)
+        _wl_star = st.session_state.get("_dlg_star_rerun", False)
+        _wl_src  = st.session_state.get("_dlg_open_src", "")
+        if "→" in wl_edited.columns and wl_edited["→"].any():
+            _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
+            _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
+            if not _wl_sel_rows.empty:
+                _wl_tbl_ss = st.session_state.get("table_watchlist", {})
+                if isinstance(_wl_tbl_ss, dict):
+                    _wl_tbl_ss["edited_rows"] = {}
+                st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
+                st.session_state["_dlg_open_src"]    = "watchlist"
+                _dlg_pending.append((_wl_sel_rows.iloc[0], _tok_qs, None))
+        elif _wl_star and _wl_src == "watchlist":
+            st.session_state.pop("_dlg_star_rerun", None)
+            _t = st.session_state.get("_dlg_open_ticker")
+            if _t:
+                _r = wl_df[wl_df["Ticker"] == _t]
+                if not _r.empty:
+                    _dlg_pending.append((_r.iloc[0], _tok_qs, None))
+        elif not _wl_star and _wl_src == "watchlist":
+            st.session_state.pop("_dlg_open_ticker", None)
+            st.session_state.pop("_dlg_open_src", None)
 
 
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
