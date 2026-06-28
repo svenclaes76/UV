@@ -2257,7 +2257,7 @@ if _page == "screener":
 
         all_data_cols = list(display_data.keys())
         col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        col_config["→"] = st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True)
+        col_config["→"] = st.column_config.ButtonColumn("→", width="small", help="View stock details", pinned=True)
         disabled_cols = [c for c in all_data_cols if c != "→"]
 
         _row_h  = 35
@@ -2947,10 +2947,6 @@ div[data-baseweb="modal"] {
                 _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
                 _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
                 if not _wl_sel_rows.empty:
-                    # Clear the checkbox immediately in data_editor's session state
-                    _wl_tbl_ss = st.session_state.get("table_watchlist", {})
-                    if isinstance(_wl_tbl_ss, dict):
-                        _wl_tbl_ss["edited_rows"] = {}
                     st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                     st.session_state["_dlg_open_src"]    = "watchlist"
                     _dlg_stock_detail(_wl_sel_rows.iloc[0], _tok_qs, None)
@@ -2999,10 +2995,6 @@ div[data-baseweb="modal"] {
             _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
             _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
             if not _sel_rows.empty:
-                # Clear the checkbox immediately in data_editor's session state
-                _ex_tbl_ss = st.session_state.get(f"table_{key}", {})
-                if isinstance(_ex_tbl_ss, dict):
-                    _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
                 _dlg_stock_detail(_sel_rows.iloc[0], _tok_qs, _scr_pf_context)
