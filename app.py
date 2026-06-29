@@ -1314,14 +1314,19 @@ _LIGHT_CSS = """
   [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
   [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
 
-  /* ── Toggle tracks (div) vs checkbox boxes (span) — selectors don't overlap ─ */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
+  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
     background-color: #8A96A8 !important;
     opacity: 1 !important;
   }
-  /* checked: primary green */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
     background-color: #0F6E56 !important;
+  }
+  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
+  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
+  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
+    background-color: transparent !important;
   }
 
   /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
@@ -1460,14 +1465,19 @@ _DARK_CSS = """
   [data-testid="stCheckbox"] span[role="checkbox"],
   [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
 
-  /* ── Toggle tracks (div) vs checkbox boxes (span) — selectors don't overlap ─ */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-of-type {
-    background-color: rgba(255,255,255,0.28) !important;
+  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+    background-color: rgba(255,255,255,0.35) !important;
     opacity: 1 !important;
   }
-  /* checked: accent green */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-of-type {
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
     background-color: #1DD6A4 !important;
+  }
+  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
+  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
+  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
+  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
+    background-color: transparent !important;
   }
 
   /* ── Tabs ────────────────────────────────────────────────────────────────── */
