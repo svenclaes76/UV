@@ -1944,6 +1944,8 @@ background: transparent !important;
 }
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th {
 border-bottom: 1px solid rgba(128,128,128,0.25) !important;
+white-space: nowrap;
+overflow: visible;
 }
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
 opacity: 0.55;
