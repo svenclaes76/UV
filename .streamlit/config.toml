@@ -2,9 +2,30 @@
 sslCertFile = ".ssl/cert.pem"
 sslKeyFile  = ".ssl/key.pem"
 
-[theme]
-base                  = "light"
-primaryColor          = "#1DD6A4"
-backgroundColor       = "#F5F7FA"
+[client]
+# Hide developer toolbar items (Deploy, Rerun, Clear cache, ...) but keep the
+# viewer menu — it holds Settings with the light/dark theme switcher.
+# ("minimal" would remove the menu entirely.)
+toolbarMode = "viewer"
+
+# Brand theming — light and dark variants are rendered natively by Streamlit.
+# The active variant follows the user's system preference and can be switched
+# in the app menu (top-right ⋮ → Settings → Theme).
+
+[theme.light]
+primaryColor             = "#1A8C6E"
+backgroundColor          = "#F5F7FA"
 secondaryBackgroundColor = "#FFFFFF"
-textColor             = "#0D1F3C"
+textColor                = "#0D1F3C"
+borderColor              = "#E5E7EB"
+linkColor                = "#1A8C6E"
+codeBackgroundColor      = "transparent"
+
+[theme.dark]
+primaryColor             = "#1DD6A4"
+backgroundColor          = "#0D1F3C"
+secondaryBackgroundColor = "#0F2647"
+textColor                = "#F5F7FA"
+borderColor              = "#22334E"
+linkColor                = "#1DD6A4"
+codeBackgroundColor      = "transparent"

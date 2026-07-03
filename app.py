@@ -89,7 +89,6 @@ COLUMN_HELP = {
     ),
 }
 
-import json as _json
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -101,8 +100,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import streamlit as st
-import streamlit.components.v1 as _st_components
-from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
 from backup import export_zip, export_excel, import_zip, backup_filename
@@ -118,7 +115,7 @@ from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       clear_live_cache, _file_lock)
 import risk as _risk_module
 from settings import (load_shared_settings, save_shared_settings,
-                      load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS)
+                      ALL_EXCHANGES, EXCHANGE_LABELS)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist,
                        add_position, remove_positions, update_positions,
@@ -258,18 +255,11 @@ def _render_help():
         "Portfolio Risk":   [],
     }
 
-    def _help_row(col: str, desc: str) -> None:
-        st.markdown(
-            f'<div style="display:flex;gap:12px;margin-bottom:10px;padding-bottom:10px;'
-            f'border-bottom:0.5px solid rgba(255,255,255,0.07);">'
-            f'<span style="min-width:130px;font-size:0.8rem;font-weight:500;'
-            f'letter-spacing:0.04em;text-transform:uppercase;color:#1DD6A4;'
-            f'font-family:\'SF Mono\',\'Fira Code\',\'Cascadia Code\',monospace;'
-            f'padding-top:1px;">{col}</span>'
-            f'<span style="color:#F5F7FA;font-size:0.88rem;opacity:0.75;line-height:1.5;">{desc}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    def _help_table(rows: list[tuple[str, str]]) -> None:
+        st.markdown("\n".join(
+            ["| Column | Description |", "|:--|:--|"]
+            + [f"| `{col}` | {desc} |" for col, desc in rows]
+        ))
 
     tabs = st.tabs(list(sections.keys()))
     for tab, (section, cols) in zip(tabs, sections.items()):
@@ -294,27 +284,16 @@ def _render_help():
                     ("Monte Carlo P5",    "5th percentile portfolio value after simulating 10,000 random return paths — the worst-case outcome at 5% probability over the stated horizon."),
                     ("P(loss)",           "Probability of a negative total return over the simulation horizon, derived from the fraction of Monte Carlo paths that finish below the starting value."),
                 ]
-                for col, desc in _risk_help_rows:
-                    _help_row(col, desc)
+                _help_table(_risk_help_rows)
             else:
-                for col in cols:
-                    desc = COLUMN_HELP.get(col, "")
-                    if desc:
-                        _help_row(col, desc)
+                _help_table([(col, COLUMN_HELP[col])
+                             for col in cols if COLUMN_HELP.get(col)])
 
 
 def _risk_note(body: str) -> None:
-    """Brand-aligned collapsible methodology note for risk page tabs."""
-    import re as _re
-    html = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
-    html = html.replace("  \n\n", "<br><br>").replace("\n\n", "<br><br>").replace("  \n", "<br>")
-    st.markdown(
-        f'<details class="uv-note">'
-        f'<summary class="uv-note-summary">Methodology</summary>'
-        f'<div class="uv-note-body">{html}</div>'
-        f'</details>',
-        unsafe_allow_html=True,
-    )
+    """Collapsible methodology note for risk page tabs."""
+    with st.expander("Methodology"):
+        st.markdown(body)
 
 
 def _loading_css(light: bool = False) -> str:
@@ -365,6 +344,48 @@ def _loading_screen(message: str = "Loading…"):
 
 
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
+
+
+def _row_select_table(df, key: str, **dataframe_kwargs) -> "int | None":
+    """st.dataframe with single-row click selection.
+
+    Returns the selected positional row index (into `df`) once per selection,
+    or None. The widget key embeds a nonce that is bumped when a selection is
+    consumed, so closing the details dialog does not immediately re-open it.
+    """
+    _nonce_key = f"_nonce_{key}"
+    _nonce = st.session_state.get(_nonce_key, 0)
+    _event = st.dataframe(
+        df,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"{key}_{_nonce}",
+        **dataframe_kwargs,
+    )
+    _rows = _event.selection.rows
+    if _rows:
+        st.session_state[_nonce_key] = _nonce + 1
+        return _rows[0]
+    return None
+
+
+def _auto_rerun(seconds: float, key: str) -> None:
+    """Rerun the whole app every `seconds` while the caller keeps rendering this.
+
+    Native replacement for streamlit-autorefresh: a fragment re-executes on the
+    timer; the session flag distinguishes the initial render (part of a full
+    script run — just arm the timer) from a timer tick (trigger the rerun).
+    """
+    _flag = f"_auto_rerun_{key}"
+
+    @st.fragment(run_every=seconds)
+    def _tick():
+        if st.session_state.pop(_flag, False):
+            return
+        st.rerun(scope="app")
+
+    st.session_state[_flag] = True
+    _tick()
 
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:
     """Render a static (non-zoomable) horizontal bar chart via Plotly."""
@@ -499,12 +520,6 @@ def _cache_age_str() -> str:
     return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
 
 
-def _fmt_mcap(v) -> str:
-    if pd.isna(v) or v is None:
-        return "—"
-    return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
-
-
 def _safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0
@@ -520,7 +535,7 @@ def _hm_color(v: float) -> str:
     return f"rgb({r},{g},{b})"
 
 
-_HINT_WATCHLIST = "click → to view details · star in popup to add to watchlist"
+_HINT_WATCHLIST = "click a row to view details · star in popup to add to watchlist"
 
 
 def _fmt_div_flag(v) -> str:
@@ -699,32 +714,11 @@ st.set_page_config(
     page_title="uvalu",
     page_icon="favicon.svg",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
-
-# Lock the favicon permanently via a MutationObserver so Streamlit's rerun
-# animation can never swap it back to the default diamond.
-st.markdown("""
-<script>
-(function(){
-  var HREF = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNiIgZmlsbD0iIzBEMUYzQyIvPgogIDxwb2x5bGluZSBwb2ludHM9IjE2LDE2IDMyLDQ0IDQ4LDE2IiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMy4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjQ0IiByPSI1IiBmaWxsPSIjMURENkE0Ii8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSI0NCIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMURENkE0IiBzdHJva2Utd2lkdGg9IjEuNSIgb3BhY2l0eT0iMC41Ii8+Cjwvc3ZnPgo=';
-  function pin() {
-    var ico = document.querySelector("link[rel*='icon']");
-    if (!ico) { ico = document.createElement('link'); document.head.appendChild(ico); }
-    if (ico.href !== HREF) { ico.rel = 'icon'; ico.type = 'image/svg+xml'; ico.href = HREF; }
-  }
-  pin();
-  if (window._uvFaviconObs) window._uvFaviconObs.disconnect();
-  window._uvFaviconObs = new MutationObserver(pin);
-  window._uvFaviconObs.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
-})();
-</script>
-""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
-  /* ── Prevent black flash on page transitions ─────────────────────────────── */
-  html, body { background-color: #F5F7FA !important; }
-
   /* ── Brand tokens ────────────────────────────────────────────────────────── */
   :root {
     --uv-teal:        #1A8C6E;
@@ -766,7 +760,9 @@ st.markdown("""
   section[data-testid="stSidebar"],
   section[data-testid="stSidebar"] > div:first-child { min-width: 220px !important; max-width: 220px !important; width: 220px !important; z-index: 100 !important; }
   section[data-testid="stSidebar"] { transition: none !important; }
-  [data-testid="collapsedControl"] { display: none !important; }
+  /* Fixed sidebar — no collapse/expand controls */
+  [data-testid="stSidebarCollapseButton"],
+  [data-testid="stExpandSidebarButton"] { display: none !important; }
 
   /* ── Tables ──────────────────────────────────────────────────────────────── */
   [data-testid="stDataFrame"],
@@ -806,101 +802,16 @@ st.markdown("""
   div[data-testid="stTabsContent"]                               { padding-top: 0 !important; padding-bottom: 0 !important; }
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"]  { gap: 0.25rem !important; }
   [data-testid="stTabsContent"] hr                               { margin-top: -1.5rem !important; margin-bottom: 0.25rem !important; }
-  button[data-testid="stTab"]                       { color: var(--text-color) !important; opacity: 0.5; font-weight: 500; }
+  button[data-testid="stTab"]                       { opacity: 0.5; font-weight: 500; }
   button[data-testid="stTab"]:hover                 { opacity: 0.85 !important; }
-  button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; color: var(--text-color) !important; }
+  button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; }
 
   /* ── Password reveal button ─────────────────────────────────────────────── */
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #0D1F3C !important; fill: #0D1F3C !important; stroke: #0D1F3C !important; opacity: 0.6; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: currentColor !important; fill: currentColor !important; stroke: currentColor !important; opacity: 0.6; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
-
-  /* ── Signal badges ───────────────────────────────────────────────────────── */
-  .uv-badge {
-    display: inline-block; padding: 2px 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-  }
-  .uv-badge-buy     { background: #E8F5F0; color: #0F6E56; }
-  .uv-badge-monitor { background: #FDF0E8; color: #854F0B; }
-  .uv-badge-avoid   { background: #FCEAEA; color: #A32D2D; }
-  .uv-badge-veto    { background: #0D1F3C; color: #ffffff; border: 0.5px solid rgba(255,255,255,0.2); }
-
-  /* ── Stock detail card ───────────────────────────────────────────────────── */
-  .uv-detail-card {
-    background: rgba(15,38,71,0.6); border: 0.5px solid rgba(29,214,164,0.2);
-    border-radius: 12px; padding: 20px 24px; margin-top: 16px;
-  }
-  .uv-detail-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
-  .uv-detail-company { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
-  .uv-detail-ticker  {
-    font-size: 13px; font-weight: 500; opacity: 0.5;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-  }
-  .uv-metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
-  .uv-metric-cell { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px 12px; }
-  .uv-metric-label {
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.06em; opacity: 0.45; margin-bottom: 4px;
-  }
-  .uv-metric-value {
-    font-size: 16px; font-weight: 500;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-    letter-spacing: -0.01em;
-  }
-  .uv-model-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 0; border-bottom: 0.5px solid rgba(255,255,255,0.06);
-    font-size: 13px;
-  }
-  .uv-model-row:last-child { border-bottom: none; }
-  .uv-model-label { opacity: 0.5; }
-  .uv-model-value { font-family: "SF Mono","Fira Code","Cascadia Code",monospace; font-weight: 500; }
-  .uv-section-label {
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.06em; opacity: 0.4; margin: 16px 0 8px;
-  }
-
-  /* ── Risk callout banner ─────────────────────────────────────────────────── */
-  .uv-risk-banner {
-    display: flex; align-items: center; justify-content: space-between;
-    background: rgba(29,214,164,0.06); border: 0.5px solid rgba(29,214,164,0.2);
-    border-radius: 12px; padding: 14px 20px; margin-bottom: 0;
-  }
-  .uv-risk-banner-left { display: flex; align-items: center; gap: 14px; }
-  .uv-risk-score-circle {
-    width: 48px; height: 48px; border-radius: 50%;
-    border: 2px solid #1DD6A4; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-    font-size: 15px; font-weight: 500; color: #1DD6A4;
-  }
-  .uv-risk-banner-label  { font-size: 13px; font-weight: 500; }
-  .uv-risk-banner-sub    { font-size: 11px; opacity: 0.45; margin-top: 2px; }
-  .uv-risk-banner a      { color: #1DD6A4 !important; font-size: 12px; text-decoration: none; opacity: 0.8; }
-  .uv-risk-banner a:hover { opacity: 1; }
-
-  /* ── Risk methodology notes ─────────────────────────────────────────────── */
-  .uv-note {
-    border-left: 2px solid #1A8C6E; background: rgba(26,140,110,0.06);
-    border-radius: 0 6px 6px 0; padding: 10px 14px; margin-bottom: 16px;
-  }
-  .uv-note-summary {
-    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em;
-    text-transform: uppercase; color: #1A8C6E; cursor: pointer;
-    list-style: none; outline: none; user-select: none;
-  }
-  .uv-note-summary::-webkit-details-marker { display: none; }
-  .uv-note-summary::before {
-    content: "+ "; font-weight: 700; color: #1DD6A4;
-  }
-  details[open] .uv-note-summary::before { content: "− "; }
-  .uv-note-body {
-    font-size: 0.88rem; color: #F5F7FA; opacity: 0.75;
-    margin-top: 10px; line-height: 1.6;
-  }
 
   /* ── Metric delta brand colors ───────────────────────────────────────────── */
   [data-testid="stMetricDelta"] svg { display: none; }
@@ -925,73 +836,31 @@ st.markdown("""
   }
   .uv-wordmark-accent { color: #1A8C6E; }
   .login-sub { font-size: 0.82rem; opacity: 0.4; margin-bottom: 4px; }
-  /* match key icon colour to the eye icon */
-  [data-testid="stTextInput"] svg {
-    color: rgba(245,247,250,0.55) !important;
-    fill:  rgba(245,247,250,0.55) !important;
-  }
-  [data-testid="stTextInput"] svg path,
-  [data-testid="stTextInput"] svg rect,
-  [data-testid="stTextInput"] svg circle {
-    fill:   rgba(245,247,250,0.55) !important;
-    stroke: rgba(245,247,250,0.55) !important;
-  }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Mini icon nav ───────────────────────────────────────────────────────── */
-  .mini-nav {
-    display: flex; position: fixed; left: 0; top: 0; height: 100vh; width: 48px;
-    background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-right: 0.5px solid rgba(29,214,164,0.12);
-    flex-direction: column; justify-content: space-between; align-items: center; z-index: 99;
-  }
-  .mini-nav-top, .mini-nav-bottom { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-  .mini-nav-top    { padding-top: 14px; }
-  .mini-nav-bottom { padding-bottom: 18px; }
-  .mini-nav-link {
-    font-size: 1.2rem; text-decoration: none !important; opacity: 0.35;
-    transition: opacity 0.15s, background 0.15s;
-    display: flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border-radius: 8px;
-  }
-  .mini-nav-link:hover { opacity: 1; background: rgba(29,214,164,0.08); }
-  .mini-nav-active     { opacity: 1 !important; background: rgba(29,214,164,0.15) !important; }
-
-  /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
+  /* ── Sidebar logo + footer ───────────────────────────────────────────────── */
   .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
   .uv-logo-wordmark {
     font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
-    line-height: 1; color: #F5F7FA;
+    line-height: 1;
   }
   .uv-logo-accent { color: #1A8C6E; }
-  .uv-logo-sub  { font-size: 0.65rem; color: var(--text-color); opacity: 0.3; margin-top: 3px; }
-  .uv-nav       { display: flex; flex-direction: column; gap: 1px; }
-  .uv-nav-item  {
-    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
-    font-size: 0.9rem; font-weight: 500; color: var(--text-color); opacity: 0.4;
-    text-decoration: none !important; transition: background 0.12s, opacity 0.12s; white-space: nowrap;
-  }
-  .uv-nav-item:hover { background: rgba(29,214,164,0.07); opacity: 0.85; }
-  .uv-nav-active     { background: rgba(29,214,164,0.12) !important; opacity: 1 !important; }
-  .uv-nav-sep        { border: none; border-top: 0.5px solid rgba(255,255,255,0.1); margin: 6px 2px; }
-  .uv-nav-icon       { font-size: 1rem; width: 1.25em; text-align: center; flex-shrink: 0; }
-  .uv-nav-utils { position: fixed; bottom: 96px; left: 0; width: 220px; padding: 0 16px 4px; box-sizing: border-box; }
+  .uv-logo-sub  { font-size: 0.65rem; opacity: 0.3; margin-top: 3px; }
   .uv-bottom    {
     position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
-    background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-top: 0.5px solid rgba(255,255,255,0.08); box-sizing: border-box;
+    background: transparent;
+    border-top: 0.5px solid rgba(128,128,128,0.20); box-sizing: border-box;
   }
-  .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-  .uv-role-badge   { display: inline-block; background: rgba(29,214,164,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: #1DD6A4; margin-right: 5px; vertical-align: middle; }
+  .uv-bottom-email { font-size: 0.7rem; opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .uv-logout {
     display: inline-flex; align-items: center;
     padding: 0 12px; height: 30px; line-height: 30px;
     font-size: 0.78rem; font-weight: 400;
-    color: var(--text-color) !important; text-decoration: none !important;
-    border: 0.5px solid rgba(255,255,255,0.2); border-radius: 6px;
+    color: inherit !important; text-decoration: none !important;
+    border: 0.5px solid rgba(128,128,128,0.35); border-radius: 6px;
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
   }
@@ -1005,14 +874,6 @@ st.markdown("""
     max-width: 550px !important; width: 550px !important; min-width: 0 !important;
   }
 
-  /* ── Compact action button rows ──────────────────────────────────────────── */
-  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] { gap: 6px !important; }
-  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] button {
-    padding: 0px 12px !important; height: 32px !important; min-height: 0 !important;
-    font-size: 0.8rem !important; font-weight: 400 !important;
-    line-height: 32px !important; white-space: nowrap !important; width: 100% !important;
-  }
-
   /* ── Heading typography — brand spec ────────────────────────────────────── */
   [data-testid="stHeadingWithActionElements"] h1,
   [data-testid="stHeading"] h1 {
@@ -1024,10 +885,8 @@ st.markdown("""
     font-size: 1.1rem !important; font-weight: 500 !important;
     letter-spacing: -0.01em !important; margin-bottom: 0.25rem !important;
   }
-  /* Lighten dividers — less visual noise */
-  [data-testid="stDivider"] hr, hr {
-    border-color: rgba(255,255,255,0.07) !important; margin: 8px 0 !important;
-  }
+  /* Tighter dividers — color comes from the theme borderColor */
+  [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
 
   /* ── JS bridge iframes ───────────────────────────────────────────────────── */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
@@ -1074,7 +933,7 @@ if not _has_session:
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
     # Fast path: token + email already verified this session — skip re-verification
-    # on every rerun (e.g. st_autorefresh) to prevent ghost login flashes.
+    # on every rerun (e.g. timed auto-refresh) to prevent ghost login flashes.
     if st.session_state.get("jwt_token") and st.session_state.get("user_email"):
         return
 
@@ -1095,9 +954,11 @@ def _auth_wall():
 
     _, col, _ = st.columns([1, 0.78, 1])
     with col:
-        email    = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        if st.button("Log in", width="stretch", type="primary"):
+        with st.form("login_form", border=False):
+            email    = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            _submitted = st.form_submit_button("Log in", width="stretch", type="primary")
+        if _submitted:
             ok, result = login(email, password)
             if ok:
                 _, role = verify_token(result)
@@ -1106,11 +967,6 @@ def _auth_wall():
                 st.session_state["user_email"] = _login_email
                 st.session_state["user_role"]  = role
                 st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
-                _login_theme = load_settings(_login_email).get("ui_theme", "dark")
-                if _login_theme != "dark":
-                    st.query_params["theme"] = _login_theme
-                else:
-                    st.query_params.pop("theme", None)
                 st.rerun()
             else:
                 st.error(result)
@@ -1120,15 +976,7 @@ def _auth_wall():
 
 # ── Logout handler — runs before auth wall so it works even without a session ──
 if st.query_params.get("logout") == "1":
-    _logout_theme = st.query_params.get("theme", "dark")
-    _logout_email = st.session_state.get("user_email", "")
-    if _logout_email:
-        _logout_prefs = load_settings(_logout_email)
-        _logout_prefs["ui_theme"] = _logout_theme
-        save_settings(_logout_prefs, _logout_email)
     st.query_params.clear()
-    if _logout_theme != "dark":
-        st.query_params["theme"] = _logout_theme
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
     st.rerun()
@@ -1138,10 +986,10 @@ _current_role = st.session_state.get("user_role", "user")
 _is_admin     = _current_role == "admin"
 set_user(_email)
 
-# ── Per-user UI preferences ───────────────────────────────────────────────────
-_user_prefs      = load_settings(_email) if _email else {}
-_ui_theme        = _user_prefs.get("ui_theme", st.query_params.get("theme", "dark")) if _email else st.query_params.get("theme", "dark")  # "dark" | "light"
-_ui_effective_light = _ui_theme == "light"
+# ── UI theme ──────────────────────────────────────────────────────────────────
+# Light/dark are rendered natively from config.toml [theme.light]/[theme.dark];
+# st.context.theme exposes the variant active in this user's browser session.
+_ui_effective_light = getattr(st.context.theme, "type", None) == "light"
 
 # Shared chart palette tokens — resolved once, used in every Plotly figure
 _c_axis      = "#5F5E5A"                    if _ui_effective_light else "rgba(245,247,250,0.55)"
@@ -1150,555 +998,18 @@ _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(24
 _c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
 _c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
 
-_LIGHT_CSS = """
-  /* ── Streamlit theme variables ───────────────────────────────────────────── */
-  :root {
-    --background-color:           #F5F7FA !important;
-    --secondary-background-color: #FFFFFF !important;
-    --text-color:                 #0D1F3C !important;
-    --primary-color:              #1A8C6E !important;
-  }
-
-  /* ── App surface ─────────────────────────────────────────────────────────── */
-  [data-testid="stApp"], .stApp,
-  section[data-testid="stMain"] {
-    background-color: #F5F7FA !important;
-    color: #0D1F3C !important;
-  }
-  .block-container { background-color: #F5F7FA !important; }
-
-  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child {
-    background-color: #FFFFFF !important;
-  }
-  .uv-bottom { background: #FFFFFF !important; border-top-color: #E5E7EB !important; }
-  .mini-nav  { background: #FFFFFF !important; border-right-color: #E5E7EB !important; }
-  .uv-nav-item         { color: #3B4D63 !important; }
-  .uv-nav-item:hover   { background: rgba(0,0,0,0.04) !important; opacity: 1 !important; }
-  .uv-nav-active, [data-uv-page].uv-nav-item { color: #1A8C6E !important; background: rgba(26,140,110,0.10) !important; }
-  .mini-nav-link       { color: #3B4D63 !important; }
-  .uv-nav-sep          { border-top-color: #E5E7EB !important; }
-  .uv-logo-wordmark    { color: #0D1F3C !important; }
-  .uv-logo-accent      { color: #1A8C6E !important; }
-  .uv-logo-sub         { color: #5F5E5A !important; opacity: 1 !important; }
-  .uv-bottom-email     { color: #3B4D63 !important; opacity: 1 !important; }
-  .uv-logout           { color: #3B4D63 !important; border-color: #CBD0D9 !important; }
-  .uv-logout:hover     { color: #1A8C6E !important; border-color: #1A8C6E !important; }
-
-  /* ── Typography ──────────────────────────────────────────────────────────── */
-  p, li, span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
-    color: #0D1F3C !important;
-  }
-  h1, h2, h3, h4, h5, h6 { color: #0D1F3C !important; }
-  [data-testid="stCaptionContainer"], small, caption { color: #5F5E5A !important; }
-
-  /* ── Cards / panels ──────────────────────────────────────────────────────── */
-  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
-  [data-testid="stExpander"] { background-color: #FFFFFF !important; }
-  details[data-testid="stExpander"] { border-color: #E5E7EB !important; }
-  details[data-testid="stExpander"] summary,
-  details[data-testid="stExpander"] summary span { color: #0D1F3C !important; }
-
-  /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"] {
-    background: #F5F7FA !important;
-    border: 0.5px solid #E5E7EB !important;
-  }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
-  div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
-
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
-  [data-testid="stBaseButton-secondary"],
-  [data-testid="stPopoverButton"],
-  [data-testid="stDownloadButton"] > button,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
-    background-color: transparent !important;
-    color: #0D1F3C !important;
-    border: 0.5px solid rgba(0,0,0,0.15) !important;
-  }
-  [data-testid="stBaseButton-secondary"]:hover,
-  [data-testid="stPopoverButton"]:hover,
-  [data-testid="stDownloadButton"] > button:hover,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]):hover {
-    background-color: #EEF1F5 !important;
-    border-color: rgba(0,0,0,0.2) !important;
-  }
-  [data-testid="stBaseButton-tertiary"] {
-    background-color: transparent !important;
-    color: rgba(13,31,60,0.35) !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stBaseButton-tertiary"]:hover {
-    background-color: rgba(0,0,0,0.04) !important;
-    color: #0D1F3C !important;
-  }
-  [data-testid="stBaseButton-primary"] {
-    background-color: #1A8C6E !important;
-    color: #FFFFFF !important;
-    border: none !important;
-  }
-  [data-testid="stBaseButton-primary"]:hover { background-color: #0F6E56 !important; }
-
-  /* ── Inputs / selects ────────────────────────────────────────────────────── */
-  div[data-baseweb="input"] input,
-  div[data-baseweb="textarea"] textarea {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-  }
-  div[data-baseweb="input"],
-  div[data-baseweb="textarea"] { border-color: #E5E7EB !important; }
-  div[data-baseweb="select"] > div:first-child {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-    border-color: #CBD0D9 !important;
-    border-width: 0.5px !important;
-    border-radius: 8px !important;
-  }
-  div[data-baseweb="select"] > div:first-child:hover { background-color: #EEF1F5 !important; }
-  [data-baseweb="popover"] [role="listbox"],
-  [data-baseweb="menu"] {
-    background-color: #FFFFFF !important;
-    border: 0.5px solid #E5E7EB !important;
-    border-radius: 8px !important;
-  }
-  [data-baseweb="option"], [role="option"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-  [data-baseweb="option"]:hover, [role="option"]:hover { background-color: #EEF1F5 !important; }
-
-  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
-  [data-testid="stCheckbox"] label { color: #0D1F3C !important; }
-  [data-testid="stCheckbox"] span[role="checkbox"],
-  [data-baseweb="checkbox"] span {
-    background-color: #FFFFFF !important;
-    border-color: #CBD0D9 !important;
-  }
-  [data-testid="stCheckbox"] span[aria-checked="true"],
-  [data-baseweb="checkbox"] span[data-checked] {
-    background-color: #1A8C6E !important;
-    border-color: #1A8C6E !important;
-  }
-
-  /* ── Radio / Tabs ────────────────────────────────────────────────────────── */
-  [data-testid="stRadio"] label, [data-testid="stRadio"] span { color: #0D1F3C !important; }
-  [data-testid="stTabs"] { border-bottom-color: #E5E7EB !important; }
-  button[data-testid="stTab"] { color: #3B4D63 !important; }
-  button[data-testid="stTab"][aria-selected="true"] { color: #0D1F3C !important; border-bottom-color: #1A8C6E !important; }
-
-  /* ── Data tables — no invert needed; base=light renders canvas correctly ── */
-
-  /* ── File uploader ───────────────────────────────────────────────────────── */
-  [data-testid="stFileUploader"] section {
-    background-color: #FFFFFF !important;
-    border-color: #E5E7EB !important;
-  }
-  [data-testid="stFileUploader"] span { color: #3B4D63 !important; }
-
-  /* ── Misc ────────────────────────────────────────────────────────────────── */
-  hr { border-color: #E5E7EB !important; }
-  [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-  .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
-  .uv-note-body  { color: #3B4D63 !important; opacity: 1 !important; }
-  [data-testid="stWidgetLabel"] p,
-  [data-testid="stCheckbox"] p { color: #0D1F3C !important; }
-  [data-testid="stSpinner"] { color: #0D1F3C !important; }
-  [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
-  [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
-  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
-  [data-baseweb="popover"] { background: #FFFFFF !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important; border: 1px solid #E2E6EC !important; overflow: hidden !important; }
-  [data-baseweb="popover"] > div,
-  [data-baseweb="menu"],
-  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-baseweb="menu"] li { color: #0D1F3C !important; background: transparent !important; }
-  [data-baseweb="menu"] li:hover { background-color: #EEF1F5 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
-
-  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
-    background-color: #8A96A8 !important;
-    opacity: 1 !important;
-  }
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
-    background-color: #0F6E56 !important;
-  }
-  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
-    background-color: transparent !important;
-  }
-
-  /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
-  [data-baseweb="tooltip"] { background-color: transparent !important; }
-  [data-baseweb="tooltip"] > div > div,
-  [data-baseweb="tooltip"] > div > div > div,
-  [role="tooltip"],
-  [role="tooltip"] > div,
-  [data-testid="stTooltipContent"],
-  [data-testid="stTooltipContent"] > div {
-    background-color: #F5F7FA !important;
-    color: #0D1F3C !important;
-    border-radius: 8px !important;
-  }
-  [data-baseweb="tooltip"] span,
-  [data-baseweb="tooltip"] p,
-  [role="tooltip"] span,
-  [role="tooltip"] p,
-  [data-testid="stTooltipContent"] span,
-  [data-testid="stTooltipContent"] p { color: #0D1F3C !important; }
-
-  /* ── Toolbar pill: force light background (doubled attr beats Emotion specificity) ── */
-  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
-    background-color: #FFFFFF !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
-    border: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
-    background-color: transparent !important;
-    color: #3B4D63 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
-    background-color: #EEF1F5 !important;
-  }
-"""
-
-_DARK_CSS = """
-  /* ── Streamlit theme variables ───────────────────────────────────────────── */
-  :root {
-    --background-color:           #0D1F3C !important;
-    --secondary-background-color: #0F2647 !important;
-    --text-color:                 #F5F7FA !important;
-    --primary-color:              #1DD6A4 !important;
-  }
-
-  /* ── App surface ─────────────────────────────────────────────────────────── */
-  html, body { background-color: #0D1F3C !important; }
-  [data-testid="stApp"], .stApp,
-  section[data-testid="stMain"] {
-    background-color: #0D1F3C !important;
-    color: #F5F7FA !important;
-  }
-  .block-container { background-color: #0D1F3C !important; }
-
-  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child {
-    background-color: #0F2647 !important;
-  }
-  .uv-bottom { background: #0F2647 !important; border-top-color: rgba(255,255,255,0.08) !important; }
-  .mini-nav  { background: #0F2647 !important; border-right-color: rgba(255,255,255,0.08) !important; }
-
-  /* ── Typography ──────────────────────────────────────────────────────────── */
-  p, li, h1, h2, h3, h4, h5, h6,
-  span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
-    color: #F5F7FA !important;
-  }
-  [data-testid="stCaptionContainer"], small, caption { color: rgba(245,247,250,0.55) !important; }
-
-  /* ── Cards / panels ──────────────────────────────────────────────────────── */
-  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
-  [data-testid="stExpander"] { background-color: #0F2647 !important; }
-  details[data-testid="stExpander"] { border-color: rgba(255,255,255,0.08) !important; }
-
-  /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"] {
-    background: #0F2647 !important;
-    border: 0.5px solid rgba(255,255,255,0.08) !important;
-  }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #F5F7FA !important; }
-  div[data-testid="metric-container"] label { color: rgba(245,247,250,0.55) !important; }
-
-  /* ── Inputs / selects ────────────────────────────────────────────────────── */
-  div[data-baseweb="input"] input,
-  div[data-baseweb="textarea"] textarea {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-  }
-  div[data-baseweb="input"],
-  div[data-baseweb="textarea"] { border-color: rgba(255,255,255,0.15) !important; }
-  div[data-baseweb="select"] > div:first-child {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-    border-color: rgba(255,255,255,0.15) !important;
-  }
-
-  /* ── Data tables — invert light canvas back to dark ─────────────────────── */
-  [data-testid="stDataFrame"] canvas,
-  [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
-
-  /* ── Password reveal button ─────────────────────────────────────────────── */
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #F5F7FA !important; fill: #F5F7FA !important; stroke: #F5F7FA !important; opacity: 0.85; }
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
-
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
-  [data-testid="stBaseButton-secondary"],
-  [data-testid="stPopoverButton"],
-  [data-testid="stDownloadButton"] > button,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
-    background-color: transparent !important;
-    color: #F5F7FA !important;
-    border: 0.5px solid rgba(255,255,255,0.2) !important;
-  }
-  [data-testid="stBaseButton-secondary"]:hover,
-  [data-testid="stPopoverButton"]:hover,
-  [data-testid="stDownloadButton"] > button:hover {
-    background-color: rgba(255,255,255,0.08) !important;
-  }
-  [data-testid="stBaseButton-primary"] {
-    background-color: #1DD6A4 !important;
-    color: #0D1F3C !important;
-    border: none !important;
-  }
-
-  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
-  [data-testid="stCheckbox"] span[role="checkbox"],
-  [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
-
-  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
-    background-color: rgba(255,255,255,0.35) !important;
-    opacity: 1 !important;
-  }
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
-    background-color: #1DD6A4 !important;
-  }
-  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
-    background-color: transparent !important;
-  }
-
-  /* ── Tabs ────────────────────────────────────────────────────────────────── */
-  button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
-  button[data-testid="stTab"][aria-selected="true"] { color: #F5F7FA !important; border-bottom-color: #1DD6A4 !important; }
-
-  /* ── Tooltips ───────────────────────────────────────────────────────────── */
-  [data-baseweb="tooltip"] { background-color: transparent !important; }
-  [data-baseweb="tooltip"] > div > div,
-  [data-baseweb="tooltip"] > div > div > div,
-  [role="tooltip"],
-  [role="tooltip"] > div,
-  [data-testid="stTooltipContent"],
-  [data-testid="stTooltipContent"] > div {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-  }
-  [data-baseweb="tooltip"] span,
-  [data-baseweb="tooltip"] p,
-  [role="tooltip"] span,
-  [role="tooltip"] p,
-  [data-testid="stTooltipContent"] span,
-  [data-testid="stTooltipContent"] p { color: #F5F7FA !important; }
-
-  /* ── Toolbar pill (hover actions on table/chart) ─────────────────────────── */
-  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
-    background-color: #0F2647 !important;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.35) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
-    background-color: transparent !important;
-    color: #F5F7FA !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
-    background-color: rgba(255,255,255,0.08) !important;
-  }
-
-  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
-  [data-baseweb="popover"] { background: #0F2647 !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.40) !important; border: 1px solid rgba(255,255,255,0.08) !important; overflow: hidden !important; }
-  [data-baseweb="popover"] > div,
-  [data-baseweb="menu"],
-  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-baseweb="menu"] li { color: #F5F7FA !important; background: transparent !important; }
-  [data-baseweb="menu"] li:hover { background-color: rgba(255,255,255,0.08) !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
-
-  /* ── Decision badges — dark mode overrides ──────────────────────────────── */
-  .uv-badge-buy     { background: rgba(15,110,86,0.22)  !important; color: #1DD6A4 !important; }
-  .uv-badge-monitor { background: rgba(133,79,11,0.22)  !important; color: #D4903A !important; }
-  .uv-badge-avoid   { background: rgba(163,45,45,0.22)  !important; color: #E05C5C !important; }
-
-  /* ── Misc ────────────────────────────────────────────────────────────────── */
-  hr { border-color: rgba(255,255,255,0.08) !important; }
-  [data-testid="stAlert"] { background-color: #0F2647 !important; color: #F5F7FA !important; }
-  [data-testid="stWidgetLabel"] p,
-  [data-testid="stCheckbox"] p { color: #F5F7FA !important; }
-  [data-testid="stProgressBar"] > div { background-color: rgba(255,255,255,0.12) !important; }
-"""
-
-# ── Theme CSS injection (before auth wall so login/loading screen is themed) ──
-if _ui_effective_light:
-    st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
-else:
-    st.markdown(f"<style>{_DARK_CSS}</style>", unsafe_allow_html=True)
-
-# Sync localStorage with server-side theme so next page load uses correct CSS
-_light_css_js = _json.dumps(_LIGHT_CSS)
-_dark_css_js  = _json.dumps(_DARK_CSS)
-_server_theme = _json.dumps(_ui_theme)
-st.markdown(f"""<script>
-(function(){{
-  try {{
-    var t = {_server_theme};
-    localStorage.setItem('uv_theme', t);
-    var sid = 'uv-pre-theme';
-    var existing = document.getElementById(sid);
-    if (existing) existing.remove();
-    var s = document.createElement('style');
-    s.id = sid;
-    s.textContent = t === 'light' ? {_light_css_js} : {_dark_css_js};
-    (document.head || document.documentElement).appendChild(s);
-  }} catch(e) {{}}
-
-  // Fix BaseWeb modal: move it to <body> to escape Streamlit's transform stacking
-  // context, then constrain it to the main content area (right of sidebar).
-  try {{
-    function _applyModalFix(modal) {{
-      var bd = modal.firstElementChild;
-      if (bd) bd.style.setProperty('background', 'transparent', 'important');
-      modal.style.setProperty('padding-left', '260px', 'important');
-    }}
-    var _modalObs = new MutationObserver(function() {{
-      var modal = document.querySelector('div[data-baseweb="modal"]');
-      if (modal) _applyModalFix(modal);
-    }});
-    _modalObs.observe(document.body, {{childList: true, subtree: true}});
-  }} catch(e) {{}}
-}})();
-</script>""", unsafe_allow_html=True)
-
 _auth_wall()
 
-# Page routing via query params (default: dashboard)
-_page = st.query_params.get("page", "dashboard")
+# ── Sidebar navigation ────────────────────────────────────────────────────────
+# Rendered at the end of the script via st.navigation + st.page_link, once the
+# page functions below are defined.
 
-# Quick theme toggle via ?_uitheme= query param
-_qp_theme = st.query_params.get("_uitheme", "")
-if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
-    _user_prefs["ui_theme"] = _qp_theme
-    save_settings(_user_prefs, _email)
-    st.query_params.pop("_uitheme", None)
-    st.rerun()
-
-# ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
-# Active classes are applied by JS (uvSetActive) so sidebar HTML is identical on
-# every rerun — React makes no DOM changes → zero sidebar flash.
-
-_jwt    = st.session_state.get("jwt_token", "")
-_tok_qs = f"&_tok={_jwt}" if _jwt else ""
-
-
-def _nav_link(page: str, icon: str, label: str, tok_qs: str,
-              extra_class: str = "uv-nav-item") -> str:
-    """Return an HTML nav anchor for page navigation."""
-    href = f"?page={page}{tok_qs}"
-    return (
-        f'<a href="{href}" target="_self" data-uv-page="{page}" '
-        f'class="{extra_class}">'
-        f'<span class="uv-nav-icon">{icon}</span>{label}</a>'
-    )
-
-
-_portfolio_item = _nav_link("portfolio", "▣", "Portfolio", _tok_qs)
-_settings_item  = _nav_link("settings",  "⊞", "Settings",  _tok_qs)
-
-_role_badge_html = ""
-
-with st.sidebar:
-    st.markdown(f"""
-<div class="uv-logo">
-  <div>
-    <div class="uv-logo-wordmark">uval<span class="uv-logo-accent">u</span></div>
-    <div class="uv-logo-sub">Find value before the market does.</div>
-  </div>
-</div>
-<nav class="uv-nav">
-  {_nav_link("dashboard", "◈", "Dashboard", _tok_qs)}
-  {_portfolio_item}
-  {_nav_link("risk",      "◎", "Risk",      _tok_qs)}
-  {_nav_link("screener",  "⊹", "Screener",  _tok_qs)}
-</nav>
-<div class="uv-nav-utils">
-  <hr class="uv-nav-sep" style="margin-bottom:6px;">
-  <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
-</div>
-<div class="uv-bottom">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-    <div class="uv-bottom-email">{_role_badge_html}{_email}</div>
-    <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else 'dark'}" target="_self"
-       title="Switch to {'light' if _ui_theme == 'dark' else 'dark'} mode"
-       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
-  </div>
-  <div style="text-align:center;">
-    <a href="/?logout=1&theme={_ui_theme}" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Mini icon nav (shown when sidebar is collapsed) ───────────────────────────
-# Active state is applied by uvSetActive() in JS — no Python active classes needed.
-_mini_admin     = _nav_link("settings",  "⚙", "", _tok_qs, "mini-nav-link")
-_mini_portfolio = _nav_link("portfolio", "◻", "", _tok_qs, "mini-nav-link")
-st.markdown(f"""
-<div class="mini-nav">
-  <div class="mini-nav-top">
-    {_nav_link("dashboard", "◈", "", _tok_qs, "mini-nav-link")}
-    {_mini_portfolio}
-    {_nav_link("risk",      "◎", "", _tok_qs, "mini-nav-link")}
-    {_nav_link("screener",  "⊹", "", _tok_qs, "mini-nav-link")}
-  </div>
-  <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "?", "", _tok_qs, "mini-nav-link")}</div>
-</div>
-""", unsafe_allow_html=True)
-
-# Active nav highlight via Python-injected CSS (no JS bridge needed).
-st.markdown(f"""<style>
-[data-uv-page="{_page}"].uv-nav-item  {{ background:rgba(29,214,164,0.12)!important; opacity:1!important; }}
-[data-uv-page="{_page}"].mini-nav-link {{ background:rgba(29,214,164,0.15)!important; opacity:1!important; }}
-</style>""", unsafe_allow_html=True)
-
-# Keep localStorage token fresh + hide sidebar collapse button.
+# Keep localStorage token fresh.
 st.iframe(f"""
 <script>
 (function(){{
-  var par = window.parent;
-
-  // ── JWT persistence ────────────────────────────────────────────────────────
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
-
-  // ── Hide Streamlit sidebar collapse button ────────────────────────────────
-  (function hideBtn() {{
-    var el = par.document.querySelector('[data-testid="collapsedControl"]');
-    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-  }})();
-  new MutationObserver(function(){{
-    var el = par.document.querySelector('[data-testid="collapsedControl"]');
-    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-  }}).observe(par.document.body, {{childList:true, subtree:true}});
-
 }})();
 </script>
 """, height=1)
@@ -1707,28 +1018,18 @@ st.iframe(f"""
 # PAGE — DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "dashboard":
+def _page_dashboard() -> None:
     # ── Load portfolio data ────────────────────────────────────────────────────
     if not portfolio_exists():
-        _scr_link = f"?page=screener{_tok_qs}"
-        _set_link  = f"?page=settings{_tok_qs}"
-        st.markdown(f"""
-<div style="margin:48px auto;max-width:480px;text-align:center;">
-  <div style="font-size:2rem;margin-bottom:16px;">◈</div>
-  <div style="font-size:1.1rem;font-weight:500;margin-bottom:8px;">No portfolio yet</div>
-  <div style="font-size:0.85rem;opacity:0.5;margin-bottom:24px;line-height:1.6;">
-    Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings.
-  </div>
-  <a href="{_scr_link}" target="_self" style="
-    display:inline-block;padding:8px 20px;border-radius:8px;
-    background:#1A8C6E;color:#fff;text-decoration:none;font-size:0.88rem;font-weight:500;
-    margin-right:8px;">Open screener</a>
-  <a href="{_set_link}" target="_self" style="
-    display:inline-block;padding:8px 20px;border-radius:8px;
-    border:0.5px solid rgba(255,255,255,0.2);color:inherit;
-    text-decoration:none;font-size:0.88rem;">Import portfolio</a>
-</div>
-""", unsafe_allow_html=True)
+        _, _es_col, _ = st.columns([1, 1.1, 1])
+        with _es_col:
+            st.container(height=48, border=False)
+            st.subheader("No portfolio yet")
+            st.caption("Browse the screener to identify stocks worth buying, "
+                       "or import an existing Excel portfolio in Settings.")
+            with st.container(horizontal=True, gap="small"):
+                st.page_link(_pg_screener, label="Open screener")
+                st.page_link(_pg_settings, label="Import portfolio")
         st.stop()
 
     _db_pf = load_portfolio()
@@ -1804,30 +1105,20 @@ if _page == "dashboard":
                 else "Moderate risk" if _risk_score < 65
                 else "Elevated risk"
             )
-            _risk_link = f"?page=risk{_tok_qs}"
             _beta_str  = f"{_db_report.quant.portfolio_beta:.2f}"
             _vol_str   = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
             _dd_str    = f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—"
-            st.markdown(f"""
-<div class="uv-risk-banner" style="margin-top:16px;">
-  <div class="uv-risk-banner-left">
-    <div class="uv-risk-score-circle">{_risk_score:.0f}</div>
-    <div>
-      <div class="uv-risk-banner-label">{_risk_label}</div>
-      <div class="uv-risk-banner-sub">
-        Beta&nbsp;<b>{_beta_str}</b> &nbsp;·&nbsp;
-        Volatility&nbsp;<b>{_vol_str}</b> &nbsp;·&nbsp;
-        Max drawdown&nbsp;<b>{_dd_str}</b>
-      </div>
-    </div>
-  </div>
-  <a href="{_risk_link}" target="_self">Full risk analysis →</a>
-</div>
-""", unsafe_allow_html=True)
+            with st.container(border=True, horizontal=True, vertical_alignment="center",
+                              horizontal_alignment="distribute"):
+                with st.container(width="content"):
+                    st.markdown(f"**{_risk_label}** · score {_risk_score:.0f}")
+                    st.caption(f"Beta **{_beta_str}** · Volatility **{_vol_str}** · "
+                               f"Max drawdown **{_dd_str}**")
+                st.page_link(_pg_risk, label="Full risk analysis →")
         except Exception:
             pass
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 3: Today's performance + Top movers ───────────────────────────────
     _DB_ROW_H = 300  # shared height for treemap + movers table
     _hm_col, _mv_col = st.columns(2, gap="large")
@@ -1866,7 +1157,6 @@ if _page == "dashboard":
 
     with _mv_col:
         st.subheader("Top movers today")
-        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
         _db_mv = _db_mv.dropna(subset=["day_change_pct"])
@@ -1885,7 +1175,7 @@ if _page == "dashboard":
         else:
             st.caption("No daily price data available.")
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 4: Sector allocation + Upcoming dividends ─────────────────────────
     _al_col, _div_col = st.columns(2, gap="large")
 
@@ -1901,7 +1191,6 @@ if _page == "dashboard":
 
     with _div_col:
         st.subheader("Upcoming dividends")
-        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
@@ -1930,12 +1219,11 @@ if _page == "dashboard":
         else:
             st.caption("No screener data available for your holdings.")
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 5: Portfolio value over time (full width) ─────────────────────────
     st.subheader("Portfolio value over time")
     _db_vh = load_value_history()
     if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
-        import plotly.graph_objects as go
         _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
         _db_vh["value"]    = pd.to_numeric(_db_vh["value"],    errors="coerce")
         _db_vh["invested"] = pd.to_numeric(_db_vh["invested"], errors="coerce")
@@ -1996,144 +1284,94 @@ if _page == "dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Shared cell formatters ──────────────────────────────────────────────────
-_f_pct1 = lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"
-_f_pct2 = lambda v: f"{v*100:.2f}%"  if pd.notna(v) else "—"
-_f_f1   = lambda v: f"{v:.1f}"       if pd.notna(v) else "—"
-_f_f2   = lambda v: f"{v:.2f}"       if pd.notna(v) else "—"
-_f_mult = lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"
 _f_str  = lambda v: v                if pd.notna(v) else "—"
 
 watchlist = load_watchlist()
 
 @st.dialog("Stock details", width="large")
-def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
-    """4-tab stock detail modal — consistent height across all tabs."""
-    # Force all tab panels to the same height so the dialog doesn't resize on switch
+def _dlg_stock_detail(row: "pd.Series", pf_context: dict | None = None) -> None:
+    """4-tab stock detail modal. Sizes to content; scrolls natively."""
     st.markdown("""
 <style>
-/* ── Remove backdrop colour, keep structure intact ── */
-div[data-baseweb="modal"] > div:first-child {
-background: transparent !important;
-}
-/* ── Push flex-centering into the main area (right of sidebar) ── */
-div[data-baseweb="modal"] {
-padding-left: 260px !important;
-}
-
-/* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
-[data-testid="stDialog"] > div {
-width: 860px !important;
-min-width: 860px !important;
-max-width: 860px !important;
-}
 /* ── Hide redundant "Stock details" title ─────────────────────── */
 [data-testid="stDialog"] div[role="dialog"] > div:first-child {
 display: none !important;
 }
 
-/* ── Fixed dialog height across all tabs ──────────────────────── */
+/* ── Fixed width (prevents tabs from resizing the dialog);
+     min-height keeps tab switches from collapsing short tabs;
+     position/backdrop/colours come from the native theme ── */
 [data-testid="stDialog"] div[role="dialog"] {
+width: 860px !important;
+max-width: calc(100vw - 2rem) !important;
 min-height: 600px !important;
-height: 600px !important;
-background: var(--background-color) !important;
-color: var(--text-color) !important;
 }
 /* ── Remove default top padding inside tab panels ─────────────── */
 [data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
 padding-top: 0 !important;
 }
 
-/* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
-height: auto !important;
-min-height: 0 !important;
-overflow-y: scroll !important;
-box-sizing: border-box;
-scrollbar-width: none !important;       /* Firefox */
--ms-overflow-style: none !important;    /* IE/Edge */
-}
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"]::-webkit-scrollbar {
-display: none !important;               /* Chrome/Safari */
-}
-/* Remove bottom gap Streamlit adds between widgets */
-[data-testid="stDialog"] div[role="tabpanel"] [data-testid="stVerticalBlock"] {
-gap: 0 !important;
-}
-[data-testid="stDialog"] div[role="tabpanel"] > div {
-padding-bottom: 0 !important;
-}
-
-/* ── Compact typography inside dialog ─────────────────────────── */
-[data-testid="stDialog"] .uv-model-row,
-[data-testid="stDialog"] .uv-model-label,
-[data-testid="stDialog"] .uv-model-value,
-[data-testid="stDialog"] .uv-section-label {
-color: var(--text-color) !important;
-}
-[data-testid="stDialog"] .uv-model-row {
-padding: 3px 0;
+/* ── Compact borderless key/value markdown tables inside dialog ── */
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table {
+width: 100% !important;
+table-layout: fixed !important;
 font-size: 12px;
+border: none !important;
+margin-top: 14px;
 }
-[data-testid="stDialog"] .uv-section-label {
-margin: 20px 0 8px;
-font-size: 10px;
-padding-bottom: 4px;
-border-bottom: 1px solid rgba(128,128,128,0.20);
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th,
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td {
+padding: 3px 0;
+overflow-wrap: break-word;
+border: none !important;
+background: transparent !important;
 }
-[data-testid="stDialog"] .uv-section-label:first-child {
-margin-top: 0;
-}
-[data-testid="stDialog"] .uv-metric-grid {
-margin-bottom: 12px !important;
-}
-[data-testid="stDialog"] .uv-metric-cell {
-padding: 8px 10px;
-}
-[data-testid="stDialog"] .uv-metric-label {
-font-size: 10px;
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th {
+border-bottom: 1px solid rgba(128,128,128,0.25) !important;
 white-space: nowrap;
-overflow: hidden;
-text-overflow: ellipsis;
+overflow: visible;
+font-size: 0.875rem;   /* match st.caption ("Signals" label) */
+font-weight: 400;
+opacity: 0.6;
 }
-[data-testid="stDialog"] .uv-metric-value {
-font-size: 1.1rem;
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
+opacity: 0.55;
+}
+/* ── Equal-width severity badges so signal text aligns ── */
+[data-testid="stDialog"] span.stMarkdownBadge {
+min-width: 46px !important;
+text-align: center !important;
 }
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
-color: var(--text-color) !important;
+color: inherit !important;
 opacity: 0.7;
 }
 [data-testid="stDialog"] button[aria-label="Close"]:hover {
 opacity: 1;
 }
-/* ── Star toggle button — hidden visually, wired via JS ── */
-[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
-visibility: hidden !important;
-position: absolute !important;
-width: 0 !important;
-height: 0 !important;
-padding: 0 !important;
-margin: 0 !important;
-overflow: hidden !important;
-}
 </style>""", unsafe_allow_html=True)
 
     decision = str(row.get("Decision", ""))
     score    = row.get("Value Score")
-    badge_class = {
-        "Strong Buy": "uv-badge-buy",
-        "Monitor":    "uv-badge-monitor",
-        "Avoid":      "uv-badge-avoid",
-    }.get(decision, "uv-badge-avoid")
+    badge_color = {
+        "Strong Buy": "green",
+        "Monitor":    "orange",
+        "Avoid":      "red",
+    }.get(decision, "red")
     badge_label = {
         "Strong Buy": "BUY",
         "Monitor":    "MONITOR",
         "Avoid":      "AVOID",
     }.get(decision, decision.upper() if decision else "—")
     if row.get("veto"):
-        badge_class, badge_label = "uv-badge-veto", "VETO"
+        badge_color, badge_label = "gray", "VETO"
 
     score_str = f"{score:.1f}%" if pd.notna(score) else "—"
+
+    # Height of the content block above Signals — identical in every tab so
+    # the Signals section always starts at the same vertical position.
+    _DLG_TOP_H = 260
 
     def _fv(field, fmt=None):
         v = row.get(field)
@@ -2141,76 +1379,40 @@ overflow: hidden !important;
             return "—"
         return fmt(v) if fmt else str(v)
 
-    def _rows_html(pairs):
-        return "".join(
-            f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-            f'<span class="uv-model-value">{val}</span></div>'
-            for lbl, val in pairs
-        )
+    def _kv_table(label, rows):
+        """Render a section label + label/value pairs as a markdown table."""
+        st.markdown("\n".join(
+            [f"| {label} |  |", "|:--|--:|"]
+            + [f"| {lbl} | {val} |" for lbl, val in rows]
+        ))
 
     # ── Header: company name · ticker · decision badge · watchlist star ──
     _dlg_ticker   = str(row.get("Ticker", ""))
     _in_watchlist = _dlg_ticker in watchlist
     _star_lbl  = "★" if _in_watchlist else "☆"
     _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
-    st.markdown(f"""
-<div class="uv-detail-header" style="margin-bottom:0.75rem;">
-  <span class="uv-detail-company">{row.get('Name','—')}</span>
-  <span class="uv-detail-ticker">{_dlg_ticker}</span>
-  <span class="uv-badge {badge_class}">{badge_label}</span>
-  <span id="uv-star-icon" title="{_star_help}"
-    style="font-size:1.5rem;margin-left:10px;cursor:pointer;vertical-align:middle;line-height:1;user-select:none;"
-    >{_star_lbl}</span>
-</div>""", unsafe_allow_html=True)
-    # Hidden functional button — wired to the star span via JS below
-    if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
-        save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
-        if _in_watchlist:
-            _mt = load_manual_tickers()
-            if _dlg_ticker in _mt:
-                del _mt[_dlg_ticker]
-                save_manual_tickers(_mt)
-        st.session_state["_dlg_star_rerun"] = True
-        st.rerun()
-    _st_components.html("""<script>
-(function wire() {
-  var pdoc = window.parent.document;
-  var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
-  var star = pdoc.getElementById('uv-star-icon');
-  if (btn && star) {
-star.onclick = function() { btn.click(); };
-  } else {
-setTimeout(wire, 80);
-  }
-})();
-</script>""", height=0)  # noqa: RUF100  (st.iframe requires height>0; v1.html accepts 0)
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.markdown(f"#### {row.get('Name', '—')} :gray[`{_dlg_ticker}`]")
+        st.markdown(f":{badge_color}-badge[{badge_label}]")
+        if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
+            save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+            if _in_watchlist:
+                _mt = load_manual_tickers()
+                if _dlg_ticker in _mt:
+                    del _mt[_dlg_ticker]
+                    save_manual_tickers(_mt)
+            st.session_state["_dlg_star_rerun"] = True
+            st.rerun()
 
-    def _signal_card(sev: str, text: str) -> str:
-        _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
-        _n_bbg = "rgba(0,0,0,0.10)"      if _ui_effective_light else "rgba(255,255,255,0.12)"
-        _sc_styles = {
-            "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.20)",  "HIGH"),
-            "caution": ("#854F0B", "rgba(133,79,11,0.08)",  "rgba(133,79,11,0.18)",  "NOTE"),
-            "ok":      ("#0F6E56", "rgba(15,110,86,0.08)",  "rgba(15,110,86,0.18)",  "OK"),
-            "neutral": ("#5F5E5A", _n_bg,                   _n_bbg,                  "INFO"),
-        }
-        bc, bg, bbg, lbl = _sc_styles.get(sev, _sc_styles["neutral"])
-        return (
-            f'<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0.6rem;'
-            f'border-left:3px solid {bc};border-radius:5px;background:{bg};margin-bottom:4px;">'
-            f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
-            f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
-            f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{lbl}</div>'
-            f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;color:{_c_text};">{text}</div></div>'
-        )
-
-    def _signals_block(tips):
+    def _render_signals(tips) -> None:
         if not tips:
-            return ""
-        return (
-            '<div class="uv-section-label" style="margin-top:16px;">Signals</div>'
-            + "".join(_signal_card(sev, tip) for sev, tip in tips)
-        )
+            return
+        _badges = {"warn": ":red-badge[HIGH]", "caution": ":orange-badge[NOTE]",
+                   "ok": ":green-badge[OK]", "neutral": ":gray-badge[INFO]"}
+        st.caption("Signals")
+        st.caption("  \n".join(
+            f"{_badges.get(sev, _badges['neutral'])} {tip}" for sev, tip in tips
+        ))
 
     _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
         ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
@@ -2221,40 +1423,35 @@ setTimeout(wire, 80);
         _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
         _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
 
-        def _col_html(label, rows):
-            return (
-                f'<div><div class="uv-section-label" style="margin-top:0;">{label}</div>'
-                + _rows_html(rows) + '</div>'
-            )
-
-        st.markdown(
-            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">'
-            + _col_html("Valuation", [
-                ("Price",       _fv("Price",      _fmt_eur)),
-                ("Fair value",  _fv("fair_value", _fmt_eur)),
-                ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
-                ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
-                ("Score",       score_str),
-            ])
-            + _col_html("Quality", [
-                ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
-                ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
-                ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
-                ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
-                ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
-                ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
-            ])
-            + _col_html("Dividends & growth", [
-                ("DPS",         _dps_str),
-                ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
-                ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
-                ("Ex-div",      _fv("exDividendDate")),
-                ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
-                ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
-            ])
-            + '</div>',
-            unsafe_allow_html=True,
-        )
+        # Fixed-height block so Signals starts at the same y in every tab
+        with st.container(height=_DLG_TOP_H, border=False):
+            _snap_c1, _snap_c2, _snap_c3 = st.columns(3, gap="medium")
+            with _snap_c1:
+                _kv_table("Valuation", [
+                    ("Price",       _fv("Price",      _fmt_eur)),
+                    ("Fair value",  _fv("fair_value", _fmt_eur)),
+                    ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
+                    ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
+                    ("Score",       score_str),
+                ])
+            with _snap_c2:
+                _kv_table("Quality", [
+                    ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
+                    ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
+                    ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
+                    ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
+                    ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
+                    ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
+                ])
+            with _snap_c3:
+                _kv_table("Dividends & growth", [
+                    ("DPS",         _dps_str),
+                    ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
+                    ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
+                    ("Ex-div",      _fv("exDividendDate")),
+                    ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
+                    ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
+                ])
         # ── Snapshot signals ──────────────────────────────────────────────
         _snap_tips = []
         _sc_v = row.get("Value Score"); _mos_v = row.get("MoS %"); _fv_v = row.get("fair_value")
@@ -2285,8 +1482,7 @@ setTimeout(wire, 80);
             dy = float(_dy_v) * 100
             if dy >= 4:    _snap_tips.append(("ok",      f"Dividend yield {dy:.2f}% — attractive income level."))
             elif dy >= 2:  _snap_tips.append(("neutral",  f"Dividend yield {dy:.2f}% — moderate income."))
-        if _snap_tips:
-            st.markdown(_signals_block(_snap_tips), unsafe_allow_html=True)
+        _render_signals(_snap_tips)
 
     # ── Tab 2: Price history ───────────────────────────────────────────────
     with _tab_hist:
@@ -2296,53 +1492,54 @@ setTimeout(wire, 80);
 
         import yfinance as yf
         _ticker_sym = str(row.get("Ticker", ""))
-        with st.spinner("Loading price history…"):
-            try:
-                _hist = yf.Ticker(_ticker_sym).history(period="2y")
-            except Exception:
-                _hist = pd.DataFrame()
-        if _hist.empty:
-            st.caption("No price history available.")
-        else:
-            _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
-            _fig_h = go.Figure()
-            _fig_h.add_trace(go.Scatter(
-                x=_hist.index, y=_hist["Close"],
-                mode="lines", name="Price",
-                line=dict(color="#1DD6A4", width=2),
-                fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
-            ))
-            if pd.notna(_fv_val):
-                _fig_h.add_hline(
-                    y=float(_fv_val),
-                    line=dict(color="#5B8FA8", width=1.5, dash="dash"),
-                    annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
-                    annotation_position="top left",
-                    annotation_font=dict(color=_c_axis, size=11),
+        with st.container(height=_DLG_TOP_H, border=False):
+            with st.spinner("Loading price history…"):
+                try:
+                    _hist = yf.Ticker(_ticker_sym).history(period="2y")
+                except Exception:
+                    _hist = pd.DataFrame()
+            if _hist.empty:
+                st.caption("No price history available.")
+            else:
+                _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
+                _fig_h = go.Figure()
+                _fig_h.add_trace(go.Scatter(
+                    x=_hist.index, y=_hist["Close"],
+                    mode="lines", name="Price",
+                    line=dict(color="#1DD6A4", width=2),
+                    fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
+                ))
+                if pd.notna(_fv_val):
+                    _fig_h.add_hline(
+                        y=float(_fv_val),
+                        line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                        annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                        annotation_position="top left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                if pd.notna(_at_val):
+                    _fig_h.add_hline(
+                        y=float(_at_val),
+                        line=dict(color=_c_invested, width=1.5, dash="dot"),
+                        annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
+                        annotation_position="bottom left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                _fig_h.update_layout(
+                    margin=dict(l=0, r=0, t=8, b=0),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                xanchor="left", x=0, font=dict(color=_c_axis)),
+                    yaxis=dict(tickprefix="€", tickformat=",.2f",
+                               tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+                    hovermode="x unified",
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
                 )
-            if pd.notna(_at_val):
-                _fig_h.add_hline(
-                    y=float(_at_val),
-                    line=dict(color=_c_invested, width=1.5, dash="dot"),
-                    annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
-                    annotation_position="bottom left",
-                    annotation_font=dict(color=_c_axis, size=11),
-                )
-            _fig_h.update_layout(
-                margin=dict(l=0, r=0, t=8, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                            xanchor="left", x=0, font=dict(color=_c_axis)),
-                yaxis=dict(tickprefix="€", tickformat=",.2f",
-                           tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
-                hovermode="x unified",
-                font=dict(color=_c_axis),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
-            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-            # ── Price history signals ─────────────────────────────────────
+                st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
+        # ── Price history signals ─────────────────────────────────────────
+        if not _hist.empty:
             _hist_tips = []
             if pd.notna(_price) and pd.notna(_fv_val):
                 _gap = (float(_fv_val) - float(_price)) / float(_price) * 100
@@ -2356,15 +1553,13 @@ setTimeout(wire, 80);
                 elif _at_gap >= 5: _hist_tips.append(("neutral", f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside."))
                 elif _at_gap >= 0: _hist_tips.append(("caution", f"Analyst target {_fmt_eur(float(_at_val))} is near current price — limited consensus upside."))
                 else:              _hist_tips.append(("warn",    f"Analyst target {_fmt_eur(float(_at_val))} is {abs(_at_gap):.1f}% below current price — analysts see downside."))
-            if not _hist.empty:
-                _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
-                _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
-                if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
-                elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
-                if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
-                elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
-            if _hist_tips:
-                st.markdown(_signals_block(_hist_tips), unsafe_allow_html=True)
+            _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
+            _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
+            if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
+            elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
+            if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
+            elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
+            _render_signals(_hist_tips)
 
     # ── Tab 3: Risk ───────────────────────────────────────────────────────
     with _tab_risk:
@@ -2372,38 +1567,15 @@ setTimeout(wire, 80);
 
         # ── Compute portfolio fit data first ──────────────────────────────
         _pf_tips: list[tuple[str, str]] = []
-        _pf_html = ""
+        _fit_rows: list[tuple[str, str]] = []
         if _has_pf:
             _pf_sector  = row.get("sector")
             _pf_country = row.get("country")
             _sw = pf_context["sector_weights"]
             _cw = pf_context["country_weights"]
 
-            def _fit_badge(label: str, value_str: str, severity: str) -> str:
-                if _ui_effective_light:
-                    colors = {
-                        "ok":      ("#0F6E56", "#E8F5F0",           "OK"),
-                        "caution": ("#854F0B", "#FDF0E8",           "NOTE"),
-                        "warn":    ("#A32D2D", "#FCEAEA",           "HIGH"),
-                        "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
-                    }
-                else:
-                    colors = {
-                        "ok":      ("#1DD6A4", "rgba(15,110,86,0.20)",  "OK"),
-                        "caution": ("#D4903A", "rgba(133,79,11,0.20)",  "NOTE"),
-                        "warn":    ("#E05C5C", "rgba(163,45,45,0.20)",  "HIGH"),
-                        "neutral": ("#9A9A95", "rgba(255,255,255,0.07)","—"),
-                    }
-                tc, bg, blabel = colors.get(severity, colors["neutral"])
-                return (
-                    f'<div class="uv-model-row" style="display:grid;padding:3px 0;'
-                    f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
-                    f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
-                    f'<span style="font-size:0.82rem;">{value_str}</span>'
-                    f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
-                    f'background:{bg};color:{tc};letter-spacing:0.05em;text-align:center;">'
-                    f'{blabel}</span></div>'
-                )
+            _fit_badges = {"ok": " :green-badge[OK]", "caution": " :orange-badge[NOTE]",
+                           "warn": " :red-badge[HIGH]", "neutral": ""}
 
             _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
             if not _pf_sector:
@@ -2439,28 +1611,25 @@ setTimeout(wire, 80);
                 _cnt_sev = "neutral"; _cnt_val = _pf_country
                 _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
 
-            _pf_html = (
-                '<div class="uv-section-label" style="margin-top:0;">Portfolio fit</div>'
-                + _fit_badge("Sector",  _sec_val, _sec_sev)
-                + _fit_badge("Country", _cnt_val, _cnt_sev)
-            )
+            _fit_rows = [
+                ("Sector",  f"{_sec_val}{_fit_badges.get(_sec_sev, '')}"),
+                ("Country", f"{_cnt_val}{_fit_badges.get(_cnt_sev, '')}"),
+            ]
             _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
 
-        # ── Single HTML grid — guarantees row alignment ───────────────────
-        _risk_rows_html = _rows_html([
-            ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
-            ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
-            ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
-            ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
-            ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
-        ])
-        st.markdown(
-            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">'
-            + f'<div><div class="uv-section-label" style="margin-top:0;">Risk & size</div>{_risk_rows_html}</div>'
-            + f'<div>{_pf_html}</div>'
-            + '</div>',
-            unsafe_allow_html=True,
-        )
+        with st.container(height=_DLG_TOP_H, border=False):
+            _rf_c1, _rf_c2 = st.columns(2, gap="large")
+            with _rf_c1:
+                _kv_table("Risk & size", [
+                    ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
+                    ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
+                    ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
+                    ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
+                    ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
+                ])
+            with _rf_c2:
+                if _fit_rows:
+                    _kv_table("Portfolio fit", _fit_rows)
 
         # ── Signals — right column ────────────────────────────────────────
         _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
@@ -2482,13 +1651,7 @@ setTimeout(wire, 80);
             elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate."))
             else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated."))
 
-        _all_tips = _risk_tips + _pf_tips
-        if _all_tips:
-            st.markdown(
-                '<div class="uv-section-label" style="margin-top:24px;">Signals</div>'
-                + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
-                unsafe_allow_html=True,
-            )
+        _render_signals(_risk_tips + _pf_tips)
 
 
     # ── Tab 4: Valuation ──────────────────────────────────────────────────
@@ -2505,40 +1668,39 @@ setTimeout(wire, 80);
             for lbl, field in _val_models
             if row.get(field) is not None and pd.notna(row.get(field))
         ]
-        if _valid_models and pd.notna(_price):
-            _vlabels = [lbl for lbl, _ in _valid_models]
-            _vvalues = [val for _, val in _valid_models]
-            _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
-            _fig_v   = go.Figure()
-            _fig_v.add_trace(go.Bar(
-                x=_vvalues, y=_vlabels, orientation="h",
-                marker_color=_vcolors,
-                text=[_fmt_eur(v) for v in _vvalues],
-                textposition="outside",
-                cliponaxis=False,
-            ))
-            _fig_v.add_vline(
-                x=float(_price),
-                line=dict(color=_c_axis, width=2),
-                annotation_text=f"Price {_fmt_eur(float(_price))}",
-                annotation_position="top",
-                annotation_font=dict(color=_c_axis, size=11),
-            )
-            _fig_v.update_layout(
-                margin=dict(l=0, r=80, t=28, b=8),
-                bargap=0.25,
-                xaxis=dict(tickprefix="€", tickformat=",.0f",
-                           tickfont=dict(color=_c_axis), showgrid=False),
-                yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                font=dict(color=_c_axis),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
-            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div style="min-height:220px"></div>', unsafe_allow_html=True)
-            st.caption("Not enough model data to render chart.")
+        with st.container(height=_DLG_TOP_H, border=False):
+            if _valid_models and pd.notna(_price):
+                _vlabels = [lbl for lbl, _ in _valid_models]
+                _vvalues = [val for _, val in _valid_models]
+                _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
+                _fig_v   = go.Figure()
+                _fig_v.add_trace(go.Bar(
+                    x=_vvalues, y=_vlabels, orientation="h",
+                    marker_color=_vcolors,
+                    text=[_fmt_eur(v) for v in _vvalues],
+                    textposition="outside",
+                    cliponaxis=False,
+                ))
+                _fig_v.add_vline(
+                    x=float(_price),
+                    line=dict(color=_c_axis, width=2),
+                    annotation_text=f"Price {_fmt_eur(float(_price))}",
+                    annotation_position="top",
+                    annotation_font=dict(color=_c_axis, size=11),
+                )
+                _fig_v.update_layout(
+                    margin=dict(l=0, r=80, t=28, b=8),
+                    bargap=0.25,
+                    xaxis=dict(tickprefix="€", tickformat=",.0f",
+                               tickfont=dict(color=_c_axis), showgrid=False),
+                    yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
+            else:
+                st.caption("Not enough model data to render chart.")
         # ── Model signals ─────────────────────────────────────────────────
         _mdl_tips = []
         _mdl_price = row.get("Price")
@@ -2570,11 +1732,10 @@ setTimeout(wire, 80);
                     elif diff >= 5:   _mdl_tips.append(("neutral", f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
                     elif diff >= -5:  _mdl_tips.append(("caution", f"{lbl} {_fmt_eur(v)} — near current price ({diff:+.1f}%)."))
                     else:             _mdl_tips.append(("warn",    f"{lbl} {_fmt_eur(v)} — {abs(diff):.1f}% below price."))
-        if _mdl_tips:
-            st.markdown(_signals_block(_mdl_tips), unsafe_allow_html=True)
+        _render_signals(_mdl_tips)
 
 
-if _page == "screener":
+def _page_screener() -> None:
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
@@ -2591,9 +1752,9 @@ if _page == "screener":
     if _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
         st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
-        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh")
     elif not _any_data:
-        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh")
 
     watchlist = load_watchlist()
 
@@ -2661,60 +1822,57 @@ if _page == "screener":
                 ),
             }
 
-    def _fmt_mos(v):
-        return "—" if pd.isna(v) else f"{v:+.1f}%"
-
-
-
     # ── Column groups ─────────────────────────────────────────────────────────
     # Core columns always shown; extra groups toggled via multiselect
+    # fmt=None → keep the raw (numeric) value; formatting is done by the
+    # column_config NumberColumn so sorting stays numeric.
     CORE_COLS = {
-        "★":           (None,         None),
-        "Company":     ("Name",       lambda v: v),
-        "Ticker":      ("Ticker",     lambda v: v),
-        "Price":             ("Price",           _fmt_eur),
-        "Analyst Target":   ("targetMeanPrice", _fmt_eur),
-        "UV":            ("fair_value",      _fmt_eur),
-        "MoS %":  ("MoS %", _fmt_mos),
-        "TER %":  ("TER %", lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-        "Score":  (None,    None),   # built row-by-row below from Decision + Value Score
+        "★":              (None,              None),
+        "Company":        ("Name",            None),
+        "Ticker":         ("Ticker",          None),
+        "Price":          ("Price",           None),
+        "Analyst Target": ("targetMeanPrice", None),
+        "UV":             ("fair_value",      None),
+        "MoS %":          ("MoS %",           None),
+        "TER %":          ("TER %",           None),
+        "Score":          (None,              None),   # built row-by-row below from Decision + Value Score
     }
 
     EXTRA_GROUPS = {
         "Valuation models": {
-            "Graham #":      ("graham_number",  _fmt_eur),
-            "PE Fair Val":   ("pe_fair_value",  _fmt_eur),
-            "EPV":           ("epv",            _fmt_eur),
-            "DDM (1-stage)": ("ddm",            _fmt_eur),
-            "DDM (2-stage)": ("ddm_multistage", _fmt_eur),
+            "Graham #":      ("graham_number",  None),
+            "PE Fair Val":   ("pe_fair_value",  None),
+            "EPV":           ("epv",            None),
+            "DDM (1-stage)": ("ddm",            None),
+            "DDM (2-stage)": ("ddm_multistage", None),
         },
         "Risk": {
-            "Risk Score":  ("Risk Score",        lambda v: v),
-            "Beta":        ("beta",              _f_f2),
-            "Debt/Equity": ("debtToEquity",      _f_f1),
-            "Mkt Cap":     ("Market Cap",        _fmt_mcap),
+            "Risk Score":  ("Risk Score",        None),
+            "Beta":        ("beta",              None),
+            "Debt/Equity": ("debtToEquity",      None),
+            "Mkt Cap":     ("Market Cap",        None),
         },
         "Multiples": {
-            "P/E":       ("trailingPE",        _f_f1),
-            "P/B":       ("priceToBook",        _f_f2),
-            "EV/EBITDA": ("enterpriseToEbitda", _f_f1),
+            "P/E":       ("trailingPE",         None),
+            "P/B":       ("priceToBook",        None),
+            "EV/EBITDA": ("enterpriseToEbitda", None),
         },
         "Quality": {
-            "ROE %":       ("returnOnEquity",   _f_pct1),
-            "ROA %":       ("returnOnAssets",   _f_pct1),
-            "Op Margin %": ("operatingMargins", _f_pct1),
-            "FCF Yield %": ("fcfYield",         _f_pct1),
+            "ROE %":       ("returnOnEquity",   None),
+            "ROA %":       ("returnOnAssets",   None),
+            "Op Margin %": ("operatingMargins", None),
+            "FCF Yield %": ("fcfYield",         None),
         },
         "Growth": {
-            "Rev Growth %": ("revenueGrowth",  _f_pct1),
-            "EPS Growth %": ("earningsGrowth", _f_pct1),
+            "Rev Growth %": ("revenueGrowth",  None),
+            "EPS Growth %": ("earningsGrowth", None),
         },
         "Dividends": {
-            "Div Yield":     ("dividendYield",            _f_pct2),
-            "5yr Avg Yield": ("fiveYearAvgDividendYield", _f_pct2),
-            "Payout Ratio":  ("payoutRatio",              _f_pct1),
-            "Cash Payout":   ("cashPayoutRatio",          _f_pct1),
-            "Div Coverage":  ("dividendCoverage",         _f_mult),
+            "Div Yield":     ("dividendYield",            None),
+            "5yr Avg Yield": ("fiveYearAvgDividendYield", None),
+            "Payout Ratio":  ("payoutRatio",              None),
+            "Cash Payout":   ("cashPayoutRatio",          None),
+            "Div Coverage":  ("dividendCoverage",         None),
             "Div Flag":      ("Div Flag",                 _fmt_div_flag),
             "Ex-Div Date":   ("exDividendDate",           _f_str),
             "Div Date":      ("dividendDate",             _f_str),
@@ -2728,31 +1886,46 @@ if _page == "screener":
     # Column config for every possible column — help= adds hover tooltip on header
     _ch = COLUMN_HELP.get  # shorthand
     _col_config_map = {
+        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
+           for g in EXTRA_GROUPS.values() for c in g},
         "★":             st.column_config.CheckboxColumn("★",             width=55,  pinned=True, help=_ch("★")),
         "Company":       st.column_config.TextColumn(    "Company",       width=180, pinned=True, help=_ch("Company")),
         "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
-        "Price":         st.column_config.TextColumn(    "Price",         width=80,  help=_ch("Price")),
-        "UV":         st.column_config.TextColumn(    "Fair Value",  width=90,  help=_ch("UV")),
-        "Analyst Target":st.column_config.TextColumn(    "Analyst Target",width=110, help=_ch("Analyst Target")),
-        "MoS %":         st.column_config.TextColumn(    "MoS %",         width=75,  help=_ch("MoS %")),
-        "TER %":         st.column_config.TextColumn(    "TER %",         width=75,  help=_ch("TER %")),
-        "Score":         st.column_config.TextColumn(     "Score",         width=110,
+        "Price":         st.column_config.NumberColumn(  "Price",         width=80,  format="euro",    help=_ch("Price")),
+        "UV":            st.column_config.NumberColumn(  "Fair Value",    width=90,  format="euro",    help=_ch("UV")),
+        "Analyst Target":st.column_config.NumberColumn(  "Analyst Target",width=110, format="euro",    help=_ch("Analyst Target")),
+        "MoS %":         st.column_config.NumberColumn(  "MoS %",         width=75,  format="%+.1f%%", help=_ch("MoS %")),
+        "TER %":         st.column_config.NumberColumn(  "TER %",         width=75,  format="%+.1f%%", help=_ch("TER %")),
+        "Score":         st.column_config.TextColumn(    "Score",         width=110,
                              help="BUY (>70) · MONITOR (40–70) · AVOID (<40)"),
-        "Risk Score":    st.column_config.ProgressColumn("Risk Score",    width=110,
-                             min_value=0, max_value=10,  format="%.1f",   help=_ch("Risk Score")),
-        "Mkt Cap":       st.column_config.TextColumn(    "Mkt Cap",       width=80,  help=_ch("Mkt Cap")),
-        "Beta":          st.column_config.TextColumn(    "Beta",          width=55,  help=_ch("Beta")),
-        "Debt/Equity":   st.column_config.TextColumn(    "Debt/Equity",   width=95,  help=_ch("Debt/Equity")),
-        "P/E":           st.column_config.TextColumn(    "P/E",           width=60,  help=_ch("P/E")),
-        "P/B":           st.column_config.TextColumn(    "P/B",           width=60,  help=_ch("P/B")),
-        "EV/EBITDA":     st.column_config.TextColumn(    "EV/EBITDA",     width=90,  help=_ch("EV/EBITDA")),
+        "Graham #":      st.column_config.NumberColumn("Graham #",      width=100, format="euro", help=_ch("Graham #")),
+        "PE Fair Val":   st.column_config.NumberColumn("PE Fair Val",   width=100, format="euro", help=_ch("PE Fair Val")),
+        "EPV":           st.column_config.NumberColumn("EPV",           width=100, format="euro", help=_ch("EPV")),
+        "DDM (1-stage)": st.column_config.NumberColumn("DDM (1-stage)", width=100, format="euro", help=_ch("DDM (1-stage)")),
+        "DDM (2-stage)": st.column_config.NumberColumn("DDM (2-stage)", width=100, format="euro", help=_ch("DDM (2-stage)")),
+        "Risk Score":    st.column_config.ProgressColumn("Risk Score",  width=110,
+                             min_value=0, max_value=10,  format="%.1f", help=_ch("Risk Score")),
+        "Mkt Cap":       st.column_config.NumberColumn(  "Mkt Cap",     width=80,  format="compact", help=_ch("Mkt Cap")),
+        "Beta":          st.column_config.NumberColumn(  "Beta",        width=55,  format="%.2f",    help=_ch("Beta")),
+        "Debt/Equity":   st.column_config.NumberColumn(  "Debt/Equity", width=95,  format="%.1f",    help=_ch("Debt/Equity")),
+        "P/E":           st.column_config.NumberColumn(  "P/E",         width=60,  format="%.1f",    help=_ch("P/E")),
+        "P/B":           st.column_config.NumberColumn(  "P/B",         width=60,  format="%.2f",    help=_ch("P/B")),
+        "EV/EBITDA":     st.column_config.NumberColumn(  "EV/EBITDA",   width=90,  format="%.1f",    help=_ch("EV/EBITDA")),
+        "ROE %":         st.column_config.NumberColumn("ROE %",         width=100, format="percent", help=_ch("ROE %")),
+        "ROA %":         st.column_config.NumberColumn("ROA %",         width=100, format="percent", help=_ch("ROA %")),
+        "Op Margin %":   st.column_config.NumberColumn("Op Margin %",   width=100, format="percent", help=_ch("Op Margin %")),
+        "FCF Yield %":   st.column_config.NumberColumn("FCF Yield %",   width=100, format="percent", help=_ch("FCF Yield %")),
+        "Rev Growth %":  st.column_config.NumberColumn("Rev Growth %",  width=100, format="percent", help=_ch("Rev Growth %")),
+        "EPS Growth %":  st.column_config.NumberColumn("EPS Growth %",  width=100, format="percent", help=_ch("EPS Growth %")),
+        "Div Yield":     st.column_config.NumberColumn("Div Yield",     width=100, format="percent", help=_ch("Div Yield")),
+        "5yr Avg Yield": st.column_config.NumberColumn("5yr Avg Yield", width=100, format="percent", help=_ch("5yr Avg Yield")),
+        "Payout Ratio":  st.column_config.NumberColumn("Payout Ratio",  width=100, format="percent", help=_ch("Payout Ratio")),
+        "Cash Payout":   st.column_config.NumberColumn("Cash Payout",   width=100, format="percent", help=_ch("Cash Payout")),
+        "Div Coverage":  st.column_config.NumberColumn("Div Coverage",  width=100, format="%.2f×",   help=_ch("Div Coverage")),
         "Sector":        st.column_config.TextColumn("Sector",      width=150),
         "Country":       st.column_config.TextColumn("Country",     width=120),
         "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105),
         "Div Date":      st.column_config.TextColumn("Div Date",    width=95),
-        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
-           for g in EXTRA_GROUPS.values() for c in g
-           if c not in ("Risk Score", "Sector", "Country")},
     }
 
     def _render_table(tab_df, key_suffix, score_key=None, score_default=None, extra_toolbar_action=None):
@@ -2797,44 +1970,37 @@ if _page == "screener":
         tab_df.index = range(1, n_shown + 1)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        if extra_toolbar_action:
-            _vc, _ac, _bc, _, _sc, _fc = st.columns([1, 1, 1, 2, 2, 2], gap="small")
-        else:
-            _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
+        with st.container(horizontal=True, vertical_alignment="center",
+                          horizontal_alignment="distribute"):
+            with st.container(horizontal=True, gap="small", width="content"):
+                _active = st.session_state.get(_grp_key, [])
+                _view_label = f"View ({len(_active)})" if _active else "View"
+                if st.button(_view_label, key=f"btn_view_{key_suffix}"):
+                    _dlg_view()
 
-        with _vc:
-            _active = st.session_state.get(_grp_key, [])
-            _view_label = f"View ({len(_active)})" if _active else "View"
-            if st.button(_view_label, key=f"btn_view_{key_suffix}"):
-                _dlg_view()
+                if extra_toolbar_action:
+                    _btn_label, _btn_cb = extra_toolbar_action
+                    if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
+                        _btn_cb()
 
-        if extra_toolbar_action:
-            _btn_label, _btn_cb = extra_toolbar_action
-            with _ac:
-                if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
-                    _btn_cb()
+                if st.button("Buy", key=f"btn_buy_{key_suffix}"):
+                    _dlg_buy_screener()
 
-        with _bc:
-            if st.button("Buy", key=f"btn_buy_{key_suffix}"):
-                _dlg_buy_screener()
+            with st.container(horizontal=True, gap="small", width="content"):
+                _sec_cur = st.session_state.get(_sector_key, "All sectors")
+                if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
+                    _sec_cur = "All sectors"
+                with st.popover(_sec_cur, width=220):
+                    _sec_opts = ["All sectors"] + _sector_vals
+                    st.radio("Sector filter", _sec_opts,
+                             index=_sec_opts.index(_sec_cur),
+                             key=_sector_key, label_visibility="collapsed")
 
-        with _sc:
-            _sec_cur = st.session_state.get(_sector_key, "All sectors")
-            if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
-                _sec_cur = "All sectors"
-            with st.popover(_sec_cur, width="stretch"):
-                _sec_opts = ["All sectors"] + _sector_vals
-                st.radio("Sector filter", _sec_opts,
-                         index=_sec_opts.index(_sec_cur),
-                         key=_sector_key, label_visibility="collapsed")
-
-        with _fc:
-            if score_key:
-                _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-                with st.popover(_sf_cur, width="stretch"):
-                    st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
-                             key=score_key, label_visibility="collapsed")
+                if score_key:
+                    _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
+                    with st.popover(_sf_cur, width=220):
+                        st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
+                                 key=score_key, label_visibility="collapsed")
 
         selected_groups = st.session_state.get(_grp_key, [])
 
@@ -2852,22 +2018,24 @@ if _page == "screener":
             p = _score_prefix.get(row.get("Decision", ""), "")
             return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
-        # Build the display DataFrame from core cols + selected extras
-        display_data = {"→": [False] * len(tab_df)}
-        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
+        # Build the display DataFrame from core cols + selected extras.
+        # fmt=None keeps raw numeric values (formatted by NumberColumn config).
+        def _col_values(field, fmt):
+            if field not in tab_df.columns:
+                return pd.Series([pd.NA] * len(tab_df)).values
+            return (tab_df[field] if fmt is None else tab_df[field].map(fmt)).values
+
+        display_data = {}
+        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★ (watchlist lives in the dialog)
             if col == "Score":
                 display_data[col] = tab_df.apply(_fmt_score, axis=1).values
-            elif field in tab_df.columns:
-                display_data[col] = tab_df[field].map(fmt).values
             else:
-                display_data[col] = "—"
+                display_data[col] = _col_values(field, fmt)
 
         active_extra_cols = []
         for group in selected_groups:
             for col, (field, fmt) in EXTRA_GROUPS[group].items():
-                display_data[col] = (
-                    tab_df[field].map(fmt).values if field in tab_df.columns else "—"
-                )
+                display_data[col] = _col_values(field, fmt)
                 active_extra_cols.append(col)
 
         display_df = pd.DataFrame(display_data)
@@ -2880,25 +2048,22 @@ if _page == "screener":
                 **{"background-color": "rgba(99, 102, 241, 0.07)"},
             )
 
-        all_data_cols = list(display_data.keys())
-        col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        col_config["→"] = st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True)
-        disabled_cols = [c for c in all_data_cols if c != "→"]
+        col_config = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
 
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
 
-        edited = st.data_editor(
+        _sel_idx = _row_select_table(
             display_df,
+            key=_tbl_key,
             width="stretch",
             hide_index=True,
             column_config=col_config,
-            disabled=disabled_cols,
             height=_height,
-            key=_tbl_key,
         )
-        return edited, n_shown, key_suffix
+        _sel_ticker = display_data["Ticker"][_sel_idx] if _sel_idx is not None else None
+        return _sel_ticker, n_shown, key_suffix
 
     # ── Buy dialog (shared across all screener tabs) ──────────────────────────
     _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
@@ -3028,30 +2193,26 @@ if _page == "screener":
                 st.info("Open any stock's details popup and click ★ to add it to your watchlist, "
                         "or use **Add** to add a stock from any market.")
             else:
-                st.markdown(f"**{len(wl_df)}** stocks · click → to view details")
-        wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
+                st.markdown(f"**{len(wl_df)}** stocks · click a row to view details")
+        _wl_sel_ticker, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
                                          score_key="wl_score_filter",
                                          score_default=_SCORE_OPTIONS[3],
                                          extra_toolbar_action=("Add", _dlg_add_ticker))
         _wl_star = st.session_state.get("_dlg_star_rerun", False)
         _wl_src  = st.session_state.get("_dlg_open_src", "")
-        if "→" in wl_edited.columns and wl_edited["→"].any():
-            _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
-            _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
+        if _wl_sel_ticker is not None:
+            _wl_sel_rows = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
             if not _wl_sel_rows.empty:
-                _wl_tbl_ss = st.session_state.get("table_watchlist", {})
-                if isinstance(_wl_tbl_ss, dict):
-                    _wl_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                 st.session_state["_dlg_open_src"]    = "watchlist"
-                _dlg_pending.append((_wl_sel_rows.iloc[0], _tok_qs, None))
+                _dlg_pending.append((_wl_sel_rows.iloc[0], None))
         elif _wl_star and _wl_src == "watchlist":
             st.session_state.pop("_dlg_star_rerun", None)
             _t = st.session_state.get("_dlg_open_ticker")
             if _t:
                 _r = wl_df[wl_df["Ticker"] == _t]
                 if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], _tok_qs, None))
+                    _dlg_pending.append((_r.iloc[0], None))
         elif not _wl_star and _wl_src == "watchlist":
             st.session_state.pop("_dlg_open_ticker", None)
             st.session_state.pop("_dlg_open_src", None)
@@ -3080,35 +2241,31 @@ if _page == "screener":
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
 
-        edited, n_shown, _tbl_key = _render_table(tab_df, key,
+        _sel_ticker, n_shown, _tbl_key = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
 
         _ex_star = st.session_state.get("_dlg_star_rerun", False)
         _ex_src  = st.session_state.get("_dlg_open_src", "")
-        if "→" in edited.columns and edited["→"].any():
-            _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
-            _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
+        if _sel_ticker is not None:
+            _sel_rows = tab_df[tab_df["Ticker"] == _sel_ticker]
             if not _sel_rows.empty:
-                _ex_tbl_ss = st.session_state.get(f"table_{key}", {})
-                if isinstance(_ex_tbl_ss, dict):
-                    _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
-                _dlg_pending.append((_sel_rows.iloc[0], _tok_qs, _scr_pf_context))
+                _dlg_pending.append((_sel_rows.iloc[0], _scr_pf_context))
         elif _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_star_rerun", None)
             _t = st.session_state.get("_dlg_open_ticker")
             if _t:
                 _r = tab_df[tab_df["Ticker"] == _t]
                 if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], _tok_qs, _scr_pf_context))
+                    _dlg_pending.append((_r.iloc[0], _scr_pf_context))
         elif not _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_open_ticker", None)
             st.session_state.pop("_dlg_open_src", None)
 
         with cnt_col:
-            st.markdown(f"**{n_shown}** stocks · click → to view details")
+            st.markdown(f"**{n_shown}** stocks · click a row to view details")
 
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
@@ -3122,7 +2279,7 @@ if _page == "screener":
 # PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "portfolio":
+def _page_portfolio() -> None:
 
     # ── Load saved portfolio ───────────────────────────────────────────────────
     pf = load_portfolio()
@@ -3203,7 +2360,7 @@ if _page == "portfolio":
             })
             st.rerun()
 
-    st_autorefresh(interval=60_000, key="portfolio_refresh")
+    _auto_rerun(60, "portfolio_refresh")
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
@@ -3359,48 +2516,50 @@ if _page == "portfolio":
                     st.rerun()
 
         # ── Column groups (same groups as screener) ───────────────────────────
+        # Numeric values stay raw — formatting comes from the NumberColumn
+        # config below so column sorting is numeric.
         _POS_EXTRA_GROUPS = {
             "Valuation": {
-                "Analyst Target":      pf["analyst_target"].map(_fmt_eur),
-                "Fair Value":          pf["fair_value"].map(_fmt_eur),
+                "Analyst Target":      pf["analyst_target"],
+                "Fair Value":          pf["fair_value"],
                 "Fair Value Upside %": pf["fv_upside_pct"],
             },
             "Valuation models": {
-                "Graham #":      _scr_col("graham_number").map(_fmt_eur),
-                "PE Fair Val":   _scr_col("pe_fair_value").map(_fmt_eur),
-                "EPV":           _scr_col("epv").map(_fmt_eur),
-                "DDM (1-stage)": _scr_col("ddm").map(_fmt_eur),
-                "DDM (2-stage)": _scr_col("ddm_multistage").map(_fmt_eur),
+                "Graham #":      _scr_col("graham_number"),
+                "PE Fair Val":   _scr_col("pe_fair_value"),
+                "EPV":           _scr_col("epv"),
+                "DDM (1-stage)": _scr_col("ddm"),
+                "DDM (2-stage)": _scr_col("ddm_multistage"),
             },
             "Risk": {
                 "Risk Score":  _scr_col("Risk Score"),
-                "Beta":        _scr_col("beta").map(_f_f2),
-                "Debt/Equity": _scr_col("debtToEquity").map(_f_f1),
-                "Mkt Cap":     _scr_col("Market Cap").map(_fmt_mcap),
+                "Beta":        _scr_col("beta"),
+                "Debt/Equity": _scr_col("debtToEquity"),
+                "Mkt Cap":     _scr_col("Market Cap"),
             },
             "Multiples": {
-                "P/E":       _scr_col("trailingPE").map(_f_f1),
-                "P/B":       _scr_col("priceToBook").map(_f_f2),
-                "EV/EBITDA": _scr_col("enterpriseToEbitda").map(_f_f1),
+                "P/E":       _scr_col("trailingPE"),
+                "P/B":       _scr_col("priceToBook"),
+                "EV/EBITDA": _scr_col("enterpriseToEbitda"),
             },
             "Quality": {
-                "ROE %":       _scr_col("returnOnEquity").map(_f_pct1),
-                "ROA %":       _scr_col("returnOnAssets").map(_f_pct1),
-                "Op Margin %": _scr_col("operatingMargins").map(_f_pct1),
-                "FCF Yield %": _scr_col("fcfYield").map(_f_pct1),
+                "ROE %":       _scr_col("returnOnEquity"),
+                "ROA %":       _scr_col("returnOnAssets"),
+                "Op Margin %": _scr_col("operatingMargins"),
+                "FCF Yield %": _scr_col("fcfYield"),
             },
             "Growth": {
-                "Rev Growth %": _scr_col("revenueGrowth").map(_f_pct1),
-                "EPS Growth %": _scr_col("earningsGrowth").map(_f_pct1),
+                "Rev Growth %": _scr_col("revenueGrowth"),
+                "EPS Growth %": _scr_col("earningsGrowth"),
             },
             "Dividends": {
-                "Div/Share":       pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
-                "Expected Annual": pf["expected_annual"].map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-                "Div Yield":       _scr_col("dividendYield").map(_f_pct2),
-                "5yr Avg Yield":   _scr_col("fiveYearAvgDividendYield").map(_f_pct2),
-                "Payout Ratio":    _scr_col("payoutRatio").map(_f_pct1),
-                "Cash Payout":     _scr_col("cashPayoutRatio").map(_f_pct1),
-                "Div Coverage":    _scr_col("dividendCoverage").map(_f_mult),
+                "Div/Share":       pf["div_rate"],
+                "Expected Annual": pf["expected_annual"],
+                "Div Yield":       _scr_col("dividendYield"),
+                "5yr Avg Yield":   _scr_col("fiveYearAvgDividendYield"),
+                "Payout Ratio":    _scr_col("payoutRatio"),
+                "Cash Payout":     _scr_col("cashPayoutRatio"),
+                "Div Coverage":    _scr_col("dividendCoverage"),
                 "Div Flag":        _scr_col("Div Flag").map(_fmt_div_flag),
             },
             "Geography": {
@@ -3466,20 +2625,15 @@ if _page == "portfolio":
                 )
                 st.rerun()
 
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _c1, _c2, _c3, _c4, _ = st.columns([1, 1, 1, 1, 5], gap="small")
-        with _c1:
+        with st.container(horizontal=True, gap="small"):
             _active_groups = st.session_state.get("pos_col_groups", [])
             _col_label = f"View ({len(_active_groups)})" if _active_groups else "View"
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
-        with _c2:
             if st.button("Buy", key="btn_add_pos"):
                 _dlg_add_position()
-        with _c3:
             if st.button("Edit", key="btn_edit_pos"):
                 _dlg_edit_position()
-        with _c4:
             if st.button("Sell", key="btn_sell_pos"):
                 _dlg_sell_position()
 
@@ -3494,13 +2648,13 @@ if _page == "portfolio":
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Signal":         pf["ticker"].map(lambda t: _signal_labels.get(_decision_map.get(t, ""), "—")),
-            "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
+            "Shares":         pf["shares"],
             "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
-            "Live Price":     pf["live_price"].map(_fmt_eur),
-            "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-            "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            "Live Price":     pf["live_price"],
+            "Invested":       pf["purchase_value"],
+            "Current":        pf["current_value"],
             "Price Gain":     pf["price_gain"],
-            "Dividend":       pf["dividends"].fillna(0).map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
+            "Dividend":       pf["dividends"].fillna(0),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
         }
@@ -3512,29 +2666,28 @@ if _page == "portfolio":
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
-        positions.insert(0, "→", False)
 
+        _scr_help = COLUMN_HELP.get
         _pos_col_config = {
-            "→":              st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
             "Company":        st.column_config.TextColumn("Company",         pinned=True,
                                   help="Company name"),
             "Ticker":         st.column_config.TextColumn("Ticker",
                                   help="Exchange ticker symbol"),
             "Signal":         st.column_config.TextColumn("Signal",          width=90,
                                   help="Current fair value signal for this holding: BUY · MONITOR · AVOID"),
-            "Shares":         st.column_config.TextColumn("Shares",
+            "Shares":         st.column_config.NumberColumn("Shares",        format="%d",
                                   help="Number of shares held"),
             "Buy Date":       st.column_config.TextColumn("Buy Date",
                                   help="Date the position was opened"),
-            "Live Price":     st.column_config.TextColumn("Live Price",
+            "Live Price":     st.column_config.NumberColumn("Live Price",    format="euro",
                                   help="Latest market price fetched from yfinance"),
-            "Invested":       st.column_config.TextColumn("Invested",
+            "Invested":       st.column_config.NumberColumn("Invested",      format="euro",
                                   help="Total amount invested (purchase price × shares)"),
-            "Current":        st.column_config.TextColumn("Current",
+            "Current":        st.column_config.NumberColumn("Current",       format="euro",
                                   help="Current market value (live price × shares)"),
             "Price Gain":     st.column_config.NumberColumn("Price Gain (€)", format="€%.0f",
                                   help="Unrealised gain/loss in euros: current value − invested"),
-            "Dividend":       st.column_config.TextColumn("Dividend",
+            "Dividend":       st.column_config.NumberColumn("Dividend",      format="euro",
                                   help="Total dividends received for this position since purchase"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%",
                                   help="Price appreciation since purchase: (current value − invested) / invested"),
@@ -3542,14 +2695,36 @@ if _page == "portfolio":
                                   help="Total return including dividends: (price gain + dividends) / invested"),
             "Fair Value Upside %": st.column_config.NumberColumn("Fair Value Upside %", format="%+.1f%%",
                                   help="Upside to the fair value estimate: (fair value − live price) / live price"),
-            "Analyst Target": st.column_config.TextColumn("Analyst Target",
+            "Analyst Target": st.column_config.NumberColumn("Analyst Target", format="euro",
                                   help="Mean analyst consensus price target"),
-            "Upside %":       st.column_config.NumberColumn("Upside %",       format="%+.1f%%",
-                                  help="Upside to the analyst consensus target: (target − live price) / live price"),
-            "Day Chg %":      st.column_config.TextColumn("Day Chg %",
-                                  help="Intraday price change vs previous close"),
-            "Div/Yr":         st.column_config.TextColumn("Div/Yr",
-                                  help="Expected annual dividend income from this position (forward rate × shares)"),
+            "Fair Value":     st.column_config.NumberColumn("Fair Value",     format="euro",
+                                  help="Weighted composite intrinsic value estimate"),
+            "Graham #":       st.column_config.NumberColumn("Graham #",       format="euro", help=_scr_help("Graham #")),
+            "PE Fair Val":    st.column_config.NumberColumn("PE Fair Val",    format="euro", help=_scr_help("PE Fair Val")),
+            "EPV":            st.column_config.NumberColumn("EPV",            format="euro", help=_scr_help("EPV")),
+            "DDM (1-stage)":  st.column_config.NumberColumn("DDM (1-stage)",  format="euro", help=_scr_help("DDM (1-stage)")),
+            "DDM (2-stage)":  st.column_config.NumberColumn("DDM (2-stage)",  format="euro", help=_scr_help("DDM (2-stage)")),
+            "Beta":           st.column_config.NumberColumn("Beta",           format="%.2f",    help=_scr_help("Beta")),
+            "Debt/Equity":    st.column_config.NumberColumn("Debt/Equity",    format="%.1f",    help=_scr_help("Debt/Equity")),
+            "Mkt Cap":        st.column_config.NumberColumn("Mkt Cap",        format="compact", help=_scr_help("Mkt Cap")),
+            "P/E":            st.column_config.NumberColumn("P/E",            format="%.1f",    help=_scr_help("P/E")),
+            "P/B":            st.column_config.NumberColumn("P/B",            format="%.2f",    help=_scr_help("P/B")),
+            "EV/EBITDA":      st.column_config.NumberColumn("EV/EBITDA",      format="%.1f",    help=_scr_help("EV/EBITDA")),
+            "ROE %":          st.column_config.NumberColumn("ROE %",          format="percent", help=_scr_help("ROE %")),
+            "ROA %":          st.column_config.NumberColumn("ROA %",          format="percent", help=_scr_help("ROA %")),
+            "Op Margin %":    st.column_config.NumberColumn("Op Margin %",    format="percent", help=_scr_help("Op Margin %")),
+            "FCF Yield %":    st.column_config.NumberColumn("FCF Yield %",    format="percent", help=_scr_help("FCF Yield %")),
+            "Rev Growth %":   st.column_config.NumberColumn("Rev Growth %",   format="percent", help=_scr_help("Rev Growth %")),
+            "EPS Growth %":   st.column_config.NumberColumn("EPS Growth %",   format="percent", help=_scr_help("EPS Growth %")),
+            "Div/Share":      st.column_config.NumberColumn("Div/Share",      format="€%.4f",
+                                  help="Forward dividend rate per share"),
+            "Expected Annual":st.column_config.NumberColumn("Expected Annual", format="euro",
+                                  help="Expected annual dividend income (forward rate × shares)"),
+            "Div Yield":      st.column_config.NumberColumn("Div Yield",      format="percent", help=_scr_help("Div Yield")),
+            "5yr Avg Yield":  st.column_config.NumberColumn("5yr Avg Yield",  format="percent", help=_scr_help("5yr Avg Yield")),
+            "Payout Ratio":   st.column_config.NumberColumn("Payout Ratio",   format="percent", help=_scr_help("Payout Ratio")),
+            "Cash Payout":    st.column_config.NumberColumn("Cash Payout",    format="percent", help=_scr_help("Cash Payout")),
+            "Div Coverage":   st.column_config.NumberColumn("Div Coverage",   format="%.2f×",   help=_scr_help("Div Coverage")),
             "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f",
                                   help="Fair value composite score 0–100. BUY >70 · MONITOR 40–70 · AVOID <40"),
             "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f",
@@ -3559,23 +2734,31 @@ if _page == "portfolio":
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
-        _pf_pos_edited = st.data_editor(
+        _pf_sel_idx = _row_select_table(
             positions,
+            key="pf_positions_table",
             width="stretch",
             hide_index=True,
             column_config=_pos_col_config,
-            disabled=[c for c in positions.columns if c != "→"],
             height=_height,
-            key="pf_positions_table",
         )
-        if _pf_pos_edited["→"].any():
-            _pf_sel = _pf_pos_edited.loc[_pf_pos_edited["→"], "Ticker"].iloc[0]
+        if _pf_sel_idx is not None:
+            _pf_sel = positions["Ticker"].iloc[_pf_sel_idx]
             _pf_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _pf_sel]
             if not _pf_scr_row.empty:
-                _pf_tbl_ss = st.session_state.get("pf_positions_table", {})
-                if isinstance(_pf_tbl_ss, dict):
-                    _pf_tbl_ss["edited_rows"] = {}
-                _pf_dlg_pending.append((_pf_scr_row.iloc[0], _tok_qs, None))
+                st.session_state["_dlg_open_ticker"] = _pf_sel
+                st.session_state["_dlg_open_src"]    = "pf_positions"
+                _pf_dlg_pending.append((_pf_scr_row.iloc[0], None))
+        elif st.session_state.get("_dlg_open_src") == "pf_positions":
+            # Keep the dialog open across the rerun caused by the watchlist star
+            if st.session_state.pop("_dlg_star_rerun", False):
+                _t = st.session_state.get("_dlg_open_ticker")
+                _r = _all_scr_df[_all_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                if not _r.empty:
+                    _pf_dlg_pending.append((_r.iloc[0], None))
+            else:
+                st.session_state.pop("_dlg_open_ticker", None)
+                st.session_state.pop("_dlg_open_src", None)
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
         _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
@@ -3604,7 +2787,6 @@ if _page == "portfolio":
             _hm_df = _hm_df.dropna(subset=["_ret", "current_value"])
 
             if not _hm_df.empty:
-                import plotly.graph_objects as go
                 _clamp  = 10.0
                 _normed = _hm_df["_ret"].clip(-_clamp, _clamp) / _clamp
                 _colors = [_hm_color(v) for v in _normed]
@@ -3652,7 +2834,6 @@ if _page == "portfolio":
 
             _vh = load_value_history()
             if _vh is not None and not _vh.empty and len(_vh) >= 2:
-                import plotly.graph_objects as go
                 _vh["date"]     = pd.to_datetime(_vh["date"])
                 _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
                 _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
@@ -3754,7 +2935,7 @@ if _page == "portfolio":
         d2.metric("Current holdings", f"€{total_dividends:,.2f}")
         d3.metric("Expected 12 mths", f"€{total_expected:,.2f}")
         d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
-        st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+        st.container(height=28, border=False)
         st.divider()
 
         # ── Dividend CRUD dialogs ─────────────────────────────────────────────
@@ -3874,23 +3055,21 @@ if _page == "portfolio":
                     update_div_hist(new_dh)
                     st.rerun()
 
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-
         # Compute year options here so the selectbox can live in the toolbar row
         _div_years        = sorted(div_hist["date"].dt.year.dropna().unique().astype(int), reverse=True) if div_hist is not None and not div_hist.empty else []
         _div_year_options = ["All"] + _div_years
         _div_year_default = _div_year_options.index(datetime.now().year) if datetime.now().year in _div_year_options else 0
 
-        _da1, _da2, _da_gap, _da_filter = st.columns([1, 1, 5, 2], gap="small")
-        with _da1:
-            if st.button("Add", key="btn_add_div"):
-                _dlg_add_dividend()
-        with _da2:
-            if st.button("Edit", key="btn_edit_div"):
-                _dlg_edit_dividends()
-        with _da_filter:
+        with st.container(horizontal=True, vertical_alignment="center",
+                          horizontal_alignment="distribute"):
+            with st.container(horizontal=True, gap="small", width="content"):
+                if st.button("Add", key="btn_add_div"):
+                    _dlg_add_dividend()
+                if st.button("Edit", key="btn_edit_div"):
+                    _dlg_edit_dividends()
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
-                                         key="div_year_filter", label_visibility="collapsed")
+                                         key="div_year_filter", label_visibility="collapsed",
+                                         width=160)
 
         # Full dividend payment history
         if div_hist is not None and not div_hist.empty:
@@ -3908,11 +3087,11 @@ if _page == "portfolio":
             hist_display = pd.DataFrame({
                 "Company":   hist_table["name"],
                 "Ticker":    hist_table["ticker"],
-                "Shares":    hist_shares.map(lambda v: f"{v:.0f}" if pd.notna(v) else "—") if hist_shares is not None else "—",
-                "Div/Share": div_per_share.map(lambda v: f"€{v:.4f}" if pd.notna(v) else "—") if div_per_share is not None else "—",
-                "Gross":     gross.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-                "Tax (30%)": tax.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-                "Net":       net.map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
+                "Shares":    hist_shares if hist_shares is not None else None,
+                "Div/Share": div_per_share if div_per_share is not None else None,
+                "Gross":     gross,
+                "Tax (30%)": tax,
+                "Net":       net,
                 "Date":      hist_table["date"].dt.strftime("%d-%m-%Y"),
             })
             st.dataframe(hist_display, width="stretch", hide_index=True,
@@ -3922,15 +3101,15 @@ if _page == "portfolio":
                                               help="Company name"),
                              "Ticker":    st.column_config.TextColumn("Ticker",
                                               help="Exchange ticker symbol"),
-                             "Shares":    st.column_config.TextColumn("Shares",
+                             "Shares":    st.column_config.NumberColumn("Shares",    format="%d",
                                               help="Number of shares held at the time of the dividend payment"),
-                             "Div/Share": st.column_config.TextColumn("Div/Share",
+                             "Div/Share": st.column_config.NumberColumn("Div/Share", format="€%.4f",
                                               help="Dividend per share = total amount ÷ shares"),
-                             "Gross":     st.column_config.TextColumn("Gross",
+                             "Gross":     st.column_config.NumberColumn("Gross",     format="euro",
                                               help="Total gross dividend received before tax"),
-                             "Tax (30%)": st.column_config.TextColumn("Tax (30%)",
+                             "Tax (30%)": st.column_config.NumberColumn("Tax (30%)", format="euro",
                                               help="Belgian withholding tax estimated at 30% of gross dividend"),
-                             "Net":       st.column_config.TextColumn("Net",
+                             "Net":       st.column_config.NumberColumn("Net",       format="euro",
                                               help="Net dividend after 30% withholding tax"),
                              "Date":      st.column_config.TextColumn("Date",
                                               help="Date the dividend was received or recorded"),
@@ -4050,51 +3229,45 @@ if _page == "portfolio":
                         save_sold(_sold_updated)
                         st.rerun()
 
-            st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-            _se1, _ = st.columns([1, 8], gap="small")
-            with _se1:
-                if st.button("Edit", key="btn_edit_sold"):
-                    _dlg_edit_sold()
+            if st.button("Edit", key="btn_edit_sold"):
+                _dlg_edit_sold()
 
             _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
             sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
 
             sold_table = pd.DataFrame({
-                "→":               False,
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
-                "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-                "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-                "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-                "Price Gain":      sold["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
-                "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
+                "Shares":          pd.to_numeric(sold["shares"], errors="coerce"),
+                "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce"),
+                "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce"),
+                "Price Gain":      sold["price_gain"],
+                "Dividends":       sold["dividends"],
                 "Price Gain %":    sold["price_gain_pct"],
                 "Annual Return %": sold["annual_return_pct"],
                 "Buy Date":        pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
                 "Sell Date":       sold["_sort_date"].dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
-            _sold_edited = st.data_editor(
+            _sold_sel_idx = _row_select_table(
                 sold_table,
+                key="pf_sold_table",
                 width="stretch",
                 hide_index=True,
-                disabled=[c for c in sold_table.columns if c != "→"],
-                key="pf_sold_table",
                 column_config={
-                    "→":               st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                     "Company":         st.column_config.TextColumn("Company",           pinned=True,
                                            help="Company name"),
                     "Ticker":          st.column_config.TextColumn("Ticker",
                                            help="Exchange ticker symbol"),
-                    "Shares":          st.column_config.TextColumn("Shares",
+                    "Shares":          st.column_config.NumberColumn("Shares",     format="%d",
                                            help="Number of shares sold"),
-                    "Invested":        st.column_config.TextColumn("Invested",
+                    "Invested":        st.column_config.NumberColumn("Invested",   format="euro",
                                            help="Total amount originally invested (purchase price × shares)"),
-                    "Proceeds":        st.column_config.TextColumn("Proceeds",
+                    "Proceeds":        st.column_config.NumberColumn("Proceeds",   format="euro",
                                            help="Total sale proceeds received"),
-                    "Price Gain":      st.column_config.TextColumn("Price Gain",
+                    "Price Gain":      st.column_config.NumberColumn("Price Gain", format="€%+.0f",
                                            help="Absolute price gain/loss: proceeds − invested"),
-                    "Dividends":       st.column_config.TextColumn("Dividends",
+                    "Dividends":       st.column_config.NumberColumn("Dividends",  format="euro",
                                            help="Total dividends collected while the position was held"),
                     "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%",
                                            help="Price gain as a percentage of the original investment"),
@@ -4107,14 +3280,22 @@ if _page == "portfolio":
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
-            if _sold_edited["→"].any():
-                _sold_sel = _sold_edited.loc[_sold_edited["→"], "Ticker"].iloc[0]
+            if _sold_sel_idx is not None:
+                _sold_sel = sold_table["Ticker"].iloc[_sold_sel_idx]
                 _sold_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _sold_sel]
                 if not _sold_scr_row.empty:
-                    _sold_tbl_ss = st.session_state.get("pf_sold_table", {})
-                    if isinstance(_sold_tbl_ss, dict):
-                        _sold_tbl_ss["edited_rows"] = {}
-                    _pf_dlg_pending.append((_sold_scr_row.iloc[0], _tok_qs, None))
+                    st.session_state["_dlg_open_ticker"] = _sold_sel
+                    st.session_state["_dlg_open_src"]    = "pf_sold"
+                    _pf_dlg_pending.append((_sold_scr_row.iloc[0], None))
+            elif st.session_state.get("_dlg_open_src") == "pf_sold":
+                if st.session_state.pop("_dlg_star_rerun", False):
+                    _t = st.session_state.get("_dlg_open_ticker")
+                    _r = _all_scr_df[_all_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                    if not _r.empty:
+                        _pf_dlg_pending.append((_r.iloc[0], None))
+                else:
+                    st.session_state.pop("_dlg_open_ticker", None)
+                    st.session_state.pop("_dlg_open_src", None)
 
             st.divider()
             st.subheader("Realised return per position")
@@ -4133,7 +3314,7 @@ if _page == "portfolio":
 # PAGE — SETTINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "settings":
+def _page_settings() -> None:
     if _is_admin:
         tab_admin, tab_screener, tab_backup, tab_import, tab_export, tab_appearance = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export", "Appearance"])
     else:
@@ -4240,23 +3421,14 @@ if _page == "settings":
 
     with tab_appearance:
         st.subheader("Appearance")
-        _ap_prefs   = load_settings(_email) if _email else {}
-        _cur_theme  = _ap_prefs.get("ui_theme", "dark")
-        _theme_choice = st.radio("Theme", ["dark", "light"],
-                                 format_func=lambda x: x.capitalize(),
-                                 index=0 if _cur_theme == "dark" else 1,
-                                 horizontal=True, key="ap_theme_radio")
-        if st.button("Save", type="primary", key="btn_save_appearance"):
-            _ap_prefs["ui_theme"] = _theme_choice
-            save_settings(_ap_prefs, _email)
-            st.success("Saved.")
-            st.rerun()
+        st.caption("The theme follows your system preference. To override it, open the "
+                   "app menu (top-right **⋮ → Settings → Theme**) and pick Light or Dark.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — HELP
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "help":
+def _page_help() -> None:
     _render_help()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4264,36 +3436,14 @@ if _page == "help":
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _trigger_card(msg: str, kind: str = "hard") -> None:
-    """Render a branded hard (danger) or soft (advisory) trigger card."""
+    """Render a hard (act now) or soft (review) rebalancing trigger."""
     if kind == "hard":
-        border     = "#A32D2D"
-        bg         = "rgba(163,45,45,0.10)"
-        badge_bg   = "rgba(163,45,45,0.20)"
-        badge_text = "#A32D2D" if _ui_effective_light else "#F5B5B5"
-        label      = "ACT"
-        symbol     = "!"
+        st.error(f"**Act** — {msg}", icon=":material/priority_high:")
     else:
-        border     = "#5B8FA8"
-        bg         = "rgba(91,143,168,0.08)"
-        badge_bg   = "rgba(91,143,168,0.18)"
-        badge_text = "#2E6080" if _ui_effective_light else "#A8CBE0"
-        label      = "REVIEW"
-        symbol     = "→"
-    msg_color = _c_text
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
-            border-left:3px solid {border};border-radius:6px;
-            background:{bg};margin-bottom:0.4rem;">
-  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
-              background:{badge_bg};color:{badge_text};
-              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
-    {symbol} {label}
-  </div>
-  <div style="font-size:0.88rem;color:{msg_color};line-height:1.4;">{msg}</div>
-</div>""", unsafe_allow_html=True)
+        st.info(f"**Review** — {msg}", icon=":material/arrow_forward:")
 
 
-if _page == "risk":
+def _page_risk() -> None:
     pf = load_portfolio()
     if pf is None or pf.empty:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
@@ -4358,46 +3508,24 @@ if _page == "risk":
 
     # ── Composite score banner ────────────────────────────────────────────────
     _score_color = {
-        "Low risk":      "#1DD6A4",
-        "Moderate risk": "#5B8FA8",
-        "Elevated risk": "#8BA888",
-        "High risk":     "#A32D2D",
-        "Critical risk": "#7f1d1d",
-    }.get(r.composite.label, "#F5F7FA")
+        "Low risk":      "green",
+        "Moderate risk": "blue",
+        "Elevated risk": "orange",
+        "High risk":     "red",
+        "Critical risk": "red",
+    }.get(r.composite.label, "gray")
 
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.25rem;
-            border-radius:12px;background:rgba(128,128,128,0.07);margin-bottom:1rem;">
-  <div style="font-size:2.8rem;font-weight:900;color:{_score_color};line-height:1;">
-    {r.composite.score:.0f}
-  </div>
-  <div>
-    <div style="font-size:1.1rem;font-weight:700;color:{_score_color};">{r.composite.label}</div>
-    <div style="font-size:0.82rem;opacity:0.6;margin-top:2px;">{r.composite.action}</div>
-    <div style="font-size:0.75rem;opacity:0.4;margin-top:2px;">
-      €{r.portfolio_value:,.0f} · {r.n_positions} positions ·
-      updated {datetime.fromisoformat(r.generated_at).strftime("%H:%M UTC")}
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(f"### :{_score_color}[{r.composite.score:.0f} · {r.composite.label}]")
+    st.caption(f"{r.composite.action}  \n"
+               f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
+               f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
 
     # ── Hard / soft triggers ──────────────────────────────────────────────────
     if r.rebalance.hard_triggers:
         for msg in r.rebalance.hard_triggers:
             _trigger_card(msg, "hard")
     elif not r.rebalance.soft_triggers:
-        st.markdown("""
-<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
-            border-left:3px solid #1DD6A4;border-radius:6px;
-            background:rgba(29,214,164,0.07);margin-bottom:0.4rem;">
-  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
-              background:rgba(29,214,164,0.18);color:#1DD6A4;
-              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
-    ✓ OK
-  </div>
-  <div style="font-size:0.88rem;color:#F5F7FA;">No rebalancing triggers detected.</div>
-</div>""", unsafe_allow_html=True)
+        st.success("No rebalancing triggers detected.", icon=":material/check:")
 
     if r.rebalance.soft_triggers:
         with st.expander(f"{len(r.rebalance.soft_triggers)} soft trigger(s) — review and plan", expanded=False):
@@ -4448,62 +3576,67 @@ if _page == "risk":
         _pos_rows = []
         for p in r.position_profiles:
             _pos_rows.append({
-                "→":               False,
                 "Company":         p.name,
                 "Ticker":          p.ticker,
-                "Weight":          f"{p.weight:.1%}",
-                "Beta":            f"{p.beta:.2f}" if p.beta is not None else "—",
-                "VaR 95% 1d":      f"€{p.var_95_1d_eur:,.0f}" if p.var_95_1d_eur else "—",
-                "MoS":             f"{p.mos:.1%}" if p.mos is not None else "—",
+                "Weight":          p.weight,
+                "Beta":            p.beta,
+                "VaR 95% 1d":      p.var_95_1d_eur or None,
+                "MoS":             p.mos,
                 "Valuation":       p.valuation_flag,
                 "Div":             p.div_sustainability or "—",
-                "Fin Health":      f"{p.financial_health:.1f}/10",
-                "Earn Quality":    f"{p.earnings_quality:.1f}/10",
+                "Fin Health":      p.financial_health,
+                "Earn Quality":    p.earnings_quality,
                 "Risk Rating":     p.rating,
             })
         _pos_df = pd.DataFrame(_pos_rows)
         _row_h = 35
-        _risk_pos_edited = st.data_editor(
+        _risk_sel_idx = _row_select_table(
             _pos_df,
+            key="risk_positions_table",
             hide_index=True,
             width='stretch',
-            disabled=[c for c in _pos_df.columns if c != "→"],
             height=35 + min(len(_pos_df), 20) * _row_h,
-            key="risk_positions_table",
             column_config={
-                "→":            st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                 "Company":      st.column_config.TextColumn("Company",     pinned=True,
                                     help="Company name"),
                 "Ticker":       st.column_config.TextColumn("Ticker",
                                     help="Exchange ticker symbol"),
-                "Weight":       st.column_config.TextColumn("Weight",
+                "Weight":       st.column_config.NumberColumn("Weight",     format="percent",
                                     help="Position value as a % of total portfolio. >10% = concentrated; >15% triggers a hard flag."),
-                "Beta":         st.column_config.TextColumn("Beta",
+                "Beta":         st.column_config.NumberColumn("Beta",       format="%.2f",
                                     help="Market sensitivity (regression vs index). >1 = amplifies market moves; <1 = more defensive. >1.3 adds to risk rating."),
-                "VaR 95% 1d":   st.column_config.TextColumn("VaR 95% 1d",
+                "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro",
                                     help="Maximum expected 1-day loss for this position at 95% confidence. Estimated as position value × |beta| × market daily vol × 1.645."),
-                "MoS":          st.column_config.TextColumn("MoS",
+                "MoS":          st.column_config.NumberColumn("MoS",        format="percent",
                                     help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the fair value model estimate."),
                 "Valuation":    st.column_config.TextColumn("Valuation",
                                     help="Undervalued (MoS >10%) · Fairly Valued (MoS 0–10%) · Overvalued (MoS <0%). Overvalued positions add to the risk rating."),
                 "Div":          st.column_config.TextColumn("Div",
                                     help="Dividend sustainability flag from the fair value screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
-                "Fin Health":   st.column_config.TextColumn("Fin Health",
+                "Fin Health":   st.column_config.NumberColumn("Fin Health",   format="%.1f/10",
                                     help="Financial health score 0–10 (higher = healthier). Average of D/E ratio, current ratio, and interest coverage. <5 adds to risk rating."),
-                "Earn Quality": st.column_config.TextColumn("Earn Quality",
+                "Earn Quality": st.column_config.NumberColumn("Earn Quality", format="%.1f/10",
                                     help="Earnings quality score 0–10. Measures FCF vs net income — high accruals (earnings without cash backing) score lower. <3 adds to risk rating."),
                 "Risk Rating":  st.column_config.TextColumn("Risk Rating",
                                     help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
             },
         )
-        if _risk_pos_edited["→"].any():
-            _risk_sel = _risk_pos_edited.loc[_risk_pos_edited["→"], "Ticker"].iloc[0]
+        if _risk_sel_idx is not None:
+            _risk_sel = _pos_df["Ticker"].iloc[_risk_sel_idx]
             _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
             if not _risk_scr_row.empty:
-                _risk_tbl_ss = st.session_state.get("risk_positions_table", {})
-                if isinstance(_risk_tbl_ss, dict):
-                    _risk_tbl_ss["edited_rows"] = {}
-                _risk_dlg_pending.append((_risk_scr_row.iloc[0], _tok_qs, None))
+                st.session_state["_dlg_open_ticker"] = _risk_sel
+                st.session_state["_dlg_open_src"]    = "risk_positions"
+                _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
+        elif st.session_state.get("_dlg_open_src") == "risk_positions":
+            if st.session_state.pop("_dlg_star_rerun", False):
+                _t = st.session_state.get("_dlg_open_ticker")
+                _r = _risk_scr_df[_risk_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                if not _r.empty:
+                    _risk_dlg_pending.append((_r.iloc[0], None))
+            else:
+                st.session_state.pop("_dlg_open_ticker", None)
+                st.session_state.pop("_dlg_open_src", None)
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
@@ -4998,4 +4131,58 @@ if _page == "risk":
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:
         _dlg_stock_detail(*_risk_dlg_pending[0])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NAVIGATION — st.navigation with st.page_link sidebar
+# ══════════════════════════════════════════════════════════════════════════════
+
+_pg_dashboard = st.Page(_page_dashboard, title="Dashboard", icon=":material/dashboard:", default=True)
+_pg_portfolio = st.Page(_page_portfolio, title="Portfolio", icon=":material/business_center:", url_path="portfolio")
+_pg_risk      = st.Page(_page_risk,      title="Risk",      icon=":material/monitoring:",      url_path="risk")
+_pg_screener  = st.Page(_page_screener,  title="Screener",  icon=":material/search:",          url_path="screener")
+_pg_settings  = st.Page(_page_settings,  title="Settings",  icon=":material/settings:",        url_path="settings")
+_pg_help      = st.Page(_page_help,      title="Help",      icon=":material/help:",            url_path="help")
+
+_nav = st.navigation(
+    [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_settings, _pg_help],
+    position="hidden",
+)
+
+# Legacy ?page= deep links (pre-st.navigation) → redirect to the new URL paths
+_legacy_pages = {"dashboard": _pg_dashboard, "portfolio": _pg_portfolio,
+                 "risk": _pg_risk, "screener": _pg_screener,
+                 "settings": _pg_settings, "help": _pg_help}
+_legacy_page = st.query_params.get("page", "")
+if _legacy_page:
+    del st.query_params["page"]
+    if _legacy_page in _legacy_pages:
+        st.switch_page(_legacy_pages[_legacy_page])
+
+with st.sidebar:
+    st.markdown(f"""
+<div class="uv-logo">
+  <div>
+    <div class="uv-logo-wordmark">uval<span class="uv-logo-accent">u</span></div>
+    <div class="uv-logo-sub">Find value before the market does.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+    st.page_link(_pg_dashboard)
+    st.page_link(_pg_portfolio)
+    st.page_link(_pg_risk)
+    st.page_link(_pg_screener)
+    st.divider()
+    st.page_link(_pg_settings)
+    st.page_link(_pg_help)
+    st.markdown(f"""
+<div class="uv-bottom">
+  <div class="uv-bottom-email" style="margin-bottom:8px;">{_email}</div>
+  <div style="text-align:center;">
+    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+_nav.run()
 
