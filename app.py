@@ -301,17 +301,9 @@ def _render_help():
 
 
 def _risk_note(body: str) -> None:
-    """Brand-aligned collapsible methodology note for risk page tabs."""
-    import re as _re
-    html = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', body)
-    html = html.replace("  \n\n", "<br><br>").replace("\n\n", "<br><br>").replace("  \n", "<br>")
-    st.markdown(
-        f'<details class="uv-note">'
-        f'<summary class="uv-note-summary">Methodology</summary>'
-        f'<div class="uv-note-body">{html}</div>'
-        f'</details>',
-        unsafe_allow_html=True,
-    )
+    """Collapsible methodology note for risk page tabs."""
+    with st.expander("Methodology"):
+        st.markdown(body)
 
 
 def _loading_css(light: bool = False) -> str:
@@ -814,52 +806,6 @@ st.markdown("""
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
 
-  /* ── Stock detail dialog header ──────────────────────────────────────────── */
-  .uv-detail-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
-  .uv-detail-company { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
-  .uv-detail-ticker  {
-    font-size: 13px; font-weight: 500; opacity: 0.5;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-  }
-  /* ── Risk callout banner ─────────────────────────────────────────────────── */
-  .uv-risk-banner {
-    display: flex; align-items: center; justify-content: space-between;
-    background: rgba(29,214,164,0.06); border: 0.5px solid rgba(29,214,164,0.2);
-    border-radius: 12px; padding: 14px 20px; margin-bottom: 0;
-  }
-  .uv-risk-banner-left { display: flex; align-items: center; gap: 14px; }
-  .uv-risk-score-circle {
-    width: 48px; height: 48px; border-radius: 50%;
-    border: 2px solid #1DD6A4; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-    font-size: 15px; font-weight: 500; color: #1DD6A4;
-  }
-  .uv-risk-banner-label  { font-size: 13px; font-weight: 500; }
-  .uv-risk-banner-sub    { font-size: 11px; opacity: 0.45; margin-top: 2px; }
-  .uv-risk-banner a      { color: #1DD6A4 !important; font-size: 12px; text-decoration: none; opacity: 0.8; }
-  .uv-risk-banner a:hover { opacity: 1; }
-
-  /* ── Risk methodology notes ─────────────────────────────────────────────── */
-  .uv-note {
-    border-left: 2px solid #1A8C6E; background: rgba(26,140,110,0.06);
-    border-radius: 0 6px 6px 0; padding: 10px 14px; margin-bottom: 16px;
-  }
-  .uv-note-summary {
-    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em;
-    text-transform: uppercase; color: #1A8C6E; cursor: pointer;
-    list-style: none; outline: none; user-select: none;
-  }
-  .uv-note-summary::-webkit-details-marker { display: none; }
-  .uv-note-summary::before {
-    content: "+ "; font-weight: 700; color: #1DD6A4;
-  }
-  details[open] .uv-note-summary::before { content: "− "; }
-  .uv-note-body {
-    font-size: 0.88rem; opacity: 0.75;
-    margin-top: 10px; line-height: 1.6;
-  }
-
   /* ── Metric delta brand colors ───────────────────────────────────────────── */
   [data-testid="stMetricDelta"] svg { display: none; }
   [data-testid="stMetricDelta"] { border-radius: 4px; padding: 1px 6px; font-size: 0.8rem !important; }
@@ -1049,10 +995,6 @@ _auth_wall()
 # Rendered at the end of the script via st.navigation + st.page_link, once the
 # page functions below are defined.
 
-_jwt      = st.session_state.get("jwt_token", "")
-_tok_qs   = f"&_tok={_jwt}" if _jwt else ""   # appended to an existing query string
-_tok_href = f"?_tok={_jwt}" if _jwt else ""   # starts the query string on a path link
-
 # Keep localStorage token fresh.
 st.iframe(f"""
 <script>
@@ -1070,25 +1012,15 @@ st.iframe(f"""
 def _page_dashboard() -> None:
     # ── Load portfolio data ────────────────────────────────────────────────────
     if not portfolio_exists():
-        _scr_link = f"/screener{_tok_href}"
-        _set_link  = f"/settings{_tok_href}"
-        st.markdown(f"""
-<div style="margin:48px auto;max-width:480px;text-align:center;">
-  <div style="font-size:2rem;margin-bottom:16px;">◈</div>
-  <div style="font-size:1.1rem;font-weight:500;margin-bottom:8px;">No portfolio yet</div>
-  <div style="font-size:0.85rem;opacity:0.5;margin-bottom:24px;line-height:1.6;">
-    Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings.
-  </div>
-  <a href="{_scr_link}" target="_self" style="
-    display:inline-block;padding:8px 20px;border-radius:8px;
-    background:#1A8C6E;color:#fff;text-decoration:none;font-size:0.88rem;font-weight:500;
-    margin-right:8px;">Open screener</a>
-  <a href="{_set_link}" target="_self" style="
-    display:inline-block;padding:8px 20px;border-radius:8px;
-    border:0.5px solid rgba(255,255,255,0.2);color:inherit;
-    text-decoration:none;font-size:0.88rem;">Import portfolio</a>
-</div>
-""", unsafe_allow_html=True)
+        _, _es_col, _ = st.columns([1, 1.1, 1])
+        with _es_col:
+            st.container(height=48, border=False)
+            st.subheader("No portfolio yet")
+            st.caption("Browse the screener to identify stocks worth buying, "
+                       "or import an existing Excel portfolio in Settings.")
+            with st.container(horizontal=True, gap="small"):
+                st.page_link(_pg_screener, label="Open screener")
+                st.page_link(_pg_settings, label="Import portfolio")
         st.stop()
 
     _db_pf = load_portfolio()
@@ -1164,26 +1096,16 @@ def _page_dashboard() -> None:
                 else "Moderate risk" if _risk_score < 65
                 else "Elevated risk"
             )
-            _risk_link = f"/risk{_tok_href}"
             _beta_str  = f"{_db_report.quant.portfolio_beta:.2f}"
             _vol_str   = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
             _dd_str    = f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—"
-            st.markdown(f"""
-<div class="uv-risk-banner" style="margin-top:16px;">
-  <div class="uv-risk-banner-left">
-    <div class="uv-risk-score-circle">{_risk_score:.0f}</div>
-    <div>
-      <div class="uv-risk-banner-label">{_risk_label}</div>
-      <div class="uv-risk-banner-sub">
-        Beta&nbsp;<b>{_beta_str}</b> &nbsp;·&nbsp;
-        Volatility&nbsp;<b>{_vol_str}</b> &nbsp;·&nbsp;
-        Max drawdown&nbsp;<b>{_dd_str}</b>
-      </div>
-    </div>
-  </div>
-  <a href="{_risk_link}" target="_self">Full risk analysis →</a>
-</div>
-""", unsafe_allow_html=True)
+            with st.container(border=True, horizontal=True, vertical_alignment="center",
+                              horizontal_alignment="distribute"):
+                with st.container(width="content"):
+                    st.markdown(f"**{_risk_label}** · score {_risk_score:.0f}")
+                    st.caption(f"Beta **{_beta_str}** · Volatility **{_vol_str}** · "
+                               f"Max drawdown **{_dd_str}**")
+                st.page_link(_pg_risk, label="Full risk analysis →")
         except Exception:
             pass
 
@@ -1461,11 +1383,7 @@ opacity: 1;
     _star_lbl  = "★" if _in_watchlist else "☆"
     _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-        st.markdown(f"""
-<div class="uv-detail-header">
-  <span class="uv-detail-company">{row.get('Name','—')}</span>
-  <span class="uv-detail-ticker">{_dlg_ticker}</span>
-</div>""", unsafe_allow_html=True)
+        st.markdown(f"#### {row.get('Name', '—')} :gray[`{_dlg_ticker}`]")
         st.markdown(f":{badge_color}-badge[{badge_label}]")
         if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
             save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
