@@ -800,14 +800,14 @@ st.markdown("""
   div[data-testid="stTabsContent"]                               { padding-top: 0 !important; padding-bottom: 0 !important; }
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"]  { gap: 0.25rem !important; }
   [data-testid="stTabsContent"] hr                               { margin-top: -1.5rem !important; margin-bottom: 0.25rem !important; }
-  button[data-testid="stTab"]                       { color: var(--text-color) !important; opacity: 0.5; font-weight: 500; }
+  button[data-testid="stTab"]                       { opacity: 0.5; font-weight: 500; }
   button[data-testid="stTab"]:hover                 { opacity: 0.85 !important; }
-  button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; color: var(--text-color) !important; }
+  button[data-testid="stTab"][aria-selected="true"] { opacity: 1 !important; }
 
   /* ── Password reveal button ─────────────────────────────────────────────── */
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: var(--text-color) !important; fill: var(--text-color) !important; stroke: var(--text-color) !important; opacity: 0.6; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: currentColor !important; fill: currentColor !important; stroke: currentColor !important; opacity: 0.6; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
 
@@ -864,7 +864,7 @@ st.markdown("""
   }
   details[open] .uv-note-summary::before { content: "− "; }
   .uv-note-body {
-    font-size: 0.88rem; color: var(--text-color); opacity: 0.75;
+    font-size: 0.88rem; opacity: 0.75;
     margin-top: 10px; line-height: 1.6;
   }
 
@@ -900,21 +900,21 @@ st.markdown("""
   .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
   .uv-logo-wordmark {
     font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
-    line-height: 1; color: var(--text-color);
+    line-height: 1;
   }
   .uv-logo-accent { color: #1A8C6E; }
-  .uv-logo-sub  { font-size: 0.65rem; color: var(--text-color); opacity: 0.3; margin-top: 3px; }
+  .uv-logo-sub  { font-size: 0.65rem; opacity: 0.3; margin-top: 3px; }
   .uv-bottom    {
     position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
-    background: var(--sidebar-background-color, var(--secondary-background-color));
+    background: transparent;
     border-top: 0.5px solid rgba(128,128,128,0.20); box-sizing: border-box;
   }
-  .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .uv-bottom-email { font-size: 0.7rem; opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
   .uv-logout {
     display: inline-flex; align-items: center;
     padding: 0 12px; height: 30px; line-height: 30px;
     font-size: 0.78rem; font-weight: 400;
-    color: var(--text-color) !important; text-decoration: none !important;
+    color: inherit !important; text-decoration: none !important;
     border: 0.5px solid rgba(128,128,128,0.35); border-radius: 6px;
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
@@ -1059,25 +1059,12 @@ _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(24
 _c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
 _c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
 
-# ── Theme bridge for custom-HTML components ───────────────────────────────────
-# Streamlit theming is native (config.toml [theme.light]/[theme.dark]) but does
-# not expose its palette as CSS custom properties; define the few vars the
-# branded HTML (sidebar footer, notes, dialog tables) relies on, per variant.
-if _ui_effective_light:
+# ── Dark-variant decision badge colors ────────────────────────────────────────
+# All other custom CSS is theme-agnostic (inherit/currentColor); badges need a
+# palette per variant. st.context.theme reflects the variant at page load;
+# switching in the app menu applies fully on the next rerun.
+if not _ui_effective_light:
     st.markdown("""<style>
-:root {
-  --background-color: #F5F7FA;
-  --secondary-background-color: #FFFFFF;
-  --text-color: #0D1F3C;
-}
-</style>""", unsafe_allow_html=True)
-else:
-    st.markdown("""<style>
-:root {
-  --background-color: #0D1F3C;
-  --secondary-background-color: #0F2647;
-  --text-color: #F5F7FA;
-}
   .uv-badge-buy     { background: rgba(15,110,86,0.22); color: #1DD6A4; }
   .uv-badge-monitor { background: rgba(133,79,11,0.22); color: #D4903A; }
   .uv-badge-avoid   { background: rgba(163,45,45,0.22); color: #E05C5C; }
@@ -1453,7 +1440,7 @@ opacity: 0.55;
 }
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
-color: var(--text-color) !important;
+color: inherit !important;
 opacity: 0.7;
 }
 [data-testid="stDialog"] button[aria-label="Close"]:hover {
