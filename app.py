@@ -718,25 +718,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Lock the favicon permanently via a MutationObserver so Streamlit's rerun
-# animation can never swap it back to the default diamond.
-st.markdown("""
-<script>
-(function(){
-  var HREF = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNiIgZmlsbD0iIzBEMUYzQyIvPgogIDxwb2x5bGluZSBwb2ludHM9IjE2LDE2IDMyLDQ0IDQ4LDE2IiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMy4yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjQ0IiByPSI1IiBmaWxsPSIjMURENkE0Ii8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSI0NCIgcj0iOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMURENkE0IiBzdHJva2Utd2lkdGg9IjEuNSIgb3BhY2l0eT0iMC41Ii8+Cjwvc3ZnPgo=';
-  function pin() {
-    var ico = document.querySelector("link[rel*='icon']");
-    if (!ico) { ico = document.createElement('link'); document.head.appendChild(ico); }
-    if (ico.href !== HREF) { ico.rel = 'icon'; ico.type = 'image/svg+xml'; ico.href = HREF; }
-  }
-  pin();
-  if (window._uvFaviconObs) window._uvFaviconObs.disconnect();
-  window._uvFaviconObs = new MutationObserver(pin);
-  window._uvFaviconObs.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
-})();
-</script>
-""", unsafe_allow_html=True)
-
 st.markdown("""
 <style>
   /* ── Brand tokens ────────────────────────────────────────────────────────── */
@@ -832,17 +813,6 @@ st.markdown("""
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: currentColor !important; fill: currentColor !important; stroke: currentColor !important; opacity: 0.6; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
-
-  /* ── Signal badges ───────────────────────────────────────────────────────── */
-  .uv-badge {
-    display: inline-block; padding: 2px 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-  }
-  .uv-badge-buy     { background: #E8F5F0; color: #0F6E56; }
-  .uv-badge-monitor { background: #FDF0E8; color: #854F0B; }
-  .uv-badge-avoid   { background: #FCEAEA; color: #A32D2D; }
-  .uv-badge-veto    { background: #0D1F3C; color: #ffffff; border: 0.5px solid rgba(255,255,255,0.2); }
 
   /* ── Stock detail dialog header ──────────────────────────────────────────── */
   .uv-detail-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
@@ -949,14 +919,6 @@ st.markdown("""
   div[aria-modal="true"],
   div[aria-label="Edit positions"] {
     max-width: 550px !important; width: 550px !important; min-width: 0 !important;
-  }
-
-  /* ── Compact action button rows ──────────────────────────────────────────── */
-  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] { gap: 6px !important; }
-  [data-testid="stMarkdown"]:has(.uv-crud-sentinel) ~ [data-testid="stHorizontalBlock"] button {
-    padding: 0px 12px !important; height: 32px !important; min-height: 0 !important;
-    font-size: 0.8rem !important; font-weight: 400 !important;
-    line-height: 32px !important; white-space: nowrap !important; width: 100% !important;
   }
 
   /* ── Heading typography — brand spec ────────────────────────────────────── */
@@ -1080,17 +1042,6 @@ _c_grid      = "rgba(0,0,0,0.07)"           if _ui_effective_light else "rgba(25
 _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(245,247,250,0.35)"
 _c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
 _c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
-
-# ── Dark-variant decision badge colors ────────────────────────────────────────
-# All other custom CSS is theme-agnostic (inherit/currentColor); badges need a
-# palette per variant. st.context.theme reflects the variant at page load;
-# switching in the app menu applies fully on the next rerun.
-if not _ui_effective_light:
-    st.markdown("""<style>
-  .uv-badge-buy     { background: rgba(15,110,86,0.22); color: #1DD6A4; }
-  .uv-badge-monitor { background: rgba(133,79,11,0.22); color: #D4903A; }
-  .uv-badge-avoid   { background: rgba(163,45,45,0.22); color: #E05C5C; }
-</style>""", unsafe_allow_html=True)
 
 _auth_wall()
 
@@ -1472,18 +1423,18 @@ opacity: 1;
 
     decision = str(row.get("Decision", ""))
     score    = row.get("Value Score")
-    badge_class = {
-        "Strong Buy": "uv-badge-buy",
-        "Monitor":    "uv-badge-monitor",
-        "Avoid":      "uv-badge-avoid",
-    }.get(decision, "uv-badge-avoid")
+    badge_color = {
+        "Strong Buy": "green",
+        "Monitor":    "orange",
+        "Avoid":      "red",
+    }.get(decision, "red")
     badge_label = {
         "Strong Buy": "BUY",
         "Monitor":    "MONITOR",
         "Avoid":      "AVOID",
     }.get(decision, decision.upper() if decision else "—")
     if row.get("veto"):
-        badge_class, badge_label = "uv-badge-veto", "VETO"
+        badge_color, badge_label = "gray", "VETO"
 
     score_str = f"{score:.1f}%" if pd.notna(score) else "—"
 
@@ -1514,8 +1465,8 @@ opacity: 1;
 <div class="uv-detail-header">
   <span class="uv-detail-company">{row.get('Name','—')}</span>
   <span class="uv-detail-ticker">{_dlg_ticker}</span>
-  <span class="uv-badge {badge_class}">{badge_label}</span>
 </div>""", unsafe_allow_html=True)
+        st.markdown(f":{badge_color}-badge[{badge_label}]")
         if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
             save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
             if _in_watchlist:
@@ -2080,42 +2031,34 @@ def _page_screener() -> None:
         tab_df.index = range(1, n_shown + 1)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        if extra_toolbar_action:
-            _vc, _ac, _bc, _, _sc, _fc = st.columns([1, 1, 1, 2, 2, 2], gap="small")
-        else:
-            _vc, _bc, _, _sc, _fc = st.columns([1, 1, 3, 2, 2], gap="small")
-
-        with _vc:
+        with st.container(horizontal=True, gap="small", vertical_alignment="center"):
             _active = st.session_state.get(_grp_key, [])
             _view_label = f"View ({len(_active)})" if _active else "View"
             if st.button(_view_label, key=f"btn_view_{key_suffix}"):
                 _dlg_view()
 
-        if extra_toolbar_action:
-            _btn_label, _btn_cb = extra_toolbar_action
-            with _ac:
+            if extra_toolbar_action:
+                _btn_label, _btn_cb = extra_toolbar_action
                 if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
                     _btn_cb()
 
-        with _bc:
             if st.button("Buy", key=f"btn_buy_{key_suffix}"):
                 _dlg_buy_screener()
 
-        with _sc:
+            st.container(width="stretch")  # spacer — pushes the filters right
+
             _sec_cur = st.session_state.get(_sector_key, "All sectors")
             if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
                 _sec_cur = "All sectors"
-            with st.popover(_sec_cur, width="stretch"):
+            with st.popover(_sec_cur, width=220):
                 _sec_opts = ["All sectors"] + _sector_vals
                 st.radio("Sector filter", _sec_opts,
                          index=_sec_opts.index(_sec_cur),
                          key=_sector_key, label_visibility="collapsed")
 
-        with _fc:
             if score_key:
                 _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-                with st.popover(_sf_cur, width="stretch"):
+                with st.popover(_sf_cur, width=220):
                     st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
                              key=score_key, label_visibility="collapsed")
 
@@ -2749,20 +2692,15 @@ def _page_portfolio() -> None:
                 )
                 st.rerun()
 
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-        _c1, _c2, _c3, _c4, _ = st.columns([1, 1, 1, 1, 5], gap="small")
-        with _c1:
+        with st.container(horizontal=True, gap="small"):
             _active_groups = st.session_state.get("pos_col_groups", [])
             _col_label = f"View ({len(_active_groups)})" if _active_groups else "View"
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
-        with _c2:
             if st.button("Buy", key="btn_add_pos"):
                 _dlg_add_position()
-        with _c3:
             if st.button("Edit", key="btn_edit_pos"):
                 _dlg_edit_position()
-        with _c4:
             if st.button("Sell", key="btn_sell_pos"):
                 _dlg_sell_position()
 
@@ -3155,23 +3093,20 @@ def _page_portfolio() -> None:
                     update_div_hist(new_dh)
                     st.rerun()
 
-        st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-
         # Compute year options here so the selectbox can live in the toolbar row
         _div_years        = sorted(div_hist["date"].dt.year.dropna().unique().astype(int), reverse=True) if div_hist is not None and not div_hist.empty else []
         _div_year_options = ["All"] + _div_years
         _div_year_default = _div_year_options.index(datetime.now().year) if datetime.now().year in _div_year_options else 0
 
-        _da1, _da2, _da_gap, _da_filter = st.columns([1, 1, 5, 2], gap="small")
-        with _da1:
+        with st.container(horizontal=True, gap="small", vertical_alignment="center"):
             if st.button("Add", key="btn_add_div"):
                 _dlg_add_dividend()
-        with _da2:
             if st.button("Edit", key="btn_edit_div"):
                 _dlg_edit_dividends()
-        with _da_filter:
+            st.container(width="stretch")  # spacer — pushes the year filter right
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
-                                         key="div_year_filter", label_visibility="collapsed")
+                                         key="div_year_filter", label_visibility="collapsed",
+                                         width=160)
 
         # Full dividend payment history
         if div_hist is not None and not div_hist.empty:
@@ -3331,11 +3266,8 @@ def _page_portfolio() -> None:
                         save_sold(_sold_updated)
                         st.rerun()
 
-            st.markdown('<div class="uv-crud-sentinel"></div>', unsafe_allow_html=True)
-            _se1, _ = st.columns([1, 8], gap="small")
-            with _se1:
-                if st.button("Edit", key="btn_edit_sold"):
-                    _dlg_edit_sold()
+            if st.button("Edit", key="btn_edit_sold"):
+                _dlg_edit_sold()
 
             _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
             sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
