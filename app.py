@@ -960,9 +960,11 @@ def _auth_wall():
 
     _, col, _ = st.columns([1, 0.78, 1])
     with col:
-        email    = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        if st.button("Log in", width="stretch", type="primary"):
+        with st.form("login_form", border=False):
+            email    = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            _submitted = st.form_submit_button("Log in", width="stretch", type="primary")
+        if _submitted:
             ok, result = login(email, password)
             if ok:
                 _, role = verify_token(result)
