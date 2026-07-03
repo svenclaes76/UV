@@ -255,18 +255,11 @@ def _render_help():
         "Portfolio Risk":   [],
     }
 
-    def _help_row(col: str, desc: str) -> None:
-        st.markdown(
-            f'<div style="display:flex;gap:12px;margin-bottom:10px;padding-bottom:10px;'
-            f'border-bottom:0.5px solid rgba(255,255,255,0.07);">'
-            f'<span style="min-width:130px;font-size:0.8rem;font-weight:500;'
-            f'letter-spacing:0.04em;text-transform:uppercase;color:#1DD6A4;'
-            f'font-family:\'SF Mono\',\'Fira Code\',\'Cascadia Code\',monospace;'
-            f'padding-top:1px;">{col}</span>'
-            f'<span style="color:#F5F7FA;font-size:0.88rem;opacity:0.75;line-height:1.5;">{desc}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    def _help_table(rows: list[tuple[str, str]]) -> None:
+        st.markdown("\n".join(
+            ["| Column | Description |", "|:--|:--|"]
+            + [f"| `{col}` | {desc} |" for col, desc in rows]
+        ))
 
     tabs = st.tabs(list(sections.keys()))
     for tab, (section, cols) in zip(tabs, sections.items()):
@@ -291,13 +284,10 @@ def _render_help():
                     ("Monte Carlo P5",    "5th percentile portfolio value after simulating 10,000 random return paths — the worst-case outcome at 5% probability over the stated horizon."),
                     ("P(loss)",           "Probability of a negative total return over the simulation horizon, derived from the fraction of Monte Carlo paths that finish below the starting value."),
                 ]
-                for col, desc in _risk_help_rows:
-                    _help_row(col, desc)
+                _help_table(_risk_help_rows)
             else:
-                for col in cols:
-                    desc = COLUMN_HELP.get(col, "")
-                    if desc:
-                        _help_row(col, desc)
+                _help_table([(col, COLUMN_HELP[col])
+                             for col in cols if COLUMN_HELP.get(col)])
 
 
 def _risk_note(body: str) -> None:
