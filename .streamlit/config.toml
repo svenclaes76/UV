@@ -3,9 +3,10 @@ sslCertFile = ".ssl/cert.pem"
 sslKeyFile  = ".ssl/key.pem"
 
 [client]
-# Hide developer toolbar items (Deploy, Rerun, Clear cache, ...) for viewers;
-# the settings menu with the theme switcher stays available.
-toolbarMode = "minimal"
+# Hide developer toolbar items (Deploy, Rerun, Clear cache, ...) but keep the
+# viewer menu — it holds Settings with the light/dark theme switcher.
+# ("minimal" would remove the menu entirely.)
+toolbarMode = "viewer"
 
 # Brand theming — light and dark variants are rendered natively by Streamlit.
 # The active variant follows the user's system preference and can be switched
