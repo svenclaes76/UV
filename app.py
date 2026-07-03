@@ -1407,20 +1407,17 @@ def _dlg_stock_detail(row: "pd.Series", pf_context: dict | None = None) -> None:
     """4-tab stock detail modal. Sizes to content; scrolls natively."""
     st.markdown("""
 <style>
-/* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
-[data-testid="stDialog"] > div {
-width: 860px !important;
-min-width: 860px !important;
-max-width: 860px !important;
-}
 /* ── Hide redundant "Stock details" title ─────────────────────── */
 [data-testid="stDialog"] div[role="dialog"] > div:first-child {
 display: none !important;
 }
 
-/* ── Min-height keeps tab switches from collapsing short tabs;
-     colours come from the native theme ── */
+/* ── Fixed width (prevents tabs from resizing the dialog);
+     min-height keeps tab switches from collapsing short tabs;
+     position/backdrop/colours come from the native theme ── */
 [data-testid="stDialog"] div[role="dialog"] {
+width: 860px !important;
+max-width: calc(100vw - 2rem) !important;
 min-height: 600px !important;
 }
 /* ── Remove default top padding inside tab panels ─────────────── */
