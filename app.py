@@ -1323,6 +1323,12 @@ opacity: 0.6;
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
 opacity: 0.55;
 }
+/* ── Equal-width severity badges so signal text aligns ── */
+[data-testid="stDialog"] [data-testid="stMarkdownBadge"] {
+min-width: 46px;
+justify-content: center;
+text-align: center;
+}
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
 color: inherit !important;
