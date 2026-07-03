@@ -1846,7 +1846,6 @@ def _page_dashboard() -> None:
     st.subheader("Portfolio value over time")
     _db_vh = load_value_history()
     if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
-        import plotly.graph_objects as go
         _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
         _db_vh["value"]    = pd.to_numeric(_db_vh["value"],    errors="coerce")
         _db_vh["invested"] = pd.to_numeric(_db_vh["invested"], errors="coerce")
@@ -3462,7 +3461,6 @@ def _page_portfolio() -> None:
             _hm_df = _hm_df.dropna(subset=["_ret", "current_value"])
 
             if not _hm_df.empty:
-                import plotly.graph_objects as go
                 _clamp  = 10.0
                 _normed = _hm_df["_ret"].clip(-_clamp, _clamp) / _clamp
                 _colors = [_hm_color(v) for v in _normed]
@@ -3510,7 +3508,6 @@ def _page_portfolio() -> None:
 
             _vh = load_value_history()
             if _vh is not None and not _vh.empty and len(_vh) >= 2:
-                import plotly.graph_objects as go
                 _vh["date"]     = pd.to_datetime(_vh["date"])
                 _vh["value"]    = pd.to_numeric(_vh["value"],    errors="coerce")
                 _vh["invested"] = pd.to_numeric(_vh["invested"], errors="coerce")
