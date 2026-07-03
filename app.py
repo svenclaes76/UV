@@ -89,7 +89,6 @@ COLUMN_HELP = {
     ),
 }
 
-import json as _json
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -117,7 +116,7 @@ from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       clear_live_cache, _file_lock)
 import risk as _risk_module
 from settings import (load_shared_settings, save_shared_settings,
-                      load_settings, save_settings, ALL_EXCHANGES, EXCHANGE_LABELS)
+                      ALL_EXCHANGES, EXCHANGE_LABELS)
 from portfolio import (parse_excel, save_portfolio, save_sold, save_div_hist,
                        load_portfolio, load_sold, load_div_hist,
                        add_position, remove_positions, update_positions,
@@ -721,9 +720,6 @@ st.markdown("""
 
 st.markdown("""
 <style>
-  /* ── Prevent black flash on page transitions ─────────────────────────────── */
-  html, body { background-color: #F5F7FA !important; }
-
   /* ── Brand tokens ────────────────────────────────────────────────────────── */
   :root {
     --uv-teal:        #1A8C6E;
@@ -765,7 +761,6 @@ st.markdown("""
   section[data-testid="stSidebar"],
   section[data-testid="stSidebar"] > div:first-child { min-width: 220px !important; max-width: 220px !important; width: 220px !important; z-index: 100 !important; }
   section[data-testid="stSidebar"] { transition: none !important; }
-  [data-testid="collapsedControl"] { display: none !important; }
 
   /* ── Tables ──────────────────────────────────────────────────────────────── */
   [data-testid="stDataFrame"],
@@ -812,7 +807,7 @@ st.markdown("""
   /* ── Password reveal button ─────────────────────────────────────────────── */
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #0D1F3C !important; fill: #0D1F3C !important; stroke: #0D1F3C !important; opacity: 0.6; }
+  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: var(--text-color) !important; fill: var(--text-color) !important; stroke: var(--text-color) !important; opacity: 0.6; }
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
   [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
 
@@ -827,11 +822,7 @@ st.markdown("""
   .uv-badge-avoid   { background: #FCEAEA; color: #A32D2D; }
   .uv-badge-veto    { background: #0D1F3C; color: #ffffff; border: 0.5px solid rgba(255,255,255,0.2); }
 
-  /* ── Stock detail card ───────────────────────────────────────────────────── */
-  .uv-detail-card {
-    background: rgba(15,38,71,0.6); border: 0.5px solid rgba(29,214,164,0.2);
-    border-radius: 12px; padding: 20px 24px; margin-top: 16px;
-  }
+  /* ── Stock detail dialog header ──────────────────────────────────────────── */
   .uv-detail-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
   .uv-detail-company { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
   .uv-detail-ticker  {
@@ -873,7 +864,7 @@ st.markdown("""
   }
   details[open] .uv-note-summary::before { content: "− "; }
   .uv-note-body {
-    font-size: 0.88rem; color: #F5F7FA; opacity: 0.75;
+    font-size: 0.88rem; color: var(--text-color); opacity: 0.75;
     margin-top: 10px; line-height: 1.6;
   }
 
@@ -900,73 +891,31 @@ st.markdown("""
   }
   .uv-wordmark-accent { color: #1A8C6E; }
   .login-sub { font-size: 0.82rem; opacity: 0.4; margin-bottom: 4px; }
-  /* match key icon colour to the eye icon */
-  [data-testid="stTextInput"] svg {
-    color: rgba(245,247,250,0.55) !important;
-    fill:  rgba(245,247,250,0.55) !important;
-  }
-  [data-testid="stTextInput"] svg path,
-  [data-testid="stTextInput"] svg rect,
-  [data-testid="stTextInput"] svg circle {
-    fill:   rgba(245,247,250,0.55) !important;
-    stroke: rgba(245,247,250,0.55) !important;
-  }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Mini icon nav ───────────────────────────────────────────────────────── */
-  .mini-nav {
-    display: flex; position: fixed; left: 0; top: 0; height: 100vh; width: 48px;
-    background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-right: 0.5px solid rgba(29,214,164,0.12);
-    flex-direction: column; justify-content: space-between; align-items: center; z-index: 99;
-  }
-  .mini-nav-top, .mini-nav-bottom { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-  .mini-nav-top    { padding-top: 14px; }
-  .mini-nav-bottom { padding-bottom: 18px; }
-  .mini-nav-link {
-    font-size: 1.2rem; text-decoration: none !important; opacity: 0.35;
-    transition: opacity 0.15s, background 0.15s;
-    display: flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; border-radius: 8px;
-  }
-  .mini-nav-link:hover { opacity: 1; background: rgba(29,214,164,0.08); }
-  .mini-nav-active     { opacity: 1 !important; background: rgba(29,214,164,0.15) !important; }
-
-  /* ── Sidebar nav ─────────────────────────────────────────────────────────── */
+  /* ── Sidebar logo + footer ───────────────────────────────────────────────── */
   .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
   .uv-logo-wordmark {
     font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
-    line-height: 1; color: #F5F7FA;
+    line-height: 1; color: var(--text-color);
   }
   .uv-logo-accent { color: #1A8C6E; }
   .uv-logo-sub  { font-size: 0.65rem; color: var(--text-color); opacity: 0.3; margin-top: 3px; }
-  .uv-nav       { display: flex; flex-direction: column; gap: 1px; }
-  .uv-nav-item  {
-    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
-    font-size: 0.9rem; font-weight: 500; color: var(--text-color); opacity: 0.4;
-    text-decoration: none !important; transition: background 0.12s, opacity 0.12s; white-space: nowrap;
-  }
-  .uv-nav-item:hover { background: rgba(29,214,164,0.07); opacity: 0.85; }
-  .uv-nav-active     { background: rgba(29,214,164,0.12) !important; opacity: 1 !important; }
-  .uv-nav-sep        { border: none; border-top: 0.5px solid rgba(255,255,255,0.1); margin: 6px 2px; }
-  .uv-nav-icon       { font-size: 1rem; width: 1.25em; text-align: center; flex-shrink: 0; }
-  .uv-nav-utils { position: fixed; bottom: 96px; left: 0; width: 220px; padding: 0 16px 4px; box-sizing: border-box; }
   .uv-bottom    {
     position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
     background: var(--sidebar-background-color, var(--secondary-background-color));
-    border-top: 0.5px solid rgba(255,255,255,0.08); box-sizing: border-box;
+    border-top: 0.5px solid rgba(128,128,128,0.20); box-sizing: border-box;
   }
   .uv-bottom-email { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-  .uv-role-badge   { display: inline-block; background: rgba(29,214,164,0.12); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; color: #1DD6A4; margin-right: 5px; vertical-align: middle; }
   .uv-logout {
     display: inline-flex; align-items: center;
     padding: 0 12px; height: 30px; line-height: 30px;
     font-size: 0.78rem; font-weight: 400;
     color: var(--text-color) !important; text-decoration: none !important;
-    border: 0.5px solid rgba(255,255,255,0.2); border-radius: 6px;
+    border: 0.5px solid rgba(128,128,128,0.35); border-radius: 6px;
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
   }
@@ -999,10 +948,8 @@ st.markdown("""
     font-size: 1.1rem !important; font-weight: 500 !important;
     letter-spacing: -0.01em !important; margin-bottom: 0.25rem !important;
   }
-  /* Lighten dividers — less visual noise */
-  [data-testid="stDivider"] hr, hr {
-    border-color: rgba(255,255,255,0.07) !important; margin: 8px 0 !important;
-  }
+  /* Tighter dividers — color comes from the theme borderColor */
+  [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
 
   /* ── JS bridge iframes ───────────────────────────────────────────────────── */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
@@ -1081,11 +1028,6 @@ def _auth_wall():
                 st.session_state["user_email"] = _login_email
                 st.session_state["user_role"]  = role
                 st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
-                _login_theme = load_settings(_login_email).get("ui_theme", "dark")
-                if _login_theme != "dark":
-                    st.query_params["theme"] = _login_theme
-                else:
-                    st.query_params.pop("theme", None)
                 st.rerun()
             else:
                 st.error(result)
@@ -1095,15 +1037,7 @@ def _auth_wall():
 
 # ── Logout handler — runs before auth wall so it works even without a session ──
 if st.query_params.get("logout") == "1":
-    _logout_theme = st.query_params.get("theme", "dark")
-    _logout_email = st.session_state.get("user_email", "")
-    if _logout_email:
-        _logout_prefs = load_settings(_logout_email)
-        _logout_prefs["ui_theme"] = _logout_theme
-        save_settings(_logout_prefs, _logout_email)
     st.query_params.clear()
-    if _logout_theme != "dark":
-        st.query_params["theme"] = _logout_theme
     for _k in ("jwt_token", "user_email", "user_role"):
         st.session_state.pop(_k, None)
     st.rerun()
@@ -1113,10 +1047,10 @@ _current_role = st.session_state.get("user_role", "user")
 _is_admin     = _current_role == "admin"
 set_user(_email)
 
-# ── Per-user UI preferences ───────────────────────────────────────────────────
-_user_prefs      = load_settings(_email) if _email else {}
-_ui_theme        = _user_prefs.get("ui_theme", st.query_params.get("theme", "dark")) if _email else st.query_params.get("theme", "dark")  # "dark" | "light"
-_ui_effective_light = _ui_theme == "light"
+# ── UI theme ──────────────────────────────────────────────────────────────────
+# Light/dark are rendered natively from config.toml [theme.light]/[theme.dark];
+# st.context.theme exposes the variant active in this user's browser session.
+_ui_effective_light = getattr(st.context.theme, "type", None) == "light"
 
 # Shared chart palette tokens — resolved once, used in every Plotly figure
 _c_axis      = "#5F5E5A"                    if _ui_effective_light else "rgba(245,247,250,0.55)"
@@ -1125,454 +1059,16 @@ _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(24
 _c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
 _c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
 
-_LIGHT_CSS = """
-  /* ── Streamlit theme variables ───────────────────────────────────────────── */
-  :root {
-    --background-color:           #F5F7FA !important;
-    --secondary-background-color: #FFFFFF !important;
-    --text-color:                 #0D1F3C !important;
-    --primary-color:              #1A8C6E !important;
-  }
-
-  /* ── App surface ─────────────────────────────────────────────────────────── */
-  [data-testid="stApp"], .stApp,
-  section[data-testid="stMain"] {
-    background-color: #F5F7FA !important;
-    color: #0D1F3C !important;
-  }
-  .block-container { background-color: #F5F7FA !important; }
-
-  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child {
-    background-color: #FFFFFF !important;
-  }
-  .uv-bottom { background: #FFFFFF !important; border-top-color: #E5E7EB !important; }
-  .mini-nav  { background: #FFFFFF !important; border-right-color: #E5E7EB !important; }
-  .uv-nav-item         { color: #3B4D63 !important; }
-  .uv-nav-item:hover   { background: rgba(0,0,0,0.04) !important; opacity: 1 !important; }
-  .uv-nav-active, [data-uv-page].uv-nav-item { color: #1A8C6E !important; background: rgba(26,140,110,0.10) !important; }
-  .mini-nav-link       { color: #3B4D63 !important; }
-  .uv-nav-sep          { border-top-color: #E5E7EB !important; }
-  .uv-logo-wordmark    { color: #0D1F3C !important; }
-  .uv-logo-accent      { color: #1A8C6E !important; }
-  .uv-logo-sub         { color: #5F5E5A !important; opacity: 1 !important; }
-  .uv-bottom-email     { color: #3B4D63 !important; opacity: 1 !important; }
-  .uv-logout           { color: #3B4D63 !important; border-color: #CBD0D9 !important; }
-  .uv-logout:hover     { color: #1A8C6E !important; border-color: #1A8C6E !important; }
-
-  /* ── Typography ──────────────────────────────────────────────────────────── */
-  p, li, span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
-    color: #0D1F3C !important;
-  }
-  h1, h2, h3, h4, h5, h6 { color: #0D1F3C !important; }
-  [data-testid="stCaptionContainer"], small, caption { color: #5F5E5A !important; }
-
-  /* ── Cards / panels ──────────────────────────────────────────────────────── */
-  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
-  [data-testid="stExpander"] { background-color: #FFFFFF !important; }
-  details[data-testid="stExpander"] { border-color: #E5E7EB !important; }
-  details[data-testid="stExpander"] summary,
-  details[data-testid="stExpander"] summary span { color: #0D1F3C !important; }
-
-  /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"] {
-    background: #F5F7FA !important;
-    border: 0.5px solid #E5E7EB !important;
-  }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #0D1F3C !important; }
-  div[data-testid="metric-container"] label                         { color: #5F5E5A !important; }
-
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
-  [data-testid="stBaseButton-secondary"],
-  [data-testid="stPopoverButton"],
-  [data-testid="stDownloadButton"] > button,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
-    background-color: transparent !important;
-    color: #0D1F3C !important;
-    border: 0.5px solid rgba(0,0,0,0.15) !important;
-  }
-  [data-testid="stBaseButton-secondary"]:hover,
-  [data-testid="stPopoverButton"]:hover,
-  [data-testid="stDownloadButton"] > button:hover,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]):hover {
-    background-color: #EEF1F5 !important;
-    border-color: rgba(0,0,0,0.2) !important;
-  }
-  [data-testid="stBaseButton-tertiary"] {
-    background-color: transparent !important;
-    color: rgba(13,31,60,0.35) !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stBaseButton-tertiary"]:hover {
-    background-color: rgba(0,0,0,0.04) !important;
-    color: #0D1F3C !important;
-  }
-  [data-testid="stBaseButton-primary"] {
-    background-color: #1A8C6E !important;
-    color: #FFFFFF !important;
-    border: none !important;
-  }
-  [data-testid="stBaseButton-primary"]:hover { background-color: #0F6E56 !important; }
-
-  /* ── Inputs / selects ────────────────────────────────────────────────────── */
-  div[data-baseweb="input"] input,
-  div[data-baseweb="textarea"] textarea {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-  }
-  div[data-baseweb="input"],
-  div[data-baseweb="textarea"] { border-color: #E5E7EB !important; }
-  div[data-baseweb="select"] > div:first-child {
-    background-color: #FFFFFF !important;
-    color: #0D1F3C !important;
-    border-color: #CBD0D9 !important;
-    border-width: 0.5px !important;
-    border-radius: 8px !important;
-  }
-  div[data-baseweb="select"] > div:first-child:hover { background-color: #EEF1F5 !important; }
-  [data-baseweb="popover"] [role="listbox"],
-  [data-baseweb="menu"] {
-    background-color: #FFFFFF !important;
-    border: 0.5px solid #E5E7EB !important;
-    border-radius: 8px !important;
-  }
-  [data-baseweb="option"], [role="option"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-  [data-baseweb="option"]:hover, [role="option"]:hover { background-color: #EEF1F5 !important; }
-
-  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
-  [data-testid="stCheckbox"] label { color: #0D1F3C !important; }
-  [data-testid="stCheckbox"] span[role="checkbox"],
-  [data-baseweb="checkbox"] span {
-    background-color: #FFFFFF !important;
-    border-color: #CBD0D9 !important;
-  }
-  [data-testid="stCheckbox"] span[aria-checked="true"],
-  [data-baseweb="checkbox"] span[data-checked] {
-    background-color: #1A8C6E !important;
-    border-color: #1A8C6E !important;
-  }
-
-  /* ── Radio / Tabs ────────────────────────────────────────────────────────── */
-  [data-testid="stRadio"] label, [data-testid="stRadio"] span { color: #0D1F3C !important; }
-  [data-testid="stTabs"] { border-bottom-color: #E5E7EB !important; }
-  button[data-testid="stTab"] { color: #3B4D63 !important; }
-  button[data-testid="stTab"][aria-selected="true"] { color: #0D1F3C !important; border-bottom-color: #1A8C6E !important; }
-
-  /* ── Data tables — no invert needed; base=light renders canvas correctly ── */
-
-  /* ── File uploader ───────────────────────────────────────────────────────── */
-  [data-testid="stFileUploader"] section {
-    background-color: #FFFFFF !important;
-    border-color: #E5E7EB !important;
-  }
-  [data-testid="stFileUploader"] span { color: #3B4D63 !important; }
-
-  /* ── Misc ────────────────────────────────────────────────────────────────── */
-  hr { border-color: #E5E7EB !important; }
-  [data-testid="stAlert"] { background-color: #FFFFFF !important; color: #0D1F3C !important; }
-  .uv-badge-veto { background: #0D1F3C !important; color: #FFFFFF !important; }
-  .uv-note-body  { color: #3B4D63 !important; opacity: 1 !important; }
-  [data-testid="stWidgetLabel"] p,
-  [data-testid="stCheckbox"] p { color: #0D1F3C !important; }
-  [data-testid="stSpinner"] { color: #0D1F3C !important; }
-  [data-testid="stProgressBar"] > div { background-color: #E5E7EB !important; }
-  [data-testid="stProgressBar"] > div > div { background-color: #1DD6A4 !important; }
-  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
-  [data-baseweb="popover"] { background: #FFFFFF !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important; border: 1px solid #E2E6EC !important; overflow: hidden !important; }
-  [data-baseweb="popover"] > div,
-  [data-baseweb="menu"],
-  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-baseweb="menu"] li { color: #0D1F3C !important; background: transparent !important; }
-  [data-baseweb="menu"] li:hover { background-color: #EEF1F5 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
-
-  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
-    background-color: #8A96A8 !important;
-    opacity: 1 !important;
-  }
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
-    background-color: #0F6E56 !important;
-  }
-  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
-    background-color: transparent !important;
-  }
-
-  /* ── Tooltips: same shape as dark mode, light palette ───────────────────── */
-  [data-baseweb="tooltip"] { background-color: transparent !important; }
-  [data-baseweb="tooltip"] > div > div,
-  [data-baseweb="tooltip"] > div > div > div,
-  [role="tooltip"],
-  [role="tooltip"] > div,
-  [data-testid="stTooltipContent"],
-  [data-testid="stTooltipContent"] > div {
-    background-color: #F5F7FA !important;
-    color: #0D1F3C !important;
-    border-radius: 8px !important;
-  }
-  [data-baseweb="tooltip"] span,
-  [data-baseweb="tooltip"] p,
-  [role="tooltip"] span,
-  [role="tooltip"] p,
-  [data-testid="stTooltipContent"] span,
-  [data-testid="stTooltipContent"] p { color: #0D1F3C !important; }
-
-  /* ── Toolbar pill: force light background (doubled attr beats Emotion specificity) ── */
-  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
-    background-color: #FFFFFF !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
-    border: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
-    background-color: transparent !important;
-    color: #3B4D63 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
-    background-color: #EEF1F5 !important;
-  }
-"""
-
-_DARK_CSS = """
-  /* ── Streamlit theme variables ───────────────────────────────────────────── */
-  :root {
-    --background-color:           #0D1F3C !important;
-    --secondary-background-color: #0F2647 !important;
-    --text-color:                 #F5F7FA !important;
-    --primary-color:              #1DD6A4 !important;
-  }
-
-  /* ── App surface ─────────────────────────────────────────────────────────── */
-  html, body { background-color: #0D1F3C !important; }
-  [data-testid="stApp"], .stApp,
-  section[data-testid="stMain"] {
-    background-color: #0D1F3C !important;
-    color: #F5F7FA !important;
-  }
-  .block-container { background-color: #0D1F3C !important; }
-
-  /* ── Sidebar + bottom bar ────────────────────────────────────────────────── */
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"] > div:first-child {
-    background-color: #0F2647 !important;
-  }
-  .uv-bottom { background: #0F2647 !important; border-top-color: rgba(255,255,255,0.08) !important; }
-  .mini-nav  { background: #0F2647 !important; border-right-color: rgba(255,255,255,0.08) !important; }
-
-  /* ── Typography ──────────────────────────────────────────────────────────── */
-  p, li, h1, h2, h3, h4, h5, h6,
-  span:not(.uv-nav-icon):not(.uv-logo-accent):not(.uv-logo-sub):not(.uv-role-badge):not(.uv-wordmark-accent) {
-    color: #F5F7FA !important;
-  }
-  [data-testid="stCaptionContainer"], small, caption { color: rgba(245,247,250,0.55) !important; }
-
-  /* ── Cards / panels ──────────────────────────────────────────────────────── */
-  [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"],
-  [data-testid="stExpander"] { background-color: #0F2647 !important; }
-  details[data-testid="stExpander"] { border-color: rgba(255,255,255,0.08) !important; }
-
-  /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"] {
-    background: #0F2647 !important;
-    border: 0.5px solid rgba(255,255,255,0.08) !important;
-  }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] { color: #F5F7FA !important; }
-  div[data-testid="metric-container"] label { color: rgba(245,247,250,0.55) !important; }
-
-  /* ── Inputs / selects ────────────────────────────────────────────────────── */
-  div[data-baseweb="input"] input,
-  div[data-baseweb="textarea"] textarea {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-  }
-  div[data-baseweb="input"],
-  div[data-baseweb="textarea"] { border-color: rgba(255,255,255,0.15) !important; }
-  div[data-baseweb="select"] > div:first-child {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-    border-color: rgba(255,255,255,0.15) !important;
-  }
-
-  /* ── Data tables — invert light canvas back to dark ─────────────────────── */
-  [data-testid="stDataFrame"] canvas,
-  [data-testid="stDataFrameResizable"] canvas { filter: invert(1) hue-rotate(180deg); }
-
-  /* ── Password reveal button ─────────────────────────────────────────────── */
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] { background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"] svg * { color: #F5F7FA !important; fill: #F5F7FA !important; stroke: #F5F7FA !important; opacity: 0.85; }
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg,
-  [data-testid="stPasswordRevealButton"][data-testid="stPasswordRevealButton"]:hover svg * { opacity: 1; }
-
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
-  [data-testid="stBaseButton-secondary"],
-  [data-testid="stPopoverButton"],
-  [data-testid="stDownloadButton"] > button,
-  [data-testid="stFormSubmitButton"] > button:not([data-testid="stBaseButton-primary"]) {
-    background-color: transparent !important;
-    color: #F5F7FA !important;
-    border: 0.5px solid rgba(255,255,255,0.2) !important;
-  }
-  [data-testid="stBaseButton-secondary"]:hover,
-  [data-testid="stPopoverButton"]:hover,
-  [data-testid="stDownloadButton"] > button:hover {
-    background-color: rgba(255,255,255,0.08) !important;
-  }
-  [data-testid="stBaseButton-primary"] {
-    background-color: #1DD6A4 !important;
-    color: #0D1F3C !important;
-    border: none !important;
-  }
-
-  /* ── Checkboxes ──────────────────────────────────────────────────────────── */
-  [data-testid="stCheckbox"] span[role="checkbox"],
-  [data-baseweb="checkbox"] span { background-color: #0F2647 !important; border-color: rgba(255,255,255,0.3) !important; }
-
-  /* toggle track: div is first-child only for toggles (checkboxes have span first) */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
-    background-color: rgba(255,255,255,0.35) !important;
-    opacity: 1 !important;
-  }
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) > div:first-child {
-    background-color: #1DD6A4 !important;
-  }
-  /* checkbox text wrapper (div is NOT first-child for checkboxes) — transparent */
-  [data-testid="stCheckbox"] label[data-baseweb="checkbox"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"],
-  [data-testid="stCheckbox"] [data-testid="stWidgetLabel"] > div {
-    background-color: transparent !important;
-  }
-
-  /* ── Tabs ────────────────────────────────────────────────────────────────── */
-  button[data-testid="stTab"] { color: rgba(245,247,250,0.6) !important; }
-  button[data-testid="stTab"][aria-selected="true"] { color: #F5F7FA !important; border-bottom-color: #1DD6A4 !important; }
-
-  /* ── Tooltips ───────────────────────────────────────────────────────────── */
-  [data-baseweb="tooltip"] { background-color: transparent !important; }
-  [data-baseweb="tooltip"] > div > div,
-  [data-baseweb="tooltip"] > div > div > div,
-  [role="tooltip"],
-  [role="tooltip"] > div,
-  [data-testid="stTooltipContent"],
-  [data-testid="stTooltipContent"] > div {
-    background-color: #0F2647 !important;
-    color: #F5F7FA !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-  }
-  [data-baseweb="tooltip"] span,
-  [data-baseweb="tooltip"] p,
-  [role="tooltip"] span,
-  [role="tooltip"] p,
-  [data-testid="stTooltipContent"] span,
-  [data-testid="stTooltipContent"] p { color: #F5F7FA !important; }
-
-  /* ── Toolbar pill (hover actions on table/chart) ─────────────────────────── */
-  [data-testid="stElementToolbar"][data-testid="stElementToolbar"] {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] {
-    background-color: #0F2647 !important;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.35) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] * {
-    background-color: transparent !important;
-    color: #F5F7FA !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  [data-testid="stElementToolbarButtonContainer"][data-testid="stElementToolbarButtonContainer"] button:hover {
-    background-color: rgba(255,255,255,0.08) !important;
-  }
-
-  /* ── Popover / dropdown menus ────────────────────────────────────────────── */
-  [data-baseweb="popover"] { background: #0F2647 !important; border-radius: 10px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.40) !important; border: 1px solid rgba(255,255,255,0.08) !important; overflow: hidden !important; }
-  [data-baseweb="popover"] > div,
-  [data-baseweb="menu"],
-  [data-baseweb="menu"] ul { background: transparent !important; border: none !important; box-shadow: none !important; }
-  [data-baseweb="menu"] li { color: #F5F7FA !important; background: transparent !important; }
-  [data-baseweb="menu"] li:hover { background-color: rgba(255,255,255,0.08) !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg { color: #1DD6A4 !important; fill: #1DD6A4 !important; }
-  [data-baseweb="menu"] li[aria-selected="true"] svg * { fill: #1DD6A4 !important; }
-
-  /* ── Decision badges — dark mode overrides ──────────────────────────────── */
-  .uv-badge-buy     { background: rgba(15,110,86,0.22)  !important; color: #1DD6A4 !important; }
-  .uv-badge-monitor { background: rgba(133,79,11,0.22)  !important; color: #D4903A !important; }
-  .uv-badge-avoid   { background: rgba(163,45,45,0.22)  !important; color: #E05C5C !important; }
-
-  /* ── Misc ────────────────────────────────────────────────────────────────── */
-  hr { border-color: rgba(255,255,255,0.08) !important; }
-  [data-testid="stAlert"] { background-color: #0F2647 !important; color: #F5F7FA !important; }
-  [data-testid="stWidgetLabel"] p,
-  [data-testid="stCheckbox"] p { color: #F5F7FA !important; }
-  [data-testid="stProgressBar"] > div { background-color: rgba(255,255,255,0.12) !important; }
-"""
-
-# ── Theme CSS injection (before auth wall so login/loading screen is themed) ──
-if _ui_effective_light:
-    st.markdown(f"<style>{_LIGHT_CSS}</style>", unsafe_allow_html=True)
-else:
-    st.markdown(f"<style>{_DARK_CSS}</style>", unsafe_allow_html=True)
-
-# Sync localStorage with server-side theme so next page load uses correct CSS
-_light_css_js = _json.dumps(_LIGHT_CSS)
-_dark_css_js  = _json.dumps(_DARK_CSS)
-_server_theme = _json.dumps(_ui_theme)
-st.markdown(f"""<script>
-(function(){{
-  try {{
-    var t = {_server_theme};
-    localStorage.setItem('uv_theme', t);
-    var sid = 'uv-pre-theme';
-    var existing = document.getElementById(sid);
-    if (existing) existing.remove();
-    var s = document.createElement('style');
-    s.id = sid;
-    s.textContent = t === 'light' ? {_light_css_js} : {_dark_css_js};
-    (document.head || document.documentElement).appendChild(s);
-  }} catch(e) {{}}
-
-  // Fix BaseWeb modal: move it to <body> to escape Streamlit's transform stacking
-  // context, then constrain it to the main content area (right of sidebar).
-  try {{
-    function _applyModalFix(modal) {{
-      var bd = modal.firstElementChild;
-      if (bd) bd.style.setProperty('background', 'transparent', 'important');
-      modal.style.setProperty('padding-left', '260px', 'important');
-    }}
-    var _modalObs = new MutationObserver(function() {{
-      var modal = document.querySelector('div[data-baseweb="modal"]');
-      if (modal) _applyModalFix(modal);
-    }});
-    _modalObs.observe(document.body, {{childList: true, subtree: true}});
-  }} catch(e) {{}}
-}})();
-</script>""", unsafe_allow_html=True)
+# ── Dark-variant decision badge colors ────────────────────────────────────────
+# Everything else is themed natively via config.toml [theme.light]/[theme.dark].
+if not _ui_effective_light:
+    st.markdown("""<style>
+  .uv-badge-buy     { background: rgba(15,110,86,0.22); color: #1DD6A4; }
+  .uv-badge-monitor { background: rgba(133,79,11,0.22); color: #D4903A; }
+  .uv-badge-avoid   { background: rgba(163,45,45,0.22); color: #E05C5C; }
+</style>""", unsafe_allow_html=True)
 
 _auth_wall()
-
-# Quick theme toggle via ?_uitheme= query param
-_qp_theme = st.query_params.get("_uitheme", "")
-if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
-    _user_prefs["ui_theme"] = _qp_theme
-    save_settings(_user_prefs, _email)
-    st.query_params.pop("_uitheme", None)
-    st.rerun()
 
 # ── Sidebar navigation ────────────────────────────────────────────────────────
 # Rendered at the end of the script via st.navigation + st.page_link, once the
@@ -4015,17 +3511,8 @@ def _page_settings() -> None:
 
     with tab_appearance:
         st.subheader("Appearance")
-        _ap_prefs   = load_settings(_email) if _email else {}
-        _cur_theme  = _ap_prefs.get("ui_theme", "dark")
-        _theme_choice = st.radio("Theme", ["dark", "light"],
-                                 format_func=lambda x: x.capitalize(),
-                                 index=0 if _cur_theme == "dark" else 1,
-                                 horizontal=True, key="ap_theme_radio")
-        if st.button("Save", type="primary", key="btn_save_appearance"):
-            _ap_prefs["ui_theme"] = _theme_choice
-            save_settings(_ap_prefs, _email)
-            st.success("Saved.")
-            st.rerun()
+        st.caption("The theme follows your system preference. To override it, open the "
+                   "app menu (top-right **⋮ → Settings → Theme**) and pick Light or Dark.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE — HELP
@@ -4775,14 +4262,9 @@ with st.sidebar:
     st.page_link(_pg_help)
     st.markdown(f"""
 <div class="uv-bottom">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-    <div class="uv-bottom-email">{_email}</div>
-    <a href="?_uitheme={'light' if _ui_theme == 'dark' else 'dark'}{_tok_qs}" target="_self"
-       title="Switch to {'light' if _ui_theme == 'dark' else 'dark'} mode"
-       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
-  </div>
+  <div class="uv-bottom-email" style="margin-bottom:8px;">{_email}</div>
   <div style="text-align:center;">
-    <a href="/?logout=1&theme={_ui_theme}" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+    <a href="/?logout=1" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
