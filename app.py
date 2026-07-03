@@ -346,6 +346,29 @@ def _loading_screen(message: str = "Loading…"):
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 
 
+def _row_select_table(df, key: str, **dataframe_kwargs) -> "int | None":
+    """st.dataframe with single-row click selection.
+
+    Returns the selected positional row index (into `df`) once per selection,
+    or None. The widget key embeds a nonce that is bumped when a selection is
+    consumed, so closing the details dialog does not immediately re-open it.
+    """
+    _nonce_key = f"_nonce_{key}"
+    _nonce = st.session_state.get(_nonce_key, 0)
+    _event = st.dataframe(
+        df,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"{key}_{_nonce}",
+        **dataframe_kwargs,
+    )
+    _rows = _event.selection.rows
+    if _rows:
+        st.session_state[_nonce_key] = _nonce + 1
+        return _rows[0]
+    return None
+
+
 def _auto_rerun(seconds: float, key: str) -> None:
     """Rerun the whole app every `seconds` while the caller keeps rendering this.
 
@@ -518,7 +541,7 @@ def _hm_color(v: float) -> str:
     return f"rgb({r},{g},{b})"
 
 
-_HINT_WATCHLIST = "click → to view details · star in popup to add to watchlist"
+_HINT_WATCHLIST = "click a row to view details · star in popup to add to watchlist"
 
 
 def _fmt_div_flag(v) -> str:
@@ -1993,8 +2016,8 @@ def _page_screener() -> None:
             return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
         # Build the display DataFrame from core cols + selected extras
-        display_data = {"→": [False] * len(tab_df)}
-        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★, already added
+        display_data = {}
+        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★ (watchlist lives in the dialog)
             if col == "Score":
                 display_data[col] = tab_df.apply(_fmt_score, axis=1).values
             elif field in tab_df.columns:
@@ -2020,25 +2043,22 @@ def _page_screener() -> None:
                 **{"background-color": "rgba(99, 102, 241, 0.07)"},
             )
 
-        all_data_cols = list(display_data.keys())
-        col_config    = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-        col_config["→"] = st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True)
-        disabled_cols = [c for c in all_data_cols if c != "→"]
+        col_config = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
 
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
 
-        edited = st.data_editor(
+        _sel_idx = _row_select_table(
             display_df,
+            key=_tbl_key,
             width="stretch",
             hide_index=True,
             column_config=col_config,
-            disabled=disabled_cols,
             height=_height,
-            key=_tbl_key,
         )
-        return edited, n_shown, key_suffix
+        _sel_ticker = display_data["Ticker"][_sel_idx] if _sel_idx is not None else None
+        return _sel_ticker, n_shown, key_suffix
 
     # ── Buy dialog (shared across all screener tabs) ──────────────────────────
     _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
@@ -2168,20 +2188,16 @@ def _page_screener() -> None:
                 st.info("Open any stock's details popup and click ★ to add it to your watchlist, "
                         "or use **Add** to add a stock from any market.")
             else:
-                st.markdown(f"**{len(wl_df)}** stocks · click → to view details")
-        wl_edited, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
+                st.markdown(f"**{len(wl_df)}** stocks · click a row to view details")
+        _wl_sel_ticker, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
                                          score_key="wl_score_filter",
                                          score_default=_SCORE_OPTIONS[3],
                                          extra_toolbar_action=("Add", _dlg_add_ticker))
         _wl_star = st.session_state.get("_dlg_star_rerun", False)
         _wl_src  = st.session_state.get("_dlg_open_src", "")
-        if "→" in wl_edited.columns and wl_edited["→"].any():
-            _wl_sel_ticker = wl_edited.loc[wl_edited["→"], "Ticker"].iloc[0]
-            _wl_sel_rows   = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
+        if _wl_sel_ticker is not None:
+            _wl_sel_rows = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
             if not _wl_sel_rows.empty:
-                _wl_tbl_ss = st.session_state.get("table_watchlist", {})
-                if isinstance(_wl_tbl_ss, dict):
-                    _wl_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                 st.session_state["_dlg_open_src"]    = "watchlist"
                 _dlg_pending.append((_wl_sel_rows.iloc[0], None))
@@ -2220,19 +2236,15 @@ def _page_screener() -> None:
         if idx_only and _idx_tickers:
             tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
 
-        edited, n_shown, _tbl_key = _render_table(tab_df, key,
+        _sel_ticker, n_shown, _tbl_key = _render_table(tab_df, key,
                                         score_key=f"{key}_score_filter",
                                         score_default=_SCORE_OPTIONS[0])
 
         _ex_star = st.session_state.get("_dlg_star_rerun", False)
         _ex_src  = st.session_state.get("_dlg_open_src", "")
-        if "→" in edited.columns and edited["→"].any():
-            _sel_ticker = edited.loc[edited["→"], "Ticker"].iloc[0]
-            _sel_rows   = tab_df[tab_df["Ticker"] == _sel_ticker]
+        if _sel_ticker is not None:
+            _sel_rows = tab_df[tab_df["Ticker"] == _sel_ticker]
             if not _sel_rows.empty:
-                _ex_tbl_ss = st.session_state.get(f"table_{key}", {})
-                if isinstance(_ex_tbl_ss, dict):
-                    _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
                 _dlg_pending.append((_sel_rows.iloc[0], _scr_pf_context))
@@ -2248,7 +2260,7 @@ def _page_screener() -> None:
             st.session_state.pop("_dlg_open_src", None)
 
         with cnt_col:
-            st.markdown(f"**{n_shown}** stocks · click → to view details")
+            st.markdown(f"**{n_shown}** stocks · click a row to view details")
 
     for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
         with _tab:
@@ -2647,10 +2659,8 @@ def _page_portfolio() -> None:
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
-        positions.insert(0, "→", False)
 
         _pos_col_config = {
-            "→":              st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
             "Company":        st.column_config.TextColumn("Company",         pinned=True,
                                   help="Company name"),
             "Ticker":         st.column_config.TextColumn("Ticker",
@@ -2694,22 +2704,18 @@ def _page_portfolio() -> None:
         _row_h  = 35
         _header = 38
         _height = min(_header + _n_rows * _row_h + 4, 800)
-        _pf_pos_edited = st.data_editor(
+        _pf_sel_idx = _row_select_table(
             positions,
+            key="pf_positions_table",
             width="stretch",
             hide_index=True,
             column_config=_pos_col_config,
-            disabled=[c for c in positions.columns if c != "→"],
             height=_height,
-            key="pf_positions_table",
         )
-        if _pf_pos_edited["→"].any():
-            _pf_sel = _pf_pos_edited.loc[_pf_pos_edited["→"], "Ticker"].iloc[0]
+        if _pf_sel_idx is not None:
+            _pf_sel = positions["Ticker"].iloc[_pf_sel_idx]
             _pf_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _pf_sel]
             if not _pf_scr_row.empty:
-                _pf_tbl_ss = st.session_state.get("pf_positions_table", {})
-                if isinstance(_pf_tbl_ss, dict):
-                    _pf_tbl_ss["edited_rows"] = {}
                 _pf_dlg_pending.append((_pf_scr_row.iloc[0], None))
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
@@ -3188,7 +3194,6 @@ def _page_portfolio() -> None:
             sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
 
             sold_table = pd.DataFrame({
-                "→":               False,
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
                 "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
@@ -3202,14 +3207,12 @@ def _page_portfolio() -> None:
                 "Sell Date":       sold["_sort_date"].dt.strftime("%d-%m-%Y").fillna("—"),
             })
 
-            _sold_edited = st.data_editor(
+            _sold_sel_idx = _row_select_table(
                 sold_table,
+                key="pf_sold_table",
                 width="stretch",
                 hide_index=True,
-                disabled=[c for c in sold_table.columns if c != "→"],
-                key="pf_sold_table",
                 column_config={
-                    "→":               st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                     "Company":         st.column_config.TextColumn("Company",           pinned=True,
                                            help="Company name"),
                     "Ticker":          st.column_config.TextColumn("Ticker",
@@ -3235,13 +3238,10 @@ def _page_portfolio() -> None:
                 },
                 height=(len(sold) + 1) * 35 + 10,
             )
-            if _sold_edited["→"].any():
-                _sold_sel = _sold_edited.loc[_sold_edited["→"], "Ticker"].iloc[0]
+            if _sold_sel_idx is not None:
+                _sold_sel = sold_table["Ticker"].iloc[_sold_sel_idx]
                 _sold_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _sold_sel]
                 if not _sold_scr_row.empty:
-                    _sold_tbl_ss = st.session_state.get("pf_sold_table", {})
-                    if isinstance(_sold_tbl_ss, dict):
-                        _sold_tbl_ss["edited_rows"] = {}
                     _pf_dlg_pending.append((_sold_scr_row.iloc[0], None))
 
             st.divider()
@@ -3523,7 +3523,6 @@ def _page_risk() -> None:
         _pos_rows = []
         for p in r.position_profiles:
             _pos_rows.append({
-                "→":               False,
                 "Company":         p.name,
                 "Ticker":          p.ticker,
                 "Weight":          f"{p.weight:.1%}",
@@ -3538,15 +3537,13 @@ def _page_risk() -> None:
             })
         _pos_df = pd.DataFrame(_pos_rows)
         _row_h = 35
-        _risk_pos_edited = st.data_editor(
+        _risk_sel_idx = _row_select_table(
             _pos_df,
+            key="risk_positions_table",
             hide_index=True,
             width='stretch',
-            disabled=[c for c in _pos_df.columns if c != "→"],
             height=35 + min(len(_pos_df), 20) * _row_h,
-            key="risk_positions_table",
             column_config={
-                "→":            st.column_config.CheckboxColumn("→", width="small", help="View stock details", pinned=True),
                 "Company":      st.column_config.TextColumn("Company",     pinned=True,
                                     help="Company name"),
                 "Ticker":       st.column_config.TextColumn("Ticker",
@@ -3571,13 +3568,10 @@ def _page_risk() -> None:
                                     help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
             },
         )
-        if _risk_pos_edited["→"].any():
-            _risk_sel = _risk_pos_edited.loc[_risk_pos_edited["→"], "Ticker"].iloc[0]
+        if _risk_sel_idx is not None:
+            _risk_sel = _pos_df["Ticker"].iloc[_risk_sel_idx]
             _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
             if not _risk_scr_row.empty:
-                _risk_tbl_ss = st.session_state.get("risk_positions_table", {})
-                if isinstance(_risk_tbl_ss, dict):
-                    _risk_tbl_ss["edited_rows"] = {}
                 _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
