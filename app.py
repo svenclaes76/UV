@@ -1988,15 +1988,13 @@ opacity: 1;
     _in_watchlist = _dlg_ticker in watchlist
     _star_lbl  = "★" if _in_watchlist else "☆"
     _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
-    _hdr_col, _star_col = st.columns([11, 1], vertical_alignment="center")
-    with _hdr_col:
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.markdown(f"""
-<div class="uv-detail-header" style="margin-bottom:0.75rem;">
+<div class="uv-detail-header">
   <span class="uv-detail-company">{row.get('Name','—')}</span>
   <span class="uv-detail-ticker">{_dlg_ticker}</span>
   <span class="uv-badge {badge_class}">{badge_label}</span>
 </div>""", unsafe_allow_html=True)
-    with _star_col:
         if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
             save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
             if _in_watchlist:
