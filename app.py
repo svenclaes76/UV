@@ -1928,16 +1928,25 @@ color: var(--text-color) !important;
 padding-top: 0 !important;
 }
 
-/* ── Compact key/value markdown tables inside dialog ──────────── */
+/* ── Compact borderless key/value markdown tables inside dialog ── */
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table {
 width: 100% !important;
 table-layout: fixed !important;
 font-size: 12px;
+border: none !important;
 }
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th,
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td {
-padding: 3px 6px;
+padding: 3px 0;
 overflow-wrap: break-word;
+border: none !important;
+background: transparent !important;
+}
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th {
+border-bottom: 1px solid rgba(128,128,128,0.25) !important;
+}
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
+opacity: 0.55;
 }
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
