@@ -1966,6 +1966,10 @@ opacity: 1;
 
     score_str = f"{score:.1f}%" if pd.notna(score) else "—"
 
+    # Height of the content block above Signals — identical in every tab so
+    # the Signals section always starts at the same vertical position.
+    _DLG_TOP_H = 260
+
     def _fv(field, fmt=None):
         v = row.get(field)
         if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -2022,33 +2026,35 @@ opacity: 1;
         _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
         _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
 
-        _snap_c1, _snap_c2, _snap_c3 = st.columns(3, gap="medium")
-        with _snap_c1:
-            _kv_table("Valuation", [
-                ("Price",       _fv("Price",      _fmt_eur)),
-                ("Fair value",  _fv("fair_value", _fmt_eur)),
-                ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
-                ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
-                ("Score",       score_str),
-            ])
-        with _snap_c2:
-            _kv_table("Quality", [
-                ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
-                ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
-                ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
-                ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
-                ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
-                ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
-            ])
-        with _snap_c3:
-            _kv_table("Dividends & growth", [
-                ("DPS",         _dps_str),
-                ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
-                ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
-                ("Ex-div",      _fv("exDividendDate")),
-                ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
-                ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
-            ])
+        # Fixed-height block so Signals starts at the same y in every tab
+        with st.container(height=_DLG_TOP_H, border=False):
+            _snap_c1, _snap_c2, _snap_c3 = st.columns(3, gap="medium")
+            with _snap_c1:
+                _kv_table("Valuation", [
+                    ("Price",       _fv("Price",      _fmt_eur)),
+                    ("Fair value",  _fv("fair_value", _fmt_eur)),
+                    ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
+                    ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
+                    ("Score",       score_str),
+                ])
+            with _snap_c2:
+                _kv_table("Quality", [
+                    ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
+                    ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
+                    ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
+                    ("ROE",         _fv("returnOnEquity",     lambda v: f"{v*100:.1f}%")),
+                    ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
+                    ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
+                ])
+            with _snap_c3:
+                _kv_table("Dividends & growth", [
+                    ("DPS",         _dps_str),
+                    ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
+                    ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
+                    ("Ex-div",      _fv("exDividendDate")),
+                    ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
+                    ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
+                ])
         # ── Snapshot signals ──────────────────────────────────────────────
         _snap_tips = []
         _sc_v = row.get("Value Score"); _mos_v = row.get("MoS %"); _fv_v = row.get("fair_value")
@@ -2089,52 +2095,54 @@ opacity: 1;
 
         import yfinance as yf
         _ticker_sym = str(row.get("Ticker", ""))
-        with st.spinner("Loading price history…"):
-            try:
-                _hist = yf.Ticker(_ticker_sym).history(period="2y")
-            except Exception:
-                _hist = pd.DataFrame()
-        if _hist.empty:
-            st.caption("No price history available.")
-        else:
-            _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
-            _fig_h = go.Figure()
-            _fig_h.add_trace(go.Scatter(
-                x=_hist.index, y=_hist["Close"],
-                mode="lines", name="Price",
-                line=dict(color="#1DD6A4", width=2),
-                fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
-            ))
-            if pd.notna(_fv_val):
-                _fig_h.add_hline(
-                    y=float(_fv_val),
-                    line=dict(color="#5B8FA8", width=1.5, dash="dash"),
-                    annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
-                    annotation_position="top left",
-                    annotation_font=dict(color=_c_axis, size=11),
+        with st.container(height=_DLG_TOP_H, border=False):
+            with st.spinner("Loading price history…"):
+                try:
+                    _hist = yf.Ticker(_ticker_sym).history(period="2y")
+                except Exception:
+                    _hist = pd.DataFrame()
+            if _hist.empty:
+                st.caption("No price history available.")
+            else:
+                _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
+                _fig_h = go.Figure()
+                _fig_h.add_trace(go.Scatter(
+                    x=_hist.index, y=_hist["Close"],
+                    mode="lines", name="Price",
+                    line=dict(color="#1DD6A4", width=2),
+                    fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
+                ))
+                if pd.notna(_fv_val):
+                    _fig_h.add_hline(
+                        y=float(_fv_val),
+                        line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                        annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                        annotation_position="top left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                if pd.notna(_at_val):
+                    _fig_h.add_hline(
+                        y=float(_at_val),
+                        line=dict(color=_c_invested, width=1.5, dash="dot"),
+                        annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
+                        annotation_position="bottom left",
+                        annotation_font=dict(color=_c_axis, size=11),
+                    )
+                _fig_h.update_layout(
+                    margin=dict(l=0, r=0, t=8, b=0),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                xanchor="left", x=0, font=dict(color=_c_axis)),
+                    yaxis=dict(tickprefix="€", tickformat=",.2f",
+                               tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+                    hovermode="x unified",
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
                 )
-            if pd.notna(_at_val):
-                _fig_h.add_hline(
-                    y=float(_at_val),
-                    line=dict(color=_c_invested, width=1.5, dash="dot"),
-                    annotation_text=f"Analyst {_fmt_eur(float(_at_val))}",
-                    annotation_position="bottom left",
-                    annotation_font=dict(color=_c_axis, size=11),
-                )
-            _fig_h.update_layout(
-                margin=dict(l=0, r=0, t=8, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                            xanchor="left", x=0, font=dict(color=_c_axis)),
-                yaxis=dict(tickprefix="€", tickformat=",.2f",
-                           tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
-                hovermode="x unified",
-                font=dict(color=_c_axis),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
-            # ── Price history signals ─────────────────────────────────────
+                st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
+        # ── Price history signals ─────────────────────────────────────────
+        if not _hist.empty:
             _hist_tips = []
             if pd.notna(_price) and pd.notna(_fv_val):
                 _gap = (float(_fv_val) - float(_price)) / float(_price) * 100
@@ -2148,13 +2156,12 @@ opacity: 1;
                 elif _at_gap >= 5: _hist_tips.append(("neutral", f"Analyst target {_fmt_eur(float(_at_val))} implies {_at_gap:.1f}% upside."))
                 elif _at_gap >= 0: _hist_tips.append(("caution", f"Analyst target {_fmt_eur(float(_at_val))} is near current price — limited consensus upside."))
                 else:              _hist_tips.append(("warn",    f"Analyst target {_fmt_eur(float(_at_val))} is {abs(_at_gap):.1f}% below current price — analysts see downside."))
-            if not _hist.empty:
-                _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
-                _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
-                if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
-                elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
-                if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
-                elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
+            _ret_1m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-21, -len(_hist))] - 1) * 100
+            _ret_6m = (_hist["Close"].iloc[-1] / _hist["Close"].iloc[max(-126, -len(_hist))] - 1) * 100
+            if _ret_1m >= 5:   _hist_tips.append(("ok",     f"Up {_ret_1m:.1f}% over the past month — strong recent momentum."))
+            elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
+            if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
+            elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
             _render_signals(_hist_tips)
 
     # ── Tab 3: Risk ───────────────────────────────────────────────────────
@@ -2213,18 +2220,19 @@ opacity: 1;
             ]
             _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
 
-        _rf_c1, _rf_c2 = st.columns(2, gap="large")
-        with _rf_c1:
-            _kv_table("Risk & size", [
-                ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
-                ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
-                ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
-                ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
-                ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
-            ])
-        with _rf_c2:
-            if _fit_rows:
-                _kv_table("Portfolio fit", _fit_rows)
+        with st.container(height=_DLG_TOP_H, border=False):
+            _rf_c1, _rf_c2 = st.columns(2, gap="large")
+            with _rf_c1:
+                _kv_table("Risk & size", [
+                    ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
+                    ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
+                    ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
+                    ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
+                    ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
+                ])
+            with _rf_c2:
+                if _fit_rows:
+                    _kv_table("Portfolio fit", _fit_rows)
 
         # ── Signals — right column ────────────────────────────────────────
         _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
@@ -2263,39 +2271,39 @@ opacity: 1;
             for lbl, field in _val_models
             if row.get(field) is not None and pd.notna(row.get(field))
         ]
-        if _valid_models and pd.notna(_price):
-            _vlabels = [lbl for lbl, _ in _valid_models]
-            _vvalues = [val for _, val in _valid_models]
-            _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
-            _fig_v   = go.Figure()
-            _fig_v.add_trace(go.Bar(
-                x=_vvalues, y=_vlabels, orientation="h",
-                marker_color=_vcolors,
-                text=[_fmt_eur(v) for v in _vvalues],
-                textposition="outside",
-                cliponaxis=False,
-            ))
-            _fig_v.add_vline(
-                x=float(_price),
-                line=dict(color=_c_axis, width=2),
-                annotation_text=f"Price {_fmt_eur(float(_price))}",
-                annotation_position="top",
-                annotation_font=dict(color=_c_axis, size=11),
-            )
-            _fig_v.update_layout(
-                margin=dict(l=0, r=80, t=28, b=8),
-                bargap=0.25,
-                xaxis=dict(tickprefix="€", tickformat=",.0f",
-                           tickfont=dict(color=_c_axis), showgrid=False),
-                yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
-                font=dict(color=_c_axis),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-            )
-            st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
-        else:
-            st.container(height=220, border=False)
-            st.caption("Not enough model data to render chart.")
+        with st.container(height=_DLG_TOP_H, border=False):
+            if _valid_models and pd.notna(_price):
+                _vlabels = [lbl for lbl, _ in _valid_models]
+                _vvalues = [val for _, val in _valid_models]
+                _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
+                _fig_v   = go.Figure()
+                _fig_v.add_trace(go.Bar(
+                    x=_vvalues, y=_vlabels, orientation="h",
+                    marker_color=_vcolors,
+                    text=[_fmt_eur(v) for v in _vvalues],
+                    textposition="outside",
+                    cliponaxis=False,
+                ))
+                _fig_v.add_vline(
+                    x=float(_price),
+                    line=dict(color=_c_axis, width=2),
+                    annotation_text=f"Price {_fmt_eur(float(_price))}",
+                    annotation_position="top",
+                    annotation_font=dict(color=_c_axis, size=11),
+                )
+                _fig_v.update_layout(
+                    margin=dict(l=0, r=80, t=28, b=8),
+                    bargap=0.25,
+                    xaxis=dict(tickprefix="€", tickformat=",.0f",
+                               tickfont=dict(color=_c_axis), showgrid=False),
+                    yaxis=dict(tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                    font=dict(color=_c_axis),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                )
+                st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
+            else:
+                st.caption("Not enough model data to render chart.")
         # ── Model signals ─────────────────────────────────────────────────
         _mdl_tips = []
         _mdl_price = row.get("Price")
