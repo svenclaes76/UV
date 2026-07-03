@@ -2041,12 +2041,12 @@ opacity: 1;
             return "—"
         return fmt(v) if fmt else str(v)
 
-    def _rows_html(pairs):
-        return "".join(
-            f'<div class="uv-model-row"><span class="uv-model-label">{lbl}</span>'
-            f'<span class="uv-model-value">{val}</span></div>'
-            for lbl, val in pairs
-        )
+    def _kv_table(label, rows):
+        """Render a section label + label/value pairs as a markdown table."""
+        st.markdown("\n".join(
+            [f"| {label} |  |", "|:--|--:|"]
+            + [f"| {lbl} | {val} |" for lbl, val in rows]
+        ))
 
     # ── Header: company name · ticker · decision badge · watchlist star ──
     _dlg_ticker   = str(row.get("Ticker", ""))
@@ -2089,22 +2089,17 @@ opacity: 1;
         _dps = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
         _dps_str = f"€{_dps:.2f}" if _dps and pd.notna(_dps) else "—"
 
-        def _col_html(label, rows):
-            return (
-                f'<div><div class="uv-section-label" style="margin-top:0;">{label}</div>'
-                + _rows_html(rows) + '</div>'
-            )
-
-        st.markdown(
-            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">'
-            + _col_html("Valuation", [
+        _snap_c1, _snap_c2, _snap_c3 = st.columns(3, gap="medium")
+        with _snap_c1:
+            _kv_table("Valuation", [
                 ("Price",       _fv("Price",      _fmt_eur)),
                 ("Fair value",  _fv("fair_value", _fmt_eur)),
                 ("MoS",         _fv("MoS %",      lambda v: f"{v:+.1f}%")),
                 ("Exp. return", _fv("TER %",      lambda v: f"{v:+.1f}%")),
                 ("Score",       score_str),
             ])
-            + _col_html("Quality", [
+        with _snap_c2:
+            _kv_table("Quality", [
                 ("P/E",         _fv("trailingPE",        lambda v: f"{v:.1f}×")),
                 ("P/B",         _fv("priceToBook",        lambda v: f"{v:.2f}×")),
                 ("EV/EBITDA",   _fv("enterpriseToEbitda", lambda v: f"{v:.1f}×")),
@@ -2112,7 +2107,8 @@ opacity: 1;
                 ("ROA",         _fv("returnOnAssets",     lambda v: f"{v*100:.1f}%")),
                 ("Op margin",   _fv("operatingMargins",   lambda v: f"{v*100:.1f}%")),
             ])
-            + _col_html("Dividends & growth", [
+        with _snap_c3:
+            _kv_table("Dividends & growth", [
                 ("DPS",         _dps_str),
                 ("Yield",       _fv("dividendYield",  lambda v: f"{v*100:.2f}%")),
                 ("Payout",      _fv("payoutRatio",    lambda v: f"{v*100:.1f}%")),
@@ -2120,9 +2116,6 @@ opacity: 1;
                 ("EPS growth",  _fv("earningsGrowth", lambda v: f"{v*100:+.1f}%")),
                 ("Rev growth",  _fv("revenueGrowth",  lambda v: f"{v*100:+.1f}%")),
             ])
-            + '</div>',
-            unsafe_allow_html=True,
-        )
         # ── Snapshot signals ──────────────────────────────────────────────
         _snap_tips = []
         _sc_v = row.get("Value Score"); _mos_v = row.get("MoS %"); _fv_v = row.get("fair_value")
@@ -2237,38 +2230,15 @@ opacity: 1;
 
         # ── Compute portfolio fit data first ──────────────────────────────
         _pf_tips: list[tuple[str, str]] = []
-        _pf_html = ""
+        _fit_rows: list[tuple[str, str]] = []
         if _has_pf:
             _pf_sector  = row.get("sector")
             _pf_country = row.get("country")
             _sw = pf_context["sector_weights"]
             _cw = pf_context["country_weights"]
 
-            def _fit_badge(label: str, value_str: str, severity: str) -> str:
-                if _ui_effective_light:
-                    colors = {
-                        "ok":      ("#0F6E56", "#E8F5F0",           "OK"),
-                        "caution": ("#854F0B", "#FDF0E8",           "NOTE"),
-                        "warn":    ("#A32D2D", "#FCEAEA",           "HIGH"),
-                        "neutral": ("#5F5E5A", "rgba(0,0,0,0.07)", "—"),
-                    }
-                else:
-                    colors = {
-                        "ok":      ("#1DD6A4", "rgba(15,110,86,0.20)",  "OK"),
-                        "caution": ("#D4903A", "rgba(133,79,11,0.20)",  "NOTE"),
-                        "warn":    ("#E05C5C", "rgba(163,45,45,0.20)",  "HIGH"),
-                        "neutral": ("#9A9A95", "rgba(255,255,255,0.07)","—"),
-                    }
-                tc, bg, blabel = colors.get(severity, colors["neutral"])
-                return (
-                    f'<div class="uv-model-row" style="display:grid;padding:3px 0;'
-                    f'grid-template-columns:80px 1fr 42px;align-items:center;gap:8px;">'
-                    f'<span class="uv-model-label" style="white-space:nowrap;">{label}</span>'
-                    f'<span style="font-size:0.82rem;">{value_str}</span>'
-                    f'<span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;'
-                    f'background:{bg};color:{tc};letter-spacing:0.05em;text-align:center;">'
-                    f'{blabel}</span></div>'
-                )
+            _fit_badges = {"ok": " :green-badge[OK]", "caution": " :orange-badge[NOTE]",
+                           "warn": " :red-badge[HIGH]", "neutral": ""}
 
             _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
             if not _pf_sector:
@@ -2304,28 +2274,24 @@ opacity: 1;
                 _cnt_sev = "neutral"; _cnt_val = _pf_country
                 _cnt_tip = f"{_pf_country} is not yet in your portfolio — this adds new geographic exposure."
 
-            _pf_html = (
-                '<div class="uv-section-label" style="margin-top:0;">Portfolio fit</div>'
-                + _fit_badge("Sector",  _sec_val, _sec_sev)
-                + _fit_badge("Country", _cnt_val, _cnt_sev)
-            )
+            _fit_rows = [
+                ("Sector",  f"{_sec_val}{_fit_badges.get(_sec_sev, '')}"),
+                ("Country", f"{_cnt_val}{_fit_badges.get(_cnt_sev, '')}"),
+            ]
             _pf_tips = [(_sec_sev, _sec_tip), (_cnt_sev, _cnt_tip)]
 
-        # ── Single HTML grid — guarantees row alignment ───────────────────
-        _risk_rows_html = _rows_html([
-            ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
-            ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
-            ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
-            ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
-            ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
-        ])
-        st.markdown(
-            '<div style="min-height:220px;display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">'
-            + f'<div><div class="uv-section-label" style="margin-top:0;">Risk & size</div>{_risk_rows_html}</div>'
-            + f'<div>{_pf_html}</div>'
-            + '</div>',
-            unsafe_allow_html=True,
-        )
+        _rf_c1, _rf_c2 = st.columns(2, gap="large")
+        with _rf_c1:
+            _kv_table("Risk & size", [
+                ("Beta",              _fv("beta",             lambda v: f"{v:.2f}")),
+                ("Debt / equity",     _fv("debtToEquity",     lambda v: f"{v:.1f}")),
+                ("Current ratio",     _fv("currentRatio",     lambda v: f"{v:.2f}")),
+                ("Interest coverage", _fv("interestCoverage", lambda v: f"{v:.1f}×")),
+                ("Risk score",        _fv("Risk Score",       lambda v: f"{v:.1f} / 10")),
+            ])
+        with _rf_c2:
+            if _fit_rows:
+                _kv_table("Portfolio fit", _fit_rows)
 
         # ── Signals — right column ────────────────────────────────────────
         _beta_v = row.get("beta");  _de_v = row.get("debtToEquity");  _rs_v = row.get("Risk Score")
@@ -4119,33 +4085,11 @@ def _page_help() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _trigger_card(msg: str, kind: str = "hard") -> None:
-    """Render a branded hard (danger) or soft (advisory) trigger card."""
+    """Render a hard (act now) or soft (review) rebalancing trigger."""
     if kind == "hard":
-        border     = "#A32D2D"
-        bg         = "rgba(163,45,45,0.10)"
-        badge_bg   = "rgba(163,45,45,0.20)"
-        badge_text = "#A32D2D" if _ui_effective_light else "#F5B5B5"
-        label      = "ACT"
-        symbol     = "!"
+        st.error(f"**Act** — {msg}", icon=":material/priority_high:")
     else:
-        border     = "#5B8FA8"
-        bg         = "rgba(91,143,168,0.08)"
-        badge_bg   = "rgba(91,143,168,0.18)"
-        badge_text = "#2E6080" if _ui_effective_light else "#A8CBE0"
-        label      = "REVIEW"
-        symbol     = "→"
-    msg_color = _c_text
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
-            border-left:3px solid {border};border-radius:6px;
-            background:{bg};margin-bottom:0.4rem;">
-  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
-              background:{badge_bg};color:{badge_text};
-              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
-    {symbol} {label}
-  </div>
-  <div style="font-size:0.88rem;color:{msg_color};line-height:1.4;">{msg}</div>
-</div>""", unsafe_allow_html=True)
+        st.info(f"**Review** — {msg}", icon=":material/arrow_forward:")
 
 
 def _page_risk() -> None:
@@ -4213,46 +4157,24 @@ def _page_risk() -> None:
 
     # ── Composite score banner ────────────────────────────────────────────────
     _score_color = {
-        "Low risk":      "#1DD6A4",
-        "Moderate risk": "#5B8FA8",
-        "Elevated risk": "#8BA888",
-        "High risk":     "#A32D2D",
-        "Critical risk": "#7f1d1d",
-    }.get(r.composite.label, "#F5F7FA")
+        "Low risk":      "green",
+        "Moderate risk": "blue",
+        "Elevated risk": "orange",
+        "High risk":     "red",
+        "Critical risk": "red",
+    }.get(r.composite.label, "gray")
 
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:1.5rem;padding:1rem 1.25rem;
-            border-radius:12px;background:rgba(128,128,128,0.07);margin-bottom:1rem;">
-  <div style="font-size:2.8rem;font-weight:900;color:{_score_color};line-height:1;">
-    {r.composite.score:.0f}
-  </div>
-  <div>
-    <div style="font-size:1.1rem;font-weight:700;color:{_score_color};">{r.composite.label}</div>
-    <div style="font-size:0.82rem;opacity:0.6;margin-top:2px;">{r.composite.action}</div>
-    <div style="font-size:0.75rem;opacity:0.4;margin-top:2px;">
-      €{r.portfolio_value:,.0f} · {r.n_positions} positions ·
-      updated {datetime.fromisoformat(r.generated_at).strftime("%H:%M UTC")}
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(f"### :{_score_color}[{r.composite.score:.0f} · {r.composite.label}]")
+    st.caption(f"{r.composite.action}  \n"
+               f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
+               f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
 
     # ── Hard / soft triggers ──────────────────────────────────────────────────
     if r.rebalance.hard_triggers:
         for msg in r.rebalance.hard_triggers:
             _trigger_card(msg, "hard")
     elif not r.rebalance.soft_triggers:
-        st.markdown("""
-<div style="display:flex;align-items:center;gap:0.9rem;padding:0.65rem 1rem;
-            border-left:3px solid #1DD6A4;border-radius:6px;
-            background:rgba(29,214,164,0.07);margin-bottom:0.4rem;">
-  <div style="min-width:52px;text-align:center;padding:2px 6px;border-radius:4px;
-              background:rgba(29,214,164,0.18);color:#1DD6A4;
-              font-size:0.68rem;font-weight:700;letter-spacing:0.07em;font-family:monospace;">
-    ✓ OK
-  </div>
-  <div style="font-size:0.88rem;color:#F5F7FA;">No rebalancing triggers detected.</div>
-</div>""", unsafe_allow_html=True)
+        st.success("No rebalancing triggers detected.", icon=":material/check:")
 
     if r.rebalance.soft_triggers:
         with st.expander(f"{len(r.rebalance.soft_triggers)} soft trigger(s) — review and plan", expanded=False):
