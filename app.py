@@ -1934,6 +1934,7 @@ width: 100% !important;
 table-layout: fixed !important;
 font-size: 12px;
 border: none !important;
+margin-top: 14px;
 }
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th,
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td {
