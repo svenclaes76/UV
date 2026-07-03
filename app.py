@@ -2718,7 +2718,19 @@ def _page_portfolio() -> None:
             _pf_sel = positions["Ticker"].iloc[_pf_sel_idx]
             _pf_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _pf_sel]
             if not _pf_scr_row.empty:
+                st.session_state["_dlg_open_ticker"] = _pf_sel
+                st.session_state["_dlg_open_src"]    = "pf_positions"
                 _pf_dlg_pending.append((_pf_scr_row.iloc[0], None))
+        elif st.session_state.get("_dlg_open_src") == "pf_positions":
+            # Keep the dialog open across the rerun caused by the watchlist star
+            if st.session_state.pop("_dlg_star_rerun", False):
+                _t = st.session_state.get("_dlg_open_ticker")
+                _r = _all_scr_df[_all_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                if not _r.empty:
+                    _pf_dlg_pending.append((_r.iloc[0], None))
+            else:
+                st.session_state.pop("_dlg_open_ticker", None)
+                st.session_state.pop("_dlg_open_src", None)
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
         _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
@@ -3244,7 +3256,18 @@ def _page_portfolio() -> None:
                 _sold_sel = sold_table["Ticker"].iloc[_sold_sel_idx]
                 _sold_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _sold_sel]
                 if not _sold_scr_row.empty:
+                    st.session_state["_dlg_open_ticker"] = _sold_sel
+                    st.session_state["_dlg_open_src"]    = "pf_sold"
                     _pf_dlg_pending.append((_sold_scr_row.iloc[0], None))
+            elif st.session_state.get("_dlg_open_src") == "pf_sold":
+                if st.session_state.pop("_dlg_star_rerun", False):
+                    _t = st.session_state.get("_dlg_open_ticker")
+                    _r = _all_scr_df[_all_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                    if not _r.empty:
+                        _pf_dlg_pending.append((_r.iloc[0], None))
+                else:
+                    st.session_state.pop("_dlg_open_ticker", None)
+                    st.session_state.pop("_dlg_open_src", None)
 
             st.divider()
             st.subheader("Realised return per position")
@@ -3574,7 +3597,18 @@ def _page_risk() -> None:
             _risk_sel = _pos_df["Ticker"].iloc[_risk_sel_idx]
             _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
             if not _risk_scr_row.empty:
+                st.session_state["_dlg_open_ticker"] = _risk_sel
+                st.session_state["_dlg_open_src"]    = "risk_positions"
                 _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
+        elif st.session_state.get("_dlg_open_src") == "risk_positions":
+            if st.session_state.pop("_dlg_star_rerun", False):
+                _t = st.session_state.get("_dlg_open_ticker")
+                _r = _risk_scr_df[_risk_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
+                if not _r.empty:
+                    _risk_dlg_pending.append((_r.iloc[0], None))
+            else:
+                st.session_state.pop("_dlg_open_ticker", None)
+                st.session_state.pop("_dlg_open_src", None)
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
