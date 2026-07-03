@@ -2004,10 +2004,12 @@ opacity: 1;
     def _render_signals(tips) -> None:
         if not tips:
             return
+        _badges = {"warn": ":red-badge[HIGH]", "caution": ":orange-badge[NOTE]",
+                   "ok": ":green-badge[OK]", "neutral": ":gray-badge[INFO]"}
         st.caption("Signals")
-        _alerts = {"warn": st.error, "caution": st.warning, "ok": st.success, "neutral": st.info}
-        for sev, tip in tips:
-            _alerts.get(sev, st.info)(tip)
+        st.caption("  \n".join(
+            f"{_badges.get(sev, _badges['neutral'])} {tip}" for sev, tip in tips
+        ))
 
     _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
         ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
