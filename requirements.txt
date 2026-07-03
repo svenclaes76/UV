@@ -6,5 +6,4 @@ plotly
 python-dotenv
 PyJWT
 streamlit
-streamlit-autorefresh
 yfinance

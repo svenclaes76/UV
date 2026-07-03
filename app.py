@@ -100,7 +100,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
 from backup import export_zip, export_excel, import_zip, backup_filename
@@ -363,6 +362,25 @@ def _loading_screen(message: str = "Loading…"):
 
 
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
+
+
+def _auto_rerun(seconds: float, key: str) -> None:
+    """Rerun the whole app every `seconds` while the caller keeps rendering this.
+
+    Native replacement for streamlit-autorefresh: a fragment re-executes on the
+    timer; the session flag distinguishes the initial render (part of a full
+    script run — just arm the timer) from a timer tick (trigger the rerun).
+    """
+    _flag = f"_auto_rerun_{key}"
+
+    @st.fragment(run_every=seconds)
+    def _tick():
+        if st.session_state.pop(_flag, False):
+            return
+        st.rerun(scope="app")
+
+    st.session_state[_flag] = True
+    _tick()
 
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:
     """Render a static (non-zoomable) horizontal bar chart via Plotly."""
@@ -1000,7 +1018,7 @@ if not _has_session:
 def _auth_wall():
     """Show login/sign-up form and halt execution if not authenticated."""
     # Fast path: token + email already verified this session — skip re-verification
-    # on every rerun (e.g. st_autorefresh) to prevent ghost login flashes.
+    # on every rerun (e.g. timed auto-refresh) to prevent ghost login flashes.
     if st.session_state.get("jwt_token") and st.session_state.get("user_email"):
         return
 
@@ -1856,9 +1874,9 @@ def _page_screener() -> None:
     if _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
         st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
-        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh")
     elif not _any_data:
-        st_autorefresh(interval=5_000, key="screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh")
 
     watchlist = load_watchlist()
 
@@ -2468,7 +2486,7 @@ def _page_portfolio() -> None:
             })
             st.rerun()
 
-    st_autorefresh(interval=60_000, key="portfolio_refresh")
+    _auto_rerun(60, "portfolio_refresh")
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
