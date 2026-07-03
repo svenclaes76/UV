@@ -18,6 +18,7 @@ secondaryBackgroundColor = "#FFFFFF"
 textColor                = "#0D1F3C"
 borderColor              = "#E5E7EB"
 linkColor                = "#1A8C6E"
+codeBackgroundColor      = "transparent"
 
 [theme.dark]
 primaryColor             = "#1DD6A4"
@@ -26,3 +27,4 @@ secondaryBackgroundColor = "#0F2647"
 textColor                = "#F5F7FA"
 borderColor              = "#22334E"
 linkColor                = "#1DD6A4"
+codeBackgroundColor      = "transparent"
