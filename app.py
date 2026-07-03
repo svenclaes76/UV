@@ -2031,36 +2031,37 @@ def _page_screener() -> None:
         tab_df.index = range(1, n_shown + 1)
 
         # ── Toolbar ───────────────────────────────────────────────────────────
-        with st.container(horizontal=True, gap="small", vertical_alignment="center"):
-            _active = st.session_state.get(_grp_key, [])
-            _view_label = f"View ({len(_active)})" if _active else "View"
-            if st.button(_view_label, key=f"btn_view_{key_suffix}"):
-                _dlg_view()
+        with st.container(horizontal=True, vertical_alignment="center",
+                          horizontal_alignment="distribute"):
+            with st.container(horizontal=True, gap="small", width="content"):
+                _active = st.session_state.get(_grp_key, [])
+                _view_label = f"View ({len(_active)})" if _active else "View"
+                if st.button(_view_label, key=f"btn_view_{key_suffix}"):
+                    _dlg_view()
 
-            if extra_toolbar_action:
-                _btn_label, _btn_cb = extra_toolbar_action
-                if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
-                    _btn_cb()
+                if extra_toolbar_action:
+                    _btn_label, _btn_cb = extra_toolbar_action
+                    if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
+                        _btn_cb()
 
-            if st.button("Buy", key=f"btn_buy_{key_suffix}"):
-                _dlg_buy_screener()
+                if st.button("Buy", key=f"btn_buy_{key_suffix}"):
+                    _dlg_buy_screener()
 
-            st.container(width="stretch")  # spacer — pushes the filters right
+            with st.container(horizontal=True, gap="small", width="content"):
+                _sec_cur = st.session_state.get(_sector_key, "All sectors")
+                if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
+                    _sec_cur = "All sectors"
+                with st.popover(_sec_cur, width=220):
+                    _sec_opts = ["All sectors"] + _sector_vals
+                    st.radio("Sector filter", _sec_opts,
+                             index=_sec_opts.index(_sec_cur),
+                             key=_sector_key, label_visibility="collapsed")
 
-            _sec_cur = st.session_state.get(_sector_key, "All sectors")
-            if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
-                _sec_cur = "All sectors"
-            with st.popover(_sec_cur, width=220):
-                _sec_opts = ["All sectors"] + _sector_vals
-                st.radio("Sector filter", _sec_opts,
-                         index=_sec_opts.index(_sec_cur),
-                         key=_sector_key, label_visibility="collapsed")
-
-            if score_key:
-                _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-                with st.popover(_sf_cur, width=220):
-                    st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
-                             key=score_key, label_visibility="collapsed")
+                if score_key:
+                    _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
+                    with st.popover(_sf_cur, width=220):
+                        st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
+                                 key=score_key, label_visibility="collapsed")
 
         selected_groups = st.session_state.get(_grp_key, [])
 
@@ -3098,12 +3099,13 @@ def _page_portfolio() -> None:
         _div_year_options = ["All"] + _div_years
         _div_year_default = _div_year_options.index(datetime.now().year) if datetime.now().year in _div_year_options else 0
 
-        with st.container(horizontal=True, gap="small", vertical_alignment="center"):
-            if st.button("Add", key="btn_add_div"):
-                _dlg_add_dividend()
-            if st.button("Edit", key="btn_edit_div"):
-                _dlg_edit_dividends()
-            st.container(width="stretch")  # spacer — pushes the year filter right
+        with st.container(horizontal=True, vertical_alignment="center",
+                          horizontal_alignment="distribute"):
+            with st.container(horizontal=True, gap="small", width="content"):
+                if st.button("Add", key="btn_add_div"):
+                    _dlg_add_dividend()
+                if st.button("Edit", key="btn_edit_div"):
+                    _dlg_edit_dividends()
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
                                          key="div_year_filter", label_visibility="collapsed",
                                          width=160)
