@@ -1059,10 +1059,25 @@ _c_invested  = "rgba(59,77,99,0.45)"        if _ui_effective_light else "rgba(24
 _c_text      = "#0D1F3C"                    if _ui_effective_light else "#F5F7FA"
 _c_surface   = "#F5F7FA"                    if _ui_effective_light else "#0D1F3C"
 
-# ── Dark-variant decision badge colors ────────────────────────────────────────
-# Everything else is themed natively via config.toml [theme.light]/[theme.dark].
-if not _ui_effective_light:
+# ── Theme bridge for custom-HTML components ───────────────────────────────────
+# Streamlit theming is native (config.toml [theme.light]/[theme.dark]) but does
+# not expose its palette as CSS custom properties; define the few vars the
+# branded HTML (sidebar footer, notes, dialog tables) relies on, per variant.
+if _ui_effective_light:
     st.markdown("""<style>
+:root {
+  --background-color: #F5F7FA;
+  --secondary-background-color: #FFFFFF;
+  --text-color: #0D1F3C;
+}
+</style>""", unsafe_allow_html=True)
+else:
+    st.markdown("""<style>
+:root {
+  --background-color: #0D1F3C;
+  --secondary-background-color: #0F2647;
+  --text-color: #F5F7FA;
+}
   .uv-badge-buy     { background: rgba(15,110,86,0.22); color: #1DD6A4; }
   .uv-badge-monitor { background: rgba(133,79,11,0.22); color: #D4903A; }
   .uv-badge-avoid   { background: rgba(163,45,45,0.22); color: #E05C5C; }
@@ -1392,15 +1407,6 @@ def _dlg_stock_detail(row: "pd.Series", pf_context: dict | None = None) -> None:
     """4-tab stock detail modal. Sizes to content; scrolls natively."""
     st.markdown("""
 <style>
-/* ── Remove backdrop colour, keep structure intact ── */
-div[data-baseweb="modal"] > div:first-child {
-background: transparent !important;
-}
-/* ── Push flex-centering into the main area (right of sidebar) ── */
-div[data-baseweb="modal"] {
-padding-left: 260px !important;
-}
-
 /* ── Fixed dialog size (prevents tabs from resizing the dialog) ── */
 [data-testid="stDialog"] > div {
 width: 860px !important;
@@ -1412,12 +1418,10 @@ max-width: 860px !important;
 display: none !important;
 }
 
-/* ── Dialog colours (dark-mode aware); min-height keeps tab switches
-     from collapsing short tabs, content can still grow and scroll ── */
+/* ── Min-height keeps tab switches from collapsing short tabs;
+     colours come from the native theme ── */
 [data-testid="stDialog"] div[role="dialog"] {
 min-height: 600px !important;
-background: var(--background-color) !important;
-color: var(--text-color) !important;
 }
 /* ── Remove default top padding inside tab panels ─────────────── */
 [data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
