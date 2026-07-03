@@ -1590,9 +1590,6 @@ st.markdown(f"""<script>
 
 _auth_wall()
 
-# Page routing via query params (default: dashboard)
-_page = st.query_params.get("page", "dashboard")
-
 # Quick theme toggle via ?_uitheme= query param
 _qp_theme = st.query_params.get("_uitheme", "")
 if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
@@ -1601,103 +1598,20 @@ if _qp_theme in ("dark", "light") and _email and _qp_theme != _ui_theme:
     st.query_params.pop("_uitheme", None)
     st.rerun()
 
-# ── Sidebar (pure HTML — no Streamlit widgets) ────────────────────────────────
-# Active classes are applied by JS (uvSetActive) so sidebar HTML is identical on
-# every rerun — React makes no DOM changes → zero sidebar flash.
+# ── Sidebar navigation ────────────────────────────────────────────────────────
+# Rendered at the end of the script via st.navigation + st.page_link, once the
+# page functions below are defined.
 
-_jwt    = st.session_state.get("jwt_token", "")
-_tok_qs = f"&_tok={_jwt}" if _jwt else ""
+_jwt      = st.session_state.get("jwt_token", "")
+_tok_qs   = f"&_tok={_jwt}" if _jwt else ""   # appended to an existing query string
+_tok_href = f"?_tok={_jwt}" if _jwt else ""   # starts the query string on a path link
 
-
-def _nav_link(page: str, icon: str, label: str, tok_qs: str,
-              extra_class: str = "uv-nav-item") -> str:
-    """Return an HTML nav anchor for page navigation."""
-    href = f"?page={page}{tok_qs}"
-    return (
-        f'<a href="{href}" target="_self" data-uv-page="{page}" '
-        f'class="{extra_class}">'
-        f'<span class="uv-nav-icon">{icon}</span>{label}</a>'
-    )
-
-
-_portfolio_item = _nav_link("portfolio", "▣", "Portfolio", _tok_qs)
-_settings_item  = _nav_link("settings",  "⊞", "Settings",  _tok_qs)
-
-_role_badge_html = ""
-
-with st.sidebar:
-    st.markdown(f"""
-<div class="uv-logo">
-  <div>
-    <div class="uv-logo-wordmark">uval<span class="uv-logo-accent">u</span></div>
-    <div class="uv-logo-sub">Find value before the market does.</div>
-  </div>
-</div>
-<nav class="uv-nav">
-  {_nav_link("dashboard", "◈", "Dashboard", _tok_qs)}
-  {_portfolio_item}
-  {_nav_link("risk",      "◎", "Risk",      _tok_qs)}
-  {_nav_link("screener",  "⊹", "Screener",  _tok_qs)}
-</nav>
-<div class="uv-nav-utils">
-  <hr class="uv-nav-sep" style="margin-bottom:6px;">
-  <nav class="uv-nav">{_settings_item}{_nav_link("help", "?", "Help", _tok_qs)}</nav>
-</div>
-<div class="uv-bottom">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-    <div class="uv-bottom-email">{_role_badge_html}{_email}</div>
-    <a href="?page={_page}{_tok_qs}&_uitheme={'light' if _ui_theme == 'dark' else 'dark'}" target="_self"
-       title="Switch to {'light' if _ui_theme == 'dark' else 'dark'} mode"
-       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
-  </div>
-  <div style="text-align:center;">
-    <a href="/?logout=1&theme={_ui_theme}" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Mini icon nav (shown when sidebar is collapsed) ───────────────────────────
-# Active state is applied by uvSetActive() in JS — no Python active classes needed.
-_mini_admin     = _nav_link("settings",  "⚙", "", _tok_qs, "mini-nav-link")
-_mini_portfolio = _nav_link("portfolio", "◻", "", _tok_qs, "mini-nav-link")
-st.markdown(f"""
-<div class="mini-nav">
-  <div class="mini-nav-top">
-    {_nav_link("dashboard", "◈", "", _tok_qs, "mini-nav-link")}
-    {_mini_portfolio}
-    {_nav_link("risk",      "◎", "", _tok_qs, "mini-nav-link")}
-    {_nav_link("screener",  "⊹", "", _tok_qs, "mini-nav-link")}
-  </div>
-  <div class="mini-nav-bottom">{_mini_admin}{_nav_link("help", "?", "", _tok_qs, "mini-nav-link")}</div>
-</div>
-""", unsafe_allow_html=True)
-
-# Active nav highlight via Python-injected CSS (no JS bridge needed).
-st.markdown(f"""<style>
-[data-uv-page="{_page}"].uv-nav-item  {{ background:rgba(29,214,164,0.12)!important; opacity:1!important; }}
-[data-uv-page="{_page}"].mini-nav-link {{ background:rgba(29,214,164,0.15)!important; opacity:1!important; }}
-</style>""", unsafe_allow_html=True)
-
-# Keep localStorage token fresh + hide sidebar collapse button.
+# Keep localStorage token fresh.
 st.iframe(f"""
 <script>
 (function(){{
-  var par = window.parent;
-
-  // ── JWT persistence ────────────────────────────────────────────────────────
   var tok = {repr(st.session_state.get('jwt_token', ''))};
   if (tok) localStorage.setItem('uv_jwt', tok);
-
-  // ── Hide Streamlit sidebar collapse button ────────────────────────────────
-  (function hideBtn() {{
-    var el = par.document.querySelector('[data-testid="collapsedControl"]');
-    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-  }})();
-  new MutationObserver(function(){{
-    var el = par.document.querySelector('[data-testid="collapsedControl"]');
-    if (el) (el.closest('div') || el).style.setProperty('display','none','important');
-  }}).observe(par.document.body, {{childList:true, subtree:true}});
-
 }})();
 </script>
 """, height=1)
@@ -1706,11 +1620,11 @@ st.iframe(f"""
 # PAGE — DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "dashboard":
+def _page_dashboard() -> None:
     # ── Load portfolio data ────────────────────────────────────────────────────
     if not portfolio_exists():
-        _scr_link = f"?page=screener{_tok_qs}"
-        _set_link  = f"?page=settings{_tok_qs}"
+        _scr_link = f"/screener{_tok_href}"
+        _set_link  = f"/settings{_tok_href}"
         st.markdown(f"""
 <div style="margin:48px auto;max-width:480px;text-align:center;">
   <div style="font-size:2rem;margin-bottom:16px;">◈</div>
@@ -1803,7 +1717,7 @@ if _page == "dashboard":
                 else "Moderate risk" if _risk_score < 65
                 else "Elevated risk"
             )
-            _risk_link = f"?page=risk{_tok_qs}"
+            _risk_link = f"/risk{_tok_href}"
             _beta_str  = f"{_db_report.quant.portfolio_beta:.2f}"
             _vol_str   = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
             _dd_str    = f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—"
@@ -2003,7 +1917,7 @@ _f_str  = lambda v: v                if pd.notna(v) else "—"
 watchlist = load_watchlist()
 
 @st.dialog("Stock details", width="large")
-def _dlg_stock_detail(row: "pd.Series", tok_qs: str, pf_context: dict | None = None) -> None:
+def _dlg_stock_detail(row: "pd.Series", pf_context: dict | None = None) -> None:
     """4-tab stock detail modal — consistent height across all tabs."""
     # Force all tab panels to the same height so the dialog doesn't resize on switch
     st.markdown("""
@@ -2518,7 +2432,7 @@ opacity: 1;
         _render_signals(_mdl_tips)
 
 
-if _page == "screener":
+def _page_screener() -> None:
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
@@ -2988,14 +2902,14 @@ if _page == "screener":
                     _wl_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
                 st.session_state["_dlg_open_src"]    = "watchlist"
-                _dlg_pending.append((_wl_sel_rows.iloc[0], _tok_qs, None))
+                _dlg_pending.append((_wl_sel_rows.iloc[0], None))
         elif _wl_star and _wl_src == "watchlist":
             st.session_state.pop("_dlg_star_rerun", None)
             _t = st.session_state.get("_dlg_open_ticker")
             if _t:
                 _r = wl_df[wl_df["Ticker"] == _t]
                 if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], _tok_qs, None))
+                    _dlg_pending.append((_r.iloc[0], None))
         elif not _wl_star and _wl_src == "watchlist":
             st.session_state.pop("_dlg_open_ticker", None)
             st.session_state.pop("_dlg_open_src", None)
@@ -3039,14 +2953,14 @@ if _page == "screener":
                     _ex_tbl_ss["edited_rows"] = {}
                 st.session_state["_dlg_open_ticker"] = _sel_ticker
                 st.session_state["_dlg_open_src"]    = key
-                _dlg_pending.append((_sel_rows.iloc[0], _tok_qs, _scr_pf_context))
+                _dlg_pending.append((_sel_rows.iloc[0], _scr_pf_context))
         elif _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_star_rerun", None)
             _t = st.session_state.get("_dlg_open_ticker")
             if _t:
                 _r = tab_df[tab_df["Ticker"] == _t]
                 if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], _tok_qs, _scr_pf_context))
+                    _dlg_pending.append((_r.iloc[0], _scr_pf_context))
         elif not _ex_star and _ex_src == key:
             st.session_state.pop("_dlg_open_ticker", None)
             st.session_state.pop("_dlg_open_src", None)
@@ -3066,7 +2980,7 @@ if _page == "screener":
 # PAGE — PORTFOLIO
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "portfolio":
+def _page_portfolio() -> None:
 
     # ── Load saved portfolio ───────────────────────────────────────────────────
     pf = load_portfolio()
@@ -3519,7 +3433,7 @@ if _page == "portfolio":
                 _pf_tbl_ss = st.session_state.get("pf_positions_table", {})
                 if isinstance(_pf_tbl_ss, dict):
                     _pf_tbl_ss["edited_rows"] = {}
-                _pf_dlg_pending.append((_pf_scr_row.iloc[0], _tok_qs, None))
+                _pf_dlg_pending.append((_pf_scr_row.iloc[0], None))
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
         _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
@@ -4058,7 +3972,7 @@ if _page == "portfolio":
                     _sold_tbl_ss = st.session_state.get("pf_sold_table", {})
                     if isinstance(_sold_tbl_ss, dict):
                         _sold_tbl_ss["edited_rows"] = {}
-                    _pf_dlg_pending.append((_sold_scr_row.iloc[0], _tok_qs, None))
+                    _pf_dlg_pending.append((_sold_scr_row.iloc[0], None))
 
             st.divider()
             st.subheader("Realised return per position")
@@ -4077,7 +3991,7 @@ if _page == "portfolio":
 # PAGE — SETTINGS
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "settings":
+def _page_settings() -> None:
     if _is_admin:
         tab_admin, tab_screener, tab_backup, tab_import, tab_export, tab_appearance = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export", "Appearance"])
     else:
@@ -4200,7 +4114,7 @@ if _page == "settings":
 # PAGE — HELP
 # ══════════════════════════════════════════════════════════════════════════════
 
-if _page == "help":
+def _page_help() -> None:
     _render_help()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4237,7 +4151,7 @@ def _trigger_card(msg: str, kind: str = "hard") -> None:
 </div>""", unsafe_allow_html=True)
 
 
-if _page == "risk":
+def _page_risk() -> None:
     pf = load_portfolio()
     if pf is None or pf.empty:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
@@ -4447,7 +4361,7 @@ if _page == "risk":
                 _risk_tbl_ss = st.session_state.get("risk_positions_table", {})
                 if isinstance(_risk_tbl_ss, dict):
                     _risk_tbl_ss["edited_rows"] = {}
-                _risk_dlg_pending.append((_risk_scr_row.iloc[0], _tok_qs, None))
+                _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
 
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
@@ -4942,4 +4856,63 @@ if _page == "risk":
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:
         _dlg_stock_detail(*_risk_dlg_pending[0])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NAVIGATION — st.navigation with st.page_link sidebar
+# ══════════════════════════════════════════════════════════════════════════════
+
+_pg_dashboard = st.Page(_page_dashboard, title="Dashboard", icon=":material/dashboard:", default=True)
+_pg_portfolio = st.Page(_page_portfolio, title="Portfolio", icon=":material/business_center:", url_path="portfolio")
+_pg_risk      = st.Page(_page_risk,      title="Risk",      icon=":material/monitoring:",      url_path="risk")
+_pg_screener  = st.Page(_page_screener,  title="Screener",  icon=":material/search:",          url_path="screener")
+_pg_settings  = st.Page(_page_settings,  title="Settings",  icon=":material/settings:",        url_path="settings")
+_pg_help      = st.Page(_page_help,      title="Help",      icon=":material/help:",            url_path="help")
+
+_nav = st.navigation(
+    [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_settings, _pg_help],
+    position="hidden",
+)
+
+# Legacy ?page= deep links (pre-st.navigation) → redirect to the new URL paths
+_legacy_pages = {"dashboard": _pg_dashboard, "portfolio": _pg_portfolio,
+                 "risk": _pg_risk, "screener": _pg_screener,
+                 "settings": _pg_settings, "help": _pg_help}
+_legacy_page = st.query_params.get("page", "")
+if _legacy_page:
+    del st.query_params["page"]
+    if _legacy_page in _legacy_pages:
+        st.switch_page(_legacy_pages[_legacy_page])
+
+with st.sidebar:
+    st.markdown(f"""
+<div class="uv-logo">
+  <div>
+    <div class="uv-logo-wordmark">uval<span class="uv-logo-accent">u</span></div>
+    <div class="uv-logo-sub">Find value before the market does.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+    st.page_link(_pg_dashboard)
+    st.page_link(_pg_portfolio)
+    st.page_link(_pg_risk)
+    st.page_link(_pg_screener)
+    st.divider()
+    st.page_link(_pg_settings)
+    st.page_link(_pg_help)
+    st.markdown(f"""
+<div class="uv-bottom">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="uv-bottom-email">{_email}</div>
+    <a href="?_uitheme={'light' if _ui_theme == 'dark' else 'dark'}{_tok_qs}" target="_self"
+       title="Switch to {'light' if _ui_theme == 'dark' else 'dark'} mode"
+       style="font-size:1rem;line-height:1;opacity:0.4;text-decoration:none;color:var(--text-color);flex-shrink:0;">{'☀' if _ui_theme == 'dark' else '☾'}</a>
+  </div>
+  <div style="text-align:center;">
+    <a href="/?logout=1&theme={_ui_theme}" target="_self" class="uv-logout" onclick="try{{window.parent.localStorage.removeItem('uv_jwt')}}catch(e){{}}">Log out</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+_nav.run()
 
