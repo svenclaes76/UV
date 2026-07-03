@@ -520,12 +520,6 @@ def _cache_age_str() -> str:
     return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
 
 
-def _fmt_mcap(v) -> str:
-    if pd.isna(v) or v is None:
-        return "—"
-    return f"€{v/1e9:.1f}B" if v >= 1e9 else f"€{v/1e6:.0f}M"
-
-
 def _safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0
@@ -1290,11 +1284,6 @@ def _page_dashboard() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Shared cell formatters ──────────────────────────────────────────────────
-_f_pct1 = lambda v: f"{v*100:.1f}%"  if pd.notna(v) else "—"
-_f_pct2 = lambda v: f"{v*100:.2f}%"  if pd.notna(v) else "—"
-_f_f1   = lambda v: f"{v:.1f}"       if pd.notna(v) else "—"
-_f_f2   = lambda v: f"{v:.2f}"       if pd.notna(v) else "—"
-_f_mult = lambda v: f"{v:.2f}×"      if pd.notna(v) else "—"
 _f_str  = lambda v: v                if pd.notna(v) else "—"
 
 watchlist = load_watchlist()
@@ -1833,60 +1822,57 @@ def _page_screener() -> None:
                 ),
             }
 
-    def _fmt_mos(v):
-        return "—" if pd.isna(v) else f"{v:+.1f}%"
-
-
-
     # ── Column groups ─────────────────────────────────────────────────────────
     # Core columns always shown; extra groups toggled via multiselect
+    # fmt=None → keep the raw (numeric) value; formatting is done by the
+    # column_config NumberColumn so sorting stays numeric.
     CORE_COLS = {
-        "★":           (None,         None),
-        "Company":     ("Name",       lambda v: v),
-        "Ticker":      ("Ticker",     lambda v: v),
-        "Price":             ("Price",           _fmt_eur),
-        "Analyst Target":   ("targetMeanPrice", _fmt_eur),
-        "UV":            ("fair_value",      _fmt_eur),
-        "MoS %":  ("MoS %", _fmt_mos),
-        "TER %":  ("TER %", lambda v: f"{v:+.1f}%" if pd.notna(v) else "—"),
-        "Score":  (None,    None),   # built row-by-row below from Decision + Value Score
+        "★":              (None,              None),
+        "Company":        ("Name",            None),
+        "Ticker":         ("Ticker",          None),
+        "Price":          ("Price",           None),
+        "Analyst Target": ("targetMeanPrice", None),
+        "UV":             ("fair_value",      None),
+        "MoS %":          ("MoS %",           None),
+        "TER %":          ("TER %",           None),
+        "Score":          (None,              None),   # built row-by-row below from Decision + Value Score
     }
 
     EXTRA_GROUPS = {
         "Valuation models": {
-            "Graham #":      ("graham_number",  _fmt_eur),
-            "PE Fair Val":   ("pe_fair_value",  _fmt_eur),
-            "EPV":           ("epv",            _fmt_eur),
-            "DDM (1-stage)": ("ddm",            _fmt_eur),
-            "DDM (2-stage)": ("ddm_multistage", _fmt_eur),
+            "Graham #":      ("graham_number",  None),
+            "PE Fair Val":   ("pe_fair_value",  None),
+            "EPV":           ("epv",            None),
+            "DDM (1-stage)": ("ddm",            None),
+            "DDM (2-stage)": ("ddm_multistage", None),
         },
         "Risk": {
-            "Risk Score":  ("Risk Score",        lambda v: v),
-            "Beta":        ("beta",              _f_f2),
-            "Debt/Equity": ("debtToEquity",      _f_f1),
-            "Mkt Cap":     ("Market Cap",        _fmt_mcap),
+            "Risk Score":  ("Risk Score",        None),
+            "Beta":        ("beta",              None),
+            "Debt/Equity": ("debtToEquity",      None),
+            "Mkt Cap":     ("Market Cap",        None),
         },
         "Multiples": {
-            "P/E":       ("trailingPE",        _f_f1),
-            "P/B":       ("priceToBook",        _f_f2),
-            "EV/EBITDA": ("enterpriseToEbitda", _f_f1),
+            "P/E":       ("trailingPE",         None),
+            "P/B":       ("priceToBook",        None),
+            "EV/EBITDA": ("enterpriseToEbitda", None),
         },
         "Quality": {
-            "ROE %":       ("returnOnEquity",   _f_pct1),
-            "ROA %":       ("returnOnAssets",   _f_pct1),
-            "Op Margin %": ("operatingMargins", _f_pct1),
-            "FCF Yield %": ("fcfYield",         _f_pct1),
+            "ROE %":       ("returnOnEquity",   None),
+            "ROA %":       ("returnOnAssets",   None),
+            "Op Margin %": ("operatingMargins", None),
+            "FCF Yield %": ("fcfYield",         None),
         },
         "Growth": {
-            "Rev Growth %": ("revenueGrowth",  _f_pct1),
-            "EPS Growth %": ("earningsGrowth", _f_pct1),
+            "Rev Growth %": ("revenueGrowth",  None),
+            "EPS Growth %": ("earningsGrowth", None),
         },
         "Dividends": {
-            "Div Yield":     ("dividendYield",            _f_pct2),
-            "5yr Avg Yield": ("fiveYearAvgDividendYield", _f_pct2),
-            "Payout Ratio":  ("payoutRatio",              _f_pct1),
-            "Cash Payout":   ("cashPayoutRatio",          _f_pct1),
-            "Div Coverage":  ("dividendCoverage",         _f_mult),
+            "Div Yield":     ("dividendYield",            None),
+            "5yr Avg Yield": ("fiveYearAvgDividendYield", None),
+            "Payout Ratio":  ("payoutRatio",              None),
+            "Cash Payout":   ("cashPayoutRatio",          None),
+            "Div Coverage":  ("dividendCoverage",         None),
             "Div Flag":      ("Div Flag",                 _fmt_div_flag),
             "Ex-Div Date":   ("exDividendDate",           _f_str),
             "Div Date":      ("dividendDate",             _f_str),
@@ -1900,31 +1886,46 @@ def _page_screener() -> None:
     # Column config for every possible column — help= adds hover tooltip on header
     _ch = COLUMN_HELP.get  # shorthand
     _col_config_map = {
+        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
+           for g in EXTRA_GROUPS.values() for c in g},
         "★":             st.column_config.CheckboxColumn("★",             width=55,  pinned=True, help=_ch("★")),
         "Company":       st.column_config.TextColumn(    "Company",       width=180, pinned=True, help=_ch("Company")),
         "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
-        "Price":         st.column_config.TextColumn(    "Price",         width=80,  help=_ch("Price")),
-        "UV":         st.column_config.TextColumn(    "Fair Value",  width=90,  help=_ch("UV")),
-        "Analyst Target":st.column_config.TextColumn(    "Analyst Target",width=110, help=_ch("Analyst Target")),
-        "MoS %":         st.column_config.TextColumn(    "MoS %",         width=75,  help=_ch("MoS %")),
-        "TER %":         st.column_config.TextColumn(    "TER %",         width=75,  help=_ch("TER %")),
-        "Score":         st.column_config.TextColumn(     "Score",         width=110,
+        "Price":         st.column_config.NumberColumn(  "Price",         width=80,  format="euro",    help=_ch("Price")),
+        "UV":            st.column_config.NumberColumn(  "Fair Value",    width=90,  format="euro",    help=_ch("UV")),
+        "Analyst Target":st.column_config.NumberColumn(  "Analyst Target",width=110, format="euro",    help=_ch("Analyst Target")),
+        "MoS %":         st.column_config.NumberColumn(  "MoS %",         width=75,  format="%+.1f%%", help=_ch("MoS %")),
+        "TER %":         st.column_config.NumberColumn(  "TER %",         width=75,  format="%+.1f%%", help=_ch("TER %")),
+        "Score":         st.column_config.TextColumn(    "Score",         width=110,
                              help="BUY (>70) · MONITOR (40–70) · AVOID (<40)"),
-        "Risk Score":    st.column_config.ProgressColumn("Risk Score",    width=110,
-                             min_value=0, max_value=10,  format="%.1f",   help=_ch("Risk Score")),
-        "Mkt Cap":       st.column_config.TextColumn(    "Mkt Cap",       width=80,  help=_ch("Mkt Cap")),
-        "Beta":          st.column_config.TextColumn(    "Beta",          width=55,  help=_ch("Beta")),
-        "Debt/Equity":   st.column_config.TextColumn(    "Debt/Equity",   width=95,  help=_ch("Debt/Equity")),
-        "P/E":           st.column_config.TextColumn(    "P/E",           width=60,  help=_ch("P/E")),
-        "P/B":           st.column_config.TextColumn(    "P/B",           width=60,  help=_ch("P/B")),
-        "EV/EBITDA":     st.column_config.TextColumn(    "EV/EBITDA",     width=90,  help=_ch("EV/EBITDA")),
+        "Graham #":      st.column_config.NumberColumn("Graham #",      width=100, format="euro", help=_ch("Graham #")),
+        "PE Fair Val":   st.column_config.NumberColumn("PE Fair Val",   width=100, format="euro", help=_ch("PE Fair Val")),
+        "EPV":           st.column_config.NumberColumn("EPV",           width=100, format="euro", help=_ch("EPV")),
+        "DDM (1-stage)": st.column_config.NumberColumn("DDM (1-stage)", width=100, format="euro", help=_ch("DDM (1-stage)")),
+        "DDM (2-stage)": st.column_config.NumberColumn("DDM (2-stage)", width=100, format="euro", help=_ch("DDM (2-stage)")),
+        "Risk Score":    st.column_config.ProgressColumn("Risk Score",  width=110,
+                             min_value=0, max_value=10,  format="%.1f", help=_ch("Risk Score")),
+        "Mkt Cap":       st.column_config.NumberColumn(  "Mkt Cap",     width=80,  format="compact", help=_ch("Mkt Cap")),
+        "Beta":          st.column_config.NumberColumn(  "Beta",        width=55,  format="%.2f",    help=_ch("Beta")),
+        "Debt/Equity":   st.column_config.NumberColumn(  "Debt/Equity", width=95,  format="%.1f",    help=_ch("Debt/Equity")),
+        "P/E":           st.column_config.NumberColumn(  "P/E",         width=60,  format="%.1f",    help=_ch("P/E")),
+        "P/B":           st.column_config.NumberColumn(  "P/B",         width=60,  format="%.2f",    help=_ch("P/B")),
+        "EV/EBITDA":     st.column_config.NumberColumn(  "EV/EBITDA",   width=90,  format="%.1f",    help=_ch("EV/EBITDA")),
+        "ROE %":         st.column_config.NumberColumn("ROE %",         width=100, format="percent", help=_ch("ROE %")),
+        "ROA %":         st.column_config.NumberColumn("ROA %",         width=100, format="percent", help=_ch("ROA %")),
+        "Op Margin %":   st.column_config.NumberColumn("Op Margin %",   width=100, format="percent", help=_ch("Op Margin %")),
+        "FCF Yield %":   st.column_config.NumberColumn("FCF Yield %",   width=100, format="percent", help=_ch("FCF Yield %")),
+        "Rev Growth %":  st.column_config.NumberColumn("Rev Growth %",  width=100, format="percent", help=_ch("Rev Growth %")),
+        "EPS Growth %":  st.column_config.NumberColumn("EPS Growth %",  width=100, format="percent", help=_ch("EPS Growth %")),
+        "Div Yield":     st.column_config.NumberColumn("Div Yield",     width=100, format="percent", help=_ch("Div Yield")),
+        "5yr Avg Yield": st.column_config.NumberColumn("5yr Avg Yield", width=100, format="percent", help=_ch("5yr Avg Yield")),
+        "Payout Ratio":  st.column_config.NumberColumn("Payout Ratio",  width=100, format="percent", help=_ch("Payout Ratio")),
+        "Cash Payout":   st.column_config.NumberColumn("Cash Payout",   width=100, format="percent", help=_ch("Cash Payout")),
+        "Div Coverage":  st.column_config.NumberColumn("Div Coverage",  width=100, format="%.2f×",   help=_ch("Div Coverage")),
         "Sector":        st.column_config.TextColumn("Sector",      width=150),
         "Country":       st.column_config.TextColumn("Country",     width=120),
         "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105),
         "Div Date":      st.column_config.TextColumn("Div Date",    width=95),
-        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
-           for g in EXTRA_GROUPS.values() for c in g
-           if c not in ("Risk Score", "Sector", "Country")},
     }
 
     def _render_table(tab_df, key_suffix, score_key=None, score_default=None, extra_toolbar_action=None):
@@ -2017,22 +2018,24 @@ def _page_screener() -> None:
             p = _score_prefix.get(row.get("Decision", ""), "")
             return f"{p}  {s:.1f}" if p else f"{s:.1f}"
 
-        # Build the display DataFrame from core cols + selected extras
+        # Build the display DataFrame from core cols + selected extras.
+        # fmt=None keeps raw numeric values (formatted by NumberColumn config).
+        def _col_values(field, fmt):
+            if field not in tab_df.columns:
+                return pd.Series([pd.NA] * len(tab_df)).values
+            return (tab_df[field] if fmt is None else tab_df[field].map(fmt)).values
+
         display_data = {}
         for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★ (watchlist lives in the dialog)
             if col == "Score":
                 display_data[col] = tab_df.apply(_fmt_score, axis=1).values
-            elif field in tab_df.columns:
-                display_data[col] = tab_df[field].map(fmt).values
             else:
-                display_data[col] = "—"
+                display_data[col] = _col_values(field, fmt)
 
         active_extra_cols = []
         for group in selected_groups:
             for col, (field, fmt) in EXTRA_GROUPS[group].items():
-                display_data[col] = (
-                    tab_df[field].map(fmt).values if field in tab_df.columns else "—"
-                )
+                display_data[col] = _col_values(field, fmt)
                 active_extra_cols.append(col)
 
         display_df = pd.DataFrame(display_data)
@@ -2513,48 +2516,50 @@ def _page_portfolio() -> None:
                     st.rerun()
 
         # ── Column groups (same groups as screener) ───────────────────────────
+        # Numeric values stay raw — formatting comes from the NumberColumn
+        # config below so column sorting is numeric.
         _POS_EXTRA_GROUPS = {
             "Valuation": {
-                "Analyst Target":      pf["analyst_target"].map(_fmt_eur),
-                "Fair Value":          pf["fair_value"].map(_fmt_eur),
+                "Analyst Target":      pf["analyst_target"],
+                "Fair Value":          pf["fair_value"],
                 "Fair Value Upside %": pf["fv_upside_pct"],
             },
             "Valuation models": {
-                "Graham #":      _scr_col("graham_number").map(_fmt_eur),
-                "PE Fair Val":   _scr_col("pe_fair_value").map(_fmt_eur),
-                "EPV":           _scr_col("epv").map(_fmt_eur),
-                "DDM (1-stage)": _scr_col("ddm").map(_fmt_eur),
-                "DDM (2-stage)": _scr_col("ddm_multistage").map(_fmt_eur),
+                "Graham #":      _scr_col("graham_number"),
+                "PE Fair Val":   _scr_col("pe_fair_value"),
+                "EPV":           _scr_col("epv"),
+                "DDM (1-stage)": _scr_col("ddm"),
+                "DDM (2-stage)": _scr_col("ddm_multistage"),
             },
             "Risk": {
                 "Risk Score":  _scr_col("Risk Score"),
-                "Beta":        _scr_col("beta").map(_f_f2),
-                "Debt/Equity": _scr_col("debtToEquity").map(_f_f1),
-                "Mkt Cap":     _scr_col("Market Cap").map(_fmt_mcap),
+                "Beta":        _scr_col("beta"),
+                "Debt/Equity": _scr_col("debtToEquity"),
+                "Mkt Cap":     _scr_col("Market Cap"),
             },
             "Multiples": {
-                "P/E":       _scr_col("trailingPE").map(_f_f1),
-                "P/B":       _scr_col("priceToBook").map(_f_f2),
-                "EV/EBITDA": _scr_col("enterpriseToEbitda").map(_f_f1),
+                "P/E":       _scr_col("trailingPE"),
+                "P/B":       _scr_col("priceToBook"),
+                "EV/EBITDA": _scr_col("enterpriseToEbitda"),
             },
             "Quality": {
-                "ROE %":       _scr_col("returnOnEquity").map(_f_pct1),
-                "ROA %":       _scr_col("returnOnAssets").map(_f_pct1),
-                "Op Margin %": _scr_col("operatingMargins").map(_f_pct1),
-                "FCF Yield %": _scr_col("fcfYield").map(_f_pct1),
+                "ROE %":       _scr_col("returnOnEquity"),
+                "ROA %":       _scr_col("returnOnAssets"),
+                "Op Margin %": _scr_col("operatingMargins"),
+                "FCF Yield %": _scr_col("fcfYield"),
             },
             "Growth": {
-                "Rev Growth %": _scr_col("revenueGrowth").map(_f_pct1),
-                "EPS Growth %": _scr_col("earningsGrowth").map(_f_pct1),
+                "Rev Growth %": _scr_col("revenueGrowth"),
+                "EPS Growth %": _scr_col("earningsGrowth"),
             },
             "Dividends": {
-                "Div/Share":       pf["div_rate"].map(lambda v: f"€{v:.4f}" if pd.notna(v) and v else "—"),
-                "Expected Annual": pf["expected_annual"].map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
-                "Div Yield":       _scr_col("dividendYield").map(_f_pct2),
-                "5yr Avg Yield":   _scr_col("fiveYearAvgDividendYield").map(_f_pct2),
-                "Payout Ratio":    _scr_col("payoutRatio").map(_f_pct1),
-                "Cash Payout":     _scr_col("cashPayoutRatio").map(_f_pct1),
-                "Div Coverage":    _scr_col("dividendCoverage").map(_f_mult),
+                "Div/Share":       pf["div_rate"],
+                "Expected Annual": pf["expected_annual"],
+                "Div Yield":       _scr_col("dividendYield"),
+                "5yr Avg Yield":   _scr_col("fiveYearAvgDividendYield"),
+                "Payout Ratio":    _scr_col("payoutRatio"),
+                "Cash Payout":     _scr_col("cashPayoutRatio"),
+                "Div Coverage":    _scr_col("dividendCoverage"),
                 "Div Flag":        _scr_col("Div Flag").map(_fmt_div_flag),
             },
             "Geography": {
@@ -2643,13 +2648,13 @@ def _page_portfolio() -> None:
             "Company":        pf["name"],
             "Ticker":         pf["ticker"],
             "Signal":         pf["ticker"].map(lambda t: _signal_labels.get(_decision_map.get(t, ""), "—")),
-            "Shares":         pf["shares"].map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
+            "Shares":         pf["shares"],
             "Buy Date":       pd.to_datetime(pf["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
-            "Live Price":     pf["live_price"].map(_fmt_eur),
-            "Invested":       pf["purchase_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-            "Current":        pf["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
+            "Live Price":     pf["live_price"],
+            "Invested":       pf["purchase_value"],
+            "Current":        pf["current_value"],
             "Price Gain":     pf["price_gain"],
-            "Dividend":       pf["dividends"].fillna(0).map(lambda v: f"€{v:,.2f}" if pd.notna(v) else "—"),
+            "Dividend":       pf["dividends"].fillna(0),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
         }
@@ -2662,6 +2667,7 @@ def _page_portfolio() -> None:
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)
 
+        _scr_help = COLUMN_HELP.get
         _pos_col_config = {
             "Company":        st.column_config.TextColumn("Company",         pinned=True,
                                   help="Company name"),
@@ -2669,19 +2675,19 @@ def _page_portfolio() -> None:
                                   help="Exchange ticker symbol"),
             "Signal":         st.column_config.TextColumn("Signal",          width=90,
                                   help="Current fair value signal for this holding: BUY · MONITOR · AVOID"),
-            "Shares":         st.column_config.TextColumn("Shares",
+            "Shares":         st.column_config.NumberColumn("Shares",        format="%d",
                                   help="Number of shares held"),
             "Buy Date":       st.column_config.TextColumn("Buy Date",
                                   help="Date the position was opened"),
-            "Live Price":     st.column_config.TextColumn("Live Price",
+            "Live Price":     st.column_config.NumberColumn("Live Price",    format="euro",
                                   help="Latest market price fetched from yfinance"),
-            "Invested":       st.column_config.TextColumn("Invested",
+            "Invested":       st.column_config.NumberColumn("Invested",      format="euro",
                                   help="Total amount invested (purchase price × shares)"),
-            "Current":        st.column_config.TextColumn("Current",
+            "Current":        st.column_config.NumberColumn("Current",       format="euro",
                                   help="Current market value (live price × shares)"),
             "Price Gain":     st.column_config.NumberColumn("Price Gain (€)", format="€%.0f",
                                   help="Unrealised gain/loss in euros: current value − invested"),
-            "Dividend":       st.column_config.TextColumn("Dividend",
+            "Dividend":       st.column_config.NumberColumn("Dividend",      format="euro",
                                   help="Total dividends received for this position since purchase"),
             "Price Gain %":   st.column_config.NumberColumn("Price Gain %",   format="%.2f%%",
                                   help="Price appreciation since purchase: (current value − invested) / invested"),
@@ -2689,14 +2695,36 @@ def _page_portfolio() -> None:
                                   help="Total return including dividends: (price gain + dividends) / invested"),
             "Fair Value Upside %": st.column_config.NumberColumn("Fair Value Upside %", format="%+.1f%%",
                                   help="Upside to the fair value estimate: (fair value − live price) / live price"),
-            "Analyst Target": st.column_config.TextColumn("Analyst Target",
+            "Analyst Target": st.column_config.NumberColumn("Analyst Target", format="euro",
                                   help="Mean analyst consensus price target"),
-            "Upside %":       st.column_config.NumberColumn("Upside %",       format="%+.1f%%",
-                                  help="Upside to the analyst consensus target: (target − live price) / live price"),
-            "Day Chg %":      st.column_config.TextColumn("Day Chg %",
-                                  help="Intraday price change vs previous close"),
-            "Div/Yr":         st.column_config.TextColumn("Div/Yr",
-                                  help="Expected annual dividend income from this position (forward rate × shares)"),
+            "Fair Value":     st.column_config.NumberColumn("Fair Value",     format="euro",
+                                  help="Weighted composite intrinsic value estimate"),
+            "Graham #":       st.column_config.NumberColumn("Graham #",       format="euro", help=_scr_help("Graham #")),
+            "PE Fair Val":    st.column_config.NumberColumn("PE Fair Val",    format="euro", help=_scr_help("PE Fair Val")),
+            "EPV":            st.column_config.NumberColumn("EPV",            format="euro", help=_scr_help("EPV")),
+            "DDM (1-stage)":  st.column_config.NumberColumn("DDM (1-stage)",  format="euro", help=_scr_help("DDM (1-stage)")),
+            "DDM (2-stage)":  st.column_config.NumberColumn("DDM (2-stage)",  format="euro", help=_scr_help("DDM (2-stage)")),
+            "Beta":           st.column_config.NumberColumn("Beta",           format="%.2f",    help=_scr_help("Beta")),
+            "Debt/Equity":    st.column_config.NumberColumn("Debt/Equity",    format="%.1f",    help=_scr_help("Debt/Equity")),
+            "Mkt Cap":        st.column_config.NumberColumn("Mkt Cap",        format="compact", help=_scr_help("Mkt Cap")),
+            "P/E":            st.column_config.NumberColumn("P/E",            format="%.1f",    help=_scr_help("P/E")),
+            "P/B":            st.column_config.NumberColumn("P/B",            format="%.2f",    help=_scr_help("P/B")),
+            "EV/EBITDA":      st.column_config.NumberColumn("EV/EBITDA",      format="%.1f",    help=_scr_help("EV/EBITDA")),
+            "ROE %":          st.column_config.NumberColumn("ROE %",          format="percent", help=_scr_help("ROE %")),
+            "ROA %":          st.column_config.NumberColumn("ROA %",          format="percent", help=_scr_help("ROA %")),
+            "Op Margin %":    st.column_config.NumberColumn("Op Margin %",    format="percent", help=_scr_help("Op Margin %")),
+            "FCF Yield %":    st.column_config.NumberColumn("FCF Yield %",    format="percent", help=_scr_help("FCF Yield %")),
+            "Rev Growth %":   st.column_config.NumberColumn("Rev Growth %",   format="percent", help=_scr_help("Rev Growth %")),
+            "EPS Growth %":   st.column_config.NumberColumn("EPS Growth %",   format="percent", help=_scr_help("EPS Growth %")),
+            "Div/Share":      st.column_config.NumberColumn("Div/Share",      format="€%.4f",
+                                  help="Forward dividend rate per share"),
+            "Expected Annual":st.column_config.NumberColumn("Expected Annual", format="euro",
+                                  help="Expected annual dividend income (forward rate × shares)"),
+            "Div Yield":      st.column_config.NumberColumn("Div Yield",      format="percent", help=_scr_help("Div Yield")),
+            "5yr Avg Yield":  st.column_config.NumberColumn("5yr Avg Yield",  format="percent", help=_scr_help("5yr Avg Yield")),
+            "Payout Ratio":   st.column_config.NumberColumn("Payout Ratio",   format="percent", help=_scr_help("Payout Ratio")),
+            "Cash Payout":    st.column_config.NumberColumn("Cash Payout",    format="percent", help=_scr_help("Cash Payout")),
+            "Div Coverage":   st.column_config.NumberColumn("Div Coverage",   format="%.2f×",   help=_scr_help("Div Coverage")),
             "Value Score":    st.column_config.ProgressColumn("Value Score",  min_value=0, max_value=100, format="%.1f",
                                   help="Fair value composite score 0–100. BUY >70 · MONITOR 40–70 · AVOID <40"),
             "Risk Score":     st.column_config.ProgressColumn("Risk Score",   min_value=0, max_value=100, format="%.1f",
@@ -3210,11 +3238,11 @@ def _page_portfolio() -> None:
             sold_table = pd.DataFrame({
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
-                "Shares":          pd.to_numeric(sold["shares"], errors="coerce").map(lambda v: f"{v:.0f}" if pd.notna(v) else "—"),
-                "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-                "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce").map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
-                "Price Gain":      sold["price_gain"].map(lambda v: f"€{v:+,.0f}" if pd.notna(v) else "—"),
-                "Dividends":       sold["dividends"].map(lambda v: f"€{v:,.0f}"),
+                "Shares":          pd.to_numeric(sold["shares"], errors="coerce"),
+                "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce"),
+                "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce"),
+                "Price Gain":      sold["price_gain"],
+                "Dividends":       sold["dividends"],
                 "Price Gain %":    sold["price_gain_pct"],
                 "Annual Return %": sold["annual_return_pct"],
                 "Buy Date":        pd.to_datetime(sold["date_in"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%d-%m-%Y").fillna("—"),
@@ -3231,15 +3259,15 @@ def _page_portfolio() -> None:
                                            help="Company name"),
                     "Ticker":          st.column_config.TextColumn("Ticker",
                                            help="Exchange ticker symbol"),
-                    "Shares":          st.column_config.TextColumn("Shares",
+                    "Shares":          st.column_config.NumberColumn("Shares",     format="%d",
                                            help="Number of shares sold"),
-                    "Invested":        st.column_config.TextColumn("Invested",
+                    "Invested":        st.column_config.NumberColumn("Invested",   format="euro",
                                            help="Total amount originally invested (purchase price × shares)"),
-                    "Proceeds":        st.column_config.TextColumn("Proceeds",
+                    "Proceeds":        st.column_config.NumberColumn("Proceeds",   format="euro",
                                            help="Total sale proceeds received"),
-                    "Price Gain":      st.column_config.TextColumn("Price Gain",
+                    "Price Gain":      st.column_config.NumberColumn("Price Gain", format="€%+.0f",
                                            help="Absolute price gain/loss: proceeds − invested"),
-                    "Dividends":       st.column_config.TextColumn("Dividends",
+                    "Dividends":       st.column_config.NumberColumn("Dividends",  format="euro",
                                            help="Total dividends collected while the position was held"),
                     "Price Gain %":    st.column_config.NumberColumn("Price Gain %",    format="%.2f%%",
                                            help="Price gain as a percentage of the original investment"),
@@ -3550,14 +3578,14 @@ def _page_risk() -> None:
             _pos_rows.append({
                 "Company":         p.name,
                 "Ticker":          p.ticker,
-                "Weight":          f"{p.weight:.1%}",
-                "Beta":            f"{p.beta:.2f}" if p.beta is not None else "—",
-                "VaR 95% 1d":      f"€{p.var_95_1d_eur:,.0f}" if p.var_95_1d_eur else "—",
-                "MoS":             f"{p.mos:.1%}" if p.mos is not None else "—",
+                "Weight":          p.weight,
+                "Beta":            p.beta,
+                "VaR 95% 1d":      p.var_95_1d_eur or None,
+                "MoS":             p.mos,
                 "Valuation":       p.valuation_flag,
                 "Div":             p.div_sustainability or "—",
-                "Fin Health":      f"{p.financial_health:.1f}/10",
-                "Earn Quality":    f"{p.earnings_quality:.1f}/10",
+                "Fin Health":      p.financial_health,
+                "Earn Quality":    p.earnings_quality,
                 "Risk Rating":     p.rating,
             })
         _pos_df = pd.DataFrame(_pos_rows)
@@ -3573,21 +3601,21 @@ def _page_risk() -> None:
                                     help="Company name"),
                 "Ticker":       st.column_config.TextColumn("Ticker",
                                     help="Exchange ticker symbol"),
-                "Weight":       st.column_config.TextColumn("Weight",
+                "Weight":       st.column_config.NumberColumn("Weight",     format="percent",
                                     help="Position value as a % of total portfolio. >10% = concentrated; >15% triggers a hard flag."),
-                "Beta":         st.column_config.TextColumn("Beta",
+                "Beta":         st.column_config.NumberColumn("Beta",       format="%.2f",
                                     help="Market sensitivity (regression vs index). >1 = amplifies market moves; <1 = more defensive. >1.3 adds to risk rating."),
-                "VaR 95% 1d":   st.column_config.TextColumn("VaR 95% 1d",
+                "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro",
                                     help="Maximum expected 1-day loss for this position at 95% confidence. Estimated as position value × |beta| × market daily vol × 1.645."),
-                "MoS":          st.column_config.TextColumn("MoS",
+                "MoS":          st.column_config.NumberColumn("MoS",        format="percent",
                                     help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the fair value model estimate."),
                 "Valuation":    st.column_config.TextColumn("Valuation",
                                     help="Undervalued (MoS >10%) · Fairly Valued (MoS 0–10%) · Overvalued (MoS <0%). Overvalued positions add to the risk rating."),
                 "Div":          st.column_config.TextColumn("Div",
                                     help="Dividend sustainability flag from the fair value screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
-                "Fin Health":   st.column_config.TextColumn("Fin Health",
+                "Fin Health":   st.column_config.NumberColumn("Fin Health",   format="%.1f/10",
                                     help="Financial health score 0–10 (higher = healthier). Average of D/E ratio, current ratio, and interest coverage. <5 adds to risk rating."),
-                "Earn Quality": st.column_config.TextColumn("Earn Quality",
+                "Earn Quality": st.column_config.NumberColumn("Earn Quality", format="%.1f/10",
                                     help="Earnings quality score 0–10. Measures FCF vs net income — high accruals (earnings without cash backing) score lower. <3 adds to risk rating."),
                 "Risk Rating":  st.column_config.TextColumn("Risk Rating",
                                     help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
