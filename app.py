@@ -838,30 +838,6 @@ st.markdown("""
     font-size: 13px; font-weight: 500; opacity: 0.5;
     font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
   }
-  .uv-metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
-  .uv-metric-cell { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px 12px; }
-  .uv-metric-label {
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.06em; opacity: 0.45; margin-bottom: 4px;
-  }
-  .uv-metric-value {
-    font-size: 16px; font-weight: 500;
-    font-family: "SF Mono","Fira Code","Cascadia Code",monospace;
-    letter-spacing: -0.01em;
-  }
-  .uv-model-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 0; border-bottom: 0.5px solid rgba(255,255,255,0.06);
-    font-size: 13px;
-  }
-  .uv-model-row:last-child { border-bottom: none; }
-  .uv-model-label { opacity: 0.5; }
-  .uv-model-value { font-family: "SF Mono","Fira Code","Cascadia Code",monospace; font-weight: 500; }
-  .uv-section-label {
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.06em; opacity: 0.4; margin: 16px 0 8px;
-  }
-
   /* ── Risk callout banner ─────────────────────────────────────────────────── */
   .uv-risk-banner {
     display: flex; align-items: center; justify-content: space-between;
@@ -1973,40 +1949,16 @@ gap: 0 !important;
 padding-bottom: 0 !important;
 }
 
-/* ── Compact typography inside dialog ─────────────────────────── */
-[data-testid="stDialog"] .uv-model-row,
-[data-testid="stDialog"] .uv-model-label,
-[data-testid="stDialog"] .uv-model-value,
-[data-testid="stDialog"] .uv-section-label {
-color: var(--text-color) !important;
-}
-[data-testid="stDialog"] .uv-model-row {
-padding: 3px 0;
+/* ── Compact key/value markdown tables inside dialog ──────────── */
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table {
+width: 100% !important;
+table-layout: fixed !important;
 font-size: 12px;
 }
-[data-testid="stDialog"] .uv-section-label {
-margin: 20px 0 8px;
-font-size: 10px;
-padding-bottom: 4px;
-border-bottom: 1px solid rgba(128,128,128,0.20);
-}
-[data-testid="stDialog"] .uv-section-label:first-child {
-margin-top: 0;
-}
-[data-testid="stDialog"] .uv-metric-grid {
-margin-bottom: 12px !important;
-}
-[data-testid="stDialog"] .uv-metric-cell {
-padding: 8px 10px;
-}
-[data-testid="stDialog"] .uv-metric-label {
-font-size: 10px;
-white-space: nowrap;
-overflow: hidden;
-text-overflow: ellipsis;
-}
-[data-testid="stDialog"] .uv-metric-value {
-font-size: 1.1rem;
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table th,
+[data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td {
+padding: 3px 6px;
+overflow-wrap: break-word;
 }
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
