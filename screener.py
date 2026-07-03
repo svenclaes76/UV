@@ -373,7 +373,7 @@ def _ddm_single(div_rate, wacc, g) -> float | None:
     """Gordon growth single-stage DDM."""
     if not div_rate or div_rate <= 0:
         return None
-    g = max(0.0, min(0.05, g or 0.02))
+    g = max(0.0, min(0.05, g if g is not None else 0.02))
     if wacc <= g:
         return None
     d1  = div_rate * (1 + g)
@@ -388,7 +388,7 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
         return None
     if wacc <= g_stable:
         return None
-    g_high = max(0.0, min(0.15, g_high or 0.05))
+    g_high = max(0.0, min(0.15, g_high if g_high is not None else 0.05))
     pv  = 0.0
     dps = div_rate
     for t in range(1, years + 1):
