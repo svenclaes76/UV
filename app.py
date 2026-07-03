@@ -1893,8 +1893,7 @@ watchlist = load_watchlist()
 
 @st.dialog("Stock details", width="large")
 def _dlg_stock_detail(row: "pd.Series", pf_context: dict | None = None) -> None:
-    """4-tab stock detail modal — consistent height across all tabs."""
-    # Force all tab panels to the same height so the dialog doesn't resize on switch
+    """4-tab stock detail modal. Sizes to content; scrolls natively."""
     st.markdown("""
 <style>
 /* ── Remove backdrop colour, keep structure intact ── */
@@ -1917,36 +1916,14 @@ max-width: 860px !important;
 display: none !important;
 }
 
-/* ── Fixed dialog height across all tabs ──────────────────────── */
+/* ── Dialog colours (dark-mode aware); height is native/content-driven ── */
 [data-testid="stDialog"] div[role="dialog"] {
-min-height: 600px !important;
-height: 600px !important;
 background: var(--background-color) !important;
 color: var(--text-color) !important;
 }
 /* ── Remove default top padding inside tab panels ─────────────── */
 [data-testid="stDialog"] div[role="tabpanel"] > div:first-child {
 padding-top: 0 !important;
-}
-
-/* ── Fixed tab panel height, scrollable but no visible scrollbar ── */
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"] {
-height: auto !important;
-min-height: 0 !important;
-overflow-y: scroll !important;
-box-sizing: border-box;
-scrollbar-width: none !important;       /* Firefox */
--ms-overflow-style: none !important;    /* IE/Edge */
-}
-[data-testid="stDialog"] [data-testid="stTabsContent"] > div[role="tabpanel"]::-webkit-scrollbar {
-display: none !important;               /* Chrome/Safari */
-}
-/* Remove bottom gap Streamlit adds between widgets */
-[data-testid="stDialog"] div[role="tabpanel"] [data-testid="stVerticalBlock"] {
-gap: 0 !important;
-}
-[data-testid="stDialog"] div[role="tabpanel"] > div {
-padding-bottom: 0 !important;
 }
 
 /* ── Compact key/value markdown tables inside dialog ──────────── */
