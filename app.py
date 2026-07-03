@@ -1324,10 +1324,12 @@ opacity: 0.6;
 opacity: 0.55;
 }
 /* ── Equal-width severity badges so signal text aligns ── */
-[data-testid="stDialog"] [data-testid="stMarkdownBadge"] {
-min-width: 46px;
-justify-content: center;
-text-align: center;
+[data-testid="stDialog"] [data-testid="stMarkdownBadge"],
+[data-testid="stDialog"] [data-testid="stMarkdownBadge"] > span {
+display: inline-block !important;
+min-width: 46px !important;
+text-align: center !important;
+justify-content: center !important;
 }
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
