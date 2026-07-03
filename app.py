@@ -697,6 +697,7 @@ st.set_page_config(
     page_title="uvalu",
     page_icon="favicon.svg",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # Lock the favicon permanently via a MutationObserver so Streamlit's rerun
@@ -761,6 +762,9 @@ st.markdown("""
   section[data-testid="stSidebar"],
   section[data-testid="stSidebar"] > div:first-child { min-width: 220px !important; max-width: 220px !important; width: 220px !important; z-index: 100 !important; }
   section[data-testid="stSidebar"] { transition: none !important; }
+  /* Fixed sidebar — no collapse/expand controls */
+  [data-testid="stSidebarCollapseButton"],
+  [data-testid="stExpandSidebarButton"] { display: none !important; }
 
   /* ── Tables ──────────────────────────────────────────────────────────────── */
   [data-testid="stDataFrame"],
