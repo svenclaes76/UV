@@ -101,7 +101,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import yfinance as yf
 import streamlit as st
-import streamlit.components.v1 as _st_components
 from streamlit_autorefresh import st_autorefresh
 
 from prices import fetch_prices
@@ -1827,7 +1826,7 @@ if _page == "dashboard":
         except Exception:
             pass
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 3: Today's performance + Top movers ───────────────────────────────
     _DB_ROW_H = 300  # shared height for treemap + movers table
     _hm_col, _mv_col = st.columns(2, gap="large")
@@ -1866,7 +1865,6 @@ if _page == "dashboard":
 
     with _mv_col:
         st.subheader("Top movers today")
-        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
         _db_mv = _db_mv.dropna(subset=["day_change_pct"])
@@ -1885,7 +1883,7 @@ if _page == "dashboard":
         else:
             st.caption("No daily price data available.")
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 4: Sector allocation + Upcoming dividends ─────────────────────────
     _al_col, _div_col = st.columns(2, gap="large")
 
@@ -1901,7 +1899,6 @@ if _page == "dashboard":
 
     with _div_col:
         st.subheader("Upcoming dividends")
-        st.markdown('<div style="margin-top:0.4rem"></div>', unsafe_allow_html=True)
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
@@ -1930,7 +1927,7 @@ if _page == "dashboard":
         else:
             st.caption("No screener data available for your holdings.")
 
-    st.markdown('<div style="margin-top:1.5rem"></div>', unsafe_allow_html=True)
+    st.container(height=24, border=False)
     # ── Row 5: Portfolio value over time (full width) ─────────────────────────
     st.subheader("Portfolio value over time")
     _db_vh = load_value_history()
@@ -2106,16 +2103,6 @@ opacity: 0.7;
 [data-testid="stDialog"] button[aria-label="Close"]:hover {
 opacity: 1;
 }
-/* ── Star toggle button — hidden visually, wired via JS ── */
-[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"] {
-visibility: hidden !important;
-position: absolute !important;
-width: 0 !important;
-height: 0 !important;
-padding: 0 !important;
-margin: 0 !important;
-overflow: hidden !important;
-}
 </style>""", unsafe_allow_html=True)
 
     decision = str(row.get("Decision", ""))
@@ -2153,64 +2140,32 @@ overflow: hidden !important;
     _in_watchlist = _dlg_ticker in watchlist
     _star_lbl  = "★" if _in_watchlist else "☆"
     _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
-    st.markdown(f"""
+    _hdr_col, _star_col = st.columns([11, 1], vertical_alignment="center")
+    with _hdr_col:
+        st.markdown(f"""
 <div class="uv-detail-header" style="margin-bottom:0.75rem;">
   <span class="uv-detail-company">{row.get('Name','—')}</span>
   <span class="uv-detail-ticker">{_dlg_ticker}</span>
   <span class="uv-badge {badge_class}">{badge_label}</span>
-  <span id="uv-star-icon" title="{_star_help}"
-    style="font-size:1.5rem;margin-left:10px;cursor:pointer;vertical-align:middle;line-height:1;user-select:none;"
-    >{_star_lbl}</span>
 </div>""", unsafe_allow_html=True)
-    # Hidden functional button — wired to the star span via JS below
-    if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
-        save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
-        if _in_watchlist:
-            _mt = load_manual_tickers()
-            if _dlg_ticker in _mt:
-                del _mt[_dlg_ticker]
-                save_manual_tickers(_mt)
-        st.session_state["_dlg_star_rerun"] = True
-        st.rerun()
-    _st_components.html("""<script>
-(function wire() {
-  var pdoc = window.parent.document;
-  var btn  = pdoc.querySelector('[data-testid="stDialog"] button[data-testid="stBaseButton-tertiary"]');
-  var star = pdoc.getElementById('uv-star-icon');
-  if (btn && star) {
-star.onclick = function() { btn.click(); };
-  } else {
-setTimeout(wire, 80);
-  }
-})();
-</script>""", height=0)  # noqa: RUF100  (st.iframe requires height>0; v1.html accepts 0)
+    with _star_col:
+        if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
+            save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
+            if _in_watchlist:
+                _mt = load_manual_tickers()
+                if _dlg_ticker in _mt:
+                    del _mt[_dlg_ticker]
+                    save_manual_tickers(_mt)
+            st.session_state["_dlg_star_rerun"] = True
+            st.rerun()
 
-    def _signal_card(sev: str, text: str) -> str:
-        _n_bg  = "rgba(0,0,0,0.05)"      if _ui_effective_light else "rgba(255,255,255,0.06)"
-        _n_bbg = "rgba(0,0,0,0.10)"      if _ui_effective_light else "rgba(255,255,255,0.12)"
-        _sc_styles = {
-            "warn":    ("#A32D2D", "rgba(163,45,45,0.09)",  "rgba(163,45,45,0.20)",  "HIGH"),
-            "caution": ("#854F0B", "rgba(133,79,11,0.08)",  "rgba(133,79,11,0.18)",  "NOTE"),
-            "ok":      ("#0F6E56", "rgba(15,110,86,0.08)",  "rgba(15,110,86,0.18)",  "OK"),
-            "neutral": ("#5F5E5A", _n_bg,                   _n_bbg,                  "INFO"),
-        }
-        bc, bg, bbg, lbl = _sc_styles.get(sev, _sc_styles["neutral"])
-        return (
-            f'<div style="display:flex;align-items:center;gap:0.6rem;padding:0.3rem 0.6rem;'
-            f'border-left:3px solid {bc};border-radius:5px;background:{bg};margin-bottom:4px;">'
-            f'<div style="min-width:36px;text-align:center;padding:1px 4px;border-radius:3px;'
-            f'background:{bbg};color:{bc};font-size:0.62rem;font-weight:700;'
-            f'letter-spacing:0.07em;font-family:monospace;white-space:nowrap;">{lbl}</div>'
-            f'<div style="font-size:0.76rem;line-height:1.35;opacity:0.85;color:{_c_text};">{text}</div></div>'
-        )
-
-    def _signals_block(tips):
+    def _render_signals(tips) -> None:
         if not tips:
-            return ""
-        return (
-            '<div class="uv-section-label" style="margin-top:16px;">Signals</div>'
-            + "".join(_signal_card(sev, tip) for sev, tip in tips)
-        )
+            return
+        st.caption("Signals")
+        _alerts = {"warn": st.error, "caution": st.warning, "ok": st.success, "neutral": st.info}
+        for sev, tip in tips:
+            _alerts.get(sev, st.info)(tip)
 
     _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
         ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
@@ -2285,8 +2240,7 @@ setTimeout(wire, 80);
             dy = float(_dy_v) * 100
             if dy >= 4:    _snap_tips.append(("ok",      f"Dividend yield {dy:.2f}% — attractive income level."))
             elif dy >= 2:  _snap_tips.append(("neutral",  f"Dividend yield {dy:.2f}% — moderate income."))
-        if _snap_tips:
-            st.markdown(_signals_block(_snap_tips), unsafe_allow_html=True)
+        _render_signals(_snap_tips)
 
     # ── Tab 2: Price history ───────────────────────────────────────────────
     with _tab_hist:
@@ -2341,7 +2295,6 @@ setTimeout(wire, 80);
                 paper_bgcolor="rgba(0,0,0,0)",
             )
             st.plotly_chart(_fig_h, width="stretch", height=220, config=_CHART_CONFIG)
-            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
             # ── Price history signals ─────────────────────────────────────
             _hist_tips = []
             if pd.notna(_price) and pd.notna(_fv_val):
@@ -2363,8 +2316,7 @@ setTimeout(wire, 80);
                 elif _ret_1m <= -5:_hist_tips.append(("caution", f"Down {abs(_ret_1m):.1f}% over the past month — near-term weakness."))
                 if _ret_6m >= 20:  _hist_tips.append(("ok",     f"Up {_ret_6m:.1f}% over 6 months — sustained uptrend."))
                 elif _ret_6m <= -20:_hist_tips.append(("warn",   f"Down {abs(_ret_6m):.1f}% over 6 months — prolonged decline; check for structural issues."))
-            if _hist_tips:
-                st.markdown(_signals_block(_hist_tips), unsafe_allow_html=True)
+            _render_signals(_hist_tips)
 
     # ── Tab 3: Risk ───────────────────────────────────────────────────────
     with _tab_risk:
@@ -2482,13 +2434,7 @@ setTimeout(wire, 80);
             elif _rs <= 6: _risk_tips.append(("neutral", f"Risk score {_rs:.1f}/10 — moderate."))
             else:          _risk_tips.append(("warn",    f"Risk score {_rs:.1f}/10 — elevated."))
 
-        _all_tips = _risk_tips + _pf_tips
-        if _all_tips:
-            st.markdown(
-                '<div class="uv-section-label" style="margin-top:24px;">Signals</div>'
-                + "".join(_signal_card(sev, tip) for sev, tip in _all_tips),
-                unsafe_allow_html=True,
-            )
+        _render_signals(_risk_tips + _pf_tips)
 
 
     # ── Tab 4: Valuation ──────────────────────────────────────────────────
@@ -2535,9 +2481,8 @@ setTimeout(wire, 80);
                 paper_bgcolor="rgba(0,0,0,0)",
             )
             st.plotly_chart(_fig_v, width="stretch", height=220, config=_CHART_CONFIG)
-            st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div style="min-height:220px"></div>', unsafe_allow_html=True)
+            st.container(height=220, border=False)
             st.caption("Not enough model data to render chart.")
         # ── Model signals ─────────────────────────────────────────────────
         _mdl_tips = []
@@ -2570,8 +2515,7 @@ setTimeout(wire, 80);
                     elif diff >= 5:   _mdl_tips.append(("neutral", f"{lbl} {_fmt_eur(v)} — {diff:.1f}% above price."))
                     elif diff >= -5:  _mdl_tips.append(("caution", f"{lbl} {_fmt_eur(v)} — near current price ({diff:+.1f}%)."))
                     else:             _mdl_tips.append(("warn",    f"{lbl} {_fmt_eur(v)} — {abs(diff):.1f}% below price."))
-        if _mdl_tips:
-            st.markdown(_signals_block(_mdl_tips), unsafe_allow_html=True)
+        _render_signals(_mdl_tips)
 
 
 if _page == "screener":
@@ -3754,7 +3698,7 @@ if _page == "portfolio":
         d2.metric("Current holdings", f"€{total_dividends:,.2f}")
         d3.metric("Expected 12 mths", f"€{total_expected:,.2f}")
         d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
-        st.markdown('<div style="height:1.75rem"></div>', unsafe_allow_html=True)
+        st.container(height=28, border=False)
         st.divider()
 
         # ── Dividend CRUD dialogs ─────────────────────────────────────────────
