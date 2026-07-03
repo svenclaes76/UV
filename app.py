@@ -1947,6 +1947,9 @@ background: transparent !important;
 border-bottom: 1px solid rgba(128,128,128,0.25) !important;
 white-space: nowrap;
 overflow: visible;
+font-size: 0.875rem;   /* match st.caption ("Signals" label) */
+font-weight: 400;
+opacity: 0.6;
 }
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
 opacity: 0.55;
