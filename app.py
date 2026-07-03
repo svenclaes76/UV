@@ -1916,8 +1916,10 @@ max-width: 860px !important;
 display: none !important;
 }
 
-/* ── Dialog colours (dark-mode aware); height is native/content-driven ── */
+/* ── Dialog colours (dark-mode aware); min-height keeps tab switches
+     from collapsing short tabs, content can still grow and scroll ── */
 [data-testid="stDialog"] div[role="dialog"] {
+min-height: 600px !important;
 background: var(--background-color) !important;
 color: var(--text-color) !important;
 }
