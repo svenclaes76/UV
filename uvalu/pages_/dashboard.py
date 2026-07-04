@@ -3,12 +3,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
+from screener import _load_cache
 from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
-from uvalu.formatting import fmt_eur as _fmt_eur, safe_pct as _safe_pct
+from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
-from uvalu.ui import _static_bar, _donut_chart, _hm_color, _CHART_CONFIG
+from uvalu.ui import _donut_chart, _hm_color, _CHART_CONFIG
 
 
 def render() -> None:

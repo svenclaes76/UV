@@ -1,7 +1,6 @@
 """The shared 4-tab stock detail dialog (opened from every stock table)."""
 import pandas as pd
 import plotly.graph_objects as go
-import yfinance as yf
 import streamlit as st
 
 from portfolio import save_watchlist, load_watchlist, load_manual_tickers, save_manual_tickers
