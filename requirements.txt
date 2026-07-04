@@ -7,3 +7,6 @@ python-dotenv
 PyJWT
 streamlit
 yfinance
+
+# ── Dev/test ──────────────────────────────────────────────────────────────────
+pyflakes  # static undefined-name guard (tests/test_static_analysis.py)
