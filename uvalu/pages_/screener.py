@@ -207,10 +207,10 @@ def render() -> None:
         "Payout Ratio":  st.column_config.NumberColumn("Payout Ratio",  width=100, format="percent", help=_ch("Payout Ratio")),
         "Cash Payout":   st.column_config.NumberColumn("Cash Payout",   width=100, format="percent", help=_ch("Cash Payout")),
         "Div Coverage":  st.column_config.NumberColumn("Div Coverage",  width=100, format="%.2f×",   help=_ch("Div Coverage")),
-        "Sector":        st.column_config.TextColumn("Sector",      width=150),
-        "Country":       st.column_config.TextColumn("Country",     width=120),
-        "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105),
-        "Div Date":      st.column_config.TextColumn("Div Date",    width=95),
+        "Sector":        st.column_config.TextColumn("Sector",      width=150, help=_ch("Sector")),
+        "Country":       st.column_config.TextColumn("Country",     width=120, help=_ch("Country")),
+        "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105, help=_ch("Ex-Div Date")),
+        "Div Date":      st.column_config.TextColumn("Div Date",    width=95,  help=_ch("Div Date")),
     }
 
     def _render_table(tab_df, key_suffix, score_key=None, score_default=None, extra_toolbar_action=None):
