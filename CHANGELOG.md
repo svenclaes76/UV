@@ -6,6 +6,10 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+### Changed
+- Help page expanded from a column reference into a full in-app guide, with an overview and a section for every page (Dashboard, Portfolio, Risk, Screener, stock details, Settings) alongside the column glossary
+- Column reference now documents the Ex-Div Date, Div Date, Sector and Country columns, and their tooltips show on the screener headers
+
 ---
 
 ## [1.0.0] — 2026-06-14

@@ -1,10 +1,12 @@
 bcrypt
 cryptography
+numpy
 openpyxl
 pandas
 plotly
 python-dotenv
 PyJWT
+requests
 streamlit
 yfinance
 
