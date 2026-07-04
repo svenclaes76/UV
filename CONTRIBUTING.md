@@ -10,7 +10,7 @@ cd UV
 uv sync
 cp .env.example .env
 # Fill in AUTH_SECRET and ENCRYPTION_KEY in .env
-streamlit run app.py
+python run_app.py
 ```
 
 ---
