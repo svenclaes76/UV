@@ -678,7 +678,6 @@ def render() -> None:
         d2.metric("Current holdings", f"€{total_dividends:,.2f}")
         d3.metric("Expected 12 mths", f"€{total_expected:,.2f}")
         d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
-        st.container(height=28, border=False)
         st.divider()
 
         # ── Dividend CRUD dialogs ─────────────────────────────────────────────
