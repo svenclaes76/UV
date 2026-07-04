@@ -409,7 +409,7 @@ def render() -> None:
         f = r.factor
         if not f.available:
             st.info("Factor analysis unavailable. " + (f.flags[0] if f.flags else ""))
-            st.caption("Install `pandas-datareader` and ensure internet access to Fama-French data library.")
+            st.caption("Factor data is downloaded from the Ken French data library — this needs internet access and enough price history per holding.")
         else:
             _fc1, _fc2 = st.columns(2)
             _fc1.metric("R²", f"{f.r_squared:.3f}" if f.r_squared else "—",
