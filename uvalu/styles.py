@@ -57,13 +57,17 @@ GLOBAL_CSS = """
 
   /* ── Metric cards ────────────────────────────────────────────────────────── */
   div[data-testid="stMetric"] {
+    display: flex !important; flex-direction: column !important;
+    align-items: center !important; justify-content: flex-start !important;
+    height: 96px !important;
     padding: 12px 16px !important; border-radius: 12px !important;
     background: rgba(29,214,164,0.05) !important;
     border: 0.5px solid rgba(29,214,164,0.15) !important;
     text-align: center !important;
   }
   div[data-testid="stMetric"] label {
-    display: block; text-align: center !important;
+    display: flex !important; justify-content: center !important; align-items: center !important;
+    gap: 4px; width: 100%; text-align: center !important;
     font-size: 0.72rem !important; font-weight: 500 !important;
     letter-spacing: 0.06em !important; text-transform: uppercase !important;
     opacity: 0.5;
@@ -73,7 +77,9 @@ GLOBAL_CSS = """
     font-weight: 500 !important; letter-spacing: -0.02em !important;
     font-family: "SF Mono","Fira Code","Cascadia Code",monospace !important;
   }
-  div[data-testid="stMetric"] [data-testid="stMetricDelta"] { justify-content: center !important; }
+  div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+    justify-content: center !important; width: 100%;
+  }
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"] { gap: 0 !important; }
   [data-testid="stTabsContent"] [data-testid="stColumns"]       { align-items: flex-start !important; }
   [data-testid="stTabsContent"] [data-testid="column"]          { padding-bottom: 0 !important; }
