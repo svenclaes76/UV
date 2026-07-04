@@ -173,6 +173,7 @@ def render() -> None:
                 "Value":    _db_top["current_value"].map(lambda v: f"€{v:,.0f}" if pd.notna(v) else "—"),
             })
             _mv_row_h = len(_db_top_disp) * 35 + 38
+            st.container(height=10, border=False)
             st.dataframe(_db_top_disp, hide_index=True, width="stretch", height=_mv_row_h,
                          column_config={"Day %": st.column_config.TextColumn("Day %")})
         else:
@@ -213,6 +214,7 @@ def render() -> None:
                         "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
                                       .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
                     })
+                    st.container(height=10, border=False)
                     st.dataframe(_db_div_disp, hide_index=True, width="stretch",
                                  height=len(_db_div_disp) * 35 + 38)
                 else:
