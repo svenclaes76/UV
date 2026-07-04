@@ -105,3 +105,8 @@ def fmt_div_flag(v) -> str:
 def safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0
+
+
+def f_str(v):
+    """Pass through a value, or '—' if missing (for text table columns)."""
+    return v if pd.notna(v) else "—"
