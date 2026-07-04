@@ -866,14 +866,14 @@ def render() -> None:
                 _static_bar(
                     _div_clean.groupby("name")["amount"].sum()
                               .sort_values(ascending=False),
-                    color="#4caf80",
+                    color="#1DD6A4",
                 )
             with ch4:
                 st.subheader("Dividends by year")
                 by_year = _div_clean.copy()
                 by_year["year"] = by_year["date"].dt.year
                 _yr_series = by_year.groupby("year")["amount"].sum().sort_index()
-                _static_bar(_yr_series.rename(index=str), color="#4caf80")
+                _static_bar(_yr_series.rename(index=str), color="#1DD6A4")
         else:
             st.info("Re-upload your Excel file to load full dividend history.")
 

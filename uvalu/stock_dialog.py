@@ -401,7 +401,7 @@ opacity: 1;
             if _valid_models and pd.notna(_price):
                 _vlabels = [lbl for lbl, _ in _valid_models]
                 _vvalues = [val for _, val in _valid_models]
-                _vcolors = ["#1DD6A4" if v > float(_price) else "#E05C5C" for v in _vvalues]
+                _vcolors = ["#1DD6A4" if v > float(_price) else "#A32D2D" for v in _vvalues]
                 _fig_v   = go.Figure()
                 _fig_v.add_trace(go.Bar(
                     x=_vvalues, y=_vlabels, orientation="h",

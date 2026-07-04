@@ -90,7 +90,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         y=list(_labels),
         orientation="h",
         marker_color=color or [
-            "#ef5350" if v < 0 else "#1DD6A4" for v in _vals
+            "#A32D2D" if v < 0 else "#1DD6A4" for v in _vals
         ],
     ))
     _ax_color = "#3B4D63" if _ui_effective_light else "#F5F7FA"

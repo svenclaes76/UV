@@ -240,9 +240,9 @@ def render() -> None:
         c = r.concentration
         _cc1, _cc2, _cc3 = st.columns(3)
         _cc1.metric("HHI", f"{c.hhi:.3f}", help=c.hhi_label)
-        _cc2.metric("Top-1 weight", f"{c.top1_weight:.1%}", delta="⚠️ Flag" if c.top1_flag else "✓ OK",
+        _cc2.metric("Top-1 weight", f"{c.top1_weight:.1%}", delta="Flag" if c.top1_flag else "OK",
                     delta_color="inverse" if c.top1_flag else "off")
-        _cc3.metric("Top-3 weight", f"{c.top3_weight:.1%}", delta="⚠️ Flag" if c.top3_flag else "✓ OK",
+        _cc3.metric("Top-3 weight", f"{c.top3_weight:.1%}", delta="Flag" if c.top3_flag else "OK",
                     delta_color="inverse" if c.top3_flag else "off")
 
         st.caption(f"**Concentration:** {c.hhi_label}  |  Top-5: {c.top5_weight:.1%}")
@@ -310,7 +310,7 @@ def render() -> None:
 
         if c.div_hhi is not None:
             st.caption(f"Dividend income HHI: {c.div_hhi:.3f} | Top-3 income share: {c.div_top3_pct:.0%}"
-                       + (" ⚠️" if c.income_concentration_flag else ""))
+                       + (" — concentrated" if c.income_concentration_flag else ""))
 
     # ── Tab: Volatility & VaR ─────────────────────────────────────────────────
     with _t_quant:

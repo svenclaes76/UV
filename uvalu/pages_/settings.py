@@ -220,7 +220,7 @@ def render() -> None:
         st.divider()
         st.subheader("Restore from ZIP")
         st.warning("Restoring will **overwrite** your current data. "
-                   "Download a backup first if you want to keep it.", icon="⚠️")
+                   "Download a backup first if you want to keep it.", icon=":material/warning:")
         uploaded = st.file_uploader("Upload a backup ZIP", type="zip",
                                     key="backup_restore_upload")
         if uploaded:

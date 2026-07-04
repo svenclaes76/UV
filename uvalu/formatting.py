@@ -25,7 +25,7 @@ COLUMN_HELP = {
     ),
     "Score":         (
         "Composite score 0–100 with decision signal. "
-        "🟢 Strong Buy (> 70) · 🟡 Monitor (40–70) · 🔴 Avoid (< 40). "
+        "Strong Buy (> 70) · Monitor (40–70) · Avoid (< 40). "
         "Formula: 30% MoS rank + 18% (100 − Risk rank) + 22% Quality rank + 15% Momentum rank + 15% Dividend rank. "
         "Hard veto rules force Avoid regardless of score: D/E > 5×, negative FCF, or dividend coverage < 1.0× with sustainability flag."
     ),
@@ -84,8 +84,8 @@ COLUMN_HELP = {
     "Div Coverage":  "Dividend coverage ratio = EPS / DPS. > 1.5× is safe; < 1.2× triggers a sustainability flag.",
     "Div Flag":      (
         "Dividend sustainability assessment. "
-        "✅ OK = all payout checks pass. "
-        "⚠️ At Risk = one or more thresholds breached: payout ratio > 90%, cash payout > 80%, or coverage < 1.2×. "
+        "OK = all payout checks pass. "
+        "At Risk = one or more thresholds breached: payout ratio > 90%, cash payout > 80%, or coverage < 1.2×. "
         "Flagged stocks require an additional Margin of Safety buffer (+5–10 pp) to compensate for income risk."
     ),
     "Ex-Div Date":   "Ex-dividend date — buy before this date to be entitled to the next declared dividend.",
@@ -104,7 +104,7 @@ def fmt_eur(v) -> str:
 
 
 def fmt_div_flag(v) -> str:
-    return {"At Risk": "⚠️ At Risk", "OK": "✅ OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
+    return {"At Risk": "At Risk", "OK": "OK", "": "—"}.get(str(v) if pd.notna(v) else "", "—")
 
 
 def safe_pct(numerator: float, denominator: float) -> float:
