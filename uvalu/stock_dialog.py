@@ -62,11 +62,6 @@ opacity: 0.6;
 [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:first-child {
 opacity: 0.55;
 }
-/* ── Equal-width severity badges so signal text aligns ── */
-[data-testid="stDialog"] span.stMarkdownBadge {
-min-width: 46px !important;
-text-align: center !important;
-}
 /* ── Close (×) button — force visible in dark mode ─────── */
 [data-testid="stDialog"] button[aria-label="Close"] {
 color: inherit !important;
@@ -79,18 +74,18 @@ opacity: 1;
 
     decision = str(row.get("Decision", ""))
     score    = row.get("Value Score")
-    badge_color = {
-        "Strong Buy": "green",
-        "Monitor":    "orange",
-        "Avoid":      "red",
-    }.get(decision, "red")
+    badge_kind = {
+        "Strong Buy": "buy",
+        "Monitor":    "monitor",
+        "Avoid":      "avoid",
+    }.get(decision, "avoid")
     badge_label = {
         "Strong Buy": "BUY",
         "Monitor":    "MONITOR",
         "Avoid":      "AVOID",
     }.get(decision, decision.upper() if decision else "—")
     if row.get("veto"):
-        badge_color, badge_label = "gray", "VETO"
+        badge_kind, badge_label = "veto", "VETO"
 
     score_str = f"{score:.1f}%" if pd.notna(score) else "—"
 
@@ -109,7 +104,7 @@ opacity: 1;
         st.markdown("\n".join(
             [f"| {label} |  |", "|:--|--:|"]
             + [f"| {lbl} | {val} |" for lbl, val in rows]
-        ))
+        ), unsafe_allow_html=True)
 
     # ── Header: company name · ticker · decision badge · watchlist star ──
     _dlg_ticker   = str(row.get("Ticker", ""))
@@ -118,7 +113,8 @@ opacity: 1;
     _star_help = "Remove from watchlist" if _in_watchlist else "Add to watchlist"
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.markdown(f"#### {row.get('Name', '—')} :gray[`{_dlg_ticker}`]")
-        st.markdown(f":{badge_color}-badge[{badge_label}]")
+        st.markdown(f'<span class="uv-badge uv-badge-{badge_kind}">{badge_label}</span>',
+                    unsafe_allow_html=True)
         if st.button(_star_lbl, key="dlg_star", help=_star_help, type="tertiary"):
             save_watchlist((watchlist - {_dlg_ticker}) if _in_watchlist else (watchlist | {_dlg_ticker}))
             if _in_watchlist:
@@ -132,12 +128,16 @@ opacity: 1;
     def _render_signals(tips) -> None:
         if not tips:
             return
-        _badges = {"warn": ":red-badge[HIGH]", "caution": ":orange-badge[NOTE]",
-                   "ok": ":green-badge[OK]", "neutral": ":gray-badge[INFO]"}
+        _labels = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
         st.caption("Signals")
-        st.caption("  \n".join(
-            f"{_badges.get(sev, _badges['neutral'])} {tip}" for sev, tip in tips
-        ))
+        st.caption(
+            "<br>".join(
+                f'<span class="uv-badge uv-badge-{sev if sev in _labels else "neutral"}">'
+                f'{_labels.get(sev, "INFO")}</span> {tip}'
+                for sev, tip in tips
+            ),
+            unsafe_allow_html=True,
+        )
 
     _tab_today, _tab_hist, _tab_risk, _tab_val = st.tabs(
         ["Snapshot", "Price History", "Risk & Fit", "Model Estimates"]
@@ -299,8 +299,12 @@ opacity: 1;
             _sw = pf_context["sector_weights"]
             _cw = pf_context["country_weights"]
 
-            _fit_badges = {"ok": " :green-badge[OK]", "caution": " :orange-badge[NOTE]",
-                           "warn": " :red-badge[HIGH]", "neutral": ""}
+            _fit_badges = {
+                "ok":      ' <span class="uv-badge uv-badge-ok">OK</span>',
+                "caution": ' <span class="uv-badge uv-badge-caution">NOTE</span>',
+                "warn":    ' <span class="uv-badge uv-badge-warn">HIGH</span>',
+                "neutral": "",
+            }
 
             _sec_w = float(_sw.get(_pf_sector, 0) or 0) if _pf_sector else 0.0
             if not _pf_sector:

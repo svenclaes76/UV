@@ -56,28 +56,28 @@ GLOBAL_CSS = """
   .glideDataEditor [aria-label="Column menu"]     { display: none !important; }
 
   /* ── Metric cards ────────────────────────────────────────────────────────── */
-  div[data-testid="metric-container"] {
+  div[data-testid="stMetric"] {
     padding: 12px 16px !important; border-radius: 12px !important;
     background: rgba(29,214,164,0.05) !important;
     border: 0.5px solid rgba(29,214,164,0.15) !important;
     text-align: center !important;
   }
-  div[data-testid="metric-container"] label {
+  div[data-testid="stMetric"] label {
     display: block; text-align: center !important;
     font-size: 0.72rem !important; font-weight: 500 !important;
     letter-spacing: 0.06em !important; text-transform: uppercase !important;
     opacity: 0.5;
   }
-  div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+  div[data-testid="stMetric"] [data-testid="stMetricValue"] {
     text-align: center !important; font-size: 1.35rem !important;
     font-weight: 500 !important; letter-spacing: -0.02em !important;
     font-family: "SF Mono","Fira Code","Cascadia Code",monospace !important;
   }
-  div[data-testid="metric-container"] [data-testid="stMetricDelta"] { justify-content: center !important; }
+  div[data-testid="stMetric"] [data-testid="stMetricDelta"] { justify-content: center !important; }
   [data-testid="stTabsContent"] [data-testid="stVerticalBlock"] { gap: 0 !important; }
   [data-testid="stTabsContent"] [data-testid="stColumns"]       { align-items: flex-start !important; }
   [data-testid="stTabsContent"] [data-testid="column"]          { padding-bottom: 0 !important; }
-  [data-testid="stTabsContent"] [data-testid="metric-container"]{ margin-bottom: 0 !important; padding-bottom: 0.2rem !important; }
+  [data-testid="stTabsContent"] [data-testid="stMetric"]{ margin-bottom: 0 !important; padding-bottom: 0.2rem !important; }
   [data-testid="stTabsContent"] [data-testid="stMetricDelta"]   { margin-bottom: 0 !important; padding-bottom: 0 !important; }
 
   /* ── Tabs ────────────────────────────────────────────────────────────────── */
@@ -170,6 +170,26 @@ GLOBAL_CSS = """
   }
   /* Tighter dividers — color comes from the theme borderColor */
   [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
+
+  /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
+  .uv-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 46px; height: 22px; padding: 0 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.02em; white-space: nowrap; line-height: 1;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+  .uv-badge-buy,     .uv-badge-ok      { background: #E8F5F0; color: #0F6E56; }
+  .uv-badge-monitor, .uv-badge-caution { background: #FDF0E8; color: #854F0B; }
+  .uv-badge-avoid,   .uv-badge-warn    { background: #FCEAEA; color: #A32D2D; }
+  .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
+  .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
+
+  /* ── Dialog key/value data rows — brand spec (monospace, right-aligned) ──── */
+  [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:last-child {
+    font-family: "SF Mono","Fira Code","Cascadia Code",monospace !important;
+    font-size: 0.85rem !important;
+  }
 
   /* ── JS bridge iframes ───────────────────────────────────────────────────── */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
