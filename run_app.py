@@ -1,4 +1,7 @@
-"""Launch the Streamlit app — run this file directly from PyCharm."""
+"""Launch the Streamlit app: generate the localhost TLS cert, then start Streamlit.
+
+Run with ``python run_app.py`` (or double-click ``run_app.bat`` on Windows).
+"""
 import datetime
 import ipaddress
 import subprocess

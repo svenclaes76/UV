@@ -29,7 +29,7 @@ sslCertFile = ".ssl/cert.pem"
 sslKeyFile  = ".ssl/key.pem"
 ```
 
-The TLS certificate and key are auto-generated on first launch by `run_app.py` using Python's `ssl` module. They are self-signed and valid for `localhost` only.
+The TLS certificate and key are auto-generated on first launch by `run_app.py` using the `cryptography` library (x509). They are self-signed and valid for `localhost` only.
 
 To use a real certificate (e.g. from Let's Encrypt), replace the paths and values accordingly.
 

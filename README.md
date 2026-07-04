@@ -60,10 +60,12 @@ Run that command twice — once for each key.
 ## Run
 
 ```bash
-streamlit run app.py
+python run_app.py
 ```
 
-The app runs on `https://localhost:8501`. On first launch a self-signed TLS certificate is generated automatically; accept the browser warning for localhost.
+On Windows you can also double-click `run_app.bat`.
+
+`run_app.py` generates a self-signed TLS certificate into `.ssl/` on first launch (the paths are wired up in `.streamlit/config.toml`), then starts Streamlit. The app runs on `https://localhost:8501`; accept the browser warning for localhost.
 
 Register the first account — it is automatically granted the **admin** role.
 
