@@ -21,12 +21,20 @@ def _risk_note(body: str) -> None:
         st.markdown(body)
 
 
-def _trigger_card(msg: str, kind: str = "hard") -> None:
-    """Render a hard (act now) or soft (review) rebalancing trigger."""
+def _trigger_card(msg: str, kind: str = "hard", action: str | None = None) -> None:
+    """Render a hard (act now) or soft (review) rebalancing trigger.
+
+    When `action` is given, it's bundled as a second line in the same card so the
+    issue and its recommended next step read as one unit instead of two lists.
+    """
+    label = "Act" if kind == "hard" else "Review"
+    body = f"**{label}** — {msg}"
+    if action:
+        body += f"  \n↳ {action}"
     if kind == "hard":
-        st.error(f"**Act** — {msg}", icon=":material/priority_high:")
+        st.error(body, icon=":material/priority_high:")
     else:
-        st.info(f"**Review** — {msg}", icon=":material/arrow_forward:")
+        st.info(body, icon=":material/arrow_forward:")
 
 
 def render() -> None:
@@ -119,7 +127,7 @@ def render() -> None:
                 "- **Soft triggers** are advisory — worth reviewing and planning around, but not "
                 "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, or "
                 "a High-rated position).\n"
-                "- The **actions table** maps each issue to a concrete next step."
+                "- Each trigger card shows its recommended next step (↳) directly underneath."
             )
         with _c_tog:
             st.toggle("Income mode", value=_income_portfolio, key="risk_income_toggle")
@@ -141,17 +149,20 @@ def render() -> None:
                    f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
                    f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
 
-        # ── Hard / soft triggers ──────────────────────────────────────────────
-        if r.rebalance.hard_triggers:
-            for msg in r.rebalance.hard_triggers:
-                _trigger_card(msg, "hard")
-        elif not r.rebalance.soft_triggers:
+        # ── Hard / soft triggers, each bundled with its recommended action ────
+        _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
+        _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
+
+        if _hard_items:
+            for item in _hard_items:
+                _trigger_card(item.message, "hard", item.action)
+        elif not _soft_items:
             st.success("No rebalancing triggers detected.", icon=":material/check:")
 
-        if r.rebalance.soft_triggers:
-            st.markdown(f"**{len(r.rebalance.soft_triggers)} soft trigger(s)** — review and plan")
-            for msg in r.rebalance.soft_triggers:
-                _trigger_card(msg, "soft")
+        if _soft_items:
+            st.markdown(f"**{len(_soft_items)} soft trigger(s)** — review and plan")
+            for item in _soft_items:
+                _trigger_card(item.message, "soft", item.action)
 
         st.divider()
 
@@ -177,29 +188,6 @@ def render() -> None:
             showlegend=False,
         )
         st.plotly_chart(_ss_fig, width='stretch')
-
-        st.divider()
-
-        # ── Recommended actions (merged from the former Rebalancing tab) ──────
-        st.markdown("**Recommended actions**")
-        if r.rebalance.actions:
-            _act_df = pd.DataFrame(r.rebalance.actions)
-            st.dataframe(
-                _act_df,
-                hide_index=True,
-                width='stretch',
-                height=35 + min(len(_act_df), 15) * 40,
-                column_config={
-                    "ticker": st.column_config.TextColumn("Ticker / Scope",
-                                  help="The position or scope (e.g. 'Portfolio', a sector name, or a ticker) this action applies to"),
-                    "issue":  st.column_config.TextColumn("Issue",
-                                  help="The specific risk threshold or flag that triggered this action"),
-                    "action": st.column_config.TextColumn("Recommended Action",
-                                  help="Suggested rebalancing step to address the issue"),
-                },
-            )
-        else:
-            st.success("No immediate rebalancing actions required.")
 
         st.divider()
         st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "

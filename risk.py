@@ -192,10 +192,19 @@ class CompositeScore:
 
 
 @dataclass
+class RebalanceItem:
+    severity: str           # "hard" | "soft"
+    ticker: str             # scope: a ticker, sector/pair name, or "Portfolio"
+    message: str            # trigger description shown in the UI
+    action: str | None      # recommended next step, bundled with its trigger
+
+
+@dataclass
 class RebalanceSignals:
-    hard_triggers: list[str]
-    soft_triggers: list[str]
-    actions: list[dict]     # keys: ticker, issue, action
+    items: list[RebalanceItem]
+    hard_triggers: list[str]    # derived from items — kept for backward-compat call sites
+    soft_triggers: list[str]    # derived from items — kept for backward-compat call sites
+    actions: list[dict]         # derived from items — keys: ticker, issue, action
 
 
 @dataclass
@@ -965,89 +974,89 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
 def _stage8_rebalance(profiles: list[PositionRisk], concentration: ConcentrationMetrics,
                       quant: QuantMetrics, income: IncomeRisk,
                       stress: StressResults, total_value: float) -> RebalanceSignals:
-    hard: list[str] = []
-    soft: list[str] = []
-    actions: list[dict] = []
+    items: list[RebalanceItem] = []
 
     # Hard triggers
     for p in profiles:
         if p.weight > 0.20:
-            hard.append(f"{p.ticker}: position weight {p.weight:.1%} exceeds 20% hard limit")
-            actions.append({"ticker": p.ticker, "issue": "Overweight position (>20%)",
-                            "action": "Trim to ≤15%; redeploy to underweights"})
+            items.append(RebalanceItem("hard", p.ticker,
+                f"{p.ticker}: position weight {p.weight:.1%} exceeds 20% hard limit",
+                "Trim to ≤15%; redeploy to underweights"))
 
     if quant.portfolio_beta > 1.5:
-        hard.append(f"Portfolio beta {quant.portfolio_beta:.2f} exceeds 1.5 — amplified drawdown risk")
-        actions.append({"ticker": "Portfolio", "issue": "Excessive beta (>1.5)",
-                        "action": "Rotate into low-beta / defensive stocks"})
+        items.append(RebalanceItem("hard", "Portfolio",
+            f"Portfolio beta {quant.portfolio_beta:.2f} exceeds 1.5 — amplified drawdown risk",
+            "Rotate into low-beta / defensive stocks"))
 
     if quant.var_99_1d_eur is not None and total_value > 0:
         var_pct = quant.var_99_1d_eur / total_value
         if var_pct > 0.03:
-            hard.append(f"1-day 99% VaR = €{quant.var_99_1d_eur:,.0f} ({var_pct:.1%}) — exceeds 3% loss tolerance")
-            actions.append({"ticker": "Portfolio", "issue": "Excessive 1-day VaR (>3%)",
-                            "action": "Reduce high-beta/volatile positions to lower tail risk"})
+            items.append(RebalanceItem("hard", "Portfolio",
+                f"1-day 99% VaR = €{quant.var_99_1d_eur:,.0f} ({var_pct:.1%}) — exceeds 3% loss tolerance",
+                "Reduce high-beta/volatile positions to lower tail risk"))
 
     if income.top3_cut_pct is not None and income.top3_cut_pct > 0.40:
         top3_tickers = ", ".join(t for t, _ in income.top3_income_shares[:3])
-        hard.append(f"Top-3 dividend cut scenario removes {income.top3_cut_pct:.0%} of annual income")
-        actions.append({"ticker": top3_tickers, "issue": "Income concentration (top-3 >40% at risk)",
-                        "action": "Diversify income across more dividend payers"})
+        items.append(RebalanceItem("hard", top3_tickers,
+            f"Top-3 dividend cut scenario removes {income.top3_cut_pct:.0%} of annual income",
+            "Diversify income across more dividend payers"))
 
     worst_dd = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
     if worst_dd < -0.40:
-        hard.append(f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown")
-        actions.append({"ticker": "Portfolio", "issue": "Severe historical drawdown exposure (>40%)",
-                        "action": "Add defensive/uncorrelated assets to cushion tail risk"})
+        items.append(RebalanceItem("hard", "Portfolio",
+            f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown",
+            "Add defensive/uncorrelated assets to cushion tail risk"))
 
     for p in profiles:
         if p.rating == "Critical":
-            hard.append(f"{p.ticker}: Critical risk rating — review immediately")
-            actions.append({"ticker": p.ticker, "issue": "Critical position risk",
-                            "action": "Review fundamentals; consider reducing or exiting"})
+            items.append(RebalanceItem("hard", p.ticker,
+                f"{p.ticker}: Critical risk rating — review immediately",
+                "Review fundamentals; consider reducing or exiting"))
 
     # Soft triggers
     if concentration.hhi > 0.15:
-        soft.append(f"HHI {concentration.hhi:.3f} — concentration has drifted well above 0.10 diversified threshold")
-        actions.append({"ticker": "Portfolio", "issue": "HHI elevated (>0.15)",
-                        "action": "Add uncorrelated positions or sectors to reduce concentration"})
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"HHI {concentration.hhi:.3f} — concentration has drifted well above 0.10 diversified threshold",
+            "Add uncorrelated positions or sectors to reduce concentration"))
     elif concentration.hhi > 0.10:
-        soft.append(f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift")
-        actions.append({"ticker": "Portfolio", "issue": "HHI moderately elevated (0.10–0.15)",
-                        "action": "Monitor concentration drift; avoid adding to largest positions"})
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift",
+            "Monitor concentration drift; avoid adding to largest positions"))
 
     if concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
-        soft.append(f"{concentration.largest_sector} sector at {w:.0%} — exceeds 30% guideline")
-        actions.append({"ticker": concentration.largest_sector, "issue": "Sector overconcentration (>30%)",
-                        "action": "Reduce largest sector; add exposure to lagging sectors"})
+        items.append(RebalanceItem("soft", concentration.largest_sector,
+            f"{concentration.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
+            "Reduce largest sector; add exposure to lagging sectors"))
 
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
-        soft.append(f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk")
-        actions.append({"ticker": "Portfolio", "issue": "Dividend growth trailing inflation",
-                        "action": "Favor payers with stronger dividend growth track records"})
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk",
+            "Favor payers with stronger dividend growth track records"))
 
     if quant.sharpe is not None and quant.sharpe < 1.0:
-        soft.append(f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal")
-        actions.append({"ticker": "Portfolio", "issue": "Sharpe ratio below 1.0",
-                        "action": "Reassess risk/return mix; trim volatile underperformers"})
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
+            "Reassess risk/return mix; trim volatile underperformers"))
 
     for p in profiles:
         if p.rating == "High":
-            soft.append(f"{p.ticker}: High risk rating — monitor closely")
-            actions.append({"ticker": p.ticker, "issue": "High position risk rating",
-                            "action": "Monitor closely; reduce if fundamentals weaken further"})
+            items.append(RebalanceItem("soft", p.ticker,
+                f"{p.ticker}: High risk rating — monitor closely",
+                "Monitor closely; reduce if fundamentals weaken further"))
 
     if quant.high_corr_pairs:
         pairs_str = ", ".join(f"{a}/{b}" for a, b, _ in quant.high_corr_pairs[:3])
-        soft.append(f"High correlation pairs (>0.80): {pairs_str} — limited diversification benefit")
-        actions.append({"ticker": pairs_str, "issue": "Highly correlated holdings",
-                        "action": "Replace one position per pair with uncorrelated exposure"})
+        items.append(RebalanceItem("soft", pairs_str,
+            f"High correlation pairs (>0.80): {pairs_str} — limited diversification benefit",
+            "Replace one position per pair with uncorrelated exposure"))
 
     return RebalanceSignals(
-        hard_triggers=hard,
-        soft_triggers=soft,
-        actions=actions,
+        items=items,
+        hard_triggers=[i.message for i in items if i.severity == "hard"],
+        soft_triggers=[i.message for i in items if i.severity == "soft"],
+        actions=[{"ticker": i.ticker, "issue": i.message, "action": i.action}
+                 for i in items if i.action is not None],
     )
 
 
