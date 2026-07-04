@@ -1,0 +1,20 @@
+# Project metadata and tooling configuration.
+#
+# This is an application, not a distributable package, so there is no
+# [build-system] table. Runtime dependencies are pinned in requirements.txt
+# (install with `pip install -r requirements.txt`); this file centralises
+# project metadata and test/lint tool configuration.
+
+[project]
+name = "uvalu"
+version = "0.1.0"
+description = "Streamlit web app for European stock value screening and personal portfolio management."
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.urls]
+Repository = "https://github.com/svenclaes76/UV"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

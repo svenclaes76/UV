@@ -4,6 +4,7 @@ data/
 .ssl/
 __pycache__/
 *.pyc
+.pytest_cache/
 report.html
 .venv/
 .idea/
