@@ -12,7 +12,7 @@ from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.runtime import theme_colors
 from uvalu.stock_dialog import _dlg_stock_detail
-from uvalu.ui import _donut_chart, _DONUT_PALETTE, _row_select_table
+from uvalu.ui import _DONUT_PALETTE, _row_select_table
 
 
 def _risk_note(body: str) -> None:
@@ -33,8 +33,7 @@ def render() -> None:
     # Per-run theme palette (module was split out of app.py)
     _C = theme_colors()
     _ui_effective_light = _C.effective_light
-    _c_axis, _c_grid, _c_invested, _c_text, _c_surface = (
-        _C.axis, _C.grid, _C.invested, _C.text, _C.surface)
+    _c_axis, _c_grid, _c_text, _c_surface = (_C.axis, _C.grid, _C.text, _C.surface)
     pf = load_portfolio()
     if pf is None or pf.empty:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")

@@ -6,10 +6,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
-                       save_sold, save_div_hist, add_position, update_positions,
+                       save_sold, add_position, update_positions,
                        sell_position, add_dividend, update_div_hist,
                        record_value_snapshot, backfill_value_history,
-                       load_value_history, load_watchlist)
+                       load_value_history)
 from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
@@ -21,12 +21,10 @@ from uvalu.ui import (_static_bar, _donut_chart, _hm_color, _row_select_table,
 
 
 def render() -> None:
-    # Per-run theme palette + watchlist (module was split out of app.py)
+    # Per-run theme palette (module was split out of app.py)
     _C = theme_colors()
-    _ui_effective_light = _C.effective_light
     _c_axis, _c_grid, _c_invested, _c_text, _c_surface = (
         _C.axis, _C.grid, _C.invested, _C.text, _C.surface)
-    watchlist = load_watchlist()
 
     # ── Load saved portfolio ───────────────────────────────────────────────────
     pf = load_portfolio()
@@ -408,8 +406,6 @@ def render() -> None:
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
 
-        _core_cols = {"Company", "Ticker", "Signal", "Shares", "Buy Date", "Live Price",
-                      "Invested", "Current", "Price Gain", "Dividend", "Price Gain %", "Total Return %"}
 
         positions = pd.DataFrame(pos_data).sort_values("Company", key=lambda s: s.str.lower())
         _n_rows = len(positions)

@@ -447,7 +447,7 @@ opacity: 1;
                 elif _n_above > 0:
                     _mdl_tips.append(("caution",  f"Only {_n_above}/{_n_total} models above current price — mixed valuation signals."))
                 else:
-                    _mdl_tips.append(("warn",     f"No models above current price — all estimates suggest overvaluation."))
+                    _mdl_tips.append(("warn",     "No models above current price — all estimates suggest overvaluation."))
             for lbl, fld in _mdl_all:
                 v = row.get(fld)
                 if v is not None and pd.notna(v):

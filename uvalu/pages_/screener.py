@@ -5,14 +5,13 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers, add_position)
-from settings import load_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
+from settings import load_shared_settings, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from fetch_tickers import (_hardcoded_bel20, _hardcoded_aex25, _hardcoded_cac40,
                            _hardcoded_ftse_mib, _hardcoded_dax40, _hardcoded_smi20)
-from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
-                        _fetch_live_data)
-from uvalu.formatting import (COLUMN_HELP, _HINT_WATCHLIST,
-                              fmt_div_flag as _fmt_div_flag, f_str as _f_str)
+from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
+from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
+                              f_str as _f_str)
 from uvalu.runtime import current_user
 from uvalu.stock_dialog import _dlg_stock_detail
 from uvalu.ui import _row_select_table, _auto_rerun
@@ -508,7 +507,6 @@ def render() -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
         valued      = exchange_df["fair_value"].notna()
         n_unvalued  = (~valued).sum()
-        hint        = _HINT_WATCHLIST
         _idx_info   = _INDEX_TICKERS.get(key)
         _idx_name   = _idx_info[0] if _idx_info else None
         _idx_tickers = _idx_info[1] if _idx_info else frozenset()
