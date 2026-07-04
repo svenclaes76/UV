@@ -88,6 +88,11 @@ COLUMN_HELP = {
         "⚠️ At Risk = one or more thresholds breached: payout ratio > 90%, cash payout > 80%, or coverage < 1.2×. "
         "Flagged stocks require an additional Margin of Safety buffer (+5–10 pp) to compensate for income risk."
     ),
+    "Ex-Div Date":   "Ex-dividend date — buy before this date to be entitled to the next declared dividend.",
+    "Div Date":      "Dividend payment date — when the next declared dividend is scheduled to be paid.",
+    # ── Geography ─────────────────────────────────────────────────────────────
+    "Sector":        "GICS sector classification as reported by the exchange (e.g. Financials, Industrials, Health Care).",
+    "Country":       "Country of the company's primary listing, inferred from the exchange suffix where not directly reported.",
 }
 
 _HINT_WATCHLIST = "click a row to view details · star in popup to add to watchlist"
