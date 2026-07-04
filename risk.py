@@ -985,6 +985,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
         var_pct = quant.var_99_1d_eur / total_value
         if var_pct > 0.03:
             hard.append(f"1-day 99% VaR = €{quant.var_99_1d_eur:,.0f} ({var_pct:.1%}) — exceeds 3% loss tolerance")
+            actions.append({"ticker": "Portfolio", "issue": "Excessive 1-day VaR (>3%)",
+                            "action": "Reduce high-beta/volatile positions to lower tail risk"})
 
     if income.top3_cut_pct is not None and income.top3_cut_pct > 0.40:
         top3_tickers = ", ".join(t for t, _ in income.top3_income_shares[:3])
@@ -995,6 +997,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
     worst_dd = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
     if worst_dd < -0.40:
         hard.append(f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown")
+        actions.append({"ticker": "Portfolio", "issue": "Severe historical drawdown exposure (>40%)",
+                        "action": "Add defensive/uncorrelated assets to cushion tail risk"})
 
     for p in profiles:
         if p.rating == "Critical":
@@ -1009,6 +1013,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                         "action": "Add uncorrelated positions or sectors to reduce concentration"})
     elif concentration.hhi > 0.10:
         soft.append(f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift")
+        actions.append({"ticker": "Portfolio", "issue": "HHI moderately elevated (0.10–0.15)",
+                        "action": "Monitor concentration drift; avoid adding to largest positions"})
 
     if concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
@@ -1018,13 +1024,19 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
 
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
         soft.append(f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk")
+        actions.append({"ticker": "Portfolio", "issue": "Dividend growth trailing inflation",
+                        "action": "Favor payers with stronger dividend growth track records"})
 
     if quant.sharpe is not None and quant.sharpe < 1.0:
         soft.append(f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal")
+        actions.append({"ticker": "Portfolio", "issue": "Sharpe ratio below 1.0",
+                        "action": "Reassess risk/return mix; trim volatile underperformers"})
 
     for p in profiles:
         if p.rating == "High":
             soft.append(f"{p.ticker}: High risk rating — monitor closely")
+            actions.append({"ticker": p.ticker, "issue": "High position risk rating",
+                            "action": "Monitor closely; reduce if fundamentals weaken further"})
 
     if quant.high_corr_pairs:
         pairs_str = ", ".join(f"{a}/{b}" for a, b, _ in quant.high_corr_pairs[:3])
