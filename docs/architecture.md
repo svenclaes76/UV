@@ -2,7 +2,14 @@
 
 ## Overview
 
-UV is a single-process Streamlit application. All logic runs server-side in Python; the browser renders Streamlit's output and a small amount of custom HTML/CSS for the sidebar. There is no separate backend API — page routing, authentication, data access, and business logic are all handled within `app.py` and supporting modules.
+UV (uvalu) is a single-process Streamlit application. All logic runs server-side in Python; the browser renders Streamlit's output plus a small amount of custom HTML/CSS/JS for the sidebar and the auth bridge. There is no separate backend API — routing, authentication, data access and business logic all run inside the one Streamlit process.
+
+The codebase is split into two layers:
+
+- **Root modules** (`auth.py`, `portfolio.py`, `screener.py`, `prices.py`, `risk.py`, `settings.py`, `crypto.py`, `backup.py`, `fetch_tickers.py`) — UI-agnostic business logic and persistence. These have no Streamlit page code and can be imported and tested in isolation.
+- **The `uvalu/` package** — the Streamlit app shell (`app.py` entry point plus `uvalu/`): page bodies, navigation, the auth gate, the cache-backed data layer, and shared rendering helpers.
+
+`app.py` is a thin shell: it wires up page config, global styles, the auth gate and `st.navigation`, then delegates each page to a `render()` function in `uvalu/pages_/`.
 
 ---
 
@@ -10,28 +17,50 @@ UV is a single-process Streamlit application. All logic runs server-side in Pyth
 
 ```
 UV/
-├── app.py                  # Entry point — routing, UI, page controllers
-├── run_app.py              # Launcher (generates self-signed TLS cert, starts Streamlit)
-├── auth.py                 # Authentication (register, login, JWT verify)
-├── portfolio.py            # Portfolio persistence and CRUD
-├── screener.py             # 6-stage valuation algorithm and scoring
-├── prices.py               # Live price fetching via yfinance
-├── risk.py                 # 8-stage portfolio risk assessment
-├── settings.py             # User and shared settings I/O
-├── crypto.py               # Symmetric encryption (Fernet)
-├── backup.py               # Export/import (ZIP, Excel)
-├── fetch_tickers.py        # Stock universe loader (6 exchanges)
+├── app.py                      # Entry-point shell: page config, styles, auth gate, st.navigation, sidebar
+├── run_app.py                  # Launcher (generates self-signed TLS cert, starts Streamlit)
+│
+│   # ── Root modules (UI-agnostic logic + persistence) ──
+├── auth.py                     # Authentication (register, login, JWT verify, role admin)
+├── portfolio.py                # Per-user portfolio persistence and CRUD (encrypted JSON)
+├── screener.py                 # Fundamentals fetch + valuation/scoring pipeline + disk cache
+├── prices.py                   # Live batch price fetching via yfinance
+├── risk.py                     # 8-stage portfolio risk assessment
+├── settings.py                 # User and shared settings I/O; exchange constants
+├── crypto.py                   # Symmetric encryption (Fernet)
+├── backup.py                   # Export/import (encrypted ZIP, Excel workbook)
+├── fetch_tickers.py            # Stock-universe loader (6 exchanges, scrape + hardcoded fallback)
+│
+│   # ── uvalu package (Streamlit app shell) ──
+├── uvalu/
+│   ├── __init__.py
+│   ├── authgate.py             # JWT/localStorage bridges, logout, login wall
+│   ├── nav.py                  # Registry of st.Page objects (breaks the app.py↔pages import cycle)
+│   ├── runtime.py              # Per-run accessors: current_user(), theme_colors()
+│   ├── data.py                 # Cache-backed screener/price/fundamentals data layer
+│   ├── formatting.py           # COLUMN_HELP tooltip texts + pure value formatters
+│   ├── styles.py               # Global CSS injected once per run
+│   ├── ui.py                   # Reusable widgets: click-to-select table, charts, auto-refresh
+│   ├── stock_dialog.py         # The shared 4-tab stock detail dialog
+│   └── pages_/
+│       ├── dashboard.py        # Dashboard page render()
+│       ├── portfolio.py        # Portfolio page render() (Positions / Realised / Dividends)
+│       ├── risk.py             # Risk page render() (8 detail tabs)
+│       ├── screener.py         # Screener page render() (per-exchange tabs + watchlist)
+│       ├── settings.py         # Settings page render()
+│       └── help.py             # Help page render() (app guide + column glossary)
+│
 ├── requirements.txt
-├── .env                    # Secrets — never committed
-├── .streamlit/
-│   └── config.toml         # TLS cert paths
-├── .ssl/                   # Auto-generated self-signed certs
+├── .env                        # Secrets — never committed
+├── .streamlit/config.toml      # TLS cert paths
+├── .ssl/                       # Auto-generated self-signed certs
 ├── .cache/
-│   ├── users.json          # User account store
-│   └── fundamentals.json   # Screener fundamentals cache
+│   ├── users.json              # User account store
+│   └── fundamentals.json       # Screener fundamentals cache
 ├── data/
-│   ├── portfolio/{hash}/   # Per-user portfolio data (encrypted JSON)
-│   └── settings/           # Per-user and shared settings (encrypted JSON)
+│   ├── portfolio/{hash}/       # Per-user portfolio data (encrypted JSON)
+│   └── settings/               # Per-user and shared settings
+├── tests/
 └── docs/
 ```
 
@@ -39,100 +68,137 @@ UV/
 
 ## Module responsibilities
 
-### `app.py`
+### App shell
 
-The main Streamlit entry point. Responsibilities:
-- Reads `?page=` query parameter to route between pages
-- Renders the sidebar navigation (custom HTML to avoid widget flashing)
-- Calls the appropriate page controller function
-- Manages `st.session_state` for auth tokens, cached data, and UI state
-- Contains all page-level UI code (tables, charts, forms)
+#### `app.py`
 
-Page controllers: `show_dashboard()`, `show_screener()`, `show_portfolio()`, `show_risk()`, `show_settings()`, `show_help()`
+The Streamlit entry point and app shell. Responsibilities:
 
-### `auth.py`
+- `st.set_page_config()` and `styles.inject()` for global CSS.
+- Runs the auth-gate steps from `uvalu.authgate` (restore token, recover session, logout, login wall) and points the data layer at the current user via `portfolio.set_user()`.
+- Builds one `st.Page` per page module, registers them in `uvalu.nav.pages`, and runs `st.navigation(..., position="hidden")`.
+- Redirects legacy `?page=` deep-links to the new `st.navigation` URL paths.
+- Renders the custom sidebar (logo, page links, user email, logout link).
+
+Page bodies live in `uvalu/pages_/*.py`; each exposes a single `render()` function that `st.navigation` invokes.
+
+#### `uvalu/authgate.py`
+
+The authentication gate, run in order during boot:
+
+- `restore_token_from_query()` — restore a JWT passed via the `_tok` query param (deep-links / the localStorage bridge).
+- `recover_session_from_localstorage()` — when there's no active session, redirect with the browser's stored `uv_jwt` as `_tok`.
+- `handle_logout()` — clear session + query params on `?logout=1`.
+- `auth_wall()` — verify the session JWT, or render the login form and `st.stop()` if unauthenticated.
+
+#### `uvalu/nav.py`
+
+A tiny module holding `pages: dict[str, st.Page]`. `app.py` builds the pages (it needs each module's `render` callable) and populates the registry at startup; page modules read from it at render time to link to siblings, avoiding an import cycle with `app.py`.
+
+#### `uvalu/runtime.py`
+
+Per-run shared-state accessors that read fresh from `st.session_state` / `st.context` on every call (so pages never bind stale module globals):
+
+- `current_user()` → `CurrentUser(email, role, is_admin)`.
+- `theme_colors()` → `ThemeColors` palette tokens resolved from the browser's active light/dark theme, used by all Plotly charts.
+
+#### `uvalu/data.py`
+
+The cache-backed data layer between pages and the root modules — no UI. Key functions:
+
+- `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names)` — `@st.cache_data` builder that returns per-exchange scored DataFrames plus one for extra (portfolio) tickers from disabled exchanges. Busted when `cache_version` (fundamentals file mtime), enabled exchanges, or the extra-ticker set change.
+- `_fetch_prices_cached(tickers)` — batch live prices, `ttl=60s`.
+- `_fetch_fundamentals(tickers)` — per-ticker fundamentals + fair-value estimates via `yf.info`, `ttl=6h`.
+- `_fetch_live_data(tickers)` — merges fast prices with slower fundamentals.
+- `_cache_version()`, `_cache_age_str()`, `_bust_cache()` — cache introspection and invalidation.
+
+#### `uvalu/ui.py`
+
+Reusable, theme-aware rendering helpers:
+
+- `_row_select_table()` — `st.dataframe` with single-row click selection (used to open the stock detail dialog); a nonce in the widget key prevents the dialog from immediately re-opening after close.
+- `_auto_rerun(seconds, key)` — timed page refresh.
+- `_static_bar()`, `_donut_chart()`, `_hm_color()` — chart primitives and the treemap colour scale.
+
+#### `uvalu/formatting.py`
+
+`COLUMN_HELP` — the single source of truth for column tooltip/help text, shown both as table-header tooltips and on the Help page's column reference. Plus pure value formatters (`fmt_eur`, `fmt_div_flag`, `safe_pct`, `f_str`).
+
+#### `uvalu/styles.py`
+
+`inject()` writes the global brand CSS (tokens, sidebar, login screen) once per run.
+
+#### `uvalu/stock_dialog.py`
+
+`_dlg_stock_detail(row, pf_context)` — the shared 4-tab modal (Snapshot, Price History, Risk & Fit, Model Estimates) opened by every stock table, including plain-language "Signals".
+
+#### `uvalu/pages_/`
+
+One module per page, each exposing `render()`: `dashboard`, `portfolio`, `risk`, `screener`, `settings`, `help`. See [user-guide.md](user-guide.md) (and the in-app Help page) for what each page does.
+
+### Root modules
+
+#### `auth.py`
 
 Email/password authentication with JWT sessions.
 
-- `register(email, password)` — hash password with bcrypt, store in `.cache/users.json`. First user becomes admin.
-- `login(email, password)` — verify bcrypt hash, issue HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
-- `verify_token(token)` → `(email, role)` — validate JWT signature and expiry.
-- `list_users()`, `set_role()`, `delete_user()` — admin helpers.
+- `register(email, password, role=...)` — bcrypt-hash the password, store in `.cache/users.json`. First user becomes admin.
+- `login(email, password)` — verify hash, issue an HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
+- `verify_token(token)` → `(email, role)`.
+- `list_users()`, `set_role()`, `delete_user()`, `ROLES` — admin helpers.
 
-The JWT is persisted in browser `localStorage` via a hidden iframe bridge and reloaded on each page refresh into `st.session_state`.
+The JWT is persisted in browser `localStorage` (`uv_jwt`) and reloaded on each refresh via the `uvalu.authgate` bridge.
 
-### `portfolio.py`
+#### `portfolio.py`
 
 Encrypted JSON persistence for all per-user portfolio data.
 
-- `set_user(email)` — derives the user's data directory path from `SHA256(email)`.
-- `load_portfolio()` / `save_portfolio()` — open positions as DataFrame ↔ `portfolio.json`.
-- `add_position()`, `update_positions()`, `remove_positions()` — CRUD on open positions.
-- `sell_position()` — move a position to `sold.json`, compute CAGR.
-- `add_dividend()`, `update_div_hist()` — dividend record management.
-- `load_value_history()`, `record_value_snapshot()`, `backfill_value_history()` — daily portfolio value snapshots for the time-series chart (backfill uses yfinance 5Y price history).
+- `set_user(email)` — derive the user's data directory from `SHA256(email)`.
+- `load_portfolio()` / `save_portfolio()`, `add_position()`, `update_positions()` — open positions.
+- `sell_position()` — move a position to `sold.json`, compute annualised return.
+- `add_dividend()`, `update_div_hist()`, `load_div_hist()` — dividend records.
+- `load_value_history()`, `record_value_snapshot()`, `backfill_value_history()` — daily value snapshots for the time-series chart (backfill uses yfinance price history + benchmark rebasing).
+- `parse_excel()`, `load_watchlist()`, `save_watchlist()`, `load_manual_tickers()`, `save_manual_tickers()`.
 
-All files are read and written through `crypto.py`.
+All files are read/written through `crypto.py`.
 
-### `screener.py`
+#### `screener.py`
 
-6-stage valuation pipeline run once per exchange per cache cycle.
+Fundamentals fetch plus the valuation/scoring pipeline. Fetches from yfinance (`MAX_WORKERS = 4`, `REQUEST_DELAY = 0.5s`), computes the fair-value models, and scores each stock. Results are cached in `.cache/fundamentals.json` with a per-ticker TTL of 24 h ± 4 h jitter (`CACHE_TTL_HOURS`), refreshed in a background thread so the UI stays responsive. See [stock_valuation_algorithm.md](stock_valuation_algorithm.md) for the full methodology.
 
-1. Fetch fundamentals from yfinance (batched, 4 workers, 0.5 s delay between requests).
-2. Compute fair value estimates: Graham Number, PE Fair Value, EPV, DDM 1-stage, DDM 2-stage, Analyst Target.
-3. UV Fair Value = equal-weighted average of available model outputs.
-4. Compute Margin of Safety (MoS) and Total Expected Return (TER).
-5. Score each dimension (financial health, earnings quality, market risk, dividend risk, liquidity) as a 0–100 percentile rank within the exchange universe.
-6. Composite Score = 30% MoS rank + 18% (100 − Risk rank) + 22% Quality rank + 15% Momentum rank + 15% Dividend rank.
+Notable exports used by the data layer: `run_screener_from_df`, `fetch_fundamentals_nowait`, `_load_cache`, `cancel_background_fetch`, `clear_live_cache`, `get_fetch_progress`, `CACHE_FILE`, `_file_lock`.
 
-Results are cached in `.cache/fundamentals.json` with a per-ticker TTL of 24 h ± 4 h jitter. Cache is refreshed in a background thread so the UI stays responsive.
+#### `prices.py`
 
-### `prices.py`
+`fetch_prices(tickers)` — live prices for many tickers in a batched yfinance call. Returns per-ticker current price, previous close, day change %, and volume.
 
-Fetches live prices for all portfolio tickers in a single `yfinance.download()` call.
+#### `risk.py`
 
-Returns per-ticker: current price, previous close, day change %, and volume.
+8-stage portfolio risk assessment; `assess_portfolio(pf, cache, income_mode)` → a `RiskReport`. See [portfolio_risk_assessment_algorithm.md](portfolio_risk_assessment_algorithm.md).
 
-### `risk.py`
+Stage summary: (1) position risk profiling, (2) concentration (HHI, top-N, sector/geo), (3) quantitative metrics (beta, volatility, VaR/CVaR, drawdown, correlation), (4) factor exposure (Fama-French 5-factor + momentum), (5) income/dividend risk, (6) stress tests (historical + hypothetical), (7) Monte Carlo (10,000 paths), (8) composite score + rebalancing signals.
 
-8-stage portfolio risk assessment. See [portfolio_risk_assessment_algorithm.md](portfolio_risk_assessment_algorithm.md) for full methodology.
-
-Stage summary:
-1. Position risk profiling (weight, beta, VaR, valuation flag, dividend sustainability)
-2. Concentration analysis (Herfindahl index, top-N weights, sector/country concentration)
-3. Quantitative metrics (portfolio beta, annual volatility, max drawdown, correlation matrix)
-4. Factor exposure (sector-beta aggregation)
-5. Dividend risk (payout sustainability, income concentration)
-6. Stress tests (4 historical scenarios)
-7. Monte Carlo simulation (10,000 paths, 252 days)
-8. Composite risk score (weighted sub-scores) + rebalancing signals
-
-### `crypto.py`
+#### `crypto.py`
 
 Symmetric encryption using Fernet (AES-128-CBC + HMAC-SHA256).
 
-- Key derivation: PBKDF2-SHA256 from `ENCRYPTION_KEY` env var with a fixed salt (required for persistence across process restarts).
-- `encrypt_text(plaintext)` / `decrypt_text(ciphertext)` — string-level helpers.
-- `read_encrypted(path)` / `write_encrypted(path, data)` — file I/O wrappers used by `portfolio.py` and `settings.py`.
+- Key derivation: PBKDF2-SHA256 from `ENCRYPTION_KEY` with a fixed salt (needed for persistence across restarts).
+- `encrypt_text` / `decrypt_text`, and `read_encrypted` / `write_encrypted` file wrappers used by `portfolio.py` and `settings.py`.
 
-### `fetch_tickers.py`
+#### `fetch_tickers.py`
 
-Builds the stock universe for each exchange.
+Builds the stock universe per exchange: scrapes ticker lists, with hardcoded index-constituent fallbacks (BEL 20, AEX 25, CAC 40, FTSE MIB, DAX 40, SMI 20). The `_hardcoded_*` lists also drive the screener's index-only toggles.
 
-- Primary: scrapes ticker lists from stockanalysis.com.
-- Fallback: hardcoded index constituent lists (BEL 20, AEX 25, CAC 40, FTSE MIB, DAX 40, SMI 20).
-- Returns: list of `{name, isin, ticker, mic}` dicts.
+#### `backup.py`
 
-### `backup.py`
-
-- `export_zip()` — bundle all `data/` and `.env` into an encrypted ZIP for offsite backup.
-- `export_excel()` — human-readable Excel workbook (sheets: Positions, Sold, Dividends, Watchlist).
+- `export_zip(email)` — bundle all user data plus the encryption key into an encrypted ZIP for offsite backup / migration.
+- `export_excel()` — human-readable workbook (Positions, Sold, Dividends, Watchlist).
 - `import_zip()` — restore data from a previously exported ZIP.
 
-### `settings.py`
+#### `settings.py`
 
-- `load_shared_settings()` / `save_shared_settings()` — admin settings in `data/settings/shared.json` (e.g. `enabled_exchanges`).
-- `load_settings(email)` / `save_settings(email, data)` — per-user settings in `data/settings/{hash}.json` (encrypted).
+- `load_shared_settings()` / `save_shared_settings()` — admin settings (e.g. `enabled_exchanges`).
+- Exchange constants: `ALL_EXCHANGES`, `EXCHANGE_LABELS`.
 
 ---
 
@@ -140,37 +206,34 @@ Builds the stock universe for each exchange.
 
 ```
 Browser
-  │
   │  HTTPS (self-signed TLS)
   ▼
-app.py (Streamlit)
+app.py  ──►  uvalu.authgate ──────────► auth.py ──► .cache/users.json
+  │            (JWT ⇄ localStorage)
   │
-  ├─ auth.py ──────────────────────► .cache/users.json
-  │    JWT → st.session_state
-  │
-  ├─ screener.py
-  │    ├─ fetch_tickers.py ────────► stockanalysis.com (HTTP)
-  │    └─ yfinance ───────────────► .cache/fundamentals.json
-  │
-  ├─ portfolio.py ─────────────────► data/portfolio/{hash}/*.json
-  │    └─ crypto.py (encrypt/decrypt)
-  │
-  ├─ prices.py ───────────────────► yfinance (live prices)
-  │
-  ├─ risk.py
-  │    └─ yfinance (5Y price history)
-  │
-  └─ settings.py ──────────────────► data/settings/*.json
+  └─►  st.navigation ──► uvalu/pages_/<page>.render()
+                              │
+                              ├─ uvalu.data ─┬─ screener.py ─┬─ fetch_tickers.py ─► stockanalysis.com
+                              │              │               └─ yfinance ─────────► .cache/fundamentals.json
+                              │              └─ prices.py ───────────────────────► yfinance (live)
+                              │
+                              ├─ portfolio.py ──► data/portfolio/{hash}/*.json  (via crypto.py)
+                              │
+                              ├─ risk.py ───────► yfinance (price history)
+                              │
+                              ├─ uvalu.stock_dialog (row-click detail modal)
+                              │
+                              └─ settings.py ───► data/settings/*.json
 ```
 
 ---
 
 ## Authentication flow
 
-1. User submits login form → `auth.login()` verifies bcrypt hash → returns JWT.
-2. JWT is written to `localStorage` via a hidden iframe `postMessage` bridge.
-3. On each Streamlit rerender, a JavaScript snippet reads `localStorage` and writes the token back into a hidden `st.text_input`, which is picked up by `st.session_state`.
-4. `auth.verify_token()` validates the JWT on every page load. Expired or invalid tokens redirect to the login screen.
+1. User submits the login form → `auth.login()` verifies the bcrypt hash and returns a JWT. `authgate.auth_wall()` stores it in `st.session_state` and writes it to `localStorage` as `uv_jwt` via a hidden `st.iframe` script.
+2. On a fresh page load with no session, `authgate.recover_session_from_localstorage()` injects a script that reads `uv_jwt` and reloads the page with the token as a `_tok` query param.
+3. `authgate.restore_token_from_query()` verifies `_tok`, populates the session, and strips the param. Invalid/expired tokens are purged from `localStorage` to break redirect loops.
+4. `auth_wall()` short-circuits re-verification once `jwt_token` + `user_email` are set for the session (prevents login flashes on timed auto-refresh). `?logout=1` clears both session and `localStorage`.
 
 ---
 
@@ -178,18 +241,19 @@ app.py (Streamlit)
 
 | Layer | Mechanism | TTL |
 |---|---|---|
-| Screener fundamentals | `.cache/fundamentals.json` (mtime per ticker) | 24 h ± 4 h jitter |
-| Screener DataFrame | `@st.cache_data` | Until manual refresh |
-| Live prices | `@st.cache_data` | 5 minutes |
-| Risk report | `st.session_state` | 1 hour |
-| Value history | `data/portfolio/{hash}/value_history.json` | Daily snapshot |
+| Screener fundamentals (disk) | `.cache/fundamentals.json` (per-ticker mtime) | 24 h ± 4 h jitter |
+| Screener DataFrames | `@st.cache_data` (`_load_all_screener_data`) | Until file mtime / enabled exchanges / extra tickers change |
+| Live prices | `@st.cache_data` (`_fetch_prices_cached`) | 60 seconds |
+| Per-ticker fundamentals | `@st.cache_data` (`_fetch_fundamentals`) | 6 hours |
+| Risk report | `st.session_state` | 1 hour (or on portfolio change) |
+| Value history | `data/portfolio/{hash}/value_history.json` | Daily snapshot (auto back-filled) |
 
 ---
 
 ## Security notes
 
-- Passwords are hashed with bcrypt (cost factor 12).
-- JWTs are signed HS256 with a 64-char random secret. They are stored in `localStorage`, not cookies, to avoid CSRF exposure.
+- Passwords are hashed with bcrypt.
+- JWTs are signed HS256 and stored in `localStorage` (not cookies) to avoid CSRF exposure.
 - All portfolio and settings files are Fernet-encrypted at rest.
-- The `.env` file containing secrets must never be committed to version control (add to `.gitignore`).
-- The self-signed TLS cert is regenerated on each launch if absent; it is for localhost only and should not be used in production.
+- `.env` (holding `AUTH_SECRET`, `ENCRYPTION_KEY`) must never be committed — keep it in `.gitignore`.
+- The self-signed TLS cert is regenerated on launch if absent; it is for localhost only and not for production use.
