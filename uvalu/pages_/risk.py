@@ -16,17 +16,43 @@ from uvalu.ui import _DONUT_PALETTE, _row_select_table
 
 
 def _risk_note(body: str) -> None:
-    """Collapsible methodology note for risk page tabs."""
-    with st.expander("Methodology"):
+    """Methodology note for risk page tabs — a popover so it never shifts the layout below it."""
+    with st.popover("Methodology", icon=":material/info:"):
         st.markdown(body)
 
 
-def _trigger_card(msg: str, kind: str = "hard") -> None:
-    """Render a hard (act now) or soft (review) rebalancing trigger."""
+def _trigger_card(msg: str, kind: str = "hard", action: str | None = None) -> None:
+    """Render a hard (act now) or soft (review) rebalancing trigger.
+
+    When `action` is given, it's bundled as a second line in the same card so the
+    issue and its recommended next step read as one unit instead of two lists.
+    """
+    label = "Act" if kind == "hard" else "Review"
+    body = f"**{label}** — {msg}"
+    if action:
+        body += f"  \n↳ {action}"
     if kind == "hard":
-        st.error(f"**Act** — {msg}", icon=":material/priority_high:")
+        st.error(body, icon=":material/priority_high:")
     else:
-        st.info(f"**Review** — {msg}", icon=":material/arrow_forward:")
+        st.info(body, icon=":material/arrow_forward:")
+
+
+_FACTOR_ACTIONS = {
+    "Mkt-RF": "Reduce beta by adding cash or defensive/low-beta positions",
+    "SMB":    "Rebalance small-cap vs large-cap mix toward target allocation",
+    "HML":    "Balance value vs growth exposure across holdings",
+    "RMW":    "Diversify profitability exposure — mix high- and low-margin businesses",
+    "CMA":    "Balance conservative vs aggressive investment exposure",
+    "WML":    "Reduce momentum concentration; add mean-reversion candidates",
+}
+
+
+def _factor_flag_action(msg: str) -> str | None:
+    """Map a factor-exposure flag message to a concrete rebalancing action."""
+    for name, action in _FACTOR_ACTIONS.items():
+        if msg.startswith(f"High {name} loading") or msg.startswith(f"{name} explains"):
+            return action
+    return None
 
 
 def render() -> None:
@@ -70,10 +96,9 @@ def render() -> None:
 
     _risk_full_cache = _load_cache()
 
-    # ── Income portfolio toggle ───────────────────────────────────────────────
-    _c_hdr, _c_tog = st.columns([4, 2])
-    with _c_tog:
-        _income_portfolio = st.toggle("Income mode", value=False, key="risk_income_toggle")
+    # ── Income portfolio toggle (widget lives in the Summary tab; value persists
+    # in session_state across reruns so it can be read here before that tab draws) ──
+    _income_portfolio = st.session_state.get("risk_income_toggle", False)
 
     # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
     _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio))
@@ -96,64 +121,96 @@ def render() -> None:
 
     r = _risk_report
 
-    # ── Composite score banner ────────────────────────────────────────────────
-    _score_color = {
-        "Low risk":      "green",
-        "Moderate risk": "blue",
-        "Elevated risk": "orange",
-        "High risk":     "red",
-        "Critical risk": "red",
-    }.get(r.composite.label, "gray")
-
-    st.markdown(f"### :{_score_color}[{r.composite.score:.0f} · {r.composite.label}]")
-    st.caption(f"{r.composite.action}  \n"
-               f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
-               f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
-
-    # ── Hard / soft triggers ──────────────────────────────────────────────────
-    if r.rebalance.hard_triggers:
-        for msg in r.rebalance.hard_triggers:
-            _trigger_card(msg, "hard")
-    elif not r.rebalance.soft_triggers:
-        st.success("No rebalancing triggers detected.", icon=":material/check:")
-
-    if r.rebalance.soft_triggers:
-        with st.expander(f"{len(r.rebalance.soft_triggers)} soft trigger(s) — review and plan", expanded=False):
-            for msg in r.rebalance.soft_triggers:
-                _trigger_card(msg, "soft")
-
-    st.divider()
-
-    # ── Sub-score bar chart ───────────────────────────────────────────────────
-    _sub_scores = r.composite.sub_scores
-    _ss_fig = go.Figure(go.Bar(
-        x=list(_sub_scores.keys()),
-        y=list(_sub_scores.values()),
-        marker_color=[
-            "#1DD6A4" if v < 25 else "#5B8FA8" if v < 50 else "#8BA888" if v < 70 else "#A32D2D"
-            for v in _sub_scores.values()
-        ],
-        text=[f"{v:.0f}" for v in _sub_scores.values()],
-        textposition="outside",
-        textfont=dict(color=_c_axis),
-    ))
-    _ss_fig.update_layout(
-        height=220, margin=dict(t=20, b=0, l=0, r=0),
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(range=[0, 115], showgrid=False, visible=False),
-        xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
-        font=dict(color=_c_axis),
-        showlegend=False,
-    )
-    st.plotly_chart(_ss_fig, width='stretch')
-
     # ── Detail tabs ───────────────────────────────────────────────────────────
-    (_t_pos, _t_conc, _t_quant, _t_factor,
-     _t_income, _t_stress, _t_mc, _t_rebal) = st.tabs([
-        "Positions", "Concentration", "Volatility & VaR",
+    (_t_summary, _t_pos, _t_conc, _t_quant, _t_factor,
+     _t_income, _t_stress, _t_mc) = st.tabs([
+        "Summary", "Positions", "Concentration", "Volatility & VaR",
         "Factor Exposure", "Income Risk", "Stress Tests",
-        "Monte Carlo", "Rebalancing",
+        "Monte Carlo",
     ])
+
+    # ── Tab: Summary ──────────────────────────────────────────────────────────
+    with _t_summary:
+        _c_note, _c_hdr, _c_tog, _c_refresh = st.columns([2, 3, 2, 1], vertical_alignment="center")
+        with _c_note:
+            _risk_note(
+                "The composite score (0–100) aggregates six risk dimensions — Concentration, "
+                "Volatility, Tail Risk, Factor, Fundamental, and Income — into a single "
+                "**Low / Moderate / Elevated / High / Critical** rating.\n\n"
+                "- Toggling **Income mode** re-weights the blend to emphasise income risk, for "
+                "portfolios run primarily for dividend income.\n"
+                "- **Hard triggers** require immediate action — a threshold breach that materially "
+                "increases portfolio risk (e.g. single position >20%, beta >1.5, 99% VaR exceeding "
+                "3% of portfolio, or a Critical-rated position).\n"
+                "- **Soft triggers** are advisory — worth reviewing and planning around, but not "
+                "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, or "
+                "a High-rated position).\n"
+                "- Each trigger card shows its recommended next step (↳) directly underneath."
+            )
+        with _c_tog:
+            st.toggle("Income mode", value=_income_portfolio, key="risk_income_toggle")
+        with _c_refresh:
+            if st.button("Refresh", type="tertiary", key="risk_refresh_btn"):
+                st.session_state.pop("_risk_report_cache", None)
+                st.rerun()
+
+        _score_color = {
+            "Low risk":      "green",
+            "Moderate risk": "blue",
+            "Elevated risk": "orange",
+            "High risk":     "red",
+            "Critical risk": "red",
+        }.get(r.composite.label, "gray")
+
+        st.markdown(f"### :{_score_color}[{r.composite.score:.0f} · {r.composite.label}]")
+        st.caption(f"{r.composite.action}  \n"
+                   f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
+                   f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
+
+        # ── Sub-score bar chart ─────────────────────────────────────────────────
+        _sub_scores = r.composite.sub_scores
+        _ss_fig = go.Figure(go.Bar(
+            x=list(_sub_scores.keys()),
+            y=list(_sub_scores.values()),
+            marker_color=[
+                "#1DD6A4" if v < 25 else "#5B8FA8" if v < 50 else "#8BA888" if v < 70 else "#A32D2D"
+                for v in _sub_scores.values()
+            ],
+            text=[f"{v:.0f}" for v in _sub_scores.values()],
+            textposition="outside",
+            textfont=dict(color=_c_axis),
+        ))
+        _ss_fig.update_layout(
+            height=220, margin=dict(t=20, b=0, l=0, r=0),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(range=[0, 115], showgrid=False, visible=False),
+            xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
+            font=dict(color=_c_axis),
+            showlegend=False,
+        )
+        st.plotly_chart(_ss_fig, width='stretch')
+
+        st.divider()
+
+        # ── Hard / soft triggers, each bundled with its recommended action ────
+        _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
+        _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
+
+        if _hard_items:
+            st.markdown(f"**{len(_hard_items)} hard trigger(s)** — take action")
+            for item in _hard_items:
+                _trigger_card(item.message, "hard", item.action)
+        elif not _soft_items:
+            st.success("No rebalancing triggers detected.", icon=":material/check:")
+
+        if _soft_items:
+            st.markdown(f"**{len(_soft_items)} soft trigger(s)** — review and plan")
+            for item in _soft_items:
+                _trigger_card(item.message, "soft", item.action)
+
+        st.divider()
+        st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "
+                   "Refreshes automatically after 1 hour or when portfolio changes.")
 
     # ── Tab: Positions ────────────────────────────────────────────────────────
     with _t_pos:
@@ -228,14 +285,23 @@ def render() -> None:
                 st.session_state.pop("_dlg_open_ticker", None)
                 st.session_state.pop("_dlg_open_src", None)
 
+        _pos_tickers = {p.ticker for p in r.position_profiles}
+        _pos_items = [i for i in r.rebalance.items if i.ticker in _pos_tickers]
+        if _pos_items:
+            st.divider()
+            st.markdown(f"**{len(_pos_items)} flagged position(s)**")
+            for item in _pos_items:
+                _trigger_card(item.message, item.severity, item.action)
+
     # ── Tab: Concentration ────────────────────────────────────────────────────
     with _t_conc:
         _risk_note(
             "Concentration risk measures how much of the portfolio depends on a small number "
-            "of positions, sectors, or geographies. The **HHI** (Herfindahl-Hirschman Index) "
-            "is the sum of squared weights — closer to 0 means well spread, above 0.18 is "
-            "highly concentrated. Flags trigger at >15% single position, >30% single sector, "
-            "or >60% single country. Dividend HHI applies the same logic to income streams."
+            "of positions, sectors, or geographies.\n\n"
+            "- The **HHI** (Herfindahl-Hirschman Index) is the sum of squared weights — closer to "
+            "0 means well spread, above 0.18 is highly concentrated.\n"
+            "- Flags trigger at >15% single position, >30% single sector, or >60% single country.\n"
+            "- Dividend HHI applies the same logic to income streams."
         )
         c = r.concentration
         _cc1, _cc2, _cc3 = st.columns(3)
@@ -271,8 +337,6 @@ def render() -> None:
                     font=dict(color=_c_axis), showlegend=False,
                 )
                 st.plotly_chart(_sec_fig, width='stretch')
-            if c.sector_flag:
-                _trigger_card(f"Sector concentration: {c.largest_sector} at {c.sector_weights.get(c.largest_sector or '', 0):.0%}", "soft")
 
         with _conc_c2:
             st.markdown("**Geographic weights**")
@@ -305,25 +369,55 @@ def render() -> None:
                     font=dict(color=_c_axis),
                 )
                 st.plotly_chart(_geo_fig, width='stretch')
-            if c.geo_flag:
-                _trigger_card(f"Geographic concentration: {c.largest_geo} at {c.geo_weights.get(c.largest_geo or '', 0):.0%}", "soft")
 
         if c.div_hhi is not None:
             st.caption(f"Dividend income HHI: {c.div_hhi:.3f} | Top-3 income share: {c.div_top3_pct:.0%}"
                        + (" — concentrated" if c.income_concentration_flag else ""))
 
+        # ── All concentration triggers, full-width, below the charts ─────────
+        _conc_triggers = []
+        if c.hhi > 0.15:
+            _conc_triggers.append(("soft",
+                f"HHI {c.hhi:.3f} — concentration has drifted well above 0.10 diversified threshold",
+                "Add uncorrelated positions or sectors to reduce concentration"))
+        elif c.hhi > 0.10:
+            _conc_triggers.append(("soft",
+                f"HHI {c.hhi:.3f} — moderately concentrated, monitor drift",
+                "Monitor concentration drift; avoid adding to largest positions"))
+        if c.sector_flag and c.largest_sector:
+            w = c.sector_weights.get(c.largest_sector, 0.0)
+            _conc_triggers.append(("soft",
+                f"{c.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
+                "Reduce largest sector; add exposure to lagging sectors"))
+        if c.geo_flag and c.largest_geo:
+            w = c.geo_weights.get(c.largest_geo, 0.0)
+            _conc_triggers.append(("soft",
+                f"{c.largest_geo} at {w:.0%} of portfolio — exceeds 60% country guideline",
+                "Diversify into additional geographies; trim largest-country exposure"))
+        if c.div_hhi is not None and c.income_concentration_flag:
+            _conc_triggers.append(("soft",
+                f"Dividend income HHI {c.div_hhi:.3f} — top-3 income share {c.div_top3_pct:.0%} — concentrated",
+                "Diversify dividend income across more payers to reduce reliance on top payers"))
+
+        if _conc_triggers:
+            st.divider()
+            for _kind, _msg, _action in _conc_triggers:
+                _trigger_card(_msg, _kind, _action)
+
     # ── Tab: Volatility & VaR ─────────────────────────────────────────────────
     with _t_quant:
         _risk_note(
-            "**Beta** measures overall market sensitivity — above 1.2 means the portfolio "
-            "amplifies market swings, below 0.8 is defensive. **Annual Vol** is the standard "
-            "deviation of daily returns scaled to a year; above 20% is high. "
-            "**VaR** is the maximum expected 1-day loss at a given confidence level — "
-            "e.g. a 95% VaR of €500 means only 1 day in 20 should lose more than that. "
-            "**CVaR** (Expected Shortfall) is the average loss on those worst days, capturing "
-            "tail risk beyond VaR. **MDD** is the largest peak-to-trough drawdown observed in the "
-            "historical window. The correlation heatmap shows how positions move together — "
-            "pairs above 0.80 provide little diversification benefit."
+            "- **Beta** measures overall market sensitivity — above 1.2 means the portfolio "
+            "amplifies market swings, below 0.8 is defensive.\n"
+            "- **Annual Vol** is the standard deviation of daily returns scaled to a year; above "
+            "20% is high.\n"
+            "- **VaR** is the maximum expected 1-day loss at a given confidence level — e.g. a "
+            "95% VaR of €500 means only 1 day in 20 should lose more than that.\n"
+            "- **CVaR** (Expected Shortfall) is the average loss on those worst days, capturing "
+            "tail risk beyond VaR.\n"
+            "- **MDD** is the largest peak-to-trough drawdown observed in the historical window.\n"
+            "- The correlation heatmap shows how positions move together — pairs above 0.80 "
+            "provide little diversification benefit."
         )
         q = r.quant
         _qc1, _qc2, _qc3, _qc4, _qc5 = st.columns(5)
@@ -349,6 +443,20 @@ def render() -> None:
 
         if not q.returns_available:
             st.info("Historical price data unavailable — quantitative metrics use beta-proxy estimates.")
+
+        if q.portfolio_beta > 1.5:
+            _trigger_card(f"Portfolio beta {q.portfolio_beta:.2f} exceeds 1.5 — amplified drawdown risk", "hard",
+                          "Rotate into low-beta / defensive stocks")
+
+        if q.var_99_1d_eur is not None and r.portfolio_value > 0:
+            _var99_pct = q.var_99_1d_eur / r.portfolio_value
+            if _var99_pct > 0.03:
+                _trigger_card(f"1-day 99% VaR = €{q.var_99_1d_eur:,.0f} ({_var99_pct:.1%}) — exceeds 3% loss tolerance", "hard",
+                              "Reduce high-beta/volatile positions to lower tail risk")
+
+        if q.sharpe is not None and q.sharpe < 1.0:
+            _trigger_card(f"Sharpe ratio {q.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal", "soft",
+                          "Reassess risk/return mix; trim volatile underperformers")
 
         if q.corr_matrix is not None and len(q.corr_matrix) > 1:
             st.divider()
@@ -386,7 +494,8 @@ def render() -> None:
             st.plotly_chart(_heat, width='stretch')
             if q.high_corr_pairs:
                 _pairs_str = ", ".join(f"**{a}/{b}** ({c:.2f})" for a, b, c in q.high_corr_pairs)
-                _trigger_card(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification", "soft")
+                _trigger_card(f"High-correlation pairs (>0.80): {_pairs_str} — limited diversification", "soft",
+                              "Replace one position per pair with uncorrelated exposure")
             if q.effective_diversification is not None:
                 st.caption(f"Effective diversification score: {q.effective_diversification:.2f} "
                            f"(1 − avg pairwise correlation)")
@@ -396,12 +505,13 @@ def render() -> None:
         _risk_note(
             "Factor analysis decomposes portfolio returns into known systematic risk factors "
             "using the **Fama-French 5-factor model** (+ momentum). Each bar is a factor loading — "
-            "how much the portfolio moves per unit of that factor's return. "
-            "A loading above **±1.5** signals a concentrated factor bet. "
-            "**R²** shows what fraction of return variance the model explains; above 0.6 means "
-            "the portfolio is factor-dominated. **Alpha** is the annualised return not explained "
-            "by any factor — positive alpha suggests genuine stock-picking skill, negative suggests "
-            "the portfolio underperforms its factor exposures.\n\n"
+            "how much the portfolio moves per unit of that factor's return.\n\n"
+            "- A loading above **±1.5** signals a concentrated factor bet.\n"
+            "- **R²** shows what fraction of return variance the model explains; above 0.6 means "
+            "the portfolio is factor-dominated.\n"
+            "- **Alpha** is the annualised return not explained by any factor — positive alpha "
+            "suggests genuine stock-picking skill, negative suggests the portfolio underperforms "
+            "its factor exposures.\n\n"
             "Factors: **Mkt-RF** market premium · **SMB** small vs large cap · "
             "**HML** value vs growth · **RMW** high vs low profitability · "
             "**CMA** conservative vs aggressive investment · **WML** momentum."
@@ -441,7 +551,7 @@ def render() -> None:
 
             if f.flags:
                 for _msg in f.flags:
-                    _trigger_card(_msg, "soft")
+                    _trigger_card(_msg, "soft", _factor_flag_action(_msg))
 
             st.caption("Mkt-RF: market | SMB: small vs large | HML: value vs growth | "
                        "RMW: profitability | CMA: investment | WML: momentum (if available). "
@@ -451,14 +561,17 @@ def render() -> None:
     # ── Tab: Income Risk ──────────────────────────────────────────────────────
     with _t_income:
         _risk_note(
-            "Income risk measures how vulnerable the portfolio's dividend stream is. "
-            "**Portfolio Yield** is total expected annual dividends divided by current portfolio value. "
-            "**Weighted DGR** (Dividend Growth Rate) is the income-weighted average of each payer's "
-            "earnings growth — a DGR below inflation (~2.5%) means purchasing power of income erodes. "
-            "The **top-3 cut scenario** simulates the income impact if the three largest dividend "
-            "payers each cut their dividend by 50% — a standard stress test for income concentration. "
-            "Positions flagged for sustainability have at least one of: payout ratio >80%, "
-            "cash payout ratio >80%, or dividend coverage ratio <1.2×."
+            "Income risk measures how vulnerable the portfolio's dividend stream is.\n\n"
+            "- **Portfolio Yield** is total expected annual dividends divided by current portfolio "
+            "value.\n"
+            "- **Weighted DGR** (Dividend Growth Rate) is the income-weighted average of each "
+            "payer's earnings growth — a DGR below inflation (~2.5%) means purchasing power of "
+            "income erodes.\n"
+            "- The **top-3 cut scenario** simulates the income impact if the three largest "
+            "dividend payers each cut their dividend by 50% — a standard stress test for income "
+            "concentration.\n"
+            "- Positions flagged for sustainability have at least one of: payout ratio >80%, cash "
+            "payout ratio >80%, or dividend coverage ratio <1.2×."
         )
         inc = r.income
         _ic1, _ic2, _ic3, _ic4, _ic5 = st.columns(5)
@@ -487,26 +600,35 @@ def render() -> None:
                                                    help="This payer's expected annual dividend as a fraction of total portfolio income. High concentration here amplifies the impact of a dividend cut."),
                          })
 
+        if inc.top3_cut_pct is not None and inc.top3_cut_pct > 0.40:
+            _trigger_card(f"Top-3 dividend cut scenario removes {inc.top3_cut_pct:.0%} of annual income", "hard",
+                          "Diversify income across more dividend payers")
+
+        if inc.weighted_dgr is not None and inc.weighted_dgr < 0.025:
+            _trigger_card(f"Weighted portfolio DGR {inc.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk", "soft",
+                          "Favor payers with stronger dividend growth track records")
+
         if inc.flagged_payers:
             _trigger_card(
                 f"Sustainability concerns ({inc.flagged_income_pct:.0%} of income): "
                 + ", ".join(inc.flagged_payers),
                 "soft",
+                "Review payout ratios and coverage for flagged payers; consider trimming or replacing them",
             )
 
     # ── Tab: Stress Tests ─────────────────────────────────────────────────────
     with _t_stress:
         _risk_note(
             "Stress tests show how the portfolio might perform under adverse conditions.\n\n"
-            "**Historical scenarios** replay four real market crises. Portfolio drawdown is "
-            "estimated as portfolio beta × index drawdown — a beta of 0.8 during a −50% "
-            "crash implies a −40% portfolio loss. This is an approximation; actual losses "
-            "depend on individual stock behaviour during the specific period.\n\n"
-            "**Hypothetical scenarios** apply targeted shocks: the rate-rise scenario uses "
-            "each stock's P/E as a duration proxy (high P/E = more sensitive to higher rates); "
-            "the recession scenario applies a 25% earnings cut to cyclical sectors and 10% to "
-            "defensives; the sector crash applies a −40% shock to the largest sector holding; "
-            "the credit crunch penalises high-leverage positions proportionally to D/E ratio."
+            "- **Historical scenarios** replay four real market crises. Portfolio drawdown is "
+            "estimated as portfolio beta × index drawdown — a beta of 0.8 during a −50% crash "
+            "implies a −40% portfolio loss. This is an approximation; actual losses depend on "
+            "individual stock behaviour during the specific period.\n"
+            "- **Hypothetical scenarios** apply targeted shocks: the rate-rise scenario uses each "
+            "stock's P/E as a duration proxy (high P/E = more sensitive to higher rates); the "
+            "recession scenario applies a 25% earnings cut to cyclical sectors and 10% to "
+            "defensives; the sector crash applies a −40% shock to the largest sector holding; the "
+            "credit crunch penalises high-leverage positions proportionally to D/E ratio."
         )
         st.markdown("**Historical scenarios** *(beta-adjusted approximation)*")
         _hist_rows = [{
@@ -533,6 +655,11 @@ def render() -> None:
         st.caption("Drawdown estimated as portfolio beta × index drawdown. "
                    "For tickers with ≥5 years of history, actual returns are used where available.")
 
+        _worst_dd = min((s.portfolio_drawdown or 0.0) for s in r.stress.historical)
+        if _worst_dd < -0.40:
+            _trigger_card(f"Worst-case historical scenario implies {_worst_dd:.0%} portfolio drawdown", "hard",
+                          "Add defensive/uncorrelated assets to cushion tail risk")
+
         st.divider()
         st.markdown("**Hypothetical factor scenarios**")
         _factor_rows = [{
@@ -557,14 +684,15 @@ def render() -> None:
     with _t_mc:
         _risk_note(
             "Monte Carlo simulation runs **10,000 random return paths** over 1, 3, and 5 years, "
-            "drawing daily returns from the historical return distribution of the portfolio. "
-            "The fan chart shows the range of outcomes: the dark line is the median path, "
-            "the inner band covers the 25th–75th percentile (50% of paths), and the outer "
-            "band covers the 5th–95th percentile (90% of paths).\n\n"
-            "**P5** is the worst-case outcome at 5% probability — what the portfolio could be "
-            "worth in a persistently bad scenario. **P(loss)** is the fraction of simulated "
-            "paths that end below the starting value. When historical price data is unavailable, "
-            "returns are estimated from portfolio beta and a 5% market risk premium."
+            "drawing daily returns from the historical return distribution of the portfolio.\n\n"
+            "- The fan chart shows the range of outcomes: the dark line is the median path, the "
+            "inner band covers the 25th–75th percentile (50% of paths), and the outer band covers "
+            "the 5th–95th percentile (90% of paths).\n"
+            "- **P5** is the worst-case outcome at 5% probability — what the portfolio could be "
+            "worth in a persistently bad scenario.\n"
+            "- **P(loss)** is the fraction of simulated paths that end below the starting value.\n"
+            "- When historical price data is unavailable, returns are estimated from portfolio "
+            "beta and a 5% market risk premium."
         )
         _mcs = [r.stress.mc_1y, r.stress.mc_3y, r.stress.mc_5y]
         _mc_cols = st.columns(3)
@@ -666,57 +794,13 @@ def render() -> None:
         st.caption(f"10,000 Monte Carlo paths · daily returns drawn from historical distribution "
                    f"{'(actual returns)' if r.quant.returns_available else '(beta-proxy estimate)'}")
 
-    # ── Tab: Rebalancing ──────────────────────────────────────────────────────
-    with _t_rebal:
-        _risk_note(
-            "Rebalancing signals are split into two tiers.\n\n"
-            "**Hard triggers** require immediate action — they indicate a threshold breach "
-            "that materially increases portfolio risk (e.g. single position >20%, beta >1.5, "
-            "99% VaR exceeding 3% of portfolio, or a Critical-rated position).\n\n"
-            "**Soft triggers** are advisory — worth reviewing and planning around, but not "
-            "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, "
-            "or a High-rated position).\n\n"
-            "The **actions table** maps each issue to a concrete next step. Prioritise "
-            "hard-trigger actions first, then work through soft triggers in order of their "
-            "impact on the composite risk score."
-        )
-        if r.rebalance.actions:
-            _act_df = pd.DataFrame(r.rebalance.actions)
-            st.dataframe(
-                _act_df,
-                hide_index=True,
-                width='stretch',
-                height=35 + min(len(_act_df), 15) * 40,
-                column_config={
-                    "ticker": st.column_config.TextColumn("Ticker / Scope",
-                                  help="The position or scope (e.g. 'Portfolio', a sector name, or a ticker) this action applies to"),
-                    "issue":  st.column_config.TextColumn("Issue",
-                                  help="The specific risk threshold or flag that triggered this action"),
-                    "action": st.column_config.TextColumn("Recommended Action",
-                                  help="Suggested rebalancing step to address the issue"),
-                },
+        _mc_1y = r.stress.mc_1y
+        if _mc_1y.prob_loss > 0.35 or _mc_1y.p05 < -0.30:
+            _trigger_card(
+                f"1-year outlook: {_mc_1y.prob_loss:.0%} probability of loss, worst case (P5) {_mc_1y.p05:.0%}",
+                "soft",
+                "Reduce portfolio volatility (lower beta, diversify) to improve 1-year downside odds",
             )
-        else:
-            st.success("No immediate rebalancing actions required.")
-
-        st.divider()
-
-        if r.rebalance.hard_triggers:
-            st.markdown("**Hard triggers** *(act immediately)*")
-            for msg in r.rebalance.hard_triggers:
-                _trigger_card(msg, "hard")
-
-        if r.rebalance.soft_triggers:
-            st.markdown("**Soft triggers** *(review and plan)*")
-            for msg in r.rebalance.soft_triggers:
-                _trigger_card(msg, "soft")
-
-        st.divider()
-        st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "
-                   "Refreshes automatically after 1 hour or when portfolio changes.")
-        if st.button("Refresh risk report", key="risk_refresh_btn"):
-            st.session_state.pop("_risk_report_cache", None)
-            st.rerun()
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:
