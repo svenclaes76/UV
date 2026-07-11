@@ -15,6 +15,36 @@ GLOBAL_CSS = """
     --uv-neg-bg:      #FCEAEA;
     --uv-neg-txt:     #A32D2D;
     --uv-muted:       #5F5E5A;
+    --uv-track:       #EEF1F5;
+    --uv-mono:        "SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
+  }
+
+  /* ── Design-mockup tokens (dark-navy top bar/shell + card surfaces) ────────
+     Namespaced separately from the --uv-* set above so existing components
+     keep working unchanged while new raw-HTML screens (top bar, Dashboard,
+     Admin portal, ...) adopt these directly, matching Uvalu.dc.html /
+     Uvalu Admin.dc.html. [data-theme="light"] is toggled by the Phase 1 shell
+     theme switch (adds/removes the attribute on <body> via a small JS bridge,
+     seeded from the per-user ui_theme setting) — inert until that lands. */
+  :root {
+    --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
+    --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
+    --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
+    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
+    --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
+    --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
+    --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D;
+    --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
+    --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+  }
+  [data-theme="light"] {
+    --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
+    --line:rgba(13,31,60,0.10); --line-2:rgba(13,31,60,0.06);
+    --text:#0D1F3C; --muted:#5F5E5A; --faint:rgba(13,31,60,0.38);
+    --up-bg:rgba(15,110,86,0.11); --up-txt:#0F6E56;
+    --down-bg:rgba(163,45,45,0.11); --down-txt:#A32D2D;
+    --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
+    --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
   }
 
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
