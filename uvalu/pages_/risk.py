@@ -12,6 +12,7 @@ from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.runtime import theme_colors
 from uvalu.drawer import open_drawer
+from uvalu.components import score_color, radial_gauge_svg
 from uvalu.ui import _DONUT_PALETTE, _row_select_table
 
 
@@ -78,7 +79,6 @@ def render() -> None:
     )
     *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(_cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names)
     _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
-    _risk_dlg_pending: list = []
 
     # ── Enrich portfolio with live prices, fair values, sector, country ───────
     _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
@@ -121,284 +121,155 @@ def render() -> None:
 
     r = _risk_report
 
-    # ── Detail tabs ───────────────────────────────────────────────────────────
-    (_t_summary, _t_pos, _t_conc, _t_quant, _t_factor,
-     _t_income, _t_stress, _t_mc) = st.tabs([
-        "Summary", "Positions", "Concentration", "Volatility & VaR",
-        "Factor Exposure", "Income Risk", "Stress Tests",
+    # ══ Top section — score gauge, factor/concentration, risk contribution ═══
+    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
+               unsafe_allow_html=True)
+    st.caption("Factor exposures, concentration and per-holding risk contribution across the portfolio.")
+
+    with st.container(horizontal=True, gap="small", horizontal_alignment="right"):
+        st.toggle("Income mode", value=_income_portfolio, key="risk_income_toggle")
+        if st.button("Refresh", type="tertiary", key="risk_refresh_btn"):
+            st.session_state.pop("_risk_report_cache", None)
+            st.rerun()
+
+    _gauge_col, _metrics_col = st.columns([1, 2], vertical_alignment="center")
+    with _gauge_col:
+        _ring_color, _ = score_color(r.composite.score)
+        st.markdown(f"""
+<div style="position:relative;width:120px;height:120px;">
+  {radial_gauge_svg(r.composite.score, _ring_color, size=120)}
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+    <span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;">{r.composite.score:.0f}</span>
+    <span style="font-size:9px;color:var(--faint);">/ 100</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+        st.caption(f"**{r.composite.label}** — {r.composite.action}")
+    with _metrics_col:
+        _m1, _m2, _m3 = st.columns(3)
+        _m1.metric("Beta", f"{r.quant.portfolio_beta:.2f}")
+        _m2.metric("Volatility", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A")
+        _m3.metric("VaR 95% (1d)", f"€{r.quant.var_95_1d_eur:,.0f}" if r.quant.var_95_1d_eur else "N/A")
+        _m4, _m5, _m6 = st.columns(3)
+        _m4.metric("Sharpe", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A")
+        _m5.metric("Max drawdown (1y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A")
+        _m6.metric("Positions", r.n_positions)
+
+    _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
+    _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
+    if _hard_items or _soft_items:
+        st.divider()
+        for item in _hard_items:
+            _trigger_card(item.message, "hard", item.action)
+        for item in _soft_items:
+            _trigger_card(item.message, "soft", item.action)
+    else:
+        st.success("No rebalancing triggers detected.", icon=":material/check:")
+
+    st.divider()
+    _factor_col, _conc_col = st.columns(2, gap="large")
+
+    with _factor_col:
+        st.markdown("##### Risk factor breakdown")
+        if r.factor.available and r.factor.loadings:
+            for _fname, _fval in r.factor.loadings.items():
+                _fcolor = "var(--down-txt)" if abs(_fval) > 1.5 else "var(--up-txt)"
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
+                    f'<span>{_fname}</span><span style="font-family:var(--uv-mono);color:{_fcolor};">{_fval:+.2f}</span></div>'
+                    f'<div style="height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);margin-bottom:8px;">'
+                    f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:5px;border-radius:3px;background:{_fcolor};"></div></div>',
+                    unsafe_allow_html=True,
+                )
+            st.caption("Fama-French 5-factor + momentum loadings. |loading| > 1.5 = concentrated factor bet.")
+        else:
+            st.caption("Factor analysis unavailable. " + (r.factor.flags[0] if r.factor.flags else ""))
+
+    with _conc_col:
+        st.markdown("##### Concentration")
+        c = r.concentration
+        for _label, _val, _limit in [
+            ("Single name",  c.top1_weight, 0.15),
+            ("Largest sector", c.sector_weights.get(c.largest_sector, 0.0) if c.largest_sector else 0.0, 0.30),
+            ("Largest country", c.geo_weights.get(c.largest_geo, 0.0) if c.largest_geo else 0.0, 0.60),
+        ]:
+            _over = _val > _limit
+            _color = "var(--down-txt)" if _over else "var(--up-txt)"
+            st.markdown(
+                f'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
+                f'<span>{_label}</span><span style="font-family:var(--uv-mono);color:{_color};">{_val:.0%} / {_limit:.0%} limit</span></div>'
+                f'<div style="height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);margin-bottom:8px;">'
+                f'<div style="width:{min(100, _val/_limit*100):.0f}%;height:5px;border-radius:3px;background:{_color};"></div></div>',
+                unsafe_allow_html=True,
+            )
+
+        _flags = []
+        if c.top1_flag:
+            _flags.append(f"{c.top1_ticker} at {c.top1_weight:.0%} exceeds the 15% single-name limit")
+        if c.sector_flag and c.largest_sector:
+            _flags.append(f"{c.largest_sector} at {c.sector_weights.get(c.largest_sector, 0):.0%} exceeds the 30% sector limit")
+        if c.geo_flag and c.largest_geo:
+            _flags.append(f"{c.largest_geo} at {c.geo_weights.get(c.largest_geo, 0):.0%} exceeds the 60% country limit")
+        _veto_tickers = (
+            [t for t in pf["ticker"] if bool(_risk_scr_df.set_index("Ticker")["veto"].get(t, False))]
+            if "veto" in _risk_scr_df.columns else []
+        )
+        _veto_names = pf[pf["ticker"].isin(_veto_tickers)]["name"].tolist()
+        if _veto_names:
+            _flags.append(f"{', '.join(_veto_names)} remain(s) under a hard veto")
+        if _flags:
+            st.markdown(
+                f'<div style="background:var(--navy,#0D1F3C);color:#fff;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:6px;">'
+                f'{" · ".join(_flags)}.</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                f'<div style="background:var(--navy,#0D1F3C);color:#fff;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:6px;">'
+                f'All positions sit within the 15% single-name, 30% sector, and 60% country limits.</div>',
+                unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("##### Risk contribution by holding")
+    _contrib_rows = []
+    for p in r.position_profiles:
+        _contrib_rows.append({
+            "Company": p.name, "Ticker": p.ticker, "Weight": p.weight, "Beta": p.beta,
+            "VaR 95% 1d": p.var_95_1d_eur or None,
+            "Contribution": round(p.weight * abs(p.beta or 0) * 100, 1),
+            "Flag": p.rating,
+        })
+    _contrib_df = pd.DataFrame(_contrib_rows).sort_values("Contribution", ascending=False)
+    _contrib_sel_idx = _row_select_table(
+        _contrib_df, key="risk_contribution_table", hide_index=True, width="stretch",
+        height=35 + min(len(_contrib_df), 12) * 35,
+        column_config={
+            "Weight":       st.column_config.NumberColumn("Weight", format="percent"),
+            "Beta":         st.column_config.NumberColumn("Beta", format="%.2f"),
+            "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro"),
+            "Contribution": st.column_config.ProgressColumn("Contribution to risk", min_value=0,
+                                 max_value=max(1.0, _contrib_df["Contribution"].max()),
+                                 help="Weight × |beta| — a simple proxy for how much each position drives portfolio-level market risk."),
+            "Flag":         st.column_config.TextColumn("Flag", help="Aggregated position risk rating: Low · Medium · High · Critical."),
+        },
+    )
+    _risk_dlg_pending: list = []
+    if _contrib_sel_idx is not None:
+        _sel_ticker = _contrib_df["Ticker"].iloc[_contrib_sel_idx]
+        _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == _sel_ticker]
+        if not _sel_row.empty:
+            _risk_dlg_pending.append((_sel_row.iloc[0], None))
+    else:
+        _reopen = st.session_state.get("_drw_reopen_ticker")
+        _r = _risk_scr_df[_risk_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
+        if not _r.empty:
+            st.session_state.pop("_drw_reopen_ticker", None)
+            _risk_dlg_pending.append((_r.iloc[0], None))
+
+    st.divider()
+
+    # ── Detail tabs — deeper analysis beyond the mockup's minimum set ─────────
+    (_t_quant, _t_factor, _t_income, _t_stress, _t_mc) = st.tabs([
+        "Volatility & VaR", "Factor Exposure", "Income Risk", "Stress Tests",
         "Monte Carlo",
     ])
-
-    # ── Tab: Summary ──────────────────────────────────────────────────────────
-    with _t_summary:
-        _c_note, _c_hdr, _c_tog, _c_refresh = st.columns([2, 3, 2, 1], vertical_alignment="center")
-        with _c_note:
-            _risk_note(
-                "The composite score (0–100) aggregates six risk dimensions — Concentration, "
-                "Volatility, Tail Risk, Factor, Fundamental, and Income — into a single "
-                "**Low / Moderate / Elevated / High / Critical** rating.\n\n"
-                "- Toggling **Income mode** re-weights the blend to emphasise income risk, for "
-                "portfolios run primarily for dividend income.\n"
-                "- **Hard triggers** require immediate action — a threshold breach that materially "
-                "increases portfolio risk (e.g. single position >20%, beta >1.5, 99% VaR exceeding "
-                "3% of portfolio, or a Critical-rated position).\n"
-                "- **Soft triggers** are advisory — worth reviewing and planning around, but not "
-                "requiring same-day action (e.g. HHI drift, sector overweight, Sharpe below 1.0, or "
-                "a High-rated position).\n"
-                "- Each trigger card shows its recommended next step (↳) directly underneath."
-            )
-        with _c_tog:
-            st.toggle("Income mode", value=_income_portfolio, key="risk_income_toggle")
-        with _c_refresh:
-            if st.button("Refresh", type="tertiary", key="risk_refresh_btn"):
-                st.session_state.pop("_risk_report_cache", None)
-                st.rerun()
-
-        _score_color = {
-            "Low risk":      "green",
-            "Moderate risk": "blue",
-            "Elevated risk": "orange",
-            "High risk":     "red",
-            "Critical risk": "red",
-        }.get(r.composite.label, "gray")
-
-        st.markdown(f"### :{_score_color}[{r.composite.score:.0f} · {r.composite.label}]")
-        st.caption(f"{r.composite.action}  \n"
-                   f"€{r.portfolio_value:,.0f} · {r.n_positions} positions · "
-                   f"updated {datetime.fromisoformat(r.generated_at).strftime('%H:%M UTC')}")
-
-        # ── Sub-score bar chart ─────────────────────────────────────────────────
-        _sub_scores = r.composite.sub_scores
-        _ss_fig = go.Figure(go.Bar(
-            x=list(_sub_scores.keys()),
-            y=list(_sub_scores.values()),
-            marker_color=[
-                "#1DD6A4" if v < 25 else "#5B8FA8" if v < 50 else "#8BA888" if v < 70 else "#A32D2D"
-                for v in _sub_scores.values()
-            ],
-            text=[f"{v:.0f}" for v in _sub_scores.values()],
-            textposition="outside",
-            textfont=dict(color=_c_axis),
-        ))
-        _ss_fig.update_layout(
-            height=220, margin=dict(t=20, b=0, l=0, r=0),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            yaxis=dict(range=[0, 115], showgrid=False, visible=False),
-            xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
-            font=dict(color=_c_axis),
-            showlegend=False,
-        )
-        st.plotly_chart(_ss_fig, width='stretch')
-
-        st.divider()
-
-        # ── Hard / soft triggers, each bundled with its recommended action ────
-        _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
-        _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
-
-        if _hard_items:
-            st.markdown(f"**{len(_hard_items)} hard trigger(s)** — take action")
-            for item in _hard_items:
-                _trigger_card(item.message, "hard", item.action)
-        elif not _soft_items:
-            st.success("No rebalancing triggers detected.", icon=":material/check:")
-
-        if _soft_items:
-            st.markdown(f"**{len(_soft_items)} soft trigger(s)** — review and plan")
-            for item in _soft_items:
-                _trigger_card(item.message, "soft", item.action)
-
-        st.divider()
-        st.caption(f"Risk report generated at {datetime.fromisoformat(r.generated_at).strftime('%Y-%m-%d %H:%M UTC')}. "
-                   "Refreshes automatically after 1 hour or when portfolio changes.")
-
-    # ── Tab: Positions ────────────────────────────────────────────────────────
-    with _t_pos:
-        _risk_note(
-            "Each row profiles one portfolio position. Risk Rating aggregates all dimensions "
-            "into a single label — **Low / Medium / High / Critical** — based on weight, beta, "
-            "valuation, financial health and earnings quality. Use this table to quickly spot "
-            "positions that deserve closer review before looking at portfolio-level metrics."
-        )
-        _pos_rows = []
-        for p in r.position_profiles:
-            _pos_rows.append({
-                "Company":         p.name,
-                "Ticker":          p.ticker,
-                "Weight":          p.weight,
-                "Beta":            p.beta,
-                "VaR 95% 1d":      p.var_95_1d_eur or None,
-                "MoS":             p.mos,
-                "Valuation":       p.valuation_flag,
-                "Div":             p.div_sustainability or "—",
-                "Fin Health":      p.financial_health,
-                "Earn Quality":    p.earnings_quality,
-                "Risk Rating":     p.rating,
-            })
-        _pos_df = pd.DataFrame(_pos_rows)
-        _row_h = 35
-        _risk_sel_idx = _row_select_table(
-            _pos_df,
-            key="risk_positions_table",
-            hide_index=True,
-            width='stretch',
-            height=35 + min(len(_pos_df), 20) * _row_h,
-            column_config={
-                "Company":      st.column_config.TextColumn("Company",     pinned=True,
-                                    help="Company name"),
-                "Ticker":       st.column_config.TextColumn("Ticker",
-                                    help="Exchange ticker symbol"),
-                "Weight":       st.column_config.NumberColumn("Weight",     format="percent",
-                                    help="Position value as a % of total portfolio. >10% = concentrated; >15% triggers a hard flag."),
-                "Beta":         st.column_config.NumberColumn("Beta",       format="%.2f",
-                                    help="Market sensitivity (regression vs index). >1 = amplifies market moves; <1 = more defensive. >1.3 adds to risk rating."),
-                "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro",
-                                    help="Maximum expected 1-day loss for this position at 95% confidence. Estimated as position value × |beta| × market daily vol × 1.645."),
-                "MoS":          st.column_config.NumberColumn("MoS",        format="percent",
-                                    help="Margin of Safety = (Fair Value − Price) / Fair Value. Positive = undervalued; negative = overvalued vs the fair value model estimate."),
-                "Valuation":    st.column_config.TextColumn("Valuation",
-                                    help="Undervalued (MoS >10%) · Fairly Valued (MoS 0–10%) · Overvalued (MoS <0%). Overvalued positions add to the risk rating."),
-                "Div":          st.column_config.TextColumn("Div",
-                                    help="Dividend sustainability flag from the fair value screener. OK = all payout checks pass. At Risk = payout ratio >90%, cash payout >80%, or coverage <1.2×."),
-                "Fin Health":   st.column_config.NumberColumn("Fin Health",   format="%.1f/10",
-                                    help="Financial health score 0–10 (higher = healthier). Average of D/E ratio, current ratio, and interest coverage. <5 adds to risk rating."),
-                "Earn Quality": st.column_config.NumberColumn("Earn Quality", format="%.1f/10",
-                                    help="Earnings quality score 0–10. Measures FCF vs net income — high accruals (earnings without cash backing) score lower. <3 adds to risk rating."),
-                "Risk Rating":  st.column_config.TextColumn("Risk Rating",
-                                    help="Aggregated position risk: Low · Medium · High · Critical. Determined by the number of risk factors breached across weight, beta, valuation, financial health and earnings quality."),
-            },
-        )
-        if _risk_sel_idx is not None:
-            _risk_sel = _pos_df["Ticker"].iloc[_risk_sel_idx]
-            _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
-            if not _risk_scr_row.empty:
-                _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
-        else:
-            # Keep the drawer open across the rerun caused by the watchlist star
-            _reopen = st.session_state.get("_drw_reopen_ticker")
-            _r = _risk_scr_df[_risk_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
-            if not _r.empty:
-                st.session_state.pop("_drw_reopen_ticker", None)
-                _risk_dlg_pending.append((_r.iloc[0], None))
-
-        _pos_tickers = {p.ticker for p in r.position_profiles}
-        _pos_items = [i for i in r.rebalance.items if i.ticker in _pos_tickers]
-        if _pos_items:
-            st.divider()
-            st.markdown(f"**{len(_pos_items)} flagged position(s)**")
-            for item in _pos_items:
-                _trigger_card(item.message, item.severity, item.action)
-
-    # ── Tab: Concentration ────────────────────────────────────────────────────
-    with _t_conc:
-        _risk_note(
-            "Concentration risk measures how much of the portfolio depends on a small number "
-            "of positions, sectors, or geographies.\n\n"
-            "- The **HHI** (Herfindahl-Hirschman Index) is the sum of squared weights — closer to "
-            "0 means well spread, above 0.18 is highly concentrated.\n"
-            "- Flags trigger at >15% single position, >30% single sector, or >60% single country.\n"
-            "- Dividend HHI applies the same logic to income streams."
-        )
-        c = r.concentration
-        _cc1, _cc2, _cc3 = st.columns(3)
-        _cc1.metric("HHI", f"{c.hhi:.3f}", help=c.hhi_label)
-        _cc2.metric("Top-1 weight", f"{c.top1_weight:.1%}", delta="Flag" if c.top1_flag else "OK",
-                    delta_color="inverse" if c.top1_flag else "off")
-        _cc3.metric("Top-3 weight", f"{c.top3_weight:.1%}", delta="Flag" if c.top3_flag else "OK",
-                    delta_color="inverse" if c.top3_flag else "off")
-
-        st.caption(f"**Concentration:** {c.hhi_label}  |  Top-5: {c.top5_weight:.1%}")
-
-        _conc_c1, _conc_c2 = st.columns(2)
-        with _conc_c1:
-            st.markdown("**Sector weights**")
-            if c.sector_weights:
-                _sec_fig = go.Figure(go.Bar(
-                    x=list(c.sector_weights.keys()),
-                    y=[v * 100 for v in c.sector_weights.values()],
-                    marker_color=["#A32D2D" if v > 0.30 else "#1DD6A4" for v in c.sector_weights.values()],
-                    text=[f"{v:.0%}" for v in c.sector_weights.values()],
-                    textposition="outside",
-                    textfont=dict(color=_c_axis),
-                ))
-                _sec_fig.add_hline(y=30, line_dash="dot", line_color=_c_grid,
-                                   annotation_text="30% threshold", annotation_position="top right",
-                                   annotation_font_color=_c_axis)
-                _sec_fig.update_layout(
-                    height=260, margin=dict(t=20, b=60, l=0, r=0),
-                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                    yaxis=dict(title="Weight %", showgrid=True, gridcolor=_c_grid,
-                               tickfont=dict(color=_c_axis), title_font=dict(color=_c_axis)),
-                    xaxis=dict(tickangle=-30, tickfont=dict(color=_c_axis)),
-                    font=dict(color=_c_axis), showlegend=False,
-                )
-                st.plotly_chart(_sec_fig, width='stretch')
-
-        with _conc_c2:
-            st.markdown("**Geographic weights**")
-            if c.geo_weights:
-                _geo_n = len(c.geo_weights)
-                _geo_colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_geo_n)]
-                _geo_total = sum(c.geo_weights.values())
-                _geo_pcts  = [v / _geo_total * 100 for v in c.geo_weights.values()]
-                _geo_text  = [f"{p:.1f}%" if p >= 4 else "" for p in _geo_pcts]
-                _geo_fig = go.Figure(go.Pie(
-                    labels=list(c.geo_weights.keys()),
-                    values=list(c.geo_weights.values()),
-                    hole=0.52,
-                    text=_geo_text,
-                    textinfo="text",
-                    textposition="inside",
-                    insidetextorientation="horizontal",
-                    hovertemplate="%{label}: %{percent}<extra></extra>",
-                    marker=dict(colors=_geo_colors,
-                                line=dict(color=_c_surface, width=2)),
-                    textfont=dict(color=_c_text, size=12),
-                ))
-                _geo_fig.update_layout(
-                    height=max(260, 24 * _geo_n + 60),
-                    margin=dict(t=10, b=10, l=0, r=10),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    showlegend=True,
-                    legend=dict(orientation="v", x=1.02, xanchor="left", y=1.0, yanchor="top",
-                                font=dict(size=11, color=_c_axis), itemwidth=30),
-                    font=dict(color=_c_axis),
-                )
-                st.plotly_chart(_geo_fig, width='stretch')
-
-        if c.div_hhi is not None:
-            st.caption(f"Dividend income HHI: {c.div_hhi:.3f} | Top-3 income share: {c.div_top3_pct:.0%}"
-                       + (" — concentrated" if c.income_concentration_flag else ""))
-
-        # ── All concentration triggers, full-width, below the charts ─────────
-        _conc_triggers = []
-        if c.hhi > 0.15:
-            _conc_triggers.append(("soft",
-                f"HHI {c.hhi:.3f} — concentration has drifted well above 0.10 diversified threshold",
-                "Add uncorrelated positions or sectors to reduce concentration"))
-        elif c.hhi > 0.10:
-            _conc_triggers.append(("soft",
-                f"HHI {c.hhi:.3f} — moderately concentrated, monitor drift",
-                "Monitor concentration drift; avoid adding to largest positions"))
-        if c.sector_flag and c.largest_sector:
-            w = c.sector_weights.get(c.largest_sector, 0.0)
-            _conc_triggers.append(("soft",
-                f"{c.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
-                "Reduce largest sector; add exposure to lagging sectors"))
-        if c.geo_flag and c.largest_geo:
-            w = c.geo_weights.get(c.largest_geo, 0.0)
-            _conc_triggers.append(("soft",
-                f"{c.largest_geo} at {w:.0%} of portfolio — exceeds 60% country guideline",
-                "Diversify into additional geographies; trim largest-country exposure"))
-        if c.div_hhi is not None and c.income_concentration_flag:
-            _conc_triggers.append(("soft",
-                f"Dividend income HHI {c.div_hhi:.3f} — top-3 income share {c.div_top3_pct:.0%} — concentrated",
-                "Diversify dividend income across more payers to reduce reliance on top payers"))
-
-        if _conc_triggers:
-            st.divider()
-            for _kind, _msg, _action in _conc_triggers:
-                _trigger_card(_msg, _kind, _action)
 
     # ── Tab: Volatility & VaR ─────────────────────────────────────────────────
     with _t_quant:
