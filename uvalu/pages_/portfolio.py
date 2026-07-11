@@ -109,15 +109,9 @@ def render() -> None:
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
-        sub_positions, sub_sold, sub_dividends = st.tabs(["Positions", "Realised", "Dividends"])
-        with sub_positions:
-            if st.button("Buy", key="btn_add_pos_empty"):
-                _dlg_add_position()
-            st.info("Your portfolio is empty. Click 🛒 Buy to add your first position.")
-        with sub_dividends:
-            st.info("No positions yet. Add stocks in the Positions tab first.")
-        with sub_sold:
-            st.info("No sold positions yet.")
+        if st.button("Buy", key="btn_add_pos_empty"):
+            _dlg_add_position()
+        st.info("Your portfolio is empty. Click Buy to add your first position.")
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
@@ -185,10 +179,81 @@ def render() -> None:
     if total_current > 0:
         record_value_snapshot(total_invested, total_current)
 
-    sub_positions, sub_sold, sub_dividends = st.tabs(["Positions", "Realised", "Dividends"])
+    _section = st.session_state.get("port_section", "overview")
 
-    # ── Sub-tab: Positions ────────────────────────────────────────────────────
-    with sub_positions:
+    def _goto(section: str) -> None:
+        st.session_state["port_section"] = section
+        st.rerun()
+
+    # ── Overview — summary strip + preview of each sub-view ──────────────────
+    if _section == "overview":
+        _o1, _o2, _o3, _o4, _o5 = st.columns(5)
+        _o1.metric("Invested",      f"€{total_invested:,.0f}")
+        _o2.metric("Current value", f"€{total_current:,.0f}", delta=f"{price_gain_pct:+.1f}% (€{price_gain:+,.0f})")
+        _o3.metric("Total return",  f"€{total_return:,.0f}",  delta=f"{total_return_pct:+.1f}%")
+        _o4.metric("Dividends",     f"€{total_dividends:,.0f}")
+        _o5.metric("Positions held", len(pf))
+        st.divider()
+
+        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+            st.subheader("Open positions")
+            if st.button("View all →", key="ov_open_expand"):
+                _goto("open")
+        _ov_open = pf.sort_values("current_value", ascending=False).head(5)
+        st.dataframe(pd.DataFrame({
+            "Company": _ov_open["name"], "Shares": _ov_open["shares"],
+            "Price": _ov_open["live_price"], "Value": _ov_open["current_value"],
+            "Gain": _ov_open["price_gain"],
+        }), hide_index=True, width="stretch",
+            column_config={
+                "Price": st.column_config.NumberColumn("Price", format="euro"),
+                "Value": st.column_config.NumberColumn("Value", format="euro"),
+                "Gain":  st.column_config.NumberColumn("Gain",  format="€%+.0f"),
+            }, height=(len(_ov_open) + 1) * 35 + 10)
+
+        st.container(height=10, border=False)
+        _oc1, _oc2 = st.columns(2, gap="large")
+        with _oc1:
+            with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+                st.subheader("Closed positions")
+                if st.button("View all →", key="ov_closed_expand"):
+                    _goto("closed")
+            _ov_sold = load_sold()
+            if _ov_sold is not None and not _ov_sold.empty:
+                _ov_sold = _ov_sold.copy()
+                _ov_sold["_gain"] = pd.to_numeric(_ov_sold["sale_value"], errors="coerce") - pd.to_numeric(_ov_sold["purchase_value"], errors="coerce")
+                _ov_sold = _ov_sold.sort_values("date_out", ascending=False).head(5)
+                st.dataframe(pd.DataFrame({
+                    "Company": _ov_sold["name"], "Shares": _ov_sold["shares"], "Gain": _ov_sold["_gain"],
+                }), hide_index=True, width="stretch",
+                    column_config={"Gain": st.column_config.NumberColumn("Gain", format="€%+.0f")},
+                    height=(len(_ov_sold) + 1) * 35 + 10)
+            else:
+                st.caption("No closed positions yet.")
+        with _oc2:
+            with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+                st.subheader("Dividends")
+                if st.button("View all →", key="ov_div_expand"):
+                    _goto("dividends")
+            _ov_div = load_div_hist()
+            if _ov_div is not None and not _ov_div.empty:
+                _ov_div = _ov_div.copy()
+                _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
+                _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
+                st.dataframe(pd.DataFrame({
+                    "Company": _ov_div["name"],
+                    "Amount":  pd.to_numeric(_ov_div["amount"], errors="coerce"),
+                    "Date":    _ov_div["date"].dt.strftime("%d-%m-%Y"),
+                }), hide_index=True, width="stretch",
+                    column_config={"Amount": st.column_config.NumberColumn("Amount", format="euro")},
+                    height=(len(_ov_div) + 1) * 35 + 10)
+            else:
+                st.caption("No dividends received yet.")
+
+    # ── Full page: Open positions ──────────────────────────────────────────────
+    if _section == "open":
+        if st.button("← Back to overview", key="back_open"):
+            _goto("overview")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Invested",      f"€{total_invested:,.0f}")
         c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"{price_gain_pct:+.1f}% (€{price_gain:+,.0f})")
@@ -658,8 +723,10 @@ def render() -> None:
                     color="#1DD6A4",
                 )
 
-    # ── Sub-tab: Dividends ────────────────────────────────────────────────────
-    with sub_dividends:
+    # ── Full page: Dividends ───────────────────────────────────────────────────
+    if _section == "dividends":
+        if st.button("← Back to overview", key="back_div"):
+            _goto("overview")
         div_hist = load_div_hist()
         if div_hist is not None and not div_hist.empty:
             div_hist["amount"] = pd.to_numeric(div_hist["amount"], errors="coerce")
@@ -871,8 +938,10 @@ def render() -> None:
         else:
             st.info("Re-upload your Excel file to load full dividend history.")
 
-    # ── Sub-tab: Sold ─────────────────────────────────────────────────────────
-    with sub_sold:
+    # ── Full page: Closed positions ───────────────────────────────────────────
+    if _section == "closed":
+        if st.button("← Back to overview", key="back_closed"):
+            _goto("overview")
         sold = load_sold()
         if sold is None or sold.empty:
             st.info("No sold positions found in your portfolio file.")
