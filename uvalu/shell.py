@@ -8,9 +8,8 @@ from datetime import datetime
 
 import streamlit as st
 
-from settings import load_settings, save_settings
 from uvalu import nav as nav_registry
-from uvalu.runtime import current_user
+from uvalu.runtime import current_user, theme_colors
 
 _NAV_ITEMS = (
     ("dashboard", "Dashboard"),
@@ -31,13 +30,18 @@ def _initials(email: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
-def _apply_theme_script(theme: str) -> None:
-    """Set data-theme on the parent document's <html> element so the mockup's
-    [data-theme="light"] CSS override (uvalu/styles.py) takes effect. This is
-    independent of Streamlit's own native browser-level theme (st.context.theme,
-    used by uvalu.runtime.theme_colors() for Plotly charts) — the mockup's
-    custom-styled surfaces (top bar, cards) and native Streamlit widgets can
-    follow different theme sources today; see Phase 1 plan notes."""
+def _apply_theme_script(light: bool) -> None:
+    """Set data-theme on the parent document's <html> element from Streamlit's
+    OWN active theme (st.context.theme, resolved via theme_colors()) so the
+    mockup's [data-theme="light"] CSS override (uvalu/styles.py) always
+    matches whatever native widgets (buttons, dataframes, Plotly charts) are
+    already rendering in — a single source of truth, switched via Streamlit's
+    native app-menu theme picker (top-right ⋮ → Settings), not a separate
+    in-app toggle. An earlier version of this function drove data-theme from
+    an independent per-user setting instead; that let native widgets and the
+    new raw-HTML cards disagree on light/dark, so it was dropped before the
+    Dashboard rebuild (Phase 3.1) started leaning on these tokens too."""
+    theme = "light" if light else "dark"
     st.iframe(f"""
 <script>
 (function(){{
@@ -79,9 +83,8 @@ def _topbar_css(active_path: str) -> str:
 
 def render_topbar(nav) -> None:
     user = current_user()
-    settings = load_settings(user.email)
-    theme = settings.get("ui_theme", "dark")
-    _apply_theme_script(theme)
+    _light = theme_colors().effective_light
+    _apply_theme_script(_light)
 
     active_path = getattr(nav, "url_path", "") or ""
     st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)
@@ -107,11 +110,6 @@ def render_topbar(nav) -> None:
             with st.container(horizontal=True, gap="small", horizontal_alignment="right",
                               vertical_alignment="center"):
                 st.caption(f"As of {datetime.now().strftime('%H:%M')}")
-
-                if st.button("🌗", key="uv_theme_toggle", help="Toggle theme", type="tertiary"):
-                    settings["ui_theme"] = "light" if theme == "dark" else "dark"
-                    save_settings(settings, user.email)
-                    st.rerun()
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):

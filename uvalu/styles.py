@@ -62,6 +62,18 @@ GLOBAL_CSS = """
   /* ── Layout ──────────────────────────────────────────────────────────────── */
   .block-container { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
 
+  /* ── Mockup canvas background — every page now sits on --bg, matching the
+     top bar (uvalu/shell.py) and the raw-HTML mockup-token cards each screen
+     is adopting (Dashboard first, Phase 3.1) ──────────────────────────────── */
+  section[data-testid="stMain"] { background: var(--bg) !important; }
+
+  /* ── Dashboard holdings rows — dark-panel card per position, matching the
+     mockup's "Holdings · price vs fair value" table (uvalu/pages_/dashboard.py) */
+  [class*="st-key-db_hold_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 10px !important;
+  }
+
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
   .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
   [data-testid="stColumn"]:has(.st-key-risk_income_toggle) { padding-right: 0 !important; }
