@@ -179,17 +179,28 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         v = _safe_float(info.get(key))
         row[key] = v if (v is not None and 0 < v < 10_000) else None
 
-    # Dividend yield — normalise pct vs decimal
-    dy = _safe_float(info.get("dividendYield"))
-    if dy is not None and dy > 1.0:
-        dy /= 100
-    row["dividendYield"] = dy
+    # Dividend yield — Yahoo's own "dividendYield" field mixes unit conventions
+    # across tickers/exchanges (plain percent like 6.65 for most primary US
+    # listings, but old-style decimal fraction like 0.006 for some secondary
+    # listings), so no single scale heuristic can recover the right number for
+    # every ticker. Compute it ourselves instead from two unambiguous absolute
+    # values we already have — dividend rate and price — which sidesteps the
+    # convention entirely and is also more precise (uses live price, not a
+    # possibly-stale precomputed ratio).
+    div_rate_raw = _safe_float(info.get("dividendRate") or info.get("trailingAnnualDividendRate"))
+    px = _safe_float(price)
+    if div_rate_raw is not None and px and px > 0:
+        row["dividendYield"] = div_rate_raw / px
+    else:
+        dy = _safe_float(info.get("dividendYield"))
+        row["dividendYield"] = (dy / 100) if (dy is not None and dy > 1.0) else dy
 
-    # 5yr avg dividend yield — normalise
+    # 5yr avg dividend yield — no absolute-value fallback exists (no 5yr avg
+    # price/rate available), so this one is stuck with Yahoo's raw field and
+    # the same magnitude heuristic; known to be unreliable for sub-1%-yield
+    # stocks on affected tickers.
     avg_dy = _safe_float(info.get("fiveYearAvgDividendYield"))
-    if avg_dy is not None and avg_dy > 1.0:
-        avg_dy /= 100
-    row["fiveYearAvgDividendYield"] = avg_dy
+    row["fiveYearAvgDividendYield"] = (avg_dy / 100) if (avg_dy is not None and avg_dy > 1.0) else avg_dy
 
     # Debt/Equity — reject extreme outliers
     de = _safe_float(info.get("debtToEquity"))
@@ -749,6 +760,16 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     score[df["_hard_veto"]] = 0.0
     df["Value Score"] = score
+
+    # Composite sub-scores (0-100 percentile ranks) — kept as named columns
+    # (not "_"-prefixed, so they survive the internal-column drop below) so
+    # the Analysis page's "Signal sub-scores" section can show what actually
+    # drove the composite instead of just the final number.
+    df["Sub MoS"]      = mos_rank.round(1)
+    df["Sub Risk"]     = risk_rank.round(1)
+    df["Sub Quality"]  = quality_rank.round(1)
+    df["Sub Momentum"] = momentum_rank.round(1)
+    df["Sub Dividend"] = dividend_rank.round(1)
 
     # ── Stage 6: decision ────────────────────────────────────────────────────
     def _decision(row):

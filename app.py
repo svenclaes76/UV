@@ -17,7 +17,7 @@ from uvalu import authgate, nav, shell, styles
 from uvalu.runtime import current_user
 from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portfolio,
                           risk as _page_risk, screener as _page_screener,
-                          watchlist as _page_watchlist,
+                          watchlist as _page_watchlist, analysis as _page_analysis,
                           settings as _page_settings, help as _page_help)
 
 # ── Page config + global styles ───────────────────────────────────────────────
@@ -56,18 +56,22 @@ _pg_portfolio = st.Page(_page_portfolio.render, title="Portfolio", icon=":materi
 _pg_risk      = st.Page(_page_risk.render,      title="Risk",      icon=":material/monitoring:",      url_path="risk")
 _pg_screener  = st.Page(_page_screener.render,  title="Screener",  icon=":material/search:",          url_path="screener")
 _pg_watchlist = st.Page(_page_watchlist.render, title="Watchlist", icon=":material/star:",             url_path="watchlist")
+_pg_analysis  = st.Page(_page_analysis.render,  title="Analysis",  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title="Settings",  icon=":material/settings:",        url_path="settings")
 _pg_help      = st.Page(_page_help.render,      title="Help",      icon=":material/help:",            url_path="help")
 
 # Populate the shared registry so page modules can link to one another.
+# _pg_analysis is deliberately not in the top-bar nav (uvalu/shell.py) — it's
+# only reached via the drawer's "View full analysis" link.
 nav.pages.update({
     "dashboard": _pg_dashboard, "portfolio": _pg_portfolio, "risk": _pg_risk,
-    "screener": _pg_screener, "watchlist": _pg_watchlist,
+    "screener": _pg_screener, "watchlist": _pg_watchlist, "analysis": _pg_analysis,
     "settings": _pg_settings, "help": _pg_help,
 })
 
 _nav = st.navigation(
-    [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist, _pg_settings, _pg_help],
+    [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
+     _pg_analysis, _pg_settings, _pg_help],
     position="hidden",
 )
 

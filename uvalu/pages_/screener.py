@@ -14,7 +14,7 @@ from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
                               f_str as _f_str)
 from uvalu.runtime import current_user
-from uvalu.stock_dialog import _dlg_stock_detail
+from uvalu.drawer import open_drawer
 from uvalu.ui import _row_select_table, _auto_rerun
 
 
@@ -491,4 +491,4 @@ def render() -> None:
 
     # Dispatch at most one dialog per render cycle to avoid duplicate element IDs
     if _dlg_pending:
-        _dlg_stock_detail(*_dlg_pending[0])
+        open_drawer(*_dlg_pending[0])

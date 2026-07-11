@@ -15,7 +15,7 @@ from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
                               safe_pct as _safe_pct, f_str as _f_str)
 from uvalu.runtime import theme_colors
-from uvalu.stock_dialog import _dlg_stock_detail
+from uvalu.drawer import open_drawer
 from uvalu.ui import (_static_bar, _donut_chart, _hm_color, _row_select_table,
                       _auto_rerun, _CHART_CONFIG)
 
@@ -55,8 +55,8 @@ def render() -> None:
     _sold_early  = load_sold()
     _sold_tickers = tuple(_sold_early["ticker"].dropna().tolist()) if _sold_early is not None and not _sold_early.empty else ()
     _sold_names   = tuple(_sold_early["name"].dropna().tolist())   if _sold_early is not None and not _sold_early.empty else ()
-    _pf_tickers  = tuple(pf["ticker"].tolist())
-    _pf_names    = tuple(pf["name"].tolist())
+    _pf_tickers  = tuple(pf["ticker"].tolist()) if "ticker" in pf.columns else ()
+    _pf_names    = tuple(pf["name"].tolist())   if "name"   in pf.columns else ()
     _extra_tickers = tuple(dict.fromkeys(_pf_tickers + _sold_tickers))  # dedup, preserve order
     _extra_names   = tuple(
         {**dict(zip(_sold_tickers, _sold_names)), **dict(zip(_pf_tickers, _pf_names))}[t]
@@ -1049,4 +1049,4 @@ def render() -> None:
 
     # Dispatch at most one detail dialog per render
     if _pf_dlg_pending:
-        _dlg_stock_detail(*_pf_dlg_pending[0])
+        open_drawer(*_pf_dlg_pending[0])

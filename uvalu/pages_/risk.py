@@ -11,7 +11,7 @@ from screener import _load_cache
 from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.runtime import theme_colors
-from uvalu.stock_dialog import _dlg_stock_detail
+from uvalu.drawer import open_drawer
 from uvalu.ui import _DONUT_PALETTE, _row_select_table
 
 
@@ -804,4 +804,4 @@ def render() -> None:
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:
-        _dlg_stock_detail(*_risk_dlg_pending[0])
+        open_drawer(*_risk_dlg_pending[0])

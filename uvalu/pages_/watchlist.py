@@ -10,7 +10,7 @@ from portfolio import (load_watchlist, save_watchlist,
 from settings import load_shared_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_bar_compact
-from uvalu.stock_dialog import _dlg_stock_detail
+from uvalu.drawer import open_drawer
 from uvalu.ui import _row_select_table
 
 
@@ -88,7 +88,7 @@ def render() -> None:
     )
     if _sel_idx is not None:
         _sel_ticker = wl_df.iloc[_sel_idx]
-        _dlg_stock_detail(_sel_ticker, None)
+        open_drawer(_sel_ticker, None)
 
     with st.expander("Remove tickers"):
         _to_remove = st.multiselect("Select tickers to remove", options=sorted(watchlist), key="wl_remove_sel")

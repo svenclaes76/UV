@@ -2,9 +2,8 @@
 the signal badge pill, the fair-value ladder, and the signals feed/list.
 
 These render raw HTML via st.markdown(unsafe_allow_html=True) against the
-uv-badge/brand-token CSS in uvalu/styles.py, matching the pattern already
-used by uvalu/stock_dialog.py (which this module's badge/tips helpers were
-extracted from).
+uv-badge/brand-token CSS in uvalu/styles.py. Used by uvalu/drawer.py and
+uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 """
 import pandas as pd
 import streamlit as st
