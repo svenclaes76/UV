@@ -1,10 +1,11 @@
-"""Value screener page — per-exchange tabs, watchlist, column groups, filters."""
+"""Value screener page — per-exchange tabs, column groups, filters.
+
+Watchlist was promoted to its own top-bar page (Phase 1) — see
+uvalu/pages_/watchlist.py — and no longer has a tab here."""
 import pandas as pd
-import yfinance as yf
 import streamlit as st
 
-from portfolio import (load_portfolio, load_watchlist, save_watchlist,
-                       load_manual_tickers, save_manual_tickers, add_position)
+from portfolio import load_portfolio, load_manual_tickers, add_position
 from settings import load_shared_settings, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from fetch_tickers import (_hardcoded_bel20, _hardcoded_aex25, _hardcoded_cac40,
@@ -20,7 +21,6 @@ from uvalu.ui import _row_select_table, _auto_rerun
 def render() -> None:
     # Per-run state (module was split out of app.py)
     _is_admin = current_user().is_admin
-    watchlist = load_watchlist()
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
@@ -40,8 +40,6 @@ def render() -> None:
         _auto_rerun(5, "screener_fetch_refresh")
     elif not _any_data:
         _auto_rerun(5, "screener_fetch_refresh")
-
-    watchlist = load_watchlist()
 
     # ── Portfolio fit context (sector/country/beta weights from current portfolio) ──
     _scr_pf_context: dict | None = None
@@ -414,8 +412,8 @@ def render() -> None:
     _active_tabs = [(key, label, rkey, data)
                     for key, label, rkey, data in _EXCHANGE_TAB_META
                     if key in set(_enabled)]
-    _tab_labels  = ["Watchlist"] + [label for _, label, _, _ in _active_tabs]
-    tab_watchlist, *_exchange_tabs = st.tabs(_tab_labels)
+    _tab_labels  = [label for _, label, _, _ in _active_tabs]
+    _exchange_tabs = st.tabs(_tab_labels)
 
     # Collect at most one pending dialog call; dispatched once after all tab code runs
     # to avoid StreamlitDuplicateElementId (all tab code executes every rerun).
@@ -438,70 +436,6 @@ def render() -> None:
         decision = _DECISION_MAP.get(sel)
         out = df_in[df_in["Decision"] == decision] if decision else df_in
         return out.reset_index(drop=True)
-
-    # ── Tab: Watchlist ────────────────────────────────────────────────────────
-    with tab_watchlist:
-        _wl_tickers = watchlist
-
-        @st.dialog("Add stock", width="small")
-        def _dlg_add_ticker():
-            _t = st.text_input("Ticker symbol", placeholder="e.g. AAPL, 7203.T, BP.L")
-            _, _save_col = st.columns([3, 1])
-            with _save_col:
-                _do_add = st.button("Save", key="dlg_add_confirm_watchlist", width="stretch")
-            if _do_add:
-                _sym = _t.strip().upper()
-                if _sym:
-                    _not_found = f"Ticker **{_sym}** not found. Check the symbol and try again."
-                    try:
-                        _info = yf.Ticker(_sym).info
-                        _name = _info.get("shortName") or _info.get("longName") or _sym
-                        if not _info.get("regularMarketPrice") and not _info.get("currentPrice"):
-                            st.error(_not_found)
-                        else:
-                            _mt = load_manual_tickers()
-                            _mt[_sym] = _name
-                            save_manual_tickers(_mt)
-                            save_watchlist(watchlist | {_sym})
-                            st.rerun()
-                    except Exception:
-                        st.error(_not_found)
-
-        _wl_col, _wl_refresh = st.columns([9, 1])
-        with _wl_refresh:
-            if st.button("Refresh", type="tertiary", key="wl_refresh"):
-                _bust_cache()
-        _wl_all_df = pd.concat([_scr_all_df, _scr_extra_df], ignore_index=True)
-        wl_df = _wl_all_df[_wl_all_df["Ticker"].isin(_wl_tickers)].reset_index(drop=True)
-        with _wl_col:
-            if wl_df.empty:
-                st.info("Open any stock's details popup and click ★ to add it to your watchlist, "
-                        "or use **Add** to add a stock from any market.")
-            else:
-                st.markdown(f"**{len(wl_df)}** stocks · click a row to view details")
-        _wl_sel_ticker, n_wl, _wl_tbl_key = _render_table(wl_df, "watchlist",
-                                         score_key="wl_score_filter",
-                                         score_default=_SCORE_OPTIONS[3],
-                                         extra_toolbar_action=("Add", _dlg_add_ticker))
-        _wl_star = st.session_state.get("_dlg_star_rerun", False)
-        _wl_src  = st.session_state.get("_dlg_open_src", "")
-        if _wl_sel_ticker is not None:
-            _wl_sel_rows = wl_df[wl_df["Ticker"] == _wl_sel_ticker]
-            if not _wl_sel_rows.empty:
-                st.session_state["_dlg_open_ticker"] = _wl_sel_ticker
-                st.session_state["_dlg_open_src"]    = "watchlist"
-                _dlg_pending.append((_wl_sel_rows.iloc[0], None))
-        elif _wl_star and _wl_src == "watchlist":
-            st.session_state.pop("_dlg_star_rerun", None)
-            _t = st.session_state.get("_dlg_open_ticker")
-            if _t:
-                _r = wl_df[wl_df["Ticker"] == _t]
-                if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], None))
-        elif not _wl_star and _wl_src == "watchlist":
-            st.session_state.pop("_dlg_open_ticker", None)
-            st.session_state.pop("_dlg_open_src", None)
-
 
     def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
         """Render a screener exchange tab — toolbar, count, table, watchlist sync."""

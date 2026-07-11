@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "uvalu",
-      "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["run_app.py"],
-      "port": 8501
+      "runtimeExecutable": ".venv/Scripts/streamlit.exe",
+      "runtimeArgs": ["run", "app.py", "--server.port", "8502"],
+      "port": 8502
     }
   ]
 }
