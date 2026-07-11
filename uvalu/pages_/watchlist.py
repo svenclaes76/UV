@@ -86,9 +86,13 @@ def render() -> None:
         },
         height=_height,
     )
+    _reopen = st.session_state.pop("_drw_reopen_ticker", None)
     if _sel_idx is not None:
-        _sel_ticker = wl_df.iloc[_sel_idx]
-        open_drawer(_sel_ticker, None)
+        open_drawer(wl_df.iloc[_sel_idx], None)
+    elif _reopen:
+        _r = wl_df[wl_df["Ticker"] == _reopen]
+        if not _r.empty:
+            open_drawer(_r.iloc[0], None)
 
     with st.expander("Remove tickers"):
         _to_remove = st.multiselect("Select tickers to remove", options=sorted(watchlist), key="wl_remove_sel")

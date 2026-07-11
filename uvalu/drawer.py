@@ -63,6 +63,9 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
                 if ticker in _mt:
                     del _mt[ticker]
                     save_manual_tickers(_mt)
+            # Reruns close @st.dialog by default — flag this ticker so the
+            # calling page's row-click dispatch reopens the drawer on it.
+            st.session_state["_drw_reopen_ticker"] = ticker
             st.rerun()
     st.caption(f"`{ticker}`  ·  {row.get('sector') or '—'}")
     st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)

@@ -272,18 +272,14 @@ def render() -> None:
             _risk_sel = _pos_df["Ticker"].iloc[_risk_sel_idx]
             _risk_scr_row = _risk_scr_df[_risk_scr_df["Ticker"] == _risk_sel]
             if not _risk_scr_row.empty:
-                st.session_state["_dlg_open_ticker"] = _risk_sel
-                st.session_state["_dlg_open_src"]    = "risk_positions"
                 _risk_dlg_pending.append((_risk_scr_row.iloc[0], None))
-        elif st.session_state.get("_dlg_open_src") == "risk_positions":
-            if st.session_state.pop("_dlg_star_rerun", False):
-                _t = st.session_state.get("_dlg_open_ticker")
-                _r = _risk_scr_df[_risk_scr_df["Ticker"] == _t] if _t else pd.DataFrame()
-                if not _r.empty:
-                    _risk_dlg_pending.append((_r.iloc[0], None))
-            else:
-                st.session_state.pop("_dlg_open_ticker", None)
-                st.session_state.pop("_dlg_open_src", None)
+        else:
+            # Keep the drawer open across the rerun caused by the watchlist star
+            _reopen = st.session_state.get("_drw_reopen_ticker")
+            _r = _risk_scr_df[_risk_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
+            if not _r.empty:
+                st.session_state.pop("_drw_reopen_ticker", None)
+                _risk_dlg_pending.append((_r.iloc[0], None))
 
         _pos_tickers = {p.ticker for p in r.position_profiles}
         _pos_items = [i for i in r.rebalance.items if i.ticker in _pos_tickers]

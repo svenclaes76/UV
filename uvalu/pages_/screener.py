@@ -1,38 +1,41 @@
-"""Value screener page — per-exchange tabs, column groups, filters.
-
-Watchlist was promoted to its own top-bar page (Phase 1) — see
-uvalu/pages_/watchlist.py — and no longer has a tab here."""
+"""Value screener page — one unified ranked list across enabled exchanges,
+with a filter bar (search, signal, sector, market, score/MoS sliders, hide-
+owned toggle), matching the Uvalu.dc.html mockup. Full replacement of the
+former per-exchange-tabs + column-groups layout (Watchlist moved to its own
+page in Phase 1; column-group customization is covered by the Analysis page
+now, same call the abandoned redesign-v2 branch made for this exact page)."""
 import pandas as pd
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers, add_position
 from settings import load_shared_settings, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
-from fetch_tickers import (_hardcoded_bel20, _hardcoded_aex25, _hardcoded_cac40,
-                           _hardcoded_ftse_mib, _hardcoded_dax40, _hardcoded_smi20)
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
-from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
-                              f_str as _f_str)
-from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
+from uvalu.components import signal_badge_for_decision
 from uvalu.ui import _row_select_table, _auto_rerun
+
+_EXCHANGE_LABELS = {
+    "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
+    "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
+}
+_SIGNAL_CHIPS = ["All", "Buy", "Monitor", "Avoid"]
+_DECISION_MAP = {"Buy": "Strong Buy", "Monitor": "Monitor", "Avoid": "Avoid"}
 
 
 def render() -> None:
-    # Per-run state (module was split out of app.py)
-    _is_admin = current_user().is_admin
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
-    _manual_ticker_keys  = tuple(_manual_tickers_map.keys())
-    _manual_ticker_names = tuple(_manual_tickers_map.values())
-    df, df_ams, df_par, df_mil, df_etr, df_swx, _scr_extra_df = _load_all_screener_data(
-        _cache_version(), _enabled, _manual_ticker_keys, _manual_ticker_names)
-    if not df.empty and ("fair_value" not in df.columns or "Decision" not in df.columns):
+    dfs = _load_all_screener_data(
+        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()))
+    *_exch_dfs, _scr_extra_df = dfs
+    _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
+
+    if not _exch_dfs[0].empty and ("fair_value" not in _exch_dfs[0].columns or "Decision" not in _exch_dfs[0].columns):
         _bust_cache()
 
-    _any_data = any(not d.empty for d in [df, df_ams, df_par, df_mil, df_etr, df_swx])
-
+    _any_data = any(not d.empty for d in _exch_dfs)
     _prog = get_fetch_progress()
     if _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
@@ -41,13 +44,17 @@ def render() -> None:
     elif not _any_data:
         _auto_rerun(5, "screener_fetch_refresh")
 
-    # ── Portfolio fit context (sector/country/beta weights from current portfolio) ──
+    _all_df = pd.concat([
+        d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
+        for k, d in zip(_exch_keys, _exch_dfs)
+    ], ignore_index=True) if _exch_dfs else pd.DataFrame()
+
+    # ── Portfolio fit context (sector/country/beta weights) ──────────────────
     _scr_pf_context: dict | None = None
     _scr_pf = load_portfolio()
+    _held_tickers: set[str] = set()
     if _scr_pf is not None and not _scr_pf.empty:
-        # Look up sector/country/price for every portfolio position directly from
-        # the app's own fundamentals cache — covers all tickers ever fetched, not
-        # just those in the current screener exchange lists.
+        _held_tickers = set(_scr_pf["ticker"].dropna().astype(str))
         _fund_cache = _load_cache()
         _suffix_to_country = {
             ".BR": "Belgium", ".AS": "Netherlands", ".PA": "France",
@@ -62,25 +69,20 @@ def render() -> None:
             _pf_m.at[_idx, "sector"]  = _cached.get("sector") or None
             _pf_m.at[_idx, "country"] = _cached.get("country") or None
             _pf_m.at[_idx, "Price"]   = _cached.get("Price") or None
-        # Infer country from exchange suffix as final fallback
         _missing_country = _pf_m["country"].isna()
         if _missing_country.any():
             _pf_m.loc[_missing_country, "country"] = _pf_m.loc[_missing_country, "ticker"].apply(
                 lambda t: next((c for s, c in _suffix_to_country.items() if str(t).endswith(s)), None)
             )
-
-        # Market value: shares × current price from cache, fallback to purchase_value / purchase_price
         _pf_m["_val"] = (
             pd.to_numeric(_pf_m["shares"], errors="coerce") *
             pd.to_numeric(_pf_m["Price"], errors="coerce")
         )
-        # Fill missing market values with purchase_value or shares × purchase_price
         _missing_val = _pf_m["_val"].isna()
         if _missing_val.any():
             if "purchase_value" in _pf_m.columns:
                 _pf_m.loc[_missing_val, "_val"] = pd.to_numeric(
-                    _pf_m.loc[_missing_val, "purchase_value"], errors="coerce"
-                )
+                    _pf_m.loc[_missing_val, "purchase_value"], errors="coerce")
             _still_missing = _pf_m["_val"].isna()
             if _still_missing.any() and "purchase_price" in _pf_m.columns:
                 _pf_m.loc[_still_missing, "_val"] = (
@@ -105,255 +107,12 @@ def render() -> None:
                 ),
             }
 
-    # ── Column groups ─────────────────────────────────────────────────────────
-    # Core columns always shown; extra groups toggled via multiselect
-    # fmt=None → keep the raw (numeric) value; formatting is done by the
-    # column_config NumberColumn so sorting stays numeric.
-    CORE_COLS = {
-        "★":              (None,              None),
-        "Company":        ("Name",            None),
-        "Ticker":         ("Ticker",          None),
-        "Price":          ("Price",           None),
-        "Analyst Target": ("targetMeanPrice", None),
-        "UV":             ("fair_value",      None),
-        "MoS %":          ("MoS %",           None),
-        "TER %":          ("TER %",           None),
-        "Score":          (None,              None),   # built row-by-row below from Decision + Value Score
-    }
-
-    EXTRA_GROUPS = {
-        "Valuation models": {
-            "Graham #":      ("graham_number",  None),
-            "PE Fair Val":   ("pe_fair_value",  None),
-            "EPV":           ("epv",            None),
-            "DDM (1-stage)": ("ddm",            None),
-            "DDM (2-stage)": ("ddm_multistage", None),
-        },
-        "Risk": {
-            "Risk Score":  ("Risk Score",        None),
-            "Beta":        ("beta",              None),
-            "Debt/Equity": ("debtToEquity",      None),
-            "Mkt Cap":     ("Market Cap",        None),
-        },
-        "Multiples": {
-            "P/E":       ("trailingPE",         None),
-            "P/B":       ("priceToBook",        None),
-            "EV/EBITDA": ("enterpriseToEbitda", None),
-        },
-        "Quality": {
-            "ROE %":       ("returnOnEquity",   None),
-            "ROA %":       ("returnOnAssets",   None),
-            "Op Margin %": ("operatingMargins", None),
-            "FCF Yield %": ("fcfYield",         None),
-        },
-        "Growth": {
-            "Rev Growth %": ("revenueGrowth",  None),
-            "EPS Growth %": ("earningsGrowth", None),
-        },
-        "Dividends": {
-            "Div Yield":     ("dividendYield",            None),
-            "5yr Avg Yield": ("fiveYearAvgDividendYield", None),
-            "Payout Ratio":  ("payoutRatio",              None),
-            "Cash Payout":   ("cashPayoutRatio",          None),
-            "Div Coverage":  ("dividendCoverage",         None),
-            "Div Flag":      ("Div Flag",                 _fmt_div_flag),
-            "Ex-Div Date":   ("exDividendDate",           _f_str),
-            "Div Date":      ("dividendDate",             _f_str),
-        },
-        "Geography": {
-            "Sector":  ("sector",  _f_str),
-            "Country": ("country", _f_str),
-        },
-    }
-
-    # Column config for every possible column — help= adds hover tooltip on header
-    _ch = COLUMN_HELP.get  # shorthand
-    _col_config_map = {
-        **{c: st.column_config.TextColumn(c, width=100, help=_ch(c))
-           for g in EXTRA_GROUPS.values() for c in g},
-        "★":             st.column_config.CheckboxColumn("★",             width=55,  pinned=True, help=_ch("★")),
-        "Company":       st.column_config.TextColumn(    "Company",       width=180, pinned=True, help=_ch("Company")),
-        "Ticker":        st.column_config.TextColumn(    "Ticker",        width=90,  help=_ch("Ticker")),
-        "Price":         st.column_config.NumberColumn(  "Price",         width=80,  format="euro",    help=_ch("Price")),
-        "UV":            st.column_config.NumberColumn(  "Fair Value",    width=90,  format="euro",    help=_ch("UV")),
-        "Analyst Target":st.column_config.NumberColumn(  "Analyst Target",width=110, format="euro",    help=_ch("Analyst Target")),
-        "MoS %":         st.column_config.NumberColumn(  "MoS %",         width=75,  format="%+.1f%%", help=_ch("MoS %")),
-        "TER %":         st.column_config.NumberColumn(  "TER %",         width=75,  format="%+.1f%%", help=_ch("TER %")),
-        "Score":         st.column_config.TextColumn(    "Score",         width=110,
-                             help="BUY (>70) · MONITOR (40–70) · AVOID (<40)"),
-        "Graham #":      st.column_config.NumberColumn("Graham #",      width=100, format="euro", help=_ch("Graham #")),
-        "PE Fair Val":   st.column_config.NumberColumn("PE Fair Val",   width=100, format="euro", help=_ch("PE Fair Val")),
-        "EPV":           st.column_config.NumberColumn("EPV",           width=100, format="euro", help=_ch("EPV")),
-        "DDM (1-stage)": st.column_config.NumberColumn("DDM (1-stage)", width=100, format="euro", help=_ch("DDM (1-stage)")),
-        "DDM (2-stage)": st.column_config.NumberColumn("DDM (2-stage)", width=100, format="euro", help=_ch("DDM (2-stage)")),
-        "Risk Score":    st.column_config.ProgressColumn("Risk Score",  width=110,
-                             min_value=0, max_value=10,  format="%.1f", help=_ch("Risk Score")),
-        "Mkt Cap":       st.column_config.NumberColumn(  "Mkt Cap",     width=80,  format="compact", help=_ch("Mkt Cap")),
-        "Beta":          st.column_config.NumberColumn(  "Beta",        width=55,  format="%.2f",    help=_ch("Beta")),
-        "Debt/Equity":   st.column_config.NumberColumn(  "Debt/Equity", width=95,  format="%.1f",    help=_ch("Debt/Equity")),
-        "P/E":           st.column_config.NumberColumn(  "P/E",         width=60,  format="%.1f",    help=_ch("P/E")),
-        "P/B":           st.column_config.NumberColumn(  "P/B",         width=60,  format="%.2f",    help=_ch("P/B")),
-        "EV/EBITDA":     st.column_config.NumberColumn(  "EV/EBITDA",   width=90,  format="%.1f",    help=_ch("EV/EBITDA")),
-        "ROE %":         st.column_config.NumberColumn("ROE %",         width=100, format="percent", help=_ch("ROE %")),
-        "ROA %":         st.column_config.NumberColumn("ROA %",         width=100, format="percent", help=_ch("ROA %")),
-        "Op Margin %":   st.column_config.NumberColumn("Op Margin %",   width=100, format="percent", help=_ch("Op Margin %")),
-        "FCF Yield %":   st.column_config.NumberColumn("FCF Yield %",   width=100, format="percent", help=_ch("FCF Yield %")),
-        "Rev Growth %":  st.column_config.NumberColumn("Rev Growth %",  width=100, format="percent", help=_ch("Rev Growth %")),
-        "EPS Growth %":  st.column_config.NumberColumn("EPS Growth %",  width=100, format="percent", help=_ch("EPS Growth %")),
-        "Div Yield":     st.column_config.NumberColumn("Div Yield",     width=100, format="percent", help=_ch("Div Yield")),
-        "5yr Avg Yield": st.column_config.NumberColumn("5yr Avg Yield", width=100, format="percent", help=_ch("5yr Avg Yield")),
-        "Payout Ratio":  st.column_config.NumberColumn("Payout Ratio",  width=100, format="percent", help=_ch("Payout Ratio")),
-        "Cash Payout":   st.column_config.NumberColumn("Cash Payout",   width=100, format="percent", help=_ch("Cash Payout")),
-        "Div Coverage":  st.column_config.NumberColumn("Div Coverage",  width=100, format="%.2f×",   help=_ch("Div Coverage")),
-        "Sector":        st.column_config.TextColumn("Sector",      width=150, help=_ch("Sector")),
-        "Country":       st.column_config.TextColumn("Country",     width=120, help=_ch("Country")),
-        "Ex-Div Date":   st.column_config.TextColumn("Ex-Div Date", width=105, help=_ch("Ex-Div Date")),
-        "Div Date":      st.column_config.TextColumn("Div Date",    width=95,  help=_ch("Div Date")),
-    }
-
-    def _render_table(tab_df, key_suffix, score_key=None, score_default=None, extra_toolbar_action=None):
-        """Render the screener table with optional column groups, score filter, and sector filter."""
-        _grp_key    = f"col_groups_{key_suffix}"
-        _sector_key = f"sector_filter_{key_suffix}"
-        _tbl_key    = f"table_{key_suffix}"
-
-        @st.dialog("View", width="small")
-        def _dlg_view():
-            _sel = st.session_state.get(_grp_key, [])
-            for _grp in EXTRA_GROUPS.keys():
-                _checked = st.checkbox(_grp, value=(_grp in _sel), key=f"scr_colgrp_{key_suffix}_{_grp}")
-                if _checked and _grp not in _sel:
-                    _sel = _sel + [_grp]
-                elif not _checked and _grp in _sel:
-                    _sel = [g for g in _sel if g != _grp]
-            st.session_state[_grp_key] = _sel
-            if st.button("Apply", type="primary", width="stretch", key=f"scr_col_apply_{key_suffix}"):
-                st.rerun()
-
-        # ── Collect available sector values ───────────────────────────────────
-        _sector_vals = (
-            sorted(v for v in tab_df["sector"].dropna().unique() if str(v).strip())
-            if "sector" in tab_df.columns else []
-        )
-
-        # ── Apply score filter ────────────────────────────────────────────────
-        if score_key:
-            _sf_sel = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-            tab_df = _apply_score_filter(tab_df, _sf_sel)
-        else:
-            tab_df = tab_df.reset_index(drop=True)
-
-        # ── Apply sector filter ───────────────────────────────────────────────
-        _sec_sel = st.session_state.get(_sector_key, "All sectors")
-        if _sec_sel and _sec_sel != "All sectors":
-            _sec_col = tab_df["sector"] if "sector" in tab_df.columns else pd.Series("", index=tab_df.index)
-            tab_df = tab_df[_sec_col == _sec_sel].reset_index(drop=True)
-
-        n_shown = len(tab_df)
-        tab_df.index = range(1, n_shown + 1)
-
-        # ── Toolbar ───────────────────────────────────────────────────────────
-        with st.container(horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(horizontal=True, gap="small", width="content"):
-                _active = st.session_state.get(_grp_key, [])
-                _view_label = f"View ({len(_active)})" if _active else "View"
-                if st.button(_view_label, key=f"btn_view_{key_suffix}"):
-                    _dlg_view()
-
-                if extra_toolbar_action:
-                    _btn_label, _btn_cb = extra_toolbar_action
-                    if st.button(_btn_label, key=f"btn_{_btn_label.lower()}_{key_suffix}"):
-                        _btn_cb()
-
-                if st.button("Buy", key=f"btn_buy_{key_suffix}"):
-                    _dlg_buy_screener()
-
-            with st.container(horizontal=True, gap="small", width="content"):
-                _sec_cur = st.session_state.get(_sector_key, "All sectors")
-                if _sec_cur not in _sector_vals and _sec_cur != "All sectors":
-                    _sec_cur = "All sectors"
-                with st.popover(_sec_cur, width=220):
-                    _sec_opts = ["All sectors"] + _sector_vals
-                    st.radio("Sector filter", _sec_opts,
-                             index=_sec_opts.index(_sec_cur),
-                             key=_sector_key, label_visibility="collapsed")
-
-                if score_key:
-                    _sf_cur = st.session_state.get(score_key, score_default or _SCORE_OPTIONS[0])
-                    with st.popover(_sf_cur, width=220):
-                        st.radio("Score filter", _SCORE_OPTIONS, index=_SCORE_OPTIONS.index(_sf_cur),
-                                 key=score_key, label_visibility="collapsed")
-
-        selected_groups = st.session_state.get(_grp_key, [])
-
-        # Column group discoverability hint
-        _avail_groups = [g for g in EXTRA_GROUPS if g not in selected_groups]
-        if _avail_groups:
-            st.caption("Additional columns: " + " · ".join(_avail_groups))
-
-        # Score column: text signal prefix + value (no emoji per brand guidelines)
-        _score_prefix = {"Strong Buy": "BUY", "Monitor": "MON", "Avoid": "AVD"}
-        def _fmt_score(row):
-            s = row.get("Value Score")
-            if pd.isna(s):
-                return "—"
-            p = _score_prefix.get(row.get("Decision", ""), "")
-            return f"{p}  {s:.1f}" if p else f"{s:.1f}"
-
-        # Build the display DataFrame from core cols + selected extras.
-        # fmt=None keeps raw numeric values (formatted by NumberColumn config).
-        def _col_values(field, fmt):
-            if field not in tab_df.columns:
-                return pd.Series([pd.NA] * len(tab_df)).values
-            return (tab_df[field] if fmt is None else tab_df[field].map(fmt)).values
-
-        display_data = {}
-        for col, (field, fmt) in list(CORE_COLS.items())[1:]:  # skip ★ (watchlist lives in the dialog)
-            if col == "Score":
-                display_data[col] = tab_df.apply(_fmt_score, axis=1).values
-            else:
-                display_data[col] = _col_values(field, fmt)
-
-        active_extra_cols = []
-        for group in selected_groups:
-            for col, (field, fmt) in EXTRA_GROUPS[group].items():
-                display_data[col] = _col_values(field, fmt)
-                active_extra_cols.append(col)
-
-        display_df = pd.DataFrame(display_data)
-        _n_rows = len(display_df)
-
-        # Highlight extra columns with a subtle tint (same as positions table)
-        if active_extra_cols:
-            display_df = display_df.style.set_properties(
-                subset=active_extra_cols,
-                **{"background-color": "rgba(99, 102, 241, 0.07)"},
-            )
-
-        col_config = {c: _col_config_map[c] for c in display_data.keys() if c in _col_config_map}
-
-        _row_h  = 35
-        _header = 38
-        _height = min(_header + _n_rows * _row_h + 4, 800)
-
-        _sel_idx = _row_select_table(
-            display_df,
-            key=_tbl_key,
-            width="stretch",
-            hide_index=True,
-            column_config=col_config,
-            height=_height,
-        )
-        _sel_ticker = display_data["Ticker"][_sel_idx] if _sel_idx is not None else None
-        return _sel_ticker, n_shown, key_suffix
-
-    # ── Buy dialog (shared across all screener tabs) ──────────────────────────
-    _scr_all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx], ignore_index=True)
-    _scr_sorted = _scr_all_df[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values("Name", key=lambda s: s.str.lower())
+    # ── Buy dialog ─────────────────────────────────────────────────────────────
+    _scr_sorted = _all_df[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values(
+        "Name", key=lambda s: s.str.lower()) if not _all_df.empty else pd.DataFrame(columns=["Ticker", "Name"])
     _scr_t_opts   = _scr_sorted["Ticker"].tolist()
-    _scr_t_labels = {row["Ticker"]: f"{row['Name']}  ({row['Ticker']})" for _, row in _scr_sorted.iterrows()}
-    _scr_price_map = _scr_all_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict()
+    _scr_t_labels = {r["Ticker"]: f"{r['Name']}  ({r['Ticker']})" for _, r in _scr_sorted.iterrows()}
+    _scr_price_map = _all_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict() if not _all_df.empty else {}
 
     @st.dialog("Buy stock", width="large")
     def _dlg_buy_screener():
@@ -365,7 +124,7 @@ def render() -> None:
         with _c3:
             pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
         with _c4:
-            _price    = float(_scr_price_map.get(ticker) or 0.0)
+            _price = float(_scr_price_map.get(ticker) or 0.0)
             total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
                                           value=round(_price * shares, 2), format="%.2f")
         _, _save_btn = st.columns([3, 1])
@@ -374,121 +133,125 @@ def render() -> None:
         if _do_save and shares > 0 and total_price > 0:
             name = _scr_t_labels.get(ticker, ticker).split("  (")[0]
             add_position({
-                "name":           name,
-                "google_ticker":  "",
-                "ticker":         ticker,
-                "shares":         shares,
-                "purchase_price": round(total_price / shares, 4),
-                "purchase_value": round(total_price, 2),
-                "target_price":   None,
-                "dividends":      0.0,
-                "date_in":        pd.Timestamp(pur_date).isoformat(),
-                "account":        "",
+                "name": name, "google_ticker": "", "ticker": ticker, "shares": shares,
+                "purchase_price": round(total_price / shares, 4), "purchase_value": round(total_price, 2),
+                "target_price": None, "dividends": 0.0,
+                "date_in": pd.Timestamp(pur_date).isoformat(), "account": "",
             })
             st.rerun()
 
-    # ── Index constituents — derived from the same hardcoded lists used by the screener ──
-    def _index_set(fn) -> frozenset[str]:
-        return frozenset(s["ticker"] for s in fn())
-
-    _INDEX_TICKERS: dict[str, tuple[str, frozenset[str]]] = {
-        "br":  ("BEL 20",  _index_set(_hardcoded_bel20)),
-        "ams": ("AEX",     _index_set(_hardcoded_aex25)),
-        "par": ("CAC 40",  _index_set(_hardcoded_cac40)),
-        "mil": ("MIB ESG", _index_set(_hardcoded_ftse_mib)),
-        "etr": ("DAX",     _index_set(_hardcoded_dax40)),
-        "swx": ("SMI",     _index_set(_hardcoded_smi20)),
-    }
-
-    # Exchange tab order mirrors ALL_EXCHANGES; map key → (label, render_key, dataframe)
-    _EXCHANGE_TAB_META = [
-        ("brussels",  "Brussels",  "br",  df),
-        ("amsterdam", "Amsterdam", "ams", df_ams),
-        ("paris",     "Paris",     "par", df_par),
-        ("milan",     "Milan",     "mil", df_mil),
-        ("frankfurt", "Frankfurt", "etr", df_etr),
-        ("swiss",     "Swiss",     "swx", df_swx),
-    ]
-    _active_tabs = [(key, label, rkey, data)
-                    for key, label, rkey, data in _EXCHANGE_TAB_META
-                    if key in set(_enabled)]
-    _tab_labels  = [label for _, label, _, _ in _active_tabs]
-    _exchange_tabs = st.tabs(_tab_labels)
-
-    # Collect at most one pending dialog call; dispatched once after all tab code runs
-    # to avoid StreamlitDuplicateElementId (all tab code executes every rerun).
-    _dlg_pending: list = []
-
-    _SCORE_OPTIONS = [
-        "BUY  (> 70)",
-        "MONITOR  (40–70)",
-        "AVOID  (< 40)",
-        "All scores",
-    ]
-
-    _DECISION_MAP = {
-        "BUY  (> 70)": "Strong Buy",
-        "MONITOR  (40–70)":   "Monitor",
-        "AVOID  (< 40)":      "Avoid",
-    }
-
-    def _apply_score_filter(df_in: pd.DataFrame, sel: str) -> pd.DataFrame:
-        decision = _DECISION_MAP.get(sel)
-        out = df_in[df_in["Decision"] == decision] if decision else df_in
-        return out.reset_index(drop=True)
-
-    def _render_exchange_tab(exchange_df: pd.DataFrame, key: str) -> None:
-        """Render a screener exchange tab — toolbar, count, table, watchlist sync."""
-        valued      = exchange_df["fair_value"].notna()
-        n_unvalued  = (~valued).sum()
-        _idx_info   = _INDEX_TICKERS.get(key)
-        _idx_name   = _idx_info[0] if _idx_info else None
-        _idx_tickers = _idx_info[1] if _idx_info else frozenset()
-
-        cnt_col, _ti1, _ti2, refresh_col = st.columns([5, 2, 2, 1], vertical_alignment="center")
-        with _ti1:
-            idx_only = st.toggle(_idx_name, value=not _is_admin, key=f"{key}_idx_only") if _idx_name else False
-        with _ti2:
-            show_all = st.toggle("unvalued", value=False,
-                                 key=f"{key}_show_unvalued") if n_unvalued > 0 else False
-        with refresh_col:
-            if st.button("Refresh", type="tertiary", key=f"{key}_refresh"):
+    # ── Heading ───────────────────────────────────────────────────────────────
+    _valued_df = _all_df[_all_df["fair_value"].notna()].reset_index(drop=True) if not _all_df.empty else _all_df
+    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+        with st.container(width="content"):
+            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
+                       unsafe_allow_html=True)
+            st.caption(f"{len(_valued_df)} European stocks with a fair-value estimate · "
+                      "ranked by composite signal score.")
+        with st.container(horizontal=True, gap="small", width="content"):
+            if st.button("Reset filters", key="scr_reset"):
+                for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                          "scr_min_score", "scr_min_mos", "scr_hide_owned"):
+                    st.session_state.pop(_k, None)
+                st.rerun()
+            if st.button("Refresh", key="scr_refresh"):
                 _bust_cache()
+            if _scr_t_opts and st.button("Buy", key="scr_buy", type="primary"):
+                _dlg_buy_screener()
 
-        tab_df = exchange_df if show_all else exchange_df[valued].reset_index(drop=True)
-        if idx_only and _idx_tickers:
-            tab_df = tab_df[tab_df["Ticker"].isin(_idx_tickers)].reset_index(drop=True)
+    if _valued_df.empty:
+        st.info("No screener data available yet.")
+        return
 
-        _sel_ticker, n_shown, _tbl_key = _render_table(tab_df, key,
-                                        score_key=f"{key}_score_filter",
-                                        score_default=_SCORE_OPTIONS[0])
+    # ── Filter bar ───────────────────────────────────────────────────────────
+    _f1, _f2 = st.columns([2, 1])
+    with _f1:
+        _search = st.text_input("Search", placeholder="Search by ticker or company name…",
+                                key="scr_search", label_visibility="collapsed")
+    with _f2:
+        _signal = st.segmented_control("Signal", options=_SIGNAL_CHIPS, default="All",
+                                       key="scr_signal", label_visibility="collapsed")
 
-        _ex_star = st.session_state.get("_dlg_star_rerun", False)
-        _ex_src  = st.session_state.get("_dlg_open_src", "")
-        if _sel_ticker is not None:
-            _sel_rows = tab_df[tab_df["Ticker"] == _sel_ticker]
-            if not _sel_rows.empty:
-                st.session_state["_dlg_open_ticker"] = _sel_ticker
-                st.session_state["_dlg_open_src"]    = key
-                _dlg_pending.append((_sel_rows.iloc[0], _scr_pf_context))
-        elif _ex_star and _ex_src == key:
-            st.session_state.pop("_dlg_star_rerun", None)
-            _t = st.session_state.get("_dlg_open_ticker")
-            if _t:
-                _r = tab_df[tab_df["Ticker"] == _t]
-                if not _r.empty:
-                    _dlg_pending.append((_r.iloc[0], _scr_pf_context))
-        elif not _ex_star and _ex_src == key:
-            st.session_state.pop("_dlg_open_ticker", None)
-            st.session_state.pop("_dlg_open_src", None)
+    _sector_vals = sorted(v for v in _valued_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip())
+    _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
 
-        with cnt_col:
-            st.markdown(f"**{n_shown}** stocks · click a row to view details")
+    _c1, _c2, _c3, _c4, _c5 = st.columns([1.2, 1.2, 1.4, 1.4, 1.2])
+    with _c1:
+        _sector_sel = st.selectbox("Sector", options=["All sectors"] + _sector_vals, key="scr_sector")
+    with _c2:
+        _market_sel = st.selectbox("Market", options=["All markets"] + _market_vals, key="scr_market")
+    with _c3:
+        _min_score = st.slider("Min score", 0, 90, 0, step=5, key="scr_min_score")
+    with _c4:
+        _min_mos = st.slider("Min margin of safety", -20, 50, -20, step=5, key="scr_min_mos")
+    with _c5:
+        st.container(height=28, border=False)
+        _hide_owned = st.toggle("Hide positions I own", key="scr_hide_owned")
 
-    for _tab, (_, _, _rkey, _data) in zip(_exchange_tabs, _active_tabs):
-        with _tab:
-            _render_exchange_tab(_data, _rkey)
+    # ── Apply filters ──────────────────────────────────────────────────────────
+    _filtered = _valued_df.copy()
+    if _search:
+        _q = _search.strip().lower()
+        _filtered = _filtered[
+            _filtered["Ticker"].str.lower().str.contains(_q, na=False) |
+            _filtered["Name"].str.lower().str.contains(_q, na=False)
+        ]
+    if _signal and _signal != "All":
+        _filtered = _filtered[_filtered["Decision"] == _DECISION_MAP[_signal]]
+    if _sector_sel and _sector_sel != "All sectors":
+        _filtered = _filtered[_filtered.get("sector") == _sector_sel]
+    if _market_sel and _market_sel != "All markets":
+        _filtered = _filtered[_filtered["Exchange"] == _market_sel]
+    _filtered = _filtered[pd.to_numeric(_filtered["Value Score"], errors="coerce").fillna(0) >= _min_score]
+    _filtered = _filtered[pd.to_numeric(_filtered["MoS %"], errors="coerce").fillna(-999) >= _min_mos]
+    if _hide_owned:
+        _filtered = _filtered[~_filtered["Ticker"].isin(_held_tickers)]
 
-    # Dispatch at most one dialog per render cycle to avoid duplicate element IDs
-    if _dlg_pending:
-        open_drawer(*_dlg_pending[0])
+    _filtered = _filtered.sort_values("Value Score", ascending=False).reset_index(drop=True)
+
+    if _filtered.empty:
+        st.info("No stocks match your current filters.")
+        return
+
+    st.caption(f"**{len(_filtered)}** of {len(_valued_df)} stocks pass your filters · click a row to view details")
+
+    _csv = _filtered[["Ticker", "Name", "Exchange", "Decision", "Value Score", "Price",
+                      "fair_value", "MoS %", "trailingPE", "dividendYield"]].to_csv(index=False)
+    st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv", mime="text/csv",
+                       key="scr_export")
+
+    display_df = pd.DataFrame({
+        "Company":   _filtered["Name"],
+        "Ticker":    _filtered["Ticker"],
+        "Market":    _filtered["Exchange"],
+        "Signal":    _filtered.apply(lambda r: signal_badge_for_decision(r.get("Decision", ""))[1], axis=1),
+        "Score":     _filtered["Value Score"],
+        "MoS %":     _filtered["MoS %"],
+        "Price":     _filtered["Price"],
+        "P/E":       _filtered.get("trailingPE"),
+        "Div Yield": _filtered.get("dividendYield"),
+    })
+
+    _row_h, _header = 35, 38
+    _height = min(_header + len(display_df) * _row_h + 4, 800)
+    _sel_idx = _row_select_table(
+        display_df, key="screener_table", width="stretch", hide_index=True,
+        column_config={
+            "Score":     st.column_config.NumberColumn("Score", format="%.1f"),
+            "MoS %":     st.column_config.NumberColumn("MoS %", format="%+.1f%%"),
+            "Price":     st.column_config.NumberColumn("Price", format="euro"),
+            "P/E":       st.column_config.NumberColumn("P/E", format="%.1f"),
+            "Div Yield": st.column_config.NumberColumn("Div Yield", format="percent"),
+        },
+        height=_height,
+    )
+
+    if _sel_idx is not None:
+        open_drawer(_filtered.iloc[_sel_idx], _scr_pf_context)
+    else:
+        _reopen = st.session_state.get("_drw_reopen_ticker")
+        if _reopen:
+            _r = _all_df[_all_df["Ticker"] == _reopen]
+            if not _r.empty:
+                st.session_state.pop("_drw_reopen_ticker", None)
+                open_drawer(_r.iloc[0], _scr_pf_context)
