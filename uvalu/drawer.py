@@ -16,6 +16,7 @@ from portfolio import (save_watchlist, load_watchlist, load_manual_tickers,
 from uvalu import nav as nav_registry
 from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_ladder
 from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.runtime import current_user
 
 _DRAWER_CSS = """
 [data-testid="stDialog"] div[role="dialog"] {
@@ -120,6 +121,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         if not _match.empty:
             _held_row = _match.iloc[0]
 
+    _is_viewer = current_user().is_viewer
     _act1, _act2 = st.columns(2)
     with _act1:
         if st.button("View full analysis", key="drw_analysis", width="stretch"):
@@ -127,9 +129,10 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
 
     if _held_row is not None:
         with _act2:
-            if st.button("Sell", key="drw_sell", width="stretch"):
+            if st.button("Sell", key="drw_sell", width="stretch", disabled=_is_viewer,
+                        help="Viewer role is read-only" if _is_viewer else None):
                 st.session_state["_drw_sell_open"] = True
-        if st.session_state.get("_drw_sell_open"):
+        if not _is_viewer and st.session_state.get("_drw_sell_open"):
             with st.form("drw_sell_form", border=True):
                 st.caption(f"Currently holding {_held_row.get('shares', 0):.0f} shares")
                 _sh = st.number_input("Shares to sell", min_value=1,
@@ -144,9 +147,10 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
                     st.rerun()
     else:
         with _act2:
-            if st.button("Buy", key="drw_buy", width="stretch"):
+            if st.button("Buy", key="drw_buy", width="stretch", disabled=_is_viewer,
+                        help="Viewer role is read-only" if _is_viewer else None):
                 st.session_state["_drw_buy_open"] = True
-        if st.session_state.get("_drw_buy_open"):
+        if not _is_viewer and st.session_state.get("_drw_buy_open"):
             with st.form("drw_buy_form", border=True):
                 _sh = st.number_input("Shares", min_value=1, step=1, value=1)
                 _price = float(row.get("Price") or 0.0)

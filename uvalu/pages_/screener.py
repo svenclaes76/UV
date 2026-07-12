@@ -13,6 +13,7 @@ from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
 from uvalu.components import signal_badge_for_decision
+from uvalu.runtime import current_user
 from uvalu.ui import _row_select_table, _auto_rerun
 
 _EXCHANGE_LABELS = {
@@ -157,7 +158,9 @@ def render() -> None:
                 st.rerun()
             if st.button("Refresh", key="scr_refresh"):
                 _bust_cache()
-            if _scr_t_opts and st.button("Buy", key="scr_buy", type="primary"):
+            _is_viewer = current_user().is_viewer
+            if _scr_t_opts and st.button("Buy", key="scr_buy", type="primary", disabled=_is_viewer,
+                                        help="Viewer role is read-only" if _is_viewer else None):
                 _dlg_buy_screener()
 
     if _valued_df.empty:

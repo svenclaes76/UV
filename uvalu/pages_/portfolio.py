@@ -106,12 +106,15 @@ def render() -> None:
             })
             st.rerun()
 
-    _refresh_interval = load_settings(current_user().email).get("refresh_interval_s", 60)
+    _user = current_user()
+    _is_viewer = _user.is_viewer
+    _refresh_interval = load_settings(_user.email).get("refresh_interval_s", 60)
     _auto_rerun(_refresh_interval, "portfolio_refresh")
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
-        if st.button("Buy", key="btn_add_pos_empty"):
+        if st.button("Buy", key="btn_add_pos_empty", disabled=_is_viewer,
+                    help="Viewer role is read-only" if _is_viewer else None):
             _dlg_add_position()
         st.info("Your portfolio is empty. Click Buy to add your first position.")
         st.stop()
@@ -442,11 +445,12 @@ def render() -> None:
             _col_label = f"View ({len(_active_groups)})" if _active_groups else "View"
             if st.button(_col_label, key="btn_col_pos"):
                 _dlg_columns()
-            if st.button("Buy", key="btn_add_pos"):
+            _vhelp = "Viewer role is read-only" if _is_viewer else None
+            if st.button("Buy", key="btn_add_pos", disabled=_is_viewer, help=_vhelp):
                 _dlg_add_position()
-            if st.button("Edit", key="btn_edit_pos"):
+            if st.button("Edit", key="btn_edit_pos", disabled=_is_viewer, help=_vhelp):
                 _dlg_edit_position()
-            if st.button("Sell", key="btn_sell_pos"):
+            if st.button("Sell", key="btn_sell_pos", disabled=_is_viewer, help=_vhelp):
                 _dlg_sell_position()
 
         _pos_groups = st.session_state.get("pos_col_groups", [])
@@ -869,9 +873,10 @@ def render() -> None:
         with st.container(horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute"):
             with st.container(horizontal=True, gap="small", width="content"):
-                if st.button("Add", key="btn_add_div"):
+                _vhelp = "Viewer role is read-only" if _is_viewer else None
+                if st.button("Add", key="btn_add_div", disabled=_is_viewer, help=_vhelp):
                     _dlg_add_dividend()
-                if st.button("Edit", key="btn_edit_div"):
+                if st.button("Edit", key="btn_edit_div", disabled=_is_viewer, help=_vhelp):
                     _dlg_edit_dividends()
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
                                          key="div_year_filter", label_visibility="collapsed",
@@ -1037,7 +1042,8 @@ def render() -> None:
                         save_sold(_sold_updated)
                         st.rerun()
 
-            if st.button("Edit", key="btn_edit_sold"):
+            if st.button("Edit", key="btn_edit_sold", disabled=_is_viewer,
+                        help="Viewer role is read-only" if _is_viewer else None):
                 _dlg_edit_sold()
 
             _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")

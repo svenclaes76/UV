@@ -11,7 +11,7 @@ from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.formatting import safe_pct as _safe_pct, fmt_eur as _fmt_eur
-from uvalu.runtime import theme_colors
+from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_bar_compact, score_color, radial_gauge_svg)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
@@ -134,7 +134,9 @@ def render() -> None:
             if st.button("Refresh", key="db_refresh"):
                 st.cache_data.clear()
                 st.rerun()
-            if not _db_scr.empty and st.button("Buy", key="db_buy", type="primary"):
+            _is_viewer = current_user().is_viewer
+            if not _db_scr.empty and st.button("Buy", key="db_buy", type="primary", disabled=_is_viewer,
+                                               help="Viewer role is read-only" if _is_viewer else None):
                 _sorted = _db_all_scr[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values(
                     "Name", key=lambda s: s.str.lower())
                 _t_opts = _sorted["Ticker"].tolist()

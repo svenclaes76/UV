@@ -39,10 +39,15 @@ class CurrentUser:
     email: str
     role: str
     is_admin: bool
+    is_viewer: bool
 
 
 def current_user() -> CurrentUser:
-    """Resolve the logged-in user from session state."""
+    """Resolve the logged-in user from session state.
+
+    role is one of auth.ROLES ("Admin"/"Analyst"/"Viewer") — see auth.py's
+    _normalize_user for how legacy lowercase admin/user values are mapped.
+    """
     email = st.session_state.get("user_email", "")
-    role = st.session_state.get("user_role", "user")
-    return CurrentUser(email=email, role=role, is_admin=(role == "admin"))
+    role = st.session_state.get("user_role", "Analyst")
+    return CurrentUser(email=email, role=role, is_admin=(role == "Admin"), is_viewer=(role == "Viewer"))

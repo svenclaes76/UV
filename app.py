@@ -18,7 +18,8 @@ from uvalu.runtime import current_user
 from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portfolio,
                           risk as _page_risk, screener as _page_screener,
                           watchlist as _page_watchlist, analysis as _page_analysis,
-                          settings as _page_settings, help as _page_help)
+                          settings as _page_settings, help as _page_help,
+                          admin as _page_admin)
 
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
@@ -59,19 +60,21 @@ _pg_watchlist = st.Page(_page_watchlist.render, title="Watchlist", icon=":materi
 _pg_analysis  = st.Page(_page_analysis.render,  title="Analysis",  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title="Settings",  icon=":material/settings:",        url_path="settings")
 _pg_help      = st.Page(_page_help.render,      title="Help",      icon=":material/help:",            url_path="help")
+_pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
 
 # Populate the shared registry so page modules can link to one another.
-# _pg_analysis is deliberately not in the top-bar nav (uvalu/shell.py) — it's
-# only reached via the drawer's "View full analysis" link.
+# _pg_analysis and _pg_admin are deliberately not in the top-bar nav
+# (uvalu/shell.py) — Analysis is only reached via the drawer's "View full
+# analysis" link, Admin only via the avatar dropdown (admin role only).
 nav.pages.update({
     "dashboard": _pg_dashboard, "portfolio": _pg_portfolio, "risk": _pg_risk,
     "screener": _pg_screener, "watchlist": _pg_watchlist, "analysis": _pg_analysis,
-    "settings": _pg_settings, "help": _pg_help,
+    "settings": _pg_settings, "help": _pg_help, "admin": _pg_admin,
 })
 
 _nav = st.navigation(
     [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
-     _pg_analysis, _pg_settings, _pg_help],
+     _pg_analysis, _pg_settings, _pg_help, _pg_admin],
     position="hidden",
 )
 

@@ -12,12 +12,15 @@ Import:
 from __future__ import annotations
 
 import io
+import json
+import secrets
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
+from crypto import read_encrypted, write_encrypted
 from portfolio import user_data_dir, load_portfolio, load_sold, load_div_hist, load_watchlist
 from settings import _settings_file, _SHARED_FILE
 
@@ -27,6 +30,15 @@ _ZIP_SETTINGS_KEY        = "data/settings.json"
 _ZIP_SHARED_SETTINGS_KEY = "data/shared_settings.json"
 
 _PORTFOLIO_FILENAMES = ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json")
+
+# ── Backup history (Admin portal) ─────────────────────────────────────────────
+# A real, growing history of on-demand backups — every entry is a genuine
+# export_zip() snapshot saved to disk with a timestamp, listed and restorable
+# from the Admin portal. There is no scheduler anywhere in this app, so unlike
+# the design mockup's "Scheduled vs Manual" distinction, every entry here is
+# honestly typed "Manual" — see the Phase 4 plan notes for why.
+_BACKUPS_DIR     = Path(__file__).parent / "data" / "backups"
+_BACKUPS_MANIFEST = _BACKUPS_DIR / "manifest.json"
 
 
 # ── Export ────────────────────────────────────────────────────────────────────
@@ -133,3 +145,66 @@ def backup_filename(ext: str) -> str:
     """Generate a timestamped filename for the backup download."""
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     return f"uv_backup_{ts}.{ext}"
+
+
+# ── Backup history (Admin portal) ─────────────────────────────────────────────
+
+def _load_backup_manifest() -> list[dict]:
+    if not _BACKUPS_MANIFEST.exists():
+        return []
+    try:
+        return json.loads(read_encrypted(_BACKUPS_MANIFEST))
+    except Exception:
+        return []
+
+
+def _save_backup_manifest(entries: list[dict]) -> None:
+    _BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    write_encrypted(_BACKUPS_MANIFEST, json.dumps(entries, indent=2))
+
+
+def list_backups() -> list[dict]:
+    """All backup entries, newest first."""
+    return sorted(_load_backup_manifest(), key=lambda e: e.get("created_at", ""), reverse=True)
+
+
+def create_backup(email: str) -> dict:
+    """
+    Snapshot the given user's data via export_zip() and save it to disk as a
+    new backup-history entry. Returns the new entry.
+    """
+    _BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_bytes = export_zip(email)
+    backup_id = secrets.token_hex(8)
+    filename  = f"{backup_id}.zip"
+    (_BACKUPS_DIR / filename).write_bytes(zip_bytes)
+
+    entry = {
+        "id":         backup_id,
+        "email":      email,
+        "type":       "Manual",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "size_bytes": len(zip_bytes),
+        "filename":   filename,
+    }
+    entries = _load_backup_manifest()
+    entries.append(entry)
+    _save_backup_manifest(entries)
+    return entry
+
+
+def get_backup_bytes(backup_id: str) -> bytes:
+    """Raw ZIP bytes for a backup-history entry, for st.download_button."""
+    entries = {e["id"]: e for e in _load_backup_manifest()}
+    entry = entries.get(backup_id)
+    if not entry:
+        raise ValueError("Backup not found.")
+    path = _BACKUPS_DIR / entry["filename"]
+    if not path.exists():
+        raise ValueError("Backup file is missing from disk.")
+    return path.read_bytes()
+
+
+def restore_backup(backup_id: str, email: str) -> list[str]:
+    """Restore a backup-history entry into the given user's data dirs."""
+    return import_zip(get_backup_bytes(backup_id), email)
