@@ -9,7 +9,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_bar_compact
+from uvalu.components import signal_badge_for_decision
 from uvalu.drawer import open_drawer
 from uvalu.ui import _row_select_table
 

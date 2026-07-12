@@ -58,7 +58,7 @@ def render() -> None:
             st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
         with st.container(horizontal_alignment="right"):
             st.metric("Composite score", f"{_score:.0f}" if pd.notna(_score) else "—")
-    st.caption(f"{row.get('Name', '—')} · {row.get('sector') or '—'} · {row.get('country') or '—'}")
+    st.caption(f"{row.get('Name', '—')} · {_fv(row, 'sector')} · {_fv(row, 'country')}")
 
     # ── 4-card hero ───────────────────────────────────────────────────────────
     _pf = load_portfolio()

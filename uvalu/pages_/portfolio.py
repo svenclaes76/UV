@@ -84,7 +84,8 @@ def render() -> None:
         with _c3:
             pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
         with _c4:
-            _price      = float(_port_price_map.get(ticker) or 0.0)
+            _price_raw  = _port_price_map.get(ticker)
+            _price      = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
             total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
                                           value=round(_price * shares, 2), format="%.2f")
         _, _save_btn = st.columns([3, 1])

@@ -12,7 +12,7 @@ import streamlit as st
 
 from portfolio import (save_watchlist, load_watchlist, load_manual_tickers,
                        save_manual_tickers, load_portfolio, add_position,
-                       update_positions, sell_position)
+                       sell_position)
 from uvalu import nav as nav_registry
 from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_ladder
 from uvalu.formatting import fmt_eur as _fmt_eur
@@ -36,6 +36,14 @@ def _fv(row, field, fmt=None):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return "—"
     return fmt(v) if fmt else str(v)
+
+
+def _safe_float(v, default: float = 0.0) -> float:
+    """0.0 for None/NaN — plain `v or default` is wrong here since a NaN
+    float is truthy in Python and would pass straight through unchanged."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return default
+    return float(v)
 
 
 def _go_analysis(ticker: str) -> None:
@@ -68,7 +76,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
             # calling page's row-click dispatch reopens the drawer on it.
             st.session_state["_drw_reopen_ticker"] = ticker
             st.rerun()
-    st.caption(f"`{ticker}`  ·  {row.get('sector') or '—'}")
+    st.caption(f"`{ticker}`  ·  {_fv(row, 'sector')}")
     st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
 
     # ── Hero: price / fair value / MoS ───────────────────────────────────────
@@ -139,7 +147,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
                                       max_value=int(_held_row.get("shares", 1) or 1),
                                       value=int(_held_row.get("shares", 1) or 1))
                 _px = st.number_input("Sell price", min_value=0.0, step=0.01,
-                                      value=float(row.get("Price") or 0.0), format="%.2f")
+                                      value=_safe_float(row.get("Price")), format="%.2f")
                 _dt = st.date_input("Sell date", format="DD/MM/YYYY")
                 if st.form_submit_button("Confirm sale", width="stretch"):
                     sell_position(ticker, int(_sh), round(_sh * _px, 2), pd.Timestamp(_dt).isoformat())
@@ -153,7 +161,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         if not _is_viewer and st.session_state.get("_drw_buy_open"):
             with st.form("drw_buy_form", border=True):
                 _sh = st.number_input("Shares", min_value=1, step=1, value=1)
-                _price = float(row.get("Price") or 0.0)
+                _price = _safe_float(row.get("Price"))
                 _cost = st.number_input("Total cost", min_value=0.0, step=0.01,
                                         value=round(_price * _sh, 2), format="%.2f")
                 _dt = st.date_input("Buy date", format="DD/MM/YYYY")

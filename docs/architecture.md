@@ -2,7 +2,7 @@
 
 ## Overview
 
-UV (uvalu) is a single-process Streamlit application. All logic runs server-side in Python; the browser renders Streamlit's output plus a small amount of custom HTML/CSS/JS for the sidebar and the auth bridge. There is no separate backend API — routing, authentication, data access and business logic all run inside the one Streamlit process.
+UV (uvalu) is a single-process Streamlit application. All logic runs server-side in Python; the browser renders Streamlit's output plus a fair amount of custom raw-HTML/CSS (the top bar, stock-detail drawer, and several rebuilt screens use a dark-navy design-system look layered on top of native Streamlit widgets) and a small amount of JS for the auth bridge. There is no separate backend API — routing, authentication, data access and business logic all run inside the one Streamlit process.
 
 The codebase is split into two layers:
 
@@ -17,18 +17,18 @@ The codebase is split into two layers:
 
 ```
 UV/
-├── app.py                      # Entry-point shell: page config, styles, auth gate, st.navigation, sidebar
+├── app.py                      # Entry-point shell: page config, styles, auth gate, st.navigation, top bar
 ├── run_app.py                  # Launcher (generates self-signed TLS cert, starts Streamlit)
 │
 │   # ── Root modules (UI-agnostic logic + persistence) ──
-├── auth.py                     # Authentication (register, login, JWT verify, role admin)
+├── auth.py                     # Authentication (register/invite, login, JWT verify, 3-tier roles + status)
 ├── portfolio.py                # Per-user portfolio persistence and CRUD (encrypted JSON)
-├── screener.py                 # Fundamentals fetch + valuation/scoring pipeline + disk cache
+├── screener.py                 # Fundamentals fetch + valuation/scoring pipeline (configurable thresholds) + disk cache
 ├── prices.py                   # Live batch price fetching via yfinance
 ├── risk.py                     # 8-stage portfolio risk assessment
-├── settings.py                 # User and shared settings I/O; exchange constants
+├── settings.py                 # User and shared settings I/O; exchange constants; veto-threshold helper
 ├── crypto.py                   # Symmetric encryption (Fernet)
-├── backup.py                   # Export/import (encrypted ZIP, Excel workbook)
+├── backup.py                   # Export/import (encrypted ZIP, Excel workbook) + on-demand backup history
 ├── fetch_tickers.py            # Stock-universe loader (6 exchanges, scrape + hardcoded fallback)
 │
 │   # ── uvalu package (Streamlit app shell) ──
@@ -36,18 +36,23 @@ UV/
 │   ├── __init__.py
 │   ├── authgate.py             # JWT/localStorage bridges, logout, login wall
 │   ├── nav.py                  # Registry of st.Page objects (breaks the app.py↔pages import cycle)
+│   ├── shell.py                # Top bar: logo, nav, theme sync, avatar dropdown
+│   ├── drawer.py                # Slide-in stock-preview panel (row-click target everywhere)
+│   ├── components.py           # Pure-render helpers: signal badges, fair-value ladder, gauges, sparkline
 │   ├── runtime.py              # Per-run accessors: current_user(), theme_colors()
 │   ├── data.py                 # Cache-backed screener/price/fundamentals data layer
 │   ├── formatting.py           # COLUMN_HELP tooltip texts + pure value formatters
-│   ├── styles.py               # Global CSS injected once per run
+│   ├── styles.py               # Global CSS injected once per run (native-widget tokens + mockup tokens)
 │   ├── ui.py                   # Reusable widgets: click-to-select table, charts, auto-refresh
-│   ├── stock_dialog.py         # The shared 4-tab stock detail dialog
 │   └── pages_/
 │       ├── dashboard.py        # Dashboard page render()
-│       ├── portfolio.py        # Portfolio page render() (Positions / Realised / Dividends)
-│       ├── risk.py             # Risk page render() (8 detail tabs)
-│       ├── screener.py         # Screener page render() (per-exchange tabs + watchlist)
-│       ├── settings.py         # Settings page render()
+│       ├── screener.py         # Screener page render() (unified ranked list + filter bar)
+│       ├── watchlist.py        # Watchlist page render()
+│       ├── portfolio.py        # Portfolio page render() (overview + Open/Closed/Dividends drill-downs)
+│       ├── risk.py             # Risk page render() (always-visible score section + 5 detail tabs)
+│       ├── analysis.py         # Stock deep-dive page render() (reached from the drawer)
+│       ├── settings.py         # Settings page render() (Display / Screening & veto rules / Alerts & data)
+│       ├── admin.py            # Admin portal render() (Users / Data feeds / Backups — admin role only)
 │       └── help.py             # Help page render() (app guide + column glossary)
 │
 ├── requirements.txt
@@ -59,7 +64,8 @@ UV/
 │   └── fundamentals.json       # Screener fundamentals cache
 ├── data/
 │   ├── portfolio/{hash}/       # Per-user portfolio data (encrypted JSON)
-│   └── settings/               # Per-user and shared settings
+│   ├── settings/               # Per-user and shared settings
+│   └── backups/                # On-demand backup history (ZIPs + encrypted manifest)
 ├── tests/
 └── docs/
 ```
@@ -76,9 +82,9 @@ The Streamlit entry point and app shell. Responsibilities:
 
 - `st.set_page_config()` and `styles.inject()` for global CSS.
 - Runs the auth-gate steps from `uvalu.authgate` (restore token, recover session, logout, login wall) and points the data layer at the current user via `portfolio.set_user()`.
-- Builds one `st.Page` per page module, registers them in `uvalu.nav.pages`, and runs `st.navigation(..., position="hidden")`.
+- Builds one `st.Page` per page module, registers them in `uvalu.nav.pages`, and runs `st.navigation(..., position="hidden")`. `analysis` and `admin` are registered but deliberately left out of the visible top-bar nav — reached via the drawer's "View full analysis" link and the avatar dropdown respectively.
 - Redirects legacy `?page=` deep-links to the new `st.navigation` URL paths.
-- Renders the custom sidebar (logo, page links, user email, logout link).
+- Renders the top bar via `shell.render_topbar()` (replaces the old sidebar).
 
 Page bodies live in `uvalu/pages_/*.py`; each exposes a single `render()` function that `st.navigation` invokes.
 
@@ -99,14 +105,14 @@ A tiny module holding `pages: dict[str, st.Page]`. `app.py` builds the pages (it
 
 Per-run shared-state accessors that read fresh from `st.session_state` / `st.context` on every call (so pages never bind stale module globals):
 
-- `current_user()` → `CurrentUser(email, role, is_admin)`.
+- `current_user()` → `CurrentUser(email, role, is_admin, is_viewer)`.
 - `theme_colors()` → `ThemeColors` palette tokens resolved from the browser's active light/dark theme, used by all Plotly charts.
 
 #### `uvalu/data.py`
 
 The cache-backed data layer between pages and the root modules — no UI. Key functions:
 
-- `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names)` — `@st.cache_data` builder that returns per-exchange scored DataFrames plus one for extra (portfolio) tickers from disabled exchanges. Busted when `cache_version` (fundamentals file mtime), enabled exchanges, or the extra-ticker set change.
+- `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names, thresholds)` — `@st.cache_data` builder that returns per-exchange scored DataFrames plus one for extra (portfolio) tickers from disabled exchanges. Busted when `cache_version` (fundamentals file mtime), enabled exchanges, extra-ticker set, or the veto/scoring `thresholds` tuple (from `settings.get_veto_thresholds()`) change.
 - `_fetch_prices_cached(tickers)` — batch live prices, `ttl=60s`.
 - `_fetch_fundamentals(tickers)` — per-ticker fundamentals + fair-value estimates via `yf.info`, `ttl=6h`.
 - `_fetch_live_data(tickers)` — merges fast prices with slower fundamentals.
@@ -116,7 +122,7 @@ The cache-backed data layer between pages and the root modules — no UI. Key fu
 
 Reusable, theme-aware rendering helpers:
 
-- `_row_select_table()` — `st.dataframe` with single-row click selection (used to open the stock detail dialog); a nonce in the widget key prevents the dialog from immediately re-opening after close.
+- `_row_select_table()` — `st.dataframe` with single-row click selection (used everywhere to open the stock-preview drawer via `uvalu.drawer.open_drawer`); a nonce in the widget key prevents the dialog from immediately re-opening after close.
 - `_auto_rerun(seconds, key)` — timed page refresh.
 - `_static_bar()`, `_donut_chart()`, `_hm_color()` — chart primitives and the treemap colour scale.
 
@@ -126,15 +132,23 @@ Reusable, theme-aware rendering helpers:
 
 #### `uvalu/styles.py`
 
-`inject()` writes the global brand CSS (tokens, sidebar, login screen) once per run.
+`inject()` writes the global brand CSS once per run: the original `--uv-*` widget tokens, the mockup's dark-navy token set (`--bg`, `--panel`, `--text`, `--up-bg`/`--down-bg`, etc.) plus a `[data-theme="light"]` override block, the login screen, and a `[data-density="compact"]` rule that tightens row padding for Settings' table-density toggle.
 
-#### `uvalu/stock_dialog.py`
+#### `uvalu/shell.py`
 
-`_dlg_stock_detail(row, pf_context)` — the shared 4-tab modal (Snapshot, Price History, Risk & Fit, Model Estimates) opened by every stock table, including plain-language "Signals".
+`render_topbar(nav)` — the top bar that replaced `st.sidebar`: logo, horizontal nav links, a live-data dot, and an avatar popover (Settings, Help, "Admin portal" gated on `current_user().is_admin`, Sign out). Also syncs the `data-theme`/`data-density` attributes on the parent document via small hidden `st.iframe` scripts, driven by Streamlit's own active theme and the user's density setting.
+
+#### `uvalu/drawer.py`
+
+`open_drawer(row, pf_context)` — the slide-in stock-preview panel opened from every row-click table (Dashboard holdings, Screener, Watchlist, Portfolio, Risk contribution table): compact hero, six-model fair-value list, key metrics, Buy/Sell footer action (disabled for `Viewer` role), star toggle to add/remove from the watchlist, and a "View full analysis" link to `uvalu/pages_/analysis.py`. Replaced the old single 4-tab `uvalu/stock_dialog.py` modal, which has been removed.
+
+#### `uvalu/components.py`
+
+Pure-render helpers shared by the drawer, Analysis page, and Dashboard: `signal_badge_html`/`signal_badge_for_decision`, `render_signal_tips`, `fair_value_ladder`, `fair_value_bar_compact`, `signals_feed`, `score_color`, `radial_gauge_svg`, `sub_score_bar_html`, `sparkline_svg`. No Streamlit or data-layer coupling — covered by `tests/test_components.py`.
 
 #### `uvalu/pages_/`
 
-One module per page, each exposing `render()`: `dashboard`, `portfolio`, `risk`, `screener`, `settings`, `help`. See [user-guide.md](user-guide.md) (and the in-app Help page) for what each page does.
+One module per page, each exposing `render()`: `dashboard`, `screener`, `watchlist`, `portfolio`, `risk`, `analysis`, `settings`, `admin`, `help`. See [user-guide.md](user-guide.md) (and the in-app Help page) for what each page does.
 
 ### Root modules
 
@@ -142,10 +156,12 @@ One module per page, each exposing `render()`: `dashboard`, `portfolio`, `risk`,
 
 Email/password authentication with JWT sessions.
 
-- `register(email, password, role=...)` — bcrypt-hash the password, store in `.cache/users.json`. First user becomes admin.
-- `login(email, password)` — verify hash, issue an HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
+- `ROLES = ("Admin", "Analyst", "Viewer")`, `STATUSES = ("Active", "Invited", "Suspended")`. Older accounts stored with the pre-Admin-portal lowercase `admin`/`user` roles are transparently upgraded on load by `_normalize_user()` (`admin`→`Admin`, `user`→`Analyst`).
+- `register(email, password, role=...)` — bcrypt-hash the password, store in `.cache/users.json`. First user becomes `Admin`.
+- `invite_user(email, role=...)` — creates an account with `Invited` status and a random temporary password, returned once for the inviter to hand off manually (no outbound email is sent).
+- `login(email, password)` — verify hash, reject `Suspended` accounts, flip `Invited`→`Active` and stamp `last_active` on success, issue an HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
 - `verify_token(token)` → `(email, role)`.
-- `list_users()`, `set_role()`, `delete_user()`, `ROLES` — admin helpers.
+- `list_users()`, `set_role()`, `set_status()`, `delete_user()`, `reset_password()` — admin helpers, surfaced in the Admin portal's Users tab.
 
 The JWT is persisted in browser `localStorage` (`uv_jwt`) and reloaded on each refresh via the `uvalu.authgate` bridge.
 
@@ -194,10 +210,13 @@ Builds the stock universe per exchange: scrapes ticker lists, with hardcoded ind
 - `export_zip(email)` — bundle all user data plus the encryption key into an encrypted ZIP for offsite backup / migration.
 - `export_excel()` — human-readable workbook (Positions, Sold, Dividends, Watchlist).
 - `import_zip()` — restore data from a previously exported ZIP.
+- `create_backup(email)` — on-demand export into `data/backups/`, appending a timestamped entry (type `Manual` — there is no scheduler) to an encrypted manifest; `list_backups()`, `get_backup_bytes(backup_id)`, `restore_backup(backup_id, email)` back the Admin portal's Backups tab (download / restore-from-history).
 
 #### `settings.py`
 
-- `load_shared_settings()` / `save_shared_settings()` — admin settings (e.g. `enabled_exchanges`).
+- `load_shared_settings()` / `save_shared_settings()` — admin-controlled settings shared by all users: `enabled_exchanges`, the veto/scoring thresholds (`max_debt_equity`, `max_payout`, `min_mos`, `buy_threshold`), `benchmark_stoxx`, `us_listed_enabled`.
+- `get_veto_thresholds()` — reads the shared veto fields and returns them as a `(max_debt_equity, max_payout, min_mos, buy_threshold)` tuple, passed to `screener.py`'s scoring functions and used as an `@st.cache_data` key in `uvalu/data.py`.
+- `load_settings(email)` / `save_settings(s, email)` — per-user preferences: `density`, `refresh_interval_s`, and the four `alert_*` notification toggles (stored as preferences only — no delivery channel exists yet).
 - Exchange constants: `ALL_EXCHANGES`, `EXCHANGE_LABELS`.
 
 ---
@@ -221,7 +240,7 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
                               │
                               ├─ risk.py ───────► yfinance (price history)
                               │
-                              ├─ uvalu.stock_dialog (row-click detail modal)
+                              ├─ uvalu.drawer (row-click stock-preview panel) ──► uvalu/pages_/analysis.py
                               │
                               └─ settings.py ───► data/settings/*.json
 ```

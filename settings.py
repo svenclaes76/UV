@@ -43,7 +43,6 @@ _SHARED_DEFAULTS: dict = {
 }
 
 _USER_DEFAULTS: dict = {
-    "ui_theme": "dark",  # "dark" | "light" — vestigial, see uvalu/pages_/settings.py Display panel
     "density":  "comfortable",  # "comfortable" | "compact" — table row density
     "refresh_interval_s": 60,   # portfolio price auto-refresh cadence
     "alert_buy_signal":      False,

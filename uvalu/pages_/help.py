@@ -2,6 +2,7 @@
 import streamlit as st
 
 from uvalu.formatting import COLUMN_HELP
+from uvalu.runtime import current_user
 
 
 # ── Column reference sections (each maps to a screener/portfolio column group) ──
@@ -68,198 +69,268 @@ def render() -> None:
     """Full-page help: an overview, one section per page, and the column glossary."""
     st.caption("How every part of uvalu works. Pick a section below.")
 
-    (_t_overview, _t_dashboard, _t_portfolio, _t_risk, _t_screener,
-     _t_detail, _t_settings, _t_columns) = st.tabs([
-        "Overview", "Dashboard", "Portfolio", "Risk", "Screener",
-        "Stock details", "Settings", "Column reference",
-    ])
+    _is_admin = current_user().is_admin
+    _tab_labels = ["Overview", "Dashboard", "Portfolio", "Risk", "Screener",
+                  "Watchlist", "Stock details", "Settings", "Column reference"]
+    if _is_admin:
+        _tab_labels.append("Admin portal")
+    _tabs = st.tabs(_tab_labels)
+    _t = dict(zip(_tab_labels, _tabs))
 
     # ── Overview ──────────────────────────────────────────────────────────────
-    with _t_overview:
+    with _t["Overview"]:
         st.markdown("""
 #### What uvalu does
 
 uvalu screens European stocks for value and tracks your own portfolio against
-the same fair-value models. It combines up to five intrinsic-value estimates
-into a single **Fair Value** and a 0–100 **Score**, then lets you follow the
+the same fair-value models. It combines up to six intrinsic-value estimates
+(Graham number, PE fair value, EPV, two DDM variants, analyst target) into a
+single **Fair Value** and a 0–100 **Score**, then lets you follow the
 positions you own, the dividends they pay, and the risk they carry.
 
-#### The five pages
+#### The pages
 
 | Page | What it's for |
 |:--|:--|
-| **Dashboard** | At-a-glance summary of your portfolio: value, return, risk, movers and dividends. |
-| **Portfolio** | Your holdings, realised (sold) positions and dividend history — with full CRUD and charts. |
-| **Risk** | Deep portfolio-risk analysis: concentration, VaR, factor exposure, stress tests and Monte Carlo. |
-| **Screener** | Browse valued stocks per exchange, filter and sort them, and manage your watchlist. |
-| **Settings** | Import/export, backups, enabled exchanges, appearance and (for admins) user management. |
+| **Dashboard** | Portfolio overview: KPI strip, conviction/risk gauge, holdings vs fair value, sector allocation, movers, dividends. |
+| **Screener** | One ranked list across your enabled exchanges — search, filter by signal/sector/market, and adjust the score/MoS sliders. |
+| **Watchlist** | Tickers you don't hold yet, added via the ★ toggle on any stock or typed in directly. |
+| **Portfolio** | An overview with "View all" drill-downs into Open positions, Closed positions and Dividends — each with full add/edit/sell. |
+| **Risk** | Composite score, factor breakdown, concentration and per-holding risk contribution, plus five deeper analysis tabs. |
+| **Settings** | Display preferences, the screening/veto-rule thresholds, alerts, and portfolio import/export. |
+| **Admin portal** *(admin only)* | Users, Data feeds (enabled exchanges) and Backups — reached from the avatar menu, not the main nav. |
 
 #### A typical workflow
 
-1. **Screen** — open **Screener**, pick an exchange, and sort by Score or MoS % to find undervalued stocks.
-2. **Inspect** — click any row to open the **stock detail** dialog (valuation, price history, risk, model estimates).
-3. **Track** — buy a position from the Screener or Portfolio page; it then appears on the **Dashboard**.
-4. **Monitor risk** — check the **Risk** page for concentration, volatility and rebalancing triggers.
-5. **Review income** — track received and expected dividends in **Portfolio → Dividends**.
+1. **Screen** — open **Screener** and sort by Score or MoS % to find undervalued stocks.
+2. **Inspect** — click any row to open the quick-preview **drawer**; click **View full analysis** for the full **Analysis** page (valuation, price history, sub-scores, financials).
+3. **Track** — buy a position from the drawer, Screener, Dashboard or Portfolio; it then appears on the **Dashboard**.
+4. **Monitor risk** — check the **Risk** page for concentration, factor exposure and rebalancing triggers.
+5. **Review income** — track received and expected dividends from Portfolio's Dividends drill-down.
 
-Almost every table is interactive: **click a row to open its stock detail dialog**, and
-hover any column header to see what it means. The full glossary lives in the
+Almost every table is interactive: **click a row to open its stock preview drawer**,
+and hover any column header to see what it means. The full glossary lives in the
 **Column reference** tab.
 """)
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
-    with _t_dashboard:
+    with _t["Dashboard"]:
         st.markdown("""
 #### Dashboard
 
 A one-screen summary of the portfolio you hold. If you have no portfolio yet, it
-points you to the Screener or to **Settings → Import**.
+points you to the Screener or to **Settings → Import & export**.
 
-**KPI cards (top row)**
-- **Current value** — live market value of all holdings, with total gain in % and €.
-- **Total return** — price gain plus dividends received, in € and %.
-- **Fwd income / yr** — estimated forward 12-month dividend income (dividend yield × current value per holding). Falls back to **Dividends received** if yield data is missing.
-- **Avg fair value upside** — average margin of safety across your positions, based on the fair-value estimate.
+**KPI strip** — Current value (with gain %/€), Total return (incl. dividends),
+Fwd income / yr (estimated forward 12-month dividend income; falls back to
+Dividends received if yield data is missing), and Avg fair value upside
+(average margin of safety across your positions).
 
-**Risk banner** — a compact summary of the Risk page: an overall label
-(*Low / Moderate / Elevated risk*), the composite score, portfolio beta,
-annualised volatility and max drawdown, with a link to the full risk analysis.
+**Portfolio value over time** — a range-selectable (1M/3M/6M/1Y/All) value
+chart with optional **S&P 500** / **Euro Stoxx 50** overlays rebased to the
+same amount invested (the Euro Stoxx default is set in Settings).
 
-**Today's performance** — a treemap of holdings sized by position value and
-coloured by today's price change (green up, red down).
+**Conviction & risk** — a gauge showing the portfolio-value-weighted mean
+signal score across scored holdings, plus the portfolio risk score banded
+Low/Moderate/Elevated with Beta, Volatility and Max drawdown underneath.
 
-**Top movers today** — the seven positions with the largest absolute move today.
+**Holdings · price vs fair value** — one row per position with its signal
+badge and a compact price-vs-fair-value bar.
 
-**Sector allocation** — a donut of current value grouped by sector.
-
-**Upcoming dividends** — the next ex-dividend dates among your holdings (from the
-screener cache; click **Refresh** in the Screener if dates are missing).
-
-**Portfolio value over time** — the full value history, with optional
-**S&P 500** and **Euro Stoxx 50** overlays rebased to the same amount invested.
+**Bottom row** — Sector allocation (donut), Upcoming dividends (next
+ex-dividend dates among your holdings), and Top movers today.
 """)
 
     # ── Portfolio ─────────────────────────────────────────────────────────────
-    with _t_portfolio:
+    with _t["Portfolio"]:
         st.markdown("""
 #### Portfolio
 
-Three sub-tabs — **Positions**, **Realised**, **Dividends** — with full add/edit/delete.
-Prices refresh automatically about once a minute, and a daily value snapshot is
-recorded (with an automatic back-fill of any missing trading days).
+An **overview** page — a 5-card summary strip (Invested, Current value, Total
+return, Dividends, Positions held) and a preview of each area — with
+**"View all →"** links that drill into a full page for each. Prices refresh
+automatically (interval configurable in Settings), and a daily value snapshot
+is recorded with an automatic back-fill of any missing trading days.
 
-**Positions**
-- Summary cards: **Invested**, **Current value** (with gain), **Dividends**, **Total return**.
-- Toolbar:
-  - **View** — toggle optional column groups (Valuation, Valuation models, Risk, Multiples, Quality, Growth, Dividends, Geography, Score). See the *Column reference* tab for every column.
-  - **Buy** — add a new position (company, shares, buy date, amount invested).
-  - **Edit** — change shares / amount / date, or tick 🗑️ to delete positions.
-  - **Sell** — close a position by recording shares and proceeds; it moves to **Realised**.
-- Click any row to open the stock detail dialog.
-- Charts (tabbed): **Performance** (gain/loss treemap — total or daily — plus P&L per position), **Value history** (value vs invested over time, with benchmark overlays and a **Rebuild history** button), and **Breakdown** (sector / country / position donut and allocation bar).
+**Open positions** (full page)
+- Toolbar: **View** (optional column groups — see *Column reference*),
+  **Buy**, **Edit** (shares/amount/date, or tick 🗑️ to delete), **Sell**
+  (records shares and proceeds, moves the position to Closed).
+- Click any row to open the stock preview drawer.
+- Charts (tabbed): **Performance** (gain/loss treemap — total or daily —
+  plus P&L per position), **Value history** (with a **Rebuild history**
+  button), and **Breakdown** (sector/country/position donut and allocation bar).
 
-**Realised** — closed positions with **Invested**, **Proceeds**, **Price Gain**,
-**Dividends**, **Price Gain %** and an annualised **Annual Return %** (CAGR over
-the holding period). Summary cards show positions sold, total invested/proceeds
-and realised return. **Edit** to correct or delete sold rows.
+**Closed positions** (full page) — realised trades with Invested, Proceeds,
+Price Gain, Dividends, Price Gain % and an annualised **Annual Return %**
+(CAGR over the holding period). **Edit** to correct or delete rows.
 
-**Dividends**
-- Cards: **Total received**, **Current holdings**, **Expected 12 months**, **Portfolio yield**.
-- **Add** / **Edit** individual dividend payments and filter the history by year.
-- The history table shows **Gross**, **Tax (30%)** and **Net** — tax is a Belgian withholding-tax estimate of 30% of gross.
+**Dividends** (full page)
+- Cards: Total received, Current holdings, Expected 12 months, Portfolio yield.
+- **Add** / **Edit** individual payments and filter the history by year.
+- The history table shows Gross, **Tax (30%)** and Net — a Belgian
+  withholding-tax estimate.
 - Charts: total received per stock, and dividends by year.
+
+Use **"← Back to overview"** at the top of any drill-down to return.
 """)
 
     # ── Risk ──────────────────────────────────────────────────────────────────
-    with _t_risk:
+    with _t["Risk"]:
         st.markdown("""
 #### Risk
 
-A full portfolio-risk workbench. The top of the page shows a **composite score**
-(0–100, higher = riskier) with a label and a recommended action, followed by any
-**hard triggers** (act now) and **soft triggers** (review and plan), and a bar
-chart of the six sub-scores that make up the composite.
+The top of the page is always visible (not a tab): a **composite score**
+gauge (0–100, higher = riskier) with its label and recommended action, a
+6-metric grid (Beta, Volatility, VaR 95%, Sharpe, Max drawdown, Positions),
+any **hard triggers** (act now) / **soft triggers** (review and plan), a
+**risk factor breakdown** (Fama-French 5-factor + momentum loadings) next to
+a **concentration** card (single-name/sector/country bars against their real
+15%/30%/60% limits, naming the actual breaching position when one exceeds
+its limit), and a **risk contribution by holding** table (click a row to open
+its preview drawer).
 
-Toggle **Income mode** to weight the analysis toward dividend-income risk. The
-report is cached for one hour (or until the portfolio changes); use **Refresh
-risk report** on the Rebalancing tab to force a rebuild.
+Toggle **Income mode** to weight the analysis toward dividend-income risk.
+The report is cached for one hour (or until the portfolio changes) — use
+**Refresh** to force a rebuild.
 
-**The eight detail tabs**
-- **Positions** — one risk profile per holding: weight, beta, VaR, MoS, valuation, dividend sustainability, financial health, earnings quality and an overall Low/Medium/High/Critical rating.
-- **Concentration** — HHI plus top-1/top-3/top-5 weights, and sector & geographic breakdowns with flags for over-concentration.
-- **Volatility & VaR** — portfolio beta, annual volatility, Sharpe & Sortino, VaR/CVaR at 95% and 99%, max drawdown over 1/3/5y, and a return-correlation heatmap.
-- **Factor Exposure** — Fama-French 5-factor (+ momentum) loadings, R² and annualised alpha.
-- **Income Risk** — portfolio yield, annual income, weighted dividend growth rate, and a "top-3 payers cut 50%" stress scenario.
-- **Stress Tests** — historical crisis replays (beta-adjusted) and hypothetical shock scenarios (rate rise, recession, sector crash, credit crunch).
-- **Monte Carlo** — 10,000 simulated return paths over 1/3/5 years, shown as a fan chart with P5/median/P95 and probability-of-loss.
-- **Rebalancing** — an actions table mapping each issue to a concrete next step, with the full hard/soft trigger lists.
+**Five deeper analysis tabs** below the always-visible section:
+- **Volatility & VaR** — portfolio beta, annual volatility, Sharpe & Sortino,
+  VaR/CVaR at 95% and 99%, max drawdown over 1/3/5y, and a return-correlation
+  heatmap.
+- **Factor Exposure** — Fama-French 5-factor (+ momentum) loadings, R² and
+  annualised alpha.
+- **Income Risk** — portfolio yield, annual income, weighted dividend growth
+  rate, and a "top-3 payers cut 50%" stress scenario.
+- **Stress Tests** — historical crisis replays (beta-adjusted) and
+  hypothetical shock scenarios (rate rise, recession, sector crash, credit
+  crunch).
+- **Monte Carlo** — 10,000 simulated return paths over 1/3/5 years, shown as
+  a fan chart with P5/median/P95 and probability-of-loss.
 
-Each tab has a **Methodology** expander explaining exactly how its numbers are
+Each tab has a **Methodology** popover explaining exactly how its numbers are
 computed. The *Column reference → Portfolio Risk* tab is a glossary of these metrics.
 """)
 
     # ── Screener ──────────────────────────────────────────────────────────────
-    with _t_screener:
+    with _t["Screener"]:
         st.markdown("""
 #### Screener
 
-Browse valued stocks one exchange at a time. Tabs are your **Watchlist** first,
-then each enabled exchange (Brussels, Amsterdam, Paris, Milan, Frankfurt, Swiss —
-configured in **Settings → Screener**).
+One unified, ranked list across every exchange enabled in the Admin portal's
+Data feeds (Brussels, Amsterdam, Paris, Milan, Frankfurt, Swiss).
 
-**Reading the table** — Core columns are always shown: company, ticker, price,
-analyst target, **Fair Value**, **MoS %**, **TER %** and a **Score** signal
-(BUY > 70 · MONITOR 40–70 · AVOID < 40). Click any row to open the stock detail dialog.
+**Reading the table** — Company, Ticker, Market, Signal (BUY/MONITOR/AVOID),
+Score, MoS %, Price, P/E and Div Yield — every column is sortable by clicking
+its header. Click any row to open the stock preview drawer.
 
-**Toolbar & filters**
-- **View** — add optional column groups (Valuation models, Risk, Multiples, Quality, Growth, Dividends, Geography). Added columns are tinted.
-- **Sector filter** and **Score filter** popovers narrow the list.
-- **Buy** — add any listed stock straight to your portfolio.
-- Per exchange: an **index-only** toggle (e.g. BEL 20, AEX, CAC 40, MIB ESG, DAX, SMI), an **unvalued** toggle to include stocks without a fair value, and **Refresh** to rebuild the cache.
+**Filter bar**
+- **Search** by ticker or company name.
+- **Signal chips** — All / Buy / Monitor / Avoid.
+- **Sector** and **Market** selects.
+- **Min score** and **Min margin of safety** sliders.
+- **Hide positions I own** toggle.
+- **Reset filters** clears everything back to defaults; **Export list**
+  downloads the currently filtered rows as CSV.
 
-**Watchlist** — the first tab collects starred stocks. Add them by opening any
-stock's detail dialog and clicking ★, or use **Add** to add a stock by ticker
-from any market (e.g. `AAPL`, `7203.T`, `BP.L`).
+A stock only shows as **BUY** when both its composite score *and* its margin
+of safety clear the thresholds set in **Settings → Screening & veto rules**
+— a high score alone doesn't override a thin margin of safety. While fresh
+data is being fetched, the page shows a progress caption and auto-refreshes
+until it's ready.
+""")
 
-While fresh data is being fetched, the page shows a progress caption and
-auto-refreshes until it's ready.
+    # ── Watchlist ─────────────────────────────────────────────────────────────
+    with _t["Watchlist"]:
+        st.markdown("""
+#### Watchlist
+
+Tickers you're tracking but don't hold. Add one by opening any stock's
+preview drawer and clicking **★**, or type a ticker (e.g. `AAPL`, `7203.T`,
+`BP.L`) directly into the form at the top of this page — it works for any
+market, not just the enabled exchanges.
+
+The results table shows the same signal/score/valuation columns as the
+Screener. Click a row to open its preview drawer. Use the **Remove tickers**
+expander to take stocks off your watchlist.
 """)
 
     # ── Stock details ─────────────────────────────────────────────────────────
-    with _t_detail:
+    with _t["Stock details"]:
         st.markdown("""
-#### Stock detail dialog
+#### Stock preview drawer & Analysis page
 
-Opens whenever you click a row in any table (Screener, Portfolio, Risk). The
-header shows the company name, ticker, a decision badge (**BUY / MONITOR / AVOID**,
-or **VETO** when a hard rule fails) and a **★ watchlist** toggle.
+Clicking a row in any table (Screener, Watchlist, Portfolio, Risk, Dashboard
+holdings) opens a slide-in **preview drawer**: the company name and ★
+watchlist toggle, ticker and sector, signal badge, price/fair-value/margin-
+of-safety hero, a hard-veto banner when applicable, the six-model fair-value
+ladder, a few key metrics (Beta, Debt/equity, Risk score, P/E), and a
+footer action — **Buy** if you don't hold the stock, or **Sell** if you do.
 
-**Four tabs**
-- **Snapshot** — key valuation, quality and dividend/growth figures side by side.
-- **Price History** — a 2-year price chart with fair-value and analyst-target reference lines.
-- **Risk & Fit** — beta, leverage, liquidity and risk score; when opened from a portfolio context it also shows how the stock fits your current sector/country weights.
-- **Model Estimates** — a bar chart comparing each valuation model (Graham, PE fair value, DDM, analyst target) against the current price.
-
-Every tab ends with **Signals** — plain-language notes flagged by severity
-(**HIGH / NOTE / OK / INFO**) that summarise what the numbers mean.
+Click **View full analysis** in the drawer for the full **Analysis** page:
+header with signal badge and composite score, a 4-card hero (price, fair
+value, margin of safety, your position), a 1-year price-vs-fair-value chart,
+**signal sub-scores** (the five weighted components behind the composite —
+margin of safety, risk, quality, momentum, dividend), the six-model
+fair-value table, a financials & valuation grid, a hard-veto checklist, and
+a short value-thesis summary.
 """)
 
     # ── Settings ──────────────────────────────────────────────────────────────
-    with _t_settings:
+    with _t["Settings"]:
         st.markdown("""
 #### Settings
 
-What you see depends on your role. Every user has **Export** and **Appearance**;
-admins additionally get **Users**, **Screener**, **Backup & Restore** and **Import**.
+Available to every user — user/workspace administration lives in the
+**Admin portal** instead (avatar menu, admin role only).
 
-- **Export** — download a human-readable Excel workbook (positions, dividends, sold history, watchlist), handy for inspection or migration.
-- **Appearance** — the theme follows your system preference; override it from the app menu (top-right **⋮ → Settings → Theme**).
-- **Users** *(admin)* — add, edit or remove accounts and set roles. The first account created becomes admin automatically.
-- **Screener** *(admin)* — choose which exchanges are included in the screener and portfolio analysis.
-- **Backup & Restore** *(admin)* — download an **encrypted ZIP** bundling all user data plus the encryption key (needed to restore on another machine), and restore from such a ZIP. Restoring **overwrites** current data — download a backup first.
-- **Import** *(admin)* — upload an Excel file to import positions, sold history and dividends. This **replaces** all existing portfolio data for the account.
+- **Display** — Theme follows Streamlit's own app-menu setting (top-right
+  **⋮ → Settings → Theme**); Table density affects card-based lists like the
+  Dashboard holdings rows (native data tables use a fixed row height);
+  Display currency and Number format are shown but not yet configurable
+  (EUR only for now).
+- **Screening & veto rules** — Max debt/equity, Max dividend payout, Target
+  margin of safety and BUY score threshold sliders drive every BUY/MONITOR/
+  AVOID decision across the whole app; a Euro Stoxx 50 benchmark default and
+  an (as yet unavailable) US-listed toggle. Changes here immediately re-score
+  the shared screener cache.
+- **Alerts & data** — four notification preferences (stored, but nothing
+  sends them yet — there's no email/push delivery in this app) and the
+  portfolio price auto-refresh interval.
+- **Import & export** — upload an Excel file to replace your portfolio data,
+  or download a human-readable Excel workbook (positions, dividends, sold
+  history, watchlist).
 """)
 
     # ── Column reference ──────────────────────────────────────────────────────
-    with _t_columns:
+    with _t["Column reference"]:
         _column_reference()
+
+    # ── Admin portal (admin only) ──────────────────────────────────────────────
+    if _is_admin:
+        with _t["Admin portal"]:
+            st.markdown("""
+#### Admin portal
+
+Reached from the avatar menu (top right), not the main navigation — visible
+only to Admin-role accounts.
+
+- **Users** — stats strip, search, an inline role selector (Admin/Analyst/
+  Viewer) and status badge per row, Suspend/Reactivate, and a ⋯ menu to
+  delete an account. **Invite user** creates a real account with status
+  *Invited* and a one-time temporary password shown on screen — there's no
+  outbound email, so share it with them yourself. The password resets to
+  *Active* the moment they first log in with it.
+- **Data feeds** — enable or disable exchanges included in the Screener and
+  portfolio analysis. There's no live health/latency monitoring; this only
+  reflects the enabled/disabled state.
+- **Backups** — every entry is a real, on-demand snapshot (this app has no
+  scheduler, so nothing is created automatically — all entries are typed
+  *Manual*). **Create backup now**, **Download**, or **Restore** a previous
+  snapshot (this overwrites current data — download a fresh backup first if
+  you want to keep it).
+
+**Viewer** accounts are read-only: Buy/Sell/Edit/Add-dividend controls are
+shown disabled (with a "Viewer role is read-only" tooltip) across Dashboard,
+Screener, Portfolio and the preview drawer.
+""")

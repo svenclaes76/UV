@@ -4,10 +4,8 @@ import streamlit as st
 GLOBAL_CSS = """
   /* ── Brand tokens ────────────────────────────────────────────────────────── */
   :root {
-    --uv-teal:        #1A8C6E;
     --uv-mint:        #1DD6A4;
     --uv-navy:        #0D1F3C;
-    --uv-surface:     #F5F7FA;
     --uv-pos-bg:      #E8F5F0;
     --uv-pos-txt:     #0F6E56;
     --uv-cau-bg:      #FDF0E8;
@@ -23,9 +21,10 @@ GLOBAL_CSS = """
      Namespaced separately from the --uv-* set above so existing components
      keep working unchanged while new raw-HTML screens (top bar, Dashboard,
      Admin portal, ...) adopt these directly, matching Uvalu.dc.html /
-     Uvalu Admin.dc.html. [data-theme="light"] is toggled by the Phase 1 shell
-     theme switch (adds/removes the attribute on <body> via a small JS bridge,
-     seeded from the per-user ui_theme setting) — inert until that lands. */
+     Uvalu Admin.dc.html. [data-theme="light"] is set on <html> by
+     uvalu/shell.py from Streamlit's own active theme (theme_colors()), the
+     same source Plotly charts already used — not a separate per-user
+     setting, so native widgets and these tokens always agree. */
   :root {
     --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
     --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
@@ -234,9 +233,9 @@ GLOBAL_CSS = """
     letter-spacing: 0.02em; white-space: nowrap; line-height: 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
-  .uv-badge-buy,     .uv-badge-ok      { background: #E8F5F0; color: #0F6E56; }
-  .uv-badge-monitor, .uv-badge-caution { background: #FDF0E8; color: #854F0B; }
-  .uv-badge-avoid,   .uv-badge-warn    { background: #FCEAEA; color: #A32D2D; }
+  .uv-badge-buy,     .uv-badge-ok      { background: var(--uv-pos-bg); color: var(--uv-pos-txt); }
+  .uv-badge-monitor, .uv-badge-caution { background: var(--uv-cau-bg); color: var(--uv-cau-txt); }
+  .uv-badge-avoid,   .uv-badge-warn    { background: var(--uv-neg-bg); color: var(--uv-neg-txt); }
   .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
   .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
 

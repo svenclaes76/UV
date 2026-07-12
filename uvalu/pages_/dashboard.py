@@ -42,7 +42,8 @@ def _dlg_dashboard_buy(t_opts, t_labels, price_map):
     with _c3:
         pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
     with _c4:
-        _price = float(price_map.get(ticker) or 0.0)
+        _price_raw = price_map.get(ticker)
+        _price = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
         total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
                                       value=round(_price * shares, 2), format="%.2f")
     _, _save_col = st.columns([3, 1])
@@ -303,8 +304,11 @@ def render() -> None:
         _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
         _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
         _hold = _hold.sort_values("current_value", ascending=False)
-        for _, _hr in _hold.iterrows():
-            with st.container(key=f"db_hold_{_hr.get('ticker', '')}", border=True):
+        for _hidx, _hr in _hold.reset_index(drop=True).iterrows():
+            # Keyed by row position, not ticker — the same ticker can appear in
+            # two rows if a user bought it in separate lots (add_position()
+            # appends rather than merging), which would otherwise collide.
+            with st.container(key=f"db_hold_{_hidx}", border=True):
                 _hc1, _hc2, _hc3, _hc4, _hc5 = st.columns([2.2, 0.9, 2.4, 0.9, 0.9], vertical_alignment="center")
                 with _hc1:
                     st.markdown(f"**{_hr.get('name', _hr.get('ticker'))}**  "
@@ -316,9 +320,13 @@ def render() -> None:
                 with _hc3:
                     fair_value_bar_compact(_hr.get("live_price"), _hr.get("fair_value"), _hr.get("MoS %"))
                 with _hc4:
-                    st.caption(f"{_hr.get('weight', 0)*100:.1f}% weight")
+                    _w = _hr.get("weight", 0)
+                    _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
+                    st.caption(f"{_w*100:.1f}% weight")
                 with _hc5:
-                    st.markdown(f"<span style='font-family:var(--uv-mono);'>{_fmt_eur(_hr.get('current_value') or 0)}</span>",
+                    _cv = _hr.get("current_value")
+                    _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
+                    st.markdown(f"<span style='font-family:var(--uv-mono);'>{_fmt_eur(_cv)}</span>",
                                unsafe_allow_html=True)
     else:
         st.caption("No screener data available for your holdings.")

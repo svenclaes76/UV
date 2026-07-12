@@ -13,7 +13,7 @@ from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.runtime import theme_colors
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg
-from uvalu.ui import _DONUT_PALETTE, _row_select_table
+from uvalu.ui import _row_select_table
 
 
 def _risk_note(body: str) -> None:

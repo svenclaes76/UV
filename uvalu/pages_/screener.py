@@ -31,7 +31,7 @@ def render() -> None:
     dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds())
-    *_exch_dfs, _scr_extra_df = dfs
+    *_exch_dfs, _ = dfs  # extra (portfolio-only) tickers aren't shown in the ranked list
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 
     if not _exch_dfs[0].empty and ("fair_value" not in _exch_dfs[0].columns or "Decision" not in _exch_dfs[0].columns):
@@ -126,7 +126,8 @@ def render() -> None:
         with _c3:
             pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
         with _c4:
-            _price = float(_scr_price_map.get(ticker) or 0.0)
+            _price_raw = _scr_price_map.get(ticker)
+            _price = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
             total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
                                           value=round(_price * shares, 2), format="%.2f")
         _, _save_btn = st.columns([3, 1])
