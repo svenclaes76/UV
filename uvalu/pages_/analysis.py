@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
-from settings import load_shared_settings, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
@@ -40,7 +40,8 @@ def render() -> None:
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map = load_manual_tickers()
     _dfs = _load_all_screener_data(
-        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()))
+        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
+        get_veto_thresholds())
     all_df = pd.concat(_dfs, ignore_index=True)
     _match = all_df[all_df["Ticker"] == ticker]
     if _match.empty:

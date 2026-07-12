@@ -8,6 +8,7 @@ from datetime import datetime
 
 import streamlit as st
 
+from settings import load_settings
 from uvalu import nav as nav_registry
 from uvalu.runtime import current_user, theme_colors
 
@@ -51,6 +52,19 @@ def _apply_theme_script(light: bool) -> None:
 """, height=1)
 
 
+def _apply_density_script(density: str) -> None:
+    """Set data-density on the parent document's <html> element from the
+    per-user "density" setting (Settings → Display → Table density) — the
+    CSS in uvalu/styles.py reads this to tighten dataframe row padding."""
+    st.iframe(f"""
+<script>
+(function(){{
+  try {{ window.parent.document.documentElement.setAttribute('data-density', {density!r}); }} catch(e) {{}}
+}})();
+</script>
+""", height=1)
+
+
 def _topbar_css(active_path: str) -> str:
     return f"""
 .st-key-uv_topbar {{
@@ -85,6 +99,8 @@ def render_topbar(nav) -> None:
     user = current_user()
     _light = theme_colors().effective_light
     _apply_theme_script(_light)
+    _density = load_settings(user.email).get("density", "comfortable")
+    _apply_density_script(_density)
 
     active_path = getattr(nav, "url_path", "") or ""
     st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)

@@ -1,148 +1,165 @@
-"""Settings page — user admin, screener config, import/export/backup."""
+"""Settings page — Display, Screening & veto rules, Alerts & data, matching
+the Uvalu.dc.html mockup. User management and Backups moved to the Admin
+portal (Phase 4); the per-exchange picker moves there too as "Data feeds".
+Import/Export are per-user portfolio ops (not admin-scoped, not shown in the
+mockup) and stay here."""
 import traceback
 
 import pandas as pd
 import streamlit as st
 
-from auth import register, list_users, set_role, delete_user, ROLES
 from backup import export_zip, export_excel, import_zip, backup_filename
-from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
-                       save_div_hist)
-from settings import (load_shared_settings, save_shared_settings,
-                      ALL_EXCHANGES, EXCHANGE_LABELS)
+from portfolio import parse_excel, user_data_dir, save_portfolio, save_sold, save_div_hist
+from settings import load_shared_settings, save_shared_settings, load_settings, save_settings
 from uvalu.data import _load_all_screener_data
-from uvalu.runtime import current_user
-
-
-@st.dialog("Add user", width="large")
-def _dlg_add_user():
-    _c1, _c2, _c3 = st.columns([3, 3, 2])
-    with _c1:
-        new_email = st.text_input("Email")
-    with _c2:
-        new_password = st.text_input("Password", type="password")
-    with _c3:
-        new_role_sel = st.selectbox("Role", options=list(ROLES))
-    _, _save_col = st.columns([3, 1])
-    with _save_col:
-        if st.button("Save", key="dlg_add_user_save", width="stretch"):
-            ok, msg = register(new_email, new_password, role=new_role_sel)
-            if ok:
-                st.rerun()
-            else:
-                st.error(msg)
-
-
-@st.dialog("Edit users", width="large")
-def _dlg_edit_user(users: list[dict]):
-    current_email = st.session_state.get("user_email", "")
-    _tbl = pd.DataFrame([
-        {
-            "🗑️":      False,
-            "Email":   u["email"],
-            "Role":    u["role"],
-            "Created": u["created_at"][:10],
-        }
-        for u in users
-    ])
-
-    _row_h  = 35
-    _header = 35
-    _height = _header + min(len(_tbl), 8) * _row_h
-
-    _edited = st.data_editor(
-        _tbl,
-        width="stretch",
-        hide_index=True,
-        num_rows="fixed",
-        height=_height,
-        column_config={
-            "🗑️":      st.column_config.CheckboxColumn("🗑️",    width=55),
-            "Email":   st.column_config.TextColumn("Email",    disabled=True, pinned=True),
-            "Role":    st.column_config.SelectboxColumn("Role", options=list(ROLES)),
-            "Created": st.column_config.TextColumn("Created",  disabled=True),
-        },
-        key="dlg_edit_user_table",
-    )
-
-    to_delete  = _edited[_edited["🗑️"]].index.tolist()
-    to_keep    = _edited[~_edited["🗑️"]]
-    n_selected = len(to_delete)
-
-    _del_note, _save_col = st.columns([3, 1])
-    with _del_note:
-        if n_selected:
-            st.caption(f"{n_selected} selected for deletion")
-    with _save_col:
-        if st.button("Save", key="dlg_edit_user_save", width="stretch"):
-            for _, row in to_keep.iterrows():
-                set_role(row["Email"], row["Role"])
-            for i in to_delete:
-                email = _tbl.iloc[i]["Email"]
-                if email != current_email:
-                    delete_user(email)
-            st.rerun()
-
-
-def _render_admin_users():
-    """User management UI — rendered inside the Settings page."""
-    st.subheader("User management")
-    st.caption("Add, edit, or remove user accounts. The first account created is automatically assigned the admin role.")
-    users = list_users()
-
-    _u1, _u2, _ = st.columns([1, 1, 6], gap="small")
-    with _u1:
-        if st.button("Add", key="btn_add_user"):
-            _dlg_add_user()
-    with _u2:
-        if st.button("Edit", key="btn_edit_user", disabled=not users):
-            _dlg_edit_user(users)
-
-    if not users:
-        st.info("No users found.")
-        return
-
-    _row_h  = 35
-    _header = 38
-    _height = min(_header + len(users) * _row_h + 4, 600)
-
-    user_df = pd.DataFrame([
-        {
-            "Email":      u["email"],
-            "Role":       u["role"],
-            "Created":    u["created_at"][:10],
-        }
-        for u in users
-    ])
-    st.dataframe(
-        user_df,
-        width="stretch",
-        hide_index=True,
-        height=_height,
-        column_config={
-            "Email":   st.column_config.TextColumn("Email",   pinned=True),
-            "Role":    st.column_config.TextColumn("Role"),
-            "Created": st.column_config.TextColumn("Created"),
-        },
-    )
+from uvalu.runtime import current_user, theme_colors
 
 
 def render() -> None:
     _u = current_user()
-    _email, _is_admin = _u.email, _u.is_admin
-    if _is_admin:
-        tab_admin, tab_screener, tab_backup, tab_import, tab_export, tab_appearance = st.tabs(["Users", "Screener", "Backup & Restore", "Import", "Export", "Appearance"])
-    else:
-        tab_export, tab_appearance = st.tabs(["Export", "Appearance"])
+    _email = _u.email
+    _s = load_settings(_email)
+    _shared = load_shared_settings()
 
-    if _is_admin:
-        with tab_admin:
-            _render_admin_users()
+    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Settings</div>',
+               unsafe_allow_html=True)
+    st.caption("Display preferences, screening thresholds and alerts. Changes apply immediately.")
 
-        with tab_import:
-            st.subheader("Import portfolio")
+    # ── Display ────────────────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### Display")
+
+        _d1, _d2 = st.columns(2)
+        with _d1:
+            st.markdown("**Theme**")
+            st.caption("Deep-navy dark or surface-white light.")
+            _light = theme_colors().effective_light
+            st.segmented_control("Theme", options=["Light", "Dark"],
+                                 default="Light" if _light else "Dark",
+                                 disabled=True, label_visibility="collapsed", key="disp_theme_ro")
+            st.caption("Follows Streamlit's own theme — change it via the app menu "
+                      "(top-right **⋮ → Settings → Theme**).")
+        with _d2:
+            st.markdown("**Table density**")
+            st.caption("Row height for card-based lists (e.g. Dashboard holdings).")
+            _density_sel = st.segmented_control(
+                "Density", options=["Comfortable", "Compact"],
+                default=_s.get("density", "comfortable").capitalize(),
+                label_visibility="collapsed", key="disp_density")
+            if _density_sel and _density_sel.lower() != _s.get("density", "comfortable"):
+                _s["density"] = _density_sel.lower()
+                save_settings(_s, _email)
+                st.rerun()
+            st.caption("Native data tables use a fixed row height and aren't affected.")
+
+        _d3, _d4 = st.columns(2)
+        with _d3:
+            st.markdown("**Display currency**")
+            st.caption("Reporting currency for values and P&L.")
+            st.segmented_control("Currency", options=["EUR"], default="EUR", disabled=True,
+                                 label_visibility="collapsed", key="disp_currency_ro")
+            st.caption("EUR only for now.")
+        with _d4:
+            st.markdown("**Number format**")
+            st.caption("Decimal and thousands separators.")
+            st.segmented_control("Format", options=["1,234.56"], default="1,234.56", disabled=True,
+                                 label_visibility="collapsed", key="disp_numfmt_ro")
+            st.caption("Not yet configurable.")
+
+    # ── Screening & veto rules ───────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### Screening & veto rules")
+        st.caption("These drive every BUY/MONITOR/AVOID decision across the app — "
+                  "Screener, Watchlist, Dashboard, Portfolio and Analysis all read the same values.")
+
+        _v1, _v2 = st.columns(2)
+        with _v1:
+            _max_de = st.slider("Max debt / equity (%)", 50, 1000,
+                                int(_shared.get("max_debt_equity", 500)), step=50, key="scr_max_de")
+            st.caption("Hard veto above this leverage.")
+        with _v2:
+            _max_payout = st.slider("Max dividend payout (%)", 50, 100,
+                                    int(_shared.get("max_payout", 90)), step=5, key="scr_max_payout")
+            st.caption("Flag dividends above this payout.")
+
+        _v3, _v4 = st.columns(2)
+        with _v3:
+            _min_mos = st.slider("Target margin of safety (%)", -20, 50,
+                                 int(_shared.get("min_mos", 0)), step=5, key="scr_min_mos")
+            st.caption("Discount to fair value required for a BUY.")
+        with _v4:
+            _buy_thr = st.slider("BUY score threshold", 50, 90,
+                                 int(_shared.get("buy_threshold", 70)), step=5, key="scr_buy_thr")
+            st.caption("Composite score required for a BUY signal.")
+
+        st.divider()
+        _stoxx = st.toggle("Benchmark — Euro Stoxx 50",
+                           value=bool(_shared.get("benchmark_stoxx", False)), key="scr_stoxx",
+                           help="Default state of the overlay checkbox on the Dashboard's value chart.")
+        st.toggle("Include US-listed names", value=False, disabled=True, key="scr_us",
+                 help="Coming soon — no US ticker universe exists yet.")
+
+        if st.button("Save", type="primary", key="btn_save_veto"):
+            _shared["max_debt_equity"] = float(_max_de)
+            _shared["max_payout"]      = float(_max_payout)
+            _shared["min_mos"]         = float(_min_mos)
+            _shared["buy_threshold"]   = float(_buy_thr)
+            _shared["benchmark_stoxx"] = bool(_stoxx)
+            save_shared_settings(_shared)
+            _load_all_screener_data.clear()
+            st.success("Saved — screener results updated.")
+            st.rerun()
+
+    # ── Alerts & data ────────────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### Alerts & data")
+        st.caption("Stored as preferences — no email/push delivery exists yet, so these don't send anything.")
+
+        _notif_rows = [
+            ("alert_buy_signal",       "New BUY signal",     "A held or watchlisted stock crosses into BUY."),
+            ("alert_avoid_signal",     "New AVOID signal",   "A held stock crosses into AVOID."),
+            ("alert_dividend_ex_date", "Upcoming ex-dividend", "A held stock's ex-dividend date is within 7 days."),
+            ("alert_price_target",     "Analyst target reached", "Price crosses the analyst mean target."),
+        ]
+        _new_alert_vals = {}
+        for _key, _title, _desc in _notif_rows:
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                st.markdown(f"**{_title}**")
+                st.caption(_desc)
+            with _c2:
+                _new_alert_vals[_key] = st.toggle(_title, value=bool(_s.get(_key, False)),
+                                                  key=f"disp_{_key}", label_visibility="collapsed")
+
+        st.divider()
+        _refresh_opts = [30, 60, 300, 900]
+        _cur_refresh = _s.get("refresh_interval_s", 60)
+        _refresh_idx = _refresh_opts.index(_cur_refresh) if _cur_refresh in _refresh_opts else 1
+        _new_refresh = st.select_slider(
+            "Price refresh interval", options=_refresh_opts,
+            value=_refresh_opts[_refresh_idx],
+            format_func=lambda s: f"{s}s" if s < 60 else f"{s // 60} min",
+            key="disp_refresh_interval",
+            help="How often the Portfolio page checks for new prices while open.")
+
+        if st.button("Save", type="primary", key="btn_save_alerts"):
+            _s.update(_new_alert_vals)
+            _s["refresh_interval_s"] = int(_new_refresh)
+            save_settings(_s, _email)
+            st.success("Saved.")
+            st.rerun()
+
+    st.divider()
+
+    # ── Import / Export (per-user, not admin-scoped) ─────────────────────────────
+    with st.container(border=True):
+        st.markdown("##### Import & export")
+
+        _imp_col, _exp_col = st.columns(2, gap="large")
+        with _imp_col:
+            st.markdown("**Import portfolio**")
             st.caption("Upload an Excel file to import positions, sold history and dividends. "
-                       "This will replace all existing portfolio data for this account.")
+                      "This replaces all existing portfolio data for this account.")
             _imp_file = st.file_uploader("Choose your portfolio .xlsx file", type=["xlsx"], key="imp_portfolio")
             if _imp_file:
                 with st.spinner("Parsing Excel…"):
@@ -164,77 +181,19 @@ def render() -> None:
                         st.error(f"Could not parse file: {e}")
                         st.code(traceback.format_exc())
 
-    with tab_export:
-        st.subheader("Excel export")
-        st.caption("Human-readable workbook with positions, dividends, "
-                   "sold history and watchlist. Useful for inspection or migration.")
-        try:
-            xls_bytes = export_excel()
-            st.download_button(
-                "Download backup.xlsx",
-                data=xls_bytes,
-                file_name=backup_filename("xlsx"),
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        except ValueError:
-            st.info("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export.")
-        except Exception as e:
-            st.error(f"Could not create Excel: {e}")
-
-    if _is_admin:
-      with tab_screener:
-        st.subheader("Screener selection")
-        st.caption("Choose which exchanges are included in the screener and portfolio analysis.")
-        _cur_settings = load_shared_settings()
-        _cur_enabled  = set(_cur_settings.get("enabled_exchanges", ALL_EXCHANGES))
-        _new_enabled: list[str] = []
-        for _exkey, _exlabel in sorted(EXCHANGE_LABELS.items(), key=lambda x: x[1]):
-            if st.checkbox(_exlabel, value=_exkey in _cur_enabled, key=f"scr_exch_{_exkey}"):
-                _new_enabled.append(_exkey)
-        if st.button("Save", key="btn_save_screener_settings", type="primary"):
-            if not _new_enabled:
-                st.error("At least one exchange must be enabled.")
-            else:
-                _cur_settings["enabled_exchanges"] = _new_enabled
-                save_shared_settings(_cur_settings)
-                _load_all_screener_data.clear()
-                st.success("Screener settings saved.")
-                st.rerun()
-
-    if _is_admin:
-      with tab_backup:
-        st.subheader("Encrypted backup (ZIP)")
-        st.caption("Bundles all user data and the encryption key. "
-                   "Required for a full restore on another machine.")
-        try:
-            zip_bytes = export_zip(_email)
-            st.download_button(
-                "Download backup.zip",
-                data=zip_bytes,
-                file_name=backup_filename("zip"),
-                mime="application/zip",
-            )
-        except Exception as e:
-            st.error(f"Could not create ZIP: {e}")
-
-        st.divider()
-        st.subheader("Restore from ZIP")
-        st.warning("Restoring will **overwrite** your current data. "
-                   "Download a backup first if you want to keep it.", icon=":material/warning:")
-        uploaded = st.file_uploader("Upload a backup ZIP", type="zip",
-                                    key="backup_restore_upload")
-        if uploaded:
-            if st.button("Restore", type="primary", key="btn_restore"):
-                try:
-                    restored = import_zip(uploaded.read(), _email)
-                    st.success(f"Restored: {', '.join(restored)}")
-                    st.cache_data.clear()
-                    st.rerun()
-                except ValueError as e:
-                    st.error(str(e))
-
-
-    with tab_appearance:
-        st.subheader("Appearance")
-        st.caption("The theme follows your system preference. To override it, open the "
-                   "app menu (top-right **⋮ → Settings → Theme**) and pick Light or Dark.")
+        with _exp_col:
+            st.markdown("**Excel export**")
+            st.caption("Human-readable workbook with positions, dividends, "
+                      "sold history and watchlist. Useful for inspection or migration.")
+            try:
+                xls_bytes = export_excel()
+                st.download_button(
+                    "Download backup.xlsx",
+                    data=xls_bytes,
+                    file_name=backup_filename("xlsx"),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            except ValueError:
+                st.info("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export.")
+            except Exception as e:
+                st.error(f"Could not create Excel: {e}")

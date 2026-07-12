@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers, add_position
-from settings import load_shared_settings, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
@@ -28,7 +28,8 @@ def render() -> None:
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
     dfs = _load_all_screener_data(
-        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()))
+        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
+        get_veto_thresholds())
     *_exch_dfs, _scr_extra_df = dfs
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 

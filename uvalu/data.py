@@ -60,17 +60,21 @@ def _cache_version() -> str:
 
 @st.cache_data(show_spinner=False)
 def _load_all_screener_data(cache_version: str, enabled: tuple,
-                            extra_tickers: tuple = (), extra_names: tuple = ()) -> tuple:  # noqa: ARG001
+                            extra_tickers: tuple = (), extra_names: tuple = (),
+                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0)) -> tuple:  # noqa: ARG001
     """
     Build screener DataFrames from whatever is in the cache right now.
-    cache_version (file mtime), enabled exchanges, and extra_tickers (portfolio
-    stocks from disabled exchanges) all bust the Streamlit cache when they change.
+    cache_version (file mtime), enabled exchanges, extra_tickers (portfolio
+    stocks from disabled exchanges), and thresholds (max_debt_equity,
+    max_payout, min_mos, buy_threshold — see settings.get_veto_thresholds())
+    all bust the Streamlit cache when they change.
 
     extra_tickers are folded into the single fetch_fundamentals_nowait call so
     they share the same background-fetch thread, cache file, and refresh cadence
     as the screener.  A scored DataFrame for those tickers is returned as the
     last element of the tuple (after the per-exchange DataFrames).
     """
+    _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     _fetch_map = {
         "brussels":  (fetch_brussels_tickers,  ".BR"),
         "amsterdam": (fetch_amsterdam_tickers, ".AS"),
@@ -107,7 +111,9 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
 
     def _exchange_df(stock_list):
         tickers = {s["ticker"] for s in stock_list}
-        return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)])
+        return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)],
+                                    max_debt_equity=_max_de, max_payout=_max_payout,
+                                    min_mos=_min_mos, buy_threshold=_buy_threshold)
 
     exchange_dfs = tuple(
         _exchange_df(stock_lists[key]) if key in stock_lists else empty
@@ -117,7 +123,9 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
     # Scored df for the extra portfolio tickers
     if _extra_stocks:
         _extra_tset = {s["ticker"] for s in _extra_stocks}
-        _extra_df   = run_screener_from_df(all_fund[all_fund["Ticker"].isin(_extra_tset)])
+        _extra_df   = run_screener_from_df(all_fund[all_fund["Ticker"].isin(_extra_tset)],
+                                           max_debt_equity=_max_de, max_payout=_max_payout,
+                                           min_mos=_min_mos, buy_threshold=_buy_threshold)
     else:
         _extra_df = empty
 

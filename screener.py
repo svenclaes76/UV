@@ -494,10 +494,12 @@ def _total_expected_return(price, fair_value, div_yield, dgr) -> float | None:
     return round(cap_gain + dy + dg, 1)
 
 
-def _dividend_sustainability_flag(row: pd.Series) -> str:
+def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> str:
     """
     Returns 'At Risk', 'OK', or '' (non-payer).
-    Checks: payout ratio, cash payout ratio, dividend coverage ratio.
+    Checks: payout ratio (user-configurable via Settings' "Max dividend
+    payout" slider — see settings.get_veto_thresholds()), cash payout
+    ratio, dividend coverage ratio.
     """
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     if not div_rate or div_rate <= 0:
@@ -507,7 +509,7 @@ def _dividend_sustainability_flag(row: pd.Series) -> str:
     cpr      = row.get("cashPayoutRatio")
     coverage = row.get("dividendCoverage")
 
-    if (payout   and payout   > 0.90) or \
+    if (payout   and payout   > max_payout) or \
        (cpr      and cpr      > 0.80) or \
        (coverage and coverage < 1.20):
         return "At Risk"
@@ -702,7 +704,9 @@ def _pct_rank(series: pd.Series, ascending=True) -> pd.Series:
     return ranked.fillna(50.0)
 
 
-def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
+def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
+                   max_payout: float = 0.90, min_mos: float = 0.0,
+                   buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
     # Ensure all expected columns exist (older cache may be missing new fields)
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
@@ -726,7 +730,7 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
             r.get("dividendYield"), r.get("earningsGrowth")
         ), axis=1
     )
-    df["Div Flag"] = df.apply(_dividend_sustainability_flag, axis=1)
+    df["Div Flag"] = df.apply(lambda r: _dividend_sustainability_flag(r, max_payout=max_payout), axis=1)
 
     # ── Stage 4: raw dimension scores (0–10) ─────────────────────────────────
     df["_risk_raw"]     = df.apply(_composite_risk_raw, axis=1)
@@ -734,12 +738,12 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
     df["_momentum_raw"] = df.apply(_momentum_raw,       axis=1)
     df["_dividend_raw"] = df.apply(_dividend_score_raw, axis=1)
 
-    # Hard veto: D/E > 500 (≈5×) OR FCF negative OR dividend flagged at risk
-    # with coverage < 1.0 (imminent cut risk)
+    # Hard veto: D/E > max_debt_equity (user-configurable, default 500 ≈5×) OR
+    # FCF negative OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
     de       = df["debtToEquity"].fillna(0)
     fcf      = df["freeCashflow"].fillna(0)
     coverage = df["dividendCoverage"].fillna(999)
-    df["_hard_veto"] = (de > 500) | (fcf < 0) | (
+    df["_hard_veto"] = (de > max_debt_equity) | (fcf < 0) | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 
@@ -772,11 +776,15 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
     df["Sub Dividend"] = dividend_rank.round(1)
 
     # ── Stage 6: decision ────────────────────────────────────────────────────
+    # A BUY requires both the composite score AND the margin of safety to
+    # clear their configured thresholds (Settings → Screening & veto rules) —
+    # a high score alone no longer overrides an unacceptably thin MoS.
     def _decision(row):
         if row["_hard_veto"]:
             return "Avoid"
-        s = row["Value Score"]
-        if s >= SCORE_STRONG_BUY:
+        s   = row["Value Score"]
+        mos = row["margin_of_safety"]
+        if s >= buy_threshold and (pd.isna(mos) or mos >= min_mos):
             return "Strong Buy"
         if s >= SCORE_AVOID:
             return "Monitor"
@@ -794,12 +802,18 @@ def compute_scores(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def run_screener_from_df(df: pd.DataFrame) -> pd.DataFrame:
+def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
+                         max_payout: float = 0.90, min_mos: float = 0.0,
+                         buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching)."""
-    return _score_and_clean(df.copy())
+    return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
+                            max_payout=max_payout, min_mos=min_mos,
+                            buy_threshold=buy_threshold)
 
 
-def _score_and_clean(df: pd.DataFrame) -> pd.DataFrame:
+def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
+                     max_payout: float = 0.90, min_mos: float = 0.0,
+                     buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -810,4 +824,5 @@ def _score_and_clean(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
     print("Computing valuation scores...")
-    return compute_scores(df)
+    return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
+                          min_mos=min_mos, buy_threshold=buy_threshold)

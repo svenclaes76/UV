@@ -7,7 +7,7 @@ import streamlit as st
 
 from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
-from settings import load_shared_settings, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_bar_compact
 from uvalu.drawer import open_drawer
@@ -24,7 +24,8 @@ def render() -> None:
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
     df, df_ams, df_par, df_mil, df_etr, df_swx, extra_df = _load_all_screener_data(
-        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()))
+        _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
+        get_veto_thresholds())
     all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx, extra_df], ignore_index=True)
 
     # ── Add ticker form ─────────────────────────────────────────────────────

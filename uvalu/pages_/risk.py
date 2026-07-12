@@ -8,7 +8,7 @@ import streamlit as st
 import risk as _risk_module
 from portfolio import load_portfolio, load_sold
 from screener import _load_cache
-from settings import load_shared_settings, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.runtime import theme_colors
 from uvalu.drawer import open_drawer
@@ -77,7 +77,8 @@ def render() -> None:
         {**dict(zip(_risk_sold_tickers, _risk_sold_names)), **dict(zip(_risk_tickers, _risk_names))}[t]
         for t in _risk_extra_tickers
     )
-    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(_cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names)
+    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(
+        _cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
     _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
 
     # ── Enrich portfolio with live prices, fair values, sector, country ───────

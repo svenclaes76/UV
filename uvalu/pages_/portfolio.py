@@ -10,11 +10,11 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        sell_position, add_dividend, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
-from settings import load_shared_settings, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, load_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
                               safe_pct as _safe_pct, f_str as _f_str)
-from uvalu.runtime import theme_colors
+from uvalu.runtime import theme_colors, current_user
 from uvalu.drawer import open_drawer
 from uvalu.ui import (_static_bar, _donut_chart, _hm_color, _row_select_table,
                       _auto_rerun, _CHART_CONFIG)
@@ -62,7 +62,8 @@ def render() -> None:
         {**dict(zip(_sold_tickers, _sold_names)), **dict(zip(_pf_tickers, _pf_names))}[t]
         for t in _extra_tickers
     )
-    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(_cache_version(), _pf_enabled, _extra_tickers, _extra_names)
+    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(
+        _cache_version(), _pf_enabled, _extra_tickers, _extra_names, get_veto_thresholds())
     _all_scr_df = pd.concat(_pf_exch_dfs + [_pf_extra_df], ignore_index=True)
     _pf_dlg_pending: list = []  # at most one dialog call per render
     _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
@@ -105,7 +106,8 @@ def render() -> None:
             })
             st.rerun()
 
-    _auto_rerun(60, "portfolio_refresh")
+    _refresh_interval = load_settings(current_user().email).get("refresh_interval_s", 60)
+    _auto_rerun(_refresh_interval, "portfolio_refresh")
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────

@@ -74,6 +74,13 @@ GLOBAL_CSS = """
     border-radius: 10px !important;
   }
 
+  /* ── Table density (Settings → Display → Table density) ──────────────────
+     Only affects card-based row lists built from raw HTML/st.container (e.g.
+     Dashboard's holdings rows) — native st.dataframe tables render to a
+     canvas (glide-data-grid) whose row height is set in Python per call and
+     can't be restyled from CSS, so this intentionally doesn't touch them. */
+  [data-density="compact"] [class*="st-key-db_hold_"] { padding: 4px 8px !important; }
+
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
   .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
   [data-testid="stColumn"]:has(.st-key-risk_income_toggle) { padding-right: 0 !important; }
