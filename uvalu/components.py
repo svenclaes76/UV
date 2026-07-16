@@ -284,14 +284,23 @@ def score_color(value: float) -> tuple[str, str]:
 
 
 def radial_gauge_svg(score: float, color: str, size: int = 96, stroke: int = 10,
-                     track_color: str = "#EEF1F5") -> str:
-    """A ring gauge (0-100) as raw <svg> markup — overlay center text separately."""
+                     track_color: str = "var(--line)") -> str:
+    """A ring gauge (0-100) as raw <svg> markup — overlay center text separately.
+
+    track_color defaults to the theme-aware `var(--line)` token, set via the
+    `style=""` attribute rather than a bare `stroke=""` attribute — SVG
+    presentation attributes don't reliably resolve CSS custom properties the
+    way `style=""` strings do, so a bare `stroke="var(--line)"` silently fails
+    and pins the track to whatever the browser's fallback is, never inverting
+    between light/dark theme. The ring's own progress color is still passed
+    as a literal hex (computed per-score, not a static token) via `stroke=`.
+    """
     r = 42.0
     circumference = 2 * 3.141592653589793 * r
     score = max(0.0, min(100.0, score))
     offset = circumference * (1 - score / 100)
     return f"""<svg viewBox="0 0 100 100" style="width:{size}px;height:{size}px;transform:rotate(-90deg)">
-  <circle cx="50" cy="50" r="{r}" fill="none" stroke="{track_color}" stroke-width="{stroke}"/>
+  <circle cx="50" cy="50" r="{r}" fill="none" style="stroke:{track_color}" stroke-width="{stroke}"/>
   <circle cx="50" cy="50" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
           stroke-linecap="round" stroke-dasharray="{circumference:.2f}" stroke-dashoffset="{offset:.2f}"/>
 </svg>"""

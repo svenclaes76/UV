@@ -47,6 +47,20 @@ _FACTOR_ACTIONS = {
     "WML":    "Reduce momentum concentration; add mean-reversion candidates",
 }
 
+_TICKER_SUFFIX_EXCHANGE = {
+    ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
+    ".MI": "Milan", ".DE": "Frankfurt", ".SW": "Swiss",
+}
+
+_FACTOR_NOTES = {
+    "Mkt-RF": "Market sensitivity",
+    "SMB":    "Small vs large cap tilt",
+    "HML":    "Value vs growth tilt",
+    "RMW":    "Profitability tilt",
+    "CMA":    "Investment conservatism tilt",
+    "WML":    "Momentum tilt",
+}
+
 
 def _factor_flag_action(msg: str) -> str | None:
     """Map a factor-exposure flag message to a concrete rebalancing action."""
@@ -135,25 +149,41 @@ def render() -> None:
 
     _gauge_col, _metrics_col = st.columns([1, 2], vertical_alignment="center")
     with _gauge_col:
-        _ring_color, _ = score_color(r.composite.score)
+        _ring_color, _label_color = score_color(r.composite.score)
         st.markdown(f"""
-<div style="position:relative;width:120px;height:120px;">
-  {radial_gauge_svg(r.composite.score, _ring_color, size=120)}
+<div style="position:relative;width:132px;height:132px;">
+  {radial_gauge_svg(r.composite.score, _ring_color, size=132)}
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-    <span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;">{r.composite.score:.0f}</span>
-    <span style="font-size:9px;color:var(--faint);">/ 100</span>
+    <span style="font-family:var(--uv-mono);font-size:34px;font-weight:500;">{r.composite.score:.0f}</span>
+    <span style="font-size:9.5px;color:var(--faint);">/ 100</span>
   </div>
-</div>""", unsafe_allow_html=True)
-        st.caption(f"**{r.composite.label}** — {r.composite.action}")
+</div>
+<div style="font-size:16px;font-weight:500;margin-top:8px;color:{_label_color};">{r.composite.label}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5;">
+  Blended score across six risk factors, weighted by exposure and hard-veto flags. {r.composite.action}</div>
+""", unsafe_allow_html=True)
     with _metrics_col:
-        _m1, _m2, _m3 = st.columns(3)
-        _m1.metric("Beta", f"{r.quant.portfolio_beta:.2f}")
-        _m2.metric("Volatility", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A")
-        _m3.metric("VaR 95% (1d)", f"€{r.quant.var_95_1d_eur:,.0f}" if r.quant.var_95_1d_eur else "N/A")
-        _m4, _m5, _m6 = st.columns(3)
-        _m4.metric("Sharpe", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A")
-        _m5.metric("Max drawdown (1y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A")
-        _m6.metric("Positions", r.n_positions)
+        with st.container(border=True):
+            _m1, _m2, _m3 = st.columns(3)
+            with _m1:
+                st.metric("Beta", f"{r.quant.portfolio_beta:.2f}")
+                st.caption(r.quant.beta_label)
+            with _m2:
+                st.metric("Volatility", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A")
+                st.caption(r.quant.volatility_label)
+            with _m3:
+                st.metric("VaR 95% (1d)", f"€{r.quant.var_95_1d_eur:,.0f}" if r.quant.var_95_1d_eur else "N/A")
+                st.caption("Max expected 1-day loss")
+            _m4, _m5, _m6 = st.columns(3)
+            with _m4:
+                st.metric("Sharpe", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A")
+                st.caption(r.quant.ratio_label)
+            with _m5:
+                st.metric("Max drawdown (1y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A")
+                st.caption(r.quant.mdd_label)
+            with _m6:
+                st.metric("Positions", r.n_positions)
+                st.caption("Held in portfolio")
 
     _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
     _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
@@ -177,8 +207,9 @@ def render() -> None:
                 st.markdown(
                     f'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
                     f'<span>{_fname}</span><span style="font-family:var(--uv-mono);color:{_fcolor};">{_fval:+.2f}</span></div>'
-                    f'<div style="height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);margin-bottom:8px;">'
-                    f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:5px;border-radius:3px;background:{_fcolor};"></div></div>',
+                    f'<div style="height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);margin-bottom:3px;">'
+                    f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:5px;border-radius:3px;background:{_fcolor};"></div></div>'
+                    f'<div style="font-size:11px;color:var(--faint);margin-bottom:8px;">{_FACTOR_NOTES.get(_fname, "")}</div>',
                     unsafe_allow_html=True,
                 )
             st.caption("Fama-French 5-factor + momentum loadings. |loading| > 1.5 = concentrated factor bet.")
@@ -231,8 +262,9 @@ def render() -> None:
     st.markdown("##### Risk contribution by holding")
     _contrib_rows = []
     for p in r.position_profiles:
+        _exch = next((v for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
         _contrib_rows.append({
-            "Company": p.name, "Ticker": p.ticker, "Weight": p.weight, "Beta": p.beta,
+            "Company": p.name, "Ticker": p.ticker, "Exchange": _exch, "Weight": p.weight, "Beta": p.beta,
             "VaR 95% 1d": p.var_95_1d_eur or None,
             "Contribution": round(p.weight * abs(p.beta or 0) * 100, 1),
             "Flag": p.rating,
@@ -242,6 +274,7 @@ def render() -> None:
         _contrib_df, key="risk_contribution_table", hide_index=True, width="stretch",
         height=35 + min(len(_contrib_df), 12) * 35,
         column_config={
+            "Exchange":     st.column_config.TextColumn("Exchange", help="Exchange the ticker trades on"),
             "Weight":       st.column_config.NumberColumn("Weight", format="percent"),
             "Beta":         st.column_config.NumberColumn("Beta", format="%.2f"),
             "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro"),

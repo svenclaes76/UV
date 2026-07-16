@@ -154,6 +154,24 @@ def render() -> None:
 
     # ── Overview — summary strip + preview of each sub-view ──────────────────
     if _section == "overview":
+        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+            with st.container(width="content"):
+                st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio</div>',
+                           unsafe_allow_html=True)
+                st.caption("Cost basis, market value and realised results across open and closed positions.")
+            with st.container(horizontal=True, gap="small", width="content"):
+                _ov_csv = pd.DataFrame({
+                    "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
+                    "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
+                    "Invested": pf["purchase_value"], "Current value": pf["current_value"],
+                    "Price gain": pf["price_gain"], "Total return": pf["total_return"],
+                }).to_csv(index=False)
+                st.download_button("Export CSV", data=_ov_csv, file_name="uvalu_portfolio.csv",
+                                   mime="text/csv", key="ov_export")
+                if st.button("Buy", key="ov_buy", type="primary", disabled=_is_viewer,
+                            help="Viewer role is read-only" if _is_viewer else None):
+                    add_position_dialog()
+
         _o1, _o2, _o3, _o4, _o5 = st.columns(5)
         _o1.metric("Invested",      f"€{total_invested:,.0f}")
         _o2.metric("Current value", f"€{total_current:,.0f}", delta=f"{price_gain_pct:+.1f}% (€{price_gain:+,.0f})")
@@ -167,33 +185,50 @@ def render() -> None:
             if st.button("View all →", key="ov_open_expand"):
                 _goto("open")
         _ov_open = pf.sort_values("current_value", ascending=False).head(5)
+        _ov_open_weight = (_ov_open["current_value"] / total_current * 100) if total_current else 0
         st.dataframe(pd.DataFrame({
-            "Company": _ov_open["name"], "Shares": _ov_open["shares"],
-            "Price": _ov_open["live_price"], "Value": _ov_open["current_value"],
-            "Gain": _ov_open["price_gain"],
+            "Company":    _ov_open["name"], "Shares": _ov_open["shares"],
+            "Avg cost":   _ov_open["purchase_price"],
+            "Price":      _ov_open["live_price"],
+            "Cost basis": _ov_open["purchase_value"],
+            "Value":      _ov_open["current_value"],
+            "Gain":       _ov_open["price_gain"],
+            "Weight":     _ov_open_weight,
         }), hide_index=True, width="stretch",
             column_config={
-                "Price": st.column_config.NumberColumn("Price", format="euro"),
-                "Value": st.column_config.NumberColumn("Value", format="euro"),
-                "Gain":  st.column_config.NumberColumn("Gain",  format="€%+.0f"),
+                "Avg cost":   st.column_config.NumberColumn("Avg cost",   format="euro"),
+                "Price":      st.column_config.NumberColumn("Price",      format="euro"),
+                "Cost basis": st.column_config.NumberColumn("Cost basis", format="euro"),
+                "Value":      st.column_config.NumberColumn("Value",      format="euro"),
+                "Gain":       st.column_config.NumberColumn("Gain",       format="€%+.0f"),
+                "Weight":     st.column_config.NumberColumn("Weight",     format="%.1f%%"),
             }, height=(len(_ov_open) + 1) * 35 + 10)
 
         st.container(height=10, border=False)
         _oc1, _oc2 = st.columns(2, gap="large")
         with _oc1:
             with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-                st.subheader("Closed positions")
+                st.markdown('<div style="font-size:1.1rem;font-weight:500;">Closed positions '
+                           '<span style="color:var(--faint);font-weight:400;">· realised</span></div>',
+                           unsafe_allow_html=True)
                 if st.button("View all →", key="ov_closed_expand"):
                     _goto("closed")
             _ov_sold = load_sold()
             if _ov_sold is not None and not _ov_sold.empty:
                 _ov_sold = _ov_sold.copy()
                 _ov_sold["_gain"] = pd.to_numeric(_ov_sold["sale_value"], errors="coerce") - pd.to_numeric(_ov_sold["purchase_value"], errors="coerce")
+                _ov_sold["_buy"]  = pd.to_numeric(_ov_sold["purchase_value"], errors="coerce") / pd.to_numeric(_ov_sold["shares"], errors="coerce")
+                _ov_sold["_sell"] = pd.to_numeric(_ov_sold["sale_value"], errors="coerce") / pd.to_numeric(_ov_sold["shares"], errors="coerce")
                 _ov_sold = _ov_sold.sort_values("date_out", ascending=False).head(5)
                 st.dataframe(pd.DataFrame({
-                    "Company": _ov_sold["name"], "Shares": _ov_sold["shares"], "Gain": _ov_sold["_gain"],
+                    "Company": _ov_sold["name"], "Shares": _ov_sold["shares"],
+                    "Buy": _ov_sold["_buy"], "Sell": _ov_sold["_sell"], "Gain": _ov_sold["_gain"],
                 }), hide_index=True, width="stretch",
-                    column_config={"Gain": st.column_config.NumberColumn("Gain", format="€%+.0f")},
+                    column_config={
+                        "Buy":  st.column_config.NumberColumn("Buy",  format="euro"),
+                        "Sell": st.column_config.NumberColumn("Sell", format="euro"),
+                        "Gain": st.column_config.NumberColumn("Gain", format="€%+.0f"),
+                    },
                     height=(len(_ov_sold) + 1) * 35 + 10)
             else:
                 st.caption("No closed positions yet.")
@@ -207,20 +242,26 @@ def render() -> None:
                 _ov_div = _ov_div.copy()
                 _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
                 _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
-                st.dataframe(pd.DataFrame({
-                    "Company": _ov_div["name"],
-                    "Amount":  pd.to_numeric(_ov_div["amount"], errors="coerce"),
-                    "Date":    _ov_div["date"].dt.strftime("%d-%m-%Y"),
-                }), hide_index=True, width="stretch",
-                    column_config={"Amount": st.column_config.NumberColumn("Amount", format="euro")},
-                    height=(len(_ov_div) + 1) * 35 + 10)
+                for _, _dr in _ov_div.iterrows():
+                    _amount = pd.to_numeric(_dr.get("amount"), errors="coerce")
+                    st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
+  <div>
+    <div style="font-size:12.5px;">{_dr.get('name', '—')}</div>
+    <div style="font-size:11px;color:var(--faint);">{_dr.get('ticker', '')} · {_dr['date'].strftime('%d-%m-%Y') if pd.notna(_dr['date']) else '—'}</div>
+  </div>
+  <span style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">
+    {f'€{_amount:,.2f}' if pd.notna(_amount) else '—'}</span>
+</div>""", unsafe_allow_html=True)
             else:
                 st.caption("No dividends received yet.")
 
     # ── Full page: Open positions ──────────────────────────────────────────────
     if _section == "open":
-        if st.button("← Back to overview", key="back_open"):
+        if st.button("← Back to Positions", key="back_open"):
             _goto("overview")
+        st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Open positions</div>',
+                   unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Invested",      f"€{total_invested:,.0f}")
         c2.metric("Current value", f"€{total_current:,.0f}",  delta=f"{price_gain_pct:+.1f}% (€{price_gain:+,.0f})")
@@ -395,6 +436,7 @@ def render() -> None:
             "Dividend":       pf["dividends"].fillna(0),
             "Price Gain %":   pf["price_gain_pct"],
             "Total Return %": pf["total_return_pct"],
+            "Weight":         (pf["current_value"] / total_current * 100) if total_current else 0,
         }
         for grp in _pos_groups:
             pos_data.update(_POS_EXTRA_GROUPS[grp])
@@ -429,6 +471,8 @@ def render() -> None:
                                   help="Price appreciation since purchase: (current value − invested) / invested"),
             "Total Return %": st.column_config.NumberColumn("Total Return %", format="%.2f%%",
                                   help="Total return including dividends: (price gain + dividends) / invested"),
+            "Weight":         st.column_config.NumberColumn("Weight",          format="%.1f%%",
+                                  help="Share of total portfolio current value held in this position"),
             "Fair Value Upside %": st.column_config.NumberColumn("Fair Value Upside %", format="%+.1f%%",
                                   help="Upside to the fair value estimate: (fair value − live price) / live price"),
             "Analyst Target": st.column_config.NumberColumn("Analyst Target", format="euro",
@@ -653,8 +697,10 @@ def render() -> None:
 
     # ── Full page: Dividends ───────────────────────────────────────────────────
     if _section == "dividends":
-        if st.button("← Back to overview", key="back_div"):
+        if st.button("← Back to Positions", key="back_div"):
             _goto("overview")
+        st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Dividends received</div>',
+                   unsafe_allow_html=True)
         div_hist = load_div_hist()
         if div_hist is not None and not div_hist.empty:
             div_hist["amount"] = pd.to_numeric(div_hist["amount"], errors="coerce")
@@ -824,11 +870,14 @@ def render() -> None:
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":
         with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-            if st.button("← Back to overview", key="back_closed"):
+            if st.button("← Back to Positions", key="back_closed"):
                 _goto("overview")
             if st.button("Add trade", key="btn_add_closed", disabled=_is_viewer,
                         help="Viewer role is read-only" if _is_viewer else None):
                 add_closed_trade_dialog()
+        st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Closed positions '
+                   '<span style="color:var(--faint);font-weight:400;">· realised</span></div>',
+                   unsafe_allow_html=True)
         sold = load_sold()
         if sold is None or sold.empty:
             st.info("No sold positions found in your portfolio file.")
@@ -937,10 +986,13 @@ def render() -> None:
             _sold_date_out = pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
             sold = sold.assign(_sort_date=_sold_date_out).sort_values("_sort_date", ascending=False)
 
+            _sold_shares_num = pd.to_numeric(sold["shares"], errors="coerce")
             sold_table = pd.DataFrame({
                 "Company":         sold["name"],
                 "Ticker":          sold["ticker"],
-                "Shares":          pd.to_numeric(sold["shares"], errors="coerce"),
+                "Shares":          _sold_shares_num,
+                "Buy":             pd.to_numeric(sold["purchase_value"], errors="coerce") / _sold_shares_num,
+                "Sell":            pd.to_numeric(sold["sale_value"], errors="coerce") / _sold_shares_num,
                 "Invested":        pd.to_numeric(sold["purchase_value"], errors="coerce"),
                 "Proceeds":        pd.to_numeric(sold["sale_value"], errors="coerce"),
                 "Price Gain":      sold["price_gain"],
@@ -963,6 +1015,10 @@ def render() -> None:
                                            help="Exchange ticker symbol"),
                     "Shares":          st.column_config.NumberColumn("Shares",     format="%d",
                                            help="Number of shares sold"),
+                    "Buy":             st.column_config.NumberColumn("Buy",  format="euro",
+                                           help="Average buy price per share"),
+                    "Sell":            st.column_config.NumberColumn("Sell", format="euro",
+                                           help="Average sell price per share"),
                     "Invested":        st.column_config.NumberColumn("Invested",   format="euro",
                                            help="Total amount originally invested (purchase price × shares)"),
                     "Proceeds":        st.column_config.NumberColumn("Proceeds",   format="euro",

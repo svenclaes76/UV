@@ -13,6 +13,7 @@ from portfolio import parse_excel, user_data_dir, save_portfolio, save_sold, sav
 from settings import load_shared_settings, save_shared_settings, load_settings, save_settings
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
+from uvalu.shell import _initials
 
 
 def render() -> None:
@@ -23,48 +24,44 @@ def render() -> None:
 
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Settings</div>',
                unsafe_allow_html=True)
-    st.caption("Display preferences, screening thresholds and alerts. Changes apply immediately.")
+    st.caption("Display preferences apply immediately. Screening thresholds and alerts need Save.")
 
     # ── Display ────────────────────────────────────────────────────────────────
     with st.container(border=True):
         st.markdown("##### Display")
 
-        _d1, _d2 = st.columns(2)
-        with _d1:
-            st.markdown("**Theme**")
-            st.caption("Deep-navy dark or surface-white light.")
-            _light = theme_colors().effective_light
-            st.segmented_control("Theme", options=["Light", "Dark"],
-                                 default="Light" if _light else "Dark",
-                                 disabled=True, label_visibility="collapsed", key="disp_theme_ro")
-            st.caption("Follows Streamlit's own theme — change it via the app menu "
-                      "(top-right **⋮ → Settings → Theme**).")
-        with _d2:
-            st.markdown("**Table density**")
-            st.caption("Row height for card-based lists (e.g. Dashboard holdings).")
-            _density_sel = st.segmented_control(
-                "Density", options=["Comfortable", "Compact"],
-                default=_s.get("density", "comfortable").capitalize(),
-                label_visibility="collapsed", key="disp_density")
-            if _density_sel and _density_sel.lower() != _s.get("density", "comfortable"):
-                _s["density"] = _density_sel.lower()
-                save_settings(_s, _email)
-                st.rerun()
-            st.caption("Native data tables use a fixed row height and aren't affected.")
+        st.markdown("**Theme**")
+        st.caption("Deep-navy dark or surface-white light.")
+        _light = theme_colors().effective_light
+        st.segmented_control("Theme", options=["Light", "Dark"],
+                             default="Light" if _light else "Dark",
+                             disabled=True, label_visibility="collapsed", key="disp_theme_ro")
+        st.caption("Follows Streamlit's own theme — change it via the app menu "
+                  "(top-right **⋮ → Settings → Theme**).")
 
-        _d3, _d4 = st.columns(2)
-        with _d3:
-            st.markdown("**Display currency**")
-            st.caption("Reporting currency for values and P&L.")
-            st.segmented_control("Currency", options=["EUR"], default="EUR", disabled=True,
-                                 label_visibility="collapsed", key="disp_currency_ro")
-            st.caption("EUR only for now.")
-        with _d4:
-            st.markdown("**Number format**")
-            st.caption("Decimal and thousands separators.")
-            st.segmented_control("Format", options=["1,234.56"], default="1,234.56", disabled=True,
-                                 label_visibility="collapsed", key="disp_numfmt_ro")
-            st.caption("Not yet configurable.")
+        st.markdown("**Display currency**")
+        st.caption("Reporting currency for values and P&L.")
+        st.segmented_control("Currency", options=["EUR"], default="EUR", disabled=True,
+                             label_visibility="collapsed", key="disp_currency_ro")
+        st.caption("EUR only for now.")
+
+        st.markdown("**Number format**")
+        st.caption("Decimal and thousands separators.")
+        st.segmented_control("Format", options=["1,234.56"], default="1,234.56", disabled=True,
+                             label_visibility="collapsed", key="disp_numfmt_ro")
+        st.caption("Not yet configurable.")
+
+        st.markdown("**Table density**")
+        st.caption("Row height for card-based lists (e.g. Dashboard holdings).")
+        _density_sel = st.segmented_control(
+            "Density", options=["Compact", "Comfortable"],
+            default=_s.get("density", "comfortable").capitalize(),
+            label_visibility="collapsed", key="disp_density")
+        if _density_sel and _density_sel.lower() != _s.get("density", "comfortable"):
+            _s["density"] = _density_sel.lower()
+            save_settings(_s, _email)
+            st.rerun()
+        st.caption("Native data tables use a fixed row height and aren't affected.")
 
     # ── Screening & veto rules ───────────────────────────────────────────────────
     with st.container(border=True):
@@ -197,3 +194,17 @@ def render() -> None:
                 st.info("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export.")
             except Exception as e:
                 st.error(f"Could not create Excel: {e}")
+
+    # ── Account ──────────────────────────────────────────────────────────────
+    with st.container(border=True):
+        _acc1, _acc2 = st.columns([0.15, 1], vertical_alignment="center")
+        with _acc1:
+            st.markdown(f'<div style="width:34px;height:34px;border-radius:8px;background:var(--navy);'
+                       f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
+                       f'font-size:12px;font-weight:600;color:var(--mint);">{_initials(_email)}</div>',
+                       unsafe_allow_html=True)
+        with _acc2:
+            st.markdown(f"**{_email}**")
+            st.caption(_u.role.capitalize())
+        st.markdown('<a href="/?logout=1" target="_self" style="color:var(--down-txt);font-size:12.5px;">'
+                   'Sign out</a>', unsafe_allow_html=True)
