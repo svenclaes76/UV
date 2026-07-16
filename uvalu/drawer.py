@@ -24,6 +24,7 @@ _DRAWER_CSS = """
   height: 100vh !important; max-height: 100vh !important;
   width: 420px !important; max-width: 92vw !important;
   border-radius: 0 !important; margin: 0 !important;
+  overflow-y: auto !important;
   animation: uvDrawerIn 0.18s ease;
 }
 @keyframes uvDrawerIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
