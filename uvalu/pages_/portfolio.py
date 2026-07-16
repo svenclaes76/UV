@@ -6,12 +6,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
-                       save_sold, add_position, update_positions,
-                       sell_position, add_dividend, update_div_hist,
+                       save_sold, update_positions, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
 from settings import load_shared_settings, get_veto_thresholds, load_settings, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
+from uvalu.dialogs import (add_position_dialog, sell_position_dialog,
+                           add_dividend_dialog, add_closed_trade_dialog)
 from uvalu.formatting import (COLUMN_HELP, fmt_div_flag as _fmt_div_flag,
                               safe_pct as _safe_pct, f_str as _f_str)
 from uvalu.runtime import theme_colors, current_user
@@ -66,46 +67,6 @@ def render() -> None:
         _cache_version(), _pf_enabled, _extra_tickers, _extra_names, get_veto_thresholds())
     _all_scr_df = pd.concat(_pf_exch_dfs + [_pf_extra_df], ignore_index=True)
     _pf_dlg_pending: list = []  # at most one dialog call per render
-    _all_screener = _all_scr_df[["Ticker", "Name"]].sort_values("Name", key=lambda s: s.str.lower())
-    _ticker_options = _all_screener["Ticker"].tolist()
-    _ticker_labels  = {
-        row["Ticker"]: f"{row['Name']}  ({row['Ticker']})"
-        for _, row in _all_screener.iterrows()
-    }
-    _port_price_map = _all_scr_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict()
-
-    @st.dialog("Add position", width="large")
-    def _dlg_add_position():
-        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
-        with _c1:
-            ticker = st.selectbox("Company", options=_ticker_options, format_func=lambda t: _ticker_labels.get(t, t))
-        with _c2:
-            shares = st.number_input("Shares", min_value=1, step=1, value=1)
-        with _c3:
-            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
-        with _c4:
-            _price_raw  = _port_price_map.get(ticker)
-            _price      = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
-            total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
-                                          value=round(_price * shares, 2), format="%.2f")
-        _, _save_btn = st.columns([3, 1])
-        with _save_btn:
-            _do_save = st.button("Save", key="dlg_add_save", width="stretch")
-        if _do_save and shares > 0 and total_price > 0:
-            name = _ticker_labels.get(ticker, ticker).split("  (")[0]
-            add_position({
-                "name":           name,
-                "google_ticker":  "",
-                "ticker":         ticker,
-                "shares":         shares,
-                "purchase_price": round(total_price / shares, 4),
-                "purchase_value": round(total_price, 2),
-                "target_price":   None,
-                "dividends":      0.0,
-                "date_in":        pd.Timestamp(pur_date).isoformat(),
-                "account":        "",
-            })
-            st.rerun()
 
     _user = current_user()
     _is_viewer = _user.is_viewer
@@ -116,7 +77,7 @@ def render() -> None:
         # ── Empty portfolio — show Add button only ────────────────────────────
         if st.button("Buy", key="btn_add_pos_empty", disabled=_is_viewer,
                     help="Viewer role is read-only" if _is_viewer else None):
-            _dlg_add_position()
+            add_position_dialog()
         st.info("Your portfolio is empty. Click Buy to add your first position.")
         st.stop()
 
@@ -401,46 +362,6 @@ def render() -> None:
             if st.button("Apply", type="primary", width="stretch", key="btn_col_apply"):
                 st.rerun()
 
-        @st.dialog("Sell position", width="large")
-        def _dlg_sell_position():
-            _sell_sorted     = pf.sort_values("name", key=lambda s: s.str.lower())
-            _sell_ticker_options = _sell_sorted["ticker"].tolist()
-            _sell_ticker_labels  = {
-                row["ticker"]: f"{row['name']}  ({row['ticker']})"
-                for _, row in _sell_sorted.iterrows()
-            }
-            _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
-            with _c1:
-                ticker = st.selectbox("Company", options=_sell_ticker_options,
-                                      format_func=lambda t: _sell_ticker_labels.get(t, t),
-                                      key="dlg_sell_ticker")
-            _match = pf[pf["ticker"] == ticker]
-            with _c2:
-                _shares_def = str(int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0)) if not _match.empty else "0"
-                _shares_raw = st.text_input("Shares", value=_shares_def, key="dlg_sell_shares")
-            with _c3:
-                sell_date = st.date_input("Sell Date", format="DD/MM/YYYY", key="dlg_sell_date")
-            with _c4:
-                _current_val = pd.to_numeric(_match.iloc[0].get("current_value"), errors="coerce") if not _match.empty else 0.0
-                _proceeds_def = f"{_current_val:.2f}" if pd.notna(_current_val) and _current_val else "0.00"
-                _proceeds_raw = st.text_input("Proceeds (€)", value=_proceeds_def, key="dlg_sell_proceeds")
-            _, _save_col = st.columns([3, 1])
-            with _save_col:
-                _do_save = st.button("Save", key="dlg_sell_save", width="stretch")
-            try:
-                _shares   = max(1, int(_shares_raw.strip()))
-                _proceeds = float(_proceeds_raw.strip().replace(",", "."))
-            except ValueError:
-                _shares, _proceeds = 1, 0.0
-            if _do_save and _shares > 0 and _proceeds > 0:
-                sell_position(
-                    ticker=ticker,
-                    shares=_shares,
-                    proceeds=_proceeds,
-                    sell_date=pd.Timestamp(sell_date).isoformat(),
-                )
-                st.rerun()
-
         with st.container(horizontal=True, gap="small"):
             _active_groups = st.session_state.get("pos_col_groups", [])
             _col_label = f"View ({len(_active_groups)})" if _active_groups else "View"
@@ -448,11 +369,11 @@ def render() -> None:
                 _dlg_columns()
             _vhelp = "Viewer role is read-only" if _is_viewer else None
             if st.button("Buy", key="btn_add_pos", disabled=_is_viewer, help=_vhelp):
-                _dlg_add_position()
+                add_position_dialog()
             if st.button("Edit", key="btn_edit_pos", disabled=_is_viewer, help=_vhelp):
                 _dlg_edit_position()
             if st.button("Sell", key="btn_sell_pos", disabled=_is_viewer, help=_vhelp):
-                _dlg_sell_position()
+                sell_position_dialog(pf)
 
         _pos_groups = st.session_state.get("pos_col_groups", [])
 
@@ -749,52 +670,6 @@ def render() -> None:
         d4.metric("Portfolio yield",  f"{total_expected / total_current * 100:.2f}%" if total_current else "—")
         st.divider()
 
-        # ── Dividend CRUD dialogs ─────────────────────────────────────────────
-        _div_ticker_options = pf["ticker"].tolist()
-        _div_ticker_labels  = {
-            row["ticker"]: f"{row['name']}  ({row['ticker']})"
-            for _, row in pf.iterrows()
-        }
-
-        @st.dialog("Add dividend", width="large")
-        def _dlg_add_dividend():
-            _c1, _c2, _c3, _c4 = st.columns([3, 1, 1, 2])
-            with _c1:
-                ticker = st.selectbox("Stock", options=_div_ticker_options,
-                                      format_func=lambda t: _div_ticker_labels.get(t, t),
-                                      key="dlg_add_div_ticker")
-            with _c2:
-                _shares_def = ""
-                _match = pf[pf["ticker"] == ticker]
-                if not _match.empty:
-                    _shares_def = str(int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0))
-                _shares_raw = st.text_input("Shares", value=_shares_def, key="dlg_add_div_shares")
-            with _c3:
-                _dps_raw = st.text_input("Div/Share (€)", value="0.0000", key="dlg_add_div_dps")
-            with _c4:
-                div_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_add_div_date")
-            _, _save_col = st.columns([3, 1])
-            with _save_col:
-                _do_save = st.button("Save", key="dlg_add_div_save", width="stretch")
-            try:
-                _shares = max(1, int(_shares_raw.strip()))
-                _dps    = float(_dps_raw.strip().replace(",", "."))
-            except ValueError:
-                _shares, _dps = 1, 0.0
-            if _do_save and _shares > 0 and _dps > 0:
-                _row_match = pf[pf["ticker"] == ticker]
-                _name         = _row_match.iloc[0]["name"] if not _row_match.empty else ticker
-                _google_ticker = _row_match.iloc[0].get("google_ticker", "") if not _row_match.empty else ""
-                add_dividend({
-                    "name":          _name,
-                    "google_ticker": _google_ticker,
-                    "ticker":        ticker,
-                    "shares":        _shares,
-                    "amount":        round(_dps * _shares, 2),
-                    "date":          pd.Timestamp(div_date).isoformat(),
-                })
-                st.rerun()
-
         @st.dialog("Edit dividends", width="large")
         def _dlg_edit_dividends():
             _dh = load_div_hist()
@@ -876,7 +751,7 @@ def render() -> None:
             with st.container(horizontal=True, gap="small", width="content"):
                 _vhelp = "Viewer role is read-only" if _is_viewer else None
                 if st.button("Add", key="btn_add_div", disabled=_is_viewer, help=_vhelp):
-                    _dlg_add_dividend()
+                    add_dividend_dialog(pf)
                 if st.button("Edit", key="btn_edit_div", disabled=_is_viewer, help=_vhelp):
                     _dlg_edit_dividends()
             selected_year = st.selectbox("Year", _div_year_options, index=_div_year_default,
@@ -948,8 +823,12 @@ def render() -> None:
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":
-        if st.button("← Back to overview", key="back_closed"):
-            _goto("overview")
+        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+            if st.button("← Back to overview", key="back_closed"):
+                _goto("overview")
+            if st.button("Add trade", key="btn_add_closed", disabled=_is_viewer,
+                        help="Viewer role is read-only" if _is_viewer else None):
+                add_closed_trade_dialog()
         sold = load_sold()
         if sold is None or sold.empty:
             st.info("No sold positions found in your portfolio file.")
@@ -964,16 +843,24 @@ def render() -> None:
 
             def _annual_return(row):
                 if pd.isna(row["held_days"]) or row["held_days"] <= 0 or pv[row.name] <= 0:
-                    return None
+                    return float("nan")
                 total_value = sv[row.name] + row["dividends"]
                 return ((total_value / pv[row.name]) ** (365 / row["held_days"]) - 1) * 100
 
-            # Use pre-computed annual_return_pct if present, otherwise compute on the fly
+            # Use pre-computed annual_return_pct if present, otherwise compute on the fly.
+            # Both sides are coerced to numeric first — Series.apply keeps a raw Python
+            # None (rather than NaN) when the callback returns one for some rows, which
+            # silently upcasts the column to object dtype; Series.round() then fails
+            # elementwise on any leftover None with "type NoneType doesn't define
+            # __round__" instead of just leaving it blank. Same-day trades (no held-days,
+            # e.g. dialogs.add_closed_trade_dialog's direct-entry flow) hit this every time.
             if "annual_return_pct" in sold.columns:
-                _computed = sold.apply(_annual_return, axis=1)
-                sold["annual_return_pct"] = sold["annual_return_pct"].combine_first(_computed).round(2)
+                _existing = pd.to_numeric(sold["annual_return_pct"], errors="coerce")
+                _computed = pd.to_numeric(sold.apply(_annual_return, axis=1), errors="coerce")
+                sold["annual_return_pct"] = _existing.combine_first(_computed).round(2)
             else:
-                sold["annual_return_pct"] = sold.apply(_annual_return, axis=1).round(2)
+                sold["annual_return_pct"] = pd.to_numeric(
+                    sold.apply(_annual_return, axis=1), errors="coerce").round(2)
 
             # Summary cards
             _pv_sum = pv.sum()

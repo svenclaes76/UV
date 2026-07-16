@@ -11,10 +11,10 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import (save_watchlist, load_watchlist, load_manual_tickers,
-                       save_manual_tickers, load_portfolio, add_position,
-                       sell_position)
+                       save_manual_tickers, load_portfolio)
 from uvalu import nav as nav_registry
 from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_ladder
+from uvalu.dialogs import add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
 
@@ -139,38 +139,10 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         with _act2:
             if st.button("Sell", key="drw_sell", width="stretch", disabled=_is_viewer,
                         help="Viewer role is read-only" if _is_viewer else None):
-                st.session_state["_drw_sell_open"] = True
-        if not _is_viewer and st.session_state.get("_drw_sell_open"):
-            with st.form("drw_sell_form", border=True):
-                st.caption(f"Currently holding {_held_row.get('shares', 0):.0f} shares")
-                _sh = st.number_input("Shares to sell", min_value=1,
-                                      max_value=int(_held_row.get("shares", 1) or 1),
-                                      value=int(_held_row.get("shares", 1) or 1))
-                _px = st.number_input("Sell price", min_value=0.0, step=0.01,
-                                      value=_safe_float(row.get("Price")), format="%.2f")
-                _dt = st.date_input("Sell date", format="DD/MM/YYYY")
-                if st.form_submit_button("Confirm sale", width="stretch"):
-                    sell_position(ticker, int(_sh), round(_sh * _px, 2), pd.Timestamp(_dt).isoformat())
-                    st.session_state["_drw_sell_open"] = False
-                    st.rerun()
+                sell_position_dialog(_pf, ticker, preset_price=_safe_float(row.get("Price")))
     else:
         with _act2:
             if st.button("Buy", key="drw_buy", width="stretch", disabled=_is_viewer,
                         help="Viewer role is read-only" if _is_viewer else None):
-                st.session_state["_drw_buy_open"] = True
-        if not _is_viewer and st.session_state.get("_drw_buy_open"):
-            with st.form("drw_buy_form", border=True):
-                _sh = st.number_input("Shares", min_value=1, step=1, value=1)
-                _price = _safe_float(row.get("Price"))
-                _cost = st.number_input("Total cost", min_value=0.0, step=0.01,
-                                        value=round(_price * _sh, 2), format="%.2f")
-                _dt = st.date_input("Buy date", format="DD/MM/YYYY")
-                if st.form_submit_button("Confirm buy", width="stretch"):
-                    add_position({
-                        "name": row.get("Name", ticker), "google_ticker": "", "ticker": ticker,
-                        "shares": _sh, "purchase_price": round(_cost / _sh, 4) if _sh else 0.0,
-                        "purchase_value": round(_cost, 2), "target_price": None,
-                        "dividends": 0.0, "date_in": pd.Timestamp(_dt).isoformat(), "account": "",
-                    })
-                    st.session_state["_drw_buy_open"] = False
-                    st.rerun()
+                add_position_dialog(preset_ticker=ticker, preset_name=str(row.get("Name", "")),
+                                    preset_price=_safe_float(row.get("Price")))

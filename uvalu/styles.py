@@ -162,17 +162,61 @@ GLOBAL_CSS = """
   }
   [data-testid="stMetricDelta"][data-direction="decrease"]::before { content: "↓ "; }
 
-  /* ── Login page ──────────────────────────────────────────────────────────── */
-  .login-wrap {
-    display: flex; flex-direction: column; align-items: center;
-    margin: 64px auto 32px;
+  /* ── Login page — full-bleed split panel, matching Uvalu.dc.html's LOGIN
+     section. Pinned via position:fixed so it always covers the viewport
+     regardless of the block-container's own padding/margins (no auth-ed
+     nav/sidebar exists yet at this point, so nothing else needs to show
+     through). ──────────────────────────────────────────────────────────── */
+  .st-key-uv_login {
+    position: fixed !important; inset: 0 !important; z-index: 9999 !important;
+    background: var(--panel) !important;
   }
-  .uv-wordmark {
-    font-size: 2.6rem; font-weight: 500; letter-spacing: -0.03em;
-    margin-bottom: 8px; line-height: 1;
+  /* Streamlit wraps each st.container(key=...) child of a horizontal container
+     in its own auto-generated flex-item div (a hashed, unstable class) that
+     sits BETWEEN the flex row and our keyed div — style that wrapper via
+     :has() so height/flex-basis actually reach it, not just our inner div. */
+  .st-key-uv_login > div { height: 100% !important; display: flex !important; }
+  .st-key-uv_login > div:has(> .st-key-uv_login_right) {
+    flex: 0 0 480px !important; max-width: 46vw !important;
   }
-  .uv-wordmark-accent { color: #1A8C6E; }
-  .login-sub { font-size: 0.82rem; opacity: 0.4; margin-bottom: 4px; }
+  .st-key-uv_login_left, .st-key-uv_login_right { height: 100% !important; width: 100% !important; }
+  .st-key-uv_login_left {
+    background: var(--navy) !important; color: #F5F7FA !important;
+    display: flex !important; flex-direction: column !important; justify-content: space-between !important;
+    padding: 48px 52px !important; position: relative !important; overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  .st-key-uv_login_right {
+    background: var(--panel) !important; border-left: 0.5px solid var(--line) !important;
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
+    padding: 48px 56px !important; overflow-y: auto !important; box-sizing: border-box !important;
+  }
+  .uv-login-heading { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+  .uv-login-subhead { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 8px; }
+  .uv-login-headline {
+    font-size: 30px; font-weight: 500; letter-spacing: -0.02em; color: #F5F7FA;
+    line-height: 1.25; max-width: 420px;
+  }
+  .uv-login-copy {
+    font-size: 14px; color: rgba(245,247,250,0.55); margin-top: 16px; line-height: 1.6; max-width: 400px;
+  }
+  .uv-login-stats { display: flex; gap: 28px; margin-top: 32px; }
+  .uv-login-stat-val { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--mint); }
+  .uv-login-stat-lbl { font-size: 11px; color: rgba(245,247,250,0.5); margin-top: 3px; }
+  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.35); position: relative; z-index: 2; }
+  .uv-login-ring {
+    position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
+  }
+  .st-key-uv_login_right div[data-testid="stTextInput"] label p {
+    font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--faint) !important; font-weight: 400 !important;
+  }
+  .st-key-uv_login_right div[data-testid="stTextInput"] > div {
+    background: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
+    border-radius: 9px !important;
+  }
+  .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
+  .uv-login-err { font-size: 12px; color: var(--down-txt); margin-top: 6px; }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
@@ -210,6 +254,15 @@ GLOBAL_CSS = """
   div[aria-label="Edit positions"] {
     max-width: 550px !important; width: 550px !important; min-width: 0 !important;
   }
+
+  /* ── Destructive/confirm action button (Sell "Confirm sale", Delete, ...) ──
+     Matches Uvalu.dc.html's red-filled confirm buttons on irreversible
+     actions — wrap the button in st.container(key="uv_danger_btn"). */
+  .st-key-uv_danger_btn button[kind="primary"] {
+    background: var(--down-txt) !important; border-color: var(--down-txt) !important;
+    color: var(--navy) !important;
+  }
+  .st-key-uv_danger_btn button[kind="primary"]:hover { opacity: 0.88; }
 
   /* ── Heading typography — brand spec ────────────────────────────────────── */
   [data-testid="stHeadingWithActionElements"] h1,

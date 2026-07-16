@@ -9,45 +9,55 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import signal_badge_for_decision
+from uvalu.components import stock_row
 from uvalu.drawer import open_drawer
-from uvalu.ui import _row_select_table
+
+_EXCHANGE_LABELS = {
+    "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
+    "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
+}
 
 
 def render() -> None:
-    st.subheader("Watchlist")
-    st.caption("Track tickers you don't hold yet. Add from a stock's details "
-               "with the ★ toggle, or type a symbol directly below.")
+    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Watchlist</div>',
+               unsafe_allow_html=True)
+    st.caption("Add from the screener with the star, or type a symbol directly below.")
 
     watchlist = load_watchlist()
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
-    df, df_ams, df_par, df_mil, df_etr, df_swx, extra_df = _load_all_screener_data(
+    _exch_dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds())
-    all_df = pd.concat([df, df_ams, df_par, df_mil, df_etr, df_swx, extra_df], ignore_index=True)
+    *_per_exchange, extra_df = _exch_dfs
+    all_df = pd.concat([
+        d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
+        for k, d in zip(ALL_EXCHANGES, _per_exchange)
+    ] + [extra_df], ignore_index=True)
 
     # ── Add ticker form ─────────────────────────────────────────────────────
     with st.form("wl_add_form", border=True, clear_on_submit=True):
         _c1, _c2, _c3 = st.columns([2, 3, 1], vertical_alignment="bottom")
         with _c1:
-            _new_ticker = st.text_input("Ticker", placeholder="e.g. AAPL, 7203.T, BP.L")
+            _new_ticker = st.text_input("Ticker", placeholder="TTE.PA")
         with _c2:
-            _new_name = st.text_input("Company name (optional)", placeholder="Apple Inc.")
+            _new_name = st.text_input("Company name (optional)", placeholder="TotalEnergies")
         with _c3:
             _submitted = st.form_submit_button("Add ticker", width="stretch")
 
     if _submitted:
         _sym = _new_ticker.strip().upper()
         if not _sym:
-            st.error("Enter a ticker symbol.")
+            st.markdown('<div style="font-size:12px;color:var(--down-txt);">Enter a ticker symbol.</div>',
+                       unsafe_allow_html=True)
         else:
             try:
                 _info = yf.Ticker(_sym).info
                 _name = _new_name.strip() or _info.get("shortName") or _info.get("longName") or _sym
                 if not _info.get("regularMarketPrice") and not _info.get("currentPrice"):
-                    st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
+                    st.markdown(f'<div style="font-size:12px;color:var(--down-txt);">Ticker <b>{_sym}</b> not '
+                               f'found. Check the symbol and try again.</div>', unsafe_allow_html=True)
                 else:
                     _mt = load_manual_tickers()
                     _mt[_sym] = _name
@@ -55,48 +65,47 @@ def render() -> None:
                     save_watchlist(watchlist | {_sym})
                     st.rerun()
             except Exception:
-                st.error(f"Ticker **{_sym}** not found. Check the symbol and try again.")
+                st.markdown(f'<div style="font-size:12px;color:var(--down-txt);">Ticker <b>{_sym}</b> not '
+                           f'found. Check the symbol and try again.</div>', unsafe_allow_html=True)
 
-    # ── Results table ────────────────────────────────────────────────────────
+    # ── Results list ─────────────────────────────────────────────────────────
     wl_df = all_df[all_df["Ticker"].isin(watchlist)].reset_index(drop=True)
     if wl_df.empty:
-        st.info("Your watchlist is empty. Add a ticker above to start tracking it.")
+        st.info("Your watchlist is empty. Star a ticker in the screener or add one above.")
         return
 
-    display_df = pd.DataFrame({
-        "Company":  wl_df["Name"],
-        "Ticker":   wl_df["Ticker"],
-        "Signal":   wl_df.apply(lambda r: signal_badge_for_decision(r.get("Decision", ""))[1], axis=1),
-        "Score":    wl_df.get("Value Score"),
-        "MoS %":    wl_df.get("MoS %"),
-        "Price":    wl_df.get("Price"),
-        "P/E":      wl_df.get("trailingPE"),
-        "Div Yield": wl_df.get("dividendYield"),
-    })
+    _hh_widths = [0.4, 2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8]
+    _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
+    for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
+                                     "Upside", "Price", "P/E", "Yield")):
+        if _label:
+            with _hh:
+                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
 
-    _row_h, _header = 35, 38
-    _height = min(_header + len(display_df) * _row_h + 4, 600)
-    _sel_idx = _row_select_table(
-        display_df, key="watchlist_table", width="stretch", hide_index=True,
-        column_config={
-            "Score":     st.column_config.NumberColumn("Score", format="%.1f"),
-            "MoS %":     st.column_config.NumberColumn("MoS %", format="%+.1f%%"),
-            "Price":     st.column_config.NumberColumn("Price", format="euro"),
-            "P/E":       st.column_config.NumberColumn("P/E", format="%.1f"),
-            "Div Yield": st.column_config.NumberColumn("Div Yield", format="percent"),
-        },
-        height=_height,
-    )
+    _drawer_target = None
+    for _ridx, _row in wl_df.iterrows():
+        _ticker = _row["Ticker"]
+        _result = stock_row(
+            key=f"wl_row_{_ridx}_{_ticker}",
+            ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
+            decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+            score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
+            pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
+            action_icon="✕", action_help="Remove from watchlist",
+        )
+        if _result["action"]:
+            save_watchlist(watchlist - {_ticker})
+            st.rerun()
+        if _result["view"]:
+            _drawer_target = _ticker
+
     _reopen = st.session_state.pop("_drw_reopen_ticker", None)
-    if _sel_idx is not None:
-        open_drawer(wl_df.iloc[_sel_idx], None)
+    if _drawer_target is not None:
+        _r = wl_df[wl_df["Ticker"] == _drawer_target]
+        if not _r.empty:
+            open_drawer(_r.iloc[0], None)
     elif _reopen:
         _r = wl_df[wl_df["Ticker"] == _reopen]
         if not _r.empty:
             open_drawer(_r.iloc[0], None)
-
-    with st.expander("Remove tickers"):
-        _to_remove = st.multiselect("Select tickers to remove", options=sorted(watchlist), key="wl_remove_sel")
-        if _to_remove and st.button("Remove selected", key="wl_remove_btn"):
-            save_watchlist(watchlist - set(_to_remove))
-            st.rerun()

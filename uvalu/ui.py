@@ -139,6 +139,7 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         ),
         textfont=dict(color=_c_text, size=12),
     ))
+    _total_short = f"€{_total/1000:,.1f}k" if _total >= 10_000 else f"€{_total:,.0f}"
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
@@ -152,6 +153,14 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
             itemwidth=30,
             tracegroupgap=2,
         ),
+        # Center overlay — "TOTAL / <value>" inside the donut hole, matching
+        # Uvalu.dc.html's compact donut. Paper coords (0.5, 0.5) approximate
+        # the pie's own center since the legend floats outside the plot
+        # domain (x=1.02) rather than sharing it.
+        annotations=[
+            dict(text=f"TOTAL<br><b>{_total_short}</b>", x=0.5, y=0.5, showarrow=False,
+                font=dict(size=12, color=_c_text), align="center"),
+        ],
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_c_text),

@@ -7,21 +7,22 @@ now, same call the abandoned redesign-v2 branch made for this exact page)."""
 import pandas as pd
 import streamlit as st
 
-from portfolio import load_portfolio, load_manual_tickers, add_position
+from portfolio import (load_portfolio, load_manual_tickers, load_watchlist,
+                       save_watchlist, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
+from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
-from uvalu.components import signal_badge_for_decision
+from uvalu.components import signal_badge_for_decision, stock_row
 from uvalu.runtime import current_user
-from uvalu.ui import _row_select_table, _auto_rerun
+from uvalu.ui import _auto_rerun
 
 _EXCHANGE_LABELS = {
     "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
     "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
 }
-_SIGNAL_CHIPS = ["All", "Buy", "Monitor", "Avoid"]
-_DECISION_MAP = {"Buy": "Strong Buy", "Monitor": "Monitor", "Avoid": "Avoid"}
+_SIGNAL_CHIPS = ["BUY", "MONITOR", "AVOID", "VETO"]
 
 
 def render() -> None:
@@ -109,73 +110,28 @@ def render() -> None:
                 ),
             }
 
-    # ── Buy dialog ─────────────────────────────────────────────────────────────
-    _scr_sorted = _all_df[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values(
-        "Name", key=lambda s: s.str.lower()) if not _all_df.empty else pd.DataFrame(columns=["Ticker", "Name"])
-    _scr_t_opts   = _scr_sorted["Ticker"].tolist()
-    _scr_t_labels = {r["Ticker"]: f"{r['Name']}  ({r['Ticker']})" for _, r in _scr_sorted.iterrows()}
-    _scr_price_map = _all_df.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict() if not _all_df.empty else {}
-
-    @st.dialog("Buy stock", width="large")
-    def _dlg_buy_screener():
-        _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
-        with _c1:
-            ticker = st.selectbox("Company", options=_scr_t_opts, format_func=lambda t: _scr_t_labels.get(t, t))
-        with _c2:
-            shares = st.number_input("Shares", min_value=1, step=1, value=1)
-        with _c3:
-            pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
-        with _c4:
-            _price_raw = _scr_price_map.get(ticker)
-            _price = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
-            total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
-                                          value=round(_price * shares, 2), format="%.2f")
-        _, _save_btn = st.columns([3, 1])
-        with _save_btn:
-            _do_save = st.button("Save", key="dlg_buy_scr_save", width="stretch")
-        if _do_save and shares > 0 and total_price > 0:
-            name = _scr_t_labels.get(ticker, ticker).split("  (")[0]
-            add_position({
-                "name": name, "google_ticker": "", "ticker": ticker, "shares": shares,
-                "purchase_price": round(total_price / shares, 4), "purchase_value": round(total_price, 2),
-                "target_price": None, "dividends": 0.0,
-                "date_in": pd.Timestamp(pur_date).isoformat(), "account": "",
-            })
-            st.rerun()
-
-    # ── Heading ───────────────────────────────────────────────────────────────
+    # ── Heading — filled in after filters are computed so the "Export list"
+    # button (which needs the filtered set) can sit in the header row like
+    # the mockup, instead of further down the page. ───────────────────────────
     _valued_df = _all_df[_all_df["fair_value"].notna()].reset_index(drop=True) if not _all_df.empty else _all_df
-    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-        with st.container(width="content"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
-                       unsafe_allow_html=True)
-            st.caption(f"{len(_valued_df)} European stocks with a fair-value estimate · "
-                      "ranked by composite signal score.")
-        with st.container(horizontal=True, gap="small", width="content"):
-            if st.button("Reset filters", key="scr_reset"):
-                for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
-                          "scr_min_score", "scr_min_mos", "scr_hide_owned"):
-                    st.session_state.pop(_k, None)
-                st.rerun()
-            if st.button("Refresh", key="scr_refresh"):
-                _bust_cache()
-            _is_viewer = current_user().is_viewer
-            if _scr_t_opts and st.button("Buy", key="scr_buy", type="primary", disabled=_is_viewer,
-                                        help="Viewer role is read-only" if _is_viewer else None):
-                _dlg_buy_screener()
+    _header_slot = st.empty()
+    _is_viewer = current_user().is_viewer
 
     if _valued_df.empty:
+        with _header_slot.container():
+            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
+                       unsafe_allow_html=True)
         st.info("No screener data available yet.")
         return
 
     # ── Filter bar ───────────────────────────────────────────────────────────
     _f1, _f2 = st.columns([2, 1])
     with _f1:
-        _search = st.text_input("Search", placeholder="Search by ticker or company name…",
+        _search = st.text_input("Search", placeholder="Ticker or company…",
                                 key="scr_search", label_visibility="collapsed")
     with _f2:
-        _signal = st.segmented_control("Signal", options=_SIGNAL_CHIPS, default="All",
-                                       key="scr_signal", label_visibility="collapsed")
+        _signal = st.pills("Signal", options=_SIGNAL_CHIPS, selection_mode="multi",
+                           key="scr_signal", label_visibility="collapsed")
 
     _sector_vals = sorted(v for v in _valued_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip())
     _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
@@ -201,8 +157,10 @@ def render() -> None:
             _filtered["Ticker"].str.lower().str.contains(_q, na=False) |
             _filtered["Name"].str.lower().str.contains(_q, na=False)
         ]
-    if _signal and _signal != "All":
-        _filtered = _filtered[_filtered["Decision"] == _DECISION_MAP[_signal]]
+    if _signal:
+        _filtered = _filtered[_filtered.apply(
+            lambda r: signal_badge_for_decision(r.get("Decision", ""), veto=bool(r.get("veto")))[1] in _signal,
+            axis=1)]
     if _sector_sel and _sector_sel != "All sectors":
         _filtered = _filtered[_filtered.get("sector") == _sector_sel]
     if _market_sel and _market_sel != "All markets":
@@ -214,45 +172,75 @@ def render() -> None:
 
     _filtered = _filtered.sort_values("Value Score", ascending=False).reset_index(drop=True)
 
-    if _filtered.empty:
-        st.info("No stocks match your current filters.")
-        return
-
-    st.caption(f"**{len(_filtered)}** of {len(_valued_df)} stocks pass your filters · click a row to view details")
-
     _csv = _filtered[["Ticker", "Name", "Exchange", "Decision", "Value Score", "Price",
                       "fair_value", "MoS %", "trailingPE", "dividendYield"]].to_csv(index=False)
-    st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv", mime="text/csv",
-                       key="scr_export")
 
-    display_df = pd.DataFrame({
-        "Company":   _filtered["Name"],
-        "Ticker":    _filtered["Ticker"],
-        "Market":    _filtered["Exchange"],
-        "Signal":    _filtered.apply(lambda r: signal_badge_for_decision(r.get("Decision", ""))[1], axis=1),
-        "Score":     _filtered["Value Score"],
-        "MoS %":     _filtered["MoS %"],
-        "Price":     _filtered["Price"],
-        "P/E":       _filtered.get("trailingPE"),
-        "Div Yield": _filtered.get("dividendYield"),
-    })
+    with _header_slot.container():
+        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+            with st.container(width="content"):
+                st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
+                           unsafe_allow_html=True)
+                st.caption(f"**{len(_filtered)}** of {len(_valued_df)} European stocks pass your filters · "
+                          "ranked by composite signal score.")
+            with st.container(horizontal=True, gap="small", width="content"):
+                if st.button("Reset filters", key="scr_reset"):
+                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                              "scr_min_score", "scr_min_mos", "scr_hide_owned"):
+                        st.session_state.pop(_k, None)
+                    st.rerun()
+                st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv",
+                                   mime="text/csv", key="scr_export")
+                if st.button("Refresh", key="scr_refresh"):
+                    _bust_cache()
+                if st.button("Buy", key="scr_buy", type="primary", disabled=_is_viewer,
+                            help="Viewer role is read-only" if _is_viewer else None):
+                    add_position_dialog()
 
-    _row_h, _header = 35, 38
-    _height = min(_header + len(display_df) * _row_h + 4, 800)
-    _sel_idx = _row_select_table(
-        display_df, key="screener_table", width="stretch", hide_index=True,
-        column_config={
-            "Score":     st.column_config.NumberColumn("Score", format="%.1f"),
-            "MoS %":     st.column_config.NumberColumn("MoS %", format="%+.1f%%"),
-            "Price":     st.column_config.NumberColumn("Price", format="euro"),
-            "P/E":       st.column_config.NumberColumn("P/E", format="%.1f"),
-            "Div Yield": st.column_config.NumberColumn("Div Yield", format="percent"),
-        },
-        height=_height,
-    )
+    if _filtered.empty:
+        st.info("No stocks match these filters. Try loosening the score or margin-of-safety threshold.")
+        return
 
-    if _sel_idx is not None:
-        open_drawer(_filtered.iloc[_sel_idx], _scr_pf_context)
+    # ── Column headers ───────────────────────────────────────────────────────
+    _watchlist = load_watchlist()
+    _hh_widths = [0.4, 0.4, 2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.5]
+    _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
+    for _hh, _label in zip(_hh_cols, ("", "#", "Position", "Signal", "Composite score",
+                                     "Upside", "Price", "P/E", "Yield", "")):
+        if _label:
+            with _hh:
+                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
+
+    _drawer_target = None
+    for _ridx, _row in _filtered.iterrows():
+        _ticker = _row["Ticker"]
+        _in_wl = _ticker in _watchlist
+        _result = stock_row(
+            key=f"scr_row_{_ridx}_{_ticker}",
+            ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
+            decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+            score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
+            pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"), rank=_ridx + 1,
+            action_icon="★" if _in_wl else "☆",
+            action_help="Remove from watchlist" if _in_wl else "Add to watchlist",
+        )
+        if _result["action"]:
+            if _in_wl:
+                save_watchlist(_watchlist - {_ticker})
+                _mt = load_manual_tickers()
+                if _ticker in _mt:
+                    del _mt[_ticker]
+                    save_manual_tickers(_mt)
+            else:
+                save_watchlist(_watchlist | {_ticker})
+            st.rerun()
+        if _result["view"]:
+            _drawer_target = _ticker
+
+    if _drawer_target is not None:
+        _r = _filtered[_filtered["Ticker"] == _drawer_target]
+        if not _r.empty:
+            open_drawer(_r.iloc[0], _scr_pf_context)
     else:
         _reopen = st.session_state.get("_drw_reopen_ticker")
         if _reopen:

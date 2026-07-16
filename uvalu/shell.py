@@ -31,7 +31,7 @@ def _initials(email: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
-def _apply_theme_script(light: bool) -> None:
+def apply_theme_script(light: bool) -> None:
     """Set data-theme on the parent document's <html> element from Streamlit's
     OWN active theme (st.context.theme, resolved via theme_colors()) so the
     mockup's [data-theme="light"] CSS override (uvalu/styles.py) always
@@ -98,7 +98,7 @@ def _topbar_css(active_path: str) -> str:
 def render_topbar(nav) -> None:
     user = current_user()
     _light = theme_colors().effective_light
-    _apply_theme_script(_light)
+    apply_theme_script(_light)
     _density = load_settings(user.email).get("density", "comfortable")
     _apply_density_script(_density)
 

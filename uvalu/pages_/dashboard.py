@@ -6,58 +6,44 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import risk as _risk_module
-from portfolio import portfolio_exists, load_portfolio, load_value_history, add_position
+from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
+from uvalu.dialogs import add_position_dialog
 from uvalu.formatting import safe_pct as _safe_pct, fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_bar_compact, score_color, radial_gauge_svg)
+                              fair_value_bar_compact, fair_value_legend_row, radial_gauge_svg)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
 
 _RANGES = {"1M": 30, "3M": 91, "6M": 182, "1Y": 365, "All": None}
 
+# Small stroke icons (24x24 viewBox, currentColor) for the KPI strip — matching
+# the mockup's leading-icon-per-tile treatment (Uvalu.dc.html's {{ k.icon }}).
+_KPI_ICONS = {
+    "wallet": '<path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-11"/><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"/>',
+    "trend":  '<path d="M3 17l6 -6l4 4l8 -8"/><path d="M14 7l7 0l0 7"/>',
+    "coin":   '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1 -1.8 -1"/><path d="M12 6v2m0 8v2"/>',
+    "target": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/>',
+}
 
-def _kpi_card(label: str, value: str, delta_text: str, positive: bool, sub: str) -> None:
+
+def _kpi_card(label: str, value: str, delta_text: str, positive: bool, sub: str, icon: str = "wallet") -> None:
     color = "var(--up-txt)" if positive else "var(--down-txt)"
+    _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_KPI_ICONS.get(icon, "")}'
+                f'</svg>')
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
-  <div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">{label}</div>
+  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
+    {_icon_svg}{label}</div>
   <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
   <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
     <span style="color:{color};font-size:12px;font-weight:500;">{delta_text}</span>
     <span style="font-size:11px;color:var(--faint);">{sub}</span>
   </div>
 </div>""", unsafe_allow_html=True)
-
-
-@st.dialog("Buy stock", width="large")
-def _dlg_dashboard_buy(t_opts, t_labels, price_map):
-    _c1, _c2, _c3, _c4 = st.columns([3, 1, 2, 2])
-    with _c1:
-        ticker = st.selectbox("Company", options=t_opts, format_func=lambda t: t_labels.get(t, t))
-    with _c2:
-        shares = st.number_input("Shares", min_value=1, step=1, value=1)
-    with _c3:
-        pur_date = st.date_input("Buy Date", format="DD/MM/YYYY")
-    with _c4:
-        _price_raw = price_map.get(ticker)
-        _price = float(_price_raw) if _price_raw is not None and pd.notna(_price_raw) else 0.0
-        total_price = st.number_input("Invested (€)", min_value=0.0, step=0.01,
-                                      value=round(_price * shares, 2), format="%.2f")
-    _, _save_col = st.columns([3, 1])
-    with _save_col:
-        _do_save = st.button("Save", key="dlg_buy_dash_save", width="stretch")
-    if _do_save and shares > 0 and total_price > 0:
-        name = t_labels.get(ticker, ticker).split("  (")[0]
-        add_position({
-            "name": name, "google_ticker": "", "ticker": ticker, "shares": shares,
-            "purchase_price": round(total_price / shares, 4), "purchase_value": round(total_price, 2),
-            "target_price": None, "dividends": 0.0,
-            "date_in": pd.Timestamp(pur_date).isoformat(), "account": "",
-        })
-        st.rerun()
 
 
 def render() -> None:
@@ -129,39 +115,35 @@ def render() -> None:
         with st.container(width="content"):
             st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio overview</div>',
                        unsafe_allow_html=True)
-            st.caption(f"{len(_db_pf)} positions across {_n_exch} exchanges · "
+            st.caption(f"{len(_db_pf)} positions across {_n_exch} European "
+                      f"{'exchange' if _n_exch == 1 else 'exchanges'} · "
                       "valued against a six-model fair-value estimate.")
         with st.container(horizontal=True, gap="small", width="content"):
             if st.button("Refresh", key="db_refresh"):
                 st.cache_data.clear()
                 st.rerun()
             _is_viewer = current_user().is_viewer
-            if not _db_scr.empty and st.button("Buy", key="db_buy", type="primary", disabled=_is_viewer,
-                                               help="Viewer role is read-only" if _is_viewer else None):
-                _sorted = _db_all_scr[["Ticker", "Name"]].drop_duplicates("Ticker").sort_values(
-                    "Name", key=lambda s: s.str.lower())
-                _t_opts = _sorted["Ticker"].tolist()
-                _t_labels = {r["Ticker"]: f"{r['Name']}  ({r['Ticker']})" for _, r in _sorted.iterrows()}
-                _price_map = _db_all_scr.drop_duplicates("Ticker").set_index("Ticker")["Price"].to_dict()
-                _dlg_dashboard_buy(_t_opts, _t_labels, _price_map)
+            if st.button("Buy", key="db_buy", type="primary", disabled=_is_viewer,
+                        help="Viewer role is read-only" if _is_viewer else None):
+                add_position_dialog()
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
     _k1, _k2, _k3, _k4 = st.columns(4)
     with _k1:
         _kpi_card("Current value", f"€{_db_current:,.0f}",
-                 f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f}")
+                 f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f}", icon="wallet")
     with _k2:
         _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
-                 f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends")
+                 f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
     with _k3:
         if _db_fwd_income is not None:
-            _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}", "", True, "estimated")
+            _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}", "", True, "estimated", icon="coin")
         else:
-            _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "")
+            _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
     with _k4:
         _kpi_card("Avg fair value upside",
                  f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                 "", (_db_avg_mos or 0) >= 0, "margin of safety")
+                 "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
 
     st.container(height=18, border=False)
 
@@ -169,8 +151,6 @@ def render() -> None:
     _chart_col, _conv_col = st.columns([1.62, 1], gap="large")
 
     with _chart_col:
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
-                   unsafe_allow_html=True)
         _db_vh = load_value_history()
         if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
             _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
@@ -178,25 +158,31 @@ def render() -> None:
             _db_vh["invested"] = pd.to_numeric(_db_vh["invested"], errors="coerce")
             _db_vh = _db_vh.dropna(subset=["date", "value"]).sort_values("date")
 
-            _range_sel = st.segmented_control("Range", options=list(_RANGES.keys()), default="All",
-                                              key="db_range", label_visibility="collapsed")
+            _title_col, _range_col = st.columns([2, 2], vertical_alignment="bottom")
+            with _range_col:
+                _range_sel = st.segmented_control("Range", options=list(_RANGES.keys()), default="All",
+                                                  key="db_range", label_visibility="collapsed")
             _days = _RANGES.get(_range_sel or "All")
             _vh_view = _db_vh
             if _days is not None:
                 _cutoff = _db_vh["date"].max() - pd.Timedelta(days=_days)
                 _vh_view = _db_vh[_db_vh["date"] >= _cutoff]
 
+            _db_last_val   = float(_vh_view["value"].iloc[-1])
+            _db_first_val  = float(_vh_view["value"].iloc[0])
+            _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
+            _db_range_color = "var(--up-txt)" if _db_range_pct >= 0 else "var(--down-txt)"
+            with _title_col:
+                st.markdown(f"""
+<div style="font-size:15px;font-weight:500;">Portfolio value over time</div>
+<div style="display:flex;align-items:baseline;gap:10px;margin-top:4px;">
+  <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">€{_db_last_val:,.0f}</span>
+  <span style="color:{_db_range_color};font-size:12px;font-weight:500;">{_db_range_pct:+.1f}%</span>
+  <span style="font-size:11px;color:var(--faint);">{_range_sel or "All"}</span>
+</div>""", unsafe_allow_html=True)
+
             _db_has_spx   = "benchmark_spx"   in _vh_view.columns and _vh_view["benchmark_spx"].notna().any()
             _db_has_stoxx = "benchmark_stoxx" in _vh_view.columns and _vh_view["benchmark_stoxx"].notna().any()
-            if _db_has_spx or _db_has_stoxx:
-                _db_cb = st.columns([1, 1, 5])
-                _db_show_spx   = _db_cb[0].checkbox("S&P 500",      value=False, key="db_show_spx",   disabled=not _db_has_spx)
-                _db_show_stoxx = _db_cb[1].checkbox(
-                    "Euro Stoxx 50",
-                    value=bool(load_shared_settings().get("benchmark_stoxx", False)),
-                    key="db_show_stoxx", disabled=not _db_has_stoxx)
-            else:
-                _db_show_spx = _db_show_stoxx = False
 
             _db_vfig = go.Figure()
             _db_vfig.add_trace(go.Scatter(
@@ -205,29 +191,60 @@ def render() -> None:
             _db_vfig.add_trace(go.Scatter(
                 x=_vh_view["date"], y=_vh_view["invested"], mode="lines", name="Amount invested",
                 line=dict(color=_c_invested, width=1.5, dash="dot")))
-            if _db_has_spx and _db_show_spx:
+            if _db_has_spx:
                 _db_vfig.add_trace(go.Scatter(
                     x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_spx"], errors="coerce"),
-                    mode="lines", name="S&P 500 (same invested)", line=dict(color="#5B8FA8", width=1.5, dash="dash")))
-            if _db_has_stoxx and _db_show_stoxx:
+                    mode="lines", name="S&P 500 (same invested)", line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                    visible=True if st.session_state.get("db_show_spx") else "legendonly"))
+            if _db_has_stoxx:
                 _db_vfig.add_trace(go.Scatter(
                     x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_stoxx"], errors="coerce"),
-                    mode="lines", name="Euro Stoxx 50 (same invested)", line=dict(color="#8BA888", width=1.5, dash="dash")))
+                    mode="lines", name="Euro Stoxx 50 (same invested)", line=dict(color="#8BA888", width=1.5, dash="dash"),
+                    visible=True if st.session_state.get("db_show_stoxx") else "legendonly"))
             _db_vfig.update_layout(
-                margin=dict(l=0, r=0, t=8, b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(color=_c_axis)),
+                margin=dict(l=0, r=0, t=16, b=0),
+                showlegend=False,
                 yaxis=dict(tickprefix="€", tickformat=",.0f", tickfont=dict(color=_c_axis), gridcolor=_c_grid),
                 xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
                 hovermode="x unified", font=dict(color=_c_axis),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             )
-            st.plotly_chart(_db_vfig, width="stretch", height=280, config=_CHART_CONFIG)
+            st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
+
+            # ── Unified legend bar — swatches for the two always-on series,
+            # plus clickable chip toggles for the two optional benchmarks
+            # (still real checkboxes for interactivity, laid out to read as
+            # one legend row matching Uvalu.dc.html instead of a separate
+            # checkbox row above the chart + Plotly's own legend below). ──
+            _leg_col, _spx_col, _stoxx_col = st.columns([3, 1, 1.4], vertical_alignment="center")
+            with _leg_col:
+                st.markdown("""
+<div style="display:flex;align-items:center;gap:18px;padding-top:6px;border-top:0.5px solid var(--line-2);">
+  <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
+    <span style="width:14px;height:2px;background:var(--mint);border-radius:2px;display:inline-block;"></span>Portfolio value</div>
+  <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
+    <span style="width:14px;height:0;border-top:1.4px dashed var(--axis);display:inline-block;"></span>Amount invested</div>
+</div>""", unsafe_allow_html=True)
+            with _spx_col:
+                st.checkbox("S&P 500", value=False, key="db_show_spx",
+                           disabled=not _db_has_spx)
+            with _stoxx_col:
+                st.checkbox("Euro Stoxx 50", value=bool(load_shared_settings().get("benchmark_stoxx", False)),
+                           key="db_show_stoxx", disabled=not _db_has_stoxx)
         else:
+            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
+                       unsafe_allow_html=True)
             st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
 
     with _conv_col:
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:10px;">Conviction &amp; risk</div>',
-                   unsafe_allow_html=True)
+        _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="center")
+        with _cvh_col:
+            st.markdown('<div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>',
+                       unsafe_allow_html=True)
+        with _cvh_link_col:
+            if st.button("Full analysis →", key="db_conv_full_analysis", type="tertiary", width="stretch"):
+                st.switch_page(nav.pages["risk"])
+        st.container(height=4, border=False)
         _conv_score = None
         if not _db_scr.empty and "Value Score" in _db_scr.columns:
             _scr_cv = _db_pf.set_index("ticker")["current_value"]
@@ -253,28 +270,38 @@ def render() -> None:
 
         with st.container(horizontal=True, gap="medium", vertical_alignment="center"):
             if _conv_score is not None:
-                _ring_color, _ = score_color(_conv_score)
+                if _conv_score >= 70:
+                    _conv_rating, _conv_rating_color = "Strong conviction", "var(--up-txt)"
+                elif _conv_score >= 40:
+                    _conv_rating, _conv_rating_color = "Moderate conviction", "#C98A3A"
+                else:
+                    _conv_rating, _conv_rating_color = "Weak conviction", "var(--down-txt)"
                 st.markdown(f"""
-<div style="position:relative;width:96px;height:96px;flex:none;">
-  {radial_gauge_svg(_conv_score, "#1DD6A4", size=96)}
+<div style="position:relative;width:118px;height:118px;flex:none;">
+  {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-    <span style="font-family:var(--uv-mono);font-size:22px;font-weight:500;color:var(--text);">{_conv_score:.0f}</span>
-    <span style="font-size:9px;color:var(--faint);">/ 100</span>
+    <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;color:var(--text);">{_conv_score:.0f}</span>
+    <span style="font-size:9.5px;color:var(--faint);">/ 100</span>
   </div>
 </div>""", unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:12px;color:var(--muted);">Weighted mean signal score '
-                           f'across scored holdings.{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>',
-                           unsafe_allow_html=True)
+                st.markdown(f"""
+<div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite conviction</div>
+<div style="font-size:15px;font-weight:500;margin-top:4px;color:{_conv_rating_color};">{_conv_rating}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.
+{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>""", unsafe_allow_html=True)
             else:
                 st.caption("Not enough scored holdings for a conviction score.")
 
         if _risk_score is not None:
             st.container(height=10, border=False)
             _marker_pct = min(100.0, max(0.0, _risk_score))
+            _risk_num_color = ("var(--up-txt)" if _risk_score < 35 else
+                               "#C98A3A" if _risk_score < 65 else "var(--down-txt)")
             st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
   <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
-  <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{_risk_score:.0f} · {_risk_label}</span>
+  <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">
+    <span style="color:{_risk_num_color};">{_risk_score:.0f}</span> · {_risk_label}</span>
 </div>
 <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 33%,#C98A3A 33%,#C98A3A 66%,#A32D2D 66%,#A32D2D 100%);position:relative;opacity:0.85;">
   <div style="position:absolute;left:{_marker_pct:.1f}%;top:-3px;width:2px;height:13px;background:var(--text);"></div>
@@ -298,21 +325,40 @@ def render() -> None:
     st.container(height=18, border=False)
 
     # ── Holdings · price vs fair value ────────────────────────────────────────
-    st.markdown('<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>',
-               unsafe_allow_html=True)
+    _hold_title_col, _hold_legend_col = st.columns([2, 2], vertical_alignment="center")
+    with _hold_title_col:
+        st.markdown('<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>',
+                   unsafe_allow_html=True)
+    with _hold_legend_col:
+        fair_value_legend_row()
     if not _db_scr.empty:
         _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
         _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
         _hold = _hold.sort_values("current_value", ascending=False)
+
+        _hh1, _hh2, _hh3, _hh4, _hh5, _hh6, _hh7 = st.columns(
+            [2.0, 0.8, 2.2, 0.7, 0.7, 0.8, 0.7], vertical_alignment="center")
+        for _hh, _label in zip((_hh1, _hh2, _hh3, _hh4, _hh5, _hh6, _hh7),
+                               ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")):
+            with _hh:
+                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
+
         for _hidx, _hr in _hold.reset_index(drop=True).iterrows():
             # Keyed by row position, not ticker — the same ticker can appear in
             # two rows if a user bought it in separate lots (add_position()
             # appends rather than merging), which would otherwise collide.
             with st.container(key=f"db_hold_{_hidx}", border=True):
-                _hc1, _hc2, _hc3, _hc4, _hc5 = st.columns([2.2, 0.9, 2.4, 0.9, 0.9], vertical_alignment="center")
+                _hc1, _hc2, _hc3, _hc4, _hc5, _hc6, _hc7 = st.columns(
+                    [2.0, 0.8, 2.2, 0.7, 0.7, 0.8, 0.7], vertical_alignment="center")
                 with _hc1:
-                    st.markdown(f"**{_hr.get('name', _hr.get('ticker'))}**  "
-                               f"<span style='color:var(--faint);font-size:11px;'>{_hr.get('ticker', '')}</span>",
+                    _sector = _hr.get("sector")
+                    _sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid "
+                                   f"var(--line);border-radius:5px;padding:1px 6px;margin-left:6px;'>{_sector}</span>"
+                                   if _sector and pd.notna(_sector) else "")
+                    st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>"
+                               f"{_hr.get('ticker', '')}</span>{_sector_html}<br>"
+                               f"<span style='color:var(--muted);font-size:12px;'>{_hr.get('name', '')}</span>",
                                unsafe_allow_html=True)
                 with _hc2:
                     _kind, _label = signal_badge_for_decision(str(_hr.get("Decision", "")), veto=bool(_hr.get("veto")))
@@ -320,14 +366,30 @@ def render() -> None:
                 with _hc3:
                     fair_value_bar_compact(_hr.get("live_price"), _hr.get("fair_value"), _hr.get("MoS %"))
                 with _hc4:
+                    _mos = _hr.get("MoS %")
+                    _mos = float(_mos) if _mos is not None and pd.notna(_mos) else None
+                    _mos_color = "var(--up-txt)" if (_mos or 0) >= 0 else "var(--down-txt)"
+                    st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
+                               f"color:{_mos_color};'>{_mos:+.1f}%</span>" if _mos is not None else "—",
+                               unsafe_allow_html=True)
+                with _hc5:
                     _w = _hr.get("weight", 0)
                     _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
-                    st.caption(f"{_w*100:.1f}% weight")
-                with _hc5:
+                    st.caption(f"{_w*100:.1f}%")
+                with _hc6:
                     _cv = _hr.get("current_value")
                     _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
                     st.markdown(f"<span style='font-family:var(--uv-mono);'>{_fmt_eur(_cv)}</span>",
                                unsafe_allow_html=True)
+                with _hc7:
+                    _day = _hr.get("day_change_pct")
+                    _day = float(_day) if _day is not None and pd.notna(_day) else None
+                    if _day is not None:
+                        _day_color = "var(--up-txt)" if _day >= 0 else "var(--down-txt)"
+                        st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;"
+                                   f"color:{_day_color};'>{_day:+.2f}%</span>", unsafe_allow_html=True)
+                    else:
+                        st.caption("—")
     else:
         st.caption("No screener data available for your holdings.")
 
@@ -352,8 +414,14 @@ def render() -> None:
         _donut_chart(_db_al)
 
     with _div_col:
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Upcoming dividends</div>',
-                   unsafe_allow_html=True)
+        _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
+        with _dh_title_col:
+            st.markdown('<div style="font-size:15px;font-weight:500;">Upcoming dividends</div>',
+                       unsafe_allow_html=True)
+        with _dh_total_col:
+            if _db_fwd_income is not None:
+                st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
+                           f'color:var(--mint);">€{_db_fwd_income:,.0f} / yr</div>', unsafe_allow_html=True)
         if not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
@@ -365,14 +433,23 @@ def render() -> None:
                       .sort_values("exDividendDate").head(6)
                 )
                 if not _db_upcoming.empty:
-                    _db_div_disp = pd.DataFrame({
-                        "Company":  _db_upcoming["Name"].values,
-                        "Ex-date":  _db_upcoming["exDividendDate"].dt.strftime("%d-%m-%Y"),
-                        "Yield":    pd.to_numeric(_db_upcoming.get("dividendYield", pd.Series()), errors="coerce")
-                                      .map(lambda v: f"{v*100:.2f}%" if pd.notna(v) else "—"),
-                    })
-                    st.dataframe(_db_div_disp, hide_index=True, width="stretch",
-                                height=len(_db_div_disp) * 35 + 38)
+                    _db_shares_map = _db_pf.set_index("ticker")["shares"]
+                    _db_upcoming = _db_upcoming.assign(
+                        _shares=_db_upcoming["Ticker"].map(_db_shares_map).fillna(0),
+                        _rate=pd.to_numeric(_db_upcoming.get("dividendRate"), errors="coerce").fillna(0),
+                    )
+                    for _, _dr in _db_upcoming.iterrows():
+                        _amount = float(_dr["_shares"]) * float(_dr["_rate"])
+                        _yld = _dr.get("dividendYield")
+                        _yld_str = f"{float(_yld)*100:.2f}%" if pd.notna(_yld) else "—"
+                        st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
+  <div>
+    <div style="font-size:12.5px;">{_dr['Name']}</div>
+    <div style="font-size:11px;color:var(--faint);">{_dr['exDividendDate'].strftime('%d-%m-%Y')} · {_yld_str} yield</div>
+  </div>
+  <span style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">€{_amount:,.0f}</span>
+</div>""", unsafe_allow_html=True)
                 else:
                     st.caption("No upcoming ex-dividend dates in the next 30 days.")
             else:
@@ -389,14 +466,19 @@ def render() -> None:
         _db_mv["_abs"] = _db_mv["day_change_pct"].abs()
         _db_top = _db_mv.sort_values("_abs", ascending=False).head(6).sort_values("day_change_pct", ascending=False)
         if not _db_top.empty:
+            _mv_max = float(_db_top["_abs"].max()) or 1.0
             for _, _mr in _db_top.iterrows():
                 _pos = _mr["day_change_pct"] >= 0
                 _color = "var(--up-txt)" if _pos else "var(--down-txt)"
-                st.markdown(
-                    f'<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12.5px;">'
-                    f'<span>{_mr["name"]}</span>'
-                    f'<span style="color:{_color};font-family:var(--uv-mono);">{_mr["day_change_pct"]:+.2f}%</span></div>',
-                    unsafe_allow_html=True,
-                )
+                _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
+                st.markdown(f"""
+<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
+  <span style="font-family:var(--uv-mono);color:var(--faint);width:52px;flex:none;">{_mr['ticker']}</span>
+  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_mr['name']}</span>
+  <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
+    <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
+  </span>
+  <span style="color:{_color};font-family:var(--uv-mono);width:58px;text-align:right;flex:none;">{_mr['day_change_pct']:+.2f}%</span>
+</div>""", unsafe_allow_html=True)
         else:
             st.caption("No daily price data available.")

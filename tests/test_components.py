@@ -95,10 +95,14 @@ def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
         from uvalu.components import fair_value_bar_compact
         fair_value_bar_compact(price=100.0, fair_value=120.0, mos_pct=16.7)
         fair_value_bar_compact(price=100.0, fair_value=90.0, mos_pct=-11.1)
+        fair_value_bar_compact(price=100.0, fair_value=101.5, mos_pct=1.5)
 
     at = _run(_script)
-    assert "below fair value" in at.markdown[0].value
-    assert "above fair value" in at.markdown[1].value
+    assert "var(--uv-mint)" in at.markdown[0].value
+    assert "var(--uv-neg-txt)" in at.markdown[1].value
+    assert "var(--teal" in at.markdown[2].value  # within the near-fair band
+    # Shows the absolute price/fair-value figures instead of a below/above label
+    assert "€100.00" in at.markdown[0].value and "fv €120.00" in at.markdown[0].value
 
 
 def test_signals_feed_renders_bold_entity_and_message():

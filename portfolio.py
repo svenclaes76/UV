@@ -92,6 +92,22 @@ def update_positions(df: pd.DataFrame) -> None:
     save_portfolio(df)
 
 
+def _annual_return_pct(purchase_value: float, proceeds: float, dividends: float,
+                       date_in: str, date_out: str) -> float | None:
+    """CAGR-style annualised return over the holding period, or None if the
+    holding period or purchase value can't support the calculation."""
+    try:
+        _date_in   = pd.to_datetime(date_in,  errors="coerce")
+        _date_out  = pd.to_datetime(date_out, errors="coerce")
+        _held_days = (_date_out - _date_in).days
+        if _held_days > 0 and purchase_value > 0:
+            _total_value = proceeds + dividends
+            return round(((_total_value / purchase_value) ** (365 / _held_days) - 1) * 100, 2)
+        return None
+    except Exception:
+        return None
+
+
 def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> None:
     """Move a position from portfolio to sold, persist both files."""
     pf = load_portfolio()
@@ -103,20 +119,8 @@ def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> 
     row = pf[mask].iloc[0].copy()
     purchase_value = float(row.get("purchase_value") or 0)
     dividends      = float(row.get("dividends") or 0)
-    # Compute annual return
-    try:
-        _date_in  = pd.to_datetime(row.get("date_in"),  errors="coerce")
-        _date_out = pd.to_datetime(sell_date,            errors="coerce")
-        _held_days = (_date_out - _date_in).days
-        if _held_days > 0 and purchase_value > 0:
-            _total_value = proceeds + dividends
-            annual_return_pct = round(
-                ((_total_value / purchase_value) ** (365 / _held_days) - 1) * 100, 2
-            )
-        else:
-            annual_return_pct = None
-    except Exception:
-        annual_return_pct = None
+    annual_return_pct = _annual_return_pct(purchase_value, proceeds, dividends,
+                                           row.get("date_in", ""), sell_date)
     # Build sold record
     sold_row = {
         "name":              row.get("name", ""),
@@ -137,6 +141,18 @@ def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> 
     # Remove from portfolio
     pf = pf[~mask].reset_index(drop=True)
     save_portfolio(pf)
+
+
+def add_closed_trade(row: dict) -> None:
+    """Append a directly-entered closed/realised trade — one that was opened
+    and closed outside this app's normal Buy/Sell flow, so it never existed
+    as an open position here. Matches Uvalu.dc.html's "Add/Edit closed trade"
+    modal, which has no counterpart in sell_position() (that always moves an
+    *existing* open position into sold.json)."""
+    df = load_sold()
+    new_row = pd.DataFrame([row])
+    df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
+    save_sold(df)
 
 
 def add_dividend(row: dict) -> None:

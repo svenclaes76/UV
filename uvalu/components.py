@@ -112,28 +112,140 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 """, unsafe_allow_html=True)
 
 
+# "Near fair" band — a MoS within +/-3% reads as priced-at-fair-value rather
+# than a genuine under/overvaluation signal (matches the mockup's 3-tier
+# Undervalued/Near fair/Overvalued legend, not a plain positive/negative split).
+_NEAR_FAIR_BAND = 3.0
+
+
 def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: float | None,
                            currency: str = "€") -> None:
     """Single condensed discount-to-fair-value bar — for list/row contexts
-    (e.g. Screener rows) where a full ladder wouldn't fit."""
+    (e.g. Screener rows, Dashboard holdings) where a full ladder wouldn't fit.
+
+    Shows the absolute price/fair-value figures above the bar and colors it
+    in three tiers (undervalued/near fair/overvalued), matching Uvalu.dc.html's
+    "Holdings · price vs fair value" legend.
+    """
     if fair_value is None or pd.isna(fair_value) or not price or pd.isna(price) or mos_pct is None or pd.isna(mos_pct):
         st.caption("—")
         return
-    mos_pct = float(mos_pct)
+    price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
+    if mos_pct > _NEAR_FAIR_BAND:
+        color = "var(--uv-mint)"
+    elif mos_pct >= -_NEAR_FAIR_BAND:
+        color = "var(--teal, #1A8C6E)"
+    else:
+        color = "var(--uv-neg-txt)"
     pos = mos_pct >= 0
-    color = "var(--uv-mint)" if pos else "var(--uv-neg-txt)"
     width = min(100.0, abs(mos_pct))
     bar_html = (
         f'<div style="position:absolute;right:50%;width:{width/2:.1f}%;height:8px;background:{color};border-radius:4px"></div>'
-        f'<div style="position:absolute;left:50%;top:-2px;width:1.5px;height:12px;background:#c9c9c4"></div>'
+        f'<div style="position:absolute;left:50%;top:-2px;width:1.5px;height:12px;background:var(--axis,#5F5E5A)"></div>'
         if not pos else
         f'<div style="position:absolute;left:0;width:{width:.1f}%;height:8px;background:{color};border-radius:4px"></div>'
     )
-    label = f"{mos_pct:+.1f}% below fair value" if pos else f"{abs(mos_pct):.1f}% above fair value"
     st.markdown(f"""
+<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">
+  <span>{currency}{price:,.2f}</span><span style="color:var(--uv-muted)">fv {currency}{fair_value:,.2f}</span>
+</div>
 <div style="height:8px;border-radius:4px;background:var(--uv-track);position:relative;overflow:hidden">{bar_html}</div>
-<div style="font:500 11px var(--uv-mono);color:{color};margin-top:4px">{label}</div>
 """, unsafe_allow_html=True)
+
+
+def _score_bar_cell_html(score: float | None) -> str:
+    """Compact progress bar + number for a stock-list row's Score cell.
+    3-tier brand coloring — higher composite Value Score is better here
+    (BUY territory), the opposite sense of the risk-score scale."""
+    if score is None or pd.isna(score):
+        return "—"
+    score = float(score)
+    color = "var(--uv-pos-txt)" if score >= 70 else "#854F0B" if score >= 40 else "var(--uv-neg-txt)"
+    pct = max(0.0, min(100.0, score))
+    return f"""
+<div style="display:flex;align-items:center;gap:7px;">
+  <div style="flex:1;height:5px;border-radius:3px;background:var(--uv-track);position:relative;">
+    <div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{color};width:{pct:.0f}%;"></div>
+  </div>
+  <span style="font-family:var(--uv-mono);font-size:12px;color:{color};flex:none;">{score:.0f}</span>
+</div>"""
+
+
+def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
+             veto: bool, score: float | None, mos_pct: float | None, price: float | None,
+             pe: float | None, div_yield: float | None, rank: int | None = None,
+             action_icon: str = "★", action_help: str = "") -> dict:
+    """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
+    ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
+    price/P-E/yield, a leading star-or-remove action, and a trailing view
+    button (opens the detail drawer). Renders inside its own bordered
+    container — shared by uvalu/pages_/screener.py and watchlist.py so the
+    two lists stay visually identical.
+
+    Returns {"view": bool, "action": bool}: `view` fires on the trailing "→"
+    button (caller opens the drawer); `action` fires on the leading button
+    (caller decides what it means — toggle watchlist membership on Screener,
+    remove from the watchlist on Watchlist).
+    """
+    with st.container(key=key, border=True):
+        _widths = [0.4] + ([0.4] if rank is not None else []) + [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.5]
+        _cols = st.columns(_widths, vertical_alignment="center")
+        _i = 0
+        with _cols[_i]:
+            _action_clicked = st.button(action_icon, key=f"{key}_action", type="tertiary", help=action_help)
+        _i += 1
+        if rank is not None:
+            with _cols[_i]:
+                st.caption(f"#{rank}")
+            _i += 1
+        with _cols[_i]:
+            _exch_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
+                         f"border-radius:5px;padding:1px 6px;margin-left:6px;'>{exchange}</span>"
+                         if exchange else "")
+            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>"
+                       f"{_exch_html}<br><span style='color:var(--muted);font-size:12px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</span>", unsafe_allow_html=True)
+        _i += 1
+        with _cols[_i]:
+            _kind, _label = signal_badge_for_decision(decision, veto=veto)
+            st.markdown(signal_badge_html(_kind, _label), unsafe_allow_html=True)
+        _i += 1
+        with _cols[_i]:
+            st.markdown(_score_bar_cell_html(score), unsafe_allow_html=True)
+        _i += 1
+        with _cols[_i]:
+            if mos_pct is not None and pd.notna(mos_pct):
+                _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
+                st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;color:{_mos_color};'>"
+                           f"{mos_pct:+.1f}%</span>", unsafe_allow_html=True)
+            else:
+                st.caption("—")
+        _i += 1
+        with _cols[_i]:
+            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;'>€{price:,.2f}</span>"
+                       if price is not None and pd.notna(price) else "—", unsafe_allow_html=True)
+        _i += 1
+        with _cols[_i]:
+            st.caption(f"{pe:.1f}" if pe is not None and pd.notna(pe) else "—")
+        _i += 1
+        with _cols[_i]:
+            st.caption(f"{div_yield*100:.2f}%" if div_yield is not None and pd.notna(div_yield) else "—")
+        _i += 1
+        with _cols[_i]:
+            _view_clicked = st.button("→", key=f"{key}_view", type="tertiary")
+    return {"view": _view_clicked, "action": _action_clicked}
+
+
+def fair_value_legend_row() -> None:
+    """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
+    accompanies fair_value_bar_compact in a holdings/screener table header."""
+    st.markdown("""
+<div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--faint);flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);display:inline-block;"></span>Undervalued</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);display:inline-block;"></span>Near fair</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;display:inline-block;"></span>Overvalued</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>Fair value</div>
+</div>""", unsafe_allow_html=True)
 
 
 # ── Signals feed ─────────────────────────────────────────────────────────────
