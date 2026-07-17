@@ -8,6 +8,9 @@ uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 import pandas as pd
 import streamlit as st
 
+from settings import get_veto_thresholds
+from uvalu.formatting import fmt_eur as _fmt_eur
+
 # ── Signal badge ─────────────────────────────────────────────────────────────
 
 _DECISION_BADGE = {
@@ -24,6 +27,30 @@ def signal_badge_for_decision(decision: str, veto: bool = False) -> tuple[str, s
     if veto:
         return "veto", "VETO"
     return _DECISION_BADGE.get(decision, ("avoid", decision.upper() if decision else "—"))
+
+
+def veto_reason_str(row: "pd.Series") -> str:
+    """Human-readable, stock-specific reason a row's hard veto tripped.
+
+    Mirrors screener.py's compute_scores() `_hard_veto` formula exactly:
+    (debtToEquity > max_debt_equity) | (freeCashflow < 0) |
+    (Div Flag == "At Risk" AND dividendCoverage < 1.0) — the last one is a
+    single AND-combined condition, not two independent ones, so it's only
+    listed as failing when BOTH sub-conditions hold. Shared by
+    uvalu/drawer.py and uvalu/pages_/analysis.py so the two veto banners
+    never drift out of sync with each other or with the real formula.
+    """
+    max_de, _, _, _ = get_veto_thresholds()
+    de = row.get("debtToEquity"); fcf = row.get("freeCashflow")
+    div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
+    reasons = []
+    if pd.notna(de) and de > max_de:
+        reasons.append(f"debt/equity of {de:.0f}% exceeds the {max_de:.0f}% limit")
+    if pd.notna(fcf) and fcf < 0:
+        reasons.append(f"negative free cash flow ({_fmt_eur(fcf)})")
+    if div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0:
+        reasons.append(f"dividend flagged at risk with {coverage:.2f}× coverage")
+    return "; ".join(reasons) if reasons else "a hard-veto rule"
 
 
 def signal_badge_html(kind: str, label: str) -> str:
@@ -47,16 +74,35 @@ def render_signal_tips(tips: list[tuple[str, str]]) -> None:
 
 # ── Fair-value ladder ────────────────────────────────────────────────────────
 
+# "Near fair" band — a MoS within +/-3% reads as priced-at-fair-value rather
+# than a genuine under/overvaluation signal (matches the mockup's 3-tier
+# Undervalued/Near fair/Overvalued legend, not a plain positive/negative split).
+_NEAR_FAIR_BAND = 3.0
+
+
+def _ladder_bar_color(delta_pct: float) -> str:
+    """3-tier band matching fair_value_bar_compact's Undervalued/Near
+    fair/Overvalued legend — kept in sync so a model bar and a table's
+    compact bar never disagree about what counts as "near fair"."""
+    if delta_pct > _NEAR_FAIR_BAND:
+        return "var(--uv-mint)"
+    if delta_pct >= -_NEAR_FAIR_BAND:
+        return "var(--teal, #1A8C6E)"
+    return "var(--uv-neg-txt)"
+
+
 def fair_value_ladder(price: float, models: list[tuple[str, float]],
                       composite: float | None = None, currency: str = "€") -> None:
-    """Horizontal-bar ladder comparing fair-value models against the current price.
+    """Compact per-model fair-value list: a thin bar, the model's value, and
+    its delta vs. the current price, ending in an explicit composite row —
+    matching Uvalu.dc.html's Six-model fair value spec (a flat comparison
+    list, not a verdict paragraph).
 
-    `models` is an ordered list of (label, value) pairs — callers pick whichever
-    of Graham #/PE fair value/DDM/Analyst target are actually available for a
-    given stock. Bars are teal when the model sits above price (undervalued
-    signal by that model), red when below. A vertical rule marks the current
-    price; a composite margin-of-safety callout renders underneath when
-    `composite` is given.
+    `models` is an ordered list of (label, value) pairs — callers pick
+    whichever of Graham #/PE fair value/DDM/Analyst target are actually
+    available for a given stock. Delta is (model value − price) / model
+    value, matching the same margin-of-safety convention used for the
+    composite row and for fair_value_bar_compact elsewhere.
     """
     valid = [(lbl, float(v)) for lbl, v in models if v is not None and pd.notna(v) and v > 0]
     if not valid or not price or pd.isna(price):
@@ -65,57 +111,37 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 
     price = float(price)
     scale = max([price] + [v for _, v in valid]) * 1.08
-    price_pct = min(96.0, max(4.0, price / scale * 100))
 
-    rows_html = "".join(f"""
-<div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-  <span style="width:84px;flex:none;font-size:12px;color:var(--uv-muted);text-align:right">{lbl}</span>
-  <div style="flex:1;height:26px;position:relative;background:rgba(13,31,60,0.05);border-radius:6px">
-    <div style="position:absolute;left:0;top:0;height:26px;border-radius:6px;width:{min(100.0, v / scale * 100):.1f}%;
-                background:{"var(--uv-mint)" if v >= price else "var(--uv-neg-txt)"};display:flex;align-items:center;
-                justify-content:flex-end;padding-right:8px;font:500 11px var(--uv-mono);
-                color:{"#04231a" if v >= price else "#fff"};white-space:nowrap">{currency}{v:,.0f}</div>
+    def _row(label: str, value: float, delta_pct: float, bold: bool = False) -> str:
+        color = _ladder_bar_color(delta_pct)
+        _weight = 600 if bold else 500
+        return f"""
+<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+  <span style="width:84px;flex:none;font-size:12px;font-weight:{_weight};color:var(--uv-muted);text-align:right;">{label}</span>
+  <div style="width:110px;flex:none;height:6px;border-radius:3px;background:var(--uv-track,#EEF1F5);position:relative;">
+    <div style="position:absolute;left:0;top:0;height:6px;border-radius:3px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div>
   </div>
-</div>""" for lbl, v in valid)
+  <span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:{_weight};width:64px;text-align:right;">{currency}{value:,.0f}</span>
+  <span style="font-family:var(--uv-mono);font-size:11.5px;font-weight:{_weight};color:{color};width:56px;text-align:right;">{delta_pct:+.1f}%</span>
+</div>"""
+
+    rows_html = "".join(_row(lbl, v, (v - price) / v * 100) for lbl, v in valid)
 
     composite_html = ""
     if composite is not None and pd.notna(composite) and composite > 0:
         composite = float(composite)
         mos = (composite - price) / composite * 100
-        above = sum(1 for _, v in valid if v >= price)
-        if above == len(valid):
-            verdict = "All models above price — broad undervaluation"
-        elif above > len(valid) / 2:
-            verdict = "Most models above price — likely undervalued"
-        elif above > 0:
-            verdict = "Mixed signal across models"
-        else:
-            verdict = "All models below price — broad overvaluation"
-        pos = mos >= 0
-        bg, txt = ("var(--uv-pos-bg)", "var(--uv-pos-txt)") if pos else ("var(--uv-neg-bg)", "var(--uv-neg-txt)")
         composite_html = f"""
-<div style="margin-top:16px;padding:12px 14px;background:{bg};border-radius:10px">
-  <div style="font:500 12.5px -apple-system,sans-serif;color:{txt}">{verdict}</div>
-  <div style="font:400 12px -apple-system,sans-serif;color:{txt};opacity:0.85;margin-top:3px">
-    Composite fair value {currency}{composite:,.0f} · margin of safety <b>{mos:+.1f}%</b>
-  </div>
+<div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--uv-line,rgba(13,31,60,0.1));">
+  {_row("Composite", composite, mos, bold=True)}
 </div>"""
 
     st.markdown(f"""
-<div style="position:relative;padding-top:18px">
-  <div style="position:absolute;left:{price_pct:.1f}%;top:18px;bottom:0;width:2px;background:var(--uv-navy);z-index:2"></div>
-  <div style="position:absolute;left:{price_pct:.1f}%;top:0;transform:translateX(-50%);white-space:nowrap;
-              font:500 10.5px var(--uv-mono);color:var(--uv-navy);z-index:3">{currency}{price:,.2f} price</div>
-  {rows_html}
-  {composite_html}
-</div>
+<div style="font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--uv-muted);margin-bottom:2px;">
+  Current price {currency}{price:,.2f}</div>
+{rows_html}
+{composite_html}
 """, unsafe_allow_html=True)
-
-
-# "Near fair" band — a MoS within +/-3% reads as priced-at-fair-value rather
-# than a genuine under/overvaluation signal (matches the mockup's 3-tier
-# Undervalued/Near fair/Overvalued legend, not a plain positive/negative split).
-_NEAR_FAIR_BAND = 3.0
 
 
 def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: float | None,

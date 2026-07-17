@@ -65,7 +65,7 @@ def test_render_signal_tips_noop_on_empty_list():
     assert at.caption[0].value == "sentinel"
 
 
-def test_fair_value_ladder_renders_bars_and_composite_callout():
+def test_fair_value_ladder_renders_bars_and_composite_row():
     def _script():
         from uvalu.components import fair_value_ladder
         fair_value_ladder(
@@ -77,7 +77,7 @@ def test_fair_value_ladder_renders_bars_and_composite_callout():
     at = _run(_script)
     html = at.markdown[0].value
     assert "€236" in html and "€261" in html and "€245" in html
-    assert "margin of safety" in html
+    assert "Composite" in html and "€256" in html
     assert "+16.2%" in html  # (256-214.60)/256 * 100, rounded — matches screener._margin_of_safety's (fv-price)/fv convention
 
 

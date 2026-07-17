@@ -13,7 +13,8 @@ import streamlit as st
 from portfolio import (save_watchlist, load_watchlist, load_manual_tickers,
                        save_manual_tickers, load_portfolio)
 from uvalu import nav as nav_registry
-from uvalu.components import signal_badge_for_decision, signal_badge_html, fair_value_ladder
+from uvalu.components import (signal_badge_for_decision, signal_badge_html,
+                              fair_value_ladder, veto_reason_str)
 from uvalu.dialogs import add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
@@ -63,8 +64,18 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
     in_wl = ticker in watchlist
     kind, label = signal_badge_for_decision(str(row.get("Decision", "")), veto=bool(row.get("veto")))
 
-    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-        st.markdown(f"#### {row.get('Name', '—')}")
+    # Header hierarchy matches the mockup: ticker + signal badge lead (the
+    # primary identifier), company name/sector follow as a secondary caption
+    # line — previously reversed (name as an h4 heading, ticker as a caption,
+    # badge on its own line further down). The ★ watchlist toggle isn't in the
+    # mockup's drawer header at all, but stays here (de-emphasized, right-
+    # aligned) since it's the only watchlist toggle available when the drawer
+    # is opened from Portfolio/Risk/Dashboard, which have no per-row star.
+    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
+                       f'{ticker}</span>', unsafe_allow_html=True)
+            st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
         if st.button("★" if in_wl else "☆", key="drw_star", type="tertiary",
                     help="Remove from watchlist" if in_wl else "Add to watchlist"):
             save_watchlist((watchlist - {ticker}) if in_wl else (watchlist | {ticker}))
@@ -77,8 +88,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
             # calling page's row-click dispatch reopens the drawer on it.
             st.session_state["_drw_reopen_ticker"] = ticker
             st.rerun()
-    st.caption(f"`{ticker}`  ·  {_fv(row, 'sector')}")
-    st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
+    st.caption(f"{row.get('Name', '—')} · {_fv(row, 'sector')}")
 
     # ── Hero: price / fair value / MoS ───────────────────────────────────────
     _c1, _c2, _c3 = st.columns(3)
@@ -93,7 +103,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         st.markdown(f"**{_fv(row, 'MoS %', lambda v: f'{v:+.1f}%')}**")
 
     if row.get("veto"):
-        st.error("Hard veto triggered — excluded from scoring. See Analysis for the reason.")
+        st.error(f"Hard veto triggered — excluded from scoring: {veto_reason_str(row)}.")
 
     st.divider()
     st.caption("Six-model fair value")

@@ -23,6 +23,16 @@ def _status_badge(status: str) -> str:
            f'font-size:11px;font-weight:500;">{status}</span>')
 
 
+def _display_name(email: str) -> str:
+    """Title-cased name derived from the email local-part (e.g. "marek.k@uvalu.eu"
+    -> "Marek K") — there's no real display-name field in the user record, so
+    this is a readable stand-in rather than a fabricated one, same approach as
+    shell.py's _initials() avatar helper."""
+    local = (email or "").split("@")[0]
+    parts = [p for p in local.replace(".", " ").replace("_", " ").replace("-", " ").split(" ") if p]
+    return " ".join(p.capitalize() for p in parts) if parts else email
+
+
 @st.dialog("Invite user", width="large")
 def _dlg_invite():
     st.caption("They'll need this temporary password to sign in — there's no outbound email, "
@@ -79,8 +89,8 @@ def _render_users() -> None:
         with st.container(border=True):
             _c1, _c2, _c3, _c4, _c5 = st.columns([3, 1.4, 1.2, 1.6, 1.2], vertical_alignment="center")
             with _c1:
-                st.markdown(f"**{u['email']}**")
-                st.caption(f"Since {u['created_at'][:10]}" if u["created_at"] else "—")
+                st.markdown(f"**{_display_name(u['email'])}**")
+                st.caption(f"{u['email']} · since {u['created_at'][:10]}" if u["created_at"] else u["email"])
             with _c2:
                 _new_role = st.selectbox("Role", options=list(ROLES), index=list(ROLES).index(u["role"]),
                                          key=f"admin_role_{u['email']}", label_visibility="collapsed",
