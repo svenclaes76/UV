@@ -11,11 +11,12 @@ from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.dialogs import add_position_dialog
-from uvalu.formatting import safe_pct as _safe_pct, fmt_eur as _fmt_eur
+from uvalu.drawer import open_drawer
+from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors, current_user
-from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_bar_compact, fair_value_legend_row, radial_gauge_svg,
-                              kpi_card as _kpi_card)
+from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
+                              kpi_card as _kpi_card, chip_html as _chip_html,
+                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
 
 _RANGES = {"1M": 30, "3M": 91, "6M": 182, "1Y": 365, "All": None}
@@ -148,13 +149,12 @@ def render() -> None:
             _db_last_val   = float(_vh_view["value"].iloc[-1])
             _db_first_val  = float(_vh_view["value"].iloc[0])
             _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
-            _db_range_color = "var(--up-txt)" if _db_range_pct >= 0 else "var(--down-txt)"
             with _title_col:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">Portfolio value over time</div>
-<div style="display:flex;align-items:baseline;gap:10px;margin-top:4px;">
+<div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
   <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">€{_db_last_val:,.0f}</span>
-  <span style="color:{_db_range_color};font-size:12px;font-weight:500;">{_db_range_pct:+.1f}%</span>
+  {_chip_html(f"{_db_range_pct:+.1f}%", _db_range_pct >= 0)}
   <span style="font-size:11px;color:var(--faint);">{_range_sel or "All"}</span>
 </div>""", unsafe_allow_html=True)
 
@@ -310,73 +310,90 @@ def render() -> None:
     st.container(height=4, border=False, key="db_gap_2")
 
     # ── Holdings · price vs fair value ────────────────────────────────────────
-    _hold_title_col, _hold_legend_col = st.columns([2, 2], vertical_alignment="center")
-    with _hold_title_col:
-        st.markdown('<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>',
-                   unsafe_allow_html=True)
-    with _hold_legend_col:
-        fair_value_legend_row()
-    if not _db_scr.empty:
-        _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
-        _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
-        _hold = _hold.sort_values("current_value", ascending=False)
+    with st.container(key="db_holdings_card", border=True):
+        with st.container(key="db_holdings_header", horizontal=True,
+                          vertical_alignment="center", horizontal_alignment="distribute"):
+            with st.container(width="content"):
+                st.markdown("""
+<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">Each track runs from €0 to the
+six-model fair-value estimate. Gap to the marker is your remaining margin of safety.</div>""",
+                           unsafe_allow_html=True)
+            with st.container(width="content"):
+                fair_value_legend_row()
+        if not _db_scr.empty:
+            _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
+            _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
+            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
 
-        _hh1, _hh2, _hh3, _hh4, _hh5, _hh6, _hh7 = st.columns(
-            [2.0, 0.8, 2.2, 0.7, 0.7, 0.8, 0.7], vertical_alignment="center")
-        for _hh, _label in zip((_hh1, _hh2, _hh3, _hh4, _hh5, _hh6, _hh7),
-                               ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")):
-            with _hh:
-                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
+            with st.container(key="db_holdings_colheader"):
+                _hh_align = ("left", "left", "left", "right", "right", "right", "right")
+                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")
+                _hh_cells = "".join(
+                    f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
+                st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
+                           f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
 
-        for _hidx, _hr in _hold.reset_index(drop=True).iterrows():
-            # Keyed by row position, not ticker — the same ticker can appear in
-            # two rows if a user bought it in separate lots (add_position()
-            # appends rather than merging), which would otherwise collide.
-            with st.container(key=f"db_hold_{_hidx}", border=True):
-                _hc1, _hc2, _hc3, _hc4, _hc5, _hc6, _hc7 = st.columns(
-                    [2.0, 0.8, 2.2, 0.7, 0.7, 0.8, 0.7], vertical_alignment="center")
-                with _hc1:
-                    _sector = _hr.get("sector")
-                    _sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid "
-                                   f"var(--line);border-radius:5px;padding:1px 6px;margin-left:6px;'>{_sector}</span>"
-                                   if _sector and pd.notna(_sector) else "")
-                    st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>"
-                               f"{_hr.get('ticker', '')}</span>{_sector_html}<br>"
-                               f"<span style='color:var(--muted);font-size:12px;'>{_hr.get('name', '')}</span>",
-                               unsafe_allow_html=True)
-                with _hc2:
-                    _kind, _label = signal_badge_for_decision(str(_hr.get("Decision", "")), veto=bool(_hr.get("veto")))
-                    st.markdown(signal_badge_html(_kind, _label), unsafe_allow_html=True)
-                with _hc3:
-                    fair_value_bar_compact(_hr.get("live_price"), _hr.get("fair_value"), _hr.get("MoS %"))
-                with _hc4:
-                    _mos = _hr.get("MoS %")
-                    _mos = float(_mos) if _mos is not None and pd.notna(_mos) else None
-                    _mos_color = "var(--up-txt)" if (_mos or 0) >= 0 else "var(--down-txt)"
-                    st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                               f"color:{_mos_color};'>{_mos:+.1f}%</span>" if _mos is not None else "—",
-                               unsafe_allow_html=True)
-                with _hc5:
+            # Row-click opens the shared drawer (same right-edge sidepanel used
+            # by Screener/Watchlist/Portfolio) — @st.dialog can't be invoked
+            # from inside the row loop itself, so the clicked ticker is just
+            # tracked here and the dialog opened once after the loop, matching
+            # the pattern in uvalu/pages_/screener.py. Each row is one raw CSS
+            # Grid (holdings_row_html, matching Uvalu.dc.html's fixed-px grid
+            # exactly) rendered via a single st.markdown() call — an earlier
+            # version split content|button across a 2-column st.columns() row,
+            # but Streamlit's per-column height measurement reliably
+            # undersized the CSS-Grid content column (a 43px-tall grid
+            # measured internally as 27px, confirmed live, immune to
+            # align-items/display:contents overrides at every level of the
+            # wrapper chain), leaving the row visibly off-center no matter
+            # what. Making the whole row ONE element removes that competing
+            # measurement entirely. The click target is now an invisible
+            # st.button absolutely positioned over the full row (styles.py)
+            # instead of a small "→" — closer to the mockup's own cursor:
+            # pointer-on-the-whole-row behavior anyway, not just an icon.
+            _drawer_target = None
+            for _hidx, _hr in _hold.iterrows():
+                # Keyed by row position, not ticker — the same ticker can appear in
+                # two rows if a user bought it in separate lots (add_position()
+                # appends rather than merging), which would otherwise collide.
+                with st.container(key=f"db_hold_{_hidx}"):
+                    # `_hr.get("Decision")` returns the actual NaN float (not
+                    # the "" default) for holdings with no screener match —
+                    # the "Decision" key exists as a merged column, it's just
+                    # empty for that row — so str()-ing it unguarded would
+                    # produce the literal text "nan" in the signal badge.
+                    _decision = _hr.get("Decision")
+                    _decision = str(_decision) if pd.notna(_decision) else ""
                     _w = _hr.get("weight", 0)
                     _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
-                    st.caption(f"{_w*100:.1f}%")
-                with _hc6:
                     _cv = _hr.get("current_value")
                     _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
-                    st.markdown(f"<span style='font-family:var(--uv-mono);'>{_fmt_eur(_cv)}</span>",
-                               unsafe_allow_html=True)
-                with _hc7:
-                    _day = _hr.get("day_change_pct")
-                    _day = float(_day) if _day is not None and pd.notna(_day) else None
-                    if _day is not None:
-                        _day_color = "var(--up-txt)" if _day >= 0 else "var(--down-txt)"
-                        st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;"
-                                   f"color:{_day_color};'>{_day:+.2f}%</span>", unsafe_allow_html=True)
-                    else:
-                        st.caption("—")
-    else:
-        st.caption("No screener data available for your holdings.")
+                    st.markdown(_holdings_row_html(
+                        ticker=_hr.get("ticker", ""), sector=_hr.get("sector"), name=_hr.get("name", ""),
+                        decision=_decision, veto=bool(_hr.get("veto")),
+                        price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
+                        weight=_w, value=_cv, day_change_pct=_hr.get("day_change_pct"),
+                    ), unsafe_allow_html=True)
+                    _hr_ticker = _hr.get("Ticker")
+                    if pd.notna(_hr_ticker):
+                        if st.button("View details", key=f"db_holdbtn_{_hidx}"):
+                            _drawer_target = _hidx
+
+            if _drawer_target is not None:
+                open_drawer(_hold.iloc[_drawer_target], None)
+            else:
+                # Keep the drawer open across the rerun the watchlist-star
+                # button inside it triggers (@st.dialog closes on any rerun)
+                # — same pattern as uvalu/pages_/screener.py.
+                _reopen = st.session_state.get("_drw_reopen_ticker")
+                _r = _hold[_hold["Ticker"] == _reopen] if _reopen else _hold.iloc[0:0]
+                if not _r.empty:
+                    st.session_state.pop("_drw_reopen_ticker", None)
+                    open_drawer(_r.iloc[0], None)
+        else:
+            st.caption("No screener data available for your holdings.")
 
     st.container(height=4, border=False, key="db_gap_3")
 
@@ -463,7 +480,7 @@ def render() -> None:
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>
-  <span style="color:{_color};font-family:var(--uv-mono);width:58px;text-align:right;flex:none;">{_mr['day_change_pct']:+.2f}%</span>
+  <span style="width:64px;text-align:right;flex:none;">{_chip_html(f"{_mr['day_change_pct']:+.2f}%", _pos)}</span>
 </div>""", unsafe_allow_html=True)
         else:
             st.caption("No daily price data available.")

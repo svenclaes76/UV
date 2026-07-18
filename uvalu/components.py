@@ -72,6 +72,21 @@ def render_signal_tips(tips: list[tuple[str, str]]) -> None:
     )
 
 
+# ── Delta chip ───────────────────────────────────────────────────────────────
+# Matches Uvalu.dc.html's shared _chip(up) helper — a colored pill (not plain
+# text) for any up/down delta: KPI card deltas, the value-chart's range
+# delta, and the Holdings/Top-movers "Today" day-change cells all use it.
+
+def chip_html(text: str, positive: bool = True) -> str:
+    """Raw <span> markup for a colored up/down delta pill — embed inside
+    markdown/HTML contexts (e.g. a table cell's <div>)."""
+    bg = "var(--up-bg)" if positive else "var(--down-bg)"
+    color = "var(--up-txt)" if positive else "var(--down-txt)"
+    return (f'<span style="display:inline-flex;align-items:center;gap:2px;'
+           f'font-family:var(--uv-mono);font-size:11.5px;font-weight:500;'
+           f'padding:2px 7px;border-radius:5px;background:{bg};color:{color};">{text}</span>')
+
+
 # ── KPI card ─────────────────────────────────────────────────────────────────
 # Shared by the Dashboard KPI strip and Portfolio's summary rows (overview +
 # the three full-page drill-downs) so every screen's headline numbers render
@@ -93,19 +108,22 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
     card (e.g. a count with nothing to compare it against)."""
-    color = "var(--up-txt)" if positive else "var(--down-txt)"
     _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                 f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
                 f'</svg>')
+    # `_delta_row` is built as a single-line string (not split across f-string
+    # template lines) — a blank/whitespace-only line here (when delta_text is
+    # "") resets CommonMark's HTML-block parsing context, and the *next*
+    # line's leading spaces then get read as an indented code block instead
+    # of continued HTML, rendering the sub-caption as literal escaped text.
+    _delta_html = chip_html(delta_text, positive) if delta_text else ""
+    _delta_row = f'{_delta_html}<span style="font-size:11px;color:var(--faint);">{sub}</span>'
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
     {_icon_svg}{label}</div>
   <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
-  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
-    <span style="color:{color};font-size:12px;font-weight:500;">{delta_text}</span>
-    <span style="font-size:11px;color:var(--faint);">{sub}</span>
-  </div>
+  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
 
 
@@ -181,6 +199,27 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 """, unsafe_allow_html=True)
 
 
+def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct: float | None,
+                         currency: str = "€") -> str:
+    """Raw markup for the price-vs-fair-value ladder — factored out of
+    fair_value_bar_compact() so holdings_row_html() can embed it inside a
+    larger row grid without a nested st.markdown() call."""
+    if fair_value is None or pd.isna(fair_value) or not price or pd.isna(price) or mos_pct is None or pd.isna(mos_pct):
+        return '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+    price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
+    color = _ladder_bar_color(mos_pct)
+    scale = max(price, fair_value) * 1.08
+    price_pct = min(100.0, price / scale * 100)
+    fair_pct = min(100.0, fair_value / scale * 100)
+    # Single-line — see the matching note in holdings_row_html().
+    return (f'<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">'
+           f'<span>{currency}{price:,.2f}</span><span style="color:var(--uv-muted)">fv {currency}{fair_value:,.2f}</span></div>'
+           f'<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">'
+           f'<div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>'
+           f'<div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);'
+           f'left:{fair_pct:.1f}%;"></div></div>')
+
+
 def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: float | None,
                            currency: str = "€") -> None:
     """Single price-vs-fair-value ladder — for list/row contexts (e.g.
@@ -192,23 +231,71 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
     same scale — matching Uvalu.dc.html's "Holdings · price vs fair value"
     ladder exactly (its fillStyle + markerStyle).
     """
-    if fair_value is None or pd.isna(fair_value) or not price or pd.isna(price) or mos_pct is None or pd.isna(mos_pct):
-        st.caption("—")
-        return
-    price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
-    color = _ladder_bar_color(mos_pct)
-    scale = max(price, fair_value) * 1.08
-    price_pct = min(100.0, price / scale * 100)
-    fair_pct = min(100.0, fair_value / scale * 100)
-    st.markdown(f"""
-<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">
-  <span>{currency}{price:,.2f}</span><span style="color:var(--uv-muted)">fv {currency}{fair_value:,.2f}</span>
-</div>
-<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">
-  <div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>
-  <div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);left:{fair_pct:.1f}%;"></div>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(_fair_value_bar_html(price, fair_value, mos_pct, currency), unsafe_allow_html=True)
+
+
+# ── Holdings row (fixed-px CSS Grid) ────────────────────────────────────────
+# st.columns() only supports relative-ratio widths, not Uvalu.dc.html's
+# actual grid-template-columns:210px 78px 1fr 82px 66px 108px 78px — every
+# attempt to approximate those proportions with ratios produced visible
+# drift (columns too wide/narrow at different viewport sizes) and fighting
+# Streamlit's own flex/margin-auto vertical-centering caused a string of
+# follow-on bugs (wrong intrinsic cell heights, asymmetric padding). Building
+# the row as one raw CSS Grid via a single st.markdown() call matches the
+# design byte-for-byte and sidesteps all of that — the grid's own
+# align-items:center handles vertical centering natively. The one thing this
+# can't do is a native onClick, so the caller renders this in a wide column
+# next to a normal narrow st.button("→", ...) column for the drawer link.
+HOLDINGS_GRID_COLS = "210px 78px 1fr 82px 66px 108px 78px"
+
+
+def holdings_row_html(*, ticker: str, sector: str | None, name: str,
+                      decision: str, veto: bool,
+                      price: float | None, fair_value: float | None, mos_pct: float | None,
+                      weight: float, value: float, day_change_pct: float | None,
+                      currency: str = "€") -> str:
+    """Full inner grid markup for one Holdings table row — ticker+sector+name,
+    signal badge, fair-value ladder, upside/weight/value, and a day-change
+    chip — matching Uvalu.dc.html's row spec column-for-column. Embed inside
+    an outer st.markdown(unsafe_allow_html=True) call; pair with a
+    HOLDINGS_GRID_COLS-templated header for aligned column labels."""
+    sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
+                   f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{sector}</span>"
+                   if sector and pd.notna(sector) else "")
+    kind, label = signal_badge_for_decision(decision, veto=veto)
+    ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency)
+    if mos_pct is not None and pd.notna(mos_pct):
+        mos_pct = float(mos_pct)
+        _up_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
+        upside_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
+                       f"color:{_up_color};'>{mos_pct:+.1f}%</span>")
+    else:
+        upside_html = "<span style='color:var(--faint);'>—</span>"
+    if day_change_pct is not None and pd.notna(day_change_pct):
+        day_html = chip_html(f"{float(day_change_pct):+.2f}%", float(day_change_pct) >= 0)
+    else:
+        day_html = "<span style='color:var(--faint);'>—</span>"
+    # Built as one single-line string, not a multi-line f-string template —
+    # confirmed live that Streamlit's frontend pre-estimates a markdown
+    # element's height from something like a newline count in the *raw*
+    # source text before the real DOM renders, and never corrects it
+    # afterward for HTML content (where source newlines don't correspond to
+    # visual lines at all): a nicely-indented multi-line template for this
+    # exact same 43px-tall grid was being sized as ~27px regardless of
+    # column layout, align-items, or display:contents overrides anywhere in
+    # the wrapper chain — the row height itself, not just centering, was
+    # wrong. Collapsing to one line fixed it outright.
+    return (f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+           f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
+           f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
+           f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
+           f'text-overflow:ellipsis;">{name}</div></div>'
+           f'<div>{signal_badge_html(kind, label)}</div>'
+           f'<div style="min-width:0;">{ladder_html}</div>'
+           f'<div style="text-align:right;">{upside_html}</div>'
+           f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{weight*100:.1f}%</div>'
+           f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;font-weight:500;">{_fmt_eur(value)}</div>'
+           f'<div style="text-align:right;">{day_html}</div></div>')
 
 
 def _score_bar_cell_html(score: float | None) -> str:

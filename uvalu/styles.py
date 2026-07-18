@@ -84,11 +84,77 @@ GLOBAL_CSS = """
      is adopting (Dashboard first, Phase 3.1) ──────────────────────────────── */
   section[data-testid="stMain"] { background: var(--bg) !important; }
 
-  /* ── Dashboard holdings rows — dark-panel card per position, matching the
-     mockup's "Holdings · price vs fair value" table (uvalu/pages_/dashboard.py) */
-  [class*="st-key-db_hold_"] {
+  /* ── Dashboard Holdings card — one seamless panel (title+description+
+     legend header, column-header row, then flat divider-separated rows)
+     matching Uvalu.dc.html's "Holdings · price vs fair value" table exactly
+     (overflow:hidden, no outer padding — each inner section owns its own
+     padding instead). Deliberately NOT part of the st-key-db_card_ shared
+     substring rule below since that one applies a uniform 18px padding,
+     which this card's row-divider layout doesn't want. */
+  .st-key-db_holdings_card {
     background: var(--panel) !important; border-color: var(--line) !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+  }
+  .st-key-db_holdings_header {
+    padding: 16px 20px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  .st-key-db_holdings_colheader {
+    padding: 9px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    /* Same Streamlit height-underestimation as the db_hold_ rows below (see
+       that rule's comment) — the header's own markdown grid measured
+       shorter than its real content, so once row0 was pulled flush against
+       it (0px gap, by design), row0's divider visibly crossed through the
+       header's own overflowing label text. min-height stops the box from
+       under-reporting; confirmed live it now matches the real content
+       exactly (9px top/bottom padding either side of the label row). */
+    min-height: 34px !important;
+  }
+  [class*="st-key-db_hold_"] {
+    position: relative !important; padding: 12px 20px !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+    border-radius: 0 !important; background: transparent !important;
+    /* Each row is its own st.container(), and Streamlit puts a default
+       ~16px gap between every sibling in a vertical block — so on top of
+       each row's own divider (border-bottom above), there was a visible
+       16px dead strip both above the column header's first row and between
+       every consecutive pair of rows. The mockup has rows flush against
+       each other, separated only by that divider line, so cancel the gap
+       directly with a negative top margin (confirmed live: no wrapper/
+       display:contents trick needed here, a plain margin on the row's own
+       keyed element closes the gap to exactly 0px). */
+    margin-top: -16px !important;
+    /* Each row's content is one raw CSS Grid built by components.py's
+       holdings_row_html() (Uvalu.dc.html's fixed-px grid-template-columns,
+       which st.columns()'s ratio-only widths can't replicate), rendered via
+       a single st.markdown() call. Streamlit's frontend reliably
+       under-estimates that markdown element's own height for layout
+       purposes — this specific 43px-tall grid consistently sized as ~27px
+       internally, immune to align-items/display:contents overrides
+       anywhere in the wrapper chain, whether the source HTML was written
+       single- or multi-line, and whether it shared the row with a real
+       st.button or not (ruling out the button-column split, unequal-height
+       centering, and markdown-newline-counting as the cause — this is a
+       Streamlit-internal estimate CSS can't correct at its source). A
+       plain min-height floor on the row itself is the reliable fix: content
+       taller than 67px still grows the row normally, it just stops
+       Streamlit from rendering it 16px too short. */
+    min-height: 67px !important;
+  }
+  [class*="st-key-db_hold_"]:hover { background: var(--soft) !important; }
+  /* The drawer-click button is invisible and absolutely positioned over the
+     *entire* row — matching the mockup's own cursor:pointer-on-the-whole-
+     row behavior (not just a small icon) — and since position:absolute
+     removes it from normal flow, it can't contribute any height of its own
+     to the row (which would otherwise reintroduce the same under-
+     estimation problem via a second competing element). */
+  [class*="st-key-db_hold_"] [data-testid="stElementContainer"]:has(button) {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+  }
+  [class*="st-key-db_hold_"] [data-testid="stElementContainer"]:has(button) button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important;
+    cursor: pointer;
   }
 
   /* ── Dashboard section cards — chart/conviction row + bottom row (sector
