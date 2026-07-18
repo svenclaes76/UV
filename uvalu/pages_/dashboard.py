@@ -14,36 +14,11 @@ from uvalu.dialogs import add_position_dialog
 from uvalu.formatting import safe_pct as _safe_pct, fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_bar_compact, fair_value_legend_row, radial_gauge_svg)
+                              fair_value_bar_compact, fair_value_legend_row, radial_gauge_svg,
+                              kpi_card as _kpi_card)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
 
 _RANGES = {"1M": 30, "3M": 91, "6M": 182, "1Y": 365, "All": None}
-
-# Small stroke icons (24x24 viewBox, currentColor) for the KPI strip — matching
-# the mockup's leading-icon-per-tile treatment (Uvalu.dc.html's {{ k.icon }}).
-_KPI_ICONS = {
-    "wallet": '<path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-11"/><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"/>',
-    "trend":  '<path d="M3 17l6 -6l4 4l8 -8"/><path d="M14 7l7 0l0 7"/>',
-    "coin":   '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1 -1.8 -1"/><path d="M12 6v2m0 8v2"/>',
-    "target": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/>',
-}
-
-
-def _kpi_card(label: str, value: str, delta_text: str, positive: bool, sub: str, icon: str = "wallet") -> None:
-    color = "var(--up-txt)" if positive else "var(--down-txt)"
-    _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{_KPI_ICONS.get(icon, "")}'
-                f'</svg>')
-    st.markdown(f"""
-<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
-  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
-    {_icon_svg}{label}</div>
-  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
-  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
-    <span style="color:{color};font-size:12px;font-weight:500;">{delta_text}</span>
-    <span style="font-size:11px;color:var(--faint);">{sub}</span>
-  </div>
-</div>""", unsafe_allow_html=True)
 
 
 def render() -> None:

@@ -80,6 +80,7 @@ class PositionRisk:
     weight: float
     beta: float | None
     var_95_1d_eur: float | None
+    vol_annual: float | None        # annualised vol proxy (fraction) — |beta| × market vol × sqrt(252)
     mos: float | None               # margin of safety (fraction)
     valuation_flag: str             # "Overvalued" | "Fairly Valued" | "Undervalued" | "N/A"
     div_sustainability: str         # "OK" | "At Risk" | ""
@@ -116,6 +117,7 @@ class QuantMetrics:
     beta_label: str
     volatility_annual: float | None     # fraction, e.g. 0.15 = 15%
     volatility_label: str
+    var_95_1d_pct: float | None         # fraction, e.g. -0.03 = -3% (same 1-day 95% VaR as var_95_1d_eur, as a return)
     var_95_1d_eur: float | None
     var_99_1d_eur: float | None
     cvar_95_1d_eur: float | None
@@ -307,6 +309,7 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         # Parametric VaR(95%) proxy — uses beta × market daily vol
         stock_daily_vol = abs(beta if beta is not None else 1.0) * MARKET_DAILY_VOL
         var_95 = pos_value * stock_daily_vol * 1.645
+        vol_annual = stock_daily_vol * np.sqrt(TRADING_DAYS)
 
         # Valuation flag from fair value vs live price
         price = _safe(row.get("live_price"))
@@ -330,6 +333,7 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             weight=weight,
             beta=beta,
             var_95_1d_eur=round(var_95, 2) if var_95 else None,
+            vol_annual=round(vol_annual, 4) if vol_annual else None,
             mos=round(mos, 4) if mos is not None else None,
             valuation_flag=val_flag,
             div_sustainability=ds,
@@ -474,7 +478,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
     _no_history = QuantMetrics(
         portfolio_beta=round(port_beta, 2), beta_label=_beta_label(port_beta),
         volatility_annual=None, volatility_label="N/A",
-        var_95_1d_eur=None, var_99_1d_eur=None, cvar_95_1d_eur=None,
+        var_95_1d_pct=None, var_95_1d_eur=None, var_99_1d_eur=None, cvar_95_1d_eur=None,
         mdd_1y=None, mdd_3y=None, mdd_5y=None, mdd_label="N/A",
         sharpe=None, sortino=None, ratio_label="N/A",
         corr_matrix=None, high_corr_pairs=[], effective_diversification=None,
@@ -540,6 +544,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         beta_label=_beta_label(port_beta),
         volatility_annual=round(float(vol_ann), 4),
         volatility_label=_vol_label(float(vol_ann)),
+        var_95_1d_pct=round(min(0.0, var_95_pct), 4),
         var_95_1d_eur=round(max(0.0, -var_95_pct) * total_value, 2),
         var_99_1d_eur=round(max(0.0, -var_99_pct) * total_value, 2),
         cvar_95_1d_eur=round(max(0.0, -cvar_95_pct) * total_value, 2),

@@ -19,6 +19,8 @@ class ThemeColors:
     invested: str
     text: str
     surface: str
+    up_txt: str
+    down_txt: str
 
 
 def theme_colors() -> ThemeColors:
@@ -31,6 +33,11 @@ def theme_colors() -> ThemeColors:
         invested="rgba(59,77,99,0.45)" if light else "rgba(245,247,250,0.35)",
         text="#0D1F3C"             if light else "#F5F7FA",
         surface="#F5F7FA"          if light else "#0D1F3C",
+        # Matches Uvalu.dc.html's --up-txt/--down-txt tokens (uvalu/styles.py) —
+        # literal hex, not var(), since Python-computed colors (Plotly traces,
+        # pandas Styler cell colors) can't resolve CSS custom properties.
+        up_txt="#0F6E56"           if light else "#1DD6A4",
+        down_txt="#A32D2D"         if light else "#F0A6A6",
     )
 
 

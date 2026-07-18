@@ -85,5 +85,9 @@ if _legacy_page:
     if _legacy_page in nav.pages:
         st.switch_page(nav.pages[_legacy_page])
 
-shell.render_topbar(_nav)
+# Admin renders its own standalone sidebar/topbar (uvalu/pages_/admin.py),
+# matching Uvalu Admin.dc.html's separate shell — skip the main app's
+# horizontal top-bar nav for it instead of stacking both.
+if _nav.url_path != "admin":
+    shell.render_topbar(_nav)
 _nav.run()

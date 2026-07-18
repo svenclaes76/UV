@@ -12,10 +12,8 @@ from portfolio import (load_portfolio, load_manual_tickers, load_watchlist,
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
-from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
-from uvalu.components import signal_badge_for_decision, stock_row
-from uvalu.runtime import current_user
+from uvalu.components import signal_badge_for_decision, stock_row, empty_results_html
 from uvalu.ui import _auto_rerun
 
 _EXCHANGE_LABELS = {
@@ -23,6 +21,45 @@ _EXCHANGE_LABELS = {
     "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
 }
 _SIGNAL_CHIPS = ["BUY", "MONITOR", "AVOID", "VETO"]
+
+# Sortable columns, matching Uvalu.dc.html's colDefs/keyf exactly — key is
+# what's stored in session state, column is the DataFrame column it sorts by.
+# "signal" has no direct column (it's derived per-row via
+# signal_badge_for_decision), so it's computed into _signal_label just before
+# sorting rather than kept on every row all the time.
+_SORT_COLUMNS = [
+    ("name",   "Position",        "Name"),
+    ("signal", "Signal",          "_signal_label"),
+    ("score",  "Composite score", "Value Score"),
+    ("mos",    "Upside",          "MoS %"),
+    ("price",  "Price",           "Price"),
+    ("pe",     "P/E",             "trailingPE"),
+    ("dy",     "Yield",           "dividendYield"),
+]
+
+
+def _sort_by(key: str) -> None:
+    """Click a header: same column toggles asc/desc, a different column
+    switches to it defaulting to desc — matches Uvalu.dc.html's sortBy()."""
+    _cur_key = st.session_state.get("scr_sort_key", "score")
+    _cur_dir = st.session_state.get("scr_sort_dir", "desc")
+    if _cur_key == key:
+        st.session_state["scr_sort_dir"] = "asc" if _cur_dir == "desc" else "desc"
+    else:
+        st.session_state["scr_sort_key"] = key
+        st.session_state["scr_sort_dir"] = "desc"
+
+
+def _scr_header_css(active_key: str) -> str:
+    return f"""
+[class*="st-key-scr_sort_"] button {{
+  background: transparent !important; border: none !important; padding: 0 !important;
+  min-height: unset !important; font-size: 10px !important; letter-spacing: 0.06em !important;
+  text-transform: uppercase !important; color: var(--faint) !important; font-weight: 400 !important;
+}}
+[class*="st-key-scr_sort_"] button:hover {{ color: var(--text) !important; }}
+.st-key-scr_sort_{active_key} button {{ color: var(--text) !important; font-weight: 500 !important; }}
+"""
 
 
 def render() -> None:
@@ -115,7 +152,6 @@ def render() -> None:
     # the mockup, instead of further down the page. ───────────────────────────
     _valued_df = _all_df[_all_df["fair_value"].notna()].reset_index(drop=True) if not _all_df.empty else _all_df
     _header_slot = st.empty()
-    _is_viewer = current_user().is_viewer
 
     if _valued_df.empty:
         with _header_slot.container():
@@ -147,7 +183,12 @@ def render() -> None:
         _min_mos = st.slider("Min margin of safety", -20, 50, -20, step=5, key="scr_min_mos")
     with _c5:
         st.container(height=28, border=False)
-        _hide_owned = st.toggle("Hide positions I own", key="scr_hide_owned")
+        # A single-option st.pills reads as a clickable dot+label pill (same
+        # widget already used for the Signal filter chips above), matching
+        # Uvalu.dc.html's heldStyle/heldDot instead of a native toggle switch.
+        _hide_owned = bool(st.pills("Hide positions I own", options=["Hide positions I own"],
+                                    selection_mode="multi", key="scr_hide_owned",
+                                    label_visibility="collapsed"))
 
     # ── Apply filters ──────────────────────────────────────────────────────────
     _filtered = _valued_df.copy()
@@ -170,7 +211,14 @@ def render() -> None:
     if _hide_owned:
         _filtered = _filtered[~_filtered["Ticker"].isin(_held_tickers)]
 
-    _filtered = _filtered.sort_values("Value Score", ascending=False).reset_index(drop=True)
+    _sort_key = st.session_state.get("scr_sort_key", "score")
+    _sort_dir = st.session_state.get("scr_sort_dir", "desc")
+    if _sort_key == "signal":
+        _filtered["_signal_label"] = _filtered.apply(
+            lambda r: signal_badge_for_decision(str(r.get("Decision", "")), veto=bool(r.get("veto")))[1], axis=1)
+    _sort_col = next(c for k, _, c in _SORT_COLUMNS if k == _sort_key)
+    _filtered = _filtered.sort_values(
+        _sort_col, ascending=(_sort_dir == "asc"), na_position="last").reset_index(drop=True)
 
     _csv = _filtered[["Ticker", "Name", "Exchange", "Decision", "Value Score", "Price",
                       "fair_value", "MoS %", "trailingPE", "dividendYield"]].to_csv(index=False)
@@ -190,26 +238,33 @@ def render() -> None:
                     st.rerun()
                 st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv",
                                    mime="text/csv", key="scr_export")
-                if st.button("Refresh", key="scr_refresh"):
-                    _bust_cache()
-                if st.button("Buy", key="scr_buy", type="primary", disabled=_is_viewer,
-                            help="Viewer role is read-only" if _is_viewer else None):
-                    add_position_dialog()
 
     if _filtered.empty:
-        st.info("No stocks match these filters. Try loosening the score or margin-of-safety threshold.")
+        with st.container(border=True):
+            st.markdown(empty_results_html(
+                "No stocks match these filters. Try loosening the score or margin-of-safety threshold."),
+                unsafe_allow_html=True)
         return
 
-    # ── Column headers ───────────────────────────────────────────────────────
+    # ── Column headers — clickable, sortable (matches Uvalu.dc.html's
+    # sortBy()/arrow header spec instead of a hardcoded Value-Score-desc sort)
     _watchlist = load_watchlist()
+    st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
+    _sortable = {k: (label, col) for k, label, col in _SORT_COLUMNS}
     _hh_widths = [0.4, 0.4, 2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.5]
     _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-    for _hh, _label in zip(_hh_cols, ("", "#", "Position", "Signal", "Composite score",
-                                     "Upside", "Price", "P/E", "Yield", "")):
-        if _label:
+    _hh_slots = ("", "#", "name", "signal", "score", "mos", "price", "pe", "dy", "")
+    for _hh, _slot in zip(_hh_cols, _hh_slots):
+        if _slot in _sortable:
+            _label, _ = _sortable[_slot]
+            _arrow = (" ↓" if _sort_dir == "desc" else " ↑") if _sort_key == _slot else ""
             with _hh:
-                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
+                st.button(_label + _arrow, key=f"scr_sort_{_slot}", type="tertiary",
+                         on_click=_sort_by, args=(_slot,))
+        elif _slot == "#":
+            with _hh:
+                st.markdown('<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           'color:var(--faint);">#</span>', unsafe_allow_html=True)
 
     _drawer_target = None
     for _ridx, _row in _filtered.iterrows():
@@ -221,7 +276,7 @@ def render() -> None:
             decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
             score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
             pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"), rank=_ridx + 1,
-            action_icon="★" if _in_wl else "☆",
+            action_active=_in_wl,
             action_help="Remove from watchlist" if _in_wl else "Add to watchlist",
         )
         if _result["action"]:

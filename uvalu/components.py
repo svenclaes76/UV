@@ -72,6 +72,43 @@ def render_signal_tips(tips: list[tuple[str, str]]) -> None:
     )
 
 
+# ── KPI card ─────────────────────────────────────────────────────────────────
+# Shared by the Dashboard KPI strip and Portfolio's summary rows (overview +
+# the three full-page drill-downs) so every screen's headline numbers render
+# as the same bordered/shadowed card instead of Streamlit's bare st.metric.
+
+# Small stroke icons (24x24 viewBox, currentColor) matching the mockup's
+# leading-icon-per-tile treatment (Uvalu.dc.html's {{ k.icon }}).
+KPI_ICONS = {
+    "wallet": '<path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-11"/><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"/>',
+    "trend":  '<path d="M3 17l6 -6l4 4l8 -8"/><path d="M14 7l7 0l0 7"/>',
+    "coin":   '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1 -1.8 -1"/><path d="M12 6v2m0 8v2"/>',
+    "target": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/>',
+}
+
+
+def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True,
+            sub: str = "", icon: str = "wallet") -> None:
+    """One headline-number card: icon+label, a large mono value, and an
+    optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
+    tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
+    card (e.g. a count with nothing to compare it against)."""
+    color = "var(--up-txt)" if positive else "var(--down-txt)"
+    _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
+                f'</svg>')
+    st.markdown(f"""
+<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
+  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
+    {_icon_svg}{label}</div>
+  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
+  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
+    <span style="color:{color};font-size:12px;font-weight:500;">{delta_text}</span>
+    <span style="font-size:11px;color:var(--faint);">{sub}</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+
 # ── Fair-value ladder ────────────────────────────────────────────────────────
 
 # "Near fair" band — a MoS within +/-3% reads as priced-at-fair-value rather
@@ -181,45 +218,70 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 
 def _score_bar_cell_html(score: float | None) -> str:
     """Compact progress bar + number for a stock-list row's Score cell.
-    3-tier brand coloring — higher composite Value Score is better here
-    (BUY territory), the opposite sense of the risk-score scale."""
+    Matches Uvalu.dc.html's scoreFill/scoreColor exactly: the bar is a 3-tier
+    mint/teal/amber scale (>=75/>=55/below — never red, this is a composite
+    Value Score where higher is always better, not a risk scale) while the
+    number itself is only ever mint (>=75) or the default text color."""
     if score is None or pd.isna(score):
         return "—"
     score = float(score)
-    color = "var(--uv-pos-txt)" if score >= 70 else "#854F0B" if score >= 40 else "var(--uv-neg-txt)"
+    bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
+    text_color = "var(--uv-mint)" if score >= 75 else "var(--text, inherit)"
     pct = max(0.0, min(100.0, score))
     return f"""
 <div style="display:flex;align-items:center;gap:7px;">
   <div style="flex:1;height:5px;border-radius:3px;background:var(--uv-track);position:relative;">
-    <div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{color};width:{pct:.0f}%;"></div>
+    <div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{bar_color};width:{pct:.0f}%;"></div>
   </div>
-  <span style="font-family:var(--uv-mono);font-size:12px;color:{color};flex:none;">{score:.0f}</span>
+  <span style="font-family:var(--uv-mono);font-size:12px;color:{text_color};flex:none;">{score:.0f}</span>
 </div>"""
 
 
 def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None, rank: int | None = None,
-             action_icon: str = "★", action_help: str = "") -> dict:
+             show_action: bool = True, action_active: bool = False, action_help: str = "",
+             show_remove: bool = False, remove_help: str = "") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
-    price/P-E/yield, a leading star-or-remove action, and a trailing view
-    button (opens the detail drawer). Renders inside its own bordered
-    container — shared by uvalu/pages_/screener.py and watchlist.py so the
-    two lists stay visually identical.
+    price/P-E/yield, an optional leading watchlist star, an optional trailing
+    remove control, and a trailing view button (opens the detail drawer).
+    Renders inside its own bordered container — shared by
+    uvalu/pages_/screener.py and watchlist.py so the two lists stay visually
+    identical.
 
-    Returns {"view": bool, "action": bool}: `view` fires on the trailing "→"
-    button (caller opens the drawer); `action` fires on the leading button
-    (caller decides what it means — toggle watchlist membership on Screener,
-    remove from the watchlist on Watchlist).
+    Screener passes show_action=True (its star toggle) and show_remove=False;
+    Watchlist passes show_action=False (design's watchlist rows have no
+    leading icon at all) and show_remove=True (a trailing × instead). The
+    star glyph is always "★" — only its color changes via action_active —
+    matching the design exactly; there's no separate outline-star glyph.
+
+    Returns {"view": bool, "action": bool, "remove": bool}: `view` fires on
+    the trailing "→" button (caller opens the drawer); `action` fires on the
+    leading star (Screener: toggle watchlist membership); `remove` fires on
+    the trailing × (Watchlist: remove from the watchlist).
     """
+    # Streamlit sanitizes "." to "-" when turning a widget key into its
+    # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
+    # keys) — a raw dot in a CSS class selector is parsed as two chained
+    # class selectors, not a literal character, so the color rules below
+    # silently never matched without this.
+    _css_key = key.replace(".", "-")
     with st.container(key=key, border=True):
-        _widths = [0.4] + ([0.4] if rank is not None else []) + [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.5]
+        if show_action:
+            _action_color = "var(--uv-mint)" if action_active else "var(--uv-muted, #5F5E5A)"
+            st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
+                       unsafe_allow_html=True)
+        _widths = ([0.4] if show_action else []) + ([0.4] if rank is not None else []) + \
+                  [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8] + ([0.4] if show_remove else []) + [0.5]
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
-        with _cols[_i]:
-            _action_clicked = st.button(action_icon, key=f"{key}_action", type="tertiary", help=action_help)
-        _i += 1
+        if show_action:
+            with _cols[_i]:
+                _action_clicked = st.button("★", key=f"{key}_action", type="tertiary", help=action_help)
+            _i += 1
+        else:
+            _action_clicked = False
         if rank is not None:
             with _cols[_i]:
                 st.caption(f"#{rank}")
@@ -241,7 +303,10 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
         _i += 1
         with _cols[_i]:
             if mos_pct is not None and pd.notna(mos_pct):
-                _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
+                # 3-tier upCol scale from Uvalu.dc.html: mint >=15% upside, plain
+                # text 0-14% (priced near/at fair value), red only when negative.
+                _mos_color = ("var(--uv-mint)" if mos_pct >= 15
+                             else "var(--text, inherit)" if mos_pct >= 0 else "var(--down-txt)")
                 st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;color:{_mos_color};'>"
                            f"{mos_pct:+.1f}%</span>", unsafe_allow_html=True)
             else:
@@ -257,9 +322,27 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
         with _cols[_i]:
             st.caption(f"{div_yield*100:.2f}%" if div_yield is not None and pd.notna(div_yield) else "—")
         _i += 1
+        if show_remove:
+            with _cols[_i]:
+                st.markdown(f"<style>.st-key-{_css_key}_remove button {{ color: var(--uv-muted, #5F5E5A) !important; }}"
+                           f".st-key-{_css_key}_remove button:hover {{ color: var(--uv-neg-txt) !important; }}</style>",
+                           unsafe_allow_html=True)
+                _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary", help=remove_help)
+            _i += 1
+        else:
+            _remove_clicked = False
         with _cols[_i]:
             _view_clicked = st.button("→", key=f"{key}_view", type="tertiary")
-    return {"view": _view_clicked, "action": _action_clicked}
+    return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
+
+
+def empty_results_html(message: str) -> str:
+    """Centered muted placeholder text for an empty results table — matches
+    Uvalu.dc.html's Screener/Watchlist "no results" panel, used in place of
+    Streamlit's default st.info() alert banner. Wrap the caller's table in
+    st.container(border=True) so this renders as one bordered panel like the
+    header/rows it replaces would have."""
+    return f'<div style="padding:48px 20px;text-align:center;color:var(--faint);font-size:13px;">{message}</div>'
 
 
 def fair_value_legend_row() -> None:
@@ -330,6 +413,22 @@ def radial_gauge_svg(score: float, color: str, size: int = 96, stroke: int = 10,
   <circle cx="50" cy="50" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
           stroke-linecap="round" stroke-dasharray="{circumference:.2f}" stroke-dashoffset="{offset:.2f}"/>
 </svg>"""
+
+
+def quality_score_color(value: float) -> tuple[str, str]:
+    """(bar/text color) for a 0-100 higher-is-better sub-score — e.g. the
+    Analysis screen's Value/Quality/Momentum/Financial health/Dividend safety
+    breakdown, where a high number is always good. The opposite sense of
+    score_color's risk scale (there, low is good); mixing the two up made a
+    strong 85/100 quality score render red. Matches Uvalu.dc.html's subScores
+    coloring exactly: mint >=70, teal >=45, amber below — never red, since
+    these are components of a score that's already risk-adjusted elsewhere.
+    """
+    if value >= 70:
+        return "var(--uv-mint)", "var(--uv-mint)"
+    if value >= 45:
+        return "var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)"
+    return "#C98A3A", "#C98A3A"
 
 
 def sub_score_bar_html(label: str, value: float, color: str | None = None) -> str:

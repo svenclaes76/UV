@@ -31,6 +31,17 @@ def _initials(email: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
+def _display_name(email: str) -> str:
+    """Title-cased name derived from the email local-part (e.g. "marek.k@uvalu.eu"
+    -> "Marek K") — there's no real display-name field on the user record, so
+    this is a readable stand-in rather than a fabricated one, same source data
+    as _initials() above. Shared with uvalu/pages_/admin.py's Users table so
+    both surfaces render a name the same way."""
+    local = (email or "").split("@")[0]
+    parts = [p for p in local.replace(".", " ").replace("_", " ").replace("-", " ").split(" ") if p]
+    return " ".join(p.capitalize() for p in parts) if parts else email
+
+
 def apply_theme_script(light: bool) -> None:
     """Set data-theme on the parent document's <html> element from Streamlit's
     OWN active theme (st.context.theme, resolved via theme_colors()) so the
@@ -110,8 +121,11 @@ def render_topbar(nav) -> None:
 
         with col_logo:
             st.markdown(
+                '<div style="display:flex;align-items:baseline;gap:9px;">'
                 '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
-                'uval<span style="color:var(--teal)">u</span></span>',
+                'uval<span style="color:var(--teal)">u</span></span>'
+                '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
+                'color:var(--faint);">value engine</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -125,11 +139,24 @@ def render_topbar(nav) -> None:
         with col_right:
             with st.container(horizontal=True, gap="small", horizontal_alignment="right",
                               vertical_alignment="center"):
-                st.caption(f"As of {datetime.now().strftime('%H:%M')}")
+                # "Live ·" + a pulsing dot, matching Uvalu.dc.html's asOf indicator —
+                # no "CET" suffix though, since the app has no real timezone
+                # awareness anywhere else (every other timestamp in the app is
+                # naive local time) and asserting one here would be its own
+                # small fabrication.
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:7px;font-size:11px;'
+                    'color:var(--faint);font-family:var(--uv-mono);">'
+                    '<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);'
+                    'box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>'
+                    f'Live · {datetime.now().strftime("%H:%M")}</div>',
+                    unsafe_allow_html=True,
+                )
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
-                        st.markdown(f"**{user.email}**")
+                        st.markdown(f"**{_display_name(user.email)}**")
+                        st.caption(user.email)
                         st.caption(user.role.capitalize())
                         st.divider()
                         with st.container(key="uv_avatar_menu"):

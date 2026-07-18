@@ -21,6 +21,25 @@ SECTOR_OPTIONS = [
 ]
 
 
+def _dialog_width_css(px: int) -> None:
+    """Clamp this dialog to Uvalu.dc.html's exact modal width — Streamlit's
+    `width="small"` preset (550px) is the closest built-in option but still
+    wider than the mockup's compact 420px/380px cards. Only ever present in
+    the DOM while this specific dialog is open (only one dialog can be open
+    at a time), so it can't leak into any other dialog's sizing.
+
+    Reuses the exact `[data-testid="stDialog"] [role="dialog"]` selector
+    uvalu/styles.py's global CSS already clamps every dialog to 550px with —
+    same specificity, but injected later (inside this dialog's own render,
+    after that app-level stylesheet), so it wins the tie on source order
+    without needing `!important`-vs-`!important` selector one-upmanship."""
+    st.markdown(
+        f'<style>[data-testid="stDialog"] [role="dialog"] {{ max-width: {px}px !important; '
+        f'width: {px}px !important; }}</style>',
+        unsafe_allow_html=True,
+    )
+
+
 def _lookup_ticker(sym: str) -> tuple[str, float] | None:
     """Validate a free-text ticker via yfinance. Returns (name, price) or None
     if the symbol doesn't resolve to a live quote."""
@@ -35,8 +54,9 @@ def _lookup_ticker(sym: str) -> tuple[str, float] | None:
         return None
 
 
-@st.dialog("Add position", width="large")
+@st.dialog("Add position", width="small")
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
+    _dialog_width_css(420)
     st.caption("Enter the ticker and either a total cost or a price per share — whichever you have on hand.")
     _c1, _c2 = st.columns(2)
     with _c1:
@@ -46,7 +66,9 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
         name_raw = st.text_input("Company name", value=preset_name, placeholder="TotalEnergies",
                                  key="dlg_ap_name").strip()
 
-    _c3, _c4, _c5, _c6 = st.columns(4)
+    # No date field — Uvalu.dc.html's ap state has no date input at all, so the
+    # purchase is recorded as of today rather than asking for a backdated one.
+    _c3, _c4, _c5 = st.columns(3)
     with _c3:
         shares = st.number_input("Shares", min_value=1, step=1, value=1, key="dlg_ap_shares")
     with _c4:
@@ -55,8 +77,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     with _c5:
         price = st.number_input("Price / share (opt.)", min_value=0.0, step=0.01,
                                 value=round(preset_price, 2), format="%.2f", key="dlg_ap_price")
-    with _c6:
-        pur_date = st.date_input("Buy Date", format="DD/MM/YYYY", key="dlg_ap_date")
+    pur_date = pd.Timestamp.now()
 
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -94,9 +115,10 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     st.rerun()
 
 
-@st.dialog("Sell position", width="large")
+@st.dialog("Sell position", width="small")
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
+    _dialog_width_css(380)
     if ticker is None:
         _sorted = pf.sort_values("name", key=lambda s: s.str.lower())
         _opts   = _sorted["ticker"].tolist()
@@ -116,15 +138,16 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
         _live_price = float(pd.to_numeric(_match.iloc[0].get("live_price"), errors="coerce") or 0.0) \
             if not _match.empty else 0.0
 
-    _c1, _c2, _c3 = st.columns(3)
+    # No date field — Uvalu.dc.html's sell state is just shares + price, so the
+    # sale is recorded as of today rather than asking for a backdated one.
+    _c1, _c2 = st.columns(2)
     with _c1:
         shares = st.number_input("Shares to sell", min_value=1, max_value=max(_held_shares, 1),
                                  value=max(_held_shares, 1), step=1, key="dlg_sell_shares")
     with _c2:
         price = st.number_input("Sell price", min_value=0.0, step=0.01, value=round(_live_price, 2),
                                 format="%.2f", key="dlg_sell_price")
-    with _c3:
-        sell_date = st.date_input("Sell Date", format="DD/MM/YYYY", key="dlg_sell_date")
+    sell_date = pd.Timestamp.now()
 
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -140,8 +163,9 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
         st.rerun()
 
 
-@st.dialog("Add dividend", width="large")
+@st.dialog("Add dividend", width="small")
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
+    _dialog_width_css(380)
     _c1, _c2 = st.columns(2)
     with _c1:
         ticker_raw = st.text_input("Ticker", placeholder="ALV.DE", key="dlg_dv_ticker").strip().upper()
@@ -180,8 +204,9 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     st.rerun()
 
 
-@st.dialog("Add closed trade", width="large")
+@st.dialog("Add closed trade", width="small")
 def add_closed_trade_dialog() -> None:
+    _dialog_width_css(420)
     st.caption("Record a trade that was opened and closed outside this app's normal Buy/Sell flow.")
     _c1, _c2 = st.columns(2)
     with _c1:

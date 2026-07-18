@@ -104,21 +104,60 @@ def auth_wall() -> None:
                 unsafe_allow_html=True,
             )
             with st.form("login_form", border=False):
-                email    = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
+                email = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
+                # Custom label row (native label hidden below) so "Forgot?" can sit
+                # inline with "Password" — matches Uvalu.dc.html's layout. It's
+                # plain styled text, not a link: this app has no password-reset
+                # flow to send it to, and a dead click would be worse than an
+                # honestly-inert label.
+                st.markdown(
+                    '<div style="display:flex;align-items:baseline;justify-content:space-between;'
+                    'margin-top:4px;">'
+                    '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
+                    'color:var(--faint);">Password</span>'
+                    '<span style="font-size:11.5px;color:var(--teal);">Forgot?</span></div>',
+                    unsafe_allow_html=True,
+                )
                 password = st.text_input("Password", type="password", placeholder="••••••••",
-                                         icon=":material/lock:")
+                                         icon=":material/lock:", label_visibility="collapsed")
                 _submitted = st.form_submit_button("Sign in", width="stretch", type="primary")
             if _submitted:
-                ok, result = login(email, password)
-                if ok:
-                    _, role = verify_token(result)
-                    _login_email = email.strip().lower()
-                    st.session_state["jwt_token"]  = result
-                    st.session_state["user_email"] = _login_email
-                    st.session_state["user_role"]  = role
-                    st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
-                    st.rerun()
+                if not email.strip() or not password.strip():
+                    st.markdown('<div class="uv-login-err">Enter your email and password to continue.</div>',
+                               unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+                    ok, result = login(email, password)
+                    if ok:
+                        _, role = verify_token(result)
+                        _login_email = email.strip().lower()
+                        st.session_state["jwt_token"]  = result
+                        st.session_state["user_email"] = _login_email
+                        st.session_state["user_role"]  = role
+                        st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
+                        st.rerun()
+                    else:
+                        st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+
+            # "or" divider + SSO — disabled rather than wired to the same login
+            # action the mockup uses, since a button labelled SSO that silently
+            # re-submits a password form would be actively misleading; this app
+            # has no real SSO integration to redirect to.
+            st.markdown(
+                '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
+                '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                '<span style="font-size:11px;color:var(--faint);">or</span>'
+                '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                unsafe_allow_html=True,
+            )
+            st.button("Continue with SSO", key="login_sso", width="stretch", disabled=True,
+                      help="SSO isn't configured for this deployment yet")
+            # Same reasoning as "Forgot?" — no self-service request-access flow
+            # exists (accounts are created via the Admin portal's Invite flow),
+            # so this is styled text, not a dead link.
+            st.markdown(
+                '<div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">'
+                'New to Uvalu? <span style="color:var(--teal);">Request access</span></div>',
+                unsafe_allow_html=True,
+            )
 
     st.stop()

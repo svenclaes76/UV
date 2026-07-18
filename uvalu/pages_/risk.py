@@ -62,6 +62,19 @@ _FACTOR_NOTES = {
 }
 
 
+def _loading_tier(abs_val: float) -> tuple[str, str]:
+    """(tier word, color) for a factor loading's absolute value — matches
+    Uvalu.dc.html's f.rate/f.rateColor. Elevated's 1.5 boundary is the same
+    real threshold this page's own caption/heatmap already use for
+    "concentrated factor bet"; Low/Moderate splits the remaining range at
+    half that, since the real data only ever documented the one cutoff."""
+    if abs_val <= 0.75:
+        return "Low", "var(--uv-mint)"
+    if abs_val <= 1.5:
+        return "Moderate", "#C98A3A"
+    return "Elevated", "var(--down-txt)"
+
+
 def _factor_flag_action(msg: str) -> str | None:
     """Map a factor-exposure flag message to a concrete rebalancing action."""
     for name, action in _FACTOR_ACTIONS.items():
@@ -160,7 +173,8 @@ def render() -> None:
 </div>
 <div style="font-size:16px;font-weight:500;margin-top:8px;color:{_label_color};">{r.composite.label}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5;">
-  Blended score across six risk factors, weighted by exposure and hard-veto flags. {r.composite.action}</div>
+  Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
+<div style="font-size:11.5px;font-weight:500;color:{_label_color};margin-top:6px;">{r.composite.action}</div>
 """, unsafe_allow_html=True)
     with _metrics_col:
         with st.container(border=True):
@@ -172,7 +186,12 @@ def render() -> None:
                 st.metric("Volatility", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A")
                 st.caption(r.quant.volatility_label)
             with _m3:
-                st.metric("VaR 95% (1d)", f"€{r.quant.var_95_1d_eur:,.0f}" if r.quant.var_95_1d_eur else "N/A")
+                # % of portfolio value, matching Uvalu.dc.html's VaR tile format —
+                # the window stays honestly labelled 1-day (not the mockup's
+                # 1-week) since scaling to a week needs an iid-returns assumption
+                # this app doesn't otherwise make; var_95_1d_eur is still shown
+                # below in the Volatility & VaR tab for the euro figure.
+                st.metric("VaR 95% (1d)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A")
                 st.caption("Max expected 1-day loss")
             _m4, _m5, _m6 = st.columns(3)
             with _m4:
@@ -182,8 +201,8 @@ def render() -> None:
                 st.metric("Max drawdown (1y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A")
                 st.caption(r.quant.mdd_label)
             with _m6:
-                st.metric("Positions", r.n_positions)
-                st.caption("Held in portfolio")
+                st.metric("Sector HHI", f"{r.concentration.hhi:.2f}")
+                st.caption(r.concentration.hhi_label)
 
     _hard_items = [i for i in r.rebalance.items if i.severity == "hard"]
     _soft_items = [i for i in r.rebalance.items if i.severity == "soft"]
@@ -203,10 +222,10 @@ def render() -> None:
         st.markdown("##### Risk factor breakdown")
         if r.factor.available and r.factor.loadings:
             for _fname, _fval in r.factor.loadings.items():
-                _fcolor = "var(--down-txt)" if abs(_fval) > 1.5 else "var(--up-txt)"
+                _rate, _fcolor = _loading_tier(abs(_fval))
                 st.markdown(
                     f'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
-                    f'<span>{_fname}</span><span style="font-family:var(--uv-mono);color:{_fcolor};">{_fval:+.2f}</span></div>'
+                    f'<span>{_fname}</span><span style="font-family:var(--uv-mono);color:{_fcolor};">{_rate} · {_fval:+.2f}</span></div>'
                     f'<div style="height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);margin-bottom:3px;">'
                     f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:5px;border-radius:3px;background:{_fcolor};"></div></div>'
                     f'<div style="font-size:11px;color:var(--faint);margin-bottom:8px;">{_FACTOR_NOTES.get(_fname, "")}</div>',
@@ -219,10 +238,15 @@ def render() -> None:
     with _conc_col:
         st.markdown("##### Concentration")
         c = r.concentration
+        # Matches Uvalu.dc.html's 3-row set (Top 3 positions/Largest sector/
+        # Largest single name) instead of Single name/Largest sector/Largest
+        # country — geo concentration is still surfaced via the flag banner
+        # below when c.geo_flag trips, just not as one of these 3 bars.
+        # Top 3's 35% limit is the same real threshold top3_flag already uses.
         for _label, _val, _limit in [
-            ("Single name",  c.top1_weight, 0.15),
-            ("Largest sector", c.sector_weights.get(c.largest_sector, 0.0) if c.largest_sector else 0.0, 0.30),
-            ("Largest country", c.geo_weights.get(c.largest_geo, 0.0) if c.largest_geo else 0.0, 0.60),
+            ("Top 3 positions",    c.top3_weight, 0.35),
+            ("Largest sector",     c.sector_weights.get(c.largest_sector, 0.0) if c.largest_sector else 0.0, 0.30),
+            ("Largest single name", c.top1_weight, 0.15),
         ]:
             _over = _val > _limit
             _color = "var(--down-txt)" if _over else "var(--up-txt)"
@@ -265,7 +289,7 @@ def render() -> None:
         _exch = next((v for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
         _contrib_rows.append({
             "Company": p.name, "Ticker": p.ticker, "Exchange": _exch, "Weight": p.weight, "Beta": p.beta,
-            "VaR 95% 1d": p.var_95_1d_eur or None,
+            "Vol": p.vol_annual or None,
             "Contribution": round(p.weight * abs(p.beta or 0) * 100, 1),
             "Flag": p.rating,
         })
@@ -277,7 +301,8 @@ def render() -> None:
             "Exchange":     st.column_config.TextColumn("Exchange", help="Exchange the ticker trades on"),
             "Weight":       st.column_config.NumberColumn("Weight", format="percent"),
             "Beta":         st.column_config.NumberColumn("Beta", format="%.2f"),
-            "VaR 95% 1d":   st.column_config.NumberColumn("VaR 95% 1d", format="euro"),
+            "Vol":          st.column_config.NumberColumn("Vol", format="percent",
+                                 help="Annualised volatility proxy: |beta| × market daily vol × √252"),
             "Contribution": st.column_config.ProgressColumn("Contribution to risk", min_value=0,
                                  max_value=max(1.0, _contrib_df["Contribution"].max()),
                                  help="Weight × |beta| — a simple proxy for how much each position drives portfolio-level market risk."),

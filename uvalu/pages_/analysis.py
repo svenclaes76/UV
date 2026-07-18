@@ -11,7 +11,8 @@ from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_ladder, sub_score_bar_html, veto_reason_str)
+                              fair_value_ladder, sub_score_bar_html, quality_score_color,
+                              veto_reason_str)
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors
 from uvalu.ui import _CHART_CONFIG
@@ -159,7 +160,11 @@ def render() -> None:
                               ("Dividend", "Sub Dividend")]:
             v = row.get(field)
             if pd.notna(v):
-                st.markdown(sub_score_bar_html(label_, float(v)), unsafe_allow_html=True)
+                # These sub-scores are all higher-is-better, the opposite sense
+                # of sub_score_bar_html's risk-scale default — pass the
+                # matching quality scale explicitly.
+                _bar_color, _ = quality_score_color(float(v))
+                st.markdown(sub_score_bar_html(label_, float(v), color=_bar_color), unsafe_allow_html=True)
     with _col2:
         st.markdown("##### Six-model fair value")
         _price = row.get("Price")
@@ -182,25 +187,33 @@ def render() -> None:
     with _col3:
         st.markdown("##### Financials & valuation")
         _de_val = row.get("debtToEquity")
+        # Matches Uvalu.dc.html's 9-field set (EPS/P-E·fairP-E/ROE/Debt-equity/
+        # FCF yield/Operating margin/Net margin/Dividend yield/Payout ratio) as
+        # closely as real fetched data allows. Net margin is skipped — this app
+        # never fetches yfinance's profitMargins field, and faking one isn't
+        # worth doing; P/B, EV/EBITDA, ROA and Revenue growth (not in the design
+        # spec) are dropped to make room for the fields that are. "fair P/E" is
+        # the real fixed 15x multiple screener.py's pe_fair_value model itself
+        # applies to EPS (see _pe_fair_value/pe_fv in screener.py), not a
+        # separately-fetched figure.
+        _pe_val = row.get("trailingPE")
         _fin_fields = [
-            ("P/E",              _fv(row, "trailingPE", lambda v: f"{v:.1f}×"), None),
-            ("P/B",              _fv(row, "priceToBook", lambda v: f"{v:.2f}×"), None),
-            ("EV/EBITDA",        _fv(row, "enterpriseToEbitda", lambda v: f"{v:.1f}×"), None),
-            ("ROE",              _fv(row, "returnOnEquity", lambda v: f"{v*100:.1f}%"),
+            ("EPS (ttm)",         _fv(row, "trailingEps", lambda v: f"€{v:.2f}"), None),
+            ("P/E · fair P/E",    f"{_pe_val:.1f}× · 15.0×" if pd.notna(_pe_val) else "—", None),
+            ("ROE",               _fv(row, "returnOnEquity", lambda v: f"{v*100:.1f}%"),
              "up" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") > 0.15
              else "down" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") < 0 else None),
-            ("ROA",              _fv(row, "returnOnAssets", lambda v: f"{v*100:.1f}%"),
-             "up" if pd.notna(row.get("returnOnAssets")) and row.get("returnOnAssets") > 0.05
-             else "down" if pd.notna(row.get("returnOnAssets")) and row.get("returnOnAssets") < 0 else None),
-            ("Operating margin", _fv(row, "operatingMargins", lambda v: f"{v*100:.1f}%"),
+            ("Debt / equity",     _fv(row, "debtToEquity", lambda v: f"{v:.1f}"),
+             "down" if pd.notna(_de_val) and _de_val > 150 else None),
+            ("FCF yield",         _fv(row, "fcfYield", lambda v: f"{v*100:.1f}%"),
+             "up" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") > 0.03
+             else "down" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") <= 0 else None),
+            ("Operating margin",  _fv(row, "operatingMargins", lambda v: f"{v*100:.1f}%"),
              "up" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") > 0.15
              else "down" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") < 0 else None),
-            ("Debt / equity",    _fv(row, "debtToEquity", lambda v: f"{v:.1f}"),
-             "down" if pd.notna(_de_val) and _de_val > 150 else None),
-            ("Dividend yield",   _fv(row, "dividendYield", lambda v: f"{v*100:.2f}%"), None),
-            ("Revenue growth",   _fv(row, "revenueGrowth", lambda v: f"{v*100:+.1f}%"),
-             "up" if pd.notna(row.get("revenueGrowth")) and row.get("revenueGrowth") > 0
-             else "down" if pd.notna(row.get("revenueGrowth")) and row.get("revenueGrowth") < 0 else None),
+            ("Dividend yield",    _fv(row, "dividendYield", lambda v: f"{v*100:.2f}%"), None),
+            ("Payout ratio",      _fv(row, "payoutRatio", lambda v: f"{v*100:.1f}%"),
+             "down" if pd.notna(row.get("payoutRatio")) and row.get("payoutRatio") > 0.80 else None),
         ]
         _warn_colors = {"up": "var(--up-txt, #0F6E56)", "down": "var(--down-txt, #A32D2D)"}
         _fg1, _fg2 = st.columns(2)

@@ -9,7 +9,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import stock_row
+from uvalu.components import stock_row, empty_results_html
 from uvalu.drawer import open_drawer
 
 _EXCHANGE_LABELS = {
@@ -21,7 +21,8 @@ _EXCHANGE_LABELS = {
 def render() -> None:
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Watchlist</div>',
                unsafe_allow_html=True)
-    st.caption("Add from the screener with the star, or type a symbol directly below.")
+    st.caption("Track tickers you don't hold yet. Add from the screener with the star, "
+              "or type a symbol directly below.")
 
     watchlist = load_watchlist()
     _settings = load_shared_settings()
@@ -71,13 +72,21 @@ def render() -> None:
     # ── Results list ─────────────────────────────────────────────────────────
     wl_df = all_df[all_df["Ticker"].isin(watchlist)].reset_index(drop=True)
     if wl_df.empty:
-        st.info("Your watchlist is empty. Star a ticker in the screener or add one above.")
+        with st.container(border=True):
+            st.markdown(empty_results_html(
+                "Your watchlist is empty. Star a ticker in the screener or add one above."),
+                unsafe_allow_html=True)
         return
 
-    _hh_widths = [0.4, 2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8]
+    # 9 widths matching stock_row's show_action=False/show_remove=True layout
+    # exactly (7 data cols + trailing remove + trailing view-arrow, no leading
+    # icon at all — Uvalu.dc.html's watchlist rows start directly with
+    # Company) — a mismatched count here silently shifts every header label
+    # one column off from the row data beneath it.
+    _hh_widths = [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.4, 0.5]
     _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-    for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
-                                     "Upside", "Price", "P/E", "Yield")):
+    for _hh, _label in zip(_hh_cols, ("Position", "Signal", "Composite score",
+                                     "Upside", "Price", "P/E", "Yield", "", "")):
         if _label:
             with _hh:
                 st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
@@ -92,9 +101,9 @@ def render() -> None:
             decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
             score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
             pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
-            action_icon="✕", action_help="Remove from watchlist",
+            show_action=False, show_remove=True, remove_help="Remove from watchlist",
         )
-        if _result["action"]:
+        if _result["remove"]:
             save_watchlist(watchlist - {_ticker})
             st.rerun()
         if _result["view"]:
