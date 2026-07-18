@@ -150,12 +150,35 @@ div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !import
   color: var(--mint) !important; border: 0.5px solid var(--line) !important;
   padding: 6px !important; min-height: 32px !important; min-width: 32px !important;
 }}
-div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !important; }}
-.st-key-uv_avatar_pop button {{
-  border-radius: 8px !important; background: var(--navy) !important;
-  color: var(--mint) !important; border: 0.5px solid var(--line) !important;
-  font-weight: 600 !important; font-size: 12px !important;
+/* Unlike the avatar chip (always navy+mint — a fixed brand badge), the
+   theme toggle is a plain UI control and should read as "off"/neutral in
+   light mode instead of standing out as a dark tile among light ones. */
+[data-theme="light"] .st-key-uv_theme_toggle button {{
+  background: var(--panel-2) !important; color: var(--text) !important;
+  border: 0.5px solid var(--line) !important;
 }}
+div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !important; }}
+/* The avatar control is two visually distinct zones — a navy initials pill
+   plus a separate chevron — not one solid-color button. Streamlit renders
+   label and chevron as sibling divs inside the button (chevron marked
+   aria-hidden="true"), so style the outer button as the neutral "chip"
+   shell and give just the label div its own pill treatment. */
+.st-key-uv_avatar_pop button {{
+  border-radius: 8px !important; background: transparent !important;
+  border: 0.5px solid transparent !important;
+  padding: 4px 6px !important; height: 40px !important; min-height: 40px !important;
+}}
+.st-key-uv_avatar_pop button:hover {{
+  background: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
+}}
+.st-key-uv_avatar_pop button > div {{ gap: 6px !important; height: 100% !important; }}
+.st-key-uv_avatar_pop button > div > div:not([aria-hidden]) {{
+  background: var(--navy) !important; color: var(--mint) !important;
+  border-radius: 6px !important; padding: 0 8px !important;
+  font-weight: 600 !important; font-size: 12px !important;
+  height: 100% !important; display: flex !important; align-items: center !important;
+}}
+.st-key-uv_avatar_pop button [aria-hidden="true"] {{ color: var(--muted) !important; }}
 .st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] {{
   border-radius: 8px !important; padding: 8px 10px !important; font-size: 12.5px !important;
 }}
