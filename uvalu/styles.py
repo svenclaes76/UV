@@ -91,6 +91,53 @@ GLOBAL_CSS = """
     border-radius: 10px !important;
   }
 
+  /* ── Dashboard section cards — chart/conviction row + bottom row (sector
+     allocation, upcoming dividends, top movers), matching the mockup's
+     `background:var(--panel);border:0.5px solid var(--line);border-radius:
+     12px;box-shadow:var(--shadow)` card treatment. Shared substring selector
+     (same convention as st-key-db_hold_ above) so one rule covers all five
+     cards instead of one per key. */
+  [class*="st-key-db_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    padding: 18px !important;
+  }
+  /* Cards sharing a row (chart+conviction, sector/dividends/movers) stretch
+     to the row's tallest card instead of each hugging its own content
+     height — matches the mockup's align-items:stretch grid rows. Streamlit's
+     st.columns() defaults vertical_alignment to "top" (align-items:
+     flex-start), so this must be opted back in explicitly for these rows.
+     align-items:stretch on the row only fixes the *column*'s cross-axis
+     size (stColumn correctly grows to the row height) — but stColumn is
+     itself a column-direction flex container, so its own children's HEIGHT
+     is the main axis, controlled by flex-grow, not align-items. The direct
+     generated wrapper around each card (Streamlit's unstable-classed
+     "stLayoutWrapper" div) defaults to flex:0 1 auto (no grow), so it still
+     shrinks to content height even though its column parent is tall enough
+     — must opt that wrapper into flex-grow too. Also pins the horizontal
+     gap between these card columns to 36px, matching the page's vertical
+     gap between card rows (16px default block-gap + 4px st.container
+     spacer + 16px default block-gap either side of each db_gap_N spacer)
+     so the grid reads as one consistent rhythm in both directions —
+     st.columns' own gap= param only accepts size keywords (xxsmall..
+     xxlarge), not a raw px value, hence the override here. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_"]) {
+    align-items: stretch !important; gap: 36px !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_"]) {
+    flex: 1 1 auto !important;
+  }
+  [class*="st-key-db_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+
+  /* ── Dashboard chart legend row — full-width top divider above the
+     Portfolio-value/Amount-invested swatches and the benchmark toggle
+     chips, matching Uvalu.dc.html's legend border-top (previously only
+     spanned the legend's own column, not the chip toggles beside it). */
+  .st-key-db_chart_legend_row {
+    border-top: 0.5px solid var(--line-2) !important;
+    padding-top: 10px !important; margin-top: 6px !important;
+  }
+
   /* ── Table density (Settings → Display → Table density) ──────────────────
      Only affects card-based row lists built from raw HTML/st.container (e.g.
      Dashboard's holdings rows) — native st.dataframe tables render to a

@@ -106,13 +106,15 @@ def render() -> None:
     _k1, _k2, _k3, _k4 = st.columns(4)
     with _k1:
         _kpi_card("Current value", f"€{_db_current:,.0f}",
-                 f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f}", icon="wallet")
+                 f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f} unrealised", icon="wallet")
     with _k2:
         _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
                  f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
     with _k3:
         if _db_fwd_income is not None:
-            _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}", "", True, "estimated", icon="coin")
+            _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
+            _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
+                     f"{_db_blended_yield:.1f}%", True, "blended yield", icon="coin")
         else:
             _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
     with _k4:
@@ -120,12 +122,12 @@ def render() -> None:
                  f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
                  "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
 
-    st.container(height=18, border=False)
+    st.container(height=4, border=False, key="db_gap_1")
 
     # ── Value chart + Conviction & risk ───────────────────────────────────────
     _chart_col, _conv_col = st.columns([1.62, 1], gap="large")
 
-    with _chart_col:
+    with _chart_col, st.container(key="db_card_chart", border=True):
         _db_vh = load_value_history()
         if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
             _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
@@ -159,6 +161,14 @@ def render() -> None:
             _db_has_spx   = "benchmark_spx"   in _vh_view.columns and _vh_view["benchmark_spx"].notna().any()
             _db_has_stoxx = "benchmark_stoxx" in _vh_view.columns and _vh_view["benchmark_stoxx"].notna().any()
 
+            _db_bench_opts = ([("S&P 500")] if _db_has_spx else []) + (["Euro Stoxx 50"] if _db_has_stoxx else [])
+            _db_bench_default = [o for o in
+                                 (["Euro Stoxx 50"] if load_shared_settings().get("benchmark_stoxx", False) else [])
+                                 if o in _db_bench_opts]
+            _db_bench_sel = st.session_state.get("db_bench_pills", _db_bench_default)
+            _db_show_spx   = "S&P 500" in _db_bench_sel
+            _db_show_stoxx = "Euro Stoxx 50" in _db_bench_sel
+
             _db_vfig = go.Figure()
             _db_vfig.add_trace(go.Scatter(
                 x=_vh_view["date"], y=_vh_view["value"], mode="lines", name="Portfolio value",
@@ -170,12 +180,12 @@ def render() -> None:
                 _db_vfig.add_trace(go.Scatter(
                     x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_spx"], errors="coerce"),
                     mode="lines", name="S&P 500 (same invested)", line=dict(color="#5B8FA8", width=1.5, dash="dash"),
-                    visible=True if st.session_state.get("db_show_spx") else "legendonly"))
+                    visible=True if _db_show_spx else "legendonly"))
             if _db_has_stoxx:
                 _db_vfig.add_trace(go.Scatter(
                     x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_stoxx"], errors="coerce"),
                     mode="lines", name="Euro Stoxx 50 (same invested)", line=dict(color="#8BA888", width=1.5, dash="dash"),
-                    visible=True if st.session_state.get("db_show_stoxx") else "legendonly"))
+                    visible=True if _db_show_stoxx else "legendonly"))
             _db_vfig.update_layout(
                 margin=dict(l=0, r=0, t=16, b=0),
                 showlegend=False,
@@ -187,32 +197,32 @@ def render() -> None:
             st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
 
             # ── Unified legend bar — swatches for the two always-on series,
-            # plus clickable chip toggles for the two optional benchmarks
-            # (still real checkboxes for interactivity, laid out to read as
-            # one legend row matching Uvalu.dc.html instead of a separate
-            # checkbox row above the chart + Plotly's own legend below). ──
-            _leg_col, _spx_col, _stoxx_col = st.columns([3, 1, 1.4], vertical_alignment="center")
-            with _leg_col:
-                st.markdown("""
-<div style="display:flex;align-items:center;gap:18px;padding-top:6px;border-top:0.5px solid var(--line-2);">
+            # plus clickable chip toggles (st.pills, same idiom as the
+            # Screener's Signal/Hide-owned chips) for the optional benchmarks
+            # — one legend row matching Uvalu.dc.html's benchChip toggles
+            # instead of a separate native-checkbox row. ──
+            with st.container(key="db_chart_legend_row", horizontal=True,
+                              vertical_alignment="center", horizontal_alignment="distribute"):
+                with st.container(width="content"):
+                    st.markdown("""
+<div style="display:flex;align-items:center;gap:18px;">
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
     <span style="width:14px;height:2px;background:var(--mint);border-radius:2px;display:inline-block;"></span>Portfolio value</div>
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
     <span style="width:14px;height:0;border-top:1.4px dashed var(--axis);display:inline-block;"></span>Amount invested</div>
 </div>""", unsafe_allow_html=True)
-            with _spx_col:
-                st.checkbox("S&P 500", value=False, key="db_show_spx",
-                           disabled=not _db_has_spx)
-            with _stoxx_col:
-                st.checkbox("Euro Stoxx 50", value=bool(load_shared_settings().get("benchmark_stoxx", False)),
-                           key="db_show_stoxx", disabled=not _db_has_stoxx)
+                if _db_bench_opts:
+                    with st.container(width="content"):
+                        st.pills("Benchmarks", options=_db_bench_opts, selection_mode="multi",
+                                default=_db_bench_default, key="db_bench_pills",
+                                label_visibility="collapsed")
         else:
             st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
                        unsafe_allow_html=True)
             st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
 
-    with _conv_col:
-        _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="center")
+    with _conv_col, st.container(key="db_card_conviction", border=True):
+        _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
         with _cvh_col:
             st.markdown('<div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>',
                        unsafe_allow_html=True)
@@ -297,7 +307,7 @@ def render() -> None:
                 st.caption("Max drawdown")
                 st.markdown(f'<span style="font-family:var(--uv-mono);font-size:15px;color:var(--down-txt);">{_dd_str}</span>', unsafe_allow_html=True)
 
-    st.container(height=18, border=False)
+    st.container(height=4, border=False, key="db_gap_2")
 
     # ── Holdings · price vs fair value ────────────────────────────────────────
     _hold_title_col, _hold_legend_col = st.columns([2, 2], vertical_alignment="center")
@@ -368,12 +378,12 @@ def render() -> None:
     else:
         st.caption("No screener data available for your holdings.")
 
-    st.container(height=18, border=False)
+    st.container(height=4, border=False, key="db_gap_3")
 
     # ── Bottom row: sector allocation | upcoming dividends | top movers ──────
     _al_col, _div_col, _mv_col = st.columns(3, gap="large")
 
-    with _al_col:
+    with _al_col, st.container(key="db_card_sector", border=True):
         st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Sector allocation</div>',
                    unsafe_allow_html=True)
         _db_sector_map = (
@@ -388,7 +398,7 @@ def render() -> None:
         )
         _donut_chart(_db_al)
 
-    with _div_col:
+    with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
         with _dh_title_col:
             st.markdown('<div style="font-size:15px;font-weight:500;">Upcoming dividends</div>',
@@ -432,7 +442,7 @@ def render() -> None:
         else:
             st.caption("No screener data available for your holdings.")
 
-    with _mv_col:
+    with _mv_col, st.container(key="db_card_movers", border=True):
         st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Top movers today</div>',
                    unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
@@ -448,7 +458,7 @@ def render() -> None:
                 _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
-  <span style="font-family:var(--uv-mono);color:var(--faint);width:52px;flex:none;">{_mr['ticker']}</span>
+  <span style="font-family:var(--uv-mono);color:var(--faint);width:64px;flex:none;white-space:nowrap;">{_mr['ticker']}</span>
   <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_mr['name']}</span>
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>

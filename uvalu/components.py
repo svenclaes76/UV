@@ -183,36 +183,31 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 
 def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: float | None,
                            currency: str = "€") -> None:
-    """Single condensed discount-to-fair-value bar — for list/row contexts
-    (e.g. Screener rows, Dashboard holdings) where a full ladder wouldn't fit.
+    """Single price-vs-fair-value ladder — for list/row contexts (e.g.
+    Dashboard holdings) where a full multi-model ladder wouldn't fit.
 
-    Shows the absolute price/fair-value figures above the bar and colors it
-    in three tiers (undervalued/near fair/overvalued), matching Uvalu.dc.html's
-    "Holdings · price vs fair value" legend.
+    The bar fills from €0 to the current price on a 0-to-max(price,fair
+    value)*1.08 scale, colored in three tiers (undervalued/near fair/
+    overvalued); a dashed vertical marker pins the fair-value point on that
+    same scale — matching Uvalu.dc.html's "Holdings · price vs fair value"
+    ladder exactly (its fillStyle + markerStyle).
     """
     if fair_value is None or pd.isna(fair_value) or not price or pd.isna(price) or mos_pct is None or pd.isna(mos_pct):
         st.caption("—")
         return
     price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
-    if mos_pct > _NEAR_FAIR_BAND:
-        color = "var(--uv-mint)"
-    elif mos_pct >= -_NEAR_FAIR_BAND:
-        color = "var(--teal, #1A8C6E)"
-    else:
-        color = "var(--uv-neg-txt)"
-    pos = mos_pct >= 0
-    width = min(100.0, abs(mos_pct))
-    bar_html = (
-        f'<div style="position:absolute;right:50%;width:{width/2:.1f}%;height:8px;background:{color};border-radius:4px"></div>'
-        f'<div style="position:absolute;left:50%;top:-2px;width:1.5px;height:12px;background:var(--axis,#5F5E5A)"></div>'
-        if not pos else
-        f'<div style="position:absolute;left:0;width:{width:.1f}%;height:8px;background:{color};border-radius:4px"></div>'
-    )
+    color = _ladder_bar_color(mos_pct)
+    scale = max(price, fair_value) * 1.08
+    price_pct = min(100.0, price / scale * 100)
+    fair_pct = min(100.0, fair_value / scale * 100)
     st.markdown(f"""
 <div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">
   <span>{currency}{price:,.2f}</span><span style="color:var(--uv-muted)">fv {currency}{fair_value:,.2f}</span>
 </div>
-<div style="height:8px;border-radius:4px;background:var(--uv-track);position:relative;overflow:hidden">{bar_html}</div>
+<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">
+  <div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>
+  <div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);left:{fair_pct:.1f}%;"></div>
+</div>
 """, unsafe_allow_html=True)
 
 
