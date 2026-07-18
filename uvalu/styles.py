@@ -418,6 +418,20 @@ GLOBAL_CSS = """
   }
   .st-key-uv_danger_btn button[kind="primary"]:hover { opacity: 0.88; }
 
+  /* ── Dashboard "Refresh" button — matches Uvalu.dc.html's outline pill
+     (border:0.5px solid var(--line);border-radius:8px;padding:8px 13px;
+     font-size:12.5px;color:var(--muted), hover border-color:var(--teal);
+     color:var(--text)) instead of Streamlit's plain tertiary-button look. */
+  .st-key-db_refresh_btn button[kind="tertiary"] {
+    display: flex !important; align-items: center !important; gap: 7px !important;
+    padding: 8px 13px !important; border-radius: 8px !important;
+    border: 0.5px solid var(--line) !important;
+    font-size: 12.5px !important; color: var(--muted) !important;
+  }
+  .st-key-db_refresh_btn button[kind="tertiary"]:hover {
+    border-color: var(--teal) !important; color: var(--text) !important;
+  }
+
   /* ── Heading typography — brand spec ────────────────────────────────────── */
   [data-testid="stHeadingWithActionElements"] h1,
   [data-testid="stHeading"] h1 {

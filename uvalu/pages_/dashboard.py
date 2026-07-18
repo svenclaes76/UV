@@ -10,10 +10,9 @@ from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
-from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.runtime import theme_colors, current_user
+from uvalu.runtime import theme_colors
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
@@ -94,14 +93,10 @@ def render() -> None:
             st.caption(f"{len(_db_pf)} positions across {_n_exch} European "
                       f"{'exchange' if _n_exch == 1 else 'exchanges'} · "
                       "valued against a six-model fair-value estimate.")
-        with st.container(horizontal=True, gap="small", width="content"):
-            if st.button("Refresh", key="db_refresh"):
+        with st.container(key="db_refresh_btn", width="content"):
+            if st.button("Refresh", key="db_refresh", icon=":material/refresh:", type="tertiary"):
                 st.cache_data.clear()
                 st.rerun()
-            _is_viewer = current_user().is_viewer
-            if st.button("Buy", key="db_buy", type="primary", disabled=_is_viewer,
-                        help="Viewer role is read-only" if _is_viewer else None):
-                add_position_dialog()
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
     # Wrapped in a keyed container (styles.py) purely so CSS can give this
