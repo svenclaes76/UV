@@ -181,19 +181,42 @@ GLOBAL_CSS = """
      "stLayoutWrapper" div) defaults to flex:0 1 auto (no grow), so it still
      shrinks to content height even though its column parent is tall enough
      — must opt that wrapper into flex-grow too. Also pins the horizontal
-     gap between these card columns to 36px, matching the page's vertical
-     gap between card rows (16px default block-gap + 4px st.container
-     spacer + 16px default block-gap either side of each db_gap_N spacer)
-     so the grid reads as one consistent rhythm in both directions —
-     st.columns' own gap= param only accepts size keywords (xxsmall..
-     xxlarge), not a raw px value, hence the override here. */
+     gap between these card columns to 16px, matching the KPI row's own
+     st.columns(4) default gap (that row isn't a db_card_* card row itself,
+     so it never got the override below) and the page's own vertical
+     rhythm between card rows (see db_gap_N below) — confirmed live as the
+     preferred spacing in both directions. st.columns' own gap= param only
+     accepts size keywords (xxsmall..xxlarge), not a raw px value, hence
+     the override here. */
   [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_"]) {
-    align-items: stretch !important; gap: 36px !important;
+    align-items: stretch !important; gap: 16px !important;
   }
   [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_"]) {
     flex: 1 1 auto !important;
   }
   [class*="st-key-db_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+
+  /* KPI strip — Streamlit's own height estimate for a kpi_card()'s raw-HTML
+     markdown under-measures its real rendered height by exactly 16px
+     (confirmed live: row reported 99.5px, cards actually 115.5px tall) —
+     same class of bug hit repeatedly for the Holdings rows/column header.
+     With the row itself reporting short, the *next* section rendered
+     flush against the overflowing cards instead of with the normal 16px
+     gap. A plain min-height floor on the row is the reliable fix here too. */
+  .st-key-db_kpi_row { min-height: 116px !important; }
+
+  /* Dashboard section spacers (KPI row → chart row → Holdings → bottom
+     row) — each pair of sections is separated by a 4px st.container
+     spacer, but Streamlit's own default 16px block-gap applies on *both*
+     sides of it too (16 + 4 + 16 = 36px total), overshooting the page's
+     16px rhythm used everywhere else (KPI/card-row horizontal gaps,
+     Holdings row dividers). Collapsing the spacer's own generated wrapper
+     via display:contents promotes the spacer itself to be the real flex
+     item, so a negative margin on it can pull the two surrounding 16px
+     gaps in directly — confirmed live (getBoundingClientRect measurement)
+     that -8px lands on exactly 16px. */
+  div:has(> [class*="st-key-db_gap_"]) { display: contents !important; }
+  [class*="st-key-db_gap_"] { margin-top: -8px !important; margin-bottom: -8px !important; }
 
   /* ── Dashboard chart legend row — full-width top divider above the
      Portfolio-value/Amount-invested swatches and the benchmark toggle

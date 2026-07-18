@@ -104,24 +104,32 @@ def render() -> None:
                 add_position_dialog()
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
-    _k1, _k2, _k3, _k4 = st.columns(4)
-    with _k1:
-        _kpi_card("Current value", f"€{_db_current:,.0f}",
-                 f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f} unrealised", icon="wallet")
-    with _k2:
-        _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
-                 f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
-    with _k3:
-        if _db_fwd_income is not None:
-            _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
-            _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
-                     f"{_db_blended_yield:.1f}%", True, "blended yield", icon="coin")
-        else:
-            _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
-    with _k4:
-        _kpi_card("Avg fair value upside",
-                 f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                 "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
+    # Wrapped in a keyed container (styles.py) purely so CSS can give this
+    # row's stHorizontalBlock an explicit min-height — Streamlit's own
+    # height estimate for a kpi_card()'s raw-HTML markdown under-measures
+    # its real rendered height (same class of bug hit repeatedly for the
+    # Holdings rows/column header), so the row was reporting itself 16px
+    # shorter than the cards actually are, leaving the *next* section
+    # rendered flush against the overflow instead of with a proper gap.
+    with st.container(key="db_kpi_row"):
+        _k1, _k2, _k3, _k4 = st.columns(4)
+        with _k1:
+            _kpi_card("Current value", f"€{_db_current:,.0f}",
+                     f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f} unrealised", icon="wallet")
+        with _k2:
+            _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
+                     f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
+        with _k3:
+            if _db_fwd_income is not None:
+                _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
+                _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
+                         f"{_db_blended_yield:.1f}%", True, "blended yield", icon="coin")
+            else:
+                _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
+        with _k4:
+            _kpi_card("Avg fair value upside",
+                     f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
+                     "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
 
     st.container(height=4, border=False, key="db_gap_1")
 

@@ -118,12 +118,17 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     # of continued HTML, rendering the sub-caption as literal escaped text.
     _delta_html = chip_html(delta_text, positive) if delta_text else ""
     _delta_row = f'{_delta_html}<span style="font-size:11px;color:var(--faint);">{sub}</span>'
+    # min-height on the delta row — the chip (padding:2px 7px around 11.5px
+    # text, ~22px tall) is taller than the plain sub-caption span alone, so
+    # a value-only card with no delta_text (e.g. "Avg fair value upside")
+    # would otherwise render ~5px shorter than its siblings in the same
+    # st.columns() row, since each card's height is purely content-driven.
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
     {_icon_svg}{label}</div>
   <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
-  <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
+  <div style="margin-top:9px;min-height:22px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
 
 
