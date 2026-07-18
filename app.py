@@ -31,8 +31,7 @@ st.set_page_config(
 styles.inject()
 
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
-authgate.restore_token_from_query()
-authgate.recover_session_from_localstorage()
+authgate.recover_session_from_cookie()
 authgate.handle_logout()
 
 # Resolve the current user and point the data layer at their storage.
@@ -41,12 +40,18 @@ set_user(_email)
 
 authgate.auth_wall()
 
-# Keep the localStorage JWT fresh for the next full page load.
-st.iframe(f"""
+# Keep the localStorage/cookie JWT fresh for the next full page load — the
+# cookie is what recover_session_from_cookie() (uvalu/authgate.py) actually
+# reads server-side to survive a reload (e.g. the top bar's theme toggle).
+with st.container(key="uv_hidden_util_jwt"):
+    st.iframe(f"""
 <script>
 (function(){{
   var tok = {repr(st.session_state.get('jwt_token', ''))};
-  if (tok) localStorage.setItem('uv_jwt', tok);
+  if (tok) {{
+    localStorage.setItem('uv_jwt', tok);
+    document.cookie = 'uv_jwt=' + encodeURIComponent(tok) + '; path=/; max-age=86400';
+  }}
 }})();
 </script>
 """, height=1)

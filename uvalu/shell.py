@@ -47,17 +47,54 @@ def apply_theme_script(light: bool) -> None:
     OWN active theme (st.context.theme, resolved via theme_colors()) so the
     mockup's [data-theme="light"] CSS override (uvalu/styles.py) always
     matches whatever native widgets (buttons, dataframes, Plotly charts) are
-    already rendering in — a single source of truth, switched via Streamlit's
-    native app-menu theme picker (top-right ⋮ → Settings), not a separate
-    in-app toggle. An earlier version of this function drove data-theme from
-    an independent per-user setting instead; that let native widgets and the
-    new raw-HTML cards disagree on light/dark, so it was dropped before the
-    Dashboard rebuild (Phase 3.1) started leaning on these tokens too."""
+    already rendering in — a single source of truth. Streamlit's own theme
+    preference (light/dark/system) is switched via the top bar's sun/moon
+    toggle (see _set_theme_script below), which writes the same localStorage
+    key Streamlit's native app-menu theme picker used before that menu was
+    hidden — st.context.theme itself is still the single point of truth this
+    function reads from, only the UI for changing it moved. An earlier
+    version of this function drove data-theme from an independent per-user
+    setting instead; that let native widgets and the new raw-HTML cards
+    disagree on light/dark, so it was dropped before the Dashboard rebuild
+    (Phase 3.1) started leaning on these tokens too."""
     theme = "light" if light else "dark"
     st.iframe(f"""
 <script>
 (function(){{
   try {{ window.parent.document.documentElement.setAttribute('data-theme', {theme!r}); }} catch(e) {{}}
+}})();
+</script>
+""", height=1)
+
+
+def _set_theme_script(target: str) -> None:
+    """Persist `target` ("Light"/"Dark") to the same localStorage key
+    Streamlit's own (now-hidden) app-menu theme picker writes to
+    (`stActiveTheme-<base_path>-v2`), then reload. st.context.theme is only
+    resolved from that value on a fresh server round-trip — a same-render
+    st.rerun() would still see the OLD theme, so a full reload (not a
+    lighter rerun) is what actually makes native widgets, Plotly charts and
+    this custom toggle agree on the next paint.
+
+    The reload itself is instant/abrupt (old page vanishes, blank tab, new
+    page pops in) — measured with the browser's own Layout Instability API
+    during development, which found zero real post-paint position shifts,
+    so nothing is actually moving incorrectly; the cut just reads as a
+    "flip" because there's no visual continuity across it. Fading the OLD
+    page out first (instead of reloading instantly) turns that hard cut
+    into a cross-fade with the NEW page's existing entry animation
+    (.block-container's uvFadeIn, uvalu/styles.py) — same fix either way,
+    but doing it here needs no theory about the reload's internals to work."""
+    st.iframe(f"""
+<script>
+(function(){{
+  try {{
+    window.parent.localStorage.setItem('stActiveTheme-/-v2', JSON.stringify({target!r}));
+    var docEl = window.parent.document.documentElement;
+    docEl.style.transition = 'opacity 0.12s ease';
+    docEl.style.opacity = '0';
+    setTimeout(function(){{ window.parent.location.reload(); }}, 120);
+  }} catch(e) {{ window.parent.location.reload(); }}
 }})();
 </script>
 """, height=1)
@@ -81,12 +118,25 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar {{
   position: sticky; top: 0; z-index: 999;
   background: var(--panel); border-bottom: 0.5px solid var(--line);
-  padding: 10px 24px; margin: -1rem -1.5rem 0.75rem;
+  padding: 10px 24px; margin: 0 -1.5rem 0.75rem;
+  width: calc(100% + 3rem) !important; max-width: calc(100% + 3rem) !important;
+  flex: none !important; min-height: 61px !important; box-sizing: border-box !important;
 }}
 [data-theme="light"] .st-key-uv_topbar {{ background: var(--panel); }}
+/* Streamlit's stMarkdownContainer carries a built-in -16px bottom margin
+   (compensating for default <p> spacing in rendered markdown) that doesn't
+   apply to our raw <div> HTML — left alone, it shrinks the box the outer
+   row's vertical_alignment="center" centers against, visually pushing the
+   logo/tagline and Live indicator ~8px below true center. */
+.st-key-uv_topbar [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
+.st-key-uv_topbar_nav {{ flex-wrap: nowrap !important; }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{
   border-radius: 8px !important; padding: 7px 12px !important;
   font-size: 12.5px !important; color: var(--muted) !important;
+  white-space: nowrap !important;
+}}
+.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
+  font-size: 16px !important;
 }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"]:hover {{
   background: var(--line-2) !important; color: var(--text) !important;
@@ -94,6 +144,13 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar_nav a[href="{active_path}"] {{
   background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;
 }}
+div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !important; }}
+.st-key-uv_theme_toggle button {{
+  border-radius: 8px !important; background: var(--navy) !important;
+  color: var(--mint) !important; border: 0.5px solid var(--line) !important;
+  padding: 6px !important; min-height: 32px !important; min-width: 32px !important;
+}}
+div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !important; }}
 .st-key-uv_avatar_pop button {{
   border-radius: 8px !important; background: var(--navy) !important;
   color: var(--mint) !important; border: 0.5px solid var(--line) !important;
@@ -108,13 +165,19 @@ def _topbar_css(active_path: str) -> str:
 
 def render_topbar(nav) -> None:
     user = current_user()
-    _light = theme_colors().effective_light
-    apply_theme_script(_light)
-    _density = load_settings(user.email).get("density", "comfortable")
-    _apply_density_script(_density)
-
     active_path = getattr(nav, "url_path", "") or ""
-    st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)
+
+    # Theme/density sync scripts and the CSS injection below produce no
+    # visible content, but each is still a Streamlit element and would
+    # otherwise consume a full row-gap in the vertical block, pushing the
+    # visible bar down the page. Collapsing them into one zero-size,
+    # out-of-flow container keeps the bar flush with the top of the page.
+    with st.container(key="uv_hidden_util_topbar"):
+        _light = theme_colors().effective_light
+        apply_theme_script(_light)
+        _density = load_settings(user.email).get("density", "comfortable")
+        _apply_density_script(_density)
+        st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)
 
     with st.container(key="uv_topbar"):
         col_logo, col_nav, col_right = st.columns([0.16, 0.5, 0.34], vertical_alignment="center")
@@ -152,6 +215,12 @@ def render_topbar(nav) -> None:
                     f'Live · {datetime.now().strftime("%H:%M")}</div>',
                     unsafe_allow_html=True,
                 )
+
+                with st.container(key="uv_theme_toggle"):
+                    _toggle_icon = ":material/dark_mode:" if _light else ":material/light_mode:"
+                    if st.button("", icon=_toggle_icon, key="uv_theme_toggle_btn",
+                                 help="Switch to dark theme" if _light else "Switch to light theme"):
+                        _set_theme_script("Dark" if _light else "Light")
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):

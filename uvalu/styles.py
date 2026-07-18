@@ -59,7 +59,25 @@ GLOBAL_CSS = """
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
 
   /* ── Layout ──────────────────────────────────────────────────────────────── */
-  .block-container { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important; }
+  .block-container {
+    padding-top: 0 !important; padding-bottom: 0.5rem !important; max-width: 100% !important;
+    padding-left: 1.5rem !important; padding-right: 1.5rem !important;
+  }
+
+  /* ── Invisible helper elements (localStorage-sync iframes, theme/density
+     scripts) render nothing but still occupy a full row-gap in Streamlit's
+     vertical block — collapse them out of flow so they don't push visible
+     content (esp. the sticky top bar, uvalu/shell.py) down the page. */
+  [class*="st-key-uv_hidden_util"] {
+    position: absolute !important; width: 0 !important; height: 0 !important;
+    overflow: hidden !important; padding: 0 !important; margin: 0 !important;
+  }
+  /* Streamlit wraps every st.container() in its own flex-item div (a
+     "stLayoutWrapper") one level up from the st-key-* class above; that
+     wrapper still counts as a flex item and eats a row-gap even though its
+     (now absolutely-positioned) child has collapsed to zero size. Removing
+     it from the box tree entirely is what actually closes the gap. */
+  div:has(> [class*="st-key-uv_hidden_util"]) { display: contents !important; }
 
   /* ── Mockup canvas background — every page now sits on --bg, matching the
      top bar (uvalu/shell.py) and the raw-HTML mockup-token cards each screen
@@ -309,4 +327,5 @@ GLOBAL_CSS = """
 
 def inject() -> None:
     """Inject the global stylesheet (brand tokens, layout, widget theming)."""
-    st.markdown(f"<style>{GLOBAL_CSS}</style>", unsafe_allow_html=True)
+    with st.container(key="uv_hidden_util_global"):
+        st.markdown(f"<style>{GLOBAL_CSS}</style>", unsafe_allow_html=True)

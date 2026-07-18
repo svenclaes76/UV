@@ -92,9 +92,8 @@ Page bodies live in `uvalu/pages_/*.py`; each exposes a single `render()` functi
 
 The authentication gate, run in order during boot:
 
-- `restore_token_from_query()` — restore a JWT passed via the `_tok` query param (deep-links / the localStorage bridge).
-- `recover_session_from_localstorage()` — when there's no active session, redirect with the browser's stored `uv_jwt` as `_tok`.
-- `handle_logout()` — clear session + query params on `?logout=1`.
+- `recover_session_from_cookie()` — when there's no active session, restore one server-side from the `uv_jwt` cookie via `st.context.cookies` (survives a full page reload, e.g. the top bar's theme toggle, with no client-side redirect).
+- `handle_logout()` — clear session + query params on `?logout=1`, and expire the `uv_jwt` cookie/localStorage entry.
 - `auth_wall()` — verify the session JWT, or render the login form and `st.stop()` if unauthenticated.
 
 #### `uvalu/nav.py`
@@ -249,10 +248,9 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
 
 ## Authentication flow
 
-1. User submits the login form → `auth.login()` verifies the bcrypt hash and returns a JWT. `authgate.auth_wall()` stores it in `st.session_state` and writes it to `localStorage` as `uv_jwt` via a hidden `st.iframe` script.
-2. On a fresh page load with no session, `authgate.recover_session_from_localstorage()` injects a script that reads `uv_jwt` and reloads the page with the token as a `_tok` query param.
-3. `authgate.restore_token_from_query()` verifies `_tok`, populates the session, and strips the param. Invalid/expired tokens are purged from `localStorage` to break redirect loops.
-4. `auth_wall()` short-circuits re-verification once `jwt_token` + `user_email` are set for the session (prevents login flashes on timed auto-refresh). `?logout=1` clears both session and `localStorage`.
+1. User submits the login form → `auth.login()` verifies the bcrypt hash and returns a JWT. `authgate.auth_wall()` stores it in `st.session_state` and writes it to both `localStorage` and a `uv_jwt` cookie via a hidden `st.iframe` script. `app.py` re-writes both on every authenticated render to keep them fresh.
+2. On a fresh page load/reconnect with no session, `authgate.recover_session_from_cookie()` reads the `uv_jwt` cookie directly server-side via `st.context.cookies` and restores `st.session_state` — no client-side redirect involved (an earlier version redirected with the token as a `?_tok=` query param, but that's real top-level navigation, which `st.iframe()`'s sandbox blocks without `allow-top-navigation`; it silently never fired).
+3. `auth_wall()` short-circuits re-verification once `jwt_token` + `user_email` are set for the session (prevents login flashes on timed auto-refresh). `?logout=1` clears session state, then a script expires the cookie/`localStorage` entry and reloads — both in the same script, so the clearing genuinely finishes before the reload starts a fresh (logged-out) session.
 
 ---
 

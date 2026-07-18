@@ -1,4 +1,4 @@
-"""Authentication gate: JWT/localStorage bridges, logout, and the login wall.
+"""Authentication gate: JWT/cookie bridges, logout, and the login wall.
 
 These run at module scope in the app's boot sequence. Each step is a function so
 ``app.py`` can invoke them in order while keeping the logic out of its body.
@@ -10,39 +10,29 @@ from uvalu import shell
 from uvalu.runtime import theme_colors
 
 
-def restore_token_from_query() -> None:
-    """Restore a JWT passed via the ``_tok`` query param (legacy / deep-links)."""
-    _tok_param = st.query_params.get("_tok", "")
-    if not _tok_param:
-        return
-    if not st.session_state.get("jwt_token"):
-        _email_check, _role_check = verify_token(_tok_param)
-        if _email_check:
-            st.session_state["jwt_token"]  = _tok_param
-            st.session_state["user_email"] = _email_check
-            st.session_state["user_role"]  = _role_check
-        else:
-            # Token invalid or expired — purge from localStorage to break any redirect loop
-            st.iframe("<script>localStorage.removeItem('uv_jwt');</script>", height=1)
-    del st.query_params["_tok"]
-
-
-def recover_session_from_localstorage() -> None:
-    """If there's no active session, redirect with the localStorage JWT as ``_tok``."""
+def recover_session_from_cookie() -> None:
+    """If there's no active session, restore one from the ``uv_jwt`` cookie
+    (set by app.py's JWT-sync script on every authenticated render) — read
+    directly server-side via st.context.cookies, so it survives a full page
+    reload (e.g. the top bar's theme toggle, uvalu/shell.py) without any
+    client-side redirect. An earlier version of this used a JS-only
+    localStorage-plus-``?_tok=``-redirect dance instead; that redirect is
+    real cross-frame top-level navigation, which Streamlit's st.iframe()
+    sandboxes without the `allow-top-navigation` flag — it silently never
+    fired, so every hard reload dropped the session back to the login
+    screen. Cookies are just sent with the next request/reconnect, no
+    navigation required, so this sidesteps that sandbox restriction
+    entirely instead of working around it."""
     if st.session_state.get("jwt_token"):
         return
-    st.iframe("""
-<script>
-(function(){
-  var tok = localStorage.getItem('uv_jwt');
-  if (!tok) return;
-  var url = new URL(window.parent.location.href);
-  if (url.searchParams.get('_tok')) return;
-  url.searchParams.set('_tok', tok);
-  window.parent.location.replace(url.toString());
-})();
-</script>
-""", height=1)
+    tok = st.context.cookies.get("uv_jwt")
+    if not tok:
+        return
+    email, role = verify_token(tok)
+    if email:
+        st.session_state["jwt_token"]  = tok
+        st.session_state["user_email"] = email
+        st.session_state["user_role"]  = role
 
 
 def handle_logout() -> None:
@@ -51,7 +41,27 @@ def handle_logout() -> None:
         st.query_params.clear()
         for _k in ("jwt_token", "user_email", "user_role"):
             st.session_state.pop(_k, None)
-        st.rerun()
+        # Expire the uv_jwt cookie/localStorage entry, THEN reload, both
+        # inside the same script so the clearing genuinely finishes first.
+        # An earlier version called st.rerun() right after queuing this
+        # iframe — st.rerun() halts the script and starts a new run
+        # immediately, and that new run doesn't re-emit this iframe (query
+        # params are already cleared), so the browser could tear the
+        # iframe down before its clearing script ever got to execute.
+        # Cookie/localStorage silently survived, and recover_session_from_
+        # cookie() logged the user straight back in on their next reload.
+        st.iframe("""
+<script>
+(function(){
+  try {
+    document.cookie = 'uv_jwt=; path=/; max-age=0';
+    localStorage.removeItem('uv_jwt');
+  } catch(e) {}
+  window.parent.location.reload();
+})();
+</script>
+""", height=1)
+        st.stop()
 
 
 def auth_wall() -> None:
@@ -133,7 +143,12 @@ def auth_wall() -> None:
                         st.session_state["jwt_token"]  = result
                         st.session_state["user_email"] = _login_email
                         st.session_state["user_role"]  = role
-                        st.iframe(f"<script>localStorage.setItem('uv_jwt',{repr(result)});</script>", height=1)
+                        st.iframe(
+                            f"<script>localStorage.setItem('uv_jwt',{repr(result)});"
+                            f"document.cookie='uv_jwt='+encodeURIComponent({repr(result)})+"
+                            f"'; path=/; max-age=86400';</script>",
+                            height=1,
+                        )
                         st.rerun()
                     else:
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
