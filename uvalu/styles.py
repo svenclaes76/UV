@@ -475,6 +475,24 @@ GLOBAL_CSS = """
   .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover {
     background: var(--mint) !important; color: var(--navy) !important;
   }
+  /* Shrinking the button off width="stretch" left it flush against the
+     left edge of its column instead — that column is wider than the
+     button needs (it shares the same 1-of-6 ratio as the other two fields'
+     wider columns), leaving ~128px of dead space to the button's right
+     (confirmed live). justify-content:flex-end alone didn't fix it: the
+     column's real flex ITEM is its generated stVerticalBlock wrapper
+     (`flex:1 1 0%;width:100%` by default — the same "wrapper stretches to
+     fill" gotcha hit repeatedly elsewhere in this app), which was still
+     stretching to the column's full width regardless of the column's own
+     justify-content, so the button rendered flush-left *within* that
+     full-width wrapper. Pinning the wrapper to its own content width is
+     what actually lets flex-end push it to the right. */
+  .st-key-wl_add_form_wrap [data-testid="stColumn"]:has([data-testid="stFormSubmitButton"]) {
+    display: flex !important; justify-content: flex-end !important;
+  }
+  .st-key-wl_add_form_wrap [data-testid="stColumn"]:has([data-testid="stFormSubmitButton"]) > div {
+    flex: none !important; width: auto !important;
+  }
 
   /* Watchlist's own table card/header — same panel treatment as Screener's
      scr_table_card/scr_col_header (this page had never been given it; its
@@ -526,6 +544,10 @@ GLOBAL_CSS = """
        sibling container in the block (including right after the column
        header), matching the Dashboard holdings rows' identical fix. */
     margin-top: -16px !important;
+    /* Same 67px floor as the Dashboard holdings row (`.st-key-db_hold_`) —
+       both use identical 12px 20px padding, so matching this makes the two
+       tables' row heights consistent app-wide, as requested. */
+    min-height: 67px !important;
   }
   [class*="st-key-scr_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]):hover,
   [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]):hover {
@@ -567,11 +589,22 @@ GLOBAL_CSS = """
      column's own (shorter, content-sized) top edge. Also lifted above the
      row-wide click overlay (z-index:2 > the overlay's 1) via its own
      stacking context, so it stays independently clickable instead of being
-     swallowed by that overlay sitting on top of the whole row. */
-  [class*="st-key-scr_row_"] [class*="_action"],
-  [class*="st-key-scr_row_"] [class*="_remove"],
-  [class*="st-key-wl_row_"] [class*="_action"],
-  [class*="st-key-wl_row_"] [class*="_remove"] {
+     swallowed by that overlay sitting on top of the whole row.
+
+     :not([class*="uv_hidden_util"]) matters here: the star's own per-row
+     <style>-only markdown block is keyed "uv_hidden_util_<...>_action" —
+     its class contains "_action" too, so without this exclusion this rule
+     ALSO matched it and knocked its position back from the hidden_util
+     rule's `absolute` to this rule's (higher-specificity) `relative`,
+     pulling it back into normal flow. That silently added one whole
+     ~16px flex gap to the row (confirmed live: row height jumped from
+     ~68px to ~84.67px) — the exact "invisible utility element" bug this
+     hidden_util convention exists to prevent, reintroduced by a sibling
+     rule's substring match rather than by the hidden_util rule itself. */
+  [class*="st-key-scr_row_"] [class*="_action"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-scr_row_"] [class*="_remove"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-wl_row_"] [class*="_action"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-wl_row_"] [class*="_remove"]:not([class*="uv_hidden_util"]) {
     display: flex !important; align-items: center !important; justify-content: center !important;
     height: 100% !important; position: relative !important; z-index: 2;
   }
