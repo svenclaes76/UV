@@ -37,15 +37,27 @@ def render() -> None:
         for k, d in zip(ALL_EXCHANGES, _per_exchange)
     ] + [extra_df], ignore_index=True)
 
-    # ── Add ticker form ─────────────────────────────────────────────────────
-    with st.form("wl_add_form", border=True, clear_on_submit=True):
-        _c1, _c2, _c3 = st.columns([2, 3, 1], vertical_alignment="bottom")
-        with _c1:
-            _new_ticker = st.text_input("Ticker", placeholder="TTE.PA")
-        with _c2:
-            _new_name = st.text_input("Company name (optional)", placeholder="TotalEnergies")
-        with _c3:
-            _submitted = st.form_submit_button("Add ticker", width="stretch")
+    # ── Add ticker form — same card treatment as the rest of the app
+    # (background/border/radius/shadow, panel-2 inputs, filled teal submit)
+    # instead of Streamlit's plain default bordered form. st.form() doesn't
+    # turn its own key into a "st-key-*" class the way st.container(key=...)
+    # does, so an explicit wrapper container is the hook for that CSS. ─────
+    with st.container(key="wl_add_form_wrap"):
+        with st.form("wl_add_form", border=True, clear_on_submit=True):
+            _c1, _c2, _c3 = st.columns([2, 3, 1], vertical_alignment="bottom")
+            with _c1:
+                st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           'color:var(--faint);margin-bottom:7px;">Ticker</div>', unsafe_allow_html=True)
+                _new_ticker = st.text_input("Ticker", placeholder="TTE.PA", label_visibility="collapsed")
+            with _c2:
+                st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                           'color:var(--faint);margin-bottom:7px;">Company name (optional)</div>',
+                           unsafe_allow_html=True)
+                _new_name = st.text_input("Company name (optional)", placeholder="TotalEnergies",
+                                          label_visibility="collapsed")
+            with _c3:
+                _submitted = st.form_submit_button("Add ticker", width="stretch",
+                                                   icon=":material/add:", type="primary")
 
     if _submitted:
         _sym = _new_ticker.strip().upper()

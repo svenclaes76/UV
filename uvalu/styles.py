@@ -447,6 +447,31 @@ GLOBAL_CSS = """
   .st-key-scr_col_header {
     padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   }
+  /* Watchlist "Add ticker" form — same card treatment as the rest of the
+     app (Screener's scr_filter_panel) instead of st.form()'s plain default
+     bordered box (transparent background, generic gray border, 8px radius,
+     no shadow — confirmed live). st.form() doesn't expose its own key as a
+     "st-key-*" class, so the wrapper container above is the real hook. */
+  .st-key-wl_add_form_wrap [data-testid="stForm"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    padding: 16px 18px !important;
+  }
+  .st-key-wl_add_form_wrap [data-testid="stTextInput"] > div {
+    background-color: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
+    border-radius: 8px !important;
+  }
+  .st-key-wl_add_form_wrap [data-testid="stTextInput"] input { font-size: 13px !important; }
+  /* Filled teal submit button — matches scr_export_btn's primary-action
+     treatment (the design's one filled CTA per screen). */
+  .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"] {
+    background: var(--teal) !important; border: none !important; color: #fff !important;
+    border-radius: 8px !important;
+  }
+  .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover {
+    background: var(--mint) !important; color: var(--navy) !important;
+  }
+
   /* Watchlist's own table card/header — same panel treatment as Screener's
      scr_table_card/scr_col_header (this page had never been given it; its
      header was still bare st.columns with no card/hairline, and the
