@@ -56,8 +56,7 @@ def render() -> None:
                 _new_name = st.text_input("Company name (optional)", placeholder="TotalEnergies",
                                           label_visibility="collapsed")
             with _c3:
-                _submitted = st.form_submit_button("Add ticker", width="stretch",
-                                                   icon=":material/add:", type="primary")
+                _submitted = st.form_submit_button("Add ticker", icon=":material/add:", type="primary")
 
     if _submitted:
         _sym = _new_ticker.strip().upper()

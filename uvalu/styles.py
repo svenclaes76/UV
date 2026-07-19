@@ -463,10 +463,14 @@ GLOBAL_CSS = """
   }
   .st-key-wl_add_form_wrap [data-testid="stTextInput"] input { font-size: 13px !important; }
   /* Filled teal submit button — matches scr_export_btn's primary-action
-     treatment (the design's one filled CTA per screen). */
+     treatment (the design's one filled CTA per screen): compact 8px 13px
+     padding and 12.5px text instead of Streamlit's default button sizing
+     (which, combined with the column stretching to fill its share of the
+     row, rendered much larger/wider than every other button in the app). */
   .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"] {
     background: var(--teal) !important; border: none !important; color: #fff !important;
-    border-radius: 8px !important;
+    border-radius: 8px !important; padding: 8px 13px !important; font-size: 12.5px !important;
+    height: auto !important; min-height: unset !important; width: auto !important;
   }
   .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"]:hover {
     background: var(--mint) !important; color: var(--navy) !important;
@@ -517,7 +521,7 @@ GLOBAL_CSS = """
   [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]) {
     position: relative !important; padding: 12px 20px !important;
     border-bottom: 0.5px solid var(--line-2) !important;
-    border-radius: 0 !important; background: transparent !important;
+    border-radius: 0 !important; background: transparent !important; cursor: pointer;
     /* Cancels the ~16px default vertical gap Streamlit puts between every
        sibling container in the block (including right after the column
        header), matching the Dashboard holdings rows' identical fix. */
@@ -527,19 +531,26 @@ GLOBAL_CSS = """
   [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]):hover {
     background: var(--soft) !important;
   }
-  /* Ticker/name cell as the row's click target (opens the detail drawer) —
-     an invisible button is layered over just this cell via `position:
-     absolute;inset:0`, scoped to the cell's own `position:relative` (not
-     the row's, which already has one for other reasons) so it can't cover
-     the leading star button in an adjacent cell. Same "target the real
-     generated wrapper, not the st-key-* div itself" + "position:absolute
-     removes it from flow so it can't reintroduce the invisible-element gap
-     bug" pattern as the Dashboard holdings row's whole-row click target. */
-  [class*="_name_cell"] { position: relative !important; cursor: pointer; }
-  [class*="_name_cell"] [data-testid="stElementContainer"]:has(button) {
+  /* Whole row as the click target (opens the detail drawer) — an invisible
+     button is layered over the ENTIRE row via `position:absolute;inset:0`
+     against the row's own `position:relative` (set on the row-divider rule
+     above), matching the Dashboard holdings row's whole-row click behavior
+     exactly (previously scoped to just the ticker/name cell). Same "target
+     the real generated wrapper, not the st-key-* div itself" +
+     "position:absolute removes it from flow so it can't reintroduce the
+     invisible-element gap bug" pattern used there. Streamlit also gives this
+     wrapper a `width="fit-content"` HTML attribute (same gotcha hit fixing
+     the header sort buttons) whose own CSS rule beats the implicit width
+     `inset:0`'s left:0/right:0 would otherwise produce — confirmed live,
+     the wrapper measured only ~30px wide despite inset:0. width:100% here
+     overrides that explicitly. */
+  [class*="st-key-scr_row_"] [class*="_view"],
+  [class*="st-key-wl_row_"] [class*="_view"] {
     position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+    width: 100% !important; height: 100% !important;
   }
-  [class*="_name_cell"] [data-testid="stElementContainer"]:has(button) button {
+  [class*="st-key-scr_row_"] [class*="_view"] button,
+  [class*="st-key-wl_row_"] [class*="_view"] button {
     width: 100% !important; height: 100% !important; opacity: 0 !important;
     border: none !important; background: transparent !important; padding: 0 !important;
     cursor: pointer;
@@ -553,13 +564,16 @@ GLOBAL_CSS = """
      off-center by ~8px live) so the naturally-sized button centers inside
      a wrapper that actually spans the column's full height, matching the
      taller two-line ticker/name cell beside it instead of hugging the
-     column's own (shorter, content-sized) top edge. */
+     column's own (shorter, content-sized) top edge. Also lifted above the
+     row-wide click overlay (z-index:2 > the overlay's 1) via its own
+     stacking context, so it stays independently clickable instead of being
+     swallowed by that overlay sitting on top of the whole row. */
   [class*="st-key-scr_row_"] [class*="_action"],
   [class*="st-key-scr_row_"] [class*="_remove"],
   [class*="st-key-wl_row_"] [class*="_action"],
   [class*="st-key-wl_row_"] [class*="_remove"] {
     display: flex !important; align-items: center !important; justify-content: center !important;
-    height: 100% !important;
+    height: 100% !important; position: relative !important; z-index: 2;
   }
   [class*="st-key-scr_row_"] [class*="_action"] button,
   [class*="st-key-scr_row_"] [class*="_remove"] button,

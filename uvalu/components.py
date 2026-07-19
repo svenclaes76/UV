@@ -362,14 +362,15 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     design exactly; there's no separate outline-star glyph.
 
     The whole row opens the detail drawer on click — there's no separate
-    trailing arrow button (dropped in favor of a Dashboard-holdings-style
-    click target): an invisible button is layered over the ticker/name cell
-    via CSS (`position:absolute;inset:0` scoped to that cell, not the whole
-    row, so it doesn't swallow clicks meant for the leading star).
+    trailing arrow button (matching the Dashboard holdings row's own
+    whole-row click behavior): an invisible button is layered over the
+    entire row via CSS (`position:absolute;inset:0`), with the leading star
+    lifted above it with a higher z-index so it stays independently
+    clickable instead of being swallowed by the row-wide overlay.
 
-    Returns {"view": bool, "action": bool}: `view` fires on clicking the
-    ticker/name cell (caller opens the drawer); `action` fires on the star
-    (Screener: toggle watchlist membership; Watchlist: remove).
+    Returns {"view": bool, "action": bool}: `view` fires on clicking
+    anywhere on the row (caller opens the drawer); `action` fires on the
+    star (Screener: toggle watchlist membership; Watchlist: remove).
     """
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
@@ -421,12 +422,6 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
                        f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
                        f"<div style='font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;"
                        f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
-            # Invisible full-cell button (styles.py positions it via
-            # `position:absolute;inset:0` over this cell only) — clicking
-            # anywhere on the ticker/name opens the drawer, matching the
-            # Dashboard holdings row's whole-row click target but scoped
-            # narrower here so it can't cover the leading star button.
-            _view_clicked = st.button("View", key=f"{key}_view", type="tertiary")
         _i += 1
         with _cols[_i]:
             _kind, _label = signal_badge_for_decision(decision, veto=veto)
@@ -470,6 +465,14 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
                        f"{f'{div_yield*100:.2f}%' if div_yield is not None and pd.notna(div_yield) else '—'}</div>",
                        unsafe_allow_html=True)
+        # Invisible button covering the WHOLE row (styles.py positions it via
+        # `position:absolute;inset:0` against the row's own position:relative)
+        # — clicking anywhere on the row opens the drawer, matching the
+        # Dashboard holdings row's click behavior exactly (previously scoped
+        # to just the ticker/name cell). The leading star stays independently
+        # clickable via a higher z-index (styles.py), so this can't swallow
+        # its clicks despite sitting on top of the whole row.
+        _view_clicked = st.button("View", key=f"{key}_view", type="tertiary")
     return {"view": _view_clicked, "action": _action_clicked}
 
 
