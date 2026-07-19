@@ -14,6 +14,7 @@ import streamlit as st
 from portfolio import set_user
 
 from uvalu import authgate, nav, shell, styles
+from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
 from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portfolio,
                           risk as _page_risk, screener as _page_screener,
@@ -95,4 +96,8 @@ if _legacy_page:
 # horizontal top-bar nav for it instead of stacking both.
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
+# Outside any dialog context, before the page body runs — opens the Buy/Sell
+# dialog the drawer's own buttons requested (Streamlit forbids nesting one
+# @st.dialog inside another, so open_drawer() can't call them directly).
+dispatch_pending_drawer_action()
 _nav.run()

@@ -152,56 +152,73 @@ def _ladder_bar_color(delta_pct: float) -> str:
 
 
 def fair_value_ladder(price: float, models: list[tuple[str, float]],
-                      composite: float | None = None, currency: str = "€") -> None:
+                      composite: float | None = None, currency: str = "€",
+                      composite_label: str = "Composite fair value",
+                      bar_width: int = 110) -> None:
     """Compact per-model fair-value list: a thin bar, the model's value, and
     its delta vs. the current price, ending in an explicit composite row —
-    matching Uvalu.dc.html's Six-model fair value spec (a flat comparison
-    list, not a verdict paragraph).
+    matching Uvalu.dc.html's Six-model fair value spec exactly: every model
+    passed in gets its own row (an unavailable model shows "–", it isn't
+    dropped from the list — the design always renders a fixed row count),
+    each row separated by a hairline, label left-aligned via flex:1 rather
+    than a fixed right-aligned column. No "current price" caption — that's
+    redundant with the caller's own price KPI tile and isn't part of the
+    design spec for this component.
 
-    `models` is an ordered list of (label, value) pairs — callers pick
-    whichever of Graham #/PE fair value/DDM/Analyst target are actually
-    available for a given stock. Delta is (model value − price) / model
-    value, matching the same margin-of-safety convention used for the
-    composite row and for fair_value_bar_compact elsewhere.
+    `models` is an ordered list of (label, value) pairs — value may be
+    None/NaN for a model that couldn't be computed for this stock. Delta is
+    (model value − price) / model value, matching the same margin-of-safety
+    convention used for the composite row and for fair_value_bar_compact
+    elsewhere. `bar_width` lets callers match the design's per-context bar
+    size (96px in the drawer vs. 110px on the Analysis screen).
     """
-    valid = [(lbl, float(v)) for lbl, v in models if v is not None and pd.notna(v) and v > 0]
-    if not valid or not price or pd.isna(price):
+    if not price or pd.isna(price):
         st.caption("Not enough model data for a fair-value ladder.")
         return
-
     price = float(price)
-    scale = max([price] + [v for _, v in valid]) * 1.08
 
-    def _row(label: str, value: float, delta_pct: float, bold: bool = False) -> str:
+    valid_vals = [float(v) for _, v in models if v is not None and pd.notna(v) and v > 0]
+    if not valid_vals:
+        st.caption("Not enough model data for a fair-value ladder.")
+        return
+    scale = max([price] + valid_vals) * 1.08
+
+    def _row(label: str, value: float | None) -> str:
+        if value is None or pd.isna(value) or value <= 0:
+            return (f'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
+                   f'<span style="flex:1;font-size:12.5px;color:var(--muted);">{label}</span>'
+                   f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);"></div>'
+                   f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;color:var(--faint);">–</span>'
+                   f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:var(--faint);">–</span></div>')
+        value = float(value)
+        delta_pct = (value - price) / value * 100
         color = _ladder_bar_color(delta_pct)
-        _weight = 600 if bold else 500
-        return f"""
-<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-  <span style="width:84px;flex:none;font-size:12px;font-weight:{_weight};color:var(--uv-muted);text-align:right;">{label}</span>
-  <div style="width:110px;flex:none;height:6px;border-radius:3px;background:var(--uv-track,#EEF1F5);position:relative;">
-    <div style="position:absolute;left:0;top:0;height:6px;border-radius:3px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div>
-  </div>
-  <span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:{_weight};width:64px;text-align:right;">{currency}{value:,.0f}</span>
-  <span style="font-family:var(--uv-mono);font-size:11.5px;font-weight:{_weight};color:{color};width:56px;text-align:right;">{delta_pct:+.1f}%</span>
-</div>"""
+        return (f'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
+               f'<span style="flex:1;font-size:12.5px;color:var(--muted);">{label}</span>'
+               f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);position:relative;">'
+               f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
+               f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{currency}{value:,.0f}</span>'
+               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{color};">{delta_pct:+.1f}%</span></div>')
 
-    rows_html = "".join(_row(lbl, v, (v - price) / v * 100) for lbl, v in valid)
+    rows_html = "".join(_row(lbl, v) for lbl, v in models)
 
+    # Composite row is a flat label+value pair (no bar, no delta) — matches
+    # Uvalu.dc.html's "Composite fair value" row in both the Analysis screen
+    # and the drawer, which is visually distinct from the per-model rows
+    # above it, not just a bolded variant of the same shape.
     composite_html = ""
     if composite is not None and pd.notna(composite) and composite > 0:
         composite = float(composite)
-        mos = (composite - price) / composite * 100
-        composite_html = f"""
-<div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--uv-line,rgba(13,31,60,0.1));">
-  {_row("Composite", composite, mos, bold=True)}
-</div>"""
+        # Composite value isn't width-constrained like the per-model value
+        # column (that one stays 0dp — a real fair value can run into the
+        # thousands for this app's actual stock universe, unlike the
+        # design's smaller demo figures, and would overflow its fixed 64px
+        # column at 2dp), so it can show full 2-decimal precision safely.
+        composite_html = (f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">'
+                          f'<span style="flex:1;font-size:12.5px;font-weight:600;">{composite_label}</span>'
+                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--mint);">{currency}{composite:,.2f}</span></div>')
 
-    st.markdown(f"""
-<div style="font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--uv-muted);margin-bottom:2px;">
-  Current price {currency}{price:,.2f}</div>
-{rows_html}
-{composite_html}
-""", unsafe_allow_html=True)
+    st.markdown(rows_html + composite_html, unsafe_allow_html=True)
 
 
 def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct: float | None,

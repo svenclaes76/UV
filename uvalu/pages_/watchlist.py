@@ -109,12 +109,7 @@ def render() -> None:
         if _result["view"]:
             _drawer_target = _ticker
 
-    _reopen = st.session_state.pop("_drw_reopen_ticker", None)
     if _drawer_target is not None:
         _r = wl_df[wl_df["Ticker"] == _drawer_target]
-        if not _r.empty:
-            open_drawer(_r.iloc[0], None)
-    elif _reopen:
-        _r = wl_df[wl_df["Ticker"] == _reopen]
         if not _r.empty:
             open_drawer(_r.iloc[0], None)

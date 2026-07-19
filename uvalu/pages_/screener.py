@@ -296,10 +296,3 @@ def render() -> None:
         _r = _filtered[_filtered["Ticker"] == _drawer_target]
         if not _r.empty:
             open_drawer(_r.iloc[0], _scr_pf_context)
-    else:
-        _reopen = st.session_state.get("_drw_reopen_ticker")
-        if _reopen:
-            _r = _all_df[_all_df["Ticker"] == _reopen]
-            if not _r.empty:
-                st.session_state.pop("_drw_reopen_ticker", None)
-                open_drawer(_r.iloc[0], _scr_pf_context)

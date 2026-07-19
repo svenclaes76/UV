@@ -612,13 +612,6 @@ def render() -> None:
             _pf_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _pf_sel]
             if not _pf_scr_row.empty:
                 _pf_dlg_pending.append((_pf_scr_row.iloc[0], None))
-        else:
-            # Keep the drawer open across the rerun caused by the watchlist star
-            _reopen = st.session_state.get("_drw_reopen_ticker")
-            _r = _all_scr_df[_all_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
-            if not _r.empty:
-                st.session_state.pop("_drw_reopen_ticker", None)
-                _pf_dlg_pending.append((_r.iloc[0], None))
 
         # ── Charts — tabbed to reduce scroll ─────────────────────────────────
         _ch_perf, _ch_value, _ch_breakdown = st.tabs(["Performance", "Value history", "Breakdown"])
@@ -1117,12 +1110,6 @@ def render() -> None:
                 _sold_scr_row = _all_scr_df[_all_scr_df["Ticker"] == _sold_sel]
                 if not _sold_scr_row.empty:
                     _pf_dlg_pending.append((_sold_scr_row.iloc[0], None))
-            else:
-                _reopen = st.session_state.get("_drw_reopen_ticker")
-                _r = _all_scr_df[_all_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
-                if not _r.empty:
-                    st.session_state.pop("_drw_reopen_ticker", None)
-                    _pf_dlg_pending.append((_r.iloc[0], None))
 
             st.divider()
             st.subheader("Realised return per position")

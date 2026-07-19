@@ -386,15 +386,6 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
 
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target], None)
-            else:
-                # Keep the drawer open across the rerun the watchlist-star
-                # button inside it triggers (@st.dialog closes on any rerun)
-                # — same pattern as uvalu/pages_/screener.py.
-                _reopen = st.session_state.get("_drw_reopen_ticker")
-                _r = _hold[_hold["Ticker"] == _reopen] if _reopen else _hold.iloc[0:0]
-                if not _r.empty:
-                    st.session_state.pop("_drw_reopen_ticker", None)
-                    open_drawer(_r.iloc[0], None)
         else:
             st.caption("No screener data available for your holdings.")
 

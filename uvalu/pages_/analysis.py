@@ -169,15 +169,18 @@ def render() -> None:
         st.markdown("##### Six-model fair value")
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
+            # Labels match uvalu/drawer.py's — same shared component, same
+            # underlying models, kept in sync so the two screens never show
+            # different names for the identical figure.
             fair_value_ladder(
                 price=float(_price),
                 models=[
-                    ("Graham #",    row.get("graham_number")),
-                    ("PE fair val", row.get("pe_fair_value")),
-                    ("EPV",         row.get("epv")),
-                    ("DDM 1-stage", row.get("ddm")),
-                    ("DDM 2-stage", row.get("ddm_multistage")),
-                    ("Analyst",     row.get("targetMeanPrice")),
+                    ("Graham Number",     row.get("graham_number")),
+                    ("P/E fair value",    row.get("pe_fair_value")),
+                    ("EPV",                row.get("epv")),
+                    ("Dividend discount",  row.get("ddm")),
+                    ("DDM 2-stage",       row.get("ddm_multistage")),
+                    ("Analyst Target",    row.get("targetMeanPrice")),
                 ],
                 composite=row.get("fair_value"),
             )

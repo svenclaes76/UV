@@ -315,12 +315,6 @@ def render() -> None:
         _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == _sel_ticker]
         if not _sel_row.empty:
             _risk_dlg_pending.append((_sel_row.iloc[0], None))
-    else:
-        _reopen = st.session_state.get("_drw_reopen_ticker")
-        _r = _risk_scr_df[_risk_scr_df["Ticker"] == _reopen] if _reopen else pd.DataFrame()
-        if not _r.empty:
-            st.session_state.pop("_drw_reopen_ticker", None)
-            _risk_dlg_pending.append((_r.iloc[0], None))
 
     st.divider()
 

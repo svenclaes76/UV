@@ -77,8 +77,10 @@ def test_fair_value_ladder_renders_bars_and_composite_row():
     at = _run(_script)
     html = at.markdown[0].value
     assert "€236" in html and "€261" in html and "€245" in html
-    assert "Composite" in html and "€256" in html
-    assert "+16.2%" in html  # (256-214.60)/256 * 100, rounded — matches screener._margin_of_safety's (fv-price)/fv convention
+    # Composite is a flat label+value row (no bar/delta) — matches
+    # Uvalu.dc.html's "Composite fair value" row exactly, distinct from the
+    # per-model bar+value+delta rows above it.
+    assert "Composite fair value" in html and "€256" in html
 
 
 def test_fair_value_ladder_handles_missing_model_data():
@@ -88,6 +90,25 @@ def test_fair_value_ladder_handles_missing_model_data():
 
     at = _run(_script)
     assert "Not enough model data" in at.caption[0].value
+
+
+def test_fair_value_ladder_shows_dash_for_unavailable_model_not_dropped_row():
+    def _script():
+        from uvalu.components import fair_value_ladder
+        fair_value_ladder(
+            price=100.0,
+            models=[("Graham #", 120.0), ("EPV", None), ("Analyst", float("nan"))],
+            composite=None,
+        )
+
+    at = _run(_script)
+    html = at.markdown[0].value
+    # All 3 rows render (fixed row count matches the design spec), including
+    # the two with no data — they show a "–" placeholder instead of being
+    # silently dropped from the list.
+    assert "EPV" in html and "Analyst" in html
+    # Each missing-data row shows 2 dashes (value column + delta column).
+    assert html.count("–") == 4
 
 
 def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
