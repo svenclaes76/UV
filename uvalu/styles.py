@@ -308,6 +308,234 @@ GLOBAL_CSS = """
   .st-key-an_header_row { min-height: 88px !important; }
   .st-key-an_hero_row   { min-height: 93px !important; }
 
+  /* ── Screener/Watchlist filter panel — one bordered/shadowed card holding
+     every filter control, matching Uvalu.dc.html's filter-bar spec
+     (`background:var(--panel);border:0.5px solid var(--line);border-radius:
+     12px;box-shadow:var(--shadow);padding:16px 18px`) instead of native
+     widgets sitting bare on the page background. */
+  .st-key-scr_filter_panel {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    padding: 16px 18px !important;
+  }
+  /* Filter row — each filter sized to its own content with a fixed 32px
+     gap between, matching Uvalu.dc.html's flex-wrap filter bar instead of
+     st.columns' equal-share ratios (which stretched a short "All sectors"
+     select to the same width as the whole signal-chip group). Streamlit
+     gives every child of a horizontal container `flex:1 1 0%;width:100%`
+     by default (same gotcha as the header buttons row) — pinning each
+     child's own generated wrapper to `flex:none;width:auto` is what
+     actually lets it shrink to content instead of stretching. */
+  .st-key-scr_filter_row { gap: 32px !important; }
+  .st-key-scr_filter_row > [data-testid="stLayoutWrapper"] {
+    flex: none !important; width: auto !important;
+  }
+  /* Search/Sector/Market wrap native widgets that stretch to 100% of
+     their own container by design (a text input/select has no natural
+     "shrink to content" size the way a button or slider track does), so
+     unlike the other filters they need an explicit fixed width rather
+     than relying on content-sizing. */
+  .st-key-scr_search_wrap { width: 184px !important; }
+  [class*="st-key-scr_select_"] { width: 140px !important; }
+  /* Search input — background/border/radius match the mockup's search box.
+     No leading icon: it forced 34px of left padding on the input, pushing
+     typed text noticeably further right than the Sector/Market selects'
+     own text (~13.5px from their own left edge, measured live) — matching
+     that offset directly reads as more consistent than a decorative icon. */
+  .st-key-scr_search_wrap div[data-testid="stTextInput"] > div {
+    background-color: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
+    border-radius: 8px !important;
+  }
+  .st-key-scr_search_wrap div[data-testid="stTextInput"] input {
+    font-size: 13px !important; padding-left: 14px !important;
+  }
+  /* Signal-chip / held-position toggle groups — same restyle as the
+     Dashboard's benchmark chips (db_bench_pills above), but grouped inside
+     a shared track (`background:var(--panel-2);border-radius:8px;
+     padding:3px`) matching Uvalu.dc.html's scr.signalChips spec exactly.
+     [data-testid="stButtonGroup"] is NOT the buttons' direct parent —
+     confirmed live via outerHTML: it wraps a hidden <label> (the
+     collapsed "Signal" widget label) *and* a separate nested
+     [data-baseweb="button-group"] div, and the actual 4 <button>s live
+     inside that inner div. Styling display/gap/flex-wrap on the outer
+     stButtonGroup wrapper was a no-op for actual layout — its own
+     computed `display` stayed `block` regardless — so VETO (the 4th pill)
+     kept wrapping like ordinary text once it no longer fit on the line.
+     The chip-track look (track background/radius/padding) and the actual
+     flex/wrap behavior both belong on this inner div instead. */
+  .st-key-scr_signal_pills [data-baseweb="button-group"] {
+    display: flex !important; align-items: center !important;
+    background: var(--panel-2) !important; border-radius: 8px !important;
+    padding: 3px !important; gap: 3px !important; flex-wrap: nowrap !important;
+    /* Matches the Search input / Sector/Market select's own height (40px,
+       measured live) exactly — this group was naturally 2px shorter, which
+       under the filter row's shared vertical alignment shifted the whole
+       Signal block (label included) by that same 2px relative to every
+       other filter's label, even though each block's own label sits flush
+       at its own top. */
+    min-height: 40px !important;
+  }
+  .st-key-scr_signal_pills [data-testid^="stBaseButton-pills"] {
+    border: none !important; border-radius: 6px !important; box-shadow: none !important;
+    background: transparent !important; color: var(--muted) !important;
+    font-size: 9px !important; font-weight: 400 !important;
+    padding: 6px 8px !important; min-height: unset !important;
+    white-space: nowrap !important;
+  }
+  .st-key-scr_signal_pills [data-testid="stBaseButton-pillsActive"] {
+    background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
+    font-weight: 500 !important;
+  }
+  /* Sector/Market selects — match the mockup's panel-2 select chrome. Both
+     keyed containers share this rule so the two boxes always stay the same
+     size (screener.py gives both columns equal width for the same reason). */
+  [class*="st-key-scr_select_"] div[data-baseweb="select"] > div {
+    background: var(--panel-2) !important; border-color: var(--line) !important;
+    border-radius: 8px !important; font-size: 12.5px !important;
+  }
+  /* Min score / min margin-of-safety sliders — the current value is shown
+     inline next to the label (custom markdown row, see screener.py) instead
+     of Streamlit's floating drag-thumb bubble; the native min/max tick
+     labels beneath the track aren't part of the mockup's minimal spec. */
+  .st-key-scr_score_slider [data-testid="stSliderTickBar"],
+  .st-key-scr_mos_slider [data-testid="stSliderTickBar"],
+  .st-key-scr_score_slider [data-testid="stSliderThumbValue"],
+  .st-key-scr_mos_slider [data-testid="stSliderThumbValue"] {
+    display: none !important;
+  }
+  .st-key-scr_score_slider [data-baseweb="slider"],
+  .st-key-scr_mos_slider [data-baseweb="slider"] { padding-bottom: 0 !important; }
+  /* The "min margin of safety" column is made wider than "min score" purely
+     so its longer label ("Min margin of safety" + "-20%") fits on one line
+     at typical viewport widths — but the slider TRACK itself must stay the
+     same length as Min score's regardless (a wider column would otherwise
+     stretch it, since a bare st.slider fills 100% of its container). A
+     fixed `width` (not `max-width` — that only caps, it doesn't equalize
+     two containers of different sizes) on both pins them to the same 150px
+     track independent of either column's width; the label row above is
+     free to use the full (wider) column. */
+  .st-key-scr_score_slider [data-baseweb="slider"],
+  .st-key-scr_mos_slider [data-baseweb="slider"] { width: 150px !important; }
+
+  /* The name column's stColumn wrapper reported only 28px tall live while
+     its actual markdown content (ticker+exchange line, company-name line)
+     rendered at 44px — the same "Streamlit under-reports a raw-HTML
+     markdown block's real height" bug hit repeatedly building the
+     Dashboard's holdings rows. The row's vertical_alignment="center" math
+     runs against that wrong, smaller number, so instead of centering the
+     44px block in the row it top-anchored it at the column's (too-short)
+     reported top, letting the text overflow almost to the row's very
+     bottom instead of sitting centered with even space above and below.
+     A min-height matching the true measured content size is the same fix
+     used there. */
+  [data-testid="stColumn"]:has([class*="_name_cell"]) { min-height: 44px !important; }
+
+  /* ── Screener/Watchlist results table — one seamless panel (column-header
+     row, then flat hairline-divided rows), matching Uvalu.dc.html's results
+     table exactly instead of Streamlit's individually-boxed/gapped
+     st.container(border=True) rows — same overflow:hidden/no-padding/
+     row-divider convention as the Dashboard's db_holdings_card above. */
+  .st-key-scr_table_card {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+    /* The plain default gap between these two top-level bordered containers
+       measured 32px live (double the 16px rhythm used everywhere else in
+       this app, e.g. the Dashboard's db_gap_ spacers) — pull it in to match. */
+    margin-top: -16px !important;
+  }
+  .st-key-scr_col_header {
+    padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* :not(...) exclusions matter here: the row's OWN class is
+     "st-key-scr_row_<idx>_<ticker>", but its NESTED sub-containers
+     (star/remove buttons, the name-cell click target, and the invisible
+     view button living *inside* that cell) are keyed as "<that same
+     string>_action"/"_remove"/"_name_cell"/"_view" — so their class ALSO
+     contains "st-key-scr_row_" as a substring and would otherwise pick up
+     this same divider/padding/background/position:relative too. Two
+     distinct symptoms were traced to this: a second, shorter hairline
+     directly under just the star+name area (the name-cell picking up the
+     row's own border-bottom), and — worse — the invisible view-button's
+     own container (normally `position:absolute` via the name-cell overlay
+     rule below) had ITS position knocked back to `relative` by this rule's
+     *higher* selector specificity (three-plus :not()s beats a plain
+     descendant selector), pulling it back into normal flow and inflating
+     the whole row to ~116px. Forgetting "_view" here after already adding
+     "_action"/"_name_cell"/"_remove" is exactly how the second bug crept
+     back in — any *new* per-row sub-container key needs adding here too. */
+  [class*="st-key-scr_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]),
+  [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]) {
+    position: relative !important; padding: 12px 20px !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+    border-radius: 0 !important; background: transparent !important;
+    /* Cancels the ~16px default vertical gap Streamlit puts between every
+       sibling container in the block (including right after the column
+       header), matching the Dashboard holdings rows' identical fix. */
+    margin-top: -16px !important;
+  }
+  [class*="st-key-scr_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]):hover,
+  [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]):hover {
+    background: var(--soft) !important;
+  }
+  /* Ticker/name cell as the row's click target (opens the detail drawer) —
+     an invisible button is layered over just this cell via `position:
+     absolute;inset:0`, scoped to the cell's own `position:relative` (not
+     the row's, which already has one for other reasons) so it can't cover
+     the leading star button in an adjacent cell. Same "target the real
+     generated wrapper, not the st-key-* div itself" + "position:absolute
+     removes it from flow so it can't reintroduce the invisible-element gap
+     bug" pattern as the Dashboard holdings row's whole-row click target. */
+  [class*="_name_cell"] { position: relative !important; cursor: pointer; }
+  [class*="_name_cell"] [data-testid="stElementContainer"]:has(button) {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+  }
+  [class*="_name_cell"] [data-testid="stElementContainer"]:has(button) button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important;
+    cursor: pointer;
+  }
+  /* Watchlist star (screener rows) / remove "×" (watchlist rows) —
+     Streamlit's tertiary button style renders as an underlined link by
+     default; these are plain icon-only controls with no such affordance.
+     Centering targets the button's own *element-container* wrapper (not
+     the button itself — forcing height:100% directly on the button
+     produced a box that overflowed past its own column's top/bottom edges,
+     off-center by ~8px live) so the naturally-sized button centers inside
+     a wrapper that actually spans the column's full height, matching the
+     taller two-line ticker/name cell beside it instead of hugging the
+     column's own (shorter, content-sized) top edge. */
+  [class*="st-key-scr_row_"] [class*="_action"],
+  [class*="st-key-scr_row_"] [class*="_remove"],
+  [class*="st-key-wl_row_"] [class*="_action"],
+  [class*="st-key-wl_row_"] [class*="_remove"] {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    height: 100% !important;
+  }
+  [class*="st-key-scr_row_"] [class*="_action"] button,
+  [class*="st-key-scr_row_"] [class*="_remove"] button,
+  [class*="st-key-wl_row_"] [class*="_action"] button,
+  [class*="st-key-wl_row_"] [class*="_remove"] button {
+    text-decoration: none !important;
+    /* Streamlit's default button is ~48.67px tall (40px + its own border/
+       padding) — taller than the now-compact 2-line name cell (~43px) once
+       that cell's own line-height was tightened, which made the star
+       column (not the name cell) the tallest thing in the row and set the
+       whole row's height. Shrinking the button's own min-height keeps it a
+       comfortable click target while no longer being the row's tallest
+       column. */
+    min-height: 32px !important; padding: 4px !important;
+    /* The star/remove column is only as tall as this button (its sole
+       content) and Streamlit centers that whole column within the taller
+       row via auto margins — but the button measured live off-center
+       within its own column regardless. `transform` (not `margin-top`)
+       nudges it purely visually, without adding to the button's own layout
+       box — a margin-based nudge was inflating the whole row's height,
+       since this column's own box height feeds into the row's
+       vertical_alignment math the same way the name cell's does. */
+    transform: translateY(0px) !important;
+  }
+
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
   .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
   [data-testid="stColumn"]:has(.st-key-risk_income_toggle) { padding-right: 0 !important; }
@@ -492,18 +720,44 @@ GLOBAL_CSS = """
   }
   .st-key-uv_danger_btn button[kind="primary"]:hover { opacity: 0.88; }
 
-  /* ── Dashboard "Refresh" button — matches Uvalu.dc.html's outline pill
-     (border:0.5px solid var(--line);border-radius:8px;padding:8px 13px;
-     font-size:12.5px;color:var(--muted), hover border-color:var(--teal);
-     color:var(--text)) instead of Streamlit's plain tertiary-button look. */
-  .st-key-db_refresh_btn button[kind="tertiary"] {
+  /* ── Dashboard "Refresh" / Screener "Reset filters" buttons — matches
+     Uvalu.dc.html's outline pill (border:0.5px solid var(--line);
+     border-radius:8px;padding:8px 13px;font-size:12.5px;color:var(--muted),
+     hover border-color:var(--teal);color:var(--text)) instead of Streamlit's
+     plain tertiary-button look. */
+  .st-key-db_refresh_btn button[kind="tertiary"],
+  .st-key-scr_reset_btn button[kind="tertiary"] {
     display: flex !important; align-items: center !important; gap: 7px !important;
     padding: 8px 13px !important; border-radius: 8px !important;
     border: 0.5px solid var(--line) !important;
     font-size: 12.5px !important; color: var(--muted) !important;
   }
-  .st-key-db_refresh_btn button[kind="tertiary"]:hover {
+  .st-key-db_refresh_btn button[kind="tertiary"]:hover,
+  .st-key-scr_reset_btn button[kind="tertiary"]:hover {
     border-color: var(--teal) !important; color: var(--text) !important;
+  }
+
+  /* Screener header buttons row (Reset filters / Export list) — Streamlit
+     gives every column/block inside a horizontal container `flex:1 1 0%;
+     width:100%` by default (same "wrapper is the real flex item" gotcha as
+     the top bar's avatar button), so each button's wrapper tried to stretch
+     to the FULL row width, forcing the two onto separate wrapped lines that
+     read as stacked instead of side by side. Pinning both direct children
+     to their own content width fixes it. */
+  .st-key-scr_header_btns > [data-testid="stLayoutWrapper"] {
+    flex: none !important; width: auto !important;
+  }
+
+  /* ── Screener "Export list" button — filled teal pill matching
+     Uvalu.dc.html's primary action (background:var(--teal);color:#fff,
+     hover background:var(--mint);color:var(--navy)). */
+  .st-key-scr_export_btn button[kind="primary"] {
+    border-radius: 8px !important; padding: 8px 13px !important;
+    font-size: 12.5px !important; font-weight: 500 !important; border: none !important;
+    background: var(--teal) !important; color: #fff !important;
+  }
+  .st-key-scr_export_btn button[kind="primary"]:hover {
+    background: var(--mint) !important; color: var(--navy) !important;
   }
 
   /* ── Heading typography — brand spec ────────────────────────────────────── */

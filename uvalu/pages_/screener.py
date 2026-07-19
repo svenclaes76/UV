@@ -1,6 +1,6 @@
 """Value screener page — one unified ranked list across enabled exchanges,
-with a filter bar (search, signal, sector, market, score/MoS sliders, hide-
-owned toggle), matching the Uvalu.dc.html mockup. Full replacement of the
+with a filter bar (search, signal, sector, market, score/MoS sliders),
+matching the Uvalu.dc.html mockup. Full replacement of the
 former per-exchange-tabs + column-groups layout (Watchlist moved to its own
 page in Phase 1; column-group customization is covered by the Analysis page
 now, same call the abandoned redesign-v2 branch made for this exact page)."""
@@ -52,13 +52,62 @@ def _sort_by(key: str) -> None:
 
 def _scr_header_css(active_key: str) -> str:
     return f"""
+/* Streamlit gives each button's own wrapper div a `width="fit-content"`
+   HTML attribute (its own CSS sizes off that, not off the flex column) —
+   setting width:100% on the *button* alone just fills 100% of that already
+   fit-content-shrunk wrapper, a no-op. The wrapper itself must be widened
+   first for the button's width:100% below to have anything real to fill,
+   which is what actually lets justify-content:flex-end (below) push a
+   right-aligned label to the column's true right edge instead of the
+   button's own tiny intrinsic width. */
+[class*="st-key-scr_sort_"] {{ width: 100% !important; }}
 [class*="st-key-scr_sort_"] button {{
   background: transparent !important; border: none !important; padding: 0 !important;
   min-height: unset !important; font-size: 10px !important; letter-spacing: 0.06em !important;
   text-transform: uppercase !important; color: var(--faint) !important; font-weight: 400 !important;
+  width: 100% !important;
+  /* Streamlit centers a button's label by default — now that the button
+     fills the full (wide) column width above, that centered the "Position"/
+     "Signal" headers well away from their left-aligned data below (a
+     regression from just-added width:100%: confirmed live, "Position" sat
+     ~20px right of "CAMB.BR"). Left-align by default; mos/price/pe/dy
+     override back to right-aligned below to match *their* right-aligned
+     numeric cells instead. */
+  justify-content: flex-start !important; text-align: left !important;
+}}
+/* The visible text lives in a <p> several levels deep (button > div > span >
+   stMarkdownContainer div > p) that carries its OWN explicit font-size:14px
+   from Streamlit's default markdown paragraph style — font-size set above
+   on the *button* never reaches it, since CSS inheritance only fills in
+   properties a descendant doesn't set itself, and this <p> sets its own.
+   Every previous "header text still looks too big" report traced back to
+   this exact gap: the button's computed font-size really was 10px, but the
+   actual rendered glyphs were still 14px regardless. Must target the <p>
+   directly. */
+[class*="st-key-scr_sort_"] button p {{
+  font-size: 10px !important; letter-spacing: 0.06em !important;
+  text-transform: uppercase !important; font-weight: inherit !important;
 }}
 [class*="st-key-scr_sort_"] button:hover {{ color: var(--text) !important; }}
 .st-key-scr_sort_{active_key} button {{ color: var(--text) !important; font-weight: 500 !important; }}
+/* Right-align the numeric column headers so they sit over their
+   right-aligned data cells below (mos/price/pe/dy all render right-aligned
+   in stock_row) instead of Streamlit's default centered button label. */
+.st-key-scr_sort_mos button, .st-key-scr_sort_price button,
+.st-key-scr_sort_pe button, .st-key-scr_sort_dy button {{
+  justify-content: flex-end !important; text-align: right !important;
+}}
+/* justify-content set on the *button* above only governs the button's own
+   direct children — its first child <div> is a SEPARATE flex container
+   with its own independent default (`justify-content:center`, confirmed
+   live), which re-centered the label regardless of the button's own
+   alignment. "Position"/"Signal" measured ~200px right of where "CAMB.BR"
+   actually starts before this. Must set it on that inner div too. */
+[class*="st-key-scr_sort_"] button > div {{ justify-content: flex-start !important; }}
+.st-key-scr_sort_mos button > div, .st-key-scr_sort_price button > div,
+.st-key-scr_sort_pe button > div, .st-key-scr_sort_dy button > div {{
+  justify-content: flex-end !important;
+}}
 """
 
 
@@ -92,9 +141,7 @@ def render() -> None:
     # ── Portfolio fit context (sector/country/beta weights) ──────────────────
     _scr_pf_context: dict | None = None
     _scr_pf = load_portfolio()
-    _held_tickers: set[str] = set()
     if _scr_pf is not None and not _scr_pf.empty:
-        _held_tickers = set(_scr_pf["ticker"].dropna().astype(str))
         _fund_cache = _load_cache()
         _suffix_to_country = {
             ".BR": "Belgium", ".AS": "Netherlands", ".PA": "France",
@@ -160,35 +207,58 @@ def render() -> None:
         st.info("No screener data available yet.")
         return
 
-    # ── Filter bar ───────────────────────────────────────────────────────────
-    _f1, _f2 = st.columns([2, 1])
-    with _f1:
-        _search = st.text_input("Search", placeholder="Ticker or company…",
-                                key="scr_search", label_visibility="collapsed")
-    with _f2:
-        _signal = st.pills("Signal", options=_SIGNAL_CHIPS, selection_mode="multi",
-                           key="scr_signal", label_visibility="collapsed")
-
+    # ── Filter bar — one bordered/shadowed panel holding every control in a
+    # single row (styles.py's scr_filter_panel), matching Uvalu.dc.html
+    # instead of native widgets sitting bare on the page background.
     _sector_vals = sorted(v for v in _valued_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip())
     _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
 
-    _c1, _c2, _c3, _c4, _c5 = st.columns([1.2, 1.2, 1.4, 1.4, 1.2])
-    with _c1:
-        _sector_sel = st.selectbox("Sector", options=["All sectors"] + _sector_vals, key="scr_sector")
-    with _c2:
-        _market_sel = st.selectbox("Market", options=["All markets"] + _market_vals, key="scr_market")
-    with _c3:
-        _min_score = st.slider("Min score", 0, 90, 0, step=5, key="scr_min_score")
-    with _c4:
-        _min_mos = st.slider("Min margin of safety", -20, 50, -20, step=5, key="scr_min_mos")
-    with _c5:
-        st.container(height=28, border=False)
-        # A single-option st.pills reads as a clickable dot+label pill (same
-        # widget already used for the Signal filter chips above), matching
-        # Uvalu.dc.html's heldStyle/heldDot instead of a native toggle switch.
-        _hide_owned = bool(st.pills("Hide positions I own", options=["Hide positions I own"],
-                                    selection_mode="multi", key="scr_hide_owned",
-                                    label_visibility="collapsed"))
+    def _filter_label(text: str) -> None:
+        st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                   f'color:var(--faint);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
+
+    with st.container(key="scr_filter_panel", border=True):
+        # Each filter sits at its own natural content width with a fixed
+        # 32px gap between them (styles.py), matching Uvalu.dc.html's
+        # flex-wrap filter bar — not st.columns' equal-share ratios, which
+        # stretched every filter to fill its slice of the row regardless of
+        # how much room its content actually needed (a short "All sectors"
+        # select ended up exactly as wide as the whole signal-chip group).
+        with st.container(key="scr_filter_row", horizontal=True, vertical_alignment="center"):
+            with st.container(key="scr_search_wrap"):
+                _filter_label("Search")
+                _search = st.text_input("Search", placeholder="Ticker or company…",
+                                        key="scr_search", label_visibility="collapsed")
+            with st.container(key="scr_signal_pills"):
+                _filter_label("Signal")
+                _signal = st.pills("Signal", options=_SIGNAL_CHIPS, selection_mode="multi",
+                                   default=["BUY"], key="scr_signal", label_visibility="collapsed")
+            with st.container(key="scr_select_sector"):
+                _filter_label("Sector")
+                _sector_sel = st.selectbox("Sector", options=["All sectors"] + _sector_vals,
+                                           key="scr_sector", label_visibility="collapsed")
+            with st.container(key="scr_select_market"):
+                _filter_label("Market")
+                _market_sel = st.selectbox("Market", options=["All markets"] + _market_vals,
+                                           key="scr_market", label_visibility="collapsed")
+            with st.container(key="scr_score_slider"):
+                # Read the pre-widget session_state value so the inline mono
+                # readout (matching Uvalu.dc.html's `{{ scr.minScore }}`)
+                # reflects this rerun's value instead of lagging a step
+                # behind the slider.
+                st.markdown(f'<div style="display:flex;justify-content:space-between;font-size:10px;'
+                           f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                           f'<span>Min score</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
+                           f'{st.session_state.get("scr_min_score", 0)}</span></div>', unsafe_allow_html=True)
+                _min_score = st.slider("Min score", 0, 90, 0, step=5, key="scr_min_score",
+                                       label_visibility="collapsed")
+            with st.container(key="scr_mos_slider"):
+                st.markdown(f'<div style="display:flex;justify-content:space-between;font-size:10px;'
+                           f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                           f'<span>Min margin of safety</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
+                           f'{st.session_state.get("scr_min_mos", -20)}%</span></div>', unsafe_allow_html=True)
+                _min_mos = st.slider("Min margin of safety", -20, 50, -20, step=5, key="scr_min_mos",
+                                     label_visibility="collapsed")
 
     # ── Apply filters ──────────────────────────────────────────────────────────
     _filtered = _valued_df.copy()
@@ -208,8 +278,6 @@ def render() -> None:
         _filtered = _filtered[_filtered["Exchange"] == _market_sel]
     _filtered = _filtered[pd.to_numeric(_filtered["Value Score"], errors="coerce").fillna(0) >= _min_score]
     _filtered = _filtered[pd.to_numeric(_filtered["MoS %"], errors="coerce").fillna(-999) >= _min_mos]
-    if _hide_owned:
-        _filtered = _filtered[~_filtered["Ticker"].isin(_held_tickers)]
 
     _sort_key = st.session_state.get("scr_sort_key", "score")
     _sort_dir = st.session_state.get("scr_sort_dir", "desc")
@@ -230,14 +298,17 @@ def render() -> None:
                            unsafe_allow_html=True)
                 st.caption(f"**{len(_filtered)}** of {len(_valued_df)} European stocks pass your filters · "
                           "ranked by composite signal score.")
-            with st.container(horizontal=True, gap="small", width="content"):
-                if st.button("Reset filters", key="scr_reset"):
-                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
-                              "scr_min_score", "scr_min_mos", "scr_hide_owned"):
-                        st.session_state.pop(_k, None)
-                    st.rerun()
-                st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv",
-                                   mime="text/csv", key="scr_export")
+            with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
+                with st.container(key="scr_reset_btn"):
+                    if st.button("Reset filters", key="scr_reset", icon=":material/refresh:", type="tertiary"):
+                        for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                                  "scr_min_score", "scr_min_mos"):
+                            st.session_state.pop(_k, None)
+                        st.rerun()
+                with st.container(key="scr_export_btn"):
+                    st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv",
+                                       mime="text/csv", key="scr_export",
+                                       icon=":material/download:", type="primary")
 
     if _filtered.empty:
         with st.container(border=True):
@@ -246,51 +317,55 @@ def render() -> None:
                 unsafe_allow_html=True)
         return
 
-    # ── Column headers — clickable, sortable (matches Uvalu.dc.html's
-    # sortBy()/arrow header spec instead of a hardcoded Value-Score-desc sort)
+    # ── Results table — one seamless panel (column-header row, then flat
+    # hairline-divided rows), matching Uvalu.dc.html instead of Streamlit's
+    # individually-boxed/gapped st.container(border=True) rows.
     _watchlist = load_watchlist()
     st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
     _sortable = {k: (label, col) for k, label, col in _SORT_COLUMNS}
-    _hh_widths = [0.4, 0.4, 2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.5]
-    _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-    _hh_slots = ("", "#", "name", "signal", "score", "mos", "price", "pe", "dy", "")
-    for _hh, _slot in zip(_hh_cols, _hh_slots):
-        if _slot in _sortable:
-            _label, _ = _sortable[_slot]
-            _arrow = (" ↓" if _sort_dir == "desc" else " ↑") if _sort_key == _slot else ""
-            with _hh:
-                st.button(_label + _arrow, key=f"scr_sort_{_slot}", type="tertiary",
-                         on_click=_sort_by, args=(_slot,))
-        elif _slot == "#":
-            with _hh:
-                st.markdown('<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           'color:var(--faint);">#</span>', unsafe_allow_html=True)
+    # Matches stock_row's own column widths exactly (star=0.5, name=3.0,
+    # signal=1.0, score=1.5, mos=1.0, price=0.9, pe=0.8, dy=0.9) — no "#"
+    # rank column (added no real value) and no trailing arrow column (the
+    # whole ticker/name cell is the click target now, see stock_row).
+    _hh_widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+    _hh_slots = ("", "name", "signal", "score", "mos", "price", "pe", "dy")
 
-    _drawer_target = None
-    for _ridx, _row in _filtered.iterrows():
-        _ticker = _row["Ticker"]
-        _in_wl = _ticker in _watchlist
-        _result = stock_row(
-            key=f"scr_row_{_ridx}_{_ticker}",
-            ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
-            decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
-            score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
-            pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"), rank=_ridx + 1,
-            action_active=_in_wl,
-            action_help="Remove from watchlist" if _in_wl else "Add to watchlist",
-        )
-        if _result["action"]:
-            if _in_wl:
-                save_watchlist(_watchlist - {_ticker})
-                _mt = load_manual_tickers()
-                if _ticker in _mt:
-                    del _mt[_ticker]
-                    save_manual_tickers(_mt)
-            else:
-                save_watchlist(_watchlist | {_ticker})
-            st.rerun()
-        if _result["view"]:
-            _drawer_target = _ticker
+    with st.container(key="scr_table_card", border=True):
+        with st.container(key="scr_col_header"):
+            _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
+            for _hh, _slot in zip(_hh_cols, _hh_slots):
+                if _slot in _sortable:
+                    _label, _ = _sortable[_slot]
+                    _arrow = (" ↓" if _sort_dir == "desc" else " ↑") if _sort_key == _slot else ""
+                    with _hh:
+                        st.button(_label + _arrow, key=f"scr_sort_{_slot}", type="tertiary",
+                                 on_click=_sort_by, args=(_slot,))
+
+        _drawer_target = None
+        for _ridx, _row in _filtered.iterrows():
+            _ticker = _row["Ticker"]
+            _in_wl = _ticker in _watchlist
+            _result = stock_row(
+                key=f"scr_row_{_ridx}_{_ticker}",
+                ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
+                decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+                score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
+                pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
+                action_active=_in_wl,
+                action_help="Remove from watchlist" if _in_wl else "Add to watchlist",
+            )
+            if _result["action"]:
+                if _in_wl:
+                    save_watchlist(_watchlist - {_ticker})
+                    _mt = load_manual_tickers()
+                    if _ticker in _mt:
+                        del _mt[_ticker]
+                        save_manual_tickers(_mt)
+                else:
+                    save_watchlist(_watchlist | {_ticker})
+                st.rerun()
+            if _result["view"]:
+                _drawer_target = _ticker
 
     if _drawer_target is not None:
         _r = _filtered[_filtered["Ticker"] == _drawer_target]

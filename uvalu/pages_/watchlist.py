@@ -78,15 +78,16 @@ def render() -> None:
                 unsafe_allow_html=True)
         return
 
-    # 9 widths matching stock_row's show_action=False/show_remove=True layout
-    # exactly (7 data cols + trailing remove + trailing view-arrow, no leading
-    # icon at all — Uvalu.dc.html's watchlist rows start directly with
-    # Company) — a mismatched count here silently shifts every header label
-    # one column off from the row data beneath it.
-    _hh_widths = [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8, 0.4, 0.5]
+    # 8 widths matching stock_row's show_action=False/show_remove=True layout
+    # exactly (7 data cols + trailing remove, no leading icon at all —
+    # Uvalu.dc.html's watchlist rows start directly with Company — and no
+    # trailing view-arrow column, since the whole ticker/name cell is the
+    # click target now) — a mismatched count here silently shifts every
+    # header label one column off from the row data beneath it.
+    _hh_widths = [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9, 0.4]
     _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
     for _hh, _label in zip(_hh_cols, ("Position", "Signal", "Composite score",
-                                     "Upside", "Price", "P/E", "Yield", "", "")):
+                                     "Upside", "Price", "P/E", "Yield", "")):
         if _label:
             with _hh:
                 st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'

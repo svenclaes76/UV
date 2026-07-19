@@ -337,22 +337,23 @@ def _score_bar_cell_html(score: float | None) -> str:
   <div style="flex:1;height:5px;border-radius:3px;background:var(--uv-track);position:relative;">
     <div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{bar_color};width:{pct:.0f}%;"></div>
   </div>
-  <span style="font-family:var(--uv-mono);font-size:12px;color:{text_color};flex:none;">{score:.0f}</span>
+  <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;color:{text_color};flex:none;">{score:.0f}</span>
 </div>"""
 
 
 def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
-             pe: float | None, div_yield: float | None, rank: int | None = None,
+             pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
              show_remove: bool = False, remove_help: str = "") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
-    price/P-E/yield, an optional leading watchlist star, an optional trailing
-    remove control, and a trailing view button (opens the detail drawer).
-    Renders inside its own bordered container — shared by
-    uvalu/pages_/screener.py and watchlist.py so the two lists stay visually
-    identical.
+    price/P-E/yield, and an optional leading watchlist star. Renders as one
+    hairline-divided list item (no per-row border/shadow — the caller wraps
+    the whole header+rows list in one shared panel, see styles.py's
+    `[class*="st-key-scr_row_"]`/`[class*="st-key-wl_row_"]` rule) — shared
+    by uvalu/pages_/screener.py and watchlist.py so the two lists stay
+    visually identical.
 
     Screener passes show_action=True (its star toggle) and show_remove=False;
     Watchlist passes show_action=False (design's watchlist rows have no
@@ -360,10 +361,16 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     star glyph is always "★" — only its color changes via action_active —
     matching the design exactly; there's no separate outline-star glyph.
 
+    The whole row opens the detail drawer on click — there's no separate
+    trailing arrow button (dropped in favor of a Dashboard-holdings-style
+    click target): an invisible button is layered over the ticker/name cell
+    via CSS (`position:absolute;inset:0` scoped to that cell, not the whole
+    row, so it doesn't swallow clicks meant for the leading star).
+
     Returns {"view": bool, "action": bool, "remove": bool}: `view` fires on
-    the trailing "→" button (caller opens the drawer); `action` fires on the
-    leading star (Screener: toggle watchlist membership); `remove` fires on
-    the trailing × (Watchlist: remove from the watchlist).
+    clicking the ticker/name cell (caller opens the drawer); `action` fires
+    on the leading star (Screener: toggle watchlist membership); `remove`
+    fires on the trailing × (Watchlist: remove from the watchlist).
     """
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
@@ -371,13 +378,20 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     # class selectors, not a literal character, so the color rules below
     # silently never matched without this.
     _css_key = key.replace(".", "-")
-    with st.container(key=key, border=True):
+    with st.container(key=key):
         if show_action:
             _action_color = "var(--uv-mint)" if action_active else "var(--uv-muted, #5F5E5A)"
-            st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
-                       unsafe_allow_html=True)
-        _widths = ([0.4] if show_action else []) + ([0.4] if rank is not None else []) + \
-                  [2.3, 0.9, 1.3, 0.9, 0.8, 0.7, 0.8] + ([0.4] if show_remove else []) + [0.5]
+            # A per-row <style>-only markdown block is otherwise an unmarked
+            # "invisible utility element" — it still counts as a sibling in
+            # this row's own vertical block and eats a full ~16px flex gap
+            # even at zero visible height, inflating every row far past its
+            # real content height (same class of bug as styles.py's
+            # uv_hidden_util rule, reused here via the same key convention).
+            with st.container(key=f"uv_hidden_util_{_css_key}_action"):
+                st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
+                           unsafe_allow_html=True)
+        _widths = ([0.5] if show_action else []) + \
+                  [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + ([0.4] if show_remove else [])
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
@@ -386,17 +400,30 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             _i += 1
         else:
             _action_clicked = False
-        if rank is not None:
-            with _cols[_i]:
-                st.caption(f"#{rank}")
-            _i += 1
-        with _cols[_i]:
-            _exch_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
-                         f"border-radius:5px;padding:1px 6px;margin-left:6px;'>{exchange}</span>"
-                         if exchange else "")
-            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>"
-                       f"{_exch_html}<br><span style='color:var(--muted);font-size:12px;white-space:nowrap;"
-                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</span>", unsafe_allow_html=True)
+        with _cols[_i], st.container(key=f"{_css_key}_name_cell"):
+            # Plain small mono text (Uvalu.dc.html's r.exch: 9px, var(--faint),
+            # no border/background) — not a bordered pill; that was this
+            # component's own embellishment, not part of the design spec.
+            _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);"
+                         f"margin-left:8px;'>{exchange}</span>" if exchange else "")
+            # Two explicit block divs (matching holdings_row_html's proven
+            # compact ticker/name layout), not a <br>-separated pair of
+            # inline spans — <br> plus each span's own browser default
+            # line-height stacked to ~51px for this cell alone, inflating
+            # the whole row well past the Dashboard holdings row's ~67px
+            # (this cell was consistently the row's tallest, so its own
+            # line-height set the row height for every other cell too).
+            st.markdown(f"<div style='min-width:0;'>"
+                       f"<div style='display:flex;align-items:center;gap:0;'>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<div style='font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
+            # Invisible full-cell button (styles.py positions it via
+            # `position:absolute;inset:0` over this cell only) — clicking
+            # anywhere on the ticker/name opens the drawer, matching the
+            # Dashboard holdings row's whole-row click target but scoped
+            # narrower here so it can't cover the leading star button.
+            _view_clicked = st.button("View", key=f"{key}_view", type="tertiary")
         _i += 1
         with _cols[_i]:
             _kind, _label = signal_badge_for_decision(decision, veto=veto)
@@ -411,32 +438,48 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
                 # text 0-14% (priced near/at fair value), red only when negative.
                 _mos_color = ("var(--uv-mint)" if mos_pct >= 15
                              else "var(--text, inherit)" if mos_pct >= 0 else "var(--down-txt)")
-                st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;color:{_mos_color};'>"
-                           f"{mos_pct:+.1f}%</span>", unsafe_allow_html=True)
+                # Matches Uvalu.dc.html's r.mos exactly: 13px, weight 500
+                # (not the plain 400-weight the other numeric cells use —
+                # upside is the one figure this table wants to read as
+                # emphasized, same visual weight as the ticker/score cells).
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                           f"font-weight:500;color:{_mos_color};'>{mos_pct:+.1f}%</div>", unsafe_allow_html=True)
             else:
-                st.caption("—")
+                st.markdown("<div style='text-align:right;color:var(--muted);'>—</div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
-            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;'>€{price:,.2f}</span>"
-                       if price is not None and pd.notna(price) else "—", unsafe_allow_html=True)
+            # Matches r.price: mono 12.5px, var(--muted) — not the default
+            # text color; price/P-E/yield are all muted-gray in the design,
+            # only the ticker/score/upside figures are full-strength text.
+            _price_str = f"€{price:,.2f}" if price is not None and pd.notna(price) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"color:var(--muted);'>{_price_str}</div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
-            st.caption(f"{pe:.1f}" if pe is not None and pd.notna(pe) else "—")
+            # Matches r.pe: mono 12.5px, var(--muted) — was 0.875rem (14px)
+            # with no font-family, drifting from both the mockup's exact
+            # size and its monospace figure column convention.
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
+                       f"{f'{pe:.1f}' if pe is not None and pd.notna(pe) else '—'}</div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
-            st.caption(f"{div_yield*100:.2f}%" if div_yield is not None and pd.notna(div_yield) else "—")
+            # Matches r.dy — same fix as P/E above.
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
+                       f"{f'{div_yield*100:.2f}%' if div_yield is not None and pd.notna(div_yield) else '—'}</div>",
+                       unsafe_allow_html=True)
         _i += 1
         if show_remove:
             with _cols[_i]:
-                st.markdown(f"<style>.st-key-{_css_key}_remove button {{ color: var(--uv-muted, #5F5E5A) !important; }}"
-                           f".st-key-{_css_key}_remove button:hover {{ color: var(--uv-neg-txt) !important; }}</style>",
-                           unsafe_allow_html=True)
+                # Same invisible-utility-element gap fix as the star/action
+                # button's <style> block above — see that comment.
+                with st.container(key=f"uv_hidden_util_{_css_key}_remove"):
+                    st.markdown(f"<style>.st-key-{_css_key}_remove button {{ color: var(--uv-muted, #5F5E5A) !important; }}"
+                               f".st-key-{_css_key}_remove button:hover {{ color: var(--uv-neg-txt) !important; }}</style>",
+                               unsafe_allow_html=True)
                 _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary", help=remove_help)
             _i += 1
         else:
             _remove_clicked = False
-        with _cols[_i]:
-            _view_clicked = st.button("→", key=f"{key}_view", type="tertiary")
     return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
 
 
