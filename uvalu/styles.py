@@ -447,6 +447,22 @@ GLOBAL_CSS = """
   .st-key-scr_col_header {
     padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   }
+  /* Watchlist's own table card/header — same panel treatment as Screener's
+     scr_table_card/scr_col_header (this page had never been given it; its
+     header was still bare st.columns with no card/hairline, and the
+     Upside/Price/P-E/Yield labels had no right-alignment at all, sitting
+     ~94px off from their own right-aligned data cells below, confirmed
+     live). No margin-top pull here — Watchlist's table isn't preceded by
+     a bordered panel like Screener's filter bar, so there's no matching
+     32px double-gap to correct for. */
+  .st-key-wl_table_card {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+  }
+  .st-key-wl_col_header {
+    padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  }
   /* :not(...) exclusions matter here: the row's OWN class is
      "st-key-scr_row_<idx>_<ticker>", but its NESTED sub-containers
      (star/remove buttons, the name-cell click target, and the invisible

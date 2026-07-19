@@ -85,30 +85,39 @@ def render() -> None:
     # click target now) — a mismatched count here silently shifts every
     # header label one column off from the row data beneath it.
     _hh_widths = [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9, 0.4]
-    _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-    for _hh, _label in zip(_hh_cols, ("Position", "Signal", "Composite score",
-                                     "Upside", "Price", "P/E", "Yield", "")):
-        if _label:
-            with _hh:
-                st.markdown(f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);">{_label}</span>', unsafe_allow_html=True)
+    # Upside/Price/P-E/Yield are right-aligned (matching their own
+    # right-aligned data cells in stock_row); Position/Signal/Composite
+    # score stay left-aligned like their left-anchored cells.
+    _hh_right = {"Upside", "Price", "P/E", "Yield"}
 
-    _drawer_target = None
-    for _ridx, _row in wl_df.iterrows():
-        _ticker = _row["Ticker"]
-        _result = stock_row(
-            key=f"wl_row_{_ridx}_{_ticker}",
-            ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
-            decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
-            score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
-            pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
-            show_action=False, show_remove=True, remove_help="Remove from watchlist",
-        )
-        if _result["remove"]:
-            save_watchlist(watchlist - {_ticker})
-            st.rerun()
-        if _result["view"]:
-            _drawer_target = _ticker
+    with st.container(key="wl_table_card", border=True):
+        with st.container(key="wl_col_header"):
+            _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
+            for _hh, _label in zip(_hh_cols, ("Position", "Signal", "Composite score",
+                                             "Upside", "Price", "P/E", "Yield", "")):
+                if _label:
+                    _align = "right" if _label in _hh_right else "left"
+                    with _hh:
+                        st.markdown(f'<div style="text-align:{_align};font-size:10px;letter-spacing:0.06em;'
+                                   f'text-transform:uppercase;color:var(--faint);">{_label}</div>',
+                                   unsafe_allow_html=True)
+
+        _drawer_target = None
+        for _ridx, _row in wl_df.iterrows():
+            _ticker = _row["Ticker"]
+            _result = stock_row(
+                key=f"wl_row_{_ridx}_{_ticker}",
+                ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
+                decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+                score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
+                pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
+                show_action=False, show_remove=True, remove_help="Remove from watchlist",
+            )
+            if _result["remove"]:
+                save_watchlist(watchlist - {_ticker})
+                st.rerun()
+            if _result["view"]:
+                _drawer_target = _ticker
 
     if _drawer_target is not None:
         _r = wl_df[wl_df["Ticker"] == _drawer_target]
