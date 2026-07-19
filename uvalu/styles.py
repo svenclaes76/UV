@@ -429,6 +429,22 @@ GLOBAL_CSS = """
      A min-height matching the true measured content size is the same fix
      used there. */
   [data-testid="stColumn"]:has([class*="_name_cell"]) { min-height: 44px !important; }
+  /* Same bug, same fix, five more times: the score/upside/price/P-E/yield
+     columns each reported only 4-5px tall live while their real content
+     (a 13px number, or plain 12.5px text) rendered at 20-21px — confirmed
+     live via getBoundingClientRect on each column vs its innermost markdown
+     div. Centering math run against that wrong number visibly pushed every
+     one of these five cells ~8px below the row's true center (score/price
+     measured 8px off; the ticker/name block, whose own height IS reported
+     correctly, stayed correctly centered) — only the star and name cell
+     happened to already have height-reporting fixes; these five never did.
+     These are the row's 4th-through-8th columns (star=1st, name=2nd,
+     signal=3rd) in both callers, so :nth-child(n+4) reaches exactly this
+     group without needing five separate keyed containers. */
+  [class*="st-key-scr_row_"] [data-testid="stColumn"]:nth-child(n+4),
+  [class*="st-key-wl_row_"] [data-testid="stColumn"]:nth-child(n+4) {
+    min-height: 21px !important;
+  }
 
   /* ── Screener/Watchlist results table — one seamless panel (column-header
      row, then flat hairline-divided rows), matching Uvalu.dc.html's results
