@@ -390,22 +390,35 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             with st.container(key=f"uv_hidden_util_{_css_key}_action"):
                 st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
                            unsafe_allow_html=True)
-        _widths = ([0.5] if show_action else []) + \
-                  [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + ([0.4] if show_remove else [])
+        # The leading 0.5 slot is always reserved (blank when show_action is
+        # False) rather than only appearing for Screener — Watchlist's own
+        # name/signal/score/... columns otherwise divide up a different
+        # total ratio-sum than Screener's, so the same 3.0/1.0/1.5/... ratios
+        # resolve to different actual pixel widths on the two pages, and the
+        # name column starts ~80px further left than Screener's (confirmed
+        # live). Keeping this slot on both sides — even unused — is what
+        # makes the two tables' shared columns line up at identical
+        # positions instead of merely sharing the same relative ratios.
+        _widths = [0.5] + [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + ([0.4] if show_remove else [])
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
             with _cols[_i]:
                 _action_clicked = st.button("★", key=f"{key}_action", type="tertiary", help=action_help)
-            _i += 1
         else:
             _action_clicked = False
+        _i += 1
         with _cols[_i], st.container(key=f"{_css_key}_name_cell"):
             # Plain small mono text (Uvalu.dc.html's r.exch: 9px, var(--faint),
             # no border/background) — not a bordered pill; that was this
             # component's own embellishment, not part of the design spec.
+            # pd.notna(), not a bare truthiness check — a manually-added
+            # watchlist ticker's Exchange comes back as an actual NaN float
+            # (not "" or None) when it doesn't match one of the tracked
+            # exchanges, and NaN is truthy in Python, so `if exchange` let
+            # the literal string "nan" through (confirmed live: "BDC nan").
             _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);"
-                         f"margin-left:8px;'>{exchange}</span>" if exchange else "")
+                         f"margin-left:8px;'>{exchange}</span>" if exchange and pd.notna(exchange) else "")
             # Two explicit block divs (matching holdings_row_html's proven
             # compact ticker/name layout), not a <br>-separated pair of
             # inline spans — <br> plus each span's own browser default

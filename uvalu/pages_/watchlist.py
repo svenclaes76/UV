@@ -78,13 +78,19 @@ def render() -> None:
                 unsafe_allow_html=True)
         return
 
-    # 8 widths matching stock_row's show_action=False/show_remove=True layout
-    # exactly (7 data cols + trailing remove, no leading icon at all —
-    # Uvalu.dc.html's watchlist rows start directly with Company — and no
-    # trailing view-arrow column, since the whole ticker/name cell is the
-    # click target now) — a mismatched count here silently shifts every
-    # header label one column off from the row data beneath it.
-    _hh_widths = [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9, 0.4]
+    # 9 widths matching stock_row's show_action=False/show_remove=True layout
+    # exactly — a leading blank 0.5 slot (stock_row always reserves it, star
+    # or not), 7 data cols, then trailing remove. Uvalu.dc.html's watchlist
+    # rows have no leading icon of their own, but reserving the same-width
+    # blank slot Screener's star occupies is what makes the two tables'
+    # shared columns (name/signal/score/...) land at identical pixel
+    # positions instead of merely sharing the same relative ratios — without
+    # it, Screener's total ratio-sum differs from Watchlist's, so the same
+    # 3.0/1.0/1.5/... ratios resolve to different actual widths on each page
+    # (confirmed live: Watchlist's name column started ~80px further left).
+    # A mismatched count here silently shifts every header label one column
+    # off from the row data beneath it.
+    _hh_widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9, 0.4]
     # Upside/Price/P-E/Yield are right-aligned (matching their own
     # right-aligned data cells in stock_row); Position/Signal/Composite
     # score stay left-aligned like their left-anchored cells.
@@ -93,7 +99,7 @@ def render() -> None:
     with st.container(key="wl_table_card", border=True):
         with st.container(key="wl_col_header"):
             _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-            for _hh, _label in zip(_hh_cols, ("Position", "Signal", "Composite score",
+            for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
                                              "Upside", "Price", "P/E", "Yield", "")):
                 if _label:
                     _align = "right" if _label in _hh_right else "left"
