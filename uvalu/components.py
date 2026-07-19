@@ -536,15 +536,17 @@ def quality_score_color(value: float) -> tuple[str, str]:
 
 
 def sub_score_bar_html(label: str, value: float, color: str | None = None) -> str:
-    """One label/value/bar row for a sub-score list (e.g. Concentration, Volatility)."""
+    """One label/value/bar row for a sub-score list — matches the Analysis
+    screen's Signal sub-scores spec (baseline-aligned 12.5px label/value,
+    7px bar), its only caller today."""
     bar_color, text_color = score_color(value) if color is None else (color, color)
     return f"""
-<div>
-  <div style="display:flex;justify-content:space-between;font:400 11px -apple-system,sans-serif;color:var(--uv-muted)">
-    <span>{label}</span><span style="font-family:var(--uv-mono);color:{text_color}">{value:.0f}</span>
+<div style="margin-bottom:14px;">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:12.5px;">{label}</span><span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;color:{text_color}">{value:.0f}</span>
   </div>
-  <div style="height:4px;border-radius:2px;background:var(--uv-track);margin-top:3px">
-    <div style="width:{max(0.0, min(100.0, value)):.0f}%;height:4px;border-radius:2px;background:{bar_color}"></div>
+  <div style="height:7px;border-radius:4px;background:var(--uv-track);overflow:hidden;">
+    <div style="width:{max(0.0, min(100.0, value)):.0f}%;height:7px;border-radius:4px;background:{bar_color}"></div>
   </div>
 </div>"""
 

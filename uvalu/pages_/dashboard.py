@@ -18,7 +18,9 @@ from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
 
-_RANGES = {"1M": 30, "3M": 91, "6M": 182, "1Y": 365, "All": None}
+# Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
+# uvalu_dc.html ~line 2137) — the mockup has no 6M option.
+_RANGES = {"1M": 30, "3M": 91, "1Y": 365, "All": None}
 
 
 def render() -> None:
@@ -139,8 +141,8 @@ def render() -> None:
             _db_vh["invested"] = pd.to_numeric(_db_vh["invested"], errors="coerce")
             _db_vh = _db_vh.dropna(subset=["date", "value"]).sort_values("date")
 
-            _title_col, _range_col = st.columns([2, 2], vertical_alignment="bottom")
-            with _range_col:
+            _title_col, _range_col = st.columns([2, 2], vertical_alignment="top")
+            with _range_col, st.container(horizontal_alignment="right"):
                 _range_sel = st.segmented_control("Range", options=list(_RANGES.keys()), default="All",
                                                   key="db_range", label_visibility="collapsed")
             _days = _RANGES.get(_range_sel or "All")

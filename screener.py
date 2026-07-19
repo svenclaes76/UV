@@ -87,6 +87,7 @@ QUALITY_FIELDS = [
     "returnOnEquity",    # ROE
     "returnOnAssets",    # ROA
     "operatingMargins",  # Operating margin
+    "profitMargins",     # Net margin
     "currentRatio",      # Liquidity
     "freeCashflow",      # FCF (for yield)
 ]

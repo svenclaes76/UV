@@ -70,17 +70,29 @@ def render() -> None:
         _score_rating, _score_color = "Weak", "var(--down-txt, #A32D2D)"
     else:
         _score_rating, _score_color = None, None
-    with st.container(horizontal=True, vertical_alignment="center"):
-        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-            st.markdown(f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;'
-                       f'letter-spacing:-0.02em;">{ticker}</span>', unsafe_allow_html=True)
-            st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
-        with st.container(horizontal_alignment="right"):
-            st.metric("Composite score", f"{_score:.0f}" if pd.notna(_score) else "—")
-            if _score_rating:
-                st.markdown(f'<div style="text-align:right;font-size:12px;color:{_score_color};'
-                           f'margin-top:-8px;">{_score_rating}</div>', unsafe_allow_html=True)
-    st.caption(f"{row.get('Name', '—')} · {_fv(row, 'sector')} · {_fv(row, 'Exchange')}")
+    _score_rating_html = (f'<div style="font-size:12px;color:{_score_color};">{_score_rating}</div>'
+                         if _score_rating else "")
+    with st.container(key="an_header_row"):
+        st.markdown(
+            # Row 1: ticker + signal badge (left) baseline-paired with the
+            # composite score label/value (right).
+            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">'
+            f'<div style="display:flex;align-items:center;gap:12px;">'
+            f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
+            f'{signal_badge_html(kind, label)}</div>'
+            f'<div style="text-align:right;">'
+            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">Composite score</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
+            f'{f"{_score:.0f}" if pd.notna(_score) else "—"}</div></div></div>'
+            # Row 2: company/sector/exchange caption (left) on the same line
+            # as the score rating (right), matching row 1's baseline pairing.
+            f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
+            f'margin-top:5px;margin-bottom:8px;">'
+            f'<div style="font-size:13.5px;color:var(--muted);">'
+            f'{row.get("Name", "—")} · {_fv(row, "sector")} · {_fv(row, "Exchange")}</div>'
+            f'{_score_rating_html}</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── 4-card hero ───────────────────────────────────────────────────────────
     _pf = load_portfolio()
@@ -95,65 +107,83 @@ def render() -> None:
     _mos_color = ("var(--up-txt, #0F6E56)" if pd.notna(_mos_val) and _mos_val >= 0
                  else "var(--down-txt, #A32D2D)" if pd.notna(_mos_val) else "inherit")
 
-    _h1, _h2, _h3, _h4 = st.columns(4)
-    with _h1, st.container(border=True):
-        st.caption("Current price")
-        st.markdown(f"### {_fv(row, 'Price', _fmt_eur)}")
-    with _h2, st.container(border=True):
-        st.caption("Composite fair value")
-        st.markdown(f"### {_fv(row, 'fair_value', _fmt_eur)}")
-    with _h3, st.container(border=True):
-        st.caption("Margin of safety")
-        st.markdown(f'<h3 style="color:{_mos_color};">{_fv(row, "MoS %", lambda v: f"{v:+.1f}%")}</h3>',
-                   unsafe_allow_html=True)
-    with _h4, st.container(border=True):
-        st.caption("Your position")
-        st.markdown(f"### {_held_str}")
+    def _hero_card(label: str, value: str, color: str = "var(--text)") -> str:
+        return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
+               f'padding:15px 17px;box-shadow:var(--shadow);">'
+               f'<div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">'
+               f'{label}</div>'
+               f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;margin-top:8px;'
+               f'color:{color};">{value}</div></div>')
+
+    with st.container(key="an_hero_row"):
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
+            + _hero_card("Current price", _fv(row, "Price", _fmt_eur))
+            + _hero_card("Composite fair value", _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
+            + _hero_card("Margin of safety", _fv(row, "MoS %", lambda v: f"{v:+.1f}%"), color=_mos_color)
+            + _hero_card("Your position", _held_str)
+            + '</div>',
+            unsafe_allow_html=True,
+        )
 
     if row.get("veto"):
-        st.error(f"**Hard veto active** — this stock is excluded from BUY scoring "
-                 f"regardless of its composite score: {veto_reason_str(row)}.")
+        st.markdown(
+            f'<div style="background:var(--navy);border-radius:12px;padding:15px 18px;display:flex;'
+            f'gap:12px;align-items:flex-start;">'
+            f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" '
+            f'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
+            f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
+            f'1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
+            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">Hard veto active</div>'
+            f'<div style="font-size:12.5px;color:rgba(245,247,250,0.72);margin-top:3px;line-height:1.5;">'
+            f'{veto_reason_str(row)}.</div></div></div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
-    st.markdown("##### Price vs composite fair value · 1Y")
-    with st.container(horizontal=True, gap="small"):
-        st.markdown('<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
-                   'color:var(--muted);"><span style="width:12px;height:2px;background:#1DD6A4;'
-                   'display:inline-block;"></span>Price</span>', unsafe_allow_html=True)
-        st.markdown(f'<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
-                   f'color:var(--muted);"><span style="width:12px;height:0;border-top:1.5px dashed '
-                   f'{_C.axis};display:inline-block;"></span>Fair value</span>', unsafe_allow_html=True)
-    with st.spinner("Loading price history…"):
-        try:
-            _hist = yf.Ticker(ticker).history(period="1y")
-        except Exception:
-            _hist = pd.DataFrame()
-    if not _hist.empty:
-        _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
-        _fig = go.Figure()
-        _fig.add_trace(go.Scatter(
-            x=_hist.index, y=_hist["Close"], mode="lines", name="Price",
-            line=dict(color="#1DD6A4", width=2),
-            fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
-        ))
-        _fv_val = row.get("fair_value")
-        if pd.notna(_fv_val):
-            _fig.add_hline(y=float(_fv_val), line=dict(color=_C.axis, width=1.5, dash="dash"),
-                          annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
-                          annotation_font=dict(color=_C.axis, size=11))
-        _fig.update_layout(
-            margin=dict(l=0, r=0, t=8, b=0), hovermode="x unified",
-            yaxis=dict(tickprefix="€", tickfont=dict(color=_C.axis), gridcolor=_C.grid),
-            xaxis=dict(showgrid=False, tickfont=dict(color=_C.axis)),
-            font=dict(color=_C.axis), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        )
-        st.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
+    with st.container(key="an_card_chart", border=True):
+        with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
+            st.markdown('<div style="font-size:15px;font-weight:500;">Price vs composite fair value · 1Y</div>',
+                       unsafe_allow_html=True)
+            with st.container(horizontal=True, gap="small", width="content"):
+                st.markdown('<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
+                           'color:var(--muted);"><span style="width:12px;height:2px;background:#1DD6A4;'
+                           'display:inline-block;"></span>Price</span>', unsafe_allow_html=True)
+                st.markdown(f'<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
+                           f'color:var(--muted);"><span style="width:12px;height:0;border-top:1.5px dashed '
+                           f'{_C.axis};display:inline-block;"></span>Fair value</span>', unsafe_allow_html=True)
+        with st.spinner("Loading price history…"):
+            try:
+                _hist = yf.Ticker(ticker).history(period="1y")
+            except Exception:
+                _hist = pd.DataFrame()
+        if not _hist.empty:
+            _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
+            _fig = go.Figure()
+            _fig.add_trace(go.Scatter(
+                x=_hist.index, y=_hist["Close"], mode="lines", name="Price",
+                line=dict(color="#1DD6A4", width=2),
+                fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
+            ))
+            _fv_val = row.get("fair_value")
+            if pd.notna(_fv_val):
+                _fig.add_hline(y=float(_fv_val), line=dict(color=_C.axis, width=1.5, dash="dash"),
+                              annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                              annotation_font=dict(color=_C.axis, size=11))
+            _fig.update_layout(
+                margin=dict(l=0, r=0, t=8, b=0), hovermode="x unified",
+                yaxis=dict(tickprefix="€", tickfont=dict(color=_C.axis), gridcolor=_C.grid),
+                xaxis=dict(showgrid=False, tickfont=dict(color=_C.axis)),
+                font=dict(color=_C.axis), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
 
     # ── Sub-scores | six-model fair value ─────────────────────────────────────
-    _col1, _col2 = st.columns(2)
-    with _col1:
-        st.markdown("##### Signal sub-scores")
+    _col1, _col2 = st.columns([1, 1.25])
+    with _col1, st.container(key="an_card_subscores", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Signal sub-scores</div>',
+                   unsafe_allow_html=True)
         st.caption("Weighted components of the composite score.")
         for label_, field in [("Margin of safety", "Sub MoS"), ("Risk (inverted)", "Sub Risk"),
                               ("Quality", "Sub Quality"), ("Momentum", "Sub Momentum"),
@@ -165,8 +195,9 @@ def render() -> None:
                 # matching quality scale explicitly.
                 _bar_color, _ = quality_score_color(float(v))
                 st.markdown(sub_score_bar_html(label_, float(v), color=_bar_color), unsafe_allow_html=True)
-    with _col2:
-        st.markdown("##### Six-model fair value")
+    with _col2, st.container(key="an_card_sixmodel", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:12px;">Six-model fair value</div>',
+                   unsafe_allow_html=True)
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
             # Labels match uvalu/drawer.py's — same shared component, same
@@ -186,36 +217,39 @@ def render() -> None:
             )
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
-    _col3, _col4 = st.columns(2)
-    with _col3:
-        st.markdown("##### Financials & valuation")
+    _col3, _col4 = st.columns([1.25, 1])
+    with _col3, st.container(key="an_card_financials", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Financials &amp; valuation</div>',
+                   unsafe_allow_html=True)
         _de_val = row.get("debtToEquity")
         # Matches Uvalu.dc.html's 9-field set (EPS/P-E·fairP-E/ROE/Debt-equity/
-        # FCF yield/Operating margin/Net margin/Dividend yield/Payout ratio) as
-        # closely as real fetched data allows. Net margin is skipped — this app
-        # never fetches yfinance's profitMargins field, and faking one isn't
-        # worth doing; P/B, EV/EBITDA, ROA and Revenue growth (not in the design
-        # spec) are dropped to make room for the fields that are. "fair P/E" is
-        # the real fixed 15x multiple screener.py's pe_fair_value model itself
-        # applies to EPS (see _pe_fair_value/pe_fv in screener.py), not a
-        # separately-fetched figure.
+        # FCF yield/Operating margin/Net margin/Dividend yield/Payout ratio) —
+        # P/B, EV/EBITDA, ROA and Revenue growth (not in the design spec) are
+        # dropped to make room for the fields that are. "fair P/E" is the real
+        # fixed 15x multiple screener.py's pe_fair_value model itself applies
+        # to EPS (see _pe_fair_value/pe_fv in screener.py), not a
+        # separately-fetched figure. Order/column split (odd index → right
+        # column) matches the mockup's 5-then-4 layout exactly.
         _pe_val = row.get("trailingPE")
         _fin_fields = [
-            ("EPS (ttm)",         _fv(row, "trailingEps", lambda v: f"€{v:.2f}"), None),
-            ("P/E · fair P/E",    f"{_pe_val:.1f}× · 15.0×" if pd.notna(_pe_val) else "—", None),
-            ("ROE",               _fv(row, "returnOnEquity", lambda v: f"{v*100:.1f}%"),
+            ("EPS (ttm)",             _fv(row, "trailingEps", lambda v: f"€{v:.2f}"), None),
+            ("P/E · fair P/E",        f"{_pe_val:.1f}× · 15.0×" if pd.notna(_pe_val) else "—", None),
+            ("Return on equity",      _fv(row, "returnOnEquity", lambda v: f"{v*100:.1f}%"),
              "up" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") > 0.15
              else "down" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") < 0 else None),
-            ("Debt / equity",     _fv(row, "debtToEquity", lambda v: f"{v:.1f}"),
+            ("Debt / equity",         _fv(row, "debtToEquity", lambda v: f"{v:.1f}"),
              "down" if pd.notna(_de_val) and _de_val > 150 else None),
-            ("FCF yield",         _fv(row, "fcfYield", lambda v: f"{v*100:.1f}%"),
+            ("Free cash-flow yield",  _fv(row, "fcfYield", lambda v: f"{v*100:.1f}%"),
              "up" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") > 0.03
              else "down" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") <= 0 else None),
-            ("Operating margin",  _fv(row, "operatingMargins", lambda v: f"{v*100:.1f}%"),
+            ("Operating margin",      _fv(row, "operatingMargins", lambda v: f"{v*100:.1f}%"),
              "up" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") > 0.15
              else "down" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") < 0 else None),
-            ("Dividend yield",    _fv(row, "dividendYield", lambda v: f"{v*100:.2f}%"), None),
-            ("Payout ratio",      _fv(row, "payoutRatio", lambda v: f"{v*100:.1f}%"),
+            ("Net margin",            _fv(row, "profitMargins", lambda v: f"{v*100:.1f}%"),
+             "up" if pd.notna(row.get("profitMargins")) and row.get("profitMargins") > 0.10
+             else "down" if pd.notna(row.get("profitMargins")) and row.get("profitMargins") < 0 else None),
+            ("Dividend yield",        _fv(row, "dividendYield", lambda v: f"{v*100:.2f}%"), None),
+            ("Payout ratio",          _fv(row, "payoutRatio", lambda v: f"{v*100:.1f}%"),
              "down" if pd.notna(row.get("payoutRatio")) and row.get("payoutRatio") > 0.80 else None),
         ]
         _warn_colors = {"up": "var(--up-txt, #0F6E56)", "down": "var(--down-txt, #A32D2D)"}
@@ -223,38 +257,59 @@ def render() -> None:
         for _i, (_flabel, _fval, _fwarn) in enumerate(_fin_fields):
             with (_fg1 if _i % 2 == 0 else _fg2):
                 _fcolor = _warn_colors.get(_fwarn, "inherit")
-                st.markdown(f'<div style="font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;'
-                           f'color:var(--faint,#8a8a86);margin-top:8px;">{_flabel}</div>'
-                           f'<div style="font-family:var(--uv-mono);font-size:15px;color:{_fcolor};">{_fval}</div>',
-                           unsafe_allow_html=True)
-    with _col4:
-        st.markdown("##### Hard-veto checks")
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;'
+                    f'border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">'
+                    f'{_flabel}</span><span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;'
+                    f'color:{_fcolor};">{_fval}</span></div>',
+                    unsafe_allow_html=True)
+    with _col4, st.container(key="an_card_vetochecks", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:12px;">Hard-veto checks</div>',
+                   unsafe_allow_html=True)
         _max_de_thr, _, _, _ = get_veto_thresholds()
-        de = row.get("debtToEquity"); fcf = row.get("freeCashflow")
+        de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
         div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
+        # Terse note phrasing (bare value, no trailing sentence) matches
+        # Uvalu.dc.html's checks model exactly (see modelDefs' `checks`
+        # builder: de.toFixed(2)+'×', fcfY.toFixed(1)+'% yield', etc.) — our
+        # rule set/thresholds are the app's real ones (Financials & valuation
+        # veto thresholds are configurable, not the mockup's fixed 2.0×/3×/
+        # 90%), but the "×"-multiple convention and "% yield" note both carry
+        # over directly. The FCF check's note switched from a raw absolute
+        # euro amount (fmt_eur has no thousands/M-B abbreviation, so a real
+        # freeCashflow value rendered as an unreadable "€92937504.00") to the
+        # already-computed fcfYield percentage, matching the design's own
+        # note for this exact check and sidestepping that formatting gap.
         _checks = [
-            (f"Debt / equity ≤ {_max_de_thr:.0f}%", not (pd.notna(de) and de > _max_de_thr),
-             f"{_fv(row, 'debtToEquity', lambda v: f'{v:.0f}%')} today."),
-            ("Free cash flow ≥ €0", not (pd.notna(fcf) and fcf < 0),
-             f"{_fv(row, 'freeCashflow', lambda v: _fmt_eur(v))} trailing."),
+            (f"Debt / equity below {_max_de_thr/100:.1f}×", not (pd.notna(de) and de > _max_de_thr),
+             _fv(row, "debtToEquity", lambda v: f"{v/100:.2f}×")),
+            ("Positive free cash flow", not (pd.notna(fcf) and fcf < 0),
+             _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
             ("Dividend not flagged at risk", div_flag != "At Risk",
-             f"Dividend sustainability flag: {div_flag or '—'}."),
-            ("Dividend coverage ≥ 1.0×", not (pd.notna(coverage) and coverage < 1.0),
-             f"{_fv(row, 'dividendCoverage', lambda v: f'{v:.2f}×')} coverage."),
+             div_flag if div_flag else "—"),
+            ("Dividend coverage above 1.0×", not (pd.notna(coverage) and coverage < 1.0),
+             _fv(row, "dividendCoverage", lambda v: f"{v:.2f}×")),
         ]
         for check_label, passed, note in _checks:
-            icon = "✓" if passed else "✗"
-            color = "var(--up-txt, #0F6E56)" if passed else "var(--down-txt, #A32D2D)"
+            icon = "✓" if passed else "✕"
+            bg = "var(--up-bg)" if passed else "var(--down-bg)"
+            color = "var(--up-txt)" if passed else "var(--down-txt)"
             st.markdown(
-                f'<div style="display:flex;gap:8px;margin-bottom:8px;">'
-                f'<span style="color:{color};font-weight:600;">{icon}</span>'
-                f'<div><div style="font-size:13px;">{check_label}</div>'
-                f'<div style="font-size:11px;color:var(--muted,#5F5E5A);">{note}</div></div></div>',
+                f'<div style="display:flex;align-items:center;gap:11px;padding:9px 0;'
+                f'border-bottom:0.5px solid var(--line-2);">'
+                f'<span style="display:flex;align-items:center;justify-content:center;width:19px;height:19px;'
+                f'border-radius:6px;font-size:11px;font-weight:700;flex:none;background:{bg};color:{color};">'
+                f'{icon}</span>'
+                f'<span style="flex:1;font-size:12.5px;">{check_label}</span>'
+                f'<span style="font-family:var(--uv-mono);font-size:11.5px;color:var(--muted,#5F5E5A);">{note}</span>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 
     # ── Value thesis (derived from real computed fields only) ────────────────
-    st.markdown("##### Value thesis")
+    _thesis_card = st.container(key="an_card_thesis", border=True)
+    _thesis_card.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:10px;">Value thesis</div>',
+                          unsafe_allow_html=True)
     _sub_fields = {"Margin of safety": row.get("Sub MoS"), "Risk": row.get("Sub Risk"),
                   "Quality": row.get("Sub Quality"), "Momentum": row.get("Sub Momentum"),
                   "Dividend": row.get("Sub Dividend")}
@@ -268,4 +323,4 @@ def render() -> None:
         if _best != _worst:
             _thesis.append(f"Scores highest on {_best.lower()} ({_valid_subs[_best]:.0f}/100) "
                            f"and weakest on {_worst.lower()} ({_valid_subs[_worst]:.0f}/100).")
-    st.caption(" ".join(_thesis))
+    _thesis_card.caption(" ".join(_thesis))

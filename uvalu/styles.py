@@ -227,12 +227,86 @@ GLOBAL_CSS = """
     padding-top: 10px !important; margin-top: 6px !important;
   }
 
+  /* ── Dashboard value-chart range control — Streamlit's native
+     st.segmented_control ships as edge-to-edge buttons with no shared
+     track (each button individually bordered, only the group's first/last
+     corners rounded), quite different from Uvalu.dc.html's rangesArr spec
+     (uvalu_dc.html ~line 2137-2138): a padded `background:var(--panel-2);
+     border-radius:8px;padding:3px` track holding 3px-gapped mono-font
+     segments, the active one lifted with `background:var(--panel);
+     box-shadow:var(--shadow)` instead of a teal tint. Restyled directly
+     rather than swapping widgets — st.pills doesn't support the
+     always-one-selected semantics this range picker needs the way
+     segmented_control's default does. */
+  .st-key-db_range [data-testid="stButtonGroup"] {
+    display: flex !important; gap: 3px !important;
+    background: var(--panel-2) !important; border-radius: 8px !important; padding: 3px !important;
+  }
+  .st-key-db_range [data-testid^="stBaseButton-segmented_control"] {
+    border: none !important; border-radius: 6px !important; box-shadow: none !important;
+    background: transparent !important; color: var(--muted) !important;
+    font-family: var(--uv-mono) !important; font-size: 11.5px !important; font-weight: 500 !important;
+    padding: 5px 11px !important; min-height: unset !important;
+  }
+  .st-key-db_range [data-testid="stBaseButton-segmented_controlActive"] {
+    background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
+  }
+
+  /* ── Dashboard benchmark toggle chips (S&P 500 / Euro Stoxx 50) — same
+     idea as the range control above: st.pills' default look (fully
+     rounded 9999px pill, gray fill, 14px sans text) doesn't match
+     Uvalu.dc.html's benchChip spec (uvalu_dc.html ~line 2140): a 6px
+     rounded chip, 11px text, transparent/muted when off and a teal
+     border + var(--soft) tint + full-text color when on. */
+  .st-key-db_bench_pills [data-testid^="stBaseButton-pills"] {
+    border-radius: 6px !important; padding: 4px 9px !important; font-size: 11px !important;
+    background: transparent !important; border: 0.5px solid var(--line) !important; color: var(--muted) !important;
+  }
+  .st-key-db_bench_pills [data-testid="stBaseButton-pillsActive"] {
+    background: var(--soft) !important; border-color: var(--teal) !important; color: var(--text) !important;
+  }
+
   /* ── Table density (Settings → Display → Table density) ──────────────────
      Only affects card-based row lists built from raw HTML/st.container (e.g.
      Dashboard's holdings rows) — native st.dataframe tables render to a
      canvas (glide-data-grid) whose row height is set in Python per call and
      can't be restyled from CSS, so this intentionally doesn't touch them. */
   [data-density="compact"] [class*="st-key-db_hold_"] { padding: 4px 8px !important; }
+
+  /* ── Analysis page cards (chart, sub-scores, six-model, financials,
+     hard-veto checks, value thesis) — same `background:var(--panel);
+     border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow)`
+     panel treatment as the Dashboard's db_card_ rows above, matching
+     Uvalu.dc.html's Analysis screen where every section below the hero row
+     sits in its own bordered/shadowed panel instead of directly on the page
+     background. Same shared-substring-selector convention as db_card_. */
+  [class*="st-key-an_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    padding: 18px 20px !important;
+  }
+  /* Same horizontal-rhythm fix as the db_card_ rows: pin the two-card rows
+     (sub-scores|six-model, financials|hard-veto) to the app's standard 16px
+     gap and stretch both cards to the row's tallest, instead of Streamlit's
+     default top-aligned/content-height columns. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-an_card_"]) {
+    align-items: stretch !important; gap: 16px !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-an_card_"]) {
+    flex: 1 1 auto !important;
+  }
+  [class*="st-key-an_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+
+  /* Same class of bug as the Holdings-row/KPI-strip height underestimation
+     above: Streamlit's own layout estimate for these two raw-HTML blocks
+     (the ticker/score header, the 4-card hero grid) under-reports their real
+     rendered height, so the visible content overflows past the flex item's
+     box and eats straight into the next section's 16px gap — confirmed live
+     via getBoundingClientRect (header short by 8px, hero row short by
+     exactly 16px). A min-height floor matching the real measured height is
+     the same fix used there. */
+  .st-key-an_header_row { min-height: 88px !important; }
+  .st-key-an_hero_row   { min-height: 93px !important; }
 
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
   .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
