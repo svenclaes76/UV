@@ -44,12 +44,13 @@ def render() -> None:
     # does, so an explicit wrapper container is the hook for that CSS. ─────
     with st.container(key="wl_add_form_wrap"):
         with st.form("wl_add_form", border=True, clear_on_submit=True):
-            # Company name gets most of the room, button's own column just
-            # enough for its (now content-sized, right-aligned) compact
-            # button — was [2,3,1], leaving a large empty gap between the
-            # company-name input and the button since the button's column
-            # was far wider than the button itself needed (confirmed live).
-            _c1, _c2, _c3 = st.columns([1.5, 4, 0.8], vertical_alignment="bottom")
+            # Company name gets most of the room, button's own column sized
+            # to match its actual (compact, right-aligned) button width —
+            # 0.8 still left the column ~69px wider than the button itself,
+            # a bigger gap to the button (85px) than between Ticker and
+            # Company name (16px, confirmed live); 0.5 brings the two gaps
+            # to the same width.
+            _c1, _c2, _c3 = st.columns([1.5, 4, 0.5], vertical_alignment="bottom")
             with _c1:
                 st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            'color:var(--faint);margin-bottom:7px;">Ticker</div>', unsafe_allow_html=True)
