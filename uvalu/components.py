@@ -344,22 +344,22 @@ def _score_bar_cell_html(score: float | None) -> str:
 def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
-             show_action: bool = True, action_active: bool = False, action_help: str = "",
-             show_remove: bool = False, remove_help: str = "") -> dict:
+             show_action: bool = True, action_active: bool = False, action_help: str = "") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
-    price/P-E/yield, and an optional leading watchlist star. Renders as one
+    price/P-E/yield, and a leading watchlist star. Renders as one
     hairline-divided list item (no per-row border/shadow — the caller wraps
     the whole header+rows list in one shared panel, see styles.py's
     `[class*="st-key-scr_row_"]`/`[class*="st-key-wl_row_"]` rule) — shared
     by uvalu/pages_/screener.py and watchlist.py so the two lists stay
     visually identical.
 
-    Screener passes show_action=True (its star toggle) and show_remove=False;
-    Watchlist passes show_action=False (design's watchlist rows have no
-    leading icon at all) and show_remove=True (a trailing × instead). The
-    star glyph is always "★" — only its color changes via action_active —
-    matching the design exactly; there's no separate outline-star glyph.
+    Both callers pass show_action=True: Screener's star toggles watchlist
+    membership either way, Watchlist's star is always rendered active
+    (action_active=True, every row here is already on the watchlist by
+    definition) and clicking it removes the ticker instead. The star glyph
+    is always "★" — only its color changes via action_active — matching the
+    design exactly; there's no separate outline-star glyph.
 
     The whole row opens the detail drawer on click — there's no separate
     trailing arrow button (dropped in favor of a Dashboard-holdings-style
@@ -367,10 +367,9 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     via CSS (`position:absolute;inset:0` scoped to that cell, not the whole
     row, so it doesn't swallow clicks meant for the leading star).
 
-    Returns {"view": bool, "action": bool, "remove": bool}: `view` fires on
-    clicking the ticker/name cell (caller opens the drawer); `action` fires
-    on the leading star (Screener: toggle watchlist membership); `remove`
-    fires on the trailing × (Watchlist: remove from the watchlist).
+    Returns {"view": bool, "action": bool}: `view` fires on clicking the
+    ticker/name cell (caller opens the drawer); `action` fires on the star
+    (Screener: toggle watchlist membership; Watchlist: remove).
     """
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
@@ -390,16 +389,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             with st.container(key=f"uv_hidden_util_{_css_key}_action"):
                 st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
                            unsafe_allow_html=True)
-        # The leading 0.5 slot is always reserved (blank when show_action is
-        # False) rather than only appearing for Screener — Watchlist's own
-        # name/signal/score/... columns otherwise divide up a different
-        # total ratio-sum than Screener's, so the same 3.0/1.0/1.5/... ratios
-        # resolve to different actual pixel widths on the two pages, and the
-        # name column starts ~80px further left than Screener's (confirmed
-        # live). Keeping this slot on both sides — even unused — is what
-        # makes the two tables' shared columns line up at identical
-        # positions instead of merely sharing the same relative ratios.
-        _widths = [0.5] + [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + ([0.4] if show_remove else [])
+        _widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
@@ -480,20 +470,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
                        f"{f'{div_yield*100:.2f}%' if div_yield is not None and pd.notna(div_yield) else '—'}</div>",
                        unsafe_allow_html=True)
-        _i += 1
-        if show_remove:
-            with _cols[_i]:
-                # Same invisible-utility-element gap fix as the star/action
-                # button's <style> block above — see that comment.
-                with st.container(key=f"uv_hidden_util_{_css_key}_remove"):
-                    st.markdown(f"<style>.st-key-{_css_key}_remove button {{ color: var(--uv-muted, #5F5E5A) !important; }}"
-                               f".st-key-{_css_key}_remove button:hover {{ color: var(--uv-neg-txt) !important; }}</style>",
-                               unsafe_allow_html=True)
-                _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary", help=remove_help)
-            _i += 1
-        else:
-            _remove_clicked = False
-    return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
+    return {"view": _view_clicked, "action": _action_clicked}
 
 
 def empty_results_html(message: str) -> str:

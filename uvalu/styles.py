@@ -462,6 +462,14 @@ GLOBAL_CSS = """
   }
   .st-key-wl_col_header {
     padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    /* Its columns are plain single-line <div> labels (no sortable button
+       chrome the way Screener's header has) — Streamlit's own internal
+       height estimate for them came back as literally 0px live (same
+       under-reporting bug as the name-cell fix above), so the row's real
+       23px was just its padding, not real content. min-height both fixes
+       that and matches Screener's own (button-chrome-driven) 48px header
+       height exactly, as requested. */
+    min-height: 48px !important;
   }
   /* :not(...) exclusions matter here: the row's OWN class is
      "st-key-scr_row_<idx>_<ticker>", but its NESTED sub-containers
