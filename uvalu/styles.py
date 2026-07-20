@@ -100,15 +100,25 @@ GLOBAL_CSS = """
     padding: 16px 20px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-db_holdings_colheader {
-    padding: 9px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
     /* Same Streamlit height-underestimation as the db_hold_ rows below (see
        that rule's comment) — the header's own markdown grid measured
        shorter than its real content, so once row0 was pulled flush against
        it (0px gap, by design), row0's divider visibly crossed through the
        header's own overflowing label text. min-height stops the box from
-       under-reporting; confirmed live it now matches the real content
-       exactly (9px top/bottom padding either side of the label row). */
-    min-height: 34px !important;
+       under-reporting. Tightened to 30px (from 34px) to match the same
+       target used for Portfolio's pf_col_header — 7px 20px padding + this
+       row's ~16px label content lands there. */
+    min-height: 30px !important;
+    /* This colheader is a SEPARATE sibling st.container() from
+       db_holdings_header right above it (the title+legend row) — same
+       "second bordered/padded block stacks the default ~16px gap on top of
+       its own box" issue already fixed for Portfolio's pf_col_header_open_ov
+       (confirmed there via getBoundingClientRect: 16px dead gap sitting
+       above an otherwise-correct 30px header box, making the whole header
+       area read as ~46px). Cancel it here too so the header reads as a
+       clean 30px instead of ~46px. */
+    margin-top: -16px !important;
   }
   [class*="st-key-db_hold_"] {
     position: relative !important; padding: 12px 20px !important;
@@ -461,7 +471,24 @@ GLOBAL_CSS = """
     margin-top: -16px !important;
   }
   .st-key-scr_col_header {
-    padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* Each sort button's wrapper (.stButton, display:block by default) reported
+     26px tall against the button's own real 16px content — not padding or
+     margin (both computed 0), but the *inline-level* button (Streamlit
+     renders it display:inline-flex) sitting inside .stButton's inherited
+     25.6px line-height and getting positioned by default baseline vertical-
+     align within that line box, adding ~10px of invisible space around it.
+     Confirmed live: header measured 48px total (11px+11px padding + 26px
+     inflated button-wrapper) despite every visible label being a uniform
+     16px tall. Forcing the wrapper to flex+center sidesteps the whole
+     line-height/baseline mechanism — same fix class as Portfolio's panel-
+     title button, different root cause (inline-baseline vs. a broken
+     content-height estimate) landing on the same "force flex centering on
+     the real flex-item wrapper" fix. Brings the header down to a clean
+     30px matching pf_col_header/db_holdings_colheader. */
+  .st-key-scr_col_header .stButton {
+    display: flex !important; align-items: center !important; line-height: normal !important;
   }
   /* Watchlist "Add ticker" form — same card treatment as the rest of the
      app (Screener's scr_filter_panel) instead of st.form()'s plain default
@@ -478,11 +505,11 @@ GLOBAL_CSS = """
     border-radius: 8px !important;
   }
   .st-key-wl_add_form_wrap [data-testid="stTextInput"] input { font-size: 13px !important; }
-  /* Filled teal submit button — matches scr_export_btn's primary-action
-     treatment (the design's one filled CTA per screen): compact 8px 13px
-     padding and 12.5px text instead of Streamlit's default button sizing
-     (which, combined with the column stretching to fill its share of the
-     row, rendered much larger/wider than every other button in the app). */
+  /* Filled teal submit button — the design's one filled CTA per screen:
+     compact 8px 13px padding and 12.5px text instead of Streamlit's default
+     button sizing (which, combined with the column stretching to fill its
+     share of the row, rendered much larger/wider than every other button
+     in the app). */
   .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"] {
     background: var(--teal) !important; border: none !important; color: #fff !important;
     border-radius: 8px !important; padding: 8px 13px !important; font-size: 12.5px !important;
@@ -524,15 +551,17 @@ GLOBAL_CSS = """
     overflow: hidden !important; padding: 0 !important;
   }
   .st-key-wl_col_header {
-    padding: 11px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
     /* Its columns are plain single-line <div> labels (no sortable button
        chrome the way Screener's header has) — Streamlit's own internal
        height estimate for them came back as literally 0px live (same
        under-reporting bug as the name-cell fix above), so the row's real
        23px was just its padding, not real content. min-height both fixes
-       that and matches Screener's own (button-chrome-driven) 48px header
-       height exactly, as requested. */
-    min-height: 48px !important;
+       that and matches Screener's own header height — 30px, tightened from
+       48px on 2026-07-20 once scr_col_header's own real inflation (a
+       baseline/line-height issue on its sort buttons, not a deliberate
+       design height) was found and fixed; keep these two in sync. */
+    min-height: 30px !important;
   }
   /* :not(...) exclusions matter here: the row's OWN class is
      "st-key-scr_row_<idx>_<ticker>", but its NESTED sub-containers
@@ -646,6 +675,188 @@ GLOBAL_CSS = """
        since this column's own box height feeds into the row's
        vertical_alignment math the same way the name cell's does. */
     transform: translateY(0px) !important;
+  }
+
+  /* ── Portfolio full-page title row (Open/Closed/Dividends) — extra
+     breathing room before the table below it, per 2026-07-20 feedback
+     ("more space between the title and the table"). Streamlit's plain
+     ~16px default sibling gap read as too tight against a 22px page
+     heading; this pads it out to a clearer ~28px. */
+  [class*="st-key-pf_page_title_"] {
+    margin-bottom: 12px !important;
+  }
+
+  /* ── Portfolio page — card panels + row lists ────────────────────────────
+     Same `background:var(--panel);border:0.5px solid var(--line);
+     border-radius:12px;box-shadow:var(--shadow)` panel treatment as
+     db_card_/an_card_ above, first `pf_`-prefixed rules in this file. */
+  [class*="st-key-pf_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+  }
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-pf_card_"]) {
+    align-items: stretch !important; gap: 18px !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-pf_card_"]) {
+    flex: 1 1 auto !important;
+  }
+  [class*="st-key-pf_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  [class*="st-key-pf_col_header"] {
+    padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    min-height: 30px !important;
+  }
+  /* The Overview previews' column header comes right after the panel's own
+     title-bar row (a SEPARATE sibling st.container, not a shared one) —
+     Streamlit's default ~16px gap between the two siblings stacked on top
+     of the header's own 30px box made the whole header area read as ~46px
+     tall despite the header itself measuring exactly 30px (confirmed live:
+     gap 16px, header 30px). The full-page variants don't need this — there
+     the column header is the FIRST child of the card, flush against the
+     panel's own top border with no preceding sibling gap to cancel. */
+  [class*="st-key-pf_col_header_open_ov"], [class*="st-key-pf_col_header_closed_ov"],
+  [class*="st-key-pf_col_header_div_ov"] {
+    margin-top: -16px !important;
+  }
+  /* Panel title bar (e.g. "Open positions" + an icon-only "open full page"
+     button — matches the mockup's own SVG expand-corners icon exactly,
+     Uvalu.dc.html's `openOpenFull`/`openClosedFull`/`openDividendsFull`
+     handlers, rather than this app's earlier "View all →" text link) sitting
+     above the column header inside the same pf_card_ panel. 12px 20px
+     lands at a measured ~50px total bar height, confirmed as the target by
+     Sven on 2026-07-20 after an intermediate 4px-padding/~31px pass was
+     tried and rejected — only the column header row below (pf_col_header)
+     was meant to shrink to ~30px, not this title bar. */
+  [class*="st-key-pf_panel_title_"] {
+    padding: 16px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* The title text lives in a <p> several levels deep that carries its OWN
+     explicit font-size from Streamlit's default markdown paragraph style —
+     font-size/font-weight set on the container above never reaches it (CSS
+     inheritance only fills gaps a descendant doesn't set itself), so the
+     title rendered at Streamlit's default ~16px/400 with default line-height
+     instead of the mockup's compact 15px/500 — the same gap this app hit
+     fixing the Screener's sortable column headers. That taller, wrongly-
+     weighted line box (not the button, which was already a compact 22px)
+     is what inflated the whole title bar to ~55px against the mockup's
+     ~48px and threw off the vertical centering against the "View all →"
+     button beside it. Target the <p> directly and tighten its line-height. */
+  [class*="st-key-pf_panel_title_"] [data-testid="stMarkdownContainer"] p {
+    margin: 0 !important; font-size: 15px !important; font-weight: 500 !important; line-height: 1.3 !important;
+  }
+  /* Even after the font-size fix above, the title still sat 7px below the
+     "View all →" button beside it (button center 321px, title center 328px,
+     confirmed live) despite both being inside the same `vertical_alignment=
+     "center"` row. Root cause: Streamlit's own `.stMarkdown > div` wrapper
+     ships a hardcoded ~3.5px height (a class rule, not inline — presumably
+     tuned for its own default font metrics) regardless of the real ~20px
+     text it holds; flexbox then centers each *ancestor* on its own
+     (wrong) reported height independently at every nesting level, and the
+     errors compound differently for a <p> than for a <button> (which has
+     no such wrapper). Restoring the correct height at the `.stMarkdown >
+     div` level fixes that div's own box but NOT the residual offset — the
+     centering math up the chain doesn't retroactively correct itself layer
+     by layer. Rather than chase it through N more wrapper levels, nudge the
+     whole title visually with `transform` (not `margin`, which would feed
+     back into the same broken height math) — same pragmatic pattern used
+     for the Screener star button's centering fix. -7px was the exact live-
+     measured gap between the two centers; recheck if the title/button font
+     sizes ever change. */
+  [class*="st-key-pf_panel_title_"] .stMarkdown > div { min-height: 20px !important; }
+  [class*="st-key-pf_panel_title_"] [data-testid="stElementContainer"]:has(> .stMarkdown) {
+    min-height: 22px !important; display: flex !important; align-items: center !important;
+    transform: translateY(-7px) !important;
+  }
+  /* Icon-only "open full page" button — matches the mockup's 15x15 SVG icon
+     exactly (faint, teal on hover), same small-square treatment as the row
+     edit-pencil buttons elsewhere on this page for visual consistency. */
+  [class*="st-key-pf_panel_title_"] button {
+    background: transparent !important; border: none !important; color: var(--faint) !important;
+    padding: 0 !important; min-height: 22px !important; height: 22px !important; width: 22px !important;
+  }
+  [class*="st-key-pf_panel_title_"] button:hover { color: var(--teal) !important; }
+  /* No margin-top cancellation here, unlike scr_table_card — confirmed live
+     (getBoundingClientRect) that every pf_card_ panel already sits a clean
+     natural 16px below whatever precedes it (heading row, another card, or
+     the KPI row below). scr_table_card's -16px fix was for a genuine
+     doubled gap from two adjacent BORDERED panels; nothing here doubles up,
+     so an earlier blanket copy of that rule was over-cancelling the normal
+     gap to 0px (confirmed live: panels sat flush against the KPI row/heading
+     above them, "not correct" per user report on 2026-07-20). */
+
+  /* KPI card row (Overview only) — same Streamlit markdown-height
+     under-estimation bug as the Dashboard KPI strip (db_kpi_row below):
+     the raw-HTML kpi_card() content measured 115-116px live while its
+     st.columns() row wrapper reported only 99-100px, so the *next* section
+     (the Open positions panel) flowed 16px too high and visually overlapped
+     the true bottom of the cards instead of leaving the normal 16px gap.
+     Wrap the row in this key and float its wrapper's height to match. */
+  .st-key-pf_kpi_row { min-height: 116px !important; }
+
+  /* Row lists — hairline-divided flat rows, no per-row border/shadow (the
+     panel above provides that once). :not() exclusions follow the exact
+     same pattern/reasoning as scr_row_'s (see that rule's comment): each
+     row's nested sub-containers (the uv_hidden_util edit-color style block,
+     the edit-pencil button's auto-generated wrapper, and — pf_open_row_
+     only — the whole-row view-overlay button's wrapper) all contain the
+     row's own key as a substring and would otherwise pick up this same
+     divider/padding/position treatment too. */
+  [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_closed_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_div_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
+    position: relative !important; padding: 12px 20px !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+    border-radius: 0 !important; background: transparent !important;
+    margin-top: -16px !important;
+    min-height: 67px !important;
+  }
+  [class*="st-key-pf_div_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
+    /* Dividend rows are a 2-line name+ticker/date cell — measured live at
+       48px real content height (11px padding + 37px text block), 2px taller
+       than the previous 46px floor, which let the date's descenders clip
+       against the row divider. 52px gives clean headroom on both sides. */
+    min-height: 52px !important; padding: 11px 20px !important;
+  }
+  /* Only open-position rows are clickable (matches the mockup: only
+     `h.onClick` exists — `s.`/`d.` rows have none). */
+  [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]) {
+    cursor: pointer;
+  }
+  [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]):hover {
+    background: var(--soft) !important;
+  }
+  /* Whole-row click overlay (open positions only) — identical pattern to
+     scr_row_'s `_view` overlay above. */
+  [class*="st-key-pf_open_row_"] [class*="_view"] {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+    width: 100% !important; height: 100% !important;
+  }
+  [class*="st-key-pf_open_row_"] [class*="_view"] button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important;
+    cursor: pointer;
+  }
+  /* Edit-pencil button — lifted above the row-wide view overlay (open rows)
+     via a higher z-index, same "independently clickable" trick as
+     scr_row_'s star; closed/dividend rows have no overlay to fight but get
+     the same centering/sizing for visual consistency. */
+  [class*="st-key-pf_open_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_closed_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_div_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]) {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    height: 100% !important; position: relative !important; z-index: 2;
+  }
+  [class*="st-key-pf_open_row_"] [class*="_edit"] button,
+  [class*="st-key-pf_closed_row_"] [class*="_edit"] button,
+  [class*="st-key-pf_div_row_"] [class*="_edit"] button {
+    min-height: 26px !important; width: 26px !important; padding: 0 !important;
+    border-radius: 7px !important; background: transparent !important; border: none !important;
+    text-decoration: none !important;
+  }
+  [class*="st-key-pf_open_row_"] [class*="_edit"] button:hover,
+  [class*="st-key-pf_closed_row_"] [class*="_edit"] button:hover,
+  [class*="st-key-pf_div_row_"] [class*="_edit"] button:hover {
+    background: var(--line-2) !important;
   }
 
   /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
@@ -823,7 +1034,7 @@ GLOBAL_CSS = """
     max-width: 550px !important; width: 550px !important; min-width: 0 !important;
   }
 
-  /* ── Destructive/confirm action button (Sell "Confirm sale", Delete, ...) ──
+  /* ── Destructive/confirm action button (Close "Confirm close", Delete, ...) ──
      Matches Uvalu.dc.html's red-filled confirm buttons on irreversible
      actions — wrap the button in st.container(key="uv_danger_btn"). */
   .st-key-uv_danger_btn button[kind="primary"] {
@@ -849,27 +1060,16 @@ GLOBAL_CSS = """
     border-color: var(--teal) !important; color: var(--text) !important;
   }
 
-  /* Screener header buttons row (Reset filters / Export list) — Streamlit
-     gives every column/block inside a horizontal container `flex:1 1 0%;
-     width:100%` by default (same "wrapper is the real flex item" gotcha as
-     the top bar's avatar button), so each button's wrapper tried to stretch
-     to the FULL row width, forcing the two onto separate wrapped lines that
-     read as stacked instead of side by side. Pinning both direct children
-     to their own content width fixes it. */
+  /* Screener header buttons row (Reset filters) — Streamlit gives every
+     column/block inside a horizontal container `flex:1 1 0%;width:100%` by
+     default (same "wrapper is the real flex item" gotcha as the top bar's
+     avatar button), so the button's wrapper tried to stretch to the FULL
+     row width instead of hugging its own content. Pinning it to its own
+     content width fixes it — kept even with a single child now that "Export
+     list" (the other button this row used to hold) was removed, since the
+     stretch-to-full-width behavior still applies to a lone child too. */
   .st-key-scr_header_btns > [data-testid="stLayoutWrapper"] {
     flex: none !important; width: auto !important;
-  }
-
-  /* ── Screener "Export list" button — filled teal pill matching
-     Uvalu.dc.html's primary action (background:var(--teal);color:#fff,
-     hover background:var(--mint);color:var(--navy)). */
-  .st-key-scr_export_btn button[kind="primary"] {
-    border-radius: 8px !important; padding: 8px 13px !important;
-    font-size: 12.5px !important; font-weight: 500 !important; border: none !important;
-    background: var(--teal) !important; color: #fff !important;
-  }
-  .st-key-scr_export_btn button[kind="primary"]:hover {
-    background: var(--mint) !important; color: var(--navy) !important;
   }
 
   /* ── Heading typography — brand spec ────────────────────────────────────── */

@@ -612,3 +612,184 @@ def sparkline_svg(values: list[float], width: int = 640, height: int = 120,
   <polygon points="{area_pts}" fill="url(#{gid})"/>
   <polyline points="{line_pts}" fill="none" stroke="{color}" stroke-width="2.5"/>
 </svg>"""
+
+
+# ── Portfolio rows ───────────────────────────────────────────────────────────
+# Matches Uvalu.dc.html's Portfolio screen row specs exactly (Position/Shares/
+# Avg cost/Price/Cost basis/Market value/Unrealised P&L/Weight for open
+# positions; Position/Shares/Buy/Sell/Realised P&L for closed; name+ticker·
+# date/amount for dividends). Same st.columns()-per-cell + real st.button()
+# click-target pattern as stock_row() above (not a single raw-HTML grid block
+# like holdings_row_html — these rows need real widgets: a whole-row "view"
+# overlay for open positions, an optional trailing edit-pencil button for the
+# full-page variants), sharing that function's z-index-layering CSS
+# convention (styles.py's `pf_open_row_`/`pf_closed_row_`/`pf_div_row_`).
+
+def _gain_color(v: float | None) -> str:
+    """Matches Uvalu.dc.html's gainColor/plColor: up-txt for >=0, down-txt
+    for negative — same sign convention as chip_html, just returning the
+    bare color instead of a full pill (these cells aren't pills in the spec,
+    just colored mono text)."""
+    if v is None or pd.isna(v):
+        return "var(--faint)"
+    return "var(--up-txt)" if float(v) >= 0 else "var(--down-txt)"
+
+
+def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str,
+                       shares: int, avg_cost: float | None, price: float | None,
+                       cost_basis: float | None, value: float | None,
+                       gain: float | None, gain_pct: float | None, weight_pct: float | None,
+                       show_edit: bool = False, edit_disabled: bool = False) -> dict:
+    """One open-position row — the whole row opens the detail drawer on
+    click (matching the mockup's `h.onClick`); `show_edit=True` (the full
+    Open positions page, not the Overview preview) adds a trailing
+    edit-pencil button that opens a per-row edit dialog instead.
+
+    Returns {"view": bool, "edit": bool} — `edit` is always False when
+    show_edit=False.
+    """
+    _css_key = key.replace(".", "-")
+    _name_w = 240 if show_edit else 200
+    _widths = [_name_w, 68, 88, 88, 108, 118, 132, 96] + ([32] if show_edit else [])
+    with st.container(key=key):
+        if show_edit:
+            with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                           f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
+                           unsafe_allow_html=True)
+        _cols = st.columns(_widths, vertical_alignment="center")
+        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+                     if exchange and pd.notna(exchange) else "")
+        with _cols[0]:
+            st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<div style='font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
+        with _cols[1]:
+            _shares_str = f"{int(shares):,}" if shares is not None and pd.notna(shares) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"color:var(--muted);'>{_shares_str}</div>", unsafe_allow_html=True)
+        with _cols[2]:
+            _avg_str = f"€{avg_cost:,.2f}" if avg_cost is not None and pd.notna(avg_cost) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"color:var(--muted);'>{_avg_str}</div>", unsafe_allow_html=True)
+        with _cols[3]:
+            _price_str = f"€{price:,.2f}" if price is not None and pd.notna(price) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>{_price_str}</div>",
+                       unsafe_allow_html=True)
+        with _cols[4]:
+            _cost_str = f"€{cost_basis:,.2f}" if cost_basis is not None and pd.notna(cost_basis) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"color:var(--muted);'>{_cost_str}</div>", unsafe_allow_html=True)
+        with _cols[5]:
+            _value_str = f"€{value:,.2f}" if value is not None and pd.notna(value) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                       f"font-weight:500;'>{_value_str}</div>", unsafe_allow_html=True)
+        with _cols[6]:
+            _gc = _gain_color(gain)
+            _gain_str = f"€{gain:+,.0f}" if gain is not None and pd.notna(gain) else "—"
+            _pct_str = f"{gain_pct:+.1f}%" if gain_pct is not None and pd.notna(gain_pct) else ""
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"font-weight:500;color:{_gc};'>{_gain_str}<div style='font-size:10.5px;font-weight:400;'>"
+                       f"{_pct_str}</div></div>", unsafe_allow_html=True)
+        with _cols[7]:
+            _w = max(0.0, min(100.0, float(weight_pct) * 3.2)) if weight_pct is not None and pd.notna(weight_pct) else 0.0
+            _weight_str = f"{weight_pct:.1f}%" if weight_pct is not None and pd.notna(weight_pct) else "—"
+            st.markdown(f"<div style='display:flex;align-items:center;gap:8px;'>"
+                       f"<div style='flex:1;height:6px;border-radius:3px;background:var(--uv-track,#EEF1F5);'>"
+                       f"<div style='height:6px;border-radius:3px;width:{_w:.1f}%;background:var(--uv-mint);'></div></div>"
+                       f"<span style='font-family:var(--uv-mono);font-size:11px;color:var(--muted);width:34px;"
+                       f"text-align:right;'>{_weight_str}</span></div>", unsafe_allow_html=True)
+        if show_edit:
+            with _cols[8]:
+                _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit position",
+                                          disabled=edit_disabled)
+        else:
+            _edit_clicked = False
+        _view_clicked = st.button("View", key=f"{key}_view", type="tertiary")
+    return {"view": _view_clicked, "edit": _edit_clicked}
+
+
+def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: str, closed_date: str,
+                         shares: int, buy: float | None, sell: float | None,
+                         pl: float | None, pl_pct: float | None, show_edit: bool = False,
+                         edit_disabled: bool = False) -> dict:
+    """One closed-position row — never opens the drawer (the mockup's `s.`
+    rows have no onClick, unlike the open-position `h.onClick`); `show_edit`
+    adds a trailing edit-pencil button (the full Closed positions page only,
+    not the Overview preview). Returns {"edit": bool}."""
+    _css_key = key.replace(".", "-")
+    _widths = ([400] if show_edit else [300]) + [56, 74, 74, 110] + ([32] if show_edit else [])
+    with st.container(key=key):
+        if show_edit:
+            with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                           f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
+                           unsafe_allow_html=True)
+        _cols = st.columns(_widths, vertical_alignment="center")
+        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+                     if exchange and pd.notna(exchange) else "")
+        with _cols[0]:
+            st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<div style='font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name} · closed {closed_date}</div></div>",
+                       unsafe_allow_html=True)
+        with _cols[1]:
+            _shares_str = f"{int(shares):,}" if shares is not None and pd.notna(shares) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_shares_str}</div>", unsafe_allow_html=True)
+        with _cols[2]:
+            _buy_str = f"€{buy:,.2f}" if buy is not None and pd.notna(buy) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_buy_str}</div>", unsafe_allow_html=True)
+        with _cols[3]:
+            _sell_str = f"€{sell:,.2f}" if sell is not None and pd.notna(sell) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_sell_str}</div>", unsafe_allow_html=True)
+        with _cols[4]:
+            _pc = _gain_color(pl)
+            _pl_str = f"€{pl:+,.0f}" if pl is not None and pd.notna(pl) else "—"
+            _pct_str = f"{pl_pct:+.1f}%" if pl_pct is not None and pd.notna(pl_pct) else ""
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                       f"font-weight:500;color:{_pc};'>{_pl_str}<div style='font-size:10.5px;font-weight:400;'>"
+                       f"{_pct_str}</div></div>", unsafe_allow_html=True)
+        if show_edit:
+            with _cols[5]:
+                _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit trade",
+                                          disabled=edit_disabled)
+        else:
+            _edit_clicked = False
+    return {"edit": _edit_clicked}
+
+
+def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amount: float | None,
+                           show_edit: bool = False, edit_disabled: bool = False) -> dict:
+    """One dividend-payment row — flat list item, never opens the drawer;
+    `show_edit` adds a trailing edit-pencil button (the full Dividends
+    received page only, not the Overview preview). Returns {"edit": bool}."""
+    _css_key = key.replace(".", "-")
+    _widths = [6, 1.3] + ([0.4] if show_edit else [])
+    with st.container(key=key):
+        if show_edit:
+            with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                           f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
+                           unsafe_allow_html=True)
+        _cols = st.columns(_widths, vertical_alignment="center")
+        with _cols[0]:
+            st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</div><div style='font-size:10.5px;"
+                       f"color:var(--faint);font-family:var(--uv-mono);'>{ticker} · {date}</div></div>",
+                       unsafe_allow_html=True)
+        with _cols[1]:
+            _amount_str = f"€{amount:,.2f}" if amount is not None and pd.notna(amount) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                       f"font-weight:500;color:var(--mint);'>{_amount_str}</div>", unsafe_allow_html=True)
+        if show_edit:
+            with _cols[2]:
+                _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit dividend",
+                                          disabled=edit_disabled)
+        else:
+            _edit_clicked = False
+    return {"edit": _edit_clicked}

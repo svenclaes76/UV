@@ -105,12 +105,19 @@ def dispatch_pending_drawer_action() -> None:
             sell_position_dialog(_pf, _pending["ticker"], preset_price=_pending["price"])
 
 
-def _go_portfolio() -> None:
-    """Edit has no per-ticker dialog of its own — it reuses Portfolio's
-    existing bulk "Edit positions" data-editor dialog (uvalu/pages_/
-    portfolio.py's _dlg_edit_position), which isn't ticker-scoped and lives
-    behind that page's own render() closure, so the drawer just navigates
-    there rather than duplicating an edit flow."""
+def _go_portfolio_edit(ticker: str) -> None:
+    """Edit has no per-ticker dialog of its own here — it reuses Portfolio's
+    own per-row edit dialog (uvalu/pages_/portfolio.py's
+    _dlg_edit_open_position), which is defined inside that page's own
+    render() closure and needs the row's DataFrame index, not just a
+    ticker. Stash the target ticker + section via session_state and
+    navigate there; portfolio.py's Open positions section checks for
+    "_pf_edit_ticker" on load, resolves it to a row index, and opens the
+    dialog itself. st.switch_page() works fine from inside an open
+    @st.dialog (confirmed live — this contradicts an earlier, stale
+    finding from before a Streamlit version bump)."""
+    st.session_state["port_section"] = "open"
+    st.session_state["_pf_edit_ticker"] = ticker
     _page = nav_registry.pages.get("portfolio")
     if _page is not None:
         st.switch_page(_page)
@@ -261,9 +268,9 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
                 _go_analysis(ticker)
         with _act2:
             if st.button("Edit", key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
-                _go_portfolio()
+                _go_portfolio_edit(ticker)
         with _act3:
-            if st.button("Sell", key="drw_sell", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button("Close", key="drw_sell", width="stretch", disabled=_is_viewer, help=_vhelp):
                 # Streamlit forbids nesting one @st.dialog inside another —
                 # sell_position_dialog can't be called directly from here.
                 # Stash the request and st.rerun() to close this dialog first;
@@ -278,7 +285,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
             if st.button("View full analysis", key="drw_analysis", width="stretch", type="primary"):
                 _go_analysis(ticker)
         with _act2:
-            if st.button("Buy", key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button("Add", key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,
                                                    "name": str(row.get("Name", "")),
                                                    "price": _safe_float(row.get("Price"))}

@@ -115,7 +115,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     st.rerun()
 
 
-@st.dialog("Sell position", width="small")
+@st.dialog("Close position", width="small")
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
     _dialog_width_css(380)
@@ -127,7 +127,7 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                               key="dlg_sell_ticker")
     else:
         st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
-                    f'Sell {ticker}</div>', unsafe_allow_html=True)
+                    f'Close {ticker}</div>', unsafe_allow_html=True)
         st.caption("Close all or part of this position. Realised P&L is recorded on the Portfolio page.")
 
     _match = pf[pf["ticker"] == ticker]
@@ -155,7 +155,7 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
             st.rerun()
     with _b2:
         with st.container(key="uv_danger_btn"):
-            _do_save = st.button("Confirm sale", key="dlg_sell_save", width="stretch", type="primary")
+            _do_save = st.button("Confirm close", key="dlg_sell_save", width="stretch", type="primary")
 
     if _do_save and shares > 0 and price > 0:
         sell_position(ticker=ticker, shares=shares, proceeds=round(shares * price, 2),
@@ -207,7 +207,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
 @st.dialog("Add closed trade", width="small")
 def add_closed_trade_dialog() -> None:
     _dialog_width_css(420)
-    st.caption("Record a trade that was opened and closed outside this app's normal Buy/Sell flow.")
+    st.caption("Record a trade that was opened and closed outside this app's normal Add/Close flow.")
     _c1, _c2 = st.columns(2)
     with _c1:
         ticker_raw = st.text_input("Ticker", placeholder="SAP.DE", key="dlg_ct_ticker").strip().upper()

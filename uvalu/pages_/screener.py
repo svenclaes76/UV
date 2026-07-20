@@ -288,9 +288,6 @@ def render() -> None:
     _filtered = _filtered.sort_values(
         _sort_col, ascending=(_sort_dir == "asc"), na_position="last").reset_index(drop=True)
 
-    _csv = _filtered[["Ticker", "Name", "Exchange", "Decision", "Value Score", "Price",
-                      "fair_value", "MoS %", "trailingPE", "dividendYield"]].to_csv(index=False)
-
     with _header_slot.container():
         with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
             with st.container(width="content"):
@@ -305,10 +302,6 @@ def render() -> None:
                                   "scr_min_score", "scr_min_mos"):
                             st.session_state.pop(_k, None)
                         st.rerun()
-                with st.container(key="scr_export_btn"):
-                    st.download_button("Export list", data=_csv, file_name="uvalu_screener.csv",
-                                       mime="text/csv", key="scr_export",
-                                       icon=":material/download:", type="primary")
 
     if _filtered.empty:
         with st.container(border=True):
