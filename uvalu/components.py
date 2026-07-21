@@ -793,3 +793,37 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
         else:
             _edit_clicked = False
     return {"edit": _edit_clicked}
+
+
+# ── Risk page — holdings risk-contribution table ────────────────────────────
+
+RISK_HOLDINGS_GRID_COLS = "210px 78px 68px 68px 1fr 120px"
+
+
+def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
+                          weight_pct: float, beta: float | None, vol_pct: float | None,
+                          contrib_pct: float, contrib_bar_pct: float,
+                          flag: str, flag_color: str) -> str:
+    """Inner grid markup for one Risk-page "contribution by holding" row —
+    matches Uvalu.dc.html's riskVM.holdings row spec (Position/Weight/Beta/
+    Vol/Contribution-bar/Flag). Embed inside an outer st.markdown() call,
+    same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
+    templated header for aligned column labels."""
+    _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+                 if exchange and pd.notna(exchange) else "")
+    _beta_str = f"{beta:.2f}" if beta is not None and pd.notna(beta) else "—"
+    _vol_str = f"{vol_pct:.0f}%" if vol_pct is not None and pd.notna(vol_pct) else "—"
+    _bar_pct = max(0.0, min(100.0, contrib_bar_pct))
+    return (f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+           f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
+           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{_exch_html}</div>'
+           f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
+           f'text-overflow:ellipsis;">{name}</div></div>'
+           f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{weight_pct:.1f}%</div>'
+           f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;">{_beta_str}</div>'
+           f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{_vol_str}</div>'
+           f'<div style="display:flex;align-items:center;gap:11px;">'
+           f'<div style="flex:1;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;">'
+           f'<div style="height:6px;border-radius:3px;width:{_bar_pct:.1f}%;background:{flag_color if flag else "var(--teal)"};"></div></div>'
+           f'<span style="font-family:var(--uv-mono);font-size:12px;width:44px;text-align:right;">{contrib_pct:.1f}%</span></div>'
+           f'<div style="font-size:11px;font-weight:500;color:{flag_color};">{flag}</div></div>')

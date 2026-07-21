@@ -859,9 +859,67 @@ GLOBAL_CSS = """
     background: var(--line-2) !important;
   }
 
-  /* ── Risk page — income toggle right-aligned ─────────────────────────────── */
-  .st-key-risk_income_toggle { display: flex !important; justify-content: flex-end !important; align-items: center !important; }
-  [data-testid="stColumn"]:has(.st-key-risk_income_toggle) { padding-right: 0 !important; }
+  /* ── Risk page — score/metrics cards, factor+concentration cards, holdings
+     row list. Same `background:var(--panel);border:0.5px solid var(--line);
+     border-radius:12px;box-shadow:var(--shadow)` panel treatment as
+     db_card_/an_card_/pf_card_ above — Uvalu.dc.html's Risk screen puts every
+     section in its own bordered/shadowed panel. */
+  [class*="st-key-risk_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+  }
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-risk_card_"]) {
+    align-items: stretch !important; gap: 18px !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-risk_card_"]) {
+    flex: 1 1 auto !important;
+  }
+  [class*="st-key-risk_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  /* Gauge/factor/concentration cards get the mockup's 20px/18px-20px inner
+     padding; the metrics grid card instead pads each of its own 6 cells
+     individually (matching riskVM.metrics' per-cell `padding:18px 20px`), so
+     the card itself only needs a thin 6px/4px frame around them. The
+     holdings table card is a seamless header+rows panel like scr_table_card,
+     so it gets no padding at all — the column header/row rules below own it. */
+  .st-key-risk_card_gauge { padding: 20px !important; }
+  .st-key-risk_card_factors, .st-key-risk_card_conc { padding: 18px 20px !important; }
+  .st-key-risk_card_metrics { padding: 6px 4px !important; }
+  .st-key-risk_card_holdings { overflow: hidden !important; padding: 0 !important; }
+
+  /* Column header + row list for "Risk contribution by holding" — same
+     raw-CSS-Grid-per-row convention as the Dashboard's db_hold_ rows
+     (components.py's risk_holding_row_html(), a fixed-px grid-template that
+     st.columns()'s ratio-only widths can't replicate), including the same
+     Streamlit markdown-height-underestimation floor and whole-row invisible-
+     button click overlay. */
+  .st-key-risk_col_header {
+    padding: 10px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    min-height: 30px !important;
+  }
+  /* :not([class*="_view"]) matters here — unlike db_hold_'s button (keyed
+     "db_holdbtn_<idx>", a name that never contains "db_hold_" as a
+     substring by design), this row's trailing button is keyed
+     "risk_hold_<idx>_<ticker>_view", which DOES contain "st-key-risk_hold_"
+     as a substring. Without the exclusion, this same rule would also match
+     the button's own generated wrapper and reintroduce its padding/border/
+     min-height, fighting the position:absolute overlay rule below (same
+     class of bug documented for scr_row_/pf_open_row_'s identical `_view`
+     exclusion). */
+  [class*="st-key-risk_hold_"]:not([class*="_view"]) {
+    position: relative !important; padding: 12px 20px !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+    border-radius: 0 !important; background: transparent !important;
+    margin-top: -16px !important; min-height: 67px !important;
+  }
+  [class*="st-key-risk_hold_"]:not([class*="_view"]):hover { background: var(--soft) !important; }
+  [class*="st-key-risk_hold_"] [data-testid="stElementContainer"]:has(button) {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+  }
+  [class*="st-key-risk_hold_"] [data-testid="stElementContainer"]:has(button) button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important;
+    cursor: pointer;
+  }
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
