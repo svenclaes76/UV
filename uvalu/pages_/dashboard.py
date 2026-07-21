@@ -234,7 +234,6 @@ def render() -> None:
         with _cvh_link_col:
             if st.button("Full analysis →", key="db_conv_full_analysis", type="tertiary", width="stretch"):
                 st.switch_page(nav.pages["risk"])
-        st.container(height=4, border=False)
         _conv_score = None
         if not _db_scr.empty and "Value Score" in _db_scr.columns:
             _scr_cv = _db_pf.set_index("ticker")["current_value"]
@@ -244,73 +243,79 @@ def render() -> None:
                 _conv_score = float((_scr_vs.fillna(0) * _w).sum() / _w.sum())
         _n_veto = int(_db_scr.get("veto", pd.Series(dtype=bool)).fillna(False).sum()) if "veto" in _db_scr.columns else 0
 
+        # Real bug fixed: `.composite.total`/`.quant.max_drawdown` don't
+        # exist on RiskReport (the real fields are `.composite.score` and
+        # `.quant.mdd_1y` — see risk.py) — this silently raised inside the
+        # bare except below on every real portfolio, so the risk-score bar
+        # and Beta/Volatility/Max-drawdown row never actually rendered.
         _db_risk_cache = _load_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
                 _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
-                _risk_score = float(_db_report.composite.total)
+                _risk_score = float(_db_report.composite.score)
                 _risk_label = ("Low" if _risk_score < 35 else "Moderate" if _risk_score < 65 else "Elevated")
                 _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
                 _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
-                _dd_str   = f"{_db_report.quant.max_drawdown*100:.1f}%" if _db_report.quant.max_drawdown else "—"
+                _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
             except Exception:
                 pass
 
-        with st.container(horizontal=True, gap="medium", vertical_alignment="center"):
-            if _conv_score is not None:
-                if _conv_score >= 70:
-                    _conv_rating, _conv_rating_color = "Strong conviction", "var(--up-txt)"
-                elif _conv_score >= 40:
-                    _conv_rating, _conv_rating_color = "Moderate conviction", "#C98A3A"
-                else:
-                    _conv_rating, _conv_rating_color = "Weak conviction", "var(--down-txt)"
-                st.markdown(f"""
-<div style="position:relative;width:118px;height:118px;flex:none;">
-  {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
-  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-    <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;color:var(--text);">{_conv_score:.0f}</span>
-    <span style="font-size:9.5px;color:var(--faint);">/ 100</span>
+        if _conv_score is not None:
+            # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
+            # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
+            # (not this card's earlier "Strong/Moderate/Weak conviction" at
+            # 70/40), and the label is always mint-colored regardless of
+            # tier — the spec hardcodes `color:var(--mint)` unconditionally,
+            # not a tier-dependent color.
+            _conv_label = ("High conviction" if _conv_score >= 75 else
+                          "Constructive" if _conv_score >= 55 else "Cautious")
+            st.markdown(f"""
+<div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
+  <div style="position:relative;width:118px;height:118px;flex:none;">
+    {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{_conv_score:.0f}</span>
+      <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite conviction</div>
+    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{_conv_label}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>
   </div>
 </div>""", unsafe_allow_html=True)
-                st.markdown(f"""
-<div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite conviction</div>
-<div style="font-size:15px;font-weight:500;margin-top:4px;color:{_conv_rating_color};">{_conv_rating}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.
-{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>""", unsafe_allow_html=True)
-            else:
-                st.caption("Not enough scored holdings for a conviction score.")
+        else:
+            st.caption("Not enough scored holdings for a conviction score.")
 
         if _risk_score is not None:
-            st.container(height=10, border=False)
             _marker_pct = min(100.0, max(0.0, _risk_score))
             _risk_num_color = ("var(--up-txt)" if _risk_score < 35 else
                                "#C98A3A" if _risk_score < 65 else "var(--down-txt)")
             st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
-  <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
-  <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">
-    <span style="color:{_risk_num_color};">{_risk_score:.0f}</span> · {_risk_label}</span>
-</div>
-<div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 33%,#C98A3A 33%,#C98A3A 66%,#A32D2D 66%,#A32D2D 100%);position:relative;opacity:0.85;">
-  <div style="position:absolute;left:{_marker_pct:.1f}%;top:-3px;width:2px;height:13px;background:var(--text);"></div>
-</div>
-<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;">
-  <span>LOW</span><span>MODERATE</span><span>ELEVATED</span>
+<div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+    <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
+    <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">
+      <span style="color:{_risk_num_color};">{_risk_score:.0f}</span> · {_risk_label}</span>
+  </div>
+  <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 33%,#C98A3A 33%,#C98A3A 66%,#A32D2D 66%,#A32D2D 100%);position:relative;opacity:0.85;">
+    <div style="position:absolute;left:{_marker_pct:.1f}%;top:-3px;width:3px;height:13px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
 </div>""", unsafe_allow_html=True)
 
-            st.container(height=12, border=False)
-            _m1, _m2, _m3 = st.columns(3)
-            with _m1:
-                st.caption("Beta")
-                st.markdown(f'<span style="font-family:var(--uv-mono);font-size:15px;">{_beta_str}</span>', unsafe_allow_html=True)
-            with _m2:
-                st.caption("Volatility")
-                st.markdown(f'<span style="font-family:var(--uv-mono);font-size:15px;">{_vol_str}</span>', unsafe_allow_html=True)
-            with _m3:
-                st.caption("Max drawdown")
-                st.markdown(f'<span style="font-family:var(--uv-mono);font-size:15px;color:var(--down-txt);">{_dd_str}</span>', unsafe_allow_html=True)
+            with st.container(key="db_conv_metrics"):
+                _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
+                                   ("Max drawdown", _dd_str, "var(--down-txt)")]
+                _dd_cells = "".join(
+                    f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
+                    f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
+                    for _l, _v, _c in _dd_metric_defs
+                )
+                st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
+                           unsafe_allow_html=True)
 
     st.container(height=4, border=False, key="db_gap_2")
 

@@ -206,6 +206,27 @@ GLOBAL_CSS = """
   }
   [class*="st-key-db_card_"] { flex: 1 1 auto !important; width: 100% !important; }
 
+  /* ── Dashboard "Conviction & risk" card — "Full analysis →" as a plain
+     teal text link, matching Uvalu.dc.html's `<div style="color:var(--teal);
+     cursor:pointer">Full analysis →</div>` (no button chrome) instead of a
+     boxed tertiary button. */
+  .st-key-db_conv_full_analysis button {
+    background: transparent !important; border: none !important; box-shadow: none !important;
+    color: var(--teal) !important; font-size: 11px !important; padding: 0 !important;
+    min-height: unset !important; height: auto !important; text-decoration: none !important;
+    justify-content: flex-end !important;
+  }
+  .st-key-db_conv_full_analysis button:hover { color: var(--mint) !important; }
+  /* Beta/Volatility/Max-drawdown row pinned to the card's bottom edge —
+     matches the mockup's `margin-top:auto` on this section (Uvalu.dc.html
+     ~line 407), which keeps it flush with the card's bottom even when the
+     row's grid partner (the taller value-chart card, stretched to match via
+     align-items:stretch above) leaves extra space above it. Targets the
+     generated wrapper div one level up (Streamlit's own flex item in this
+     container's flex column), not the st-key-* element itself — same
+     "wrapper is the real flex item" pattern as [[uvalu-streamlit-flex-css-gotchas]]. */
+  div:has(> [class*="st-key-db_conv_metrics"]) { margin-top: auto !important; }
+
   /* KPI strip — Streamlit's own height estimate for a kpi_card()'s raw-HTML
      markdown under-measures its real rendered height by exactly 16px
      (confirmed live: row reported 99.5px, cards actually 115.5px tall) —
