@@ -1018,6 +1018,19 @@ GLOBAL_CSS = """
      whatever `width:auto` resolves to on an unconstrained flex item. Give it
      back an explicit, usable track length instead. */
   .st-key-set_row_refresh [data-baseweb="slider"] { width: 200px !important; }
+  /* Same fix as Screener's scr_score_slider/scr_mos_slider: hide the native
+     floating thumb-value bubble (rendered ABOVE the track) and the min/max
+     tick-label row (rendered BELOW it) — left un-hidden here, they added
+     ~19px above and ~11px below the track's own 40px box, overflowing the
+     row's normal content envelope on both edges (confirmed live: the bubble
+     started 7px above the row's own top padding). A custom mono/mint value
+     label above the track (see uvalu/pages_/settings.py) replaces what the
+     native bubble showed. */
+  .st-key-set_row_refresh [data-testid="stSliderTickBar"],
+  .st-key-set_row_refresh [data-testid="stSliderThumbValue"] {
+    display: none !important;
+  }
+  .st-key-set_row_refresh [data-baseweb="slider"] { padding-bottom: 0 !important; }
   /* Import & Export — the file_uploader's native widget label ("Choose your
      portfolio .xlsx file") rendered at Streamlit's default 14px/400, a
      visible size/weight jump from the 12px muted caption directly above it
@@ -1026,6 +1039,14 @@ GLOBAL_CSS = """
   .st-key-set_card_import [data-testid="stWidgetLabel"] {
     font-size: 12px !important; color: var(--muted) !important;
   }
+  /* set_import_body/set_export_body's wrapper reported 46px for a two-line
+     title+caption block that actually renders at 62px (yet another instance
+     of the "raw-HTML block height underestimate" bug hit repeatedly this
+     session) — the real text spilled 16px past its own wrapper's bottom
+     edge, exactly consuming the 16px flex gap to the next element below
+     (the file_uploader's label / the download button), so the caption and
+     the next control looked like they had zero space between them. */
+  .st-key-set_import_body, .st-key-set_export_body { min-height: 62px !important; }
   /* Account footer — no card chrome in the mockup (sits directly on the page
      background), just an avatar + name/email + a bordered "Sign out" pill
      flush right. Rendered as one raw-HTML flex row (uvalu/pages_/settings.py)

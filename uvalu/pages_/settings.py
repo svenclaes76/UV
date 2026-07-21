@@ -202,12 +202,17 @@ def render() -> None:
                 _row_title("Price refresh interval", "How often quotes update during market hours.")
             with _c2:
                 _refresh_opts = [30, 60, 300, 900]
+                _refresh_fmt = lambda s: f"{s}s" if s < 60 else f"{s // 60} min"
                 _cur_refresh = _s.get("refresh_interval_s", 60)
                 _refresh_idx = _refresh_opts.index(_cur_refresh) if _cur_refresh in _refresh_opts else 1
+                st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
+                           f'color:var(--mint);margin-bottom:6px;">'
+                           f'{_refresh_fmt(st.session_state.get("disp_refresh_interval", _refresh_opts[_refresh_idx]))}'
+                           f'</div>', unsafe_allow_html=True)
                 _new_refresh = st.select_slider(
                     "Price refresh interval", options=_refresh_opts,
                     value=_refresh_opts[_refresh_idx],
-                    format_func=lambda s: f"{s}s" if s < 60 else f"{s // 60} min",
+                    format_func=_refresh_fmt,
                     key="disp_refresh_interval", label_visibility="collapsed")
 
         _alerts_changed = any(_new_alert_vals[k] != bool(_s.get(k, False)) for k in _new_alert_vals)
