@@ -942,7 +942,7 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
-  /* ── Settings page cards — Display/Screening & veto rules/Alerts & data,
+  /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
      panel per section (uppercase header row, then flat hairline-divided
      setting rows) instead of Streamlit's plain st.container(border=True) box
@@ -953,13 +953,31 @@ GLOBAL_CSS = """
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
     overflow: hidden !important; padding: 0 !important;
   }
-  /* Each title+control setting row — padding matches the mockup's `padding:
-     15px 20px` rows exactly; borders are set per-row below since which edge
-     carries the hairline (bottom under the header block vs. top after the
-     screening sliders) differs section to section in the spec. */
-  [class*="st-key-set_row_"] { padding: 15px 20px !important; }
-  .st-key-set_row_theme, .st-key-set_row_currency,
-  [class*="st-key-set_row_alert_"] {
+  /* Each title+control setting row — the mockup's own spec is `padding:15px
+     20px`, but with the line-height fix above (real content now 38px, not
+     the old inflated 43px) that read as more whitespace than the row's text
+     needs; tightened to 12px top/bottom to hug the content more closely,
+     matching the denser `padding:12px 20px` convention this app's other
+     list-style rows already use (risk_hold_/scr_row_/pf_open_row_). Borders
+     are set per-row below since which edge carries the hairline (bottom
+     under the header block vs. top after the screening sliders) differs
+     section to section in the spec. */
+  [class*="st-key-set_row_"] { padding: 12px 20px !important; }
+  /* Each row is its own st.container(key=...), so consecutive rows are
+     sibling flex items in the card's vertical block and get Streamlit's
+     default 16px sibling gap ON TOP of their own border/padding — invisible
+     on a single row in isolation, but confirmed live it's exactly why
+     Display currency/Number format read as having "extra space" compared to
+     Theme: every row after the first accumulates one more of these 16px
+     gaps (Theme→Currency, then Currency→Number format), even though each
+     row's own height was identical the whole time. Same fix as elsewhere in
+     this file (scr_table_card's margin-top pull) — cancel the gap with a
+     negative margin on every row except the first one in its card (which
+     has no preceding sibling row to cancel against; a negative margin there
+     would instead pull it up into the header). */
+  [class*="st-key-set_row_"] { margin-top: -16px !important; }
+  .st-key-set_row_theme, .st-key-set_row_refresh { margin-top: 0 !important; }
+  .st-key-set_row_theme, .st-key-set_row_currency {
     border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-set_row_stoxx, .st-key-set_row_us {
@@ -976,19 +994,22 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"] {
     flex: none !important; width: auto !important;
   }
-  /* The title+desc column's generated wrapper reports a shorter height
-     (~27px, apparently a single-line estimate) than the two-line raw-HTML
-     block it actually holds (~43px, measured live via getBoundingClientRect)
-     — same "Streamlit under-reports a raw-HTML block's real height" bug
-     documented for the Dashboard/Analysis/Risk pages. Since the wrapper's
-     `overflow:visible` lets the real content spill out below its own
-     undersized box instead of resizing it, the row's `align-items:center`
-     centers on the WRONG (too-short) box, so the real text renders lower
-     than the control beside it — looked like "too much space above the
-     text". A min-height floor matching the true content height fixes it the
-     same way as an_header_row/an_hero_row's floors. */
+  /* The title+desc column's generated wrapper reports a shorter height than
+     the two-line raw-HTML block it actually holds — same "Streamlit
+     under-reports a raw-HTML block's real height" bug documented for the
+     Dashboard/Analysis/Risk pages. Since the wrapper's `overflow:visible`
+     lets the real content spill out below its own undersized box instead of
+     resizing it, the row's `align-items:center` centers on the WRONG
+     (too-short) box, so the real text renders lower than the control beside
+     it. A min-height floor matching the true content height fixes it the
+     same way as an_header_row/an_hero_row's floors — 38px with the explicit
+     line-height (1.3 title / 1.5 desc) set in uvalu/pages_/settings.py's
+     `_row_title()`; without that explicit line-height the two lines inherit
+     Streamlit's own markdown default of 1.6, measuring 43px instead — this
+     number must be re-measured (not just guessed) if that line-height ever
+     changes again. */
   [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child {
-    min-height: 43px !important;
+    min-height: 38px !important;
   }
   /* Segmented controls (Theme/Currency/Number format/Table density) — same
      restyle as the Dashboard's db_range control: a padded panel-2 track with
@@ -1008,45 +1029,73 @@ GLOBAL_CSS = """
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px
-     20px 16px` grid instead of a bare st.columns pair. */
+     20px 16px` grid instead of a bare st.columns pair. Unlike the set_row_
+     rows above (a seamless list of touching rows, where the native 16px
+     sibling gap really was unwanted excess), this container follows a
+     caption paragraph, not another row — cancelling that gap here left only
+     6px between the caption text and "Max debt / equity" (confirmed live),
+     reading as cramped/overlapping rather than clean. Left at its natural
+     gap (16px sibling gap + this container's own 6px top padding ≈ 22px). */
   .st-key-set_slider_grid { padding: 6px 20px 16px !important; }
-  /* Price refresh interval's select_slider collapsed to a 16px sliver (just
-     the thumb, no visible track) under the generic "shrink control column to
-     its own content width" rule above — that rule assumes a self-sizing
-     control like a segmented-control track or a toggle switch, but a
-     BaseWeb slider has no intrinsic width of its own and just shrinks to
-     whatever `width:auto` resolves to on an unconstrained flex item. Give it
-     back an explicit, usable track length instead. */
-  .st-key-set_row_refresh [data-baseweb="slider"] { width: 200px !important; }
-  /* Same fix as Screener's scr_score_slider/scr_mos_slider: hide the native
-     floating thumb-value bubble (rendered ABOVE the track) and the min/max
-     tick-label row (rendered BELOW it) — left un-hidden here, they added
-     ~19px above and ~11px below the track's own 40px box, overflowing the
-     row's normal content envelope on both edges (confirmed live: the bubble
-     started 7px above the row's own top padding). A custom mono/mint value
-     label above the track (see uvalu/pages_/settings.py) replaces what the
-     native bubble showed. */
+  /* Price refresh interval's select_slider — three fixes for the same
+     control, same as Screener's scr_score_slider/scr_mos_slider:
+     1. The generic "shrink control column to its own content width" rule
+        above assumes a self-sizing control (segmented-control track, toggle
+        switch); a BaseWeb slider has no intrinsic width of its own and just
+        collapses to a 16px sliver (thumb only, no track) under it — give it
+        back an explicit, usable track length.
+     2. Hide the native floating thumb-value bubble (rendered ABOVE the
+        track) and the min/max tick-label row (rendered BELOW it) — left
+        un-hidden, they add ~19px above/~11px below the track's own 40px
+        box, overflowing the row's content envelope on both edges. A custom
+        mono/mint value label above the track (uvalu/pages_/settings.py)
+        replaces what the native bubble showed. */
+  .st-key-set_row_refresh [data-baseweb="slider"] {
+    width: 200px !important; padding-bottom: 0 !important;
+  }
   .st-key-set_row_refresh [data-testid="stSliderTickBar"],
   .st-key-set_row_refresh [data-testid="stSliderThumbValue"] {
     display: none !important;
   }
-  .st-key-set_row_refresh [data-baseweb="slider"] { padding-bottom: 0 !important; }
-  /* Import & Export — the file_uploader's native widget label ("Choose your
-     portfolio .xlsx file") rendered at Streamlit's default 14px/400, a
-     visible size/weight jump from the 12px muted caption directly above it
-     (same row-title/caption typography used everywhere else on this page).
-     Restyle it down to match instead of leaving Streamlit's default. */
-  .st-key-set_card_import [data-testid="stWidgetLabel"] {
-    font-size: 12px !important; color: var(--muted) !important;
+  /* Import & Export — the whole two-column content block had NO horizontal
+     padding at all (confirmed live: "Import portfolio" sat 1px from the
+     card's own left edge, vs. every other row on this page having a 20px
+     inset) since it was just `st.columns()` dropped directly into the
+     padding:0 card with no keyed wrapper of its own. Side padding matches
+     every other row's 20px inset. Top uses the same sibling-gap-cancel +
+     explicit-padding combo as the set_row_ rows (margin-top:-16 cancels the
+     native gap after the header, then padding-top adds a deliberate amount
+     back — 28px, more than the row rhythm elsewhere on this page, on
+     request for clearer separation from the header line). Bottom padding
+     removed entirely on request (was 20px symmetric with the top, but the
+     card's own bottom edge sitting right after the buttons reads better
+     than an extra gap) — the buttons' own height is what closes the card
+     now. No vertical divider between the columns — tried one on request,
+     then removed on request; a plain `gap="large"` column gap is enough
+     separation. */
+  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 0 !important; }
+  /* The file_uploader's dropzone has its own unconditional 12px padding on
+     all sides (confirmed live via computed style) — pushing the actual
+     "Upload" button 12px below AND 12px right of the row's own top-left
+     edge, while the plain st.download_button on the other side has no such
+     wrapper. That put the two buttons on different lines (12px vertical
+     offset) and the Upload button out of alignment with "Import portfolio"
+     above it (12px horizontal offset). Zero out top+left only — right/
+     bottom still give the "200MB per file" caption and the dropzone's own
+     box some breathing room, neither was reported as wrong. */
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
+    padding-top: 0 !important; padding-left: 0 !important;
   }
-  /* set_import_body/set_export_body's wrapper reported 46px for a two-line
-     title+caption block that actually renders at 62px (yet another instance
-     of the "raw-HTML block height underestimate" bug hit repeatedly this
-     session) — the real text spilled 16px past its own wrapper's bottom
-     edge, exactly consuming the 16px flex gap to the next element below
-     (the file_uploader's label / the download button), so the caption and
-     the next control looked like they had zero space between them. */
-  .st-key-set_import_body, .st-key-set_export_body { min-height: 62px !important; }
+  /* set_import_body/set_export_body's wrapper under-reports its real
+     two-line title+caption content the same way the row columns above do
+     (same root cause: no explicit line-height, same fix — both now use
+     _row_title(), which sets one). Without this floor the real text spills
+     past its own wrapper's bottom edge, consuming the flex gap to the next
+     element (the file_uploader's label / the download button) so the
+     caption and the next control look like they have zero space between
+     them. 56px matches the real measured height with the 1.3/1.5
+     line-height in place — re-measure if that ever changes. */
+  .st-key-set_import_body, .st-key-set_export_body { min-height: 56px !important; }
   /* Account footer — no card chrome in the mockup (sits directly on the page
      background), just an avatar + name/email + a bordered "Sign out" pill
      flush right. Rendered as one raw-HTML flex row (uvalu/pages_/settings.py)
