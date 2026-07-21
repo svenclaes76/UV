@@ -49,7 +49,7 @@ def apply_theme_script(light: bool) -> None:
     matches whatever native widgets (buttons, dataframes, Plotly charts) are
     already rendering in — a single source of truth. Streamlit's own theme
     preference (light/dark/system) is switched via the top bar's sun/moon
-    toggle (see _set_theme_script below), which writes the same localStorage
+    toggle (see set_theme_script below), which writes the same localStorage
     key Streamlit's native app-menu theme picker used before that menu was
     hidden — st.context.theme itself is still the single point of truth this
     function reads from, only the UI for changing it moved. An earlier
@@ -67,7 +67,7 @@ def apply_theme_script(light: bool) -> None:
 """, height=1)
 
 
-def _set_theme_script(target: str) -> None:
+def set_theme_script(target: str) -> None:
     """Persist `target` ("Light"/"Dark") to the same localStorage key
     Streamlit's own (now-hidden) app-menu theme picker writes to
     (`stActiveTheme-<base_path>-v2`), then reload. st.context.theme is only
@@ -75,6 +75,13 @@ def _set_theme_script(target: str) -> None:
     st.rerun() would still see the OLD theme, so a full reload (not a
     lighter rerun) is what actually makes native widgets, Plotly charts and
     this custom toggle agree on the next paint.
+
+    The key is namespaced per page path (`window.parent.location.pathname`,
+    e.g. "/" or "/risk"), not hardcoded to root — each Streamlit page has its
+    OWN `stActiveTheme-<path>-v2` entry, confirmed live (setting only the
+    root key while on /risk did not flip that page's theme). Public (not
+    module-private) since both the top bar's own toggle button below and
+    uvalu/pages_/settings.py's Theme control call it.
 
     The reload itself is instant/abrupt (old page vanishes, blank tab, new
     page pops in) — measured with the browser's own Layout Instability API
@@ -89,7 +96,8 @@ def _set_theme_script(target: str) -> None:
 <script>
 (function(){{
   try {{
-    window.parent.localStorage.setItem('stActiveTheme-/-v2', JSON.stringify({target!r}));
+    var path = window.parent.location.pathname;
+    window.parent.localStorage.setItem('stActiveTheme-' + path + '-v2', JSON.stringify({target!r}));
     var docEl = window.parent.document.documentElement;
     docEl.style.transition = 'opacity 0.12s ease';
     docEl.style.opacity = '0';
@@ -243,7 +251,7 @@ def render_topbar(nav) -> None:
                     _toggle_icon = ":material/dark_mode:" if _light else ":material/light_mode:"
                     if st.button("", icon=_toggle_icon, key="uv_theme_toggle_btn",
                                  help="Switch to dark theme" if _light else "Switch to light theme"):
-                        _set_theme_script("Dark" if _light else "Light")
+                        set_theme_script("Dark" if _light else "Light")
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):

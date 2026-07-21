@@ -941,6 +941,110 @@ GLOBAL_CSS = """
     border: none !important; background: transparent !important; padding: 0 !important;
     cursor: pointer;
   }
+
+  /* ── Settings page cards — Display/Screening & veto rules/Alerts & data,
+     matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
+     panel per section (uppercase header row, then flat hairline-divided
+     setting rows) instead of Streamlit's plain st.container(border=True) box
+     + "##### Header" markdown, same overflow:hidden/no-padding convention as
+     scr_table_card/risk_card_holdings above. */
+  [class*="st-key-set_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+  }
+  /* Each title+control setting row — padding matches the mockup's `padding:
+     15px 20px` rows exactly; borders are set per-row below since which edge
+     carries the hairline (bottom under the header block vs. top after the
+     screening sliders) differs section to section in the spec. */
+  [class*="st-key-set_row_"] { padding: 15px 20px !important; }
+  .st-key-set_row_theme, .st-key-set_row_currency,
+  [class*="st-key-set_row_alert_"] {
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  .st-key-set_row_stoxx, .st-key-set_row_us {
+    border-top: 0.5px solid var(--line-2) !important;
+  }
+  /* Right-align every row's control (segmented control / toggle / select
+     slider) instead of it sitting at the left edge of its own stretched
+     column wrapper — same "wrapper is the real flex item" gotcha as the top
+     bar's avatar button and Watchlist's Add-ticker submit button. */
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child {
+    display: flex !important; justify-content: flex-end !important;
+  }
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child [data-testid="stLayoutWrapper"],
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"] {
+    flex: none !important; width: auto !important;
+  }
+  /* The title+desc column's generated wrapper reports a shorter height
+     (~27px, apparently a single-line estimate) than the two-line raw-HTML
+     block it actually holds (~43px, measured live via getBoundingClientRect)
+     — same "Streamlit under-reports a raw-HTML block's real height" bug
+     documented for the Dashboard/Analysis/Risk pages. Since the wrapper's
+     `overflow:visible` lets the real content spill out below its own
+     undersized box instead of resizing it, the row's `align-items:center`
+     centers on the WRONG (too-short) box, so the real text renders lower
+     than the control beside it — looked like "too much space above the
+     text". A min-height floor matching the true content height fixes it the
+     same way as an_header_row/an_hero_row's floors. */
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child {
+    min-height: 43px !important;
+  }
+  /* Segmented controls (Theme/Currency/Number format/Table density) — same
+     restyle as the Dashboard's db_range control: a padded panel-2 track with
+     3px-gapped segments, the active one lifted with a panel background +
+     shadow instead of Streamlit's default edge-to-edge bordered buttons. */
+  [class*="st-key-set_row_"] [data-testid="stButtonGroup"] {
+    display: flex !important; gap: 3px !important;
+    background: var(--panel-2) !important; border-radius: 8px !important; padding: 3px !important;
+  }
+  [class*="st-key-set_row_"] [data-testid^="stBaseButton-segmented_control"] {
+    border: none !important; border-radius: 6px !important; box-shadow: none !important;
+    background: transparent !important; color: var(--muted) !important;
+    font-size: 12px !important; font-weight: 500 !important;
+    padding: 6px 13px !important; min-height: unset !important;
+  }
+  [class*="st-key-set_row_"] [data-testid="stBaseButton-segmented_controlActive"] {
+    background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
+  }
+  /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px
+     20px 16px` grid instead of a bare st.columns pair. */
+  .st-key-set_slider_grid { padding: 6px 20px 16px !important; }
+  /* Price refresh interval's select_slider collapsed to a 16px sliver (just
+     the thumb, no visible track) under the generic "shrink control column to
+     its own content width" rule above — that rule assumes a self-sizing
+     control like a segmented-control track or a toggle switch, but a
+     BaseWeb slider has no intrinsic width of its own and just shrinks to
+     whatever `width:auto` resolves to on an unconstrained flex item. Give it
+     back an explicit, usable track length instead. */
+  .st-key-set_row_refresh [data-baseweb="slider"] { width: 200px !important; }
+  /* Import & Export — the file_uploader's native widget label ("Choose your
+     portfolio .xlsx file") rendered at Streamlit's default 14px/400, a
+     visible size/weight jump from the 12px muted caption directly above it
+     (same row-title/caption typography used everywhere else on this page).
+     Restyle it down to match instead of leaving Streamlit's default. */
+  .st-key-set_card_import [data-testid="stWidgetLabel"] {
+    font-size: 12px !important; color: var(--muted) !important;
+  }
+  /* Account footer — no card chrome in the mockup (sits directly on the page
+     background), just an avatar + name/email + a bordered "Sign out" pill
+     flush right. Rendered as one raw-HTML flex row (uvalu/pages_/settings.py)
+     rather than st.columns — a st.columns' per-column vertical_alignment
+     centering proved unreliable for mismatched-height siblings here
+     (confirmed live: an 8px offset between the avatar square and the Sign
+     out pill persisted even after forcing align-items:center + matching
+     explicit heights on the column-based version), so this only needs the
+     outer padding; the flex/gap/centering all live in the inline style. */
+  .st-key-set_account_footer { padding: 4px 2px 24px !important; }
+  .uv-set-signout {
+    display: inline-flex !important; align-items: center !important;
+    box-sizing: border-box !important; height: 38px !important;
+    padding: 0 14px !important; border-radius: 8px !important;
+    border: 0.5px solid var(--line) !important; font-size: 12.5px !important;
+    color: var(--muted) !important; cursor: pointer; text-decoration: none !important;
+  }
+  .uv-set-signout:hover { border-color: var(--down-txt) !important; color: var(--down-txt) !important; }
+
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
