@@ -108,6 +108,32 @@ def set_theme_script(target: str) -> None:
 """, height=1)
 
 
+def _close_stray_popover_script() -> None:
+    """Force-close a leftover avatar popover after navigating here via one of
+    its own entries (Settings/Help page_links inside the popover) — clicking
+    a page_link INSIDE the popover doesn't fire the popover's own
+    outside-click-to-close listener (the click target is inside its own DOM
+    subtree, not outside it), and the destination page's fresh render_topbar()
+    call doesn't reset that listener's state either, so the popover panel
+    stays visibly open after the page switch. Dispatching a synthetic
+    mousedown+click on the parent document's <body> triggers that same
+    outside-click listener — confirmed live this reliably closes it, with no
+    other side effect since plain body has no listeners of its own elsewhere
+    in this app."""
+    st.iframe("""
+<script>
+(function(){
+  try {
+    var body = window.parent.document.body;
+    var opts = {bubbles: true, cancelable: true, view: window.parent};
+    body.dispatchEvent(new MouseEvent('mousedown', opts));
+    body.dispatchEvent(new MouseEvent('click', opts));
+  } catch(e) {}
+})();
+</script>
+""", height=1)
+
+
 def _apply_density_script(density: str) -> None:
     """Set data-density on the parent document's <html> element from the
     per-user "density" setting (Settings → Display → Table density) — the
@@ -208,6 +234,8 @@ def render_topbar(nav) -> None:
         apply_theme_script(_light)
         _density = load_settings(user.email).get("density", "comfortable")
         _apply_density_script(_density)
+        if active_path in ("settings", "help"):
+            _close_stray_popover_script()
         st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)
 
     with st.container(key="uv_topbar"):

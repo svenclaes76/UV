@@ -1115,6 +1115,51 @@ GLOBAL_CSS = """
   }
   .uv-set-signout:hover { border-color: var(--down-txt) !important; color: var(--down-txt) !important; }
 
+  /* ── Help page cards — Signal legend/Six fair-value models/Hard-veto
+     rules/Frequently asked. Every section here is static text with no
+     interactive widgets, so each card is one raw-HTML block (header + all
+     rows) rendered inside a single st.container(key="help_card_...",
+     border=True) rather than one st.container per row — same panel
+     treatment as db_card_/an_card_/set_card_, but skips their per-row
+     sibling-gap/height-underestimation fixes entirely since there's no
+     widget here needing its own key. */
+  [class*="st-key-help_card_"] {
+    background: var(--panel) !important; border-color: var(--line) !important;
+    border-radius: 12px !important; box-shadow: var(--shadow) !important;
+    overflow: hidden !important; padding: 0 !important;
+  }
+  /* Same "wrapper under-reports raw-HTML content's real height" bug as
+     an_header_row/an_hero_row/set_row_ elsewhere in this file — confirmed
+     live: Streamlit's flex-item box for this card consistently measures a
+     constant ~14.7px shorter than its raw-HTML markdown child's real
+     rendered height, across all 4 cards despite their very different
+     content lengths (so it's a Streamlit layout-timing quirk, not a
+     content-size issue). Combined with `overflow:hidden` above (needed so
+     the card's own rounded corners look clean), that ~15px of real content
+     — including the padding-bottom meant to give the last row breathing
+     room — was being silently clipped off. Fixed the same way as those
+     other rows: an explicit min-height floor matching the real measured
+     content height (numbers below include that ~15px). Re-measure if any
+     of these cards' copy changes enough to reflow. */
+  .st-key-help_card_signals { min-height: 280px !important; }
+  .st-key-help_card_models  { min-height: 333px !important; }
+  .st-key-help_card_vetoes  { min-height: 242px !important; }
+  .st-key-help_card_faqs   { min-height: 535px !important; }
+  /* Hard-veto rules | Frequently asked sit side by side (design spec:
+     1fr 1.3fr, align-items:start — NOT stretch, unlike db_card_/an_card_'s
+     two-card rows). The veto card has far fewer rows than the FAQ card;
+     stretching it to match would balloon a 3-line card into a mostly-empty
+     ~500px box. Only the width needs the flex/width override below (so each
+     card fills its own column instead of shrinking to content); height
+     stays each card's own natural content height. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-help_card_"]) {
+    align-items: flex-start !important; gap: 18px !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-help_card_"]) {
+    flex: 1 1 auto !important;
+  }
+  [class*="st-key-help_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
