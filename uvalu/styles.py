@@ -150,6 +150,39 @@ GLOBAL_CSS = """
        taller than 67px still grows the row normally, it just stops
        Streamlit from rendering it 16px too short. */
     min-height: 67px !important;
+    /* The row's own grid (see holdings_row_html()'s align-items:center)
+       only centers cells *relative to each other* — it does nothing for
+       the grid's position within this outer row box, whose height comes
+       from the min-height floor above, not from the grid's own ~43px
+       content height. Streamlit's default stVerticalBlock is a
+       flex-direction:column container with no justify-content override,
+       so the grid (the only element left in normal flow — the drawer
+       button below is position:absolute) stacked at the box's top edge,
+       leaving the leftover ~24px as dead space below instead of split
+       above/below — reading as "content pinned high, not vertically
+       centered" in the row. justify-content:center on the column's main
+       axis (vertical, since flex-direction is column) fixes that; the
+       align-items:center rule for st.columns()-based rows elsewhere in
+       this file doesn't apply here since it targets the cross axis of a
+       row-direction flex, not this column-direction one. */
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
+  }
+  /* justify-content:center above centers the row's flex CHILD box, not the
+     grid's real rendered content — and that child (Streamlit's own
+     `stElementContainer` wrapper around the markdown grid, the only thing
+     left in normal flow once the drawer button below goes position:absolute)
+     is exactly the element hit by the height-underestimate bug documented
+     above: it reported 27px while the real grid inside it (overflow:visible)
+     rendered its full 43px, spilling out the bottom uncounted. Centering a
+     27px box in the 67px row put its top at +20px/bottom gap +4.5px once the
+     real 43px content is accounted for — visually "pinned high", not fixed
+     by justify-content alone. Giving the wrapper itself a min-height
+     matching the grid's real content height makes the flex box and the
+     visual content agree, so centering the box actually centers the
+     content (confirmed live via getBoundingClientRect: top/bottom gaps both
+     12px afterward, matching the row's own 12px vertical padding exactly). */
+  [class*="st-key-db_hold_"] > [data-testid="stElementContainer"]:not(:has(button)) {
+    min-height: 43px !important;
   }
   [class*="st-key-db_hold_"]:hover { background: var(--soft) !important; }
   /* The drawer-click button is invisible and absolutely positioned over the
