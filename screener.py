@@ -795,6 +795,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["Risk Score"] = df["_risk_raw"].round(1)
     df["MoS %"]      = (df["margin_of_safety"] * 100).round(1)
 
+    # Expose the veto flag publicly before dropping internal-only columns
+    df["veto"] = df["_hard_veto"]
+
     # Drop internal columns
     df = df.drop(columns=[c for c in df.columns if c.startswith("_")])
     df = df.sort_values("Value Score", ascending=False).reset_index(drop=True)

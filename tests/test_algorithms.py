@@ -280,10 +280,12 @@ class TestCompositeScore:
         veto = out[out["Ticker"] == "VETO"].iloc[0]
         assert veto["Value Score"] == 0.0
         assert veto["Decision"] == "Avoid"
+        assert bool(veto["veto"]) is True
 
         good = out[out["Ticker"] == "GOOD"].iloc[0]
         meh = out[out["Ticker"] == "MEH"].iloc[0]
         assert good["Value Score"] > meh["Value Score"]
+        assert bool(good["veto"]) is False
 
         # Fair value blend for GOOD: Graham + PE + analyst only
         gn, pe, an = 2250 ** 0.5, 75.0, 90.0
