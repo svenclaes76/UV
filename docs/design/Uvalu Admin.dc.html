@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<meta name="viewport" content="width=1440, initial-scale=1">
+<style>
+  :root{
+    --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
+    --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
+    --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
+    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
+    --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
+    --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
+    --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D;
+    --mono:"SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{color:var(--mint)}
+  ::placeholder{color:var(--faint)}
+  ::selection{background:rgba(29,214,164,0.28)}
+  table{border-collapse:collapse}
+</style>
+</helmet>
+
+<div data-screen-label="Admin portal" style="min-height:100vh;display:flex;background:var(--bg);color:var(--text);">
+
+  <!-- ══ Sidebar ══ -->
+  <div style="width:220px;flex:none;border-right:0.5px solid var(--line);background:var(--panel);display:flex;flex-direction:column;padding:20px 14px;">
+    <div style="display:flex;align-items:baseline;gap:9px;padding:0 8px 22px;">
+      <span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--teal)">u</span></span>
+      <span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);">admin</span>
+    </div>
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+      <div onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:var(--line-2);color:var(--text)">
+        <span dangerouslySetInnerHTML="{{ n.iconHtml }}"></span>{{ n.label }}
+      </div>
+    </sc-for>
+    <div style="margin-top:auto;">
+      <a href="Uvalu.dc.html" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--muted);" style-hover="background:var(--line-2);color:var(--text)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6l6 6M4 12h16"/></svg>Back to app</a>
+    </div>
+  </div>
+
+  <!-- ══ Main ══ -->
+  <div style="flex:1;min-width:0;">
+    <div style="height:58px;border-bottom:0.5px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 28px;background:var(--panel);position:sticky;top:0;z-index:10;">
+      <div style="font-size:15px;font-weight:500;letter-spacing:-0.01em;">{{ sectionTitle }}</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
+        <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--mono);">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>All systems operational</div>
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--navy);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--mint);">MK</div>
+      </div>
+    </div>
+
+    <div style="padding:28px 32px 60px;">
+
+      <!-- ══ USERS ══ -->
+      <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+            <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:16px 18px;">
+              <div style="font-size:11px;color:var(--faint);letter-spacing:0.04em;text-transform:uppercase;">{{ s.label }}</div>
+              <div style="font-size:22px;font-weight:500;margin-top:6px;font-family:var(--mono);">{{ s.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="position:relative;flex:1;max-width:320px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3 -4.3"/></svg>
+            <input value="{{ userQuery }}" onInput="{{ onUserQuery }}" placeholder="Search users…" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:8px 12px 8px 34px;color:var(--text);font-size:12.5px;outline:none;"/>
+          </div>
+          <div onClick="{{ openInvite }}" style="margin-left:auto;display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Invite user</div>
+        </div>
+
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+          <table style="width:100%;font-size:12.5px;">
+            <thead>
+              <tr style="border-bottom:0.5px solid var(--line);">
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">User</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Role</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Plan</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Status</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Last active</th>
+                <th style="padding:11px 16px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ users }}" as="u" hint-placeholder-count="6">
+                <tr style="border-bottom:0.5px solid var(--line-2);">
+                  <td style="padding:12px 16px;">
+                    <div style="font-weight:500;">{{ u.name }}</div>
+                    <div style="font-size:11px;color:var(--faint);font-family:var(--mono);margin-top:2px;">{{ u.email }}</div>
+                  </td>
+                  <td style="padding:12px 16px;">
+                    <select value="{{ u.role }}" onChange="{{ u.onRole }}" style="appearance:none;background:var(--panel-2);border:0.5px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;">
+                      <option value="Admin">Admin</option>
+                      <option value="Analyst">Analyst</option>
+                      <option value="Viewer">Viewer</option>
+                    </select>
+                  </td>
+                  <td style="padding:12px 16px;color:var(--muted);">{{ u.plan }}</td>
+                  <td style="padding:12px 16px;">
+                    <span style="{{ u.statusStyle }}">{{ u.status }}</span>
+                  </td>
+                  <td style="padding:12px 16px;color:var(--faint);font-family:var(--mono);font-size:11.5px;">{{ u.lastActive }}</td>
+                  <td style="padding:12px 16px;text-align:right;">
+                    <span onClick="{{ u.onToggle }}" style="{{ u.toggleStyle }}" style-hover="border-color:var(--teal);color:var(--text)">{{ u.toggleLabel }}</span>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ noUserResults }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center;padding:30px 0;color:var(--faint);font-size:13px;">No users match "{{ userQuery }}".</div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══ FEEDS ══ -->
+      <sc-if value="{{ isFeeds }}" hint-placeholder-val="{{ false }}">
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+          <sc-for list="{{ feeds }}" as="fd" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:16px;padding:16px 18px;border-bottom:0.5px solid var(--line-2);">
+              <div style="width:8px;height:8px;border-radius:50%;{{ fd.dotStyle }};flex:none;"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:500;">{{ fd.name }}</div>
+                <div style="font-size:11.5px;color:var(--faint);margin-top:2px;">{{ fd.desc }}</div>
+              </div>
+              <div style="font-size:11.5px;color:var(--faint);font-family:var(--mono);flex:none;">{{ fd.latency }}</div>
+              <span style="{{ fd.badgeStyle }};flex:none;">{{ fd.status }}</span>
+              <div onClick="{{ fd.onToggle }}" style="{{ fd.trackStyle }}" title="Enable / disable feed">
+                <div style="{{ fd.knobStyle }}"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ══ BACKUPS ══ -->
+      <sc-if value="{{ isBackups }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:12.5px;color:var(--muted);max-width:520px;">Backups run automatically every night at 03:00 CET and are retained for 30 days. You can also trigger a manual snapshot at any time.</div>
+          <div onClick="{{ createBackup }}" style="flex:none;display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;opacity:{{ creatingBackup }};" style-hover="background:var(--mint);color:var(--navy)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6a8 3 0 0 0 16 0v-6M4 12v6a8 3 0 0 0 16 0v-6"/></svg>{{ backupBtnLabel }}</div>
+        </div>
+
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+          <sc-for list="{{ backups }}" as="b" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:16px;padding:15px 18px;border-bottom:0.5px solid var(--line-2);">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:500;">{{ b.label }}</div>
+                <div style="font-size:11.5px;color:var(--faint);margin-top:2px;font-family:var(--mono);">{{ b.created }} · {{ b.size }}</div>
+              </div>
+              <span style="{{ b.typeStyle }};flex:none;">{{ b.type }}</span>
+              <a href="#" style="font-size:12px;flex:none;">Download ↓</a>
+              <div onClick="{{ b.onRestore }}" style="flex:none;padding:6px 12px;border-radius:6px;border:0.5px solid var(--line);color:var(--muted);font-size:12px;cursor:pointer;" style-hover="border-color:var(--down-txt);color:var(--down-txt)">Restore</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <!-- ══ Invite modal ══ -->
+  <div onClick="{{ invite.close }}" style="{{ invite.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:400px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">Invite user</div>
+        <div onClick="{{ invite.close }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">They'll receive an email invite to join this workspace.</div>
+
+      <div>
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Email</div>
+        <input value="{{ invite.email }}" onInput="{{ invite.onEmail }}" placeholder="name@company.com" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;outline:none;"/>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Role</div>
+        <select value="{{ invite.role }}" onChange="{{ invite.onRole }}" style="appearance:none;width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;">
+          <option value="Admin">Admin</option>
+          <option value="Analyst">Analyst</option>
+          <option value="Viewer">Viewer</option>
+        </select>
+      </div>
+
+      <sc-if value="{{ invite.hasErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:14px;">{{ invite.err }}</div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <div onClick="{{ invite.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+        <div onClick="{{ invite.submit }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Send invite</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Restore confirm modal ══ -->
+  <div onClick="{{ restore.close }}" style="{{ restore.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:420px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <sc-if value="{{ restore.done }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center;padding:20px 0 8px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--mint);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10"/></svg>
+          </div>
+          <div style="font-size:16px;font-weight:500;">Restore complete</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:6px;">The workspace has been restored to the "{{ restore.target }}" snapshot.</div>
+          <div onClick="{{ restore.close }}" style="margin-top:20px;display:inline-block;padding:9px 18px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Done</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ restore.showForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--down-bg);color:var(--down-txt);display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7 -3L13.7 3.9a2 2 0 0 0 -3.4 0z"/></svg>
+          </div>
+          <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">Restore workspace?</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);margin:14px 0 4px;line-height:1.6;">This replaces all current portfolio data, users and settings with the snapshot below. This cannot be undone.</div>
+        <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px;">
+          <div style="font-size:13px;font-weight:500;">{{ restore.target }}</div>
+          <div style="font-size:11.5px;color:var(--faint);font-family:var(--mono);margin-top:2px;">{{ restore.targetCreated }}</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <div onClick="{{ restore.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+          <div onClick="{{ restore.confirm }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--down-txt);color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;">{{ restore.confirmLabel }}</div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    section: 'users',
+    userQuery: '',
+    inviteOpen: false, inviteEmail: '', inviteRole: 'Analyst', inviteErr: '',
+    creatingBackup: false,
+    restoreOpen: false, restoreTarget: null, restoring: false, restoreDone: false,
+  };
+
+  constructor(props){
+    super(props);
+    this.navDefs = [
+      {key:'users',   label:'Users',      icon:'<circle cx="9" cy="8" r="3"/><path d="M2 20a7 7 0 0 1 14 0"/><path d="M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 6"/>'},
+      {key:'feeds',    label:'Data feeds', icon:'<path d="M4 12a8 8 0 0 1 16 0M4 12a8 8 0 0 0 16 0" transform="rotate(90 12 12)"/><circle cx="12" cy="12" r="1.5"/>'},
+      {key:'backups',  label:'Backups',    icon:'<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6a8 3 0 0 0 16 0v-6M4 12v6a8 3 0 0 0 16 0v-6"/>'},
+    ];
+    this.users = [
+      {id:1, name:'Marek Kowalski', email:'marek.k@uvalu.eu', role:'Admin',   plan:'Pro Plan', status:'Active',    lastActive:'2 min ago'},
+      {id:2, name:'Elena Novak',    email:'elena.n@uvalu.eu', role:'Analyst', plan:'Pro Plan', status:'Active',    lastActive:'1 hr ago'},
+      {id:3, name:'Jonas Weber',    email:'jonas.w@uvalu.eu', role:'Analyst', plan:'Pro Plan', status:'Active',    lastActive:'Yesterday'},
+      {id:4, name:'Priya Shah',     email:'priya.s@uvalu.eu', role:'Viewer',  plan:'Pro Plan', status:'Invited',   lastActive:'—'},
+      {id:5, name:'Tomás Rocha',    email:'tomas.r@uvalu.eu', role:'Viewer',  plan:'Pro Plan', status:'Suspended', lastActive:'12d ago'},
+      {id:6, name:'Ingrid Larsen',  email:'ingrid.l@uvalu.eu',role:'Analyst', plan:'Pro Plan', status:'Active',    lastActive:'3 hr ago'},
+    ];
+    this.feeds = [
+      {id:4, name:'Borsa Italiana',      desc:'Equities feed — MI tickers',      latency:'57ms', status:'Operational', ok:true,  enabled:true},
+      {id:7, name:'Euronext Amsterdam',  desc:'Equities feed — AS tickers',      latency:'54ms', status:'Operational', ok:true,  enabled:true},
+      {id:8, name:'Euronext Brussels',   desc:'Equities feed — BR tickers',      latency:'—',    status:'Disabled',    ok:false, enabled:false},
+      {id:1, name:'Euronext Paris',      desc:'Equities feed — PA tickers',      latency:'48ms', status:'Operational', ok:true,  enabled:true},
+      {id:3, name:'SIX Swiss Exchange',  desc:'Equities feed — SW tickers',      latency:'51ms', status:'Operational', ok:true,  enabled:true},
+      {id:2, name:'XETRA',               desc:'Equities feed — DE tickers',      latency:'42ms', status:'Operational', ok:true,  enabled:true},
+    ];
+    this.backups = [
+      {id:1, label:'Nightly automatic backup', type:'Scheduled', created:'09 Jul 2026, 03:00', size:'1.8 GB'},
+      {id:2, label:'Pre-migration snapshot',    type:'Manual',    created:'07 Jul 2026, 16:22', size:'1.7 GB'},
+      {id:3, label:'Nightly automatic backup',  type:'Scheduled', created:'08 Jul 2026, 03:00', size:'1.8 GB'},
+      {id:4, label:'Nightly automatic backup',  type:'Scheduled', created:'07 Jul 2026, 03:00', size:'1.7 GB'},
+      {id:5, label:'Nightly automatic backup',  type:'Scheduled', created:'06 Jul 2026, 03:00', size:'1.7 GB'},
+    ];
+  }
+
+  goSection(k){ this.setState({section:k}); }
+  onUserQuery(e){ this.setState({userQuery:e.target.value}); }
+  setUserRole(id, role){ const u=this.users.find(x=>x.id===id); if(u) u.role=role; this.forceUpdate(); }
+  toggleUserStatus(id){
+    const u=this.users.find(x=>x.id===id); if(!u) return;
+    u.status = u.status==='Suspended' ? 'Active' : 'Suspended';
+    this.forceUpdate();
+  }
+
+  toggleFeed(id){
+    const f=this.feeds.find(x=>x.id===id); if(!f) return;
+    f.enabled=!f.enabled;
+    f.status = f.enabled ? (f.ok?'Operational':'Degraded') : 'Disabled';
+    this.forceUpdate();
+  }
+  openInvite(){ this.setState({inviteOpen:true, inviteEmail:'', inviteRole:'Analyst', inviteErr:''}); }
+  closeInvite(){ this.setState({inviteOpen:false}); }
+  setInvite(k,v){ this.setState({[k]:v}); }
+  submitInvite(){
+    const S=this.state;
+    const email=S.inviteEmail.trim();
+    if(!email || !email.includes('@')){ this.setState({inviteErr:'Enter a valid email address.'}); return; }
+    if(this.users.some(u=>u.email.toLowerCase()===email.toLowerCase())){ this.setState({inviteErr:'That user is already a member.'}); return; }
+    this.users.push({id:Date.now(), name:email.split('@')[0], email, role:S.inviteRole, plan:'Pro Plan', status:'Invited', lastActive:'—'});
+    this.setState({inviteOpen:false});
+  }
+
+  createBackup(){
+    if(this.state.creatingBackup) return;
+    this.setState({creatingBackup:true});
+    setTimeout(()=>{
+      const now=new Date();
+      const stamp=now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+', '+now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      this.backups.unshift({id:Date.now(), label:'Manual snapshot', type:'Manual', created:stamp, size:'1.8 GB'});
+      this.setState({creatingBackup:false});
+    }, 1200);
+  }
+  openRestore(id){ this.setState({restoreOpen:true, restoreTarget:id, restoreDone:false}); }
+  closeRestore(){ this.setState({restoreOpen:false}); }
+  confirmRestore(){
+    if(this.state.restoring) return;
+    this.setState({restoring:true});
+    setTimeout(()=>{ this.setState({restoring:false, restoreDone:true}); }, 1400);
+  }
+
+  statusStyle(status){
+    const base='display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;';
+    if(status==='Active') return base+'background:var(--up-bg);color:var(--up-txt);';
+    if(status==='Invited') return base+'background:var(--amber-bg);color:var(--amber-txt);';
+    return base+'background:var(--down-bg);color:var(--down-txt);';
+  }
+
+  renderVals(){
+    const q = this.state.userQuery.trim().toLowerCase();
+    const filteredUsers = this.users.filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+    const titles = {users:'User management', feeds:'Data feeds', backups:'Backups & restore'};
+
+    return {
+      nav: this.navDefs.map(n=>({
+        label:n.label,
+        iconHtml:{__html:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right:10px;vertical-align:-3px;">'+n.icon+'</svg>'},
+        onClick:()=>this.goSection(n.key),
+        style:'display:flex;align-items:center;padding:9px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;margin-bottom:2px;'+(this.state.section===n.key?'background:var(--soft);color:var(--mint);':'color:var(--muted);'),
+      })),
+      sectionTitle: titles[this.state.section],
+      isUsers: this.state.section==='users',
+      isFeeds: this.state.section==='feeds',
+      isBackups: this.state.section==='backups',
+      stopProp: (e)=>e.stopPropagation(),
+
+      stats: [
+        {label:'Total users', value: String(this.users.length)},
+        {label:'Active now', value: String(this.users.filter(u=>u.status==='Active').length)},
+        {label:'Pending invites', value: String(this.users.filter(u=>u.status==='Invited').length)},
+        {label:'Seats used', value: this.users.length+' / 25'},
+      ],
+
+      userQuery: this.state.userQuery,
+      onUserQuery: (e)=>this.onUserQuery(e),
+      openInvite: ()=>this.openInvite(),
+      noUserResults: filteredUsers.length===0,
+      users: filteredUsers.map(u=>({
+        name:u.name, email:u.email, role:u.role, plan:u.plan, status:u.status, lastActive:u.lastActive,
+        onRole:(e)=>this.setUserRole(u.id, e.target.value),
+        statusStyle:this.statusStyle(u.status),
+        onToggle:()=>this.toggleUserStatus(u.id),
+        toggleLabel: u.status==='Suspended' ? 'Reactivate' : 'Suspend',
+        toggleStyle:'display:inline-block;padding:5px 11px;border-radius:6px;border:0.5px solid var(--line);font-size:11.5px;color:var(--muted);cursor:pointer;',
+      })),
+
+      feeds: this.feeds.map(f=>({
+        name:f.name, desc:f.desc, latency:f.latency, status:f.status,
+        dotStyle: !f.enabled ? 'background:var(--faint);' : f.ok ? 'background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);' : 'background:var(--down-txt);box-shadow:0 0 0 3px rgba(163,45,45,0.18);',
+        badgeStyle:'display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;'+(!f.enabled?'background:var(--panel-2);color:var(--faint);':f.ok?'background:var(--up-bg);color:var(--up-txt);':'background:var(--amber-bg);color:var(--amber-txt);'),
+        trackStyle:'width:38px;height:22px;border-radius:11px;position:relative;cursor:pointer;transition:background .15s ease;flex:none;'+(f.enabled?'background:var(--teal);':'background:var(--panel-2);border:0.5px solid var(--line);'),
+        knobStyle:'position:absolute;top:2px;left:'+(f.enabled?'18px':'2px')+';width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s ease;box-shadow:0 1px 2px rgba(0,0,0,0.3);',
+        onToggle:()=>this.toggleFeed(f.id),
+      })),
+
+      creatingBackup: this.state.creatingBackup,
+      backupBtnLabel: this.state.creatingBackup ? 'Creating…' : 'Create backup now',
+      createBackup: ()=>this.createBackup(),
+      backups: this.backups.map(b=>({
+        label:b.label, type:b.type, created:b.created, size:b.size,
+        typeStyle:'display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;'+(b.type==='Manual'?'background:var(--soft);color:var(--mint);':'background:var(--panel-2);color:var(--faint);'),
+        onRestore:()=>this.openRestore(b.id),
+      })),
+
+      restore: {
+        open:this.state.restoreOpen,
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.restoreOpen?'':'display:none;'),
+        close:()=>this.closeRestore(),
+        target:(this.backups.find(b=>b.id===this.state.restoreTarget)||{}).label,
+        targetCreated:(this.backups.find(b=>b.id===this.state.restoreTarget)||{}).created,
+        showForm: !this.state.restoreDone,
+        done:this.state.restoreDone,
+        confirmLabel: this.state.restoring ? 'Restoring…' : 'Restore workspace',
+        confirm:()=>this.confirmRestore(),
+      },
+
+      invite: {
+        close:()=>this.closeInvite(),
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.inviteOpen?'':'display:none;'),
+        email:this.state.inviteEmail, onEmail:(e)=>this.setInvite('inviteEmail', e.target.value),
+        role:this.state.inviteRole, onRole:(e)=>this.setInvite('inviteRole', e.target.value),
+        err:this.state.inviteErr, hasErr:!!this.state.inviteErr,
+        submit:()=>this.submitInvite(),
+      },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

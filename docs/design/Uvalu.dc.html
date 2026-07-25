@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1440, initial-scale=1">
+<style>
+  :root{
+    --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
+    --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
+    --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
+    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
+    --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
+    --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
+    --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
+    --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+    --mono:"SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  [data-theme="light"]{
+    --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
+    --line:rgba(13,31,60,0.10); --line-2:rgba(13,31,60,0.06);
+    --text:#0D1F3C; --muted:#5F5E5A; --faint:rgba(13,31,60,0.38);
+    --up-bg:rgba(15,110,86,0.11); --up-txt:#0F6E56;
+    --down-bg:rgba(163,45,45,0.11); --down-txt:#A32D2D;
+    --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
+    --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{color:var(--mint)}
+  ::selection{background:rgba(29,214,164,0.28)}
+  @keyframes uvFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" data-screen-label="Dashboard" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--sans);">
+
+  <!-- ══ APP (authed) ══ -->
+  <sc-if value="{{ authed }}" hint-placeholder-val="{{ true }}">
+  <div onClick="{{ closeUserMenu }}" style="{{ userMenuScrimStyle }}"></div>
+
+  <!-- ══ Add position modal ══ -->
+  <div onClick="{{ ap.close }}" style="{{ ap.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:420px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">{{ ap.title }}</div>
+        <div onClick="{{ ap.close }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">{{ ap.subtitle }}</div>
+
+      <div>
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Ticker</div>
+        <input value="{{ ap.ticker }}" onInput="{{ ap.onTicker }}" disabled="{{ ap.tickerDisabled }}" placeholder="TTE.PA" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;opacity:{{ ap.tickerOpacity }};"/>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Company name</div>
+        <input value="{{ ap.name }}" onInput="{{ ap.onName }}" disabled="{{ ap.nameDisabled }}" placeholder="TotalEnergies" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;opacity:{{ ap.tickerOpacity }};"/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Shares</div>
+          <input value="{{ ap.shares }}" onInput="{{ ap.onShares }}" placeholder="100" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Total cost</div>
+          <input value="{{ ap.cost }}" onInput="{{ ap.onCost }}" placeholder="5210.00" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Price (opt.)</div>
+          <input value="{{ ap.price }}" onInput="{{ ap.onPrice }}" placeholder="61.24" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+      </div>
+
+      <sc-if value="{{ ap.hasErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:14px;">{{ ap.err }}</div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <sc-if value="{{ ap.isEdit }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ ap.delete }}" style="padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--down-txt);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--down-txt);background:var(--down-bg)">Delete</div>
+        </sc-if>
+        <div onClick="{{ ap.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+        <div onClick="{{ ap.submit }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">{{ ap.submitLabel }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Add/Edit closed trade modal ══ -->
+  <div onClick="{{ cp.close }}" style="{{ cp.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:420px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">{{ cp.title }}</div>
+        <div onClick="{{ cp.close }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">{{ cp.subtitle }}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Ticker</div>
+          <input value="{{ cp.ticker }}" onInput="{{ cp.onTicker }}" disabled="{{ cp.tickerDisabled }}" placeholder="SAP.DE" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;opacity:{{ cp.tickerOpacity }};"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Sector</div>
+          <select value="{{ cp.sector }}" onChange="{{ cp.onSector }}" style="appearance:none;width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;">
+            <sc-for list="{{ cp.sectorOpts }}" as="o" hint-placeholder-count="9">
+              <option value="{{ o }}">{{ o }}</option>
+            </sc-for>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Company name</div>
+        <input value="{{ cp.name }}" onInput="{{ cp.onName }}" placeholder="SAP" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;"/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Shares</div>
+          <input value="{{ cp.shares }}" onInput="{{ cp.onShares }}" placeholder="60" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Buy price</div>
+          <input value="{{ cp.buy }}" onInput="{{ cp.onBuy }}" placeholder="118.00" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Sell price</div>
+          <input value="{{ cp.sell }}" onInput="{{ cp.onSell }}" placeholder="196.40" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Closed date</div>
+        <input value="{{ cp.closed }}" onInput="{{ cp.onClosed }}" placeholder="Mar 2026" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;"/>
+      </div>
+
+      <sc-if value="{{ cp.hasErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:14px;">{{ cp.err }}</div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <sc-if value="{{ cp.isEdit }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ cp.delete }}" style="padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--down-txt);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--down-txt);background:var(--down-bg)">Delete</div>
+        </sc-if>
+        <div onClick="{{ cp.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+        <div onClick="{{ cp.submit }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">{{ cp.submitLabel }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Add/Edit dividend modal ══ -->
+  <div onClick="{{ dv.close }}" style="{{ dv.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:380px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">{{ dv.title }}</div>
+        <div onClick="{{ dv.close }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">{{ dv.subtitle }}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Ticker</div>
+          <input value="{{ dv.ticker }}" onInput="{{ dv.onTicker }}" placeholder="ALV.DE" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Amount</div>
+          <input value="{{ dv.amount }}" onInput="{{ dv.onAmount }}" placeholder="1076.40" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Company name</div>
+        <input value="{{ dv.name }}" onInput="{{ dv.onName }}" placeholder="Allianz" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;"/>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Date</div>
+        <input value="{{ dv.date }}" onInput="{{ dv.onDate }}" placeholder="12 May 2026" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--sans);outline:none;"/>
+      </div>
+
+      <sc-if value="{{ dv.hasErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:14px;">{{ dv.err }}</div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <sc-if value="{{ dv.isEdit }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ dv.delete }}" style="padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--down-txt);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--down-txt);background:var(--down-bg)">Delete</div>
+        </sc-if>
+        <div onClick="{{ dv.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+        <div onClick="{{ dv.submit }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">{{ dv.submitLabel }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Sell position modal ══ -->
+  <div onClick="{{ sell.close }}" style="{{ sell.scrimStyle }}">
+    <div onClick="{{ stopProp }}" style="width:380px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">Sell {{ sell.ticker }}</div>
+        <div onClick="{{ sell.close }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">Close all or part of this position. Realised P&amp;L is recorded on the Portfolio page.</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Shares to sell</div>
+          <input value="{{ sell.shares }}" onInput="{{ sell.onShares }}" placeholder="100" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+        <div>
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Sell price</div>
+          <input value="{{ sell.price }}" onInput="{{ sell.onPrice }}" placeholder="61.24" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+        </div>
+      </div>
+
+      <sc-if value="{{ sell.hasErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:14px;">{{ sell.err }}</div>
+      </sc-if>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <div onClick="{{ sell.close }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Cancel</div>
+        <div onClick="{{ sell.submit }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--down-txt);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="opacity:0.88">Confirm sale</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Top bar ══ -->
+  <div style="height:58px;border-bottom:0.5px solid var(--line);display:flex;align-items:center;gap:28px;padding:0 28px;background:var(--panel);position:sticky;top:0;z-index:55;">
+    <div style="display:flex;align-items:baseline;gap:9px;">
+      <span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--teal)">u</span></span>
+      <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);">value engine</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:2px;margin-left:8px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+        <div onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:var(--line-2);color:var(--text)">
+          <span>{{ n.icon }}</span>{{ n.label }}</div>
+      </sc-for>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--mono);">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>{{ asOf }}</div>
+      <div onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;border-radius:8px;border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);" style-hover="color:var(--text);border-color:var(--teal)">
+        <span>{{ themeIcon }}</span></div>
+      <div style="position:relative;">
+        <div onClick="{{ toggleUserMenu }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 6px 3px 3px;border-radius:9px;" style-hover="background:var(--line-2)">
+          <div style="width:30px;height:30px;border-radius:8px;background:var(--navy);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--mint);flex:none;">MK</div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6 -6"/></svg>
+        </div>
+        <div style="{{ userMenuStyle }}">
+          <div style="padding:11px 12px 12px;border-bottom:0.5px solid var(--line-2);margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:500;">Marek Kowalski</div>
+            <div style="font-size:11px;color:var(--faint);font-family:var(--mono);margin-top:2px;">marek.k@uvalu.eu</div>
+            <div style="display:inline-flex;margin-top:8px;font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">PRO PLAN</div>
+          </div>
+          <div onClick="{{ goSettings }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--text);cursor:pointer;" style-hover="background:var(--line-2)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06 .06a2 2 0 1 1 -2.83 2.83l-.06 -.06a1.65 1.65 0 0 0 -1.82 -.33a1.65 1.65 0 0 0 -1 1.51V21a2 2 0 0 1 -4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0 -1.82 .33l-.06 .06a2 2 0 1 1 -2.83 -2.83l.06 -.06a1.65 1.65 0 0 0 .33 -1.82a1.65 1.65 0 0 0 -1.51 -1H3a2 2 0 0 1 0 -4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0 -.33 -1.82l-.06 -.06a2 2 0 1 1 2.83 -2.83l.06 .06a1.65 1.65 0 0 0 1.82 .33H9a1.65 1.65 0 0 0 1 -1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51a1.65 1.65 0 0 0 1.82 -.33l.06 -.06a2 2 0 1 1 2.83 2.83l-.06 .06a1.65 1.65 0 0 0 -.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0 -1.51 1z"/></svg>Settings</div>
+          <div onClick="{{ goHelp }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--text);cursor:pointer;" style-hover="background:var(--line-2)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>Help &amp; docs</div>
+          <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+            <a href="Uvalu Admin.dc.html" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--text);cursor:pointer;" style-hover="background:var(--line-2)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5 -3.5 8 -8 9c-4.5 -1 -8 -4 -8 -9v-5z"/></svg>Admin portal</a>
+          </sc-if>
+          <div style="height:0.5px;background:var(--line-2);margin:6px 4px;"></div>
+          <div onClick="{{ onLogout }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--down-txt);cursor:pointer;" style-hover="background:var(--down-bg)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"/><path d="M9 12h12l-3 -3M18 15l3 -3"/></svg>Sign out</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DASHBOARD Body ══ -->
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+  <div style="max-width:1440px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <!-- Page heading -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio overview</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">11 positions across 6 European exchanges · valued against a six-model fair-value estimate.</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>Refresh</div>
+        <div onClick="{{ openAddPosition }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Buy</div>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);position:relative;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
+            <span>{{ k.icon }}</span>{{ k.label }}</div>
+          <div style="font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;">{{ k.value }}</div>
+          <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
+            <span style="{{ k.deltaStyle }}">{{ k.delta }}</span>
+            <span style="font-size:11px;color:var(--faint);">{{ k.sub }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Chart + conviction row -->
+    <div style="display:grid;grid-template-columns:1.62fr 1fr;gap:18px;align-items:stretch;">
+
+      <!-- Value chart -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 18px 12px;box-shadow:var(--shadow);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px;">
+          <div>
+            <div style="font-size:15px;font-weight:500;">Portfolio value over time</div>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-top:7px;">
+              <span style="font-family:var(--mono);font-size:24px;font-weight:500;letter-spacing:-0.02em;">{{ chart.lastValue }}</span>
+              <span style="{{ chart.rangeDeltaStyle }}">{{ chart.rangeDelta }}</span>
+              <span style="font-size:11.5px;color:var(--faint);">{{ chart.rangeLabel }}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;">
+            <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="4">
+              <div onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+        <svg viewBox="0 0 1000 250" preserveAspectRatio="none" style="width:100%;height:250px;display:block;overflow:visible;">
+          <defs>
+            <linearGradient id="uvArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--mint)" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="var(--mint)" stop-opacity="0.01"/>
+            </linearGradient>
+          </defs>
+          <sc-for list="{{ chart.gridLines }}" as="g" hint-placeholder-count="4">
+            <line x1="0" x2="1000" y1="{{ g.y }}" y2="{{ g.y }}" stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          </sc-for>
+          <path d="{{ chart.area }}" fill="url(#uvArea)"/>
+          <path d="{{ chart.investedLine }}" fill="none" stroke="var(--axis)" stroke-width="1.4" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" opacity="0.7"/>
+          <sc-if value="{{ benches.spx }}" hint-placeholder-val="{{ false }}">
+            <path d="{{ chart.spxLine }}" fill="none" stroke="#5B8FA8" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+          </sc-if>
+          <sc-if value="{{ benches.stoxx }}" hint-placeholder-val="{{ false }}">
+            <path d="{{ chart.stoxxLine }}" fill="none" stroke="#8BA888" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>
+          </sc-if>
+          <path d="{{ chart.line }}" fill="none" stroke="var(--mint)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;">
+          <div style="display:flex;gap:0;justify-content:space-between;flex:1;padding-right:12px;">
+            <sc-for list="{{ chart.xTicks }}" as="t" hint-placeholder-count="6">
+              <span style="font-size:10px;color:var(--faint);font-family:var(--mono);">{{ t }}</span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;margin-top:12px;padding-top:12px;border-top:0.5px solid var(--line-2);">
+          <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);"><span style="width:14px;height:2px;background:var(--mint);border-radius:2px;"></span>Portfolio value</div>
+          <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);"><span style="width:14px;height:0;border-top:1.4px dashed var(--axis);"></span>Amount invested</div>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <div onClick="{{ toggleSpx }}" style="{{ spxChipStyle }}"><span style="width:12px;height:0;border-top:1.5px dashed #5B8FA8;"></span>S&amp;P 500</div>
+            <div onClick="{{ toggleStoxx }}" style="{{ stoxxChipStyle }}"><span style="width:12px;height:0;border-top:1.5px dashed #8BA888;"></span>Euro Stoxx 50</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conviction & risk -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>
+          <div style="font-size:11px;color:var(--teal);cursor:pointer;">Full analysis →</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
+          <div style="position:relative;width:118px;height:118px;flex:none;">
+            <svg width="118" height="118" viewBox="0 0 118 118" style="display:block;">
+              <circle cx="59" cy="59" r="48" fill="none" stroke="var(--line)" stroke-width="9"/>
+              <circle cx="59" cy="59" r="48" fill="none" stroke="var(--mint)" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="{{ conviction.dash }}" transform="rotate(-90 59 59)"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <span style="font-family:var(--mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{{ conviction.score }}</span>
+              <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite conviction</div>
+            <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{{ conviction.label }}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings. 1 position under hard veto.</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+            <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
+            <span style="font-family:var(--mono);font-size:13px;font-weight:500;"><span style="color:var(--cau,#C98A3A)">{{ risk.score }}</span> · {{ risk.label }}</span>
+          </div>
+          <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 33%,#C98A3A 33%,#C98A3A 66%,#A32D2D 66%,#A32D2D 100%);position:relative;opacity:0.85;">
+            <div style="{{ risk.markerStyle }}"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
+        </div>
+        <div style="margin-top:auto;padding-top:15px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">Beta</div><div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-top:3px;">{{ risk.beta }}</div></div>
+          <div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">Volatility</div><div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-top:3px;">{{ risk.vol }}</div></div>
+          <div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">Max drawdown</div><div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-top:3px;color:var(--down-txt);">{{ risk.dd }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Holdings — fair value ladder -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 14px;border-bottom:0.5px solid var(--line-2);">
+        <div>
+          <div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Each track runs from €0 to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--faint);">
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);"></span>Undervalued</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);"></span>Near fair</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;"></span>Overvalued</div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);"></span>Fair value</div>
+        </div>
+      </div>
+      <!-- column header -->
+      <div style="display:grid;grid-template-columns:210px 78px 1fr 82px 66px 108px 78px;gap:14px;padding:9px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Position</div><div>Signal</div><div>Fair-value ladder</div><div style="text-align:right;">Upside</div><div style="text-align:right;">Weight</div><div style="text-align:right;">Value</div><div style="text-align:right;">Today</div>
+      </div>
+      <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="11">
+        <div onClick="{{ h.onClick }}" style="{{ h.rowStyle }}" style-hover="background:var(--soft)">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ h.ticker }}</span><span style="font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);border-radius:5px;padding:1px 6px;white-space:nowrap;">{{ h.sector }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.name }}</div>
+          </div>
+          <div><span style="{{ h.badgeStyle }}">{{ h.signal }}</span></div>
+          <div style="min-width:0;">
+            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;margin-bottom:5px;"><span style="color:var(--text);">{{ h.priceStr }}</span><span style="color:var(--faint);">fv {{ h.fairStr }}</span></div>
+            <div style="position:relative;height:7px;border-radius:4px;background:var(--panel-2);">
+              <div style="{{ h.fillStyle }}"></div>
+              <div style="{{ h.markerStyle }}"></div>
+            </div>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;color:{{ h.upsideColor }};">{{ h.upside }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.weight }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;">{{ h.value }}</div>
+          <div style="text-align:right;"><span style="{{ h.dayStyle }}">{{ h.day }}</span></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Bottom row -->
+    <div style="display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:18px;align-items:stretch;">
+
+      <!-- Sector allocation donut -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:14px;">Sector allocation</div>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <div style="position:relative;width:132px;height:132px;flex:none;">
+            <svg width="132" height="132" viewBox="0 0 132 132" style="display:block;">
+              <sc-for list="{{ donut }}" as="d" hint-placeholder-count="8">
+                <circle cx="66" cy="66" r="52" fill="none" stroke="{{ d.color }}" stroke-width="17"
+                  stroke-dasharray="{{ d.dash }}" stroke-dashoffset="{{ d.offset }}" transform="rotate(-90 66 66)"/>
+              </sc-for>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <span style="font-size:10px;letter-spacing:0.06em;color:var(--muted);">TOTAL</span>
+              <span style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);margin-top:2px;">{{ totalShort }}</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+            <sc-for list="{{ donut }}" as="d" hint-placeholder-count="8">
+              <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;">
+                <span style="width:8px;height:8px;border-radius:2px;background:{{ d.color }};flex:none;"></span>
+                <span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">{{ d.label }}</span>
+                <span style="font-family:var(--mono);color:var(--text);">{{ d.pct }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming dividends -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:15px;font-weight:500;">Upcoming dividends</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--mint);">{{ fwdIncomeShort }} / yr</span>
+        </div>
+        <sc-for list="{{ dividends }}" as="d" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--line-2);">
+            <div style="width:38px;flex:none;text-align:center;"><div style="font-family:var(--mono);font-size:15px;font-weight:500;line-height:1;">{{ d.day }}</div><div style="font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">{{ d.mon }}</div></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ d.name }}</div><div style="font-size:10.5px;color:var(--faint);font-family:var(--mono);">ex-date · {{ d.yield }} yield</div></div>
+            <div style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--mint);">{{ d.amount }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Top movers -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:12px;">Top movers today</div>
+        <sc-for list="{{ movers }}" as="m" hint-placeholder-count="6">
+          <div onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="opacity:0.75">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:500;width:64px;flex:none;">{{ m.ticker }}</span>
+            <span style="flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.name }}</span>
+            <div style="width:52px;height:22px;flex:none;position:relative;"><div style="{{ m.barStyle }}"></div></div>
+            <span style="{{ m.dayStyle }}">{{ m.day }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ SCREENER Body ══ -->
+  <sc-if value="{{ isScreen }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Screener" style="max-width:1440px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <!-- heading -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">{{ scr.count }} of {{ scr.total }} European stocks pass your filters · ranked by composite signal score.</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div onClick="{{ scr.reset }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>Reset filters</div>
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v11m-4 -4l4 4l4 -4M5 20h14"/></svg>Export list</div>
+      </div>
+    </div>
+
+    <!-- filter bar -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;">
+      <!-- search -->
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Search</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:8px 11px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input value="{{ scr.query }}" onInput="{{ scr.onQuery }}" placeholder="Ticker or company…" style="border:none;background:transparent;outline:none;color:var(--text);font-size:13px;font-family:var(--sans);width:100%;"/>
+        </div>
+      </div>
+      <!-- signal filter -->
+      <div>
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Signal</div>
+        <div style="display:flex;gap:4px;background:var(--panel-2);border-radius:8px;padding:3px;">
+          <sc-for list="{{ scr.signalChips }}" as="c" hint-placeholder-count="4">
+            <div onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- sector -->
+      <div>
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Sector</div>
+        <select value="{{ scr.sector }}" onChange="{{ scr.onSector }}" style="appearance:none;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 30px 9px 11px;color:var(--text);font-size:12.5px;font-family:var(--sans);cursor:pointer;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22><path d=%22M6 9l6 6l6 -6%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+          <sc-for list="{{ scr.sectorOpts }}" as="o" hint-placeholder-count="6">
+            <option value="{{ o }}">{{ o }}</option>
+          </sc-for>
+        </select>
+      </div>
+      <!-- market -->
+      <div>
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Market</div>
+        <select value="{{ scr.market }}" onChange="{{ scr.onMarket }}" style="appearance:none;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 30px 9px 11px;color:var(--text);font-size:12.5px;font-family:var(--sans);cursor:pointer;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22><path d=%22M6 9l6 6l6 -6%22/></svg>');background-repeat:no-repeat;background-position:right 10px center;">
+          <sc-for list="{{ scr.marketOpts }}" as="o" hint-placeholder-count="8">
+            <option value="{{ o }}">{{ o }}</option>
+          </sc-for>
+        </select>
+      </div>
+      <!-- min score -->
+      <div style="min-width:170px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;"><span>Min score</span><span style="font-family:var(--mono);color:var(--mint);">{{ scr.minScore }}</span></div>
+        <input type="range" min="0" max="90" step="5" value="{{ scr.minScore }}" onInput="{{ scr.onMinScore }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+      </div>
+      <!-- min MoS -->
+      <div style="min-width:170px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;"><span>Min margin of safety</span><span style="font-family:var(--mono);color:var(--mint);">{{ scr.minMosLabel }}</span></div>
+        <input type="range" min="-20" max="50" step="5" value="{{ scr.minMos }}" onInput="{{ scr.onMinMos }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+      </div>
+      <!-- held toggle -->
+      <div onClick="{{ scr.toggleHeld }}" style="{{ scr.heldStyle }}">
+        <span style="{{ scr.heldDot }}"></span>Hide positions I own</div>
+    </div>
+
+    <!-- results table -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="display:grid;grid-template-columns:20px 32px 200px 80px minmax(90px,1fr) 88px 78px 70px 70px;gap:11px;padding:11px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div></div>
+        <div style="text-align:right;">#</div>
+        <sc-for list="{{ scr.cols }}" as="c" hint-placeholder-count="7">
+          <div onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}<span>{{ c.arrow }}</span></div>
+        </sc-for>
+      </div>
+      <sc-for list="{{ scr.rows }}" as="r" hint-placeholder-count="12">
+        <div onClick="{{ r.onClick }}" style="display:grid;grid-template-columns:20px 32px 200px 80px minmax(90px,1fr) 88px 78px 70px 70px;gap:11px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="background:var(--soft)">
+          <div onClick="{{ r.onWatch }}" style="{{ r.starStyle }}" title="Add to watchlist">★</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--faint);">{{ r.rank }}</div>
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ r.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ r.exch }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</div>
+          </div>
+          <div><span style="{{ r.badgeStyle }}">{{ r.signal }}</span></div>
+          <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+            <div style="flex:1;height:6px;border-radius:4px;background:var(--panel-2);position:relative;min-width:60px;"><div style="{{ r.scoreFill }}"></div></div>
+            <span style="font-family:var(--mono);font-size:13px;font-weight:500;width:34px;text-align:right;color:{{ r.scoreColor }};">{{ r.scoreStr }}</span>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;color:{{ r.mosColor }};">{{ r.mos }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ r.price }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ r.pe }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ r.dy }}</div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ scr.empty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:48px 20px;text-align:center;color:var(--faint);font-size:13px;">No stocks match these filters. Try loosening the score or margin-of-safety threshold.</div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ WATCHLIST Body ══ -->
+  <sc-if value="{{ isWatchlist }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Watchlist" style="max-width:1180px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <!-- heading -->
+    <div>
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Watchlist</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;">Track tickers you don't hold yet. Add from the screener with the star, or type a symbol directly below.</div>
+    </div>
+
+    <!-- add form -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="min-width:140px;">
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Ticker</div>
+        <input value="{{ watch.tickerInput }}" onInput="{{ watch.onTickerInput }}" placeholder="TTE.PA" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-family:var(--mono);outline:none;"/>
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Company name (optional)</div>
+        <input value="{{ watch.nameInput }}" onInput="{{ watch.onNameInput }}" placeholder="TotalEnergies" style="width:100%;box-sizing:border-box;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;outline:none;"/>
+      </div>
+      <div onClick="{{ watch.add }}" style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add ticker</div>
+    </div>
+    <sc-if value="{{ watch.hasErr }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:12px;color:var(--down-txt);margin-top:-8px;">{{ watch.err }}</div>
+    </sc-if>
+
+    <!-- results table -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="display:grid;grid-template-columns:220px 84px 1fr 92px 82px 74px 74px 32px;gap:14px;padding:11px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Company</div>
+        <div>Signal</div>
+        <div>Composite score</div>
+        <div style="text-align:right;">Upside</div>
+        <div style="text-align:right;">Price</div>
+        <div style="text-align:right;">P/E</div>
+        <div style="text-align:right;">Yield</div>
+        <div></div>
+      </div>
+      <sc-for list="{{ watch.rows }}" as="w" hint-placeholder-count="4">
+        <div onClick="{{ w.onClick }}" style="display:grid;grid-template-columns:220px 84px 1fr 92px 82px 74px 74px 32px;gap:14px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="background:var(--soft)">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ w.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ w.exch }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.name }}</div>
+          </div>
+          <div><span style="{{ w.badgeStyle }}">{{ w.signal }}</span></div>
+          <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+            <div style="flex:1;height:6px;border-radius:4px;background:var(--panel-2);position:relative;min-width:60px;"><div style="{{ w.scoreFill }}"></div></div>
+            <span style="font-family:var(--mono);font-size:13px;font-weight:500;width:34px;text-align:right;color:{{ w.scoreColor }};">{{ w.scoreStr }}</span>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;color:{{ w.mosColor }};">{{ w.mos }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ w.price }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ w.pe }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ w.dy }}</div>
+          <div onClick="{{ w.onRemove }}" style="text-align:right;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;" style-hover="color:var(--down-txt)">×</div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ watch.empty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:48px 20px;text-align:center;color:var(--faint);font-size:13px;">Your watchlist is empty. Star a ticker in the screener or add one above.</div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ PORTFOLIO Body ══ -->
+  <sc-if value="{{ isPort }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Portfolio" style="max-width:1440px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+  <sc-if value="{{ isPortOverview }}" hint-placeholder-val="{{ true }}">
+    <!-- heading -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">Cost basis, market value and realised results across open and closed positions.</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div onClick="{{ exportCsv }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v11m-4 -4l4 4l4 -4M5 20h14"/></svg>Export CSV</div>
+        <div onClick="{{ openAddPosition }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Buy</div>
+      </div>
+    </div>
+
+    <!-- summary cards -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;">
+      <sc-for list="{{ port.cards }}" as="c" hint-placeholder-count="5">
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
+          <div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">{{ c.label }}</div>
+          <div style="font-family:var(--mono);font-size:23px;font-weight:500;letter-spacing:-0.02em;margin-top:9px;line-height:1;">{{ c.value }}</div>
+          <div style="margin-top:9px;display:flex;align-items:center;gap:8px;">
+            <span style="{{ c.deltaStyle }}">{{ c.delta }}</span>
+            <span style="font-size:11px;color:var(--faint);">{{ c.sub }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- open holdings -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:16px 20px 14px;border-bottom:0.5px solid var(--line-2);font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:space-between;">Open positions
+        <span onClick="{{ openOpenFull }}" style="cursor:pointer;color:var(--faint);display:flex;align-items:center;" style-hover="color:var(--teal)" title="Open full page">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7 -7"/></svg></span>
+      </div>
+      <div style="display:grid;grid-template-columns:200px 68px 88px 88px 108px 118px 132px 96px;gap:14px;padding:10px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Position</div><div style="text-align:right;">Shares</div><div style="text-align:right;">Avg cost</div><div style="text-align:right;">Price</div><div style="text-align:right;">Cost basis</div><div style="text-align:right;">Market value</div><div style="text-align:right;">Unrealised P&L</div><div>Weight</div>
+      </div>
+      <sc-for list="{{ port.holdings }}" as="h" hint-placeholder-count="11">
+        <div onClick="{{ h.onClick }}" style="display:grid;grid-template-columns:200px 68px 88px 88px 108px 118px 132px 96px;gap:14px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="background:var(--soft)">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ h.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ h.exch }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.name }}</div>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.shares }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.avgCost }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;">{{ h.price }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.cost }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;">{{ h.value }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ h.gainColor }};">{{ h.gain }}<div style="font-size:10.5px;font-weight:400;">{{ h.gainPct }}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:6px;border-radius:3px;background:var(--panel-2);"><div style="{{ h.weightBar }}"></div></div><span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:34px;text-align:right;">{{ h.weight }}</span></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- lower: closed + dividends -->
+    <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:18px;align-items:start;">
+      <!-- closed positions -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:16px 20px 14px;border-bottom:0.5px solid var(--line-2);font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:space-between;">
+          <span>Closed positions <span style="font-size:12px;font-weight:400;color:var(--muted);">· realised</span></span>
+          <span onClick="{{ openClosedFull }}" style="cursor:pointer;color:var(--faint);display:flex;align-items:center;" style-hover="color:var(--teal)" title="Open full page">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7 -7"/></svg></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 56px 74px 74px 110px;gap:12px;padding:10px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+          <div>Position</div><div style="text-align:right;">Shares</div><div style="text-align:right;">Buy</div><div style="text-align:right;">Sell</div><div style="text-align:right;">Realised P&L</div>
+        </div>
+        <sc-for list="{{ port.sold }}" as="s" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:1fr 56px 74px 74px 110px;gap:12px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13px;font-weight:500;">{{ s.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ s.exch }}</span></div>
+              <div style="font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }} · closed {{ s.closed }}</div>
+            </div>
+            <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.shares }}</div>
+            <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.buy }}</div>
+            <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.sell }}</div>
+            <div style="text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ s.plColor }};">{{ s.pl }}<div style="font-size:10.5px;font-weight:400;">{{ s.plPct }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+      <!-- dividends received -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:16px 20px 14px;border-bottom:0.5px solid var(--line-2);font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:space-between;">Dividends received
+          <span onClick="{{ openDividendsFull }}" style="cursor:pointer;color:var(--faint);display:flex;align-items:center;" style-hover="color:var(--teal)" title="Open full page">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7 -7"/></svg></span>
+        </div>
+        <sc-for list="{{ port.divs }}" as="d" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div style="flex:1;min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ d.name }}</div><div style="font-size:10.5px;color:var(--faint);font-family:var(--mono);">{{ d.ticker }} · {{ d.date }}</div></div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:500;color:var(--mint);">{{ d.amount }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══ Open positions (full page) ══ -->
+  <sc-if value="{{ isPortOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ backToPortfolio }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--muted);font-size:12.5px;width:fit-content;" style-hover="color:var(--teal)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6l6 6M4 12h16"/></svg>Back to Positions</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Open positions</div>
+      <div onClick="{{ openAddPosition }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Buy</div>
+    </div>
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="display:grid;grid-template-columns:240px 68px 88px 88px 108px 118px 132px 96px 32px;gap:14px;padding:10px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Position</div><div style="text-align:right;">Shares</div><div style="text-align:right;">Avg cost</div><div style="text-align:right;">Price</div><div style="text-align:right;">Cost basis</div><div style="text-align:right;">Market value</div><div style="text-align:right;">Unrealised P&L</div><div>Weight</div><div></div>
+      </div>
+      <sc-for list="{{ port.holdings }}" as="h" hint-placeholder-count="11">
+        <div onClick="{{ h.onClick }}" style="display:grid;grid-template-columns:240px 68px 88px 88px 108px 118px 132px 96px 32px;gap:14px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="background:var(--soft)">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ h.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ h.exch }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.name }}</div>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.shares }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.avgCost }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;">{{ h.price }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.cost }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;">{{ h.value }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ h.gainColor }};">{{ h.gain }}<div style="font-size:10.5px;font-weight:400;">{{ h.gainPct }}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:6px;border-radius:3px;background:var(--panel-2);"><div style="{{ h.weightBar }}"></div></div><span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:34px;text-align:right;">{{ h.weight }}</span></div>
+          <div onClick="{{ h.onEdit }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)" title="Edit position">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/></svg></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- ══ Closed positions (full page) ══ -->
+  <sc-if value="{{ isPortClosed }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ backToPortfolio }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--muted);font-size:12.5px;width:fit-content;" style-hover="color:var(--teal)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6l6 6M4 12h16"/></svg>Back to Positions</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;max-width:760px;">
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Closed positions <span style="font-size:14px;font-weight:400;color:var(--muted);">· realised</span></div>
+      <div onClick="{{ openAddClosed }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add trade</div>
+    </div>
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;max-width:760px;">
+      <div style="display:grid;grid-template-columns:1fr 56px 74px 74px 110px 32px;gap:12px;padding:10px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Position</div><div style="text-align:right;">Shares</div><div style="text-align:right;">Buy</div><div style="text-align:right;">Sell</div><div style="text-align:right;">Realised P&L</div><div></div>
+      </div>
+      <sc-for list="{{ port.sold }}" as="s" hint-placeholder-count="4">
+        <div style="display:grid;grid-template-columns:1fr 56px 74px 74px 110px 32px;gap:12px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13px;font-weight:500;">{{ s.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ s.exch }}</span></div>
+            <div style="font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }} · closed {{ s.closed }}</div>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.shares }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.buy }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted);">{{ s.sell }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ s.plColor }};">{{ s.pl }}<div style="font-size:10.5px;font-weight:400;">{{ s.plPct }}</div></div>
+          <div onClick="{{ s.onEdit }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)" title="Edit trade">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/></svg></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- ══ Dividends received (full page) ══ -->
+  <sc-if value="{{ isPortDividends }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ backToPortfolio }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--muted);font-size:12.5px;width:fit-content;" style-hover="color:var(--teal)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6l6 6M4 12h16"/></svg>Back to Positions</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;max-width:480px;">
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Dividends received</div>
+      <div onClick="{{ openAddDividend }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add dividend</div>
+    </div>
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;max-width:480px;">
+      <sc-for list="{{ port.divs }}" as="d" hint-placeholder-count="6">
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ d.name }}</div><div style="font-size:11px;color:var(--faint);font-family:var(--mono);">{{ d.ticker }} · {{ d.date }}</div></div>
+          <div style="font-family:var(--mono);font-size:13.5px;font-weight:500;color:var(--mint);">{{ d.amount }}</div>
+          <div onClick="{{ d.onEdit }}" style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);flex:none;" style-hover="background:var(--line-2);color:var(--text)" title="Edit dividend">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/></svg></div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ══ RISK Body ══ -->
+  <sc-if value="{{ isRisk }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Risk" style="max-width:1440px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <!-- heading -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">Factor exposures, concentration and per-holding risk contribution across the portfolio.</div>
+      </div>
+    </div>
+
+    <!-- score + metrics -->
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:stretch;">
+      <!-- gauge -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div style="position:relative;width:132px;height:132px;">
+          <svg width="132" height="132" viewBox="0 0 118 118" style="display:block;">
+            <circle cx="59" cy="59" r="48" fill="none" stroke="var(--line)" stroke-width="10"/>
+            <circle cx="59" cy="59" r="48" fill="none" stroke="#C98A3A" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ riskVM.dash }}" transform="rotate(-90 59 59)"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <span style="font-family:var(--mono);font-size:34px;font-weight:500;line-height:1;">{{ riskVM.score }}</span>
+            <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
+          </div>
+        </div>
+        <div style="font-size:16px;font-weight:500;margin-top:14px;color:#C98A3A;">{{ riskVM.label }} risk</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
+      </div>
+      <!-- metric grid -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:6px 4px;box-shadow:var(--shadow);display:grid;grid-template-columns:repeat(3,1fr);">
+        <sc-for list="{{ riskVM.metrics }}" as="m" hint-placeholder-count="6">
+          <div style="padding:18px 20px;">
+            <div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{{ m.label }}</div>
+            <div style="font-family:var(--mono);font-size:24px;font-weight:500;margin-top:9px;line-height:1;">{{ m.value }}</div>
+            <div style="font-size:11px;color:var(--faint);margin-top:7px;">{{ m.sub }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- factors + concentration -->
+    <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:start;">
+      <!-- factor bars -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:16px;">Risk factor breakdown</div>
+        <sc-for list="{{ riskVM.factors }}" as="f" hint-placeholder-count="6">
+          <div style="margin-bottom:15px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">
+              <span style="font-size:12.5px;font-weight:500;">{{ f.label }}</span>
+              <span style="font-size:11px;font-weight:500;color:{{ f.rateColor }};font-family:var(--mono);">{{ f.rate }} · {{ f.val }}</span>
+            </div>
+            <div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;"><div style="{{ f.bar }}"></div></div>
+            <div style="font-size:11px;color:var(--faint);margin-top:6px;">{{ f.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <!-- concentration -->
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:16px;">Concentration</div>
+        <sc-for list="{{ riskVM.conc }}" as="c" hint-placeholder-count="3">
+          <div style="margin-bottom:16px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">
+              <span style="font-size:12.5px;color:var(--muted);">{{ c.label }}</span>
+              <span style="font-family:var(--mono);font-size:13px;font-weight:500;">{{ c.value }}</span>
+            </div>
+            <div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;"><div style="{{ c.bar }}"></div></div>
+          </div>
+        </sc-for>
+        <div style="margin-top:4px;padding:12px 14px;border-radius:10px;background:var(--navy);display:flex;gap:10px;align-items:flex-start;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>
+          <div style="font-size:11.5px;color:rgba(245,247,250,0.8);line-height:1.5;">All positions sit within the 12% single-name and 30% sector limits. Telefónica remains under a leverage veto.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- per-holding risk contribution -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:16px 20px 14px;border-bottom:0.5px solid var(--line-2);font-size:15px;font-weight:500;">Risk contribution by holding</div>
+      <div style="display:grid;grid-template-columns:210px 78px 68px 68px 1fr 120px;gap:14px;padding:10px 20px;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);border-bottom:0.5px solid var(--line-2);">
+        <div>Position</div><div style="text-align:right;">Weight</div><div style="text-align:right;">Beta</div><div style="text-align:right;">Vol</div><div>Contribution to risk</div><div>Flag</div>
+      </div>
+      <sc-for list="{{ riskVM.holdings }}" as="h" hint-placeholder-count="11">
+        <div onClick="{{ h.onClick }}" style="display:grid;grid-template-columns:210px 78px 68px 68px 1fr 120px;gap:14px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;" style-hover="background:var(--soft)">
+          <div style="min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--mono);font-size:13.5px;font-weight:500;">{{ h.ticker }}</span><span style="font-size:9px;color:var(--faint);font-family:var(--mono);">{{ h.exch }}</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.name }}</div>
+          </div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.weight }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;">{{ h.beta }}</div>
+          <div style="text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--muted);">{{ h.vol }}</div>
+          <div style="display:flex;align-items:center;gap:11px;"><div style="flex:1;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;"><div style="{{ h.contribBar }}"></div></div><span style="font-family:var(--mono);font-size:12px;width:44px;text-align:right;">{{ h.contrib }}</span></div>
+          <div style="font-size:11px;font-weight:500;color:{{ h.flagColor }};">{{ h.flag }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ FULL ANALYSIS Body ══ -->
+  <sc-if value="{{ isAnalysis }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Analysis" style="max-width:1180px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+    <sc-if value="{{ analysis.ticker }}" hint-placeholder-val="{{ true }}">
+    <!-- back + header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+      <div>
+        <div onClick="{{ closeAnalysis }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:10px;" style-hover="color:var(--text)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"/></svg>Back to dashboard</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{{ analysis.ticker }}</span>
+          <span style="{{ analysis.badgeStyle }}">{{ analysis.signal }}</span>
+        </div>
+        <div style="font-size:13.5px;color:var(--muted);margin-top:5px;">{{ analysis.name }} · {{ analysis.sector }} · {{ analysis.exch }}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">Composite score</div>
+        <div style="font-family:var(--mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">{{ analysis.scoreStr }}</div>
+        <div style="font-size:12px;color:var(--mint);margin-top:5px;">{{ analysis.scoreLabel }}</div>
+      </div>
+    </div>
+
+    <!-- price/fair/mos hero + held -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);"><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Current price</div><div style="font-family:var(--mono);font-size:23px;font-weight:500;margin-top:8px;">{{ analysis.priceStr }}</div></div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);"><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite fair value</div><div style="font-family:var(--mono);font-size:23px;font-weight:500;margin-top:8px;color:var(--mint);">{{ analysis.fairStr }}</div></div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);"><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Margin of safety</div><div style="font-family:var(--mono);font-size:23px;font-weight:500;margin-top:8px;color:{{ analysis.upsideColor }};">{{ analysis.upside }}</div></div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);"><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Your position</div><div style="font-size:13px;font-weight:500;margin-top:10px;line-height:1.4;">{{ analysis.heldStr }}</div></div>
+    </div>
+
+    <!-- veto banner -->
+    <sc-if value="{{ analysis.hasVeto }}" hint-placeholder-val="{{ false }}">
+      <div style="background:var(--navy);border-radius:12px;padding:15px 18px;display:flex;gap:12px;align-items:flex-start;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>
+        <div><div style="font-size:13px;font-weight:500;color:#fff;">Hard veto active</div><div style="font-size:12.5px;color:rgba(245,247,250,0.72);margin-top:3px;line-height:1.5;">{{ analysis.vetoNote }}</div></div>
+      </div>
+    </sc-if>
+
+    <!-- price chart -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 18px 14px;box-shadow:var(--shadow);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div style="font-size:15px;font-weight:500;">Price vs composite fair value · 1Y</div>
+        <div style="display:flex;gap:16px;font-size:11.5px;color:var(--muted);"><div style="display:flex;align-items:center;gap:7px;"><span style="width:14px;height:2px;background:var(--mint);border-radius:2px;"></span>Price</div><div style="display:flex;align-items:center;gap:7px;"><span style="width:14px;height:0;border-top:1.4px dashed var(--axis);"></span>Fair value</div></div>
+      </div>
+      <svg viewBox="0 0 1000 200" preserveAspectRatio="none" style="width:100%;height:200px;display:block;overflow:visible;">
+        <defs><linearGradient id="aArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--mint)" stop-opacity="0.20"/><stop offset="100%" stop-color="var(--mint)" stop-opacity="0.01"/></linearGradient></defs>
+        <line x1="0" x2="1000" y1="{{ analysis.fairY }}" y2="{{ analysis.fairY }}" stroke="var(--axis)" stroke-width="1.4" stroke-dasharray="4 5" vector-effect="non-scaling-stroke" opacity="0.8"/>
+        <path d="{{ analysis.chartArea }}" fill="url(#aArea)"/>
+        <path d="{{ analysis.chartPath }}" fill="none" stroke="var(--mint)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </div>
+
+    <!-- scores + six model -->
+    <div style="display:grid;grid-template-columns:1fr 1.25fr;gap:18px;align-items:start;">
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:16px;">Signal sub-scores</div>
+        <sc-for list="{{ analysis.subScores }}" as="s" hint-placeholder-count="5">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12.5px;">{{ s.label }}</span><span style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ s.color }};">{{ s.val }}</span></div>
+            <div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;"><div style="{{ s.bar }}"></div></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:12px;">Six-model fair value</div>
+        <sc-for list="{{ analysis.models }}" as="m" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">
+            <span style="flex:1;font-size:12.5px;color:var(--muted);">{{ m.label }}</span>
+            <div style="width:110px;height:5px;border-radius:3px;background:var(--panel-2);position:relative;flex:none;"><div style="{{ m.barStyle }}"></div></div>
+            <span style="font-family:var(--mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{{ m.value }}</span>
+            <span style="font-family:var(--mono);font-size:11px;width:48px;text-align:right;color:{{ m.deltaColor }};">{{ m.delta }}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;"><span style="flex:1;font-size:12.5px;font-weight:500;">Composite fair value</span><span style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--mint);">{{ analysis.fairStr }}</span></div>
+      </div>
+    </div>
+
+    <!-- financials + veto checks -->
+    <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:18px;align-items:start;">
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:6px;">Financials &amp; valuation</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;">
+          <sc-for list="{{ analysis.fins }}" as="f" hint-placeholder-count="9">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">{{ f.label }}</span><span style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ f.warnColor }};">{{ f.value }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+        <div style="font-size:15px;font-weight:500;margin-bottom:12px;">Hard-veto checks</div>
+        <sc-for list="{{ analysis.checks }}" as="c" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">
+            <span style="{{ c.iconStyle }}">{{ c.icon }}</span>
+            <span style="flex:1;font-size:12.5px;">{{ c.label }}</span>
+            <span style="font-family:var(--mono);font-size:11.5px;color:var(--muted);">{{ c.note }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- thesis -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);">
+      <div style="font-size:15px;font-weight:500;margin-bottom:10px;">Value thesis</div>
+      <div style="font-size:13.5px;color:var(--muted);line-height:1.65;text-wrap:pretty;">{{ analysis.thesis }}</div>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ══ SETTINGS Body ══ -->
+  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Settings" style="max-width:920px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <div>
+      <div onClick="{{ settings.close }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:10px;" style-hover="color:var(--text)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"/></svg>Back</div>
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Settings</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;">Display preferences, screening thresholds and alerts. Changes apply immediately.</div>
+    </div>
+
+    <!-- Display -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Display</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+        <div><div style="font-size:13.5px;font-weight:500;">Theme</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Deep-navy dark or surface-white light.</div></div>
+        <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;"><sc-for list="{{ settings.themeSeg.opts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.onClick }}" style="{{ o.style }};text-transform:capitalize;">{{ o.label }}</div></sc-for></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+        <div><div style="font-size:13.5px;font-weight:500;">Display currency</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Reporting currency for values and P&L.</div></div>
+        <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;"><sc-for list="{{ settings.currency.opts }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+        <div><div style="font-size:13.5px;font-weight:500;">Number format</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Decimal and thousands separators.</div></div>
+        <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;"><sc-for list="{{ settings.numFmt.opts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.onClick }}" style="{{ o.style }};font-family:var(--mono);">{{ o.label }}</div></sc-for></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+        <div><div style="font-size:13.5px;font-weight:500;">Table density</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Row height for holdings and screener.</div></div>
+        <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;"><sc-for list="{{ settings.density.opts }}" as="o" hint-placeholder-count="2"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for></div>
+      </div>
+    </div>
+
+    <!-- Screening rules -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Screening &amp; veto rules</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;padding:6px 20px 16px;">
+        <div style="padding-top:14px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Max debt / equity</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ settings.deMax.label }}</span></div>
+          <input type="range" min="{{ settings.deMax.min }}" max="{{ settings.deMax.max }}" step="{{ settings.deMax.step }}" value="{{ settings.deMax.value }}" onInput="{{ settings.deMax.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;">Hard veto above this leverage.</div>
+        </div>
+        <div style="padding-top:14px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Max dividend payout</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ settings.payoutMax.label }}</span></div>
+          <input type="range" min="{{ settings.payoutMax.min }}" max="{{ settings.payoutMax.max }}" step="{{ settings.payoutMax.step }}" value="{{ settings.payoutMax.value }}" onInput="{{ settings.payoutMax.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;">Flag dividends above this payout.</div>
+        </div>
+        <div style="padding-top:16px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Target margin of safety</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ settings.minMos.label }}</span></div>
+          <input type="range" min="{{ settings.minMos.min }}" max="{{ settings.minMos.max }}" step="{{ settings.minMos.step }}" value="{{ settings.minMos.value }}" onInput="{{ settings.minMos.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;">Discount to fair value for a BUY.</div>
+        </div>
+        <div style="padding-top:16px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">BUY score threshold</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ settings.scoreBuy.label }}</span></div>
+          <input type="range" min="{{ settings.scoreBuy.min }}" max="{{ settings.scoreBuy.max }}" step="{{ settings.scoreBuy.step }}" value="{{ settings.scoreBuy.value }}" onInput="{{ settings.scoreBuy.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;">Composite score for a BUY signal.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-top:0.5px solid var(--line-2);">
+        <div><div style="font-size:13.5px;font-weight:500;">Benchmark — Euro Stoxx 50</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Overlay on the portfolio value chart.</div></div>
+        <div onClick="{{ settings.exStoxx.onClick }}" style="{{ settings.exStoxx.trackStyle }}"><div style="{{ settings.exStoxx.knobStyle }}"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-top:0.5px solid var(--line-2);">
+        <div><div style="font-size:13.5px;font-weight:500;">Include US-listed names</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Extend the screener beyond European exchanges.</div></div>
+        <div onClick="{{ settings.exUS.onClick }}" style="{{ settings.exUS.trackStyle }}"><div style="{{ settings.exUS.knobStyle }}"></div></div>
+      </div>
+    </div>
+
+    <!-- Alerts + data -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Alerts &amp; data</div>
+      <sc-for list="{{ notifRows }}" as="n" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">{{ n.title }}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ n.desc }}</div></div>
+          <div onClick="{{ n.onClick }}" style="{{ n.trackStyle }}"><div style="{{ n.knobStyle }}"></div></div>
+        </div>
+      </sc-for>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+        <div><div style="font-size:13.5px;font-weight:500;">Price refresh interval</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">How often quotes update during market hours.</div></div>
+        <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;"><sc-for list="{{ settings.refresh.opts }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for></div>
+      </div>
+    </div>
+
+    <!-- account footer -->
+    <div style="display:flex;align-items:center;gap:12px;padding:4px 2px;">
+      <div style="width:38px;height:38px;border-radius:9px;background:var(--navy);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--mint);flex:none;">MK</div>
+      <div style="flex:1;"><div style="font-size:13.5px;font-weight:500;">Marek Kowalski</div><div style="font-size:12px;color:var(--faint);font-family:var(--mono);">marek.k@uvalu.eu · Pro plan</div></div>
+      <div style="padding:8px 14px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--down-txt);color:var(--down-txt)">Sign out</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ HELP Body ══ -->
+  <sc-if value="{{ isHelp }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Help" style="max-width:920px;margin:0 auto;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px;animation:uvFade .25s ease;">
+
+    <div>
+      <div onClick="{{ closeHelp }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:10px;" style-hover="color:var(--text)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"/></svg>Back</div>
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Help &amp; docs</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;">How Uvalu scores value, builds fair value and applies veto discipline.</div>
+    </div>
+
+    <!-- signal legend -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Signal legend</div>
+      <sc-for list="{{ help.signals }}" as="s" hint-placeholder-count="4">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div style="width:74px;flex:none;padding-top:1px;"><span style="{{ s.badge }}">{{ s.sig }}</span></div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.55;text-wrap:pretty;">{{ s.desc }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- six models -->
+    <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">The six fair-value models</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <sc-for list="{{ help.models }}" as="m" hint-placeholder-count="6">
+          <div style="padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div style="font-size:13px;font-weight:500;margin-bottom:5px;">{{ m.name }}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.55;text-wrap:pretty;">{{ m.desc }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- veto + faq row -->
+    <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:18px;align-items:start;">
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Hard-veto rules</div>
+        <div style="padding:8px 20px 14px;">
+          <sc-for list="{{ help.vetoes }}" as="v" hint-placeholder-count="5">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--down-txt)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px;"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              <span style="font-size:12.5px;color:var(--muted);line-height:1.5;">{{ v }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Frequently asked</div>
+        <sc-for list="{{ help.faqs }}" as="f" hint-placeholder-count="5">
+          <div style="padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;">{{ f.q }}</div>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">{{ f.a }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- contact -->
+    <div style="background:var(--navy);border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:16px;">
+      <div style="flex:1;"><div style="font-size:14px;font-weight:500;color:#F5F7FA;">Still stuck?</div><div style="font-size:12.5px;color:rgba(245,247,250,0.6);margin-top:3px;">Reach the Uvalu team — we usually reply within a business day.</div></div>
+      <div style="padding:9px 16px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Contact support</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ Detail drawer ══ -->
+  <div onClick="{{ closeDrawer }}" style="{{ overlayStyle }}"></div>
+  <div style="{{ drawerStyle }}">
+    <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="height:100%;display:flex;flex-direction:column;">
+        <div style="padding:20px 22px 16px;border-bottom:0.5px solid var(--line);">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:var(--mono);font-size:18px;font-weight:500;">{{ sel.ticker }}</span><span style="{{ sel.badgeStyle }}">{{ sel.signal }}</span></div>
+              <div style="font-size:13px;color:var(--muted);margin-top:4px;">{{ sel.name }} · {{ sel.sector }}</div>
+            </div>
+            <div onClick="{{ closeDrawer }}" style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);" style-hover="color:var(--text);border-color:var(--teal)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:18px 22px 26px;">
+          <!-- price vs fair hero -->
+          <div style="display:flex;gap:12px;">
+            <div style="flex:1;background:var(--panel-2);border-radius:10px;padding:13px 14px;">
+              <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Current price</div>
+              <div style="font-family:var(--mono);font-size:21px;font-weight:500;margin-top:5px;">{{ sel.priceStr }}</div>
+            </div>
+            <div style="flex:1;background:var(--panel-2);border-radius:10px;padding:13px 14px;">
+              <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Fair value</div>
+              <div style="font-family:var(--mono);font-size:21px;font-weight:500;margin-top:5px;color:var(--mint);">{{ sel.fairStr }}</div>
+            </div>
+            <div style="flex:1;background:var(--panel-2);border-radius:10px;padding:13px 14px;">
+              <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Margin of safety</div>
+              <div style="font-family:var(--mono);font-size:21px;font-weight:500;margin-top:5px;color:{{ sel.upsideColor }};">{{ sel.upside }}</div>
+            </div>
+          </div>
+
+          <sc-if value="{{ sel.hasVeto }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>
+              <div><div style="font-size:12.5px;font-weight:500;color:#fff;">Hard veto triggered</div><div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{{ sel.vetoNote }}</div></div>
+            </div>
+          </sc-if>
+
+          <!-- six-model fair value -->
+          <div style="margin-top:20px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Six-model fair value</div>
+          <sc-for list="{{ sel.models }}" as="m" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">
+              <span style="flex:1;font-size:12.5px;color:var(--muted);">{{ m.label }}</span>
+              <div style="width:96px;height:5px;border-radius:3px;background:var(--panel-2);position:relative;flex:none;"><div style="{{ m.barStyle }}"></div></div>
+              <span style="font-family:var(--mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{{ m.value }}</span>
+              <span style="font-family:var(--mono);font-size:11px;width:52px;text-align:right;color:{{ m.deltaColor }};">{{ m.delta }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">
+            <span style="flex:1;font-size:12.5px;font-weight:500;">Composite fair value</span>
+            <span style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--mint);">{{ sel.fairStr }}</span>
+          </div>
+
+          <!-- key metrics -->
+          <div style="margin-top:20px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px;">Position &amp; metrics</div>
+          <sc-for list="{{ sel.rows }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--line-2);">
+              <span style="font-size:12.5px;color:var(--muted);">{{ r.label }}</span>
+              <span style="font-family:var(--mono);font-size:12.5px;font-weight:500;color:{{ r.color }};">{{ r.value }}</span>
+            </div>
+          </sc-for>
+
+          <div style="display:flex;gap:10px;margin-top:20px;">
+            <div onClick="{{ openAnalysis }}" style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">View full analysis</div>
+            <sc-if value="{{ sel.held }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ editSelected }}" style="flex:none;padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Edit</div>
+              <div onClick="{{ sellSelected }}" style="flex:none;padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--down-txt);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--down-txt);background:rgba(163,45,45,0.08)">Sell</div>
+            </sc-if>
+            <sc-if value="{{ sel.notHeld }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ addSelectedPosition }}" style="flex:none;padding:10px 14px;border-radius:8px;border:0.5px solid var(--line);color:var(--mint);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--mint);background:rgba(29,214,164,0.08)">Buy</div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ══ LOGIN ══ -->
+  <sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;align-items:stretch;">
+    <!-- left brand panel -->
+    <div style="flex:1;background:var(--navy);display:flex;flex-direction:column;justify-content:space-between;padding:48px 52px;position:relative;overflow:hidden;">
+      <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
+        <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
+        <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
+      </div>
+      <div style="position:relative;z-index:2;">
+        <div style="font-size:30px;font-weight:500;letter-spacing:-0.02em;color:#F5F7FA;line-height:1.25;max-width:420px;text-wrap:balance;">Find value before the market does.</div>
+        <div style="font-size:14px;color:rgba(245,247,250,0.55);margin-top:16px;line-height:1.6;max-width:400px;">A six-model fair-value engine across 6 European exchanges — margin of safety, conviction scoring and hard-veto discipline in one workspace.</div>
+        <div style="display:flex;gap:28px;margin-top:32px;">
+          <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">6</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">valuation models</div></div>
+          <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">6</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">EU exchanges</div></div>
+          <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">24/7</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">signal monitoring</div></div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:rgba(245,247,250,0.35);position:relative;z-index:2;">© 2026 Uvalu · Not investment advice.</div>
+      <div style="position:absolute;right:-120px;bottom:-120px;width:420px;height:420px;border-radius:50%;border:1px solid rgba(29,214,164,0.12);"></div>
+      <div style="position:absolute;right:-40px;bottom:-40px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(29,214,164,0.1);"></div>
+    </div>
+    <!-- right form -->
+    <div style="width:480px;max-width:46vw;background:var(--panel);display:flex;flex-direction:column;justify-content:center;padding:48px 56px;border-left:0.5px solid var(--line);">
+      <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Sign in</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">Welcome back. Enter your credentials to continue.</div>
+
+      <div style="margin-top:28px;">
+        <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Email</div>
+        <div style="display:flex;align-items:center;gap:9px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"/><path d="M3 7l9 6l9 -6"/></svg>
+          <input value="{{ loginEmail }}" onInput="{{ onLoginEmail }}" onKeyDown="{{ onLoginKey }}" placeholder="you@company.com" style="border:none;background:transparent;outline:none;color:var(--text);font-size:14px;font-family:var(--sans);width:100%;"/>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);">Password</span><span style="font-size:11.5px;color:var(--teal);cursor:pointer;">Forgot?</span></div>
+        <div style="display:flex;align-items:center;gap:9px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11v-4a4 4 0 0 1 8 0v4"/></svg>
+          <input type="password" value="{{ loginPw }}" onInput="{{ onLoginPw }}" onKeyDown="{{ onLoginKey }}" placeholder="••••••••" style="border:none;background:transparent;outline:none;color:var(--text);font-size:14px;font-family:var(--sans);width:100%;"/>
+        </div>
+      </div>
+
+      <sc-if value="{{ loginErr }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12px;color:var(--down-txt);margin-top:12px;">{{ loginErr }}</div>
+      </sc-if>
+
+      <div onClick="{{ onLogin }}" style="margin-top:24px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Sign in</div>
+      <div style="display:flex;align-items:center;gap:12px;margin:22px 0;"><div style="flex:1;height:0.5px;background:var(--line);"></div><span style="font-size:11px;color:var(--faint);">or</span><div style="flex:1;height:0.5px;background:var(--line);"></div></div>
+      <div onClick="{{ onLogin }}" style="text-align:center;padding:11px;border-radius:9px;border:0.5px solid var(--line);font-size:13px;color:var(--text);cursor:pointer;" style-hover="border-color:var(--teal)">Continue with SSO</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">New to Uvalu? <span style="color:var(--teal);cursor:pointer;">Request access</span></div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1180},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;startRange&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1M&quot;,&quot;3M&quot;,&quot;1Y&quot;,&quot;ALL&quot;],&quot;default&quot;:&quot;1Y&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;showBenchmarks&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Display&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'dark', selected: null, range: '1Y', spx: false, stoxx: false };
+
+  constructor(props){
+    super(props);
+    this.state = { ...this.state,
+      theme: this.props.defaultTheme || 'dark',
+      range: this.props.startRange || '1Y',
+      spx: !!this.props.showBenchmarks, stoxx: !!this.props.showBenchmarks,
+      page: 'dashboard',
+      scrQuery:'', scrSignals:[], scrSector:'All sectors', scrMarket:'All markets',
+      scrMinScore:0, scrMinMos:-20, scrHideHeld:false, scrSort:'score', scrDir:'desc',
+      prevPage:'dashboard',
+      watchlist:[], watchTickerInput:'', watchNameInput:'', watchErr:'',
+      setCurrency:'EUR', setNumFmt:'1.234,56', setDensity:'Comfortable',
+      setDeMax:2.0, setPayoutMax:90, setMinMos:15, setScoreBuy:75,
+      setExUS:false, setExStoxx:true, setNotifSignal:true, setNotifDiv:true, setNotifVeto:true, setNotifWeekly:false,
+      setRefresh:'15 min',
+      authed:true, userMenuOpen:false, loginEmail:'marek.k@uvalu.eu', loginPw:'', loginErr:'',
+      apOpen:false, apMode:'add', apEditTicker:null, apTicker:'', apName:'', apSector:'Energy', apShares:'', apCost:'', apPrice:'', apErr:'',
+      sellOpen:false, sellTicker:null, sellShares:'', sellPrice:'', sellErr:'',
+      cpOpen:false, cpMode:'add', cpEditId:null, cpTicker:'', cpName:'', cpSector:'Energy', cpShares:'', cpBuy:'', cpSell:'', cpClosed:'', cpErr:'',
+      dvOpen:false, dvMode:'add', dvEditId:null, dvTicker:'', dvName:'', dvAmount:'', dvDate:'', dvErr:'',
+      portSection:'overview' };
+    this.raw = [
+      {t:'TTE.PA', n:'TotalEnergies', s:'Energy',            sh:420,  ac:52.10, px:61.24, d:+0.82, fv:74.00, sig:'BUY',     sc:82,  pe:8.1,  pef:11.4, dy:5.1},
+      {t:'SAN.PA', n:'Sanofi',        s:'Healthcare',        sh:260,  ac:88.40, px:96.15, d:-0.34, fv:118.00,sig:'BUY',     sc:79,  pe:11.2, pef:14.0, dy:3.8},
+      {t:'ALV.DE', n:'Allianz',       s:'Financials',        sh:78,   ac:214.00,px:289.60,d:+1.12, fv:320.00,sig:'MONITOR', sc:71,  pe:11.8, pef:12.9, dy:4.6},
+      {t:'ROG.SW', n:'Roche Holding', s:'Healthcare',        sh:95,   ac:268.00,px:249.10,d:+0.44, fv:305.00,sig:'BUY',     sc:80,  pe:13.1, pef:16.5, dy:4.0},
+      {t:'BMW.DE', n:'BMW',           s:'Consumer disc.',    sh:240,  ac:82.50, px:79.32, d:-1.24, fv:105.00,sig:'BUY',     sc:84,  pe:5.4,  pef:7.8,  dy:6.8},
+      {t:'NESN.SW',n:'Nestlé',        s:'Consumer staples',  sh:210,  ac:104.20,px:78.94, d:-0.58, fv:92.00, sig:'MONITOR', sc:66,  pe:17.4, pef:19.0, dy:3.4},
+      {t:'ULVR.L', n:'Unilever',      s:'Consumer staples',  sh:380,  ac:41.20, px:47.86, d:+0.21, fv:52.00, sig:'MONITOR', sc:65,  pe:16.9, pef:18.2, dy:3.6},
+      {t:'ENEL.MI',n:'Enel',          s:'Utilities',         sh:2600, ac:6.10,  px:6.98,  d:+0.67, fv:8.20,  sig:'MONITOR', sc:69,  pe:10.4, pef:12.2, dy:6.4},
+      {t:'DG.PA',  n:'Vinci',         s:'Industrials',       sh:175,  ac:96.00, px:108.40,d:+0.38, fv:122.00,sig:'MONITOR', sc:70,  pe:12.6, pef:14.1, dy:3.9},
+      {t:'MUV2.DE',n:'Munich Re',     s:'Financials',        sh:42,   ac:320.00,px:452.80,d:+0.94, fv:470.00,sig:'MONITOR', sc:64,  pe:10.2, pef:10.6, dy:3.5},
+      {t:'TEF.MC', n:'Telefónica',    s:'Comm. services',    sh:4200, ac:3.80,  px:4.02,  d:-0.99, fv:3.60,  sig:'VETO',    sc:null,pe:14.8, pef:13.2, dy:7.9,
+        veto:'Debt / equity of 2.4× exceeds the 2.0× threshold. Telefónica is excluded from composite scoring until leverage normalises.'},
+    ];
+    this.totalCV   = this.raw.reduce((a,h)=>a+h.sh*h.px,0);
+    this.totalCost = this.raw.reduce((a,h)=>a+h.sh*h.ac,0);
+    this.divDates = {
+      'TTE.PA':[14,'JUL',0.79],'ALV.DE':[21,'JUL',13.80],'ENEL.MI':[23,'JUL',0.23],
+      'SAN.PA':[4,'AUG',3.76],'DG.PA':[11,'AUG',4.50],'MUV2.DE':[18,'AUG',15.00],
+    };
+    // Screener universe — additional (not-held) European value candidates
+    this.candidates = [
+      {t:'STLAM.MI',n:'Stellantis',      s:'Consumer disc.',   px:8.94,  fv:14.20, sig:'BUY',     sc:86, pe:3.9,  pef:5.6,  dy:8.9},
+      {t:'VOW3.DE', n:'Volkswagen',      s:'Consumer disc.',   px:92.40, fv:135.00,sig:'BUY',     sc:83, pe:4.1,  pef:5.2,  dy:6.2},
+      {t:'BAYN.DE', n:'Bayer',           s:'Healthcare',       px:27.80, fv:41.00, sig:'BUY',     sc:81, pe:6.2,  pef:8.4,  dy:2.1},
+      {t:'GLE.PA',  n:'Société Générale',s:'Financials',       px:29.10, fv:38.00, sig:'BUY',     sc:78, pe:5.6,  pef:6.4,  dy:5.0},
+      {t:'NDA-FI.HE',n:'Nordea Bank',    s:'Financials',       px:11.42, fv:13.10, sig:'BUY',     sc:76, pe:7.8,  pef:8.1,  dy:7.4},
+      {t:'ENGI.PA', n:'Engie',           s:'Utilities',        px:16.10, fv:18.40, sig:'MONITOR', sc:70, pe:9.8,  pef:11.0, dy:6.6},
+      {t:'SIE.DE',  n:'Siemens',         s:'Industrials',      px:178.20,fv:190.00,sig:'MONITOR', sc:68, pe:16.2, pef:17.0, dy:2.8},
+      {t:'IBE.MC',  n:'Iberdrola',       s:'Utilities',        px:13.20, fv:14.00, sig:'MONITOR', sc:67, pe:15.1, pef:15.8, dy:4.4},
+      {t:'AD.AS',   n:'Ahold Delhaize',  s:'Consumer staples', px:31.20, fv:34.50, sig:'MONITOR', sc:66, pe:12.0, pef:12.8, dy:3.7},
+      {t:'BN.PA',   n:'Danone',          s:'Consumer staples', px:63.80, fv:66.00, sig:'MONITOR', sc:63, pe:17.9, pef:18.4, dy:3.1},
+      {t:'ASML.AS', n:'ASML Holding',    s:'Technology',       px:642.00,fv:560.00,sig:'AVOID',   sc:44, pe:34.0, pef:28.5, dy:1.1},
+      {t:'OR.PA',   n:"L'Oréal",         s:'Consumer staples', px:352.00,fv:300.00,sig:'AVOID',   sc:41, pe:31.0, pef:28.0, dy:1.6},
+    ];
+    this.universe = [
+      ...this.raw.map(h=>({...h, held:true})),
+      ...this.candidates.map(h=>({...h, sh:0, ac:0, d:0, held:false})),
+    ];
+    // Realised (sold) positions — closed trades
+    this.sold = [
+      {t:'SAP.DE',  n:'SAP',            s:'Technology',       sh:60,  buy:118.00, sell:196.40, closed:'Mar 2026'},
+      {t:'AIR.PA',  n:'Airbus',         s:'Industrials',      sh:90,  buy:96.20,  sell:158.80, closed:'Jan 2026'},
+      {t:'BATS.L',  n:'BAT',            s:'Consumer staples', sh:300, buy:31.40,  sell:28.10,  closed:'Nov 2025'},
+      {t:'CS.PA',   n:'AXA',            s:'Financials',       sh:220, buy:24.80,  sell:35.60,  closed:'Sep 2025'},
+    ];
+    this.sold.forEach((s,i)=>{ s.id=i+1; });
+    this._soldSeq = this.sold.length;
+    // Dividends received (realised income history)
+    this.divHistory = [
+      {t:'ALV.DE', n:'Allianz',      amount:1076.40, date:'12 May 2026'},
+      {t:'ROG.SW', n:'Roche',        amount:380.00,  date:'02 May 2026'},
+      {t:'TTE.PA', n:'TotalEnergies',amount:331.80,  date:'25 Apr 2026'},
+      {t:'BMW.DE', n:'BMW',          amount:1632.00, date:'16 Apr 2026'},
+      {t:'ENEL.MI',n:'Enel',         amount:598.00,  date:'27 Jan 2026'},
+      {t:'SAN.PA', n:'Sanofi',       amount:977.60,  date:'18 Jan 2026'},
+    ];
+    this.divHistory.forEach((d,i)=>{ d.id=i+1; });
+    this._divSeq = this.divHistory.length;
+    this.hist = this._genHistory();
+  }
+
+  // ── seeded rng ──
+  _rng(seed){ let a=seed>>>0; return ()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}; }
+
+  _genHistory(){
+    const n=366, r=this._rng(20260707);
+    const walk=(seed,endMul)=>{
+      const g=this._rng(seed); let v=1; const a=[v];
+      for(let i=1;i<n;i++){ const shock=(g()-0.5)*0.022 + 0.0005; v*=(1+shock); a.push(v); }
+      const last=a[a.length-1];
+      return a.map(x=>x/last); // normalise so last=1
+    };
+    const vw=walk(11,1), sw=walk(22,1), zw=walk(33,1);
+    const value=[], invested=[], spx=[], stoxx=[], dates=[];
+    const start=new Date(2026,6,7); start.setDate(start.getDate()-(n-1));
+    // invested step path: 0.60→1.0 of cost in ~9 buys
+    for(let i=0;i<n;i++){
+      const frac=i/(n-1);
+      const inv=this.totalCost*(0.60+0.40*Math.min(1,Math.pow(frac,0.85)));
+      const stepInv=Math.round(inv/ (this.totalCost/9))*(this.totalCost/9);
+      invested.push(Math.min(this.totalCost, stepInv||this.totalCost*0.60));
+      value.push(vw[i]*this.totalCV);
+      spx.push(zw[i]*this.totalCost*1.30);
+      stoxx.push(sw[i]*this.totalCost*1.11);
+      const dd=new Date(start); dd.setDate(dd.getDate()+i); dates.push(dd);
+    }
+    return {value,invested,spx,stoxx,dates,n};
+  }
+
+  // ── formatting ──
+  _eur(v,dec){ return '€'+Number(v).toLocaleString('en-US',{minimumFractionDigits:dec||0,maximumFractionDigits:dec||0}); }
+  _eurShort(v){ return v>=1000?'€'+(v/1000).toFixed(v>=100000?0:1)+'k':'€'+v.toFixed(0); }
+  _pct(v,dec){ const d=dec==null?1:dec; return (v>=0?'+':'')+v.toFixed(d)+'%'; }
+  _px(v){ return v>=100?'€'+v.toFixed(2):'€'+v.toFixed(2); }
+
+  toggleTheme(){ this.setState(s=>({theme:s.theme==='dark'?'light':'dark'})); }
+  setRange(r){ this.setState({range:r}); }
+  select(t){ this.setState({selected:t}); }
+  closeDrawer(){ this.setState({selected:null}); }
+  go(p){ this.setState({page:p, selected:null}); }
+  openAnalysis(t){ this.setState({analysisTicker:t, selected:null, page:'analysis'}); }
+  closeAnalysis(){ this.setState({analysisTicker:null, page:'dashboard'}); }
+  openSettings(){ this.setState(s=>({prevPage:(s.page==='settings'||s.page==='help')?s.prevPage:s.page, page:'settings', selected:null})); }
+  closeSettings(){ this.setState(s=>({page:s.prevPage||'dashboard'})); }
+  openHelp(){ this.setState(s=>({prevPage:(s.page==='settings'||s.page==='help')?s.prevPage:s.page, page:'help', selected:null})); }
+  closeHelp(){ this.setState(s=>({page:s.prevPage||'dashboard'})); }
+  setVal(k,v){ this.setState({[k]:v}); }
+  toggleUserMenu(){ this.setState(s=>({userMenuOpen:!s.userMenuOpen})); }
+  closeUserMenu(){ this.setState({userMenuOpen:false}); }
+  openAddPosition(){ this.setState({apOpen:true, apMode:'add', apEditTicker:null, apTicker:'', apName:'', apSector:'Energy', apShares:'', apCost:'', apPrice:'', apErr:''}); }
+  addSelectedPosition(){
+    const t=this.state.selected;
+    if(!t) return;
+    const h=this.universe.find(x=>x.t===t);
+    this.setState({apOpen:true, apMode:'add', apEditTicker:null, apTicker:t, apName:h?h.n:'', apSector:h?h.s:'Energy', apShares:'', apCost:'', apPrice:h?String(h.px):'', apErr:''});
+  }
+  exportCsv(){
+    const header=['Ticker','Name','Sector','Shares','Avg cost','Price','Cost basis','Market value','Unrealised P&L'];
+    const lines=[header.join(',')];
+    this.raw.forEach(h=>{
+      const cv=h.sh*h.px, cost=h.sh*h.ac, gain=cv-cost;
+      lines.push([h.t, '"'+h.n+'"', h.s, h.sh, h.ac.toFixed(2), h.px.toFixed(2), cost.toFixed(2), cv.toFixed(2), gain.toFixed(2)].join(','));
+    });
+    const blob=new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='uvalu-portfolio.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  openSell(t){
+    const h=this.raw.find(x=>x.t===t);
+    if(!h) return;
+    this.setState({sellOpen:true, sellTicker:t, sellShares:String(h.sh), sellPrice:h.px.toFixed(2), sellErr:''});
+  }
+  closeSell(){ this.setState({sellOpen:false}); }
+  openPortSection(s){ this.setState({portSection:s}); }
+  backToPortfolio(){ this.setState({portSection:'overview'}); }
+  setSell(k,v){ this.setState({[k]:v}); }
+  submitSell(){
+    const S=this.state;
+    const h=this.raw.find(x=>x.t===S.sellTicker);
+    if(!h){ this.setState({sellOpen:false}); return; }
+    const sh=parseFloat(S.sellShares), price=parseFloat(S.sellPrice);
+    if(!sh || sh<=0){ this.setState({sellErr:'Enter a valid number of shares.'}); return; }
+    if(sh>h.sh){ this.setState({sellErr:'You only hold '+h.sh+' shares.'}); return; }
+    if(!price || price<=0){ this.setState({sellErr:'Enter a valid sell price.'}); return; }
+    const closed=new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    this.sold.unshift({t:h.t, n:h.n, s:h.s, sh, buy:h.ac, sell:price, closed});
+    if(sh>=h.sh){ this.raw=this.raw.filter(x=>x.t!==h.t); }
+    else { h.sh -= sh; }
+    this.setState({sellOpen:false, selected:null});
+  }
+  openEditPosition(t){
+    const h=this.raw.find(x=>x.t===t);
+    if(!h) return;
+    this.setState({apOpen:true, apMode:'edit', apEditTicker:t, apTicker:h.t, apName:h.n, apSector:h.s, apShares:String(h.sh), apCost:(h.ac*h.sh).toFixed(2), apPrice:String(h.px), apErr:''});
+  }
+  closeAddPosition(){ this.setState({apOpen:false}); }
+  setAp(k,v){ this.setState({[k]:v}); }
+  submitAddPosition(){
+    const S=this.state;
+    const t=S.apTicker.trim().toUpperCase(), n=S.apName.trim();
+    const sh=parseFloat(S.apShares), totalCost=parseFloat(S.apCost), ac=(sh>0?totalCost/sh:0), px=parseFloat(S.apPrice)||ac;
+    if(!t || !n){ this.setState({apErr:'Enter a ticker and company name.'}); return; }
+    if(!sh || sh<=0 || !totalCost || totalCost<=0){ this.setState({apErr:'Enter valid shares and total cost.'}); return; }
+    if(S.apMode==='edit'){
+      const h=this.raw.find(x=>x.t===S.apEditTicker);
+      if(!h){ this.setState({apOpen:false}); return; }
+      h.s=S.apSector; h.sh=sh; h.ac=ac; h.px=px;
+      this.setState({apOpen:false});
+      return;
+    }
+    if(this.raw.some(h=>h.t===t)){ this.setState({apErr:'That position already exists.'}); return; }
+    this.raw.push({t, n, s:S.apSector, sh, ac, px, d:0, fv:+(px*1.15).toFixed(2), sig:'MONITOR', sc:null, pe:null, pef:null, dy:0});
+    this.setState({apOpen:false});
+  }
+  deletePosition(){
+    const S=this.state;
+    if(S.apEditTicker){
+      this.raw=this.raw.filter(x=>x.t!==S.apEditTicker);
+      if(this.state.selected===S.apEditTicker){ this.setState({selected:null}); }
+    }
+    this.setState({apOpen:false});
+  }
+  openAddClosed(){ this.setState({cpOpen:true, cpMode:'add', cpEditId:null, cpTicker:'', cpName:'', cpSector:'Energy', cpShares:'', cpBuy:'', cpSell:'', cpClosed:'', cpErr:''}); }
+  openEditClosed(id){
+    const s=this.sold.find(x=>x.id===id);
+    if(!s) return;
+    this.setState({cpOpen:true, cpMode:'edit', cpEditId:id, cpTicker:s.t, cpName:s.n, cpSector:s.s, cpShares:String(s.sh), cpBuy:String(s.buy), cpSell:String(s.sell), cpClosed:s.closed, cpErr:''});
+  }
+  closeCp(){ this.setState({cpOpen:false}); }
+  setCp(k,v){ this.setState({[k]:v}); }
+  submitCp(){
+    const S=this.state;
+    const t=S.cpTicker.trim().toUpperCase(), n=S.cpName.trim(), closed=S.cpClosed.trim();
+    const sh=parseFloat(S.cpShares), buy=parseFloat(S.cpBuy), sell=parseFloat(S.cpSell);
+    if(!t || !n){ this.setState({cpErr:'Enter a ticker and company name.'}); return; }
+    if(!sh || sh<=0){ this.setState({cpErr:'Enter valid shares.'}); return; }
+    if(!buy || buy<=0 || !sell || sell<=0){ this.setState({cpErr:'Enter valid buy and sell prices.'}); return; }
+    if(!closed){ this.setState({cpErr:'Enter a closed date, e.g. Mar 2026.'}); return; }
+    if(S.cpMode==='edit'){
+      const s=this.sold.find(x=>x.id===S.cpEditId);
+      if(s){ s.t=t; s.n=n; s.s=S.cpSector; s.sh=sh; s.buy=buy; s.sell=sell; s.closed=closed; }
+      this.setState({cpOpen:false});
+      return;
+    }
+    this._soldSeq++;
+    this.sold.unshift({id:this._soldSeq, t, n, s:S.cpSector, sh, buy, sell, closed});
+    this.setState({cpOpen:false});
+  }
+  deleteCp(){
+    const S=this.state;
+    if(S.cpEditId!=null){ this.sold=this.sold.filter(x=>x.id!==S.cpEditId); }
+    this.setState({cpOpen:false});
+  }
+  openAddDividend(){ this.setState({dvOpen:true, dvMode:'add', dvEditId:null, dvTicker:'', dvName:'', dvAmount:'', dvDate:'', dvErr:''}); }
+  openEditDividend(id){
+    const d=this.divHistory.find(x=>x.id===id);
+    if(!d) return;
+    this.setState({dvOpen:true, dvMode:'edit', dvEditId:id, dvTicker:d.t, dvName:d.n, dvAmount:String(d.amount), dvDate:d.date, dvErr:''});
+  }
+  closeDv(){ this.setState({dvOpen:false}); }
+  setDv(k,v){ this.setState({[k]:v}); }
+  submitDv(){
+    const S=this.state;
+    const t=S.dvTicker.trim().toUpperCase(), n=S.dvName.trim(), date=S.dvDate.trim();
+    const amount=parseFloat(S.dvAmount);
+    if(!t || !n){ this.setState({dvErr:'Enter a ticker and company name.'}); return; }
+    if(!amount || amount<=0){ this.setState({dvErr:'Enter a valid amount.'}); return; }
+    if(!date){ this.setState({dvErr:'Enter a date, e.g. 12 May 2026.'}); return; }
+    if(S.dvMode==='edit'){
+      const d=this.divHistory.find(x=>x.id===S.dvEditId);
+      if(d){ d.t=t; d.n=n; d.amount=amount; d.date=date; }
+      this.setState({dvOpen:false});
+      return;
+    }
+    this._divSeq++;
+    this.divHistory.unshift({id:this._divSeq, t, n, amount, date});
+    this.setState({dvOpen:false});
+  }
+  deleteDv(){
+    const S=this.state;
+    if(S.dvEditId!=null){ this.divHistory=this.divHistory.filter(x=>x.id!==S.dvEditId); }
+    this.setState({dvOpen:false});
+  }
+  logout(){ this.setState({authed:false, userMenuOpen:false, page:'dashboard', selected:null, loginPw:''}); }
+  login(){
+    if(!this.state.loginEmail.trim() || !this.state.loginPw.trim()){ this.setState({loginErr:'Enter your email and password to continue.'}); return; }
+    this.setState({authed:true, loginErr:'', page:'dashboard'});
+  }
+  sortBy(k){ this.setState(s=>({scrSort:k, scrDir: s.scrSort===k?(s.scrDir==='desc'?'asc':'desc'):'desc'})); }
+  toggleSignal(sg){ this.setState(s=>({scrSignals: s.scrSignals.includes(sg)?s.scrSignals.filter(x=>x!==sg):[...s.scrSignals,sg]})); }
+  resetScr(){ this.setState({scrQuery:'',scrSignals:[],scrSector:'All sectors',scrMarket:'All markets',scrMinScore:0,scrMinMos:-20,scrHideHeld:false,scrSort:'score',scrDir:'desc'}); }
+  isWatched(t){ return this.state.watchlist.some(w=>w.t===t); }
+  toggleWatch(t, n){
+    this.setState(s=>{
+      if(s.watchlist.some(w=>w.t===t)) return {watchlist:s.watchlist.filter(w=>w.t!==t)};
+      return {watchlist:[...s.watchlist, {t, n:n||t}]};
+    });
+  }
+  removeWatch(t){ this.setState(s=>({watchlist:s.watchlist.filter(w=>w.t!==t)})); }
+  setWatchField(k,v){ this.setState({[k]:v, watchErr:''}); }
+  addWatchManual(){
+    const t=this.state.watchTickerInput.trim().toUpperCase();
+    const n=this.state.watchNameInput.trim();
+    if(!t){ this.setState({watchErr:'Enter a ticker symbol.'}); return; }
+    if(this.state.watchlist.some(w=>w.t===t)){ this.setState({watchErr:'Already on your watchlist.'}); return; }
+    const match=this.universe.find(h=>h.t===t);
+    this.setState(s=>({watchlist:[...s.watchlist, {t, n:n||(match?match.n:t)}], watchTickerInput:'', watchNameInput:'', watchErr:''}));
+  }
+  _exch(t){ const suf=(t.split('.')[1]||''); return ({PA:'PAR',DE:'XET',SW:'SWX',MI:'MIL',L:'LON',MC:'MAD',AS:'AMS',BR:'BRU',HE:'HEL',ST:'STO'})[suf]||suf; }
+  _exchFull(t){ const suf=(t.split('.')[1]||''); return ({PA:'Euronext Paris',DE:'XETRA',SW:'SIX Swiss',MI:'Borsa Italiana',L:'London SE',MC:'BME Madrid',AS:'Euronext Amsterdam',BR:'Euronext Brussels',HE:'Nasdaq Helsinki',ST:'Nasdaq Stockholm'})[suf]||suf; }
+
+  _chart(){
+    const H={value:this.hist.value,invested:this.hist.invested,spx:this.hist.spx,stoxx:this.hist.stoxx,dates:this.hist.dates};
+    const map={'1M':30,'3M':90,'1Y':365,'ALL':this.hist.n-1};
+    const cnt=map[this.state.range];
+    const sl=arr=>arr.slice(arr.length-cnt-1);
+    const val=sl(H.value), inv=sl(H.invested), spx=sl(H.spx), stx=sl(H.stoxx), dts=sl(H.dates);
+    const active=[...val,...inv];
+    if(this.state.spx) active.push(...spx);
+    if(this.state.stoxx) active.push(...stx);
+    let mn=Math.min(...active), mx=Math.max(...active); const pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
+    const W=1000,HH=250,top=8,bot=242;
+    const X=i=>i/(val.length-1)*W;
+    const Y=v=>bot-(v-mn)/(mx-mn)*(bot-top);
+    const path=a=>a.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+    const line=path(val);
+    const area=line+' L '+W+' '+bot+' L 0 '+bot+' Z';
+    // grid + y ticks
+    const grid=[]; for(let k=0;k<=3;k++){ grid.push({y:(top+(bot-top)*k/3).toFixed(1)}); }
+    // x ticks (6)
+    const xTicks=[]; const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    for(let k=0;k<6;k++){ const idx=Math.round((val.length-1)*k/5); const d=dts[idx]; xTicks.push(cnt<=30?(d.getDate()+' '+mo[d.getMonth()]):(mo[d.getMonth()]+" '"+String(d.getFullYear()).slice(2))); }
+    const rangeDelta=(val[val.length-1]-val[0])/val[0]*100;
+    return {
+      line, area, investedLine:path(inv), spxLine:path(spx), stoxxLine:path(stx),
+      gridLines:grid, xTicks,
+      lastValue:this._eur(val[val.length-1]),
+      rangeDelta:this._pct(rangeDelta), rangeDeltaStyle:this._chip(rangeDelta>=0),
+      rangeLabel:{'1M':'past month','3M':'past 3 months','1Y':'past year','ALL':'all time'}[this.state.range],
+    };
+  }
+
+  _chip(up){
+    return 'display:inline-flex;align-items:center;gap:2px;font-family:var(--mono);font-size:11.5px;font-weight:500;padding:2px 7px;border-radius:5px;background:var('+(up?'--up-bg':'--down-bg')+');color:var('+(up?'--up-txt':'--down-txt')+');';
+  }
+  _badge(sig){
+    const m={BUY:['#E8F5F0','#0F6E56'],MONITOR:['#FDF0E8','#854F0B'],AVOID:['#FCEAEA','#A32D2D'],VETO:['#0D1F3C','#FFFFFF']};
+    const c=m[sig]||['rgba(128,128,128,.15)','#5F5E5A'];
+    return 'display:inline-flex;align-items:center;justify-content:center;min-width:64px;height:22px;padding:0 9px;border-radius:6px;font-size:10.5px;font-weight:500;letter-spacing:0.04em;background:'+c[0]+';color:'+c[1]+';font-family:var(--sans);';
+  }
+
+  renderVals(){
+    this.totalCV   = this.raw.reduce((a,h)=>a+h.sh*h.px,0);
+    this.totalCost = this.raw.reduce((a,h)=>a+h.sh*h.ac,0);
+    const mapRow=(h)=>{
+      const sh=h.sh||0;
+      const cv=sh*h.px, cost=sh*(h.ac||h.px), gain=cv-cost, gainPct=cost?gain/cost*100:0;
+      const mos=(h.fv-h.px)/h.fv*100, weight=this.totalCV?cv/this.totalCV*100:0;
+      const maxv=Math.max(h.px,h.fv)*1.08;
+      const pricePct=h.px/maxv*100, fairPct=h.fv/maxv*100;
+      const tcol = mos>=15?'var(--mint)':(mos>=0?'var(--teal)':'#A32D2D');
+      const upCol = mos>=15?'var(--mint)':(mos>=0?'var(--text)':'#A32D2D');
+      return {h,cv,cost,gain,gainPct,mos,weight,pricePct,fairPct,tcol,upCol};
+    };
+    const rows=this.raw.map(mapRow);
+    const scrAll=this.universe.map(mapRow);
+
+    const holdings=rows.map(r=>({
+      ticker:r.h.t, name:r.h.n, sector:r.h.s, signal:r.h.sig,
+      badgeStyle:this._badge(r.h.sig),
+      priceStr:this._px(r.h.px), fairStr:this._px(r.h.fv),
+      fillStyle:'position:absolute;left:0;top:0;height:100%;border-radius:4px;width:'+r.pricePct.toFixed(1)+'%;background:'+r.tcol+';',
+      markerStyle:'position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis);left:'+r.fairPct.toFixed(1)+'%;',
+      upside:this._pct(r.mos), upsideColor:r.upCol,
+      weight:r.weight.toFixed(1)+'%', value:this._eur(r.cv),
+      day:this._pct(r.h.d,2), dayStyle:this._chip(r.h.d>=0),
+      rowStyle:'display:grid;grid-template-columns:210px 78px 1fr 82px 66px 108px 78px;gap:14px;align-items:center;padding:12px 20px;border-bottom:0.5px solid var(--line-2);cursor:pointer;',
+      onClick:()=>this.select(r.h.t),
+    }));
+
+    // KPIs
+    const gain=this.totalCV-this.totalCost, gainPct=gain/this.totalCost*100;
+    const fwd=this.raw.reduce((a,h)=>a+h.sh*h.px*h.dy/100,0);
+    const avgUp=rows.reduce((a,r)=>a+r.mos*r.cv,0)/this.totalCV;
+    const ic=(p)=>({icon:''});
+    const kpis=[
+      {label:'Current value', value:this._eur(this.totalCV), delta:this._pct(gainPct), deltaStyle:this._chip(gainPct>=0), sub:this._eur(gain)+' unrealised', icon:'◆'},
+      {label:'Total return',  value:this._eur(gain+ this.raw.reduce((a,h)=>a+h.sh*h.px*h.dy/100,0)*0), delta:this._pct(gainPct), deltaStyle:this._chip(gainPct>=0), sub:'incl. dividends', icon:'▲'},
+      {label:'Fwd income / yr',value:this._eur(fwd), delta:(fwd/this.totalCV*100).toFixed(1)+'%', deltaStyle:this._chip(true), sub:'blended yield', icon:'◇'},
+      {label:'Avg fair-value upside', value:this._pct(avgUp), delta:'6-model', deltaStyle:'display:inline-flex;font-size:11px;color:var(--faint);padding:2px 7px;border-radius:5px;border:0.5px solid var(--line);', sub:'weighted MoS', icon:'◈'},
+    ];
+
+    // conviction
+    const scored=this.raw.filter(h=>h.sc!=null);
+    const conv=Math.round(scored.reduce((a,h)=>a+h.sc*h.sh*h.px,0)/scored.reduce((a,h)=>a+h.sh*h.px,0));
+    const C=2*Math.PI*48;
+    const conviction={score:conv, dash:(conv/100*C).toFixed(1)+' '+C.toFixed(1),
+      label: conv>=75?'High conviction':conv>=55?'Constructive':'Cautious'};
+
+    // risk
+    const riskScore=41;
+    const risk={score:riskScore, label:'Moderate', beta:'0.93', vol:'12.6%', dd:'−17.4%',
+      markerStyle:'position:absolute;top:-3px;width:3px;height:13px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);left:'+riskScore+'%;'};
+
+    // donut sectors
+    const secMap={};
+    rows.forEach(r=>{ secMap[r.h.s]=(secMap[r.h.s]||0)+r.cv; });
+    const secArr=Object.entries(secMap).sort((a,b)=>b[1]-a[1]);
+    const pal=['#1DD6A4','#1A8C6E','#5B8FA8','#2BA5A5','#3D7AB5','#8BA888','#4A6B8A','#6B9E8A'];
+    const Cr=2*Math.PI*52; let acc=0;
+    const donut=secArr.map(([label,v],i)=>{
+      const p=v/this.totalCV; const dash=p*Cr;
+      const seg={color:pal[i%pal.length], label, pct:(p*100).toFixed(1)+'%',
+        dash:dash.toFixed(1)+' '+(Cr-dash).toFixed(1), offset:(-acc).toFixed(1)};
+      acc+=dash; return seg;
+    });
+
+    // dividends
+    const monOrder={JUL:7,AUG:8,SEP:9};
+    const dividends=Object.entries(this.divDates).map(([t,[day,mon,amt]])=>{
+      const h=this.raw.find(x=>x.t===t);
+      if(!h) return null;
+      return {name:h.n, day:String(day), mon, yield:h.dy.toFixed(1)+'%', amount:this._eur(amt*h.sh,0), _sort:monOrder[mon]*100+day};
+    }).filter(Boolean).sort((a,b)=>a._sort-b._sort).slice(0,6);
+
+    // movers
+    const movers=[...this.raw].sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,6)
+      .sort((a,b)=>b.d-a.d).map(h=>{
+        const w=Math.min(1,Math.abs(h.d)/1.5)*24;
+        return {ticker:h.t, name:h.n, day:this._pct(h.d,2), dayStyle:this._chip(h.d>=0),
+          barStyle:'position:absolute;top:6px;height:10px;border-radius:2px;'+(h.d>=0?('left:26px;background:var(--up-txt);width:'+w+'px;'):('right:26px;background:var(--down-txt);width:'+w+'px;')),
+          onClick:()=>this.select(h.t)};
+      });
+
+    // selected drawer
+    const selRow = scrAll.find(r=>r.h.t===this.state.selected);
+    let sel=null;
+    if(selRow){
+      const h=selRow.h; const base=h.fv;
+      const modelDefs=[['Graham Number',0.92],['P/E fair value',1.04],['EPV',0.86],['Dividend discount',0.97],['DCF',1.11],['Analyst target',1.07]];
+      const mvals=modelDefs.map(([label,mul])=>base*mul);
+      const mmax=Math.max(...mvals,h.px)*1.05;
+      const models=modelDefs.map(([label,mul])=>{
+        const v=base*mul; const delta=(v-h.px)/h.px*100;
+        return {label, value:this._px(v),
+          barStyle:'position:absolute;left:0;top:0;height:100%;border-radius:3px;width:'+(v/mmax*100).toFixed(1)+'%;background:'+(v>=h.px?'var(--mint)':'#A32D2D')+';',
+          delta:this._pct(delta,0), deltaColor:v>=h.px?'var(--up-txt)':'var(--down-txt)'};
+      });
+      const held=(h.sh||0)>0;
+      const rowsD=[
+        {label:'Composite score', value:h.sc!=null?h.sc+' / 100':'excluded', color:h.sc!=null?'var(--mint)':'var(--down-txt)'},
+        {label:'P/E · fair P/E', value:h.pe.toFixed(1)+'× · '+h.pef.toFixed(1)+'×', color:'var(--text)'},
+        {label:'Dividend yield', value:h.dy.toFixed(1)+'%', color:'var(--text)'},
+        {label:'Exchange', value:this._exchFull(h.t), color:'var(--text)'},
+      ];
+      if(held){
+        rowsD.push(
+          {label:'Shares held', value:h.sh.toLocaleString('en-US'), color:'var(--text)'},
+          {label:'Position value', value:this._eur(selRow.cv), color:'var(--text)'},
+          {label:'Unrealised P&L', value:this._eur(selRow.gain)+' ('+this._pct(selRow.gainPct)+')', color:selRow.gain>=0?'var(--up-txt)':'var(--down-txt)'},
+        );
+      } else {
+        rowsD.push({label:'Portfolio status', value:'Not held · watchlist', color:'var(--muted)'});
+      }
+      sel={ticker:h.t, name:h.n, sector:h.s, signal:h.sig, badgeStyle:this._badge(h.sig),
+        priceStr:this._px(h.px), fairStr:this._px(h.fv),
+        upside:this._pct(selRow.mos), upsideColor:selRow.upCol,
+        hasVeto:!!h.veto, vetoNote:h.veto||'', held, notHeld:!held,
+        models, rows:rowsD};
+    }
+    const open=!!selRow;
+
+    const chart=this._chart();
+
+    // ── nav ──
+    const svg=(paths)=>React.createElement('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round',style:{display:'block'}}, (Array.isArray(paths)?paths:[paths]).map((d,i)=>React.createElement('path',{key:i,d})));
+    const navDefs=[
+      ['dashboard','Dashboard',["M5 12l-2 0l9-9l9 9l-2 0","M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"],true],
+      ['screener','Screener',["M3 12h4l3 8l4 -16l3 8h4"],true],
+      ['watchlist','Watchlist',["M12 4l2.47 5.77L20.5 10.4l-4.5 4l1.24 6.1L12 17.5L6.76 20.5L8 14.4l-4.5 -4l6.03 -0.63z"],true],
+      ['portfolio','Portfolio',["M3 7m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z","M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2"],true],
+      ['risk','Risk',["M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"],true],
+    ];
+    const nav=navDefs.map(([id,label,paths,live])=>({label, icon:svg(paths),
+      onClick: live?(()=>this.go(id)):(()=>{}),
+      style:'display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;'+(this.state.page===id?'background:var(--soft);color:var(--text);':'color:var(--muted);'+(live?'':'opacity:0.6;'))}));
+
+    // ── screener view-model ──
+    const S=this.state;
+    const q=S.scrQuery.trim().toLowerCase();
+    let list=scrAll.filter(r=>{
+      const h=r.h;
+      if(q && !(h.t.toLowerCase().includes(q) || h.n.toLowerCase().includes(q))) return false;
+      if(S.scrSignals.length && !S.scrSignals.includes(h.sig)) return false;
+      if(S.scrSector!=='All sectors' && h.s!==S.scrSector) return false;
+      if(S.scrMarket!=='All markets' && this._exchFull(h.t)!==S.scrMarket) return false;
+      if((h.sc==null?-1:h.sc) < S.scrMinScore) return false;
+      if(r.mos < S.scrMinMos) return false;
+      if(S.scrHideHeld && h.held) return false;
+      return true;
+    });
+    const dir=S.scrDir==='desc'?-1:1;
+    const keyf={score:r=>r.h.sc==null?-1:r.h.sc, mos:r=>r.mos, price:r=>r.h.px, pe:r=>r.h.pe, dy:r=>r.h.dy, name:r=>r.h.n, signal:r=>r.h.sig};
+    list.sort((a,b)=>{ const ka=keyf[S.scrSort](a),kb=keyf[S.scrSort](b); if(typeof ka==='string')return ka<kb?-dir:ka>kb?dir:0; return (ka-kb)*dir; });
+    const scrRows=list.map((r,i)=>{
+      const h=r.h, scv=h.sc==null?0:h.sc;
+      const watched=this.isWatched(h.t);
+      return {rank:String(i+1), ticker:h.t, exch:this._exch(h.t), name:h.n,
+        signal:h.sig, badgeStyle:this._badge(h.sig),
+        scoreStr:h.sc==null?'—':String(h.sc),
+        scoreColor:h.sc==null?'var(--faint)':(h.sc>=75?'var(--mint)':'var(--text)'),
+        scoreFill:'position:absolute;left:0;top:0;height:100%;border-radius:4px;width:'+scv+'%;background:'+(h.sc==null?'transparent':(h.sc>=75?'var(--mint)':h.sc>=55?'var(--teal)':'#C98A3A'))+';',
+        mos:this._pct(r.mos), mosColor:r.upCol,
+        price:this._px(h.px), pe:h.pe.toFixed(1)+'×', dy:h.dy.toFixed(1)+'%',
+        starStyle:'font-size:14px;cursor:pointer;line-height:1;'+(watched?'color:var(--mint);':'color:var(--faint);'),
+        onWatch:(e)=>{ e.stopPropagation(); this.toggleWatch(h.t, h.n); },
+        onClick:()=>this.select(h.t)};
+    });
+    const colDefs=[['name','Company',0],['signal','Signal',0],['score','Composite score',0],['mos','Upside',1],['price','Price',1],['pe','P/E',1],['dy','Yield',1]];
+    const scrCols=colDefs.map(([key,label,right])=>({label, onClick:()=>this.sortBy(key),
+      arrow: S.scrSort===key?(S.scrDir==='desc'?' ↓':' ↑'):'',
+      style:'display:flex;align-items:center;gap:2px;cursor:pointer;'+(right?'justify-content:flex-end;':'')+(S.scrSort===key?'color:var(--text);':'')}));
+    const signalChips=['BUY','MONITOR','AVOID','VETO'].map(sg=>{ const on=S.scrSignals.includes(sg);
+      return {label:sg, onClick:()=>this.toggleSignal(sg),
+        style:'padding:6px 10px;border-radius:6px;font-size:10.5px;font-weight:500;letter-spacing:0.03em;cursor:pointer;'+(on?'background:var(--panel);color:var(--text);box-shadow:var(--shadow);':'color:var(--muted);')};
+    });
+    const sectorOpts=['All sectors', ...Array.from(new Set(this.universe.map(h=>h.s))).sort()];
+    const marketOpts=['All markets', ...Array.from(new Set(this.universe.map(h=>this._exchFull(h.t)))).sort()];
+    const scr={
+      count:scrRows.length, total:scrAll.length, rows:scrRows, cols:scrCols, empty:scrRows.length===0,
+      query:S.scrQuery, onQuery:(e)=>this.setState({scrQuery:e.target.value}),
+      signalChips, sector:S.scrSector, sectorOpts, onSector:(e)=>this.setState({scrSector:e.target.value}),
+      market:S.scrMarket, marketOpts, onMarket:(e)=>this.setState({scrMarket:e.target.value}),
+      minScore:S.scrMinScore, onMinScore:(e)=>this.setState({scrMinScore:+e.target.value}),
+      minMos:S.scrMinMos, minMosLabel:(S.scrMinMos>=0?'+':'')+S.scrMinMos+'%', onMinMos:(e)=>this.setState({scrMinMos:+e.target.value}),
+      toggleHeld:()=>this.setState(s=>({scrHideHeld:!s.scrHideHeld})),
+      heldStyle:'display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:8px;border:0.5px solid '+(S.scrHideHeld?'var(--teal)':'var(--line)')+';font-size:12px;cursor:pointer;color:'+(S.scrHideHeld?'var(--text)':'var(--muted)')+';'+(S.scrHideHeld?'background:var(--soft);':''),
+      heldDot:'width:8px;height:8px;border-radius:3px;background:'+(S.scrHideHeld?'var(--mint)':'var(--faint)')+';',
+      reset:()=>this.resetScr(),
+    };
+
+    // ── portfolio view-model ──
+    const pHoldings=rows.map(r=>({
+      ticker:r.h.t, exch:this._exch(r.h.t), name:r.h.n, sector:r.h.s,
+      signal:r.h.sig, badgeStyle:this._badge(r.h.sig),
+      shares:r.h.sh.toLocaleString('en-US'),
+      avgCost:this._px(r.h.ac), price:this._px(r.h.px),
+      cost:this._eur(r.cost), value:this._eur(r.cv),
+      gain:this._eur(r.gain), gainPct:this._pct(r.gainPct),
+      gainColor:r.gain>=0?'var(--up-txt)':'var(--down-txt)',
+      weight:r.weight.toFixed(1)+'%', weightBar:'height:100%;border-radius:3px;width:'+Math.min(100,r.weight*3.2).toFixed(1)+'%;background:var(--teal);',
+      onClick:()=>this.select(r.h.t),
+      onEdit:(e)=>{ e.stopPropagation(); this.openEditPosition(r.h.t); },
+    }));
+    const realised=this.sold.reduce((a,s)=>a+(s.sell-s.buy)*s.sh,0);
+    const soldRows=this.sold.map(s=>{
+      const pl=(s.sell-s.buy)*s.sh, plPct=(s.sell-s.buy)/s.buy*100;
+      return {id:s.id, ticker:s.t, exch:this._exch(s.t), name:s.n, closed:s.closed,
+        shares:s.sh.toLocaleString('en-US'), buy:this._px(s.buy), sell:this._px(s.sell),
+        pl:this._eur(pl), plPct:this._pct(plPct), plColor:pl>=0?'var(--up-txt)':'var(--down-txt)',
+        onEdit:()=>this.openEditClosed(s.id)};
+    });
+    const divReceived=this.divHistory.reduce((a,d)=>a+d.amount,0);
+    const divRows=this.divHistory.map(d=>({id:d.id, name:d.n, ticker:d.t, date:d.date, amount:this._eur(d.amount), onEdit:()=>this.openEditDividend(d.id)}));
+    const gainTot=this.totalCV-this.totalCost, gainTotPct=gainTot/this.totalCost*100;
+    const port={
+      cards:[
+        {label:'Invested', value:this._eur(this.totalCost), sub:this.raw.length+' open positions', delta:'', deltaStyle:'display:none;'},
+        {label:'Market value', value:this._eur(this.totalCV), sub:'current holdings', delta:this._pct(gainTotPct), deltaStyle:this._chip(gainTotPct>=0)},
+        {label:'Unrealised P&L', value:this._eur(gainTot), sub:'open positions', delta:this._pct(gainTotPct), deltaStyle:this._chip(gainTot>=0)},
+        {label:'Realised P&L', value:this._eur(realised), sub:this.sold.length+' closed trades', delta:'', deltaStyle:'display:none;'},
+        {label:'Dividends (12m)', value:this._eur(divReceived), sub:'income received', delta:'', deltaStyle:'display:none;'},
+      ],
+      holdings:pHoldings, sold:soldRows, divs:divRows,
+      realisedColor:realised>=0?'var(--up-txt)':'var(--down-txt)',
+    };
+
+    // ── risk view-model ──
+    const betaMap={'TTE.PA':1.05,'SAN.PA':0.72,'ALV.DE':1.12,'ROG.SW':0.66,'BMW.DE':1.28,'NESN.SW':0.58,'ULVR.L':0.61,'ENEL.MI':0.88,'DG.PA':0.97,'MUV2.DE':0.84,'TEF.MC':0.95};
+    const volMap={'TTE.PA':19,'SAN.PA':14,'ALV.DE':17,'ROG.SW':15,'BMW.DE':26,'NESN.SW':13,'ULVR.L':13,'ENEL.MI':18,'DG.PA':16,'MUV2.DE':15,'TEF.MC':22};
+    const riskRows=rows.map(r=>{
+      const b=betaMap[r.h.t]||1, v=volMap[r.h.t]||18;
+      const contrib=r.weight*b;
+      return {r,b,v,contrib};
+    });
+    const totContrib=riskRows.reduce((a,x)=>a+x.contrib,0);
+    const riskHoldings=[...riskRows].sort((a,b)=>b.contrib-a.contrib).map(x=>{
+      const flag = x.r.h.sig==='VETO' ? 'Leverage veto' : (x.v>=24?'High volatility':(x.r.weight>=11?'Size':''));
+      const flagColor = x.r.h.sig==='VETO'?'var(--down-txt)':(x.v>=24?'#C98A3A':'var(--faint)');
+      return {ticker:x.r.h.t, exch:this._exch(x.r.h.t), name:x.r.h.n,
+        weight:x.r.weight.toFixed(1)+'%', beta:x.b.toFixed(2), vol:x.v.toFixed(0)+'%',
+        contrib:(x.contrib/totContrib*100).toFixed(1)+'%',
+        contribBar:'height:100%;border-radius:3px;width:'+Math.min(100,x.contrib/totContrib*100*4).toFixed(1)+'%;background:'+(x.r.h.sig==='VETO'?'#A32D2D':x.v>=24?'#C98A3A':'var(--teal)')+';',
+        flag, flagColor,
+        onClick:()=>this.select(x.r.h.t)};
+    });
+    // sector concentration
+    const secMapR={}; rows.forEach(r=>{ secMapR[r.h.s]=(secMapR[r.h.s]||0)+r.cv; });
+    const secConc=Object.entries(secMapR).map(([s,v])=>({s, pct:v/this.totalCV*100})).sort((a,b)=>b.pct-a.pct);
+    const hhi=Math.round(secConc.reduce((a,x)=>a+Math.pow(x.pct,2),0));
+    const top3=[...rows].sort((a,b)=>b.weight-a.weight).slice(0,3).reduce((a,r)=>a+r.weight,0);
+    const factorScale=(v)=>v<=33?['Low','var(--mint)']:v<=60?['Moderate','#C98A3A']:['Elevated','#A32D2D'];
+    const factorDefs=[
+      ['Concentration',38,'Top position 11.5% · sectors '+secConc[0].pct.toFixed(0)+'% max'],
+      ['Leverage',55,'1 holding beyond 2.0× debt/equity (hard veto)'],
+      ['Market (beta)',31,'Portfolio beta 0.93 — defensive tilt'],
+      ['Volatility',34,'Annualised 12.6%, below Euro Stoxx'],
+      ['Cyclicality',48,'Autos & energy add economic sensitivity'],
+      ['FX exposure',42,'GBP / CHF unhedged share ~24%'],
+    ];
+    const riskFactors=factorDefs.map(([label,v,note])=>{ const [rate,col]=factorScale(v);
+      return {label, note, rate, rateColor:col, val:String(v),
+        bar:'height:100%;border-radius:4px;width:'+v+'%;background:'+col+';'};
+    });
+    const rScore=41, C2=2*Math.PI*48;
+    const riskVM={
+      score:String(rScore), label:'Moderate',
+      dash:(rScore/100*C2).toFixed(1)+' '+C2.toFixed(1),
+      metrics:[
+        {label:'Beta',value:'0.93',sub:'vs Euro Stoxx 50'},
+        {label:'Volatility',value:'12.6%',sub:'annualised'},
+        {label:'Max drawdown',value:'−17.4%',sub:'trailing 12m',neg:true},
+        {label:'Sharpe',value:'1.14',sub:'risk-adjusted'},
+        {label:'VaR 95%',value:'−4.8%',sub:'1-week',neg:true},
+        {label:'Sector HHI',value:String(hhi),sub:'concentration index'},
+      ],
+      factors:riskFactors, holdings:riskHoldings,
+      conc:[
+        {label:'Top 3 positions', value:top3.toFixed(1)+'%', bar:'height:100%;border-radius:3px;width:'+Math.min(100,top3).toFixed(1)+'%;background:var(--teal);'},
+        {label:'Largest sector — '+secConc[0].s, value:secConc[0].pct.toFixed(1)+'%', bar:'height:100%;border-radius:3px;width:'+Math.min(100,secConc[0].pct).toFixed(1)+'%;background:var(--teal);'},
+        {label:'Largest single name', value:'11.5%', bar:'height:100%;border-radius:3px;width:11.5%;background:var(--teal);'},
+      ],
+    };
+
+    // ── full analysis view-model ──
+    let analysis=null;
+    const aRow = scrAll.find(r=>r.h.t===this.state.analysisTicker);
+    if(aRow){
+      const h=aRow.h, held=(h.sh||0)>0;
+      const rng=this._rng(h.t.split('').reduce((a,c)=>a+c.charCodeAt(0),0)*7+13);
+      const roe = h.t==='TEF.MC'?6.8 : 8+rng()*15;
+      const de  = h.t==='TEF.MC'?2.4 : 0.2+rng()*1.4;
+      const fcfY= 3+rng()*6;
+      const opM = 8+rng()*22;
+      const netM= opM*0.6;
+      const payout = Math.min(92, Math.max(25, h.dy*h.pe));
+      const eps = h.px/h.pe;
+      // sub-scores
+      const clamp=(v)=>Math.max(2,Math.min(98,Math.round(v)));
+      const valueSc = clamp(50+aRow.mos*1.4);
+      const qualitySc = clamp(roe*3.4);
+      const finSc = clamp(100-de*32);
+      const divSc = h.dy>0?clamp(110-payout*0.9):40;
+      const momSc = clamp(55+h.d*14);
+      const subScores=[
+        ['Value',valueSc],['Quality',qualitySc],['Momentum',momSc],['Financial health',finSc],['Dividend safety',divSc],
+      ].map(([label,v])=>({label, val:String(v),
+        color: v>=70?'var(--mint)':v>=45?'var(--teal)':'#C98A3A',
+        bar:'height:100%;border-radius:4px;width:'+v+'%;background:'+(v>=70?'var(--mint)':v>=45?'var(--teal)':'#C98A3A')+';'}));
+      // six models
+      const base=h.fv;
+      const modelDefs=[['Graham Number',0.92],['P/E fair value',1.04],['EPV',0.86],['Dividend discount',0.97],['DCF',1.11],['Analyst target',1.07]];
+      const mvals=modelDefs.map(([l,m])=>base*m); const mmax=Math.max(...mvals,h.px)*1.05;
+      const models=modelDefs.map(([label,mul])=>{ const v=base*mul, delta=(v-h.px)/h.px*100;
+        return {label, value:this._px(v),
+          barStyle:'position:absolute;left:0;top:0;height:100%;border-radius:3px;width:'+(v/mmax*100).toFixed(1)+'%;background:'+(v>=h.px?'var(--mint)':'#A32D2D')+';',
+          delta:this._pct(delta,0), deltaColor:v>=h.px?'var(--up-txt)':'var(--down-txt)'};
+      });
+      // financials grid
+      const fins=[
+        {label:'EPS (ttm)', value:'\u20ac'+eps.toFixed(2)},
+        {label:'P/E · fair P/E', value:h.pe.toFixed(1)+'× · '+h.pef.toFixed(1)+'×'},
+        {label:'Return on equity', value:roe.toFixed(1)+'%'},
+        {label:'Debt / equity', value:de.toFixed(2)+'×', warn:de>=2.0},
+        {label:'Free cash-flow yield', value:fcfY.toFixed(1)+'%'},
+        {label:'Operating margin', value:opM.toFixed(1)+'%'},
+        {label:'Net margin', value:netM.toFixed(1)+'%'},
+        {label:'Dividend yield', value:h.dy.toFixed(1)+'%'},
+        {label:'Payout ratio', value:payout.toFixed(0)+'%', warn:payout>=85},
+      ];
+      // veto checks
+      const checks=[
+        {label:'Debt / equity below 2.0×', pass:de<2.0, note:de.toFixed(2)+'×'},
+        {label:'Positive free cash flow', pass:true, note:fcfY.toFixed(1)+'% yield'},
+        {label:'Interest cover above 3×', pass:h.t!=='TEF.MC', note:h.t==='TEF.MC'?'2.1×':'>5×'},
+        {label:'Dividend payout below 90%', pass:payout<90, note:payout.toFixed(0)+'%'},
+        {label:'No going-concern flags', pass:true, note:'clear'},
+      ];
+      // price path (1y, seeded, ends at current px)
+      const N=140, w2=this._rng(h.t.length*97+41); let s=1; const raw=[1];
+      for(let i=1;i<N;i++){ s*=(1+(w2()-0.5)*0.03+0.0006); raw.push(s); }
+      const lastr=raw[raw.length-1]; const series=raw.map(x=>x/lastr*h.px);
+      const smin=Math.min(...series,h.fv)*0.96, smax=Math.max(...series,h.fv)*1.02;
+      const AW=1000,AH=200,at=8,ab=192;
+      const AX=i=>i/(series.length-1)*AW, AY=v=>ab-(v-smin)/(smax-smin)*(ab-at);
+      const apath=series.map((v,i)=>(i?'L':'M')+AX(i).toFixed(1)+' '+AY(v).toFixed(1)).join(' ');
+      const aFairY=AY(h.fv).toFixed(1);
+      const thesis = aRow.mos>=15
+        ? h.n+' trades at a '+this._pct(aRow.mos)+' discount to its composite fair value. The signal is anchored by '+(valueSc>=qualitySc?'valuation':'business quality')+', with a '+h.pe.toFixed(1)+'× earnings multiple against a '+h.pef.toFixed(1)+'× fair multiple. '+(h.dy>=4?'A '+h.dy.toFixed(1)+'% yield underpins the total-return case.':'Downside is cushioned by the margin of safety across all six models.')
+        : aRow.mos>=0
+        ? h.n+' sits close to fair value ('+this._pct(aRow.mos)+' upside). Hold and monitor for a wider margin of safety before adding.'
+        : h.n+' trades above its composite fair value ('+this._pct(aRow.mos)+'). '+(h.veto?'A hard veto is active — excluded from scoring.':'The models flag limited upside; avoid new capital at this price.');
+      fins.forEach(f=>{ f.warnColor = f.warn?'#C98A3A':'var(--text)'; });
+      checks.forEach(c=>{ c.icon = c.pass?'✓':'✕'; c.iconStyle='display:flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:6px;font-size:11px;font-weight:700;flex:none;background:'+(c.pass?'var(--up-bg)':'var(--down-bg)')+';color:'+(c.pass?'var(--up-txt)':'var(--down-txt)')+';'; });
+      analysis={
+        ticker:h.t, exch:this._exchFull(h.t), name:h.n, sector:h.s, signal:h.sig, badgeStyle:this._badge(h.sig),
+        priceStr:this._px(h.px), fairStr:this._px(h.fv), upside:this._pct(aRow.mos), upsideColor:aRow.upCol,
+        scoreStr:h.sc!=null?String(h.sc):'—', scoreLabel:h.sc!=null?(h.sc>=75?'High conviction':h.sc>=55?'Constructive':'Cautious'):'Excluded (veto)',
+        subScores, models, fins, checks, thesis,
+        hasVeto:!!h.veto, vetoNote:h.veto||'', held, notHeld:!held,
+        heldStr: held? h.sh.toLocaleString('en-US')+' shares · '+this._eur(aRow.cv) : 'Not held · watchlist',
+        chartPath:apath, chartArea:apath+' L '+AW+' '+ab+' L 0 '+ab+' Z', fairY:aFairY,
+      };
+    }
+
+    // ── help view-model ──
+    const help={
+      signals:[
+        {sig:'BUY', badge:this._badge('BUY'), desc:'Composite score ≥ 75 and margin of safety above your target. Trades at a meaningful discount to fair value.'},
+        {sig:'MONITOR', badge:this._badge('MONITOR'), desc:'Score 55–74, or near fair value. On the watchlist — wait for a wider margin of safety before adding.'},
+        {sig:'AVOID', badge:this._badge('AVOID'), desc:'Score below 55 or trading above composite fair value. Limited upside at the current price.'},
+        {sig:'VETO', badge:this._badge('VETO'), desc:'A hard-veto rule is breached (e.g. leverage). The name is excluded from composite scoring entirely.'},
+      ],
+      models:[
+        {name:'Graham Number', desc:'Benjamin Graham’s √(22.5 × EPS × book value) — a conservative floor for defensive stocks.'},
+        {name:'P/E fair value', desc:'Normalised earnings times a sector-appropriate fair multiple.'},
+        {name:'EPV', desc:'Earnings Power Value — sustainable earnings capitalised at the cost of capital, no growth assumed.'},
+        {name:'Dividend discount', desc:'Present value of forecast dividends, for income-paying names with stable payout.'},
+        {name:'DCF', desc:'Discounted free cash flow over an explicit horizon plus a terminal value.'},
+        {name:'Analyst target', desc:'Consensus 12-month price target, blended in as an external check.'},
+      ],
+      vetoes:[
+        'Debt / equity above your threshold (default 2.0×)',
+        'Dividend payout above your threshold (default 90%)',
+        'Interest cover below 3×',
+        'Negative or unstable free cash flow',
+        'Going-concern or audit red flags',
+      ],
+      faqs:[
+        {q:'How is the composite fair value calculated?', a:'Each holding is valued by all six models. Outliers are trimmed and the remainder averaged into a single composite fair value. Margin of safety is the discount of the current price to that figure.'},
+        {q:'What does the conviction score mean?', a:'A 0–100 weighted mean of the signal scores across your scored holdings, weighted by position size. Vetoed names are excluded from the average.'},
+        {q:'How often do prices update?', a:'Quotes refresh on the interval set in Settings → Alerts & data during market hours (default every 15 minutes). Fundamentals update daily after each exchange close.'},
+        {q:'Why is a holding excluded from scoring?', a:'It has breached a hard-veto rule. It still appears in your portfolio and valuations, but is left out of the conviction score until the flag clears.'},
+        {q:'Which exchanges are covered?', a:'Euronext Paris, XETRA, SIX Swiss, Borsa Italiana, London SE, BME Madrid, Euronext Amsterdam and Nasdaq Nordic. US names can be enabled in Settings.'},
+      ],
+    };
+
+    // ── settings view-model ──
+    const St=this.state;
+    const seg=(key,opts)=>({type:'seg', value:St[key],
+      opts:opts.map(o=>({label:String(o), active:St[key]===o, onClick:()=>this.setVal(key,o),
+        style:'padding:6px 13px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;'+(St[key]===o?'background:var(--panel);color:var(--text);box-shadow:var(--shadow);':'color:var(--muted);')}))});
+    const tog=(key)=>({on:!!St[key], onClick:()=>this.setVal(key,!St[key]),
+      trackStyle:'width:38px;height:22px;border-radius:12px;flex:none;cursor:pointer;position:relative;transition:background .2s;background:'+(St[key]?'var(--teal)':'var(--faint)')+';',
+      knobStyle:'position:absolute;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;left:'+(St[key]?'18px':'2px')+';box-shadow:0 1px 2px rgba(0,0,0,0.3);'});
+    const slider=(key,min,max,step,fmt)=>({value:St[key], label:fmt(St[key]),
+      onInput:(e)=>this.setVal(key,+e.target.value), min, max, step});
+    const settings={
+      currency:seg('setCurrency',['EUR','GBP','CHF','USD']),
+      numFmt:seg('setNumFmt',['1.234,56','1,234.56']),
+      density:seg('setDensity',['Compact','Comfortable']),
+      refresh:seg('setRefresh',['1 min','5 min','15 min','Manual']),
+      themeSeg:seg('theme',['dark','light']),
+      deMax:slider('setDeMax',1,3,0.1,v=>v.toFixed(1)+'×'),
+      payoutMax:slider('setPayoutMax',60,100,5,v=>v+'%'),
+      minMos:slider('setMinMos',0,40,5,v=>v+'%'),
+      scoreBuy:slider('setScoreBuy',50,90,5,v=>String(v)),
+      exUS:tog('setExUS'), exStoxx:tog('setExStoxx'),
+      notifSignal:tog('setNotifSignal'), notifDiv:tog('setNotifDiv'), notifVeto:tog('setNotifVeto'), notifWeekly:tog('setNotifWeekly'),
+      close:()=>this.closeSettings(),
+    };
+    const notifRows=[
+      {title:'Signal changes', desc:'When a holding flips BUY / MONITOR / AVOID.', ...tog('setNotifSignal')},
+      {title:'Dividend events', desc:'Ex-dates and payments for your positions.', ...tog('setNotifDiv')},
+      {title:'Veto triggers', desc:'When a holding breaches a hard-veto rule.', ...tog('setNotifVeto')},
+      {title:'Weekly digest', desc:'Portfolio summary email every Monday.', ...tog('setNotifWeekly')},
+    ];
+
+    const rangesArr=['1M','3M','1Y','ALL'].map(r=>({label:r, onClick:()=>this.setRange(r),
+      style:'padding:5px 11px;border-radius:6px;font-size:11.5px;font-weight:500;cursor:pointer;font-family:var(--mono);'+(this.state.range===r?'background:var(--panel);color:var(--text);box-shadow:var(--shadow);':'color:var(--muted);')}));
+
+    const benchChip=(on,label)=>'display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;font-size:11px;cursor:pointer;border:0.5px solid '+(on?'var(--teal)':'var(--line)')+';color:'+(on?'var(--text)':'var(--muted)')+';'+(on?'background:var(--soft);':'');
+
+    return {
+      theme:this.state.theme, toggleTheme:()=>this.toggleTheme(),
+      themeIcon:this.state.theme==='dark'?'☾':'☀',
+      asOf:'Live · 17:30 CET',
+      nav, isDash:this.state.page==='dashboard', isScreen:this.state.page==='screener', isWatchlist:this.state.page==='watchlist', isPort:this.state.page==='portfolio',
+      isPortOverview:this.state.page==='portfolio' && this.state.portSection==='overview',
+      isPortOpen:this.state.page==='portfolio' && this.state.portSection==='open',
+      isPortClosed:this.state.page==='portfolio' && this.state.portSection==='closed',
+      isPortDividends:this.state.page==='portfolio' && this.state.portSection==='dividends',
+      openPortSection:(s)=>this.openPortSection(s), backToPortfolio:()=>this.backToPortfolio(),
+      openOpenFull:()=>this.openPortSection('open'),
+      openClosedFull:()=>this.openPortSection('closed'),
+      openDividendsFull:()=>this.openPortSection('dividends'),
+      isRisk:this.state.page==='risk', isAnalysis:this.state.page==='analysis', isSettings:this.state.page==='settings', scr, port, riskVM, analysis, settings,
+      openSettings:()=>this.openSettings(), notifRows,
+      authed:this.state.authed, notAuthed:!this.state.authed,
+      userMenuOpen:this.state.userMenuOpen,
+      toggleUserMenu:()=>this.toggleUserMenu(), closeUserMenu:()=>this.closeUserMenu(),
+      userMenuScrimStyle:'position:fixed;inset:0;z-index:50;'+(this.state.userMenuOpen?'':'display:none;'),
+      openAddPosition:()=>this.openAddPosition(),
+      watch: (()=>{
+        const rows = this.state.watchlist.map(w=>{
+          const h = this.universe.find(x=>x.t===w.t);
+          if(h){
+            const scv = h.sc==null?0:h.sc;
+            const fv = h.fv||h.px;
+            const mos = h.px ? (fv-h.px)/h.px*100 : 0;
+            return {
+              ticker:h.t, exch:this._exch(h.t), name:h.n, signal:h.sig, badgeStyle:this._badge(h.sig),
+              scoreStr:h.sc==null?'—':String(h.sc),
+              scoreColor:h.sc==null?'var(--faint)':(h.sc>=75?'var(--mint)':'var(--text)'),
+              scoreFill:'position:absolute;left:0;top:0;height:100%;border-radius:4px;width:'+scv+'%;background:'+(h.sc==null?'transparent':(h.sc>=75?'var(--mint)':h.sc>=55?'var(--teal)':'#C98A3A'))+';',
+              mos:this._pct(mos), mosColor: mos>=0?'var(--up-txt)':'var(--down-txt)',
+              price:this._px(h.px), pe:h.pe.toFixed(1)+'×', dy:h.dy.toFixed(1)+'%',
+              onClick:()=>this.select(h.t),
+              onRemove:(e)=>{ e.stopPropagation(); this.removeWatch(w.t); },
+            };
+          }
+          return {
+            ticker:w.t, exch:this._exch(w.t), name:w.n||w.t, signal:'—',
+            badgeStyle:'display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;background:var(--panel-2);color:var(--faint);',
+            scoreStr:'—', scoreColor:'var(--faint)', scoreFill:'',
+            mos:'—', mosColor:'var(--faint)', price:'—', pe:'—', dy:'—',
+            onClick:()=>{},
+            onRemove:(e)=>{ e.stopPropagation(); this.removeWatch(w.t); },
+          };
+        });
+        return {
+          rows, empty: rows.length===0,
+          tickerInput:this.state.watchTickerInput, onTickerInput:(e)=>this.setWatchField('watchTickerInput', e.target.value),
+          nameInput:this.state.watchNameInput, onNameInput:(e)=>this.setWatchField('watchNameInput', e.target.value),
+          err:this.state.watchErr, hasErr:!!this.state.watchErr,
+          add:()=>this.addWatchManual(),
+        };
+      })(),
+      openEditPosition:(t)=>this.openEditPosition(t),
+      openAddClosed:()=>this.openAddClosed(),
+      openAddDividend:()=>this.openAddDividend(),
+      exportCsv:()=>this.exportCsv(),
+      sell:{
+        open:this.state.sellOpen,
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.sellOpen?'':'display:none;'),
+        close:()=>this.closeSell(),
+        ticker:this.state.sellTicker,
+        shares:this.state.sellShares, onShares:(e)=>this.setSell('sellShares', e.target.value),
+        price:this.state.sellPrice, onPrice:(e)=>this.setSell('sellPrice', e.target.value),
+        err:this.state.sellErr, hasErr:!!this.state.sellErr,
+        submit:()=>this.submitSell(),
+      },
+      stopProp:(e)=>e.stopPropagation(),
+      ap:{
+        open:this.state.apOpen,
+        isEdit:this.state.apMode==='edit',
+        title:this.state.apMode==='edit'?'Edit position':'Add position',
+        subtitle:this.state.apMode==='edit'?'Update shares, cost or price for this holding.':'Record a new open holding in your portfolio.',
+        submitLabel:this.state.apMode==='edit'?'Save changes':'Add position',
+        tickerDisabled:this.state.apMode==='edit',
+        tickerOpacity:this.state.apMode==='edit'?'0.6':'1',
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.apOpen?'':'display:none;'),
+        close:()=>this.closeAddPosition(),
+        ticker:this.state.apTicker, onTicker:(e)=>this.setAp('apTicker', e.target.value),
+        name:this.state.apName, onName:(e)=>this.setAp('apName', e.target.value),
+        nameDisabled:this.state.apMode==='edit',
+        sector:this.state.apSector, onSector:(e)=>this.setAp('apSector', e.target.value),
+        sectorOpts:['Energy','Healthcare','Financials','Consumer disc.','Consumer staples','Utilities','Industrials','Comm. services','Technology'],
+        shares:this.state.apShares, onShares:(e)=>this.setAp('apShares', e.target.value),
+        cost:this.state.apCost, onCost:(e)=>this.setAp('apCost', e.target.value),
+        price:this.state.apPrice, onPrice:(e)=>this.setAp('apPrice', e.target.value),
+        err:this.state.apErr, hasErr:!!this.state.apErr,
+        submit:()=>this.submitAddPosition(),
+        delete:()=>this.deletePosition(),
+      },
+      cp:{
+        open:this.state.cpOpen,
+        isEdit:this.state.cpMode==='edit',
+        title:this.state.cpMode==='edit'?'Edit closed trade':'Add closed trade',
+        subtitle:this.state.cpMode==='edit'?'Update this realised trade record.':'Record a previously closed position.',
+        submitLabel:this.state.cpMode==='edit'?'Save changes':'Add trade',
+        tickerDisabled:this.state.cpMode==='edit',
+        tickerOpacity:this.state.cpMode==='edit'?'0.6':'1',
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.cpOpen?'':'display:none;'),
+        close:()=>this.closeCp(),
+        ticker:this.state.cpTicker, onTicker:(e)=>this.setCp('cpTicker', e.target.value),
+        name:this.state.cpName, onName:(e)=>this.setCp('cpName', e.target.value),
+        sector:this.state.cpSector, onSector:(e)=>this.setCp('cpSector', e.target.value),
+        sectorOpts:['Energy','Healthcare','Financials','Consumer disc.','Consumer staples','Utilities','Industrials','Comm. services','Technology'],
+        shares:this.state.cpShares, onShares:(e)=>this.setCp('cpShares', e.target.value),
+        buy:this.state.cpBuy, onBuy:(e)=>this.setCp('cpBuy', e.target.value),
+        sell:this.state.cpSell, onSell:(e)=>this.setCp('cpSell', e.target.value),
+        closed:this.state.cpClosed, onClosed:(e)=>this.setCp('cpClosed', e.target.value),
+        err:this.state.cpErr, hasErr:!!this.state.cpErr,
+        submit:()=>this.submitCp(),
+        delete:()=>this.deleteCp(),
+      },
+      dv:{
+        open:this.state.dvOpen,
+        isEdit:this.state.dvMode==='edit',
+        title:this.state.dvMode==='edit'?'Edit dividend':'Add dividend',
+        subtitle:this.state.dvMode==='edit'?'Update this dividend record.':'Record a dividend payment received.',
+        submitLabel:this.state.dvMode==='edit'?'Save changes':'Add dividend',
+        scrimStyle:'position:fixed;inset:0;z-index:80;background:rgba(10,14,20,0.5);display:flex;align-items:center;justify-content:center;'+(this.state.dvOpen?'':'display:none;'),
+        close:()=>this.closeDv(),
+        ticker:this.state.dvTicker, onTicker:(e)=>this.setDv('dvTicker', e.target.value),
+        name:this.state.dvName, onName:(e)=>this.setDv('dvName', e.target.value),
+        amount:this.state.dvAmount, onAmount:(e)=>this.setDv('dvAmount', e.target.value),
+        date:this.state.dvDate, onDate:(e)=>this.setDv('dvDate', e.target.value),
+        err:this.state.dvErr, hasErr:!!this.state.dvErr,
+        submit:()=>this.submitDv(),
+        delete:()=>this.deleteDv(),
+      },
+      onLogout:()=>this.logout(), onLogin:()=>this.login(),
+      goSettings:()=>{ this.closeUserMenu(); this.openSettings(); },
+      goHelp:()=>{ this.closeUserMenu(); this.openHelp(); },
+      isAdmin: true,
+      closeHelp:()=>this.closeHelp(),
+      isHelp:this.state.page==='help', help,
+      loginEmail:this.state.loginEmail, loginPw:this.state.loginPw, loginErr:this.state.loginErr,
+      onLoginEmail:(e)=>this.setState({loginEmail:e.target.value}),
+      onLoginPw:(e)=>this.setState({loginPw:e.target.value}),
+      onLoginKey:(e)=>{ if(e.key==='Enter') this.login(); },
+      userMenuStyle:'position:absolute;top:44px;right:0;width:230px;background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,0.35);z-index:60;overflow:hidden;padding:6px;'+(this.state.userMenuOpen?'':'display:none;'),
+      gearStyle:'width:34px;height:34px;border-radius:8px;border:0.5px solid '+(this.state.page==='settings'?'var(--teal)':'var(--line)')+';display:flex;align-items:center;justify-content:center;cursor:pointer;color:'+(this.state.page==='settings'?'var(--text)':'var(--muted)')+';',
+      openAnalysis:()=>this.state.selected && this.openAnalysis(this.state.selected),
+      editSelected:()=>this.state.selected && this.openEditPosition(this.state.selected),
+      sellSelected:()=>this.state.selected && this.openSell(this.state.selected),
+      addSelectedPosition:()=>this.addSelectedPosition(),
+      closeAnalysis:()=>this.closeAnalysis(),
+      kpis, chart, ranges:rangesArr,
+      benches:{spx:this.state.spx, stoxx:this.state.stoxx},
+      toggleSpx:()=>this.setState(s=>({spx:!s.spx})), toggleStoxx:()=>this.setState(s=>({stoxx:!s.stoxx})),
+      spxChipStyle:benchChip(this.state.spx), stoxxChipStyle:benchChip(this.state.stoxx),
+      conviction, risk, holdings,
+      donut, totalShort:this._eurShort(this.totalCV),
+      dividends, fwdIncomeShort:this._eurShort(fwd), movers,
+      drawerOpen:open, sel,
+      overlayStyle:'position:fixed;top:58px;left:0;right:0;bottom:0;background:rgba(4,10,22,0.55);z-index:40;transition:opacity .25s ease;'+(open?'opacity:1;pointer-events:auto;':'opacity:0;pointer-events:none;'),
+      drawerStyle:'position:fixed;top:58px;right:0;height:calc(100vh - 58px);width:452px;max-width:92vw;background:var(--panel);border-left:0.5px solid var(--line);box-shadow:-8px 0 40px rgba(0,0,0,0.28);z-index:41;transition:transform .28s cubic-bezier(.4,0,.2,1);transform:translateX('+(open?'0':'110%')+');',
+    };
+  }
+}
+</script>
+</body>
+</html>
