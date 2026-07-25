@@ -3,14 +3,15 @@ sslCertFile = ".ssl/cert.pem"
 sslKeyFile  = ".ssl/key.pem"
 
 [client]
-# Hide developer toolbar items (Deploy, Rerun, Clear cache, ...) but keep the
-# viewer menu — it holds Settings with the light/dark theme switcher.
-# ("minimal" would remove the menu entirely.)
-toolbarMode = "viewer"
+# Remove the native "⋮" app menu entirely (Deploy, Rerun, Settings, About,
+# ...) — the top bar's own sun/moon toggle (uvalu/shell.py) replaces the
+# menu's Settings > Theme picker, so nothing in it is load-bearing anymore.
+toolbarMode = "minimal"
 
 # Brand theming — light and dark variants are rendered natively by Streamlit.
-# The active variant follows the user's system preference and can be switched
-# in the app menu (top-right ⋮ → Settings → Theme).
+# The active variant defaults to the user's system preference and can be
+# switched via the top bar's sun/moon toggle (uvalu/shell.py); Streamlit
+# resolves it through st.context.theme the same way either way.
 
 [theme.light]
 primaryColor             = "#1A8C6E"

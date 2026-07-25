@@ -4,6 +4,7 @@ Run with ``python run_app.py`` (or double-click ``run_app.bat`` on Windows).
 """
 import datetime
 import ipaddress
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -64,5 +65,9 @@ def _ensure_cert() -> None:
 
 if __name__ == "__main__":
     _ensure_cert()
-    venv_streamlit = ROOT / ".venv" / "Scripts" / "streamlit.exe"
-    subprocess.run([str(venv_streamlit), "run", str(ROOT / "app.py")], check=True)
+    venv_streamlit = Path(sys.executable).parent / "streamlit.exe"
+    port = os.environ.get("PORT", "8501")
+    subprocess.run(
+        [str(venv_streamlit), "run", str(ROOT / "app.py"), "--server.port", port],
+        check=True,
+    )

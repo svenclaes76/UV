@@ -280,10 +280,12 @@ class TestCompositeScore:
         veto = out[out["Ticker"] == "VETO"].iloc[0]
         assert veto["Value Score"] == 0.0
         assert veto["Decision"] == "Avoid"
+        assert bool(veto["veto"]) is True
 
         good = out[out["Ticker"] == "GOOD"].iloc[0]
         meh = out[out["Ticker"] == "MEH"].iloc[0]
         assert good["Value Score"] > meh["Value Score"]
+        assert bool(good["veto"]) is False
 
         # Fair value blend for GOOD: Graham + PE + analyst only
         gn, pe, an = 2250 ** 0.5, 75.0, 90.0
@@ -616,7 +618,7 @@ class TestStage7:
     def test_fundamental_score_weighting(self):
         def prof(ticker, weight, rating):
             return PositionRisk(ticker=ticker, name=ticker, weight=weight,
-                                beta=None, var_95_1d_eur=None, mos=None,
+                                beta=None, var_95_1d_eur=None, vol_annual=None, mos=None,
                                 valuation_flag="N/A", div_sustainability="",
                                 financial_health=5.0, earnings_quality=5.0,
                                 rating=rating)
@@ -638,7 +640,7 @@ class TestStage8:
     def test_hard_and_soft_triggers(self):
         profiles = [PositionRisk(
             ticker="BIG", name="Big Co", weight=0.25, beta=1.0,
-            var_95_1d_eur=10.0, mos=0.1, valuation_flag="Undervalued",
+            var_95_1d_eur=10.0, vol_annual=None, mos=0.1, valuation_flag="Undervalued",
             div_sustainability="OK", financial_health=7.0,
             earnings_quality=7.0, rating="Low")]
         conc = ConcentrationMetrics(
@@ -650,7 +652,7 @@ class TestStage8:
             div_hhi=None, div_top3_pct=None, income_concentration_flag=False)
         quant = QuantMetrics(
             portfolio_beta=1.6, beta_label="Aggressive", volatility_annual=0.2,
-            volatility_label="Moderate", var_95_1d_eur=100.0,
+            volatility_label="Moderate", var_95_1d_pct=-0.03, var_95_1d_eur=100.0,
             var_99_1d_eur=None, cvar_95_1d_eur=None, mdd_1y=None, mdd_3y=None,
             mdd_5y=None, mdd_label="N/A", sharpe=0.5, sortino=None,
             ratio_label="Suboptimal", corr_matrix=None,

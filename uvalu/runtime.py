@@ -19,6 +19,8 @@ class ThemeColors:
     invested: str
     text: str
     surface: str
+    up_txt: str
+    down_txt: str
 
 
 def theme_colors() -> ThemeColors:
@@ -31,6 +33,11 @@ def theme_colors() -> ThemeColors:
         invested="rgba(59,77,99,0.45)" if light else "rgba(245,247,250,0.35)",
         text="#0D1F3C"             if light else "#F5F7FA",
         surface="#F5F7FA"          if light else "#0D1F3C",
+        # Matches Uvalu.dc.html's --up-txt/--down-txt tokens (uvalu/styles.py) —
+        # literal hex, not var(), since Python-computed colors (Plotly traces,
+        # pandas Styler cell colors) can't resolve CSS custom properties.
+        up_txt="#0F6E56"           if light else "#1DD6A4",
+        down_txt="#A32D2D"         if light else "#F0A6A6",
     )
 
 
@@ -39,10 +46,15 @@ class CurrentUser:
     email: str
     role: str
     is_admin: bool
+    is_viewer: bool
 
 
 def current_user() -> CurrentUser:
-    """Resolve the logged-in user from session state."""
+    """Resolve the logged-in user from session state.
+
+    role is one of auth.ROLES ("Admin"/"Analyst"/"Viewer") — see auth.py's
+    _normalize_user for how legacy lowercase admin/user values are mapped.
+    """
     email = st.session_state.get("user_email", "")
-    role = st.session_state.get("user_role", "user")
-    return CurrentUser(email=email, role=role, is_admin=(role == "admin"))
+    role = st.session_state.get("user_role", "Analyst")
+    return CurrentUser(email=email, role=role, is_admin=(role == "Admin"), is_viewer=(role == "Viewer"))
