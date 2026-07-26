@@ -166,6 +166,7 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         # the whole width.
         annotations=[
             dict(text=f"TOTAL<br><b>{_total_short}</b>", x=_pie_cx, y=0.5, showarrow=False,
+                xanchor="center", yanchor="middle",
                 font=dict(size=12, color=_c_text), align="center"),
         ],
         paper_bgcolor="rgba(0,0,0,0)",
