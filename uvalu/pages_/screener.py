@@ -13,7 +13,8 @@ from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
-from uvalu.components import signal_badge_for_decision, stock_row, empty_results_html
+from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
+                              block_skeleton as _block_skeleton)
 from uvalu.ui import _auto_rerun
 
 _EXCHANGE_LABELS = {
@@ -115,9 +116,22 @@ def render() -> None:
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
+
+    # Shimmer placeholder for the title + table while the screener dataset
+    # loads (docs/design/Uvalu Loading Patterns.html) — this covers a genuine
+    # Streamlit cache miss on _load_all_screener_data itself; the *separate*
+    # "still fetching tickers in the background" case further down already
+    # has its own progress caption + auto-rerun, untouched here.
+    _scr_ph = st.empty()
+    with _scr_ph.container():
+        st.markdown(_block_skeleton("28px"), unsafe_allow_html=True)
+        st.container(height=8, border=False)
+        st.markdown(_block_skeleton("340px"), unsafe_allow_html=True)
+
     dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds())
+    _scr_ph.empty()
     *_exch_dfs, _ = dfs  # extra (portfolio-only) tickers aren't shown in the ranked list
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 

@@ -9,7 +9,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import stock_row, empty_results_html
+from uvalu.components import stock_row, empty_results_html, block_skeleton as _block_skeleton
 from uvalu.drawer import open_drawer
 
 _EXCHANGE_LABELS = {
@@ -28,9 +28,19 @@ def render() -> None:
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
+
+    # Shimmer placeholder for the results list while the screener dataset
+    # loads (docs/design/Uvalu Loading Patterns.html) — cleared the instant
+    # the fetch below returns, before any real content renders, so it never
+    # lingers alongside the real list.
+    _wl_ph = st.empty()
+    with _wl_ph.container():
+        st.markdown(_block_skeleton("300px"), unsafe_allow_html=True)
+
     _exch_dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds())
+    _wl_ph.empty()
     *_per_exchange, extra_df = _exch_dfs
     all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
