@@ -7,7 +7,7 @@ plotly==6.8.0
 python-dotenv==1.2.2
 PyJWT==2.13.0
 requests==2.34.2
-streamlit==1.58.0
+streamlit==1.60.0
 yfinance==1.4.1
 
 # ── Dev/test ──────────────────────────────────────────────────────────────────
