@@ -177,17 +177,14 @@ financials grid, a hard-veto checklist, and a short value thesis.
 Available to every user — user/workspace administration lives in the
 **Admin portal** instead.
 
-- **Display** — Theme follows Streamlit's own app-menu setting; Table
-  density affects card-based lists (native data tables use a fixed row
-  height); Display currency and Number format are shown but not yet
-  configurable (EUR only for now).
+- **Display** — Theme follows Streamlit's own app-menu setting; Display
+  currency and Number format are shown but not yet configurable (EUR only
+  for now).
 - **Screening & veto rules** — Max debt/equity, Max dividend payout, Target
   margin of safety, and BUY score threshold sliders drive every BUY/MONITOR/
   AVOID decision app-wide; a Euro Stoxx 50 benchmark default; an
   (unavailable) US-listed toggle.
-- **Alerts & data** — four notification preferences (stored only — there's
-  no email/push delivery in this app yet) and the portfolio price
-  auto-refresh interval.
+- **Data** — the portfolio price auto-refresh interval.
 - **Import & export** — upload an Excel file to replace your portfolio data
   (expected sheets: `Positions`, `Sold`, `Dividends`), or download a
   human-readable Excel workbook.

@@ -127,7 +127,7 @@ Reusable, theme-aware rendering helpers:
 
 #### `uvalu/formatting.py`
 
-`COLUMN_HELP` — the single source of truth for column tooltip/help text, shown both as table-header tooltips and on the Help page's column reference. Plus pure value formatters (`fmt_eur`, `fmt_div_flag`, `safe_pct`, `f_str`).
+`COLUMN_HELP` — column tooltip/help text shown as table-header tooltips; unused since the Help page was rewritten to a signal-legend/FAQ layout (see [backend-feature-gaps.md](backend-feature-gaps.md)). Plus pure value formatters (`fmt_eur`, `fmt_div_flag`, `safe_pct`, `f_str`).
 
 #### `uvalu/styles.py`
 
@@ -160,7 +160,7 @@ Email/password authentication with JWT sessions.
 - `invite_user(email, role=...)` — creates an account with `Invited` status and a random temporary password, returned once for the inviter to hand off manually (no outbound email is sent).
 - `login(email, password)` — verify hash, reject `Suspended` accounts, flip `Invited`→`Active` and stamp `last_active` on success, issue an HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
 - `verify_token(token)` → `(email, role)`.
-- `list_users()`, `set_role()`, `set_status()`, `delete_user()`, `reset_password()` — admin helpers, surfaced in the Admin portal's Users tab.
+- `list_users()`, `set_role()`, `set_status()`, `delete_user()` — admin helpers, surfaced in the Admin portal's Users tab. `reset_password()` exists but isn't wired into the Admin portal yet (see [backend-feature-gaps.md](backend-feature-gaps.md)).
 
 The JWT is persisted in browser `localStorage` (`uv_jwt`) and reloaded on each refresh via the `uvalu.authgate` bridge.
 
