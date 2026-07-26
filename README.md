@@ -67,6 +67,12 @@ On Windows you can also double-click `run_app.bat`.
 
 `run_app.py` generates a self-signed TLS certificate into `.ssl/` on first launch (the paths are wired up in `.streamlit/config.toml`), then starts Streamlit. The app runs on `https://localhost:8501`; accept the browser warning for localhost.
 
+To run on a different port, set `PORT` in your shell before launching (this is a real environment variable, not a `.env` entry — `run_app.py` doesn't load `.env`):
+
+```bash
+PORT=8600 python run_app.py
+```
+
 Register the first account — it is automatically granted the **admin** role.
 
 ---
