@@ -24,6 +24,7 @@ from screener import (
     _earnings_quality_score,
     _market_risk_score,
     _dividend_risk_score,
+    _dividend_score_raw,
     _liquidity_score,
     _quality_raw,
     _momentum_raw,
@@ -119,6 +120,13 @@ class TestDDM:
         assert _ddm_multistage(2.0, 0.08, 0.50) == pytest.approx(
             _ddm_multistage(2.0, 0.08, 0.15))
 
+    def test_multistage_non_payer_returns_none(self):
+        assert _ddm_multistage(None, 0.08, 0.05) is None
+        assert _ddm_multistage(0.0, 0.08, 0.05) is None
+
+    def test_multistage_wacc_below_terminal_growth_returns_none(self):
+        assert _ddm_multistage(2.0, 0.015, 0.05) is None
+
     def test_zero_growth_is_respected_not_defaulted(self):
         # g=0.0 must mean zero growth (2/0.08 = 25), not the 2% missing-data default
         assert _ddm_single(2.0, 0.08, 0.0) == pytest.approx(25.0)
@@ -148,6 +156,17 @@ class TestFairValueBlend:
         fv = _fair_value_models(row)
         assert fv["ddm"] is None and fv["ddm_multistage"] is None
 
+    def test_epv_included_when_ebit_and_ev_available(self):
+        row = pd.Series({"Price": 50.0, "ebit": 1_000_000.0, "enterpriseValue": 10_000_000.0,
+                         "beta": 1.0})
+        fv = _fair_value_models(row)
+        assert fv["epv"] is not None
+        assert fv["epv"] > 0
+
+    def test_epv_none_without_ebit_or_ev(self):
+        fv = _fair_value_models(pd.Series({"Price": 50.0, "beta": 1.0}))
+        assert fv["epv"] is None
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 3 — MoS, TER, dividend sustainability
@@ -166,6 +185,10 @@ class TestStage3:
 
     def test_ter_dgr_clamped_to_10pct(self):
         assert _total_expected_return(100.0, 100.0, 0.0, 0.50) == pytest.approx(10.0)
+
+    def test_ter_none_price_returns_none(self):
+        assert _total_expected_return(None, 100.0, 0.03, 0.05) is None
+        assert _total_expected_return(0.0, 100.0, 0.03, 0.05) is None
 
     def test_div_flag(self):
         assert _dividend_sustainability_flag(pd.Series({})) == ""          # non-payer
@@ -213,6 +236,38 @@ class TestDimensionScores:
 
     def test_dividend_risk_non_payer_neutral(self):
         assert _dividend_risk_score(pd.Series({})) == 5.0
+
+    @pytest.mark.parametrize("payout,expected", [
+        (0.50, 10.0),   # sweet spot 30-70%
+        (0.20, 7.0),    # low payout
+        (0.80, 4.0),    # elevated but not extreme
+        (0.95, 0.0),    # > 85% at risk
+    ])
+    def test_dividend_risk_payout_tiers(self, payout, expected):
+        row = pd.Series({"trailingAnnualDividendRate": 2.0, "payoutRatio": payout})
+        assert _dividend_risk_score(row) == pytest.approx(expected)
+
+    def test_dividend_score_raw_non_payer_neutral(self):
+        assert _dividend_score_raw(pd.Series({})) == 5.0
+
+    def test_dividend_score_raw_yield_vs_average(self):
+        row = pd.Series({"trailingAnnualDividendRate": 2.0,
+                         "dividendYield": 0.04, "fiveYearAvgDividendYield": 0.02})
+        # ratio 2x avg -> clamped to 10
+        assert _dividend_score_raw(row) == pytest.approx(10.0)
+
+    @pytest.mark.parametrize("payout,expected", [
+        (0.50, 10.0), (0.20, 7.0), (0.80, 4.0), (0.95, 0.0),
+    ])
+    def test_dividend_score_raw_payout_tiers(self, payout, expected):
+        row = pd.Series({"trailingAnnualDividendRate": 2.0, "payoutRatio": payout})
+        assert _dividend_score_raw(row) == pytest.approx(expected)
+
+    def test_dividend_score_raw_uses_cash_payout_and_coverage(self):
+        row = pd.Series({"trailingAnnualDividendRate": 2.0,
+                         "cashPayoutRatio": 0.3, "dividendCoverage": 3.0})
+        # cpr score: 10 - 0.3*10 = 7; coverage score: clamp(3*2,0,10)=6 -> mean 6.5
+        assert _dividend_score_raw(row) == pytest.approx(6.5)
 
     def test_all_scores_bounded_0_10(self):
         extreme = pd.Series({"debtToEquity": 900.0, "currentRatio": 0.1,
@@ -300,6 +355,69 @@ class TestCompositeScore:
         out = run_screener_from_df(df)
         assert "GHOST" not in set(out["Ticker"])
         assert len(out) == 4
+
+    def test_missing_price_column_is_added_as_all_none(self):
+        # No "Price" column at all (not just missing values) -> every row
+        # gets dropped as if all had no price, rather than raising a
+        # KeyError.
+        df = pd.DataFrame([{"Name": "No Price Co", "Ticker": "NOPRICE"}])
+        out = run_screener_from_df(df)
+        assert out.empty
+
+    def test_all_rows_dropped_for_no_price_returns_empty_df(self):
+        df = pd.DataFrame([{"Name": "Ghost", "Ticker": "GHOST", "Price": None}])
+        out = run_screener_from_df(df)
+        assert out.empty
+
+    def test_weak_but_not_vetoed_row_gets_avoid_decision(self):
+        # Composite scoring is cross-sectional (percentile rank against the
+        # OTHER rows in the same call), so a single lone "weak" row alone
+        # can't be driven below the Avoid threshold — a 2-row worst-case
+        # bottoms out at exactly 50 (1/2 * 100). A 5-row gradient with one
+        # row clearly worst on every dimension (but debt/equity kept just
+        # under the hard-veto threshold, so it fails on SCORE alone, not
+        # veto) is what actually reaches the plain "Avoid" fallback branch.
+        grades = [
+            dict(price=40.0,  eps=5.0, bvps=20.0, target=90.0, roe=0.20,  de=50.0,  cr=2.0, vol=1e6,
+                 eg=0.08,  rg=0.06,  rm=1.5),
+            dict(price=60.0,  eps=4.0, bvps=15.0, target=85.0, roe=0.15,  de=80.0,  cr=1.8, vol=8e5,
+                 eg=0.05,  rg=0.04,  rm=2.0),
+            dict(price=80.0,  eps=3.0, bvps=10.0, target=80.0, roe=0.10,  de=120.0, cr=1.5, vol=5e5,
+                 eg=0.02,  rg=0.02,  rm=2.8),
+            dict(price=95.0,  eps=2.0, bvps=5.0,  target=90.0, roe=0.05,  de=150.0, cr=1.2, vol=2e5,
+                 eg=0.0,   rg=0.0,   rm=3.2),
+            dict(price=200.0, eps=0.2, bvps=0.5,  target=50.0, roe=-0.20, de=450.0, cr=0.6, vol=5_000,
+                 eg=-0.40, rg=-0.30, rm=4.9),
+        ]
+        rows = [{
+            "Name": f"Co{i}", "Ticker": f"T{i}", "Price": g["price"],
+            "trailingEps": g["eps"], "bookValue": g["bvps"], "targetMeanPrice": g["target"],
+            "beta": 1.0, "returnOnEquity": g["roe"], "returnOnAssets": g["roe"] / 2,
+            "operatingMargins": g["roe"], "freeCashflow": 1e8, "netIncome": 5e7,
+            "debtToEquity": g["de"], "currentRatio": g["cr"], "averageVolume": g["vol"],
+            "earningsGrowth": g["eg"], "revenueGrowth": g["rg"], "recommendationMean": g["rm"],
+        } for i, g in enumerate(grades)]
+
+        out = compute_scores(pd.DataFrame(rows))
+        weakest = out[out["Ticker"] == "T4"].iloc[0]
+        assert weakest["Decision"] == "Avoid"
+        assert bool(weakest["veto"]) is False
+        assert weakest["Value Score"] < screener.SCORE_AVOID
+
+    def test_single_strong_row_reaches_strong_buy_decision(self):
+        # A single high-conviction row (no cross-sectional dilution from
+        # other rows in the percentile ranking) should clear both the
+        # score and margin-of-safety thresholds for "Strong Buy".
+        row = pd.DataFrame([{
+            "Name": "Good Co", "Ticker": "GOOD", "Price": 50.0,
+            "trailingEps": 5.0, "bookValue": 20.0, "targetMeanPrice": 90.0,
+            "beta": 1.0, "returnOnEquity": 0.20, "returnOnAssets": 0.10,
+            "operatingMargins": 0.25, "freeCashflow": 1e9, "netIncome": 8e8,
+            "debtToEquity": 50.0, "currentRatio": 2.0, "averageVolume": 1e6,
+            "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+        }])
+        out = compute_scores(row)
+        assert out.iloc[0]["Decision"] == "Strong Buy"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

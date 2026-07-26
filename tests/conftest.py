@@ -1,0 +1,109 @@
+"""
+Shared fixtures for testing uvalu/pages_/*.py render() functions via
+Streamlit's AppTest harness.
+
+Every page module reads/writes through portfolio.py/settings.py/auth.py/
+backup.py's module-level path constants and calls out to yfinance for live
+data — ``isolated_data`` redirects all persistence into tmp_path (see
+tests/test_auth.py etc. for why both the defining module's AND any
+by-value-importing module's copy of a path constant need patching) and
+nothing here ever touches the developer's real .cache/data directories or
+makes a real network call.
+"""
+import pandas as pd
+import pytest
+
+import auth
+import backup
+import portfolio
+import settings
+
+TEST_EMAIL = "test@example.com"
+
+
+@pytest.fixture
+def isolated_data(tmp_path, monkeypatch):
+    monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
+    monkeypatch.setattr(portfolio, "_BASE_DIR", tmp_path / "portfolio")
+    monkeypatch.setattr(settings, "_DATA_DIR", tmp_path / "settings_data")
+    monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "settings_data" / "shared.json")
+    monkeypatch.setattr(backup, "_SHARED_FILE", tmp_path / "settings_data" / "shared.json")
+    monkeypatch.setattr(backup, "_ENV_FILE", tmp_path / "fake.env")
+    monkeypatch.setattr(backup, "_BACKUPS_DIR", tmp_path / "backups")
+    monkeypatch.setattr(backup, "_BACKUPS_MANIFEST", tmp_path / "backups" / "manifest.json")
+    monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    portfolio.set_user(TEST_EMAIL)
+    yield
+    portfolio.set_user("")
+
+
+# ── Fake scored-screener-row builder ──────────────────────────────────────
+# Mirrors the real column set screener.run_screener_from_df() produces
+# (see screener.py / tests/test_algorithms.py) — enough fields for every
+# pages_/*.py module's row.get(...) calls to find real values instead of
+# silently rendering "—" placeholders everywhere.
+
+_SCREENER_COLUMNS = dict(
+    Ticker="AAA.BR", Name="Alpha Corp", sector="Technology", country="Belgium",
+    Exchange="Brussels", Price=100.0, Decision="Strong Buy", veto=False,
+    **{"Value Score": 78.0, "MoS %": 18.5},
+    fair_value=122.0, graham_number=118.0, pe_fair_value=125.0, epv=120.0,
+    ddm=115.0, ddm_multistage=124.0, targetMeanPrice=130.0,
+    trailingPE=14.2, dividendYield=0.032, dividendRate=3.2,
+    exDividendDate="15-01-2025", trailingEps=6.5, bookValue=45.0,
+    returnOnEquity=0.18, debtToEquity=80.0, fcfYield=0.05,
+    operatingMargins=0.20, profitMargins=0.15, payoutRatio=0.40,
+    freeCashflow=5_000_000.0,
+    **{"Div Flag": "OK"}, dividendCoverage=2.5,
+    **{"Sub MoS": 70.0, "Sub Risk": 65.0, "Sub Quality": 80.0,
+       "Sub Momentum": 60.0, "Sub Dividend": 75.0},
+    beta=1.05,
+)
+
+
+def make_scored_row(**overrides) -> dict:
+    row = dict(_SCREENER_COLUMNS)
+    row.update(overrides)
+    return row
+
+
+def make_scored_df(rows: list[dict] | None = None) -> pd.DataFrame:
+    rows = rows if rows is not None else [make_scored_row()]
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def scored_df():
+    return make_scored_df()
+
+
+def make_screener_data_tuple(exchange_df: pd.DataFrame | None = None,
+                             extra_df: pd.DataFrame | None = None) -> tuple:
+    """Build the 7-tuple _load_all_screener_data() normally returns:
+    one DataFrame per settings.ALL_EXCHANGES entry, then the "extra"
+    (portfolio-only) tickers DataFrame. Puts all fake data in the
+    "brussels" slot (index 0) since every fake ticker uses a ".BR" suffix."""
+    empty = pd.DataFrame(columns=["Ticker"])
+    exchange_df = exchange_df if exchange_df is not None else make_scored_df()
+    extra_df = extra_df if extra_df is not None else empty
+    return (exchange_df, empty, empty, empty, empty, empty, extra_df)
+
+
+def fake_cached_fn(return_value):
+    """Build a stand-in for an @st.cache_data-wrapped function: several
+    pages call `.clear()` on _load_all_screener_data (a real cache-clear),
+    so a bare lambda would raise AttributeError when that fires."""
+    def _fn(*_a, **_k):
+        return return_value
+    _fn.clear = lambda: None
+    return _fn
+
+
+def make_portfolio_df(rows: list[dict] | None = None) -> pd.DataFrame:
+    default_row = dict(
+        ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA",
+        shares=10, purchase_value=1000.0, purchase_price=100.0,
+        target_price=130.0, dividends=20.0, date_in="2023-01-01", date_out="",
+    )
+    rows = rows if rows is not None else [default_row]
+    return pd.DataFrame(rows)

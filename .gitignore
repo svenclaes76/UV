@@ -6,5 +6,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 report.html
+.coverage
 .venv/
 .idea/
