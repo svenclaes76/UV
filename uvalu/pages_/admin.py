@@ -245,6 +245,15 @@ def _render_feeds() -> None:
     with st.container(key="admin_feeds_card", border=True):
         for _key, _label in EXCHANGE_LABELS.items():
             _was_on = _key in _enabled
+            # A blocked toggle (would disable the last exchange) is reverted via
+            # this separate flag key, applied *before* the st.toggle below
+            # instantiates for the run. Writing straight to the toggle's own
+            # session_state key here would hit Streamlit's "cannot modify a
+            # widget's state after it's instantiated" guard, since the toggle
+            # was already instantiated on the run where the block happened.
+            if st.session_state.pop(f"_admin_feed_revert_{_key}", False):
+                st.session_state[f"admin_feed_{_key}"] = True
+                _was_on = True
             with st.container(key=f"admin_feed_row_{_key}"):
                 _c1, _c2, _c3, _c4 = st.columns([0.3, 3.3, 1, 1], vertical_alignment="center")
                 with _c1:
@@ -272,16 +281,17 @@ def _render_feeds() -> None:
             # Save immediately on change instead of a separate Save button
             # (same "no Save buttons, persist on change" rule already applied
             # to Settings). A blocked toggle (would disable the last exchange)
-            # is reverted by overwriting the widget's own session_state — the
-            # `value=` kwarg above only seeds it on first render, so a plain
-            # "don't persist" would leave the toggle stuck showing the
-            # rejected state on every future rerun. st.toast (not st.error)
-            # survives the immediate st.rerun() this revert needs; a same-run
-            # st.error() here would be replaced before ever painting, per the
-            # restore-dialog's identical lesson elsewhere in this file.
+            # is reverted on the *next* rerun via the `_admin_feed_revert_*`
+            # flag set above, rather than by overwriting the widget's own
+            # session_state here — that would hit Streamlit's guard against
+            # modifying a widget's state after it's instantiated this run.
+            # st.toast (not st.error) survives the immediate st.rerun() this
+            # revert needs; a same-run st.error() here would be replaced
+            # before ever painting, per the restore-dialog's identical lesson
+            # elsewhere in this file.
             if _on != _was_on:
                 if not _on and len(_enabled) <= 1:
-                    st.session_state[f"admin_feed_{_key}"] = True
+                    st.session_state[f"_admin_feed_revert_{_key}"] = True
                     st.toast("At least one exchange must be enabled.", icon=":material/warning:")
                     st.rerun()
                 else:
