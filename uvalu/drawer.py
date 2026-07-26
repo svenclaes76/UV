@@ -25,7 +25,7 @@ from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
 
 _DRAWER_CSS = """
-[data-testid="stDialog"] div[role="dialog"] {
+[data-testid="stDialog"] [role="dialog"] {
   position: fixed !important; top: 0 !important; right: 0 !important; left: auto !important;
   height: 100vh !important; max-height: 100vh !important;
   width: 452px !important; max-width: 92vw !important;
@@ -41,11 +41,15 @@ _DRAWER_CSS = """
 }
 @keyframes uvDrawerIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 /* Two separate native-chrome elements to hide, replaced by our own header:
-   the dialog's title text block (its first child — the @st.dialog("Stock
-   preview", ...) title string) and its native close button, which rendered
-   almost exactly on top of our own "✕" button (aria-label="Close" is a
-   stable target; its actual wrapper/position isn't). */
-[data-testid="stDialog"] div[role="dialog"] > div:first-child { display: none !important; }
+   the dialog's title (an <h2 slot="title"> — NOT the role="dialog"
+   element's first child; that's actually the native close button. The
+   role="dialog" element itself is a <section>, not a <div> — a `div[role=
+   "dialog"]` type-qualified selector, or a `> div:first-child` positional
+   one, silently matches nothing at all, confirmed live via the real DOM)
+   and its native close button, which rendered almost exactly on top of our
+   own "✕" button (aria-label="Close" is a stable target; its actual
+   wrapper/position isn't). */
+[data-testid="stDialog"] [role="dialog"] h2[slot="title"] { display: none !important; }
 [data-testid="stDialog"] button[aria-label="Close"] { display: none !important; }
 .st-key-drw_close button {
   width: 30px !important; height: 30px !important; min-height: 30px !important; padding: 0 !important;
