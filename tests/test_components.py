@@ -5,11 +5,14 @@ Pure mapping functions are asserted directly; the render_* functions (which
 call st.markdown/st.caption) are exercised through AppTest so a broken f-string
 or missing import fails loudly instead of only showing up visually.
 """
+import pandas as pd
 from streamlit.testing.v1 import AppTest
 
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               score_color, radial_gauge_svg, sub_score_bar_html,
-                              sparkline_svg)
+                              sparkline_svg, veto_reason_str, _fair_value_bar_html,
+                              holdings_row_html, _score_bar_cell_html,
+                              quality_score_color, _gain_color)
 
 
 def test_signal_badge_for_decision_maps_known_labels():
@@ -90,6 +93,48 @@ def test_fair_value_ladder_handles_missing_model_data():
 
     at = _run(_script)
     assert "Not enough model data" in at.caption[0].value
+
+
+def test_fair_value_ladder_no_price_shows_caption():
+    def _script():
+        from uvalu.components import fair_value_ladder
+        fair_value_ladder(price=None, models=[("Graham #", 120.0)], composite=None)
+
+    at = _run(_script)
+    assert "Not enough model data" in at.caption[0].value
+
+
+def test_stock_row_without_action_hides_star():
+    def _script():
+        from uvalu.components import stock_row
+        stock_row(key="row1", ticker="AAA.BR", name="Alpha Corp", exchange="Brussels",
+                 decision="Strong Buy", veto=False, score=80.0, mos_pct=None,
+                 price=100.0, pe=15.0, div_yield=0.03, show_action=False)
+
+    at = _run(_script)
+    assert not any(b.key == "row1_action" for b in at.button)
+
+
+def test_stock_row_missing_mos_shows_dash():
+    def _script():
+        from uvalu.components import stock_row
+        stock_row(key="row1", ticker="AAA.BR", name="Alpha Corp", exchange="Brussels",
+                 decision="Strong Buy", veto=False, score=80.0, mos_pct=None,
+                 price=100.0, pe=15.0, div_yield=0.03)
+
+    at = _run(_script)
+    html = "".join(m.value for m in at.markdown)
+    assert "<div style='text-align:right;color:var(--muted);'>—</div>" in html
+
+
+def test_portfolio_dividend_row_without_edit_hides_button():
+    def _script():
+        from uvalu.components import portfolio_dividend_row
+        portfolio_dividend_row(key="div1", name="Alpha Corp", ticker="AAA.BR",
+                               date="15 Mar 2024", amount=12.5, show_edit=False)
+
+    at = _run(_script)
+    assert len(at.button) == 0
 
 
 def test_fair_value_ladder_shows_dash_for_unavailable_model_not_dropped_row():
@@ -178,3 +223,104 @@ def test_sparkline_svg_renders_polyline_for_valid_series():
     assert "<svg" in svg
     assert "<polyline" in svg
     assert "<polygon" in svg
+
+
+class TestVetoReasonStr:
+    def test_debt_to_equity_reason(self, isolated_data):
+        row = pd.Series({"debtToEquity": 900.0})
+        assert "debt/equity of 900%" in veto_reason_str(row)
+
+    def test_negative_fcf_reason(self, isolated_data):
+        row = pd.Series({"freeCashflow": -5_000_000.0})
+        assert "negative free cash flow" in veto_reason_str(row)
+
+    def test_dividend_at_risk_and_low_coverage_reason(self, isolated_data):
+        row = pd.Series({"Div Flag": "At Risk", "dividendCoverage": 0.8})
+        assert "dividend flagged at risk" in veto_reason_str(row)
+
+    def test_at_risk_flag_alone_without_low_coverage_is_not_a_reason(self, isolated_data):
+        # The dividend condition is a single AND-combined check, not two
+        # independent ones — "At Risk" alone (coverage still healthy)
+        # shouldn't surface as its own veto reason.
+        row = pd.Series({"Div Flag": "At Risk", "dividendCoverage": 2.0})
+        assert veto_reason_str(row) == "a hard-veto rule"
+
+    def test_multiple_reasons_joined(self, isolated_data):
+        row = pd.Series({"debtToEquity": 900.0, "freeCashflow": -1.0})
+        result = veto_reason_str(row)
+        assert "debt/equity" in result and "negative free cash flow" in result
+        assert "; " in result
+
+    def test_no_reasons_falls_back_to_generic_message(self, isolated_data):
+        assert veto_reason_str(pd.Series({})) == "a hard-veto rule"
+
+
+class TestFairValueBarHtml:
+    def test_missing_data_returns_dash(self):
+        assert _fair_value_bar_html(None, 100.0, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+        assert _fair_value_bar_html(100.0, None, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+        assert _fair_value_bar_html(100.0, 120.0, None) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+
+    def test_valid_data_renders_bar(self):
+        html = _fair_value_bar_html(100.0, 120.0, 16.7)
+        assert "€100.00" in html
+        assert "fv €120.00" in html
+
+
+class TestHoldingsRowHtml:
+    def _row(self, **overrides):
+        kwargs = dict(ticker="AAA.BR", sector="Technology", name="Alpha Corp",
+                      decision="Strong Buy", veto=False, price=100.0, fair_value=120.0,
+                      mos_pct=16.7, weight=0.25, value=2500.0, day_change_pct=1.5)
+        kwargs.update(overrides)
+        return holdings_row_html(**kwargs)
+
+    def test_missing_mos_pct_shows_dash(self):
+        html = self._row(mos_pct=None)
+        assert "<span style='color:var(--faint);'>—</span>" in html
+
+    def test_missing_day_change_shows_dash(self):
+        html = self._row(day_change_pct=None)
+        assert html.count("<span style='color:var(--faint);'>—</span>") == 1  # only day-change dash
+
+    def test_no_sector_omits_sector_pill(self):
+        html = self._row(sector=None)
+        assert "border-radius:5px;padding:1px 6px" not in html
+
+
+class TestScoreBarCellHtml:
+    def test_missing_score_returns_dash(self):
+        assert _score_bar_cell_html(None) == "—"
+
+    def test_present_score_renders_bar(self):
+        html = _score_bar_cell_html(80.0)
+        assert "80" in html
+        assert "var(--uv-mint)" in html
+
+
+class TestQualityScoreColor:
+    def test_high_is_mint(self):
+        assert quality_score_color(80) == ("var(--uv-mint)", "var(--uv-mint)")
+
+    def test_mid_is_teal(self):
+        assert quality_score_color(50) == ("var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)")
+
+    def test_low_is_amber(self):
+        assert quality_score_color(20) == ("#C98A3A", "#C98A3A")
+
+
+class TestGainColor:
+    def test_none_is_faint(self):
+        assert _gain_color(None) == "var(--faint)"
+
+    def test_nan_is_faint(self):
+        assert _gain_color(float("nan")) == "var(--faint)"
+
+    def test_positive_is_up(self):
+        assert _gain_color(5.0) == "var(--up-txt)"
+
+    def test_negative_is_down(self):
+        assert _gain_color(-5.0) == "var(--down-txt)"
+
+    def test_zero_is_up(self):
+        assert _gain_color(0.0) == "var(--up-txt)"

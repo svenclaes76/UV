@@ -83,3 +83,44 @@ def test_add_ticker_not_found_shows_error(isolated_data, monkeypatch):
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "not found" in "".join(m.value for m in at.markdown)
     assert portfolio.load_watchlist() == set()
+
+
+def test_add_ticker_blank_symbol_shows_error(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    submit_buttons = [b for b in at.button if b.label == "Add ticker"]
+    submit_buttons[0].click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Enter a ticker symbol" in "".join(m.value for m in at.markdown)
+
+
+def test_add_ticker_lookup_exception_shows_error(isolated_data, monkeypatch):
+    def _boom(symbol):
+        raise RuntimeError("network down")
+    monkeypatch.setattr(yf, "Ticker", _boom)
+    at = _run(monkeypatch)
+
+    ticker_input = at.text_input[0]
+    ticker_input.set_value("BAD.BR")
+    submit_buttons = [b for b in at.button if b.label == "Add ticker"]
+    submit_buttons[0].click().run()
+
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "not found" in "".join(m.value for m in at.markdown)
+
+
+def test_star_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
+    portfolio.save_watchlist({"AAA.BR"})
+    at = _run(monkeypatch)
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    star_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert portfolio.load_watchlist() == set()
+
+
+def test_view_button_opens_drawer(isolated_data, monkeypatch):
+    portfolio.save_watchlist({"AAA.BR"})
+    at = _run(monkeypatch)
+    view_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_view"][0]
+    view_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Six-model fair value" in "".join(m.value for m in at.markdown)

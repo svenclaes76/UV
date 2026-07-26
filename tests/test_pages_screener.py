@@ -6,12 +6,12 @@ from uvalu.pages_ import screener as screener_page
 from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df
 
 
-def _run(monkeypatch, screener_tuple=None) -> AppTest:
+def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
     monkeypatch.setattr(screener_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
     monkeypatch.setattr(screener_page, "_load_cache", lambda: {})
     monkeypatch.setattr(screener_page, "get_fetch_progress",
-                        lambda: {"running": False, "total": 0, "done": 0})
+                        lambda: fetch_progress or {"running": False, "total": 0, "done": 0})
 
     def _script():
         from uvalu.pages_ import screener as screener_page
@@ -83,3 +83,108 @@ def test_portfolio_context_computed_when_holdings_present(isolated_data, monkeyp
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
+
+
+def test_bust_cache_triggered_when_fair_value_column_missing(isolated_data, monkeypatch):
+    # A stale-schema cache (predates a scoring-column addition) triggers a
+    # cache bust. Real _bust_cache() calls st.rerun(), which halts the
+    # script immediately (never reaching the code further down that
+    # otherwise unconditionally accesses the now-missing "fair_value"
+    # column) — the stub reproduces that halt via st.stop() instead of a
+    # real rerun, avoiding the same infinite-rerun trap documented for
+    # settings.py's Excel import (a bare no-op stub would let execution
+    # fall through and crash on the missing column instead).
+    calls = []
+
+    def _bust_cache_stub():
+        import streamlit as st
+        calls.append(True)
+        st.stop()
+
+    monkeypatch.setattr(screener_page, "_bust_cache", _bust_cache_stub)
+    stale_row = make_scored_row()
+    del stale_row["fair_value"]
+    df = make_scored_df([stale_row])
+    _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    assert calls == [True]
+
+
+def test_fetch_in_progress_shows_progress_caption(isolated_data, monkeypatch):
+    at = _run(monkeypatch, fetch_progress={"running": True, "total": 10, "done": 3})
+    caption_html = "".join(c.value for c in at.caption)
+    assert "Updating data" in caption_html
+    assert "3/10" in caption_html
+
+
+def test_sector_filter_narrows_results(isolated_data, monkeypatch):
+    df = make_scored_df([
+        make_scored_row(sector="Technology"),
+        make_scored_row(Ticker="BBB.BR", Name="Beta Corp", sector="Healthcare"),
+    ])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    sector_sel = at.selectbox(key="scr_sector")
+    sector_sel.set_value("Healthcare")
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Beta Corp" in html
+    assert "Alpha Corp" not in html
+
+
+def test_market_filter_narrows_results(isolated_data, monkeypatch):
+    exch_df = make_scored_df([make_scored_row()])
+    extra_df = make_scored_df([make_scored_row(Ticker="BBB.BR", Name="Beta Corp")])
+    # Put BBB.BR in a DIFFERENT real exchange slot (amsterdam) so it gets a
+    # different "Exchange" label than AAA.BR's "Brussels".
+    tup = list(make_screener_data_tuple(exchange_df=exch_df))
+    tup[1] = extra_df  # ALL_EXCHANGES[1] == "amsterdam"
+    at = _run(monkeypatch, screener_tuple=tuple(tup))
+    market_sel = at.selectbox(key="scr_market")
+    market_sel.set_value("Amsterdam")
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Beta Corp" in html
+    assert "Alpha Corp" not in html
+
+
+def test_clicking_signal_header_sorts_by_signal(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    signal_header = [b for b in at.button if b.key == "scr_sort_signal"][0]
+    signal_header.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert at.session_state["scr_sort_key"] == "signal"
+    assert at.session_state["scr_sort_dir"] == "desc"
+
+    # Clicking the SAME header again toggles direction instead of resetting it.
+    signal_header = [b for b in at.button if b.key == "scr_sort_signal"][0]
+    signal_header.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert at.session_state["scr_sort_dir"] == "asc"
+
+
+def test_star_button_adds_ticker_to_watchlist(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    star_btn = [b for b in at.button if b.key == "scr_row_0_AAA.BR_action"][0]
+    star_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert portfolio.load_watchlist() == {"AAA.BR"}
+
+
+def test_star_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
+    portfolio.save_watchlist({"AAA.BR"})
+    portfolio.save_manual_tickers({"AAA.BR": "Alpha Corp"})
+    at = _run(monkeypatch)
+    star_btn = [b for b in at.button if b.key == "scr_row_0_AAA.BR_action"][0]
+    star_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert portfolio.load_watchlist() == set()
+    assert portfolio.load_manual_tickers() == {}
+
+
+def test_view_button_opens_drawer(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    view_btn = [b for b in at.button if b.key == "scr_row_0_AAA.BR_view"][0]
+    view_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Six-model fair value" in "".join(m.value for m in at.markdown)

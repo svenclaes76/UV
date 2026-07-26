@@ -39,3 +39,20 @@ def test_authenticated_app_renders_without_exceptions():
     at.session_state["user_role"] = "user"
     at.run()
     assert not at.exception, _exceptions(at)
+
+
+def test_legacy_page_query_param_redirects_without_exceptions():
+    # Pre-st.navigation deep links (?page=<name>) get redirected to the new
+    # url-path-based page — see app.py's "Legacy ?page= deep links" block.
+    # A short default_timeout here: st.switch_page() called at a script's
+    # bare top level (outside a click handler) has hung AppTest before in
+    # other tests in this suite (see uvalu-test-isolation-patterns memory);
+    # fail fast rather than eat the usual 120s if that recurs here too.
+    at = AppTest.from_file(APP, default_timeout=20)
+    at.session_state["jwt_token"] = "smoke-test-token"
+    at.session_state["user_email"] = "smoke-test@example.invalid"
+    at.session_state["user_role"] = "user"
+    at.query_params["page"] = "dashboard"
+    at.run()
+    assert not at.exception, _exceptions(at)
+    assert "page" not in at.query_params
