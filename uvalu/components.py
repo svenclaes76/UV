@@ -103,11 +103,14 @@ KPI_ICONS = {
 
 
 def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True,
-            sub: str = "", icon: str = "wallet") -> None:
+            sub: str = "", icon: str = "wallet", dim: bool = False) -> None:
     """One headline-number card: icon+label, a large mono value, and an
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
-    card (e.g. a count with nothing to compare it against)."""
+    card (e.g. a count with nothing to compare it against). `dim=True` renders
+    the same last-known numbers at reduced opacity — the "subtle refresh cue"
+    content state (docs/design/Uvalu Loading Patterns.html) for a live
+    re-fetch, paired with refresh_badge_html() rather than a bare spinner."""
     _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                 f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
                 f'</svg>')
@@ -118,13 +121,14 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     # of continued HTML, rendering the sub-caption as literal escaped text.
     _delta_html = chip_html(delta_text, positive) if delta_text else ""
     _delta_row = f'{_delta_html}<span style="font-size:11px;color:var(--faint);">{sub}</span>'
+    _opacity = "opacity:0.55;" if dim else ""
     # min-height on the delta row — the chip (padding:2px 7px around 11.5px
     # text, ~22px tall) is taller than the plain sub-caption span alone, so
     # a value-only card with no delta_text (e.g. "Avg fair value upside")
     # would otherwise render ~5px shorter than its siblings in the same
     # st.columns() row, since each card's height is purely content-driven.
     st.markdown(f"""
-<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
+<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);{_opacity}">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
     {_icon_svg}{label}</div>
   <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
@@ -275,7 +279,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       decision: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, day_change_pct: float | None,
-                      currency: str = "€") -> str:
+                      currency: str = "€", dim: bool = False) -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, upside/weight/value, and a day-change
     chip — matching Uvalu.dc.html's row spec column-for-column. Embed inside
@@ -307,7 +311,8 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     # column layout, align-items, or display:contents overrides anywhere in
     # the wrapper chain — the row height itself, not just centering, was
     # wrong. Collapsing to one line fixed it outright.
-    return (f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+    _opacity = "opacity:0.55;" if dim else ""
+    return (f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;{_opacity}">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
            f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
@@ -827,3 +832,64 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
            f'<div style="height:6px;border-radius:3px;width:{_bar_pct:.1f}%;background:{flag_color if flag else "var(--teal)"};"></div></div>'
            f'<span style="font-family:var(--uv-mono);font-size:12px;width:44px;text-align:right;">{contrib_pct:.1f}%</span></div>'
            f'<div style="font-size:11px;font-weight:500;color:{flag_color};">{flag}</div></div>')
+
+
+# ── Loading & content states ────────────────────────────────────────────────
+# Ports docs/design/Uvalu Loading Patterns.html (Claude Design project
+# "Uvalu", see docs/design/README.md): shimmer skeletons for a section's
+# first paint, a dimmed-last-value + small spinner for a live re-fetch —
+# "never a blank screen, never a spinner alone". The shimmer/spin/ring
+# keyframes these lean on live in uvalu/styles.py (GLOBAL_CSS) so they're
+# available from any page.
+
+def _skel_bar(width: str, height: str, *, margin_top: str = "0", radius: str = "4px") -> str:
+    """One shimmering placeholder bar."""
+    return (f'<div style="width:{width};height:{height};border-radius:{radius};margin-top:{margin_top};'
+           f'background:linear-gradient(90deg,var(--skel) 0%,var(--skel-hi) 50%,var(--skel) 100%);'
+           f'background-size:280px 100%;animation:uvShimmer 1.6s ease-in-out infinite;"></div>')
+
+
+def kpi_card_skeleton() -> None:
+    """Placeholder for one kpi_card() during first paint — three shimmer bars
+    (label/value/sub) inside the same card shell, so the KPI row keeps its
+    real size and layout while the numbers are still loading."""
+    st.markdown(f"""
+<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
+  {_skel_bar("70%", "9px")}
+  {_skel_bar("55%", "22px", margin_top="14px", radius="5px")}
+  {_skel_bar("40%", "16px", margin_top="11px", radius="5px")}
+</div>""", unsafe_allow_html=True)
+
+
+def holdings_row_skeleton_html() -> str:
+    """One shimmer placeholder row matching HOLDINGS_GRID_COLS, for the
+    Holdings table's first paint. Embed inside an outer
+    st.markdown(unsafe_allow_html=True) call, same convention as
+    holdings_row_html()."""
+    return (f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+           f'<div>{_skel_bar("76px", "11px")}{_skel_bar("130px", "9px", margin_top="8px")}</div>'
+           f'<div>{_skel_bar("48px", "18px", radius="6px")}</div>'
+           f'<div>{_skel_bar("100%", "6px", radius="3px")}</div>'
+           f'<div style="margin-left:auto;">{_skel_bar("42px", "11px")}</div>'
+           f'<div style="margin-left:auto;">{_skel_bar("36px", "11px")}</div>'
+           f'<div style="margin-left:auto;">{_skel_bar("56px", "11px")}</div>'
+           f'<div style="margin-left:auto;">{_skel_bar("44px", "11px")}</div></div>')
+
+
+def block_skeleton(height: str = "160px") -> str:
+    """Generic full-width shimmer block for card content that doesn't need a
+    field-accurate skeleton (the pattern library's chart/text-block
+    placeholder) — embed via st.markdown(unsafe_allow_html=True)."""
+    return _skel_bar("100%", height, radius="8px")
+
+
+def refresh_badge_html(label: str = "Refreshing…") -> str:
+    """Small spinner + label — the subtle cue for a live re-fetch of content
+    that's already on screen, pairs with dimming that stale content (e.g.
+    kpi_card(..., dim=True)) rather than blanking it out or showing a bare
+    full-size spinner."""
+    return (f'<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);'
+           f'margin-bottom:10px;">'
+           f'<span style="width:12px;height:12px;border-radius:50%;border:2px solid var(--line);'
+           f'border-top-color:var(--teal);display:inline-block;animation:uvSpin 0.7s linear infinite;"></span>'
+           f'{label}</div>')

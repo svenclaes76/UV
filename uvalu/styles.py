@@ -35,6 +35,7 @@ GLOBAL_CSS = """
     --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D;
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+    --skel:rgba(255,255,255,0.07); --skel-hi:rgba(255,255,255,0.16);
   }
   [data-theme="light"] {
     --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
@@ -44,6 +45,7 @@ GLOBAL_CSS = """
     --down-bg:rgba(163,45,45,0.11); --down-txt:#A32D2D;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
+    --skel:rgba(13,31,60,0.06); --skel-hi:rgba(13,31,60,0.13);
   }
 
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
@@ -53,6 +55,15 @@ GLOBAL_CSS = """
   /* ── Page transitions ────────────────────────────────────────────────────── */
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ── Loading & content-state animations — matches docs/design/Uvalu Loading
+     Patterns.html (the pattern library's skeleton-shimmer/spinner/live-pulse
+     specs). Kept as shared keyframes here so uvalu/components.py's skeleton
+     helpers (kpi_card_skeleton, holdings_row_skeleton_html, block_skeleton,
+     refresh_badge_html) can reuse them from any page. */
+  @keyframes uvShimmer { 0% { background-position: -320px 0; } 100% { background-position: 320px 0; } }
+  @keyframes uvSpin { to { transform: rotate(360deg); } }
+  @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
 
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }
@@ -99,7 +110,14 @@ GLOBAL_CSS = """
   .st-key-db_holdings_header {
     padding: 16px 20px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   }
-  .st-key-db_holdings_colheader {
+  /* Substring match (not an exact .st-key-db_holdings_colheader class) — the
+     Loading Patterns skeleton fill (uvalu/pages_/dashboard.py Phase 1) keys
+     its placeholder copy "db_holdings_colheader_skel" since Streamlit tracks
+     element `key=` uniqueness for the whole script run, not per st.empty()
+     slot: reusing the exact same key for both the skeleton and the later
+     real fill raised StreamlitDuplicateElementKey even though only one of
+     the two is ever visible at once. Both variants still want this rule. */
+  [class*="st-key-db_holdings_colheader"] {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
     /* Same Streamlit height-underestimation as the db_hold_ rows below (see
        that rule's comment) — the header's own markdown grid measured
