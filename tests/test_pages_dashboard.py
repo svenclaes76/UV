@@ -5,6 +5,7 @@ only its network-touching _fetch_history() mocked out — dashboard.py wraps
 the whole risk-card computation in a bare try/except, so this also exercises
 that real integration instead of silently passing through the except branch.
 """
+import numpy as np
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -36,6 +37,17 @@ def _fake_history(tickers, period="5y"):
     return pd.DataFrame(data, index=dates)
 
 
+def _fake_ff_csv(url):
+    # See tests/test_pages_risk.py's identical helper: _stage4_factor
+    # otherwise makes a REAL network call to Dartmouth's Fama-French data
+    # library whenever assess_portfolio() runs with >=60 days of history
+    # (true here, with the 260-day _fake_history above).
+    dates = pd.bdate_range("2020-01-01", periods=1500)
+    rng = np.random.default_rng(42)
+    cols = ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"] if "5_Factors" in url else ["WML"]
+    return pd.DataFrame({c: rng.normal(0, 0.005, len(dates)) for c in cols}, index=dates)
+
+
 NAV_SETUP = """
 import streamlit as st
 from uvalu import nav as nav_registry
@@ -45,14 +57,20 @@ nav_registry.pages["risk"] = st.Page(lambda: None, title="Risk")
 """
 
 
-def _run(monkeypatch, screener_tuple=None) -> AppTest:
+def _run(monkeypatch, screener_tuple=None, with_risk_cache=False, prices=None) -> AppTest:
     monkeypatch.setattr(dashboard_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
-    monkeypatch.setattr(dashboard_page, "_load_cache", lambda: {})
-    monkeypatch.setattr(dashboard_page, "_fetch_prices_cached", lambda tickers: {
+    # A non-empty cache is required to even ENTER the risk-assessment try
+    # block (`if ... and _db_risk_cache:`) — most tests leave this empty to
+    # skip that path entirely and keep runs fast; the dedicated risk-card
+    # tests below turn it on.
+    monkeypatch.setattr(dashboard_page, "_load_cache",
+                        lambda: ({"AAA.BR": {"Price": 100.0}} if with_risk_cache else {}))
+    monkeypatch.setattr(dashboard_page, "_fetch_prices_cached", lambda tickers: prices or {
         t: {"price": 110.0, "prev_close": 108.0, "day_change_pct": 1.8, "volume": 1000} for t in tickers
     })
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
+    monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
     script_src = NAV_SETUP + """
 from uvalu.pages_ import dashboard as dashboard_page
@@ -110,3 +128,121 @@ def test_shows_value_chart_when_history_present(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.get("plotly_chart")) >= 1
+
+
+def test_refresh_button_clears_cache_and_reruns(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls = []
+    monkeypatch.setattr(dashboard_page.st, "cache_data",
+                        type("C", (), {"clear": staticmethod(lambda: calls.append(True))})())
+    at = _run(monkeypatch)
+    refresh_btn = [b for b in at.button if b.key == "db_refresh"][0]
+    refresh_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert calls == [True]
+
+
+def test_shows_dividends_received_kpi_when_no_dividend_yield(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    empty_scr = make_scored_df([])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty_scr))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Dividends received" in "".join(m.value for m in at.markdown)
+
+
+def test_date_range_filter_narrows_chart_view(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    dates = pd.bdate_range("2024-01-01", periods=100)
+    portfolio.save_value_history(pd.DataFrame({
+        "date": dates.strftime("%Y-%m-%d"),
+        "invested": [1000.0] * 100,
+        "value": [1000.0 + i for i in range(100)],
+    }))
+    at = _run(monkeypatch)
+    range_sel = at.segmented_control(key="db_range")
+    range_sel.set_value("1M")
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+
+def test_benchmark_columns_add_chart_traces_and_legend_pills(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    portfolio.save_value_history(pd.DataFrame([
+        {"date": "2024-01-01", "invested": 1000.0, "value": 1000.0,
+         "benchmark_spx": 1000.0, "benchmark_stoxx": 1000.0},
+        {"date": "2024-01-02", "invested": 1000.0, "value": 1050.0,
+         "benchmark_spx": 1010.0, "benchmark_stoxx": 1005.0},
+    ]))
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert len(at.pills) == 1
+    assert set(at.pills[0].options) == {"S&P 500", "Euro Stoxx 50"}
+
+
+def test_full_analysis_button_navigates_to_risk_page(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    full_analysis_btn = [b for b in at.button if b.key == "db_conv_full_analysis"][0]
+    full_analysis_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+
+def test_risk_card_renders_when_cache_and_history_available(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch, with_risk_cache=True)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Portfolio risk score" in html
+    assert "Max drawdown" in html
+
+
+def test_conviction_score_renders_from_scored_holdings(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Composite conviction" in html
+
+
+def test_holdings_view_details_opens_drawer(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    view_btn = [b for b in at.button if b.label == "View details"][0]
+    view_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Six-model fair value" in "".join(m.value for m in at.markdown)
+
+
+def test_holdings_no_screener_data_shows_caption(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    empty_scr = make_scored_df([])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty_scr))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "No screener data available for your holdings" in "".join(c.value for c in at.caption)
+
+
+def test_upcoming_dividend_row_renders_for_future_ex_date(isolated_data, monkeypatch):
+    from tests.conftest import make_scored_row
+    portfolio.save_portfolio(make_portfolio_df())
+    future_row = make_scored_row(exDividendDate="15-01-2099", dividendRate=3.2, dividendYield=0.03)
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([future_row])))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Alpha Corp" in html
+
+
+def test_upcoming_dividends_no_cached_dates_shows_caption(isolated_data, monkeypatch):
+    from tests.conftest import make_scored_row
+    portfolio.save_portfolio(make_portfolio_df())
+    no_date_row = make_scored_row(exDividendDate=None)
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([no_date_row])))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Ex-dividend dates not yet in cache" in "".join(c.value for c in at.caption)
+
+
+def test_top_movers_no_price_data_shows_caption(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch, prices={"AAA.BR": {"price": 110.0, "prev_close": 108.0,
+                                              "day_change_pct": None, "volume": 1000}})
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "No daily price data available" in "".join(c.value for c in at.caption)

@@ -5,6 +5,7 @@ tests/test_algorithms.py) — only its network-touching _fetch_history() is
 mocked, with a small synthetic 2-ticker/1-year price history, so the whole
 8-stage pipeline exercises real code instead of a stubbed-out RiskReport.
 """
+import numpy as np
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -21,15 +22,27 @@ def _fake_history(tickers, period="5y"):
     return pd.DataFrame(data, index=dates)
 
 
-def _run(monkeypatch, screener_tuple=None) -> AppTest:
+def _fake_ff_csv(url):
+    # risk.py's _stage4_factor otherwise makes a REAL network call to
+    # Dartmouth's Fama-French data library — stub it with synthetic daily
+    # factor returns spanning a wide enough range to overlap _fake_history's
+    # dates (2023, ~1 trading year) with plenty of margin.
+    dates = pd.bdate_range("2020-01-01", periods=1500)
+    rng = np.random.default_rng(42)
+    cols = ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"] if "5_Factors" in url else ["WML"]
+    return pd.DataFrame({c: rng.normal(0, 0.005, len(dates)) for c in cols}, index=dates)
+
+
+def _run(monkeypatch, screener_tuple=None, live_data=None, risk_cache=None) -> AppTest:
     monkeypatch.setattr(risk_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
-    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
-    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
+    monkeypatch.setattr(risk_page, "_load_cache", lambda: risk_cache or {})
+    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: live_data or {
         t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
         for t in tickers
     })
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
+    monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
     def _script():
         from uvalu.pages_ import risk as risk_page
@@ -71,6 +84,7 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
         return _fake_history(tickers, period)
 
     monkeypatch.setattr(risk_module, "_fetch_history", _counting_fetch)
+    monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
     def _script():
         from uvalu.pages_ import risk as risk_page
@@ -91,3 +105,97 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert calls["n"] == 1  # second render reuses the cached report
+
+
+def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
+    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
+        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
+        for t in tickers
+    })
+
+    def _boom(pf, cache, income_portfolio):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(risk_module, "assess_portfolio", _boom)
+
+    def _script():
+        from uvalu.pages_ import risk as risk_page
+        risk_page.render()
+
+    at = AppTest.from_function(_script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Risk assessment failed" in "".join(e.value for e in at.error)
+
+
+def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypatch):
+    # <60 days of price history -> _stage4_factor's own short-circuit,
+    # never reaching (the otherwise real-network) _fetch_ff_csv at all.
+    def _short_history(tickers, period="5y"):
+        dates = pd.bdate_range("2024-01-01", periods=10)
+        return pd.DataFrame({t: [100.0 + i for i in range(10)] for t in tickers}, index=dates)
+
+    monkeypatch.setattr(risk_module, "_fetch_history", _short_history)
+    monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
+    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
+        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
+        for t in tickers
+    })
+    portfolio.save_portfolio(make_portfolio_df())
+
+    def _script():
+        from uvalu.pages_ import risk as risk_page
+        risk_page.render()
+
+    at = AppTest.from_function(_script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Factor analysis unavailable" in "".join(c.value for c in at.caption)
+
+
+def test_vetoed_holding_shows_veto_flag(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    vetoed_row = make_scored_row(veto=True)
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([vetoed_row])))
+    html = "".join(m.value for m in at.markdown)
+    assert "remain(s) under a hard veto" in html
+    assert ">Veto<" in html
+
+
+def test_critical_risk_position_shows_flag(isolated_data, monkeypatch):
+    # weight=100% (+2), beta>1.5 (+2), overvalued >10% (+2), poor financial
+    # health (+2) -> 8 pts, comfortably over the >=5 "Critical" threshold —
+    # see risk.py's _position_rating scoring.
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(
+        monkeypatch,
+        live_data={"AAA.BR": {"price": 150.0, "fair_value": 100.0, "sector": "Technology",
+                              "country": "Belgium", "div_rate": 3.2}},
+        risk_cache={"AAA.BR": {"beta": 2.0, "debtToEquity": 900.0, "currentRatio": 0.1,
+                               "interestCoverage": 0.1, "freeCashflow": -1e9, "netIncome": 1e6}},
+    )
+    html = "".join(m.value for m in at.markdown)
+    assert ">Critical<" in html
+
+
+def test_view_button_opens_drawer(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    view_btn = [b for b in at.button if b.label == "View"][0]
+    view_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Six-model fair value" in "".join(m.value for m in at.markdown)
+
+
+class TestLoadingTier:
+    def test_low_at_boundary(self):
+        assert risk_page._loading_tier(0.75) == ("Low", "var(--uv-mint)")
+
+    def test_moderate(self):
+        assert risk_page._loading_tier(1.0) == ("Moderate", "#C98A3A")
+
+    def test_elevated(self):
+        assert risk_page._loading_tier(2.0) == ("Elevated", "var(--down-txt)")

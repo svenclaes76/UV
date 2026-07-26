@@ -46,10 +46,12 @@ from risk import (
     _stage1_position_profiles,
     _stage2_concentration,
     _stage3_quant,
+    _stage4_factor,
     _stage5_income,
     _stage6_stress,
     _stage8_rebalance,
     _score_fundamental,
+    _fetch_ff_csv,
     PositionRisk,
     ConcentrationMetrics,
     QuantMetrics,
@@ -619,6 +621,105 @@ class TestStage3Quant:
         assert not q.returns_available
         assert q.volatility_annual is None
         assert q.portfolio_beta == pytest.approx(1.0)   # beta still computable
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Risk Stage 4 — Fama-French factor exposure (network fetch + parsing)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _make_ff_zip(csv_body: str) -> bytes:
+    """Build an in-memory zip matching Ken French's real file layout: one
+    member file, whose text starts with an arbitrary header line, then the
+    factor-name header row, then daily rows, then a trailing blank line."""
+    import io as _io
+    import zipfile as _zipfile
+    buf = _io.BytesIO()
+    with _zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("F-F_data.csv", csv_body)
+    return buf.getvalue()
+
+
+class _FakeUrlResponse:
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read(self):
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class TestFetchFfCsv:
+    @pytest.fixture(autouse=True)
+    def _clear_ff_cache(self, monkeypatch):
+        # _fetch_ff_csv caches by URL in a module-level dict so it only
+        # downloads once per process — clear it so each test actually
+        # exercises the parse path instead of an earlier test's cached result.
+        monkeypatch.setattr(risk, "_ff_cache", {})
+
+    def test_parses_daily_factor_csv(self, monkeypatch):
+        csv_body = (
+            "Some descriptive header text from Ken French's site\n"
+            ",Mkt-RF,SMB,HML,RMW,CMA,RF\n"
+            "20200102,1.05,0.12,-0.34,0.05,0.02,0.01\n"
+            "20200103,-0.50,0.08,0.10,-0.02,0.01,0.01\n"
+            "\n"
+            "Annual Factors: January-December\n"
+        )
+        fake_bytes = _make_ff_zip(csv_body)
+        monkeypatch.setattr("urllib.request.urlopen", lambda url, timeout=15: _FakeUrlResponse(fake_bytes))
+
+        df = _fetch_ff_csv("http://example.test/ff5.zip")
+        assert list(df.columns) == ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"]
+        assert len(df) == 2
+        # Values are stored as decimals, not percent (raw CSV / 100).
+        assert df.iloc[0]["Mkt-RF"] == pytest.approx(0.0105)
+        assert df.index[0] == pd.Timestamp("2020-01-02")
+
+    def test_caches_result_across_calls(self, monkeypatch):
+        csv_body = ",Mkt-RF,SMB,HML,RMW,CMA,RF\n20200102,1.0,0.0,0.0,0.0,0.0,0.0\n\n"
+        fake_bytes = _make_ff_zip(csv_body)
+        calls = []
+        monkeypatch.setattr("urllib.request.urlopen", lambda url, timeout=15:
+                            (calls.append(url), _FakeUrlResponse(fake_bytes))[1])
+
+        url = "http://example.test/ff5-cached.zip"
+        _fetch_ff_csv(url)
+        _fetch_ff_csv(url)
+        assert calls == [url]  # second call served from _ff_cache, no re-fetch
+
+    def test_malformed_response_raises(self, monkeypatch):
+        monkeypatch.setattr("urllib.request.urlopen", lambda url, timeout=15: _FakeUrlResponse(b"not a zip file"))
+        with pytest.raises(Exception):
+            _fetch_ff_csv("http://example.test/broken.zip")
+
+
+class TestStage4Factor:
+    def test_insufficient_history_is_unavailable(self):
+        short_rets = pd.Series([0.001] * 30, index=pd.bdate_range("2024-01-01", periods=30))
+        result = _stage4_factor(short_rets)
+        assert result.available is False
+        assert "Insufficient price history" in result.flags[0]
+
+    def test_none_returns_unavailable(self):
+        result = _stage4_factor(None)
+        assert result.available is False
+
+    def test_ff_fetch_failure_marks_unavailable(self, monkeypatch):
+        monkeypatch.setattr(risk, "_ff_cache", {})
+
+        def _boom(url):
+            raise ConnectionError("network down")
+        monkeypatch.setattr(risk, "_fetch_ff_csv", _boom)
+
+        long_rets = pd.Series([0.001] * 100, index=pd.bdate_range("2024-01-01", periods=100))
+        result = _stage4_factor(long_rets)
+        assert result.available is False
+        assert "Fama-French data unavailable" in result.flags[0]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
