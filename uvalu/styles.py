@@ -232,12 +232,24 @@ GLOBAL_CSS = """
      accepts size keywords (xxsmall..xxlarge), not a raw px value, hence
      the override here. */
   [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_"]) {
-    align-items: stretch !important; gap: 16px !important;
+    gap: 16px !important;
   }
-  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_"]) {
+  [class*="st-key-db_card_"] { width: 100% !important; }
+  /* Only the chart+conviction row stretches to a shared row height (the
+     conviction card's beta/volatility footer relies on that via the
+     margin-top:auto rule below). The bottom row (sector allocation/upcoming
+     dividends/top movers) intentionally does NOT get this treatment — each
+     of those three cards should size to its own content instead of
+     stretching to match its tallest sibling, which previously left large
+     empty gaps under the shorter dividends/movers cards. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_chart"]) {
+    align-items: stretch !important;
+  }
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_chart"]),
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_conviction"]) {
     flex: 1 1 auto !important;
   }
-  [class*="st-key-db_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  .st-key-db_card_chart, .st-key-db_card_conviction { flex: 1 1 auto !important; }
 
   /* ── Dashboard "Conviction & risk" card — "Full analysis →" as a plain
      teal text link, matching Uvalu.dc.html's `<div style="color:var(--teal);

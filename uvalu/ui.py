@@ -124,10 +124,16 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
     _text   = [f"{p:.1f}%" if p >= 4 else "" for p in _pcts]
     _n      = len(_labels)
     _colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_n)]
+    # Confine the pie to the left half of the plotting area so it sits close
+    # to its legend instead of centering across the full card width (a wide
+    # card left the pie centered around x=0.5 with a large empty gap before
+    # the legend, which floats just outside the pie's own domain at x=0.58).
+    _pie_cx = 0.27
     fig = go.Figure(go.Pie(
         labels=_labels,
         values=_vals,
         hole=0.52,
+        domain=dict(x=[0, 0.54], y=[0, 1]),
         text=_text,
         textinfo="text",
         textposition="inside",
@@ -143,22 +149,23 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
-        height=max(340, 24 * _n + 60),
+        height=max(240, 24 * _n + 60),
         showlegend=True,
         legend=dict(
             orientation="v",
-            x=1.02, xanchor="left",
-            y=1.0,  yanchor="top",
+            x=0.58, xanchor="left",
+            y=0.5,  yanchor="middle",
             font=dict(size=11, color=_c_text),
             itemwidth=30,
             tracegroupgap=2,
         ),
         # Center overlay — "TOTAL / <value>" inside the donut hole, matching
-        # Uvalu.dc.html's compact donut. Paper coords (0.5, 0.5) approximate
-        # the pie's own center since the legend floats outside the plot
-        # domain (x=1.02) rather than sharing it.
+        # Uvalu.dc.html's compact donut. Paper coords track the pie's own
+        # domain center (x=0.27, the midpoint of the [0, 0.54] domain above)
+        # rather than the full plot's center, since the pie no longer spans
+        # the whole width.
         annotations=[
-            dict(text=f"TOTAL<br><b>{_total_short}</b>", x=0.5, y=0.5, showarrow=False,
+            dict(text=f"TOTAL<br><b>{_total_short}</b>", x=_pie_cx, y=0.5, showarrow=False,
                 font=dict(size=12, color=_c_text), align="center"),
         ],
         paper_bgcolor="rgba(0,0,0,0)",
