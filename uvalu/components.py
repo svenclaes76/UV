@@ -849,13 +849,25 @@ def _skel_bar(width: str, height: str, *, margin_top: str = "0", radius: str = "
            f'background-size:280px 100%;animation:uvShimmer 1.6s ease-in-out infinite;"></div>')
 
 
-def kpi_card_skeleton() -> None:
-    """Placeholder for one kpi_card() during first paint — three shimmer bars
-    (label/value/sub) inside the same card shell, so the KPI row keeps its
-    real size and layout while the numbers are still loading."""
+def kpi_card_skeleton(label: str = "", icon: str = "wallet") -> None:
+    """Placeholder for one kpi_card() during first paint — the real label
+    (it's static copy, known before the fetch that fills in the number) with
+    shimmer bars standing in for the value/sub line, so a card never shows up
+    as an anonymous grey box next to sibling cards that already have a title
+    (e.g. Conviction & risk, Holdings) visible during the same load. Pass no
+    label to fall back to a fully-shimmered bar, for a card whose title
+    itself isn't known yet."""
+    if label:
+        _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
+                    f'</svg>')
+        _label_row = (f'<div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;'
+                     f'text-transform:uppercase;color:var(--faint);font-weight:500;">{_icon_svg}{label}</div>')
+    else:
+        _label_row = _skel_bar("70%", "9px")
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
-  {_skel_bar("70%", "9px")}
+  {_label_row}
   {_skel_bar("55%", "22px", margin_top="14px", radius="5px")}
   {_skel_bar("40%", "16px", margin_top="11px", radius="5px")}
 </div>""", unsafe_allow_html=True)
