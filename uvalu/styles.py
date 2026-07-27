@@ -289,6 +289,23 @@ GLOBAL_CSS = """
      container's flex column), not the st-key-* element itself — same
      "wrapper is the real flex item" pattern as [[uvalu-streamlit-flex-css-gotchas]]. */
   div:has(> [class*="st-key-db_conv_metrics"]) { margin-top: auto !important; }
+  /* Once dashboard.py wrapped this card's body in an st.empty() placeholder
+     (for the skeleton/loading-state work), the metrics row above picked up
+     ONE MORE ancestor stLayoutWrapper than before — the placeholder's own
+     content block, sitting between st-key-db_conv_metrics and the card's
+     st-key-db_card_conviction block. That new wrapper defaults to Streamlit's
+     usual flex:0 1 auto (no grow, see the comment on the chart/conviction
+     flex:1 1 auto rule above), so it never inherited the card's stretched
+     extra height — margin-top:auto above then had nothing to push against
+     *inside its own flex context*, and the leftover stretched space showed
+     up as dead space below the metrics row instead. Confirmed live (a
+     throwaway repro outside this app): without this rule a 20-line sibling
+     stretching the card left a 723px gap under the metrics row; with it,
+     ~16px (the card's own bottom padding). Substring/descendant `:has()`
+     (not `>`) since the wrapper needing this is two levels up, not one. */
+  [data-testid="stLayoutWrapper"]:has([class*="st-key-db_conv_metrics"]) {
+    flex: 1 1 auto !important;
+  }
 
   /* KPI strip — Streamlit's own height estimate for a kpi_card()'s raw-HTML
      markdown under-measures its real rendered height by exactly 16px

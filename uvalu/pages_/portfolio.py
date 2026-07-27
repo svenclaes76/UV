@@ -126,10 +126,12 @@ def render() -> None:
     _pf_ph = st.empty()
     with _pf_ph.container():
         if _pf_section_now == "overview":
+            _sk_labels = [("Invested", "wallet"), ("Market value", "wallet"), ("Unrealised P&L", "trend"),
+                         ("Realised P&L", "trend"), ("Dividends (12m)", "coin")]
             _sk1, _sk2, _sk3, _sk4, _sk5 = st.columns(5)
-            for _skc in (_sk1, _sk2, _sk3, _sk4, _sk5):
+            for _skc, (_sklabel, _skicon) in zip((_sk1, _sk2, _sk3, _sk4, _sk5), _sk_labels):
                 with _skc:
-                    _kpi_card_skeleton()
+                    _kpi_card_skeleton(_sklabel, _skicon)
             st.container(height=8, border=False)
             st.markdown(_block_skeleton("220px"), unsafe_allow_html=True)
             st.container(height=8, border=False)
