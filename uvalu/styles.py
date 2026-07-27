@@ -298,12 +298,19 @@ GLOBAL_CSS = """
      flex:1 1 auto rule above), so it never inherited the card's stretched
      extra height — margin-top:auto above then had nothing to push against
      *inside its own flex context*, and the leftover stretched space showed
-     up as dead space below the metrics row instead. Confirmed live (a
-     throwaway repro outside this app): without this rule a 20-line sibling
-     stretching the card left a 723px gap under the metrics row; with it,
-     ~16px (the card's own bottom padding). Substring/descendant `:has()`
-     (not `>`) since the wrapper needing this is two levels up, not one. */
-  [data-testid="stLayoutWrapper"]:has([class*="st-key-db_conv_metrics"]) {
+     up as dead space below the metrics row instead.
+     `:not(:has(> ...))` excludes the metrics element's OWN direct-parent
+     wrapper — the one the margin-top:auto rule above already targets. A
+     first version of this rule matched that one too (plain `:has()` matches
+     ANY depth, not just the new outer wrapper), which handed it flex-grow
+     on top of an auto top-margin: instead of staying naturally sized and
+     being pushed down, the wrapper (and st-key-db_conv_metrics itself,
+     which fills it) grew to fill the space directly — confirmed live via
+     DevTools (a user-inspected 421×112px metrics box, versus its real
+     ~40px content height, with the leftover space sitting *inside* the
+     metrics block instead of above it). This rule must reach exactly one
+     level higher than that one. */
+  [data-testid="stLayoutWrapper"]:has([class*="st-key-db_conv_metrics"]):not(:has(> [class*="st-key-db_conv_metrics"])) {
     flex: 1 1 auto !important;
   }
 
