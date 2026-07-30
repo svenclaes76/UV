@@ -5,38 +5,22 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from portfolio import portfolio_exists, load_portfolio, load_value_history, record_value_snapshot
+import risk as _risk_module
+from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
-from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
-                        get_cached_risk_report as _get_cached_risk_report)
+from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
-                              kpi_card as _kpi_card, kpi_card_skeleton as _kpi_card_skeleton,
-                              chip_html as _chip_html, holdings_row_html as _holdings_row_html,
-                              holdings_row_skeleton_html as _holdings_row_skeleton_html,
-                              block_skeleton as _block_skeleton, HOLDINGS_GRID_COLS as _HOLD_GRID)
+                              kpi_card as _kpi_card, chip_html as _chip_html,
+                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
 from uvalu.ui import _donut_chart, _CHART_CONFIG
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
 _RANGES = {"1M": 30, "3M": 91, "1Y": 365, "All": None}
-
-# How many placeholder rows to show under the Holdings table while its real
-# rows are still loading — capped so a large portfolio doesn't shimmer 40
-# rows at once; real row count (once loaded) is unaffected.
-_MAX_SKELETON_ROWS = 6
-
-# Labels/icons for the KPI skeleton (kpi_card_skeleton()) — these are static
-# copy known before the fetch, so the skeleton can show real titles instead
-# of an anonymous grey box, matching every other card on the page. The 3rd
-# slot's real label only resolves to "Fwd income / yr" vs. "Dividends
-# received" once screener data is in (see _kpi_defs in Phase 3) — "Fwd
-# income / yr" is the common case, so the skeleton guesses that one.
-_KPI_SKELETON_LABELS = [("Current value", "wallet"), ("Total return", "trend"),
-                        ("Fwd income / yr", "coin"), ("Avg fair value upside", "target")]
 
 
 def render() -> None:
@@ -64,127 +48,6 @@ def render() -> None:
         st.stop()
 
     _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
-
-    # `db_snapshot` holds the last successfully rendered KPI/holdings numbers
-    # for this browser session — absent only on genuine first paint. Its
-    # presence is what tells the two content-state placeholders below to show
-    # the *dimmed last-known values* instead of a bare skeleton while the
-    # fetch below re-runs (TTL expiry, page revisit, or the Refresh button) —
-    # matches docs/design/Uvalu Loading Patterns.html: skeletons for first
-    # paint, a subtle refresh cue for re-fetches, never a blank screen.
-    _db_snap = st.session_state.get("db_snapshot")
-
-    # ── Heading ───────────────────────────────────────────────────────────────
-    _n_exch = len({t.split(".")[-1] for t in _db_tickers if "." in t})
-    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-        with st.container(width="content"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio overview</div>',
-                       unsafe_allow_html=True)
-            st.caption(f"{len(_db_pf)} positions across {_n_exch} European "
-                      f"{'exchange' if _n_exch == 1 else 'exchanges'} · "
-                      "valued against a six-model fair-value estimate.")
-        with st.container(key="db_refresh_btn", width="content"):
-            if st.button("Refresh", key="db_refresh", icon=":material/refresh:", type="tertiary"):
-                st.cache_data.clear()
-                st.rerun()
-
-    # ══ Phase 1 — shell + loading placeholders, all created and filled BEFORE
-    # the slow fetch below so they're visible the instant Streamlit streams
-    # this run to the browser, not after the network call returns. ═══════════
-
-    # KPI strip — see components.py's kpi_card_skeleton()/kpi_card(dim=...).
-    with st.container(key="db_kpi_row"):
-        _kpi_ph = st.empty()
-    with _kpi_ph.container():
-        if _db_snap is None:
-            _s1, _s2, _s3, _s4 = st.columns(4)
-            for _sc, (_slabel, _sicon) in zip((_s1, _s2, _s3, _s4), _KPI_SKELETON_LABELS):
-                with _sc:
-                    _kpi_card_skeleton(_slabel, _sicon)
-        else:
-            _d1, _d2, _d3, _d4 = st.columns(4)
-            for _dc, _kd in zip((_d1, _d2, _d3, _d4), _db_snap["kpis"]):
-                with _dc:
-                    _kpi_card(**_kd, dim=True)
-
-    st.container(height=4, border=False, key="db_gap_1")
-
-    # Value chart + Conviction & risk card — both get a placeholder. The
-    # chart looks fetch-independent (it reads local value history, not live
-    # prices) but isn't: dashboard.py is the only page most users hit first
-    # each day, and nothing wrote *today's* snapshot to that history until
-    # Phase 2 below records it from this run's live prices — rendering the
-    # chart here in Phase 1 would still show yesterday's-or-older last point.
-    _chart_col, _conv_col = st.columns([1.62, 1], gap="large")
-
-    with _chart_col, st.container(key="db_card_chart", border=True):
-        _chart_ph = st.empty()
-        with _chart_ph.container():
-            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:14px;">Portfolio value over time</div>',
-                       unsafe_allow_html=True)
-            st.markdown(_block_skeleton("212px"), unsafe_allow_html=True)
-
-    with _conv_col, st.container(key="db_card_conviction", border=True):
-        _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
-        with _cvh_col:
-            st.markdown('<div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>',
-                       unsafe_allow_html=True)
-        with _cvh_link_col:
-            if st.button("Full analysis →", key="db_conv_full_analysis", type="tertiary", width="stretch"):
-                st.switch_page(nav.pages["risk"])
-        _conv_ph = st.empty()
-        with _conv_ph.container():
-            st.markdown(_block_skeleton("150px"), unsafe_allow_html=True)
-
-    st.container(height=4, border=False, key="db_gap_2")
-
-    # Holdings · price vs fair value — static card header now, rows (column
-    # header + skeleton/dim/real rows) go in a placeholder filled below.
-    with st.container(key="db_holdings_card", border=True):
-        with st.container(key="db_holdings_header", horizontal=True,
-                          vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown("""
-<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">Each track runs from €0 to the
-six-model fair-value estimate. Gap to the marker is your remaining margin of safety.</div>""",
-                           unsafe_allow_html=True)
-            with st.container(width="content"):
-                fair_value_legend_row()
-        _hold_ph = st.empty()
-        with _hold_ph.container():
-            with st.container(key="db_holdings_colheader_skel"):
-                _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")
-                _hh_cells = "".join(
-                    f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
-                st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
-                           f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
-            _n_skel_rows = min(max(len(_db_tickers), 1), _MAX_SKELETON_ROWS)
-            if _db_snap is None or _db_snap.get("hold") is None:
-                for _si in range(_n_skel_rows):
-                    with st.container(key=f"db_hold_skel_{_si}"):
-                        st.markdown(_holdings_row_skeleton_html(), unsafe_allow_html=True)
-            else:
-                for _sidx, _shr in _db_snap["hold"].iterrows():
-                    with st.container(key=f"db_hold_stale_{_sidx}"):
-                        _sw = _shr.get("weight", 0)
-                        _sw = float(_sw) if _sw is not None and pd.notna(_sw) else 0.0
-                        _scv = _shr.get("current_value")
-                        _scv = float(_scv) if _scv is not None and pd.notna(_scv) else 0.0
-                        _sdec = _shr.get("Decision")
-                        _sdec = str(_sdec) if pd.notna(_sdec) else ""
-                        st.markdown(_holdings_row_html(
-                            ticker=_shr.get("ticker", ""), sector=_shr.get("sector"), name=_shr.get("name", ""),
-                            decision=_sdec, veto=bool(_shr.get("veto")),
-                            price=_shr.get("live_price"), fair_value=_shr.get("fair_value"), mos_pct=_shr.get("MoS %"),
-                            weight=_sw, value=_scv, day_change_pct=_shr.get("day_change_pct"), dim=True,
-                        ), unsafe_allow_html=True)
-
-    st.container(height=4, border=False, key="db_gap_3")
-
-    # ══ Phase 2 — the slow part: live prices + full screener dataset. ════════
     _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
     for _col, _key in [("live_price", "price"), ("day_change_pct", "day_change_pct"),
                         ("prev_close", "prev_close")]:
@@ -210,14 +73,6 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
     _db_total_ret = _db_gain + _db_divs
     _db_ret_pct   = _safe_pct(_db_total_ret, _db_invested)
 
-    # Upsert today's value snapshot from THIS run's live prices — the only
-    # other writer is portfolio.py's own Overview render, so a user who opens
-    # the Dashboard first each day would otherwise see the value chart below
-    # stuck on whatever was last recorded, out of step with the live KPI
-    # numbers above it. Same guard portfolio.py uses.
-    if _db_current > 0:
-        record_value_snapshot(_db_invested, _db_current)
-
     _db_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
     _db_all_scr = pd.concat(list(_load_all_screener_data(
         _cache_version(), _db_enabled, thresholds=get_veto_thresholds())[:-1]), ignore_index=True)
@@ -231,15 +86,54 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         _db_scr_dy = pd.to_numeric(_db_scr.set_index("Ticker")["dividendYield"], errors="coerce").fillna(0)
         _db_fwd_income = (_db_pf_cv.reindex(_db_scr_dy.index).fillna(0) * _db_scr_dy).sum()
 
-    # ══ Phase 3 — overwrite the Phase-1 placeholders with real content. ══════
-    # Each placeholder is explicitly cleared before being refilled — relying
-    # on a bare second `with _ph.container():` to implicitly replace the
-    # first one left the Phase-1 skeleton/dim content stuck on screen
-    # alongside the real content instead of being replaced by it (confirmed
-    # live: the KPI row rendered twice, stale numbers on top of fresh ones).
+    # ── Heading ───────────────────────────────────────────────────────────────
+    _n_exch = len({t.split(".")[-1] for t in _db_tickers if "." in t})
+    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+        with st.container(width="content"):
+            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio overview</div>',
+                       unsafe_allow_html=True)
+            st.caption(f"{len(_db_pf)} positions across {_n_exch} European "
+                      f"{'exchange' if _n_exch == 1 else 'exchanges'} · "
+                      "valued against a six-model fair-value estimate.")
+        with st.container(key="db_refresh_btn", width="content"):
+            if st.button("Refresh", key="db_refresh", icon=":material/refresh:", type="tertiary"):
+                st.cache_data.clear()
+                st.rerun()
 
-    _chart_ph.empty()
-    with _chart_ph.container():
+    # ── KPI strip ─────────────────────────────────────────────────────────────
+    # Wrapped in a keyed container (styles.py) purely so CSS can give this
+    # row's stHorizontalBlock an explicit min-height — Streamlit's own
+    # height estimate for a kpi_card()'s raw-HTML markdown under-measures
+    # its real rendered height (same class of bug hit repeatedly for the
+    # Holdings rows/column header), so the row was reporting itself 16px
+    # shorter than the cards actually are, leaving the *next* section
+    # rendered flush against the overflow instead of with a proper gap.
+    with st.container(key="db_kpi_row"):
+        _k1, _k2, _k3, _k4 = st.columns(4)
+        with _k1:
+            _kpi_card("Current value", f"€{_db_current:,.0f}",
+                     f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f} unrealised", icon="wallet")
+        with _k2:
+            _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
+                     f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
+        with _k3:
+            if _db_fwd_income is not None:
+                _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
+                _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
+                         f"{_db_blended_yield:.1f}%", True, "blended yield", icon="coin")
+            else:
+                _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
+        with _k4:
+            _kpi_card("Avg fair value upside",
+                     f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
+                     "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
+
+    st.container(height=4, border=False, key="db_gap_1")
+
+    # ── Value chart + Conviction & risk ───────────────────────────────────────
+    _chart_col, _conv_col = st.columns([1.62, 1], gap="large")
+
+    with _chart_col, st.container(key="db_card_chart", border=True):
         _db_vh = load_value_history()
         if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
             _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
@@ -332,29 +226,14 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                        unsafe_allow_html=True)
             st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
 
-    _kpi_defs = [
-        dict(label="Current value", value=f"€{_db_current:,.0f}", delta_text=f"{_db_gain_pct:+.1f}%",
-             positive=_db_gain >= 0, sub=f"€{_db_gain:+,.0f} unrealised", icon="wallet"),
-        dict(label="Total return", value=f"€{_db_total_ret:,.0f}", delta_text=f"{_db_ret_pct:+.1f}%",
-             positive=_db_total_ret >= 0, sub="incl. dividends", icon="trend"),
-        (dict(label="Fwd income / yr", value=f"€{_db_fwd_income:,.0f}",
-              delta_text=f"{_safe_pct(_db_fwd_income, _db_current):.1f}%", positive=True,
-              sub="blended yield", icon="coin")
-         if _db_fwd_income is not None else
-         dict(label="Dividends received", value=f"€{_db_divs:,.0f}", delta_text="", positive=True, sub="", icon="coin")),
-        dict(label="Avg fair value upside",
-             value=f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-             delta_text="", positive=(_db_avg_mos or 0) >= 0, sub="margin of safety", icon="target"),
-    ]
-    _kpi_ph.empty()
-    with _kpi_ph.container():
-        _k1, _k2, _k3, _k4 = st.columns(4)
-        for _kc, _kd in zip((_k1, _k2, _k3, _k4), _kpi_defs):
-            with _kc:
-                _kpi_card(**_kd)
-
-    _conv_ph.empty()
-    with _conv_ph.container():
+    with _conv_col, st.container(key="db_card_conviction", border=True):
+        _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
+        with _cvh_col:
+            st.markdown('<div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>',
+                       unsafe_allow_html=True)
+        with _cvh_link_col:
+            if st.button("Full analysis →", key="db_conv_full_analysis", type="tertiary", width="stretch"):
+                st.switch_page(nav.pages["risk"])
         _conv_score = None
         if not _db_scr.empty and "Value Score" in _db_scr.columns:
             _scr_cv = _db_pf.set_index("ticker")["current_value"]
@@ -374,16 +253,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         _risk_label = "—"
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
-                # 1-hour session cache (uvalu/data.py) — this is the same
-                # expensive assess_portfolio() computation the Risk page
-                # runs (5y price history + factor regression per holding);
-                # without this, every rerun of this page (even just toggling
-                # the chart's date range or a benchmark pill) recomputed it
-                # from scratch. Own cache key, not shared with the Risk
-                # page's — its `pf` is missing sector/country/fair_value/
-                # expected_annual, so a report computed here shouldn't be
-                # served there or vice versa.
-                _db_report = _get_cached_risk_report("_db_risk_report_cache", _db_pf, _db_risk_cache, False)
+                _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
                 _risk_score = float(_db_report.composite.score)
                 _risk_label = ("Low" if _risk_score < 35 else "Moderate" if _risk_score < 65 else "Elevated")
                 _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
@@ -447,9 +317,20 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                 st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
                            unsafe_allow_html=True)
 
-    _hold = None
-    _hold_ph.empty()
-    with _hold_ph.container():
+    st.container(height=4, border=False, key="db_gap_2")
+
+    # ── Holdings · price vs fair value ────────────────────────────────────────
+    with st.container(key="db_holdings_card", border=True):
+        with st.container(key="db_holdings_header", horizontal=True,
+                          vertical_alignment="center", horizontal_alignment="distribute"):
+            with st.container(width="content"):
+                st.markdown("""
+<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">Each track runs from €0 to the
+six-model fair-value estimate. Gap to the marker is your remaining margin of safety.</div>""",
+                           unsafe_allow_html=True)
+            with st.container(width="content"):
+                fair_value_legend_row()
         if not _db_scr.empty:
             _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
             _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
@@ -515,9 +396,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         else:
             st.caption("No screener data available for your holdings.")
 
-    # Stash this run's numbers so the next run (TTL expiry, page revisit, or
-    # Refresh) can show them dimmed instead of a bare skeleton while re-fetching.
-    st.session_state["db_snapshot"] = {"kpis": _kpi_defs, "hold": _hold}
+    st.container(height=4, border=False, key="db_gap_3")
 
     # ── Bottom row: sector allocation | upcoming dividends | top movers ──────
     _al_col, _div_col, _mv_col = st.columns(3, gap="large")

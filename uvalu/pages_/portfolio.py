@@ -21,8 +21,7 @@ from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
-                              portfolio_closed_row, portfolio_dividend_row,
-                              kpi_card_skeleton as _kpi_card_skeleton, block_skeleton as _block_skeleton)
+                              portfolio_closed_row, portfolio_dividend_row)
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -118,33 +117,7 @@ def render() -> None:
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
-    # Shimmer placeholder shaped to whichever section is about to render
-    # (docs/design/Uvalu Loading Patterns.html) — session_state read is safe
-    # to do this early since it's a pure lookup, no side effects; the real
-    # read used to pick the section further down re-reads the same key.
-    _pf_section_now = st.session_state.get("port_section", "overview")
-    _pf_ph = st.empty()
-    with _pf_ph.container():
-        if _pf_section_now == "overview":
-            _sk_labels = [("Invested", "wallet"), ("Market value", "wallet"), ("Unrealised P&L", "trend"),
-                         ("Realised P&L", "trend"), ("Dividends (12m)", "coin")]
-            _sk1, _sk2, _sk3, _sk4, _sk5 = st.columns(5)
-            for _skc, (_sklabel, _skicon) in zip((_sk1, _sk2, _sk3, _sk4, _sk5), _sk_labels):
-                with _skc:
-                    _kpi_card_skeleton(_sklabel, _skicon)
-            st.container(height=8, border=False)
-            st.markdown(_block_skeleton("220px"), unsafe_allow_html=True)
-            st.container(height=8, border=False)
-            _sko1, _sko2 = st.columns([1.55, 1], gap="large")
-            with _sko1:
-                st.markdown(_block_skeleton("180px"), unsafe_allow_html=True)
-            with _sko2:
-                st.markdown(_block_skeleton("180px"), unsafe_allow_html=True)
-        else:
-            st.markdown(_block_skeleton("400px"), unsafe_allow_html=True)
-
     live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
-    _pf_ph.empty()
     pf["live_price"]     = pf["ticker"].map(lambda t: live_data[t].get("price"))
     pf["current_value"]  = pf["live_price"] * pf["shares"]
     pf["price_gain"]     = pf["current_value"] - pf["purchase_value"]

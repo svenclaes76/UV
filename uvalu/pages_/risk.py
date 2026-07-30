@@ -1,4 +1,6 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
+from datetime import datetime, timezone
+
 import pandas as pd
 import streamlit as st
 
@@ -6,11 +8,9 @@ import risk as _risk_module
 from portfolio import load_portfolio, load_sold
 from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
-from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_live_data,
-                        get_cached_risk_report as _get_cached_risk_report)
+from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
 from uvalu.drawer import open_drawer
-from uvalu.components import (score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS,
-                              block_skeleton as _block_skeleton)
+from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
 
 _TICKER_SUFFIX_EXCHANGE = {
     ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
@@ -46,29 +46,6 @@ def render() -> None:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
         st.stop()
 
-    # Shimmer placeholder covering the whole slow region below — screener
-    # data, live prices, and (on a cache miss) the risk-report computation
-    # itself, the heaviest of the three — since almost everything on this
-    # page derives from it (docs/design/Uvalu Loading Patterns.html). Cleared
-    # right before the real "Risk assessment" heading renders.
-    _risk_ph = st.empty()
-    with _risk_ph.container():
-        st.markdown(_block_skeleton("28px"), unsafe_allow_html=True)
-        st.container(height=8, border=False)
-        _skg, _skm = st.columns([1, 2.2])
-        with _skg:
-            st.markdown(_block_skeleton("220px"), unsafe_allow_html=True)
-        with _skm:
-            st.markdown(_block_skeleton("220px"), unsafe_allow_html=True)
-        st.container(height=8, border=False)
-        _skf, _skc = st.columns([1.35, 1])
-        with _skf:
-            st.markdown(_block_skeleton("260px"), unsafe_allow_html=True)
-        with _skc:
-            st.markdown(_block_skeleton("260px"), unsafe_allow_html=True)
-        st.container(height=8, border=False)
-        st.markdown(_block_skeleton("300px"), unsafe_allow_html=True)
-
     _risk_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
     _risk_sold     = load_sold()
     _risk_sold_tickers = tuple(_risk_sold["ticker"].dropna().tolist()) if _risk_sold is not None and not _risk_sold.empty else ()
@@ -102,20 +79,26 @@ def render() -> None:
 
     _income_portfolio = False
 
-    # 1-hour session cache (uvalu/data.py, shared helper — same session key
-    # this page has always used, so behavior here is unchanged; the Dashboard's
-    # own Conviction & risk card now uses the same helper under a *different*
-    # key, since its `pf` isn't enriched the way this page's is).
+    # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
+    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio))
+    _risk_cached    = st.session_state.get("_risk_report_cache", {})
     _risk_report: _risk_module.RiskReport | None = None
-    try:
-        _risk_report = _get_cached_risk_report("_risk_report_cache", pf, _risk_full_cache, _income_portfolio)
-    except Exception as _risk_err:
-        _risk_ph.empty()
-        st.error(f"Risk assessment failed: {_risk_err}")
-        st.stop()
+
+    if (_risk_cached.get("key") == _risk_cache_key and "report" in _risk_cached):
+        _gen_at = datetime.fromisoformat(_risk_cached["report"].generated_at)
+        _age_s  = (datetime.now(timezone.utc) - _gen_at).total_seconds()
+        if _age_s < 3600:
+            _risk_report = _risk_cached["report"]
+
+    if _risk_report is None:
+        try:
+            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio)
+            st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
+        except Exception as _risk_err:
+            st.error(f"Risk assessment failed: {_risk_err}")
+            st.stop()
 
     r = _risk_report
-    _risk_ph.empty()
 
     # ══ Top section — score gauge, factor/concentration, risk contribution ═══
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
