@@ -12,7 +12,7 @@ from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, sub_score_bar_html, quality_score_color,
-                              veto_reason_str, block_skeleton as _block_skeleton)
+                              veto_reason_str)
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors
 from uvalu.ui import _CHART_CONFIG
@@ -153,17 +153,11 @@ def render() -> None:
                 st.markdown(f'<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
                            f'color:var(--muted);"><span style="width:12px;height:0;border-top:1.5px dashed '
                            f'{_C.axis};display:inline-block;"></span>Fair value</span>', unsafe_allow_html=True)
-        # Chart-shaped shimmer instead of a bare spinner while this uncached,
-        # per-visit yfinance call is in flight (docs/design/Uvalu Loading
-        # Patterns.html) — cleared the instant the real chart is ready below.
-        _an_chart_ph = st.empty()
-        with _an_chart_ph.container():
-            st.markdown(_block_skeleton("260px"), unsafe_allow_html=True)
-        try:
-            _hist = yf.Ticker(ticker).history(period="1y")
-        except Exception:
-            _hist = pd.DataFrame()
-        _an_chart_ph.empty()
+        with st.spinner("Loading price history…"):
+            try:
+                _hist = yf.Ticker(ticker).history(period="1y")
+            except Exception:
+                _hist = pd.DataFrame()
         if not _hist.empty:
             _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
             _fig = go.Figure()

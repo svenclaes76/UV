@@ -12,7 +12,6 @@ commits on this project diff the app against these files.
 | [`Uvalu.dc.html`](Uvalu.dc.html) | Main app — Dashboard, Screener, Portfolio, Risk, Stock Detail, Settings, Help, Watchlist |
 | [`Uvalu Admin.dc.html`](Uvalu%20Admin.dc.html) | Admin portal — Users, Data feeds, Backups & restore |
 | [`support.js`](support.js) | Runtime the two `.dc.html` files depend on (`<x-dc>` template engine + `DCLogic` base class). Required for the mockups to render standalone in a browser; not meaningful as a design reference on its own. |
-| [`Uvalu Loading Patterns.html`](Uvalu%20Loading%20Patterns.html) | Pattern library — skeleton/dim/spinner content states for a section's first paint vs. a live re-fetch. From a *separate* Claude Design project (`cb367453-8d43-4f3f-be21-3458ede55932`), not the main "Uvalu" one above. Ported into `uvalu/components.py` (`kpi_card_skeleton`, `holdings_row_skeleton_html`, `block_skeleton`, `refresh_badge_html`, `kpi_card(dim=...)`, `holdings_row_html(dim=...)`) and `uvalu/styles.py` (`--skel`/`--skel-hi` tokens, `uvShimmer`/`uvSpin`/`uvRing` keyframes); wired into `uvalu/pages_/dashboard.py`'s KPI strip and Holdings table so far. |
 
 `Uvalu-brand-guidelines.md` lives at [`docs/uvalu-brand-guidelines.md`](../uvalu-brand-guidelines.md)
 (kept alongside the other product docs, not duplicated here) and is the same

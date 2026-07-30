@@ -17,7 +17,6 @@ from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, _file_lock)
 from settings import ALL_EXCHANGES
-import risk as _risk_module
 
 
 def _bust_cache() -> None:
@@ -218,26 +217,3 @@ def _fetch_live_data(tickers: tuple) -> dict:
         t: {**fundas.get(t, {}), **prices.get(t, {})}
         for t in tickers
     }
-
-
-def get_cached_risk_report(session_key: str, pf: pd.DataFrame, risk_cache: dict,
-                           income_portfolio: bool = False):
-    """1-hour session_state-cached wrapper around risk.assess_portfolio() —
-    it fetches 5y of price history per holding and runs a factor regression,
-    expensive enough that recomputing it on every Streamlit rerun (a widget
-    toggle elsewhere on the same page, not just a genuine data refresh) is
-    wasteful. `session_key` scopes the cache slot — pass a DIFFERENT key per
-    call site whose `pf` enrichment differs (e.g. uvalu/pages_/dashboard.py's
-    Conviction & risk card doesn't enrich `pf` with sector/country/fair_value/
-    expected_annual the way uvalu/pages_/risk.py's own report does — see that
-    function's docstring), so a lighter computation from one page never gets
-    served as if it were the other's full report."""
-    _key = str((tuple(sorted(pf["ticker"].tolist())), income_portfolio))
-    _cached = st.session_state.get(session_key, {})
-    if _cached.get("key") == _key and "report" in _cached:
-        _gen_at = datetime.fromisoformat(_cached["report"].generated_at)
-        if (datetime.now(timezone.utc) - _gen_at).total_seconds() < 3600:
-            return _cached["report"]
-    report = _risk_module.assess_portfolio(pf, risk_cache, income_portfolio)
-    st.session_state[session_key] = {"key": _key, "report": report}
-    return report
