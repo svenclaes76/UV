@@ -252,7 +252,7 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     def _unix_to_date(ts) -> str | None:
         """Convert a Unix timestamp (int) from yfinance to an ISO date string."""
         try:
-            return datetime.utcfromtimestamp(int(ts)).strftime("%d/%m/%Y") if ts else None
+            return datetime.fromtimestamp(int(ts), timezone.utc).strftime("%d/%m/%Y") if ts else None
         except Exception:
             return None
 
