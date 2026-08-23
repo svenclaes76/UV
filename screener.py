@@ -504,6 +504,7 @@ def _fair_value_models(row: pd.Series) -> dict:
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
     country  = row.get("country")
+    shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
     wacc = _approx_wacc(beta)
@@ -517,12 +518,20 @@ def _fair_value_models(row: pd.Series) -> dict:
     # base of 8.5x — this 15x is a round heuristic near historical market-average P/E)
     pe_fv = (eps * 15) if (eps and eps > 0) else None
 
-    # Earnings Power Value (EPV = EBIT×(1-t)/WACC, scaled to per-share via EV ratio).
-    # t is the country's statutory rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
+    # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). t is the country's statutory
+    # rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
     epv = None
     if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
         epv_ev = ebit * (1 - tax_rate) / wacc
-        epv    = price * (epv_ev / ev)
+        if shares and shares > 0:
+            # Exact: subtract net debt (EV − market cap) from EPV_EV, then divide
+            # by shares — avoids assuming EPV_EV's implied capital structure mirrors
+            # the actual EV/market-cap ratio, which the EV-ratio shortcut below does.
+            net_debt = ev - (price * shares)
+            epv = (epv_ev - net_debt) / shares
+        else:
+            # Fallback when shares outstanding is unavailable: EV-ratio approximation.
+            epv = price * (epv_ev / ev)
 
     # DDM weight guidance:
     # — zero weight if no dividend, payout > 90%, or payout < 5%
