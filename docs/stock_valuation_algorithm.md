@@ -29,7 +29,7 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 | **Earnings Power Value (EPV)** | `EBIT × (1 − 25%) / WACC`, scaled to per-share via `Price × (EPV_EV / EnterpriseValue)` | 0.19 |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.20 (0 if DDM-ineligible) |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.20 (0 if DDM-ineligible) |
-| **Analyst target price** | `targetMeanPrice`, used directly as a model input | 0.25 |
+| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.25 |
 
 `DCF`, comparable multiples (P/E, EV/EBITDA, P/S), and an asset-based / P/B model are **not implemented** — they don't exist as separate fair-value inputs.
 
@@ -125,7 +125,7 @@ Not implemented — no data source exists for any of these: active fraud investi
 Data collection (yfinance point-in-time snapshot, 24h cache)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value + EPV + DDM single-stage + DDM multi-stage + Analyst target)
+  (Graham Number + PE Fair Value + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
     ↓
 Weighted fair value
   (DDM weight 0.40 combined if eligible — payer with 5–90% payout; 0 otherwise,

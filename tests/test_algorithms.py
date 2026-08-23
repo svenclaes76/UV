@@ -143,7 +143,7 @@ class TestFairValueBlend:
         row = pd.Series({"Price": 50.0, "trailingEps": 5.0, "bookValue": 20.0,
                          "targetMeanPrice": 90.0})
         fv = _fair_value_models(row)
-        gn, pe, an = 2250 ** 0.5, 75.0, 90.0
+        gn, pe, an = 2250 ** 0.5, 75.0, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
         expected = (gn * 0.18 + pe * 0.18 + an * 0.25) / (0.18 + 0.18 + 0.25)
         assert fv["fair_value"] == pytest.approx(expected, abs=0.01)
 
@@ -345,7 +345,7 @@ class TestCompositeScore:
         assert bool(good["veto"]) is False
 
         # Fair value blend for GOOD: Graham + PE + analyst only
-        gn, pe, an = 2250 ** 0.5, 75.0, 90.0
+        gn, pe, an = 2250 ** 0.5, 75.0, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
         expected_fv = (gn * 0.18 + pe * 0.18 + an * 0.25) / 0.61
         assert good["fair_value"] == pytest.approx(expected_fv, abs=0.01)
         assert good["MoS %"] == pytest.approx(

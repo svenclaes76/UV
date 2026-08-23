@@ -40,6 +40,11 @@ DEFAULT_BETA        = 1.0
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
 
+# Sell-side analyst target prices are well-documented to run optimistically biased on
+# average — a flat haircut on the raw target discounts that bias before it feeds the
+# fair-value composite. Fixed constant, not derived from live analyst-accuracy data.
+ANALYST_TARGET_HAIRCUT = 0.10
+
 # Composite score weights — must sum to 1.0
 W_MOS      = 0.30   # α — margin of safety
 W_RISK     = 0.18   # β — risk (inverted: 100 - risk_pctrank)
@@ -459,6 +464,10 @@ def _fair_value_models(row: pd.Series) -> dict:
     ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_eligible else None
     ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_eligible else None
 
+    # Discount the raw analyst target for its well-documented optimism bias before it
+    # feeds the composite (the undiscounted target is still shown elsewhere in the UI).
+    analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
+
     # Base weights
     candidates = [
         (gn,      0.18),
@@ -466,7 +475,7 @@ def _fair_value_models(row: pd.Series) -> dict:
         (epv,     0.19),
         (ddm1,    0.20 if ddm_eligible else 0.0),
         (ddm2,    0.20 if ddm_eligible else 0.0),
-        (analyst, 0.25),
+        (analyst_fv, 0.25),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
