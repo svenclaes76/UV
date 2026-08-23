@@ -157,12 +157,16 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
     # unambiguously as cards). ───────────────────────────────────────────────
     _mos = row.get("MoS %")
     _mos_color = ("var(--up-txt)" if pd.notna(_mos) and _mos >= 0 else "var(--down-txt)") if pd.notna(_mos) else "inherit"
+    _ter = row.get("TER %")
+    _ter_color = ("var(--up-txt)" if pd.notna(_ter) and _ter >= 0 else "var(--down-txt)") if pd.notna(_ter) else "inherit"
     # Tighter side padding/gap/letter-spacing than a first pass at this (13px
     # 14px padding, 12px gap, 0.06em spacing) — "Margin of safety" wrapped to
     # 2 lines at 452px drawer width with those values, throwing off vertical
-    # alignment between the 3 tiles' values. Confirmed via live DOM
+    # alignment between the tiles' values. Confirmed via live DOM
     # measurement (scrollWidth vs clientWidth) that this combination is the
-    # minimum squeeze needed to keep all 3 labels on one line.
+    # minimum squeeze needed to keep all labels on one line. A 4th tile (TER,
+    # next to MoS) reuses this same squeeze rather than widening the row —
+    # "Total return" still fits at this padding/font-size.
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     st.markdown(
@@ -176,6 +180,9 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         f'<div style="{_tile}">'
         f'<div style="{_label}">Margin of safety</div>'
         f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_mos_color};">{_fv(row, "MoS %", lambda v: f"{v:+.1f}%")}</div></div>'
+        f'<div style="{_tile}">'
+        f'<div style="{_label}">Total return</div>'
+        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_ter_color};">{_fv(row, "TER %", lambda v: f"{v:+.1f}%")}</div></div>'
         f'</div>', unsafe_allow_html=True)
 
     if row.get("veto"):
