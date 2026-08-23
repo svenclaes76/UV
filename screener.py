@@ -51,6 +51,14 @@ W_DIVIDEND = 0.15   # ε — dividend score
 SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
+# Sectors where high leverage is a normal feature of the business model (banks and
+# insurers hold customer deposits/float as liabilities, REITs debt-finance long-lived
+# property, regulated utilities finance capex with debt) rather than a distress signal.
+# The flat D/E hard veto can't tell healthy sector leverage from financial distress, so
+# these sectors are exempt from it — other vetoes (negative FCF, at-risk dividend +
+# low coverage) still apply.
+LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
+
 MAX_WORKERS      = 4    # parallel yfinance requests
 REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
@@ -712,7 +720,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
-        "exDividendDate", "dividendDate",
+        "exDividendDate", "dividendDate", "sector",
     ]
     df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 
@@ -739,12 +747,14 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["_momentum_raw"] = df.apply(_momentum_raw,       axis=1)
     df["_dividend_raw"] = df.apply(_dividend_score_raw, axis=1)
 
-    # Hard veto: D/E > max_debt_equity (user-configurable, default 500 ≈5×) OR
+    # Hard veto: D/E > max_debt_equity (user-configurable, default 500 ≈5×), skipped for
+    # LEVERAGE_EXEMPT_SECTORS where high leverage is structural rather than distress, OR
     # FCF negative OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
-    de       = df["debtToEquity"].fillna(0)
-    fcf      = df["freeCashflow"].fillna(0)
-    coverage = df["dividendCoverage"].fillna(999)
-    df["_hard_veto"] = (de > max_debt_equity) | (fcf < 0) | (
+    de            = df["debtToEquity"].fillna(0)
+    fcf           = df["freeCashflow"].fillna(0)
+    coverage      = df["dividendCoverage"].fillna(999)
+    leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
+    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | (fcf < 0) | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 

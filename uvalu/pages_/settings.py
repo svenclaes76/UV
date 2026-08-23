@@ -146,7 +146,7 @@ def render() -> None:
                 _max_de = _threshold_slider(
                     "scr_max_de", "Max debt / equity", 50, 1000, 50,
                     int(_shared.get("max_debt_equity", 500)), lambda v: f"{v}%",
-                    "Hard veto above this leverage.")
+                    "Hard veto above this leverage (Financials, Real Estate, Utilities exempt).")
             with _v2:
                 _max_payout = _threshold_slider(
                     "scr_max_payout", "Max dividend payout", 50, 100, 5,

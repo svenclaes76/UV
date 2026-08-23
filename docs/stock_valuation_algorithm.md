@@ -110,7 +110,7 @@ A hard veto forces **Avoid** regardless of score.
 
 ### Hard Veto Rules
 `screener.compute_scores`'s `_hard_veto` is true when **any** of:
-- Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)**
+- Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
 - Free cash flow is negative — checked for the **single most recent reported period**, not "3+ consecutive years" as earlier drafts of this document described (no multi-year FCF history is fetched)
 - Dividend sustainability flag is **At Risk** *and* dividend coverage < 1.0×
 
@@ -137,7 +137,7 @@ Percentile-rank each sub-score (0–100) across the current universe
     ↓
 Composite Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
     ↓
-Hard veto check (D/E, FCF, at-risk dividend + low coverage) → forces Avoid
+Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF, at-risk dividend + low coverage) → forces Avoid
     ↓
 Strong Buy (score ≥ threshold AND MoS ≥ min_mos) | Monitor | Avoid
 ```
