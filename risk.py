@@ -128,11 +128,12 @@ class QuantMetrics:
     mdd_label: str
     sharpe: float | None
     sortino: float | None
-    ratio_label: str
+    ratio_label: str                    # describes `sharpe` (the value shown alongside it in the UI)
     corr_matrix: pd.DataFrame | None
     high_corr_pairs: list[tuple[str, str, float]]
     effective_diversification: float | None
     returns_available: bool
+    sortino_label: str = "N/A"          # separate, higher-bar label for `sortino`
 
 
 @dataclass
@@ -454,11 +455,20 @@ def _mdd_label(mdd: float | None) -> str:
     if v < 0.25:  return "Moderate"
     return "High"
 
-def _ratio_label(sharpe: float | None, sortino: float | None) -> str:
-    r = sortino if sortino is not None else sharpe
-    if r is None:  return "N/A"
-    if r > 1.5:    return "Strong"
-    if r > 1.0:    return "Acceptable"
+def _sharpe_label(sharpe: float | None) -> str:
+    if sharpe is None:  return "N/A"
+    if sharpe > 1.5:    return "Strong"
+    if sharpe > 1.0:    return "Acceptable"
+    return "Suboptimal"
+
+
+def _sortino_label(sortino: float | None) -> str:
+    # Sortino uses downside deviation only, which is ≤ total volatility by
+    # construction, so it runs structurally higher than Sharpe for the same
+    # portfolio — reusing Sharpe's bands would make "Strong" too easy to clear.
+    if sortino is None:  return "N/A"
+    if sortino > 2.0:    return "Strong"
+    if sortino > 1.5:    return "Acceptable"
     return "Suboptimal"
 
 
@@ -484,7 +494,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         volatility_annual=None, volatility_label="N/A",
         var_95_1d_pct=None, var_95_1d_eur=None, var_99_1d_eur=None, cvar_95_1d_eur=None,
         mdd_1y=None, mdd_3y=None, mdd_5y=None, mdd_label="N/A",
-        sharpe=None, sortino=None, ratio_label="N/A",
+        sharpe=None, sortino=None, ratio_label="N/A", sortino_label="N/A",
         corr_matrix=None, high_corr_pairs=[], effective_diversification=None,
         returns_available=False,
     )
@@ -536,12 +546,19 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
                 if np.isfinite(c) and c > 0.80:
                     high_corr.append((cols[i], cols[j], round(float(c), 3)))
 
+    # Weight-weighted average pairwise correlation — weights each pair by
+    # w_i × w_j so a correlation between two large positions counts more
+    # than one between two negligible ones, reflecting the portfolio actually
+    # held rather than just the list of tickers in it.
     eff_div: float | None = None
     if corr is not None and len(corr) > 1:
-        upper = corr.values[np.triu_indices_from(corr.values, k=1)]
-        fin   = upper[np.isfinite(upper)]
-        if len(fin) > 0:
-            eff_div = round(1.0 - float(np.mean(fin)), 3)
+        i_idx, j_idx = np.triu_indices_from(corr.values, k=1)
+        pair_corr = corr.values[i_idx, j_idx]
+        pair_w    = aw[i_idx] * aw[j_idx]
+        mask      = np.isfinite(pair_corr) & (pair_w > 0)
+        if mask.any():
+            weighted_corr = float(np.average(pair_corr[mask], weights=pair_w[mask]))
+            eff_div = round(1.0 - weighted_corr, 3)
 
     return QuantMetrics(
         portfolio_beta=round(port_beta, 2),
@@ -558,7 +575,8 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         mdd_label=_mdd_label(mdd_5y if mdd_5y is not None else mdd_1y),
         sharpe=round(float(sharpe), 2) if sharpe is not None else None,
         sortino=round(float(sortino), 2) if sortino is not None else None,
-        ratio_label=_ratio_label(sharpe, sortino),
+        ratio_label=_sharpe_label(sharpe),
+        sortino_label=_sortino_label(sortino),
         corr_matrix=corr,
         high_corr_pairs=high_corr,
         effective_diversification=eff_div,

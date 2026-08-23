@@ -40,7 +40,8 @@ from risk import (
     _beta_label,
     _vol_label,
     _mdd_label,
-    _ratio_label,
+    _sharpe_label,
+    _sortino_label,
     _position_rating,
     _risk_label_action,
     _stage1_position_profiles,
@@ -455,10 +456,16 @@ class TestRiskHelpers:
         assert _mdd_label(-0.05) == "Low"
         assert _mdd_label(-0.35) == "High"
         assert _mdd_label(None) == "N/A"
-        assert _ratio_label(None, 1.6) == "Strong"
-        assert _ratio_label(1.2, None) == "Acceptable"
-        assert _ratio_label(0.5, None) == "Suboptimal"
-        assert _ratio_label(None, None) == "N/A"
+        assert _sharpe_label(1.6) == "Strong"
+        assert _sharpe_label(1.2) == "Acceptable"
+        assert _sharpe_label(0.5) == "Suboptimal"
+        assert _sharpe_label(None) == "N/A"
+        # Sortino's bar sits higher than Sharpe's since downside deviation
+        # alone is ≤ total volatility, so the same number needs a tougher bar.
+        assert _sortino_label(2.2) == "Strong"
+        assert _sortino_label(1.6) == "Acceptable"
+        assert _sortino_label(1.2) == "Suboptimal"
+        assert _sortino_label(None) == "N/A"
 
     def test_risk_label_boundaries(self):
         assert _risk_label_action(25.0)[0] == "Low risk"
