@@ -28,7 +28,12 @@ _DRAWER_CSS = """
 [data-testid="stDialog"] [role="dialog"] {
   position: fixed !important; top: 0 !important; right: 0 !important; left: auto !important;
   height: 100vh !important; max-height: 100vh !important;
-  width: 452px !important; max-width: 92vw !important;
+  /* 452px fit the original 3-tile hero row; the 4th tile (TER, added next to
+     MoS) pushed the row's min-content width (4 tiles' nowrap labels + 3x8px
+     gaps) past that, clipping "Total return" — measured needed ~480px at the
+     drawer's own padding, so widened with headroom rather than re-squeezing
+     tile padding/font-size again. */
+  width: 520px !important; max-width: 92vw !important;
   border-radius: 0 !important; margin: 0 !important;
   overflow-y: auto !important;
   animation: uvDrawerIn 0.18s ease;
