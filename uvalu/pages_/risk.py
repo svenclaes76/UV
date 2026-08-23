@@ -61,6 +61,11 @@ def render() -> None:
         _cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
     _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
 
+    # Real hard-veto lookup (screener's own `veto` column) — feeds both
+    # assess_portfolio()'s Stage 8 rebalance trigger below and the concentration
+    # alert box / holdings table's Flag column further down.
+    _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
+
     # ── Enrich portfolio with a live price (fast, 60s-cached quote feed) ──────
     _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     pf["live_price"]    = pf["ticker"].map(lambda t: _risk_live.get(t, {}).get("price"))
@@ -89,7 +94,8 @@ def render() -> None:
     _income_portfolio = False
 
     # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
-    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio))
+    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio,
+                           tuple(sorted(_veto_lookup.items()))))
     _risk_cached    = st.session_state.get("_risk_report_cache", {})
     _risk_report: _risk_module.RiskReport | None = None
 
@@ -101,7 +107,7 @@ def render() -> None:
 
     if _risk_report is None:
         try:
-            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio)
+            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio, _veto_lookup)
             st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
         except Exception as _risk_err:
             st.error(f"Risk assessment failed: {_risk_err}")
@@ -154,10 +160,6 @@ def render() -> None:
         )
         st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);">{_cells}</div>',
                    unsafe_allow_html=True)
-
-    # Real hard-veto lookup (screener's own `veto` column) — used by both the
-    # concentration alert box and the holdings table's Flag column below.
-    _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
 
     # ── Factor breakdown + concentration — matches the mockup's 1.35fr/1fr
     # card row; kept on real Fama-French loadings/concentration data, only

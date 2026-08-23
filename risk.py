@@ -87,6 +87,7 @@ class PositionRisk:
     financial_health: float         # 0–10
     earnings_quality: float         # 0–10
     rating: str                     # "Low" | "Medium" | "High" | "Critical"
+    veto: bool = False              # real hard veto from the stock valuation algorithm (screener's `veto` column)
 
 
 @dataclass
@@ -295,7 +296,9 @@ def _position_rating(weight: float, beta: float | None, mos: float | None,
 
 
 def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
-                               total_value: float) -> list[PositionRisk]:
+                               total_value: float,
+                               veto_lookup: dict[str, bool] | None = None) -> list[PositionRisk]:
+    veto_lookup = veto_lookup or {}
     profiles = []
     for _, row in pf.iterrows():
         ticker  = row["ticker"]
@@ -340,6 +343,7 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             financial_health=round(fh, 1),
             earnings_quality=round(eq, 1),
             rating=rating,
+            veto=bool(veto_lookup.get(ticker, False)),
         ))
     return profiles
 
@@ -712,7 +716,7 @@ def _stage5_income(pf: pd.DataFrame, cache: dict, total_value: float) -> IncomeR
         div_rate = _safe(fd.get("trailingAnnualDividendRate") or fd.get("dividendRate"))
         if div_rate and div_rate > 0:
             if (ds == "At Risk"
-                    or (payout is not None and payout > 0.80)
+                    or (payout is not None and payout > 0.90)
                     or (cpr is not None and cpr > 0.80)
                     or (coverage is not None and coverage < 1.2)):
                 flagged_payers.append(t)
@@ -1013,7 +1017,11 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             "Add defensive/uncorrelated assets to cushion tail risk"))
 
     for p in profiles:
-        if p.rating == "Critical":
+        if p.veto:
+            items.append(RebalanceItem("hard", p.ticker,
+                f"{p.ticker}: breaches a hard veto rule in the stock valuation algorithm",
+                "Review fundamentals; consider reducing or exiting"))
+        elif p.rating == "Critical":
             items.append(RebalanceItem("hard", p.ticker,
                 f"{p.ticker}: Critical risk rating — review immediately",
                 "Review fundamentals; consider reducing or exiting"))
@@ -1068,7 +1076,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
-                     income_portfolio: bool = False) -> RiskReport:
+                     income_portfolio: bool = False,
+                     veto_lookup: dict[str, bool] | None = None) -> RiskReport:
     """
     Run the 8-stage risk assessment pipeline and return a RiskReport.
 
@@ -1076,6 +1085,9 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                        current_value, sector, country, expected_annual, fair_value.
     cache            — fundamentals cache dict from screener._load_cache().
     income_portfolio — if True, income risk weight is elevated in Stage 7.
+    veto_lookup      — optional {ticker: bool} from the screener's own `veto`
+                       column (screener.py's df["veto"]); feeds Stage 1's
+                       PositionRisk.veto and Stage 8's hard veto trigger.
     """
     if pf_df is None or pf_df.empty:
         raise ValueError("Portfolio is empty — nothing to assess")
@@ -1109,7 +1121,7 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                     name="portfolio",
                 )
 
-    s1 = _stage1_position_profiles(pf, cache, total_value)
+    s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup)
     s2 = _stage2_concentration(pf, total_value)
     s3 = _stage3_quant(pf, cache, total_value, closes)
     s4 = _stage4_factor(port_rets)
