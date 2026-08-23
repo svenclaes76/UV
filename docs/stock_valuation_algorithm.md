@@ -24,20 +24,20 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 ### Models
 | Model | Formula / Approach | Base weight |
 |---|---|---|
-| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.18 |
-| **PE Fair Value** | `EPS × 15` — a flat conservative multiple; despite the label in code, this is *not* Graham's actual no-growth base multiplier (8.5×) from his growth formula, just a round heuristic near historical market-average P/E | 0.18 |
-| **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts the company's actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's actual EV/market-cap ratio. Falls back to the old `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.19 |
-| **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.20 (0 if DDM-ineligible) |
-| **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.20 (0 if DDM-ineligible) |
-| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.25 |
+| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.150 (`W_GRAHAM`) |
+| **PE Fair Value** | `EPS × 15` — a flat conservative multiple; despite the label in code, this is *not* Graham's actual no-growth base multiplier (8.5×) from his growth formula, just a round heuristic near historical market-average P/E | 0.150 (`W_PE`) |
+| **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts the company's actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's actual EV/market-cap ratio. Falls back to the old `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.158 (`W_EPV`) |
+| **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.167 (`W_DDM_SINGLE`; 0 if DDM-ineligible) |
+| **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.167 (`W_DDM_MULTI`; 0 if DDM-ineligible) |
+| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.208 (`W_ANALYST`) |
 
 `DCF`, comparable multiples (P/E, EV/EBITDA, P/S), and an asset-based / P/B model are **not implemented** — they don't exist as separate fair-value inputs.
 
 **WACC** = 3% risk-free rate + beta × 5% equity risk premium; beta is clamped to [0.1, 5.0] and defaults to 1.0 if missing or out of range.
 
-**DDM eligibility gate:** both DDM weights are set to zero unless the stock pays a dividend (`div_rate > 0`) **and** its payout ratio is between 5% and 90%. This is a binary eligibility gate, not the graduated 30–50% weighting scheme described in earlier drafts of this document — when DDM is ineligible, its 0.40 combined weight drops out and the remaining available models (Graham, PE, EPV, Analyst) are re-normalized over their own weights, since there is no DCF or comps model to receive it instead.
+**DDM eligibility gate:** both DDM weights are set to zero unless the stock pays a dividend (`div_rate > 0`) **and** its payout ratio is between 5% and 90%. This is a binary eligibility gate, not the graduated 30–50% weighting scheme described in earlier drafts of this document — when DDM is ineligible, its ≈0.334 combined weight (`W_DDM_SINGLE + W_DDM_MULTI`) drops out and the remaining available models (Graham, PE, EPV, Analyst — summing to ≈0.666 of the full 1.00) are re-normalized over their own weights, since there is no DCF or comps model to receive it instead.
 
-Note the base weights above sum to **1.20**, not 1.00 (`screener._fair_value_models`'s hardcoded 0.18+0.18+0.19+0.20+0.20+0.25). This isn't a bug — the composite formula divides by Σ(weight used), so the weighted average is still mathematically valid — but it means the DDM-ineligible case isn't "0.40 of 1.00 redistributed over the other 0.60"; the four non-DDM models already total 0.80 of the full 1.20, so when DDM drops out those four are simply renormalized over 0.80 (Graham/PE/EPV each ≈22.5% of the composite, Analyst ≈31%), not scaled up from some other baseline.
+The base weights above (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULTI`, `W_ANALYST`) sum to exactly **1.00**. They were originally 0.18/0.18/0.19/0.20/0.20/0.25 (summing to 1.20 — a stale discrepancy that didn't corrupt the composite math, since it already divides by Σ(weight used), but did make the doc's "0.40 of 1.0" framing inaccurate) and were proportionally rescaled down to 0.150/0.150/0.158/0.167/0.167/0.208, preserving each model's relative influence.
 
 ### Dividend-Specific Valuation Checks
 | Check | Formula | Where it's used |
@@ -130,8 +130,8 @@ Fair value estimation
   (Graham Number + PE Fair Value + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
     ↓
 Weighted fair value
-  (DDM weight 0.40 combined if eligible — payer with 5–90% payout; 0 otherwise,
-   re-normalized over Graham/PE/EPV/Analyst)
+  (base weights sum to 1.00; DDM weight ≈0.334 combined if eligible — payer with
+   5–90% payout; 0 otherwise, re-normalized over Graham/PE/EPV/Analyst)
     ↓
 Margin of Safety = (Fair Value − Price) / Fair Value
 Total Expected Return = Capital Gain % + Forward Yield % + Earnings-growth-proxy DGR % [DGR halved if DDM contributed to Fair Value]

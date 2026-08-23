@@ -88,6 +88,18 @@ COUNTRY_TAX_RATES = {
 # fair-value composite. Fixed constant, not derived from live analyst-accuracy data.
 ANALYST_TARGET_HAIRCUT = 0.10
 
+# Stage 2 fair-value model base weights — must sum to 1.00. Proportionally rescaled
+# from the original 0.18/0.18/0.19/0.20/0.20/0.25 (which summed to 1.20 — a stale
+# discrepancy, see docs/stock_valuation_algorithm.md) down to this scale, preserving
+# each model's relative influence. The DDM weights are the *base* rate for eligible
+# payers; _fair_value_models zeroes them out entirely when a stock is DDM-ineligible.
+W_GRAHAM     = 0.150
+W_PE         = 0.150
+W_EPV        = 0.158
+W_DDM_SINGLE = 0.167
+W_DDM_MULTI  = 0.167
+W_ANALYST    = 0.208
+
 # Composite score weights — must sum to 1.0
 W_MOS      = 0.30   # α — margin of safety
 W_RISK     = 0.18   # β — risk (inverted: 100 - risk_pctrank)
@@ -557,12 +569,12 @@ def _fair_value_models(row: pd.Series) -> dict:
 
     # Base weights
     candidates = [
-        (gn,      0.18),
-        (pe_fv,   0.18),
-        (epv,     0.19),
-        (ddm1,    0.20 if ddm_eligible else 0.0),
-        (ddm2,    0.20 if ddm_eligible else 0.0),
-        (analyst_fv, 0.25),
+        (gn,      W_GRAHAM),
+        (pe_fv,   W_PE),
+        (epv,     W_EPV),
+        (ddm1,    W_DDM_SINGLE if ddm_eligible else 0.0),
+        (ddm2,    W_DDM_MULTI  if ddm_eligible else 0.0),
+        (analyst_fv, W_ANALYST),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
@@ -575,7 +587,7 @@ def _fair_value_models(row: pd.Series) -> dict:
 
     # Did either DDM variant actually feed the composite? (ddm_eligible alone isn't
     # enough — a variant can still be None, e.g. the WACC<=g guard in _ddm_single.)
-    ddm_contributed = (ddm1, 0.20) in avail or (ddm2, 0.20) in avail
+    ddm_contributed = (ddm1, W_DDM_SINGLE) in avail or (ddm2, W_DDM_MULTI) in avail
 
     return {
         "graham_number":  gn,

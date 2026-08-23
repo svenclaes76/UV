@@ -139,12 +139,13 @@ class TestDDM:
 
 class TestFairValueBlend:
     def test_weighted_average_of_available_models(self):
-        # Only Graham (0.18), PE (0.18), analyst (0.25) available.
+        # Only Graham, PE, analyst available.
         row = pd.Series({"Price": 50.0, "trailingEps": 5.0, "bookValue": 20.0,
                          "targetMeanPrice": 90.0})
         fv = _fair_value_models(row)
         gn, pe, an = 2250 ** 0.5, 75.0, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
-        expected = (gn * 0.18 + pe * 0.18 + an * 0.25) / (0.18 + 0.18 + 0.25)
+        wg, wp, wa = screener.W_GRAHAM, screener.W_PE, screener.W_ANALYST
+        expected = (gn * wg + pe * wp + an * wa) / (wg + wp + wa)
         assert fv["fair_value"] == pytest.approx(expected, abs=0.01)
 
     def test_no_models_available(self):
@@ -346,7 +347,8 @@ class TestCompositeScore:
 
         # Fair value blend for GOOD: Graham + PE + analyst only
         gn, pe, an = 2250 ** 0.5, 75.0, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
-        expected_fv = (gn * 0.18 + pe * 0.18 + an * 0.25) / 0.61
+        wg, wp, wa = screener.W_GRAHAM, screener.W_PE, screener.W_ANALYST
+        expected_fv = (gn * wg + pe * wp + an * wa) / (wg + wp + wa)
         assert good["fair_value"] == pytest.approx(expected_fv, abs=0.01)
         assert good["MoS %"] == pytest.approx(
             (expected_fv - 50.0) / expected_fv * 100, abs=0.1)
