@@ -15,6 +15,7 @@ import contextlib
 import io
 import json
 import logging
+import math
 import random
 import threading
 import time
@@ -203,8 +204,28 @@ def _safe_float(val) -> float | None:
         return None
 
 
+def _fcf_history(tkr: "yf.Ticker") -> list[float] | None:
+    """Annual Free Cash Flow, most recent fiscal year first, from the cash flow
+    statement (up to ~4-5 years as yfinance exposes it). Returns None on fetch
+    failure or if the statement doesn't expose the row (e.g. some ADRs, recent
+    IPOs) — callers fall back to the single most-recent-period FCF in that case.
+    Isolated in its own try/except so a failure here doesn't trigger the whole-
+    ticker retry/backoff in _fetch_and_store.
+    """
+    try:
+        cf = tkr.cashflow
+        if cf is None or cf.empty or "Free Cash Flow" not in cf.index:
+            return None
+        vals = [_safe_float(v) for v in cf.loc["Free Cash Flow"].tolist()]
+        vals = [v for v in vals if v is not None and not math.isnan(v)]
+        return vals or None
+    except Exception:
+        return None
+
+
 def _fetch_one(ticker: str, stock: dict) -> dict:
-    info  = yf.Ticker(ticker).info
+    tkr   = yf.Ticker(ticker)
+    info  = tkr.info
     mcap  = info.get("marketCap")
     price = info.get("currentPrice") or info.get("regularMarketPrice")
 
@@ -266,6 +287,10 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     for key in ALL_EXTRA_FIELDS:
         if key not in row:   # don't overwrite already-processed fields
             row[key] = _safe_float(info.get(key))
+
+    # Multi-year FCF history for the hard veto's "3+ consecutive negative years"
+    # check; falls back to the single most-recent-period check when unavailable.
+    row["fcfHistory"] = _fcf_history(tkr)
 
     # Derived: FCF yield
     fcf  = row.get("freeCashflow")
@@ -781,6 +806,19 @@ def _pct_rank(series: pd.Series, ascending=True) -> pd.Series:
     return ranked.fillna(50.0)
 
 
+def _fcf_hard_veto(row: pd.Series) -> bool:
+    """True if FCF has been negative for 3+ consecutive most-recent fiscal years
+    (`fcfHistory`, newest first). Falls back to a single most-recent-period check
+    (`freeCashflow`) when fewer than 3 years of history are available — e.g. recent
+    IPOs, or tickers where the cash flow statement fetch failed/is unsupported.
+    """
+    history = row.get("fcfHistory")
+    if isinstance(history, list) and len(history) >= 3:
+        return all(v < 0 for v in history[:3])
+    fcf = row.get("freeCashflow")
+    return bool(fcf is not None and fcf < 0)
+
+
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    max_payout: float = 0.90, min_mos: float = 0.0,
                    buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
@@ -788,7 +826,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
-        "exDividendDate", "dividendDate", "sector",
+        "exDividendDate", "dividendDate", "sector", "fcfHistory",
     ]
     df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 
@@ -818,12 +856,13 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
 
     # Hard veto: D/E > max_debt_equity (user-configurable, default 500 ≈5×), skipped for
     # LEVERAGE_EXEMPT_SECTORS where high leverage is structural rather than distress, OR
-    # FCF negative OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
+    # FCF negative for 3+ consecutive years (single most-recent period if less history
+    # is available) OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
     de            = df["debtToEquity"].fillna(0)
-    fcf           = df["freeCashflow"].fillna(0)
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
-    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | (fcf < 0) | (
+    fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
+    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 

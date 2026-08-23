@@ -4,14 +4,14 @@ A systematic pipeline for identifying undervalued stocks and deciding whether th
 This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults.
 ---
 ## Stage 1 — Data Collection
-A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). There is no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed — the risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
+A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). The only multi-year data fetched is annual Free Cash Flow, up to ~4-5 years from the cash flow statement (`fcfHistory`, for the hard veto below) — there is otherwise no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed. The risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
 
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
 - Dividend rate (`trailingAnnualDividendRate` / `dividendRate`), 5-yr average dividend yield, ex-dividend and payment dates
 - Analyst mean target price (`targetMeanPrice`)
 - EBIT, enterprise value, shares outstanding
-- Debt/equity, current ratio, interest coverage, free cash flow, net income, beta, average volume, payout ratio
+- Debt/equity, current ratio, interest coverage, free cash flow (current + up to ~4-5yr history via `fcfHistory`), net income, beta, average volume, payout ratio
 - ROE, ROA, operating margin, profit margin
 - Earnings growth, revenue growth, analyst recommendation mean
 - Sector, country
@@ -115,7 +115,7 @@ A hard veto forces **Avoid** regardless of score.
 ### Hard Veto Rules
 `screener.compute_scores`'s `_hard_veto` is true when **any** of:
 - Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
-- Free cash flow is negative — checked for the **single most recent reported period**, not "3+ consecutive years" as earlier drafts of this document described (no multi-year FCF history is fetched)
+- Free cash flow negative for the **3 most recent consecutive fiscal years** (`fcfHistory`, from the cash flow statement's "Free Cash Flow" row, newest first — `screener._fcf_history`). Falls back to the **single most recent reported period** (`freeCashflow`) when fewer than 3 years of history are available (recent IPOs, or tickers where the statement fetch failed/doesn't expose the row) — a single bad year no longer vetoes an otherwise-sound stock on its own once 3-year history exists.
 - Dividend sustainability flag is **At Risk** *and* dividend coverage < 1.0×
 
 Not implemented — no data source exists for any of these: active fraud investigation / accounting restatement, imminent covenant breach or liquidity crisis, or a standalone "dividend cut in current or prior fiscal year" veto (the closest proxy is the coverage-based check above).
@@ -141,7 +141,7 @@ Percentile-rank each sub-score (0–100) across the current universe
     ↓
 Composite Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
     ↓
-Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF, at-risk dividend + low coverage) → forces Avoid
+Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + low coverage) → forces Avoid
     ↓
 Strong Buy (score ≥ threshold AND MoS ≥ min_mos) | Monitor | Avoid
 ```
