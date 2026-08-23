@@ -653,17 +653,31 @@ def _clamp(v, lo, hi):
     return float(np.clip(v, lo, hi))
 
 
+def _get_num(row: pd.Series, field: str):
+    """row.get(field), normalizing NaN to None. compute_scores calls all the
+    scoring functions below via df.apply(fn, axis=1), which hands each one a
+    pandas Series where a field missing for this ticker (or a whole column
+    reindexed in for schema compatibility) reads as float NaN, not a missing
+    key. Every `is not None` / truthy guard below assumes plain-dict get()
+    semantics (missing -> None) and doesn't catch NaN, so without this,
+    NaN silently flows into arithmetic and corrupts the whole np.mean(scores)
+    to NaN for that dimension -- even when the other inputs were fine.
+    """
+    v = row.get(field)
+    return None if pd.isna(v) else v
+
+
 def _financial_health_score(row: pd.Series) -> float:
     """0–10, higher = healthier."""
     scores = []
-    de = row.get("debtToEquity")
+    de = _get_num(row, "debtToEquity")
     if de is not None:
         de_ratio = de / 100   # yfinance: 100 = 1.0×
         scores.append(_clamp(10 - de_ratio * 2.5, 0, 10))
-    cr = row.get("currentRatio")
+    cr = _get_num(row, "currentRatio")
     if cr is not None:
         scores.append(_clamp((cr - 0.5) / 0.15, 0, 10))
-    ic = row.get("interestCoverage")
+    ic = _get_num(row, "interestCoverage")
     if ic is not None and ic > 0:
         scores.append(_clamp(ic / 2, 0, 10))
     return float(np.mean(scores)) if scores else 5.0
@@ -671,8 +685,8 @@ def _financial_health_score(row: pd.Series) -> float:
 
 def _earnings_quality_score(row: pd.Series) -> float:
     """0–10, higher = better quality."""
-    fcf = row.get("freeCashflow")
-    ni  = row.get("netIncome")
+    fcf = _get_num(row, "freeCashflow")
+    ni  = _get_num(row, "netIncome")
     if fcf is None or ni is None or ni == 0:
         return 5.0
     return float(_clamp(5 + (fcf / abs(ni)) * 3, 0, 10))
@@ -680,7 +694,7 @@ def _earnings_quality_score(row: pd.Series) -> float:
 
 def _market_risk_score(row: pd.Series) -> float:
     """0–10, higher = lower beta risk."""
-    beta = row.get("beta")
+    beta = _get_num(row, "beta")
     if beta is None:
         return 5.0
     return float(_clamp(10 - abs(beta) * 3.5, 0, 10))
@@ -691,12 +705,12 @@ def _dividend_risk_score(row: pd.Series) -> float:
     0–10, higher = lower dividend risk.
     For non-payers: neutral 5.0.
     """
-    div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
+    div_rate = _get_num(row, "trailingAnnualDividendRate") or _get_num(row, "dividendRate")
     if not div_rate or div_rate <= 0:
         return 5.0  # neutral for non-payers
 
     scores = []
-    payout = row.get("payoutRatio")
+    payout = _get_num(row, "payoutRatio")
     if payout is not None and payout > 0:
         if 0.30 <= payout <= 0.70:
             scores.append(10.0)
@@ -707,15 +721,15 @@ def _dividend_risk_score(row: pd.Series) -> float:
         else:
             scores.append(0.0)   # > 85% at risk
 
-    cpr = row.get("cashPayoutRatio")
+    cpr = _get_num(row, "cashPayoutRatio")
     if cpr is not None:
         scores.append(_clamp(10 - cpr * 10, 0, 10))  # 0% = 10, 100% = 0
 
-    coverage = row.get("dividendCoverage")
+    coverage = _get_num(row, "dividendCoverage")
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))    # 1.5× = 3, 5× = 10
 
-    eg = row.get("earningsGrowth")
+    eg = _get_num(row, "earningsGrowth")
     if eg is not None:
         scores.append(_clamp(5 + eg * 25, 0, 10))     # DGR proxy
 
@@ -724,7 +738,7 @@ def _dividend_risk_score(row: pd.Series) -> float:
 
 def _liquidity_score(row: pd.Series) -> float:
     """0–10, higher = more liquid."""
-    vol = row.get("averageVolume")
+    vol = _get_num(row, "averageVolume")
     if vol is None or vol <= 0:
         return 5.0
     if vol >= 500_000: return 10.0
@@ -751,15 +765,15 @@ def _composite_risk_raw(row: pd.Series) -> float:
 def _quality_raw(row: pd.Series) -> float:
     """0–10 composite of profitability / efficiency metrics."""
     scores = []
-    roe = row.get("returnOnEquity")
+    roe = _get_num(row, "returnOnEquity")
     if roe is not None: scores.append(_clamp(roe * 50, 0, 10))
-    roa = row.get("returnOnAssets")
+    roa = _get_num(row, "returnOnAssets")
     if roa is not None: scores.append(_clamp(roa * 100, 0, 10))
-    om  = row.get("operatingMargins")
+    om  = _get_num(row, "operatingMargins")
     if om  is not None: scores.append(_clamp(om * 50, 0, 10))
-    fcy = row.get("fcfYield")
+    fcy = _get_num(row, "fcfYield")
     if fcy is not None: scores.append(_clamp(fcy * 100, 0, 10))
-    cr  = row.get("currentRatio")
+    cr  = _get_num(row, "currentRatio")
     if cr  is not None: scores.append(_clamp((cr - 0.5) / 0.15, 0, 10))
     return float(np.mean(scores)) if scores else 5.0
 
@@ -767,11 +781,11 @@ def _quality_raw(row: pd.Series) -> float:
 def _momentum_raw(row: pd.Series) -> float:
     """0–10 composite of growth and analyst sentiment."""
     scores = []
-    eg = row.get("earningsGrowth")
+    eg = _get_num(row, "earningsGrowth")
     if eg is not None: scores.append(_clamp(5 + eg * 25, 0, 10))
-    rg = row.get("revenueGrowth")
+    rg = _get_num(row, "revenueGrowth")
     if rg is not None: scores.append(_clamp(5 + rg * 25, 0, 10))
-    rm = row.get("recommendationMean")
+    rm = _get_num(row, "recommendationMean")
     if rm is not None: scores.append(_clamp((5 - rm) / 4 * 10, 0, 10))
     return float(np.mean(scores)) if scores else 5.0
 
@@ -782,21 +796,21 @@ def _dividend_score_raw(row: pd.Series) -> float:
     Combines: yield vs 5-yr average, payout safety, cash coverage, DGR proxy.
     Non-payers get neutral 5.0 so they are not penalised.
     """
-    div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
+    div_rate = _get_num(row, "trailingAnnualDividendRate") or _get_num(row, "dividendRate")
     if not div_rate or div_rate <= 0:
         return 5.0   # neutral — non-payer is neither rewarded nor penalised
 
     scores = []
 
     # 1. Current yield vs 5-year average yield
-    dy      = row.get("dividendYield")
-    avg_dy  = row.get("fiveYearAvgDividendYield")
+    dy      = _get_num(row, "dividendYield")
+    avg_dy  = _get_num(row, "fiveYearAvgDividendYield")
     if dy and avg_dy and avg_dy > 0:
         ratio = dy / avg_dy
         scores.append(_clamp(ratio * 5, 0, 10))  # at avg = 5, 2× avg = 10
 
     # 2. Payout ratio sustainability
-    payout = row.get("payoutRatio")
+    payout = _get_num(row, "payoutRatio")
     if payout and payout > 0:
         if 0.30 <= payout <= 0.70:
             scores.append(10.0)
@@ -808,17 +822,17 @@ def _dividend_score_raw(row: pd.Series) -> float:
             scores.append(0.0)
 
     # 3. Cash payout ratio (lower = safer)
-    cpr = row.get("cashPayoutRatio")
+    cpr = _get_num(row, "cashPayoutRatio")
     if cpr is not None:
         scores.append(_clamp(10 - cpr * 10, 0, 10))
 
     # 4. Dividend coverage ratio
-    coverage = row.get("dividendCoverage")
+    coverage = _get_num(row, "dividendCoverage")
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))
 
     # 5. DGR proxy (earnings growth as best available approximation)
-    eg = row.get("earningsGrowth")
+    eg = _get_num(row, "earningsGrowth")
     if eg is not None:
         scores.append(_clamp(5 + eg * 25, 0, 10))
 
@@ -932,13 +946,16 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # ── Stage 6: decision ────────────────────────────────────────────────────
     # A BUY requires both the composite score AND the margin of safety to
     # clear their configured thresholds (Settings → Screening & veto rules) —
-    # a high score alone no longer overrides an unacceptably thin MoS.
+    # a high score alone no longer overrides an unacceptably thin MoS. A stock
+    # with no computable fair value (NaN MoS — every model failed) can't have
+    # its margin of safety confirmed, so it can't reach Strong Buy either; it
+    # falls through to Monitor/Avoid on score alone instead of bypassing the gate.
     def _decision(row):
         if row["_hard_veto"]:
             return "Avoid"
         s   = row["Value Score"]
         mos = row["margin_of_safety"]
-        if s >= buy_threshold and (pd.isna(mos) or mos >= min_mos):
+        if s >= buy_threshold and pd.notna(mos) and mos >= min_mos:
             return "Strong Buy"
         if s >= SCORE_AVOID:
             return "Monitor"

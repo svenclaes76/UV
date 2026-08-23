@@ -289,6 +289,40 @@ class TestDimensionScores:
             v = fn(extreme)
             assert 0.0 <= v <= 10.0, f"{fn.__name__} out of bounds: {v}"
 
+    def test_nan_field_scores_same_as_missing_field(self):
+        # compute_scores calls these via df.apply(fn, axis=1) on a DataFrame,
+        # where a field missing for this ticker (or reindexed in for schema
+        # compatibility) reads as float NaN, not a missing dict key. A NaN
+        # value must be treated the same as an absent one -- not silently
+        # corrupt the whole np.mean(scores) to NaN for that dimension.
+        present = pd.Series({
+            "debtToEquity": 100.0, "currentRatio": 2.0, "interestCoverage": 10.0,
+            "freeCashflow": 1e8, "netIncome": 5e7, "beta": 1.0,
+            "averageVolume": 1e6, "trailingAnnualDividendRate": 2.0,
+            "payoutRatio": 0.5, "cashPayoutRatio": 0.3, "dividendCoverage": 3.0,
+            "earningsGrowth": 0.05, "returnOnEquity": 0.15, "returnOnAssets": 0.08,
+            "operatingMargins": 0.20, "fcfYield": 0.06, "revenueGrowth": 0.04,
+            "recommendationMean": 2.0, "dividendYield": 0.03,
+            "fiveYearAvgDividendYield": 0.025,
+        })
+        # Same fields, but with a subset present-as-NaN instead of absent --
+        # simulating a reindexed DataFrame row rather than a plain dict.
+        nan_fields = ["interestCoverage", "fcfYield", "cashPayoutRatio",
+                      "fiveYearAvgDividendYield"]
+        noisy = present.copy()
+        for f in nan_fields:
+            noisy[f] = np.nan
+        missing = present.drop(index=nan_fields)
+
+        for fn in (_financial_health_score, _earnings_quality_score,
+                   _market_risk_score, _dividend_risk_score, _liquidity_score,
+                   _quality_raw, _momentum_raw, _dividend_score_raw):
+            v_noisy   = fn(noisy)
+            v_missing = fn(missing)
+            assert not np.isnan(v_noisy), f"{fn.__name__} corrupted to NaN"
+            assert v_noisy == pytest.approx(v_missing), (
+                f"{fn.__name__}: NaN field ({v_noisy}) != absent field ({v_missing})")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 5+6 — percentile ranks, composite score, decision
@@ -423,6 +457,42 @@ class TestCompositeScore:
         }])
         out = compute_scores(row)
         assert out.iloc[0]["Decision"] == "Strong Buy"
+
+    def test_missing_fair_value_cannot_reach_strong_buy(self):
+        # NOVAL has no trailingEps/bookValue/targetMeanPrice/ebit/dividend at
+        # all -> every fair-value model returns None -> fair_value and
+        # margin_of_safety are both NaN. It otherwise tops WEAK on every other
+        # dimension, so the composite score alone clears buy_threshold -- but
+        # with no fair value there is no confirmed margin of safety, so this
+        # must NOT be a Strong Buy (pre-fix, a NaN MoS silently passed the
+        # "MoS >= min_mos" gate instead of failing it).
+        noval = {
+            "Name": "No Valuation Co", "Ticker": "NOVAL", "Price": 50.0,
+            "beta": 1.0, "returnOnEquity": 0.20, "returnOnAssets": 0.10,
+            "operatingMargins": 0.25, "fcfYield": 0.08,
+            "freeCashflow": 1e9, "netIncome": 8e8,
+            "debtToEquity": 50.0, "currentRatio": 2.0, "interestCoverage": 10.0,
+            "averageVolume": 1e6,
+            "trailingAnnualDividendRate": 0.0, "dividendRate": 0.0,
+            "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+        }
+        weak = {
+            "Name": "Weak Co", "Ticker": "WEAK", "Price": 100.0,
+            "trailingEps": 2.0, "bookValue": 8.0, "targetMeanPrice": 80.0,
+            "beta": 3.0, "returnOnEquity": -0.10, "returnOnAssets": -0.05,
+            "operatingMargins": -0.10, "fcfYield": -0.10,
+            "freeCashflow": -1e8, "netIncome": 4e8,
+            "debtToEquity": 400.0, "currentRatio": 0.5, "interestCoverage": 0.2,
+            "averageVolume": 10_000,
+            "trailingAnnualDividendRate": 0.0, "dividendRate": 0.0,
+            "earningsGrowth": -0.30, "revenueGrowth": -0.20, "recommendationMean": 4.5,
+        }
+        out = compute_scores(pd.DataFrame([noval, weak]))
+        row = out[out["Ticker"] == "NOVAL"].iloc[0]
+        assert pd.isna(row["fair_value"])
+        assert pd.isna(row["margin_of_safety"])
+        assert row["Value Score"] >= screener.SCORE_STRONG_BUY  # would have qualified pre-fix
+        assert row["Decision"] != "Strong Buy"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
