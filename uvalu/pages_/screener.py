@@ -293,8 +293,12 @@ def render() -> None:
             with st.container(width="content"):
                 st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
                            unsafe_allow_html=True)
-                st.caption(f"**{len(_filtered)}** of {len(_valued_df)} European stocks pass your filters · "
-                          "ranked by composite signal score.")
+                _scr_caption = (f"**{len(_filtered)}** of {len(_valued_df)} European stocks pass your filters · "
+                               "ranked by composite signal score.")
+                if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
+                    _scr_caption += (f" Small universe ({len(_all_df)} stocks) — composite scores are "
+                                    "percentile ranks within it, so \"Strong Buy\" carries less weight here.")
+                st.caption(_scr_caption)
             with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
                 with st.container(key="scr_reset_btn"):
                     if st.button("Reset filters", key="scr_reset", icon=":material/refresh:", type="tertiary"):

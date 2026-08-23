@@ -102,6 +102,8 @@ Before weighting, MoS, Risk (inverted), Quality, Momentum, and Dividend are each
 Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
 ```
 Weights are fixed constants (`screener.W_MOS`, `W_RISK`, `W_QUALITY`, `W_MOMENTUM`, `W_DIVIDEND`) — they are not currently adjustable per investment style (value / growth / income), though the composite's shape mirrors that intent.
+
+**Universe-size guard:** because every sub-rank is cross-sectional (a stock's standing *within the current screened universe*, not against an absolute bar), a small or low-quality universe can let a mediocre stock land in the top percentile purely for lack of competition. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count rather than silently trusting the ranks.
 ---
 ## Stage 6 — Decision
 | Score | Action |

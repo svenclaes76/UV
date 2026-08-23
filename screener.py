@@ -99,6 +99,14 @@ W_DIVIDEND = 0.15   # ε — dividend score
 SCORE_STRONG_BUY = 70
 SCORE_AVOID      = 40
 
+# Composite score sub-ranks are cross-sectional percentiles (screener._pct_rank), so
+# they measure a stock's standing *within the current screened universe*, not against
+# any absolute bar. Below this many rows, percentile granularity gets coarse enough
+# (e.g. 10 stocks = 10-point steps) that a handful of mediocre stocks can land in the
+# top percentile purely for lack of competition — a "Strong Buy" needs more context at
+# that point. Heuristic threshold, not statistically derived.
+MIN_UNIVERSE_SIZE = 20
+
 # Sectors where high leverage is a normal feature of the business model (banks and
 # insurers hold customer deposits/float as liabilities, REITs debt-finance long-lived
 # property, regulated utilities finance capex with debt) rather than a distress signal.
@@ -902,6 +910,12 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["Sub Quality"]  = quality_rank.round(1)
     df["Sub Momentum"] = momentum_rank.round(1)
     df["Sub Dividend"] = dividend_rank.round(1)
+
+    # Flag every row when the screened universe is too small for the percentile ranks
+    # above to be statistically meaningful (see MIN_UNIVERSE_SIZE) — callers (e.g. the
+    # Screener page) can surface this as a caveat rather than letting a "Strong Buy"
+    # from a tiny universe look as confident as one from a large, competitive one.
+    df["small_universe"] = len(df) < MIN_UNIVERSE_SIZE
 
     # ── Stage 6: decision ────────────────────────────────────────────────────
     # A BUY requires both the composite score AND the margin of safety to
