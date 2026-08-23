@@ -35,10 +35,52 @@ import yfinance as yf
 
 RISK_FREE_RATE      = 0.03    # Euro area approximation
 EQUITY_RISK_PREMIUM = 0.05
-DEFAULT_TAX_RATE    = 0.25
+DEFAULT_TAX_RATE    = 0.25    # EPV fallback when `country` is missing or unmapped below
 DEFAULT_BETA        = 1.0
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
+
+# Statutory corporate tax rates by country, for EPV's EBIT×(1-t) step. Static headline
+# rates (approx. 2024/2025), not a live feed — a known simplification like RISK_FREE_RATE
+# and EQUITY_RISK_PREMIUM above. Keyed on yfinance's `country` field (full country name).
+# Countries not listed here fall back to DEFAULT_TAX_RATE.
+COUNTRY_TAX_RATES = {
+    "United States":       0.21,
+    "Belgium":             0.25,
+    "Germany":             0.30,
+    "France":              0.25,
+    "Netherlands":         0.258,
+    "United Kingdom":      0.25,
+    "Switzerland":         0.149,
+    "Ireland":             0.125,
+    "Luxembourg":          0.2494,
+    "Spain":               0.25,
+    "Italy":               0.279,
+    "Sweden":              0.206,
+    "Norway":              0.22,
+    "Denmark":             0.22,
+    "Finland":             0.20,
+    "Austria":             0.23,
+    "Poland":              0.19,
+    "Portugal":            0.21,
+    "Greece":              0.22,
+    "Canada":              0.265,
+    "Japan":               0.2974,
+    "China":               0.25,
+    "South Korea":         0.24,
+    "India":               0.2517,
+    "Australia":           0.30,
+    "New Zealand":         0.28,
+    "Singapore":           0.17,
+    "Hong Kong":           0.165,
+    "Taiwan":              0.20,
+    "Brazil":              0.34,
+    "Mexico":              0.30,
+    "Israel":              0.23,
+    "South Africa":        0.27,
+    "United Arab Emirates": 0.09,
+    "Saudi Arabia":        0.20,
+}
 
 # Sell-side analyst target prices are well-documented to run optimistically biased on
 # average — a flat haircut on the raw target discounts that bias before it feeds the
@@ -436,6 +478,8 @@ def _fair_value_models(row: pd.Series) -> dict:
     ev       = row.get("enterpriseValue")
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
+    country  = row.get("country")
+    tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
     wacc = _approx_wacc(beta)
 
@@ -448,10 +492,11 @@ def _fair_value_models(row: pd.Series) -> dict:
     # base of 8.5x — this 15x is a round heuristic near historical market-average P/E)
     pe_fv = (eps * 15) if (eps and eps > 0) else None
 
-    # Earnings Power Value (EPV = EBIT×(1-t)/WACC, scaled to per-share via EV ratio)
+    # Earnings Power Value (EPV = EBIT×(1-t)/WACC, scaled to per-share via EV ratio).
+    # t is the country's statutory rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
     epv = None
     if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
-        epv_ev = ebit * (1 - DEFAULT_TAX_RATE) / wacc
+        epv_ev = ebit * (1 - tax_rate) / wacc
         epv    = price * (epv_ev / ev)
 
     # DDM weight guidance:

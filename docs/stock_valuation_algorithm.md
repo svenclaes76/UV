@@ -4,7 +4,7 @@ A systematic pipeline for identifying undervalued stocks and deciding whether th
 This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults.
 ---
 ## Stage 1 — Data Collection
-A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). There is no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed — the risk-free rate, equity risk premium, and EPV's tax rate are fixed constants (3%, 5%, 25% respectively — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`, `DEFAULT_TAX_RATE`), not live or jurisdiction-aware, even though `country` is already fetched.
+A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). There is no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed — the risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
 
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
@@ -26,7 +26,7 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 |---|---|---|
 | **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.18 |
 | **PE Fair Value** | `EPS × 15` — a flat conservative multiple; despite the label in code, this is *not* Graham's actual no-growth base multiplier (8.5×) from his growth formula, just a round heuristic near historical market-average P/E | 0.18 |
-| **Earnings Power Value (EPV)** | `EBIT × (1 − 25%) / WACC`, scaled to per-share via `Price × (EPV_EV / EnterpriseValue)` | 0.19 |
+| **Earnings Power Value (EPV)** | `EBIT × (1 − t) / WACC`, scaled to per-share via `Price × (EPV_EV / EnterpriseValue)`. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.19 |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.20 (0 if DDM-ineligible) |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.20 (0 if DDM-ineligible) |
 | **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.25 |
