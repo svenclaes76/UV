@@ -439,7 +439,8 @@ def _fair_value_models(row: pd.Series) -> dict:
     if eps and bvps and eps > 0 and bvps > 0:
         gn = (22.5 * eps * bvps) ** 0.5
 
-    # PE Fair Value (Graham conservative: EPS × 15)
+    # PE Fair Value: flat conservative multiple (not Graham's actual no-growth
+    # base of 8.5x — this 15x is a round heuristic near historical market-average P/E)
     pe_fv = (eps * 15) if (eps and eps > 0) else None
 
     # Earnings Power Value (EPV = EBIT×(1-t)/WACC, scaled to per-share via EV ratio)
@@ -470,10 +471,15 @@ def _fair_value_models(row: pd.Series) -> dict:
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
-                "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None}
+                "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
+                "ddm_contributed": False}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
+
+    # Did either DDM variant actually feed the composite? (ddm_eligible alone isn't
+    # enough — a variant can still be None, e.g. the WACC<=g guard in _ddm_single.)
+    ddm_contributed = (ddm1, 0.20) in avail or (ddm2, 0.20) in avail
 
     return {
         "graham_number":  gn,
@@ -482,6 +488,7 @@ def _fair_value_models(row: pd.Series) -> dict:
         "ddm":            round(ddm1, 2) if ddm1 else None,
         "ddm_multistage": round(ddm2, 2) if ddm2 else None,
         "fair_value":     round(iv, 2),
+        "ddm_contributed": ddm_contributed,
     }
 
 
@@ -493,13 +500,20 @@ def _margin_of_safety(price, fair_value) -> float | None:
     return None
 
 
-def _total_expected_return(price, fair_value, div_yield, dgr) -> float | None:
-    """TER = capital gain % + forward dividend yield + expected DGR (all as %)."""
+def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:
+    """TER = capital gain % + forward dividend yield + expected DGR (all as %).
+
+    When DDM contributed to this stock's fair value, the growth assumption is
+    already embedded in the capital-gain term via the fair value itself — adding
+    the full DGR proxy on top would double-count it, so it's halved in that case.
+    """
     if not price or price <= 0:
         return None
     cap_gain = ((fair_value - price) / price * 100) if fair_value else 0.0
     dy       = (div_yield * 100) if div_yield else 0.0
     dg       = (max(0.0, min(0.10, dgr)) * 100) if dgr else 0.0
+    if ddm_contributed:
+        dg *= 0.5
     return round(cap_gain + dy + dg, 1)
 
 
@@ -736,7 +750,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["TER %"] = df.apply(
         lambda r: _total_expected_return(
             r["Price"], r["fair_value"],
-            r.get("dividendYield"), r.get("earningsGrowth")
+            r.get("dividendYield"), r.get("earningsGrowth"),
+            r.get("ddm_contributed", False)
         ), axis=1
     )
     df["Div Flag"] = df.apply(lambda r: _dividend_sustainability_flag(r, max_payout=max_payout), axis=1)

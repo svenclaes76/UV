@@ -4,7 +4,7 @@ A systematic pipeline for identifying undervalued stocks and deciding whether th
 This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults.
 ---
 ## Stage 1 — Data Collection
-A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). There is no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed — the risk-free rate and equity risk premium are fixed constants, not live indicators.
+A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). There is no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed — the risk-free rate, equity risk premium, and EPV's tax rate are fixed constants (3%, 5%, 25% respectively — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`, `DEFAULT_TAX_RATE`), not live or jurisdiction-aware, even though `country` is already fetched.
 
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
@@ -25,7 +25,7 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 | Model | Formula / Approach | Base weight |
 |---|---|---|
 | **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.18 |
-| **PE Fair Value** | `EPS × 15` (Graham's conservative no-growth multiple) | 0.18 |
+| **PE Fair Value** | `EPS × 15` — a flat conservative multiple; despite the label in code, this is *not* Graham's actual no-growth base multiplier (8.5×) from his growth formula, just a round heuristic near historical market-average P/E | 0.18 |
 | **Earnings Power Value (EPV)** | `EBIT × (1 − 25%) / WACC`, scaled to per-share via `Price × (EPV_EV / EnterpriseValue)` | 0.19 |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.20 (0 if DDM-ineligible) |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.20 (0 if DDM-ineligible) |
@@ -35,7 +35,9 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 
 **WACC** = 3% risk-free rate + beta × 5% equity risk premium; beta is clamped to [0.1, 5.0] and defaults to 1.0 if missing or out of range.
 
-**DDM eligibility gate:** both DDM weights are set to zero unless the stock pays a dividend (`div_rate > 0`) **and** its payout ratio is between 5% and 90%. This is a binary eligibility gate, not the graduated 30–50% weighting scheme described in earlier drafts of this document — when DDM is ineligible, its 0.40 combined weight is absorbed by re-normalizing over the remaining available models (Graham, PE, EPV, Analyst), since there is no DCF or comps model to receive it instead.
+**DDM eligibility gate:** both DDM weights are set to zero unless the stock pays a dividend (`div_rate > 0`) **and** its payout ratio is between 5% and 90%. This is a binary eligibility gate, not the graduated 30–50% weighting scheme described in earlier drafts of this document — when DDM is ineligible, its 0.40 combined weight drops out and the remaining available models (Graham, PE, EPV, Analyst) are re-normalized over their own weights, since there is no DCF or comps model to receive it instead.
+
+Note the base weights above sum to **1.20**, not 1.00 (`screener._fair_value_models`'s hardcoded 0.18+0.18+0.19+0.20+0.20+0.25). This isn't a bug — the composite formula divides by Σ(weight used), so the weighted average is still mathematically valid — but it means the DDM-ineligible case isn't "0.40 of 1.00 redistributed over the other 0.60"; the four non-DDM models already total 0.80 of the full 1.20, so when DDM drops out those four are simply renormalized over 0.80 (Graham/PE/EPV each ≈22.5% of the composite, Analyst ≈31%), not scaled up from some other baseline.
 
 ### Dividend-Specific Valuation Checks
 | Check | Formula | Where it's used |
@@ -66,6 +68,8 @@ There is no fixed 20–30% buy-zone band on MoS itself. Instead, a **Strong Buy*
 TER = Capital gain % + Forward dividend yield % + Expected DGR %
 ```
 where Capital gain % = `(Fair Value − Price) / Price × 100`, and Expected DGR uses the `earningsGrowth` proxy clamped to 0–10%. TER is displayed per-stock but there is **no >15% / 8–15% / <8% attractiveness banding** applied anywhere — it is not classified into "Attractive / Acceptable / Unattractive".
+
+**DGR halving when DDM contributed:** if either DDM variant fed that stock's composite fair value (`ddm_contributed`, `screener._fair_value_models`), the Expected DGR term is halved before summing. Growth is already embedded in the Capital gain % term via the DDM-derived fair value in that case, so adding the full DGR proxy on top would double-count it.
 
 ### Dividend Sustainability Flag
 `screener._dividend_sustainability_flag` returns `"At Risk"`, `"OK"`, or `""` (non-payer):
@@ -128,7 +132,7 @@ Weighted fair value
    re-normalized over Graham/PE/EPV/Analyst)
     ↓
 Margin of Safety = (Fair Value − Price) / Fair Value
-Total Expected Return = Capital Gain % + Forward Yield % + Earnings-growth-proxy DGR %
+Total Expected Return = Capital Gain % + Forward Yield % + Earnings-growth-proxy DGR % [DGR halved if DDM contributed to Fair Value]
 Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio)
     ↓
 Risk scoring (5 dimensions) + separate Quality score + separate Momentum score + Dividend score
