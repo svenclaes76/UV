@@ -890,8 +890,8 @@ class TestStage8:
             portfolio_yield=0.03, total_annual_income=100.0, weighted_dgr=0.01,
             top3_income_shares=[("A", 0.5), ("B", 0.3), ("C", 0.2)],
             top3_cut_eur=50.0, top3_cut_pct=0.45,
-            income_concentration_flag=True, flagged_payers=[],
-            flagged_income_pct=0.0)
+            income_concentration_flag=True, flagged_payers=["A", "B"],
+            flagged_income_pct=0.45)
         mc = MonteCarloResult(1, -0.2, -0.05, 0.05, 0.15, 0.3, 0.3)
         stress = StressResults(
             historical=[ScenarioResult("Crash", "x", -0.30, -0.45, 450.0)],
@@ -902,7 +902,7 @@ class TestStage8:
         hard_text = " | ".join(r.hard_triggers)
         assert "BIG" in hard_text and "20%" in hard_text     # overweight position
         assert "beta 1.60" in hard_text                       # excessive beta
-        assert "45%" in hard_text                             # income cut scenario
+        assert "45%" in hard_text                             # dividend-at-risk income share
         assert "-45%" in hard_text                            # worst drawdown
 
         soft_text = " | ".join(r.soft_triggers)

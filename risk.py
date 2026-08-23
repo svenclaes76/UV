@@ -680,12 +680,19 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
         if abs(b) > 1.5:
             flags.append(f"High {name} loading ({b:+.2f}) — concentrated factor bet")
 
-    f_stds = merged[factor_cols].std().values
-    contributions = np.abs(betas_) * f_stds
-    if contributions.sum() > 0:
-        dom_share = contributions.max() / contributions.sum()
+    # Each factor's share of *return variance* (doc: ">60% of return variance
+    # explained by one factor"), not just of the summed loadings — Var(β·X) =
+    # β² × Var(X), normalised by the portfolio's own return variance. Ignores
+    # cross-factor covariance (an uncorrelated-factors approximation), but
+    # unlike a plain |β|×std proxy it's actually in variance units.
+    f_vars = merged[factor_cols].var().values
+    var_y  = float(np.var(Y, ddof=1))
+    factor_var_contrib = (betas_ ** 2) * f_vars
+    if var_y > 0:
+        dom_idx   = int(np.argmax(factor_var_contrib))
+        dom_share = factor_var_contrib[dom_idx] / var_y
         if dom_share > 0.60 and r2 > 0.40:
-            dom_name = factor_cols[int(np.argmax(contributions))]
+            dom_name = factor_cols[dom_idx]
             flags.append(f"{dom_name} explains >{dom_share:.0%} of return variance")
 
     return FactorExposure(
@@ -1022,10 +1029,10 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                 f"1-day 99% VaR = €{quant.var_99_1d_eur:,.0f} ({var_pct:.1%}) — exceeds 3% loss tolerance",
                 "Reduce high-beta/volatile positions to lower tail risk"))
 
-    if income.top3_cut_pct is not None and income.top3_cut_pct > 0.40:
-        top3_tickers = ", ".join(t for t, _ in income.top3_income_shares[:3])
-        items.append(RebalanceItem("hard", top3_tickers,
-            f"Top-3 dividend cut scenario removes {income.top3_cut_pct:.0%} of annual income",
+    if income.flagged_income_pct > 0.40:
+        flagged_str = ", ".join(income.flagged_payers[:5])
+        items.append(RebalanceItem("hard", flagged_str,
+            f"{income.flagged_income_pct:.0%} of portfolio income comes from dividend-at-risk positions",
             "Diversify income across more dividend payers"))
 
     worst_dd = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
@@ -1045,9 +1052,9 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                 "Review fundamentals; consider reducing or exiting"))
 
     # Soft triggers
-    if concentration.hhi > 0.15:
+    if concentration.hhi > 0.18:
         items.append(RebalanceItem("soft", "Portfolio",
-            f"HHI {concentration.hhi:.3f} — concentration has drifted well above 0.10 diversified threshold",
+            f"HHI {concentration.hhi:.3f} — highly concentrated, above the 0.18 threshold",
             "Add uncorrelated positions or sectors to reduce concentration"))
     elif concentration.hhi > 0.10:
         items.append(RebalanceItem("soft", "Portfolio",
