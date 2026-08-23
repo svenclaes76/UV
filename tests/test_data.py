@@ -1,5 +1,5 @@
-"""Tests for uvalu/data.py — the screener/price/fundamentals cache-backed
-data layer between yfinance/fetch_tickers/screener and the UI pages.
+"""Tests for uvalu/data.py — the screener/price cache-backed data layer
+between yfinance/fetch_tickers/screener and the UI pages.
 
 data.py imports CACHE_FILE (a plain Path constant) from screener.py BY
 VALUE — same gotcha as backup.py/settings.py's _SHARED_FILE (see
@@ -7,12 +7,19 @@ uvalu-test-isolation-patterns memory) — so isolating it requires patching
 BOTH screener.CACHE_FILE (read by _load_cache(), a function that resolves
 its own module's globals at call time) AND data.CACHE_FILE (data.py's own
 separate copy, used directly in _cache_version()/_bust_cache()).
+
+Fair value / sector / country / dividend fields used to have a second,
+simpler computation here (_compute_fair_values/_fetch_fundamentals/
+_fetch_live_data) that could disagree with screener.py's own multi-model
+pipeline for the same ticker. That duplicate engine has been removed —
+pages needing those fields now look them up from their already-loaded
+scored DataFrame (_load_all_screener_data) by ticker instead. This module
+now only fetches live prices (_fetch_prices_cached).
 """
 import json
 
 import pandas as pd
 import pytest
-import yfinance as yf
 from streamlit.testing.v1 import AppTest
 
 import screener
@@ -25,59 +32,14 @@ def isolated_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(screener, "CACHE_FILE", cache_file)
     monkeypatch.setattr(data_module, "CACHE_FILE", cache_file)
     monkeypatch.setattr(screener, "_live_cache", {})
-    # _load_all_screener_data/_fetch_prices_cached/_fetch_fundamentals are all
-    # @st.cache_data-wrapped and process-global — without clearing, a later
-    # test calling one with the SAME args (e.g. the same literal
-    # cache_version string) as an earlier test would silently get that
-    # earlier test's cached return value instead of actually re-executing.
+    # _load_all_screener_data/_fetch_prices_cached are @st.cache_data-wrapped
+    # and process-global — without clearing, a later test calling one with
+    # the SAME args (e.g. the same literal cache_version string) as an
+    # earlier test would silently get that earlier test's cached return
+    # value instead of actually re-executing.
     import streamlit as st
     st.cache_data.clear()
     yield
-
-
-# ── _compute_fair_values ──────────────────────────────────────────────────
-
-class TestComputeFairValues:
-    def test_all_models_available(self):
-        info = {
-            "trailingEps": 5.0, "bookValue": 20.0,
-            "earningsGrowth": 0.08, "targetMeanPrice": 90.0,
-        }
-        result = data_module._compute_fair_values(info)
-        assert result["graham_number"] == round((22.5 * 5.0 * 20.0) ** 0.5, 2)
-        assert result["pe_fair_value"] == 75.0
-        assert result["graham_growth"] is not None
-        assert result["fair_value"] is not None
-
-    def test_no_eps_or_bvps_gives_no_graham(self):
-        result = data_module._compute_fair_values({"trailingEps": None, "bookValue": None})
-        assert result["graham_number"] is None
-        assert result["pe_fair_value"] is None
-        assert result["fair_value"] is None
-
-    def test_negative_eps_gives_no_models(self):
-        result = data_module._compute_fair_values({"trailingEps": -2.0, "bookValue": 20.0})
-        assert result["graham_number"] is None
-        assert result["pe_fair_value"] is None
-
-    def test_growth_clamped_and_uses_revenue_growth_fallback(self):
-        result = data_module._compute_fair_values({
-            "trailingEps": 5.0, "bookValue": 20.0, "revenueGrowth": 0.5,  # clamps to 25%
-        })
-        assert result["graham_growth"] == round(5.0 * (8.5 + 2 * 25.0), 2)
-
-    def test_negative_graham_growth_becomes_none(self):
-        result = data_module._compute_fair_values({
-            "trailingEps": 1.0, "bookValue": 5.0, "earningsGrowth": -0.20,  # clamps to -5%
-        })
-        # 1.0 * (8.5 + 2*-5) = -1.5 -> negative -> None
-        assert result["graham_growth"] is None
-
-    def test_composite_averages_only_available_positive_estimates(self):
-        result = data_module._compute_fair_values({"trailingEps": 5.0, "bookValue": 20.0})
-        gn = round((22.5 * 5.0 * 20.0) ** 0.5, 2)
-        pe = 75.0
-        assert result["fair_value"] == round((gn + pe) / 2, 2)
 
 
 # ── _cache_version / _cache_age_str ───────────────────────────────────────
@@ -168,91 +130,6 @@ class TestFetchPricesCached:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "42.0"
-
-
-# ── _fetch_fundamentals ────────────────────────────────────────────────────
-
-class TestFetchFundamentals:
-    def test_extracts_expected_fields(self, monkeypatch):
-        class FakeTicker:
-            def __init__(self, t):
-                self.info = {
-                    "targetMeanPrice": 90.0, "trailingAnnualDividendRate": 2.5,
-                    "sector": "Technology", "country": "Belgium",
-                    "trailingEps": 5.0, "bookValue": 20.0,
-                }
-        monkeypatch.setattr(yf, "Ticker", FakeTicker)
-
-        def _script():
-            from uvalu.data import _fetch_fundamentals
-            import streamlit as st
-            result = _fetch_fundamentals(("AAA.BR",))
-            st.json(result)
-
-        at = AppTest.from_function(_script, default_timeout=60)
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
-        result = json.loads(at.json[0].value)
-        assert result["AAA.BR"]["analyst_target"] == 90.0
-        assert result["AAA.BR"]["div_rate"] == 2.5
-        assert result["AAA.BR"]["sector"] == "Technology"
-        assert result["AAA.BR"]["fair_value"] is not None
-
-    def test_invalid_ticker_type_gets_default(self, monkeypatch):
-        def _script():
-            from uvalu.data import _fetch_fundamentals
-            import streamlit as st
-            result = _fetch_fundamentals((None,))
-            st.json(result)
-
-        at = AppTest.from_function(_script, default_timeout=60)
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
-        result = json.loads(at.json[0].value)
-        # json.dumps spells a None dict key as the JSON string "null".
-        assert result["null"]["analyst_target"] is None
-
-    def test_exception_per_ticker_gets_default(self, monkeypatch):
-        def boom(t):
-            raise RuntimeError("no such ticker")
-        monkeypatch.setattr(yf, "Ticker", boom)
-
-        def _script():
-            from uvalu.data import _fetch_fundamentals
-            import streamlit as st
-            result = _fetch_fundamentals(("BAD.BR",))
-            st.json(result)
-
-        at = AppTest.from_function(_script, default_timeout=60)
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
-        result = json.loads(at.json[0].value)
-        assert result["BAD.BR"]["analyst_target"] is None
-        assert result["BAD.BR"]["div_rate"] == 0
-
-
-# ── _fetch_live_data ────────────────────────────────────────────────────────
-
-class TestFetchLiveData:
-    def test_merges_prices_and_fundamentals(self, monkeypatch):
-        monkeypatch.setattr(data_module, "_fetch_prices_cached",
-                            lambda tickers: {"AAA.BR": {"price": 100.0}})
-        monkeypatch.setattr(data_module, "_fetch_fundamentals",
-                            lambda tickers: {"AAA.BR": {"sector": "Technology", "fair_value": 120.0}})
-
-        def _script():
-            from uvalu.data import _fetch_live_data
-            import streamlit as st
-            result = _fetch_live_data(("AAA.BR",))
-            st.json(result)
-
-        at = AppTest.from_function(_script, default_timeout=60)
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
-        result = json.loads(at.json[0].value)
-        assert result["AAA.BR"]["price"] == 100.0
-        assert result["AAA.BR"]["sector"] == "Technology"
-        assert result["AAA.BR"]["fair_value"] == 120.0
 
 
 # ── _load_all_screener_data ────────────────────────────────────────────────

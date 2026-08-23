@@ -8,7 +8,7 @@ import risk as _risk_module
 from portfolio import load_portfolio, load_sold
 from screener import _load_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
-from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
+from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
 
@@ -61,18 +61,27 @@ def render() -> None:
         _cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
     _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
 
-    # ── Enrich portfolio with live prices, fair values, sector, country ───────
-    _risk_live = _fetch_live_data(tuple(pf["ticker"].tolist()))
+    # ── Enrich portfolio with a live price (fast, 60s-cached quote feed) ──────
+    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    pf["live_price"]    = pf["ticker"].map(lambda t: _risk_live.get(t, {}).get("price"))
+    pf["current_value"] = pf["live_price"] * pf["shares"]
 
-    def _rlv(field, default=None):
-        return pf["ticker"].map(lambda t: _risk_live.get(t, {}).get(field, default))
+    # ── Fair value, sector, country, dividend rate — from the screener's own
+    # scored DataFrame (_risk_scr_df, built above), which already ran the full
+    # multi-model pipeline for every portfolio ticker. Looking these up here
+    # instead of re-deriving them keeps this page's numbers identical to the
+    # Screener/Analysis pages for the same ticker. ─────────────────────────────
+    _risk_scr_by_ticker = _risk_scr_df.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
 
-    pf["live_price"]      = _rlv("price")
-    pf["current_value"]   = pf["live_price"] * pf["shares"]
-    pf["fair_value"]      = _rlv("fair_value")
-    pf["sector"]          = _rlv("sector")
-    pf["country"]         = _rlv("country")
-    pf["div_rate"]        = _rlv("div_rate", 0).map(lambda v: v or 0)
+    def _scr(field, default=None):
+        if field not in _risk_scr_by_ticker.columns:
+            return pd.Series(default, index=pf.index)
+        return pf["ticker"].map(_risk_scr_by_ticker[field])
+
+    pf["fair_value"]      = _scr("fair_value")
+    pf["sector"]          = _scr("sector")
+    pf["country"]         = _scr("country")
+    pf["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
 
     _risk_full_cache = _load_cache()

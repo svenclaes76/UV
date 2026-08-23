@@ -33,13 +33,15 @@ def _fake_ff_csv(url):
     return pd.DataFrame({c: rng.normal(0, 0.005, len(dates)) for c in cols}, index=dates)
 
 
-def _run(monkeypatch, screener_tuple=None, live_data=None, risk_cache=None) -> AppTest:
+def _run(monkeypatch, screener_tuple=None, prices=None, risk_cache=None) -> AppTest:
     monkeypatch.setattr(risk_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_cache", lambda: risk_cache or {})
-    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: live_data or {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    # fair_value/sector/country/div_rate now come from the scored screener
+    # DataFrame (screener_tuple) instead of a separate fetch — only the live
+    # price is fetched independently, matching what risk.py's render() does.
+    monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: prices or {
+        t: {"price": 110.0} for t in tickers
     })
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
@@ -92,9 +94,8 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
 
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
-    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
+        t: {"price": 110.0} for t in tickers
     })
 
     at = AppTest.from_function(_script, default_timeout=60)
@@ -111,9 +112,8 @@ def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
-    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
+        t: {"price": 110.0} for t in tickers
     })
 
     def _boom(pf, cache, income_portfolio):
@@ -140,9 +140,8 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
     monkeypatch.setattr(risk_module, "_fetch_history", _short_history)
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
-    monkeypatch.setattr(risk_page, "_fetch_live_data", lambda tickers: {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
+        t: {"price": 110.0} for t in tickers
     })
     portfolio.save_portfolio(make_portfolio_df())
 
@@ -170,10 +169,11 @@ def test_critical_risk_position_shows_flag(isolated_data, monkeypatch):
     # health (+2) -> 8 pts, comfortably over the >=5 "Critical" threshold —
     # see risk.py's _position_rating scoring.
     portfolio.save_portfolio(make_portfolio_df())
+    overvalued_row = make_scored_row(fair_value=100.0)
     at = _run(
         monkeypatch,
-        live_data={"AAA.BR": {"price": 150.0, "fair_value": 100.0, "sector": "Technology",
-                              "country": "Belgium", "div_rate": 3.2}},
+        screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([overvalued_row])),
+        prices={"AAA.BR": {"price": 150.0}},
         risk_cache={"AAA.BR": {"beta": 2.0, "debtToEquity": 900.0, "currentRatio": 0.1,
                                "interestCoverage": 0.1, "freeCashflow": -1e9, "netIncome": 1e6}},
     )

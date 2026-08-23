@@ -25,9 +25,8 @@ from tests.conftest import make_screener_data_tuple, make_portfolio_df
 def _run(monkeypatch, section=None) -> AppTest:
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(portfolio_page, "_fetch_live_data", lambda tickers: {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
+        t: {"price": 110.0} for t in tickers
     })
     # A populated portfolio with no/stale value history triggers a real
     # backfill_value_history() -> yf.download() network call otherwise
@@ -195,9 +194,8 @@ def test_viewer_role_disables_add_buttons(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(portfolio_page, "_fetch_live_data", lambda tickers: {
-        t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology", "country": "Belgium", "div_rate": 3.2}
-        for t in tickers
+    monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
+        t: {"price": 110.0} for t in tickers
     })
     script_src = """
 import streamlit as st
@@ -369,9 +367,8 @@ class TestDrawerEditHandoff:
         portfolio.save_portfolio(make_portfolio_df())
         monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                             lambda *a, **k: make_screener_data_tuple())
-        monkeypatch.setattr(portfolio_page, "_fetch_live_data", lambda tickers: {
-            t: {"price": 110.0, "fair_value": 122.0, "sector": "Technology",
-                "country": "Belgium", "div_rate": 3.2} for t in tickers
+        monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
+            t: {"price": 110.0} for t in tickers
         })
         script_src = """
 import streamlit as st

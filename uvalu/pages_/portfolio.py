@@ -17,7 +17,7 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
 from settings import load_shared_settings, get_veto_thresholds, load_settings, ALL_EXCHANGES
-from uvalu.data import _load_all_screener_data, _cache_version, _fetch_live_data
+from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
@@ -117,7 +117,7 @@ def render() -> None:
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
-    live_data = _fetch_live_data(tuple(pf["ticker"].tolist()))
+    live_data = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     pf["live_price"]     = pf["ticker"].map(lambda t: live_data[t].get("price"))
     pf["current_value"]  = pf["live_price"] * pf["shares"]
     pf["price_gain"]     = pf["current_value"] - pf["purchase_value"]

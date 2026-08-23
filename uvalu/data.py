@@ -6,7 +6,6 @@ import them unchanged. All @st.cache_data identity is preserved.
 from datetime import datetime, timezone
 
 import pandas as pd
-import yfinance as yf
 import streamlit as st
 
 from prices import fetch_prices
@@ -132,88 +131,16 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
     return exchange_dfs + (_extra_df,)
 
 
-def _compute_fair_values(info: dict) -> dict:
-    eps  = info.get("trailingEps")
-    bvps = info.get("bookValue")
-
-    # Graham Number: √(22.5 × EPS × BVPS) — requires positive EPS and BVPS
-    graham_number = None
-    if eps and bvps and eps > 0 and bvps > 0:
-        graham_number = round((22.5 * eps * bvps) ** 0.5, 2)
-
-    # PE Fair Value: EPS × 15 (Graham's assumed fair P/E for a no-growth company)
-    pe_fair_value = None
-    if eps and eps > 0:
-        pe_fair_value = round(eps * 15, 2)
-
-    # Graham Growth: EPS × (8.5 + 2g) where g is expected annual earnings growth (%)
-    # Uses earningsGrowth (TTM) as a proxy; clamped to [-5%, 25%] to avoid extremes.
-    graham_growth = None
-    raw_growth = info.get("earningsGrowth") or info.get("revenueGrowth")
-    if eps and eps > 0 and raw_growth is not None:
-        g = max(-5.0, min(25.0, raw_growth * 100))
-        graham_growth = round(eps * (8.5 + 2 * g), 2)
-        if graham_growth <= 0:
-            graham_growth = None
-
-    analyst_target = info.get("targetMeanPrice")
-
-    # Composite: average of all available positive estimates
-    estimates = [v for v in [graham_number, pe_fair_value, graham_growth, analyst_target]
-                 if v is not None and v > 0]
-    composite = round(sum(estimates) / len(estimates), 2) if estimates else None
-
-    return {
-        "graham_number": graham_number,
-        "pe_fair_value": pe_fair_value,
-        "graham_growth": graham_growth,
-        "fair_value":    composite,
-    }
-
-
 @st.cache_data(show_spinner=False, ttl=60)
 def _fetch_prices_cached(tickers: tuple) -> dict:
-    """Batch price feed — one HTTP call for all tickers, refreshed every 60s."""
+    """Batch price feed — one HTTP call for all tickers, refreshed every 60s.
+
+    Fair value, sector, country, and dividend fields are NOT fetched here —
+    they come from the screener's own scored DataFrame (_load_all_screener_data),
+    which runs the full multi-model pipeline (screener.py's _fair_value_models).
+    A page that needs those alongside a live price should look them up from its
+    already-loaded scored DataFrame by ticker (see uvalu/pages_/risk.py) rather
+    than re-deriving them here — that used to be a second, simpler fair-value
+    formula that could disagree with the screener's for the same ticker.
+    """
     return fetch_prices(tickers)
-
-
-@st.cache_data(show_spinner=False, ttl=21_600)
-def _fetch_fundamentals(tickers: tuple) -> dict:
-    """
-    Per-ticker fundamentals (EPS, BVPS, analyst targets, div rate) via yf.info.
-    Cached for 6 h — these change quarterly, not by the minute.
-    """
-    result = {}
-    _empty = {
-        "analyst_target": None, "div_rate": 0,
-        "graham_number": None, "pe_fair_value": None,
-        "graham_growth": None, "fair_value": None,
-        "sector": None, "country": None,
-    }
-    for t in tickers:
-        if not t or not isinstance(t, str):
-            result[t] = dict(_empty)
-            continue
-        try:
-            info = yf.Ticker(t).info
-            fv   = _compute_fair_values(info)
-            result[t] = {
-                "analyst_target": info.get("targetMeanPrice"),
-                "div_rate":       info.get("trailingAnnualDividendRate") or 0,
-                "sector":         info.get("sector") or None,
-                "country":        info.get("country") or None,
-                **fv,
-            }
-        except Exception:
-            result[t] = dict(_empty)
-    return result
-
-
-def _fetch_live_data(tickers: tuple) -> dict:
-    """Merge fast batch prices with slower-moving fundamentals."""
-    prices = _fetch_prices_cached(tickers)
-    fundas = _fetch_fundamentals(tickers)
-    return {
-        t: {**fundas.get(t, {}), **prices.get(t, {})}
-        for t in tickers
-    }
