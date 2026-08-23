@@ -155,6 +155,24 @@ class TestSellPosition:
         remaining = portfolio.load_portfolio()
         assert list(remaining["ticker"]) == ["BBB.BR"]
 
+    def test_nan_purchase_value_and_dividends_fall_back_to_zero(self):
+        # `float(row.get(...) or 0)` doesn't catch NaN (bool(nan) is True in
+        # Python) -- a row with a missing/NaN purchase_value or dividends
+        # field (e.g. from a partially-migrated record) must still fall back
+        # to 0 rather than silently persisting NaN into the sold record.
+        portfolio.save_portfolio(pd.DataFrame([
+            {"ticker": "AAA.BR", "purchase_value": 1000.0, "dividends": 0.0, "date_in": "2023-01-01"},
+            {"ticker": "BBB.BR", "purchase_value": float("nan"), "dividends": float("nan"),
+             "date_in": "2023-01-01"},
+        ]))
+        portfolio.sell_position("BBB.BR", 5, 400.0, "2024-01-01")
+        sold = portfolio.load_sold()
+        row = sold[sold["ticker"] == "BBB.BR"].iloc[0]
+        assert row["purchase_value"] == 0.0
+        assert row["dividends"] == 0.0
+        assert not pd.isna(row["purchase_value"])
+        assert not pd.isna(row["dividends"])
+
     def test_noop_when_no_portfolio(self):
         portfolio.sell_position("AAA.BR", 10, 1200.0, "2024-01-01")
         assert portfolio.load_portfolio() is None

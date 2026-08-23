@@ -117,8 +117,13 @@ def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> 
     if not mask.any():
         return
     row = pf[mask].iloc[0].copy()
-    purchase_value = float(row.get("purchase_value") or 0)
-    dividends      = float(row.get("dividends") or 0)
+    # `... or 0` doesn't catch NaN (bool(nan) is True in Python), so a
+    # missing/NaN field here would silently persist NaN into the sold
+    # record instead of falling back to 0 — use pd.notna instead.
+    _pv = row.get("purchase_value")
+    _dv = row.get("dividends")
+    purchase_value = float(_pv) if pd.notna(_pv) else 0.0
+    dividends      = float(_dv) if pd.notna(_dv) else 0.0
     annual_return_pct = _annual_return_pct(purchase_value, proceeds, dividends,
                                            row.get("date_in", ""), sell_date)
     # Build sold record
