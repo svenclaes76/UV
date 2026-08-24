@@ -196,6 +196,41 @@ def test_risk_card_renders_when_cache_and_history_available(isolated_data, monke
     assert "Max drawdown" in html
 
 
+def test_multi_lot_same_ticker_does_not_crash(isolated_data, monkeypatch):
+    # add_position() appends rather than merging, so the same ticker can
+    # appear in two portfolio rows (separate lots). Several calculations
+    # (fwd income, conviction score, upcoming-dividends shares) used to
+    # build a ticker-indexed Series via set_index("ticker") and then
+    # .reindex()/.map() from it -- pandas raises when the source index has
+    # duplicate labels, so a two-lot holding crashed the whole page.
+    two_lots = [
+        dict(ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA",
+             shares=10, purchase_value=1000.0, purchase_price=100.0,
+             target_price=130.0, dividends=20.0, date_in="2023-01-01", date_out=""),
+        dict(ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA",
+             shares=5, purchase_value=550.0, purchase_price=110.0,
+             target_price=130.0, dividends=0.0, date_in="2024-01-01", date_out=""),
+    ]
+    portfolio.save_portfolio(make_portfolio_df(rows=two_lots))
+    future_row = make_scored_row(exDividendDate="15-01-2099", dividendRate=3.2, dividendYield=0.03)
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([future_row])))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Composite conviction" in html
+
+
+def test_risk_label_never_disagrees_with_risk_page_bands(isolated_data, monkeypatch):
+    # The dashboard's simplified 3-tier gauge must never contradict
+    # risk.py's own SCORE_LOW/SCORE_MODERATE bands for the same score --
+    # it used to use unrelated hand-picked 35/65 boundaries.
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch, with_risk_cache=True)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert f"#1DD6A4 {risk_module.SCORE_LOW}%" in html
+    assert f"#C98A3A {risk_module.SCORE_MODERATE}%" in html
+
+
 def test_conviction_score_renders_from_scored_holdings(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch)

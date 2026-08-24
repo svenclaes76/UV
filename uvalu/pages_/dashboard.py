@@ -82,7 +82,12 @@ def render() -> None:
 
     _db_fwd_income = None
     if not _db_scr.empty and "dividendYield" in _db_scr.columns:
-        _db_pf_cv = _db_pf.set_index("ticker")["current_value"]
+        # groupby(...).sum(), not set_index(...) — the same ticker can appear
+        # in multiple rows (separate lots, see the holdings-loop comment
+        # below), which would leave a duplicate-labelled index and make
+        # .reindex() raise ValueError: cannot reindex on an axis with
+        # duplicate labels.
+        _db_pf_cv = _db_pf.groupby("ticker")["current_value"].sum()
         _db_scr_dy = pd.to_numeric(_db_scr.set_index("Ticker")["dividendYield"], errors="coerce").fillna(0)
         _db_fwd_income = (_db_pf_cv.reindex(_db_scr_dy.index).fillna(0) * _db_scr_dy).sum()
 
@@ -236,7 +241,10 @@ def render() -> None:
                 st.switch_page(nav.pages["risk"])
         _conv_score = None
         if not _db_scr.empty and "Value Score" in _db_scr.columns:
-            _scr_cv = _db_pf.set_index("ticker")["current_value"]
+            # groupby(...).sum(), not set_index(...) — see the fwd-income
+            # comment above; a duplicate ticker (multiple lots) would raise
+            # here otherwise.
+            _scr_cv = _db_pf.groupby("ticker")["current_value"].sum()
             _scr_vs = pd.to_numeric(_db_scr.set_index("Ticker")["Value Score"], errors="coerce")
             _w = _scr_cv.reindex(_scr_vs.index).fillna(0)
             if _w.sum() > 0:
@@ -255,7 +263,17 @@ def render() -> None:
             try:
                 _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
                 _risk_score = float(_db_report.composite.score)
-                _risk_label = ("Low" if _risk_score < 35 else "Moderate" if _risk_score < 65 else "Elevated")
+                # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50) —
+                # not separate hand-picked numbers — so this card's Low/
+                # Moderate never contradicts the Risk page's own labelling for
+                # the same score. This card's 3-tier gauge (mockup constraint)
+                # can't show risk.py's full Low/Moderate/Elevated/High/
+                # Critical taxonomy, so Elevated/High/Critical are
+                # deliberately collapsed into one "Elevated" bucket here —
+                # coarser, but never disagrees with what the Risk page says.
+                _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
+                              else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
+                              else "Elevated")
                 _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
                 _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
                 _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
@@ -291,8 +309,8 @@ def render() -> None:
 
         if _risk_score is not None:
             _marker_pct = min(100.0, max(0.0, _risk_score))
-            _risk_num_color = ("var(--up-txt)" if _risk_score < 35 else
-                               "#C98A3A" if _risk_score < 65 else "var(--down-txt)")
+            _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
+                               "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
             st.markdown(f"""
 <div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
@@ -300,7 +318,7 @@ def render() -> None:
     <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">
       <span style="color:{_risk_num_color};">{_risk_score:.0f}</span> · {_risk_label}</span>
   </div>
-  <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 33%,#C98A3A 33%,#C98A3A 66%,#A32D2D 66%,#A32D2D 100%);position:relative;opacity:0.85;">
+  <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 {_risk_module.SCORE_LOW}%,#C98A3A {_risk_module.SCORE_LOW}%,#C98A3A {_risk_module.SCORE_MODERATE}%,#A32D2D {_risk_module.SCORE_MODERATE}%,#A32D2D 100%);position:relative;opacity:0.85;">
     <div style="position:absolute;left:{_marker_pct:.1f}%;top:-3px;width:3px;height:13px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div>
   </div>
   <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
@@ -436,7 +454,10 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                       .sort_values("exDividendDate").head(6)
                 )
                 if not _db_upcoming.empty:
-                    _db_shares_map = _db_pf.set_index("ticker")["shares"]
+                    # groupby(...).sum(), not set_index(...) — same
+                    # duplicate-ticker hazard as above; .map() from a
+                    # duplicate-indexed Series raises InvalidIndexError.
+                    _db_shares_map = _db_pf.groupby("ticker")["shares"].sum()
                     _db_upcoming = _db_upcoming.assign(
                         _shares=_db_upcoming["Ticker"].map(_db_shares_map).fillna(0),
                         _rate=pd.to_numeric(_db_upcoming.get("dividendRate"), errors="coerce").fillna(0),
