@@ -11,17 +11,22 @@ from uvalu.pages_ import settings as settings_page
 from tests.conftest import TEST_EMAIL, fake_cached_fn
 
 
-def _run(monkeypatch) -> AppTest:
+def _run(monkeypatch, role="Analyst") -> AppTest:
+    # AppTest.from_function re-executes a function's SOURCE TEXT as a fresh
+    # script (no closure over enclosing variables — see tests/test_pages_admin.py's
+    # identical note), so `role` can't be passed as a real Python value into a
+    # from_function script; AppTest.from_string takes the already-interpolated
+    # text directly instead.
     monkeypatch.setattr(settings_page, "_load_all_screener_data", fake_cached_fn(None))
 
-    def _script():
-        import streamlit as st
-        from uvalu.pages_ import settings as settings_page
-        st.session_state["user_email"] = "test@example.com"
-        st.session_state["user_role"] = "Analyst"
-        settings_page.render()
-
-    at = AppTest.from_function(_script, default_timeout=60)
+    script_src = f"""
+import streamlit as st
+from uvalu.pages_ import settings as settings_page
+st.session_state["user_email"] = "test@example.com"
+st.session_state["user_role"] = {role!r}
+settings_page.render()
+"""
+    at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     return at
@@ -40,7 +45,8 @@ def test_shows_default_veto_thresholds(isolated_data, monkeypatch):
 
 
 def test_changing_max_debt_equity_slider_persists_and_reruns(isolated_data, monkeypatch):
-    at = _run(monkeypatch)
+    # Screening & veto rules are admin-only (see the non-admin tests below).
+    at = _run(monkeypatch, role="Admin")
     slider = at.slider(key="scr_max_de")
     slider.set_value(300)
     at.run()
@@ -49,12 +55,38 @@ def test_changing_max_debt_equity_slider_persists_and_reruns(isolated_data, monk
 
 
 def test_changing_benchmark_toggle_persists(isolated_data, monkeypatch):
-    at = _run(monkeypatch)
+    at = _run(monkeypatch, role="Admin")
     toggle = at.toggle(key="scr_stoxx")
     toggle.set_value(True)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert settings.load_shared_settings()["benchmark_stoxx"] is True
+
+
+@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
+def test_screening_sliders_disabled_for_non_admin(isolated_data, monkeypatch, role):
+    # These are shared, all-user settings ("admin-controlled, apply to all
+    # users" per settings.py's own docstring) — a non-admin must not be able
+    # to change what every other user's BUY/AVOID decisions are based on.
+    at = _run(monkeypatch, role=role)
+    assert at.slider(key="scr_max_de").disabled is True
+    assert at.slider(key="scr_max_payout").disabled is True
+    assert at.slider(key="scr_min_mos").disabled is True
+    assert at.slider(key="scr_buy_thr").disabled is True
+    assert at.toggle(key="scr_stoxx").disabled is True
+    assert "Admin-only" in "".join(m.value for m in at.markdown)
+
+
+@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
+def test_non_admin_cannot_persist_veto_threshold_change(isolated_data, monkeypatch, role):
+    # Server-side guard, independent of the widgets' own disabled= state --
+    # even if a disabled slider's value were somehow driven, the save path
+    # itself must not write shared settings for a non-admin.
+    at = _run(monkeypatch, role=role)
+    at.slider(key="scr_max_de").set_value(300)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_shared_settings()["max_debt_equity"] == 500.0
 
 
 def test_changing_refresh_interval_persists(isolated_data, monkeypatch):

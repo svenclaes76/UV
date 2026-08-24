@@ -91,14 +91,15 @@ def _slider_label(label: str, value_str: str) -> None:
                f'</div>', unsafe_allow_html=True)
 
 
-def _threshold_slider(widget_key, label, minv, maxv, step, current, fmt, caption):
+def _threshold_slider(widget_key, label, minv, maxv, step, current, fmt, caption, disabled=False):
     """One cell of the Screening & veto rules 2x2 grid — mono/mint value
     inline with the label (read from session_state *before* the widget so it
     reflects this rerun's value instead of lagging a step behind the slider,
     same trick uvalu/pages_/screener.py's sliders use), then the slider, then
     a caption below."""
     _slider_label(label, fmt(st.session_state.get(widget_key, current)))
-    _val = st.slider(label, minv, maxv, current, step=step, key=widget_key, label_visibility="collapsed")
+    _val = st.slider(label, minv, maxv, current, step=step, key=widget_key,
+                     label_visibility="collapsed", disabled=disabled)
     st.caption(caption)
     return _val
 
@@ -135,10 +136,20 @@ def render() -> None:
                  "Decimal and thousands separators.", ["1,234.56"], "1,234.56", disabled=True)
 
     # ── Screening & veto rules ───────────────────────────────────────────────────
+    # Admin-only: these are shared, all-user settings (settings.py's own
+    # docstring calls them "admin-controlled, apply to all users") that drive
+    # every BUY/MONITOR/AVOID decision app-wide — not a personal preference
+    # like Display/Data below. Gated the same way admin.py gates its whole
+    # page and portfolio.py/drawer.py disable mutating controls for Viewers
+    # (`disabled=_is_viewer`); this card was the one place in the app that
+    # let any signed-in user, including a read-only Viewer, change every
+    # other user's screening results.
+    _is_admin = _u.is_admin
     with st.container(key="set_card_screening", border=True):
         _row_header("Screening &amp; veto rules")
         _row_desc("These drive every BUY/MONITOR/AVOID decision across the app — Screener, "
-                 "Watchlist, Dashboard, Portfolio and Analysis all read the same values.")
+                 "Watchlist, Dashboard, Portfolio and Analysis all read the same values."
+                 + ("" if _is_admin else " Admin-only — sign in as an Admin to change these."))
 
         with st.container(key="set_slider_grid"):
             _v1, _v2 = st.columns(2, gap="large")
@@ -146,52 +157,57 @@ def render() -> None:
                 _max_de = _threshold_slider(
                     "scr_max_de", "Max debt / equity", 50, 1000, 50,
                     int(_shared.get("max_debt_equity", 500)), lambda v: f"{v}%",
-                    "Hard veto above this leverage (Financials, Real Estate, Utilities exempt).")
+                    "Hard veto above this leverage (Financials, Real Estate, Utilities exempt).",
+                    disabled=not _is_admin)
             with _v2:
                 _max_payout = _threshold_slider(
                     "scr_max_payout", "Max dividend payout", 50, 100, 5,
                     int(_shared.get("max_payout", 90)), lambda v: f"{v}%",
-                    "Flag dividends above this payout.")
+                    "Flag dividends above this payout.", disabled=not _is_admin)
 
             _v3, _v4 = st.columns(2, gap="large")
             with _v3:
                 _min_mos = _threshold_slider(
                     "scr_min_mos", "Target margin of safety", -20, 50, 5,
                     int(_shared.get("min_mos", 0)), lambda v: f'{"+" if v >= 0 else ""}{v}%',
-                    "Discount to fair value required for a BUY.")
+                    "Discount to fair value required for a BUY.", disabled=not _is_admin)
             with _v4:
                 _buy_thr = _threshold_slider(
                     "scr_buy_thr", "BUY score threshold", 50, 90, 5,
                     int(_shared.get("buy_threshold", 70)), str,
-                    "Composite score required for a BUY signal.")
+                    "Composite score required for a BUY signal.", disabled=not _is_admin)
 
         _stoxx = _toggle_row("stoxx", "scr_stoxx", "Benchmark — Euro Stoxx 50",
                              "Overlay on the portfolio value chart.",
-                             bool(_shared.get("benchmark_stoxx", False)))
+                             bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
         _toggle_row("us", "scr_us", "Include US-listed names",
                    "Extend the screener beyond European exchanges.", False, disabled=True)
 
         # Save immediately, one field at a time — only the field the user
         # actually just touched differs from the persisted value, so at most
-        # one of these branches fires on a given rerun.
-        _veto_changed = (
-            _max_de     != _shared.get("max_debt_equity", 500) or
-            _max_payout != _shared.get("max_payout", 90) or
-            _min_mos    != _shared.get("min_mos", 0) or
-            _buy_thr    != _shared.get("buy_threshold", 70)
-        )
-        if _veto_changed:
-            _shared["max_debt_equity"] = float(_max_de)
-            _shared["max_payout"]      = float(_max_payout)
-            _shared["min_mos"]         = float(_min_mos)
-            _shared["buy_threshold"]   = float(_buy_thr)
-            save_shared_settings(_shared)
-            _load_all_screener_data.clear()
-            st.rerun()
-        elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
-            _shared["benchmark_stoxx"] = bool(_stoxx)
-            save_shared_settings(_shared)
-            st.rerun()
+        # one of these branches fires on a given rerun. Guarded by _is_admin
+        # server-side too, not just via the widgets' disabled= above — a
+        # disabled Streamlit widget can't be driven by the user, but this
+        # keeps the write path itself from ever depending on that alone.
+        if _is_admin:
+            _veto_changed = (
+                _max_de     != _shared.get("max_debt_equity", 500) or
+                _max_payout != _shared.get("max_payout", 90) or
+                _min_mos    != _shared.get("min_mos", 0) or
+                _buy_thr    != _shared.get("buy_threshold", 70)
+            )
+            if _veto_changed:
+                _shared["max_debt_equity"] = float(_max_de)
+                _shared["max_payout"]      = float(_max_payout)
+                _shared["min_mos"]         = float(_min_mos)
+                _shared["buy_threshold"]   = float(_buy_thr)
+                save_shared_settings(_shared)
+                _load_all_screener_data.clear()
+                st.rerun()
+            elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
+                _shared["benchmark_stoxx"] = bool(_stoxx)
+                save_shared_settings(_shared)
+                st.rerun()
 
     # ── Data ─────────────────────────────────────────────────────────────────────
     with st.container(key="set_card_data", border=True):
