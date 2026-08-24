@@ -8,6 +8,7 @@ uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 import pandas as pd
 import streamlit as st
 
+from screener import _fcf_hard_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu.formatting import fmt_eur as _fmt_eur
 
@@ -33,21 +34,29 @@ def veto_reason_str(row: "pd.Series") -> str:
     """Human-readable, stock-specific reason a row's hard veto tripped.
 
     Mirrors screener.py's compute_scores() `_hard_veto` formula exactly:
-    (debtToEquity > max_debt_equity) | (freeCashflow < 0) |
-    (Div Flag == "At Risk" AND dividendCoverage < 1.0) — the last one is a
-    single AND-combined condition, not two independent ones, so it's only
-    listed as failing when BOTH sub-conditions hold. Shared by
-    uvalu/drawer.py and uvalu/pages_/analysis.py so the two veto banners
-    never drift out of sync with each other or with the real formula.
+    ((debtToEquity > max_debt_equity) AND sector not in
+    LEVERAGE_EXEMPT_SECTORS) | _fcf_hard_veto(row) [FCF negative 3
+    consecutive years, falling back to the single most recent period when
+    less history is available] | (Div Flag == "At Risk" AND
+    dividendCoverage < 1.0) — the last one is a single AND-combined
+    condition, not two independent ones, so it's only listed as failing
+    when BOTH sub-conditions hold. Shared by uvalu/drawer.py and
+    uvalu/pages_/analysis.py so the two veto banners never drift out of
+    sync with each other or with the real formula.
     """
     max_de, _, _, _ = get_veto_thresholds()
     de = row.get("debtToEquity"); fcf = row.get("freeCashflow")
+    sector = row.get("sector")
     div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
     reasons = []
-    if pd.notna(de) and de > max_de:
+    if pd.notna(de) and de > max_de and sector not in LEVERAGE_EXEMPT_SECTORS:
         reasons.append(f"debt/equity of {de:.0f}% exceeds the {max_de:.0f}% limit")
-    if pd.notna(fcf) and fcf < 0:
-        reasons.append(f"negative free cash flow ({_fmt_eur(fcf)})")
+    if _fcf_hard_veto(row):
+        history = row.get("fcfHistory")
+        if isinstance(history, list) and len(history) >= 3:
+            reasons.append("free cash flow negative for 3 consecutive years")
+        else:
+            reasons.append(f"negative free cash flow ({_fmt_eur(fcf)})")
     if div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0:
         reasons.append(f"dividend flagged at risk with {coverage:.2f}× coverage")
     return "; ".join(reasons) if reasons else "a hard-veto rule"

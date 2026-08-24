@@ -65,6 +65,31 @@ def test_shows_veto_banner_when_row_is_vetoed(isolated_data, monkeypatch):
     assert "Hard veto active" in html
 
 
+def test_leverage_exempt_sector_debt_check_passes_despite_high_de(isolated_data, monkeypatch):
+    # A Financial Services stock with D/E over the veto threshold is exempt
+    # from that specific check (screener.py's LEVERAGE_EXEMPT_SECTORS) --
+    # the "Debt / equity below X×" row must show as passing, not a red ✕,
+    # since the real _hard_veto formula doesn't count this against it.
+    df = make_scored_df([make_scored_row(sector="Financial Services", debtToEquity=900.0, veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    html = "".join(m.value for m in at.markdown)
+    assert "sector-exempt" in html
+
+
+def test_single_bad_fcf_year_passes_the_positive_fcf_check(isolated_data, monkeypatch):
+    # A single negative FCF year no longer vetoes once 3-year history
+    # exists -- the "Positive free cash flow" check must agree and show a
+    # pass, not re-derive a stricter single-period check that disagrees
+    # with the real _fcf_hard_veto formula.
+    df = make_scored_df([make_scored_row(
+        freeCashflow=-1.0, fcfHistory=[-1.0, 50.0, 80.0], veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    html = "".join(m.value for m in at.markdown)
+    assert "Positive free cash flow" in html
+    # Same row must not show the veto banner (it isn't actually vetoed).
+    assert "Hard veto active" not in html
+
+
 def test_shows_held_position_when_ticker_in_portfolio(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, ticker="AAA.BR")

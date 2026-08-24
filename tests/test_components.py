@@ -254,6 +254,24 @@ class TestVetoReasonStr:
     def test_no_reasons_falls_back_to_generic_message(self, isolated_data):
         assert veto_reason_str(pd.Series({})) == "a hard-veto rule"
 
+    def test_leverage_exempt_sector_does_not_surface_debt_reason(self, isolated_data):
+        # Financial Services/Real Estate/Utilities are exempt from the D/E
+        # veto (structural leverage, not distress) — high D/E alone shouldn't
+        # surface as a reason for those sectors, matching screener.py's
+        # _hard_veto formula.
+        row = pd.Series({"debtToEquity": 900.0, "sector": "Financial Services"})
+        assert veto_reason_str(row) == "a hard-veto rule"
+
+    def test_single_bad_fcf_year_not_a_reason_with_three_year_history(self, isolated_data):
+        # A single negative year no longer vetoes once 3-year fcfHistory
+        # exists — only 3 consecutive negative years do.
+        row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, 50.0, 80.0]})
+        assert veto_reason_str(row) == "a hard-veto rule"
+
+    def test_three_consecutive_negative_fcf_years_is_a_reason(self, isolated_data):
+        row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, -2.0, -3.0]})
+        assert "3 consecutive years" in veto_reason_str(row)
+
 
 class TestFairValueBarHtml:
     def test_missing_data_returns_dash(self):

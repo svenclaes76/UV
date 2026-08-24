@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
+from screener import _fcf_hard_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
@@ -268,6 +269,7 @@ def render() -> None:
                    unsafe_allow_html=True)
         _max_de_thr, _, _, _ = get_veto_thresholds()
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
+        sector = row.get("sector")
         div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
         # Terse note phrasing (bare value, no trailing sentence) matches
         # Uvalu.dc.html's checks model exactly (see modelDefs' `checks`
@@ -280,10 +282,23 @@ def render() -> None:
         # freeCashflow value rendered as an unreadable "€92937504.00") to the
         # already-computed fcfYield percentage, matching the design's own
         # note for this exact check and sidestepping that formatting gap.
+        #
+        # D/E and FCF pass/fail reuse screener.py's own veto helpers
+        # (LEVERAGE_EXEMPT_SECTORS, _fcf_hard_veto) instead of re-deriving
+        # simplified versions — a flat `de > threshold` or `fcf < 0` check
+        # disagreed with the real `_hard_veto` formula (missing the sector
+        # exemption and the 3-consecutive-year FCF rule respectively),
+        # showing a red ✕ for checks the stock's actual Decision doesn't
+        # treat as failing. See uvalu/components.py's veto_reason_str(),
+        # which mirrors the same real formula for the veto banner text.
+        _de_exempt = sector in LEVERAGE_EXEMPT_SECTORS
+        _de_note = _fv(row, "debtToEquity", lambda v: f"{v/100:.2f}×")
+        if _de_exempt and pd.notna(de) and de > _max_de_thr:
+            _de_note = f"{_de_note} (sector-exempt)"
         _checks = [
-            (f"Debt / equity below {_max_de_thr/100:.1f}×", not (pd.notna(de) and de > _max_de_thr),
-             _fv(row, "debtToEquity", lambda v: f"{v/100:.2f}×")),
-            ("Positive free cash flow", not (pd.notna(fcf) and fcf < 0),
+            (f"Debt / equity below {_max_de_thr/100:.1f}×",
+             not (pd.notna(de) and de > _max_de_thr) or _de_exempt, _de_note),
+            ("Positive free cash flow", not _fcf_hard_veto(row),
              _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
             ("Dividend not flagged at risk", div_flag != "At Risk",
              div_flag if div_flag else "—"),
