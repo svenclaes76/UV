@@ -149,6 +149,24 @@ sell_position_dialog(pf)
         assert not at.exception, [str(e.value) for e in at.exception]
         assert len(at.selectbox) == 1
 
+    def test_nan_shares_and_live_price_do_not_crash(self, monkeypatch):
+        # `pd.to_numeric(...) or default` doesn't catch NaN (bool(nan) is
+        # True in Python), so a position with an unparseable/blank shares or
+        # live_price field (e.g. an Excel-imported row with a blank cell)
+        # used to crash int(nan) outright when opening this dialog.
+        script = """
+from uvalu.dialogs import sell_position_dialog
+import pandas as pd
+pf = pd.DataFrame([{"ticker": "AAA.BR", "name": "Alpha Corp",
+                    "shares": float("nan"), "live_price": float("nan")}])
+sell_position_dialog(pf, "AAA.BR")
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.number_input(key="dlg_sell_shares").value == 1
+        assert at.number_input(key="dlg_sell_price").value == 0.0
+
     def test_confirm_close_sells_position(self, monkeypatch):
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
@@ -200,6 +218,29 @@ add_dividend_dialog(pf)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         return at
+
+    def test_nan_shares_does_not_crash_on_save(self):
+        # Same NaN-truthy bug as sell_position_dialog's shares lookup --
+        # int(pd.to_numeric(...) or 0) raises ValueError on a NaN shares
+        # field instead of falling back to 0.
+        portfolio.save_portfolio(pd.DataFrame([{
+            "ticker": "AAA.BR", "name": "Alpha Corp", "shares": float("nan"), "dividends": 0.0,
+        }]))
+        script = """
+from portfolio import load_portfolio
+from uvalu.dialogs import add_dividend_dialog
+pf = load_portfolio()
+add_dividend_dialog(pf)
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.number_input(key="dlg_dv_amount").set_value(15.0)
+        save = [b for b in at.button if b.label == "Save"][0]
+        save.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert portfolio.load_div_hist().iloc[0]["shares"] == 0
 
     def test_save_without_amount_shows_error(self):
         at = self._run()

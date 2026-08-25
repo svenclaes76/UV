@@ -40,6 +40,16 @@ def _dialog_width_css(px: int) -> None:
     )
 
 
+def _num_or(value, default):
+    """pd.to_numeric-coerced value, or `default` if missing/unparseable/NaN.
+    `pd.to_numeric(value, errors="coerce") or default` doesn't work here --
+    NaN is truthy in Python, so a NaN field (e.g. an Excel-imported position
+    with a blank shares cell) passes straight through instead of falling
+    back, and `int(nan)` raises ValueError rather than silently corrupting."""
+    v = pd.to_numeric(value, errors="coerce")
+    return v if pd.notna(v) else default
+
+
 def _lookup_ticker(sym: str) -> tuple[str, float] | None:
     """Validate a free-text ticker via yfinance. Returns (name, price) or None
     if the symbol doesn't resolve to a live quote."""
@@ -131,11 +141,11 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
         st.caption("Close all or part of this position. Realised P&L is recorded on the Portfolio page.")
 
     _match = pf[pf["ticker"] == ticker]
-    _held_shares = int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0) if not _match.empty else 0
+    _held_shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     if preset_price is not None:
         _live_price = float(preset_price)
     else:
-        _live_price = float(pd.to_numeric(_match.iloc[0].get("live_price"), errors="coerce") or 0.0) \
+        _live_price = float(_num_or(_match.iloc[0].get("live_price"), 0.0)) \
             if not _match.empty else 0.0
 
     # No date field — Uvalu.dc.html's sell state is just shares + price, so the
@@ -192,7 +202,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         st.error("Enter a ticker and an amount.")
         return
     _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
-    _shares = int(pd.to_numeric(_match.iloc[0]["shares"], errors="coerce") or 0) if not _match.empty else 0
+    _shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     add_dividend({
         "name":          name_raw or ticker_raw,
         "google_ticker": _google_ticker,
