@@ -175,6 +175,23 @@ def verify_token(token: str) -> tuple[str, str] | tuple[None, None]:
         return None, None
 
 
+def get_user_status(email: str) -> tuple[str, str] | None:
+    """
+    Current (role, status) for an email from the live user store, or None if
+    the account no longer exists. A JWT's own `role` claim is only a
+    snapshot from login time — it doesn't reflect an account that's since
+    been suspended, deleted, or had its role changed. Callers that need an
+    already-issued session to honor those changes immediately (rather than
+    only once the JWT happens to expire) should re-check this on every
+    request, not just trust the token's embedded role.
+    """
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return None
+    return user.get("role", "Analyst"), user.get("status", "Active")
+
+
 # ── Admin helpers ─────────────────────────────────────────────────────────────
 
 def list_users() -> list[dict]:

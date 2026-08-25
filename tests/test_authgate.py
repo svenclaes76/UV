@@ -137,10 +137,58 @@ st.text("past the wall")
 
 
 class TestAuthWall:
-    def test_fast_path_when_token_and_email_already_set(self):
-        at = _run_auth_wall({"jwt_token": "tok", "user_email": "first@example.com"})
+    def test_valid_token_and_cached_email_still_passes_through(self):
+        # No session_state-only fast-path bypass anymore (see the "similar
+        # issues" sweep note below) -- but a genuinely valid, active
+        # session's token is re-verified successfully on every rerun and
+        # still passes straight through.
+        auth.register("first@example.com", "password123")
+        _, token = auth.login("first@example.com", "password123")
+        at = _run_auth_wall({"jwt_token": token, "user_email": "first@example.com",
+                             "user_role": "Admin"})
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "past the wall"
+
+    def test_suspended_account_is_kicked_back_to_login(self):
+        # Real bug fixed: auth_wall() used to trust session_state's cached
+        # jwt_token/user_email indefinitely once set, never re-checking the
+        # live user store -- an Admin suspending this account had no effect
+        # on an already-open tab until the JWT happened to expire (up to
+        # 24h, and in practice session_state can outlive that). Now the
+        # live status is re-checked on every rerun.
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Viewer")
+        _, token = auth.login("second@example.com", "password12345")
+        auth.set_status("second@example.com", "Suspended")
+        at = _run_auth_wall({"jwt_token": token, "user_email": "second@example.com",
+                             "user_role": "Viewer"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.text) == 0
+        assert "jwt_token" not in at.session_state
+        assert "suspended" in "".join(m.value for m in at.markdown).lower()
+
+    def test_deleted_account_is_kicked_back_to_login(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Viewer")
+        _, token = auth.login("second@example.com", "password12345")
+        auth.delete_user("second@example.com")
+        at = _run_auth_wall({"jwt_token": token, "user_email": "second@example.com",
+                             "user_role": "Viewer"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.text) == 0
+        assert "jwt_token" not in at.session_state
+        assert "no longer exists" in "".join(m.value for m in at.markdown).lower()
+
+    def test_role_change_takes_effect_on_next_rerun(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Analyst")
+        _, token = auth.login("second@example.com", "password12345")
+        auth.set_role("second@example.com", "Admin")
+        at = _run_auth_wall({"jwt_token": token, "user_email": "second@example.com",
+                             "user_role": "Analyst"})  # stale cached role
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.text[0].value == "past the wall"
+        assert at.session_state["user_role"] == "Admin"  # live role, not the stale cache
 
     def test_valid_token_without_cached_email_resolves_and_passes(self):
         auth.register("first@example.com", "password123")

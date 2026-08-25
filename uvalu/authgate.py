@@ -5,7 +5,7 @@ These run at module scope in the app's boot sequence. Each step is a function so
 """
 import streamlit as st
 
-from auth import login, verify_token
+from auth import get_user_status, login, verify_token
 from uvalu import shell
 from uvalu.runtime import theme_colors
 
@@ -66,18 +66,31 @@ def handle_logout() -> None:
 
 def auth_wall() -> None:
     """Show the login form and halt execution if not authenticated."""
-    # Fast path: token + email already verified this session — skip re-verification
-    # on every rerun (e.g. timed auto-refresh) to prevent ghost login flashes.
-    if st.session_state.get("jwt_token") and st.session_state.get("user_email"):
-        return
-
+    # Re-verified on every rerun, not cached — a session_state-only "already
+    # verified this session" fast path used to skip this entirely once set,
+    # which meant an Admin suspending/deleting a user, or changing their
+    # role, had NO effect on that user's already-open tab until their JWT
+    # happened to expire (up to 24h) — session_state persists for the life
+    # of the browser connection, so in practice this could be indefinite.
+    # verify_token() is a pure in-memory JWT decode (no I/O), and
+    # get_user_status() reads a small local file — neither is expensive
+    # enough to justify caching a security-relevant check across reruns.
     token = st.session_state.get("jwt_token")
+    _revoked_msg = None
     if token:
-        email, role = verify_token(token)
+        email, _ = verify_token(token)
         if email:
-            st.session_state["user_email"] = email
-            st.session_state["user_role"]  = role
-            return  # already logged in
+            _status = get_user_status(email)
+            if _status is None:
+                _revoked_msg = "Your account no longer exists. Please contact your admin."
+            elif _status[1] == "Suspended":
+                _revoked_msg = "This account has been suspended."
+            else:
+                st.session_state["user_email"] = email
+                st.session_state["user_role"]  = _status[0]
+                return  # still a valid, active session
+        for _k in ("jwt_token", "user_email", "user_role"):
+            st.session_state.pop(_k, None)
 
     # Login runs before shell.render_topbar() ever gets a chance to set
     # data-theme on <html>, so without this the page's --panel/--navy tokens
@@ -113,6 +126,8 @@ def auth_wall() -> None:
                 '<div class="uv-login-subhead">Welcome back. Enter your credentials to continue.</div>',
                 unsafe_allow_html=True,
             )
+            if _revoked_msg:
+                st.markdown(f'<div class="uv-login-err">{_revoked_msg}</div>', unsafe_allow_html=True)
             with st.form("login_form", border=False):
                 email = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
                 # Custom label row (native label hidden below) so "Forgot?" can sit
