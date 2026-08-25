@@ -139,6 +139,17 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
     ticker = str(row.get("Ticker", ""))
     kind, label = signal_badge_for_decision(str(row.get("Decision", "")), veto=bool(row.get("veto")))
 
+    # Prefer a live price when the row has one — dashboard.py's holdings
+    # table merges in a 60s-fresh live_price alongside the screener's own
+    # Price (up to ~24h stale, from the fundamentals cache); other callers
+    # (screener.py, watchlist.py, portfolio.py) only ever have Price. Using
+    # the stale one when a fresher figure sits right there in the same row
+    # made this drawer show a different price — and therefore a different
+    # Position value / Unrealised P&L — than the page the user just clicked
+    # from was showing for the same holding.
+    _live_price = row.get("live_price")
+    _price = _live_price if pd.notna(_live_price) else row.get("Price")
+
     with st.container(horizontal=True, vertical_alignment="top", horizontal_alignment="distribute"):
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
@@ -178,7 +189,8 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
         f'<div style="display:flex;gap:8px;margin-top:16px;">'
         f'<div style="{_tile}">'
         f'<div style="{_label}">Price</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;">{_fv(row, "Price", _fmt_eur)}</div></div>'
+        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;">'
+        f'{_fmt_eur(float(_price)) if pd.notna(_price) else "—"}</div></div>'
         f'<div style="{_tile}">'
         f'<div style="{_label}">Fair value</div>'
         f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:var(--mint);">{_fv(row, "fair_value", _fmt_eur)}</div></div>'
@@ -200,8 +212,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
             unsafe_allow_html=True)
 
     _section_header("Six-model fair value")
-    _price = row.get("Price")
-    if _price is not None and pd.notna(_price):
+    if pd.notna(_price):
         fair_value_ladder(
             price=float(_price),
             # Labels match Uvalu.dc.html's model list ("Graham Number"/"P/E
@@ -251,7 +262,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
     ]
     if _held:
         _shares = _safe_float(_held_row.get("shares"))
-        _position_value = _shares * _safe_float(row.get("Price"))
+        _position_value = _shares * _safe_float(_price)
         _purchase_value = _held_row.get("purchase_value")
         _purchase_value = (float(_purchase_value) if _purchase_value is not None and pd.notna(_purchase_value)
                            else _shares * _safe_float(_held_row.get("purchase_price")))
@@ -293,7 +304,7 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
                 # dispatch_pending_drawer_action() (called at each page's
                 # top level, outside any dialog) opens it on the next run.
                 st.session_state["_drw_action"] = {"kind": "sell", "ticker": ticker,
-                                                   "price": _safe_float(row.get("Price"))}
+                                                   "price": _safe_float(_price)}
                 st.rerun()
     else:
         _act1, _act2 = st.columns([2, 1])
@@ -304,5 +315,5 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
             if st.button("Add", key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,
                                                    "name": str(row.get("Name", "")),
-                                                   "price": _safe_float(row.get("Price"))}
+                                                   "price": _safe_float(_price)}
                 st.rerun()

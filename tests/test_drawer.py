@@ -208,6 +208,30 @@ class TestOpenDrawer:
         assert any(b.label == "Edit" for b in at.button)
         assert any(b.label == "Close" for b in at.button)
 
+    def test_prefers_live_price_over_stale_screener_price(self):
+        # dashboard.py's holdings table merges a 60s-fresh live_price
+        # alongside the screener's own up-to-24h-cached Price -- the drawer
+        # must use the fresher one for the hero tile and Position value/P&L
+        # when it's present, not silently fall back to the stale figure.
+        portfolio.save_portfolio(pd.DataFrame([{
+            "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
+            "purchase_value": 900.0, "purchase_price": 90.0,
+        }]))
+        script = f"""
+import pandas as pd
+from uvalu.drawer import open_drawer
+row = pd.Series({make_scored_row(Price=100.0, live_price=150.0)!r})
+open_drawer(row, None)
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "€150.00" in html   # hero Price tile, from live_price
+        assert "€100.00" not in html
+        assert "€1,500" in html    # Position value = 10 shares * live_price
+        assert "€1,000" not in html
+
     def test_watchlisted_not_held_shows_status(self):
         portfolio.save_watchlist({"AAA.BR"})
         at = AppTest.from_string(_open_drawer_script(), default_timeout=60)
