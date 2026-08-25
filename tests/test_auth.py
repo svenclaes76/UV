@@ -69,6 +69,16 @@ class TestRegister:
         assert not ok
         assert "already exists" in msg
 
+    def test_corrupted_store_blocks_registration_instead_of_bootstrapping_admin(self):
+        # A corrupted/undecryptable existing file also loads as {} via
+        # _load_users() -- register() must not mistake that for "no users
+        # yet" and silently grant the new signup Admin.
+        auth.USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        auth.USERS_FILE.write_text("not valid encrypted content")
+        ok, msg = auth.register("someone@example.com", "password123")
+        assert not ok
+        assert "could not be read" in msg
+
 
 # ── login / verify_token ─────────────────────────────────────────────────
 
@@ -92,8 +102,16 @@ class TestLogin:
         assert not ok
         assert "Invalid email or password" in msg
 
+    def test_corrupted_store_gives_honest_error_not_invalid_password(self):
+        auth.register("first@example.com", "password123")
+        auth.USERS_FILE.write_text("not valid encrypted content")
+        ok, msg = auth.login("first@example.com", "password123")
+        assert not ok
+        assert "could not be read" in msg
+
     def test_suspended_account_cannot_login(self):
         auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Admin")
         auth.set_status("first@example.com", "Suspended")
         ok, msg = auth.login("first@example.com", "password123")
         assert not ok
@@ -212,10 +230,37 @@ class TestSetRole:
         assert not ok
         assert "not found" in msg
 
+    def test_blocks_demoting_the_last_admin(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Viewer")
+        ok, msg = auth.set_role("first@example.com", "Viewer")
+        assert not ok
+        assert "last active Admin" in msg
+        assert auth._load_users()["first@example.com"]["role"] == "Admin"
+
+    def test_allows_demoting_an_admin_when_another_remains(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Admin")
+        ok, _ = auth.set_role("first@example.com", "Viewer")
+        assert ok
+        assert auth._load_users()["first@example.com"]["role"] == "Viewer"
+
+    def test_a_suspended_other_admin_does_not_prevent_the_block(self):
+        # The guard only counts OTHER admins who are also Active -- a
+        # suspended admin-role account can't log in to fix anything either,
+        # so it doesn't count as a safe fallback.
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Admin")
+        auth.set_status("second@example.com", "Suspended")
+        ok, msg = auth.set_role("first@example.com", "Viewer")
+        assert not ok
+        assert "last active Admin" in msg
+
 
 class TestSetStatus:
     def test_suspend_and_reactivate(self):
         auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Admin")
         ok, _ = auth.set_status("first@example.com", "Suspended")
         assert ok
         assert auth._load_users()["first@example.com"]["status"] == "Suspended"
@@ -232,6 +277,28 @@ class TestSetStatus:
         ok, msg = auth.set_status("nobody@example.com", "Suspended")
         assert not ok
         assert "not found" in msg
+
+    def test_blocks_suspending_the_last_active_admin(self):
+        auth.register("first@example.com", "password123")
+        ok, msg = auth.set_status("first@example.com", "Suspended")
+        assert not ok
+        assert "last active Admin" in msg
+        assert auth._load_users()["first@example.com"]["status"] == "Active"
+
+    def test_allows_suspending_an_admin_when_another_active_one_remains(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Admin")
+        ok, _ = auth.set_status("first@example.com", "Suspended")
+        assert ok
+
+    def test_does_not_block_reactivating_an_admin(self):
+        # The guard only applies to Suspended -- reactivating back to Active
+        # never reduces the active-admin count, so it should never be blocked.
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Admin")
+        auth.set_status("second@example.com", "Suspended")
+        ok, _ = auth.set_status("second@example.com", "Active")
+        assert ok
 
 
 class TestResetPassword:
@@ -254,6 +321,7 @@ class TestResetPassword:
 class TestDeleteUser:
     def test_removes_account(self):
         auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Admin")
         ok, _ = auth.delete_user("first@example.com")
         assert ok
         assert "first@example.com" not in auth._load_users()
@@ -262,6 +330,19 @@ class TestDeleteUser:
         ok, msg = auth.delete_user("nobody@example.com")
         assert not ok
         assert "not found" in msg
+
+    def test_blocks_deleting_the_last_active_admin(self):
+        auth.register("first@example.com", "password123")
+        ok, msg = auth.delete_user("first@example.com")
+        assert not ok
+        assert "last active Admin" in msg
+        assert "first@example.com" in auth._load_users()
+
+    def test_allows_deleting_a_non_admin(self):
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password123456", role="Viewer")
+        ok, _ = auth.delete_user("second@example.com")
+        assert ok
 
 
 # ── internal helpers ──────────────────────────────────────────────────────

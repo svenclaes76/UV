@@ -68,6 +68,17 @@ def _save_users(users: dict) -> None:
     write_encrypted(USERS_FILE, json.dumps(users, indent=2))
 
 
+def _store_broken(users: dict) -> bool:
+    """True if the user store file exists on disk but _load_users() came
+    back empty — distinguishing a genuinely fresh install (no file yet) from
+    a corrupted file or wrong ENCRYPTION_KEY, which _load_users() silently
+    also returns {} for. Conflating the two let register()'s bootstrap
+    promote every new signup to Admin while a broken store locked out every
+    real user, and let login() blame "Invalid email or password" for what
+    was actually a system failure."""
+    return USERS_FILE.exists() and not users
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, str]:
@@ -85,6 +96,9 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
         return False, f"Unknown role '{role}'."
 
     users = _load_users()
+    if _store_broken(users):
+        return False, ("The user store could not be read (wrong encryption key or a "
+                       "corrupted file). Registration is disabled until this is fixed.")
     if email in users:
         return False, "An account with this email already exists."
 
@@ -135,6 +149,9 @@ def login(email: str, password: str) -> tuple[bool, str]:
     """Verify credentials. Returns (success, jwt_token_or_error_message)."""
     email = email.strip().lower()
     users = _load_users()
+    if _store_broken(users):
+        return False, ("The user store could not be read (wrong encryption key or a "
+                       "corrupted file). Contact your administrator.")
     user = users.get(email)
     if not user:
         return False, "Invalid email or password."
@@ -194,6 +211,21 @@ def get_user_status(email: str) -> tuple[str, str] | None:
 
 # ── Admin helpers ─────────────────────────────────────────────────────────────
 
+def _other_active_admins(users: dict, exclude_email: str) -> int:
+    """Count of Admin-role accounts other than `exclude_email` that are also
+    Active (not Suspended) — used to block an action that would leave the
+    workspace with no admin who can actually reach the Admin portal, since
+    there's no other way back in (register()'s "first user becomes Admin"
+    bootstrap only fires when the user list is completely empty, not merely
+    lacking an active Admin). A *suspended* other admin doesn't count — they
+    can't log in either, so they can't fix anything."""
+    return sum(
+        1 for email, u in users.items()
+        if email != exclude_email and u.get("role") == "Admin"
+        and u.get("status") != "Suspended"
+    )
+
+
 def list_users() -> list[dict]:
     """Return all users (without password hashes) sorted by creation date."""
     users = _load_users()
@@ -216,6 +248,9 @@ def set_role(email: str, role: str) -> tuple[bool, str]:
     users = _load_users()
     if email not in users:
         return False, "User not found."
+    if (users[email].get("role") == "Admin" and role != "Admin"
+            and _other_active_admins(users, email) == 0):
+        return False, "Can't demote the last active Admin — promote another user first."
     users[email]["role"] = role
     _save_users(users)
     return True, f"{email} is now {role}."
@@ -228,6 +263,9 @@ def set_status(email: str, status: str) -> tuple[bool, str]:
     users = _load_users()
     if email not in users:
         return False, "User not found."
+    if (status == "Suspended" and users[email].get("role") == "Admin"
+            and _other_active_admins(users, email) == 0):
+        return False, "Can't suspend the last active Admin — promote another user first."
     users[email]["status"] = status
     _save_users(users)
     return True, f"{email} is now {status}."
@@ -251,6 +289,9 @@ def delete_user(email: str) -> tuple[bool, str]:
     users = _load_users()
     if email not in users:
         return False, "User not found."
+    if (users[email].get("role") == "Admin"
+            and _other_active_admins(users, email) == 0):
+        return False, "Can't delete the last active Admin — promote another user first."
     del users[email]
     _save_users(users)
     return True, f"{email} deleted."

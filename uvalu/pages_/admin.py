@@ -203,7 +203,13 @@ def _render_users() -> None:
                                              key=f"admin_role_{u['email']}", label_visibility="collapsed",
                                              disabled=(u["email"] == _current_email))
                     if _new_role != u["role"]:
-                        set_role(u["email"], _new_role)
+                        _ok, _msg = set_role(u["email"], _new_role)
+                        if not _ok:
+                            # st.toast, not st.error — survives the rerun
+                            # below (same reasoning as the feed-toggle revert
+                            # further down this file); a same-run st.error()
+                            # would be replaced before ever painting.
+                            st.toast(_msg, icon=":material/warning:")
                         st.rerun()
                 with _c3:
                     st.markdown(_status_badge(u["status"]), unsafe_allow_html=True)
@@ -226,13 +232,18 @@ def _render_users() -> None:
                         with _ac1:
                             _label = "Reactivate" if u["status"] == "Suspended" else "Suspend"
                             if st.button(_label, key=f"admin_toggle_{u['email']}", width="stretch"):
-                                set_status(u["email"], "Active" if u["status"] == "Suspended" else "Suspended")
+                                _ok, _msg = set_status(
+                                    u["email"], "Active" if u["status"] == "Suspended" else "Suspended")
+                                if not _ok:
+                                    st.toast(_msg, icon=":material/warning:")
                                 st.rerun()
                         with _ac2:
                             with st.popover("", icon=":material/more_vert:", width=160):
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
-                                    delete_user(u["email"])
+                                    _ok, _msg = delete_user(u["email"])
+                                    if not _ok:
+                                        st.toast(_msg, icon=":material/warning:")
                                     st.rerun()
 
 
