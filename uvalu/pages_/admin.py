@@ -347,7 +347,14 @@ def _render_backups(email: str) -> None:
                                'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">Manual</span>',
                                unsafe_allow_html=True)
                 with _c3:
-                    st.download_button("Download", data=get_backup_bytes(e["id"]), file_name=f"{e['id']}.zip",
+                    # A callable, not the bytes directly — get_backup_bytes()
+                    # reads the whole ZIP off disk; passing it eagerly meant
+                    # EVERY backup's full file got read into memory on EVERY
+                    # rerun of this section (any click anywhere on the page),
+                    # not just when its own Download was clicked. Streamlit
+                    # only calls a callable `data` on the actual click.
+                    st.download_button("Download", data=lambda _bid=e["id"]: get_backup_bytes(_bid),
+                                       file_name=f"{e['id']}.zip",
                                        mime="application/zip", key=f"admin_dl_{e['id']}", width="stretch")
                 with _c4:
                     if st.button("Restore", key=f"admin_restore_{e['id']}", width="stretch"):

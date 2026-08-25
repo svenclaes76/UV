@@ -79,6 +79,22 @@ def test_backups_section_lists_existing_backup(isolated_data, monkeypatch):
     assert "Manual snapshot" in html
 
 
+def test_download_button_does_not_eagerly_read_backup_bytes(isolated_data, monkeypatch):
+    # get_backup_bytes() reads the whole ZIP off disk -- passing it eagerly
+    # as data= meant every backup's full file was read on every rerun of
+    # this section, not just when its own Download button was clicked.
+    # data= must be a callable so Streamlit only invokes it on the click.
+    portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+    backup.create_backup(TEST_EMAIL)
+    calls = []
+    real_get_bytes = admin_page.get_backup_bytes
+    monkeypatch.setattr(admin_page, "get_backup_bytes",
+                        lambda bid: (calls.append(bid), real_get_bytes(bid))[1])
+    at = _run(monkeypatch, role="Admin", section="backups")
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert calls == []
+
+
 # ── Users: role change / suspend / delete ────────────────────────────────
 
 class TestUserRowActions:
