@@ -117,6 +117,22 @@ def test_star_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
     assert portfolio.load_watchlist() == set()
 
 
+def test_star_button_removes_manually_added_ticker_from_manual_tickers(isolated_data, monkeypatch):
+    # A manually-added ticker never appears on the Screener page (it excludes
+    # extra_df from its own ranked list) -- this star is the only place it
+    # can ever be removed, so it has to clean up manual_tickers too or the
+    # entry leaks in there permanently (still fetched/scored on every page
+    # load app-wide) even after the user "removed" it from the watchlist.
+    portfolio.save_watchlist({"AAA.BR"})
+    portfolio.save_manual_tickers({"AAA.BR": "Alpha Corp"})
+    at = _run(monkeypatch)
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    star_btn.click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert portfolio.load_watchlist() == set()
+    assert portfolio.load_manual_tickers() == {}
+
+
 def test_view_button_opens_drawer(isolated_data, monkeypatch):
     portfolio.save_watchlist({"AAA.BR"})
     at = _run(monkeypatch)

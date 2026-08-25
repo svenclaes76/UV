@@ -132,6 +132,15 @@ def render() -> None:
             )
             if _result["action"]:
                 save_watchlist(watchlist - {_ticker})
+                # Manually-added tickers never appear on the Screener page
+                # (it excludes extra_df from its own ranked list) -- this is
+                # the only place their star can ever be removed, so this has
+                # to clean up manual_tickers too or a removed ticker leaks in
+                # there permanently, still fetched/scored on every page load.
+                _mt = load_manual_tickers()
+                if _ticker in _mt:
+                    del _mt[_ticker]
+                    save_manual_tickers(_mt)
                 st.rerun()
             if _result["view"]:
                 _drawer_target = _ticker
