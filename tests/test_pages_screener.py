@@ -1,4 +1,5 @@
 """AppTest coverage for uvalu/pages_/screener.py."""
+import pandas as pd
 from streamlit.testing.v1 import AppTest
 
 import portfolio
@@ -106,6 +107,30 @@ def test_bust_cache_triggered_when_fair_value_column_missing(isolated_data, monk
     del stale_row["fair_value"]
     df = make_scored_df([stale_row])
     _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    assert calls == [True]
+
+
+def test_bust_cache_triggered_when_a_non_first_exchange_is_stale(isolated_data, monkeypatch):
+    # The staleness check used to only look at _exch_dfs[0] (brussels) --
+    # since each ticker's cache entry refreshes independently, a schema
+    # migration could leave a LATER exchange still missing the new column
+    # while brussels already has it, and the reset would never fire. Put
+    # good data in brussels (index 0) and stale data in amsterdam (index 1).
+    calls = []
+
+    def _bust_cache_stub():
+        import streamlit as st
+        calls.append(True)
+        st.stop()
+
+    monkeypatch.setattr(screener_page, "_bust_cache", _bust_cache_stub)
+    good_df = make_scored_df([make_scored_row()])
+    stale_row = make_scored_row(Ticker="BBB.AS")
+    del stale_row["fair_value"]
+    stale_df = make_scored_df([stale_row])
+    empty = pd.DataFrame(columns=["Ticker"])
+    tuple7 = (good_df, stale_df, empty, empty, empty, empty, empty)
+    _run(monkeypatch, screener_tuple=tuple7)
     assert calls == [True]
 
 

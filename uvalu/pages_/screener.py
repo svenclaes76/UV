@@ -121,7 +121,11 @@ def render() -> None:
     *_exch_dfs, _ = dfs  # extra (portfolio-only) tickers aren't shown in the ranked list
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 
-    if not _exch_dfs[0].empty and ("fair_value" not in _exch_dfs[0].columns or "Decision" not in _exch_dfs[0].columns):
+    # Check every enabled exchange, not just the first — a schema migration
+    # can leave one exchange's cached data missing the new columns while
+    # another (fetched/refreshed at a different time) already has them, since
+    # each ticker's cache entry refreshes independently with jitter.
+    if any(not d.empty and ("fair_value" not in d.columns or "Decision" not in d.columns) for d in _exch_dfs):
         _bust_cache()
 
     _any_data = any(not d.empty for d in _exch_dfs)
