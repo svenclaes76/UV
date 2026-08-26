@@ -278,6 +278,45 @@ class TestBackupsSection:
         assert any(w.value.startswith("This replaces all current portfolio data")
                   for w in at.warning)
 
+    def test_export_key_button_opens_warning_dialog(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="backups")
+        export_btn = [b for b in at.button if b.key == "admin_export_env"][0]
+        export_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any("decrypt every" in w.value for w in at.warning)
+
+
+class TestDlgExportEnv:
+    # _dlg_export_env is only invoked via `if st.button("Export key"): ...`
+    # — same one-shot-gate limitation _dlg_restore's own test class notes —
+    # call it directly here instead.
+
+    def test_shows_info_when_no_env_file(self, isolated_data, monkeypatch):
+        # isolated_data already points backup._ENV_FILE at a fresh tmp_path
+        # location that nothing has written to yet.
+        script = """
+from uvalu.pages_.admin import _dlg_export_env
+_dlg_export_env()
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "No .env file found" in "".join(i.value for i in at.info)
+        assert len(at.download_button) == 0
+
+    def test_offers_download_when_env_file_present(self, isolated_data, monkeypatch):
+        backup._ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        backup._ENV_FILE.write_bytes(b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n")
+        script = """
+from uvalu.pages_.admin import _dlg_export_env
+_dlg_export_env()
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.download_button) == 1
+        assert at.download_button[0].label == "Download .env"
+
 
 class TestDlgRestore:
     # _dlg_restore is only invoked via `if st.button("Restore"): _dlg_restore(...)`

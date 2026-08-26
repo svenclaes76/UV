@@ -28,7 +28,7 @@ the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 import streamlit as st
 
 from auth import ROLES, list_users, set_role, set_status, delete_user, invite_user
-from backup import list_backups, create_backup, get_backup_bytes, restore_backup
+from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data
@@ -141,6 +141,29 @@ def _dlg_restore(backup_id: str, created: str, email: str):
             restore_backup(backup_id, email)
         st.session_state["_admin_restore_done"] = {"id": backup_id, "created": created}
         st.rerun()
+
+
+@st.dialog("Export encryption key", width="large")
+def _dlg_export_env():
+    # Deliberately separate from "Create backup now" — routine backups no
+    # longer bundle .env (see backup.py's export_zip docstring), so this is
+    # the one place that still hands out the deployment's master secrets.
+    # Not persisted anywhere; computed and offered fresh on each open.
+    st.warning(
+        "This file contains this deployment's master encryption and session-signing "
+        "keys (AUTH_SECRET, ENCRYPTION_KEY). Anyone who has it can decrypt every "
+        "user's data and sign in as anyone, on any account. Store it somewhere "
+        "separate from your data backups — only export it when setting up a new "
+        "deployment that needs to read this one's encrypted data.",
+        icon=":material/warning:",
+    )
+    _env_bytes = export_env_key()
+    if _env_bytes is None:
+        st.info("No .env file found on this server.")
+    else:
+        st.download_button("Download .env", data=_env_bytes, file_name=".env",
+                           mime="text/plain", type="primary", width="stretch",
+                           key="admin_export_env_dl")
 
 
 def _render_users() -> None:
@@ -317,12 +340,18 @@ def _render_feeds() -> None:
 
 
 def _render_backups(email: str) -> None:
-    _t1, _t2 = st.columns([3, 1], vertical_alignment="center")
+    _t1, _t2 = st.columns([3, 1.7], vertical_alignment="center")
     with _t1:
         st.markdown('<div style="font-size:12.5px;color:var(--muted);line-height:1.5;">Every entry here is a '
                    'real, on-demand snapshot — this app has no scheduler, so nothing is created '
-                   'automatically. All entries are Manual.</div>', unsafe_allow_html=True)
-    with _t2:
+                   'automatically. All entries are Manual. Backups don\'t include this deployment\'s '
+                   'encryption keys — export those separately if migrating to a new machine.</div>',
+                   unsafe_allow_html=True)
+    with _t2, st.container(horizontal=True, gap="small"):
+        if st.button("Export key", key="admin_export_env", icon=":material/key:", type="tertiary",
+                     width="stretch", help="This deployment's encryption/signing keys — only needed "
+                     "when migrating to a new machine, not part of routine backups"):
+            _dlg_export_env()
         if st.button("Create backup now", key="admin_create_backup", icon=":material/backup:", type="primary",
                      width="stretch"):
             with st.spinner("Creating backup…"):

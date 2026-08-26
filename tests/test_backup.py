@@ -56,10 +56,13 @@ class TestExportZip:
         names = _zip_names(backup.export_zip(EMAIL))
         assert names == set()
 
-    def test_includes_env_file_when_present(self):
+    def test_excludes_env_file_even_when_present(self):
+        # .env (AUTH_SECRET/ENCRYPTION_KEY) is deliberately never bundled
+        # into routine backups -- see TestExportEnvKey for the separate,
+        # deliberate action that does export it.
         backup._ENV_FILE.write_text("AUTH_SECRET=abc\n")
         names = _zip_names(backup.export_zip(EMAIL))
-        assert ".env" in names
+        assert ".env" not in names
 
     def test_includes_shared_settings_when_present(self):
         settings.save_shared_settings({"max_debt_equity": 400.0})
@@ -75,6 +78,20 @@ class TestExportZip:
         settings.save_settings({"density": "compact"}, EMAIL)
         names = _zip_names(backup.export_zip(""))
         assert "data/settings.json" not in names
+
+
+# ── export_env_key ────────────────────────────────────────────────────────
+
+class TestExportEnvKey:
+    def test_returns_none_when_no_env_file(self):
+        assert backup.export_env_key() is None
+
+    def test_returns_raw_env_bytes_when_present(self):
+        # write_bytes, not write_text -- write_text translates \n to \r\n on
+        # Windows, which would make this assert platform-dependent.
+        backup._ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        backup._ENV_FILE.write_bytes(b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n")
+        assert backup.export_env_key() == b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n"
 
 
 # ── export_excel ──────────────────────────────────────────────────────────
@@ -120,11 +137,15 @@ class TestImportZip:
         restored = backup.import_zip(zip_bytes, EMAIL)
         assert restored == ["portfolio.json"]
 
-    def test_restores_env_file(self):
+    def test_skips_env_file_from_an_older_backup_instead_of_restoring_it(self):
+        # Older backups (from before export_zip() stopped bundling .env) may
+        # still contain one -- restoring must not overwrite this server's
+        # live encryption/signing keys as a side effect.
+        backup._ENV_FILE.write_text("ORIGINAL=keep-me\n")
         zip_bytes = self._make_zip({".env": b"AUTH_SECRET=xyz\n"})
         restored = backup.import_zip(zip_bytes, EMAIL)
-        assert ".env" in restored
-        assert backup._ENV_FILE.read_bytes() == b"AUTH_SECRET=xyz\n"
+        assert ".env" not in restored
+        assert backup._ENV_FILE.read_text() == "ORIGINAL=keep-me\n"
 
     def test_restores_shared_settings(self):
         zip_bytes = self._make_zip({"data/shared_settings.json": b'{"max_debt_equity": 300.0}'})

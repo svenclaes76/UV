@@ -2,11 +2,20 @@
 Backup and restore for user data.
 
 Export options:
-  - Encrypted ZIP  : per-user data dir + .env bundled; fully restorable on any machine
+  - Encrypted ZIP  : per-user data dir + shared/user settings (all already
+                     Fernet-encrypted at rest individually) — no .env, so a
+                     routine backup carries no secret that could decrypt
+                     other users' data or forge a session
+  - .env key export: this deployment's AUTH_SECRET/ENCRYPTION_KEY, a
+                     separate, deliberate action (export_env_key()) — only
+                     needed once, to migrate onto a brand-new machine; never
+                     bundled into the routine backup history
   - Excel workbook : human-readable export of positions, dividends, sold history
 
 Import:
-  - Encrypted ZIP  : extracts files back into the current user's data dir + .env
+  - Encrypted ZIP  : extracts files back into the current user's data dir.
+                     A .env entry in an older backup (pre this design) is
+                     skipped, not restored — see import_zip().
 """
 
 from __future__ import annotations
@@ -45,8 +54,19 @@ _BACKUPS_MANIFEST = _BACKUPS_DIR / "manifest.json"
 
 def export_zip(email: str = "") -> bytes:
     """
-    Bundle the current user's data files + settings + .env into an in-memory ZIP.
+    Bundle the current user's data files + settings into an in-memory ZIP.
     Returns the raw ZIP bytes for download.
+
+    Deliberately does NOT include .env (AUTH_SECRET/ENCRYPTION_KEY) — every
+    file bundled here is already individually Fernet-encrypted at rest, so a
+    backup without .env is still safe to create, list, and hand around; it's
+    useless without the key, which is the point of encryption at rest.
+    .env used to be bundled here so a backup was "fully restorable on any
+    machine," but that meant every backup in the Admin portal's shared,
+    freely-downloadable history also carried the one secret that decrypts
+    every user's data and can forge a session as anyone. See
+    export_env_key() for the separate, deliberate way to move that secret
+    between machines now.
     """
     buf = io.BytesIO()
     udir = user_data_dir(email)
@@ -60,9 +80,25 @@ def export_zip(email: str = "") -> bytes:
             zf.write(settings_path, arcname=_ZIP_SETTINGS_KEY)
         if _SHARED_FILE.exists():
             zf.write(_SHARED_FILE, arcname=_ZIP_SHARED_SETTINGS_KEY)
-        if _ENV_FILE.exists():
-            zf.write(_ENV_FILE, arcname=".env")
     return buf.getvalue()
+
+
+def export_env_key() -> bytes | None:
+    """
+    Raw bytes of this deployment's .env file (AUTH_SECRET, ENCRYPTION_KEY) —
+    its master secrets. Returns None if no .env exists.
+
+    Deliberately separate from export_zip()/create_backup(): anyone holding
+    this can decrypt every user's data and sign in as anyone, on any
+    account, so it shouldn't be something that accumulates in the same
+    shared, any-admin-downloadable backup history as routine data snapshots.
+    Only needed once, when standing up a new deployment that must read an
+    existing one's encrypted data — the caller should treat the result as
+    sensitive as the secrets it contains and not persist it anywhere.
+    """
+    if not _ENV_FILE.exists():
+        return None
+    return _ENV_FILE.read_bytes()
 
 
 def export_excel() -> bytes:
@@ -134,8 +170,13 @@ def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
                         (udir / fname).write_bytes(zf.read(name))
                         restored.append(fname)
                 elif name == ".env":
-                    _ENV_FILE.write_bytes(zf.read(name))
-                    restored.append(".env")
+                    # Older backups (from before export_zip() stopped
+                    # bundling .env) may still have one -- skip it rather
+                    # than overwrite this server's live encryption/signing
+                    # keys as a side effect of restoring a data snapshot.
+                    # export_env_key() is the deliberate, separate way to
+                    # move keys between machines now.
+                    continue
     except zipfile.BadZipFile:
         raise ValueError("File is not a valid ZIP archive.")
     return restored
