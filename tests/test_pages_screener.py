@@ -15,6 +15,8 @@ def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
                         lambda: fetch_progress or {"running": False, "total": 0, "done": 0})
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import screener as screener_page
         screener_page.render()
 

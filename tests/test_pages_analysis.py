@@ -5,7 +5,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu.pages_ import analysis as analysis_page
-from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df
+from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df, USER_SETUP_SRC
 
 
 def _run(monkeypatch, ticker="AAA.BR", screener_tuple=None) -> AppTest:
@@ -25,7 +25,7 @@ def _run(monkeypatch, ticker="AAA.BR", screener_tuple=None) -> AppTest:
     # closure over enclosing variables (see tests/test_pages_admin.py), so
     # the ticker is baked into the script text via from_string instead.
     ticker_line = f'st.session_state["_analysis_ticker"] = {ticker!r}' if ticker is not None else ""
-    script_src = f"""
+    script_src = USER_SETUP_SRC + f"""
 import streamlit as st
 from uvalu.pages_ import analysis as analysis_page
 {ticker_line}
@@ -118,7 +118,7 @@ def test_renders_price_chart_when_history_available(isolated_data, monkeypatch):
     monkeypatch.setattr(yf, "Ticker", FakeTicker)
 
     at = AppTest.from_string(
-        """
+        USER_SETUP_SRC + """
 import streamlit as st
 from uvalu.pages_ import analysis as analysis_page
 st.session_state["_analysis_ticker"] = "AAA.BR"

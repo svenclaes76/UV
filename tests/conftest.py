@@ -20,6 +20,18 @@ import settings
 
 TEST_EMAIL = "test@example.com"
 
+# portfolio.py's "current user" is stored in threading.local() (see
+# portfolio.py's _local), scoped to the thread executing a script run — not
+# a shared global, so it isn't visible across threads. AppTest.run() (and
+# real Streamlit reruns) execute the script on a fresh thread each time, so
+# a page test that needs portfolio.py's implicit "current user" (no email
+# passed explicitly) must call set_user() from WITHIN the script text itself,
+# exactly like app.py does for the real app — the isolated_data fixture's own
+# set_user() call runs on the pytest thread and is not visible to the
+# AppTest-executed script. Prepend this to any script_src that calls page
+# code touching portfolio.py without an explicit email.
+USER_SETUP_SRC = f'import portfolio\nportfolio.set_user({TEST_EMAIL!r})\n'
+
 
 @pytest.fixture
 def isolated_data(tmp_path, monkeypatch):
@@ -32,6 +44,10 @@ def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setattr(backup, "_BACKUPS_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup, "_BACKUPS_MANIFEST", tmp_path / "backups" / "manifest.json")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # Sets the pytest thread's own portfolio "current user" -- covers direct,
+    # non-AppTest calls into portfolio.py made straight from a test body. An
+    # AppTest-executed script runs on its own separate thread and needs its
+    # own USER_SETUP_SRC prepended instead; see the comment on that constant.
     portfolio.set_user(TEST_EMAIL)
     yield
     portfolio.set_user("")

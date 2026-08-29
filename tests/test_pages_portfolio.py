@@ -19,7 +19,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu.pages_ import portfolio as portfolio_page
-from tests.conftest import make_screener_data_tuple, make_portfolio_df
+from tests.conftest import make_screener_data_tuple, make_portfolio_df, USER_SETUP_SRC
 
 
 def _run(monkeypatch, section=None) -> AppTest:
@@ -40,7 +40,7 @@ def _run(monkeypatch, section=None) -> AppTest:
     # in-app navigation (e.g. a "Back to Positions" button click setting it
     # to "overview") back to this initial value on the very next run.
     section_line = (f'st.session_state.setdefault("port_section", {section!r})' if section else "")
-    script_src = f"""
+    script_src = USER_SETUP_SRC + f"""
 import streamlit as st
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = "Analyst"
@@ -197,7 +197,7 @@ def test_viewer_role_disables_add_buttons(isolated_data, monkeypatch):
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
-    script_src = """
+    script_src = USER_SETUP_SRC + """
 import streamlit as st
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = "Viewer"
@@ -370,7 +370,7 @@ class TestDrawerEditHandoff:
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
             t: {"price": 110.0} for t in tickers
         })
-        script_src = """
+        script_src = USER_SETUP_SRC + """
 import streamlit as st
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = "Analyst"

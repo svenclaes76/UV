@@ -14,7 +14,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu import drawer, nav as nav_registry
-from tests.conftest import make_scored_row
+from tests.conftest import make_scored_row, USER_SETUP_SRC
 
 
 @pytest.fixture(autouse=True)
@@ -143,6 +143,8 @@ class TestDispatchPendingDrawerAction:
         }]))
 
         def _script():
+            import portfolio
+            portfolio.set_user("test@example.com")
             import streamlit as st
             from uvalu.drawer import dispatch_pending_drawer_action
             st.session_state["_drw_action"] = {"kind": "sell", "ticker": "AAA.BR", "price": 105.0}
@@ -170,7 +172,7 @@ class TestDispatchPendingDrawerAction:
 # ── open_drawer ───────────────────────────────────────────────────────────
 
 def _open_drawer_script(veto=False) -> str:
-    return f"""
+    return USER_SETUP_SRC + f"""
 import pandas as pd
 from uvalu.drawer import open_drawer
 row = pd.Series({make_scored_row(veto=veto)!r})
@@ -217,7 +219,7 @@ class TestOpenDrawer:
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
             "purchase_value": 900.0, "purchase_price": 90.0,
         }]))
-        script = f"""
+        script = USER_SETUP_SRC + f"""
 import pandas as pd
 from uvalu.drawer import open_drawer
 row = pd.Series({make_scored_row(Price=100.0, live_price=150.0)!r})
@@ -275,7 +277,7 @@ open_drawer(row, None)
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
             "purchase_value": 900.0, "purchase_price": 90.0,
         }]))
-        script = f"""
+        script = USER_SETUP_SRC + f"""
 import pandas as pd
 import streamlit as st
 from uvalu.drawer import open_drawer

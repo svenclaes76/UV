@@ -15,7 +15,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu import dialogs
-from tests.conftest import make_portfolio_df
+from tests.conftest import make_portfolio_df, USER_SETUP_SRC
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +79,7 @@ class TestDialogWidthCss:
 # ── add_position_dialog ──────────────────────────────────────────────────
 
 def _run_add_position(monkeypatch, preset_ticker="", preset_name="", preset_price=0.0) -> AppTest:
-    script = f"""
+    script = USER_SETUP_SRC + f"""
 from uvalu.dialogs import add_position_dialog
 add_position_dialog(preset_ticker={preset_ticker!r}, preset_name={preset_name!r}, preset_price={preset_price!r})
 """
@@ -137,7 +137,7 @@ class TestAddPositionDialog:
 
 class TestSellPositionDialog:
     def test_renders_ticker_selector_when_no_ticker_given(self, monkeypatch):
-        script = """
+        script = USER_SETUP_SRC + """
 from portfolio import load_portfolio
 from uvalu.dialogs import sell_position_dialog
 import pandas as pd
@@ -154,7 +154,7 @@ sell_position_dialog(pf)
         # True in Python), so a position with an unparseable/blank shares or
         # live_price field (e.g. an Excel-imported row with a blank cell)
         # used to crash int(nan) outright when opening this dialog.
-        script = """
+        script = USER_SETUP_SRC + """
 from uvalu.dialogs import sell_position_dialog
 import pandas as pd
 pf = pd.DataFrame([{"ticker": "AAA.BR", "name": "Alpha Corp",
@@ -181,7 +181,7 @@ sell_position_dialog(pf, "AAA.BR")
         # truly-empty DataFrame column-less, so `pf["ticker"]` KeyErrors.
         # That's a test-script-structure artifact, not a real app bug —
         # confirmed by this guard alone fixing it, matching production.
-        script = """
+        script = USER_SETUP_SRC + """
 from portfolio import load_portfolio
 from uvalu.dialogs import sell_position_dialog
 pf = load_portfolio()
@@ -208,7 +208,7 @@ class TestAddDividendDialog:
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10, "dividends": 0.0,
         }]))
-        script = """
+        script = USER_SETUP_SRC + """
 from portfolio import load_portfolio
 from uvalu.dialogs import add_dividend_dialog
 pf = load_portfolio()
@@ -226,7 +226,7 @@ add_dividend_dialog(pf)
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": float("nan"), "dividends": 0.0,
         }]))
-        script = """
+        script = USER_SETUP_SRC + """
 from portfolio import load_portfolio
 from uvalu.dialogs import add_dividend_dialog
 pf = load_portfolio()
@@ -266,7 +266,7 @@ add_dividend_dialog(pf)
 
 class TestAddClosedTradeDialog:
     def _run(self):
-        script = """
+        script = USER_SETUP_SRC + """
 from uvalu.dialogs import add_closed_trade_dialog
 add_closed_trade_dialog()
 """

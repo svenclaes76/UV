@@ -13,6 +13,8 @@ def _run(monkeypatch, screener_tuple=None) -> AppTest:
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import watchlist as watchlist_page
         watchlist_page.render()
 

@@ -47,6 +47,8 @@ def _run(monkeypatch, screener_tuple=None, prices=None, risk_cache=None) -> AppT
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import risk as risk_page
         risk_page.render()
 
@@ -89,6 +91,8 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import risk as risk_page
         risk_page.render()
 
@@ -121,6 +125,8 @@ def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
     monkeypatch.setattr(risk_module, "assess_portfolio", _boom)
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import risk as risk_page
         risk_page.render()
 
@@ -146,6 +152,8 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
     portfolio.save_portfolio(make_portfolio_df())
 
     def _script():
+        import portfolio
+        portfolio.set_user("test@example.com")
         from uvalu.pages_ import risk as risk_page
         risk_page.render()
 

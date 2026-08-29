@@ -14,7 +14,7 @@ import portfolio
 import risk as risk_module
 from uvalu import nav as nav_registry
 from uvalu.pages_ import dashboard as dashboard_page
-from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df
+from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df, USER_SETUP_SRC
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,7 @@ def _run(monkeypatch, screener_tuple=None, with_risk_cache=False, prices=None) -
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 
-    script_src = NAV_SETUP + """
+    script_src = USER_SETUP_SRC + NAV_SETUP + """
 from uvalu.pages_ import dashboard as dashboard_page
 dashboard_page.render()
 """

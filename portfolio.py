@@ -10,6 +10,7 @@ Both sections share the same column indices for the data we need.
 
 import hashlib
 import json
+import threading
 from pathlib import Path
 
 import pandas as pd
@@ -23,17 +24,23 @@ _BASE_DIR  = Path(__file__).parent / "data" / "portfolio"
 _CACHE_DIR = Path(__file__).parent / ".cache"
 _BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Active user set once per session via set_user()
-_active_email: str = ""
+# Active user, set at the top of every script run via set_user(). Streamlit
+# serves every connected session from the same process, dispatching each
+# session's reruns onto threads that share process memory -- a plain module
+# global here would let one session's set_user() clobber another's mid-run,
+# corrupting which user's encrypted directory a concurrent save/load lands
+# in. threading.local() gives each executing thread its own private value;
+# since app.py calls set_user() unconditionally at the start of every rerun,
+# this is correct even if Streamlit reuses pooled threads across sessions.
+_local = threading.local()
 
 
 def set_user(email: str) -> None:
-    global _active_email
-    _active_email = email.strip().lower()
+    _local.active_email = email.strip().lower()
 
 
 def _user_dir(email: str = "") -> Path:
-    e = (email or _active_email).strip().lower()
+    e = (email or getattr(_local, "active_email", "")).strip().lower()
     slug = hashlib.sha256(e.encode()).hexdigest()[:16] if e else "default"
     d = _BASE_DIR / slug
     d.mkdir(parents=True, exist_ok=True)

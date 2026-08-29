@@ -8,7 +8,7 @@ from streamlit.testing.v1 import AppTest
 import portfolio
 import settings
 from uvalu.pages_ import settings as settings_page
-from tests.conftest import TEST_EMAIL, fake_cached_fn
+from tests.conftest import TEST_EMAIL, fake_cached_fn, USER_SETUP_SRC
 
 
 def _run(monkeypatch, role="Analyst") -> AppTest:
@@ -19,7 +19,7 @@ def _run(monkeypatch, role="Analyst") -> AppTest:
     # text directly instead.
     monkeypatch.setattr(settings_page, "_load_all_screener_data", fake_cached_fn(None))
 
-    script_src = f"""
+    script_src = USER_SETUP_SRC + f"""
 import streamlit as st
 from uvalu.pages_ import settings as settings_page
 st.session_state["user_email"] = "test@example.com"
