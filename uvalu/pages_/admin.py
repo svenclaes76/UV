@@ -393,9 +393,22 @@ def _render_backups(email: str) -> None:
                     # rerun of this section (any click anywhere on the page),
                     # not just when its own Download was clicked. Streamlit
                     # only calls a callable `data` on the actual click.
-                    st.download_button("Download", data=lambda _bid=e["id"]: get_backup_bytes(_bid),
-                                       file_name=f"{e['id']}.zip",
-                                       mime="application/zip", key=f"admin_dl_{e['id']}", width="stretch")
+                    #
+                    # Downloads are scoped to your own backups — a backup can
+                    # contain another admin's real portfolio holdings, so
+                    # `disabled=` here (UI) and get_backup_bytes()'s own
+                    # requester_email check (server-side, in case this
+                    # callable is ever reached another way) both enforce it.
+                    # Restore below deliberately isn't scoped the same way —
+                    # restoring someone's own snapshot back into their own
+                    # account is a legitimate cross-admin recovery action.
+                    _is_own_backup = e["email"] == email
+                    st.download_button(
+                        "Download", data=lambda _bid=e["id"]: get_backup_bytes(_bid, email),
+                        file_name=f"{e['id']}.zip", mime="application/zip",
+                        key=f"admin_dl_{e['id']}", width="stretch", disabled=not _is_own_backup,
+                        help=None if _is_own_backup else "You can only download your own backups.",
+                    )
                 with _c4:
                     if st.button("Restore", key=f"admin_restore_{e['id']}", width="stretch"):
                         _dlg_restore(e["id"], _created, e["email"])

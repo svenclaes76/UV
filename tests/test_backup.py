@@ -223,6 +223,22 @@ class TestBackupHistory:
         with pytest.raises(ValueError):
             backup.get_backup_bytes(entry["id"])
 
+    def test_get_backup_bytes_without_requester_email_is_unrestricted(self):
+        # restore_backup() relies on this -- restoring someone else's own
+        # snapshot back into their own account is a legitimate cross-admin
+        # action, so the plain (no requester) call must stay unrestricted.
+        entry = backup.create_backup(EMAIL)
+        assert backup.get_backup_bytes(entry["id"]) == backup.get_backup_bytes(entry["id"], EMAIL)
+
+    def test_get_backup_bytes_allows_the_owning_requester(self):
+        entry = backup.create_backup(EMAIL)
+        assert backup.get_backup_bytes(entry["id"], EMAIL) is not None
+
+    def test_get_backup_bytes_blocks_a_different_requester(self):
+        entry = backup.create_backup(EMAIL)
+        with pytest.raises(PermissionError):
+            backup.get_backup_bytes(entry["id"], "someone-else@example.com")
+
     def test_restore_backup_roundtrips(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
         entry = backup.create_backup(EMAIL)
@@ -232,6 +248,14 @@ class TestBackupHistory:
 
         assert "portfolio.json" in restored
         assert portfolio.load_portfolio().iloc[0]["ticker"] == "AAA.BR"
+
+    def test_restore_backup_is_not_scoped_to_the_creator(self):
+        # Cross-admin restore is deliberately still allowed -- only direct
+        # download is scoped to "your own backups only".
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+        entry = backup.create_backup(EMAIL)
+        restored = backup.restore_backup(entry["id"], "someone-else@example.com")
+        assert "portfolio.json" in restored
 
     def test_load_backup_manifest_returns_empty_list_when_missing(self):
         assert backup._load_backup_manifest() == []

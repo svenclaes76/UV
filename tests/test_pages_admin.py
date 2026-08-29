@@ -278,6 +278,18 @@ class TestBackupsSection:
         assert any(w.value.startswith("This replaces all current portfolio data")
                   for w in at.warning)
 
+    def test_download_disabled_for_another_admins_backup_enabled_for_own(self, isolated_data, monkeypatch):
+        # A backup can contain another admin's real portfolio holdings --
+        # download must be scoped to your own, even though Restore (a
+        # legitimate cross-admin recovery action) still isn't.
+        own_entry   = backup.create_backup(TEST_EMAIL)
+        other_entry = backup.create_backup("someone-else@example.com")
+        at = _run(monkeypatch, role="Admin", section="backups")
+        own_dl   = [b for b in at.download_button if b.key == f"admin_dl_{own_entry['id']}"][0]
+        other_dl = [b for b in at.download_button if b.key == f"admin_dl_{other_entry['id']}"][0]
+        assert own_dl.disabled is False
+        assert other_dl.disabled is True
+
     def test_export_key_button_opens_warning_dialog(self, isolated_data, monkeypatch):
         at = _run(monkeypatch, role="Admin", section="backups")
         export_btn = [b for b in at.button if b.key == "admin_export_env"][0]

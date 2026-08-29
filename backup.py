@@ -234,12 +234,25 @@ def create_backup(email: str) -> dict:
     return entry
 
 
-def get_backup_bytes(backup_id: str) -> bytes:
-    """Raw ZIP bytes for a backup-history entry, for st.download_button."""
+def get_backup_bytes(backup_id: str, requester_email: str | None = None) -> bytes:
+    """
+    Raw ZIP bytes for a backup-history entry, for st.download_button.
+
+    requester_email — if given, raises PermissionError unless it matches the
+    entry's own creator. Scopes direct *downloads* to "your own backups
+    only" (backups can contain another user's real portfolio holdings, and
+    every entry is otherwise visible/downloadable by any Admin regardless of
+    who created it). restore_backup() below deliberately does NOT pass this
+    — restoring someone else's snapshot back into their own account is a
+    legitimate cross-admin recovery action, distinct from casually
+    downloading and inspecting their personal data.
+    """
     entries = {e["id"]: e for e in _load_backup_manifest()}
     entry = entries.get(backup_id)
     if not entry:
         raise ValueError("Backup not found.")
+    if requester_email is not None and entry.get("email") != requester_email:
+        raise PermissionError("You can only download your own backups.")
     path = _BACKUPS_DIR / entry["filename"]
     if not path.exists():
         raise ValueError("Backup file is missing from disk.")
