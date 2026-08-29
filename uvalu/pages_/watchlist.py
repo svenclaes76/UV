@@ -11,6 +11,7 @@ from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import stock_row, empty_results_html
 from uvalu.drawer import open_drawer
+from uvalu.runtime import current_user
 
 _EXCHANGE_LABELS = {
     "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
@@ -19,6 +20,7 @@ _EXCHANGE_LABELS = {
 
 
 def render() -> None:
+    _is_viewer = current_user().is_viewer
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Watchlist</div>',
                unsafe_allow_html=True)
     st.caption("Track tickers you don't hold yet. Add from the screener with the star, "
@@ -63,9 +65,11 @@ def render() -> None:
                 _new_name = st.text_input("Company name (optional)", placeholder="TotalEnergies",
                                           label_visibility="collapsed")
             with _c3:
-                _submitted = st.form_submit_button("Add ticker", icon=":material/add:", type="primary")
+                _submitted = st.form_submit_button("Add ticker", icon=":material/add:", type="primary",
+                                                    disabled=_is_viewer,
+                                                    help="Viewer role is read-only" if _is_viewer else None)
 
-    if _submitted:
+    if _submitted and not _is_viewer:
         _sym = _new_ticker.strip().upper()
         if not _sym:
             st.markdown('<div style="font-size:12px;color:var(--down-txt);">Enter a ticker symbol.</div>',
@@ -129,6 +133,7 @@ def render() -> None:
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=True, action_help="Remove from watchlist",
+                action_disabled=_is_viewer,
             )
             if _result["action"]:
                 save_watchlist(watchlist - {_ticker})

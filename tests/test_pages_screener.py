@@ -4,7 +4,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu.pages_ import screener as screener_page
-from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df
+from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, USER_SETUP_SRC
 
 
 def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
@@ -207,6 +207,30 @@ def test_star_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_watchlist() == set()
     assert portfolio.load_manual_tickers() == {}
+
+
+def test_star_button_disabled_for_viewer_role(isolated_data, monkeypatch):
+    # The star toggles/persists a watchlist change (save_watchlist) -- a
+    # real write, so it needs the same Viewer-role gate as every other
+    # write action in the app (portfolio.py's Add/Edit/Sell, drawer.py's
+    # Edit/Sell/Add).
+    monkeypatch.setattr(screener_page, "_load_all_screener_data",
+                        lambda *a, **k: make_screener_data_tuple())
+    monkeypatch.setattr(screener_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(screener_page, "get_fetch_progress",
+                        lambda: {"running": False, "total": 0, "done": 0})
+    script = USER_SETUP_SRC + """
+import streamlit as st
+st.session_state["user_role"] = "Viewer"
+from uvalu.pages_ import screener as screener_page
+screener_page.render()
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    star_btn = [b for b in at.button if b.key == "scr_row_0_AAA.BR_action"][0]
+    assert star_btn.disabled
+    assert portfolio.load_watchlist() == set()
 
 
 def test_view_button_opens_drawer(isolated_data, monkeypatch):

@@ -14,6 +14,7 @@ from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
 from uvalu.components import signal_badge_for_decision, stock_row, empty_results_html
+from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
 _EXCHANGE_LABELS = {
@@ -112,6 +113,7 @@ def _scr_header_css(active_key: str) -> str:
 
 
 def render() -> None:
+    _is_viewer = current_user().is_viewer
     _settings = load_shared_settings()
     _enabled  = tuple(_settings.get("enabled_exchanges", ALL_EXCHANGES))
     _manual_tickers_map  = load_manual_tickers()
@@ -354,6 +356,7 @@ def render() -> None:
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=_in_wl,
                 action_help="Remove from watchlist" if _in_wl else "Add to watchlist",
+                action_disabled=_is_viewer,
             )
             if _result["action"]:
                 if _in_wl:

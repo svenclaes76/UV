@@ -5,7 +5,7 @@ from streamlit.testing.v1 import AppTest
 import portfolio
 import settings
 from uvalu.pages_ import watchlist as watchlist_page
-from tests.conftest import make_screener_data_tuple, make_scored_row
+from tests.conftest import make_screener_data_tuple, make_scored_row, USER_SETUP_SRC
 
 
 def _run(monkeypatch, screener_tuple=None) -> AppTest:
@@ -133,6 +133,43 @@ def test_star_button_removes_manually_added_ticker_from_manual_tickers(isolated_
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_watchlist() == set()
     assert portfolio.load_manual_tickers() == {}
+
+
+def test_star_button_disabled_for_viewer_role(isolated_data, monkeypatch):
+    # Removing a watchlist entry (and, for a manually-added ticker, its
+    # manual_tickers.json entry too) is a real write -- needs the same
+    # Viewer-role gate as every other write action in the app.
+    portfolio.save_watchlist({"AAA.BR"})
+    monkeypatch.setattr(watchlist_page, "_load_all_screener_data",
+                        lambda *a, **k: make_screener_data_tuple())
+    script = USER_SETUP_SRC + """
+import streamlit as st
+st.session_state["user_role"] = "Viewer"
+from uvalu.pages_ import watchlist as watchlist_page
+watchlist_page.render()
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    assert star_btn.disabled
+    assert portfolio.load_watchlist() == {"AAA.BR"}
+
+
+def test_add_ticker_form_disabled_for_viewer_role(isolated_data, monkeypatch):
+    monkeypatch.setattr(watchlist_page, "_load_all_screener_data",
+                        lambda *a, **k: make_screener_data_tuple())
+    script = USER_SETUP_SRC + """
+import streamlit as st
+st.session_state["user_role"] = "Viewer"
+from uvalu.pages_ import watchlist as watchlist_page
+watchlist_page.render()
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    add_btn = [b for b in at.button if b.label == "Add ticker"][0]
+    assert add_btn.disabled
 
 
 def test_view_button_opens_drawer(isolated_data, monkeypatch):

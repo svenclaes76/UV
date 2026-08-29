@@ -353,7 +353,8 @@ def _score_bar_cell_html(score: float | None) -> str:
 def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
-             show_action: bool = True, action_active: bool = False, action_help: str = "") -> dict:
+             show_action: bool = True, action_active: bool = False, action_help: str = "",
+             action_disabled: bool = False) -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -376,6 +377,12 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     entire row via CSS (`position:absolute;inset:0`), with the leading star
     lifted above it with a higher z-index so it stays independently
     clickable instead of being swallowed by the row-wide overlay.
+
+    `action_disabled` greys out and disables the star (pass the caller's
+    own `current_user().is_viewer` check) — the star is a real write
+    (toggles/removes a watchlist entry, persisted via save_watchlist()),
+    so it needs the same Viewer-role gate every other write action in the
+    app already has (portfolio.py's Add/Edit/Sell, drawer.py's Edit/Sell/Add).
 
     Returns {"view": bool, "action": bool}: `view` fires on clicking
     anywhere on the row (caller opens the drawer); `action` fires on the
@@ -404,7 +411,9 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
         _i = 0
         if show_action:
             with _cols[_i]:
-                _action_clicked = st.button("★", key=f"{key}_action", type="tertiary", help=action_help)
+                _action_clicked = st.button("★", key=f"{key}_action", type="tertiary",
+                                            help=("Viewer role is read-only" if action_disabled else action_help),
+                                            disabled=action_disabled)
         else:
             _action_clicked = False
         _i += 1
