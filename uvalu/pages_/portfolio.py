@@ -9,6 +9,8 @@ bulk st.data_editor dialogs; the column-groups "View" dialog and the
 Performance/Value history/Breakdown chart tabs are dropped entirely — this
 page is now a close 1:1 visual match of the mockup, nothing extra.
 """
+import time
+
 import pandas as pd
 import streamlit as st
 
@@ -16,8 +18,9 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
-from settings import load_shared_settings, get_veto_thresholds, load_settings, ALL_EXCHANGES
-from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
+from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
+                        _load_portfolio_screener_data, _portfolio_cache_version)
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
@@ -25,7 +28,7 @@ from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
-from uvalu.ui import _auto_rerun
+from uvalu.ui import price_autorefresh, consumed_tick
 
 # Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
 # row components render a compact mono exchange chip next to the ticker.
@@ -84,7 +87,9 @@ def render() -> None:
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
     _pf_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    # Combine active + sold tickers so both get fetched at screener cadence
+    # Held + sold tickers, scored through the portfolio's own fetch lane
+    # (uvalu/data.py's _load_portfolio_screener_data) — independent of which
+    # exchanges are enabled and of the screener's refresh/bust cycle.
     _sold_early  = load_sold()
     _sold_tickers = tuple(_sold_early["ticker"].dropna().tolist()) if _sold_early is not None and not _sold_early.empty else ()
     _sold_names   = tuple(_sold_early["name"].dropna().tolist())   if _sold_early is not None and not _sold_early.empty else ()
@@ -95,18 +100,27 @@ def render() -> None:
         {**dict(zip(_sold_tickers, _sold_names)), **dict(zip(_pf_tickers, _pf_names))}[t]
         for t in _extra_tickers
     )
-    *_pf_exch_dfs, _pf_extra_df = _load_all_screener_data(
-        _cache_version(), _pf_enabled, _extra_tickers, _extra_names, get_veto_thresholds())
+    *_pf_exch_dfs, _ = _load_all_screener_data(
+        _cache_version(), _pf_enabled, thresholds=get_veto_thresholds())
+    _pf_port_df = _load_portfolio_screener_data(
+        _portfolio_cache_version(), _extra_tickers, _extra_names, get_veto_thresholds())
     # Used to look up the full screener row (fair value, models, etc.) for
     # whichever open-position ticker the user clicks — the drawer needs more
-    # than the portfolio row alone provides.
-    _all_scr_df = pd.concat(_pf_exch_dfs + [_pf_extra_df], ignore_index=True)
+    # than the portfolio row alone provides. keep="last" → the portfolio lane's
+    # row wins for a held ticker that also sits on an enabled exchange.
+    _all_scr_df = pd.concat(list(_pf_exch_dfs) + [_pf_port_df], ignore_index=True)
+    if "Ticker" in _all_scr_df.columns:
+        _all_scr_df = _all_scr_df.drop_duplicates(subset="Ticker", keep="last").reset_index(drop=True)
     _pf_dlg_pending: list = []  # at most one dialog call per render
 
     _user = current_user()
     _is_viewer = _user.is_viewer
-    _refresh_interval = load_settings(_user.email).get("refresh_interval_s", 60)
-    _auto_rerun(_refresh_interval, "portfolio_refresh")
+    price_autorefresh("portfolio_refresh")
+    # A timed price refresh (see uvalu/ui.py) is not a real (re)visit — it
+    # shouldn't drag the value-history backfill + daily-snapshot write along
+    # with it every minute. Those only need to run when the user actually
+    # lands on the page.
+    _timer_refresh = consumed_tick("portfolio_refresh")
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
@@ -141,15 +155,22 @@ def render() -> None:
         else pd.Timestamp("1970-01-01")
     )
     _needs_backfill = (
-        total_current > 0
+        not _timer_refresh
+        and total_current > 0
         and (_last_date < _yesterday or (_vh_check is None or len(_vh_check) <= 1))
     )
     if _needs_backfill:
         with st.spinner("Updating value history…"):
             backfill_value_history(pf, load_sold())
 
-    if total_current > 0:
-        record_value_snapshot(total_invested, total_current)
+    # record_value_snapshot upserts one row per calendar day, so skipping it on
+    # timed refreshes and throttling it to ~every 10 min on genuine renders
+    # loses nothing but the repeated decrypt+encrypt+write of value_history.json.
+    if total_current > 0 and not _timer_refresh:
+        _now = time.time()
+        if _now - st.session_state.get("_pf_snapshot_ts", 0.0) >= 600:
+            record_value_snapshot(total_invested, total_current)
+            st.session_state["_pf_snapshot_ts"] = _now
 
     _section = st.session_state.get("port_section", "overview")
 

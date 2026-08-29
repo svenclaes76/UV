@@ -1,12 +1,11 @@
 """Tests for uvalu/data.py — the screener/price cache-backed data layer
 between yfinance/fetch_tickers/screener and the UI pages.
 
-data.py imports CACHE_FILE (a plain Path constant) from screener.py BY
-VALUE — same gotcha as backup.py/settings.py's _SHARED_FILE (see
-uvalu-test-isolation-patterns memory) — so isolating it requires patching
-BOTH screener.CACHE_FILE (read by _load_cache(), a function that resolves
-its own module's globals at call time) AND data.CACHE_FILE (data.py's own
-separate copy, used directly in _cache_version()/_bust_cache()).
+Background-fetch state now lives on screener.py's SCREENER_FETCH /
+PORTFOLIO_FETCH _Fetcher instances (own thread + cache file each), so
+isolating this module means pointing both fetchers' cache_file at tmp_path
+and clearing their live caches — data.py reads them through the instance
+(screener.SCREENER_FETCH.cache_file) rather than a by-value Path constant.
 
 Fair value / sector / country / dividend fields used to have a second,
 simpler computation here (_compute_fair_values/_fetch_fundamentals/
@@ -24,14 +23,15 @@ from streamlit.testing.v1 import AppTest
 
 import screener
 from uvalu import data as data_module
+from tests.conftest import make_portfolio_df
 
 
 @pytest.fixture(autouse=True)
 def isolated_cache(tmp_path, monkeypatch):
-    cache_file = tmp_path / "fundamentals.json"
-    monkeypatch.setattr(screener, "CACHE_FILE", cache_file)
-    monkeypatch.setattr(data_module, "CACHE_FILE", cache_file)
-    monkeypatch.setattr(screener, "_live_cache", {})
+    monkeypatch.setattr(screener.SCREENER_FETCH, "cache_file", tmp_path / "fundamentals.json")
+    monkeypatch.setattr(screener.PORTFOLIO_FETCH, "cache_file", tmp_path / "portfolio_fundamentals.json")
+    monkeypatch.setattr(screener.SCREENER_FETCH, "live_cache", {})
+    monkeypatch.setattr(screener.PORTFOLIO_FETCH, "live_cache", {})
     # _load_all_screener_data/_fetch_prices_cached are @st.cache_data-wrapped
     # and process-global — without clearing, a later test calling one with
     # the SAME args (e.g. the same literal cache_version string) as an
@@ -48,11 +48,29 @@ class TestCacheVersion:
     def test_returns_zero_when_missing(self):
         assert data_module._cache_version() == "0"
 
-    def test_returns_mtime_string_when_present(self):
-        data_module.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        data_module.CACHE_FILE.write_text("{}", encoding="utf-8")
-        version = data_module._cache_version()
-        assert version == str(int(data_module.CACHE_FILE.stat().st_mtime))
+    def test_returns_coarsened_mtime_bucket_when_present(self):
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text("{}", encoding="utf-8")
+        mtime = screener.SCREENER_FETCH.cache_file.stat().st_mtime
+        assert data_module._cache_version() == str(int(mtime // data_module._CACHE_VERSION_BUCKET_S))
+
+
+class TestMtimeBucket:
+    def test_zero_when_path_missing(self, tmp_path):
+        assert data_module._mtime_bucket(tmp_path / "nope.json") == "0"
+
+    def test_stable_across_writes_inside_one_bucket(self, tmp_path):
+        p = tmp_path / "c.json"
+        p.write_text("{}", encoding="utf-8")
+        v1 = data_module._mtime_bucket(p, seconds=10_000)
+        p.write_text('{"x": 1}', encoding="utf-8")   # rewritten, same wide bucket
+        assert data_module._mtime_bucket(p, seconds=10_000) == v1
+
+    def test_advances_once_the_bucket_rolls_over(self, tmp_path):
+        p = tmp_path / "c.json"
+        p.write_text("{}", encoding="utf-8")
+        # seconds=1 → every whole-second mtime is its own bucket
+        assert data_module._mtime_bucket(p, seconds=1) == str(int(p.stat().st_mtime))
 
 
 class TestCacheAgeStr:
@@ -60,14 +78,14 @@ class TestCacheAgeStr:
         assert data_module._cache_age_str() == "No cache yet"
 
     def test_no_cache_yet_when_no_timestamps(self):
-        screener.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        screener.CACHE_FILE.write_text(json.dumps({"AAA.BR": {"Price": 100.0}}), encoding="utf-8")
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text(json.dumps({"AAA.BR": {"Price": 100.0}}), encoding="utf-8")
         assert data_module._cache_age_str() == "No cache yet"
 
     def test_shows_minutes_for_recent_cache(self):
         from datetime import datetime, timezone
-        screener.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        screener.CACHE_FILE.write_text(json.dumps({
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text(json.dumps({
             "AAA.BR": {"fetched_at": datetime.now(timezone.utc).isoformat()},
         }), encoding="utf-8")
         result = data_module._cache_age_str()
@@ -76,8 +94,8 @@ class TestCacheAgeStr:
     def test_shows_hours_for_old_cache(self):
         from datetime import datetime, timedelta, timezone
         old = datetime.now(timezone.utc) - timedelta(hours=5)
-        screener.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        screener.CACHE_FILE.write_text(json.dumps({
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text(json.dumps({
             "AAA.BR": {"fetched_at": old.isoformat()},
         }), encoding="utf-8")
         result = data_module._cache_age_str()
@@ -99,8 +117,8 @@ class TestBustCache:
         import streamlit as st
         monkeypatch.setattr(st, "rerun", lambda *a, **k: None)
 
-        data_module.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        data_module.CACHE_FILE.write_text('{"AAA.BR": {}}', encoding="utf-8")
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text('{"AAA.BR": {}}', encoding="utf-8")
 
         def _script():
             from uvalu.data import _bust_cache
@@ -109,7 +127,28 @@ class TestBustCache:
         at = AppTest.from_function(_script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert data_module.CACHE_FILE.read_text(encoding="utf-8") == "{}"
+        assert screener.SCREENER_FETCH.cache_file.read_text(encoding="utf-8") == "{}"
+
+    def test_leaves_the_portfolio_lane_untouched(self, monkeypatch):
+        import streamlit as st
+        monkeypatch.setattr(st, "rerun", lambda *a, **k: None)
+
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text('{"AAA.BR": {}}', encoding="utf-8")
+        screener.PORTFOLIO_FETCH.cache_file.write_text('{"HELD.BR": {"Price": 1}}', encoding="utf-8")
+        screener.PORTFOLIO_FETCH.live_cache["HELD.BR"] = {"Price": 1}
+
+        def _script():
+            from uvalu.data import _bust_cache
+            _bust_cache()
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert screener.SCREENER_FETCH.cache_file.read_text(encoding="utf-8") == "{}"
+        # Portfolio lane's file and in-process cache survive the screener bust.
+        assert screener.PORTFOLIO_FETCH.cache_file.read_text(encoding="utf-8") == '{"HELD.BR": {"Price": 1}}'
+        assert screener.PORTFOLIO_FETCH.live_cache == {"HELD.BR": {"Price": 1}}
 
 
 # ── _fetch_prices_cached ──────────────────────────────────────────────────
@@ -130,6 +169,63 @@ class TestFetchPricesCached:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "42.0"
+
+    def test_empty_after_normalisation_skips_fetch(self, monkeypatch):
+        def _boom(_tickers):
+            raise AssertionError("fetch_prices should not be called for an empty set")
+        monkeypatch.setattr(data_module, "fetch_prices", _boom)
+
+        def _script():
+            from uvalu.data import _fetch_prices_cached
+            import streamlit as st
+            st.text(_fetch_prices_cached(("", "  ", None)))
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.text[0].value == "{}"
+
+    def test_reordered_and_duplicated_tuples_share_one_fetch(self, monkeypatch):
+        monkeypatch.setattr(data_module, "_price_bucket", lambda: 7)
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            data_module, "fetch_prices",
+            lambda tickers: calls.append(tickers) or {t: {"price": 1.0} for t in tickers},
+        )
+
+        def _script():
+            from uvalu.data import _fetch_prices_cached
+            import streamlit as st
+            _fetch_prices_cached(("BBB.BR", "AAA.BR"))
+            _fetch_prices_cached(("AAA.BR", " BBB.BR ", "AAA.BR"))  # reorder + pad + dupe
+            st.text("done")
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert calls == [("AAA.BR", "BBB.BR")]   # normalised, fetched once, cache hit second time
+
+
+class TestPriceBucket:
+    def test_market_hours_window_is_60s(self, monkeypatch):
+        monkeypatch.setattr(data_module, "is_market_hours", lambda: True)
+        monkeypatch.setattr(data_module.time, "time", lambda: 1_000_000.0)
+        assert data_module._price_bucket() == 1_000_000 // 60
+
+    def test_off_hours_window_is_900s(self, monkeypatch):
+        monkeypatch.setattr(data_module, "is_market_hours", lambda: False)
+        monkeypatch.setattr(data_module.time, "time", lambda: 1_000_000.0)
+        assert data_module._price_bucket() == 1_000_000 // 900
+
+    def test_bucket_stable_within_window_then_advances(self, monkeypatch):
+        monkeypatch.setattr(data_module, "is_market_hours", lambda: True)
+        clock = {"now": 1_000_020.0}   # aligned to a 60s boundary (÷60 is exact)
+        monkeypatch.setattr(data_module.time, "time", lambda: clock["now"])
+        base = data_module._price_bucket()
+        clock["now"] += 59
+        assert data_module._price_bucket() == base
+        clock["now"] += 2          # 61s past the start → next 60s bucket
+        assert data_module._price_bucket() == base + 1
 
 
 # ── _load_all_screener_data ────────────────────────────────────────────────
@@ -152,7 +248,7 @@ class TestLoadAllScreenerData:
         monkeypatch.setattr(data_module, "fetch_milan_tickers", lambda: [])
         monkeypatch.setattr(data_module, "fetch_frankfurt_tickers", lambda: [])
         monkeypatch.setattr(data_module, "fetch_swiss_tickers", lambda: [])
-        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", lambda stocks: fund_df)
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", lambda stocks, **kw: fund_df)
 
     def test_returns_all_empty_when_no_fundamentals(self, monkeypatch):
         self._patch_fetchers(monkeypatch, [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"}],
@@ -236,3 +332,91 @@ class TestLoadAllScreenerData:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "True"
+
+
+# ── _portfolio_cache_version ──────────────────────────────────────────────
+
+class TestPortfolioCacheVersion:
+    def test_zero_when_missing(self):
+        assert data_module._portfolio_cache_version() == "0"
+
+    def test_coarsened_mtime_bucket_when_present(self):
+        f = screener.PORTFOLIO_FETCH.cache_file
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("{}", encoding="utf-8")
+        assert data_module._portfolio_cache_version() == str(
+            int(f.stat().st_mtime // data_module._CACHE_VERSION_BUCKET_S))
+
+
+# ── _load_portfolio_screener_data ────────────────────────────────────────
+
+class TestLoadPortfolioScreenerData:
+    def test_empty_when_no_tickers(self):
+        def _script():
+            from uvalu.data import _load_portfolio_screener_data
+            import streamlit as st
+            st.text(_load_portfolio_screener_data("v", (), ()).empty)
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.text[0].value == "True"
+
+    def test_fetches_via_portfolio_lane_with_priority_and_scores(self, monkeypatch):
+        captured: dict = {}
+
+        def _fake_nowait(stocks, fetcher=None, priority=()):
+            captured["fetcher"] = fetcher
+            captured["priority"] = [s["ticker"] for s in priority]
+            return pd.DataFrame([_FUND_ROW])
+
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", _fake_nowait)
+
+        def _script():
+            from uvalu.data import _load_portfolio_screener_data
+            import streamlit as st
+            df = _load_portfolio_screener_data("v", ("AAA.BR",), ("Alpha Corp",))
+            st.text(df.iloc[0]["Ticker"])
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.text[0].value == "AAA.BR"
+        assert captured["fetcher"] is screener.PORTFOLIO_FETCH
+        assert captured["priority"] == ["AAA.BR"]
+
+
+# ── prefetch_portfolio_data ──────────────────────────────────────────────
+
+class TestPrefetchPortfolioData:
+    def test_noop_when_no_portfolio(self, isolated_data, monkeypatch):
+        called: list = []
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait",
+                            lambda *a, **k: called.append(1))
+        data_module.prefetch_portfolio_data()
+        assert called == []
+
+    def test_swallows_errors(self, isolated_data, monkeypatch):
+        import portfolio
+        portfolio.save_portfolio(make_portfolio_df())
+
+        def _boom(*a, **k):
+            raise RuntimeError("cold yahoo")
+
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", _boom)
+        data_module.prefetch_portfolio_data()   # must not raise
+
+    def test_warms_portfolio_lane_and_price_cache(self, isolated_data, monkeypatch):
+        import portfolio
+        portfolio.save_portfolio(make_portfolio_df())
+        seen: dict = {}
+        monkeypatch.setattr(
+            data_module, "fetch_fundamentals_nowait",
+            lambda stocks, fetcher=None, priority=(): seen.update(
+                fetcher=fetcher, tickers=[s["ticker"] for s in stocks]))
+        monkeypatch.setattr(data_module, "_fetch_prices_cached",
+                            lambda tickers: seen.update(price_tickers=tuple(tickers)))
+        data_module.prefetch_portfolio_data()
+        assert seen["fetcher"] is screener.PORTFOLIO_FETCH
+        assert "AAA.BR" in seen["tickers"]
+        assert "AAA.BR" in seen["price_tickers"]

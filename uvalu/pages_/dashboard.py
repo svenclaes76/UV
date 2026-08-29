@@ -7,7 +7,7 @@ import streamlit as st
 
 import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
-from screener import _load_cache
+from screener import load_fundamentals_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.drawer import open_drawer
@@ -16,7 +16,7 @@ from uvalu.runtime import theme_colors
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
-from uvalu.ui import _donut_chart, _CHART_CONFIG
+from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
@@ -46,6 +46,10 @@ def render() -> None:
     if _db_pf is None or _db_pf.empty:
         st.info("Your portfolio is empty.")
         st.stop()
+
+    # Refresh live prices on the shared portfolio cadence (see uvalu/ui.py) —
+    # without this the dashboard's quotes only move when the user interacts.
+    price_autorefresh("dashboard_refresh")
 
     _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
     _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
@@ -256,7 +260,7 @@ def render() -> None:
         # `.quant.mdd_1y` — see risk.py) — this silently raised inside the
         # bare except below on every real portfolio, so the risk-score bar
         # and Beta/Volatility/Max-drawdown row never actually rendered.
-        _db_risk_cache = _load_cache()
+        _db_risk_cache = load_fundamentals_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:

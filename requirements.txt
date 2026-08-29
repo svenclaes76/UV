@@ -8,6 +8,7 @@ python-dotenv==1.2.2
 PyJWT==2.13.0
 requests==2.34.2
 streamlit==1.60.0
+tzdata==2026.2  # IANA tz database for zoneinfo on Windows (uvalu/market_hours.py)
 yfinance==1.4.1
 
 # ── Dev/test ──────────────────────────────────────────────────────────────────

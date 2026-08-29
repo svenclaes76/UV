@@ -12,6 +12,27 @@ import yfinance as yf
 import prices
 
 
+@pytest.fixture(autouse=True)
+def _clear_last_good():
+    """prices._last_good is a process-global stale-price cache; clear it around
+    every test so one test's successful fetch can't leak into another's."""
+    prices._last_good.clear()
+    yield
+    prices._last_good.clear()
+
+
+def _download_router(*, daily, intraday=None):
+    """Fake yf.download that serves `daily` for the interval='1d' call and
+    `intraday` for the interval='1m' call. Either arg may be a BaseException
+    instance (raised) or None (→ empty DataFrame)."""
+    def _fn(*_a, **k):
+        payload = intraday if k.get("interval") == "1m" else daily
+        if isinstance(payload, BaseException):
+            raise payload
+        return payload if payload is not None else pd.DataFrame()
+    return _fn
+
+
 class TestDayChange:
     def test_computes_percentage_change(self):
         assert prices._day_change(110.0, 100.0) == 10.0
@@ -159,3 +180,119 @@ class TestFetchPricesFallbackPath:
         result = prices.fetch_prices(("AAA.BR", "BAD.BR"))
         assert result["AAA.BR"]["price"] == 1.0
         assert result["BAD.BR"] == dict(prices._EMPTY)
+
+
+class TestFetchPricesIntradayOverlay:
+    def test_intraday_last_replaces_daily_close(self, monkeypatch):
+        daily = _multiindex_download(
+            close={"AAA.BR": [10.0, 11.0, 12.0]},
+            volume={"AAA.BR": [100, 110, 120]},
+            dates=pd.date_range("2024-01-01", periods=3),
+        )
+        intraday = _multiindex_download(
+            close={"AAA.BR": [12.5, 13.0, 13.4]},
+            volume={"AAA.BR": [5, 6, 7]},
+            dates=pd.date_range("2024-01-03 09:00", periods=3, freq="1min"),
+        )
+        monkeypatch.setattr(yf, "download", _download_router(daily=daily, intraday=intraday))
+
+        result = prices.fetch_prices(("AAA.BR",))
+        assert result["AAA.BR"]["price"] == 13.4          # 1m last, not daily 12.0
+        assert result["AAA.BR"]["prev_close"] == 11.0     # still daily second-to-last
+        assert result["AAA.BR"]["day_change_pct"] == pytest.approx(
+            (13.4 - 11.0) / 11.0 * 100, abs=0.01)         # recomputed against 1m price
+        assert result["AAA.BR"]["volume"] == 120          # untouched — daily volume
+        assert result["AAA.BR"]["stale"] is False
+        assert result["AAA.BR"]["as_of"] is not None
+
+    def test_daily_close_kept_when_intraday_call_raises(self, monkeypatch):
+        daily = _multiindex_download(
+            close={"AAA.BR": [98.0, 100.0]}, volume={"AAA.BR": [100, 110]},
+            dates=pd.date_range("2024-01-01", periods=2),
+        )
+        monkeypatch.setattr(yf, "download",
+                            _download_router(daily=daily, intraday=ConnectionError("1m down")))
+        result = prices.fetch_prices(("AAA.BR",))
+        assert result["AAA.BR"]["price"] == 100.0
+        assert result["AAA.BR"]["day_change_pct"] == pytest.approx(2.04, abs=0.01)
+
+    def test_daily_close_kept_when_intraday_frame_empty(self, monkeypatch):
+        daily = _multiindex_download(
+            close={"AAA.BR": [98.0, 100.0]}, volume={"AAA.BR": [100, 110]},
+            dates=pd.date_range("2024-01-01", periods=2),
+        )
+        monkeypatch.setattr(yf, "download",
+                            _download_router(daily=daily, intraday=pd.DataFrame()))
+        result = prices.fetch_prices(("AAA.BR",))
+        assert result["AAA.BR"]["price"] == 100.0
+
+    def test_intraday_only_ticker_still_recorded(self, monkeypatch):
+        daily = _multiindex_download(
+            close={"AAA.BR": [10.0, 11.0]}, volume={"AAA.BR": [1, 2]},
+            dates=pd.date_range("2024-01-01", periods=2),
+        )
+        intraday = _multiindex_download(
+            close={"BBB.BR": [50.0, 51.0]}, volume={"BBB.BR": [1, 2]},
+            dates=pd.date_range("2024-01-02 09:00", periods=2, freq="1min"),
+        )
+        monkeypatch.setattr(yf, "download", _download_router(daily=daily, intraday=intraday))
+
+        result = prices.fetch_prices(("AAA.BR", "BBB.BR"))
+        assert result["AAA.BR"]["price"] == 11.0
+        assert result["BBB.BR"]["price"] == 51.0          # purely from the 1m frame
+        assert result["BBB.BR"]["prev_close"] is None     # no daily bar for it
+        assert result["BBB.BR"]["stale"] is False
+
+
+class TestFetchPricesStaleFallback:
+    def test_serves_last_good_when_later_fetch_returns_nothing(self, monkeypatch):
+        good = _multiindex_download(
+            close={"AAA.BR": [48.0, 50.0]}, volume={"AAA.BR": [10, 11]},
+            dates=pd.date_range("2024-01-01", periods=2),
+        )
+        monkeypatch.setattr(yf, "download", _download_router(daily=good, intraday=pd.DataFrame()))
+        first = prices.fetch_prices(("AAA.BR",))
+        assert first["AAA.BR"]["price"] == 50.0
+        assert first["AAA.BR"]["stale"] is False
+
+        # Second round: daily download empty AND fast_info raises → nothing new.
+        monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
+
+        class _BoomTicker:
+            def __init__(self, ticker):
+                raise RuntimeError("boom")
+
+        monkeypatch.setattr(yf, "Ticker", _BoomTicker)
+        second = prices.fetch_prices(("AAA.BR",))
+        assert second["AAA.BR"]["price"] == 50.0
+        assert second["AAA.BR"]["stale"] is True
+        assert second["AAA.BR"]["as_of"] == first["AAA.BR"]["as_of"]
+
+    def test_no_last_good_leaves_empty_result(self, monkeypatch):
+        monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
+
+        class _BoomTicker:
+            def __init__(self, ticker):
+                raise RuntimeError("boom")
+
+        monkeypatch.setattr(yf, "Ticker", _BoomTicker)
+        result = prices.fetch_prices(("NEW.BR",))
+        assert result["NEW.BR"] == dict(prices._EMPTY)
+
+    def test_successful_fetch_refreshes_last_good(self, monkeypatch):
+        d1 = _multiindex_download(
+            close={"AAA.BR": [10.0, 20.0]}, volume={"AAA.BR": [1, 2]},
+            dates=pd.date_range("2024-01-01", periods=2),
+        )
+        monkeypatch.setattr(yf, "download", _download_router(daily=d1, intraday=pd.DataFrame()))
+        prices.fetch_prices(("AAA.BR",))
+
+        d2 = _multiindex_download(
+            close={"AAA.BR": [20.0, 30.0]}, volume={"AAA.BR": [1, 2]},
+            dates=pd.date_range("2024-01-02", periods=2),
+        )
+        monkeypatch.setattr(yf, "download", _download_router(daily=d2, intraday=pd.DataFrame()))
+        result = prices.fetch_prices(("AAA.BR",))
+        assert result["AAA.BR"]["price"] == 30.0
+        assert result["AAA.BR"]["stale"] is False
+        assert prices._last_good["AAA.BR"]["price"] == 30.0

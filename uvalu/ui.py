@@ -8,7 +8,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from uvalu.runtime import theme_colors
+from settings import load_settings
+from uvalu.market_hours import is_market_hours
+from uvalu.runtime import current_user, theme_colors
 
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 
@@ -59,6 +61,11 @@ def _auto_rerun(seconds: float, key: str) -> None:
     Native replacement for streamlit-autorefresh: a fragment re-executes on the
     timer; the session flag distinguishes the initial render (part of a full
     script run — just arm the timer) from a timer tick (trigger the rerun).
+
+    On a real timer tick it also sets ``_tick_<key>`` in session state just
+    before the rerun, so the page body can tell a timed refresh from a user
+    navigation via ``consumed_tick(key)`` and skip work that only needs to run
+    on a genuine (re)visit.
     """
     _flag = f"_auto_rerun_{key}"
 
@@ -66,10 +73,34 @@ def _auto_rerun(seconds: float, key: str) -> None:
     def _tick():
         if st.session_state.pop(_flag, False):
             return
+        st.session_state[f"_tick_{key}"] = True
         st.rerun(scope="app")
 
     st.session_state[_flag] = True
     _tick()
+
+
+def consumed_tick(key: str) -> bool:
+    """True (once) when the current script run was triggered by ``_auto_rerun``'s
+    timer for `key` rather than by a user navigation/interaction.
+
+    Pops the marker, so a widget interaction later in the same run doesn't still
+    see it.
+    """
+    return bool(st.session_state.pop(f"_tick_{key}", False))
+
+
+def price_autorefresh(key: str) -> None:
+    """Timed refresh for the live-price pages (dashboard / portfolio / risk).
+
+    Cadence is the user's ``refresh_interval_s`` during market hours, stretched
+    to at least 15 minutes outside them so idle overnight tabs don't keep
+    hammering the quote feed. One implementation shared by all three pages.
+    """
+    interval = load_settings(current_user().email).get("refresh_interval_s", 60)
+    if not is_market_hours():
+        interval = max(interval, 900)
+    _auto_rerun(interval, key)
 
 
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:

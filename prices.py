@@ -1,14 +1,25 @@
 """
 Real-time and EOD price feed via yfinance.
 
-Uses yf.download() for batch price fetching — a single HTTP request for any
-number of tickers, instead of one request per ticker. Falls back to
-yf.Ticker.fast_info for individual tickers when download fails.
+Two batch HTTP calls per refresh, regardless of ticker count:
+  1. yf.download(period="5d", interval="1d")  → prev_close, volume, and a
+     price fallback (a daily bar, which lags intraday).
+  2. yf.download(period="1d", interval="1m")  → the true intraday last price,
+     overlaid on top of (1). Best-effort: a ticker with no 1-minute bar
+     (illiquid, or market closed) keeps its daily close.
 
-Returns per-ticker: price, prev_close, day_change_pct, volume.
+Falls back to yf.Ticker.fast_info per ticker when the daily batch download
+fails entirely.
+
+Returns per-ticker: price, prev_close, day_change_pct, volume, as_of, stale.
+`as_of` is the ISO-8601 UTC timestamp the value was fetched; `stale` is True
+when the fetch returned nothing this round and a previous known-good value is
+being served instead.
 """
 
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 import yfinance as yf
 import pandas as pd
@@ -19,7 +30,16 @@ _EMPTY = {
     "prev_close":     None,
     "day_change_pct": None,
     "volume":         None,
+    "as_of":          None,
+    "stale":          False,
 }
+
+# Process-global cache of the last successful per-ticker result, shared across
+# all Streamlit sessions (prices are not user-scoped). When a later fetch
+# returns nothing for a ticker, its last known-good value is served with
+# stale=True instead of a bare None that would blank the position in the UI.
+# Empty on restart; self-heals on the next successful fetch.
+_last_good: dict[str, dict] = {}
 
 
 def _day_change(price, prev_close) -> float | None:
@@ -28,14 +48,47 @@ def _day_change(price, prev_close) -> float | None:
     return None
 
 
+def _intraday_last_prices(tickers: tuple[str, ...]) -> dict[str, float]:
+    """Best-effort true intraday last price per ticker, via a 1-minute-interval
+    download. Returns only the tickers we got a fresh number for; callers keep
+    the daily close for the rest. Any failure (network, empty frame, market
+    closed) returns {} so the daily-close path in fetch_prices() stands alone.
+    """
+    try:
+        raw = yf.download(
+            list(tickers),
+            period="1d",
+            interval="1m",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+        if raw.empty:
+            return {}
+
+        out: dict[str, float] = {}
+        for t in tickers:
+            try:
+                closes = raw["Close"][t].dropna()
+                if not closes.empty:
+                    out[t] = round(float(closes.iloc[-1]), 4)
+            except Exception:
+                pass
+        return out
+    except Exception:
+        return {}
+
+
 def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
     """
-    Batch-fetch latest price data for all tickers in a single HTTP call.
-    Returns a dict keyed by ticker with price, prev_close, day_change_pct, volume.
+    Batch-fetch latest price data for all tickers.
+    Returns a dict keyed by ticker with price, prev_close, day_change_pct,
+    volume, as_of, stale.
     """
     if not tickers:
         return {}
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     result = {t: dict(_EMPTY) for t in tickers}
 
     try:
@@ -70,6 +123,8 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
                     "prev_close":     round(prev_close, 4) if prev_close else None,
                     "day_change_pct": _day_change(price, prev_close),
                     "volume":         volume,
+                    "as_of":          now_iso,
+                    "stale":          False,
                 }
             except Exception:
                 pass
@@ -86,8 +141,35 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
                     "prev_close":     round(prev_close, 4) if prev_close else None,
                     "day_change_pct": _day_change(price, prev_close),
                     "volume":         fi.get("three_month_average_volume"),
+                    "as_of":          now_iso,
+                    "stale":          False,
                 }
             except Exception:
                 pass
+
+    # ── Intraday overlay ─────────────────────────────────────────────────────
+    # Replace the daily close with a true 1-minute last price wherever we can
+    # get one, and recompute the day change against the daily prev_close.
+    for t, px in _intraday_last_prices(tickers).items():
+        entry = result.get(t)
+        if entry is None:
+            continue
+        entry["price"] = px
+        entry["as_of"] = now_iso
+        entry["stale"] = False
+        if entry.get("prev_close"):
+            entry["day_change_pct"] = _day_change(px, entry["prev_close"])
+
+    # ── Stale fallback ───────────────────────────────────────────────────────
+    # A ticker we got no price for this round is served its last known-good
+    # value, flagged stale. A ticker we did get is recorded as the new
+    # known-good.
+    for t in tickers:
+        entry = result[t]
+        if entry.get("price") is None:
+            if t in _last_good:
+                result[t] = {**_last_good[t], "stale": True}
+        else:
+            _last_good[t] = dict(entry)
 
     return result

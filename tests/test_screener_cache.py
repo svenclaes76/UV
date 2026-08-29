@@ -19,14 +19,20 @@ import screener
 
 @pytest.fixture(autouse=True)
 def isolated_screener_state(tmp_path, monkeypatch):
-    monkeypatch.setattr(screener, "CACHE_FILE", tmp_path / "fundamentals.json")
-    monkeypatch.setattr(screener, "_live_cache", {})
-    monkeypatch.setattr(screener, "_bg_thread", None)
-    monkeypatch.setattr(screener, "_bg_state", {"done": 0, "total": 0, "running": False})
-    screener._bg_cancelled.clear()
+    # All background-fetch state now lives on the SCREENER_FETCH / PORTFOLIO_FETCH
+    # _Fetcher instances (screener.py), not module globals — patch their fields
+    # so tests never touch the real .cache/*.json or spawn a real fetch.
+    for _name, _f in (("fundamentals.json", screener.SCREENER_FETCH),
+                      ("portfolio_fundamentals.json", screener.PORTFOLIO_FETCH)):
+        monkeypatch.setattr(_f, "cache_file", tmp_path / _name)
+        monkeypatch.setattr(_f, "live_cache", {})
+        monkeypatch.setattr(_f, "bg_thread", None)
+        monkeypatch.setattr(_f, "state", {"done": 0, "total": 0, "running": False})
+        _f.cancelled.clear()
     yield
-    # Always leave the shared cancel flag clear for whichever test runs next.
-    screener._bg_cancelled.clear()
+    # Always leave the shared cancel flags clear for whichever test runs next.
+    screener.SCREENER_FETCH.cancelled.clear()
+    screener.PORTFOLIO_FETCH.cancelled.clear()
 
 
 # ── _load_cache / _save_cache ─────────────────────────────────────────────
@@ -36,8 +42,8 @@ class TestLoadSaveCache:
         assert screener._load_cache() == {}
 
     def test_load_returns_empty_dict_on_corrupt_file(self):
-        screener.CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        screener.CACHE_FILE.write_text("not valid json{{{", encoding="utf-8")
+        screener.SCREENER_FETCH.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        screener.SCREENER_FETCH.cache_file.write_text("not valid json{{{", encoding="utf-8")
         assert screener._load_cache() == {}
 
     def test_save_then_load_roundtrip(self):
@@ -46,7 +52,7 @@ class TestLoadSaveCache:
 
     def test_save_creates_parent_directory(self, tmp_path, monkeypatch):
         nested = tmp_path / "nested_cache_dir" / "fundamentals.json"
-        monkeypatch.setattr(screener, "CACHE_FILE", nested)
+        monkeypatch.setattr(screener.SCREENER_FETCH, "cache_file", nested)
         assert not nested.parent.exists()
         screener._save_cache({})
         assert nested.parent.exists()
@@ -210,31 +216,31 @@ class TestProgressAndCancel:
         progress = screener.get_fetch_progress()
         assert progress == {"done": 0, "total": 0, "running": False}
         progress["running"] = True
-        assert screener._bg_state["running"] is False  # copy, not a live reference
+        assert screener.SCREENER_FETCH.state["running"] is False  # copy, not a live reference
 
     def test_cancel_sets_event_and_marks_not_running(self):
-        screener._bg_state["running"] = True
+        screener.SCREENER_FETCH.state["running"] = True
         screener.cancel_background_fetch()
-        assert screener._bg_cancelled.is_set()
+        assert screener.SCREENER_FETCH.cancelled.is_set()
         assert screener.get_fetch_progress()["running"] is False
 
     def test_clear_live_cache_empties_it(self):
-        screener._live_cache["AAA.BR"] = {"Price": 1.0}
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {"Price": 1.0}
         screener.clear_live_cache()
-        assert screener._live_cache == {}
+        assert screener.SCREENER_FETCH.live_cache == {}
 
 
 class TestWarmLiveCache:
     def test_populates_from_disk_only_when_empty(self):
         screener._save_cache({"AAA.BR": {"Price": 100.0}})
         screener._warm_live_cache()
-        assert screener._live_cache == {"AAA.BR": {"Price": 100.0}}
+        assert screener.SCREENER_FETCH.live_cache == {"AAA.BR": {"Price": 100.0}}
 
     def test_does_not_overwrite_already_warm_cache(self):
-        screener._live_cache["BBB.BR"] = {"Price": 5.0}
+        screener.SCREENER_FETCH.live_cache["BBB.BR"] = {"Price": 5.0}
         screener._save_cache({"AAA.BR": {"Price": 100.0}})
         screener._warm_live_cache()
-        assert screener._live_cache == {"BBB.BR": {"Price": 5.0}}
+        assert screener.SCREENER_FETCH.live_cache == {"BBB.BR": {"Price": 5.0}}
 
 
 # ── _run_fetch (background worker) ─────────────────────────────────────────
@@ -248,12 +254,12 @@ class TestRunFetch:
         cache = {}
         stale = [{"ticker": "AAA.BR", "name": "Alpha", "isin": ""},
                  {"ticker": "BBB.BR", "name": "Beta", "isin": ""}]
-        screener._bg_state.update({"done": 0, "total": len(stale), "running": True})
+        screener.SCREENER_FETCH.state.update({"done": 0, "total": len(stale), "running": True})
         screener._run_fetch(stale, cache)
 
         assert set(cache.keys()) == {"AAA.BR", "BBB.BR"}
-        assert screener._bg_state["running"] is False
-        assert screener._bg_state["done"] == 2
+        assert screener.SCREENER_FETCH.state["running"] is False
+        assert screener.SCREENER_FETCH.state["done"] == 2
         assert screener._load_cache() == cache
 
     def test_not_found_error_short_circuits_without_retry(self, monkeypatch):
@@ -296,7 +302,7 @@ class TestRunFetch:
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
-        screener._bg_cancelled.set()
+        screener.SCREENER_FETCH.cancelled.set()
         stale = [{"ticker": "AAA.BR", "name": "Alpha", "isin": ""}]
         cache = {}
         screener._run_fetch(stale, cache)
@@ -308,7 +314,7 @@ class TestRunFetch:
 class TestFetchFundamentalsNowait:
     def test_all_fresh_serves_from_cache_without_spawning_thread(self, monkeypatch):
         fresh_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-        screener._live_cache["AAA.BR"] = {"Ticker": "AAA.BR", "Price": 100.0, "next_fetch_at": fresh_at}
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {"Ticker": "AAA.BR", "Price": 100.0, "next_fetch_at": fresh_at}
 
         def _boom(*a, **k):
             raise AssertionError("should not spawn a background fetch for fresh data")
@@ -329,9 +335,47 @@ class TestFetchFundamentalsNowait:
         # thread-scheduling race (the mocked fetch is instant, so the
         # background thread can legitimately finish before this returns) —
         # not asserted either way. The join below is the deterministic check.
-        assert screener._bg_thread is not None
+        assert screener.SCREENER_FETCH.bg_thread is not None
 
-        screener._bg_thread.join(timeout=10)
-        assert not screener._bg_thread.is_alive()
-        assert screener._live_cache["AAA.BR"]["Price"] == 100.0
+        screener.SCREENER_FETCH.bg_thread.join(timeout=10)
+        assert not screener.SCREENER_FETCH.bg_thread.is_alive()
+        assert screener.SCREENER_FETCH.live_cache["AAA.BR"]["Price"] == 100.0
         assert screener.get_fetch_progress()["running"] is False
+
+
+# ── priority queue + two-lane independence + load_fundamentals_cache ─────────
+
+class TestPriorityAndLanes:
+    def _stub_fetch(self, monkeypatch, order):
+        monkeypatch.setattr(screener, "MAX_WORKERS", 1)   # sequential → deterministic order
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        monkeypatch.setattr(screener, "_fetch_one", lambda t, s: (
+            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0}))
+
+    def test_priority_tickers_fetched_before_the_rest(self, monkeypatch):
+        order: list[str] = []
+        self._stub_fetch(monkeypatch, order)
+        stocks = [{"ticker": f"T{i}.BR", "name": f"n{i}", "isin": ""} for i in range(8)]
+        priority = stocks[5:]   # T5/T6/T7 — given last, must still be fetched first
+        screener.fetch_fundamentals_nowait(stocks, priority=priority)
+        screener.SCREENER_FETCH.bg_thread.join(timeout=10)
+        assert order[:3] == ["T5.BR", "T6.BR", "T7.BR"]
+
+    def test_portfolio_lane_is_independent_of_screener_lane(self, monkeypatch):
+        order: list[str] = []
+        self._stub_fetch(monkeypatch, order)
+        screener.fetch_fundamentals_nowait(
+            [{"ticker": "P.BR", "name": "P", "isin": ""}], fetcher=screener.PORTFOLIO_FETCH)
+        screener.PORTFOLIO_FETCH.bg_thread.join(timeout=10)
+
+        assert "P.BR" in screener.PORTFOLIO_FETCH.live_cache
+        assert screener.PORTFOLIO_FETCH.cache_file.exists()
+        assert screener.SCREENER_FETCH.live_cache == {}          # untouched
+        assert not screener.SCREENER_FETCH.cache_file.exists()   # untouched
+        assert screener.SCREENER_FETCH.bg_thread is None
+
+    def test_load_fundamentals_cache_merges_both_lanes_portfolio_wins(self):
+        screener.SCREENER_FETCH.live_cache.update({"A.BR": {"Price": 1}, "B.BR": {"Price": 2}})
+        screener.PORTFOLIO_FETCH.live_cache.update({"B.BR": {"Price": 99}, "C.BR": {"Price": 3}})
+        merged = screener.load_fundamentals_cache()
+        assert merged == {"A.BR": {"Price": 1}, "B.BR": {"Price": 99}, "C.BR": {"Price": 3}}

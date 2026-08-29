@@ -93,6 +93,16 @@ def scored_df():
     return make_scored_df()
 
 
+def make_portfolio_scored_df(tickers=("AAA.BR",), names=("Alpha Corp",)) -> pd.DataFrame:
+    """Stand-in for uvalu.data._load_portfolio_screener_data() — a scored row
+    per held/sold ticker, same column set as make_scored_df(). Page test _run
+    helpers patch _load_portfolio_screener_data with
+    `lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names)`.
+    """
+    rows = [make_scored_row(Ticker=t, Name=n) for t, n in zip(tickers, names)]
+    return pd.DataFrame(rows if rows else [make_scored_row()])
+
+
 def make_screener_data_tuple(exchange_df: pd.DataFrame | None = None,
                              extra_df: pd.DataFrame | None = None) -> tuple:
     """Build the 7-tuple _load_all_screener_data() normally returns:

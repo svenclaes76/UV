@@ -64,7 +64,7 @@ def _run(monkeypatch, screener_tuple=None, with_risk_cache=False, prices=None) -
     # block (`if ... and _db_risk_cache:`) — most tests leave this empty to
     # skip that path entirely and keep runs fast; the dedicated risk-card
     # tests below turn it on.
-    monkeypatch.setattr(dashboard_page, "_load_cache",
+    monkeypatch.setattr(dashboard_page, "load_fundamentals_cache",
                         lambda: ({"AAA.BR": {"Price": 100.0}} if with_risk_cache else {}))
     monkeypatch.setattr(dashboard_page, "_fetch_prices_cached", lambda tickers: prices or {
         t: {"price": 110.0, "prev_close": 108.0, "day_change_pct": 1.8, "volume": 1000} for t in tickers
@@ -101,6 +101,15 @@ def test_renders_full_dashboard_for_populated_portfolio(isolated_data, monkeypat
     html = "".join(m.value for m in at.markdown)
     assert "Portfolio overview" in html
     assert "Current value" in html or "current value" in html.lower()
+
+
+def test_wires_price_autorefresh(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls: list[str] = []
+    monkeypatch.setattr(dashboard_page, "price_autorefresh", lambda key: calls.append(key))
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert calls == ["dashboard_refresh"]
 
 
 def test_shows_holdings_ladder_row(isolated_data, monkeypatch):

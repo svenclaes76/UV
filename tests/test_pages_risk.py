@@ -13,7 +13,8 @@ from streamlit.testing.v1 import AppTest
 import portfolio
 import risk as risk_module
 from uvalu.pages_ import risk as risk_page
-from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df
+from tests.conftest import (make_screener_data_tuple, make_scored_row, make_scored_df,
+                            make_portfolio_df, make_portfolio_scored_df)
 
 
 def _fake_history(tickers, period="5y"):
@@ -33,10 +34,16 @@ def _fake_ff_csv(url):
     return pd.DataFrame({c: rng.normal(0, 0.005, len(dates)) for c in cols}, index=dates)
 
 
-def _run(monkeypatch, screener_tuple=None, prices=None, risk_cache=None) -> AppTest:
+def _run(monkeypatch, screener_tuple=None, prices=None, risk_cache=None,
+         portfolio_scored=None) -> AppTest:
     monkeypatch.setattr(risk_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
-    monkeypatch.setattr(risk_page, "_load_cache", lambda: risk_cache or {})
+    monkeypatch.setattr(
+        risk_page, "_load_portfolio_screener_data",
+        lambda _v, tickers, names, _t=None: (
+            portfolio_scored if portfolio_scored is not None
+            else make_portfolio_scored_df(tickers, names)))
+    monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: risk_cache or {})
     # fair_value/sector/country/div_rate now come from the scored screener
     # DataFrame (screener_tuple) instead of a separate fetch — only the live
     # price is fetched independently, matching what risk.py's render() does.
@@ -72,6 +79,14 @@ def test_renders_full_report_for_portfolio(isolated_data, monkeypatch):
     assert "Concentration" in html
 
 
+def test_wires_price_autorefresh(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls: list[str] = []
+    monkeypatch.setattr(risk_page, "price_autorefresh", lambda key: calls.append(key))
+    _run(monkeypatch)
+    assert calls == ["risk_refresh"]
+
+
 def test_shows_holdings_contribution_rows(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch)
@@ -97,7 +112,9 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
         risk_page.render()
 
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
+                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+    monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -115,7 +132,9 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
 def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
+                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+    monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -145,7 +164,9 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
 
     monkeypatch.setattr(risk_module, "_fetch_history", _short_history)
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(risk_page, "_load_cache", lambda: {})
+    monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
+                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+    monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -165,8 +186,8 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
 
 def test_vetoed_holding_shows_veto_flag(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
-    vetoed_row = make_scored_row(veto=True)
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([vetoed_row])))
+    # Held ticker → its scored row comes from the portfolio lane now.
+    at = _run(monkeypatch, portfolio_scored=make_scored_df([make_scored_row(veto=True)]))
     html = "".join(m.value for m in at.markdown)
     assert "remain(s) under a hard veto" in html
     assert ">Veto<" in html
@@ -177,10 +198,9 @@ def test_critical_risk_position_shows_flag(isolated_data, monkeypatch):
     # health (+2) -> 8 pts, comfortably over the >=5 "Critical" threshold —
     # see risk.py's _position_rating scoring.
     portfolio.save_portfolio(make_portfolio_df())
-    overvalued_row = make_scored_row(fair_value=100.0)
     at = _run(
         monkeypatch,
-        screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([overvalued_row])),
+        portfolio_scored=make_scored_df([make_scored_row(fair_value=100.0)]),
         prices={"AAA.BR": {"price": 150.0}},
         risk_cache={"AAA.BR": {"beta": 2.0, "debtToEquity": 900.0, "currentRatio": 0.1,
                                "interestCoverage": 0.1, "freeCashflow": -1e9, "netIncome": 1e6}},

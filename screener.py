@@ -132,7 +132,33 @@ REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
 CACHE_TTL_HOURS  = 24   # base TTL; actual refresh is jittered ±4h per ticker
 CACHE_TTL_JITTER = 4    # hours of random jitter added to each ticker's TTL
-CACHE_FILE       = Path(__file__).parent / ".cache" / "fundamentals.json"
+
+
+class _Fetcher:
+    """All background-fetch state for one fundamentals cache file, shared
+    across every Streamlit session in this process.
+
+    Two instances exist: SCREENER_FETCH for the exchange universe (~1500
+    tickers, refreshed slowly) and PORTFOLIO_FETCH for the user's held + sold
+    positions (a few dozen, refreshed with priority). Each has its own daemon
+    thread, cancel event, locks and .cache/*.json file, so a long screener
+    refresh never blocks the portfolio's, and clearing one cache (see
+    uvalu/data.py's _bust_cache) leaves the other intact.
+    """
+
+    def __init__(self, cache_file: Path):
+        self.cache_file = cache_file
+        self.live_cache: dict = {}                    # in-process mirror of the JSON file
+        self.bg_thread: "threading.Thread | None" = None
+        self.cancelled  = threading.Event()          # set by cancel_background_fetch()
+        self.file_lock  = threading.Lock()           # guards all cache_file writes
+        self.row_lock   = threading.Lock()           # guards live_cache dict + done counter
+        self.state: dict = {"done": 0, "total": 0, "running": False}
+        self.state_lock = threading.Lock()
+
+
+SCREENER_FETCH  = _Fetcher(Path(__file__).parent / ".cache" / "fundamentals.json")
+PORTFOLIO_FETCH = _Fetcher(Path(__file__).parent / ".cache" / "portfolio_fundamentals.json")
 
 # ── Fields fetched from yfinance ──────────────────────────────────────────────
 
@@ -180,18 +206,33 @@ ALL_EXTRA_FIELDS = list({
 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
 
-def _load_cache() -> dict:
-    if CACHE_FILE.exists():
+def _load_cache(fetcher: "_Fetcher | None" = None) -> dict:
+    f = fetcher or SCREENER_FETCH
+    if f.cache_file.exists():
         try:
-            return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            return json.loads(f.cache_file.read_text(encoding="utf-8"))
         except Exception:
             pass
     return {}
 
 
-def _save_cache(cache: dict) -> None:
-    CACHE_FILE.parent.mkdir(exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+def _save_cache(cache: dict, fetcher: "_Fetcher | None" = None) -> None:
+    f = fetcher or SCREENER_FETCH
+    f.cache_file.parent.mkdir(parents=True, exist_ok=True)
+    f.cache_file.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+
+
+def load_fundamentals_cache() -> dict:
+    """Merged fundamentals from both fetch lanes — the screener's exchange
+    universe plus the portfolio's own lane. Consumers that need fundamentals
+    for arbitrary held tickers (the dashboard / risk risk-card, which feed
+    risk.assess_portfolio) must use this rather than _load_cache(), which is
+    the screener file alone and omits holdings on disabled exchanges. The
+    portfolio lane wins on any ticker present in both.
+    """
+    _warm_live_cache(SCREENER_FETCH)
+    _warm_live_cache(PORTFOLIO_FETCH)
+    return {**SCREENER_FETCH.live_cache, **PORTFOLIO_FETCH.live_cache}
 
 
 def _is_fresh(entry: dict) -> bool:
@@ -334,33 +375,27 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     return row
 
 
-# ── Background fetch state (shared across all Streamlit sessions) ─────────────
+# ── Background fetch (per-fetcher, shared across all Streamlit sessions) ──────
 
-_bg_state: dict = {"done": 0, "total": 0, "running": False}
-_bg_state_lock  = threading.Lock()
-_bg_thread: threading.Thread | None = None
-_bg_cancelled   = threading.Event()   # set by cancel_background_fetch() to abort a running fetch
-_file_lock      = threading.Lock()    # guards all CACHE_FILE writes (bust + incremental saves)
-_row_lock       = threading.Lock()    # guards cache dict + done counter inside _run_fetch
-_live_cache: dict = {}                # in-process mirror of the JSON file; avoids disk reads on reruns
-
-
-def get_fetch_progress() -> dict:
+def get_fetch_progress(fetcher: "_Fetcher | None" = None) -> dict:
     """Thread-safe snapshot of background fetch progress."""
-    with _bg_state_lock:
-        return _bg_state.copy()
+    f = fetcher or SCREENER_FETCH
+    with f.state_lock:
+        return f.state.copy()
 
 
-def cancel_background_fetch() -> None:
+def cancel_background_fetch(fetcher: "_Fetcher | None" = None) -> None:
     """Signal any running background fetch to stop and mark it as not running."""
-    _bg_cancelled.set()
-    with _bg_state_lock:
-        _bg_state["running"] = False
+    f = fetcher or SCREENER_FETCH
+    f.cancelled.set()
+    with f.state_lock:
+        f.state["running"] = False
 
 
-def clear_live_cache() -> None:
+def clear_live_cache(fetcher: "_Fetcher | None" = None) -> None:
     """Clear the in-process cache (call before wiping the cache file)."""
-    _live_cache.clear()
+    f = fetcher or SCREENER_FETCH
+    f.live_cache.clear()
 
 
 def _df_from_cache(stocks: list[dict], cache: dict) -> pd.DataFrame:
@@ -368,8 +403,11 @@ def _df_from_cache(stocks: list[dict], cache: dict) -> pd.DataFrame:
     return pd.DataFrame(rows) if rows else pd.DataFrame(columns=["Ticker"])
 
 
-def _run_fetch(stale: list[dict], cache: dict) -> None:
-    """Blocking fetch of stale tickers; updates cache file incrementally."""
+def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None) -> None:
+    """Blocking fetch of stale tickers; updates the fetcher's cache file
+    incrementally. `stale` is processed in the order given — callers put
+    priority tickers first (see fetch_fundamentals_nowait)."""
+    f = fetcher or SCREENER_FETCH
     done = 0
 
     def _refresh_crumb():
@@ -380,12 +418,12 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
 
     def _fetch_and_store(stock):
         nonlocal done
-        if _bg_cancelled.is_set():
+        if f.cancelled.is_set():
             return
         ticker = stock["ticker"]
         row = None
         for attempt in range(MAX_RETRIES + 1):
-            if _bg_cancelled.is_set():
+            if f.cancelled.is_set():
                 return
             try:
                 with contextlib.redirect_stderr(io.StringIO()):
@@ -411,67 +449,77 @@ def _run_fetch(stale: list[dict], cache: dict) -> None:
                         continue
                 print(f"\n  Warning: could not fetch {ticker}: {e}")
                 break
-        if _bg_cancelled.is_set():
+        if f.cancelled.is_set():
             return
         if row is None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
         time.sleep(REQUEST_DELAY)
         # Narrow critical section: only dict write + counter; save check happens outside
-        with _row_lock:
+        with f.row_lock:
             cache[ticker] = row
             done += 1
             current = done
-        with _bg_state_lock:
-            _bg_state["done"] = current
-        if not _bg_cancelled.is_set() and (current % 25 == 0 or current == len(stale)):
-            with _file_lock:
-                _save_cache(cache)
+        with f.state_lock:
+            f.state["done"] = current
+        if not f.cancelled.is_set() and (current % 25 == 0 or current == len(stale)):
+            with f.file_lock:
+                _save_cache(cache, f)
         print(f"  Fetching [{current}/{len(stale)}] {ticker}          ", end="\r")
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         list(executor.map(_fetch_and_store, stale))
 
-    if not _bg_cancelled.is_set():
-        with _file_lock:
-            _save_cache(cache)
+    if not f.cancelled.is_set():
+        with f.file_lock:
+            _save_cache(cache, f)
     print()
-    with _bg_state_lock:
-        _bg_state["running"] = False
+    with f.state_lock:
+        f.state["running"] = False
 
 
-def _warm_live_cache() -> None:
-    """Populate _live_cache from disk on first call (cold start only)."""
-    if not _live_cache:
-        _live_cache.update(_load_cache())
+def _warm_live_cache(fetcher: "_Fetcher | None" = None) -> None:
+    """Populate the fetcher's live cache from disk on first call (cold start only)."""
+    f = fetcher or SCREENER_FETCH
+    if not f.live_cache:
+        f.live_cache.update(_load_cache(f))
 
 
-
-
-def fetch_fundamentals_nowait(stocks: list[dict]) -> pd.DataFrame:
+def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = None,
+                              priority=()) -> pd.DataFrame:
     """
     Return cached data immediately.
     Stale tickers are refreshed in a background thread — both the JSON file and
-    _live_cache are updated incrementally, so UI reruns pick up new data without
-    a full disk read on every rerun.
+    the fetcher's live cache are updated incrementally, so UI reruns pick up new
+    data without a full disk read on every rerun.
+
+    `priority` is an iterable of stock dicts (held positions, watchlist) whose
+    tickers are fetched *before* the rest: they keep their given order at the
+    front of the queue while the remaining stale tickers are shuffled behind
+    them, so a portfolio name is never buried behind the exchange universe.
     """
-    global _bg_thread
-    _warm_live_cache()
-    stale = [s for s in stocks if not _is_fresh(_live_cache.get(s["ticker"], {}))]
+    f = fetcher or SCREENER_FETCH
+    _warm_live_cache(f)
+
+    _priority_tickers = {s["ticker"] for s in priority}
+    stale = [s for s in stocks if not _is_fresh(f.live_cache.get(s["ticker"], {}))]
     fresh_count = len(stocks) - len(stale)
 
-    if stale and (not _bg_thread or not _bg_thread.is_alive()):
+    if stale and (not f.bg_thread or not f.bg_thread.is_alive()):
         print(f"  {fresh_count} cached  |  {len(stale)} stale — starting background fetch")
-        _bg_cancelled.clear()
-        with _bg_state_lock:
-            _bg_state.update({"done": 0, "total": len(stale), "running": True})
-        random.shuffle(stale)
-        _bg_thread = threading.Thread(target=_run_fetch, args=(stale, _live_cache), daemon=True)
-        _bg_thread.start()
+        f.cancelled.clear()
+        with f.state_lock:
+            f.state.update({"done": 0, "total": len(stale), "running": True})
+        _prio = [s for s in stale if s["ticker"] in _priority_tickers]
+        _rest = [s for s in stale if s["ticker"] not in _priority_tickers]
+        random.shuffle(_rest)
+        f.bg_thread = threading.Thread(
+            target=_run_fetch, args=(_prio + _rest, f.live_cache, f), daemon=True)
+        f.bg_thread.start()
     elif not stale:
         print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
 
-    return _df_from_cache(stocks, _live_cache)
+    return _df_from_cache(stocks, f.live_cache)
 
 
 # ── Stage 2: Fair value estimation ───────────────────────────────────────────

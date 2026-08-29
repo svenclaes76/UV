@@ -41,6 +41,14 @@ set_user(_email)
 
 authgate.auth_wall()
 
+# Warm the portfolio's own fundamentals + price caches once per session, right
+# after sign-in — so the first Dashboard/Portfolio/Risk paint isn't cold and
+# doesn't wait behind the screener's exchange-universe fetch. Fire-and-forget.
+if not st.session_state.get("_pf_prefetched"):
+    st.session_state["_pf_prefetched"] = True
+    from uvalu.data import prefetch_portfolio_data
+    prefetch_portfolio_data()
+
 # Keep the localStorage/cookie JWT fresh for the next full page load — the
 # cookie is what recover_session_from_cookie() (uvalu/authgate.py) actually
 # reads server-side to survive a reload (e.g. the top bar's theme toggle).

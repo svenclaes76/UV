@@ -3,28 +3,35 @@
 Functions keep their original private names so app.py and page modules can
 import them unchanged. All @st.cache_data identity is preserved.
 """
+import time
 from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
 
 from prices import fetch_prices
+from uvalu.market_hours import is_market_hours
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
-from screener import (CACHE_FILE, CACHE_TTL_HOURS, _load_cache,
+from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
-                      cancel_background_fetch, clear_live_cache, _file_lock)
+                      cancel_background_fetch, clear_live_cache)
 from settings import ALL_EXCHANGES
 
 
 def _bust_cache() -> None:
-    """Cancel any background fetch, wipe the screener disk cache, and rerun."""
-    cancel_background_fetch()
-    clear_live_cache()
-    with _file_lock:   # prevents a concurrent background save from landing after our wipe
+    """Cancel any background fetch, wipe the screener disk cache, and rerun.
+
+    Only the SCREENER_FETCH lane is touched — the portfolio's own fundamentals
+    cache (PORTFOLIO_FETCH) is deliberately left intact so held positions don't
+    have to be re-fetched every time the screener universe is refreshed.
+    """
+    cancel_background_fetch(SCREENER_FETCH)
+    clear_live_cache(SCREENER_FETCH)
+    with SCREENER_FETCH.file_lock:   # prevents a concurrent background save landing after our wipe
         try:
-            CACHE_FILE.write_text("{}", encoding="utf-8")
+            SCREENER_FETCH.cache_file.write_text("{}", encoding="utf-8")
         except OSError:
             pass
     _load_all_screener_data.clear()
@@ -49,12 +56,34 @@ def _cache_age_str() -> str:
     return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
 
 
-def _cache_version() -> str:
-    """Changes whenever the fundamentals JSON file is updated on disk."""
+_CACHE_VERSION_BUCKET_S = 30   # coarsen the mtime token — see _mtime_bucket
+
+
+def _mtime_bucket(path, seconds: int = _CACHE_VERSION_BUCKET_S) -> str:
+    """A cache-key token that changes at most once per `seconds` as `path` is
+    written. During a background fetch _save_cache() rewrites the file every
+    ~25 tickers (a few seconds apart); keying _load_all_screener_data() on the
+    raw mtime made it re-score the whole universe on each of those writes.
+    Bucketing to 30s caps that to one re-score per bucket — new data still
+    surfaces within 30s, and the screener page's own 5s auto-rerun covers the
+    gap while a fetch is active.
+    """
     try:
-        return str(int(CACHE_FILE.stat().st_mtime))
+        return str(int(path.stat().st_mtime // seconds))
     except OSError:
         return "0"
+
+
+def _cache_version() -> str:
+    """Coarsened mtime token for the screener fundamentals file."""
+    return _mtime_bucket(SCREENER_FETCH.cache_file)
+
+
+def _portfolio_cache_version() -> str:
+    """Coarsened mtime token for the portfolio fundamentals file. Keyed
+    separately from _cache_version() so a screener refresh doesn't bust the
+    portfolio's scored data and vice-versa."""
+    return _mtime_bucket(PORTFOLIO_FETCH.cache_file)
 
 
 @st.cache_data(show_spinner=False)
@@ -131,9 +160,76 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
     return exchange_dfs + (_extra_df,)
 
 
+@st.cache_data(show_spinner=False)
+def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: tuple,
+                                  thresholds: tuple = (500.0, 0.90, 0.0, 70.0)) -> pd.DataFrame:  # noqa: ARG001
+    """Scored screener rows for the portfolio's *own* tickers (held + sold),
+    fetched through the dedicated PORTFOLIO_FETCH lane — its own background
+    thread, cache file and priority queue — so they never wait behind the
+    exchange universe and aren't wiped by _bust_cache().
+
+    Cache key: the portfolio cache-file mtime (pf_cache_version), the ticker
+    set, and the veto thresholds. Deliberately NOT keyed on enabled_exchanges,
+    so toggling an exchange in Settings leaves this untouched.
+    """
+    _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
+    stocks = [{"ticker": t, "name": n, "isin": ""} for t, n in zip(tickers, names)]
+    if not stocks:
+        return pd.DataFrame(columns=["Ticker"])
+    fund = fetch_fundamentals_nowait(stocks, fetcher=PORTFOLIO_FETCH, priority=stocks)
+    if fund.empty:
+        return pd.DataFrame(columns=["Ticker"])
+    return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
+                                min_mos=_min_mos, buy_threshold=_buy_threshold)
+
+
+def prefetch_portfolio_data() -> None:
+    """Warm the portfolio's fundamentals + price caches at login, before the
+    first page renders. Fire-and-forget: kicks the PORTFOLIO_FETCH background
+    thread and primes the shared price cache, swallowing every error so a cold
+    Yahoo or an empty portfolio never blocks sign-in. Safe to call on every
+    rerun — app.py gates it behind a session flag anyway.
+    """
+    try:
+        from portfolio import load_portfolio, load_sold
+        frames = [
+            df for df in (load_portfolio(), load_sold())
+            if df is not None and not df.empty and "ticker" in df.columns
+        ]
+        seen: dict[str, str] = {}
+        for df in frames:
+            _names = df["name"] if "name" in df.columns else df["ticker"]
+            for _t, _n in zip(df["ticker"], _names):
+                _t = str(_t).strip()
+                if _t and _t not in seen:
+                    seen[_t] = str(_n)
+        if not seen:
+            return
+        stocks = [{"ticker": t, "name": n, "isin": ""} for t, n in seen.items()]
+        fetch_fundamentals_nowait(stocks, fetcher=PORTFOLIO_FETCH, priority=stocks)
+        _fetch_prices_cached(tuple(seen))
+    except Exception:
+        pass
+
+
+def _price_bucket() -> int:
+    """Market-hours-aware cache-busting token for the live price feed: a new
+    value every 60s during market hours, every 900s otherwise. Passed as an
+    argument to the @st.cache_data-wrapped batch fetch so its effective TTL
+    tracks market hours — the decorator's own ttl= is fixed at import time and
+    can't vary per call.
+    """
+    window = 60 if is_market_hours() else 900
+    return int(time.time() // window)
+
+
 @st.cache_data(show_spinner=False, ttl=60)
-def _fetch_prices_cached(tickers: tuple) -> dict:
-    """Batch price feed — one HTTP call for all tickers, refreshed every 60s.
+def _fetch_prices_batch(tickers: tuple, bucket: int = 0) -> dict:  # noqa: ARG001
+    """Batch price feed — one HTTP pair (daily + 1-minute) for all tickers.
+
+    `bucket` is the market-hours-aware cache-busting token from _price_bucket();
+    it is unused in the body, present only to become part of the @st.cache_data
+    key.
 
     Fair value, sector, country, and dividend fields are NOT fetched here —
     they come from the screener's own scored DataFrame (_load_all_screener_data),
@@ -144,3 +240,17 @@ def _fetch_prices_cached(tickers: tuple) -> dict:
     formula that could disagree with the screener's for the same ticker.
     """
     return fetch_prices(tickers)
+
+
+def _fetch_prices_cached(tickers: tuple) -> dict:
+    """Live price feed for a set of tickers.
+
+    Normalises the incoming tuple (strip, dedupe, sort) so every caller —
+    dashboard, portfolio, risk — collapses onto a single shared cache entry
+    and a single upstream fetch, regardless of the order or duplicate tickers
+    in the portfolio DataFrame they happen to pass in.
+    """
+    norm = tuple(sorted({str(t).strip() for t in tickers if t and str(t).strip()}))
+    if not norm:
+        return {}
+    return _fetch_prices_batch(norm, _price_bucket())

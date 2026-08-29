@@ -19,12 +19,15 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu.pages_ import portfolio as portfolio_page
-from tests.conftest import make_screener_data_tuple, make_portfolio_df, USER_SETUP_SRC
+from tests.conftest import (make_screener_data_tuple, make_portfolio_df,
+                            make_portfolio_scored_df, USER_SETUP_SRC)
 
 
 def _run(monkeypatch, section=None) -> AppTest:
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
+    monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
+                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -66,6 +69,14 @@ def test_overview_shows_kpi_cards_for_populated_portfolio(isolated_data, monkeyp
     assert "Invested" in html
     assert "Market value" in html
     assert "AAA.BR" in html
+
+
+def test_wires_price_autorefresh(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls: list[str] = []
+    monkeypatch.setattr(portfolio_page, "price_autorefresh", lambda key: calls.append(key))
+    _run(monkeypatch)
+    assert calls == ["portfolio_refresh"]
 
 
 def test_overview_shows_no_closed_positions_message(isolated_data, monkeypatch):
@@ -194,6 +205,8 @@ def test_viewer_role_disables_add_buttons(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
+    monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
+                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -367,6 +380,8 @@ class TestDrawerEditHandoff:
         portfolio.save_portfolio(make_portfolio_df())
         monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                             lambda *a, **k: make_screener_data_tuple())
+        monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
+                            lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
             t: {"price": 110.0} for t in tickers
         })
@@ -385,3 +400,53 @@ portfolio_page.render()
         assert at.number_input(key="dlg_eop_shares").value == 10
         # One-shot: the ticket must not survive the render.
         assert "_pf_edit_ticker" not in at.session_state
+
+
+class TestValueHistoryDebounce:
+    """PR4: the value-history backfill + daily snapshot must not ride along on
+    every 60s timed price refresh (uvalu/ui.py's price_autorefresh), and on a
+    genuine render the snapshot is throttled to ~once per 10 min."""
+
+    _SRC_HEAD = USER_SETUP_SRC + """
+import streamlit as st
+st.session_state["user_email"] = "test@example.com"
+st.session_state["user_role"] = "Analyst"
+"""
+    _SRC_TAIL = """
+from uvalu.pages_ import portfolio as portfolio_page
+portfolio_page.render()
+"""
+
+    def _patch(self, monkeypatch, snap, backfill):
+        monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
+                            lambda *a, **k: make_screener_data_tuple())
+        monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
+                            lambda _v, t, n, _th=None: make_portfolio_scored_df(t, n))
+        monkeypatch.setattr(portfolio_page, "_fetch_prices_cached",
+                            lambda tickers: {t: {"price": 110.0} for t in tickers})
+        monkeypatch.setattr(portfolio_page, "record_value_snapshot", lambda *a: snap.append(a))
+        monkeypatch.setattr(portfolio_page, "backfill_value_history", lambda *a: backfill.append(a))
+
+    def test_timed_refresh_skips_snapshot_and_backfill(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        snap, backfill = [], []
+        self._patch(monkeypatch, snap, backfill)
+        src = self._SRC_HEAD + 'st.session_state["_tick_portfolio_refresh"] = True\n' + self._SRC_TAIL
+        at = AppTest.from_string(src, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert snap == []
+        assert backfill == []
+
+    def test_genuine_render_snapshots_once_then_throttles(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        snap, backfill = [], []
+        self._patch(monkeypatch, snap, backfill)
+        at = AppTest.from_string(self._SRC_HEAD + self._SRC_TAIL, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(snap) == 1          # first genuine render records
+        assert len(backfill) == 1      # no history yet → backfill runs once
+        at.run()                       # immediate re-render, inside the 10-min guard
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(snap) == 1          # throttled — not called again

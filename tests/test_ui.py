@@ -157,3 +157,56 @@ class TestAutoRerun:
 
         at = _run(_script)
         assert "_auto_rerun_test_refresh" not in at.session_state
+
+
+# ── consumed_tick ─────────────────────────────────────────────────────────
+
+class TestConsumedTick:
+    def test_false_when_no_marker(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import consumed_tick
+            st.text(consumed_tick("portfolio_refresh"))
+
+        at = _run(_script)
+        assert at.text[0].value == "False"
+
+    def test_true_once_then_cleared(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import consumed_tick
+            st.session_state["_tick_portfolio_refresh"] = True
+            st.text(consumed_tick("portfolio_refresh"))   # True
+            st.text(consumed_tick("portfolio_refresh"))   # popped → False
+
+        at = _run(_script)
+        assert [t.value for t in at.text] == ["True", "False"]
+
+
+# ── price_autorefresh ─────────────────────────────────────────────────────
+
+class TestPriceAutorefresh:
+    def _capture(self, monkeypatch, *, market_open: bool, interval_s: int) -> dict:
+        captured: dict = {}
+        monkeypatch.setattr(ui, "is_market_hours", lambda: market_open)
+        monkeypatch.setattr(ui, "load_settings", lambda _email: {"refresh_interval_s": interval_s})
+        monkeypatch.setattr(ui, "current_user",
+                            lambda: type("U", (), {"email": "x@y.z"})())
+        monkeypatch.setattr(ui, "_auto_rerun",
+                            lambda secs, key: captured.update(secs=secs, key=key))
+        return captured
+
+    def test_uses_user_interval_during_market_hours(self, monkeypatch):
+        captured = self._capture(monkeypatch, market_open=True, interval_s=30)
+        ui.price_autorefresh("portfolio_refresh")
+        assert captured == {"secs": 30, "key": "portfolio_refresh"}
+
+    def test_stretches_to_15min_off_hours(self, monkeypatch):
+        captured = self._capture(monkeypatch, market_open=False, interval_s=60)
+        ui.price_autorefresh("dashboard_refresh")
+        assert captured["secs"] == 900
+
+    def test_off_hours_keeps_a_longer_user_interval(self, monkeypatch):
+        captured = self._capture(monkeypatch, market_open=False, interval_s=1800)
+        ui.price_autorefresh("risk_refresh")
+        assert captured["secs"] == 1800   # max(user, 900)

@@ -6,11 +6,13 @@ import streamlit as st
 
 import risk as _risk_module
 from portfolio import load_portfolio, load_sold
-from screener import _load_cache
+from screener import load_fundamentals_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
-from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
+from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
+                        _load_portfolio_screener_data, _portfolio_cache_version)
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
+from uvalu.ui import price_autorefresh
 
 _TICKER_SUFFIX_EXCHANGE = {
     ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
@@ -46,6 +48,9 @@ def render() -> None:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
         st.stop()
 
+    # Live prices on the shared portfolio cadence (see uvalu/ui.py).
+    price_autorefresh("risk_refresh")
+
     _risk_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
     _risk_sold     = load_sold()
     _risk_sold_tickers = tuple(_risk_sold["ticker"].dropna().tolist()) if _risk_sold is not None and not _risk_sold.empty else ()
@@ -57,9 +62,17 @@ def render() -> None:
         {**dict(zip(_risk_sold_tickers, _risk_sold_names)), **dict(zip(_risk_tickers, _risk_names))}[t]
         for t in _risk_extra_tickers
     )
-    *_risk_exch_dfs, _risk_extra_df = _load_all_screener_data(
-        _cache_version(), _risk_enabled, _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
-    _risk_scr_df   = pd.concat(_risk_exch_dfs + [_risk_extra_df], ignore_index=True)
+    *_risk_exch_dfs, _ = _load_all_screener_data(
+        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds())
+    _risk_port_df  = _load_portfolio_screener_data(
+        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
+    # Held tickers that also sit on an enabled exchange appear in both frames;
+    # keep="last" lets the portfolio lane's row (priority-fetched, its own
+    # cadence) win so every downstream lookup — _veto_lookup, _risk_scr_by_ticker
+    # — agrees on one row per ticker.
+    _risk_scr_df   = pd.concat(list(_risk_exch_dfs) + [_risk_port_df], ignore_index=True)
+    if "Ticker" in _risk_scr_df.columns:
+        _risk_scr_df = _risk_scr_df.drop_duplicates(subset="Ticker", keep="last").reset_index(drop=True)
 
     # Real hard-veto lookup (screener's own `veto` column) — feeds both
     # assess_portfolio()'s Stage 8 rebalance trigger below and the concentration
@@ -89,7 +102,7 @@ def render() -> None:
     pf["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
     pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
 
-    _risk_full_cache = _load_cache()
+    _risk_full_cache = load_fundamentals_cache()
 
     _income_portfolio = False
 
