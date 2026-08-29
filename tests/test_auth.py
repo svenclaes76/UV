@@ -142,8 +142,15 @@ class TestVerifyToken:
     def test_tampered_token_returns_none_none(self):
         auth.register("first@example.com", "password123")
         _, token = auth.login("first@example.com", "password123")
-        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
-        email, role = auth.verify_token(tampered)
+        # Flip a character in the PAYLOAD segment, not the signature's last
+        # base64 char: a 32-byte HMAC's final base64url char carries only 4
+        # significant bits, so for the ~6% of tokens ending in "A" the old
+        # "A"->"B" swap decoded to identical signature bytes and the token
+        # still verified (flaky). Any change to the signed header.payload text
+        # breaks the HMAC unconditionally.
+        header, payload, sig = token.split(".")
+        payload = ("A" if payload[0] != "A" else "B") + payload[1:]
+        email, role = auth.verify_token(f"{header}.{payload}.{sig}")
         assert (email, role) == (None, None)
 
     def test_expired_token_returns_none_none(self):
