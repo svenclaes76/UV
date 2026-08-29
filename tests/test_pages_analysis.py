@@ -90,6 +90,28 @@ def test_single_bad_fcf_year_passes_the_positive_fcf_check(isolated_data, monkey
     assert "Hard veto active" not in html
 
 
+def test_dividend_flag_alone_does_not_fail_the_veto_check_when_coverage_is_fine(isolated_data, monkeypatch):
+    # Div Flag == "At Risk" AND coverage < 1.0x is a single combined
+    # sub-condition in the real _hard_veto formula (see components.py's
+    # veto_reason_str) -- flagged-but-adequately-covered must still show
+    # as PASSING here, not a red X for a factor that isn't actually
+    # contributing to a veto in this state.
+    df = make_scored_df([make_scored_row(**{"Div Flag": "At Risk"}, dividendCoverage=1.5, veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    _rows = [m.value for m in at.markdown if "Dividend coverage adequate" in m.value]
+    assert len(_rows) == 1
+    assert "✓" in _rows[0]
+    assert "✕" not in _rows[0]
+
+
+def test_dividend_check_fails_only_when_both_flag_and_coverage_are_bad(isolated_data, monkeypatch):
+    df = make_scored_df([make_scored_row(**{"Div Flag": "At Risk"}, dividendCoverage=0.5, veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    _rows = [m.value for m in at.markdown if "Dividend coverage adequate" in m.value]
+    assert len(_rows) == 1
+    assert "✕" in _rows[0]
+
+
 def test_shows_held_position_when_ticker_in_portfolio(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, ticker="AAA.BR")

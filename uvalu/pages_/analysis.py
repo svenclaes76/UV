@@ -295,15 +295,20 @@ def render() -> None:
         _de_note = _fv(row, "debtToEquity", lambda v: f"{v/100:.2f}×")
         if _de_exempt and pd.notna(de) and de > _max_de_thr:
             _de_note = f"{_de_note} (sector-exempt)"
+        # Dividend is a single AND-combined sub-condition in the real formula
+        # (Div Flag == "At Risk" AND coverage < 1.0×), not two independent
+        # checks — matches components.py's veto_reason_str() exactly, so a
+        # flagged-but-adequately-covered dividend (or vice versa) doesn't
+        # show a misleading red ✕ under "Hard-veto checks" for a factor that
+        # isn't actually contributing to a veto in that state.
+        _div_veto = div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0
+        _div_note = f"{div_flag if div_flag else '—'} · {_fv(row, 'dividendCoverage', lambda v: f'{v:.2f}×')}"
         _checks = [
             (f"Debt / equity below {_max_de_thr/100:.1f}×",
              not (pd.notna(de) and de > _max_de_thr) or _de_exempt, _de_note),
             ("Positive free cash flow", not _fcf_hard_veto(row),
              _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
-            ("Dividend not flagged at risk", div_flag != "At Risk",
-             div_flag if div_flag else "—"),
-            ("Dividend coverage above 1.0×", not (pd.notna(coverage) and coverage < 1.0),
-             _fv(row, "dividendCoverage", lambda v: f"{v:.2f}×")),
+            ("Dividend coverage adequate", not _div_veto, _div_note),
         ]
         for check_label, passed, note in _checks:
             icon = "✓" if passed else "✕"
