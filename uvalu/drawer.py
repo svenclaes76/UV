@@ -262,10 +262,15 @@ def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
     ]
     if _held:
         _shares = _safe_float(_held_row.get("shares"))
-        _position_value = _shares * _safe_float(_price)
         _purchase_value = _held_row.get("purchase_value")
         _purchase_value = (float(_purchase_value) if _purchase_value is not None and pd.notna(_purchase_value)
                            else _shares * _safe_float(_held_row.get("purchase_price")))
+        # When price is genuinely unknown (no live_price, no cached Price --
+        # e.g. a manually-added or delisted ticker), treat the position as
+        # flat (zero gain/loss) rather than letting _safe_float(NaN)'s 0.0
+        # fabricate a fake "€0 value / -100% loss" -- matches dashboard.py's
+        # holdings table, which falls back to purchase_value the same way.
+        _position_value = (_shares * float(_price)) if pd.notna(_price) else _purchase_value
         _pnl = _position_value - _purchase_value
         _pnl_pct = (_pnl / _purchase_value * 100) if _purchase_value else 0.0
         _rows += [

@@ -234,6 +234,31 @@ open_drawer(row, None)
         assert "€1,500" in html    # Position value = 10 shares * live_price
         assert "€1,000" not in html
 
+    def test_missing_price_falls_back_to_purchase_value_not_a_fake_loss(self):
+        # Neither live_price nor Price available (e.g. a manually-added or
+        # delisted ticker) -- must show the position as flat (purchase
+        # value, €0 gain), not a fabricated "€0 value / -100% loss" from
+        # _safe_float(NaN) silently collapsing to 0. Matches dashboard.py's
+        # holdings table, which falls back to purchase_value the same way.
+        portfolio.save_portfolio(pd.DataFrame([{
+            "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
+            "purchase_value": 900.0, "purchase_price": 90.0,
+        }]))
+        script = USER_SETUP_SRC + f"""
+import pandas as pd
+from uvalu.drawer import open_drawer
+row = pd.Series({make_scored_row()!r})
+row["Price"] = float("nan")
+open_drawer(row, None)
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "€900" in html          # Position value falls back to purchase_value
+        assert "+€0 (+0.0%)" in html   # flat, not a fabricated full loss
+        assert "€0 (-100" not in html
+
     def test_watchlisted_not_held_shows_status(self):
         portfolio.save_watchlist({"AAA.BR"})
         at = AppTest.from_string(_open_drawer_script(), default_timeout=60)
