@@ -106,6 +106,19 @@ W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
 W_ANALYST    = 0.208
 
+# PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
+# the median trailing P/E of the stock's own *sector* across the screened universe
+# (screener._sector_pe_medians), winsorized to PE_MULTIPLE_BAND and given a bounded
+# PEG tilt on earningsGrowth (clamp(1 + g, *PEG_TILT_BAND)). PE_MULTIPLE_FALLBACK —
+# a round heuristic near the long-run market-average P/E, and the value used
+# unconditionally before this — applies when the sector has fewer than
+# MIN_SECTOR_SAMPLE priced peers, or when the frame carries no trailingPE/sector
+# columns at all (direct _fair_value_models callers, pre-WS-10 caches).
+PE_MULTIPLE_FALLBACK = 15.0
+PE_MULTIPLE_BAND     = (6.0, 30.0)
+PEG_TILT_BAND        = (0.7, 1.5)
+MIN_SECTOR_SAMPLE    = 5
+
 # Composite score weights — must sum to 1.0
 W_MOS      = 0.30   # α — margin of safety
 W_RISK     = 0.18   # β — risk (inverted: 100 - risk_pctrank)
@@ -709,7 +722,29 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
     return pv if 0 < pv < 1e6 else None
 
 
-def _fair_value_models(row: pd.Series) -> dict:
+def _sector_pe_medians(df: pd.DataFrame) -> dict:
+    """{sector: winsorized median trailing P/E} across `df`, for the PE fair-value
+    model. Only sectors with at least MIN_SECTOR_SAMPLE positive P/E readings get
+    an entry — callers fall back to PE_MULTIPLE_FALLBACK for every other sector.
+    Returns {} when the frame carries no `trailingPE`/`sector` columns at all
+    (e.g. a hand-built test frame), so `_fair_value_models` stays usable stand-alone.
+    """
+    if "trailingPE" not in df.columns or "sector" not in df.columns:
+        return {}
+    pe    = pd.to_numeric(df["trailingPE"], errors="coerce")
+    valid = pd.DataFrame({"sector": df["sector"], "pe": pe})
+    valid = valid[(valid["pe"] > 0) & (valid["pe"] < 10_000) & valid["sector"].notna()]
+    if valid.empty:
+        return {}
+    lo, hi = PE_MULTIPLE_BAND
+    return {
+        sector: float(np.clip(grp["pe"].median(), lo, hi))
+        for sector, grp in valid.groupby("sector")
+        if len(grp) >= MIN_SECTOR_SAMPLE
+    }
+
+
+def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
@@ -721,6 +756,7 @@ def _fair_value_models(row: pd.Series) -> dict:
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
     country  = row.get("country")
+    sector   = row.get("sector")
     shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
@@ -731,9 +767,13 @@ def _fair_value_models(row: pd.Series) -> dict:
     if eps and bvps and eps > 0 and bvps > 0:
         gn = (22.5 * eps * bvps) ** 0.5
 
-    # PE Fair Value: flat conservative multiple (not Graham's actual no-growth
-    # base of 8.5x — this 15x is a round heuristic near historical market-average P/E)
-    pe_fv = (eps * 15) if (eps and eps > 0) else None
+    # PE Fair Value: sector-median trailing P/E (winsorized to PE_MULTIPLE_BAND)
+    # with a bounded PEG tilt on earningsGrowth; PE_MULTIPLE_FALLBACK when the
+    # sector has too few priced peers or no sector P/E data was supplied.
+    pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
+    if pd.notna(eg):
+        pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
+    pe_fv = (eps * pe_multiple) if (eps and eps > 0) else None
 
     # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). t is the country's statutory
     # rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
@@ -1018,10 +1058,17 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "dividend_last_cut_year",
         *_STATEMENT_HISTORY_KEYS,
     ]
-    df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
+    # dict.fromkeys dedupes: VALUATION/RISK/QUALITY/MOMENTUM field lists overlap
+    # (e.g. currentRatio, freeCashflow appear in two of them), and reindexing with
+    # a duplicated name produces a duplicate column — every later row.get(name)
+    # then returns a 2-value Series and blows up the scalar guards downstream.
+    _missing = [f for f in dict.fromkeys(all_fields) if f not in df.columns]
+    df = df.reindex(columns=[*df.columns, *_missing])
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
-    fv_cols = df.apply(_fair_value_models, axis=1, result_type="expand")
+    sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
+    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe),
+                       axis=1, result_type="expand")
     for col in fv_cols.columns:
         df[col] = fv_cols[col]
 

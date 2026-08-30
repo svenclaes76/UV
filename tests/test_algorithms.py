@@ -106,13 +106,74 @@ class TestGrahamAndPE:
         fv = _fair_value_models(pd.Series({"Price": 50.0, "trailingEps": 5.0,
                                            "bookValue": 20.0}))
         assert fv["graham_number"] == pytest.approx(2250 ** 0.5)
-        assert fv["pe_fair_value"] == pytest.approx(75.0)   # EPS × 15
+        # no sector_pe map, no earningsGrowth → flat PE_MULTIPLE_FALLBACK
+        assert fv["pe_fair_value"] == pytest.approx(5.0 * screener.PE_MULTIPLE_FALLBACK)
 
     def test_negative_eps_gives_no_graham_or_pe(self):
         fv = _fair_value_models(pd.Series({"Price": 50.0, "trailingEps": -2.0,
                                            "bookValue": 20.0}))
         assert fv["graham_number"] is None
         assert fv["pe_fair_value"] is None
+
+
+class TestSectorRelativePE:
+    """screener._sector_pe_medians + the PE-fair-value multiple it feeds (WS-11)."""
+
+    def _peers(self, sector: str, pes: list[float]) -> pd.DataFrame:
+        return pd.DataFrame([
+            {"Ticker": f"{sector}{i}", "Price": 100.0, "trailingEps": 5.0,
+             "sector": sector, "trailingPE": p}
+            for i, p in enumerate(pes)
+        ])
+
+    def test_uses_sector_median_when_enough_peers(self):
+        df = self._peers("Tech", [10.0, 11.0, 12.0, 13.0, 14.0])   # median 12
+        sp = screener._sector_pe_medians(df)
+        assert sp == {"Tech": pytest.approx(12.0)}
+        fv = _fair_value_models(df.iloc[0], sector_pe=sp)
+        assert fv["pe_fair_value"] == pytest.approx(5.0 * 12.0)
+
+    def test_falls_back_when_sector_too_thin(self):
+        df = self._peers("Tech", [12.0, 12.0, 12.0, 12.0])         # < MIN_SECTOR_SAMPLE
+        sp = screener._sector_pe_medians(df)
+        assert "Tech" not in sp
+        fv = _fair_value_models(df.iloc[0], sector_pe=sp)
+        assert fv["pe_fair_value"] == pytest.approx(5.0 * screener.PE_MULTIPLE_FALLBACK)
+
+    def test_median_winsorized_to_band(self):
+        lo, hi = screener.PE_MULTIPLE_BAND
+        assert screener._sector_pe_medians(self._peers("Frothy", [80.0] * 5))["Frothy"] == hi
+        assert screener._sector_pe_medians(self._peers("Cheap", [2.0] * 5))["Cheap"] == lo
+
+    def test_ignores_nonpositive_out_of_range_and_missing_pe(self):
+        df = pd.concat([
+            self._peers("Mix", [10.0, 10.0, 10.0, 10.0, 10.0]),        # 5 valid → median 10
+            self._peers("Mix", [0.0, -5.0, float("nan"), 999_999.0]),  # all rejected
+        ], ignore_index=True)
+        sp = screener._sector_pe_medians(df)
+        assert sp["Mix"] == pytest.approx(10.0)   # junk readings didn't shift the median
+
+    def test_no_sector_or_pe_columns_returns_empty(self):
+        assert screener._sector_pe_medians(pd.DataFrame([{"Ticker": "X", "Price": 1.0}])) == {}
+
+    def test_peg_tilt_is_bounded(self):
+        base = {"Price": 100.0, "trailingEps": 5.0}
+        f = screener.PE_MULTIPLE_FALLBACK
+        hot  = _fair_value_models(pd.Series({**base, "earningsGrowth": 2.0}))    # clamp 1.5
+        cold = _fair_value_models(pd.Series({**base, "earningsGrowth": -0.9}))   # clamp 0.7
+        mild = _fair_value_models(pd.Series({**base, "earningsGrowth": 0.10}))   # 1.10
+        assert hot["pe_fair_value"]  == pytest.approx(5.0 * f * 1.5)
+        assert cold["pe_fair_value"] == pytest.approx(5.0 * f * 0.7)
+        assert mild["pe_fair_value"] == pytest.approx(5.0 * f * 1.10)
+
+    def test_compute_scores_applies_sector_median_end_to_end(self):
+        # 5 "Energy" peers at P/E 8 → sector multiple 8; the scored row's
+        # pe_fair_value should be EPS×8, not EPS×15.
+        rows = [{"Name": f"E{i}", "Ticker": f"E{i}", "Price": 100.0,
+                 "trailingEps": 5.0, "sector": "Energy", "trailingPE": 8.0}
+                for i in range(5)]
+        out = compute_scores(pd.DataFrame(rows))
+        assert out.iloc[0]["pe_fair_value"] == pytest.approx(40.0)
 
 
 class TestDDM:
@@ -574,8 +635,11 @@ class TestCompositeScore:
         assert good["Value Score"] > meh["Value Score"]
         assert bool(good["veto"]) is False
 
-        # Fair value blend for GOOD: Graham + PE + analyst only
-        gn, pe, an = 2250 ** 0.5, 75.0, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
+        # Fair value blend for GOOD: Graham + PE + analyst only. No `sector`
+        # column in this frame, so PE uses PE_MULTIPLE_FALLBACK, tilted by GOOD's
+        # +8% earningsGrowth: 5.0 × 15 × 1.08.
+        pe = 5.0 * screener.PE_MULTIPLE_FALLBACK * (1 + 0.08)
+        gn, an = 2250 ** 0.5, 90.0 * (1 - screener.ANALYST_TARGET_HAIRCUT)
         wg, wp, wa = screener.W_GRAHAM, screener.W_PE, screener.W_ANALYST
         expected_fv = (gn * wg + pe * wp + an * wa) / (wg + wp + wa)
         assert good["fair_value"] == pytest.approx(expected_fv, abs=0.01)

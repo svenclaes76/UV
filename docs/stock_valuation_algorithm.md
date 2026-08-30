@@ -26,7 +26,7 @@ There is a partial multi-year financial-statement history (the lines listed abov
 - Multi-year statement history → `revenueHistory`, `ebitHistory`, `netIncomeHistory`, `cfoHistory`, `retainedEarningsHistory`, `totalAssetsHistory` (`screener._statement_history`)
 - Dividend history → `true_dgr`, `dividend_growth_streak`, `dividend_payment_years`, `dividend_last_cut_year` (`screener._dividend_stats`)
 
-Trailing P/E, price-to-book, and EV/EBITDA are also fetched but are **display-only** — they do not feed any fair-value model.
+Price-to-book and EV/EBITDA are also fetched but are **display-only** — they do not feed any fair-value model. Trailing P/E is display-only per row, but its **sector median across the screened universe** now sets the PE Fair Value multiple (Stage 2).
 ---
 ## Stage 2 — Fair Value Estimation (Multi-Model)
 Six models run per stock; each stock's composite is a weighted average of whichever models produced a positive value for it (`screener._fair_value_models`).
@@ -35,7 +35,7 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 | Model | Formula / Approach | Base weight |
 |---|---|---|
 | **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.150 (`W_GRAHAM`) |
-| **PE Fair Value** | `EPS × 15` — a flat conservative multiple; despite the label in code, this is *not* Graham's actual no-growth base multiplier (8.5×) from his growth formula, just a round heuristic near historical market-average P/E | 0.150 (`W_PE`) |
+| **PE Fair Value** | `EPS × m`, where `m` is the median trailing P/E of the stock's own **sector** across the current screened universe (`screener._sector_pe_medians`), winsorized to `PE_MULTIPLE_BAND` (6–30×), then multiplied by a bounded PEG tilt `clamp(1 + earningsGrowth, 0.7, 1.5)` (`PEG_TILT_BAND`). Falls back to a flat `PE_MULTIPLE_FALLBACK` (15×, the value used unconditionally before this) when the sector has fewer than `MIN_SECTOR_SAMPLE` (5) priced peers, or when `trailingPE`/`sector` aren't in the frame (pre-WS-10 caches, direct callers). The 15× fallback is *not* Graham's no-growth base multiplier (8.5×) — just a round heuristic near the long-run market-average P/E | 0.150 (`W_PE`) |
 | **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts the company's actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's actual EV/market-cap ratio. Falls back to the old `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.158 (`W_EPV`) |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.167 (`W_DDM_SINGLE`; 0 if DDM-ineligible) |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.167 (`W_DDM_MULTI`; 0 if DDM-ineligible) |
@@ -138,7 +138,7 @@ Not implemented — no data source exists for any of these: active fraud investi
 Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
+  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
     ↓
 Weighted fair value
   (base weights sum to 1.00; DDM weight ≈0.334 combined if eligible — payer with
