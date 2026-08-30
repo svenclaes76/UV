@@ -43,7 +43,7 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 
 `DCF`, comparable multiples (P/E, EV/EBITDA, P/S), and an asset-based / P/B model are **not implemented** — they don't exist as separate fair-value inputs.
 
-**WACC** = 3% risk-free rate + beta × 5% equity risk premium; beta is clamped to [0.1, 5.0] and defaults to 1.0 if missing or out of range.
+**WACC** = 3% risk-free rate + beta × 5% equity risk premium. A raw beta outside [0.1, 5.0] (or missing/NaN) is rejected and defaults to 1.0; an in-band beta is **Blume-adjusted** — shrunk two-thirds of the way toward the market beta of 1.0 (`0.67 × raw + 0.33 × 1.0`, `screener.BLUME_WEIGHT` / `_adjust_beta`) — since yfinance's trailing single-estimate beta is noisy and mean-reverts.
 
 **DDM payout ramp:** both DDM base weights are multiplied by `screener._ddm_weight_factor(div_rate, payout)`, a continuous factor in `[0, 1]` keyed on the payout ratio (`_DDM_PAYOUT_KNOTS = 0.05 / 0.30 / 0.70 / 0.95`): **0** for a non-payer or a payout at/below 5% or at/above 95%, **1.0** (full base weight) across the 30–70% comfortable band, and a **linear ramp** on each shoulder in between. It is continuous at every knot, so there is no cliff anywhere in the payout range — an 89%-payout payer and a 91%-payout payer differ by a sliver of DDM weight, not the whole ≈0.334 combined block (this replaces the earlier hard 5–90% in/out gate, itself a replacement for a still-earlier "graduated 30–50%" scheme). Whatever DDM weight is not used drops out and the remaining available models (Graham, PE, EPV, Analyst) are re-normalized over their own weights, since there is no DCF or comps model to receive it instead.
 
@@ -97,7 +97,7 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 |---|---|---|
 | **Financial health** | Debt/equity, current ratio, interest coverage | Risk |
 | **Earnings quality** | FCF-to-net-income conversion **blended with** `fcfHistory` consistency (fraction of positive years + level stability via coefficient of variation, when ≥3 years) **and** a Sloan **accrual ratio** `(netIncome − operating cash flow) / totalAssets` from the latest `cfoHistory` / `totalAssetsHistory` year (falls back to `freeCashflow` for CFO; skipped when total assets are unavailable) — large positive accruals score low. Any subset of the three that has inputs is averaged; conversion ratio alone otherwise, then neutral 5.0 | Risk |
-| **Market risk** | Beta | Risk |
+| **Market risk** | Beta, **Blume-adjusted** (shrunk toward 1.0 — same `_adjust_beta` as WACC) so a noisy trailing estimate can't swing the dimension as hard | Risk |
 | **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, DGR (`_dgr_estimate` — true DGR when available, else `earningsGrowth`) | Risk |
 | **Liquidity** | Average daily volume | Risk |
 | **Quality** | ROE, ROA, operating margin, FCF yield, current ratio | *Separate score* |

@@ -17,6 +17,7 @@ import pytest
 import screener
 from screener import (
     _approx_wacc,
+    _adjust_beta,
     _ddm_single,
     _ddm_multistage,
     _ddm_weight_factor,
@@ -92,13 +93,36 @@ def _isolate_factor_cache(tmp_path, monkeypatch):
 
 class TestWacc:
     def test_normal_beta(self):
-        assert _approx_wacc(1.0) == pytest.approx(0.08)   # 3% rf + 1.0 × 5% ERP
-        assert _approx_wacc(2.0) == pytest.approx(0.13)
+        # beta 1.0 -> Blume-adjusted 1.0 -> 3% rf + 1.0 × 5% ERP
+        assert _approx_wacc(1.0) == pytest.approx(0.08)
+        # beta 2.0 -> Blume 0.67×2 + 0.33 = 1.67 -> 3% + 1.67 × 5%
+        assert _approx_wacc(2.0) == pytest.approx(0.03 + 1.67 * 0.05)
 
     def test_missing_or_absurd_beta_falls_back_to_default(self):
         assert _approx_wacc(None) == pytest.approx(0.08)
         assert _approx_wacc(6.0) == pytest.approx(0.08)    # out of [0.1, 5.0]
         assert _approx_wacc(0.05) == pytest.approx(0.08)
+        assert _approx_wacc(float("nan")) == pytest.approx(0.08)
+
+
+class TestAdjustBeta:
+    """screener._adjust_beta — reject out-of-band, else Blume-shrink toward 1.0 (WS-17)."""
+
+    def test_shrinks_toward_one(self):
+        w = screener.BLUME_WEIGHT
+        assert _adjust_beta(1.0) == pytest.approx(1.0)                 # fixed point
+        assert _adjust_beta(2.0) == pytest.approx(w * 2.0 + (1 - w))
+        assert _adjust_beta(0.4) == pytest.approx(w * 0.4 + (1 - w))
+        # always lands strictly between the raw value and 1.0
+        assert 1.0 < _adjust_beta(3.0) < 3.0
+        assert 0.5 < _adjust_beta(0.5) < 1.0
+
+    def test_none_for_missing_nan_or_out_of_band(self):
+        assert _adjust_beta(None) is None
+        assert _adjust_beta(float("nan")) is None
+        assert _adjust_beta("x") is None
+        assert _adjust_beta(6.0) is None      # above the [0.1, 5.0] sanity band
+        assert _adjust_beta(0.05) is None     # below it
 
 
 class TestGrahamAndPE:
@@ -577,8 +601,13 @@ class TestDimensionScores:
         assert rich == pytest.approx((8.0 + 10.0) / 2)
 
     def test_market_risk(self):
+        # beta 1.0 -> Blume 1.0 -> 10 - 1.0×3.5
         assert _market_risk_score(pd.Series({"beta": 1.0})) == pytest.approx(6.5)
-        assert _market_risk_score(pd.Series({"beta": 3.0})) == 0.0   # clamped
+        # beta 3.0 -> Blume 2.34 -> 10 - 2.34×3.5 (the raw 3.0 would have clamped to 0)
+        assert _market_risk_score(pd.Series({"beta": 3.0})) == pytest.approx(
+            10 - (0.67 * 3.0 + 0.33) * 3.5)
+        # extreme raw beta still clamps to 0 after the shrink
+        assert _market_risk_score(pd.Series({"beta": 5.0})) == 0.0
         assert _market_risk_score(pd.Series({})) == 5.0
 
     def test_liquidity_tiers(self):
@@ -658,7 +687,7 @@ class TestDimensionScores:
         # Same fields, but with a subset present-as-NaN instead of absent --
         # simulating a reindexed DataFrame row rather than a plain dict.
         nan_fields = ["interestCoverage", "fcfYield", "cashPayoutRatio",
-                      "fiveYearAvgDividendYield"]
+                      "fiveYearAvgDividendYield", "beta"]
         noisy = present.copy()
         for f in nan_fields:
             noisy[f] = np.nan

@@ -44,6 +44,12 @@ RISK_FREE_RATE      = 0.03    # Euro area approximation
 EQUITY_RISK_PREMIUM = 0.05
 DEFAULT_TAX_RATE    = 0.25    # EPV fallback when `country` is missing or unmapped below
 DEFAULT_BETA        = 1.0
+# Blume (1971): a stock's next-period beta is well approximated by shrinking its
+# trailing regression beta two-thirds of the way from the raw estimate toward the
+# market beta of 1.0. yfinance's `beta` is a noisy, backward-looking single
+# estimate, so both WACC and the market-risk score run it through this shrink
+# (screener._adjust_beta) rather than trusting the raw number.
+BLUME_WEIGHT        = 0.67
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
 
@@ -686,9 +692,23 @@ def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = N
 
 # ── Stage 2: Fair value estimation ───────────────────────────────────────────
 
+def _adjust_beta(beta) -> float | None:
+    """Shrink a raw beta toward the market beta of 1.0 by the Blume weight
+    (0.67·raw + 0.33·1.0). Returns None when `beta` is missing, NaN, or outside
+    the plausible [0.1, 5.0] band (rejected, not clamped to the edge) — callers
+    substitute DEFAULT_BETA (WACC) or a neutral score (market risk)."""
+    try:
+        b = float(beta)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(b) or not (0.1 <= b <= 5.0):
+        return None
+    return BLUME_WEIGHT * b + (1.0 - BLUME_WEIGHT) * DEFAULT_BETA
+
+
 def _approx_wacc(beta) -> float:
-    b = beta if (beta is not None and 0.1 <= beta <= 5.0) else DEFAULT_BETA
-    return RISK_FREE_RATE + b * EQUITY_RISK_PREMIUM
+    b = _adjust_beta(beta)
+    return RISK_FREE_RATE + (b if b is not None else DEFAULT_BETA) * EQUITY_RISK_PREMIUM
 
 
 def _ddm_single(div_rate, wacc, g) -> float | None:
@@ -903,8 +923,10 @@ def _dgr_estimate(row: pd.Series):
 
 
 def _market_risk_score(row: pd.Series) -> float:
-    """0–10, higher = lower beta risk."""
-    beta = _get_num(row, "beta")
+    """0–10, higher = lower beta risk. Beta is Blume-adjusted (shrunk toward
+    1.0) before scoring — see _adjust_beta — so a noisy trailing estimate can't
+    swing this dimension as hard."""
+    beta = _adjust_beta(_get_num(row, "beta"))
     if beta is None:
         return 5.0
     return float(_clamp(10 - abs(beta) * 3.5, 0, 10))
