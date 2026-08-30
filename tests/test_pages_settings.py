@@ -179,6 +179,46 @@ def test_import_excel_with_no_valid_positions_shows_error(isolated_data, monkeyp
     assert "No open" in "".join(e.value for e in at.error)
 
 
+def test_targets_section_renders(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Target allocation" in html
+    assert at.text_area(key="tgt_sectors").value == ""      # nothing saved yet
+    assert at.number_input(key="tgt_hhi").value == 0.0
+
+
+def test_save_target_allocation_persists(isolated_data, monkeypatch):
+    import streamlit as st
+    monkeypatch.setattr(st, "rerun", lambda *a, **k: None)   # save branch reruns
+
+    at = _run(monkeypatch)
+    at.text_area(key="tgt_sectors").set_value("Technology 25\nHealthcare 15")
+    at.text_area(key="tgt_tickers").set_value("AAA.BR 10")
+    at.number_input(key="tgt_hhi").set_value(0.15)
+    at.run()
+    at.button(key="tgt_save").click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+    t = portfolio.load_targets()
+    assert t["sectors"] == {"Technology": 0.25, "Healthcare": 0.15}
+    assert t["tickers"] == {"AAA.BR": 0.10}
+    assert t["hhi_max"] == 0.15
+
+
+def test_existing_targets_prefill_the_editor(isolated_data, monkeypatch):
+    portfolio.save_targets({"sectors": {"Technology": 0.30}, "hhi_max": 0.12})
+    at = _run(monkeypatch)
+    assert "Technology 30" in at.text_area(key="tgt_sectors").value
+    assert at.number_input(key="tgt_hhi").value == 0.12
+
+
+def test_parse_targets_text_drops_malformed_and_out_of_range():
+    from uvalu.pages_.settings import _parse_targets_text
+    parsed = _parse_targets_text("Technology 25\nBad\nHuge 250\nConsumer Cyclical 12%\n  \nZero 0")
+    assert parsed == {"Technology": 0.25, "Consumer Cyclical": 0.12}
+
+
 def test_account_footer_shows_email_and_role(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
