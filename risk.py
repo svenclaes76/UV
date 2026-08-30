@@ -54,6 +54,9 @@ BENCHMARK_TICKER = "^STOXX50E"
 _BETA_MIN_OBS    = 60       # aligned trading days needed to trust a regression beta
 _VOL_MIN_OBS     = 60       # ...and to use a holding's own realised vol over the beta proxy
 
+_LIQ_PARTICIPATION = 0.20   # assume you can trade 20% of a day's average volume
+_LIQ_DAYS_FLAG     = 10     # > this many days to exit the position → liquidity flag
+
 # Stage 7 composite weights
 _W_DEFAULT = {
     "concentration": 0.25,
@@ -112,6 +115,8 @@ class PositionRisk:
     rating: str                     # "Low" | "Medium" | "High" | "Critical"
     veto: bool = False              # real hard veto from the stock valuation algorithm (screener's `veto` column)
     beta_source: str = "yfinance"   # "regression" (own EUR series vs benchmark) | "yfinance" | "default"
+    days_to_liquidate: float | None = None   # trading days to exit at LIQ_PARTICIPATION of ADV
+    liquidity_flag: bool = False    # True when days_to_liquidate exceeds _LIQ_DAYS_FLAG
 
 
 @dataclass
@@ -475,6 +480,15 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         ds     = _dividend_sustainability_flag(fd_ser)
         rating = _position_rating(weight, beta, mos, fh, eq)
 
+        # Days to exit this position at _LIQ_PARTICIPATION of average daily
+        # volume — position-size aware, unlike the screener's volume-only score.
+        adv    = _safe(fd.get("averageVolume"))
+        px_now = _safe(row.get("live_price"))
+        dtl    = None
+        if adv and adv > 0 and px_now and px_now > 0 and pos_value > 0:
+            shares_held = pos_value / px_now
+            dtl = round(shares_held / (adv * _LIQ_PARTICIPATION), 2)
+
         profiles.append(PositionRisk(
             ticker=ticker,
             name=str(row.get("name", ticker)),
@@ -490,6 +504,8 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             rating=rating,
             veto=bool(veto_lookup.get(ticker, False)),
             beta_source=beta_src,
+            days_to_liquidate=dtl,
+            liquidity_flag=bool(dtl is not None and dtl > _LIQ_DAYS_FLAG),
         ))
     return profiles
 
@@ -1218,7 +1234,8 @@ def _score_tail(q: QuantMetrics, stress: StressResults) -> float:
     if pl > 0.35:    s += 30
     elif pl > 0.25:  s += 15
     elif pl > 0.15:  s += 5
-    worst = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
+    worst = min((r.portfolio_drawdown for r in stress.historical
+                 if r.portfolio_drawdown is not None), default=0.0)
     if worst < -0.40:    s += 10
     elif worst < -0.25:  s += 5
     return _clamp(s, 0, 100)
@@ -1226,7 +1243,7 @@ def _score_tail(q: QuantMetrics, stress: StressResults) -> float:
 
 def _score_factor(f: FactorExposure) -> float:
     if not f.available:
-        return 50.0
+        return 50.0     # placeholder for the sub-score display; _stage7 drops the slot
     s = 0.0
     s += sum(20 for b in f.loadings.values() if abs(b) > 1.5)
     if f.r_squared is not None:
@@ -1270,7 +1287,7 @@ def _risk_label_action(score: float) -> tuple[str, str]:
 def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
                       q: QuantMetrics, f: FactorExposure, income: IncomeRisk,
                       stress: StressResults, income_portfolio: bool) -> CompositeScore:
-    W  = _W_INCOME if income_portfolio else _W_DEFAULT
+    W  = dict(_W_INCOME if income_portfolio else _W_DEFAULT)
     sc = _score_concentration(c)
     sv = _score_volatility(q)
     st = _score_tail(q, stress)
@@ -1278,8 +1295,17 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
     su = _score_fundamental(profiles)
     si = _score_income(income)
 
-    score = (W["concentration"] * sc + W["volatility"] * sv + W["tail"] * st
-             + W["factor"] * sf + W["fundamental"] * su + W["income"] * si)
+    comps = {"concentration": sc, "volatility": sv, "tail": st,
+             "factor": sf, "fundamental": su, "income": si}
+    if not f.available:
+        # Drop the factor slot and renormalise the rest — a flat 50 at 15%
+        # weight otherwise drags every portfolio's score toward the middle
+        # whenever the Fama-French feed is unavailable.
+        W.pop("factor")
+        _tot = sum(W.values())
+        W = {k: v / _tot for k, v in W.items()}
+
+    score = sum(W[k] * comps[k] for k in W)
     label, action = _risk_label_action(score)
     return CompositeScore(
         score=round(score, 1),
@@ -1339,7 +1365,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             f"{income.flagged_income_pct:.0%} of portfolio income comes from dividend-at-risk positions",
             "Diversify income across more dividend payers"))
 
-    worst_dd = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
+    worst_dd = min((r.portfolio_drawdown for r in stress.historical
+                   if r.portfolio_drawdown is not None), default=0.0)
     if worst_dd < -0.40:
         items.append(RebalanceItem("hard", "Portfolio",
             f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown",
@@ -1445,6 +1472,13 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             items.append(RebalanceItem("soft", p.ticker,
                 f"{p.ticker}: High risk rating — monitor closely",
                 "Monitor closely; reduce if fundamentals weaken further"))
+
+    for p in profiles:
+        if p.liquidity_flag and p.days_to_liquidate is not None:
+            items.append(RebalanceItem("soft", p.ticker,
+                f"{p.ticker}: ~{p.days_to_liquidate:.0f} trading days to exit at "
+                f"{_LIQ_PARTICIPATION:.0%} of average volume — thin for this position size",
+                "Size the position to what you can exit in a few days, or accept the exit risk"))
 
     if quant.high_corr_pairs:
         pairs_str = ", ".join(f"{a}/{b}" for a, b, _ in quant.high_corr_pairs[:3])

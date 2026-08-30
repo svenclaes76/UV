@@ -329,6 +329,25 @@ class TestDimensionScores:
             {"freeCashflow": -100.0, "netIncome": 100.0})) == pytest.approx(2.0)
         assert _earnings_quality_score(pd.Series({})) == 5.0
 
+    def test_earnings_quality_blends_fcf_history(self):
+        # steady, all-positive FCF history lifts the score above the
+        # conversion-ratio-only 8.0
+        steady = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "fcfHistory": [102.0, 100.0, 98.0, 101.0]}))
+        assert steady > 8.0
+
+        # negative / whipsawing history drags it down
+        shaky = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "fcfHistory": [120.0, -40.0, 80.0, -10.0]}))
+        assert shaky < 8.0
+
+        # < 3 usable points → history ignored, conversion ratio alone
+        assert _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "fcfHistory": [100.0, float("nan")]})) == pytest.approx(8.0)
+
     def test_market_risk(self):
         assert _market_risk_score(pd.Series({"beta": 1.0})) == pytest.approx(6.5)
         assert _market_risk_score(pd.Series({"beta": 3.0})) == 0.0   # clamped
@@ -1480,6 +1499,89 @@ class TestStage7:
         assert _score_fundamental([prof("A", 0.5, "Low"),
                                    prof("B", 0.5, "Critical")]) == pytest.approx(50.0)
         assert _score_fundamental([]) == 50.0
+
+    def _sub(self, **over):
+        d = dict(portfolio_beta=1.0, beta_label="x", volatility_annual=0.15,
+                 volatility_label="x", var_95_1d_pct=-0.02, var_95_1d_eur=40.0,
+                 var_99_1d_eur=None, cvar_95_1d_eur=None, mdd_1y=None, mdd_3y=None,
+                 mdd_5y=None, mdd_label="N/A", sharpe=1.2, sortino=None,
+                 ratio_label="x", corr_matrix=None, high_corr_pairs=[],
+                 effective_diversification=None, returns_available=True)
+        d.update(over)
+        return QuantMetrics(**d)
+
+    def _stress(self, hist):
+        mc = MonteCarloResult(1, -0.1, -0.02, 0.03, 0.08, 0.15, 0.2)
+        return StressResults(historical=hist, factor_scenarios=[],
+                             mc_1y=mc, mc_3y=mc, mc_5y=mc)
+
+    def test_factor_slot_dropped_and_renormalised_when_unavailable(self):
+        c = _stage2_concentration(
+            pd.DataFrame([{"ticker": "A", "current_value": 1000.0, "sector": "T"}]), 1000.0)
+        q = self._sub()
+        inc = IncomeRisk(0.0, 0.0, None, [], None, None, False, [], 0.0)
+        stress = self._stress([ScenarioResult("x", "x", -0.1, -0.1, 100.0)])
+        prof = [PositionRisk("A", "A", 1.0, 1.0, None, None, 0.0, "N/A", "",
+                             5.0, 5.0, "Low")]
+
+        avail   = risk.FactorExposure(True, {"Mkt-RF": 0.5}, 0.3, 0.0, [])
+        unavail = risk.FactorExposure(False, {}, None, None, [])
+        s_avail   = risk._stage7_composite(prof, c, q, avail,   inc, stress, False).score
+        s_unavail = risk._stage7_composite(prof, c, q, unavail, inc, stress, False).score
+
+        # with factors unavailable the 5 remaining components are renormalised;
+        # recompute by hand to confirm no flat-50 term leaked in
+        W = {k: v for k, v in risk._W_DEFAULT.items() if k != "factor"}
+        tot = sum(W.values())
+        comps = dict(concentration=risk._score_concentration(c),
+                     volatility=risk._score_volatility(q),
+                     tail=risk._score_tail(q, stress),
+                     fundamental=risk._score_fundamental(prof),
+                     income=risk._score_income(inc))
+        expected = round(sum(W[k] / tot * comps[k] for k in W), 1)
+        assert s_unavail == pytest.approx(expected)
+        assert s_unavail != s_avail
+
+    def test_score_tail_ignores_none_scenario_drawdowns(self):
+        q = self._sub()
+        real = self._stress([ScenarioResult("a", "x", -0.5, -0.5, 500.0),
+                             ScenarioResult("b", "x", None, None, None)])
+        only_real = self._stress([ScenarioResult("a", "x", -0.5, -0.5, 500.0)])
+        assert risk._score_tail(q, real) == risk._score_tail(q, only_real)
+
+
+class TestWS8Liquidity:
+    def _pf(self, cur):
+        return pd.DataFrame([{"ticker": "A", "name": "A", "current_value": cur,
+                              "live_price": 100.0, "fair_value": 110.0}])
+
+    def test_days_to_liquidate_flags_thin_positions(self):
+        # 10_000 shares held (€1M / €100), ADV 5_000 → 10_000/(5_000·0.2) = 10d
+        thin = _stage1_position_profiles(self._pf(1_000_000.0),
+                                         {"A": {"averageVolume": 5_000}}, 1_000_000.0)[0]
+        assert thin.days_to_liquidate == pytest.approx(10.0)
+        assert thin.liquidity_flag is False            # exactly at the threshold, not over
+
+        thinner = _stage1_position_profiles(self._pf(1_000_000.0),
+                                            {"A": {"averageVolume": 2_000}}, 1_000_000.0)[0]
+        assert thinner.days_to_liquidate == pytest.approx(25.0)
+        assert thinner.liquidity_flag is True
+
+    def test_no_volume_leaves_it_none(self):
+        p = _stage1_position_profiles(self._pf(1000.0), {"A": {}}, 1000.0)[0]
+        assert p.days_to_liquidate is None and p.liquidity_flag is False
+
+    def test_stage8_emits_liquidity_trigger(self):
+        pf = self._pf(1_000_000.0)
+        profs = _stage1_position_profiles(pf, {"A": {"averageVolume": 1_000}}, 1_000_000.0)
+        conc = _stage2_concentration(pf, 1_000_000.0)
+        q = QuantMetrics(1.0, "x", 0.15, "x", -0.02, 40.0, None, None, None, None,
+                         None, "N/A", 1.5, None, "x", None, [], None, True)
+        inc = IncomeRisk(0.0, 0.0, None, [], None, None, False, [], 0.0)
+        mc = MonteCarloResult(1, -0.1, -0.02, 0.03, 0.08, 0.15, 0.2)
+        stress = StressResults([ScenarioResult("x", "x", -0.1, -0.1, 100.0)], [], mc, mc, mc)
+        r = _stage8_rebalance(profs, conc, q, inc, stress, 1_000_000.0)
+        assert any("days to exit" in i.message for i in r.items)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

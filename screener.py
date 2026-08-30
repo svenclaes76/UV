@@ -826,12 +826,32 @@ def _financial_health_score(row: pd.Series) -> float:
 
 
 def _earnings_quality_score(row: pd.Series) -> float:
-    """0–10, higher = better quality."""
+    """0–10, higher = better quality.
+
+    Blends FCF-to-net-income conversion (accruals: net income the cash flow
+    doesn't back is lower quality) with the consistency of the multi-year FCF
+    history (`fcfHistory`) — the fraction of positive years and how stable the
+    level is. Falls back to the conversion ratio alone, then a neutral 5.0.
+    """
+    scores: list[float] = []
+
     fcf = _get_num(row, "freeCashflow")
     ni  = _get_num(row, "netIncome")
-    if fcf is None or ni is None or ni == 0:
-        return 5.0
-    return float(_clamp(5 + (fcf / abs(ni)) * 3, 0, 10))
+    if fcf is not None and ni is not None and ni != 0:
+        scores.append(_clamp(5 + (fcf / abs(ni)) * 3, 0, 10))
+
+    hist = row.get("fcfHistory")
+    if isinstance(hist, list):
+        vals = [float(v) for v in hist
+                if isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v))]
+        if len(vals) >= 3:
+            pos_frac  = sum(1 for v in vals if v > 0) / len(vals)
+            mean      = sum(vals) / len(vals)
+            cv        = float(np.std(vals)) / abs(mean) if mean != 0 else 5.0
+            stability = _clamp(10 - cv * 4, 0, 10)        # cv 0 → 10, cv 2.5 → 0
+            scores.append(_clamp((pos_frac * 10 + stability) / 2, 0, 10))
+
+    return float(np.mean(scores)) if scores else 5.0
 
 
 def _market_risk_score(row: pd.Series) -> float:
