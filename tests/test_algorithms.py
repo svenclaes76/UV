@@ -1535,6 +1535,116 @@ class TestStage8:
         assert "A/B" in soft_text                             # correlated pair
 
 
+class TestStage8Drift:
+    def _inputs(self, *, hhi=0.12, sector_weights=None, largest_sector="Tech",
+               sector_flag=True, sharpe=0.7, ratings=(("AAA", "Low"),)):
+        sector_weights = sector_weights or {"Tech": 0.32}
+        profiles = [
+            PositionRisk(ticker=t, name=t, weight=0.22 if t == "AAA" else 0.10,
+                         beta=1.0, var_95_1d_eur=None, vol_annual=None, mos=0.1,
+                         valuation_flag="N/A", div_sustainability="",
+                         financial_health=7.0, earnings_quality=7.0, rating=rt)
+            for t, rt in ratings
+        ]
+        conc = ConcentrationMetrics(
+            hhi=hhi, hhi_label="x", top1_weight=0.22, top1_ticker="AAA",
+            top3_weight=0.4, top5_weight=0.5, top1_flag=False, top3_flag=False,
+            top5_flag=False, sector_weights=sector_weights,
+            largest_sector=largest_sector, sector_flag=sector_flag,
+            geo_weights={}, largest_geo=None, geo_flag=False,
+            div_hhi=None, div_top3_pct=None, income_concentration_flag=False)
+        quant = QuantMetrics(
+            portfolio_beta=1.0, beta_label="x", volatility_annual=0.15,
+            volatility_label="x", var_95_1d_pct=-0.02, var_95_1d_eur=50.0,
+            var_99_1d_eur=None, cvar_95_1d_eur=None, mdd_1y=None, mdd_3y=None,
+            mdd_5y=None, mdd_label="N/A", sharpe=sharpe, sortino=None,
+            ratio_label="x", corr_matrix=None, high_corr_pairs=[],
+            effective_diversification=None, returns_available=True)
+        income = IncomeRisk(portfolio_yield=0.02, total_annual_income=0.0,
+                            weighted_dgr=0.05, top3_income_shares=[],
+                            top3_cut_eur=None, top3_cut_pct=None,
+                            income_concentration_flag=False, flagged_payers=[],
+                            flagged_income_pct=0.0)
+        mc = MonteCarloResult(1, -0.1, -0.02, 0.03, 0.08, 0.15, 0.2)
+        stress = StressResults(
+            historical=[ScenarioResult("x", "x", -0.2, -0.2, 200.0)],
+            factor_scenarios=[], mc_1y=mc, mc_3y=mc, mc_5y=mc)
+        return profiles, conc, quant, income, stress
+
+    def test_sector_drift_replaces_absolute_guideline_when_target_set(self):
+        profiles, conc, quant, income, stress = self._inputs()
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              targets={"sectors": {"Tech": 0.20}})
+        drift = [i for i in r.items if i.ticker == "Tech" and i.mode == "drift"]
+        assert drift and "+12%" in drift[0].message and "target" in drift[0].message
+        # the absolute ">30% guideline" wording must not also appear
+        assert not any("guideline" in i.message for i in r.items)
+
+    def test_absolute_sector_check_still_fires_without_a_target(self):
+        profiles, conc, quant, income, stress = self._inputs()
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0)
+        assert any("guideline" in i.message and i.mode == "absolute" for i in r.items)
+
+    def test_ticker_drift_vs_target(self):
+        profiles, conc, quant, income, stress = self._inputs()
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              targets={"tickers": {"AAA": 0.10}})
+        it = next(i for i in r.items if i.ticker == "AAA" and i.mode == "drift")
+        assert "+12%" in it.message
+
+    def test_hhi_target_ceiling(self):
+        profiles, conc, quant, income, stress = self._inputs(hhi=0.20)
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              targets={"hhi_max": 0.15})
+        hhi_items = [i for i in r.items if "HHI" in i.message]
+        assert any("target ceiling" in i.message and i.mode == "drift" for i in hhi_items)
+        assert not any("0.18 threshold" in i.message for i in hhi_items)
+
+    def test_hhi_drift_since_snapshot(self):
+        profiles, conc, quant, income, stress = self._inputs(hhi=0.18)
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              prior_snapshot={"hhi": 0.10, "date": "2026-01-01"})
+        assert any("drifted +0.080 since 2026-01-01" in i.message and i.mode == "drift"
+                   for i in r.items)
+
+    def test_sharpe_two_consecutive_reviews(self):
+        profiles, conc, quant, income, stress = self._inputs(sharpe=0.7)
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              prior_snapshot={"sharpe": 0.8, "date": "2026-01-01"})
+        sharpe_it = next(i for i in r.items if "Sharpe" in i.message)
+        assert sharpe_it.mode == "drift" and "second consecutive" in sharpe_it.message
+
+        # no prior → the plain absolute wording
+        r2 = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0)
+        assert next(i for i in r2.items if "Sharpe" in i.message).mode == "absolute"
+
+    def test_rating_transition_flags_an_upgrade(self):
+        profiles, conc, quant, income, stress = self._inputs(ratings=(("AAA", "High"),))
+        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+                              prior_snapshot={"ratings": {"AAA": "Medium"}, "date": "2026-01-01"})
+        tr = [i for i in r.items if i.mode == "transition"]
+        assert tr and "Medium → High" in tr[0].message
+
+    def test_snapshot_from_report_roundtrips_via_report(self):
+        # snapshot_from_report pulls the exact fields _stage8_rebalance reads back
+        prof = PositionRisk(ticker="AAA", name="AAA", weight=0.5, beta=1.0,
+                            var_95_1d_eur=None, vol_annual=None, mos=0.0,
+                            valuation_flag="N/A", div_sustainability="",
+                            financial_health=5.0, earnings_quality=5.0, rating="High")
+        rep = risk.RiskReport(
+            generated_at="2026-01-02T00:00:00+00:00", portfolio_value=1000.0,
+            n_positions=1, position_profiles=[prof],
+            concentration=self._inputs()[1], quant=self._inputs()[2],
+            factor=risk.FactorExposure(False, {}, None, None, []),
+            income=self._inputs()[3], stress=self._inputs()[4],
+            composite=risk.CompositeScore(40.0, "Moderate risk", "x", {}),
+            rebalance=risk.RebalanceSignals([], [], [], []))
+        snap = risk.snapshot_from_report(rep)
+        assert snap["ratings"] == {"AAA": "High"}
+        assert snap["hhi"] == self._inputs()[1].hhi
+        assert snap["as_of"] == "2026-01-02T00:00:00+00:00"
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Prices helper
 # ══════════════════════════════════════════════════════════════════════════════

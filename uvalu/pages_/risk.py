@@ -1,11 +1,12 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
 import streamlit as st
 
 import risk as _risk_module
-from portfolio import load_portfolio, load_sold
+from portfolio import (load_portfolio, load_sold, load_targets,
+                       load_risk_snapshot, save_risk_snapshot)
 from screener import load_fundamentals_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
@@ -106,9 +107,17 @@ def render() -> None:
 
     _income_portfolio = False
 
+    # Target allocation + the prior day's snapshot feed Stage 8's drift triggers.
+    _targets        = load_targets()
+    _prior_snapshot = load_risk_snapshot()
+
     # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
+    # Not keyed on the snapshot: writing today's snapshot below would otherwise
+    # self-invalidate the cache on the very next render. The 1-hour TTL covers
+    # day rollover in practice.
     _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio,
-                           tuple(sorted(_veto_lookup.items()))))
+                           tuple(sorted(_veto_lookup.items())),
+                           repr(sorted(_targets.items()))))
     _risk_cached    = st.session_state.get("_risk_report_cache", {})
     _risk_report: _risk_module.RiskReport | None = None
 
@@ -120,11 +129,21 @@ def render() -> None:
 
     if _risk_report is None:
         try:
-            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio, _veto_lookup)
+            _risk_report = _risk_module.assess_portfolio(
+                pf, _risk_full_cache, _income_portfolio, _veto_lookup,
+                targets=_targets, prior_snapshot=_prior_snapshot)
             st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
         except Exception as _risk_err:
             st.error(f"Risk assessment failed: {_risk_err}")
             st.stop()
+
+        # Upsert today's snapshot as the reference point for future drift
+        # checks — only once per day, so the diff is against a real prior run.
+        if _prior_snapshot.get("date") != date.today().isoformat():
+            try:
+                save_risk_snapshot(_risk_module.snapshot_from_report(_risk_report))
+            except Exception:
+                pass
 
     r = _risk_report
 

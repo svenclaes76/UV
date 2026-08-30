@@ -237,6 +237,7 @@ class RebalanceItem:
     ticker: str             # scope: a ticker, sector/pair name, or "Portfolio"
     message: str            # trigger description shown in the UI
     action: str | None      # recommended next step, bundled with its trigger
+    mode: str = "absolute"  # "absolute" (level check) | "drift" (vs target/prior) | "transition"
 
 
 @dataclass
@@ -1297,9 +1298,20 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
 
 # ── Stage 8 — Rebalancing signals ────────────────────────────────────────────
 
+_RATING_RANK = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
+_DRIFT_PP = 0.05   # 5 percentage-point drift-from-target / drift-since-snapshot threshold
+
+
 def _stage8_rebalance(profiles: list[PositionRisk], concentration: ConcentrationMetrics,
                       quant: QuantMetrics, income: IncomeRisk,
-                      stress: StressResults, total_value: float) -> RebalanceSignals:
+                      stress: StressResults, total_value: float, *,
+                      targets: dict | None = None,
+                      prior_snapshot: dict | None = None) -> RebalanceSignals:
+    targets        = targets or {}
+    prior_snapshot = prior_snapshot or {}
+    sector_targets = targets.get("sectors") or {}
+    ticker_targets = targets.get("tickers") or {}
+    prior_since    = prior_snapshot.get("date") or prior_snapshot.get("as_of") or "last snapshot"
     items: list[RebalanceItem] = []
 
     # Hard triggers
@@ -1343,8 +1355,17 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                 f"{p.ticker}: Critical risk rating — review immediately",
                 "Review fundamentals; consider reducing or exiting"))
 
-    # Soft triggers
-    if concentration.hhi > 0.18:
+    # ── Soft triggers ───────────────────────────────────────────────────────
+    # Concentration (HHI): a target ceiling wins over the absolute bands; a
+    # prior snapshot adds a "drifted since" check on top.
+    hhi_max = _safe(targets.get("hhi_max"))
+    if hhi_max is not None:
+        if concentration.hhi > hhi_max:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"HHI {concentration.hhi:.3f} exceeds the {hhi_max:.3f} target ceiling",
+                "Add uncorrelated positions or sectors to reduce concentration",
+                mode="drift"))
+    elif concentration.hhi > 0.18:
         items.append(RebalanceItem("soft", "Portfolio",
             f"HHI {concentration.hhi:.3f} — highly concentrated, above the 0.18 threshold",
             "Add uncorrelated positions or sectors to reduce concentration"))
@@ -1353,21 +1374,71 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift",
             "Monitor concentration drift; avoid adding to largest positions"))
 
-    if concentration.sector_flag and concentration.largest_sector:
+    prior_hhi = _safe(prior_snapshot.get("hhi"))
+    if prior_hhi is not None and concentration.hhi - prior_hhi > _DRIFT_PP:
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"HHI drifted +{concentration.hhi - prior_hhi:.3f} since {prior_since} "
+            f"(now {concentration.hhi:.3f})",
+            "Rebalance toward the last-reviewed allocation", mode="drift"))
+
+    # Sector: drift vs target when a target allocation exists, else the
+    # absolute >30% guideline on the largest sector.
+    if sector_targets:
+        for sec in sorted(set(sector_targets) | set(concentration.sector_weights)):
+            tgt = _safe(sector_targets.get(sec))
+            if tgt is None:
+                continue
+            actual = concentration.sector_weights.get(sec, 0.0)
+            drift  = actual - tgt
+            if abs(drift) >= _DRIFT_PP:
+                items.append(RebalanceItem("soft", sec,
+                    f"{sec} at {actual:.0%} vs {tgt:.0%} target — {drift:+.0%} drift "
+                    f"exceeds {_DRIFT_PP:.0%}",
+                    "Reduce the overweight sector; top up the underweights", mode="drift"))
+    elif concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
         items.append(RebalanceItem("soft", concentration.largest_sector,
             f"{concentration.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
             "Reduce largest sector; add exposure to lagging sectors"))
+
+    # Per-name drift vs target (complements the hard >20% cap).
+    if ticker_targets:
+        for p in profiles:
+            tgt = _safe(ticker_targets.get(p.ticker))
+            if tgt is None:
+                continue
+            drift = p.weight - tgt
+            if abs(drift) >= _DRIFT_PP:
+                items.append(RebalanceItem("soft", p.ticker,
+                    f"{p.ticker} at {p.weight:.0%} vs {tgt:.0%} target — {drift:+.0%} drift",
+                    "Trim or top up toward the target weight", mode="drift"))
 
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
         items.append(RebalanceItem("soft", "Portfolio",
             f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk",
             "Favor payers with stronger dividend growth track records"))
 
+    prior_sharpe = _safe(prior_snapshot.get("sharpe"))
     if quant.sharpe is not None and quant.sharpe < 1.0:
-        items.append(RebalanceItem("soft", "Portfolio",
-            f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
-            "Reassess risk/return mix; trim volatile underperformers"))
+        if prior_sharpe is not None and prior_sharpe < 1.0:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"Sharpe {quant.sharpe:.2f} below 1.0 for a second consecutive review "
+                f"(was {prior_sharpe:.2f} at {prior_since})",
+                "Reassess risk/return mix; trim volatile underperformers", mode="drift"))
+        else:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
+                "Reassess risk/return mix; trim volatile underperformers"))
+
+    # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
+    prior_ratings = prior_snapshot.get("ratings") or {}
+    for p in profiles:
+        was = prior_ratings.get(p.ticker)
+        if (was in _RATING_RANK and p.rating in ("High", "Critical")
+                and _RATING_RANK[p.rating] > _RATING_RANK[was]):
+            items.append(RebalanceItem("soft", p.ticker,
+                f"{p.ticker}: risk rating {was} → {p.rating} since {prior_since}",
+                "Review what changed; reduce if the deterioration holds", mode="transition"))
 
     for p in profiles:
         if p.rating == "High":
@@ -1392,9 +1463,23 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
+def snapshot_from_report(report: "RiskReport") -> dict:
+    """The slim reference a later run diffs against for Stage 8's drift
+    triggers — persist via portfolio.save_risk_snapshot()."""
+    return {
+        "as_of":          report.generated_at,
+        "hhi":            report.concentration.hhi,
+        "sharpe":         report.quant.sharpe,
+        "sector_weights": dict(report.concentration.sector_weights),
+        "ratings":        {p.ticker: p.rating for p in report.position_profiles},
+    }
+
+
 def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                      income_portfolio: bool = False,
-                     veto_lookup: dict[str, bool] | None = None) -> RiskReport:
+                     veto_lookup: dict[str, bool] | None = None,
+                     targets: dict | None = None,
+                     prior_snapshot: dict | None = None) -> RiskReport:
     """
     Run the 8-stage risk assessment pipeline and return a RiskReport.
 
@@ -1410,6 +1495,14 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     veto_lookup      — optional {ticker: bool} from the screener's own `veto`
                        column (screener.py's df["veto"]); feeds Stage 1's
                        PositionRisk.veto and Stage 8's hard veto trigger.
+    targets          — optional target allocation
+                       {"sectors": {..}, "tickers": {..}, "hhi_max": float}
+                       (portfolio.load_targets()); switches Stage 8's sector /
+                       name / HHI checks from absolute levels to drift-vs-target.
+    prior_snapshot   — optional {"date","hhi","sharpe","sector_weights","ratings"}
+                       from the last run (portfolio.load_risk_snapshot(), built
+                       via snapshot_from_report()); adds drift-since / two-period
+                       / rating-transition triggers.
     """
     if pf_df is None or pf_df.empty:
         raise ValueError("Portfolio is empty — nothing to assess")
@@ -1493,7 +1586,8 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     s5 = _stage5_income(pf, cache, total_value)
     s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets_stress, s2)
     s7 = _stage7_composite(s1, s2, s3, s4, s5, s6, income_portfolio)
-    s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value)
+    s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value,
+                           targets=targets, prior_snapshot=prior_snapshot)
 
     return RiskReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
