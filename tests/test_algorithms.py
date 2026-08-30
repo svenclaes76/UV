@@ -759,6 +759,82 @@ class TestDimensionScores:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Screener Stage 6 — trend-based hard vetoes (WS-15)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestTrendVeto:
+    def test_declining_run(self):
+        # newest-first: vals[0] is the most recent year. A run counts how many
+        # consecutive years each sit *below* the year before them (vals[i] < vals[i+1]).
+        assert screener._declining_run([1.0, 2.0, 3.0]) == 2      # 3→2→1 chronologically
+        assert screener._declining_run([3.0, 2.0, 1.0]) == 0      # 1→2→3, still growing
+        assert screener._declining_run([1.0, 2.0, 0.5]) == 1      # newest down, then up
+        assert screener._declining_run([]) == 0
+        assert screener._declining_run([5.0]) == 0
+
+    def test_no_veto_without_enough_history(self):
+        assert screener._trend_veto(pd.Series({})) == []
+        # 2 declining years is below _TREND_MIN_YEARS
+        assert screener._trend_veto(pd.Series({"revenueHistory": [80.0, 100.0]})) == []
+        # column present as the reindex NaN scalar, not a list
+        assert screener._trend_veto(pd.Series({"revenueHistory": float("nan")})) == []
+
+    def test_revenue_decline_veto(self):
+        r = screener._trend_veto(pd.Series({"revenueHistory": [70.0, 85.0, 100.0, 110.0]}))
+        assert any("revenue fell" in x for x in r)
+        # latest year recovered after a slide (100→95→90→105) → run breaks at 0, no veto
+        assert screener._trend_veto(pd.Series({"revenueHistory": [105.0, 90.0, 95.0, 100.0]})) == []
+
+    def test_ebit_collapse_veto(self):
+        assert any("operating income negative" in x for x in
+                   screener._trend_veto(pd.Series({"ebitHistory": [-5.0, -3.0, -1.0]})))
+        # one profitable year in the window clears it
+        assert screener._trend_veto(pd.Series({"ebitHistory": [-5.0, 2.0, -1.0]})) == []
+
+    def test_retained_earnings_erosion_veto(self):
+        # negative and getting more negative
+        assert any("retained earnings" in x for x in
+                   screener._trend_veto(pd.Series({"retainedEarningsHistory": [-50.0, -30.0, -10.0]})))
+        # negative but recovering → no veto
+        assert screener._trend_veto(pd.Series({"retainedEarningsHistory": [-10.0, -30.0, -50.0]})) == []
+        # eroding but still positive → no veto
+        assert screener._trend_veto(pd.Series({"retainedEarningsHistory": [10.0, 30.0, 50.0]})) == []
+
+    def test_recent_dividend_cut_on_thin_cover_veto(self):
+        this_year = dt.datetime.now(dt.timezone.utc).year
+        r = screener._trend_veto(pd.Series({"dividend_last_cut_year": this_year - 1,
+                                            "dividendCoverage": 1.3}))
+        assert any("dividend cut in" in x for x in r)
+        # adequately covered → no veto
+        assert screener._trend_veto(pd.Series({"dividend_last_cut_year": this_year - 1,
+                                               "dividendCoverage": 2.0})) == []
+        # cut too long ago → no veto
+        assert screener._trend_veto(pd.Series({"dividend_last_cut_year": this_year - 5,
+                                               "dividendCoverage": 1.1})) == []
+
+    def test_trend_veto_forces_avoid_in_compute_scores(self):
+        rows = [
+            {"Name": "Shrink Co", "Ticker": "SHRINK", "Price": 40.0,
+             "trailingEps": 3.0, "bookValue": 12.0, "targetMeanPrice": 70.0,
+             "beta": 1.0, "returnOnEquity": 0.18, "currentRatio": 2.0,
+             "averageVolume": 1e6, "freeCashflow": 1e7, "netIncome": 8e6,
+             "revenueHistory": [60.0, 80.0, 95.0, 110.0]},          # 3+ yr revenue slide
+            {"Name": "Steady Co", "Ticker": "STEADY", "Price": 40.0,
+             "trailingEps": 3.0, "bookValue": 12.0, "targetMeanPrice": 70.0,
+             "beta": 1.0, "returnOnEquity": 0.18, "currentRatio": 2.0,
+             "averageVolume": 1e6, "freeCashflow": 1e7, "netIncome": 8e6,
+             "revenueHistory": [110.0, 100.0, 95.0, 90.0]},
+        ]
+        out = compute_scores(pd.DataFrame(rows))
+        shrink = out[out["Ticker"] == "SHRINK"].iloc[0]
+        steady = out[out["Ticker"] == "STEADY"].iloc[0]
+        assert bool(shrink["veto"]) is True
+        assert shrink["Value Score"] == 0.0
+        assert shrink["Decision"] == "Avoid"
+        assert bool(steady["veto"]) is False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 5+6 — percentile ranks, composite score, decision
 # ══════════════════════════════════════════════════════════════════════════════
 

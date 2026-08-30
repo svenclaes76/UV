@@ -272,6 +272,24 @@ class TestVetoReasonStr:
         row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, -2.0, -3.0]})
         assert "3 consecutive years" in veto_reason_str(row)
 
+    def test_revenue_decline_trend_is_a_reason(self, isolated_data):
+        row = pd.Series({"revenueHistory": [60.0, 80.0, 95.0, 110.0]})
+        assert "revenue fell" in veto_reason_str(row)
+
+    def test_ebit_collapse_trend_is_a_reason(self, isolated_data):
+        row = pd.Series({"ebitHistory": [-3.0, -2.0, -1.0]})
+        assert "operating income negative" in veto_reason_str(row)
+
+    def test_recent_dividend_cut_on_thin_cover_is_a_reason(self, isolated_data):
+        import datetime as _dt
+        yr = _dt.datetime.now(_dt.timezone.utc).year
+        row = pd.Series({"dividend_last_cut_year": yr - 1, "dividendCoverage": 1.2})
+        assert "dividend cut in" in veto_reason_str(row)
+
+    def test_short_history_does_not_add_a_trend_reason(self, isolated_data):
+        row = pd.Series({"revenueHistory": [80.0, 100.0]})   # < 3 years
+        assert veto_reason_str(row) == "a hard-veto rule"
+
 
 class TestFairValueBarHtml:
     def test_missing_data_returns_dash(self):

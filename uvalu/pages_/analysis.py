@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
-from screener import _fcf_hard_veto, LEVERAGE_EXEMPT_SECTORS
+from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
@@ -303,12 +303,18 @@ def render() -> None:
         # isn't actually contributing to a veto in that state.
         _div_veto = div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0
         _div_note = f"{div_flag if div_flag else '—'} · {_fv(row, 'dividendCoverage', lambda v: f'{v:.2f}×')}"
+        # Multi-year deterioration checks re-use screener._trend_veto directly —
+        # same anti-drift reason as the D/E and FCF rows above. It returns the
+        # list of tripped reasons; empty means the row passes.
+        _trend_reasons = _trend_veto(row)
+        _trend_note = _trend_reasons[0] if _trend_reasons else "—"
         _checks = [
             (f"Debt / equity below {_max_de_thr/100:.1f}×",
              not (pd.notna(de) and de > _max_de_thr) or _de_exempt, _de_note),
             ("Positive free cash flow", not _fcf_hard_veto(row),
              _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
             ("Dividend coverage adequate", not _div_veto, _div_note),
+            ("No adverse multi-year trend", not _trend_reasons, _trend_note),
         ]
         for check_label, passed, note in _checks:
             icon = "✓" if passed else "✕"

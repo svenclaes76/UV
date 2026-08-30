@@ -130,12 +130,19 @@ Weights are fixed constants (`screener.W_MOS`, `W_RISK`, `W_QUALITY`, `W_MOMENTU
 A hard veto forces **Avoid** regardless of score.
 
 ### Hard Veto Rules
-`screener.compute_scores`'s `_hard_veto` is true when **any** of:
+`screener.compute_scores`'s `_hard_veto` is true when **any** of the following holds. The
+static, point-in-time checks:
 - Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
 - Free cash flow negative for the **3 most recent consecutive fiscal years** (`fcfHistory`, from the cash flow statement's "Free Cash Flow" row, newest first — `screener._fcf_history`). Falls back to the **single most recent reported period** (`freeCashflow`) when fewer than 3 years of history are available (recent IPOs, or tickers where the statement fetch failed/doesn't expose the row) — a single bad year no longer vetoes an otherwise-sound stock on its own once 3-year history exists.
 - Dividend sustainability flag is **At Risk** *and* dividend coverage < 1.0×
 
-Not implemented — no data source exists for any of these: active fraud investigation / accounting restatement, imminent covenant breach or liquidity crisis, or a standalone "dividend cut in current or prior fiscal year" veto (the closest proxy is the coverage-based check above).
+…and the multi-year **deterioration trends** (`screener._trend_veto`, each requiring at least `_TREND_MIN_YEARS` = 3 points of the relevant series from `screener._statement_history`; a shorter or absent series never triggers):
+- **Revenue decline** — `revenueHistory` has fallen year-over-year for at least `_TREND_DECLINE_RUN` (2) consecutive years at the newest end (i.e. 3+ straight declining years).
+- **EBIT collapse** — `ebitHistory` negative for the 3 most recent consecutive fiscal years (a coarse stand-in for a deteriorating interest-coverage trend, for which there's no multi-year series yet).
+- **Retained-earnings erosion** — `retainedEarningsHistory` is negative in the latest year *and* has been getting more negative for 2+ consecutive years (an accumulated-deficit spiral).
+- **Recent dividend cut on thin cover** — `dividend_last_cut_year` within the last `_DIV_CUT_VETO_YEARS` (2) complete years *and* `dividendCoverage` < `_DIV_CUT_VETO_COVERAGE` (1.5×). This promotes a recent DPS cut from a mere sustainability flag to a veto when the payout is also thinly covered.
+
+Not implemented — no data source exists: active fraud investigation / accounting restatement, or an imminent covenant breach or liquidity crisis.
 ---
 ## Algorithm Summary
 ```
@@ -159,7 +166,7 @@ Percentile-rank each sub-score (0–100) across the current universe
     ↓
 Composite Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
     ↓
-Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×) → forces Avoid
+Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
     ↓
 Strong Buy (score ≥ threshold AND MoS ≥ min_mos) | Monitor | Avoid
 ```

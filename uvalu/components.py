@@ -8,7 +8,7 @@ uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 import pandas as pd
 import streamlit as st
 
-from screener import _fcf_hard_veto, LEVERAGE_EXEMPT_SECTORS
+from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu.formatting import fmt_eur as _fmt_eur
 
@@ -37,7 +37,9 @@ def veto_reason_str(row: "pd.Series") -> str:
     ((debtToEquity > max_debt_equity) AND sector not in
     LEVERAGE_EXEMPT_SECTORS) | _fcf_hard_veto(row) [FCF negative 3
     consecutive years, falling back to the single most recent period when
-    less history is available] | (Div Flag == "At Risk" AND
+    less history is available] | _trend_veto(row) [multi-year revenue
+    decline / EBIT collapse / retained-earnings erosion / a recent
+    dividend cut on thin cover] | (Div Flag == "At Risk" AND
     dividendCoverage < 1.0) — the last one is a single AND-combined
     condition, not two independent ones, so it's only listed as failing
     when BOTH sub-conditions hold. Shared by uvalu/drawer.py and
@@ -57,6 +59,7 @@ def veto_reason_str(row: "pd.Series") -> str:
             reasons.append("free cash flow negative for 3 consecutive years")
         else:
             reasons.append(f"negative free cash flow ({_fmt_eur(fcf)})")
+    reasons.extend(_trend_veto(row))
     if div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0:
         reasons.append(f"dividend flagged at risk with {coverage:.2f}× coverage")
     return "; ".join(reasons) if reasons else "a hard-veto rule"

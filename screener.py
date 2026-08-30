@@ -34,7 +34,7 @@ import yfinance as yf
 
 import marketdata
 from scoring import (  # re-exported for existing `from screener import …` call sites
-    _clamp, _get_num,
+    _clamp, _get_num, _finite,
     _financial_health_score, _earnings_quality_score, _dividend_sustainability_flag,
 )
 
@@ -1137,6 +1137,74 @@ def _fcf_hard_veto(row: pd.Series) -> bool:
     return bool(fcf is not None and fcf < 0)
 
 
+# Trend-based hard vetoes (WS-15). Each needs a minimum window of the relevant
+# multi-year series (screener._statement_history / _dividend_stats); a series
+# that short or absent simply doesn't trigger — recent IPOs and failed statement
+# fetches never get vetoed for missing data.
+_TREND_MIN_YEARS       = 3      # points a history list needs before a trend check runs
+_TREND_DECLINE_RUN     = 2      # consecutive YoY declines that count as a decline trend
+_DIV_CUT_VETO_YEARS    = 2      # a DPS cut this recent, plus thin cover, is a standalone veto
+_DIV_CUT_VETO_COVERAGE = 1.5    # "thin" dividend cover for that standalone veto
+
+
+def _clean_history(row: pd.Series, field: str) -> list[float]:
+    """A newest-first history list column as finite floats (NaN/None dropped,
+    order kept); [] when the column is absent or isn't a list."""
+    hist = row.get(field)
+    if not isinstance(hist, list):
+        return []
+    return [f for f in (_finite(v) for v in hist) if f is not None]
+
+
+def _declining_run(vals: list[float]) -> int:
+    """Consecutive year-over-year declines at the newest end of a newest-first
+    series: `vals[0] < vals[1] < vals[2] …` → 2, 3, … (0 if the newest year
+    didn't fall)."""
+    run = 0
+    for i in range(len(vals) - 1):
+        if vals[i] < vals[i + 1]:
+            run += 1
+        else:
+            break
+    return run
+
+
+def _trend_veto(row: pd.Series) -> list[str]:
+    """Reasons a stock trips a *trend*-based hard veto (empty list = clean).
+
+    The static, point-in-time vetoes (sector-adjusted D/E, single-period FCF,
+    at-risk dividend + coverage < 1.0) live in compute_scores / veto_reason_str;
+    this is the multi-year-deterioration set. One function, so compute_scores and
+    both veto UIs (components.veto_reason_str, analysis.py's checks panel) read
+    the exact same rule instead of re-deriving it.
+    """
+    reasons: list[str] = []
+
+    rev = _clean_history(row, "revenueHistory")
+    if len(rev) >= _TREND_MIN_YEARS:
+        run = _declining_run(rev)
+        if run >= _TREND_DECLINE_RUN:
+            reasons.append(f"revenue fell {run + 1} straight years")
+
+    ebit = _clean_history(row, "ebitHistory")
+    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
+        reasons.append(f"operating income negative {_TREND_MIN_YEARS} years running")
+
+    ret = _clean_history(row, "retainedEarningsHistory")
+    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
+            and _declining_run(ret) >= _TREND_DECLINE_RUN):
+        reasons.append("retained earnings negative and still eroding")
+
+    last_cut = _get_num(row, "dividend_last_cut_year")
+    coverage = _get_num(row, "dividendCoverage")
+    if (last_cut is not None and coverage is not None
+            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
+            and coverage < _DIV_CUT_VETO_COVERAGE):
+        reasons.append(f"dividend cut in {int(last_cut)} with only {coverage:.2f}× cover")
+
+    return reasons
+
+
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    max_payout: float = 0.90, min_mos: float = 0.0,
                    buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
@@ -1186,11 +1254,14 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # LEVERAGE_EXEMPT_SECTORS where high leverage is structural rather than distress, OR
     # FCF negative for 3+ consecutive years (single most-recent period if less history
     # is available) OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
+    # OR any multi-year deterioration trend (_trend_veto: revenue decline, EBIT
+    # collapse, retained-earnings erosion, a recent dividend cut on thin cover).
     de            = df["debtToEquity"].fillna(0)
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
     fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
-    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | (
+    trend_veto    = df.apply(lambda r: bool(_trend_veto(r)), axis=1)
+    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | trend_veto | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 
