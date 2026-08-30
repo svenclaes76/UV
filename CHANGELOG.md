@@ -23,6 +23,7 @@ All notable changes to UV are documented here.
 - Screener: **DDM weight** now ramps continuously with the payout ratio (full across 30–70%, tapering to 0 by 5% / 95%) instead of a hard 5–90% in/out gate — no more fair-value cliff between an 89% and a 91% payer (WS-12)
 - Screener: **earnings quality** adds a Sloan accrual ratio `(netIncome − operating cash flow) / totalAssets` alongside the FCF/NI conversion and FCF-history consistency terms (WS-16)
 - Screener: **beta** is Blume-adjusted (`0.67 × raw + 0.33 × 1.0`) before it feeds WACC and the market-risk score, de-noising yfinance's trailing single-estimate beta; a beta outside [0.1, 5.0] still falls back to 1.0 (WS-17)
+- Screener: **analyst-target weight** cut from 0.208 to 0.130 (freed weight to EPV / Graham) and further scaled down per-stock when the sell-side estimates are widely dispersed (`(targetHighPrice − targetLowPrice) / targetMeanPrice`) or thinly covered (`numberOfAnalystOpinions`) (WS-13)
 - All risk metrics computed on EUR-restated price history (was a currency blend)
 - Composite score drops the factor slot and renormalises when the Fama-French feed is unavailable, instead of a flat placeholder
 - `earnings_quality` blends multi-year FCF-history consistency with the FCF/net-income ratio

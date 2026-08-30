@@ -100,17 +100,28 @@ COUNTRY_TAX_RATES = {
 # fair-value composite. Fixed constant, not derived from live analyst-accuracy data.
 ANALYST_TARGET_HAIRCUT = 0.10
 
-# Stage 2 fair-value model base weights — must sum to 1.00. Proportionally rescaled
-# from the original 0.18/0.18/0.19/0.20/0.20/0.25 (which summed to 1.20 — a stale
-# discrepancy, see docs/stock_valuation_algorithm.md) down to this scale, preserving
-# each model's relative influence. The DDM weights are the *base* rate for eligible
-# payers; _fair_value_models zeroes them out entirely when a stock is DDM-ineligible.
-W_GRAHAM     = 0.150
+# The analyst target also carries the lowest *base* weight of the six models and is
+# scaled down further (_analyst_weight_factor) when the sell-side estimates disagree
+# (wide high–low spread vs the mean) or are thin (few contributing analysts).
+_ANALYST_SPREAD_TIGHT     = 0.20   # (high−low)/mean at/below which dispersion doesn't bite
+_ANALYST_SPREAD_WIDE      = 0.80   # ...and at/above which the dispersion factor bottoms out
+_ANALYST_DISPERSION_FLOOR = 0.30
+_ANALYST_COVERAGE_FULL    = 8      # analyst count at/above which coverage doesn't bite
+_ANALYST_COVERAGE_FLOOR   = 0.30
+
+# Stage 2 fair-value model base weights — must sum to 1.00. Originally
+# 0.18/0.18/0.19/0.20/0.20/0.25 (a stale sum of 1.20), rescaled to
+# 0.150/0.150/0.158/0.167/0.167/0.208, then (WS-13) the analyst weight was cut
+# from 0.208 to 0.130 — sell-side targets are optimism-biased and slow to react
+# — and the freed ~0.078 handed to the two most fundamentals-anchored models,
+# EPV and Graham. The DDM weights are the *base* rate for eligible payers;
+# _fair_value_models scales them by the payout ramp (_ddm_weight_factor).
+W_GRAHAM     = 0.178
 W_PE         = 0.150
-W_EPV        = 0.158
+W_EPV        = 0.208
 W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
-W_ANALYST    = 0.208
+W_ANALYST    = 0.130
 
 # PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
 # the median trailing P/E of the stock's own *sector* across the screened universe
@@ -194,6 +205,9 @@ VALUATION_FIELDS = [
     "dividendRate",                 # Forward DPS (multi-stage DDM)
     "fiveYearAvgDividendYield",     # Yield vs historical average
     "targetMeanPrice",              # Analyst target
+    "targetHighPrice",              # Analyst target — dispersion (high–low)/mean
+    "targetLowPrice",               # Analyst target — dispersion (high–low)/mean
+    "numberOfAnalystOpinions",      # Analyst target — coverage depth
     "ebit",                         # EPV
     "enterpriseValue",              # EPV: EV → per-share scaling
     "sharesOutstanding",            # Cash payout ratio
@@ -766,6 +780,32 @@ def _ddm_weight_factor(div_rate, payout) -> float:
     return (hi0 - payout) / (hi0 - hi1)
 
 
+def _analyst_weight_factor(row: pd.Series) -> float:
+    """Multiplier in [~0.09, 1.0] applied to W_ANALYST. Scales the analyst
+    target's pull down when the sell-side estimates disagree (wide high–low
+    spread relative to the mean) or are thinly covered (few contributing
+    analysts). 1.0 when neither signal is available — an absent field never
+    penalizes, it just doesn't discount.
+    """
+    hi, lo, mean = (_get_num(row, "targetHighPrice"),
+                    _get_num(row, "targetLowPrice"),
+                    _get_num(row, "targetMeanPrice"))
+    dispersion = 1.0
+    if None not in (hi, lo, mean) and mean > 0 and hi >= lo:
+        spread = (hi - lo) / mean
+        if spread > _ANALYST_SPREAD_TIGHT:
+            t = ((spread - _ANALYST_SPREAD_TIGHT)
+                 / (_ANALYST_SPREAD_WIDE - _ANALYST_SPREAD_TIGHT))
+            dispersion = _clamp(1.0 - t * (1.0 - _ANALYST_DISPERSION_FLOOR),
+                                _ANALYST_DISPERSION_FLOOR, 1.0)
+
+    n = _get_num(row, "numberOfAnalystOpinions")
+    coverage = (_clamp(n / _ANALYST_COVERAGE_FULL, _ANALYST_COVERAGE_FLOOR, 1.0)
+                if n else 1.0)
+
+    return dispersion * coverage
+
+
 def _sector_pe_medians(df: pd.DataFrame) -> dict:
     """{sector: winsorized median trailing P/E} across `df`, for the PE fair-value
     model. Only sectors with at least MIN_SECTOR_SAMPLE positive P/E readings get
@@ -846,17 +886,20 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_usable else None
 
     # Discount the raw analyst target for its well-documented optimism bias before it
-    # feeds the composite (the undiscounted target is still shown elsewhere in the UI).
+    # feeds the composite (the undiscounted target is still shown elsewhere in the UI),
+    # then scale its already-low base weight down further when the sell-side estimates
+    # are widely dispersed or thinly covered (_analyst_weight_factor).
     analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
+    w_analyst  = W_ANALYST * _analyst_weight_factor(row)
 
-    # Base weights (DDM weights already scaled by the payout ramp above)
+    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage)
     candidates = [
         (gn,         W_GRAHAM),
         (pe_fv,      W_PE),
         (epv,        W_EPV),
         (ddm1,       w_ddm1),
         (ddm2,       w_ddm2),
-        (analyst_fv, W_ANALYST),
+        (analyst_fv, w_analyst),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:

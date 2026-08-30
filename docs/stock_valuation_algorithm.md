@@ -17,7 +17,7 @@ There is a partial multi-year financial-statement history (the lines listed abov
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
 - Dividend rate (`trailingAnnualDividendRate` / `dividendRate`), 5-yr average dividend yield, ex-dividend and payment dates
-- Analyst mean target price (`targetMeanPrice`)
+- Analyst target price — mean (`targetMeanPrice`), high / low (`targetHighPrice` / `targetLowPrice`, for dispersion), and analyst count (`numberOfAnalystOpinions`, for coverage depth)
 - EBIT, enterprise value, shares outstanding
 - Debt/equity, current ratio, interest coverage, free cash flow (current + up to ~4-5yr history via `fcfHistory`), net income, beta, average volume, payout ratio
 - ROE, ROA, operating margin, profit margin
@@ -34,12 +34,12 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 ### Models
 | Model | Formula / Approach | Base weight |
 |---|---|---|
-| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.150 (`W_GRAHAM`) |
+| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS | 0.178 (`W_GRAHAM`) |
 | **PE Fair Value** | `EPS × m`, where `m` is the median trailing P/E of the stock's own **sector** across the current screened universe (`screener._sector_pe_medians`), winsorized to `PE_MULTIPLE_BAND` (6–30×), then multiplied by a bounded PEG tilt `clamp(1 + earningsGrowth, 0.7, 1.5)` (`PEG_TILT_BAND`). Falls back to a flat `PE_MULTIPLE_FALLBACK` (15×, the value used unconditionally before this) when the sector has fewer than `MIN_SECTOR_SAMPLE` (5) priced peers, or when `trailingPE`/`sector` aren't in the frame (pre-WS-10 caches, direct callers). The 15× fallback is *not* Graham's no-growth base multiplier (8.5×) — just a round heuristic near the long-run market-average P/E | 0.150 (`W_PE`) |
-| **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts the company's actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's actual EV/market-cap ratio. Falls back to the old `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.158 (`W_EPV`) |
+| **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts the company's actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's actual EV/market-cap ratio. Falls back to the old `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or not in the table | 0.208 (`W_EPV`) |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, g clamped to 0–5% | 0.167 (`W_DDM_SINGLE`) × payout ramp |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (g clamped 0–15%) + Gordon terminal value (terminal g = 2%) | 0.167 (`W_DDM_MULTI`) × payout ramp |
-| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.208 (`W_ANALYST`) |
+| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.130 (`W_ANALYST`) × dispersion & coverage factor |
 
 `DCF`, comparable multiples (P/E, EV/EBITDA, P/S), and an asset-based / P/B model are **not implemented** — they don't exist as separate fair-value inputs.
 
@@ -47,7 +47,11 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 
 **DDM payout ramp:** both DDM base weights are multiplied by `screener._ddm_weight_factor(div_rate, payout)`, a continuous factor in `[0, 1]` keyed on the payout ratio (`_DDM_PAYOUT_KNOTS = 0.05 / 0.30 / 0.70 / 0.95`): **0** for a non-payer or a payout at/below 5% or at/above 95%, **1.0** (full base weight) across the 30–70% comfortable band, and a **linear ramp** on each shoulder in between. It is continuous at every knot, so there is no cliff anywhere in the payout range — an 89%-payout payer and a 91%-payout payer differ by a sliver of DDM weight, not the whole ≈0.334 combined block (this replaces the earlier hard 5–90% in/out gate, itself a replacement for a still-earlier "graduated 30–50%" scheme). Whatever DDM weight is not used drops out and the remaining available models (Graham, PE, EPV, Analyst) are re-normalized over their own weights, since there is no DCF or comps model to receive it instead.
 
-The base weights above (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULTI`, `W_ANALYST`) sum to exactly **1.00**. They were originally 0.18/0.18/0.19/0.20/0.20/0.25 (summing to 1.20 — a stale discrepancy that didn't corrupt the composite math, since it already divides by Σ(weight used), but did make the doc's "0.40 of 1.0" framing inaccurate) and were proportionally rescaled down to 0.150/0.150/0.158/0.167/0.167/0.208, preserving each model's relative influence.
+**Analyst dispersion & coverage factor:** the analyst weight is `W_ANALYST × _analyst_weight_factor(row)`, itself the product of two multipliers, each `1.0` when its input is missing (an absent field never penalizes):
+- **dispersion** — from `spread = (targetHighPrice − targetLowPrice) / targetMeanPrice`: `1.0` while `spread ≤ 0.20` (`_ANALYST_SPREAD_TIGHT`), then a linear ramp down to `0.30` (`_ANALYST_DISPERSION_FLOOR`) at `spread = 0.80` (`_ANALYST_SPREAD_WIDE`), staying at the floor for any wider spread. Wide disagreement among analysts ⇒ the mean target carries less information.
+- **coverage** — `clamp(numberOfAnalystOpinions / 8, 0.30, 1.0)` (`_ANALYST_COVERAGE_FULL` / `_ANALYST_COVERAGE_FLOOR`). A target built from one or two analysts is downweighted toward the floor.
+
+The base weights above (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULTI`, `W_ANALYST`) sum to exactly **1.00**. They were originally 0.18/0.18/0.19/0.20/0.20/0.25 (a stale sum of 1.20), rescaled to 0.150/0.150/0.158/0.167/0.167/0.208, then — since sell-side targets are optimism-biased and slow to react to regime changes — the analyst weight was cut to **0.130** and the freed ≈0.078 handed to the two most fundamentals-anchored models: `W_EPV` 0.158 → **0.208** and `W_GRAHAM` 0.150 → **0.178**.
 
 ### Dividend-Specific Valuation Checks
 | Check | Formula | Where it's used |
@@ -138,7 +142,7 @@ Not implemented — no data source exists for any of these: active fraud investi
 Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
+  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut, weight scaled by dispersion & coverage])
     ↓
 Weighted fair value
   (base weights sum to 1.00; combined DDM weight ≈0.334 × a continuous payout

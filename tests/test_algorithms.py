@@ -21,6 +21,7 @@ from screener import (
     _ddm_single,
     _ddm_multistage,
     _ddm_weight_factor,
+    _analyst_weight_factor,
     _fair_value_models,
     _margin_of_safety,
     _total_expected_return,
@@ -277,6 +278,55 @@ class TestDdmWeightFactor:
         assert lo == sorted(lo) and hi == sorted(hi, reverse=True)
 
 
+class TestAnalystWeightFactor:
+    """screener._analyst_weight_factor — dispersion × coverage scaling (WS-13)."""
+
+    def test_neutral_when_no_signal(self):
+        assert _analyst_weight_factor(pd.Series({})) == pytest.approx(1.0)
+        # mean alone (no high/low, no count) → still neutral
+        assert _analyst_weight_factor(pd.Series({"targetMeanPrice": 100.0})) == pytest.approx(1.0)
+
+    def test_dispersion_ramp(self):
+        def disp(spread):
+            mean = 100.0
+            band = spread * mean
+            return _analyst_weight_factor(pd.Series({
+                "targetMeanPrice": mean,
+                "targetHighPrice": mean + band / 2,
+                "targetLowPrice":  mean - band / 2}))
+        assert disp(0.10) == pytest.approx(1.0)                 # inside tight band
+        assert disp(0.20) == pytest.approx(1.0)                 # at the knot
+        assert disp(0.80) == pytest.approx(0.30)               # at the floor
+        assert disp(1.50) == pytest.approx(0.30)               # clamped past the floor
+        assert disp(0.50) == pytest.approx(1.0 - 0.5 * 0.7)    # midpoint of the ramp
+        assert disp(0.30) > disp(0.60) > disp(0.80)            # monotone decreasing
+
+    def test_coverage_ramp(self):
+        def cov(n):
+            return _analyst_weight_factor(pd.Series({"numberOfAnalystOpinions": n}))
+        assert cov(8) == pytest.approx(1.0)
+        assert cov(12) == pytest.approx(1.0)                   # clamped at 1
+        assert cov(4) == pytest.approx(0.5)
+        assert cov(1) == pytest.approx(0.30)                   # floor
+        assert cov(0) == pytest.approx(1.0)                    # 0 → treated as "no data"
+
+    def test_factors_multiply(self):
+        row = pd.Series({"targetMeanPrice": 100.0, "targetHighPrice": 140.0,
+                         "targetLowPrice": 60.0, "numberOfAnalystOpinions": 4})
+        # spread 0.80 → dispersion 0.30 ; coverage 4/8 = 0.5 → product 0.15
+        assert _analyst_weight_factor(row) == pytest.approx(0.30 * 0.5)
+
+    def test_wide_dispersion_shrinks_analyst_pull_in_the_blend(self):
+        base = {"Price": 50.0, "trailingEps": 4.0, "targetMeanPrice": 120.0}
+        tight = _fair_value_models(pd.Series({**base, "targetHighPrice": 126.0,
+                                              "targetLowPrice": 114.0}))   # spread 0.10
+        wide  = _fair_value_models(pd.Series({**base, "targetHighPrice": 180.0,
+                                              "targetLowPrice": 60.0}))    # spread 1.0
+        # analyst target (108 after haircut) pulls fair value up from the PE-only
+        # anchor (60); a wide spread lets it pull less, so `wide` sits lower.
+        assert wide["fair_value"] < tight["fair_value"]
+
+
 class TestFairValueBlend:
     def test_weighted_average_of_available_models(self):
         # Only Graham, PE, analyst available.
@@ -291,6 +341,11 @@ class TestFairValueBlend:
     def test_no_models_available(self):
         fv = _fair_value_models(pd.Series({"Price": 50.0}))
         assert fv["fair_value"] is None
+
+    def test_base_model_weights_sum_to_one(self):
+        assert (screener.W_GRAHAM + screener.W_PE + screener.W_EPV
+                + screener.W_DDM_SINGLE + screener.W_DDM_MULTI
+                + screener.W_ANALYST) == pytest.approx(1.0)
 
     def test_ddm_excluded_when_payout_extreme(self):
         # payout 0.95 sits at the outer knot → ramp factor 0 → DDM drops out
