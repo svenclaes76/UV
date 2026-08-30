@@ -49,7 +49,7 @@ _SHARED_DEFAULTS: dict = {
 # same five signals so the user can pick which one leads. Read by screener.py's
 # compute_scores via get_score_weights() below.
 _SCORE_STYLES: dict[str, tuple] = {
-    "balanced": (0.30, 0.18, 0.22, 0.15, 0.15),
+    "balanced": (0.24, 0.22, 0.24, 0.15, 0.15),   # MoS co-leads with quality; risk lifted
     "value":    (0.38, 0.18, 0.26, 0.06, 0.12),   # MoS + quality lead
     "growth":   (0.16, 0.14, 0.28, 0.34, 0.08),   # momentum + quality lead, thin MoS
     "income":   (0.20, 0.20, 0.16, 0.06, 0.38),   # dividend-led

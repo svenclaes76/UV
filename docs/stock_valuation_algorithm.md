@@ -121,9 +121,9 @@ Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into
 
 `sub_score = BLEND_PCT × percentile + (1 − BLEND_PCT) × absolute_band`, `BLEND_PCT = 0.5`. Pure percentile ranking (the earlier behaviour, `BLEND_PCT = 1`) inflates a mediocre stock in a weak universe and makes MoS_rank meaningless when *every* stock is overvalued; the absolute anchor keeps the score honest in that case. It complements — doesn't replace — the small-universe flag below.
 ```
-Score = 0.30×MoS_sub + 0.18×Risk_sub + 0.22×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub
+Score = 0.24×MoS_sub + 0.22×Risk_sub + 0.24×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub
 ```
-(Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) The default weights are `screener.W_MOS` / `W_RISK` / `W_QUALITY` / `W_MOMENTUM` / `W_DIVIDEND` (`0.30 / 0.18 / 0.22 / 0.15 / 0.15` — the **balanced** style). Settings → Screening & veto rules → **Screening style** swaps in one of four shared, admin-controlled vectors (`settings._SCORE_STYLES`, each summing to 1.0, passed to `compute_scores(weights=…)` via `settings.get_score_weights()`): *balanced*, *value* (MoS + quality lead), *growth* (momentum + quality lead, thin MoS), *income* (dividend-led). The `Sub MoS` / `Sub Risk` / … columns carry the blended sub-scores; only the final weighting changes with the style.
+(Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) The default weights are `screener.W_MOS` / `W_RISK` / `W_QUALITY` / `W_MOMENTUM` / `W_DIVIDEND` (`0.24 / 0.22 / 0.24 / 0.15 / 0.15` — the **balanced** style). These were rebalanced from an earlier MoS-led `0.30 / 0.18 / 0.22 / 0.15 / 0.15`: margin of safety now co-leads with quality rather than dominating, and risk is weighted more heavily, so a wide discount can't on its own outvote weak fundamentals or a poor risk profile. Settings → Screening & veto rules → **Screening style** swaps in one of four shared, admin-controlled vectors (`settings._SCORE_STYLES`, each summing to 1.0, passed to `compute_scores(weights=…)` via `settings.get_score_weights()`): *balanced*, *value* (MoS + quality lead), *growth* (momentum + quality lead, thin MoS), *income* (dividend-led). The `Sub MoS` / `Sub Risk` / … columns carry the blended sub-scores; only the final weighting changes with the style.
 
 **Universe-size guard:** a small or low-quality universe can still let a mediocre stock rank high on the percentile half of each sub-score. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count.
 ---
@@ -171,7 +171,7 @@ Risk scoring (5 dimensions; earnings quality blends FCF-history consistency + a 
     ↓
 Each sub-score (0–100) = BLEND_PCT×(cross-sectional percentile rank) + (1−BLEND_PCT)×(absolute band); BLEND_PCT = 0.5
     ↓
-Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.30/0.18/0.22/0.15/0.15)
+Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.24/0.22/0.24/0.15/0.15)
     ↓
 Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
     ↓

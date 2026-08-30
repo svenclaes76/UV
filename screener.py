@@ -136,10 +136,15 @@ PE_MULTIPLE_BAND     = (6.0, 30.0)
 PEG_TILT_BAND        = (0.7, 1.5)
 MIN_SECTOR_SAMPLE    = 5
 
-# Composite score weights — must sum to 1.0
-W_MOS      = 0.30   # α — margin of safety
-W_RISK     = 0.18   # β — risk sub-score (already oriented so safer = higher)
-W_QUALITY  = 0.22   # γ — quality
+# Composite score weights — must sum to 1.0. Rebalanced away from the original
+# 0.30/0.18/0.22/0.15/0.15: MoS no longer dominates outright (it co-leads with
+# quality), and risk carries more weight, so a wide margin of safety can't by
+# itself outvote weak fundamentals or a poor risk profile. The "value" screening
+# style (settings._SCORE_STYLES) restores the MoS-led weighting for users who
+# want it.
+W_MOS      = 0.24   # α — margin of safety
+W_RISK     = 0.22   # β — risk sub-score (already oriented so safer = higher)
+W_QUALITY  = 0.24   # γ — quality
 W_MOMENTUM = 0.15   # δ — momentum
 W_DIVIDEND = 0.15   # ε — dividend score
 
