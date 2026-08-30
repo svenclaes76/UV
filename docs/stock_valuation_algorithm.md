@@ -96,7 +96,7 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 | Dimension | Key metrics | Part of |
 |---|---|---|
 | **Financial health** | Debt/equity, current ratio, interest coverage | Risk |
-| **Earnings quality** | FCF-to-net-income conversion **blended with** `fcfHistory` consistency (fraction of positive years + level stability via coefficient of variation) when ≥3 years are available; conversion ratio alone otherwise | Risk |
+| **Earnings quality** | FCF-to-net-income conversion **blended with** `fcfHistory` consistency (fraction of positive years + level stability via coefficient of variation, when ≥3 years) **and** a Sloan **accrual ratio** `(netIncome − operating cash flow) / totalAssets` from the latest `cfoHistory` / `totalAssetsHistory` year (falls back to `freeCashflow` for CFO; skipped when total assets are unavailable) — large positive accruals score low. Any subset of the three that has inputs is averaged; conversion ratio alone otherwise, then neutral 5.0 | Risk |
 | **Market risk** | Beta | Risk |
 | **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, DGR (`_dgr_estimate` — true DGR when available, else `earningsGrowth`) | Risk |
 | **Liquidity** | Average daily volume | Risk |
@@ -149,7 +149,7 @@ Margin of Safety = (Fair Value − Price) / Fair Value
 Total Expected Return = Capital Gain % + Forward Yield % + DGR % (true DPS CAGR, else earnings-growth proxy) [DGR halved if DDM contributed to Fair Value]
 Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio, DPS cut in last 3 complete years)
     ↓
-Risk scoring (5 dimensions; earnings quality blends FCF-history consistency, dividend risk uses true DGR) + separate Quality score + separate Momentum score + Dividend score
+Risk scoring (5 dimensions; earnings quality blends FCF-history consistency + a Sloan accrual ratio, dividend risk uses true DGR) + separate Quality score + separate Momentum score + Dividend score
     ↓
 Percentile-rank each sub-score (0–100) across the current universe
     ↓

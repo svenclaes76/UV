@@ -16,9 +16,36 @@ import pandas as pd
 
 _DIV_RECENT_CUT_YEARS = 3   # a DPS cut this recent still flags the payer
 
+# Sloan-style accrual ratio at which the accrual sub-score of earnings quality
+# hits 0. accr = (net income - operating cash flow) / total assets; ~0 or
+# negative is clean (score 10), >= this is heavily accrual-driven (score 0).
+_ACCRUAL_SCALE = 0.15
+
 
 def _clamp(v, lo, hi):
     return float(np.clip(v, lo, hi))
+
+
+def _finite(v) -> float | None:
+    """v as a float, or None if it isn't a number or is NaN."""
+    if isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v)):
+        return float(v)
+    return None
+
+
+def _latest_from_history(row: pd.Series, field: str):
+    """Most-recent (index 0) finite value of a newest-first history list column
+    (screener._statement_history: `revenueHistory`, `cfoHistory`,
+    `totalAssetsHistory`, …), or None. Tolerates the column being absent — a
+    reindex leaves a NaN scalar, not a list — or holding NaN entries."""
+    hist = row.get(field)
+    if not isinstance(hist, list):
+        return None
+    for v in hist:
+        f = _finite(v)
+        if f is not None:
+            return f
+    return None
 
 
 def _get_num(row: pd.Series, field: str):
@@ -54,10 +81,16 @@ def _financial_health_score(row: pd.Series) -> float:
 def _earnings_quality_score(row: pd.Series) -> float:
     """0–10, higher = better quality.
 
-    Blends FCF-to-net-income conversion (accruals: net income the cash flow
-    doesn't back is lower quality) with the consistency of the multi-year FCF
-    history (`fcfHistory`) — the fraction of positive years and how stable the
-    level is. Falls back to the conversion ratio alone, then a neutral 5.0.
+    Blends three signals, whichever have inputs (else a neutral 5.0):
+    - **FCF-to-net-income conversion** — net income the cash flow doesn't back is
+      lower quality.
+    - **Multi-year FCF-history consistency** (`fcfHistory`) — the fraction of
+      positive years and how stable the level is.
+    - **Sloan accrual ratio** — `(net income − operating cash flow) / total
+      assets` (latest year of `cfoHistory` / `totalAssetsHistory`, falling back
+      to `freeCashflow` as a rougher stand-in for CFO). Large positive accruals
+      (earnings running ahead of cash, scaled by the asset base) mean-revert and
+      predict weaker future returns; ~0 or negative scores clean.
     """
     scores: list[float] = []
 
@@ -68,14 +101,23 @@ def _earnings_quality_score(row: pd.Series) -> float:
 
     hist = row.get("fcfHistory")
     if isinstance(hist, list):
-        vals = [float(v) for v in hist
-                if isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v))]
+        vals = [f for f in (_finite(v) for v in hist) if f is not None]
         if len(vals) >= 3:
             pos_frac  = sum(1 for v in vals if v > 0) / len(vals)
             mean      = sum(vals) / len(vals)
             cv        = float(np.std(vals)) / abs(mean) if mean != 0 else 5.0
             stability = _clamp(10 - cv * 4, 0, 10)        # cv 0 → 10, cv 2.5 → 0
             scores.append(_clamp((pos_frac * 10 + stability) / 2, 0, 10))
+
+    # Sloan accruals. CFO from the statement history is the textbook input; FCF
+    # (CFO − capex) overstates accruals by the capex line but is a usable proxy.
+    cfo    = _latest_from_history(row, "cfoHistory")
+    if cfo is None:
+        cfo = fcf
+    assets = _latest_from_history(row, "totalAssetsHistory")
+    if ni is not None and cfo is not None and assets is not None and assets > 0:
+        accr = (ni - cfo) / assets
+        scores.append(_clamp(10 - (accr / _ACCRUAL_SCALE) * 10, 0, 10))
 
     return float(np.mean(scores)) if scores else 5.0
 

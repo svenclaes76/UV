@@ -543,6 +543,39 @@ class TestDimensionScores:
             "freeCashflow": 100.0, "netIncome": 100.0,
             "fcfHistory": [100.0, float("nan")]})) == pytest.approx(8.0)
 
+    def test_earnings_quality_accrual_term(self):
+        # clean: net income fully cash-backed by CFO → accrual sub-score 10,
+        # blended with the conversion term (8.0) → 9.0
+        clean = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "cfoHistory": [100.0], "totalAssetsHistory": [1000.0]}))
+        assert clean == pytest.approx(9.0)
+
+        # heavy accruals: fcf=ni=100 → conversion 8.0; CFO 0, assets 1000 →
+        # accr 0.10 → 10 - (0.10/0.15)*10 = 3.33; mean → 5.67
+        dirty = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "cfoHistory": [0.0], "totalAssetsHistory": [1000.0]}))
+        assert dirty == pytest.approx((8.0 + (10 - (0.10 / 0.15) * 10)) / 2, abs=1e-6)
+        assert dirty < clean
+
+        # CFO history absent → falls back to freeCashflow for the CFO input
+        via_fcf = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "totalAssetsHistory": [1000.0]}))
+        assert via_fcf == pytest.approx(9.0)
+
+        # total assets unavailable → accrual term skipped, not NaN
+        skipped = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0, "cfoHistory": [50.0]}))
+        assert skipped == pytest.approx(8.0)
+
+        # negative accrual (cash ahead of earnings) clamps the accrual score at 10
+        rich = _earnings_quality_score(pd.Series({
+            "freeCashflow": 100.0, "netIncome": 100.0,
+            "cfoHistory": [200.0], "totalAssetsHistory": [1000.0]}))
+        assert rich == pytest.approx((8.0 + 10.0) / 2)
+
     def test_market_risk(self):
         assert _market_risk_score(pd.Series({"beta": 1.0})) == pytest.approx(6.5)
         assert _market_risk_score(pd.Series({"beta": 3.0})) == 0.0   # clamped
