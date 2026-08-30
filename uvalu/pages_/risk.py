@@ -156,8 +156,15 @@ def render() -> None:
         # Plain grid cells (no st.metric()) — st.metric() is styled app-wide
         # as a boxed mint-tinted KPI tile (styles.py's stMetric rule), which
         # doesn't match the mockup's unboxed 3x2 stat grid here.
+        # Show the direct-regression beta alongside the weighted-sum one when
+        # they diverge enough to be worth a second look.
+        _beta_sub = r.quant.beta_label
+        _pbr = r.quant.portfolio_beta_regression
+        if _pbr is not None and abs(_pbr - r.quant.portfolio_beta) >= 0.15:
+            _beta_sub = f"{r.quant.beta_label} · regression {_pbr:.2f}"
+
         _metric_defs = [
-            ("BETA", f"{r.quant.portfolio_beta:.2f}", r.quant.beta_label),
+            ("BETA", f"{r.quant.portfolio_beta:.2f}", _beta_sub),
             ("VOLATILITY", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A", r.quant.volatility_label),
             ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label),
             ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label),

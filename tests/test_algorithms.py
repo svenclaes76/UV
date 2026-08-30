@@ -45,6 +45,9 @@ from risk import (
     _position_rating,
     _risk_label_action,
     _to_eur,
+    _ols_beta,
+    _resolve_betas,
+    BENCHMARK_TICKER,
     assess_portfolio,
     _stage1_position_profiles,
     _stage2_concentration,
@@ -637,6 +640,126 @@ class TestToEur:
         dr_blend = pd.DataFrame({"EU.PA": eur_px, "US.N": usd_px}).pct_change().iloc[1:]
         blend_vol = float((dr_blend.values @ np.array([0.5, 0.5])).std(ddof=1)) * np.sqrt(252)
         assert abs(report.quant.volatility_annual - blend_vol) > 1e-3
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Risk WS-3 — beta from history + realised position vol
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestBetaResolution:
+    def test_ols_beta_recovers_known_slope(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(0, 0.01, 500)
+        y = 1.4 * x + rng.normal(0, 1e-5, 500)
+        assert _ols_beta(y, x) == pytest.approx(1.4, abs=0.02)
+
+    def test_ols_beta_none_when_market_has_no_variance(self):
+        x = np.zeros(100)
+        assert _ols_beta(np.arange(100.0), x) is None
+
+    def _rets(self, n=260, seed=0):
+        idx = pd.bdate_range("2023-01-02", periods=n)
+        rng = np.random.default_rng(seed)
+        bench = pd.Series(rng.normal(0, 0.01, n), index=idx)
+        stock = pd.DataFrame({
+            "HI": 1.6 * bench + rng.normal(0, 1e-4, n),   # high beta
+            "LO": 0.4 * bench + rng.normal(0, 1e-4, n),   # low beta
+        }, index=idx)
+        return stock, bench
+
+    def test_resolve_betas_prefers_regression(self):
+        stock, bench = self._rets()
+        cache = {"HI": {"beta": 0.9}, "LO": {"beta": 0.9}}  # yfinance disagrees
+        betas, sources = _resolve_betas(["HI", "LO"], stock, bench, cache)
+        assert sources == {"HI": "regression", "LO": "regression"}
+        assert betas["HI"] == pytest.approx(1.6, abs=0.05)
+        assert betas["LO"] == pytest.approx(0.4, abs=0.05)
+
+    def test_resolve_betas_falls_back_to_yfinance_then_default(self):
+        stock, bench = self._rets(n=30)          # < _BETA_MIN_OBS
+        betas, sources = _resolve_betas(
+            ["HI", "NOFD"], stock, bench, {"HI": {"beta": 1.1}})
+        assert (sources["HI"], betas["HI"]) == ("yfinance", 1.1)
+        assert (sources["NOFD"], betas["NOFD"]) == ("default", 1.0)
+
+    def test_resolve_betas_no_benchmark_uses_yfinance(self):
+        stock, _ = self._rets()
+        betas, sources = _resolve_betas(["HI"], stock, None, {"HI": {"beta": 1.2}})
+        assert (sources["HI"], betas["HI"]) == ("yfinance", 1.2)
+
+    def test_stage3_portfolio_beta_uses_supplied_betas(self):
+        pf = pd.DataFrame([
+            {"ticker": "A", "current_value": 500.0},
+            {"ticker": "B", "current_value": 500.0},
+        ])
+        q = _stage3_quant(pf, {"A": {"beta": 1.0}, "B": {"beta": 1.0}}, 1000.0,
+                          pd.DataFrame(), betas={"A": 1.8, "B": 0.2},
+                          portfolio_beta_regression=1.05)
+        assert q.portfolio_beta == pytest.approx(1.0)          # 0.5×1.8 + 0.5×0.2
+        assert q.portfolio_beta_regression == 1.05
+
+    def test_stage1_sets_beta_source_and_uses_realised_vol(self):
+        idx = pd.bdate_range("2023-01-02", periods=200)
+        rng = np.random.default_rng(3)
+        closes = pd.DataFrame(
+            {"A": 100 * np.cumprod(1 + rng.normal(0, 0.02, 200))}, index=idx)
+        pf = pd.DataFrame([{"ticker": "A", "name": "A", "current_value": 1000.0,
+                            "live_price": 100.0, "fair_value": 110.0}])
+        profs = _stage1_position_profiles(
+            pf, {"A": {"beta": 3.0}}, 1000.0,
+            betas={"A": 1.1}, beta_sources={"A": "regression"}, closes=closes)
+        p = profs[0]
+        assert p.beta == 1.1 and p.beta_source == "regression"
+        # realised vol ≈ 0.02×√252 ≈ 0.32, nowhere near the 3.0-beta proxy (~0.57)
+        exp = float(closes["A"].pct_change().dropna().std(ddof=1)) * np.sqrt(252)
+        assert p.vol_annual == pytest.approx(exp, abs=1e-4)
+
+    def test_stage1_falls_back_to_beta_proxy_without_history(self):
+        pf = pd.DataFrame([{"ticker": "A", "name": "A", "current_value": 1000.0,
+                            "live_price": 100.0, "fair_value": 110.0}])
+        profs = _stage1_position_profiles(pf, {"A": {"beta": 2.0}}, 1000.0)
+        p = profs[0]
+        assert p.beta == 2.0 and p.beta_source == "yfinance"
+        assert p.vol_annual == pytest.approx(2.0 * 0.012 * np.sqrt(252), abs=1e-4)
+
+    def test_assess_portfolio_end_to_end_regression_beta(self, monkeypatch):
+        idx = pd.bdate_range("2023-01-02", periods=260)
+        rng = np.random.default_rng(11)
+        bench_r = rng.normal(0, 0.011, 260)
+        px = {
+            "AAA": 100 * np.cumprod(1 + (1.7 * bench_r + rng.normal(0, 5e-4, 260))),
+            "BBB": 100 * np.cumprod(1 + (0.5 * bench_r + rng.normal(0, 5e-4, 260))),
+            BENCHMARK_TICKER: 1000 * np.cumprod(1 + bench_r),
+        }
+        monkeypatch.setattr(risk, "_fetch_history",
+                            lambda tickers, period="5y": pd.DataFrame(
+                                {t: px[t] for t in tickers if t in px}, index=idx))
+        monkeypatch.setattr(risk, "_fetch_ff_csv",
+                            lambda url: (_ for _ in ()).throw(ConnectionError("offline")))
+        monkeypatch.setattr(risk, "_ff_cache", {})
+
+        pf = pd.DataFrame([
+            {"ticker": "AAA", "name": "A", "current_value": 600.0, "shares": 6,
+             "live_price": 100.0, "sector": "Tech", "country": "France",
+             "expected_annual": 0.0, "fair_value": 110.0},
+            {"ticker": "BBB", "name": "B", "current_value": 400.0, "shares": 4,
+             "live_price": 100.0, "sector": "Health", "country": "Germany",
+             "expected_annual": 0.0, "fair_value": 105.0},
+        ])
+        cache = {"AAA": {"beta": 1.0, "Currency": "EUR"},
+                 "BBB": {"beta": 1.0, "Currency": "EUR"}}
+
+        r = assess_portfolio(pf, cache)
+
+        by_ticker = {p.ticker: p for p in r.position_profiles}
+        assert by_ticker["AAA"].beta_source == "regression"
+        assert by_ticker["AAA"].beta == pytest.approx(1.7, abs=0.1)
+        assert by_ticker["BBB"].beta == pytest.approx(0.5, abs=0.1)
+        # weighted-sum ≈ 0.6×1.7 + 0.4×0.5 = 1.22, and the direct regression
+        # cross-check is populated and in the same ballpark
+        assert r.quant.portfolio_beta == pytest.approx(1.22, abs=0.1)
+        assert r.quant.portfolio_beta_regression is not None
+        assert r.quant.portfolio_beta_regression == pytest.approx(1.22, abs=0.15)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

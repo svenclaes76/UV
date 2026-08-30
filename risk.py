@@ -34,6 +34,14 @@ TRADING_DAYS     = 252
 MONTE_CARLO_PATHS = 10_000
 MONTE_CARLO_SEED  = 42
 
+# Market proxy for per-holding beta. EURO STOXX 50 is euro-denominated (no FX
+# step) and is already the app's European benchmark elsewhere
+# (portfolio.backfill_value_history). A euro-based investor's market beta is
+# best measured against their home market even for the odd US-listed holding.
+BENCHMARK_TICKER = "^STOXX50E"
+_BETA_MIN_OBS    = 60       # aligned trading days needed to trust a regression beta
+_VOL_MIN_OBS     = 60       # ...and to use a holding's own realised vol over the beta proxy
+
 # Stage 7 composite weights
 _W_DEFAULT = {
     "concentration": 0.25,
@@ -79,7 +87,7 @@ class PositionRisk:
     weight: float
     beta: float | None
     var_95_1d_eur: float | None
-    vol_annual: float | None        # annualised vol proxy (fraction) — |beta| × market vol × sqrt(252)
+    vol_annual: float | None        # annualised vol (fraction) — realised from the holding's own EUR series, or |beta| × market vol × √252 as a fallback
     mos: float | None               # margin of safety (fraction)
     valuation_flag: str             # "Overvalued" | "Fairly Valued" | "Undervalued" | "N/A"
     div_sustainability: str         # "OK" | "At Risk" | ""
@@ -87,6 +95,7 @@ class PositionRisk:
     earnings_quality: float         # 0–10
     rating: str                     # "Low" | "Medium" | "High" | "Critical"
     veto: bool = False              # real hard veto from the stock valuation algorithm (screener's `veto` column)
+    beta_source: str = "yfinance"   # "regression" (own EUR series vs benchmark) | "yfinance" | "default"
 
 
 @dataclass
@@ -133,6 +142,9 @@ class QuantMetrics:
     effective_diversification: float | None
     returns_available: bool
     sortino_label: str = "N/A"          # separate, higher-bar label for `sortino`
+    # Direct OLS beta of the portfolio return series on the benchmark, when
+    # both are available — a cross-check on the weighted-sum `portfolio_beta`.
+    portfolio_beta_regression: float | None = None
 
 
 @dataclass
@@ -292,6 +304,50 @@ def _mdd(series: pd.Series) -> float | None:
     return float(v) if np.isfinite(v) else None
 
 
+def _ols_beta(y: np.ndarray, x: np.ndarray) -> float | None:
+    """Slope of a simple OLS of y on x (1-D, equal length). None when x has
+    essentially no variance (nothing to regress against)."""
+    if len(y) < 2:
+        return None
+    vx = float(np.var(x, ddof=1))
+    if not np.isfinite(vx) or vx <= 0:
+        return None
+    b = float(np.cov(y, x, ddof=1)[0, 1] / vx)
+    return b if np.isfinite(b) else None
+
+
+def _resolve_betas(tickers: list[str], stock_rets: pd.DataFrame,
+                   bench_rets: pd.Series | None,
+                   cache: dict) -> tuple[dict[str, float], dict[str, str]]:
+    """Per-ticker beta with provenance. Preference order:
+
+    1. "regression" — OLS of the holding's own EUR daily returns on the
+       benchmark, given ≥ _BETA_MIN_OBS aligned observations.
+    2. "yfinance"   — the cached `beta` field (US-market, often stale).
+    3. "default"    — 1.0.
+    """
+    betas: dict[str, float] = {}
+    sources: dict[str, str] = {}
+    have_bench = bench_rets is not None and not stock_rets.empty
+    for t in tickers:
+        b = None
+        if have_bench and t in stock_rets.columns:
+            joined = pd.concat(
+                [stock_rets[t].rename("s"), bench_rets.rename("m")], axis=1
+            ).dropna()
+            if len(joined) >= _BETA_MIN_OBS:
+                b = _ols_beta(joined["s"].to_numpy(), joined["m"].to_numpy())
+        if b is not None:
+            betas[t], sources[t] = round(b, 3), "regression"
+            continue
+        yb = _safe(cache.get(t, {}).get("beta"))
+        if yb is not None:
+            betas[t], sources[t] = yb, "yfinance"
+        else:
+            betas[t], sources[t] = 1.0, "default"
+    return betas, sources
+
+
 # ── Stage 1 — Position-level risk profiling ───────────────────────────────────
 
 def _position_rating(weight: float, beta: float | None, mos: float | None,
@@ -316,8 +372,13 @@ def _position_rating(weight: float, beta: float | None, mos: float | None,
 
 def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
                                total_value: float,
-                               veto_lookup: dict[str, bool] | None = None) -> list[PositionRisk]:
-    veto_lookup = veto_lookup or {}
+                               veto_lookup: dict[str, bool] | None = None,
+                               *,
+                               betas: dict[str, float] | None = None,
+                               beta_sources: dict[str, str] | None = None,
+                               closes: pd.DataFrame | None = None) -> list[PositionRisk]:
+    veto_lookup  = veto_lookup or {}
+    beta_sources = beta_sources or {}
     profiles = []
     for _, row in pf.iterrows():
         ticker  = row["ticker"]
@@ -325,13 +386,34 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         fd_ser  = pd.Series(fd)
 
         weight    = _safe(row.get("current_value"), 0) / total_value if total_value > 0 else 0.0
-        beta      = _safe(fd.get("beta"))
         pos_value = _safe(row.get("current_value"), 0)
 
-        # Parametric VaR(95%) proxy — uses beta × market daily vol
-        stock_daily_vol = abs(beta if beta is not None else 1.0) * MARKET_DAILY_VOL
+        # Beta: resolved (regression on the holding's own EUR series) when the
+        # caller supplied one, else the cached yfinance field.
+        if betas is not None and ticker in betas:
+            beta     = _safe(betas.get(ticker))
+            beta_src = beta_sources.get(ticker, "regression")
+        else:
+            beta     = _safe(fd.get("beta"))
+            beta_src = "yfinance" if beta is not None else "default"
+
+        # Realised annualised vol from the holding's own EUR return series when
+        # there's enough history; otherwise the beta × market-vol proxy.
+        realised_vol = None
+        if closes is not None and not closes.empty and ticker in closes.columns:
+            s = closes[ticker].dropna()
+            if len(s) >= _VOL_MIN_OBS + 1:
+                rv = float(s.pct_change().dropna().std(ddof=1)) * np.sqrt(TRADING_DAYS)
+                if np.isfinite(rv) and rv > 0:
+                    realised_vol = rv
+
+        if realised_vol is not None:
+            vol_annual      = realised_vol
+            stock_daily_vol = realised_vol / np.sqrt(TRADING_DAYS)
+        else:
+            stock_daily_vol = abs(beta if beta is not None else 1.0) * MARKET_DAILY_VOL
+            vol_annual      = stock_daily_vol * np.sqrt(TRADING_DAYS)
         var_95 = pos_value * stock_daily_vol * 1.645
-        vol_annual = stock_daily_vol * np.sqrt(TRADING_DAYS)
 
         # Valuation flag from fair value vs live price
         price = _safe(row.get("live_price"))
@@ -363,6 +445,7 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             earnings_quality=round(eq, 1),
             rating=rating,
             veto=bool(veto_lookup.get(ticker, False)),
+            beta_source=beta_src,
         ))
     return profiles
 
@@ -501,11 +584,16 @@ def _weights_for_tickers(pf: pd.DataFrame, tickers: list[str],
 
 
 def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
-                  closes: pd.DataFrame) -> QuantMetrics:
+                  closes: pd.DataFrame, *,
+                  betas: dict[str, float] | None = None,
+                  portfolio_beta_regression: float | None = None) -> QuantMetrics:
     tickers = pf["ticker"].tolist()
-    betas   = np.array([_safe(cache.get(t, {}).get("beta"), 1.0) for t in tickers])
+    if betas is not None:
+        beta_arr = np.array([_safe(betas.get(t), 1.0) for t in tickers])
+    else:
+        beta_arr = np.array([_safe(cache.get(t, {}).get("beta"), 1.0) for t in tickers])
     weights = _weights_for_tickers(pf, tickers, total_value)
-    port_beta = float(np.dot(weights, betas))
+    port_beta = float(np.dot(weights, beta_arr))
 
     _no_history = QuantMetrics(
         portfolio_beta=round(port_beta, 2), beta_label=_beta_label(port_beta),
@@ -515,6 +603,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         sharpe=None, sortino=None, ratio_label="N/A", sortino_label="N/A",
         corr_matrix=None, high_corr_pairs=[], effective_diversification=None,
         returns_available=False,
+        portfolio_beta_regression=portfolio_beta_regression,
     )
 
     if closes.empty:
@@ -599,6 +688,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         high_corr_pairs=high_corr,
         effective_diversification=eff_div,
         returns_available=True,
+        portfolio_beta_regression=portfolio_beta_regression,
     )
 
 
@@ -1129,7 +1219,9 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     cache            — fundamentals cache dict from screener._load_cache().
                        Its per-ticker "Currency" field, when present, drives
                        the EUR restatement of price history (_to_eur); a
-                       missing currency is treated as EUR.
+                       missing currency is treated as EUR. Its "beta" field is
+                       the fallback when a holding has too little history to
+                       regress a beta against BENCHMARK_TICKER.
     income_portfolio — if True, income risk weight is elevated in Stage 7.
     veto_lookup      — optional {ticker: bool} from the screener's own `veto`
                        column (screener.py's df["veto"]); feeds Stage 1's
@@ -1150,9 +1242,24 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     total_value = float(pf["current_value"].fillna(0).sum())
     tickers     = pf["ticker"].tolist()
 
-    # Fetch 5-year price history for all positions in one batch call, then
-    # restate every series in EUR so port_rets isn't a currency blend.
-    closes = _to_eur(_fetch_history(tickers, period="5y"), cache)
+    # Fetch 5-year price history for all positions plus the market benchmark in
+    # one batch call, then restate every series in EUR so nothing downstream is
+    # a currency blend.
+    closes_all   = _to_eur(_fetch_history(tickers + [BENCHMARK_TICKER], period="5y"), cache)
+    bench_closes = (closes_all[[BENCHMARK_TICKER]]
+                    if BENCHMARK_TICKER in closes_all.columns else pd.DataFrame())
+    closes       = closes_all.drop(columns=[BENCHMARK_TICKER], errors="ignore")
+
+    bench_rets: pd.Series | None = None
+    if not bench_closes.empty:
+        _b = _daily_returns(bench_closes).dropna()
+        if len(_b) >= _BETA_MIN_OBS:
+            bench_rets = _b[BENCHMARK_TICKER]
+
+    # Per-holding beta (regression on own EUR series vs benchmark, with
+    # yfinance / 1.0 fallbacks) — feeds Stages 1 and 3.
+    stock_rets = _daily_returns(closes) if not closes.empty else pd.DataFrame()
+    betas, beta_sources = _resolve_betas(tickers, stock_rets, bench_rets, cache)
 
     # Build portfolio daily return series (used in Stages 3, 4, 6)
     port_rets: pd.Series | None = None
@@ -1168,9 +1275,20 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                     name="portfolio",
                 )
 
-    s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup)
+    # Direct OLS beta of the portfolio return series on the benchmark — a
+    # cross-check on the weighted-sum portfolio beta.
+    port_beta_reg: float | None = None
+    if port_rets is not None and bench_rets is not None:
+        j = pd.concat([port_rets.rename("p"), bench_rets.rename("m")], axis=1).dropna()
+        if len(j) >= _BETA_MIN_OBS:
+            _pbr = _ols_beta(j["p"].to_numpy(), j["m"].to_numpy())
+            port_beta_reg = round(_pbr, 3) if _pbr is not None else None
+
+    s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup,
+                                   betas=betas, beta_sources=beta_sources, closes=closes)
     s2 = _stage2_concentration(pf, total_value)
-    s3 = _stage3_quant(pf, cache, total_value, closes)
+    s3 = _stage3_quant(pf, cache, total_value, closes,
+                       betas=betas, portfolio_beta_regression=port_beta_reg)
     s4 = _stage4_factor(port_rets)
     s5 = _stage5_income(pf, cache, total_value)
     s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets, s2)
