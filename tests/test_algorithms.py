@@ -1500,6 +1500,16 @@ class TestStage7:
                                    prof("B", 0.5, "Critical")]) == pytest.approx(50.0)
         assert _score_fundamental([]) == 50.0
 
+    def test_score_income_reacts_to_stability(self):
+        def inc(stab):
+            return IncomeRisk(0.03, 100.0, 0.05, [], None, None, False, [], 0.0,
+                              income_stability=stab)
+        base = risk._score_income(inc(None))              # no DPS history → no term
+        assert risk._score_income(inc(8.0)) == base       # stable payers → no bump
+        assert risk._score_income(inc(4.0)) == base + 12  # weak
+        assert risk._score_income(inc(2.0)) == base + 25  # shaky / recent cuts
+        assert risk._score_income(inc(0.0)) <= 100        # still clamped
+
     def _sub(self, **over):
         d = dict(portfolio_beta=1.0, beta_label="x", volatility_annual=0.15,
                  volatility_label="x", var_95_1d_pct=-0.02, var_95_1d_eur=40.0,

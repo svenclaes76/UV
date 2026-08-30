@@ -1275,6 +1275,11 @@ def _score_income(income: IncomeRisk) -> float:
     if income.flagged_income_pct > 0.20:        s += 30
     if income.top3_cut_pct is not None and income.top3_cut_pct > 0.20: s += 20
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025: s += 15
+    # Low income-stability (short/no growth streaks, recent cuts among the
+    # payers weighted by income share) — None when no payer has DPS history yet.
+    if income.income_stability is not None:
+        if income.income_stability < 3.0:    s += 25
+        elif income.income_stability < 5.0:  s += 12
     return _clamp(s, 0, 100)
 
 
