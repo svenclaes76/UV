@@ -89,13 +89,15 @@ def _portfolio_cache_version() -> str:
 @st.cache_data(show_spinner=False)
 def _load_all_screener_data(cache_version: str, enabled: tuple,
                             extra_tickers: tuple = (), extra_names: tuple = (),
-                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0)) -> tuple:  # noqa: ARG001
+                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                            score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:  # noqa: ARG001
     """
     Build screener DataFrames from whatever is in the cache right now.
     cache_version (file mtime), enabled exchanges, extra_tickers (portfolio
-    stocks from disabled exchanges), and thresholds (max_debt_equity,
-    max_payout, min_mos, buy_threshold — see settings.get_veto_thresholds())
-    all bust the Streamlit cache when they change.
+    stocks from disabled exchanges), thresholds (max_debt_equity, max_payout,
+    min_mos, buy_threshold — see settings.get_veto_thresholds()) and
+    score_weights (the screening-style sub-weight vector — see
+    settings.get_score_weights()) all bust the Streamlit cache when they change.
 
     extra_tickers are folded into the single fetch_fundamentals_nowait call so
     they share the same background-fetch thread, cache file, and refresh cadence
@@ -141,7 +143,8 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
         tickers = {s["ticker"] for s in stock_list}
         return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)],
                                     max_debt_equity=_max_de, max_payout=_max_payout,
-                                    min_mos=_min_mos, buy_threshold=_buy_threshold)
+                                    min_mos=_min_mos, buy_threshold=_buy_threshold,
+                                    weights=score_weights)
 
     exchange_dfs = tuple(
         _exchange_df(stock_lists[key]) if key in stock_lists else empty
@@ -153,7 +156,8 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
         _extra_tset = {s["ticker"] for s in _extra_stocks}
         _extra_df   = run_screener_from_df(all_fund[all_fund["Ticker"].isin(_extra_tset)],
                                            max_debt_equity=_max_de, max_payout=_max_payout,
-                                           min_mos=_min_mos, buy_threshold=_buy_threshold)
+                                           min_mos=_min_mos, buy_threshold=_buy_threshold,
+                                           weights=score_weights)
     else:
         _extra_df = empty
 
@@ -162,15 +166,17 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
 
 @st.cache_data(show_spinner=False)
 def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: tuple,
-                                  thresholds: tuple = (500.0, 0.90, 0.0, 70.0)) -> pd.DataFrame:  # noqa: ARG001
+                                  thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                                  score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> pd.DataFrame:  # noqa: ARG001
     """Scored screener rows for the portfolio's *own* tickers (held + sold),
     fetched through the dedicated PORTFOLIO_FETCH lane — its own background
     thread, cache file and priority queue — so they never wait behind the
     exchange universe and aren't wiped by _bust_cache().
 
     Cache key: the portfolio cache-file mtime (pf_cache_version), the ticker
-    set, and the veto thresholds. Deliberately NOT keyed on enabled_exchanges,
-    so toggling an exchange in Settings leaves this untouched.
+    set, the veto thresholds and the screening-style weight vector. Deliberately
+    NOT keyed on enabled_exchanges, so toggling an exchange in Settings leaves
+    this untouched.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     stocks = [{"ticker": t, "name": n, "isin": ""} for t, n in zip(tickers, names)]
@@ -180,7 +186,8 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     if fund.empty:
         return pd.DataFrame(columns=["Ticker"])
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
-                                min_mos=_min_mos, buy_threshold=_buy_threshold)
+                                min_mos=_min_mos, buy_threshold=_buy_threshold,
+                                weights=score_weights)
 
 
 def prefetch_portfolio_data() -> None:

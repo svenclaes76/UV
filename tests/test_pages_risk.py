@@ -40,7 +40,7 @@ def _run(monkeypatch, screener_tuple=None, prices=None, risk_cache=None,
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
     monkeypatch.setattr(
         risk_page, "_load_portfolio_screener_data",
-        lambda _v, tickers, names, _t=None: (
+        lambda _v, tickers, names, _t=None, _w=None: (
             portfolio_scored if portfolio_scored is not None
             else make_portfolio_scored_df(tickers, names)))
     monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: risk_cache or {})
@@ -113,7 +113,7 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
 
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
-                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                        lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
@@ -133,7 +133,7 @@ def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
-                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                        lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
@@ -165,7 +165,7 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
     monkeypatch.setattr(risk_module, "_fetch_history", _short_history)
     monkeypatch.setattr(risk_page, "_load_all_screener_data", lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(risk_page, "_load_portfolio_screener_data",
-                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                        lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(risk_page, "load_fundamentals_cache", lambda: {})
     monkeypatch.setattr(risk_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers

@@ -114,7 +114,8 @@ def make_portfolio_scored_df(tickers=("AAA.BR",), names=("Alpha Corp",)) -> pd.D
     """Stand-in for uvalu.data._load_portfolio_screener_data() — a scored row
     per held/sold ticker, same column set as make_scored_df(). Page test _run
     helpers patch _load_portfolio_screener_data with
-    `lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names)`.
+    `lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names)`
+    (`_t` = veto thresholds, `_w` = the WS-18 screening-style weight vector).
     """
     rows = [make_scored_row(Ticker=t, Name=n) for t, n in zip(tickers, names)]
     return pd.DataFrame(rows if rows else [make_scored_row()])

@@ -18,7 +18,7 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
                         _load_portfolio_screener_data, _portfolio_cache_version)
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
@@ -101,9 +101,11 @@ def render() -> None:
         for t in _extra_tickers
     )
     *_pf_exch_dfs, _ = _load_all_screener_data(
-        _cache_version(), _pf_enabled, thresholds=get_veto_thresholds())
+        _cache_version(), _pf_enabled, thresholds=get_veto_thresholds(),
+        score_weights=get_score_weights())
     _pf_port_df = _load_portfolio_screener_data(
-        _portfolio_cache_version(), _extra_tickers, _extra_names, get_veto_thresholds())
+        _portfolio_cache_version(), _extra_tickers, _extra_names,
+        get_veto_thresholds(), get_score_weights())
     # Used to look up the full screener row (fair value, models, etc.) for
     # whichever open-position ticker the user clicks — the drawer needs more
     # than the portfolio row alone provides. keep="last" → the portfolio lane's

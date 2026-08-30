@@ -1246,7 +1246,16 @@ def _trend_veto(row: pd.Series) -> list[str]:
 
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    max_payout: float = 0.90, min_mos: float = 0.0,
-                   buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                   buy_threshold: float = SCORE_STRONG_BUY,
+                   weights: "tuple | None" = None) -> pd.DataFrame:
+    # Composite sub-score weights (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM,
+    # W_DIVIDEND). None → the module defaults ("balanced"); the Settings
+    # screening-style picker passes a re-lensed vector via
+    # settings.get_score_weights().
+    w_mos, w_risk, w_quality, w_momentum, w_dividend = (
+        weights if weights is not None
+        else (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND)
+    )
     # Ensure all expected columns exist (older cache may be missing new fields)
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
@@ -1312,11 +1321,11 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     dividend_rank = _blend_ranks(df["_dividend_raw"],    _BAND_0_10, ascending=True)
 
     score = (
-        W_MOS      * mos_rank
-        + W_RISK   * risk_rank
-        + W_QUALITY   * quality_rank
-        + W_MOMENTUM  * momentum_rank
-        + W_DIVIDEND  * dividend_rank
+        w_mos       * mos_rank
+        + w_risk    * risk_rank
+        + w_quality  * quality_rank
+        + w_momentum * momentum_rank
+        + w_dividend * dividend_rank
     ).round(1)
 
     score[df["_hard_veto"]] = 0.0
@@ -1373,16 +1382,18 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
 
 def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          max_payout: float = 0.90, min_mos: float = 0.0,
-                         buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                         buy_threshold: float = SCORE_STRONG_BUY,
+                         weights: "tuple | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching)."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
-                            buy_threshold=buy_threshold)
+                            buy_threshold=buy_threshold, weights=weights)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      max_payout: float = 0.90, min_mos: float = 0.0,
-                     buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                     buy_threshold: float = SCORE_STRONG_BUY,
+                     weights: "tuple | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -1394,4 +1405,4 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         return df
     print("Computing valuation scores...")
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
-                          min_mos=min_mos, buy_threshold=buy_threshold)
+                          min_mos=min_mos, buy_threshold=buy_threshold, weights=weights)

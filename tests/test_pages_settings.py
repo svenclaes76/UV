@@ -89,6 +89,23 @@ def test_non_admin_cannot_persist_veto_threshold_change(isolated_data, monkeypat
     assert settings.load_shared_settings()["max_debt_equity"] == 500.0
 
 
+def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch):
+    at = _run(monkeypatch, role="Admin")
+    at.segmented_control(key="scr_style").set_value("Income")
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_shared_settings()["screen_style"] == "income"
+
+
+@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
+def test_screening_style_disabled_and_not_persisted_for_non_admin(isolated_data, monkeypatch, role):
+    at = _run(monkeypatch, role=role)
+    assert at.segmented_control(key="scr_style").disabled is True
+    at.segmented_control(key="scr_style").set_value("Growth")
+    at.run()
+    assert settings.load_shared_settings().get("screen_style", "balanced") == "balanced"
+
+
 def test_changing_refresh_interval_persists(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     select_slider = at.select_slider(key="disp_refresh_interval")

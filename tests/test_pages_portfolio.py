@@ -27,7 +27,7 @@ def _run(monkeypatch, section=None) -> AppTest:
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
-                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                        lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -206,7 +206,7 @@ def test_viewer_role_disables_add_buttons(isolated_data, monkeypatch):
     monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
     monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
-                        lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                        lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
@@ -381,7 +381,7 @@ class TestDrawerEditHandoff:
         monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                             lambda *a, **k: make_screener_data_tuple())
         monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
-                            lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names))
+                            lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names))
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
             t: {"price": 110.0} for t in tickers
         })
@@ -421,7 +421,7 @@ portfolio_page.render()
         monkeypatch.setattr(portfolio_page, "_load_all_screener_data",
                             lambda *a, **k: make_screener_data_tuple())
         monkeypatch.setattr(portfolio_page, "_load_portfolio_screener_data",
-                            lambda _v, t, n, _th=None: make_portfolio_scored_df(t, n))
+                            lambda _v, t, n, _th=None, _w=None: make_portfolio_scored_df(t, n))
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached",
                             lambda tickers: {t: {"price": 110.0} for t in tickers})
         monkeypatch.setattr(portfolio_page, "record_value_snapshot", lambda *a: snap.append(a))

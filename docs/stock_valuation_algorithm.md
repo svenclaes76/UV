@@ -1,7 +1,7 @@
 # Stock Valuation Algorithm
 A systematic pipeline for identifying undervalued stocks and deciding whether they are worth buying.
 
-This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults.
+This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults. The same admin-only card also carries a **Screening style** picker (`settings.get_score_weights()`) that swaps the Stage 5 composite weights — see Stage 5.
 
 > The 0–10 fundamental scorers `_financial_health_score`, `_earnings_quality_score` and `_dividend_sustainability_flag` (plus `_clamp` / `_get_num`) now live in [`scoring.py`](../scoring.py) and are shared with the portfolio risk engine; `screener.py` re-exports them, so every `from screener import …` call site is unchanged.
 
@@ -123,7 +123,7 @@ Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into
 ```
 Score = 0.30×MoS_sub + 0.18×Risk_sub + 0.22×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub
 ```
-(Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) Weights are fixed constants (`screener.W_MOS`, `W_RISK`, `W_QUALITY`, `W_MOMENTUM`, `W_DIVIDEND`) — not adjustable per investment style (value / growth / income), though the composite's shape mirrors that intent. The `Sub MoS` / `Sub Risk` / … columns carry these blended values.
+(Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) The default weights are `screener.W_MOS` / `W_RISK` / `W_QUALITY` / `W_MOMENTUM` / `W_DIVIDEND` (`0.30 / 0.18 / 0.22 / 0.15 / 0.15` — the **balanced** style). Settings → Screening & veto rules → **Screening style** swaps in one of four shared, admin-controlled vectors (`settings._SCORE_STYLES`, each summing to 1.0, passed to `compute_scores(weights=…)` via `settings.get_score_weights()`): *balanced*, *value* (MoS + quality lead), *growth* (momentum + quality lead, thin MoS), *income* (dividend-led). The `Sub MoS` / `Sub Risk` / … columns carry the blended sub-scores; only the final weighting changes with the style.
 
 **Universe-size guard:** a small or low-quality universe can still let a mediocre stock rank high on the percentile half of each sub-score. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count.
 ---
@@ -171,7 +171,7 @@ Risk scoring (5 dimensions; earnings quality blends FCF-history consistency + a 
     ↓
 Each sub-score (0–100) = BLEND_PCT×(cross-sectional percentile rank) + (1−BLEND_PCT)×(absolute band); BLEND_PCT = 0.5
     ↓
-Composite Score = 0.30×MoS_sub + 0.18×Risk_sub + 0.22×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub  (Risk_sub already oriented safer = higher)
+Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.30/0.18/0.22/0.15/0.15)
     ↓
 Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
     ↓

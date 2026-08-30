@@ -840,6 +840,75 @@ class TestTrendVeto:
 # Screener Stage 5+6 — percentile ranks, composite score, decision
 # ══════════════════════════════════════════════════════════════════════════════
 
+class TestScreeningStyleWeights:
+    """settings._SCORE_STYLES / get_score_weights + compute_scores(weights=…) (WS-18)."""
+
+    def test_every_preset_sums_to_one(self):
+        import settings
+        for style, vec in settings._SCORE_STYLES.items():
+            assert len(vec) == 5
+            assert sum(vec) == pytest.approx(1.0), style
+
+    def test_balanced_preset_matches_module_constants(self):
+        import settings
+        assert settings._SCORE_STYLES["balanced"] == (
+            screener.W_MOS, screener.W_RISK, screener.W_QUALITY,
+            screener.W_MOMENTUM, screener.W_DIVIDEND)
+
+    def test_get_score_weights_reads_shared_setting_and_falls_back(self, isolated_data):
+        import settings
+        assert settings.get_score_weights() == settings._SCORE_STYLES["balanced"]
+        settings.save_shared_settings({**settings.load_shared_settings(), "screen_style": "income"})
+        assert settings.get_score_weights() == settings._SCORE_STYLES["income"]
+        settings.save_shared_settings({**settings.load_shared_settings(), "screen_style": "bogus"})
+        assert settings.get_score_weights() == settings._SCORE_STYLES["balanced"]
+
+    def test_none_weights_is_identical_to_the_balanced_vector(self):
+        rows = [{
+            "Name": f"C{i}", "Ticker": f"C{i}", "Price": 50.0 + i * 20,
+            "trailingEps": 4.0, "bookValue": 15.0, "targetMeanPrice": 90.0,
+            "beta": 1.0, "returnOnEquity": 0.15, "currentRatio": 1.8,
+            "averageVolume": 5e5, "freeCashflow": 1e7, "netIncome": 8e6,
+            "trailingAnnualDividendRate": 2.0, "payoutRatio": 0.5,
+            "dividendCoverage": 2.0, "earningsGrowth": 0.06, "revenueGrowth": 0.05,
+        } for i in range(4)]
+        default = compute_scores(pd.DataFrame(rows))
+        explicit = compute_scores(pd.DataFrame(rows), weights=(
+            screener.W_MOS, screener.W_RISK, screener.W_QUALITY,
+            screener.W_MOMENTUM, screener.W_DIVIDEND))
+        assert list(default["Value Score"]) == list(explicit["Value Score"])
+
+    def test_income_style_lifts_a_dividend_name_vs_growth_style(self):
+        import settings
+        rows = pd.DataFrame([
+            {   # fat, well-covered dividend; flat growth
+                "Name": "Payer", "Ticker": "PAYER", "Price": 50.0,
+                "trailingEps": 5.0, "bookValue": 30.0, "targetMeanPrice": 60.0,
+                "beta": 0.8, "returnOnEquity": 0.12, "currentRatio": 2.0,
+                "averageVolume": 8e5, "freeCashflow": 2e7, "netIncome": 1.8e7,
+                "trailingAnnualDividendRate": 3.0, "payoutRatio": 0.55,
+                "dividendYield": 0.06, "fiveYearAvgDividendYield": 0.05,
+                "dividendCoverage": 1.9, "cashPayoutRatio": 0.5,
+                "earningsGrowth": 0.01, "revenueGrowth": 0.01, "recommendationMean": 2.5,
+            },
+            {   # no dividend; strong momentum
+                "Name": "Rocket", "Ticker": "ROCKET", "Price": 50.0,
+                "trailingEps": 3.0, "bookValue": 8.0, "targetMeanPrice": 62.0,
+                "beta": 1.3, "returnOnEquity": 0.22, "currentRatio": 1.6,
+                "averageVolume": 8e5, "freeCashflow": 1e7, "netIncome": 9e6,
+                "earningsGrowth": 0.35, "revenueGrowth": 0.30, "recommendationMean": 1.5,
+            },
+        ])
+        income = compute_scores(rows.copy(), weights=settings._SCORE_STYLES["income"])
+        growth = compute_scores(rows.copy(), weights=settings._SCORE_STYLES["growth"])
+        _pay_inc = income[income["Ticker"] == "PAYER"]["Value Score"].iloc[0]
+        _roc_inc = income[income["Ticker"] == "ROCKET"]["Value Score"].iloc[0]
+        _pay_gro = growth[growth["Ticker"] == "PAYER"]["Value Score"].iloc[0]
+        _roc_gro = growth[growth["Ticker"] == "ROCKET"]["Value Score"].iloc[0]
+        # the payer gains ground under income, loses it under growth
+        assert (_pay_inc - _roc_inc) > (_pay_gro - _roc_gro)
+
+
 class TestCompositeScore:
     def test_weights_sum_to_one(self):
         assert (screener.W_MOS + screener.W_RISK + screener.W_QUALITY

@@ -32,7 +32,8 @@ import streamlit as st
 from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
-from settings import load_shared_settings, save_shared_settings, load_settings, save_settings
+from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
+                      _SCORE_STYLES)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
@@ -204,6 +205,14 @@ def render() -> None:
                     int(_shared.get("buy_threshold", 70)), str,
                     "Composite score required for a BUY signal.", disabled=not _is_admin)
 
+        _style_opts = [s.capitalize() for s in _SCORE_STYLES]
+        _cur_style  = str(_shared.get("screen_style", "balanced"))
+        _style_sel  = _seg_row(
+            "screen_style", "scr_style", "Screening style",
+            "Which signals lead the composite score — Value tilts to margin of safety "
+            "&amp; quality, Growth to momentum, Income to dividends.",
+            _style_opts, _cur_style.capitalize(), disabled=not _is_admin)
+
         _stoxx = _toggle_row("stoxx", "scr_stoxx", "Benchmark — Euro Stoxx 50",
                              "Overlay on the portfolio value chart.",
                              bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
@@ -228,6 +237,11 @@ def render() -> None:
                 _shared["max_payout"]      = float(_max_payout)
                 _shared["min_mos"]         = float(_min_mos)
                 _shared["buy_threshold"]   = float(_buy_thr)
+                save_shared_settings(_shared)
+                _load_all_screener_data.clear()
+                st.rerun()
+            elif _style_sel and _style_sel.lower() != _cur_style:
+                _shared["screen_style"] = _style_sel.lower()
                 save_shared_settings(_shared)
                 _load_all_screener_data.clear()
                 st.rerun()

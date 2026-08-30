@@ -9,7 +9,7 @@ from portfolio import (load_portfolio, load_sold, load_targets,
                        load_risk_snapshot, save_risk_snapshot)
 from portfolio_enrichment import enrich_for_risk
 from screener import load_fundamentals_cache
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
                         _load_portfolio_screener_data, _portfolio_cache_version)
 from uvalu.drawer import open_drawer
@@ -65,9 +65,11 @@ def render() -> None:
         for t in _risk_extra_tickers
     )
     *_risk_exch_dfs, _ = _load_all_screener_data(
-        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds())
+        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds(),
+        score_weights=get_score_weights())
     _risk_port_df  = _load_portfolio_screener_data(
-        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
+        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names,
+        get_veto_thresholds(), get_score_weights())
     # Held tickers that also sit on an enabled exchange appear in both frames;
     # keep="last" lets the portfolio lane's row (priority-fetched, its own
     # cadence) win so every downstream lookup — _veto_lookup, _risk_scr_by_ticker

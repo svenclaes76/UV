@@ -8,7 +8,7 @@ import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
 from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
@@ -48,7 +48,7 @@ def render() -> None:
     _manual_tickers_map = load_manual_tickers()
     _dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
-        get_veto_thresholds())
+        get_veto_thresholds(), get_score_weights())
     *_exch_dfs, _extra_df = _dfs
     all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))

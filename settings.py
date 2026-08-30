@@ -38,8 +38,21 @@ _SHARED_DEFAULTS: dict = {
     "max_payout":      90.0,    # % — dividend flagged "At Risk" above this payout ratio
     "min_mos":         0.0,     # % — minimum margin of safety required for a BUY signal
     "buy_threshold":   70.0,    # composite score required for a BUY signal
+    "screen_style":    "balanced",  # composite sub-score weighting — see _SCORE_STYLES
     "benchmark_stoxx": False,   # default state of the Dashboard's Euro Stoxx 50 overlay checkbox
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
+}
+
+# Composite-score sub-weight vectors per screening style, each
+# (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND) summing to 1.0. "balanced"
+# reproduces screener.py's own W_* constants exactly; the others just re-lens the
+# same five signals so the user can pick which one leads. Read by screener.py's
+# compute_scores via get_score_weights() below.
+_SCORE_STYLES: dict[str, tuple] = {
+    "balanced": (0.30, 0.18, 0.22, 0.15, 0.15),
+    "value":    (0.38, 0.18, 0.26, 0.06, 0.12),   # MoS + quality lead
+    "growth":   (0.16, 0.14, 0.28, 0.34, 0.08),   # momentum + quality lead, thin MoS
+    "income":   (0.20, 0.20, 0.16, 0.06, 0.38),   # dividend-led
 }
 
 _USER_DEFAULTS: dict = {
@@ -85,6 +98,14 @@ def get_veto_thresholds() -> tuple[float, float, float, float]:
         float(s.get("min_mos", 0.0)) / 100,
         float(s.get("buy_threshold", 70.0)),
     )
+
+
+def get_score_weights() -> tuple:
+    """(W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND) for the active
+    screening style — a hashable tuple so it joins the @st.cache_data keys next
+    to get_veto_thresholds(). Falls back to "balanced" for an unknown style."""
+    style = load_shared_settings().get("screen_style", "balanced")
+    return _SCORE_STYLES.get(style, _SCORE_STYLES["balanced"])
 
 
 # ── Per-user settings ────────────────────────────────────────────────────────

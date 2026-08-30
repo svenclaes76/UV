@@ -17,6 +17,7 @@ All notable changes to UV are documented here.
 - Risk engine: historical stress scenarios **replay the held basket's real drawdown** when history covers the window; Monte Carlo is now a block bootstrap re-centred on a CAPM drift
 - Risk engine: **drift-vs-target** rebalancing triggers — set a target allocation under Settings → Target allocation and a daily risk snapshot enables sector/name/HHI drift, two-period Sharpe, and rating-transition signals
 - Settings → **Target allocation** editor (personal sector / per-name weights + HHI ceiling)
+- Settings → Screening & veto rules → **Screening style** (balanced / value / growth / income) — an admin-controlled composite-weight preset threaded through `compute_scores` via `settings.get_score_weights()` (WS-18)
 - Screener: **trend-based hard vetoes** (`screener._trend_veto`) — a stock is now vetoed on 3+ straight years of revenue decline, 3 years of negative EBIT, an eroding negative retained-earnings balance, or a dividend cut in the last 2 years while coverage is under 1.5×; surfaced in the drawer/Analysis veto banner and the Analysis "Hard-veto checks" panel (WS-15)
 
 ### Changed

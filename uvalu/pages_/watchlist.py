@@ -7,7 +7,7 @@ import streamlit as st
 
 from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import stock_row, empty_results_html
 from uvalu.drawer import open_drawer
@@ -32,7 +32,7 @@ def render() -> None:
     _manual_tickers_map  = load_manual_tickers()
     _exch_dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
-        get_veto_thresholds())
+        get_veto_thresholds(), get_score_weights())
     *_per_exchange, extra_df = _exch_dfs
     all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
