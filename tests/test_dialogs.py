@@ -90,6 +90,13 @@ add_position_dialog(preset_ticker={preset_ticker!r}, preset_name={preset_name!r}
 
 
 class TestAddPositionDialog:
+    def test_marks_dialog_open_so_timed_refresh_does_not_close_it(self, monkeypatch):
+        # price_autorefresh's timer fires a full-app rerun; without this stamp
+        # it would tear down the open modal mid-edit (the "Add position isn't
+        # working" bug).
+        at = _run_add_position(monkeypatch, preset_ticker="AAA.BR")
+        assert "_uv_dialog_open_ts" in at.session_state
+
     def test_renders_with_presets(self, monkeypatch):
         at = _run_add_position(monkeypatch, preset_ticker="AAA.BR", preset_name="Alpha Corp", preset_price=12.5)
         assert at.text_input(key="dlg_ap_ticker").value == "AAA.BR"

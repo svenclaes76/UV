@@ -4,6 +4,8 @@ click-to-select dataframe / timed auto-refresh widgets.
 Theme-dependent helpers resolve the active palette via ``theme_colors()`` so
 callers don't pass colors around.
 """
+import time
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -55,6 +57,30 @@ def _row_select_table(df, key: str, **dataframe_kwargs) -> "int | None":
     return None
 
 
+# A modal dialog stays open only while its dialog-decorated function keeps
+# being called on every script run; a full-app rerun that doesn't re-invoke it
+# closes it (see st.dialog docs). _auto_rerun's timer fires exactly such a
+# rerun, so without this guard it silently tears down whatever @st.dialog the
+# user has open — losing half-entered form data (the "Add position isn't
+# working" bug). mark_dialog_open() timestamps an open modal; the timer skips
+# its rerun while that stamp is fresh. The stamp is refreshed on every
+# dialog-fragment rerun (i.e. every interaction inside the modal), so an
+# actively-used dialog never goes stale; it only lapses after this many
+# seconds of no interaction, and any genuine full run clears it outright.
+_DIALOG_GRACE_S = 300
+
+
+def mark_dialog_open() -> None:
+    """Call at the top of every ``@st.dialog`` body so a timed price refresh
+    can't yank the modal out from under the user mid-edit."""
+    st.session_state["_uv_dialog_open_ts"] = time.time()
+
+
+def _dialog_is_open() -> bool:
+    _ts = st.session_state.get("_uv_dialog_open_ts", 0.0)
+    return bool(_ts) and (time.time() - _ts) < _DIALOG_GRACE_S
+
+
 def _auto_rerun(seconds: float, key: str) -> None:
     """Rerun the whole app every `seconds` while the caller keeps rendering this.
 
@@ -66,12 +92,21 @@ def _auto_rerun(seconds: float, key: str) -> None:
     before the rerun, so the page body can tell a timed refresh from a user
     navigation via ``consumed_tick(key)`` and skip work that only needs to run
     on a genuine (re)visit.
+
+    A timer tick is skipped entirely while a modal dialog is open (see
+    ``mark_dialog_open``) — the full-app rerun would otherwise close it.
     """
     _flag = f"_auto_rerun_{key}"
+    # Any genuine full script run means no dialog is mid-flow (a full rerun
+    # that isn't from within the dialog has already closed it) — clear the
+    # stamp so a silently-dismissed dialog can't pause refreshes indefinitely.
+    st.session_state.pop("_uv_dialog_open_ts", None)
 
     @st.fragment(run_every=seconds)
     def _tick():
         if st.session_state.pop(_flag, False):
+            return
+        if _dialog_is_open():
             return
         st.session_state[f"_tick_{key}"] = True
         st.rerun(scope="app")

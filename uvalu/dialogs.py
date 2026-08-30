@@ -14,6 +14,7 @@ import streamlit as st
 import yfinance as yf
 
 from portfolio import add_position, sell_position, add_dividend, add_closed_trade
+from uvalu.ui import mark_dialog_open
 
 SECTOR_OPTIONS = [
     "Technology", "Healthcare", "Financial Services", "Consumer Cyclical",
@@ -66,6 +67,7 @@ def _lookup_ticker(sym: str) -> tuple[str, float] | None:
 
 @st.dialog("Add position", width="small")
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
+    mark_dialog_open()
     _dialog_width_css(420)
     st.caption("Enter the ticker and either a total cost or a price per share — whichever you have on hand.")
     _c1, _c2 = st.columns(2)
@@ -128,6 +130,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
 @st.dialog("Close position", width="small")
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
+    mark_dialog_open()
     _dialog_width_css(380)
     if ticker is None:
         _sorted = pf.sort_values("name", key=lambda s: s.str.lower())
@@ -175,6 +178,7 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
 
 @st.dialog("Add dividend", width="small")
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
+    mark_dialog_open()
     _dialog_width_css(380)
     _c1, _c2 = st.columns(2)
     with _c1:
@@ -216,6 +220,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
 
 @st.dialog("Add closed trade", width="small")
 def add_closed_trade_dialog() -> None:
+    mark_dialog_open()
     _dialog_width_css(420)
     st.caption("Record a trade that was opened and closed outside this app's normal Add/Close flow.")
     _c1, _c2 = st.columns(2)

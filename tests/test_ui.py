@@ -158,6 +158,54 @@ class TestAutoRerun:
         at = _run(_script)
         assert "_auto_rerun_test_refresh" not in at.session_state
 
+    def test_genuine_run_clears_a_stale_open_dialog_stamp(self):
+        # A dialog dismissed via X/ESC/click-outside (on_dismiss="ignore")
+        # fires no rerun, so its stamp lingers. The next genuine full run
+        # through _auto_rerun must clear it, otherwise the timer would keep
+        # skipping its rerun and price refreshes would stay frozen.
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _auto_rerun
+            st.session_state["_uv_dialog_open_ts"] = 1.0   # ancient
+            _auto_rerun(30, "test_refresh")
+
+        at = _run(_script)
+        assert "_uv_dialog_open_ts" not in at.session_state
+
+
+# ── mark_dialog_open / _dialog_is_open ────────────────────────────────────
+
+class TestDialogOpenGuard:
+    def test_mark_dialog_open_stamps_now_and_reads_back_open(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import mark_dialog_open, _dialog_is_open
+            mark_dialog_open()
+            st.text(_dialog_is_open())
+
+        at = _run(_script)
+        assert at.text[0].value == "True"
+
+    def test_stale_stamp_reads_back_closed(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _dialog_is_open, _DIALOG_GRACE_S
+            import time
+            st.session_state["_uv_dialog_open_ts"] = time.time() - _DIALOG_GRACE_S - 1
+            st.text(_dialog_is_open())
+
+        at = _run(_script)
+        assert at.text[0].value == "False"
+
+    def test_no_stamp_reads_back_closed(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _dialog_is_open
+            st.text(_dialog_is_open())
+
+        at = _run(_script)
+        assert at.text[0].value == "False"
+
 
 # ── consumed_tick ─────────────────────────────────────────────────────────
 

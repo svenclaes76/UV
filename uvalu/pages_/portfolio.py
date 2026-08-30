@@ -28,7 +28,7 @@ from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
-from uvalu.ui import price_autorefresh, consumed_tick
+from uvalu.ui import price_autorefresh, consumed_tick, mark_dialog_open
 
 # Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
 # row components render a compact mono exchange chip next to the ticker.
@@ -343,6 +343,7 @@ def render() -> None:
 
         @st.dialog("Edit position", width="small")
         def _dlg_edit_open_position(orig_idx: int) -> None:
+            mark_dialog_open()
             _row = pf.loc[orig_idx]
             _dialog_width_css(380)
             st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
@@ -455,6 +456,7 @@ def render() -> None:
 
             @st.dialog("Edit trade", width="small")
             def _dlg_edit_closed_position(orig_idx: int) -> None:
+                mark_dialog_open()
                 _row = sold.loc[orig_idx]
                 _dialog_width_css(380)
                 st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
@@ -538,6 +540,7 @@ def render() -> None:
 
             @st.dialog("Edit dividend", width="small")
             def _dlg_edit_dividend(orig_idx: int) -> None:
+                mark_dialog_open()
                 _row = div_hist.loc[orig_idx]
                 _dialog_width_css(380)
                 st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
