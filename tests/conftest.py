@@ -16,6 +16,7 @@ import pytest
 import auth
 import backup
 import portfolio
+import risk
 import settings
 
 TEST_EMAIL = "test@example.com"
@@ -52,6 +53,9 @@ def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setattr(backup, "_BACKUPS_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup, "_BACKUPS_MANIFEST", tmp_path / "backups" / "manifest.json")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # Keep the Fama-French disk cache off the developer's real .cache/factors.
+    monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
+    monkeypatch.setattr(risk, "_ff_cache", {})
     # Sets the pytest thread's own portfolio "current user" -- covers direct,
     # non-AppTest calls into portfolio.py made straight from a test body. An
     # AppTest-executed script runs on its own separate thread and needs its

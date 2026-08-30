@@ -13,8 +13,10 @@ cache   — fundamentals cache dict[ticker -> dict] from screener._load_cache()
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -154,6 +156,10 @@ class FactorExposure:
     r_squared: float | None
     alpha_annualised: float | None
     flags: list[str]
+    factor_set: str | None = None    # "developed" | "us" — which universe was regressed against
+    as_of: str | None = None         # ISO date of the newest factor observation used
+    stale: bool = False              # True when served from a cached copy, source unreachable
+    n_obs: int | None = None         # overlapping days in the regression
 
 
 @dataclass
@@ -696,12 +702,24 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
     )
 
 
-# ── Stage 4 — Factor exposure (Fama-French 5-factor) ─────────────────────────
+# ── Stage 4 — Factor exposure (Fama-French 5-factor + momentum) ──────────────
 
-_FF5_URL = ("https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
-            "F-F_Research_Data_5_Factors_2x3_Daily_CSV.zip")
-_MOM_URL = ("https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
-            "F-F_Momentum_Factor_Daily_CSV.zip")
+_FF_BASE = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+
+# Factor universes, tried in order. "developed" is the better match for a
+# euro-based portfolio of multinationals; "us" is the long-standing fallback
+# used if the Developed files are unreachable. (Both are USD-constructed with a
+# US risk-free; the regression subtracts the file's own RF and stays internally
+# consistent — see the risk-engine plan, WS-2/WS-5.)
+_FACTOR_SETS = [
+    ("developed", _FF_BASE + "Developed_5_Factors_Daily_CSV.zip",
+                  _FF_BASE + "Developed_Mom_Factor_Daily_CSV.zip"),
+    ("us",        _FF_BASE + "F-F_Research_Data_5_Factors_2x3_Daily_CSV.zip",
+                  _FF_BASE + "F-F_Momentum_Factor_Daily_CSV.zip"),
+]
+
+_FACTORS_DIR         = Path(__file__).parent / ".cache" / "factors"
+_FACTOR_MAX_AGE_DAYS = 7
 
 # In-process cache so we only download once per session
 _ff_cache: dict[str, pd.DataFrame] = {}
@@ -743,6 +761,86 @@ def _fetch_ff_csv(url: str) -> pd.DataFrame:
     return df
 
 
+def _factor_cache_path(kind: str, setname: str) -> Path:
+    return _FACTORS_DIR / f"{setname}_{kind}.csv"
+
+
+def _read_factor_cache(kind: str, *, max_age_days: float | None):
+    """Newest on-disk factor frame for `kind` ('5f'|'mom'), preferring the
+    earlier _FACTOR_SETS entries. Returns (df, setname) or None. `max_age_days`
+    None accepts any age (the stale-fallback path)."""
+    for setname, *_ in _FACTOR_SETS:
+        p = _factor_cache_path(kind, setname)
+        if not p.exists():
+            continue
+        if max_age_days is not None:
+            try:
+                if (time.time() - p.stat().st_mtime) / 86400 >= max_age_days:
+                    continue
+            except OSError:
+                continue
+        try:
+            df = pd.read_csv(p, index_col=0, parse_dates=True)
+            if not df.empty:
+                return df, setname
+        except Exception:
+            continue
+    return None
+
+
+def _write_factor_cache(kind: str, setname: str, df: pd.DataFrame) -> None:
+    try:
+        _FACTORS_DIR.mkdir(parents=True, exist_ok=True)
+        p   = _factor_cache_path(kind, setname)
+        tmp = p.with_suffix(".csv.tmp")
+        df.to_csv(tmp)
+        tmp.replace(p)
+    except Exception:
+        pass
+
+
+def _as_of(df: pd.DataFrame | None) -> str | None:
+    if df is None or df.empty:
+        return None
+    try:
+        return pd.Timestamp(df.index.max()).date().isoformat()
+    except Exception:
+        return None
+
+
+def _factor_data(kind: str) -> tuple[pd.DataFrame | None, dict]:
+    """(daily factor-return DataFrame, meta) for `kind` in {'5f','mom'}.
+
+    Disk cache first (< _FACTOR_MAX_AGE_DAYS old), then each _FACTOR_SETS entry
+    in turn via _fetch_ff_csv, writing a fresh CSV on success. If every network
+    attempt fails, the newest stale CSV on disk is served. meta keys:
+    set, as_of (last date in the frame), stale, source.
+    """
+    url_idx = 0 if kind == "5f" else 1
+
+    fresh = _read_factor_cache(kind, max_age_days=_FACTOR_MAX_AGE_DAYS)
+    if fresh is not None:
+        df, setname = fresh
+        return df, {"set": setname, "as_of": _as_of(df), "stale": False, "source": "disk"}
+
+    last_err: Exception | None = None
+    for setname, *urls in _FACTOR_SETS:
+        try:
+            df = _fetch_ff_csv(urls[url_idx])
+            _write_factor_cache(kind, setname, df)
+            return df, {"set": setname, "as_of": _as_of(df), "stale": False, "source": "network"}
+        except Exception as e:                     # noqa: BLE001 — try the next set
+            last_err = e
+
+    stale = _read_factor_cache(kind, max_age_days=None)
+    if stale is not None:
+        df, setname = stale
+        return df, {"set": setname, "as_of": _as_of(df), "stale": True,
+                    "source": "disk", "error": str(last_err)}
+    return None, {"set": None, "as_of": None, "stale": True, "source": None,
+                  "error": str(last_err)}
+
+
 def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
     _unavail = FactorExposure(available=False, loadings={}, r_squared=None,
                               alpha_annualised=None, flags=[])
@@ -751,21 +849,20 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
         _unavail.flags = ["Insufficient price history for factor analysis (need ≥60 days)"]
         return _unavail
 
-    try:
-        ff = _fetch_ff_csv(_FF5_URL)
-        ff = ff.loc[port_rets.index[0]:port_rets.index[-1]]
-    except Exception as e:
-        _unavail.flags = [f"Fama-French data unavailable: {e}"]
+    ff_df, ff_meta = _factor_data("5f")
+    if ff_df is None:
+        _unavail.flags = [f"Fama-French data unavailable: {ff_meta.get('error', 'no data')}"]
         return _unavail
+    ff = ff_df.loc[port_rets.index[0]:port_rets.index[-1]]
 
-    # Optionally add momentum factor
-    try:
-        mom = _fetch_ff_csv(_MOM_URL)
-        mom = mom.loc[port_rets.index[0]:port_rets.index[-1]]
-        mom_col = mom.iloc[:, 0].rename("WML")
-        ff = ff.join(mom_col, how="left")
-    except Exception:
-        pass
+    # Optionally add the momentum factor
+    mom_df, _mom_meta = _factor_data("mom")
+    if mom_df is not None:
+        try:
+            mom = mom_df.loc[port_rets.index[0]:port_rets.index[-1]]
+            ff  = ff.join(mom.iloc[:, [0]].rename(columns={mom.columns[0]: "WML"}), how="left")
+        except Exception:
+            pass
 
     merged = ff.join(port_rets.rename("port"), how="inner").dropna()
     if len(merged) < 30:
@@ -807,12 +904,21 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
             dom_name = factor_cols[dom_idx]
             flags.append(f"{dom_name} explains >{dom_share:.0%} of return variance")
 
+    n_overlap = len(merged)
+    if ff_meta.get("stale"):
+        flags.append(f"Factor data is a cached copy ({ff_meta.get('set')} set, "
+                     f"as of {ff_meta.get('as_of')}) — source unreachable")
+
     return FactorExposure(
         available=True,
         loadings=loadings,
         r_squared=round(float(r2), 3),
         alpha_annualised=round(alpha * TRADING_DAYS, 4),
         flags=flags,
+        factor_set=ff_meta.get("set"),
+        as_of=ff_meta.get("as_of"),
+        stale=bool(ff_meta.get("stale")),
+        n_obs=n_overlap,
     )
 
 

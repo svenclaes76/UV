@@ -205,7 +205,15 @@ def render() -> None:
                     f'<div style="font-size:11px;color:var(--faint);margin-top:6px;">{_FACTOR_NOTES.get(_fname, "")}</div></div>',
                     unsafe_allow_html=True,
                 )
-            st.caption("Fama-French 5-factor + momentum loadings. |loading| > 1.5 = concentrated factor bet.")
+            _prov = []
+            if r.factor.factor_set:
+                _prov.append(f"{r.factor.factor_set.title()} 5-factor + momentum set")
+            if r.factor.as_of:
+                _prov.append(f"as of {r.factor.as_of}")
+            if r.factor.stale:
+                _prov.append("cached — source unreachable")
+            _prov_txt = (" · " + " · ".join(_prov)) if _prov else ""
+            st.caption(f"Fama-French factor loadings{_prov_txt}. |loading| > 1.5 = concentrated factor bet.")
         else:
             st.caption("Factor analysis unavailable. " + (r.factor.flags[0] if r.factor.flags else ""))
 

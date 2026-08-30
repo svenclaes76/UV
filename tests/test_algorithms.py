@@ -8,6 +8,7 @@ Run:  python -m pytest tests/ -v
 """
 
 import datetime as dt
+import os
 
 import numpy as np
 import pandas as pd
@@ -72,6 +73,14 @@ from risk import (
 )
 from prices import _day_change
 import marketdata
+
+
+@pytest.fixture(autouse=True)
+def _isolate_factor_cache(tmp_path, monkeypatch):
+    """Keep _stage4_factor's on-disk Fama-French cache out of the real
+    .cache/factors, and reset the in-process URL cache between tests."""
+    monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
+    monkeypatch.setattr(risk, "_ff_cache", {})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1104,6 +1113,106 @@ class TestStage4Factor:
         result = _stage4_factor(long_rets)
         assert result.available is False
         assert "Fama-French data unavailable" in result.flags[0]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Risk WS-5 — hardened factor data feed (disk cache + set fallback + as-of)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ff5_frame(start="2022-01-03", n=400, seed=0):
+    idx = pd.bdate_range(start, periods=n)
+    rng = np.random.default_rng(seed)
+    cols = ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"]
+    df = pd.DataFrame({c: rng.normal(0, 0.006, n) for c in cols}, index=idx)
+    df["RF"] = 0.00012
+    df.index.name = "Date"
+    return df
+
+
+class TestFactorData:
+    def test_fresh_disk_cache_served_without_fetch(self, monkeypatch):
+        risk._write_factor_cache("5f", "developed", _ff5_frame())
+
+        def _boom(url):
+            raise AssertionError("should not fetch when the disk cache is fresh")
+        monkeypatch.setattr(risk, "_fetch_ff_csv", _boom)
+
+        df, meta = risk._factor_data("5f")
+        assert meta["set"] == "developed" and meta["source"] == "disk"
+        assert meta["stale"] is False and meta["as_of"] is not None
+        assert list(df.columns) == ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"]
+
+    def test_network_success_writes_cache_and_labels_set(self, monkeypatch):
+        frame = _ff5_frame()
+        monkeypatch.setattr(risk, "_fetch_ff_csv", lambda url: frame)
+        df, meta = risk._factor_data("5f")
+        assert meta["set"] == "developed" and meta["source"] == "network"
+        assert risk._factor_cache_path("5f", "developed").exists()
+
+    def test_falls_back_to_us_set_when_developed_unreachable(self, monkeypatch):
+        frame = _ff5_frame()
+
+        def _fetch(url):
+            if "Developed" in url:
+                raise ConnectionError("developed 404")
+            return frame
+        monkeypatch.setattr(risk, "_fetch_ff_csv", _fetch)
+        df, meta = risk._factor_data("5f")
+        assert meta["set"] == "us" and meta["source"] == "network"
+
+    def test_all_network_fails_serves_stale_disk_copy(self, monkeypatch):
+        risk._write_factor_cache("5f", "us", _ff5_frame())
+        p = risk._factor_cache_path("5f", "us")
+        old = dt.datetime.now().timestamp() - (risk._FACTOR_MAX_AGE_DAYS + 2) * 86400
+        os.utime(p, (old, old))
+
+        def _boom(url):
+            raise ConnectionError("offline")
+        monkeypatch.setattr(risk, "_fetch_ff_csv", _boom)
+
+        df, meta = risk._factor_data("5f")
+        assert meta["stale"] is True and meta["source"] == "disk" and meta["set"] == "us"
+        assert df is not None and not df.empty
+
+    def test_all_network_fails_no_disk_returns_none(self, monkeypatch):
+        def _boom(url):
+            raise ConnectionError("offline")
+        monkeypatch.setattr(risk, "_fetch_ff_csv", _boom)
+        df, meta = risk._factor_data("5f")
+        assert df is None and meta["stale"] is True and meta["set"] is None
+
+    def test_stage4_full_regression_populates_provenance(self, monkeypatch):
+        f5 = _ff5_frame(seed=1)
+
+        def _fd(kind):
+            if kind == "5f":
+                return f5, {"set": "developed", "as_of": "2023-08-04",
+                            "stale": False, "source": "network"}
+            return None, {"set": None, "as_of": None, "stale": True, "source": None}
+        monkeypatch.setattr(risk, "_factor_data", _fd)
+
+        idx = f5.index[50:300]
+        port_rets = pd.Series(np.random.default_rng(2).normal(0, 0.01, len(idx)), index=idx)
+        fx = _stage4_factor(port_rets)
+
+        assert fx.available is True
+        assert set(fx.loadings) >= {"Mkt-RF", "SMB", "HML", "RMW", "CMA"}
+        assert fx.factor_set == "developed" and fx.as_of == "2023-08-04"
+        assert fx.stale is False and fx.n_obs is not None
+
+    def test_stage4_flags_a_stale_cached_feed(self, monkeypatch):
+        f5 = _ff5_frame(seed=3)
+
+        def _fd(kind):
+            meta = {"set": "us", "as_of": "2026-05-01", "stale": True, "source": "disk"}
+            return (f5 if kind == "5f" else None), meta
+        monkeypatch.setattr(risk, "_factor_data", _fd)
+
+        idx = f5.index[50:200]
+        port_rets = pd.Series(np.random.default_rng(4).normal(0, 0.01, len(idx)), index=idx)
+        fx = _stage4_factor(port_rets)
+        assert fx.available is True and fx.stale is True
+        assert any("cached copy" in f for f in fx.flags)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
