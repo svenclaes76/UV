@@ -112,13 +112,20 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 The **Dividend score** (separate from dividend risk, feeds Stage 5 directly) combines: yield vs. 5-yr average, payout ratio safety, cash payout ratio, dividend coverage, and `_dgr_estimate` (true DGR when available, else the `earningsGrowth` proxy) — non-payers get a neutral 5.0 so they're neither rewarded nor penalized.
 ---
 ## Stage 5 — Composite Score
-Before weighting, MoS, Risk (inverted), Quality, Momentum, and Dividend are each converted to a **0–100 cross-sectional percentile rank** across the current screener universe (`screener._pct_rank`) — this is a normalization step not present in earlier drafts of this document, which described a raw weighted sum of the sub-scores directly.
-```
-Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
-```
-Weights are fixed constants (`screener.W_MOS`, `W_RISK`, `W_QUALITY`, `W_MOMENTUM`, `W_DIVIDEND`) — they are not currently adjustable per investment style (value / growth / income), though the composite's shape mirrors that intent.
+Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into a **0–100 sub-score** (`screener._blend_ranks`, higher = better for all five), a blend of two views of the same value:
+- **Cross-sectional percentile rank** (`screener._pct_rank`) — the stock's standing *within the current screened universe*. NaN rows get a neutral 50.
+- **Absolute band** (`screener._abs_band`) — the same value mapped through a fixed piecewise-linear scale, independent of the universe:
+  - MoS: `≤ 0 → 0`, `10% → 40`, `25% → 70`, `≥ 50% → 100` (`_BAND_MOS`).
+  - Quality / Momentum / Dividend: the raw 0–10 score × 10 (`_BAND_0_10`).
+  - Risk: `(10 − risk_raw) × 10`, so a low raw risk scores high (`_BAND_RISK`).
 
-**Universe-size guard:** because every sub-rank is cross-sectional (a stock's standing *within the current screened universe*, not against an absolute bar), a small or low-quality universe can let a mediocre stock land in the top percentile purely for lack of competition. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count rather than silently trusting the ranks.
+`sub_score = BLEND_PCT × percentile + (1 − BLEND_PCT) × absolute_band`, `BLEND_PCT = 0.5`. Pure percentile ranking (the earlier behaviour, `BLEND_PCT = 1`) inflates a mediocre stock in a weak universe and makes MoS_rank meaningless when *every* stock is overvalued; the absolute anchor keeps the score honest in that case. It complements — doesn't replace — the small-universe flag below.
+```
+Score = 0.30×MoS_sub + 0.18×Risk_sub + 0.22×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub
+```
+(Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) Weights are fixed constants (`screener.W_MOS`, `W_RISK`, `W_QUALITY`, `W_MOMENTUM`, `W_DIVIDEND`) — not adjustable per investment style (value / growth / income), though the composite's shape mirrors that intent. The `Sub MoS` / `Sub Risk` / … columns carry these blended values.
+
+**Universe-size guard:** a small or low-quality universe can still let a mediocre stock rank high on the percentile half of each sub-score. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count.
 ---
 ## Stage 6 — Decision
 | Score | Action |
@@ -162,9 +169,9 @@ Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio, D
     ↓
 Risk scoring (5 dimensions; earnings quality blends FCF-history consistency + a Sloan accrual ratio, dividend risk uses true DGR) + separate Quality score + separate Momentum score + Dividend score
     ↓
-Percentile-rank each sub-score (0–100) across the current universe
+Each sub-score (0–100) = BLEND_PCT×(cross-sectional percentile rank) + (1−BLEND_PCT)×(absolute band); BLEND_PCT = 0.5
     ↓
-Composite Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
+Composite Score = 0.30×MoS_sub + 0.18×Risk_sub + 0.22×Quality_sub + 0.15×Momentum_sub + 0.15×Dividend_sub  (Risk_sub already oriented safer = higher)
     ↓
 Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
     ↓

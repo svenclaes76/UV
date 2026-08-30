@@ -39,6 +39,8 @@ from screener import (
     _quality_raw,
     _momentum_raw,
     _pct_rank,
+    _abs_band,
+    _blend_ranks,
     compute_scores,
     run_screener_from_df,
 )
@@ -850,6 +852,53 @@ class TestCompositeScore:
         assert r.iloc[3] == 50.0                     # NaN → neutral
         r_desc = _pct_rank(pd.Series([1.0, 2.0, 3.0]), ascending=False)
         assert r_desc.iloc[0] == pytest.approx(100 - 100 / 3)
+
+    def test_abs_band_interpolates_and_clamps(self):
+        pts = screener._BAND_MOS   # (0,0) (0.10,40) (0.25,70) (0.50,100)
+        assert _abs_band(-0.5, pts) == 0.0            # below range → first y
+        assert _abs_band(0.0, pts) == 0.0
+        assert _abs_band(0.05, pts) == pytest.approx(20.0)   # midway 0→40
+        assert _abs_band(0.10, pts) == pytest.approx(40.0)
+        assert _abs_band(0.175, pts) == pytest.approx(55.0)  # midway 40→70
+        assert _abs_band(0.25, pts) == pytest.approx(70.0)
+        assert _abs_band(1.0, pts) == 100.0           # above range → last y
+        assert _abs_band(float("nan"), pts) == 50.0   # neutral = mean of endpoints
+        assert _abs_band(None, pts) == 50.0
+
+    def test_abs_band_handles_descending_y(self):
+        pts = screener._BAND_RISK   # (0,100) (10,0)
+        assert _abs_band(0.0, pts) == 100.0
+        assert _abs_band(5.0, pts) == pytest.approx(50.0)
+        assert _abs_band(10.0, pts) == 0.0
+        assert _abs_band(99.0, pts) == 0.0
+
+    def test_blend_ranks_is_half_percentile_half_absolute(self):
+        s = pd.Series([0.0, 0.10, 0.25])              # MoS values
+        out = _blend_ranks(s, screener._BAND_MOS, ascending=True)
+        # top row: percentile 100, absolute 70 → 0.5*100 + 0.5*70 = 85
+        assert out.iloc[2] == pytest.approx(85.0)
+        # bottom row: percentile 100/3, absolute 0 → 0.5*(100/3) + 0 ≈ 16.67
+        assert out.iloc[0] == pytest.approx(0.5 * (100 / 3))
+
+    def test_all_overvalued_universe_scores_low_not_inflated(self):
+        # Five stocks, every one trading well above fair value (negative MoS).
+        # Pure percentile ranking would still hand the "least bad" one a top
+        # MoS sub-score; the absolute anchor keeps them all low → Avoid.
+        rows = [{
+            "Name": f"OV{i}", "Ticker": f"OV{i}", "Price": 200.0 + i * 10,
+            "trailingEps": 1.0, "bookValue": 2.0, "targetMeanPrice": 60.0,
+            "beta": 1.4, "returnOnEquity": 0.02, "returnOnAssets": 0.01,
+            "operatingMargins": 0.03, "freeCashflow": 1e5, "netIncome": 5e5,
+            "debtToEquity": 200.0, "currentRatio": 1.0, "averageVolume": 5e4,
+            "earningsGrowth": -0.05, "revenueGrowth": -0.03, "recommendationMean": 3.5,
+        } for i in range(5)]
+        out = compute_scores(pd.DataFrame(rows))
+        assert (out["MoS %"] < 0).all()                       # all overvalued
+        assert (out["Value Score"] < screener.SCORE_STRONG_BUY).all()
+        assert (out["Decision"] != "Strong Buy").all()
+        # every MoS sub-score is held at/under the pure-percentile midpoint
+        # (50) — the absolute half is 0 for a negative MoS, so blend ≤ 50
+        assert (out["Sub MoS"] <= 50.5).all()
 
     @pytest.fixture
     def synthetic_universe(self):

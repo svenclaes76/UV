@@ -138,10 +138,25 @@ MIN_SECTOR_SAMPLE    = 5
 
 # Composite score weights — must sum to 1.0
 W_MOS      = 0.30   # α — margin of safety
-W_RISK     = 0.18   # β — risk (inverted: 100 - risk_pctrank)
+W_RISK     = 0.18   # β — risk sub-score (already oriented so safer = higher)
 W_QUALITY  = 0.22   # γ — quality
 W_MOMENTUM = 0.15   # δ — momentum
 W_DIVIDEND = 0.15   # ε — dividend score
+
+# Each composite sub-score is a blend of its cross-sectional percentile rank
+# (_pct_rank — a stock's standing *within the current universe*) and an absolute
+# 0–100 band (_abs_band — the same value judged against a fixed bar). Pure
+# percentile ranking inflates a mediocre stock in a weak universe and makes
+# MoS_rank meaningless when every stock is overvalued; the absolute anchor keeps
+# the score honest in that case. BLEND_PCT is the percentile weight (0 = purely
+# absolute, 1 = purely relative, today's behaviour).
+BLEND_PCT = 0.5
+
+# Absolute-band breakpoints, (x, y) with x ascending; _abs_band interpolates
+# linearly and clamps outside the range. y is always 0–100, higher = better.
+_BAND_MOS   = [(0.0, 0.0), (0.10, 40.0), (0.25, 70.0), (0.50, 100.0)]  # margin of safety
+_BAND_0_10  = [(0.0, 0.0), (10.0, 100.0)]                              # raw 0–10 score, ×10
+_BAND_RISK  = [(0.0, 100.0), (10.0, 0.0)]                              # risk raw (higher = riskier)
 
 # Decision thresholds
 SCORE_STRONG_BUY = 70
@@ -1124,6 +1139,30 @@ def _pct_rank(series: pd.Series, ascending=True) -> pd.Series:
     return ranked.fillna(50.0)
 
 
+def _abs_band(value, points: list) -> float:
+    """Map `value` through the piecewise-linear (x, y) `points` (x ascending),
+    clamped to the endpoint y outside the range. None/NaN → the midpoint of the
+    two endpoint y's (neutral), matching _pct_rank's NaN handling."""
+    if value is None or pd.isna(value):
+        return (points[0][1] + points[-1][1]) / 2.0
+    if value <= points[0][0]:
+        return float(points[0][1])
+    if value >= points[-1][0]:
+        return float(points[-1][1])
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if value <= x1:
+            return float(y0 + (y1 - y0) * (value - x0) / (x1 - x0))
+    return float(points[-1][1])
+
+
+def _blend_ranks(series: pd.Series, band: list, ascending: bool = True) -> pd.Series:
+    """BLEND_PCT × cross-sectional percentile rank + (1 − BLEND_PCT) × absolute
+    band — the composite sub-score for one dimension (0–100, higher = better)."""
+    pct = _pct_rank(series, ascending=ascending)
+    absolute = series.apply(lambda v: _abs_band(v, band))
+    return BLEND_PCT * pct + (1.0 - BLEND_PCT) * absolute
+
+
 def _fcf_hard_veto(row: pd.Series) -> bool:
     """True if FCF has been negative for 3+ consecutive most-recent fiscal years
     (`fcfHistory`, newest first). Falls back to a single most-recent-period check
@@ -1265,12 +1304,12 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 
-    # ── Stage 5: percentile ranks → 0–100 ────────────────────────────────────
-    mos_rank      = _pct_rank(df["margin_of_safety"], ascending=True)
-    risk_rank     = _pct_rank(df["_risk_raw"],         ascending=False)  # lower = better
-    quality_rank  = _pct_rank(df["_quality_raw"],      ascending=True)
-    momentum_rank = _pct_rank(df["_momentum_raw"],     ascending=True)
-    dividend_rank = _pct_rank(df["_dividend_raw"],     ascending=True)
+    # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
+    mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True)
+    risk_rank     = _blend_ranks(df["_risk_raw"],        _BAND_RISK, ascending=False)  # lower raw = safer
+    quality_rank  = _blend_ranks(df["_quality_raw"],     _BAND_0_10, ascending=True)
+    momentum_rank = _blend_ranks(df["_momentum_raw"],    _BAND_0_10, ascending=True)
+    dividend_rank = _blend_ranks(df["_dividend_raw"],    _BAND_0_10, ascending=True)
 
     score = (
         W_MOS      * mos_rank
