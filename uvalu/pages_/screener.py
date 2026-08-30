@@ -9,7 +9,7 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_manual_tickers, load_watchlist,
                        save_watchlist, save_manual_tickers)
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from screener import get_fetch_progress, _load_cache
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
@@ -119,7 +119,7 @@ def render() -> None:
     _manual_tickers_map  = load_manual_tickers()
     dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
-        get_veto_thresholds())
+        get_veto_thresholds(), get_score_weights())
     *_exch_dfs, _ = dfs  # extra (portfolio-only) tickers aren't shown in the ranked list
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 

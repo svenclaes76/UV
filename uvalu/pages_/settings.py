@@ -30,12 +30,40 @@ import traceback
 import streamlit as st
 
 from backup import export_excel, backup_filename
-from portfolio import parse_excel, user_data_dir, save_portfolio, save_sold, save_div_hist
-from settings import load_shared_settings, save_shared_settings, load_settings, save_settings
+from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
+                       save_div_hist, load_targets, save_targets)
+from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
+                      _SCORE_STYLES)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
 from uvalu.shell import _display_name, _initials, set_theme_script
+
+
+def _targets_to_text(m) -> str:
+    """{'Technology': 0.25} -> 'Technology 25'."""
+    if not isinstance(m, dict) or not m:
+        return ""
+    return "\n".join(f"{k} {round(v * 100, 4):g}" for k, v in m.items())
+
+
+def _parse_targets_text(txt: str) -> dict:
+    """'Technology 25' / 'AAA.BR 7.5%' per line -> {name: fraction}. Silently
+    drops blank/malformed lines and out-of-range weights; save_targets()
+    validates again."""
+    out: dict = {}
+    for line in (txt or "").splitlines():
+        parts = line.replace("%", "").split()
+        if len(parts) < 2:
+            continue
+        name = " ".join(parts[:-1]).strip()
+        try:
+            pct = float(parts[-1])
+        except ValueError:
+            continue
+        if name and 0 < pct <= 100:
+            out[name] = round(pct / 100, 4)
+    return out
 
 
 def _row_header(label: str) -> None:
@@ -177,6 +205,14 @@ def render() -> None:
                     int(_shared.get("buy_threshold", 70)), str,
                     "Composite score required for a BUY signal.", disabled=not _is_admin)
 
+        _style_opts = [s.capitalize() for s in _SCORE_STYLES]
+        _cur_style  = str(_shared.get("screen_style", "balanced"))
+        _style_sel  = _seg_row(
+            "screen_style", "scr_style", "Screening style",
+            "Which signals lead the composite score — Value tilts to margin of safety "
+            "&amp; quality, Growth to momentum, Income to dividends.",
+            _style_opts, _cur_style.capitalize(), disabled=not _is_admin)
+
         _stoxx = _toggle_row("stoxx", "scr_stoxx", "Benchmark — Euro Stoxx 50",
                              "Overlay on the portfolio value chart.",
                              bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
@@ -204,10 +240,56 @@ def render() -> None:
                 save_shared_settings(_shared)
                 _load_all_screener_data.clear()
                 st.rerun()
+            elif _style_sel and _style_sel.lower() != _cur_style:
+                _shared["screen_style"] = _style_sel.lower()
+                save_shared_settings(_shared)
+                _load_all_screener_data.clear()
+                st.rerun()
             elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
                 _shared["benchmark_stoxx"] = bool(_stoxx)
                 save_shared_settings(_shared)
                 st.rerun()
+
+    # ── Target allocation (per-user, personal reference weights) ────────────────
+    _targets = load_targets()
+    with st.container(key="set_card_targets", border=True):
+        _row_header("Target allocation")
+        _row_desc("Your personal reference weights. When any are set, the Risk page's "
+                 "rebalancing signals switch from absolute thresholds to drift-vs-target.")
+
+        with st.container(key="set_targets_body"):
+            _tc1, _tc2 = st.columns(2, gap="large")
+            with _tc1:
+                _tgt_sectors_txt = st.text_area(
+                    "Sector targets", key="tgt_sectors",
+                    value=_targets_to_text(_targets.get("sectors")), height=140,
+                    placeholder="One per line — sector and target %:\nTechnology 25\nHealthcare 15",
+                    help="Blank = no sector targets; the 30% guideline applies instead.")
+            with _tc2:
+                _tgt_tickers_txt = st.text_area(
+                    "Per-name targets", key="tgt_tickers",
+                    value=_targets_to_text(_targets.get("tickers")), height=140,
+                    placeholder="One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5",
+                    help="Blank = no per-name targets; only the 20% hard cap applies.")
+
+        _hhi_max = st.number_input(
+            "Concentration ceiling (HHI)", min_value=0.0, max_value=0.50,
+            value=float(_targets.get("hhi_max") or 0.0), step=0.01, key="tgt_hhi",
+            help="Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands.")
+
+        if st.button("Save target allocation", key="tgt_save", type="secondary"):
+            _new: dict = {}
+            _secs = _parse_targets_text(_tgt_sectors_txt)
+            _tks  = _parse_targets_text(_tgt_tickers_txt)
+            if _secs:
+                _new["sectors"] = _secs
+            if _tks:
+                _new["tickers"] = _tks
+            if _hhi_max and _hhi_max > 0:
+                _new["hhi_max"] = float(_hhi_max)
+            save_targets(_new)
+            st.toast("Target allocation saved.")
+            st.rerun()
 
     # ── Data ─────────────────────────────────────────────────────────────────────
     with st.container(key="set_card_data", border=True):

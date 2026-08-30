@@ -112,6 +112,25 @@ def test_dividend_check_fails_only_when_both_flag_and_coverage_are_bad(isolated_
     assert "✕" in _rows[0]
 
 
+def test_trend_check_passes_with_no_multi_year_history(isolated_data, monkeypatch):
+    # The default fake row carries no statement history → _trend_veto is empty
+    # → the "No adverse multi-year trend" row must render as passing.
+    df = make_scored_df([make_scored_row(veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    _rows = [m.value for m in at.markdown if "No adverse multi-year trend" in m.value]
+    assert len(_rows) == 1
+    assert "✓" in _rows[0] and "✕" not in _rows[0]
+
+
+def test_trend_check_fails_on_multi_year_revenue_decline(isolated_data, monkeypatch):
+    df = make_scored_df([make_scored_row(revenueHistory=[60.0, 80.0, 95.0, 110.0], veto=True)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    _rows = [m.value for m in at.markdown if "No adverse multi-year trend" in m.value]
+    assert len(_rows) == 1
+    assert "✕" in _rows[0]
+    assert "revenue fell" in _rows[0]
+
+
 def test_shows_held_position_when_ticker_in_portfolio(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, ticker="AAA.BR")

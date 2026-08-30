@@ -8,7 +8,7 @@ A Streamlit web app for European stock analysis and personal portfolio managemen
 
 ## Features
 
-- **Screener** — ranks 750+ stocks across 6 European exchanges using a 6-stage valuation algorithm (Graham Number, PE Fair Value, EPV, DDM, Analyst Target). Each stock receives a composite score and a Buy / Monitor / Avoid signal.
+- **Screener** — ranks 750+ stocks across 6 European exchanges using a 6-stage valuation pipeline whose fair value blends six models (Graham Number, PE Fair Value, EPV, single- and multi-stage DDM, Analyst Target). Each stock receives a composite score and a Buy / Monitor / Avoid signal.
 - **Portfolio tracker** — track open positions with live prices, unrealised P&L, and benchmark comparison. Manage realised trades and dividend history.
 - **Dashboard** — KPI cards, performance heatmap, sector allocation, portfolio value chart with S&P 500 / Euro Stoxx 50 overlays, and a risk snapshot.
 - **Risk assessment** — 8-stage quantitative analysis: concentration (Herfindahl), volatility, Value-at-Risk, factor exposure, stress tests (Dot-com / 2008 / COVID / 2022), and 10,000-path Monte Carlo simulation.
@@ -87,7 +87,7 @@ All user data is stored locally and never sent to a third party:
 | `.cache/fundamentals.json` | Screener fundamentals cache (24 h TTL) |
 | `data/portfolio/{hash}/` | Per-user portfolio, sold positions, dividends, watchlist, value history |
 | `data/settings/{hash}.json` | Per-user settings (encrypted) |
-| `data/settings/shared.json` | Admin settings (enabled exchanges) |
+| `data/settings/shared.json` | Admin settings (enabled exchanges, veto/scoring thresholds, screening style) |
 
 `{hash}` is a SHA-256 digest of the user's email address.
 

@@ -13,15 +13,20 @@ cache   — fundamentals cache dict[ticker -> dict] from screener._load_cache()
 
 from __future__ import annotations
 
-import warnings
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
+import marketdata
 from screener import (
+    RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
+    EQUITY_RISK_PREMIUM,     # ...and the ERP, for the Monte-Carlo drift assumption
+)
+from scoring import (
     _financial_health_score,
     _earnings_quality_score,
     _dividend_sustainability_flag,
@@ -29,11 +34,30 @@ from screener import (
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-RISK_FREE_RATE   = 0.03     # Euro area risk-free proxy (matches screener.py)
 MARKET_DAILY_VOL = 0.012    # ~1.2% daily vol proxy for market
 TRADING_DAYS     = 252
 MONTE_CARLO_PATHS = 10_000
 MONTE_CARLO_SEED  = 42
+_MC_BLOCK    = 20    # block length (days) for the bootstrap — keeps vol clustering
+_MC_MIN_OBS  = 60    # min history to block-bootstrap; below this fall back to Normal
+
+# History window for Stage-6 scenario replay. The rest of the engine still runs
+# on the trailing 5y (STRESS_HISTORY_PERIOD's frame is sliced down for Stages
+# 3/4), but replaying the 2022 drawdown — and, as the cache accrues, older
+# crises — needs a longer series.
+STRESS_HISTORY_PERIOD = "10y"
+QUANT_HISTORY_DAYS    = 5 * 366
+
+# Market proxy for per-holding beta. EURO STOXX 50 is euro-denominated (no FX
+# step) and is already the app's European benchmark elsewhere
+# (portfolio.backfill_value_history). A euro-based investor's market beta is
+# best measured against their home market even for the odd US-listed holding.
+BENCHMARK_TICKER = "^STOXX50E"
+_BETA_MIN_OBS    = 60       # aligned trading days needed to trust a regression beta
+_VOL_MIN_OBS     = 60       # ...and to use a holding's own realised vol over the beta proxy
+
+_LIQ_PARTICIPATION = 0.20   # assume you can trade 20% of a day's average volume
+_LIQ_DAYS_FLAG     = 10     # > this many days to exit the position → liquidity flag
 
 # Stage 7 composite weights
 _W_DEFAULT = {
@@ -58,11 +82,15 @@ SCORE_MODERATE = 50
 SCORE_ELEVATED = 70
 SCORE_HIGH     = 85
 
+# name, label, benchmark drawdown, window start, window end. The window dates
+# gate the "replay the held basket's own drawdown" path in _stage6_stress —
+# when port_rets covers a window, that scenario's portfolio_drawdown is the
+# basket's real peak-to-trough over it rather than beta × benchmark.
 HISTORICAL_SCENARIOS = [
-    ("Dot-com crash",        "2000–2002",    -0.49),
-    ("Financial crisis",     "2007–2009",    -0.57),
-    ("COVID crash",          "Feb–Mar 2020", -0.34),
-    ("2022 rate hike cycle", "Jan–Oct 2022", -0.25),
+    ("Dot-com crash",        "2000–2002",    -0.49, "2000-03-10", "2002-10-09"),
+    ("Financial crisis",     "2007–2009",    -0.57, "2007-10-09", "2009-03-09"),
+    ("COVID crash",          "Feb–Mar 2020", -0.34, "2020-02-19", "2020-03-23"),
+    ("2022 rate hike cycle", "Jan–Oct 2022", -0.25, "2022-01-03", "2022-10-12"),
 ]
 
 CYCLICAL_SECTORS = {
@@ -80,7 +108,7 @@ class PositionRisk:
     weight: float
     beta: float | None
     var_95_1d_eur: float | None
-    vol_annual: float | None        # annualised vol proxy (fraction) — |beta| × market vol × sqrt(252)
+    vol_annual: float | None        # annualised vol (fraction) — realised from the holding's own EUR series, or |beta| × market vol × √252 as a fallback
     mos: float | None               # margin of safety (fraction)
     valuation_flag: str             # "Overvalued" | "Fairly Valued" | "Undervalued" | "N/A"
     div_sustainability: str         # "OK" | "At Risk" | ""
@@ -88,6 +116,9 @@ class PositionRisk:
     earnings_quality: float         # 0–10
     rating: str                     # "Low" | "Medium" | "High" | "Critical"
     veto: bool = False              # real hard veto from the stock valuation algorithm (screener's `veto` column)
+    beta_source: str = "yfinance"   # "regression" (own EUR series vs benchmark) | "yfinance" | "default"
+    days_to_liquidate: float | None = None   # trading days to exit at LIQ_PARTICIPATION of ADV
+    liquidity_flag: bool = False    # True when days_to_liquidate exceeds _LIQ_DAYS_FLAG
 
 
 @dataclass
@@ -134,6 +165,9 @@ class QuantMetrics:
     effective_diversification: float | None
     returns_available: bool
     sortino_label: str = "N/A"          # separate, higher-bar label for `sortino`
+    # Direct OLS beta of the portfolio return series on the benchmark, when
+    # both are available — a cross-check on the weighted-sum `portfolio_beta`.
+    portfolio_beta_regression: float | None = None
 
 
 @dataclass
@@ -143,6 +177,10 @@ class FactorExposure:
     r_squared: float | None
     alpha_annualised: float | None
     flags: list[str]
+    factor_set: str | None = None    # "developed" | "us" — which universe was regressed against
+    as_of: str | None = None         # ISO date of the newest factor observation used
+    stale: bool = False              # True when served from a cached copy, source unreachable
+    n_obs: int | None = None         # overlapping days in the regression
 
 
 @dataclass
@@ -156,6 +194,10 @@ class IncomeRisk:
     income_concentration_flag: bool
     flagged_payers: list[str]
     flagged_income_pct: float
+    # Income-share-weighted 0–10 stability over payers with DPS history
+    # (payment years + growth streak + no recent cut). None when no payer in
+    # the portfolio has usable dividend history yet.
+    income_stability: float | None = None
 
 
 @dataclass
@@ -163,8 +205,9 @@ class ScenarioResult:
     name: str
     period: str
     index_drawdown: float | None
-    portfolio_drawdown: float | None    # estimated (fraction)
+    portfolio_drawdown: float | None    # fraction
     portfolio_value_loss: float | None  # €
+    method: str = "beta-estimated"      # "replayed" when the held basket's own history covered the window
 
 
 @dataclass
@@ -201,6 +244,7 @@ class RebalanceItem:
     ticker: str             # scope: a ticker, sector/pair name, or "Portfolio"
     message: str            # trigger description shown in the UI
     action: str | None      # recommended next step, bundled with its trigger
+    mode: str = "absolute"  # "absolute" (level check) | "drift" (vs target/prior) | "transition"
 
 
 @dataclass
@@ -241,23 +285,42 @@ def _safe(val, default=None):
 
 
 def _fetch_history(tickers: list[str], period: str = "5y") -> pd.DataFrame:
-    """Download adjusted daily closes; returns DataFrame (date × ticker)."""
-    if not tickers:
-        return pd.DataFrame()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        raw = yf.download(
-            tickers, period=period, interval="1d",
-            auto_adjust=True, progress=False, threads=True,
-        )
-    if raw.empty:
-        return pd.DataFrame()
-    closes = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw
-    if len(tickers) == 1 and not isinstance(closes, pd.DataFrame):
-        closes = closes.to_frame(name=tickers[0])
-    elif len(tickers) == 1 and isinstance(closes, pd.DataFrame) and closes.shape[1] == 1:
-        closes.columns = tickers
-    return closes.dropna(how="all")
+    """Adjusted daily closes as a DataFrame (date × ticker).
+
+    Thin seam over marketdata.price_history, which serves these from a
+    per-ticker disk cache and only refetches each ticker's missing tail.
+    Kept as a function here because tests monkeypatch it directly.
+    """
+    return marketdata.price_history(tickers, period=period)
+
+
+def _to_eur(closes: pd.DataFrame, cache: dict) -> pd.DataFrame:
+    """Restate each ticker's native-currency close series in EUR.
+
+    Without this the portfolio return series is a blend of currencies — a
+    USD-quoted holding's daily "return" silently carries the day's USD/EUR
+    move, distorting volatility, VaR and cross-holding correlations. A ticker
+    whose currency is missing, already EUR, or has no FX history is left as-is
+    (better than dropping it from the risk picture entirely).
+    """
+    if closes is None or closes.empty:
+        return closes
+    ccy = {
+        t: str((cache.get(t) or {}).get("Currency") or "EUR").strip().upper()
+        for t in closes.columns
+    }
+    foreign = sorted({c for c in ccy.values() if c and c != "EUR"})
+    if not foreign:
+        return closes
+    fx = marketdata.fx_to_eur_frame(foreign)
+    if fx is None or fx.empty:
+        return closes
+    out = closes.copy()
+    for ticker, code in ccy.items():
+        if code in fx.columns:
+            rate = fx[code].reindex(out.index).ffill().bfill()
+            out[ticker] = out[ticker] * rate
+    return out
 
 
 def _daily_returns(closes: pd.DataFrame) -> pd.DataFrame:
@@ -272,6 +335,68 @@ def _mdd(series: pd.Series) -> float | None:
     dd = (cum - peak) / peak
     v = dd.min()
     return float(v) if np.isfinite(v) else None
+
+
+def _replay_drawdown(port_rets: "pd.Series | None", start: str, end: str,
+                     min_coverage: float = 0.6) -> float | None:
+    """Worst peak-to-trough drawdown of `port_rets` over [start, end], or None
+    when the series doesn't substantially cover that window (starts after it,
+    or has < `min_coverage` of its business days)."""
+    if port_rets is None or port_rets.empty:
+        return None
+    w_start, w_end = pd.Timestamp(start), pd.Timestamp(end)
+    if port_rets.index.min() > w_start or port_rets.index.max() < w_start:
+        return None
+    seg = port_rets.loc[w_start:w_end]
+    expected = int(np.busday_count(w_start.date(), w_end.date()))
+    if expected <= 0 or len(seg) < min_coverage * expected:
+        return None
+    dd = _mdd(seg)
+    return round(float(dd), 4) if dd is not None else None
+
+
+def _ols_beta(y: np.ndarray, x: np.ndarray) -> float | None:
+    """Slope of a simple OLS of y on x (1-D, equal length). None when x has
+    essentially no variance (nothing to regress against)."""
+    if len(y) < 2:
+        return None
+    vx = float(np.var(x, ddof=1))
+    if not np.isfinite(vx) or vx <= 0:
+        return None
+    b = float(np.cov(y, x, ddof=1)[0, 1] / vx)
+    return b if np.isfinite(b) else None
+
+
+def _resolve_betas(tickers: list[str], stock_rets: pd.DataFrame,
+                   bench_rets: pd.Series | None,
+                   cache: dict) -> tuple[dict[str, float], dict[str, str]]:
+    """Per-ticker beta with provenance. Preference order:
+
+    1. "regression" — OLS of the holding's own EUR daily returns on the
+       benchmark, given ≥ _BETA_MIN_OBS aligned observations.
+    2. "yfinance"   — the cached `beta` field (US-market, often stale).
+    3. "default"    — 1.0.
+    """
+    betas: dict[str, float] = {}
+    sources: dict[str, str] = {}
+    have_bench = bench_rets is not None and not stock_rets.empty
+    for t in tickers:
+        b = None
+        if have_bench and t in stock_rets.columns:
+            joined = pd.concat(
+                [stock_rets[t].rename("s"), bench_rets.rename("m")], axis=1
+            ).dropna()
+            if len(joined) >= _BETA_MIN_OBS:
+                b = _ols_beta(joined["s"].to_numpy(), joined["m"].to_numpy())
+        if b is not None:
+            betas[t], sources[t] = round(b, 3), "regression"
+            continue
+        yb = _safe(cache.get(t, {}).get("beta"))
+        if yb is not None:
+            betas[t], sources[t] = yb, "yfinance"
+        else:
+            betas[t], sources[t] = 1.0, "default"
+    return betas, sources
 
 
 # ── Stage 1 — Position-level risk profiling ───────────────────────────────────
@@ -298,8 +423,13 @@ def _position_rating(weight: float, beta: float | None, mos: float | None,
 
 def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
                                total_value: float,
-                               veto_lookup: dict[str, bool] | None = None) -> list[PositionRisk]:
-    veto_lookup = veto_lookup or {}
+                               veto_lookup: dict[str, bool] | None = None,
+                               *,
+                               betas: dict[str, float] | None = None,
+                               beta_sources: dict[str, str] | None = None,
+                               closes: pd.DataFrame | None = None) -> list[PositionRisk]:
+    veto_lookup  = veto_lookup or {}
+    beta_sources = beta_sources or {}
     profiles = []
     for _, row in pf.iterrows():
         ticker  = row["ticker"]
@@ -307,13 +437,34 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         fd_ser  = pd.Series(fd)
 
         weight    = _safe(row.get("current_value"), 0) / total_value if total_value > 0 else 0.0
-        beta      = _safe(fd.get("beta"))
         pos_value = _safe(row.get("current_value"), 0)
 
-        # Parametric VaR(95%) proxy — uses beta × market daily vol
-        stock_daily_vol = abs(beta if beta is not None else 1.0) * MARKET_DAILY_VOL
+        # Beta: resolved (regression on the holding's own EUR series) when the
+        # caller supplied one, else the cached yfinance field.
+        if betas is not None and ticker in betas:
+            beta     = _safe(betas.get(ticker))
+            beta_src = beta_sources.get(ticker, "regression")
+        else:
+            beta     = _safe(fd.get("beta"))
+            beta_src = "yfinance" if beta is not None else "default"
+
+        # Realised annualised vol from the holding's own EUR return series when
+        # there's enough history; otherwise the beta × market-vol proxy.
+        realised_vol = None
+        if closes is not None and not closes.empty and ticker in closes.columns:
+            s = closes[ticker].dropna()
+            if len(s) >= _VOL_MIN_OBS + 1:
+                rv = float(s.pct_change().dropna().std(ddof=1)) * np.sqrt(TRADING_DAYS)
+                if np.isfinite(rv) and rv > 0:
+                    realised_vol = rv
+
+        if realised_vol is not None:
+            vol_annual      = realised_vol
+            stock_daily_vol = realised_vol / np.sqrt(TRADING_DAYS)
+        else:
+            stock_daily_vol = abs(beta if beta is not None else 1.0) * MARKET_DAILY_VOL
+            vol_annual      = stock_daily_vol * np.sqrt(TRADING_DAYS)
         var_95 = pos_value * stock_daily_vol * 1.645
-        vol_annual = stock_daily_vol * np.sqrt(TRADING_DAYS)
 
         # Valuation flag from fair value vs live price
         price = _safe(row.get("live_price"))
@@ -331,6 +482,15 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         ds     = _dividend_sustainability_flag(fd_ser)
         rating = _position_rating(weight, beta, mos, fh, eq)
 
+        # Days to exit this position at _LIQ_PARTICIPATION of average daily
+        # volume — position-size aware, unlike the screener's volume-only score.
+        adv    = _safe(fd.get("averageVolume"))
+        px_now = _safe(row.get("live_price"))
+        dtl    = None
+        if adv and adv > 0 and px_now and px_now > 0 and pos_value > 0:
+            shares_held = pos_value / px_now
+            dtl = round(shares_held / (adv * _LIQ_PARTICIPATION), 2)
+
         profiles.append(PositionRisk(
             ticker=ticker,
             name=str(row.get("name", ticker)),
@@ -345,6 +505,9 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             earnings_quality=round(eq, 1),
             rating=rating,
             veto=bool(veto_lookup.get(ticker, False)),
+            beta_source=beta_src,
+            days_to_liquidate=dtl,
+            liquidity_flag=bool(dtl is not None and dtl > _LIQ_DAYS_FLAG),
         ))
     return profiles
 
@@ -483,11 +646,16 @@ def _weights_for_tickers(pf: pd.DataFrame, tickers: list[str],
 
 
 def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
-                  closes: pd.DataFrame) -> QuantMetrics:
+                  closes: pd.DataFrame, *,
+                  betas: dict[str, float] | None = None,
+                  portfolio_beta_regression: float | None = None) -> QuantMetrics:
     tickers = pf["ticker"].tolist()
-    betas   = np.array([_safe(cache.get(t, {}).get("beta"), 1.0) for t in tickers])
+    if betas is not None:
+        beta_arr = np.array([_safe(betas.get(t), 1.0) for t in tickers])
+    else:
+        beta_arr = np.array([_safe(cache.get(t, {}).get("beta"), 1.0) for t in tickers])
     weights = _weights_for_tickers(pf, tickers, total_value)
-    port_beta = float(np.dot(weights, betas))
+    port_beta = float(np.dot(weights, beta_arr))
 
     _no_history = QuantMetrics(
         portfolio_beta=round(port_beta, 2), beta_label=_beta_label(port_beta),
@@ -497,6 +665,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         sharpe=None, sortino=None, ratio_label="N/A", sortino_label="N/A",
         corr_matrix=None, high_corr_pairs=[], effective_diversification=None,
         returns_available=False,
+        portfolio_beta_regression=portfolio_beta_regression,
     )
 
     if closes.empty:
@@ -581,15 +750,28 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         high_corr_pairs=high_corr,
         effective_diversification=eff_div,
         returns_available=True,
+        portfolio_beta_regression=portfolio_beta_regression,
     )
 
 
-# ── Stage 4 — Factor exposure (Fama-French 5-factor) ─────────────────────────
+# ── Stage 4 — Factor exposure (Fama-French 5-factor + momentum) ──────────────
 
-_FF5_URL = ("https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
-            "F-F_Research_Data_5_Factors_2x3_Daily_CSV.zip")
-_MOM_URL = ("https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
-            "F-F_Momentum_Factor_Daily_CSV.zip")
+_FF_BASE = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+
+# Factor universes, tried in order. "developed" is the better match for a
+# euro-based portfolio of multinationals; "us" is the long-standing fallback
+# used if the Developed files are unreachable. (Both are USD-constructed with a
+# US risk-free; the regression subtracts the file's own RF and stays internally
+# consistent — see the risk-engine plan, WS-2/WS-5.)
+_FACTOR_SETS = [
+    ("developed", _FF_BASE + "Developed_5_Factors_Daily_CSV.zip",
+                  _FF_BASE + "Developed_Mom_Factor_Daily_CSV.zip"),
+    ("us",        _FF_BASE + "F-F_Research_Data_5_Factors_2x3_Daily_CSV.zip",
+                  _FF_BASE + "F-F_Momentum_Factor_Daily_CSV.zip"),
+]
+
+_FACTORS_DIR         = Path(__file__).parent / ".cache" / "factors"
+_FACTOR_MAX_AGE_DAYS = 7
 
 # In-process cache so we only download once per session
 _ff_cache: dict[str, pd.DataFrame] = {}
@@ -631,6 +813,86 @@ def _fetch_ff_csv(url: str) -> pd.DataFrame:
     return df
 
 
+def _factor_cache_path(kind: str, setname: str) -> Path:
+    return _FACTORS_DIR / f"{setname}_{kind}.csv"
+
+
+def _read_factor_cache(kind: str, *, max_age_days: float | None):
+    """Newest on-disk factor frame for `kind` ('5f'|'mom'), preferring the
+    earlier _FACTOR_SETS entries. Returns (df, setname) or None. `max_age_days`
+    None accepts any age (the stale-fallback path)."""
+    for setname, *_ in _FACTOR_SETS:
+        p = _factor_cache_path(kind, setname)
+        if not p.exists():
+            continue
+        if max_age_days is not None:
+            try:
+                if (time.time() - p.stat().st_mtime) / 86400 >= max_age_days:
+                    continue
+            except OSError:
+                continue
+        try:
+            df = pd.read_csv(p, index_col=0, parse_dates=True)
+            if not df.empty:
+                return df, setname
+        except Exception:
+            continue
+    return None
+
+
+def _write_factor_cache(kind: str, setname: str, df: pd.DataFrame) -> None:
+    try:
+        _FACTORS_DIR.mkdir(parents=True, exist_ok=True)
+        p   = _factor_cache_path(kind, setname)
+        tmp = p.with_suffix(".csv.tmp")
+        df.to_csv(tmp)
+        tmp.replace(p)
+    except Exception:
+        pass
+
+
+def _as_of(df: pd.DataFrame | None) -> str | None:
+    if df is None or df.empty:
+        return None
+    try:
+        return pd.Timestamp(df.index.max()).date().isoformat()
+    except Exception:
+        return None
+
+
+def _factor_data(kind: str) -> tuple[pd.DataFrame | None, dict]:
+    """(daily factor-return DataFrame, meta) for `kind` in {'5f','mom'}.
+
+    Disk cache first (< _FACTOR_MAX_AGE_DAYS old), then each _FACTOR_SETS entry
+    in turn via _fetch_ff_csv, writing a fresh CSV on success. If every network
+    attempt fails, the newest stale CSV on disk is served. meta keys:
+    set, as_of (last date in the frame), stale, source.
+    """
+    url_idx = 0 if kind == "5f" else 1
+
+    fresh = _read_factor_cache(kind, max_age_days=_FACTOR_MAX_AGE_DAYS)
+    if fresh is not None:
+        df, setname = fresh
+        return df, {"set": setname, "as_of": _as_of(df), "stale": False, "source": "disk"}
+
+    last_err: Exception | None = None
+    for setname, *urls in _FACTOR_SETS:
+        try:
+            df = _fetch_ff_csv(urls[url_idx])
+            _write_factor_cache(kind, setname, df)
+            return df, {"set": setname, "as_of": _as_of(df), "stale": False, "source": "network"}
+        except Exception as e:                     # noqa: BLE001 — try the next set
+            last_err = e
+
+    stale = _read_factor_cache(kind, max_age_days=None)
+    if stale is not None:
+        df, setname = stale
+        return df, {"set": setname, "as_of": _as_of(df), "stale": True,
+                    "source": "disk", "error": str(last_err)}
+    return None, {"set": None, "as_of": None, "stale": True, "source": None,
+                  "error": str(last_err)}
+
+
 def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
     _unavail = FactorExposure(available=False, loadings={}, r_squared=None,
                               alpha_annualised=None, flags=[])
@@ -639,21 +901,20 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
         _unavail.flags = ["Insufficient price history for factor analysis (need ≥60 days)"]
         return _unavail
 
-    try:
-        ff = _fetch_ff_csv(_FF5_URL)
-        ff = ff.loc[port_rets.index[0]:port_rets.index[-1]]
-    except Exception as e:
-        _unavail.flags = [f"Fama-French data unavailable: {e}"]
+    ff_df, ff_meta = _factor_data("5f")
+    if ff_df is None:
+        _unavail.flags = [f"Fama-French data unavailable: {ff_meta.get('error', 'no data')}"]
         return _unavail
+    ff = ff_df.loc[port_rets.index[0]:port_rets.index[-1]]
 
-    # Optionally add momentum factor
-    try:
-        mom = _fetch_ff_csv(_MOM_URL)
-        mom = mom.loc[port_rets.index[0]:port_rets.index[-1]]
-        mom_col = mom.iloc[:, 0].rename("WML")
-        ff = ff.join(mom_col, how="left")
-    except Exception:
-        pass
+    # Optionally add the momentum factor
+    mom_df, _mom_meta = _factor_data("mom")
+    if mom_df is not None:
+        try:
+            mom = mom_df.loc[port_rets.index[0]:port_rets.index[-1]]
+            ff  = ff.join(mom.iloc[:, [0]].rename(columns={mom.columns[0]: "WML"}), how="left")
+        except Exception:
+            pass
 
     merged = ff.join(port_rets.rename("port"), how="inner").dropna()
     if len(merged) < 30:
@@ -695,12 +956,21 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
             dom_name = factor_cols[dom_idx]
             flags.append(f"{dom_name} explains >{dom_share:.0%} of return variance")
 
+    n_overlap = len(merged)
+    if ff_meta.get("stale"):
+        flags.append(f"Factor data is a cached copy ({ff_meta.get('set')} set, "
+                     f"as of {ff_meta.get('as_of')}) — source unreachable")
+
     return FactorExposure(
         available=True,
         loadings=loadings,
         r_squared=round(float(r2), 3),
         alpha_annualised=round(alpha * TRADING_DAYS, 4),
         flags=flags,
+        factor_set=ff_meta.get("set"),
+        as_of=ff_meta.get("as_of"),
+        stale=bool(ff_meta.get("stale")),
+        n_obs=n_overlap,
     )
 
 
@@ -711,14 +981,39 @@ def _stage5_income(pf: pd.DataFrame, cache: dict, total_value: float) -> IncomeR
     total_income = float(income_col.sum())
     port_yield   = total_income / total_value if total_value > 0 else 0.0
 
-    # Weighted DGR (earnings growth as proxy)
+    # Weighted DGR — true DPS CAGR when the fundamentals cache carries it,
+    # earningsGrowth proxy otherwise.
     dgr_parts: list[float] = []
     for _, row in pf.iterrows():
         inc = _safe(income_col.loc[row.name], 0.0)
-        eg  = _safe(cache.get(row["ticker"], {}).get("earningsGrowth"))
-        if eg is not None and total_income > 0 and inc > 0:
-            dgr_parts.append(inc / total_income * eg)
+        fd  = cache.get(row["ticker"], {})
+        dgr = _safe(fd.get("true_dgr"))
+        if dgr is None:
+            dgr = _safe(fd.get("earningsGrowth"))
+        if dgr is not None and total_income > 0 and inc > 0:
+            dgr_parts.append(inc / total_income * dgr)
     weighted_dgr = float(sum(dgr_parts)) if dgr_parts else None
+
+    # Income-share-weighted stability over payers with real DPS history
+    # (payment years + growth streak + no cut in the last 5 complete years).
+    _now_year  = datetime.now(timezone.utc).year
+    stab_parts: list[float] = []
+    for _, row in pf.iterrows():
+        inc = _safe(income_col.loc[row.name], 0.0)
+        if total_income <= 0 or inc <= 0:
+            continue
+        fd = cache.get(row["ticker"], {})
+        py = _safe(fd.get("dividend_payment_years"))
+        gs = _safe(fd.get("dividend_growth_streak"))
+        if py is None and gs is None:
+            continue                       # no history — don't fabricate a score
+        last_cut = _safe(fd.get("dividend_last_cut_year"))
+        recent_cut = last_cut is not None and last_cut >= _now_year - 5
+        sc = (min(py or 0.0, 10) * 0.4
+              + min(gs or 0.0, 10) * 0.4
+              + (0.0 if recent_cut else 2.0))
+        stab_parts.append(inc / total_income * _clamp(sc, 0, 10))
+    income_stability = round(float(sum(stab_parts)), 2) if stab_parts else None
 
     # Top-3 dividend income contributors
     pairs = list(zip(pf["ticker"].tolist(), income_col.tolist()))
@@ -759,6 +1054,7 @@ def _stage5_income(pf: pd.DataFrame, cache: dict, total_value: float) -> IncomeR
         income_concentration_flag=bool(total_income > 0 and top3_total / total_income > 0.50),
         flagged_payers=flagged_payers,
         flagged_income_pct=round(flagged_pct, 4),
+        income_stability=income_stability,
     )
 
 
@@ -768,16 +1064,21 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
                    total_value: float, port_rets: pd.Series | None,
                    concentration: ConcentrationMetrics) -> StressResults:
 
-    # 6a. Historical scenarios — beta-adjusted drawdown approximation
-    historical = [
-        ScenarioResult(
-            name=name, period=period,
-            index_drawdown=idx_dd,
-            portfolio_drawdown=round(portfolio_beta * idx_dd, 4),
-            portfolio_value_loss=round(abs(portfolio_beta * idx_dd) * total_value, 2),
-        )
-        for name, period, idx_dd in HISTORICAL_SCENARIOS
-    ]
+    # 6a. Historical scenarios — replay the held basket's own drawdown over any
+    # window its return history covers; beta × benchmark drawdown elsewhere.
+    historical: list[ScenarioResult] = []
+    for name, period, idx_dd, w_start, w_end in HISTORICAL_SCENARIOS:
+        replayed = _replay_drawdown(port_rets, w_start, w_end)
+        if replayed is not None:
+            dd, method = replayed, "replayed"
+        else:
+            dd, method = round(portfolio_beta * idx_dd, 4), "beta-estimated"
+        historical.append(ScenarioResult(
+            name=name, period=period, index_drawdown=idx_dd,
+            portfolio_drawdown=dd,
+            portfolio_value_loss=round(abs(dd) * total_value, 2),
+            method=method,
+        ))
 
     # 6b. Factor / hypothetical scenarios
     factor_scenarios: list[dict] = []
@@ -849,18 +1150,28 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
         "note": f"Annual income impact: €{total_income:,.0f}",
     })
 
-    # 6c. Monte Carlo simulation
+    # 6c. Monte Carlo — block-bootstrap the portfolio's own daily returns
+    # (keeps the realised fat tails and volatility clustering that an iid-Normal
+    # draw throws away), re-centred on a CAPM drift so the forward mean is an
+    # explicit assumption rather than an extrapolation of the trailing period.
+    mc_drift = (RISK_FREE_RATE + portfolio_beta * EQUITY_RISK_PREMIUM) / TRADING_DAYS
+
     def _mc(years: int) -> MonteCarloResult:
-        rng = np.random.default_rng(MONTE_CARLO_SEED)
-        if port_rets is not None and len(port_rets) >= 30:
-            mu    = float(port_rets.mean())
-            sigma = float(port_rets.std(ddof=1))
+        rng  = np.random.default_rng(MONTE_CARLO_SEED)
+        days = years * TRADING_DAYS
+        if port_rets is not None and len(port_rets) >= _MC_MIN_OBS:
+            r   = port_rets.to_numpy(dtype=float)
+            r   = r - float(r.mean()) + mc_drift          # re-centre on CAPM drift
+            blk      = min(_MC_BLOCK, len(r))
+            n_starts = len(r) - blk + 1
+            n_blocks = -(-days // blk)                    # ceil
+            starts   = rng.integers(0, n_starts, size=MONTE_CARLO_PATHS * n_blocks)
+            gathered = r[starts[:, None] + np.arange(blk)]  # (paths·n_blocks, blk)
+            paths    = gathered.reshape(MONTE_CARLO_PATHS, n_blocks * blk)[:, :days]
         else:
-            mu    = (RISK_FREE_RATE + portfolio_beta * 0.05) / TRADING_DAYS
             sigma = portfolio_beta * MARKET_DAILY_VOL
-        days  = years * TRADING_DAYS
-        paths = rng.normal(mu, sigma, size=(MONTE_CARLO_PATHS, days))
-        cum   = np.prod(1.0 + np.clip(paths, -0.5, 1.0), axis=1) - 1.0
+            paths = rng.normal(mc_drift, sigma, size=(MONTE_CARLO_PATHS, days))
+        cum = np.prod(1.0 + np.clip(paths, -0.5, 1.0), axis=1) - 1.0
         return MonteCarloResult(
             horizon_years=years,
             p05=round(float(np.percentile(cum,  5)), 4),
@@ -925,7 +1236,8 @@ def _score_tail(q: QuantMetrics, stress: StressResults) -> float:
     if pl > 0.35:    s += 30
     elif pl > 0.25:  s += 15
     elif pl > 0.15:  s += 5
-    worst = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
+    worst = min((r.portfolio_drawdown for r in stress.historical
+                 if r.portfolio_drawdown is not None), default=0.0)
     if worst < -0.40:    s += 10
     elif worst < -0.25:  s += 5
     return _clamp(s, 0, 100)
@@ -933,7 +1245,7 @@ def _score_tail(q: QuantMetrics, stress: StressResults) -> float:
 
 def _score_factor(f: FactorExposure) -> float:
     if not f.available:
-        return 50.0
+        return 50.0     # placeholder for the sub-score display; _stage7 drops the slot
     s = 0.0
     s += sum(20 for b in f.loadings.values() if abs(b) > 1.5)
     if f.r_squared is not None:
@@ -963,6 +1275,11 @@ def _score_income(income: IncomeRisk) -> float:
     if income.flagged_income_pct > 0.20:        s += 30
     if income.top3_cut_pct is not None and income.top3_cut_pct > 0.20: s += 20
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025: s += 15
+    # Low income-stability (short/no growth streaks, recent cuts among the
+    # payers weighted by income share) — None when no payer has DPS history yet.
+    if income.income_stability is not None:
+        if income.income_stability < 3.0:    s += 25
+        elif income.income_stability < 5.0:  s += 12
     return _clamp(s, 0, 100)
 
 
@@ -977,7 +1294,7 @@ def _risk_label_action(score: float) -> tuple[str, str]:
 def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
                       q: QuantMetrics, f: FactorExposure, income: IncomeRisk,
                       stress: StressResults, income_portfolio: bool) -> CompositeScore:
-    W  = _W_INCOME if income_portfolio else _W_DEFAULT
+    W  = dict(_W_INCOME if income_portfolio else _W_DEFAULT)
     sc = _score_concentration(c)
     sv = _score_volatility(q)
     st = _score_tail(q, stress)
@@ -985,8 +1302,17 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
     su = _score_fundamental(profiles)
     si = _score_income(income)
 
-    score = (W["concentration"] * sc + W["volatility"] * sv + W["tail"] * st
-             + W["factor"] * sf + W["fundamental"] * su + W["income"] * si)
+    comps = {"concentration": sc, "volatility": sv, "tail": st,
+             "factor": sf, "fundamental": su, "income": si}
+    if not f.available:
+        # Drop the factor slot and renormalise the rest — a flat 50 at 15%
+        # weight otherwise drags every portfolio's score toward the middle
+        # whenever the Fama-French feed is unavailable.
+        W.pop("factor")
+        _tot = sum(W.values())
+        W = {k: v / _tot for k, v in W.items()}
+
+    score = sum(W[k] * comps[k] for k in W)
     label, action = _risk_label_action(score)
     return CompositeScore(
         score=round(score, 1),
@@ -1005,9 +1331,20 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
 
 # ── Stage 8 — Rebalancing signals ────────────────────────────────────────────
 
+_RATING_RANK = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
+_DRIFT_PP = 0.05   # 5 percentage-point drift-from-target / drift-since-snapshot threshold
+
+
 def _stage8_rebalance(profiles: list[PositionRisk], concentration: ConcentrationMetrics,
                       quant: QuantMetrics, income: IncomeRisk,
-                      stress: StressResults, total_value: float) -> RebalanceSignals:
+                      stress: StressResults, total_value: float, *,
+                      targets: dict | None = None,
+                      prior_snapshot: dict | None = None) -> RebalanceSignals:
+    targets        = targets or {}
+    prior_snapshot = prior_snapshot or {}
+    sector_targets = targets.get("sectors") or {}
+    ticker_targets = targets.get("tickers") or {}
+    prior_since    = prior_snapshot.get("date") or prior_snapshot.get("as_of") or "last snapshot"
     items: list[RebalanceItem] = []
 
     # Hard triggers
@@ -1035,7 +1372,8 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             f"{income.flagged_income_pct:.0%} of portfolio income comes from dividend-at-risk positions",
             "Diversify income across more dividend payers"))
 
-    worst_dd = min((r.portfolio_drawdown or 0.0) for r in stress.historical)
+    worst_dd = min((r.portfolio_drawdown for r in stress.historical
+                   if r.portfolio_drawdown is not None), default=0.0)
     if worst_dd < -0.40:
         items.append(RebalanceItem("hard", "Portfolio",
             f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown",
@@ -1051,8 +1389,17 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                 f"{p.ticker}: Critical risk rating — review immediately",
                 "Review fundamentals; consider reducing or exiting"))
 
-    # Soft triggers
-    if concentration.hhi > 0.18:
+    # ── Soft triggers ───────────────────────────────────────────────────────
+    # Concentration (HHI): a target ceiling wins over the absolute bands; a
+    # prior snapshot adds a "drifted since" check on top.
+    hhi_max = _safe(targets.get("hhi_max"))
+    if hhi_max is not None:
+        if concentration.hhi > hhi_max:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"HHI {concentration.hhi:.3f} exceeds the {hhi_max:.3f} target ceiling",
+                "Add uncorrelated positions or sectors to reduce concentration",
+                mode="drift"))
+    elif concentration.hhi > 0.18:
         items.append(RebalanceItem("soft", "Portfolio",
             f"HHI {concentration.hhi:.3f} — highly concentrated, above the 0.18 threshold",
             "Add uncorrelated positions or sectors to reduce concentration"))
@@ -1061,27 +1408,84 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift",
             "Monitor concentration drift; avoid adding to largest positions"))
 
-    if concentration.sector_flag and concentration.largest_sector:
+    prior_hhi = _safe(prior_snapshot.get("hhi"))
+    if prior_hhi is not None and concentration.hhi - prior_hhi > _DRIFT_PP:
+        items.append(RebalanceItem("soft", "Portfolio",
+            f"HHI drifted +{concentration.hhi - prior_hhi:.3f} since {prior_since} "
+            f"(now {concentration.hhi:.3f})",
+            "Rebalance toward the last-reviewed allocation", mode="drift"))
+
+    # Sector: drift vs target when a target allocation exists, else the
+    # absolute >30% guideline on the largest sector.
+    if sector_targets:
+        for sec in sorted(set(sector_targets) | set(concentration.sector_weights)):
+            tgt = _safe(sector_targets.get(sec))
+            if tgt is None:
+                continue
+            actual = concentration.sector_weights.get(sec, 0.0)
+            drift  = actual - tgt
+            if abs(drift) >= _DRIFT_PP:
+                items.append(RebalanceItem("soft", sec,
+                    f"{sec} at {actual:.0%} vs {tgt:.0%} target — {drift:+.0%} drift "
+                    f"exceeds {_DRIFT_PP:.0%}",
+                    "Reduce the overweight sector; top up the underweights", mode="drift"))
+    elif concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
         items.append(RebalanceItem("soft", concentration.largest_sector,
             f"{concentration.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
             "Reduce largest sector; add exposure to lagging sectors"))
+
+    # Per-name drift vs target (complements the hard >20% cap).
+    if ticker_targets:
+        for p in profiles:
+            tgt = _safe(ticker_targets.get(p.ticker))
+            if tgt is None:
+                continue
+            drift = p.weight - tgt
+            if abs(drift) >= _DRIFT_PP:
+                items.append(RebalanceItem("soft", p.ticker,
+                    f"{p.ticker} at {p.weight:.0%} vs {tgt:.0%} target — {drift:+.0%} drift",
+                    "Trim or top up toward the target weight", mode="drift"))
 
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
         items.append(RebalanceItem("soft", "Portfolio",
             f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk",
             "Favor payers with stronger dividend growth track records"))
 
+    prior_sharpe = _safe(prior_snapshot.get("sharpe"))
     if quant.sharpe is not None and quant.sharpe < 1.0:
-        items.append(RebalanceItem("soft", "Portfolio",
-            f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
-            "Reassess risk/return mix; trim volatile underperformers"))
+        if prior_sharpe is not None and prior_sharpe < 1.0:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"Sharpe {quant.sharpe:.2f} below 1.0 for a second consecutive review "
+                f"(was {prior_sharpe:.2f} at {prior_since})",
+                "Reassess risk/return mix; trim volatile underperformers", mode="drift"))
+        else:
+            items.append(RebalanceItem("soft", "Portfolio",
+                f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
+                "Reassess risk/return mix; trim volatile underperformers"))
+
+    # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
+    prior_ratings = prior_snapshot.get("ratings") or {}
+    for p in profiles:
+        was = prior_ratings.get(p.ticker)
+        if (was in _RATING_RANK and p.rating in ("High", "Critical")
+                and _RATING_RANK[p.rating] > _RATING_RANK[was]):
+            items.append(RebalanceItem("soft", p.ticker,
+                f"{p.ticker}: risk rating {was} → {p.rating} since {prior_since}",
+                "Review what changed; reduce if the deterioration holds", mode="transition"))
 
     for p in profiles:
         if p.rating == "High":
             items.append(RebalanceItem("soft", p.ticker,
                 f"{p.ticker}: High risk rating — monitor closely",
                 "Monitor closely; reduce if fundamentals weaken further"))
+
+    for p in profiles:
+        if p.liquidity_flag and p.days_to_liquidate is not None:
+            items.append(RebalanceItem("soft", p.ticker,
+                f"{p.ticker}: ~{p.days_to_liquidate:.0f} trading days to exit at "
+                f"{_LIQ_PARTICIPATION:.0%} of average volume — thin for this position size",
+                "Size the position to what you can exit in a few days, or accept the exit risk"))
 
     if quant.high_corr_pairs:
         pairs_str = ", ".join(f"{a}/{b}" for a, b, _ in quant.high_corr_pairs[:3])
@@ -1100,19 +1504,50 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
+def snapshot_from_report(report: "RiskReport") -> dict:
+    """The slim reference a later run diffs against for Stage 8's drift
+    triggers — persist via portfolio.save_risk_snapshot()."""
+    return {
+        "as_of":          report.generated_at,
+        "hhi":            report.concentration.hhi,
+        "sharpe":         report.quant.sharpe,
+        "sector_weights": dict(report.concentration.sector_weights),
+        "ratings":        {p.ticker: p.rating for p in report.position_profiles},
+    }
+
+
 def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                      income_portfolio: bool = False,
-                     veto_lookup: dict[str, bool] | None = None) -> RiskReport:
+                     veto_lookup: dict[str, bool] | None = None,
+                     targets: dict | None = None,
+                     prior_snapshot: dict | None = None) -> RiskReport:
     """
     Run the 8-stage risk assessment pipeline and return a RiskReport.
 
-    pf_df            — enriched portfolio DataFrame; must have live_price,
-                       current_value, sector, country, expected_annual, fair_value.
+    pf_df            — enriched portfolio DataFrame. Build it with
+                       portfolio_enrichment.enrich_for_risk(); it needs
+                       live_price, current_value, sector, country,
+                       expected_annual and fair_value (missing columns fall
+                       back — current_value / expected_annual are derived here,
+                       sector / country / fair_value default to neutral).
     cache            — fundamentals cache dict from screener._load_cache().
+                       Its per-ticker "Currency" field, when present, drives
+                       the EUR restatement of price history (_to_eur); a
+                       missing currency is treated as EUR. Its "beta" field is
+                       the fallback when a holding has too little history to
+                       regress a beta against BENCHMARK_TICKER.
     income_portfolio — if True, income risk weight is elevated in Stage 7.
     veto_lookup      — optional {ticker: bool} from the screener's own `veto`
                        column (screener.py's df["veto"]); feeds Stage 1's
                        PositionRisk.veto and Stage 8's hard veto trigger.
+    targets          — optional target allocation
+                       {"sectors": {..}, "tickers": {..}, "hhi_max": float}
+                       (portfolio.load_targets()); switches Stage 8's sector /
+                       name / HHI checks from absolute levels to drift-vs-target.
+    prior_snapshot   — optional {"date","hhi","sharpe","sector_weights","ratings"}
+                       from the last run (portfolio.load_risk_snapshot(), built
+                       via snapshot_from_report()); adds drift-since / two-period
+                       / rating-transition triggers.
     """
     if pf_df is None or pf_df.empty:
         raise ValueError("Portfolio is empty — nothing to assess")
@@ -1129,8 +1564,29 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     total_value = float(pf["current_value"].fillna(0).sum())
     tickers     = pf["ticker"].tolist()
 
-    # Fetch 5-year price history for all positions in one batch call
-    closes = _fetch_history(tickers, period="5y")
+    # One batch fetch of the longer stress window for all positions + the
+    # benchmark, restated in EUR. Stages 1/3/4 run on the trailing 5y slice
+    # (behaviour unchanged); Stage 6 gets the full-length series for scenario
+    # replay and the Monte-Carlo bootstrap.
+    closes_full  = _to_eur(_fetch_history(tickers + [BENCHMARK_TICKER],
+                                          period=STRESS_HISTORY_PERIOD), cache)
+    _cutoff      = pd.Timestamp.now().normalize() - pd.Timedelta(days=QUANT_HISTORY_DAYS)
+    closes_all   = closes_full[closes_full.index >= _cutoff] if not closes_full.empty else closes_full
+    bench_closes = (closes_all[[BENCHMARK_TICKER]]
+                    if BENCHMARK_TICKER in closes_all.columns else pd.DataFrame())
+    closes       = closes_all.drop(columns=[BENCHMARK_TICKER], errors="ignore")
+    closes_stress = closes_full.drop(columns=[BENCHMARK_TICKER], errors="ignore")
+
+    bench_rets: pd.Series | None = None
+    if not bench_closes.empty:
+        _b = _daily_returns(bench_closes).dropna()
+        if len(_b) >= _BETA_MIN_OBS:
+            bench_rets = _b[BENCHMARK_TICKER]
+
+    # Per-holding beta (regression on own EUR series vs benchmark, with
+    # yfinance / 1.0 fallbacks) — feeds Stages 1 and 3.
+    stock_rets = _daily_returns(closes) if not closes.empty else pd.DataFrame()
+    betas, beta_sources = _resolve_betas(tickers, stock_rets, bench_rets, cache)
 
     # Build portfolio daily return series (used in Stages 3, 4, 6)
     port_rets: pd.Series | None = None
@@ -1146,14 +1602,37 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                     name="portfolio",
                 )
 
-    s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup)
+    # Direct OLS beta of the portfolio return series on the benchmark — a
+    # cross-check on the weighted-sum portfolio beta.
+    port_beta_reg: float | None = None
+    if port_rets is not None and bench_rets is not None:
+        j = pd.concat([port_rets.rename("p"), bench_rets.rename("m")], axis=1).dropna()
+        if len(j) >= _BETA_MIN_OBS:
+            _pbr = _ols_beta(j["p"].to_numpy(), j["m"].to_numpy())
+            port_beta_reg = round(_pbr, 3) if _pbr is not None else None
+
+    # Full-length portfolio return series for Stage 6 (scenario replay + MC).
+    port_rets_stress: pd.Series | None = None
+    if not closes_stress.empty:
+        avail_s = [t for t in tickers if t in closes_stress.columns]
+        if avail_s:
+            aw_s = _weights_for_tickers(pf, avail_s, total_value)
+            dr_s = _daily_returns(closes_stress[avail_s].dropna(how="all")).dropna(how="all")
+            if not dr_s.empty:
+                port_rets_stress = pd.Series(dr_s.fillna(0).values @ aw_s,
+                                             index=dr_s.index, name="portfolio")
+
+    s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup,
+                                   betas=betas, beta_sources=beta_sources, closes=closes)
     s2 = _stage2_concentration(pf, total_value)
-    s3 = _stage3_quant(pf, cache, total_value, closes)
+    s3 = _stage3_quant(pf, cache, total_value, closes,
+                       betas=betas, portfolio_beta_regression=port_beta_reg)
     s4 = _stage4_factor(port_rets)
     s5 = _stage5_income(pf, cache, total_value)
-    s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets, s2)
+    s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets_stress, s2)
     s7 = _stage7_composite(s1, s2, s3, s4, s5, s6, income_portfolio)
-    s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value)
+    s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value,
+                           targets=targets, prior_snapshot=prior_snapshot)
 
     return RiskReport(
         generated_at=datetime.now(timezone.utc).isoformat(),

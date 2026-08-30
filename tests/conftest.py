@@ -16,6 +16,7 @@ import pytest
 import auth
 import backup
 import portfolio
+import risk
 import settings
 
 TEST_EMAIL = "test@example.com"
@@ -52,6 +53,9 @@ def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setattr(backup, "_BACKUPS_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup, "_BACKUPS_MANIFEST", tmp_path / "backups" / "manifest.json")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # Keep the Fama-French disk cache off the developer's real .cache/factors.
+    monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
+    monkeypatch.setattr(risk, "_ff_cache", {})
     # Sets the pytest thread's own portfolio "current user" -- covers direct,
     # non-AppTest calls into portfolio.py made straight from a test body. An
     # AppTest-executed script runs on its own separate thread and needs its
@@ -82,6 +86,11 @@ _SCREENER_COLUMNS = dict(
     **{"Sub MoS": 70.0, "Sub Risk": 65.0, "Sub Quality": 80.0,
        "Sub Momentum": 60.0, "Sub Dividend": 75.0},
     beta=1.05,
+    # Multi-year statement histories (screener._statement_history). None here =
+    # "column present, no history" — the same shape an older cache or a failed
+    # statement fetch produces; consumers already guard with isinstance(x, list).
+    revenueHistory=None, ebitHistory=None, netIncomeHistory=None,
+    cfoHistory=None, retainedEarningsHistory=None, totalAssetsHistory=None,
 )
 
 
@@ -105,7 +114,8 @@ def make_portfolio_scored_df(tickers=("AAA.BR",), names=("Alpha Corp",)) -> pd.D
     """Stand-in for uvalu.data._load_portfolio_screener_data() — a scored row
     per held/sold ticker, same column set as make_scored_df(). Page test _run
     helpers patch _load_portfolio_screener_data with
-    `lambda _v, tickers, names, _t=None: make_portfolio_scored_df(tickers, names)`.
+    `lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names)`
+    (`_t` = veto thresholds, `_w` = the WS-18 screening-style weight vector).
     """
     rows = [make_scored_row(Ticker=t, Name=n) for t, n in zip(tickers, names)]
     return pd.DataFrame(rows if rows else [make_scored_row()])

@@ -1,13 +1,15 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
 import streamlit as st
 
 import risk as _risk_module
-from portfolio import load_portfolio, load_sold
+from portfolio import (load_portfolio, load_sold, load_targets,
+                       load_risk_snapshot, save_risk_snapshot)
+from portfolio_enrichment import enrich_for_risk
 from screener import load_fundamentals_cache
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
                         _load_portfolio_screener_data, _portfolio_cache_version)
 from uvalu.drawer import open_drawer
@@ -63,9 +65,11 @@ def render() -> None:
         for t in _risk_extra_tickers
     )
     *_risk_exch_dfs, _ = _load_all_screener_data(
-        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds())
+        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds(),
+        score_weights=get_score_weights())
     _risk_port_df  = _load_portfolio_screener_data(
-        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names, get_veto_thresholds())
+        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names,
+        get_veto_thresholds(), get_score_weights())
     # Held tickers that also sit on an enabled exchange appear in both frames;
     # keep="last" lets the portfolio lane's row (priority-fetched, its own
     # cadence) win so every downstream lookup — _veto_lookup, _risk_scr_by_ticker
@@ -79,36 +83,29 @@ def render() -> None:
     # alert box / holdings table's Flag column further down.
     _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
 
-    # ── Enrich portfolio with a live price (fast, 60s-cached quote feed) ──────
-    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
-    pf["live_price"]    = pf["ticker"].map(lambda t: _risk_live.get(t, {}).get("price"))
-    pf["current_value"] = pf["live_price"] * pf["shares"]
-
-    # ── Fair value, sector, country, dividend rate — from the screener's own
-    # scored DataFrame (_risk_scr_df, built above), which already ran the full
-    # multi-model pipeline for every portfolio ticker. Looking these up here
-    # instead of re-deriving them keeps this page's numbers identical to the
-    # Screener/Analysis pages for the same ticker. ─────────────────────────────
+    # ── Enrich the portfolio for the risk engine — live price + the
+    # fundamentals-derived fields (fair value, sector, country, dividend rate)
+    # looked up from the screener's own scored DataFrame so this page's numbers
+    # match the Screener/Analysis pages. See portfolio_enrichment. ────────────
     _risk_scr_by_ticker = _risk_scr_df.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
-
-    def _scr(field, default=None):
-        if field not in _risk_scr_by_ticker.columns:
-            return pd.Series(default, index=pf.index)
-        return pf["ticker"].map(_risk_scr_by_ticker[field])
-
-    pf["fair_value"]      = _scr("fair_value")
-    pf["sector"]          = _scr("sector")
-    pf["country"]         = _scr("country")
-    pf["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
-    pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
+    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    pf = enrich_for_risk(pf, _risk_scr_by_ticker, _risk_live)
 
     _risk_full_cache = load_fundamentals_cache()
 
     _income_portfolio = False
 
+    # Target allocation + the prior day's snapshot feed Stage 8's drift triggers.
+    _targets        = load_targets()
+    _prior_snapshot = load_risk_snapshot()
+
     # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
+    # Not keyed on the snapshot: writing today's snapshot below would otherwise
+    # self-invalidate the cache on the very next render. The 1-hour TTL covers
+    # day rollover in practice.
     _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio,
-                           tuple(sorted(_veto_lookup.items()))))
+                           tuple(sorted(_veto_lookup.items())),
+                           repr(sorted(_targets.items()))))
     _risk_cached    = st.session_state.get("_risk_report_cache", {})
     _risk_report: _risk_module.RiskReport | None = None
 
@@ -120,11 +117,21 @@ def render() -> None:
 
     if _risk_report is None:
         try:
-            _risk_report = _risk_module.assess_portfolio(pf, _risk_full_cache, _income_portfolio, _veto_lookup)
+            _risk_report = _risk_module.assess_portfolio(
+                pf, _risk_full_cache, _income_portfolio, _veto_lookup,
+                targets=_targets, prior_snapshot=_prior_snapshot)
             st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
         except Exception as _risk_err:
             st.error(f"Risk assessment failed: {_risk_err}")
             st.stop()
+
+        # Upsert today's snapshot as the reference point for future drift
+        # checks — only once per day, so the diff is against a real prior run.
+        if _prior_snapshot.get("date") != date.today().isoformat():
+            try:
+                save_risk_snapshot(_risk_module.snapshot_from_report(_risk_report))
+            except Exception:
+                pass
 
     r = _risk_report
 
@@ -156,8 +163,15 @@ def render() -> None:
         # Plain grid cells (no st.metric()) — st.metric() is styled app-wide
         # as a boxed mint-tinted KPI tile (styles.py's stMetric rule), which
         # doesn't match the mockup's unboxed 3x2 stat grid here.
+        # Show the direct-regression beta alongside the weighted-sum one when
+        # they diverge enough to be worth a second look.
+        _beta_sub = r.quant.beta_label
+        _pbr = r.quant.portfolio_beta_regression
+        if _pbr is not None and abs(_pbr - r.quant.portfolio_beta) >= 0.15:
+            _beta_sub = f"{r.quant.beta_label} · regression {_pbr:.2f}"
+
         _metric_defs = [
-            ("BETA", f"{r.quant.portfolio_beta:.2f}", r.quant.beta_label),
+            ("BETA", f"{r.quant.portfolio_beta:.2f}", _beta_sub),
             ("VOLATILITY", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A", r.quant.volatility_label),
             ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label),
             ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label),
@@ -198,7 +212,15 @@ def render() -> None:
                     f'<div style="font-size:11px;color:var(--faint);margin-top:6px;">{_FACTOR_NOTES.get(_fname, "")}</div></div>',
                     unsafe_allow_html=True,
                 )
-            st.caption("Fama-French 5-factor + momentum loadings. |loading| > 1.5 = concentrated factor bet.")
+            _prov = []
+            if r.factor.factor_set:
+                _prov.append(f"{r.factor.factor_set.title()} 5-factor + momentum set")
+            if r.factor.as_of:
+                _prov.append(f"as of {r.factor.as_of}")
+            if r.factor.stale:
+                _prov.append("cached — source unreachable")
+            _prov_txt = (" · " + " · ".join(_prov)) if _prov else ""
+            st.caption(f"Fama-French factor loadings{_prov_txt}. |loading| > 1.5 = concentrated factor bet.")
         else:
             st.caption("Factor analysis unavailable. " + (r.factor.flags[0] if r.factor.flags else ""))
 

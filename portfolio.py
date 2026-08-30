@@ -389,6 +389,59 @@ def load_manual_tickers() -> dict[str, str]:
     return _load_user_json("manual_tickers.json", {})
 
 
+# ── Target allocation + risk snapshot (feeds risk Stage 8's drift triggers) ───
+
+def _clean_weight_map(raw) -> dict[str, float]:
+    out: dict[str, float] = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                continue
+            if 0.0 < f <= 1.0:
+                out[str(k)] = round(f, 4)
+    return out
+
+
+def save_targets(targets: dict) -> None:
+    """Persist the user's target allocation. Shape (all keys optional):
+    {"sectors": {name: fraction}, "tickers": {ticker: fraction}, "hhi_max": fraction}
+    """
+    targets = targets or {}
+    clean: dict = {}
+    if targets.get("sectors"):
+        clean["sectors"] = _clean_weight_map(targets["sectors"])
+    if targets.get("tickers"):
+        clean["tickers"] = _clean_weight_map(targets["tickers"])
+    try:
+        hhi_max = float(targets.get("hhi_max"))
+        if 0.0 < hhi_max <= 1.0:
+            clean["hhi_max"] = round(hhi_max, 4)
+    except (TypeError, ValueError):
+        pass
+    _save_user_json("targets.json", clean)
+
+
+def load_targets() -> dict:
+    t = _load_user_json("targets.json", {})
+    return t if isinstance(t, dict) else {}
+
+
+def save_risk_snapshot(snapshot: dict) -> None:
+    """Upsert a small snapshot of the current risk picture, one per calendar
+    day — the reference point Stage 8 diffs against for drift triggers."""
+    import datetime
+    snap = dict(snapshot or {})
+    snap.setdefault("date", datetime.date.today().isoformat())
+    _save_user_json("risk_snapshot.json", snap)
+
+
+def load_risk_snapshot() -> dict:
+    s = _load_user_json("risk_snapshot.json", {})
+    return s if isinstance(s, dict) else {}
+
+
 # ── Excel parsing ─────────────────────────────────────────────────────────────
 
 _COL_NAMES = {

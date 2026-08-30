@@ -32,12 +32,24 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import marketdata
+from scoring import (  # re-exported for existing `from screener import …` call sites
+    _clamp, _get_num, _finite,
+    _financial_health_score, _earnings_quality_score, _dividend_sustainability_flag,
+)
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 RISK_FREE_RATE      = 0.03    # Euro area approximation
 EQUITY_RISK_PREMIUM = 0.05
 DEFAULT_TAX_RATE    = 0.25    # EPV fallback when `country` is missing or unmapped below
 DEFAULT_BETA        = 1.0
+# Blume (1971): a stock's next-period beta is well approximated by shrinking its
+# trailing regression beta two-thirds of the way from the raw estimate toward the
+# market beta of 1.0. yfinance's `beta` is a noisy, backward-looking single
+# estimate, so both WACC and the market-risk score run it through this shrink
+# (screener._adjust_beta) rather than trusting the raw number.
+BLUME_WEIGHT        = 0.67
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
 
@@ -88,24 +100,68 @@ COUNTRY_TAX_RATES = {
 # fair-value composite. Fixed constant, not derived from live analyst-accuracy data.
 ANALYST_TARGET_HAIRCUT = 0.10
 
-# Stage 2 fair-value model base weights — must sum to 1.00. Proportionally rescaled
-# from the original 0.18/0.18/0.19/0.20/0.20/0.25 (which summed to 1.20 — a stale
-# discrepancy, see docs/stock_valuation_algorithm.md) down to this scale, preserving
-# each model's relative influence. The DDM weights are the *base* rate for eligible
-# payers; _fair_value_models zeroes them out entirely when a stock is DDM-ineligible.
-W_GRAHAM     = 0.150
+# The analyst target also carries the lowest *base* weight of the six models and is
+# scaled down further (_analyst_weight_factor) when the sell-side estimates disagree
+# (wide high–low spread vs the mean) or are thin (few contributing analysts).
+_ANALYST_SPREAD_TIGHT     = 0.20   # (high−low)/mean at/below which dispersion doesn't bite
+_ANALYST_SPREAD_WIDE      = 0.80   # ...and at/above which the dispersion factor bottoms out
+_ANALYST_DISPERSION_FLOOR = 0.30
+_ANALYST_COVERAGE_FULL    = 8      # analyst count at/above which coverage doesn't bite
+_ANALYST_COVERAGE_FLOOR   = 0.30
+
+# Stage 2 fair-value model base weights — must sum to 1.00. Originally
+# 0.18/0.18/0.19/0.20/0.20/0.25 (a stale sum of 1.20), rescaled to
+# 0.150/0.150/0.158/0.167/0.167/0.208, then (WS-13) the analyst weight was cut
+# from 0.208 to 0.130 — sell-side targets are optimism-biased and slow to react
+# — and the freed ~0.078 handed to the two most fundamentals-anchored models,
+# EPV and Graham. The DDM weights are the *base* rate for eligible payers;
+# _fair_value_models scales them by the payout ramp (_ddm_weight_factor).
+W_GRAHAM     = 0.178
 W_PE         = 0.150
-W_EPV        = 0.158
+W_EPV        = 0.208
 W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
-W_ANALYST    = 0.208
+W_ANALYST    = 0.130
 
-# Composite score weights — must sum to 1.0
-W_MOS      = 0.30   # α — margin of safety
-W_RISK     = 0.18   # β — risk (inverted: 100 - risk_pctrank)
-W_QUALITY  = 0.22   # γ — quality
+# PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
+# the median trailing P/E of the stock's own *sector* across the screened universe
+# (screener._sector_pe_medians), winsorized to PE_MULTIPLE_BAND and given a bounded
+# PEG tilt on earningsGrowth (clamp(1 + g, *PEG_TILT_BAND)). PE_MULTIPLE_FALLBACK —
+# a round heuristic near the long-run market-average P/E, and the value used
+# unconditionally before this — applies when the sector has fewer than
+# MIN_SECTOR_SAMPLE priced peers, or when the frame carries no trailingPE/sector
+# columns at all (direct _fair_value_models callers, pre-WS-10 caches).
+PE_MULTIPLE_FALLBACK = 15.0
+PE_MULTIPLE_BAND     = (6.0, 30.0)
+PEG_TILT_BAND        = (0.7, 1.5)
+MIN_SECTOR_SAMPLE    = 5
+
+# Composite score weights — must sum to 1.0. Rebalanced away from the original
+# 0.30/0.18/0.22/0.15/0.15: MoS no longer dominates outright (it co-leads with
+# quality), and risk carries more weight, so a wide margin of safety can't by
+# itself outvote weak fundamentals or a poor risk profile. The "value" screening
+# style (settings._SCORE_STYLES) restores the MoS-led weighting for users who
+# want it.
+W_MOS      = 0.24   # α — margin of safety
+W_RISK     = 0.22   # β — risk sub-score (already oriented so safer = higher)
+W_QUALITY  = 0.24   # γ — quality
 W_MOMENTUM = 0.15   # δ — momentum
 W_DIVIDEND = 0.15   # ε — dividend score
+
+# Each composite sub-score is a blend of its cross-sectional percentile rank
+# (_pct_rank — a stock's standing *within the current universe*) and an absolute
+# 0–100 band (_abs_band — the same value judged against a fixed bar). Pure
+# percentile ranking inflates a mediocre stock in a weak universe and makes
+# MoS_rank meaningless when every stock is overvalued; the absolute anchor keeps
+# the score honest in that case. BLEND_PCT is the percentile weight (0 = purely
+# absolute, 1 = purely relative, today's behaviour).
+BLEND_PCT = 0.5
+
+# Absolute-band breakpoints, (x, y) with x ascending; _abs_band interpolates
+# linearly and clamps outside the range. y is always 0–100, higher = better.
+_BAND_MOS   = [(0.0, 0.0), (0.10, 40.0), (0.25, 70.0), (0.50, 100.0)]  # margin of safety
+_BAND_0_10  = [(0.0, 0.0), (10.0, 100.0)]                              # raw 0–10 score, ×10
+_BAND_RISK  = [(0.0, 100.0), (10.0, 0.0)]                              # risk raw (higher = riskier)
 
 # Decision thresholds
 SCORE_STRONG_BUY = 70
@@ -169,6 +225,9 @@ VALUATION_FIELDS = [
     "dividendRate",                 # Forward DPS (multi-stage DDM)
     "fiveYearAvgDividendYield",     # Yield vs historical average
     "targetMeanPrice",              # Analyst target
+    "targetHighPrice",              # Analyst target — dispersion (high–low)/mean
+    "targetLowPrice",               # Analyst target — dispersion (high–low)/mean
+    "numberOfAnalystOpinions",      # Analyst target — coverage depth
     "ebit",                         # EPV
     "enterpriseValue",              # EPV: EV → per-share scaling
     "sharesOutstanding",            # Cash payout ratio
@@ -284,6 +343,138 @@ def _fcf_history(tkr: "yf.Ticker") -> list[float] | None:
         return None
 
 
+# Income-statement / balance-sheet lines we keep a multi-year history for, each
+# stored newest-first as a plain list on the cached row (yfinance exposes ~4
+# fiscal years). Every tuple is a fallback chain — yfinance's row labels vary by
+# ticker/filing. Feeds the trend hard-vetoes (revenue decline, EBIT collapse,
+# retained-earnings erosion), the accrual term in earnings quality, and a
+# normalised EPV. Same nan-not-None gotcha as _fcf_history: ragged statements are
+# padded with NaN, so trailing NaN years are dropped, not kept.
+_STATEMENT_HISTORY_KEYS = (
+    "revenueHistory", "ebitHistory", "netIncomeHistory",
+    "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory",
+)
+
+
+def _statement_row(stmt, names: tuple[str, ...]) -> list[float] | None:
+    """First matching row of `stmt` (a yfinance statement DataFrame) as a
+    newest-first float list with NaN/None entries dropped; None if `stmt` is
+    empty, exposes none of `names`, or can't be read. Self-contained try/except
+    so one malformed row (e.g. a duplicated index label) degrades to None for
+    just that key rather than sinking the whole _statement_history dict."""
+    try:
+        if stmt is None or getattr(stmt, "empty", True):
+            return None
+        for name in names:
+            if name not in stmt.index:
+                continue
+            series = stmt.loc[name]
+            if isinstance(series, pd.DataFrame):        # duplicated index label
+                series = series.iloc[0]
+            vals = [_safe_float(v) for v in series.tolist()]
+            vals = [v for v in vals if v is not None and not math.isnan(v)]
+            return vals or None
+        return None
+    except Exception:
+        return None
+
+
+def _statement_history(tkr: "yf.Ticker") -> dict:
+    """Multi-year annual history for a handful of income-statement, balance-sheet
+    and cash-flow lines, most recent fiscal year first.
+
+    Returns a dict keyed by _STATEMENT_HISTORY_KEYS, every value None on fetch
+    failure or when the statement doesn't expose the row (some ADRs, recent
+    IPOs) — callers fall back to the point-in-time field. Isolated in its own
+    try/except like _fcf_history so a failure here doesn't trigger the whole-
+    ticker retry/backoff in _fetch_and_store. `.income_stmt` / `.balance_sheet`
+    / `.cashflow` are memoised on the Ticker object, so re-reading `.cashflow`
+    here (also used by _fcf_history) costs no extra network call.
+    """
+    empty = dict.fromkeys(_STATEMENT_HISTORY_KEYS)
+    try:
+        income  = tkr.income_stmt
+        balance = tkr.balance_sheet
+        cash    = tkr.cashflow
+        return {
+            "revenueHistory":          _statement_row(income,  ("Total Revenue",)),
+            "ebitHistory":             _statement_row(income,  ("EBIT", "Operating Income")),
+            "netIncomeHistory":        _statement_row(income,  ("Net Income", "Net Income Common Stockholders")),
+            "cfoHistory":              _statement_row(cash,    ("Operating Cash Flow", "Total Cash From Operating Activities")),
+            "retainedEarningsHistory": _statement_row(balance, ("Retained Earnings",)),
+            "totalAssetsHistory":      _statement_row(balance, ("Total Assets",)),
+        }
+    except Exception:
+        return empty
+
+
+# Number of complete calendar years of dividend history to score DGR / streaks
+# over. yfinance's dividend series usually reaches much further back, but a ~6y
+# window keeps "growth" and "cut" judgements about the current regime rather
+# than dragging in a decade-old policy change.
+_DIV_WINDOW_YEARS  = 6
+_DIV_MIN_YEARS     = 2       # need at least this many complete years for a true DGR
+_DIV_CUT_TOLERANCE = 0.99    # a year counts as a cut only below 99% of the prior year
+
+
+def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
+    """Annual-DPS statistics from the full payment history (marketdata.dividends).
+
+    Returns keys, all None/0 for a non-payer or on fetch failure:
+      true_dgr                — CAGR of annual DPS across the complete years in
+                                the window (>= _DIV_MIN_YEARS, first year > 0)
+      dividend_growth_streak  — trailing consecutive complete years of
+                                non-decreasing annual DPS
+      dividend_payment_years  — count of complete years with a payment in-window
+      dividend_last_cut_year  — most recent complete year whose annual DPS fell
+                                below _DIV_CUT_TOLERANCE x the prior year, else None
+    Isolated try/except like _fcf_history so a failure here never trips the
+    whole-ticker retry/backoff.
+    """
+    empty = {"true_dgr": None, "dividend_growth_streak": 0,
+             "dividend_payment_years": 0, "dividend_last_cut_year": None}
+    try:
+        divs = marketdata.dividends(ticker)
+        if divs is None or divs.empty:
+            return empty
+
+        this_year = now_year if now_year is not None else datetime.now(timezone.utc).year
+        annual = divs.groupby(divs.index.year).sum()
+        annual = annual[annual.index < this_year]          # drop the incomplete current year
+        annual = annual.iloc[-_DIV_WINDOW_YEARS:]
+        annual = annual[annual > 0]
+        if annual.empty:
+            return empty
+
+        years = list(annual.index)
+        vals  = [float(v) for v in annual.to_numpy()]
+
+        true_dgr = None
+        if len(vals) >= _DIV_MIN_YEARS and vals[0] > 0:
+            true_dgr = (vals[-1] / vals[0]) ** (1.0 / (len(vals) - 1)) - 1.0
+
+        streak = 0
+        for i in range(len(vals) - 1, 0, -1):
+            if vals[i] >= vals[i - 1]:
+                streak += 1
+            else:
+                break
+
+        last_cut_year = None
+        for i in range(1, len(vals)):
+            if vals[i] < vals[i - 1] * _DIV_CUT_TOLERANCE:
+                last_cut_year = int(years[i])
+
+        return {
+            "true_dgr": round(true_dgr, 4) if true_dgr is not None else None,
+            "dividend_growth_streak": streak,
+            "dividend_payment_years": len(vals),
+            "dividend_last_cut_year": last_cut_year,
+        }
+    except Exception:
+        return empty
+
+
 def _fetch_one(ticker: str, stock: dict) -> dict:
     tkr   = yf.Ticker(ticker)
     info  = tkr.info
@@ -352,6 +543,17 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     # Multi-year FCF history for the hard veto's "3+ consecutive negative years"
     # check; falls back to the single most-recent-period check when unavailable.
     row["fcfHistory"] = _fcf_history(tkr)
+
+    # Multi-year revenue / EBIT / net income / CFO / retained earnings / total
+    # assets — feeds the trend hard-vetoes, the accrual term in earnings quality,
+    # and a normalised EPV. Every key None when the statements can't be fetched.
+    row.update(_statement_history(tkr))
+
+    # Multi-year DPS history → true dividend growth rate, growth streak, and a
+    # past-cut year. `true_dgr` supersedes the earningsGrowth DGR proxy in TER
+    # and the dividend scores; the rest feed the risk engine's income-stability
+    # and sustainability checks.
+    row.update(_dividend_stats(ticker))
 
     # Derived: FCF yield
     fcf  = row.get("freeCashflow")
@@ -524,9 +726,23 @@ def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = N
 
 # ── Stage 2: Fair value estimation ───────────────────────────────────────────
 
+def _adjust_beta(beta) -> float | None:
+    """Shrink a raw beta toward the market beta of 1.0 by the Blume weight
+    (0.67·raw + 0.33·1.0). Returns None when `beta` is missing, NaN, or outside
+    the plausible [0.1, 5.0] band (rejected, not clamped to the edge) — callers
+    substitute DEFAULT_BETA (WACC) or a neutral score (market risk)."""
+    try:
+        b = float(beta)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(b) or not (0.1 <= b <= 5.0):
+        return None
+    return BLUME_WEIGHT * b + (1.0 - BLUME_WEIGHT) * DEFAULT_BETA
+
+
 def _approx_wacc(beta) -> float:
-    b = beta if (beta is not None and 0.1 <= beta <= 5.0) else DEFAULT_BETA
-    return RISK_FREE_RATE + b * EQUITY_RISK_PREMIUM
+    b = _adjust_beta(beta)
+    return RISK_FREE_RATE + (b if b is not None else DEFAULT_BETA) * EQUITY_RISK_PREMIUM
 
 
 def _ddm_single(div_rate, wacc, g) -> float | None:
@@ -560,18 +776,105 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
     return pv if 0 < pv < 1e6 else None
 
 
-def _fair_value_models(row: pd.Series) -> dict:
+# DDM weight ramps continuously with the payout ratio instead of switching the
+# whole ~0.33 DDM block in or out at hard 5%/90% edges — an 89% vs 91% payer
+# shouldn't see the fair value lurch. Knots: zero below 5% and above 95%, full
+# weight across the 30–70% "comfortable" band, linear on each shoulder between.
+_DDM_PAYOUT_KNOTS = (0.05, 0.30, 0.70, 0.95)
+
+
+def _ddm_weight_factor(div_rate, payout) -> float:
+    """Multiplier in [0, 1] applied to BOTH DDM base weights (W_DDM_SINGLE /
+    W_DDM_MULTI). 0 for a non-payer or a payout outside _DDM_PAYOUT_KNOTS[0]..[3];
+    1.0 across the [1]..[2] band; a linear ramp on each shoulder. Continuous at
+    every knot, so there's no cliff anywhere in the payout range."""
+    if not div_rate or div_rate <= 0 or payout is None or pd.isna(payout):
+        return 0.0
+    lo0, lo1, hi1, hi0 = _DDM_PAYOUT_KNOTS
+    if payout <= lo0 or payout >= hi0:
+        return 0.0
+    if payout < lo1:
+        return (payout - lo0) / (lo1 - lo0)
+    if payout <= hi1:
+        return 1.0
+    return (hi0 - payout) / (hi0 - hi1)
+
+
+def _analyst_weight_factor(row: pd.Series) -> float:
+    """Multiplier in [~0.09, 1.0] applied to W_ANALYST. Scales the analyst
+    target's pull down when the sell-side estimates disagree (wide high–low
+    spread relative to the mean) or are thinly covered (few contributing
+    analysts). 1.0 when neither signal is available — an absent field never
+    penalizes, it just doesn't discount.
+    """
+    hi, lo, mean = (_get_num(row, "targetHighPrice"),
+                    _get_num(row, "targetLowPrice"),
+                    _get_num(row, "targetMeanPrice"))
+    dispersion = 1.0
+    if None not in (hi, lo, mean) and mean > 0 and hi >= lo:
+        spread = (hi - lo) / mean
+        if spread > _ANALYST_SPREAD_TIGHT:
+            t = ((spread - _ANALYST_SPREAD_TIGHT)
+                 / (_ANALYST_SPREAD_WIDE - _ANALYST_SPREAD_TIGHT))
+            dispersion = _clamp(1.0 - t * (1.0 - _ANALYST_DISPERSION_FLOOR),
+                                _ANALYST_DISPERSION_FLOOR, 1.0)
+
+    n = _get_num(row, "numberOfAnalystOpinions")
+    coverage = (_clamp(n / _ANALYST_COVERAGE_FULL, _ANALYST_COVERAGE_FLOOR, 1.0)
+                if n else 1.0)
+
+    return dispersion * coverage
+
+
+def _sector_pe_medians(df: pd.DataFrame) -> dict:
+    """{sector: winsorized median trailing P/E} across `df`, for the PE fair-value
+    model. Only sectors with at least MIN_SECTOR_SAMPLE positive P/E readings get
+    an entry — callers fall back to PE_MULTIPLE_FALLBACK for every other sector.
+    Returns {} when the frame carries no `trailingPE`/`sector` columns at all
+    (e.g. a hand-built test frame), so `_fair_value_models` stays usable stand-alone.
+    """
+    if "trailingPE" not in df.columns or "sector" not in df.columns:
+        return {}
+    pe    = pd.to_numeric(df["trailingPE"], errors="coerce")
+    valid = pd.DataFrame({"sector": df["sector"], "pe": pe})
+    valid = valid[(valid["pe"] > 0) & (valid["pe"] < 10_000) & valid["sector"].notna()]
+    if valid.empty:
+        return {}
+    lo, hi = PE_MULTIPLE_BAND
+    return {
+        sector: float(np.clip(grp["pe"].median(), lo, hi))
+        for sector, grp in valid.groupby("sector")
+        if len(grp) >= MIN_SECTOR_SAMPLE
+    }
+
+
+def _normalised_ebit(row: pd.Series):
+    """Mean EBIT across the available multi-year window (`ebitHistory`, newest
+    first) when at least 3 finite years exist — EPV capitalises a
+    through-the-cycle *earnings power*, so a single peak or trough year
+    shouldn't set the whole valuation. Falls back to the point-in-time `ebit`
+    otherwise (recent IPOs, tickers whose statement fetch failed)."""
+    hist = row.get("ebitHistory")
+    vals = ([f for f in (_finite(v) for v in hist) if f is not None]
+            if isinstance(hist, list) else [])
+    if len(vals) >= 3:
+        return sum(vals) / len(vals)
+    return _get_num(row, "ebit")
+
+
+def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     payout   = row.get("payoutRatio")
     analyst  = row.get("targetMeanPrice")
-    ebit     = row.get("ebit")
+    ebit     = _normalised_ebit(row)   # mean of ebitHistory (≥3yr) else point-in-time
     ev       = row.get("enterpriseValue")
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
     country  = row.get("country")
+    sector   = row.get("sector")
     shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
@@ -582,12 +885,17 @@ def _fair_value_models(row: pd.Series) -> dict:
     if eps and bvps and eps > 0 and bvps > 0:
         gn = (22.5 * eps * bvps) ** 0.5
 
-    # PE Fair Value: flat conservative multiple (not Graham's actual no-growth
-    # base of 8.5x — this 15x is a round heuristic near historical market-average P/E)
-    pe_fv = (eps * 15) if (eps and eps > 0) else None
+    # PE Fair Value: sector-median trailing P/E (winsorized to PE_MULTIPLE_BAND)
+    # with a bounded PEG tilt on earningsGrowth; PE_MULTIPLE_FALLBACK when the
+    # sector has too few priced peers or no sector P/E data was supplied.
+    pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
+    if pd.notna(eg):
+        pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
+    pe_fv = (eps * pe_multiple) if (eps and eps > 0) else None
 
-    # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). t is the country's statutory
-    # rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
+    # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). EBIT is the multi-year mean
+    # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
+    # valuation; t is the country's statutory rate (COUNTRY_TAX_RATES), else DEFAULT_TAX_RATE.
     epv = None
     if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
         epv_ev = ebit * (1 - tax_rate) / wacc
@@ -601,28 +909,32 @@ def _fair_value_models(row: pd.Series) -> dict:
             # Fallback when shares outstanding is unavailable: EV-ratio approximation.
             epv = price * (epv_ev / ev)
 
-    # DDM weight guidance:
-    # — zero weight if no dividend, payout > 90%, or payout < 5%
-    # — higher weight (up to 0.40 combined) for established payers with 30–70% payout
-    is_dividend_payer = bool(div_rate and div_rate > 0)
-    payout_ok = payout and 0.05 <= payout <= 0.90
-    ddm_eligible = is_dividend_payer and payout_ok
+    # DDM weight ramps with the payout ratio (_ddm_weight_factor) rather than a
+    # hard 5–90% in/out gate — full base weight in the 30–70% band, tapering to 0
+    # by 5% / 95%, so an 89%→91% payer shifts by a sliver, not the whole block.
+    ddm_factor  = _ddm_weight_factor(div_rate, payout)
+    ddm_usable  = ddm_factor > 0
+    w_ddm1 = W_DDM_SINGLE * ddm_factor
+    w_ddm2 = W_DDM_MULTI  * ddm_factor
 
-    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_eligible else None
-    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_eligible else None
+    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_usable else None
+    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_usable else None
 
     # Discount the raw analyst target for its well-documented optimism bias before it
-    # feeds the composite (the undiscounted target is still shown elsewhere in the UI).
+    # feeds the composite (the undiscounted target is still shown elsewhere in the UI),
+    # then scale its already-low base weight down further when the sell-side estimates
+    # are widely dispersed or thinly covered (_analyst_weight_factor).
     analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
+    w_analyst  = W_ANALYST * _analyst_weight_factor(row)
 
-    # Base weights
+    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage)
     candidates = [
-        (gn,      W_GRAHAM),
-        (pe_fv,   W_PE),
-        (epv,     W_EPV),
-        (ddm1,    W_DDM_SINGLE if ddm_eligible else 0.0),
-        (ddm2,    W_DDM_MULTI  if ddm_eligible else 0.0),
-        (analyst_fv, W_ANALYST),
+        (gn,         W_GRAHAM),
+        (pe_fv,      W_PE),
+        (epv,        W_EPV),
+        (ddm1,       w_ddm1),
+        (ddm2,       w_ddm2),
+        (analyst_fv, w_analyst),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
@@ -633,9 +945,10 @@ def _fair_value_models(row: pd.Series) -> dict:
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
 
-    # Did either DDM variant actually feed the composite? (ddm_eligible alone isn't
-    # enough — a variant can still be None, e.g. the WACC<=g guard in _ddm_single.)
-    ddm_contributed = (ddm1, W_DDM_SINGLE) in avail or (ddm2, W_DDM_MULTI) in avail
+    # Did either DDM variant actually feed the composite? (a positive ramp factor
+    # alone isn't enough — the variant can still be None, e.g. the WACC<=g guard
+    # in _ddm_single, or filtered by the v > 0 / w > 0 test above.)
+    ddm_contributed = (ddm1, w_ddm1) in avail or (ddm2, w_ddm2) in avail
 
     return {
         "graham_number":  gn,
@@ -673,76 +986,25 @@ def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=Fa
     return round(cap_gain + dy + dg, 1)
 
 
-def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> str:
-    """
-    Returns 'At Risk', 'OK', or '' (non-payer).
-    Checks: payout ratio (user-configurable via Settings' "Max dividend
-    payout" slider — see settings.get_veto_thresholds()), cash payout
-    ratio, dividend coverage ratio.
-    """
-    div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
-    if not div_rate or div_rate <= 0:
-        return ""  # non-payer, no flag
-
-    payout   = row.get("payoutRatio")
-    cpr      = row.get("cashPayoutRatio")
-    coverage = row.get("dividendCoverage")
-
-    if (payout   and payout   > max_payout) or \
-       (cpr      and cpr      > 0.80) or \
-       (coverage and coverage < 1.20):
-        return "At Risk"
-    return "OK"
-
-
 # ── Stage 4: Risk scoring ─────────────────────────────────────────────────────
+# _clamp, _get_num, _financial_health_score, _earnings_quality_score and
+# _dividend_sustainability_flag now live in scoring.py (shared with risk.py) and
+# are re-exported at the top of this module.
 
-def _clamp(v, lo, hi):
-    return float(np.clip(v, lo, hi))
-
-
-def _get_num(row: pd.Series, field: str):
-    """row.get(field), normalizing NaN to None. compute_scores calls all the
-    scoring functions below via df.apply(fn, axis=1), which hands each one a
-    pandas Series where a field missing for this ticker (or a whole column
-    reindexed in for schema compatibility) reads as float NaN, not a missing
-    key. Every `is not None` / truthy guard below assumes plain-dict get()
-    semantics (missing -> None) and doesn't catch NaN, so without this,
-    NaN silently flows into arithmetic and corrupts the whole np.mean(scores)
-    to NaN for that dimension -- even when the other inputs were fine.
-    """
-    v = row.get(field)
-    return None if pd.isna(v) else v
-
-
-def _financial_health_score(row: pd.Series) -> float:
-    """0–10, higher = healthier."""
-    scores = []
-    de = _get_num(row, "debtToEquity")
-    if de is not None:
-        de_ratio = de / 100   # yfinance: 100 = 1.0×
-        scores.append(_clamp(10 - de_ratio * 2.5, 0, 10))
-    cr = _get_num(row, "currentRatio")
-    if cr is not None:
-        scores.append(_clamp((cr - 0.5) / 0.15, 0, 10))
-    ic = _get_num(row, "interestCoverage")
-    if ic is not None and ic > 0:
-        scores.append(_clamp(ic / 2, 0, 10))
-    return float(np.mean(scores)) if scores else 5.0
-
-
-def _earnings_quality_score(row: pd.Series) -> float:
-    """0–10, higher = better quality."""
-    fcf = _get_num(row, "freeCashflow")
-    ni  = _get_num(row, "netIncome")
-    if fcf is None or ni is None or ni == 0:
-        return 5.0
-    return float(_clamp(5 + (fcf / abs(ni)) * 3, 0, 10))
+def _dgr_estimate(row: pd.Series):
+    """Best available dividend growth rate for a row: the true 5-6yr DPS CAGR
+    (`true_dgr`, from _dividend_stats) when we have enough history, otherwise
+    the `earningsGrowth` proxy. A real 0.0 (flat DPS) still wins over the
+    proxy — the None check is deliberate, not truthiness."""
+    v = _get_num(row, "true_dgr")
+    return v if v is not None else _get_num(row, "earningsGrowth")
 
 
 def _market_risk_score(row: pd.Series) -> float:
-    """0–10, higher = lower beta risk."""
-    beta = _get_num(row, "beta")
+    """0–10, higher = lower beta risk. Beta is Blume-adjusted (shrunk toward
+    1.0) before scoring — see _adjust_beta — so a noisy trailing estimate can't
+    swing this dimension as hard."""
+    beta = _adjust_beta(_get_num(row, "beta"))
     if beta is None:
         return 5.0
     return float(_clamp(10 - abs(beta) * 3.5, 0, 10))
@@ -777,9 +1039,9 @@ def _dividend_risk_score(row: pd.Series) -> float:
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))    # 1.5× = 3, 5× = 10
 
-    eg = _get_num(row, "earningsGrowth")
-    if eg is not None:
-        scores.append(_clamp(5 + eg * 25, 0, 10))     # DGR proxy
+    dgr = _dgr_estimate(row)                           # true DPS CAGR, else earningsGrowth
+    if dgr is not None:
+        scores.append(_clamp(5 + dgr * 25, 0, 10))
 
     return float(np.mean(scores)) if scores else 5.0
 
@@ -879,10 +1141,10 @@ def _dividend_score_raw(row: pd.Series) -> float:
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))
 
-    # 5. DGR proxy (earnings growth as best available approximation)
-    eg = _get_num(row, "earningsGrowth")
-    if eg is not None:
-        scores.append(_clamp(5 + eg * 25, 0, 10))
+    # 5. Dividend growth — true DPS CAGR when available, else earningsGrowth
+    dgr = _dgr_estimate(row)
+    if dgr is not None:
+        scores.append(_clamp(5 + dgr * 25, 0, 10))
 
     return float(np.mean(scores)) if scores else 5.0
 
@@ -895,6 +1157,30 @@ def _pct_rank(series: pd.Series, ascending=True) -> pd.Series:
     if not ascending:
         ranked = 100 - ranked
     return ranked.fillna(50.0)
+
+
+def _abs_band(value, points: list) -> float:
+    """Map `value` through the piecewise-linear (x, y) `points` (x ascending),
+    clamped to the endpoint y outside the range. None/NaN → the midpoint of the
+    two endpoint y's (neutral), matching _pct_rank's NaN handling."""
+    if value is None or pd.isna(value):
+        return (points[0][1] + points[-1][1]) / 2.0
+    if value <= points[0][0]:
+        return float(points[0][1])
+    if value >= points[-1][0]:
+        return float(points[-1][1])
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if value <= x1:
+            return float(y0 + (y1 - y0) * (value - x0) / (x1 - x0))
+    return float(points[-1][1])
+
+
+def _blend_ranks(series: pd.Series, band: list, ascending: bool = True) -> pd.Series:
+    """BLEND_PCT × cross-sectional percentile rank + (1 − BLEND_PCT) × absolute
+    band — the composite sub-score for one dimension (0–100, higher = better)."""
+    pct = _pct_rank(series, ascending=ascending)
+    absolute = series.apply(lambda v: _abs_band(v, band))
+    return BLEND_PCT * pct + (1.0 - BLEND_PCT) * absolute
 
 
 def _fcf_hard_veto(row: pd.Series) -> bool:
@@ -910,19 +1196,106 @@ def _fcf_hard_veto(row: pd.Series) -> bool:
     return bool(fcf is not None and fcf < 0)
 
 
+# Trend-based hard vetoes (WS-15). Each needs a minimum window of the relevant
+# multi-year series (screener._statement_history / _dividend_stats); a series
+# that short or absent simply doesn't trigger — recent IPOs and failed statement
+# fetches never get vetoed for missing data.
+_TREND_MIN_YEARS       = 3      # points a history list needs before a trend check runs
+_TREND_DECLINE_RUN     = 2      # consecutive YoY declines that count as a decline trend
+_DIV_CUT_VETO_YEARS    = 2      # a DPS cut this recent, plus thin cover, is a standalone veto
+_DIV_CUT_VETO_COVERAGE = 1.5    # "thin" dividend cover for that standalone veto
+
+
+def _clean_history(row: pd.Series, field: str) -> list[float]:
+    """A newest-first history list column as finite floats (NaN/None dropped,
+    order kept); [] when the column is absent or isn't a list."""
+    hist = row.get(field)
+    if not isinstance(hist, list):
+        return []
+    return [f for f in (_finite(v) for v in hist) if f is not None]
+
+
+def _declining_run(vals: list[float]) -> int:
+    """Consecutive year-over-year declines at the newest end of a newest-first
+    series: `vals[0] < vals[1] < vals[2] …` → 2, 3, … (0 if the newest year
+    didn't fall)."""
+    run = 0
+    for i in range(len(vals) - 1):
+        if vals[i] < vals[i + 1]:
+            run += 1
+        else:
+            break
+    return run
+
+
+def _trend_veto(row: pd.Series) -> list[str]:
+    """Reasons a stock trips a *trend*-based hard veto (empty list = clean).
+
+    The static, point-in-time vetoes (sector-adjusted D/E, single-period FCF,
+    at-risk dividend + coverage < 1.0) live in compute_scores / veto_reason_str;
+    this is the multi-year-deterioration set. One function, so compute_scores and
+    both veto UIs (components.veto_reason_str, analysis.py's checks panel) read
+    the exact same rule instead of re-deriving it.
+    """
+    reasons: list[str] = []
+
+    rev = _clean_history(row, "revenueHistory")
+    if len(rev) >= _TREND_MIN_YEARS:
+        run = _declining_run(rev)
+        if run >= _TREND_DECLINE_RUN:
+            reasons.append(f"revenue fell {run + 1} straight years")
+
+    ebit = _clean_history(row, "ebitHistory")
+    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
+        reasons.append(f"operating income negative {_TREND_MIN_YEARS} years running")
+
+    ret = _clean_history(row, "retainedEarningsHistory")
+    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
+            and _declining_run(ret) >= _TREND_DECLINE_RUN):
+        reasons.append("retained earnings negative and still eroding")
+
+    last_cut = _get_num(row, "dividend_last_cut_year")
+    coverage = _get_num(row, "dividendCoverage")
+    if (last_cut is not None and coverage is not None
+            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
+            and coverage < _DIV_CUT_VETO_COVERAGE):
+        reasons.append(f"dividend cut in {int(last_cut)} with only {coverage:.2f}× cover")
+
+    return reasons
+
+
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    max_payout: float = 0.90, min_mos: float = 0.0,
-                   buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                   buy_threshold: float = SCORE_STRONG_BUY,
+                   weights: "tuple | None" = None) -> pd.DataFrame:
+    # Composite sub-score weights (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM,
+    # W_DIVIDEND). None → the module defaults ("balanced"); the Settings
+    # screening-style picker passes a re-lensed vector via
+    # settings.get_score_weights().
+    w_mos, w_risk, w_quality, w_momentum, w_dividend = (
+        weights if weights is not None
+        else (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND)
+    )
     # Ensure all expected columns exist (older cache may be missing new fields)
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
         "exDividendDate", "dividendDate", "sector", "fcfHistory",
+        "true_dgr", "dividend_growth_streak", "dividend_payment_years",
+        "dividend_last_cut_year",
+        *_STATEMENT_HISTORY_KEYS,
     ]
-    df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
+    # dict.fromkeys dedupes: VALUATION/RISK/QUALITY/MOMENTUM field lists overlap
+    # (e.g. currentRatio, freeCashflow appear in two of them), and reindexing with
+    # a duplicated name produces a duplicate column — every later row.get(name)
+    # then returns a 2-value Series and blows up the scalar guards downstream.
+    _missing = [f for f in dict.fromkeys(all_fields) if f not in df.columns]
+    df = df.reindex(columns=[*df.columns, *_missing])
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
-    fv_cols = df.apply(_fair_value_models, axis=1, result_type="expand")
+    sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
+    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe),
+                       axis=1, result_type="expand")
     for col in fv_cols.columns:
         df[col] = fv_cols[col]
 
@@ -933,7 +1306,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["TER %"] = df.apply(
         lambda r: _total_expected_return(
             r["Price"], r["fair_value"],
-            r.get("dividendYield"), r.get("earningsGrowth"),
+            r.get("dividendYield"), _dgr_estimate(r),
             r.get("ddm_contributed", False)
         ), axis=1
     )
@@ -949,27 +1322,30 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # LEVERAGE_EXEMPT_SECTORS where high leverage is structural rather than distress, OR
     # FCF negative for 3+ consecutive years (single most-recent period if less history
     # is available) OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
+    # OR any multi-year deterioration trend (_trend_veto: revenue decline, EBIT
+    # collapse, retained-earnings erosion, a recent dividend cut on thin cover).
     de            = df["debtToEquity"].fillna(0)
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
     fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
-    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | (
+    trend_veto    = df.apply(lambda r: bool(_trend_veto(r)), axis=1)
+    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | trend_veto | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
     )
 
-    # ── Stage 5: percentile ranks → 0–100 ────────────────────────────────────
-    mos_rank      = _pct_rank(df["margin_of_safety"], ascending=True)
-    risk_rank     = _pct_rank(df["_risk_raw"],         ascending=False)  # lower = better
-    quality_rank  = _pct_rank(df["_quality_raw"],      ascending=True)
-    momentum_rank = _pct_rank(df["_momentum_raw"],     ascending=True)
-    dividend_rank = _pct_rank(df["_dividend_raw"],     ascending=True)
+    # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
+    mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True)
+    risk_rank     = _blend_ranks(df["_risk_raw"],        _BAND_RISK, ascending=False)  # lower raw = safer
+    quality_rank  = _blend_ranks(df["_quality_raw"],     _BAND_0_10, ascending=True)
+    momentum_rank = _blend_ranks(df["_momentum_raw"],    _BAND_0_10, ascending=True)
+    dividend_rank = _blend_ranks(df["_dividend_raw"],    _BAND_0_10, ascending=True)
 
     score = (
-        W_MOS      * mos_rank
-        + W_RISK   * risk_rank
-        + W_QUALITY   * quality_rank
-        + W_MOMENTUM  * momentum_rank
-        + W_DIVIDEND  * dividend_rank
+        w_mos       * mos_rank
+        + w_risk    * risk_rank
+        + w_quality  * quality_rank
+        + w_momentum * momentum_rank
+        + w_dividend * dividend_rank
     ).round(1)
 
     score[df["_hard_veto"]] = 0.0
@@ -1026,16 +1402,18 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
 
 def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          max_payout: float = 0.90, min_mos: float = 0.0,
-                         buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                         buy_threshold: float = SCORE_STRONG_BUY,
+                         weights: "tuple | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching)."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
-                            buy_threshold=buy_threshold)
+                            buy_threshold=buy_threshold, weights=weights)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      max_payout: float = 0.90, min_mos: float = 0.0,
-                     buy_threshold: float = SCORE_STRONG_BUY) -> pd.DataFrame:
+                     buy_threshold: float = SCORE_STRONG_BUY,
+                     weights: "tuple | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -1047,4 +1425,4 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         return df
     print("Computing valuation scores...")
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
-                          min_mos=min_mos, buy_threshold=buy_threshold)
+                          min_mos=min_mos, buy_threshold=buy_threshold, weights=weights)

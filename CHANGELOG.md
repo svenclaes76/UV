@@ -6,7 +6,32 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+### Added
+- Screener: **multi-year statement history** (`screener._statement_history`) — annual revenue, EBIT, net income, operating cash flow, retained earnings and total assets pulled per ticker on each 24h refresh, groundwork for trend-based vetoes, accrual-aware earnings quality and a normalised EPV (WS-10)
+- **`marketdata.py`** — single yfinance wrapper: disk-cached daily price history (`.cache/history/`, incremental tail refetch), dividend payment history (`.cache/dividends/`), and EUR FX rates
+- **`scoring.py`** — the shared 0–10 fundamental scorers, extracted from `screener.py` (which re-exports them); the risk engine no longer imports `screener.py`'s private namespace
+- **`portfolio_enrichment.py`** — `enrich_for_risk()` builds the frame `risk.assess_portfolio` expects
+- Risk engine: per-holding **beta regressed** against `^STOXX50E` (yfinance fallback), realised per-position volatility, and a days-to-liquidate liquidity check
+- Risk engine: **true dividend growth rate** from DPS history feeds TER and the dividend scores; dividend-sustainability flag adds a "DPS cut in the last 3 years" check; `IncomeRisk.income_stability` score, wired into the composite
+- Risk engine: Fama-French **Developed** 5-factor + momentum set (US fallback), disk-cached with a stale-copy fallback when offline
+- Risk engine: historical stress scenarios **replay the held basket's real drawdown** when history covers the window; Monte Carlo is now a block bootstrap re-centred on a CAPM drift
+- Risk engine: **drift-vs-target** rebalancing triggers — set a target allocation under Settings → Target allocation and a daily risk snapshot enables sector/name/HHI drift, two-period Sharpe, and rating-transition signals
+- Settings → **Target allocation** editor (personal sector / per-name weights + HHI ceiling)
+- Settings → Screening & veto rules → **Screening style** (balanced / value / growth / income) — an admin-controlled composite-weight preset threaded through `compute_scores` via `settings.get_score_weights()` (WS-18)
+- Screener: **trend-based hard vetoes** (`screener._trend_veto`) — a stock is now vetoed on 3+ straight years of revenue decline, 3 years of negative EBIT, an eroding negative retained-earnings balance, or a dividend cut in the last 2 years while coverage is under 1.5×; surfaced in the drawer/Analysis veto banner and the Analysis "Hard-veto checks" panel (WS-15)
+
 ### Changed
+- Screener: **PE Fair Value** now uses the stock's own sector-median trailing P/E across the universe (winsorized 6–30×) with a bounded PEG tilt, instead of a flat 15× for every stock; 15× is kept as the small-sample fallback (WS-11)
+- Screener: **DDM weight** now ramps continuously with the payout ratio (full across 30–70%, tapering to 0 by 5% / 95%) instead of a hard 5–90% in/out gate — no more fair-value cliff between an 89% and a 91% payer (WS-12)
+- Screener: **earnings quality** adds a Sloan accrual ratio `(netIncome − operating cash flow) / totalAssets` alongside the FCF/NI conversion and FCF-history consistency terms (WS-16)
+- Screener: **beta** is Blume-adjusted (`0.67 × raw + 0.33 × 1.0`) before it feeds WACC and the market-risk score, de-noising yfinance's trailing single-estimate beta; a beta outside [0.1, 5.0] still falls back to 1.0 (WS-17)
+- Screener: each composite sub-score is now a **50/50 blend of its cross-sectional percentile rank and an absolute 0–100 band** (`_blend_ranks` / `_abs_band` / `BLEND_PCT`), so a universe where every stock is overvalued no longer produces a full spread of inflated MoS ranks (WS-14)
+- Screener: **default composite weights rebalanced** from `0.30 / 0.18 / 0.22 / 0.15 / 0.15` to `0.24 MoS / 0.22 risk / 0.24 quality / 0.15 momentum / 0.15 dividend` (`screener.W_*` and the `balanced` screening style) — margin of safety now co-leads with quality instead of dominating, and risk is weighted more heavily, so a wide discount can't by itself outvote weak fundamentals; the `value` style keeps the old MoS-led weighting
+- Screener: **EPV now capitalises the mean of `ebitHistory`** (`_normalised_ebit`, ≥3yr) instead of a single point-in-time EBIT, so a peak or trough year no longer sets the valuation (review 2.3)
+- Screener: **analyst-target weight** cut from 0.208 to 0.130 (freed weight to EPV / Graham) and further scaled down per-stock when the sell-side estimates are widely dispersed (`(targetHighPrice − targetLowPrice) / targetMeanPrice`) or thinly covered (`numberOfAnalystOpinions`) (WS-13)
+- All risk metrics computed on EUR-restated price history (was a currency blend)
+- Composite score drops the factor slot and renormalises when the Fama-French feed is unavailable, instead of a flat placeholder
+- `earnings_quality` blends multi-year FCF-history consistency with the FCF/net-income ratio
 - Help page expanded from a column reference into a full in-app guide, with an overview and a section for every page (Dashboard, Portfolio, Risk, Screener, stock details, Settings) alongside the column glossary
 - Column reference now documents the Ex-Div Date, Div Date, Sector and Country columns, and their tooltips show on the screener headers
 

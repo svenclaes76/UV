@@ -8,7 +8,7 @@ import streamlit as st
 import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import load_fundamentals_cache
-from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
+from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version, _fetch_prices_cached
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
@@ -79,7 +79,8 @@ def render() -> None:
 
     _db_enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
     _db_all_scr = pd.concat(list(_load_all_screener_data(
-        _cache_version(), _db_enabled, thresholds=get_veto_thresholds())[:-1]), ignore_index=True)
+        _cache_version(), _db_enabled, thresholds=get_veto_thresholds(),
+        score_weights=get_score_weights())[:-1]), ignore_index=True)
     _db_scr = _db_all_scr[_db_all_scr["Ticker"].isin(_db_tickers)].copy()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None

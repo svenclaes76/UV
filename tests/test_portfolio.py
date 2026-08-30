@@ -333,6 +333,41 @@ class TestManualTickers:
         assert portfolio.load_manual_tickers() == {}
 
 
+class TestTargets:
+    def test_roundtrip_and_validation(self):
+        portfolio.save_targets({
+            "sectors": {"Technology": 0.30, "Bad": -0.1, "TooBig": 1.5, "NaN": "x"},
+            "tickers": {"AAA.BR": 0.12},
+            "hhi_max": 0.15,
+        })
+        t = portfolio.load_targets()
+        assert t["sectors"] == {"Technology": 0.30}          # invalid entries dropped
+        assert t["tickers"] == {"AAA.BR": 0.12}
+        assert t["hhi_max"] == 0.15
+
+    def test_defaults_to_empty_dict(self):
+        assert portfolio.load_targets() == {}
+
+    def test_bad_hhi_max_is_dropped(self):
+        portfolio.save_targets({"hhi_max": "oops"})
+        assert "hhi_max" not in portfolio.load_targets()
+
+
+class TestRiskSnapshot:
+    def test_defaults_to_empty_dict(self):
+        assert portfolio.load_risk_snapshot() == {}
+
+    def test_roundtrip_stamps_date(self):
+        portfolio.save_risk_snapshot({"hhi": 0.14, "sharpe": 0.9})
+        s = portfolio.load_risk_snapshot()
+        assert s["hhi"] == 0.14 and s["sharpe"] == 0.9
+        assert s["date"] == dt.date.today().isoformat()
+
+    def test_explicit_date_is_preserved(self):
+        portfolio.save_risk_snapshot({"date": "2020-01-01", "hhi": 0.2})
+        assert portfolio.load_risk_snapshot()["date"] == "2020-01-01"
+
+
 # ── Excel parsing ─────────────────────────────────────────────────────────
 
 class TestPrepSection:
