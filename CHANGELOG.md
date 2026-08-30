@@ -55,7 +55,7 @@ value that no longer leans on point-in-time snapshots or sell-side targets.
 
 ---
 
-## [1.0.0] — 2026-06-14
+## [1.0.0] — 2026-07-30
 
 ### Added
 - Multi-exchange screener covering 750+ stocks across Brussels, Amsterdam, Paris, Milan, Frankfurt, and Swiss exchanges
