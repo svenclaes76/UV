@@ -25,8 +25,11 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-# Module-level so tests can redirect it into tmp_path, like portfolio._BASE_DIR.
-_HISTORY_DIR = Path(__file__).parent / ".cache" / "history"
+# Module-level so tests can redirect them into tmp_path, like portfolio._BASE_DIR.
+_HISTORY_DIR  = Path(__file__).parent / ".cache" / "history"
+_DIVIDEND_DIR = Path(__file__).parent / ".cache" / "dividends"
+
+_DIVIDEND_MAX_AGE_DAYS = 7    # dividends move a few times a year — a weekly refresh is plenty
 
 _MAX_RETRIES     = 4
 _RETRY_BASE_WAIT = 5          # seconds; doubled each attempt
@@ -65,37 +68,48 @@ def _prev_business_day(d: date | None = None) -> date:
 
 # ── Per-ticker CSV cache ─────────────────────────────────────────────────────
 
+def _safe_name(ticker: str) -> str:
+    return ticker.replace("/", "_").replace("\\", "_")
+
+
 def _cache_path(ticker: str) -> Path:
-    safe = ticker.replace("/", "_").replace("\\", "_")
-    return _HISTORY_DIR / f"{safe}.csv"
+    return _HISTORY_DIR / f"{_safe_name(ticker)}.csv"
 
 
-def _read_cache(ticker: str) -> pd.Series | None:
-    p = _cache_path(ticker)
-    if not p.exists():
+def _read_series_csv(path: Path, value_col: str) -> pd.Series | None:
+    """Load a two-column (date, `value_col`) CSV back into a sorted, deduped
+    float Series. None on any problem."""
+    if not path.exists():
         return None
     try:
-        df = pd.read_csv(p, parse_dates=["date"])
-        if df.empty or "close" not in df.columns:
+        df = pd.read_csv(path, parse_dates=["date"])
+        if df.empty or value_col not in df.columns:
             return None
-        s = df.set_index("date")["close"].astype(float).sort_index()
+        s = df.set_index("date")[value_col].astype(float).sort_index()
         return s[~s.index.duplicated(keep="last")]
     except Exception:
         return None
 
 
-def _write_cache(ticker: str, series: pd.Series) -> None:
-    _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+def _write_series_csv(path: Path, series: pd.Series, value_col: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     out = series.sort_index()
     out = out[~out.index.duplicated(keep="last")]
     frame = pd.DataFrame({
-        "date":  pd.DatetimeIndex(out.index).strftime("%Y-%m-%d"),
-        "close": out.to_numpy(dtype=float),
+        "date":    pd.DatetimeIndex(out.index).strftime("%Y-%m-%d"),
+        value_col: out.to_numpy(dtype=float),
     })
-    dest = _cache_path(ticker)
-    tmp  = dest.with_suffix(".csv.tmp")
+    tmp = path.with_suffix(path.suffix + ".tmp")
     frame.to_csv(tmp, index=False)
-    tmp.replace(dest)                             # atomic on same filesystem
+    tmp.replace(path)                             # atomic on same filesystem
+
+
+def _read_cache(ticker: str) -> pd.Series | None:
+    return _read_series_csv(_cache_path(ticker), "close")
+
+
+def _write_cache(ticker: str, series: pd.Series) -> None:
+    _write_series_csv(_cache_path(ticker), series, "close")
 
 
 # ── Download ─────────────────────────────────────────────────────────────────
@@ -233,3 +247,39 @@ def fx_to_eur_frame(currencies, period: str = "5y") -> pd.DataFrame:
             if not s.empty:
                 cols[code] = s
     return pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()
+
+
+def dividends(ticker: str) -> pd.Series:
+    """Full per-share dividend-payment history — ex-date (DatetimeIndex, tz-naive)
+    → amount, oldest first.
+
+    Disk-cached at ``.cache/dividends/{ticker}.csv`` and refetched at most
+    weekly (dividends are sparse; a full re-pull of ``Ticker.dividends`` is one
+    cheap call, so there's no tail-merge here). Empty Series for a non-payer, or
+    on fetch failure with nothing cached.
+    """
+    path   = _DIVIDEND_DIR / f"{_safe_name(ticker)}.csv"
+    cached = _read_series_csv(path, "amount")
+    if cached is not None:
+        try:
+            age_days = (time.time() - path.stat().st_mtime) / 86400
+        except OSError:
+            age_days = _DIVIDEND_MAX_AGE_DAYS + 1
+        if age_days < _DIVIDEND_MAX_AGE_DAYS:
+            return cached
+
+    try:
+        raw = yf.Ticker(ticker).dividends
+    except Exception:
+        return cached if cached is not None else pd.Series(dtype=float, name="amount")
+
+    if raw is None or len(raw) == 0:
+        return cached if cached is not None else pd.Series(dtype=float, name="amount")
+
+    idx = pd.to_datetime(raw.index)
+    if getattr(idx, "tz", None) is not None:
+        idx = idx.tz_localize(None)
+    out = pd.Series(raw.to_numpy(dtype=float), index=idx, name="amount").sort_index()
+    out = out[~out.index.duplicated(keep="last")]
+    _write_series_csv(path, out, "amount")
+    return out

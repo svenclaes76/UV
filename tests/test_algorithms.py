@@ -7,6 +7,8 @@ All tests are offline: synthetic DataFrames and cache dicts, no yfinance calls.
 Run:  python -m pytest tests/ -v
 """
 
+import datetime as dt
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,6 +22,8 @@ from screener import (
     _margin_of_safety,
     _total_expected_return,
     _dividend_sustainability_flag,
+    _dividend_stats,
+    _dgr_estimate,
     _financial_health_score,
     _earnings_quality_score,
     _market_risk_score,
@@ -211,6 +215,90 @@ class TestStage3:
         assert _dividend_sustainability_flag(pd.Series(
             {"trailingAnnualDividendRate": 2.0, "payoutRatio": 0.50,
              "cashPayoutRatio": 0.50, "dividendCoverage": 2.0})) == "OK"
+
+    def test_div_flag_recent_cut(self):
+        this_year = dt.datetime.now(dt.timezone.utc).year
+        healthy = {"trailingAnnualDividendRate": 2.0, "payoutRatio": 0.50,
+                   "cashPayoutRatio": 0.50, "dividendCoverage": 2.0}
+        # A cut within the last 3 complete years flags an otherwise-healthy payer…
+        assert _dividend_sustainability_flag(pd.Series(
+            {**healthy, "dividend_last_cut_year": this_year - 1})) == "At Risk"
+        # …but an old cut does not.
+        assert _dividend_sustainability_flag(pd.Series(
+            {**healthy, "dividend_last_cut_year": this_year - 8})) == "OK"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Screener — dividend history stats (WS-4)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDividendStats:
+    def _annual_series(self, year_to_dps: dict) -> pd.Series:
+        # two semi-annual payments per year so groupby-year-sum reconstructs the
+        # target annual DPS
+        idx, vals = [], []
+        for y, dps in year_to_dps.items():
+            idx += [pd.Timestamp(f"{y}-03-15"), pd.Timestamp(f"{y}-09-15")]
+            vals += [dps / 2, dps / 2]
+        return pd.Series(vals, index=pd.to_datetime(idx))
+
+    def test_non_payer(self, monkeypatch):
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: pd.Series(dtype=float))
+        s = _dividend_stats("X", now_year=2026)
+        assert s == {"true_dgr": None, "dividend_growth_streak": 0,
+                     "dividend_payment_years": 0, "dividend_last_cut_year": None}
+
+    def test_steady_grower(self, monkeypatch):
+        series = self._annual_series({2020: 1.0, 2021: 1.1, 2022: 1.21,
+                                      2023: 1.331, 2024: 1.4641, 2025: 1.61051})
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        s = _dividend_stats("X", now_year=2026)
+        assert s["true_dgr"] == pytest.approx(0.10, abs=1e-3)      # 10%/yr CAGR
+        assert s["dividend_payment_years"] == 6
+        assert s["dividend_growth_streak"] == 5
+        assert s["dividend_last_cut_year"] is None
+
+    def test_detects_a_cut_and_resets_streak(self, monkeypatch):
+        series = self._annual_series({2020: 1.0, 2021: 1.1, 2022: 0.7,
+                                      2023: 0.8, 2024: 0.9})
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        s = _dividend_stats("X", now_year=2026)
+        assert s["dividend_last_cut_year"] == 2022
+        assert s["dividend_growth_streak"] == 2                    # 2023,2024 up
+        assert s["true_dgr"] == pytest.approx((0.9 / 1.0) ** (1 / 4) - 1, abs=1e-4)
+
+    def test_drops_incomplete_current_year(self, monkeypatch):
+        series = self._annual_series({2023: 1.0, 2024: 1.2, 2025: 1.4, 2026: 0.3})
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        s = _dividend_stats("X", now_year=2026)
+        assert s["dividend_payment_years"] == 3                    # 2026 excluded
+        assert s["dividend_last_cut_year"] is None                 # the 0.3 stub ignored
+
+    def test_single_complete_year_has_no_dgr(self, monkeypatch):
+        series = self._annual_series({2025: 1.0})
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        s = _dividend_stats("X", now_year=2026)
+        assert s["true_dgr"] is None and s["dividend_payment_years"] == 1
+
+    def test_fetch_failure_returns_empty_stats(self, monkeypatch):
+        def _boom(_t):
+            raise RuntimeError("offline")
+        monkeypatch.setattr(screener.marketdata, "dividends", _boom)
+        assert _dividend_stats("X")["true_dgr"] is None
+
+
+class TestDgrEstimate:
+    def test_prefers_true_dgr_including_zero(self):
+        assert _dgr_estimate(pd.Series({"true_dgr": 0.0, "earningsGrowth": 0.4})) == 0.0
+        assert _dgr_estimate(pd.Series({"true_dgr": 0.07, "earningsGrowth": 0.4})) == 0.07
+
+    def test_falls_back_to_earnings_growth(self):
+        assert _dgr_estimate(pd.Series({"earningsGrowth": 0.05})) == 0.05
+        assert _dgr_estimate(pd.Series({"true_dgr": float("nan"),
+                                        "earningsGrowth": 0.05})) == 0.05
+
+    def test_none_when_neither_present(self):
+        assert _dgr_estimate(pd.Series({})) is None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1049,6 +1137,39 @@ class TestStage5Income:
         assert inc.income_concentration_flag
         assert inc.flagged_payers == ["A"]
         assert inc.flagged_income_pct == pytest.approx(0.60)
+        assert inc.income_stability is None                  # no DPS history in cache
+
+    def test_weighted_dgr_prefers_true_dgr_over_earnings_growth(self):
+        pf = pd.DataFrame([
+            {"ticker": "A", "current_value": 500.0, "expected_annual": 50.0},
+            {"ticker": "B", "current_value": 500.0, "expected_annual": 50.0},
+        ])
+        cache = {
+            "A": {"true_dgr": 0.08, "earningsGrowth": 0.30},     # true_dgr wins
+            "B": {"earningsGrowth": 0.02},                       # proxy fallback
+        }
+        inc = _stage5_income(pf, cache, 1000.0)
+        assert inc.weighted_dgr == pytest.approx(0.5 * 0.08 + 0.5 * 0.02)
+
+    def test_income_stability_from_dps_history(self):
+        this_year = dt.datetime.now(dt.timezone.utc).year
+        pf = pd.DataFrame([
+            {"ticker": "AR", "current_value": 500.0, "expected_annual": 80.0},
+            {"ticker": "CT", "current_value": 500.0, "expected_annual": 20.0},
+        ])
+        cache = {
+            # aristocrat: 10+ payment years, 10+ growth streak, no cut → 8.0
+            "AR": {"dividend_payment_years": 12, "dividend_growth_streak": 12,
+                   "dividend_last_cut_year": None},
+            # recent cutter: some history, streak 1, cut last year → 0.4*3 + 0.4*1 + 0
+            "CT": {"dividend_payment_years": 3, "dividend_growth_streak": 1,
+                   "dividend_last_cut_year": this_year - 1},
+        }
+        inc = _stage5_income(pf, cache, 1000.0)
+        # AR: min(12,10)*.4 + min(12,10)*.4 + 2 = 10 (clamped)
+        # CT: 3*.4 + 1*.4 + 0 (recent cut) = 1.6
+        # weighted: 0.8*10 + 0.2*1.6 = 8.32
+        assert inc.income_stability == pytest.approx(8.32, abs=1e-2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

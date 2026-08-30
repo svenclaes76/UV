@@ -6,6 +6,8 @@ No real network calls: most tests stub marketdata._download_closes directly;
 the MultiIndex-unwrap test stubs yf.download one level lower.
 """
 import datetime as _dt
+import os
+import time
 
 import pandas as pd
 import pytest
@@ -17,6 +19,7 @@ import marketdata
 @pytest.fixture(autouse=True)
 def _tmp_history_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(marketdata, "_HISTORY_DIR", tmp_path / "history")
+    monkeypatch.setattr(marketdata, "_DIVIDEND_DIR", tmp_path / "dividends")
     yield
 
 
@@ -237,3 +240,72 @@ class TestFxToEurFrame:
         )
         fx = marketdata.fx_to_eur_frame(["USD", "GBP"])
         assert list(fx.columns) == ["USD"]
+
+
+# ── dividends ───────────────────────────────────────────────────────────────
+
+class _FakeTicker:
+    def __init__(self, series):
+        self.dividends = series
+
+    @staticmethod
+    def factory(series):
+        return lambda ticker: _FakeTicker(series)
+
+
+class TestDividends:
+    def _pay_series(self):
+        idx = pd.to_datetime(["2021-03-15", "2021-09-15", "2022-03-15",
+                              "2022-09-15", "2023-03-15", "2023-09-15"])
+        return pd.Series([0.5, 0.5, 0.55, 0.55, 0.60, 0.60], index=idx)
+
+    def test_non_payer_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(yf, "Ticker", _FakeTicker.factory(pd.Series(dtype=float)))
+        assert marketdata.dividends("NOPAY.BR").empty
+
+    def test_fetch_writes_cache_and_strips_tz(self, monkeypatch):
+        s = self._pay_series().tz_localize("UTC")
+        monkeypatch.setattr(yf, "Ticker", _FakeTicker.factory(s))
+        out = marketdata.dividends("PAY.BR")
+        assert out.index.tz is None
+        assert out.iloc[-1] == 0.60
+        assert (marketdata._DIVIDEND_DIR / "PAY.BR.csv").exists()
+        # round-trips
+        assert marketdata._read_series_csv(marketdata._DIVIDEND_DIR / "PAY.BR.csv",
+                                           "amount").iloc[0] == 0.5
+
+    def test_serves_fresh_cache_without_fetching(self, monkeypatch):
+        marketdata._write_series_csv(marketdata._DIVIDEND_DIR / "PAY.BR.csv",
+                                     self._pay_series(), "amount")
+
+        def _boom_ticker(_t):
+            raise AssertionError("should not fetch a fresh dividend cache")
+        monkeypatch.setattr(yf, "Ticker", _boom_ticker)
+        out = marketdata.dividends("PAY.BR")
+        assert len(out) == 6
+
+    def test_refetches_when_cache_is_stale(self, monkeypatch):
+        p = marketdata._DIVIDEND_DIR / "PAY.BR.csv"
+        marketdata._write_series_csv(p, self._pay_series().iloc[:2], "amount")
+        old = time.time() - (marketdata._DIVIDEND_MAX_AGE_DAYS + 1) * 86400
+        os.utime(p, (old, old))
+
+        monkeypatch.setattr(yf, "Ticker", _FakeTicker.factory(self._pay_series()))
+        out = marketdata.dividends("PAY.BR")
+        assert len(out) == 6
+
+    def test_fetch_failure_serves_stale_cache(self, monkeypatch):
+        p = marketdata._DIVIDEND_DIR / "PAY.BR.csv"
+        marketdata._write_series_csv(p, self._pay_series(), "amount")
+        os.utime(p, (0, 0))
+
+        def _boom_ticker(_t):
+            raise ConnectionError("offline")
+        monkeypatch.setattr(yf, "Ticker", _boom_ticker)
+        assert len(marketdata.dividends("PAY.BR")) == 6
+
+    def test_fetch_failure_no_cache_returns_empty(self, monkeypatch):
+        def _boom_ticker(_t):
+            raise ConnectionError("offline")
+        monkeypatch.setattr(yf, "Ticker", _boom_ticker)
+        assert marketdata.dividends("NEW.BR").empty

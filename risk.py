@@ -167,6 +167,10 @@ class IncomeRisk:
     income_concentration_flag: bool
     flagged_payers: list[str]
     flagged_income_pct: float
+    # Income-share-weighted 0–10 stability over payers with DPS history
+    # (payment years + growth streak + no recent cut). None when no payer in
+    # the portfolio has usable dividend history yet.
+    income_stability: float | None = None
 
 
 @dataclass
@@ -819,14 +823,39 @@ def _stage5_income(pf: pd.DataFrame, cache: dict, total_value: float) -> IncomeR
     total_income = float(income_col.sum())
     port_yield   = total_income / total_value if total_value > 0 else 0.0
 
-    # Weighted DGR (earnings growth as proxy)
+    # Weighted DGR — true DPS CAGR when the fundamentals cache carries it,
+    # earningsGrowth proxy otherwise.
     dgr_parts: list[float] = []
     for _, row in pf.iterrows():
         inc = _safe(income_col.loc[row.name], 0.0)
-        eg  = _safe(cache.get(row["ticker"], {}).get("earningsGrowth"))
-        if eg is not None and total_income > 0 and inc > 0:
-            dgr_parts.append(inc / total_income * eg)
+        fd  = cache.get(row["ticker"], {})
+        dgr = _safe(fd.get("true_dgr"))
+        if dgr is None:
+            dgr = _safe(fd.get("earningsGrowth"))
+        if dgr is not None and total_income > 0 and inc > 0:
+            dgr_parts.append(inc / total_income * dgr)
     weighted_dgr = float(sum(dgr_parts)) if dgr_parts else None
+
+    # Income-share-weighted stability over payers with real DPS history
+    # (payment years + growth streak + no cut in the last 5 complete years).
+    _now_year  = datetime.now(timezone.utc).year
+    stab_parts: list[float] = []
+    for _, row in pf.iterrows():
+        inc = _safe(income_col.loc[row.name], 0.0)
+        if total_income <= 0 or inc <= 0:
+            continue
+        fd = cache.get(row["ticker"], {})
+        py = _safe(fd.get("dividend_payment_years"))
+        gs = _safe(fd.get("dividend_growth_streak"))
+        if py is None and gs is None:
+            continue                       # no history — don't fabricate a score
+        last_cut = _safe(fd.get("dividend_last_cut_year"))
+        recent_cut = last_cut is not None and last_cut >= _now_year - 5
+        sc = (min(py or 0.0, 10) * 0.4
+              + min(gs or 0.0, 10) * 0.4
+              + (0.0 if recent_cut else 2.0))
+        stab_parts.append(inc / total_income * _clamp(sc, 0, 10))
+    income_stability = round(float(sum(stab_parts)), 2) if stab_parts else None
 
     # Top-3 dividend income contributors
     pairs = list(zip(pf["ticker"].tolist(), income_col.tolist()))
@@ -867,6 +896,7 @@ def _stage5_income(pf: pd.DataFrame, cache: dict, total_value: float) -> IncomeR
         income_concentration_flag=bool(total_income > 0 and top3_total / total_income > 0.50),
         flagged_payers=flagged_payers,
         flagged_income_pct=round(flagged_pct, 4),
+        income_stability=income_stability,
     )
 
 

@@ -32,6 +32,8 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import marketdata
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 RISK_FREE_RATE      = 0.03    # Euro area approximation
@@ -284,6 +286,73 @@ def _fcf_history(tkr: "yf.Ticker") -> list[float] | None:
         return None
 
 
+# Number of complete calendar years of dividend history to score DGR / streaks
+# over. yfinance's dividend series usually reaches much further back, but a ~6y
+# window keeps "growth" and "cut" judgements about the current regime rather
+# than dragging in a decade-old policy change.
+_DIV_WINDOW_YEARS  = 6
+_DIV_MIN_YEARS     = 2       # need at least this many complete years for a true DGR
+_DIV_CUT_TOLERANCE = 0.99    # a year counts as a cut only below 99% of the prior year
+
+
+def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
+    """Annual-DPS statistics from the full payment history (marketdata.dividends).
+
+    Returns keys, all None/0 for a non-payer or on fetch failure:
+      true_dgr                — CAGR of annual DPS across the complete years in
+                                the window (>= _DIV_MIN_YEARS, first year > 0)
+      dividend_growth_streak  — trailing consecutive complete years of
+                                non-decreasing annual DPS
+      dividend_payment_years  — count of complete years with a payment in-window
+      dividend_last_cut_year  — most recent complete year whose annual DPS fell
+                                below _DIV_CUT_TOLERANCE x the prior year, else None
+    Isolated try/except like _fcf_history so a failure here never trips the
+    whole-ticker retry/backoff.
+    """
+    empty = {"true_dgr": None, "dividend_growth_streak": 0,
+             "dividend_payment_years": 0, "dividend_last_cut_year": None}
+    try:
+        divs = marketdata.dividends(ticker)
+        if divs is None or divs.empty:
+            return empty
+
+        this_year = now_year if now_year is not None else datetime.now(timezone.utc).year
+        annual = divs.groupby(divs.index.year).sum()
+        annual = annual[annual.index < this_year]          # drop the incomplete current year
+        annual = annual.iloc[-_DIV_WINDOW_YEARS:]
+        annual = annual[annual > 0]
+        if annual.empty:
+            return empty
+
+        years = list(annual.index)
+        vals  = [float(v) for v in annual.to_numpy()]
+
+        true_dgr = None
+        if len(vals) >= _DIV_MIN_YEARS and vals[0] > 0:
+            true_dgr = (vals[-1] / vals[0]) ** (1.0 / (len(vals) - 1)) - 1.0
+
+        streak = 0
+        for i in range(len(vals) - 1, 0, -1):
+            if vals[i] >= vals[i - 1]:
+                streak += 1
+            else:
+                break
+
+        last_cut_year = None
+        for i in range(1, len(vals)):
+            if vals[i] < vals[i - 1] * _DIV_CUT_TOLERANCE:
+                last_cut_year = int(years[i])
+
+        return {
+            "true_dgr": round(true_dgr, 4) if true_dgr is not None else None,
+            "dividend_growth_streak": streak,
+            "dividend_payment_years": len(vals),
+            "dividend_last_cut_year": last_cut_year,
+        }
+    except Exception:
+        return empty
+
+
 def _fetch_one(ticker: str, stock: dict) -> dict:
     tkr   = yf.Ticker(ticker)
     info  = tkr.info
@@ -352,6 +421,12 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     # Multi-year FCF history for the hard veto's "3+ consecutive negative years"
     # check; falls back to the single most-recent-period check when unavailable.
     row["fcfHistory"] = _fcf_history(tkr)
+
+    # Multi-year DPS history → true dividend growth rate, growth streak, and a
+    # past-cut year. `true_dgr` supersedes the earningsGrowth DGR proxy in TER
+    # and the dividend scores; the rest feed the risk engine's income-stability
+    # and sustainability checks.
+    row.update(_dividend_stats(ticker))
 
     # Derived: FCF yield
     fcf  = row.get("freeCashflow")
@@ -673,12 +748,17 @@ def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=Fa
     return round(cap_gain + dy + dg, 1)
 
 
+_DIV_RECENT_CUT_YEARS = 3   # a DPS cut this recent still flags the payer
+
+
 def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> str:
     """
     Returns 'At Risk', 'OK', or '' (non-payer).
     Checks: payout ratio (user-configurable via Settings' "Max dividend
     payout" slider — see settings.get_veto_thresholds()), cash payout
-    ratio, dividend coverage ratio.
+    ratio, dividend coverage ratio, and a DPS cut within the last
+    _DIV_RECENT_CUT_YEARS complete years (`dividend_last_cut_year`, from
+    _dividend_stats).
     """
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     if not div_rate or div_rate <= 0:
@@ -688,9 +768,14 @@ def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> s
     cpr      = row.get("cashPayoutRatio")
     coverage = row.get("dividendCoverage")
 
+    last_cut = row.get("dividend_last_cut_year")
+    recent_cut = (last_cut is not None and not pd.isna(last_cut)
+                  and last_cut >= datetime.now(timezone.utc).year - _DIV_RECENT_CUT_YEARS)
+
     if (payout   and payout   > max_payout) or \
        (cpr      and cpr      > 0.80) or \
-       (coverage and coverage < 1.20):
+       (coverage and coverage < 1.20) or \
+       recent_cut:
         return "At Risk"
     return "OK"
 
@@ -713,6 +798,15 @@ def _get_num(row: pd.Series, field: str):
     """
     v = row.get(field)
     return None if pd.isna(v) else v
+
+
+def _dgr_estimate(row: pd.Series):
+    """Best available dividend growth rate for a row: the true 5-6yr DPS CAGR
+    (`true_dgr`, from _dividend_stats) when we have enough history, otherwise
+    the `earningsGrowth` proxy. A real 0.0 (flat DPS) still wins over the
+    proxy — the None check is deliberate, not truthiness."""
+    v = _get_num(row, "true_dgr")
+    return v if v is not None else _get_num(row, "earningsGrowth")
 
 
 def _financial_health_score(row: pd.Series) -> float:
@@ -777,9 +871,9 @@ def _dividend_risk_score(row: pd.Series) -> float:
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))    # 1.5× = 3, 5× = 10
 
-    eg = _get_num(row, "earningsGrowth")
-    if eg is not None:
-        scores.append(_clamp(5 + eg * 25, 0, 10))     # DGR proxy
+    dgr = _dgr_estimate(row)                           # true DPS CAGR, else earningsGrowth
+    if dgr is not None:
+        scores.append(_clamp(5 + dgr * 25, 0, 10))
 
     return float(np.mean(scores)) if scores else 5.0
 
@@ -879,10 +973,10 @@ def _dividend_score_raw(row: pd.Series) -> float:
     if coverage is not None:
         scores.append(_clamp(coverage * 2, 0, 10))
 
-    # 5. DGR proxy (earnings growth as best available approximation)
-    eg = _get_num(row, "earningsGrowth")
-    if eg is not None:
-        scores.append(_clamp(5 + eg * 25, 0, 10))
+    # 5. Dividend growth — true DPS CAGR when available, else earningsGrowth
+    dgr = _dgr_estimate(row)
+    if dgr is not None:
+        scores.append(_clamp(5 + dgr * 25, 0, 10))
 
     return float(np.mean(scores)) if scores else 5.0
 
@@ -918,6 +1012,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
         "exDividendDate", "dividendDate", "sector", "fcfHistory",
+        "true_dgr", "dividend_growth_streak", "dividend_payment_years",
+        "dividend_last_cut_year",
     ]
     df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 
@@ -933,7 +1029,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["TER %"] = df.apply(
         lambda r: _total_expected_return(
             r["Price"], r["fair_value"],
-            r.get("dividendYield"), r.get("earningsGrowth"),
+            r.get("dividendYield"), _dgr_estimate(r),
             r.get("ddm_contributed", False)
         ), axis=1
     )
