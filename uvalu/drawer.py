@@ -23,7 +23,7 @@ from uvalu.components import (signal_badge_for_decision, signal_badge_html,
 from uvalu.dialogs import add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
-from uvalu.ui import mark_dialog_open
+from uvalu.ui import enter_dialog
 
 _DRAWER_CSS = """
 [data-testid="stDialog"] [role="dialog"] {
@@ -135,7 +135,7 @@ def _go_portfolio_edit(ticker: str) -> None:
 
 @st.dialog("Stock preview", width="small")
 def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
-    mark_dialog_open()
+    enter_dialog()
     st.markdown(f"<style>{_DRAWER_CSS}</style>", unsafe_allow_html=True)
 
     ticker = str(row.get("Ticker", ""))

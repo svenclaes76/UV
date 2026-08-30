@@ -207,6 +207,27 @@ class TestDialogOpenGuard:
         assert at.text[0].value == "False"
 
 
+class TestEnterDialog:
+    def test_stamps_open_and_binds_portfolio_to_the_session_user(self):
+        # A fragment rerun (a dialog's Save button) never re-runs app.py, so
+        # portfolio.py's thread-local active user can be unset — enter_dialog()
+        # must re-derive it from session state or CRUD writes to "default".
+        def _script():
+            import streamlit as st
+            import portfolio
+            portfolio.set_user("")                       # simulate a fresh fragment thread
+            st.session_state["user_email"] = "someone@example.com"
+            from uvalu.ui import enter_dialog, _dialog_is_open
+            enter_dialog()
+            st.text(_dialog_is_open())
+            st.text(portfolio._user_dir().name)
+
+        at = _run(_script)
+        import hashlib
+        _slug = hashlib.sha256(b"someone@example.com").hexdigest()[:16]
+        assert [t.value for t in at.text] == ["True", _slug]
+
+
 # ── consumed_tick ─────────────────────────────────────────────────────────
 
 class TestConsumedTick:

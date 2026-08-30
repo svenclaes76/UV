@@ -30,7 +30,15 @@ TEST_EMAIL = "test@example.com"
 # set_user() call runs on the pytest thread and is not visible to the
 # AppTest-executed script. Prepend this to any script_src that calls page
 # code touching portfolio.py without an explicit email.
-USER_SETUP_SRC = f'import portfolio\nportfolio.set_user({TEST_EMAIL!r})\n'
+#
+# The user_email session-state line matches what app.py's auth gate leaves
+# behind: uvalu.ui.enter_dialog() (top of every @st.dialog body) re-derives
+# the active user from st.session_state via current_user(), because a fragment
+# rerun — a dialog's Save button — never re-runs app.py's set_user().
+USER_SETUP_SRC = (
+    f'import portfolio\nportfolio.set_user({TEST_EMAIL!r})\n'
+    f'import streamlit as st\nst.session_state["user_email"] = {TEST_EMAIL!r}\n'
+)
 
 
 @pytest.fixture

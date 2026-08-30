@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from portfolio import set_user
 from settings import load_settings
 from uvalu.market_hours import is_market_hours
 from uvalu.runtime import current_user, theme_colors
@@ -74,6 +75,26 @@ def mark_dialog_open() -> None:
     """Call at the top of every ``@st.dialog`` body so a timed price refresh
     can't yank the modal out from under the user mid-edit."""
     st.session_state["_uv_dialog_open_ts"] = time.time()
+
+
+def enter_dialog() -> None:
+    """Call as the very first line of every ``@st.dialog`` body.
+
+    Does two things a dialog can't do without:
+
+    1. ``mark_dialog_open()`` — keep ``price_autorefresh``'s timer from firing a
+       full-app rerun that would close the modal mid-edit.
+    2. Re-point the data layer at the signed-in user. A dialog body runs as a
+       fragment; a fragment rerun (the Save/Delete buttons) does **not**
+       re-execute ``app.py``, so the ``set_user()`` there is skipped — and on a
+       fresh ScriptRunner thread that only ever ran this fragment,
+       ``portfolio.py``'s thread-local active user is unset, so CRUD writes land
+       in the anonymous ``default/`` bucket instead of the user's directory
+       (their new position then never shows up). ``current_user()`` reads
+       ``st.session_state``, which is correct across fragment reruns.
+    """
+    mark_dialog_open()
+    set_user(current_user().email)
 
 
 def _dialog_is_open() -> bool:

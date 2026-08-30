@@ -97,6 +97,34 @@ class TestAddPositionDialog:
         at = _run_add_position(monkeypatch, preset_ticker="AAA.BR")
         assert "_uv_dialog_open_ts" in at.session_state
 
+    def test_save_routes_to_the_session_user_not_the_default_bucket(self, monkeypatch):
+        # Real-world bug: the Save button is a fragment rerun, which never
+        # re-runs app.py's set_user(), so on a fresh ScriptRunner thread
+        # portfolio.py's thread-local active user is unset and the new
+        # position was written to data/portfolio/default/ — invisible in the
+        # signed-in user's portfolio. enter_dialog() re-binds from session
+        # state. This script deliberately does NOT call portfolio.set_user().
+        monkeypatch.setattr(yf, "Ticker", lambda sym: type(
+            "T", (), {"info": {"regularMarketPrice": 50.0, "shortName": "Eiffage"}})())
+        script = """
+import streamlit as st
+st.session_state["user_email"] = "test@example.com"
+from uvalu.dialogs import add_position_dialog
+add_position_dialog(preset_ticker="FGR.PA")
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        at.number_input(key="dlg_ap_shares").set_value(16)
+        at.number_input(key="dlg_ap_cost").set_value(1909.83)
+        [b for b in at.button if b.label == "Save"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        # isolated_data set the pytest thread's user to test@example.com, so a
+        # plain load_portfolio() here reads that same bucket.
+        saved = portfolio.load_portfolio()
+        assert saved is not None and saved.iloc[0]["ticker"] == "FGR.PA"
+        assert not (portfolio._BASE_DIR / "default" / "portfolio.json").exists()
+
     def test_renders_with_presets(self, monkeypatch):
         at = _run_add_position(monkeypatch, preset_ticker="AAA.BR", preset_name="Alpha Corp", preset_price=12.5)
         assert at.text_input(key="dlg_ap_ticker").value == "AAA.BR"
