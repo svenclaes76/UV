@@ -37,11 +37,18 @@ To use a real certificate (e.g. from Let's Encrypt), replace the paths and value
 
 ## Admin settings (shared)
 
-Stored in `data/settings/shared.json`. Managed via the Settings page (admin role required).
+Stored in `data/settings/shared.json` (Fernet-encrypted), defaults in `settings._SHARED_DEFAULTS`. `enabled_exchanges` is managed in the **Admin portal → Data feeds**; the rest live in **Settings → Screening & veto rules** and are admin-gated there.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled_exchanges` | list of strings | All 6 exchanges | Controls which exchange tabs appear in the screener. Valid values: `"Brussels"`, `"Amsterdam"`, `"Paris"`, `"Milan"`, `"Frankfurt"`, `"Swiss"`. |
+| `enabled_exchanges` | list of strings | All 6 exchanges | Which exchanges the screener and portfolio analysis cover. Valid values: `"Brussels"`, `"Amsterdam"`, `"Paris"`, `"Milan"`, `"Frankfurt"`, `"Swiss"`. |
+| `max_debt_equity` | float (%) | `500.0` | Hard-veto D/E ceiling (`get_veto_thresholds()`). Sector-exempt for Financials / Real Estate / Utilities. |
+| `max_payout` | float (%) | `90.0` | Payout ratio above which a dividend is flagged "At Risk". |
+| `min_mos` | float (%) | `0.0` | Minimum margin of safety a stock must clear for a BUY signal. |
+| `buy_threshold` | float | `70.0` | Composite score required for a BUY signal. |
+| `screen_style` | string | `"balanced"` | Composite sub-score weighting preset (`settings._SCORE_STYLES` / `get_score_weights()`): `balanced`, `value`, `growth`, `income`. |
+| `benchmark_stoxx` | bool | `false` | Default state of the Dashboard's Euro Stoxx 50 overlay checkbox. |
+| `us_listed_enabled` | bool | `false` | No-op toggle — no US ticker universe exists yet. |
 
 ---
 
@@ -53,25 +60,30 @@ Defined in `screener.py`. Edit the file directly to change defaults.
 |---|---|---|
 | `CACHE_TTL_HOURS` | `24` | Base TTL for fundamentals cache entries (hours). A ±4 h random jitter is added per ticker to spread cache expiry. |
 | `MAX_WORKERS` | `4` | Number of parallel yfinance requests for batch fundamentals fetch. Increase with caution — yfinance rate-limits aggressively. |
-| `FETCH_DELAY` | `0.5` | Seconds to wait between ticker requests within a worker. |
-| `RISK_FREE_RATE` | `0.03` | Risk-free rate used in EPV and DDM fair value models (3%). |
-| `EQUITY_RISK_PREMIUM` | `0.05` | Equity risk premium used in discount rate calculation (5%). |
-| `DDM_STABLE_GROWTH` | `0.02` | Terminal growth rate in the 2-stage DDM model (2%). |
+| `REQUEST_DELAY` | `0.5` | Seconds to wait between ticker requests within a worker. |
+| `RISK_FREE_RATE` | `0.03` | Risk-free rate used in EPV and DDM fair value models (3%). Shared with `risk.py`. |
+| `EQUITY_RISK_PREMIUM` | `0.05` | Equity risk premium used in the WACC / discount rate (5%). |
+| `DDM_STABLE_GROWTH` | `0.02` | Terminal growth rate in the multi-stage DDM model (2%). |
+| `BLUME_WEIGHT` | `0.67` | Blume shrink applied to raw beta before it feeds WACC and market risk (`0.67·raw + 0.33·1.0`). |
+| `DEFAULT_TAX_RATE` | `0.25` | EPV tax-rate fallback when `country` is missing / unmapped in `COUNTRY_TAX_RATES`. |
+| `MIN_UNIVERSE_SIZE` | `20` | Below this the `small_universe` caveat flag is set on every scored row. |
+| `ANALYST_TARGET_HAIRCUT` | `0.10` | Flat discount applied to `targetMeanPrice` before it feeds the composite. |
 
-**Composite score weights:**
+**Composite score weights** — the `balanced` preset; `settings._SCORE_STYLES` swaps in `value` / `growth` / `income`. Authoritative table and rationale in [stock_valuation_algorithm.md](stock_valuation_algorithm.md) Stage 5.
 
-| Component | Weight |
+| Component | Weight (`balanced`) |
 |---|---|
-| Margin of Safety rank | 30% |
-| (100 − Risk rank) | 18% |
-| Quality rank | 22% |
-| Momentum rank | 15% |
-| Dividend rank | 15% |
+| Margin of Safety sub-score (`W_MOS`) | 24% |
+| Risk sub-score (`W_RISK`, oriented safer = higher) | 22% |
+| Quality sub-score (`W_QUALITY`) | 24% |
+| Momentum sub-score (`W_MOMENTUM`) | 15% |
+| Dividend sub-score (`W_DIVIDEND`) | 15% |
 
-**Hard veto rules (score overridden to Avoid regardless of composite score):**
-- Debt/Equity ratio > 5×
-- Free cash flow < 0
-- Dividend coverage ratio < 1.0×
+**Fair-value model base weights** (`W_GRAHAM` / `W_PE` / `W_EPV` / `W_DDM_SINGLE` / `W_DDM_MULTI` / `W_ANALYST`) sum to 1.00 — see the valuation spec Stage 2.
+
+**Hard veto rules** (decision forced to Avoid regardless of composite score) — full definitions in [stock_valuation_algorithm.md](stock_valuation_algorithm.md) Stage 6:
+- Static: D/E > `max_debt_equity` (sector-exempt for Financials / Real Estate / Utilities); FCF negative for 3 consecutive fiscal years (single period if <3 yr history); dividend flagged "At Risk" **and** coverage < 1.0×.
+- Trend (`_trend_veto`, needs ≥3 yr statement history): 3+ consecutive years of revenue decline; EBIT negative 3 years; retained-earnings erosion; a dividend cut in the last 2 years with coverage < 1.5×.
 
 ---
 
@@ -81,23 +93,26 @@ Defined in `risk.py`.
 
 | Constant | Default | Description |
 |---|---|---|
-| `VAR_CONFIDENCE` | `0.95` | Confidence level for parametric Value-at-Risk calculation. |
-| `MONTE_CARLO_PATHS` | `10_000` | Number of simulation paths in Monte Carlo analysis. |
-| `MONTE_CARLO_DAYS` | `252` | Horizon for Monte Carlo simulation (trading days). |
-| `PRICE_HISTORY_YEARS` | `5` | Years of daily price history fetched for volatility and drawdown calculations. |
+| `MONTE_CARLO_PATHS` | `10_000` | Simulation paths per horizon (1 / 3 / 5 years). |
+| `MONTE_CARLO_SEED` | `42` | Fixed seed so Monte Carlo runs are reproducible. |
+| `_MC_MIN_OBS` | `60` | Minimum aligned observations to block-bootstrap; below this the Monte Carlo falls back to an iid-Normal draw. |
+| `STRESS_HISTORY_PERIOD` | `"10y"` | Price-history window fetched; Stages 1/3/4 run on the trailing-5y slice, Stage 6 gets the full series for crisis-window replay. |
+| `BENCHMARK_TICKER` | `"^STOXX50E"` | Euro-denominated benchmark that per-holding betas and `portfolio_beta_regression` are regressed against. |
 
-**Stress test scenarios:**
+Parametric VaR uses inline z-multipliers `1.645` (95%) and `2.326` (99%); both confidence levels are reported. VaR / CVaR / max drawdown / Sharpe / Sortino / correlations are otherwise computed from the actual EUR-restated return series, with the parametric formulas as the fallback below ~20 days of history. The risk-free rate is `screener.RISK_FREE_RATE` (3%), shared with the valuation engine.
 
-| Scenario | Assumed market drawdown |
-|---|---|
-| Dot-com crash (2000–2002) | −49% |
-| Global financial crisis (2008) | −57% |
-| COVID crash (2020) | −34% |
-| 2022 rate shock | −25% |
+**Stress test scenarios** (`risk.HISTORICAL_SCENARIOS`):
 
-Each position's drawdown is estimated as `market_drawdown × position_beta`.
+| Scenario | Window | Benchmark drawdown |
+|---|---|---|
+| Dot-com crash | 2000-03 – 2002-10 | −49% |
+| Global financial crisis | 2007-10 – 2009-03 | −57% |
+| COVID crash | 2020-02 – 2020-03 | −34% |
+| 2022 rate hike cycle | 2022-01 – 2022-10 | −25% |
 
-**Composite risk score weights:**
+When the held basket's own 10-year EUR return series covers a window (≥60% of its business days), that scenario's portfolio drawdown is the basket's real peak-to-trough; otherwise it's `portfolio_beta × benchmark_drawdown`.
+
+**Composite risk score weights** (`risk._W_DEFAULT` / `_W_INCOME`, selected by the `income_portfolio` flag — a manual **Income mode** toggle on the Risk page). Authoritative table in [portfolio_risk_assessment_algorithm.md](portfolio_risk_assessment_algorithm.md) Stage 7.
 
 | Sub-score | Default weight | Income-mode weight |
 |---|---|---|
@@ -105,10 +120,10 @@ Each position's drawdown is estimated as `market_drawdown × position_beta`.
 | Volatility | 20% | 15% |
 | Tail risk | 20% | 15% |
 | Factor exposure | 15% | 10% |
-| Fundamental | 15% | 15% |
-| Income risk | 5% | 25% |
+| Fundamental | 15% | 20% |
+| Income risk | 5% | 20% |
 
-Income mode is activated automatically when dividend income constitutes a significant share of the portfolio's expected return.
+When the Fama-French feed can't be fetched, the factor slot is dropped and the remaining five weights are renormalised.
 
 ---
 
@@ -148,7 +163,7 @@ Ticker lists are fetched from [stockanalysis.com](https://stockanalysis.com) at 
 | Frankfurt | ~160 | DAX 40 (40 stocks) |
 | Swiss | ~60 | SMI 20 (20 stocks) |
 
-To disable an exchange, go to **Settings → Screener exchanges** (admin only).
+To enable or disable an exchange, go to the **Admin portal → Data feeds** (admin only).
 
 ---
 
@@ -159,5 +174,5 @@ Defined in `auth.py`.
 | Setting | Value | Description |
 |---|---|---|
 | JWT algorithm | HS256 | HMAC-SHA256 |
-| JWT TTL | 24 hours | Sessions expire after 24 hours of inactivity |
-| Password hashing | bcrypt | Cost factor 12 |
+| JWT TTL | 24 hours | Fixed expiry from issue time (not a sliding/inactivity window); re-login required after |
+| Password hashing | bcrypt | `bcrypt.hashpw` with a per-password salt |

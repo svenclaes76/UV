@@ -44,7 +44,7 @@ UV/
 │   ├── components.py           # Pure-render helpers: signal badges, fair-value ladder, gauges, sparkline
 │   ├── runtime.py              # Per-run accessors: current_user(), theme_colors()
 │   ├── data.py                 # Cache-backed screener/price/fundamentals data layer
-│   ├── formatting.py           # COLUMN_HELP tooltip texts + pure value formatters
+│   ├── formatting.py           # Pure value formatters (fmt_eur, safe_pct)
 │   ├── styles.py               # Global CSS injected once per run (native-widget tokens + mockup tokens)
 │   ├── ui.py                   # Reusable widgets: click-to-select table, charts, auto-refresh
 │   └── pages_/
@@ -130,15 +130,15 @@ Reusable, theme-aware rendering helpers:
 
 #### `uvalu/formatting.py`
 
-`COLUMN_HELP` — column tooltip/help text shown as table-header tooltips; unused since the Help page was rewritten to a signal-legend/FAQ layout (see [backend-feature-gaps.md](backend-feature-gaps.md)). Plus pure value formatters (`fmt_eur`, `fmt_div_flag`, `safe_pct`, `f_str`).
+Two pure value formatters — `fmt_eur` and `safe_pct`. The old `COLUMN_HELP` / `_HINT_WATCHLIST` tooltip dicts and the `fmt_div_flag` / `f_str` helpers were removed once the Help page moved to a signal-legend/FAQ layout and `help.py` took over column glossary text.
 
 #### `uvalu/styles.py`
 
-`inject()` writes the global brand CSS once per run: the original `--uv-*` widget tokens, the mockup's dark-navy token set (`--bg`, `--panel`, `--text`, `--up-bg`/`--down-bg`, etc.) plus a `[data-theme="light"]` override block, the login screen, and a `[data-density="compact"]` rule that tightens row padding for Settings' table-density toggle.
+`inject()` writes the global brand CSS once per run: the original `--uv-*` widget tokens, the mockup's dark-navy token set (`--bg`, `--panel`, `--text`, `--up-bg`/`--down-bg`, etc.) plus a `[data-theme="light"]` override block, the login screen, and a `[data-density="compact"]` rule that tightens row padding. (The `density` preference is still read and applied, but the Settings UI control for it was removed — see [backend-feature-gaps.md](backend-feature-gaps.md) — so it stays at `comfortable` in practice.)
 
 #### `uvalu/shell.py`
 
-`render_topbar(nav)` — the top bar that replaced `st.sidebar`: logo, horizontal nav links, a live-data dot, and an avatar popover (Settings, Help, "Admin portal" gated on `current_user().is_admin`, Sign out). Also syncs the `data-theme`/`data-density` attributes on the parent document via small hidden `st.iframe` scripts, driven by Streamlit's own active theme and the user's density setting.
+`render_topbar(nav)` — the top bar that replaced `st.sidebar`: logo, horizontal nav links, a live-data dot, and an avatar popover (Settings, Help, "Admin portal" gated on `current_user().is_admin`, Sign out). Also syncs the `data-theme`/`data-density` attributes on the parent document via small hidden `st.iframe` scripts, driven by Streamlit's own active theme and the stored (currently non-editable) density preference.
 
 #### `uvalu/drawer.py`
 

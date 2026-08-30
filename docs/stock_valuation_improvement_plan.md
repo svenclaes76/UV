@@ -1,5 +1,13 @@
 # Stock Valuation Improvement Plan
 
+> **Status: complete (Aug 2026).** All of WS-10…WS-18 shipped on branch
+> `feat/ws1-marketdata-provider`, plus the EPV normalised-EBIT follow-up (review 2.3)
+> and the composite-weight rebalance (review 4.2 / 5.2, `W_MOS/W_RISK/W_QUALITY`
+> → 0.24 / 0.22 / 0.24). This document is kept as the historical rationale; the
+> shipped behaviour is described in [`stock_valuation_algorithm.md`](stock_valuation_algorithm.md)
+> and `CHANGELOG.md`. The "Still open" column below records what was *deliberately
+> deferred* (all no-data-source items).
+
 Turns the external technical review (`valuation_cop.md`, Aug 2026) into a sequenced
 workstream plan, cross-referenced against what already shipped in the WS-1…WS-9
 risk-engine rework and the four rounds of `screener.py` valuation fixes
@@ -23,7 +31,7 @@ portfolio engine is untouched. Workstream numbering continues from the risk trac
 | **2.2** PE = EPS × 15 | Only the *label* corrected (doc no longer calls it "Graham's multiple") | Formula unchanged — no sector-relative or PEG adjustment |
 | **2.3** EPV net-debt subtraction | Exact `(EPV_EV − NetDebt)/shares`, `NetDebt = EV − Price×Shares`, EV-ratio fallback; country-aware tax rate (`COUNTRY_TAX_RATES`) | EBIT still point-in-time → EPV unstable for volatile-EBIT firms |
 | **2.4** Binary DDM gate (5–90% payout) | Nothing — still a hard `0.05 ≤ payout ≤ 0.90` cliff | Graduated weighting |
-| **3.1 / 5.2** MoS dominates composite | Nothing structural (`W_MOS=0.30`, largest) | Rebalance weights / style presets |
+| **3.1 / 5.2** MoS dominates composite | WS-18 style presets (`balanced`/`value`/`growth`/`income`) **and** the `balanced` default rebalanced to `W_MOS=0.24` / `W_RISK=0.22` / `W_QUALITY=0.24` — MoS no longer the sole top weight | — |
 | **3.2 / 4.3** `earningsGrowth` as DGR proxy | `true_dgr` from real DPS history (`_dividend_stats`); `_dgr_estimate` prefers it; TER halves DGR when DDM contributed | Largely closed. Only gap: UI doesn't show when the weak proxy is still in use |
 | **4.1** Beta from yfinance | `risk.py` regresses beta per holding vs `^STOXX50E` (`_resolve_betas` / `_ols_beta`) | `screener.py`'s `_approx_wacc` + `_market_risk_score` still consume raw `beta` |
 | **4.2** Earnings quality misses accruals | `_earnings_quality_score` blends FCF/NI conversion with multi-year `fcfHistory` consistency (positive-year fraction + CV) | No accrual ratio `(NI − CFO)/assets` |
@@ -203,9 +211,10 @@ Highest-leverage addition: unlocks WS-11, WS-15, WS-16 and a real fix for 2.3.
 
 - `settings` shared key `screen_style ∈ {balanced, value, growth, income}`, each
   mapping to a `(W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND)` vector (all
-  summing to 1.0). `balanced` = today's `0.30/0.18/0.22/0.15/0.15`; `value` lifts
-  MoS+Quality, `income` lifts Dividend, `growth` lifts Momentum+Quality and cuts
-  MoS.
+  summing to 1.0). `balanced` = the module constants (`0.30/0.18/0.22/0.15/0.15`
+  at the time of this plan; later rebalanced to `0.24/0.22/0.24/0.15/0.15` per
+  review 4.2 / 5.2); `value` lifts MoS+Quality, `income` lifts Dividend, `growth`
+  lifts Momentum+Quality and cuts MoS.
 - New `settings.get_score_weights()` alongside `get_veto_thresholds()`, threaded
   into `compute_scores(..., weights=...)` (default keeps the module constants).
 - UI in Settings → Screening & veto rules — keep it **admin-gated** (that section

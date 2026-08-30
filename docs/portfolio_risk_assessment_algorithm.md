@@ -185,13 +185,13 @@ Sharpe = (Portfolio return − Risk-free rate) / Portfolio volatility
 Sortino = (Portfolio return − Risk-free rate) / Downside deviation
 ```
 
-Sortino is preferred for income portfolios as it penalises only downside volatility.
+Sortino is preferred for income portfolios as it penalises only downside volatility. Because downside deviation is ≤ total volatility by construction, Sortino runs structurally higher than Sharpe for the same portfolio, so the two carry **separate label bands** (`risk._sharpe_label` / `_sortino_label`):
 
-| Sharpe / Sortino | Interpretation |
-|---|---|
-| > 1.5 | Strong risk-adjusted return |
-| 1.0 – 1.5 | Acceptable |
-| < 1.0 | Suboptimal — reassess positioning |
+| Value | Sharpe (`ratio_label`) | Sortino (`sortino_label`) |
+|---|---|---|
+| Strong | > 1.5 | > 2.0 |
+| Acceptable | > 1.0 | > 1.5 |
+| Suboptimal | ≤ 1.0 | ≤ 1.5 |
 
 ### 3g. Correlation Matrix
 
@@ -313,14 +313,9 @@ Each scenario carries an explicit window. When the held basket's own 10-year EUR
 
 ### 6c. Monte Carlo Simulation
 
-10,000 paths over 1, 3, and 5 years. **Block bootstrap** (20-day blocks) of the portfolio's own EUR daily return series — preserves the realised fat tails and volatility clustering that an iid-Normal draw discards — re-centred on an explicit **CAPM drift** `(RF + portfolio_beta × ERP) / 252` so the forward mean is an assumption, not an extrapolation of the trailing period. Falls back to an iid-Normal draw (same CAPM drift, `beta × market-vol` sigma) when there are < 60 days of history. Seeded (`MONTE_CARLO_SEED`), so runs are reproducible.
+10,000 paths over 1, 3, and 5 years. **Block bootstrap** (20-day blocks) of the portfolio's own EUR daily return series — preserves the realised fat tails and volatility clustering that an iid-Normal draw discards — re-centred on an explicit **CAPM drift** `(RF + portfolio_beta × ERP) / 252` so the forward mean is an assumption, not an extrapolation of the trailing period. Falls back to an iid-Normal draw (same CAPM drift, `beta × market-vol` sigma) when there are fewer than `_MC_MIN_OBS` (60) days of history. Seeded (`MONTE_CARLO_SEED`), so runs are reproducible.
 
-*(Original spec below kept for reference.)*
-- Expected returns per stock
-- Covariance matrix
-- Resampled return distributions (to capture fat tails)
-
-Output: distribution of outcomes, probability of loss, expected worst-case outcome at 5th percentile.
+Output per horizon: the p05 / p25 / p50 / p75 / p95 outcome distribution and the probability of loss.
 
 ---
 

@@ -21,9 +21,7 @@ Verified by grepping every public symbol in each root module against `app.py` + 
 
 ### 2. Admin can't reset a user's password
 
-`auth.reset_password(email, new_password)` (`auth.py:219`) exists but is not imported by [uvalu/pages_/admin.py](../uvalu/pages_/admin.py) (which imports `ROLES, list_users, set_role, set_status, delete_user, invite_user` only, `admin.py:30`). An Admin can invite/suspend/delete/change-role but has no way to reset an existing (non-`Invited`) user's password.
-
-Note: [docs/architecture.md:163](architecture.md:163) currently claims `reset_password()` "surfaced in the Admin portal's Users tab" — that line is stale and should be corrected once this is either wired up or confirmed intentionally deferred.
+`auth.reset_password(email, new_password)` exists but is not imported by [uvalu/pages_/admin.py](../uvalu/pages_/admin.py). An Admin can invite/suspend/delete/change-role but has no way to reset an existing (non-`Invited`) user's password. (`docs/architecture.md` now correctly notes this as "not wired into the Admin portal yet".)
 
 ### 3. Cash balances — fully invisible feature
 
@@ -35,10 +33,9 @@ Note: [docs/architecture.md:163](architecture.md:163) currently claims `reset_pa
 
 ## Smaller / lower-priority items
 
-- **`screener.py` `TER %`** (Total Expected Return, `screener.py:728-733`) — computed for every scored row, shown on no page. Its tooltip text exists in `uvalu/formatting.py:22-25` (`COLUMN_HELP["TER %"]`) but that whole dict is unused (see below).
+- **`screener.py` `TER %`** (Total Expected Return) — computed for every scored row, shown on no page.
 - **`portfolio.remove_positions()`** (`portfolio.py:82-87`) — dead code, not a missing feature: the UI (`uvalu/pages_/portfolio.py:360,473,556`) reimplements the same delete-then-save logic inline instead of calling it. Candidate for a cleanup pass (replace 3 call sites), not new UI work.
 - **`uvalu/data.py` `_cache_age_str()`** (`uvalu/data.py:35-50`) — computes a "Cache age: X min" string, never called; Screener shows fetch progress instead.
-- **`uvalu/formatting.py` `COLUMN_HELP`** (~40 tooltip entries) — entirely unused since `help.py` was rewritten to a signal-legend/FAQ layout during the redesign. `docs/architecture.md:130` still describes it as shown on the Help page — also stale.
 
 ## Confirmed intentional (not gaps)
 
