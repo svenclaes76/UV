@@ -7,6 +7,7 @@ import streamlit as st
 import risk as _risk_module
 from portfolio import (load_portfolio, load_sold, load_targets,
                        load_risk_snapshot, save_risk_snapshot)
+from portfolio_enrichment import enrich_for_risk
 from screener import load_fundamentals_cache
 from settings import load_shared_settings, get_veto_thresholds, ALL_EXCHANGES
 from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
@@ -80,28 +81,13 @@ def render() -> None:
     # alert box / holdings table's Flag column further down.
     _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
 
-    # ── Enrich portfolio with a live price (fast, 60s-cached quote feed) ──────
-    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
-    pf["live_price"]    = pf["ticker"].map(lambda t: _risk_live.get(t, {}).get("price"))
-    pf["current_value"] = pf["live_price"] * pf["shares"]
-
-    # ── Fair value, sector, country, dividend rate — from the screener's own
-    # scored DataFrame (_risk_scr_df, built above), which already ran the full
-    # multi-model pipeline for every portfolio ticker. Looking these up here
-    # instead of re-deriving them keeps this page's numbers identical to the
-    # Screener/Analysis pages for the same ticker. ─────────────────────────────
+    # ── Enrich the portfolio for the risk engine — live price + the
+    # fundamentals-derived fields (fair value, sector, country, dividend rate)
+    # looked up from the screener's own scored DataFrame so this page's numbers
+    # match the Screener/Analysis pages. See portfolio_enrichment. ────────────
     _risk_scr_by_ticker = _risk_scr_df.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
-
-    def _scr(field, default=None):
-        if field not in _risk_scr_by_ticker.columns:
-            return pd.Series(default, index=pf.index)
-        return pf["ticker"].map(_risk_scr_by_ticker[field])
-
-    pf["fair_value"]      = _scr("fair_value")
-    pf["sector"]          = _scr("sector")
-    pf["country"]         = _scr("country")
-    pf["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
-    pf["expected_annual"] = (pf["div_rate"] * pf["shares"]).round(2)
+    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    pf = enrich_for_risk(pf, _risk_scr_by_ticker, _risk_live)
 
     _risk_full_cache = load_fundamentals_cache()
 

@@ -25,6 +25,8 @@ import marketdata
 from screener import (
     RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
     EQUITY_RISK_PREMIUM,     # ...and the ERP, for the Monte-Carlo drift assumption
+)
+from scoring import (
     _financial_health_score,
     _earnings_quality_score,
     _dividend_sustainability_flag,
@@ -1517,8 +1519,12 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     """
     Run the 8-stage risk assessment pipeline and return a RiskReport.
 
-    pf_df            — enriched portfolio DataFrame; must have live_price,
-                       current_value, sector, country, expected_annual, fair_value.
+    pf_df            — enriched portfolio DataFrame. Build it with
+                       portfolio_enrichment.enrich_for_risk(); it needs
+                       live_price, current_value, sector, country,
+                       expected_annual and fair_value (missing columns fall
+                       back — current_value / expected_annual are derived here,
+                       sector / country / fair_value default to neutral).
     cache            — fundamentals cache dict from screener._load_cache().
                        Its per-ticker "Currency" field, when present, drives
                        the EUR restatement of price history (_to_eur); a

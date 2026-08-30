@@ -6,7 +6,7 @@ UV (uvalu) is a single-process Streamlit application. All logic runs server-side
 
 The codebase is split into two layers:
 
-- **Root modules** (`auth.py`, `portfolio.py`, `screener.py`, `prices.py`, `risk.py`, `settings.py`, `crypto.py`, `backup.py`, `fetch_tickers.py`) — UI-agnostic business logic and persistence. These have no Streamlit page code and can be imported and tested in isolation.
+- **Root modules** (`auth.py`, `portfolio.py`, `marketdata.py`, `screener.py`, `scoring.py`, `prices.py`, `risk.py`, `portfolio_enrichment.py`, `settings.py`, `crypto.py`, `backup.py`, `fetch_tickers.py`) — UI-agnostic business logic and persistence. These have no Streamlit page code and can be imported and tested in isolation.
 - **The `uvalu/` package** — the Streamlit app shell (`app.py` entry point plus `uvalu/`): page bodies, navigation, the auth gate, the cache-backed data layer, and shared rendering helpers.
 
 `app.py` is a thin shell: it wires up page config, global styles, the auth gate and `st.navigation`, then delegates each page to a `render()` function in `uvalu/pages_/`.
@@ -22,10 +22,13 @@ UV/
 │
 │   # ── Root modules (UI-agnostic logic + persistence) ──
 ├── auth.py                     # Authentication (register/invite, login, JWT verify, 3-tier roles + status)
-├── portfolio.py                # Per-user portfolio persistence and CRUD (encrypted JSON)
+├── portfolio.py                # Per-user portfolio persistence and CRUD (encrypted JSON); targets + risk snapshot
+├── marketdata.py               # Single yfinance wrapper: disk-cached daily price history, dividends, FX-to-EUR
 ├── screener.py                 # Fundamentals fetch + valuation/scoring pipeline (configurable thresholds) + disk cache
+├── scoring.py                  # Shared 0–10 fundamental scorers used by both screener.py and risk.py
 ├── prices.py                   # Live batch price fetching via yfinance
 ├── risk.py                     # 8-stage portfolio risk assessment
+├── portfolio_enrichment.py     # Build the enriched frame risk.assess_portfolio expects (price + scored fields)
 ├── settings.py                 # User and shared settings I/O; exchange constants; veto-threshold helper
 ├── crypto.py                   # Symmetric encryption (Fernet)
 ├── backup.py                   # Export/import (encrypted ZIP, Excel workbook) + on-demand backup history
@@ -183,15 +186,29 @@ Fundamentals fetch plus the valuation/scoring pipeline. Fetches from yfinance (`
 
 Notable exports used by the data layer: `run_screener_from_df`, `fetch_fundamentals_nowait`, `_load_cache`, `cancel_background_fetch`, `clear_live_cache`, `get_fetch_progress`, `CACHE_FILE`, `_file_lock`.
 
+#### `marketdata.py`
+
+The single yfinance wrapper for time-series data, so `screener.py`, `prices.py` and `risk.py` don't each hold their own fetch/retry conventions. `price_history(tickers, period)` serves adjusted daily closes from a per-ticker CSV cache under `.cache/history/`, refetching only each ticker's missing tail; `dividends(ticker)` does the same for the payment history (`.cache/dividends/`, weekly refresh); `fx_to_eur_frame(currencies)` returns daily EUR-per-unit rates (FX pairs ride the same price-history cache). Retries Yahoo 429s / dropped connections with exponential backoff.
+
+#### `scoring.py`
+
+The 0–10 fundamental scorers shared by the screener and the risk engine — `_financial_health_score`, `_earnings_quality_score`, `_dividend_sustainability_flag`, plus `_clamp` / `_get_num`. `screener.py` re-exports them, so `risk.py` never imports from `screener.py`'s private namespace.
+
 #### `prices.py`
 
 `fetch_prices(tickers)` — live prices for many tickers in a batched yfinance call. Returns per-ticker current price, previous close, day change %, and volume.
 
 #### `risk.py`
 
-8-stage portfolio risk assessment; `assess_portfolio(pf, cache, income_mode)` → a `RiskReport`. See [portfolio_risk_assessment_algorithm.md](portfolio_risk_assessment_algorithm.md).
+8-stage portfolio risk assessment; `assess_portfolio(pf, cache, income_mode, veto_lookup, targets, prior_snapshot)` → a `RiskReport`. See [portfolio_risk_assessment_algorithm.md](portfolio_risk_assessment_algorithm.md).
 
-Stage summary: (1) position risk profiling, (2) concentration (HHI, top-N, sector/geo), (3) quantitative metrics (beta, volatility, VaR/CVaR, drawdown, correlation), (4) factor exposure (Fama-French 5-factor + momentum), (5) income/dividend risk, (6) stress tests (historical + hypothetical), (7) Monte Carlo (10,000 paths), (8) composite score + rebalancing signals.
+Stage summary: (1) position risk profiling (regression beta vs `^STOXX50E`, realised vol, days-to-liquidate), (2) concentration (HHI, top-N, sector/geo), (3) quantitative metrics (beta, volatility, VaR/CVaR, drawdown, correlation), (4) factor exposure (Developed → US Fama-French 5-factor + momentum, disk-cached with a stale fallback), (5) income/dividend risk incl. an income-stability score, (6) stress tests — real crisis-window replay where the 10y history covers them, else beta × benchmark — plus a block-bootstrap Monte Carlo, (7) composite score (factor slot renormalised out when unavailable), (8) rebalancing signals: absolute levels, or drift-vs-target / drift-since-snapshot when `targets` / `prior_snapshot` are supplied.
+
+Price history is EUR-restated (`_to_eur`) before any metric is computed. `portfolio_enrichment.enrich_for_risk()` builds the input frame.
+
+#### `portfolio_enrichment.py`
+
+`enrich_for_risk(pf, scored_by_ticker, live_prices)` — turns a raw portfolio DataFrame into the frame `assess_portfolio` expects: live price + `current_value`, and `fair_value` / `sector` / `country` / forward dividend income looked up from the screener's scored DataFrame (not re-derived, so the Risk page matches the Screener/Analysis pages).
 
 #### `crypto.py`
 
@@ -232,12 +249,13 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
   └─►  st.navigation ──► uvalu/pages_/<page>.render()
                               │
                               ├─ uvalu.data ─┬─ screener.py ─┬─ fetch_tickers.py ─► stockanalysis.com
-                              │              │               └─ yfinance ─────────► .cache/fundamentals.json
+                              │              │  (+ scoring.py) └─ marketdata.py ───► yfinance ─► .cache/{fundamentals,history,dividends}
                               │              └─ prices.py ───────────────────────► yfinance (live)
                               │
-                              ├─ portfolio.py ──► data/portfolio/{hash}/*.json  (via crypto.py)
+                              ├─ portfolio.py ──► data/portfolio/{hash}/*.json  (positions, targets, risk snapshot; via crypto.py)
                               │
-                              ├─ risk.py ───────► yfinance (price history)
+                              ├─ portfolio_enrichment.py ─► risk.py ─┬─ marketdata.py ─► .cache/{history,dividends,factors}
+                              │                                      └─ scoring.py
                               │
                               ├─ uvalu.drawer (row-click stock-preview panel) ──► uvalu/pages_/analysis.py
                               │
