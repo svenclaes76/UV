@@ -7,6 +7,7 @@ All notable changes to UV are documented here.
 ## [Unreleased]
 
 ### Added
+- Screener: **multi-year statement history** (`screener._statement_history`) — annual revenue, EBIT, net income, operating cash flow, retained earnings and total assets pulled per ticker on each 24h refresh, groundwork for trend-based vetoes, accrual-aware earnings quality and a normalised EPV (WS-10)
 - **`marketdata.py`** — single yfinance wrapper: disk-cached daily price history (`.cache/history/`, incremental tail refetch), dividend payment history (`.cache/dividends/`), and EUR FX rates
 - **`scoring.py`** — the shared 0–10 fundamental scorers, extracted from `screener.py` (which re-exports them); the risk engine no longer imports `screener.py`'s private namespace
 - **`portfolio_enrichment.py`** — `enrich_for_risk()` builds the frame `risk.assess_portfolio` expects

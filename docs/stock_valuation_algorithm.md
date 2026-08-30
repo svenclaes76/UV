@@ -7,11 +7,12 @@ This document describes the algorithm as implemented in [`screener.py`](../scree
 
 ---
 ## Stage 1 — Data Collection
-A mostly point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). Two multi-year series are pulled per ticker on each refresh:
+A mostly point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). Several multi-year series are pulled per ticker on each refresh:
 - **Annual Free Cash Flow**, up to ~4-5 years from the cash flow statement (`fcfHistory`, `screener._fcf_history`) — feeds the hard veto and the earnings-quality consistency check below.
+- **Annual income-statement / balance-sheet / cash-flow lines** (`screener._statement_history`), most recent fiscal year first, ~4 years as yfinance exposes them: `revenueHistory`, `ebitHistory`, `netIncomeHistory`, `cfoHistory`, `retainedEarningsHistory`, `totalAssetsHistory`. Each is `None` when the statement fetch fails or the row isn't exposed (some ADRs, recent IPOs), and callers fall back to the point-in-time field. Feeds the trend-based hard vetoes, the accrual term in earnings quality, and a normalised EPV.
 - **Dividend payment history** (`marketdata.dividends`, disk-cached at `.cache/dividends/{ticker}.csv`, weekly refresh), reduced by `screener._dividend_stats` to `true_dgr` (annual-DPS CAGR over a ~6yr window), `dividend_growth_streak`, `dividend_payment_years` and `dividend_last_cut_year`.
 
-There is still no full multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed. The risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
+There is a partial multi-year financial-statement history (the lines listed above, ~4 years each — not a full filing history), but still no peer/comparable-company dataset and no external macro feed. The risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
 
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
@@ -22,6 +23,7 @@ There is still no full multi-year financial-statement history, no peer/comparabl
 - ROE, ROA, operating margin, profit margin
 - Earnings growth, revenue growth, analyst recommendation mean
 - Sector, country, quote currency
+- Multi-year statement history → `revenueHistory`, `ebitHistory`, `netIncomeHistory`, `cfoHistory`, `retainedEarningsHistory`, `totalAssetsHistory` (`screener._statement_history`)
 - Dividend history → `true_dgr`, `dividend_growth_streak`, `dividend_payment_years`, `dividend_last_cut_year` (`screener._dividend_stats`)
 
 Trailing P/E, price-to-book, and EV/EBITDA are also fetched but are **display-only** — they do not feed any fair-value model.

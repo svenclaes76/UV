@@ -86,6 +86,11 @@ _SCREENER_COLUMNS = dict(
     **{"Sub MoS": 70.0, "Sub Risk": 65.0, "Sub Quality": 80.0,
        "Sub Momentum": 60.0, "Sub Dividend": 75.0},
     beta=1.05,
+    # Multi-year statement histories (screener._statement_history). None here =
+    # "column present, no history" — the same shape an older cache or a failed
+    # statement fetch produces; consumers already guard with isinstance(x, list).
+    revenueHistory=None, ebitHistory=None, netIncomeHistory=None,
+    cfoHistory=None, retainedEarningsHistory=None, totalAssetsHistory=None,
 )
 
 

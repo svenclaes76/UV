@@ -290,6 +290,71 @@ def _fcf_history(tkr: "yf.Ticker") -> list[float] | None:
         return None
 
 
+# Income-statement / balance-sheet lines we keep a multi-year history for, each
+# stored newest-first as a plain list on the cached row (yfinance exposes ~4
+# fiscal years). Every tuple is a fallback chain — yfinance's row labels vary by
+# ticker/filing. Feeds the trend hard-vetoes (revenue decline, EBIT collapse,
+# retained-earnings erosion), the accrual term in earnings quality, and a
+# normalised EPV. Same nan-not-None gotcha as _fcf_history: ragged statements are
+# padded with NaN, so trailing NaN years are dropped, not kept.
+_STATEMENT_HISTORY_KEYS = (
+    "revenueHistory", "ebitHistory", "netIncomeHistory",
+    "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory",
+)
+
+
+def _statement_row(stmt, names: tuple[str, ...]) -> list[float] | None:
+    """First matching row of `stmt` (a yfinance statement DataFrame) as a
+    newest-first float list with NaN/None entries dropped; None if `stmt` is
+    empty, exposes none of `names`, or can't be read. Self-contained try/except
+    so one malformed row (e.g. a duplicated index label) degrades to None for
+    just that key rather than sinking the whole _statement_history dict."""
+    try:
+        if stmt is None or getattr(stmt, "empty", True):
+            return None
+        for name in names:
+            if name not in stmt.index:
+                continue
+            series = stmt.loc[name]
+            if isinstance(series, pd.DataFrame):        # duplicated index label
+                series = series.iloc[0]
+            vals = [_safe_float(v) for v in series.tolist()]
+            vals = [v for v in vals if v is not None and not math.isnan(v)]
+            return vals or None
+        return None
+    except Exception:
+        return None
+
+
+def _statement_history(tkr: "yf.Ticker") -> dict:
+    """Multi-year annual history for a handful of income-statement, balance-sheet
+    and cash-flow lines, most recent fiscal year first.
+
+    Returns a dict keyed by _STATEMENT_HISTORY_KEYS, every value None on fetch
+    failure or when the statement doesn't expose the row (some ADRs, recent
+    IPOs) — callers fall back to the point-in-time field. Isolated in its own
+    try/except like _fcf_history so a failure here doesn't trigger the whole-
+    ticker retry/backoff in _fetch_and_store. `.income_stmt` / `.balance_sheet`
+    / `.cashflow` are memoised on the Ticker object, so re-reading `.cashflow`
+    here (also used by _fcf_history) costs no extra network call.
+    """
+    empty = dict.fromkeys(_STATEMENT_HISTORY_KEYS)
+    try:
+        income  = tkr.income_stmt
+        balance = tkr.balance_sheet
+        cash    = tkr.cashflow
+        return {
+            "revenueHistory":          _statement_row(income,  ("Total Revenue",)),
+            "ebitHistory":             _statement_row(income,  ("EBIT", "Operating Income")),
+            "netIncomeHistory":        _statement_row(income,  ("Net Income", "Net Income Common Stockholders")),
+            "cfoHistory":              _statement_row(cash,    ("Operating Cash Flow", "Total Cash From Operating Activities")),
+            "retainedEarningsHistory": _statement_row(balance, ("Retained Earnings",)),
+            "totalAssetsHistory":      _statement_row(balance, ("Total Assets",)),
+        }
+    except Exception:
+        return empty
+
+
 # Number of complete calendar years of dividend history to score DGR / streaks
 # over. yfinance's dividend series usually reaches much further back, but a ~6y
 # window keeps "growth" and "cut" judgements about the current regime rather
@@ -425,6 +490,11 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     # Multi-year FCF history for the hard veto's "3+ consecutive negative years"
     # check; falls back to the single most-recent-period check when unavailable.
     row["fcfHistory"] = _fcf_history(tkr)
+
+    # Multi-year revenue / EBIT / net income / CFO / retained earnings / total
+    # assets — feeds the trend hard-vetoes, the accrual term in earnings quality,
+    # and a normalised EPV. Every key None when the statements can't be fetched.
+    row.update(_statement_history(tkr))
 
     # Multi-year DPS history → true dividend growth rate, growth streak, and a
     # past-cut year. `true_dgr` supersedes the earningsGrowth DGR proxy in TER
@@ -946,6 +1016,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "exDividendDate", "dividendDate", "sector", "fcfHistory",
         "true_dgr", "dividend_growth_streak", "dividend_payment_years",
         "dividend_last_cut_year",
+        *_STATEMENT_HISTORY_KEYS,
     ]
     df = df.reindex(columns=[*df.columns, *[f for f in all_fields if f not in df.columns]])
 

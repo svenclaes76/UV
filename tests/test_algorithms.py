@@ -24,6 +24,8 @@ from screener import (
     _total_expected_return,
     _dividend_sustainability_flag,
     _dividend_stats,
+    _statement_row,
+    _statement_history,
     _dgr_estimate,
     _financial_health_score,
     _earnings_quality_score,
@@ -294,6 +296,76 @@ class TestDividendStats:
             raise RuntimeError("offline")
         monkeypatch.setattr(screener.marketdata, "dividends", _boom)
         assert _dividend_stats("X")["true_dgr"] is None
+
+
+class TestStatementHistory:
+    """screener._statement_history / _statement_row (WS-10)."""
+
+    def _stmt(self, rows: dict) -> pd.DataFrame:
+        """Fake yfinance statement: index = line items, columns = fiscal-year
+        ends newest-first, ragged rows padded with NaN."""
+        n = max(len(v) for v in rows.values())
+        cols = pd.to_datetime([f"{2024 - i}-12-31" for i in range(n)])
+        data = {name: list(vals) + [float("nan")] * (n - len(vals))
+                for name, vals in rows.items()}
+        return pd.DataFrame(data, index=cols).T
+
+    def _tkr(self, income=None, balance=None, cash=None):
+        obj = type("T", (), {})()
+        obj.income_stmt   = income  if income  is not None else pd.DataFrame()
+        obj.balance_sheet = balance if balance is not None else pd.DataFrame()
+        obj.cashflow      = cash    if cash    is not None else pd.DataFrame()
+        return obj
+
+    def test_extracts_rows_newest_first(self):
+        tkr = self._tkr(
+            income=self._stmt({"Total Revenue": [300.0, 250.0, 200.0],
+                               "EBIT": [60.0, 50.0, 40.0],
+                               "Net Income": [40.0, 35.0, 30.0]}),
+            balance=self._stmt({"Retained Earnings": [500.0, 460.0, 430.0],
+                                "Total Assets": [1000.0, 950.0, 900.0]}),
+            cash=self._stmt({"Operating Cash Flow": [70.0, 60.0, 50.0]}),
+        )
+        h = _statement_history(tkr)
+        assert h["revenueHistory"]          == [300.0, 250.0, 200.0]
+        assert h["ebitHistory"]             == [60.0, 50.0, 40.0]
+        assert h["netIncomeHistory"]        == [40.0, 35.0, 30.0]
+        assert h["cfoHistory"]              == [70.0, 60.0, 50.0]
+        assert h["retainedEarningsHistory"] == [500.0, 460.0, 430.0]
+        assert h["totalAssetsHistory"]      == [1000.0, 950.0, 900.0]
+
+    def test_drops_trailing_nan_years(self):
+        tkr = self._tkr(income=self._stmt({"Total Revenue": [100.0, 90.0, float("nan")]}))
+        assert _statement_history(tkr)["revenueHistory"] == [100.0, 90.0]
+
+    def test_missing_row_is_none(self):
+        tkr = self._tkr(income=self._stmt({"Total Revenue": [100.0, 90.0]}))
+        assert _statement_history(tkr)["ebitHistory"] is None
+
+    def test_ebit_falls_back_to_operating_income(self):
+        tkr = self._tkr(income=self._stmt({"Operating Income": [12.0, 10.0, 8.0]}))
+        assert _statement_history(tkr)["ebitHistory"] == [12.0, 10.0, 8.0]
+
+    def test_empty_statements_return_all_none(self):
+        assert _statement_history(self._tkr()) == dict.fromkeys(
+            ("revenueHistory", "ebitHistory", "netIncomeHistory",
+             "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory"))
+
+    def test_fetch_failure_returns_all_none(self):
+        class _Boom:
+            @property
+            def income_stmt(self):
+                raise RuntimeError("offline")
+        h = _statement_history(_Boom())
+        assert set(h) == set(screener._STATEMENT_HISTORY_KEYS)
+        assert all(v is None for v in h.values())
+
+    def test_statement_row_helper(self):
+        stmt = self._stmt({"Total Revenue": [5.0, 4.0, float("nan")]})
+        assert _statement_row(stmt, ("Nope", "Total Revenue")) == [5.0, 4.0]
+        assert _statement_row(stmt, ("Nope",)) is None
+        assert _statement_row(pd.DataFrame(), ("Total Revenue",)) is None
+        assert _statement_row(None, ("Total Revenue",)) is None
 
 
 class TestDgrEstimate:

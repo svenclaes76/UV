@@ -208,6 +208,37 @@ class TestFetchOne:
         row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
         assert row["exDividendDate"] is None
 
+    def test_statement_history_folded_into_row(self, monkeypatch):
+        cols = pd.to_datetime(["2024-12-31", "2023-12-31", "2022-12-31"])
+
+        def _mkstmt(rows):
+            return pd.DataFrame({n: pd.Series(v, index=cols) for n, v in rows.items()}).T
+
+        def _fake(_t):
+            obj = type("T", (), {})()
+            obj.info = {"currentPrice": 100.0}
+            obj.income_stmt = _mkstmt({"Total Revenue": [300.0, 250.0, 200.0],
+                                       "EBIT": [60.0, 50.0, 40.0]})
+            obj.balance_sheet = _mkstmt({"Total Assets": [1000.0, 950.0, 900.0]})
+            obj.cashflow = _mkstmt({"Free Cash Flow": [55.0, 45.0, 35.0],
+                                    "Operating Cash Flow": [70.0, 60.0, 50.0]})
+            return obj
+
+        monkeypatch.setattr(yf, "Ticker", _fake)
+        row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
+        assert row["revenueHistory"] == [300.0, 250.0, 200.0]
+        assert row["ebitHistory"] == [60.0, 50.0, 40.0]
+        assert row["cfoHistory"] == [70.0, 60.0, 50.0]
+        assert row["totalAssetsHistory"] == [1000.0, 950.0, 900.0]
+        assert row["fcfHistory"] == [55.0, 45.0, 35.0]
+        assert row["retainedEarningsHistory"] is None   # row not exposed
+
+    def test_statement_history_absent_ticker_attrs_leave_none_keys(self, monkeypatch):
+        monkeypatch.setattr(yf, "Ticker", self._fake_ticker({"currentPrice": 100.0}))
+        row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
+        for k in screener._STATEMENT_HISTORY_KEYS:
+            assert row[k] is None
+
 
 # ── get_fetch_progress / cancel_background_fetch / clear_live_cache ─────────
 
