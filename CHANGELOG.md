@@ -6,6 +6,16 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.1.0] — 2026-08-30
+
+Valuation + portfolio-risk engine overhaul (WS-1…WS-18): a dedicated market-data
+provider, an EUR-consistent quantitative risk engine, and a multi-model fair
+value that no longer leans on point-in-time snapshots or sell-side targets.
+
 ### Added
 - Screener: **multi-year statement history** (`screener._statement_history`) — annual revenue, EBIT, net income, operating cash flow, retained earnings and total assets pulled per ticker on each 24h refresh, groundwork for trend-based vetoes, accrual-aware earnings quality and a normalised EPV (WS-10)
 - **`marketdata.py`** — single yfinance wrapper: disk-cached daily price history (`.cache/history/`, incremental tail refetch), dividend payment history (`.cache/dividends/`), and EUR FX rates
@@ -34,6 +44,14 @@ All notable changes to UV are documented here.
 - `earnings_quality` blends multi-year FCF-history consistency with the FCF/net-income ratio
 - Help page expanded from a column reference into a full in-app guide, with an overview and a section for every page (Dashboard, Portfolio, Risk, Screener, stock details, Settings) alongside the column glossary
 - Column reference now documents the Ex-Div Date, Div Date, Sector and Country columns, and their tooltips show on the screener headers
+
+### Docs
+- `stock_valuation_algorithm.md` / `portfolio_risk_assessment_algorithm.md` brought fully in sync with the WS-1…WS-18 implementation
+- `configuration.md` corrected — stale constant names, the pre-2026 veto list, and composite/risk weight tables that had drifted from the specs; weight and veto tables now reference the algorithm specs instead of duplicating the numbers
+- `architecture.md` `formatting.py` entry and the table-density note updated to match the code
+
+### Removed
+- `uvalu/formatting.py`: dead `COLUMN_HELP` / `_HINT_WATCHLIST` tooltip dicts and the `fmt_div_flag` / `f_str` helpers (superseded by `help.py`)
 
 ---
 
