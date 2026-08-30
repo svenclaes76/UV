@@ -722,6 +722,30 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
     return pv if 0 < pv < 1e6 else None
 
 
+# DDM weight ramps continuously with the payout ratio instead of switching the
+# whole ~0.33 DDM block in or out at hard 5%/90% edges — an 89% vs 91% payer
+# shouldn't see the fair value lurch. Knots: zero below 5% and above 95%, full
+# weight across the 30–70% "comfortable" band, linear on each shoulder between.
+_DDM_PAYOUT_KNOTS = (0.05, 0.30, 0.70, 0.95)
+
+
+def _ddm_weight_factor(div_rate, payout) -> float:
+    """Multiplier in [0, 1] applied to BOTH DDM base weights (W_DDM_SINGLE /
+    W_DDM_MULTI). 0 for a non-payer or a payout outside _DDM_PAYOUT_KNOTS[0]..[3];
+    1.0 across the [1]..[2] band; a linear ramp on each shoulder. Continuous at
+    every knot, so there's no cliff anywhere in the payout range."""
+    if not div_rate or div_rate <= 0 or payout is None or pd.isna(payout):
+        return 0.0
+    lo0, lo1, hi1, hi0 = _DDM_PAYOUT_KNOTS
+    if payout <= lo0 or payout >= hi0:
+        return 0.0
+    if payout < lo1:
+        return (payout - lo0) / (lo1 - lo0)
+    if payout <= hi1:
+        return 1.0
+    return (hi0 - payout) / (hi0 - hi1)
+
+
 def _sector_pe_medians(df: pd.DataFrame) -> dict:
     """{sector: winsorized median trailing P/E} across `df`, for the PE fair-value
     model. Only sectors with at least MIN_SECTOR_SAMPLE positive P/E readings get
@@ -790,27 +814,28 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
             # Fallback when shares outstanding is unavailable: EV-ratio approximation.
             epv = price * (epv_ev / ev)
 
-    # DDM weight guidance:
-    # — zero weight if no dividend, payout > 90%, or payout < 5%
-    # — higher weight (up to 0.40 combined) for established payers with 30–70% payout
-    is_dividend_payer = bool(div_rate and div_rate > 0)
-    payout_ok = payout and 0.05 <= payout <= 0.90
-    ddm_eligible = is_dividend_payer and payout_ok
+    # DDM weight ramps with the payout ratio (_ddm_weight_factor) rather than a
+    # hard 5–90% in/out gate — full base weight in the 30–70% band, tapering to 0
+    # by 5% / 95%, so an 89%→91% payer shifts by a sliver, not the whole block.
+    ddm_factor  = _ddm_weight_factor(div_rate, payout)
+    ddm_usable  = ddm_factor > 0
+    w_ddm1 = W_DDM_SINGLE * ddm_factor
+    w_ddm2 = W_DDM_MULTI  * ddm_factor
 
-    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_eligible else None
-    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_eligible else None
+    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_usable else None
+    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_usable else None
 
     # Discount the raw analyst target for its well-documented optimism bias before it
     # feeds the composite (the undiscounted target is still shown elsewhere in the UI).
     analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
 
-    # Base weights
+    # Base weights (DDM weights already scaled by the payout ramp above)
     candidates = [
-        (gn,      W_GRAHAM),
-        (pe_fv,   W_PE),
-        (epv,     W_EPV),
-        (ddm1,    W_DDM_SINGLE if ddm_eligible else 0.0),
-        (ddm2,    W_DDM_MULTI  if ddm_eligible else 0.0),
+        (gn,         W_GRAHAM),
+        (pe_fv,      W_PE),
+        (epv,        W_EPV),
+        (ddm1,       w_ddm1),
+        (ddm2,       w_ddm2),
         (analyst_fv, W_ANALYST),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
@@ -822,9 +847,10 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
 
-    # Did either DDM variant actually feed the composite? (ddm_eligible alone isn't
-    # enough — a variant can still be None, e.g. the WACC<=g guard in _ddm_single.)
-    ddm_contributed = (ddm1, W_DDM_SINGLE) in avail or (ddm2, W_DDM_MULTI) in avail
+    # Did either DDM variant actually feed the composite? (a positive ramp factor
+    # alone isn't enough — the variant can still be None, e.g. the WACC<=g guard
+    # in _ddm_single, or filtered by the v > 0 / w > 0 test above.)
+    ddm_contributed = (ddm1, w_ddm1) in avail or (ddm2, w_ddm2) in avail
 
     return {
         "graham_number":  gn,

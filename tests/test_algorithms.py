@@ -19,6 +19,7 @@ from screener import (
     _approx_wacc,
     _ddm_single,
     _ddm_multistage,
+    _ddm_weight_factor,
     _fair_value_models,
     _margin_of_safety,
     _total_expected_return,
@@ -220,6 +221,38 @@ class TestDDM:
             _ddm_multistage(2.0, 0.08, None))
 
 
+class TestDdmWeightFactor:
+    """screener._ddm_weight_factor — the continuous payout ramp (WS-12)."""
+
+    def test_non_payer_and_missing_payout_are_zero(self):
+        assert _ddm_weight_factor(0.0, 0.5) == 0.0
+        assert _ddm_weight_factor(None, 0.5) == 0.0
+        assert _ddm_weight_factor(2.0, None) == 0.0
+        assert _ddm_weight_factor(2.0, float("nan")) == 0.0
+
+    @pytest.mark.parametrize("payout,expected", [
+        (0.05, 0.0), (0.04, 0.0), (0.95, 0.0), (0.99, 0.0),   # outside the band
+        (0.30, 1.0), (0.50, 1.0), (0.70, 1.0),                 # comfortable band
+        (0.175, 0.5),                                          # low shoulder midpoint
+        (0.825, 0.5),                                          # high shoulder midpoint
+    ])
+    def test_ramp_shape(self, payout, expected):
+        assert _ddm_weight_factor(2.0, payout) == pytest.approx(expected)
+
+    def test_continuous_across_the_old_90pct_cliff(self):
+        # the old hard gate flipped the whole DDM block on/off at payout 0.90;
+        # now 0.89 vs 0.91 differ by a sliver, and both are non-zero.
+        f89 = _ddm_weight_factor(2.0, 0.89)
+        f91 = _ddm_weight_factor(2.0, 0.91)
+        assert 0 < f91 < f89 < 1
+        assert abs(f89 - f91) < 0.10
+
+    def test_monotonic_on_each_shoulder(self):
+        lo = [_ddm_weight_factor(2.0, p) for p in (0.06, 0.12, 0.20, 0.30)]
+        hi = [_ddm_weight_factor(2.0, p) for p in (0.70, 0.80, 0.88, 0.94)]
+        assert lo == sorted(lo) and hi == sorted(hi, reverse=True)
+
+
 class TestFairValueBlend:
     def test_weighted_average_of_available_models(self):
         # Only Graham, PE, analyst available.
@@ -236,11 +269,40 @@ class TestFairValueBlend:
         assert fv["fair_value"] is None
 
     def test_ddm_excluded_when_payout_extreme(self):
-        # payout 0.95 > 0.90 → DDM ineligible even though dividend exists
+        # payout 0.95 sits at the outer knot → ramp factor 0 → DDM drops out
         row = pd.Series({"Price": 50.0, "trailingAnnualDividendRate": 2.0,
                          "payoutRatio": 0.95, "beta": 1.0})
         fv = _fair_value_models(row)
         assert fv["ddm"] is None and fv["ddm_multistage"] is None
+        assert fv["ddm_contributed"] is False
+
+    def test_ddm_contributes_but_tapered_on_the_high_shoulder(self):
+        # payout 0.85 is inside the ramp (factor ~0.4): DDM still feeds the blend,
+        # and the blended fair value moves smoothly between the 0.70 (full weight)
+        # and 0.95 (zero weight) endpoints — no cliff.
+        base = {"Price": 50.0, "trailingAnnualDividendRate": 2.0, "beta": 1.0,
+                "trailingEps": 4.0}
+        fv85 = _fair_value_models(pd.Series({**base, "payoutRatio": 0.85}))
+        fv70 = _fair_value_models(pd.Series({**base, "payoutRatio": 0.70}))
+        fv95 = _fair_value_models(pd.Series({**base, "payoutRatio": 0.95}))
+        assert fv85["ddm"] is not None and fv85["ddm_contributed"] is True
+        assert fv95["ddm_contributed"] is False
+        lo, hi = sorted((fv70["fair_value"], fv95["fair_value"]))
+        assert lo <= fv85["fair_value"] <= hi
+
+    def test_ddm_weight_continuous_around_old_cliff(self):
+        base = {"Price": 50.0, "trailingAnnualDividendRate": 2.0, "beta": 1.0,
+                "trailingEps": 4.0}
+        def fv(p):
+            return _fair_value_models(pd.Series({**base, "payoutRatio": p}))
+        fv89, fv91 = fv(0.89), fv(0.91)
+        assert fv89["ddm_contributed"] and fv91["ddm_contributed"]
+        # the 0.89->0.91 step is a small fraction of the full swing between
+        # "DDM at full weight" (payout 0.60) and "DDM gone" (payout 0.97) —
+        # under the old hard 0.90 gate that entire swing happened in one step.
+        step  = abs(fv89["fair_value"] - fv91["fair_value"])
+        swing = abs(fv(0.60)["fair_value"] - fv(0.97)["fair_value"])
+        assert step < 0.25 * swing
 
     def test_epv_included_when_ebit_and_ev_available(self):
         row = pd.Series({"Price": 50.0, "ebit": 1_000_000.0, "enterpriseValue": 10_000_000.0,

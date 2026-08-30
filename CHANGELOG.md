@@ -20,6 +20,7 @@ All notable changes to UV are documented here.
 
 ### Changed
 - Screener: **PE Fair Value** now uses the stock's own sector-median trailing P/E across the universe (winsorized 6–30×) with a bounded PEG tilt, instead of a flat 15× for every stock; 15× is kept as the small-sample fallback (WS-11)
+- Screener: **DDM weight** now ramps continuously with the payout ratio (full across 30–70%, tapering to 0 by 5% / 95%) instead of a hard 5–90% in/out gate — no more fair-value cliff between an 89% and a 91% payer (WS-12)
 - All risk metrics computed on EUR-restated price history (was a currency blend)
 - Composite score drops the factor slot and renormalises when the Fama-French feed is unavailable, instead of a flat placeholder
 - `earnings_quality` blends multi-year FCF-history consistency with the FCF/net-income ratio
