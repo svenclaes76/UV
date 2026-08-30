@@ -44,6 +44,8 @@ from risk import (
     _sortino_label,
     _position_rating,
     _risk_label_action,
+    _to_eur,
+    assess_portfolio,
     _stage1_position_profiles,
     _stage2_concentration,
     _stage3_quant,
@@ -62,6 +64,7 @@ from risk import (
     StressResults,
 )
 from prices import _day_change
+import marketdata
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -543,6 +546,97 @@ class TestRiskHelpers:
         assert _risk_label_action(50.1)[0] == "Elevated risk"
         assert _risk_label_action(70.1)[0] == "High risk"
         assert _risk_label_action(85.1)[0] == "Critical risk"
+
+
+class TestToEur:
+    def _closes(self):
+        idx = pd.bdate_range("2024-01-01", periods=4)
+        return pd.DataFrame({
+            "EU.PA": pd.Series([100.0, 101.0, 102.0, 103.0], index=idx),
+            "US.N":  pd.Series([200.0, 202.0, 204.0, 206.0], index=idx),
+        })
+
+    def test_empty_closes_pass_through(self):
+        assert _to_eur(pd.DataFrame(), {}).empty
+        assert _to_eur(None, {}) is None
+
+    def test_noop_when_currency_missing_no_fx_fetch(self, monkeypatch):
+        def _boom(*a, **k):
+            raise AssertionError("no FX fetch when every currency is EUR/unknown")
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", _boom)
+        closes = self._closes()
+        pd.testing.assert_frame_equal(_to_eur(closes, {"EU.PA": {}, "US.N": {}}), closes)
+
+    def test_noop_when_all_eur(self, monkeypatch):
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame",
+                            lambda *a, **k: (_ for _ in ()).throw(AssertionError("no fetch")))
+        closes = self._closes()
+        cache = {"EU.PA": {"Currency": "EUR"}, "US.N": {"Currency": "eur"}}
+        pd.testing.assert_frame_equal(_to_eur(closes, cache), closes)
+
+    def test_scales_only_the_foreign_column(self, monkeypatch):
+        closes = self._closes()
+        fx = pd.DataFrame({"USD": pd.Series([0.90, 0.90, 0.95, 0.95], index=closes.index)})
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda *a, **k: fx)
+        out = _to_eur(closes, {"EU.PA": {"Currency": "EUR"}, "US.N": {"Currency": "USD"}})
+        pd.testing.assert_series_equal(out["EU.PA"], closes["EU.PA"])
+        assert out["US.N"].tolist() == pytest.approx([180.0, 181.8, 193.8, 195.7])
+
+    def test_foreign_column_left_native_when_fx_history_absent(self, monkeypatch):
+        closes = self._closes()
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda *a, **k: pd.DataFrame())
+        out = _to_eur(closes, {"EU.PA": {"Currency": "EUR"}, "US.N": {"Currency": "USD"}})
+        pd.testing.assert_frame_equal(out, closes)
+
+    def test_fx_gaps_are_forward_filled_onto_close_dates(self, monkeypatch):
+        closes = self._closes()
+        # FX known only for the first and third day → ffill/bfill covers the rest.
+        fx = pd.DataFrame({"USD": pd.Series(
+            [0.90, 0.95], index=closes.index[[0, 2]])})
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda *a, **k: fx)
+        out = _to_eur(closes, {"US.N": {"Currency": "USD"}})
+        assert out["US.N"].tolist() == pytest.approx([180.0, 181.8, 193.8, 195.7])
+
+    def test_assess_portfolio_volatility_is_computed_on_eur_series(self, monkeypatch):
+        """End-to-end: a EUR+USD portfolio with a known FX path must report the
+        volatility of the EUR-restated return series, not the currency blend."""
+        idx = pd.bdate_range("2023-01-02", periods=260)
+        rng = np.random.default_rng(7)
+        eur_px = pd.Series(100 * np.cumprod(1 + rng.normal(0, 0.01, 260)), index=idx)
+        usd_px = pd.Series(200 * np.cumprod(1 + rng.normal(0, 0.01, 260)), index=idx)
+        fx_usd = pd.Series(0.90 + np.cumsum(rng.normal(0, 0.002, 260)), index=idx)
+
+        monkeypatch.setattr(risk, "_fetch_history",
+                            lambda tickers, period="5y": pd.DataFrame({"EU.PA": eur_px, "US.N": usd_px}))
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame",
+                            lambda *a, **k: pd.DataFrame({"USD": fx_usd}))
+        monkeypatch.setattr(risk, "_fetch_ff_csv",
+                            lambda url: (_ for _ in ()).throw(ConnectionError("offline")))
+        monkeypatch.setattr(risk, "_ff_cache", {})
+
+        pf = pd.DataFrame([
+            {"ticker": "EU.PA", "name": "Eu",  "current_value": 500.0, "shares": 5,
+             "live_price": 100.0, "sector": "Tech", "country": "France",
+             "expected_annual": 0.0, "fair_value": 110.0},
+            {"ticker": "US.N", "name": "Us",   "current_value": 500.0, "shares": 5,
+             "live_price": 200.0, "sector": "Tech", "country": "United States",
+             "expected_annual": 0.0, "fair_value": 210.0},
+        ])
+        cache = {"EU.PA": {"Currency": "EUR", "beta": 1.0},
+                 "US.N":  {"Currency": "USD", "beta": 1.0}}
+
+        report = assess_portfolio(pf, cache)
+
+        eur_closes = pd.DataFrame({"EU.PA": eur_px, "US.N": usd_px * fx_usd})
+        dr = eur_closes.pct_change().iloc[1:]
+        exp_vol = float((dr.values @ np.array([0.5, 0.5])).std(ddof=1)) * np.sqrt(252)
+        # _stage3_quant rounds volatility_annual to 4 dp.
+        assert report.quant.volatility_annual == pytest.approx(exp_vol, abs=1e-4)
+
+        # And it must NOT match the un-converted currency blend.
+        dr_blend = pd.DataFrame({"EU.PA": eur_px, "US.N": usd_px}).pct_change().iloc[1:]
+        blend_vol = float((dr_blend.values @ np.array([0.5, 0.5])).std(ddof=1)) * np.sqrt(252)
+        assert abs(report.quant.volatility_annual - blend_vol) > 1e-3
 
 
 # ══════════════════════════════════════════════════════════════════════════════

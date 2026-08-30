@@ -207,3 +207,29 @@ def price_history(tickers, period: str = "5y") -> pd.DataFrame:
     out = pd.DataFrame(cached).sort_index()
     out = out[out.index >= pd.Timestamp(want_start)]
     return out.dropna(how="all")
+
+
+def fx_to_eur_frame(currencies, period: str = "5y") -> pd.DataFrame:
+    """Daily "EUR per 1 unit" rate for each currency, as a DataFrame
+    (DatetimeIndex × ISO currency code).
+
+    FX pairs are ordinary yfinance tickers — ``USDEUR=X`` quotes EUR per 1
+    USD — so they ride the same per-ticker CSV cache as equity history.
+    EUR is skipped (the caller uses 1.0); a currency with no fetchable
+    history is simply absent from the frame, and the caller then leaves
+    those positions in native terms.
+    """
+    codes = sorted({(c or "").strip().upper() for c in currencies if (c or "").strip()})
+    foreign = [c for c in codes if c != "EUR"]
+    if not foreign:
+        return pd.DataFrame()
+
+    pairs = {c: f"{c}EUR=X" for c in foreign}
+    hist  = price_history(list(pairs.values()), period=period)
+    cols: dict[str, pd.Series] = {}
+    for code, pair in pairs.items():
+        if pair in hist.columns:
+            s = hist[pair].dropna()
+            if not s.empty:
+                cols[code] = s
+    return pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()

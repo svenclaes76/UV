@@ -204,3 +204,36 @@ class TestDownloadCloses:
 
         out = marketdata._download_closes(["AAA.BR"], start=None, period="5y")
         assert out.index.tz is None
+
+
+# ── fx_to_eur_frame ─────────────────────────────────────────────────────────
+
+class TestFxToEurFrame:
+    def test_all_eur_or_blank_returns_empty_without_fetching(self, monkeypatch):
+        monkeypatch.setattr(marketdata, "price_history", _boom)
+        assert marketdata.fx_to_eur_frame(["EUR", "eur", "", None]).empty
+
+    def test_fetches_foreign_pairs_and_labels_columns_by_code(self, monkeypatch):
+        idx = pd.bdate_range("2024-01-01", periods=4)
+        data = {
+            "USDEUR=X": pd.Series([0.90, 0.91, 0.92, 0.93], index=idx),
+            "CHFEUR=X": pd.Series([1.04, 1.05, 1.06, 1.07], index=idx),
+        }
+
+        def fake_ph(pairs, period="5y"):
+            assert set(pairs) == {"USDEUR=X", "CHFEUR=X"}
+            return pd.DataFrame({p: data[p] for p in pairs})
+
+        monkeypatch.setattr(marketdata, "price_history", fake_ph)
+        fx = marketdata.fx_to_eur_frame(["USD", "CHF", "EUR"])
+        assert set(fx.columns) == {"USD", "CHF"}
+        assert fx["USD"].iloc[0] == 0.90
+
+    def test_pair_with_no_history_is_omitted(self, monkeypatch):
+        idx = pd.bdate_range("2024-01-01", periods=3)
+        monkeypatch.setattr(
+            marketdata, "price_history",
+            lambda pairs, period="5y": pd.DataFrame({"USDEUR=X": pd.Series([0.9] * 3, index=idx)}),
+        )
+        fx = marketdata.fx_to_eur_frame(["USD", "GBP"])
+        assert list(fx.columns) == ["USD"]

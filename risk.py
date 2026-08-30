@@ -13,7 +13,7 @@ cache   — fundamentals cache dict[ticker -> dict] from screener._load_cache()
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import numpy as np
@@ -21,6 +21,7 @@ import pandas as pd
 
 import marketdata
 from screener import (
+    RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
     _financial_health_score,
     _earnings_quality_score,
     _dividend_sustainability_flag,
@@ -28,7 +29,6 @@ from screener import (
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-RISK_FREE_RATE   = 0.03     # Euro area risk-free proxy (matches screener.py)
 MARKET_DAILY_VOL = 0.012    # ~1.2% daily vol proxy for market
 TRADING_DAYS     = 252
 MONTE_CARLO_PATHS = 10_000
@@ -247,6 +247,35 @@ def _fetch_history(tickers: list[str], period: str = "5y") -> pd.DataFrame:
     Kept as a function here because tests monkeypatch it directly.
     """
     return marketdata.price_history(tickers, period=period)
+
+
+def _to_eur(closes: pd.DataFrame, cache: dict) -> pd.DataFrame:
+    """Restate each ticker's native-currency close series in EUR.
+
+    Without this the portfolio return series is a blend of currencies — a
+    USD-quoted holding's daily "return" silently carries the day's USD/EUR
+    move, distorting volatility, VaR and cross-holding correlations. A ticker
+    whose currency is missing, already EUR, or has no FX history is left as-is
+    (better than dropping it from the risk picture entirely).
+    """
+    if closes is None or closes.empty:
+        return closes
+    ccy = {
+        t: str((cache.get(t) or {}).get("Currency") or "EUR").strip().upper()
+        for t in closes.columns
+    }
+    foreign = sorted({c for c in ccy.values() if c and c != "EUR"})
+    if not foreign:
+        return closes
+    fx = marketdata.fx_to_eur_frame(foreign)
+    if fx is None or fx.empty:
+        return closes
+    out = closes.copy()
+    for ticker, code in ccy.items():
+        if code in fx.columns:
+            rate = fx[code].reindex(out.index).ffill().bfill()
+            out[ticker] = out[ticker] * rate
+    return out
 
 
 def _daily_returns(closes: pd.DataFrame) -> pd.DataFrame:
@@ -1098,6 +1127,9 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     pf_df            — enriched portfolio DataFrame; must have live_price,
                        current_value, sector, country, expected_annual, fair_value.
     cache            — fundamentals cache dict from screener._load_cache().
+                       Its per-ticker "Currency" field, when present, drives
+                       the EUR restatement of price history (_to_eur); a
+                       missing currency is treated as EUR.
     income_portfolio — if True, income risk weight is elevated in Stage 7.
     veto_lookup      — optional {ticker: bool} from the screener's own `veto`
                        column (screener.py's df["veto"]); feeds Stage 1's
@@ -1118,8 +1150,9 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     total_value = float(pf["current_value"].fillna(0).sum())
     tickers     = pf["ticker"].tolist()
 
-    # Fetch 5-year price history for all positions in one batch call
-    closes = _fetch_history(tickers, period="5y")
+    # Fetch 5-year price history for all positions in one batch call, then
+    # restate every series in EUR so port_rets isn't a currency blend.
+    closes = _to_eur(_fetch_history(tickers, period="5y"), cache)
 
     # Build portfolio daily return series (used in Stages 3, 4, 6)
     port_rets: pd.Series | None = None
