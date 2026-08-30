@@ -13,14 +13,13 @@ cache   — fundamentals cache dict[ticker -> dict] from screener._load_cache()
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
+import marketdata
 from screener import (
     _financial_health_score,
     _earnings_quality_score,
@@ -241,23 +240,13 @@ def _safe(val, default=None):
 
 
 def _fetch_history(tickers: list[str], period: str = "5y") -> pd.DataFrame:
-    """Download adjusted daily closes; returns DataFrame (date × ticker)."""
-    if not tickers:
-        return pd.DataFrame()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        raw = yf.download(
-            tickers, period=period, interval="1d",
-            auto_adjust=True, progress=False, threads=True,
-        )
-    if raw.empty:
-        return pd.DataFrame()
-    closes = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw
-    if len(tickers) == 1 and not isinstance(closes, pd.DataFrame):
-        closes = closes.to_frame(name=tickers[0])
-    elif len(tickers) == 1 and isinstance(closes, pd.DataFrame) and closes.shape[1] == 1:
-        closes.columns = tickers
-    return closes.dropna(how="all")
+    """Adjusted daily closes as a DataFrame (date × ticker).
+
+    Thin seam over marketdata.price_history, which serves these from a
+    per-ticker disk cache and only refetches each ticker's missing tail.
+    Kept as a function here because tests monkeypatch it directly.
+    """
+    return marketdata.price_history(tickers, period=period)
 
 
 def _daily_returns(closes: pd.DataFrame) -> pd.DataFrame:
