@@ -843,6 +843,20 @@ def _sector_pe_medians(df: pd.DataFrame) -> dict:
     }
 
 
+def _normalised_ebit(row: pd.Series):
+    """Mean EBIT across the available multi-year window (`ebitHistory`, newest
+    first) when at least 3 finite years exist — EPV capitalises a
+    through-the-cycle *earnings power*, so a single peak or trough year
+    shouldn't set the whole valuation. Falls back to the point-in-time `ebit`
+    otherwise (recent IPOs, tickers whose statement fetch failed)."""
+    hist = row.get("ebitHistory")
+    vals = ([f for f in (_finite(v) for v in hist) if f is not None]
+            if isinstance(hist, list) else [])
+    if len(vals) >= 3:
+        return sum(vals) / len(vals)
+    return _get_num(row, "ebit")
+
+
 def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
@@ -850,7 +864,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     payout   = row.get("payoutRatio")
     analyst  = row.get("targetMeanPrice")
-    ebit     = row.get("ebit")
+    ebit     = _normalised_ebit(row)   # mean of ebitHistory (≥3yr) else point-in-time
     ev       = row.get("enterpriseValue")
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
@@ -874,8 +888,9 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
     pe_fv = (eps * pe_multiple) if (eps and eps > 0) else None
 
-    # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). t is the country's statutory
-    # rate (COUNTRY_TAX_RATES) when known, else DEFAULT_TAX_RATE.
+    # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). EBIT is the multi-year mean
+    # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
+    # valuation; t is the country's statutory rate (COUNTRY_TAX_RATES), else DEFAULT_TAX_RATE.
     epv = None
     if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
         epv_ev = ebit * (1 - tax_rate) / wacc

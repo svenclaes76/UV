@@ -396,6 +396,26 @@ class TestFairValueBlend:
         fv = _fair_value_models(pd.Series({"Price": 50.0, "beta": 1.0}))
         assert fv["epv"] is None
 
+    def test_normalised_ebit_averages_history_or_falls_back(self):
+        f = screener._normalised_ebit
+        # >= 3 finite years → mean of the window
+        assert f(pd.Series({"ebit": 999.0, "ebitHistory": [40.0, 30.0, 20.0]})) == pytest.approx(30.0)
+        assert f(pd.Series({"ebit": 999.0,
+                            "ebitHistory": [40.0, float("nan"), 30.0, 20.0]})) == pytest.approx(30.0)
+        # < 3 usable years → point-in-time ebit
+        assert f(pd.Series({"ebit": 55.0, "ebitHistory": [40.0, 30.0]})) == 55.0
+        assert f(pd.Series({"ebit": 55.0})) == 55.0
+        assert f(pd.Series({"ebit": float("nan"), "ebitHistory": None})) is None
+
+    def test_epv_uses_mean_ebit_not_a_peak_year(self):
+        base = {"Price": 50.0, "enterpriseValue": 10_000_000.0, "beta": 1.0}
+        peak = _fair_value_models(pd.Series({**base, "ebit": 4_000_000.0}))
+        # same latest EBIT, but the multi-year mean is far lower → lower EPV
+        smoothed = _fair_value_models(pd.Series({
+            **base, "ebit": 4_000_000.0,
+            "ebitHistory": [4_000_000.0, 1_200_000.0, 900_000.0, 800_000.0]}))
+        assert smoothed["epv"] < peak["epv"]
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 3 — MoS, TER, dividend sustainability
