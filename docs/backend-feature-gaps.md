@@ -4,6 +4,8 @@ Audited 2026-07-26, after the `feature/design-import-v3` redesign (PR #6) rebuil
 
 Verified by grepping every public symbol in each root module against `app.py` + all of `uvalu/**/*.py`.
 
+> **Note (post risk-engine rework):** the `risk.py` line numbers below are stale. The risk pipeline was substantially reworked — new `marketdata.py` / `scoring.py` / `portfolio_enrichment.py` modules, EUR restatement, regressed betas, Developed factor set, crisis-window replay, bootstrap Monte Carlo, drift-vs-target rebalancing (see `portfolio_risk_assessment_algorithm.md` and `CHANGELOG.md`). Item #1's UI gap still stands: the rebalancing signals (now drift-aware) and the full stress/Monte-Carlo output are still only partly surfaced.
+
 ## Priority candidates
 
 ### 1. Risk engine — three whole analysis stages never rendered

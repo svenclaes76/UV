@@ -2,9 +2,16 @@
 A systematic pipeline for identifying undervalued stocks and deciding whether they are worth buying.
 
 This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults.
+
+> The 0–10 fundamental scorers `_financial_health_score`, `_earnings_quality_score` and `_dividend_sustainability_flag` (plus `_clamp` / `_get_num`) now live in [`scoring.py`](../scoring.py) and are shared with the portfolio risk engine; `screener.py` re-exports them, so every `from screener import …` call site is unchanged.
+
 ---
 ## Stage 1 — Data Collection
-A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). The only multi-year data fetched is annual Free Cash Flow, up to ~4-5 years from the cash flow statement (`fcfHistory`, for the hard veto below) — there is otherwise no multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed. The risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
+A mostly point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). Two multi-year series are pulled per ticker on each refresh:
+- **Annual Free Cash Flow**, up to ~4-5 years from the cash flow statement (`fcfHistory`, `screener._fcf_history`) — feeds the hard veto and the earnings-quality consistency check below.
+- **Dividend payment history** (`marketdata.dividends`, disk-cached at `.cache/dividends/{ticker}.csv`, weekly refresh), reduced by `screener._dividend_stats` to `true_dgr` (annual-DPS CAGR over a ~6yr window), `dividend_growth_streak`, `dividend_payment_years` and `dividend_last_cut_year`.
+
+There is still no full multi-year financial-statement history, no peer/comparable-company dataset, and no external macro feed. The risk-free rate and equity risk premium are fixed constants (3% and 5% — `screener.RISK_FREE_RATE`, `EQUITY_RISK_PREMIUM`), not live indicators. EPV's tax rate is country-aware (`screener.COUNTRY_TAX_RATES`, keyed on the already-fetched `country` field) but still a static table of headline statutory rates, not a live feed; unmapped or missing countries fall back to `DEFAULT_TAX_RATE` (25%).
 
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
@@ -14,7 +21,8 @@ A single point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fun
 - Debt/equity, current ratio, interest coverage, free cash flow (current + up to ~4-5yr history via `fcfHistory`), net income, beta, average volume, payout ratio
 - ROE, ROA, operating margin, profit margin
 - Earnings growth, revenue growth, analyst recommendation mean
-- Sector, country
+- Sector, country, quote currency
+- Dividend history → `true_dgr`, `dividend_growth_streak`, `dividend_payment_years`, `dividend_last_cut_year` (`screener._dividend_stats`)
 
 Trailing P/E, price-to-book, and EV/EBITDA are also fetched but are **display-only** — they do not feed any fair-value model.
 ---
@@ -45,10 +53,10 @@ The base weights above (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULT
 | **Payout ratio** | `payoutRatio` (as reported) | Dividend sustainability flag, dividend risk/score |
 | **Cash payout ratio** | `(DPS × Shares) / FCF` | Dividend sustainability flag, dividend risk/score |
 | **Dividend coverage ratio** | `EPS / DPS` | Dividend sustainability flag, dividend risk/score, hard veto |
-| **Dividend growth rate (DGR)** | *Not computed.* `earningsGrowth` (TTM, from yfinance) is used everywhere DGR would be needed — TER, dividend risk score, dividend score, momentum score — as the best available proxy | TER, dividend risk/score |
+| **Dividend growth rate (DGR)** | `screener._dgr_estimate(row)` — the **true DGR** below when the dividend history has ≥2 complete years, else the `earningsGrowth` (TTM) proxy. A real `0.0` (flat DPS) wins over the proxy. Used in TER, dividend risk score, dividend score | TER, dividend risk/score |
 | **Dividend yield vs. historical average** | `dividendYield / fiveYearAvgDividendYield`, feeds the dividend score | Dividend score |
 | **Dividend yield vs. sector peers** | *Not implemented* — no peer-median dataset exists | — |
-| **True DGR** `(DPS_t / DPS_{t-5})^(1/5) − 1` | *Not implemented* — no 5–10yr DPS history is fetched | — |
+| **True DGR** `(DPS_t / DPS_{t-n})^(1/(n-1)) − 1` | **Implemented** (`screener._dividend_stats.true_dgr`) — CAGR of annual DPS across the complete calendar years in a ~6yr window (the incomplete current year is dropped); `None` with fewer than 2 such years | DGR estimate above |
 
 ### Weighted Composite Fair Value
 ```
@@ -67,17 +75,18 @@ There is no fixed 20–30% buy-zone band on MoS itself. Instead, a **Strong Buy*
 ```
 TER = Capital gain % + Forward dividend yield % + Expected DGR %
 ```
-where Capital gain % = `(Fair Value − Price) / Price × 100`, and Expected DGR uses the `earningsGrowth` proxy clamped to 0–10%. TER is displayed per-stock but there is **no >15% / 8–15% / <8% attractiveness banding** applied anywhere — it is not classified into "Attractive / Acceptable / Unattractive".
+where Capital gain % = `(Fair Value − Price) / Price × 100`, and Expected DGR is `_dgr_estimate` (true DPS CAGR when available, else the `earningsGrowth` proxy) clamped to 0–10%. TER is displayed per-stock but there is **no >15% / 8–15% / <8% attractiveness banding** applied anywhere — it is not classified into "Attractive / Acceptable / Unattractive".
 
 **DGR halving when DDM contributed:** if either DDM variant fed that stock's composite fair value (`ddm_contributed`, `screener._fair_value_models`), the Expected DGR term is halved before summing. Growth is already embedded in the Capital gain % term via the DDM-derived fair value in that case, so adding the full DGR proxy on top would double-count it.
 
 ### Dividend Sustainability Flag
-`screener._dividend_sustainability_flag` returns `"At Risk"`, `"OK"`, or `""` (non-payer):
+`scoring._dividend_sustainability_flag` (re-exported from `screener`) returns `"At Risk"`, `"OK"`, or `""` (non-payer). **Any** of:
 - Payout ratio > 90% **(configurable, `max_payout`)** → **At Risk**
 - Cash payout ratio > 80% → **At Risk**
 - Dividend coverage ratio < 1.2× → **At Risk**
+- **DPS cut within the last 3 complete years** — `dividend_last_cut_year ≥ current_year − 3` (`scoring._DIV_RECENT_CUT_YEARS`). This is the spec's fourth check, now implemented off the dividend history.
 
-The spec's fourth check — **DPS cut in the last 5 years** — is not implemented (no multi-year DPS history is fetched). There is also no automatic **+5–10pp MoS bump** for flagged stocks; a flagged stock passes the same `min_mos` threshold as any other.
+There is still no automatic **+5–10pp MoS bump** for flagged stocks; a flagged stock passes the same `min_mos` threshold as any other. Note that "At Risk" + coverage < 1.0× is a hard veto (Stage 6), so a recent DPS cut on a thinly-covered payer now vetoes.
 ---
 ## Stage 4 — Risk, Quality, Momentum, and Dividend Scoring
 The composite **risk** score averages **five** dimensions (0–10 each, higher = safer) and inverts the result — not the seven dimensions described in earlier drafts. Quality and Momentum are computed as separate top-level 0–10 scores, not risk sub-dimensions.
@@ -85,16 +94,16 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 | Dimension | Key metrics | Part of |
 |---|---|---|
 | **Financial health** | Debt/equity, current ratio, interest coverage | Risk |
-| **Earnings quality** | FCF vs. net income | Risk |
+| **Earnings quality** | FCF-to-net-income conversion **blended with** `fcfHistory` consistency (fraction of positive years + level stability via coefficient of variation) when ≥3 years are available; conversion ratio alone otherwise | Risk |
 | **Market risk** | Beta | Risk |
-| **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, `earningsGrowth` (DGR proxy) | Risk |
+| **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, DGR (`_dgr_estimate` — true DGR when available, else `earningsGrowth`) | Risk |
 | **Liquidity** | Average daily volume | Risk |
 | **Quality** | ROE, ROA, operating margin, FCF yield, current ratio | *Separate score* |
 | **Momentum** | Earnings growth, revenue growth, analyst recommendation mean | *Separate score* |
 
 `Momentum`'s analyst component (`recommendationMean`) is a current-snapshot rating, not a trend of analyst revisions over time. A **Qualitative dimension** (competitive moat, management track record, ESG flags) is **not implemented** — there is no data source for it, so the risk composite has no room reserved for it.
 
-The **Dividend score** (separate from dividend risk, feeds Stage 5 directly) combines: yield vs. 5-yr average, payout ratio safety, cash payout ratio, dividend coverage, and the `earningsGrowth` DGR proxy — non-payers get a neutral 5.0 so they're neither rewarded nor penalized.
+The **Dividend score** (separate from dividend risk, feeds Stage 5 directly) combines: yield vs. 5-yr average, payout ratio safety, cash payout ratio, dividend coverage, and `_dgr_estimate` (true DGR when available, else the `earningsGrowth` proxy) — non-payers get a neutral 5.0 so they're neither rewarded nor penalized.
 ---
 ## Stage 5 — Composite Score
 Before weighting, MoS, Risk (inverted), Quality, Momentum, and Dividend are each converted to a **0–100 cross-sectional percentile rank** across the current screener universe (`screener._pct_rank`) — this is a normalization step not present in earlier drafts of this document, which described a raw weighted sum of the sub-scores directly.
@@ -124,7 +133,7 @@ Not implemented — no data source exists for any of these: active fraud investi
 ---
 ## Algorithm Summary
 ```
-Data collection (yfinance point-in-time snapshot, 24h cache)
+Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
   (Graham Number + PE Fair Value + EPV + DDM single-stage + DDM multi-stage + Analyst target [10% haircut])
@@ -134,16 +143,16 @@ Weighted fair value
    5–90% payout; 0 otherwise, re-normalized over Graham/PE/EPV/Analyst)
     ↓
 Margin of Safety = (Fair Value − Price) / Fair Value
-Total Expected Return = Capital Gain % + Forward Yield % + Earnings-growth-proxy DGR % [DGR halved if DDM contributed to Fair Value]
-Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio)
+Total Expected Return = Capital Gain % + Forward Yield % + DGR % (true DPS CAGR, else earnings-growth proxy) [DGR halved if DDM contributed to Fair Value]
+Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio, DPS cut in last 3 complete years)
     ↓
-Risk scoring (5 dimensions) + separate Quality score + separate Momentum score + Dividend score
+Risk scoring (5 dimensions; earnings quality blends FCF-history consistency, dividend risk uses true DGR) + separate Quality score + separate Momentum score + Dividend score
     ↓
 Percentile-rank each sub-score (0–100) across the current universe
     ↓
 Composite Score = 0.30×MoS_rank + 0.18×(100−Risk_rank) + 0.22×Quality_rank + 0.15×Momentum_rank + 0.15×Dividend_rank
     ↓
-Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + low coverage) → forces Avoid
+Hard veto check (D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×) → forces Avoid
     ↓
 Strong Buy (score ≥ threshold AND MoS ≥ min_mos) | Monitor | Avoid
 ```

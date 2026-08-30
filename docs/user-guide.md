@@ -71,8 +71,11 @@ thresholds set in Settings → Screening & veto rules:
 - **AVOID** — composite score < 40, or a hard veto below.
 
 A stock receives a hard veto regardless of score if: Debt/Equity exceeds the
-configured maximum (default 500%), free cash flow is negative, or the
-dividend is flagged "At Risk" with coverage below 1.0×.
+configured maximum (default 500%, some sectors exempt), free cash flow is
+negative for 3+ consecutive years, or the dividend is flagged "At Risk" with
+coverage below 1.0×. A dividend is "At Risk" on a high payout/cash-payout, a
+coverage below 1.2×, **or a DPS cut in the last 3 years** (from the dividend
+payment history).
 
 **Filter bar** — Search (ticker or name), Signal chips (All/Buy/Monitor/
 Avoid), Sector select, Market select, Min score slider, Min margin-of-safety
@@ -147,8 +150,15 @@ one exceeds its limit), and a risk-contribution-by-holding table.
 | Income risk | 5% |
 
 Toggle **Income mode** to weight the analysis toward dividend-income risk.
-The report is cached for one hour (or until the portfolio changes) — use
-**Refresh** to force a rebuild.
+The report is cached for one hour (or until the portfolio or your target
+allocation changes) — use **Refresh** to force a rebuild.
+
+**Rebalancing triggers** are absolute-level checks by default. If you set a
+target allocation under Settings → Target allocation, the sector / per-name /
+concentration triggers switch to *drift vs target*, and once a daily risk
+snapshot exists the engine also flags HHI drift since last review, a Sharpe
+below 1.0 for two reviews running, and any holding whose risk rating was
+upgraded into High/Critical.
 
 **Five deeper analysis tabs** below the always-visible section:
 Volatility & VaR, Factor Exposure, Income Risk, Stress Tests, Monte Carlo.
@@ -182,8 +192,13 @@ Available to every user — user/workspace administration lives in the
   for now).
 - **Screening & veto rules** — Max debt/equity, Max dividend payout, Target
   margin of safety, and BUY score threshold sliders drive every BUY/MONITOR/
-  AVOID decision app-wide; a Euro Stoxx 50 benchmark default; an
+  AVOID decision app-wide (admin-only); a Euro Stoxx 50 benchmark default; an
   (unavailable) US-listed toggle.
+- **Target allocation** — your personal reference weights: sector targets and
+  per-name targets (one `NAME  WEIGHT%` per line) plus an optional
+  concentration (HHI) ceiling. When set, the Risk page's rebalancing signals
+  switch from absolute thresholds to drift-vs-target. Only affects your own
+  view.
 - **Data** — the portfolio price auto-refresh interval.
 - **Import & export** — upload an Excel file to replace your portfolio data
   (expected sheets: `Positions`, `Sold`, `Dividends`), or download a

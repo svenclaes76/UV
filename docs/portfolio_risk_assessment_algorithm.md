@@ -2,6 +2,16 @@
 
 A systematic pipeline for measuring, scoring, and managing the risk of a stock portfolio — from individual position risk through to portfolio-level stress testing and actionable rebalancing signals.
 
+Implemented in [`risk.py`](../risk.py); `assess_portfolio(pf_df, cache, income_portfolio, veto_lookup, targets, prior_snapshot) → RiskReport`. Build `pf_df` with [`portfolio_enrichment.enrich_for_risk()`](../portfolio_enrichment.py). Time-series data (price history, dividends, FX, Fama-French factors) comes through [`marketdata.py`](../marketdata.py), disk-cached under `.cache/{history,dividends,factors}/`.
+
+### Implementation notes (what the engine actually does now)
+
+- **Everything is EUR.** `risk._to_eur` restates each holding's native-currency close series in EUR (per-ticker `Currency` from the fundamentals cache, FX from `marketdata.fx_to_eur_frame`) *before* any metric is computed, so `port_rets` is never a currency blend.
+- **Betas are regressed**, not taken from yfinance. `risk._resolve_betas` runs an OLS of each holding's own EUR daily returns on `BENCHMARK_TICKER` (`^STOXX50E`, euro-denominated) over the trailing window (≥ 60 aligned obs); falls back to the cached yfinance `beta`, then 1.0. `PositionRisk.beta_source` records which. `QuantMetrics.portfolio_beta_regression` adds the direct OLS of `port_rets` on the benchmark as a cross-check.
+- **10-year fetch, 5-year quant.** `assess_portfolio` fetches a 10y window; Stages 1/3/4 run on the trailing-5y slice, Stage 6 gets the full series (for crisis-window replay).
+- **Factor set:** Developed 5-factor + momentum first, US Fama-French as an automatic fallback; parsed frames are disk-cached weekly with a stale-copy fallback when the network is down (`risk._factor_data`).
+- **Targets / snapshot:** when `targets` (per-user `portfolio.load_targets()`) or `prior_snapshot` (`portfolio.load_risk_snapshot()`, one per calendar day) are supplied, Stage 8 switches the relevant soft triggers from absolute levels to drift-vs-target / drift-since-snapshot.
+
 ---
 
 ## Overview
@@ -35,14 +45,15 @@ Assess risk at the individual stock level before aggregating to the portfolio. E
 | Metric | Formula / Approach | Risk signal |
 |---|---|---|
 | **Weight in portfolio** | `Position value / Total portfolio value` | > 10% = concentrated |
-| **Individual beta** | Regression of stock returns vs market index | > 1.3 = high sensitivity |
-| **Stock-level VaR (95%)** | Historical or parametric 1-day loss at 95% confidence | Baseline per position |
+| **Individual beta** | OLS of the holding's own EUR daily returns on `^STOXX50E` (`_resolve_betas`); yfinance / 1.0 fallback, source recorded in `beta_source` | > 1.3 = high sensitivity |
+| **Volatility / VaR (95%)** | Realised annualised vol from the holding's own EUR series when it has ≥ 60 days of history; `|beta| × market-vol` proxy otherwise | Baseline per position |
+| **Days to liquidate** | `shares_held / (averageVolume × 0.20)` — trading days to exit at 20% of average volume, position-size aware. `liquidity_flag` when > 10 | > 10 days = thin for this size |
 | **Valuation risk** | MoS from stock valuation algo (negative MoS = overvalued) | Negative MoS = elevated risk |
-| **Dividend sustainability** | Payout ratio, coverage ratio, cut history | Flags income risk |
-| **Earnings quality score** | Accruals ratio, FCF vs net income | Low score = red flag |
-| **Financial health score** | D/E, interest coverage, current ratio | Low score = red flag |
+| **Dividend sustainability** | Payout ratio, coverage ratio, **DPS cut in last 3 complete years** (`scoring._dividend_sustainability_flag`) | Flags income risk |
+| **Earnings quality score** | FCF-to-net-income conversion blended with `fcfHistory` consistency (`scoring._earnings_quality_score`) | Low score = red flag |
+| **Financial health score** | D/E, interest coverage, current ratio (`scoring._financial_health_score`) | Low score = red flag |
 
-**Position risk rating:** Each stock is rated Low / Medium / High / Critical based on the aggregated position-level metrics.
+**Position risk rating:** Each stock is rated Low / Medium / High / Critical from weight, beta, MoS, financial-health and earnings-quality (`_position_rating`). Days-to-liquidate does *not* feed the rating (it surfaces as its own Stage 8 soft trigger), so the composite is unaffected by it.
 
 ---
 
@@ -81,7 +92,7 @@ Sector weight = Σ position weights within sector
 
 ### 2c. Geographic Concentration
 
-Map each stock to its primary revenue geography (not just listing country).
+Buckets by the holding's `country` field (listing / domicile). Mapping to *primary revenue geography* is a documented non-goal — no free data source.
 
 | Geography weight | Signal |
 |---|---|
@@ -104,11 +115,15 @@ If top 3 dividend payers contribute > 50% of total income → income concentrati
 
 ## Stage 3 — Portfolio-Level Quantitative Risk Metrics
 
+All of the below run on the EUR-restated trailing-5y daily return series (`port_rets`). VaR / CVaR / MDD / Sharpe / Sortino / correlations are computed from the actual return history — the parametric formulas below are the fallback when there is too little history (< ~20 days). The risk-free rate is the single euro-area `screener.RISK_FREE_RATE` (3%), shared with the valuation engine.
+
 ### 3a. Portfolio Beta
 
 ```
-Portfolio Beta = Σ (weight_i × beta_i)
+Portfolio Beta = Σ (weight_i × beta_i)      # beta_i regressed vs ^STOXX50E (Stage 1)
 ```
+
+`QuantMetrics.portfolio_beta_regression` also reports the direct OLS of `port_rets` on the benchmark; the risk page surfaces it alongside the weighted sum when they diverge by ≥ 0.15.
 
 | Beta | Interpretation |
 |---|---|
@@ -204,6 +219,8 @@ Decompose portfolio returns into known systematic risk factors. A portfolio over
 
 **Add Momentum (WML)** as a 6th factor for portfolios with trend-following characteristics.
 
+**Data source (`risk._factor_data`):** the **Developed** region 5-factor + momentum daily files from Ken French's library, with the **US** Fama-French files as an automatic fallback if Developed is unreachable. Parsed frames are disk-cached at `.cache/factors/{set}_{kind}.csv` and served for up to 7 days; on a total network failure the newest stale copy is served and flagged (`FactorExposure.stale`, `.as_of`, `.factor_set`). The regression is `(port_rets − RF) ~ α + Σ βₖ·factorₖ`, subtracting the factor file's own RF (internally consistent regardless of set).
+
 ### Factor Risk Flags
 
 - Factor loading > 1.5 on any single factor → concentrated factor bet
@@ -214,7 +231,7 @@ Decompose portfolio returns into known systematic risk factors. A portfolio over
 
 ## Stage 5 — Dividend & Income Risk
 
-*Apply only to income or dividend-focused portfolios.*
+*The `income_portfolio` flag only raises this stage's weight in the composite (Stage 7); the metrics are computed for every portfolio.*
 
 ### 5a. Portfolio Dividend Yield
 
@@ -230,19 +247,20 @@ Compare to: risk-free rate, inflation rate, and historical portfolio yield.
 Portfolio DGR = Σ (dividend income_i / total portfolio income × DGR_i)
 ```
 
-A portfolio DGR above inflation preserves real purchasing power of income.
+`DGR_i` is the holding's `true_dgr` (annual-DPS CAGR from the dividend history) when the fundamentals cache carries it, else the `earningsGrowth` proxy. A portfolio DGR above inflation preserves real purchasing power of income.
 
 ### 5c. Income Stability Score
 
-For each dividend payer, score 0–10 based on:
-- Years of consecutive dividend payments (10+ = 10 pts)
-- Years of consecutive dividend growth (Dividend Aristocrats / Kings = bonus)
-- Payout ratio stability (low variance = better)
-- FCF coverage consistency
+**Implemented** (`IncomeRisk.income_stability`). Per payer with dividend history, a 0–10 score from:
+- `min(dividend_payment_years, 10) × 0.4`
+- `min(dividend_growth_streak, 10) × 0.4`
+- `+2.0` if no DPS cut in the last 5 complete years, else `+0`
 
 ```
-Portfolio income stability = Σ (dividend income share_i × stability score_i)
+Portfolio income stability = Σ (income share_i × stability score_i)   # over payers with history
 ```
+
+`None` when no held payer has usable dividend history yet. Feeds Stage 7's income-risk score: `< 5` adds +12, `< 3` adds +25.
 
 ### 5d. Dividend Cut Scenario
 
@@ -272,31 +290,32 @@ Test how the portfolio performs under adverse market conditions.
 
 ### 6a. Historical Scenarios
 
-Replay the portfolio against past market crises using historical return data:
+Each scenario carries an explicit window. When the held basket's own 10-year EUR return series **substantially covers** that window (≥ 60% of its business days, series starting before it), the portfolio drawdown is the basket's real peak-to-trough over the window (`ScenarioResult.method = "replayed"`). Otherwise it's `portfolio_beta × benchmark_drawdown` (`method = "beta-estimated"`). As the per-ticker history cache accrues, more windows become replayable.
 
-| Scenario | Period | Benchmark drawdown |
+| Scenario | Window | Benchmark drawdown |
 |---|---|---|
-| Dot-com crash | 2000 – 2002 | −49% (S&P 500) |
-| Global financial crisis | 2007 – 2009 | −57% |
-| COVID crash | Feb – Mar 2020 | −34% |
-| 2022 rate hike cycle | Jan – Oct 2022 | −25% |
-
-For each scenario, compute estimated portfolio drawdown and income impact (if dividend-focused).
+| Dot-com crash | 2000-03 – 2002-10 | −49% |
+| Global financial crisis | 2007-10 – 2009-03 | −57% |
+| COVID crash | 2020-02-19 – 2020-03-23 | −34% |
+| 2022 rate hike cycle | 2022-01 – 2022-10 | −25% |
 
 ### 6b. Hypothetical / Factor Scenarios
 
 | Scenario | Shock applied |
 |---|---|
-| Rate rise +200 bps | Re-price dividend stocks; sector rotation |
-| Recession | Earnings cut 20–30% across cyclical sectors |
-| USD strengthening +15% | Impact on international revenue exposure |
-| Sector crash (−40%) | Apply to largest sector concentration |
-| Credit crunch | Penalise high-leverage stocks |
-| Dividend freeze | All dividend payers cut DPS to zero |
+| Rate rise +200 bps | High-P/E holdings repriced via a duration proxy |
+| Recession | −25% in cyclical sectors, −10% in defensives |
+| Sector crash (−40%) | Applied to the largest sector concentration |
+| Credit crunch | High-D/E holdings repriced |
+| Dividend freeze | Full annual dividend income lost |
+
+*(USD-strengthening is not implemented — it needs geographic revenue splits, a documented non-goal.)*
 
 ### 6c. Monte Carlo Simulation
 
-Run 10,000 simulations of portfolio returns over 1, 3, and 5 years using:
+10,000 paths over 1, 3, and 5 years. **Block bootstrap** (20-day blocks) of the portfolio's own EUR daily return series — preserves the realised fat tails and volatility clustering that an iid-Normal draw discards — re-centred on an explicit **CAPM drift** `(RF + portfolio_beta × ERP) / 252` so the forward mean is an assumption, not an extrapolation of the trailing period. Falls back to an iid-Normal draw (same CAPM drift, `beta × market-vol` sigma) when there are < 60 days of history. Seeded (`MONTE_CARLO_SEED`), so runs are reproducible.
+
+*(Original spec below kept for reference.)*
 - Expected returns per stock
 - Covariance matrix
 - Resampled return distributions (to capture fat tails)
@@ -319,16 +338,18 @@ Portfolio Risk Score =
   + w₆ × Income Risk Score              (dividend sustainability, cut scenario)
 ```
 
-Suggested default weights (adjust to portfolio mandate):
+Weights (`risk._W_DEFAULT` / `_W_INCOME`, selected by the `income_portfolio` flag):
 
-| Component | Default weight |
-|---|---|
-| Concentration risk | 25% |
-| Volatility risk | 20% |
-| Tail risk | 20% |
-| Factor risk | 15% |
-| Fundamental risk | 15% |
-| Income risk | 5% (increase to 20% for income portfolios) |
+| Component | Default | Income mandate |
+|---|---|---|
+| Concentration risk | 25% | 20% |
+| Volatility risk | 20% | 15% |
+| Tail risk | 20% | 15% |
+| Factor risk | 15% | 10% |
+| Fundamental risk | 15% | 20% |
+| Income risk | 5% | 20% |
+
+**Factor unavailable:** when the Fama-French feed can't be fetched or built, the factor slot is *dropped* and the remaining five weights are renormalised — a flat placeholder score no longer drags every portfolio toward the middle.
 
 ### Score Interpretation
 
@@ -344,22 +365,33 @@ Suggested default weights (adjust to portfolio mandate):
 
 ## Stage 8 — Rebalancing Decision
 
+`risk._stage8_rebalance(..., targets, prior_snapshot)`. Each `RebalanceItem` carries a `mode`: `absolute` (level check), `drift` (vs a target or the prior snapshot), or `transition` (a rating change). Hard triggers are always absolute.
+
 ### Hard Rebalancing Triggers (act immediately)
 
 - Any single position > 20% of portfolio
-- Portfolio beta > 1.5 (or < 0.5 for defensive mandate)
-- 1-day 99% VaR exceeds pre-defined loss tolerance
+- Portfolio beta > 1.5
+- 1-day 99% VaR > 3% of portfolio value
 - > 40% portfolio income from dividend-at-risk positions
-- Stress test shows > 40% drawdown in worst-case scenario
-- A position breaches a hard veto rule from the stock valuation algorithm
+- Worst historical scenario implies > 40% portfolio drawdown
+- A position under a hard veto from the stock valuation algorithm, or a Critical risk rating
 
 ### Soft Rebalancing Triggers (review and plan)
 
-- HHI drift > 0.05 from target since last rebalance
-- Any sector weight drifts > 5 pp from target allocation
-- Portfolio DGR drops below inflation rate
-- Sharpe ratio falls below 1.0 for two consecutive quarters
-- A position's risk rating is upgraded from Medium to High
+Drift-aware when the data exists, absolute otherwise:
+
+| Trigger | With `targets` / `prior_snapshot` | Fallback |
+|---|---|---|
+| Sector | drift vs `targets["sectors"]` > 5 pp | largest sector > 30% |
+| Per-name | drift vs `targets["tickers"]` > 5 pp | (hard 20% cap only) |
+| HHI | vs `targets["hhi_max"]` ceiling; **and** drift since the snapshot > 0.05 | 0.10 / 0.18 bands |
+| Sharpe | below 1.0 for a *second consecutive* review (snapshot) | below 1.0 once |
+| Risk rating | upgrade into High/Critical vs the snapshot (`mode = transition`) | current High rating |
+| Days to liquidate | > 10 trading days at 20% of ADV | — |
+| DGR | weighted portfolio DGR < 2.5% | (same) |
+| Correlation | holding pairs with correlation > 0.80 | (same) |
+
+The per-user target allocation is edited under **Settings → Target allocation**; the snapshot is upserted once per calendar day by the Risk page.
 
 ### Rebalancing Actions
 

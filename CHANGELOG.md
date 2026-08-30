@@ -6,7 +6,21 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+### Added
+- **`marketdata.py`** — single yfinance wrapper: disk-cached daily price history (`.cache/history/`, incremental tail refetch), dividend payment history (`.cache/dividends/`), and EUR FX rates
+- **`scoring.py`** — the shared 0–10 fundamental scorers, extracted from `screener.py` (which re-exports them); the risk engine no longer imports `screener.py`'s private namespace
+- **`portfolio_enrichment.py`** — `enrich_for_risk()` builds the frame `risk.assess_portfolio` expects
+- Risk engine: per-holding **beta regressed** against `^STOXX50E` (yfinance fallback), realised per-position volatility, and a days-to-liquidate liquidity check
+- Risk engine: **true dividend growth rate** from DPS history feeds TER and the dividend scores; dividend-sustainability flag adds a "DPS cut in the last 3 years" check; `IncomeRisk.income_stability` score, wired into the composite
+- Risk engine: Fama-French **Developed** 5-factor + momentum set (US fallback), disk-cached with a stale-copy fallback when offline
+- Risk engine: historical stress scenarios **replay the held basket's real drawdown** when history covers the window; Monte Carlo is now a block bootstrap re-centred on a CAPM drift
+- Risk engine: **drift-vs-target** rebalancing triggers — set a target allocation under Settings → Target allocation and a daily risk snapshot enables sector/name/HHI drift, two-period Sharpe, and rating-transition signals
+- Settings → **Target allocation** editor (personal sector / per-name weights + HHI ceiling)
+
 ### Changed
+- All risk metrics computed on EUR-restated price history (was a currency blend)
+- Composite score drops the factor slot and renormalises when the Fama-French feed is unavailable, instead of a flat placeholder
+- `earnings_quality` blends multi-year FCF-history consistency with the FCF/net-income ratio
 - Help page expanded from a column reference into a full in-app guide, with an overview and a section for every page (Dashboard, Portfolio, Risk, Screener, stock details, Settings) alongside the column glossary
 - Column reference now documents the Ex-Div Date, Div Date, Sector and Country columns, and their tooltips show on the screener headers
 
