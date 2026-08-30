@@ -24,6 +24,7 @@ import pandas as pd
 import marketdata
 from screener import (
     RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
+    EQUITY_RISK_PREMIUM,     # ...and the ERP, for the Monte-Carlo drift assumption
     _financial_health_score,
     _earnings_quality_score,
     _dividend_sustainability_flag,
@@ -35,6 +36,15 @@ MARKET_DAILY_VOL = 0.012    # ~1.2% daily vol proxy for market
 TRADING_DAYS     = 252
 MONTE_CARLO_PATHS = 10_000
 MONTE_CARLO_SEED  = 42
+_MC_BLOCK    = 20    # block length (days) for the bootstrap — keeps vol clustering
+_MC_MIN_OBS  = 60    # min history to block-bootstrap; below this fall back to Normal
+
+# History window for Stage-6 scenario replay. The rest of the engine still runs
+# on the trailing 5y (STRESS_HISTORY_PERIOD's frame is sliced down for Stages
+# 3/4), but replaying the 2022 drawdown — and, as the cache accrues, older
+# crises — needs a longer series.
+STRESS_HISTORY_PERIOD = "10y"
+QUANT_HISTORY_DAYS    = 5 * 366
 
 # Market proxy for per-holding beta. EURO STOXX 50 is euro-denominated (no FX
 # step) and is already the app's European benchmark elsewhere
@@ -67,11 +77,15 @@ SCORE_MODERATE = 50
 SCORE_ELEVATED = 70
 SCORE_HIGH     = 85
 
+# name, label, benchmark drawdown, window start, window end. The window dates
+# gate the "replay the held basket's own drawdown" path in _stage6_stress —
+# when port_rets covers a window, that scenario's portfolio_drawdown is the
+# basket's real peak-to-trough over it rather than beta × benchmark.
 HISTORICAL_SCENARIOS = [
-    ("Dot-com crash",        "2000–2002",    -0.49),
-    ("Financial crisis",     "2007–2009",    -0.57),
-    ("COVID crash",          "Feb–Mar 2020", -0.34),
-    ("2022 rate hike cycle", "Jan–Oct 2022", -0.25),
+    ("Dot-com crash",        "2000–2002",    -0.49, "2000-03-10", "2002-10-09"),
+    ("Financial crisis",     "2007–2009",    -0.57, "2007-10-09", "2009-03-09"),
+    ("COVID crash",          "Feb–Mar 2020", -0.34, "2020-02-19", "2020-03-23"),
+    ("2022 rate hike cycle", "Jan–Oct 2022", -0.25, "2022-01-03", "2022-10-12"),
 ]
 
 CYCLICAL_SECTORS = {
@@ -184,8 +198,9 @@ class ScenarioResult:
     name: str
     period: str
     index_drawdown: float | None
-    portfolio_drawdown: float | None    # estimated (fraction)
+    portfolio_drawdown: float | None    # fraction
     portfolio_value_loss: float | None  # €
+    method: str = "beta-estimated"      # "replayed" when the held basket's own history covered the window
 
 
 @dataclass
@@ -312,6 +327,24 @@ def _mdd(series: pd.Series) -> float | None:
     dd = (cum - peak) / peak
     v = dd.min()
     return float(v) if np.isfinite(v) else None
+
+
+def _replay_drawdown(port_rets: "pd.Series | None", start: str, end: str,
+                     min_coverage: float = 0.6) -> float | None:
+    """Worst peak-to-trough drawdown of `port_rets` over [start, end], or None
+    when the series doesn't substantially cover that window (starts after it,
+    or has < `min_coverage` of its business days)."""
+    if port_rets is None or port_rets.empty:
+        return None
+    w_start, w_end = pd.Timestamp(start), pd.Timestamp(end)
+    if port_rets.index.min() > w_start or port_rets.index.max() < w_start:
+        return None
+    seg = port_rets.loc[w_start:w_end]
+    expected = int(np.busday_count(w_start.date(), w_end.date()))
+    if expected <= 0 or len(seg) < min_coverage * expected:
+        return None
+    dd = _mdd(seg)
+    return round(float(dd), 4) if dd is not None else None
 
 
 def _ols_beta(y: np.ndarray, x: np.ndarray) -> float | None:
@@ -1012,16 +1045,21 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
                    total_value: float, port_rets: pd.Series | None,
                    concentration: ConcentrationMetrics) -> StressResults:
 
-    # 6a. Historical scenarios — beta-adjusted drawdown approximation
-    historical = [
-        ScenarioResult(
-            name=name, period=period,
-            index_drawdown=idx_dd,
-            portfolio_drawdown=round(portfolio_beta * idx_dd, 4),
-            portfolio_value_loss=round(abs(portfolio_beta * idx_dd) * total_value, 2),
-        )
-        for name, period, idx_dd in HISTORICAL_SCENARIOS
-    ]
+    # 6a. Historical scenarios — replay the held basket's own drawdown over any
+    # window its return history covers; beta × benchmark drawdown elsewhere.
+    historical: list[ScenarioResult] = []
+    for name, period, idx_dd, w_start, w_end in HISTORICAL_SCENARIOS:
+        replayed = _replay_drawdown(port_rets, w_start, w_end)
+        if replayed is not None:
+            dd, method = replayed, "replayed"
+        else:
+            dd, method = round(portfolio_beta * idx_dd, 4), "beta-estimated"
+        historical.append(ScenarioResult(
+            name=name, period=period, index_drawdown=idx_dd,
+            portfolio_drawdown=dd,
+            portfolio_value_loss=round(abs(dd) * total_value, 2),
+            method=method,
+        ))
 
     # 6b. Factor / hypothetical scenarios
     factor_scenarios: list[dict] = []
@@ -1093,18 +1131,28 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
         "note": f"Annual income impact: €{total_income:,.0f}",
     })
 
-    # 6c. Monte Carlo simulation
+    # 6c. Monte Carlo — block-bootstrap the portfolio's own daily returns
+    # (keeps the realised fat tails and volatility clustering that an iid-Normal
+    # draw throws away), re-centred on a CAPM drift so the forward mean is an
+    # explicit assumption rather than an extrapolation of the trailing period.
+    mc_drift = (RISK_FREE_RATE + portfolio_beta * EQUITY_RISK_PREMIUM) / TRADING_DAYS
+
     def _mc(years: int) -> MonteCarloResult:
-        rng = np.random.default_rng(MONTE_CARLO_SEED)
-        if port_rets is not None and len(port_rets) >= 30:
-            mu    = float(port_rets.mean())
-            sigma = float(port_rets.std(ddof=1))
+        rng  = np.random.default_rng(MONTE_CARLO_SEED)
+        days = years * TRADING_DAYS
+        if port_rets is not None and len(port_rets) >= _MC_MIN_OBS:
+            r   = port_rets.to_numpy(dtype=float)
+            r   = r - float(r.mean()) + mc_drift          # re-centre on CAPM drift
+            blk      = min(_MC_BLOCK, len(r))
+            n_starts = len(r) - blk + 1
+            n_blocks = -(-days // blk)                    # ceil
+            starts   = rng.integers(0, n_starts, size=MONTE_CARLO_PATHS * n_blocks)
+            gathered = r[starts[:, None] + np.arange(blk)]  # (paths·n_blocks, blk)
+            paths    = gathered.reshape(MONTE_CARLO_PATHS, n_blocks * blk)[:, :days]
         else:
-            mu    = (RISK_FREE_RATE + portfolio_beta * 0.05) / TRADING_DAYS
             sigma = portfolio_beta * MARKET_DAILY_VOL
-        days  = years * TRADING_DAYS
-        paths = rng.normal(mu, sigma, size=(MONTE_CARLO_PATHS, days))
-        cum   = np.prod(1.0 + np.clip(paths, -0.5, 1.0), axis=1) - 1.0
+            paths = rng.normal(mc_drift, sigma, size=(MONTE_CARLO_PATHS, days))
+        cum = np.prod(1.0 + np.clip(paths, -0.5, 1.0), axis=1) - 1.0
         return MonteCarloResult(
             horizon_years=years,
             p05=round(float(np.percentile(cum,  5)), 4),
@@ -1378,13 +1426,18 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     total_value = float(pf["current_value"].fillna(0).sum())
     tickers     = pf["ticker"].tolist()
 
-    # Fetch 5-year price history for all positions plus the market benchmark in
-    # one batch call, then restate every series in EUR so nothing downstream is
-    # a currency blend.
-    closes_all   = _to_eur(_fetch_history(tickers + [BENCHMARK_TICKER], period="5y"), cache)
+    # One batch fetch of the longer stress window for all positions + the
+    # benchmark, restated in EUR. Stages 1/3/4 run on the trailing 5y slice
+    # (behaviour unchanged); Stage 6 gets the full-length series for scenario
+    # replay and the Monte-Carlo bootstrap.
+    closes_full  = _to_eur(_fetch_history(tickers + [BENCHMARK_TICKER],
+                                          period=STRESS_HISTORY_PERIOD), cache)
+    _cutoff      = pd.Timestamp.now().normalize() - pd.Timedelta(days=QUANT_HISTORY_DAYS)
+    closes_all   = closes_full[closes_full.index >= _cutoff] if not closes_full.empty else closes_full
     bench_closes = (closes_all[[BENCHMARK_TICKER]]
                     if BENCHMARK_TICKER in closes_all.columns else pd.DataFrame())
     closes       = closes_all.drop(columns=[BENCHMARK_TICKER], errors="ignore")
+    closes_stress = closes_full.drop(columns=[BENCHMARK_TICKER], errors="ignore")
 
     bench_rets: pd.Series | None = None
     if not bench_closes.empty:
@@ -1420,6 +1473,17 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
             _pbr = _ols_beta(j["p"].to_numpy(), j["m"].to_numpy())
             port_beta_reg = round(_pbr, 3) if _pbr is not None else None
 
+    # Full-length portfolio return series for Stage 6 (scenario replay + MC).
+    port_rets_stress: pd.Series | None = None
+    if not closes_stress.empty:
+        avail_s = [t for t in tickers if t in closes_stress.columns]
+        if avail_s:
+            aw_s = _weights_for_tickers(pf, avail_s, total_value)
+            dr_s = _daily_returns(closes_stress[avail_s].dropna(how="all")).dropna(how="all")
+            if not dr_s.empty:
+                port_rets_stress = pd.Series(dr_s.fillna(0).values @ aw_s,
+                                             index=dr_s.index, name="portfolio")
+
     s1 = _stage1_position_profiles(pf, cache, total_value, veto_lookup,
                                    betas=betas, beta_sources=beta_sources, closes=closes)
     s2 = _stage2_concentration(pf, total_value)
@@ -1427,7 +1491,7 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                        betas=betas, portfolio_beta_regression=port_beta_reg)
     s4 = _stage4_factor(port_rets)
     s5 = _stage5_income(pf, cache, total_value)
-    s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets, s2)
+    s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets_stress, s2)
     s7 = _stage7_composite(s1, s2, s3, s4, s5, s6, income_portfolio)
     s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value)
 

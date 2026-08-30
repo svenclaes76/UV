@@ -1352,6 +1352,111 @@ class TestStage6Stress:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Risk WS-6 — historical replay + bootstrap Monte Carlo
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestReplayDrawdown:
+    def _series(self, start, n, seed=0):
+        idx = pd.bdate_range(start, periods=n)
+        rng = np.random.default_rng(seed)
+        return pd.Series(rng.normal(0.0002, 0.01, n), index=idx)
+
+    def test_none_or_empty(self):
+        assert risk._replay_drawdown(None, "2022-01-03", "2022-10-12") is None
+        assert risk._replay_drawdown(pd.Series(dtype=float), "2022-01-03", "2022-10-12") is None
+
+    def test_series_starting_after_window_is_not_covered(self):
+        s = self._series("2023-01-02", 400)
+        assert risk._replay_drawdown(s, "2022-01-03", "2022-10-12") is None
+
+    def test_partial_coverage_below_threshold(self):
+        # starts before the window but ends ~2.5 months in — far short of the
+        # ~9 month window, so coverage < 0.6
+        s = self._series("2021-10-01", 120)          # ~2021-10-01 .. 2022-03-18
+        assert risk._replay_drawdown(s, "2022-01-03", "2022-10-12", min_coverage=0.6) is None
+
+    def test_covered_window_returns_segment_drawdown(self):
+        idx = pd.bdate_range("2021-01-04", periods=700)
+        rets = np.full(700, 0.0002)
+        # a clean −20% peak-to-trough entirely inside the 2022 window
+        w = (idx >= "2022-02-01") & (idx <= "2022-06-01")
+        rets[w] = np.log(0.80) / w.sum()          # spread the drop evenly
+        s = pd.Series(rets, index=idx)
+        dd = risk._replay_drawdown(s, "2022-01-03", "2022-10-12")
+        assert dd == pytest.approx(-0.20, abs=0.02)
+
+
+class TestStage6HistoricalReplay:
+    def _conc(self, pf):
+        return _stage2_concentration(pf, float(pf["current_value"].sum()))
+
+    def test_2022_window_is_replayed_others_beta_estimated(self):
+        pf = pd.DataFrame([{"ticker": "A", "current_value": 1000.0,
+                            "sector": "Technology", "expected_annual": 0.0}])
+        # 6y of history so the 2022 window is fully covered, dot-com/GFC are not
+        idx = pd.bdate_range("2020-06-01", periods=1500)
+        rets = np.full(len(idx), 0.0003)
+        w = (idx >= "2022-01-03") & (idx <= "2022-10-12")
+        rets[w] = np.log(0.75) / w.sum()          # −25% over the window
+        port_rets = pd.Series(rets, index=idx)
+
+        s = _stage6_stress(pf, {"A": {}}, 1.3, 1000.0, port_rets, self._conc(pf))
+        by = {r.name: r for r in s.historical}
+        assert by["2022 rate hike cycle"].method == "replayed"
+        assert by["2022 rate hike cycle"].portfolio_drawdown == pytest.approx(-0.25, abs=0.02)
+        # not covered → beta × benchmark drawdown
+        assert by["Dot-com crash"].method == "beta-estimated"
+        assert by["Dot-com crash"].portfolio_drawdown == pytest.approx(1.3 * -0.49, abs=1e-6)
+
+    def test_no_history_all_beta_estimated(self):
+        pf = pd.DataFrame([{"ticker": "A", "current_value": 1000.0,
+                            "sector": "Technology", "expected_annual": 0.0}])
+        s = _stage6_stress(pf, {"A": {}}, 1.0, 1000.0, None, self._conc(pf))
+        assert all(r.method == "beta-estimated" for r in s.historical)
+
+
+class TestMonteCarloBootstrap:
+    def _fat_series(self, n=800, seed=1):
+        idx = pd.bdate_range("2021-01-04", periods=n)
+        rng = np.random.default_rng(seed)
+        r = rng.normal(0.0003, 0.007, n)
+        r[rng.integers(0, n, size=12)] = -0.08          # a dozen crash days
+        return pd.Series(r, index=idx)
+
+    def _conc(self, pf):
+        return _stage2_concentration(pf, float(pf["current_value"].sum()))
+
+    def test_deterministic_and_ordered_on_bootstrap_path(self):
+        pf = pd.DataFrame([{"ticker": "A", "current_value": 1000.0,
+                            "sector": "Tech", "expected_annual": 0.0}])
+        pr = self._fat_series()
+        s1 = _stage6_stress(pf, {"A": {}}, 1.0, 1000.0, pr, self._conc(pf))
+        s2 = _stage6_stress(pf, {"A": {}}, 1.0, 1000.0, pr, self._conc(pf))
+        assert s1.mc_1y == s2.mc_1y
+        for mc in (s1.mc_1y, s1.mc_3y, s1.mc_5y):
+            assert mc.p05 <= mc.p25 <= mc.p50 <= mc.p75 <= mc.p95
+            assert 0.0 <= mc.prob_loss <= 1.0
+
+    def test_fat_tailed_bootstrap_p05_not_lighter_than_normal(self):
+        pf = pd.DataFrame([{"ticker": "A", "current_value": 1000.0,
+                            "sector": "Tech", "expected_annual": 0.0}])
+        pr = self._fat_series()
+        boot = _stage6_stress(pf, {"A": {}}, 1.0, 1000.0, pr, self._conc(pf)).mc_1y
+
+        # matched-moment Normal MC over the same horizon / path count / seed
+        drift = (risk.RISK_FREE_RATE + 1.0 * risk.EQUITY_RISK_PREMIUM) / risk.TRADING_DAYS
+        r = pr.to_numpy()
+        r = r - r.mean() + drift
+        rng = np.random.default_rng(risk.MONTE_CARLO_SEED)
+        paths = rng.normal(r.mean(), r.std(ddof=1),
+                           size=(risk.MONTE_CARLO_PATHS, risk.TRADING_DAYS))
+        cum = np.prod(1.0 + np.clip(paths, -0.5, 1.0), axis=1) - 1.0
+        normal_p05 = float(np.percentile(cum, 5))
+
+        assert boot.p05 <= normal_p05 + 1e-6      # bootstrap keeps the fat left tail
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Risk Stage 7 — composite score
 # ══════════════════════════════════════════════════════════════════════════════
 
