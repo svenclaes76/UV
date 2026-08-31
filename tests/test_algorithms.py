@@ -1146,6 +1146,72 @@ class TestCompositeScore:
         assert row["Decision"] != "Strong Buy"
 
 
+class TestVectorisedStage3And6:
+    """WP-7 — `margin_of_safety` and `Decision` in compute_scores were switched
+    from per-row df.apply to vectorised expressions. These lock the vectorised
+    output to the original scalar logic across the edge cases (zero / negative /
+    NaN price & fair value, veto rows, scores/MoS exactly on their thresholds)."""
+
+    _BASE = dict(
+        beta=1.0, returnOnEquity=0.12, returnOnAssets=0.06, operatingMargins=0.15,
+        freeCashflow=1e8, netIncome=8e7, debtToEquity=60.0, currentRatio=1.8,
+        averageVolume=1e6, earningsGrowth=0.04, revenueGrowth=0.03, recommendationMean=2.5,
+        trailingAnnualDividendRate=0.0, dividendRate=0.0,
+    )
+
+    def _universe(self):
+        rows = [
+            # normal undervalued
+            dict(self._BASE, Name="A", Ticker="A", Price=50.0, trailingEps=5.0, bookValue=30.0, targetMeanPrice=95.0),
+            # overvalued (negative MoS)
+            dict(self._BASE, Name="B", Ticker="B", Price=200.0, trailingEps=2.0, bookValue=5.0, targetMeanPrice=60.0),
+            # no fair value at all -> NaN fv / NaN MoS
+            dict(self._BASE, Name="C", Ticker="C", Price=40.0),
+            # tiny-but-positive price (boundary of the `> 0` guard)
+            dict(self._BASE, Name="D", Ticker="D", Price=0.01, trailingEps=1.0, bookValue=1.0, targetMeanPrice=5.0),
+            # hard-veto row (D/E way over the flat threshold, non-exempt sector)
+            dict(self._BASE, Name="E", Ticker="E", Price=30.0, trailingEps=3.0, bookValue=10.0,
+                 targetMeanPrice=120.0, debtToEquity=9000.0, sector="Technology"),
+        ]
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _scalar_decision(row, *, buy_threshold, min_mos):
+        if row["_hard_veto"] if "_hard_veto" in row else row["veto"]:
+            return "Avoid"
+        s, mos = row["Value Score"], row["margin_of_safety"]
+        if s >= buy_threshold and pd.notna(mos) and mos >= min_mos:
+            return "Strong Buy"
+        if s >= screener.SCORE_AVOID:
+            return "Monitor"
+        return "Avoid"
+
+    def test_margin_of_safety_matches_scalar_row_apply(self):
+        out = compute_scores(self._universe())
+        want = out.apply(
+            lambda r: screener._margin_of_safety(r["Price"], r["fair_value"]), axis=1
+        ).astype("float64")
+        pd.testing.assert_series_equal(
+            out["margin_of_safety"].astype("float64"), want,
+            check_names=False, check_dtype=False,
+        )
+
+    def test_decision_matches_scalar_ladder(self):
+        for buy_threshold, min_mos in [(70.0, 0.0), (50.0, 0.10), (90.0, -0.20)]:
+            out = compute_scores(self._universe(), buy_threshold=buy_threshold, min_mos=min_mos)
+            want = out.apply(
+                lambda r: self._scalar_decision(r, buy_threshold=buy_threshold, min_mos=min_mos),
+                axis=1,
+            )
+            assert list(out["Decision"]) == list(want), (buy_threshold, min_mos, list(out["Ticker"]))
+
+    def test_veto_row_is_always_avoid(self):
+        out = compute_scores(self._universe())
+        e = out[out["Ticker"] == "E"].iloc[0]
+        assert bool(e["veto"]) is True
+        assert e["Decision"] == "Avoid"
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Risk helpers
 # ══════════════════════════════════════════════════════════════════════════════
