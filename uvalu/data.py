@@ -19,6 +19,7 @@ from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_ca
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
+from uvalu.store import get_scored_universe, clear_scored_universe
 
 
 def _bust_cache() -> None:
@@ -147,23 +148,24 @@ def _portfolio_cache_version() -> str:
     return _mtime_bucket(PORTFOLIO_FETCH.cache_file)
 
 
-@st.cache_data(show_spinner=False)
-def _load_all_screener_data(cache_version: str, enabled: tuple,
-                            extra_tickers: tuple = (), extra_names: tuple = (),
-                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
-                            score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:  # noqa: ARG001
-    """
-    Build screener DataFrames from whatever is in the cache right now.
-    cache_version (file mtime), enabled exchanges, extra_tickers (portfolio
-    stocks from disabled exchanges), thresholds (max_debt_equity, max_payout,
-    min_mos, buy_threshold — see settings.get_veto_thresholds()) and
-    score_weights (the screening-style sub-weight vector — see
-    settings.get_score_weights()) all bust the Streamlit cache when they change.
+def _build_all_screener_data(enabled: tuple,
+                             extra_tickers: tuple = (), extra_names: tuple = (),
+                             thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                             score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:
+    """Build the per-exchange scored DataFrames from whatever is in the
+    fundamentals cache right now.
 
+    enabled exchanges, extra_tickers (portfolio stocks from disabled
+    exchanges), thresholds (max_debt_equity, max_payout, min_mos, buy_threshold
+    — see settings.get_veto_thresholds()) and score_weights (the screening-style
+    sub-weight vector — see settings.get_score_weights()) select what is built.
     extra_tickers are folded into the single fetch_fundamentals_nowait call so
     they share the same background-fetch thread, cache file, and refresh cadence
-    as the screener.  A scored DataFrame for those tickers is returned as the
-    last element of the tuple (after the per-exchange DataFrames).
+    as the screener; their scored DataFrame is the last element of the tuple.
+
+    Runs on uvalu.store's background worker, never the Streamlit render thread
+    (WP-5) — it does the full compute_scores pass plus up to six live
+    stockanalysis.com ticker-list scrapes.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     _fetch_map = {
@@ -223,6 +225,32 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
         _extra_df = empty
 
     return exchange_dfs + (_extra_df,)
+
+
+def _load_all_screener_data(cache_version: str, enabled: tuple,
+                            extra_tickers: tuple = (), extra_names: tuple = (),
+                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                            score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:
+    """Non-blocking accessor for the scored exchange universe (WP-5).
+
+    Returns uvalu.store's last successfully computed 7-tuple immediately (empty
+    frames on a cold start) and kicks a background recompute when
+    `cache_version` (the WP-1-debounced fundamentals-file mtime token) has
+    moved past what the stored frame was built from. The heavy per-exchange
+    compute_scores pass and the ticker-list scrapes never touch the render
+    thread now.
+
+    Kept as the name + signature every page / Analysis / admin already imports.
+    `.clear()` drops the store so the next call rebuilds (see
+    uvalu.store.clear_scored_universe — wired below).
+    """
+    frame, _version, _is_stale = get_scored_universe(
+        enabled, extra_tickers, extra_names, thresholds, score_weights,
+        token=cache_version)
+    return frame
+
+
+_load_all_screener_data.clear = clear_scored_universe
 
 
 @st.cache_data(show_spinner=False)

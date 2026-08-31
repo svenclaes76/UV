@@ -32,16 +32,18 @@ def isolated_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(screener.PORTFOLIO_FETCH, "cache_file", tmp_path / "portfolio_fundamentals.json")
     monkeypatch.setattr(screener.SCREENER_FETCH, "live_cache", {})
     monkeypatch.setattr(screener.PORTFOLIO_FETCH, "live_cache", {})
-    # _load_all_screener_data/_fetch_prices_cached are @st.cache_data-wrapped
-    # and process-global — without clearing, a later test calling one with
-    # the SAME args (e.g. the same literal cache_version string) as an
-    # earlier test would silently get that earlier test's cached return
-    # value instead of actually re-executing.
+    # _fetch_prices_cached is @st.cache_data-wrapped and process-global —
+    # without clearing, a later test calling it with the SAME args as an
+    # earlier one would silently get that earlier test's cached return value.
     import streamlit as st
     st.cache_data.clear()
     # _debounced_bucket() keeps process-global state (last token + timestamp +
     # running flag) that would otherwise leak the debounce clock between tests.
     data_module._version_state.update(token=None, advanced_at=0.0, was_running=False)
+    # The off-thread scored-universe store (uvalu.store, WP-5) is process-global
+    # too — drop it so a stale/empty entry from another test doesn't stand in.
+    from uvalu import store as _store
+    _store._STORE.clear()
     yield
 
 
@@ -78,9 +80,9 @@ class TestMtimeBucket:
 
 class TestCacheVersionDebounce:
     """WP-1 — _cache_version() holds its token steady while a background
-    screener fetch churns fundamentals.json, so _load_all_screener_data
-    (@st.cache_data keyed on it) doesn't re-score the whole universe on every
-    ~20s cache-file rewrite for the full length of a cold fetch."""
+    screener fetch churns fundamentals.json, so the scored-universe store
+    (keyed on it) doesn't re-score the whole universe on every ~20s
+    cache-file rewrite for the full length of a cold fetch."""
 
     def _set_progress(self, monkeypatch, *, running, done):
         monkeypatch.setattr(data_module, "get_fetch_progress",
@@ -326,9 +328,9 @@ class TestLoadAllScreenerData:
                             pd.DataFrame())
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",))
+            result = _build_all_screener_data(("brussels",))
             st.text(len(result))
             st.text(all(d.empty for d in result))
 
@@ -346,9 +348,9 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",))
+            result = _build_all_screener_data(("brussels",))
             *exch_dfs, extra_df = result
             st.text(exch_dfs[0].iloc[0]["Ticker"])  # brussels (ALL_EXCHANGES[0])
             st.text(exch_dfs[1].empty)  # amsterdam untouched
@@ -370,9 +372,9 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",), ("BBB.BR",), ("Beta Corp",))
+            result = _build_all_screener_data(("brussels",), ("BBB.BR",), ("Beta Corp",))
             *exch_dfs, extra_df = result
             st.text(set(exch_dfs[0]["Ticker"]))
             st.text(extra_df.iloc[0]["Ticker"])
@@ -391,11 +393,11 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
             # AAA.BR is already covered by the brussels exchange list, so it
             # should NOT be duplicated into the "extra" tickers/df.
-            result = _load_all_screener_data("v1", ("brussels",), ("AAA.BR",), ("Alpha Corp",))
+            result = _build_all_screener_data(("brussels",), ("AAA.BR",), ("Alpha Corp",))
             *_, extra_df = result
             st.text(extra_df.empty)
 

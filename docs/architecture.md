@@ -114,7 +114,8 @@ Per-run shared-state accessors that read fresh from `st.session_state` / `st.con
 
 The cache-backed data layer between pages and the root modules — no UI. Key functions:
 
-- `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names, thresholds)` — `@st.cache_data` builder that returns per-exchange scored DataFrames plus one for extra (portfolio) tickers from disabled exchanges. Busted when `cache_version` (fundamentals file mtime), enabled exchanges, extra-ticker set, or the veto/scoring `thresholds` tuple (from `settings.get_veto_thresholds()`) change. Used by the universe-wide pages only: **Screener**, **Watchlist**, **Analysis**.
+- `_build_all_screener_data(enabled, extra_tickers, extra_names, thresholds, weights)` — the actual compute: 1-6 live stockanalysis.com ticker-list scrapes + `fetch_fundamentals_nowait` + a per-exchange `compute_scores` pass, returning per-exchange scored DataFrames plus one for extra (portfolio) tickers from disabled exchanges. Runs **only** on `uvalu/store.py`'s background worker (WP-5).
+- `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names, thresholds, weights)` — non-blocking accessor kept under its original name/signature for **Screener / Watchlist / Analysis** (and admin/settings `.clear()`). Returns `uvalu.store`'s last computed 7-tuple immediately (empty frames on a cold start) and kicks a background recompute when `cache_version` (the WP-1-debounced fundamentals mtime token) has moved. `.clear()` → `uvalu.store.clear_scored_universe()`.
 - `_load_portfolio_screener_data(pf_cache_version, tickers, names, thresholds, weights)` — `@st.cache_data`; scores just the given tickers through the dedicated `PORTFOLIO_FETCH` lane (own thread + cache file), keyed on the portfolio cache-file mtime, **not** on enabled exchanges.
 - `_load_portfolio_scored(held, sold=None)` — the portfolio fast path for **Dashboard / Portfolio / Risk**: builds the deduped held+sold ticker/name tuples and calls `_load_portfolio_screener_data`. These pages only ever look up rows for their own holdings, so they never touch `_load_all_screener_data` / the full-universe scoring (WP-3).
 - `_cache_version()` is debounced while a background screener fetch runs (`RECOMPUTE_DEBOUNCE_S`, WP-1) so the universe isn't re-scored on every ~20s cache-file rewrite.
@@ -122,6 +123,10 @@ The cache-backed data layer between pages and the root modules — no UI. Key fu
 - `_fetch_fundamentals(tickers)` — per-ticker fundamentals + fair-value estimates via `yf.info`, `ttl=6h`.
 - `_fetch_live_data(tickers)` — merges fast prices with slower fundamentals.
 - `_cache_version()`, `_cache_age_str()`, `_bust_cache()` — cache introspection and invalidation.
+
+#### `uvalu/store.py`
+
+The off-thread scored-universe store (WP-5). `_UniverseStore` is a process-global, lock-guarded dict of `(enabled, extra_tickers, extra_names, thresholds, weights)` → `{frame, version, token, …}`. `get_scored_universe(...)` returns `(frame_tuple, version, is_stale)` from the store without ever computing on the caller's thread; when the token has moved it spawns one daemon worker (throttled to `_MIN_RECOMPUTE_INTERVAL_S`) that runs `data._build_all_screener_data`. `universe_recomputing()` lets a page's loading skeleton keep polling (`ui.poll_while_fetching`); `clear_scored_universe()` drops every entry.
 
 #### `uvalu/ui.py`
 
@@ -281,7 +286,7 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
 | Layer | Mechanism | TTL |
 |---|---|---|
 | Screener fundamentals (disk) | `.cache/fundamentals.json` (per-ticker mtime) | 24 h ± 4 h jitter |
-| Screener DataFrames (universe) | `@st.cache_data` (`_load_all_screener_data`) | Until file mtime / enabled exchanges / extra tickers change; mtime token debounced during a live fetch (WP-1) |
+| Screener DataFrames (universe) | `uvalu.store._UniverseStore` (process-global, off-thread worker — WP-5) | Recomputed when the WP-1-debounced fundamentals mtime token moves; served stale meanwhile |
 | Portfolio-scoped scored rows | `@st.cache_data` (`_load_portfolio_screener_data`, via `_load_portfolio_scored`) | Until the portfolio fundamentals-file mtime or held/sold set changes |
 | Live prices | `@st.cache_data` (`_fetch_prices_cached`) | 60 seconds |
 | Per-ticker fundamentals | `@st.cache_data` (`_fetch_fundamentals`) | 6 hours |

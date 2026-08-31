@@ -156,10 +156,18 @@ def poll_while_fetching(key: str, lane: str = "screener", *, seconds: float = 5.
     ``"portfolio"`` (held/sold tickers — Dashboard/Portfolio). Returns the
     fetch-progress snapshot (``{"running", "done", "total"}``) so the caller
     can render an "N/M tickers" line.
+
+    For the screener lane the poll is also armed while the off-thread
+    scored-universe recompute is in flight (uvalu.store) — the fundamentals
+    fetch can be idle while the worker is still scoring what it already has.
     """
     from screener import get_fetch_progress, SCREENER_FETCH, PORTFOLIO_FETCH
     prog = get_fetch_progress(PORTFOLIO_FETCH if lane == "portfolio" else SCREENER_FETCH)
-    if prog.get("running"):
+    _busy = bool(prog.get("running"))
+    if lane != "portfolio":
+        from uvalu.store import universe_recomputing
+        _busy = _busy or universe_recomputing()
+    if _busy:
         _auto_rerun(seconds, key)
     return prog
 
