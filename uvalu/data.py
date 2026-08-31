@@ -18,7 +18,7 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
-from settings import ALL_EXCHANGES
+from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
 
 
 def _bust_cache() -> None:
@@ -249,6 +249,40 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
                                 weights=score_weights)
+
+
+def _load_portfolio_scored(held: "pd.DataFrame | None",
+                           sold: "pd.DataFrame | None" = None) -> pd.DataFrame:
+    """Scored screener rows for a portfolio's own tickers (held + optionally
+    sold), via the PORTFOLIO_FETCH lane only — no full-universe scoring.
+
+    Dashboard / Portfolio / Risk use this instead of filtering
+    ``_load_all_screener_data()`` down to their holdings: they only ever look
+    up rows for tickers they hold, so scoring the whole enabled-exchange
+    universe just to discard all but ~30 rows was pure overhead on every
+    render (WP-3). One row per ticker; a held ticker on a *disabled* exchange
+    is covered here too, which the old path missed.
+
+    Ticker order is held-first then sold (deduped), and a held name wins over
+    a sold name on collision — matching the inline tuple construction
+    Portfolio/Risk used before, so a well-formed portfolio's
+    ``_load_portfolio_screener_data`` cache entry is unchanged.
+    """
+    seen: dict[str, str] = {}
+    for df in (held, sold):
+        if df is None or getattr(df, "empty", True) or "ticker" not in df.columns:
+            continue
+        _names = df["name"] if "name" in df.columns else df["ticker"]
+        for _t, _n in zip(df["ticker"], _names):
+            _t = str(_t).strip()
+            if _t and _t not in seen:
+                seen[_t] = str(_n)
+    if not seen:
+        return pd.DataFrame(columns=["Ticker"])
+    return _load_portfolio_screener_data(
+        _portfolio_cache_version(), tuple(seen), tuple(seen.values()),
+        get_veto_thresholds(), get_score_weights(),
+    )
 
 
 def prefetch_portfolio_data() -> None:

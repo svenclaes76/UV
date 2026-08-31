@@ -9,9 +9,7 @@ from portfolio import (load_portfolio, load_sold, load_targets,
                        load_risk_snapshot, save_risk_snapshot)
 from portfolio_enrichment import enrich_for_risk
 from screener import load_fundamentals_cache
-from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
-from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
-                        _load_portfolio_screener_data, _portfolio_cache_version)
+from uvalu.data import _fetch_prices_cached, _load_portfolio_scored
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
 from uvalu.ui import price_autorefresh
@@ -53,30 +51,12 @@ def render() -> None:
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
 
-    _risk_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    _risk_sold     = load_sold()
-    _risk_sold_tickers = tuple(_risk_sold["ticker"].dropna().tolist()) if _risk_sold is not None and not _risk_sold.empty else ()
-    _risk_sold_names   = tuple(_risk_sold["name"].dropna().tolist())   if _risk_sold is not None and not _risk_sold.empty else ()
-    _risk_tickers  = tuple(pf["ticker"].tolist())
-    _risk_names    = tuple(pf["name"].tolist())
-    _risk_extra_tickers = tuple(dict.fromkeys(_risk_tickers + _risk_sold_tickers))
-    _risk_extra_names   = tuple(
-        {**dict(zip(_risk_sold_tickers, _risk_sold_names)), **dict(zip(_risk_tickers, _risk_names))}[t]
-        for t in _risk_extra_tickers
-    )
-    *_risk_exch_dfs, _ = _load_all_screener_data(
-        _cache_version(), _risk_enabled, thresholds=get_veto_thresholds(),
-        score_weights=get_score_weights())
-    _risk_port_df  = _load_portfolio_screener_data(
-        _portfolio_cache_version(), _risk_extra_tickers, _risk_extra_names,
-        get_veto_thresholds(), get_score_weights())
-    # Held tickers that also sit on an enabled exchange appear in both frames;
-    # keep="last" lets the portfolio lane's row (priority-fetched, its own
-    # cadence) win so every downstream lookup — _veto_lookup, _risk_scr_by_ticker
-    # — agrees on one row per ticker.
-    _risk_scr_df   = pd.concat(list(_risk_exch_dfs) + [_risk_port_df], ignore_index=True)
-    if "Ticker" in _risk_scr_df.columns:
-        _risk_scr_df = _risk_scr_df.drop_duplicates(subset="Ticker", keep="last").reset_index(drop=True)
+    # Scored rows for held + sold tickers via the portfolio's own fetch lane
+    # (uvalu/data.py's PORTFOLIO_FETCH) — no full-universe scoring on the
+    # render path (WP-3). One row per ticker already; feeds _veto_lookup
+    # (assess_portfolio's Stage-8 rebalance trigger + the holdings-table Flag
+    # column) and enrich_for_risk's fair-value/sector/dividend lookup.
+    _risk_scr_df = _load_portfolio_scored(pf, load_sold())
 
     # Real hard-veto lookup (screener's own `veto` column) — feeds both
     # assess_portfolio()'s Stage 8 rebalance trigger below and the concentration
