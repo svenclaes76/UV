@@ -3,6 +3,7 @@
 Functions keep their original private names so app.py and page modules can
 import them unchanged. All @st.cache_data identity is preserved.
 """
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -16,8 +17,9 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
-                      cancel_background_fetch, clear_live_cache)
-from settings import ALL_EXCHANGES
+                      cancel_background_fetch, clear_live_cache, get_fetch_progress)
+from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
+from uvalu.store import get_scored_universe, clear_scored_universe
 
 
 def _bust_cache() -> None:
@@ -74,9 +76,69 @@ def _mtime_bucket(path, seconds: int = _CACHE_VERSION_BUCKET_S) -> str:
         return "0"
 
 
+# ── WP-1: debounce the full-universe re-score during a background fetch ────────
+# _load_all_screener_data is @st.cache_data keyed on _cache_version(). While a
+# cold SCREENER_FETCH runs it rewrites fundamentals.json every ~25 tickers, so
+# the 30s mtime bucket above still rolls over every ~15-30s for the whole
+# 20-40 min fetch — every roll is a cache miss that re-scores the entire
+# enabled-exchange universe (~a dozen df.apply(axis=1) passes in
+# screener.compute_scores) on the next rerun. That re-score storm is the bulk
+# of the "screens load slowly while data is updating" symptom.
+#
+# So while the fetch is running, hold the version token steady and let it
+# advance at most once per RECOMPUTE_DEBOUNCE_S: new data still lands, in
+# ~3-minute batches instead of ~20-second ones. Two escape hatches keep a
+# genuinely cold cache responsive:
+#   * the first advance after a fetch starts is always allowed (data that
+#     accumulated before the first page view shows up right away), and
+#   * while very few tickers have been fetched (_DEBOUNCE_COLD_DONE) the
+#     debounce is bypassed entirely, so an empty universe still fills on each
+#     bucket for the first page views.
+# Once the fetch stops, the raw bucket is used again for one final re-score
+# against the complete data.
+RECOMPUTE_DEBOUNCE_S = 180
+_DEBOUNCE_COLD_DONE  = 40
+
+_version_lock = threading.Lock()
+_version_state: dict = {"token": None, "advanced_at": 0.0, "was_running": False}
+
+
+def _debounced_bucket(raw_bucket: str, *, running: bool, cold: bool) -> str:
+    """Hold `raw_bucket` steady while a background fetch churns the cache file
+    (see RECOMPUTE_DEBOUNCE_S). Process-global state, guarded by _version_lock
+    since Streamlit runs script threads concurrently in one process."""
+    now = time.time()
+    with _version_lock:
+        state = _version_state
+        # Fetch just transitioned idle -> running: reset the clock so the first
+        # token change of this fetch lands immediately rather than being held
+        # for up to RECOMPUTE_DEBOUNCE_S behind a stale timestamp from a prior
+        # fetch (or from process start).
+        if running and not state["was_running"]:
+            state["advanced_at"] = 0.0
+        state["was_running"] = running
+
+        if state["token"] is None:
+            state.update(token=raw_bucket, advanced_at=now)
+            return raw_bucket
+        if raw_bucket == state["token"]:
+            return state["token"]
+        if running and not cold and (now - state["advanced_at"]) < RECOMPUTE_DEBOUNCE_S:
+            return state["token"]
+        state.update(token=raw_bucket, advanced_at=now)
+        return raw_bucket
+
+
 def _cache_version() -> str:
-    """Coarsened mtime token for the screener fundamentals file."""
-    return _mtime_bucket(SCREENER_FETCH.cache_file)
+    """Coarsened mtime token for the screener fundamentals file, debounced while
+    a background screener fetch is running (WP-1, see _debounced_bucket)."""
+    raw  = _mtime_bucket(SCREENER_FETCH.cache_file)
+    prog = get_fetch_progress(SCREENER_FETCH)
+    return _debounced_bucket(
+        raw,
+        running=bool(prog.get("running")),
+        cold=int(prog.get("done", 0)) < _DEBOUNCE_COLD_DONE,
+    )
 
 
 def _portfolio_cache_version() -> str:
@@ -86,23 +148,24 @@ def _portfolio_cache_version() -> str:
     return _mtime_bucket(PORTFOLIO_FETCH.cache_file)
 
 
-@st.cache_data(show_spinner=False)
-def _load_all_screener_data(cache_version: str, enabled: tuple,
-                            extra_tickers: tuple = (), extra_names: tuple = (),
-                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
-                            score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:  # noqa: ARG001
-    """
-    Build screener DataFrames from whatever is in the cache right now.
-    cache_version (file mtime), enabled exchanges, extra_tickers (portfolio
-    stocks from disabled exchanges), thresholds (max_debt_equity, max_payout,
-    min_mos, buy_threshold — see settings.get_veto_thresholds()) and
-    score_weights (the screening-style sub-weight vector — see
-    settings.get_score_weights()) all bust the Streamlit cache when they change.
+def _build_all_screener_data(enabled: tuple,
+                             extra_tickers: tuple = (), extra_names: tuple = (),
+                             thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                             score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:
+    """Build the per-exchange scored DataFrames from whatever is in the
+    fundamentals cache right now.
 
+    enabled exchanges, extra_tickers (portfolio stocks from disabled
+    exchanges), thresholds (max_debt_equity, max_payout, min_mos, buy_threshold
+    — see settings.get_veto_thresholds()) and score_weights (the screening-style
+    sub-weight vector — see settings.get_score_weights()) select what is built.
     extra_tickers are folded into the single fetch_fundamentals_nowait call so
     they share the same background-fetch thread, cache file, and refresh cadence
-    as the screener.  A scored DataFrame for those tickers is returned as the
-    last element of the tuple (after the per-exchange DataFrames).
+    as the screener; their scored DataFrame is the last element of the tuple.
+
+    Runs on uvalu.store's background worker, never the Streamlit render thread
+    (WP-5) — it does the full compute_scores pass plus up to six live
+    stockanalysis.com ticker-list scrapes.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     _fetch_map = {
@@ -164,6 +227,56 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
     return exchange_dfs + (_extra_df,)
 
 
+def _load_all_screener_data(cache_version: str, enabled: tuple,
+                            extra_tickers: tuple = (), extra_names: tuple = (),
+                            thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
+                            score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> tuple:
+    """Non-blocking accessor for the scored exchange universe (WP-5).
+
+    Returns uvalu.store's last successfully computed 7-tuple immediately (empty
+    frames on a cold start) and kicks a background recompute when
+    `cache_version` (the WP-1-debounced fundamentals-file mtime token) has
+    moved past what the stored frame was built from. The heavy per-exchange
+    compute_scores pass and the ticker-list scrapes never touch the render
+    thread now.
+
+    Kept as the name + signature every page / Analysis / admin already imports.
+    `.clear()` drops the store so the next call rebuilds (see
+    uvalu.store.clear_scored_universe — wired below).
+    """
+    frame, _version, _is_stale = get_scored_universe(
+        enabled, extra_tickers, extra_names, thresholds, score_weights,
+        token=cache_version)
+    return frame
+
+
+_load_all_screener_data.clear = clear_scored_universe
+
+
+def screener_refresh_signature() -> tuple:
+    """Version-diff key for the Screener / Watchlist auto-refresh fragments
+    (WP-6, passed to uvalu.ui._auto_rerun). Changes when the off-thread store
+    finishes a recompute, when the background fetch's progress advances by ~25
+    tickers, or when it starts / stops — so those 5s poll fragments stop
+    re-rendering the page into identical output between recomputes.
+
+    Plain function, no st.* — it runs inside the timer fragment.
+    """
+    from uvalu.store import universe_version
+    _p = get_fetch_progress(SCREENER_FETCH)
+    return (universe_version(), bool(_p.get("running")), (_p.get("done") or 0) // 25)
+
+
+def _price_refresh_signature() -> tuple:
+    """Version-diff key for the live-price auto-refresh fragments (WP-6). Changes
+    when the market-hours-aware price bucket rolls (a fresh upstream quote fetch
+    is due), when the portfolio fetch lane advances / stops, or when its scored
+    frame's mtime token moves. Plain function, no st.*."""
+    _p = get_fetch_progress(PORTFOLIO_FETCH)
+    return (_price_bucket(), _portfolio_cache_version(),
+            bool(_p.get("running")), (_p.get("done") or 0) // 10)
+
+
 @st.cache_data(show_spinner=False)
 def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: tuple,
                                   thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
@@ -188,6 +301,40 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
                                 weights=score_weights)
+
+
+def _load_portfolio_scored(held: "pd.DataFrame | None",
+                           sold: "pd.DataFrame | None" = None) -> pd.DataFrame:
+    """Scored screener rows for a portfolio's own tickers (held + optionally
+    sold), via the PORTFOLIO_FETCH lane only — no full-universe scoring.
+
+    Dashboard / Portfolio / Risk use this instead of filtering
+    ``_load_all_screener_data()`` down to their holdings: they only ever look
+    up rows for tickers they hold, so scoring the whole enabled-exchange
+    universe just to discard all but ~30 rows was pure overhead on every
+    render (WP-3). One row per ticker; a held ticker on a *disabled* exchange
+    is covered here too, which the old path missed.
+
+    Ticker order is held-first then sold (deduped), and a held name wins over
+    a sold name on collision — matching the inline tuple construction
+    Portfolio/Risk used before, so a well-formed portfolio's
+    ``_load_portfolio_screener_data`` cache entry is unchanged.
+    """
+    seen: dict[str, str] = {}
+    for df in (held, sold):
+        if df is None or getattr(df, "empty", True) or "ticker" not in df.columns:
+            continue
+        _names = df["name"] if "name" in df.columns else df["ticker"]
+        for _t, _n in zip(df["ticker"], _names):
+            _t = str(_t).strip()
+            if _t and _t not in seen:
+                seen[_t] = str(_n)
+    if not seen:
+        return pd.DataFrame(columns=["Ticker"])
+    return _load_portfolio_screener_data(
+        _portfolio_cache_version(), tuple(seen), tuple(seen.values()),
+        get_veto_thresholds(), get_score_weights(),
+    )
 
 
 def prefetch_portfolio_data() -> None:

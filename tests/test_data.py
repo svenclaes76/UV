@@ -32,13 +32,18 @@ def isolated_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(screener.PORTFOLIO_FETCH, "cache_file", tmp_path / "portfolio_fundamentals.json")
     monkeypatch.setattr(screener.SCREENER_FETCH, "live_cache", {})
     monkeypatch.setattr(screener.PORTFOLIO_FETCH, "live_cache", {})
-    # _load_all_screener_data/_fetch_prices_cached are @st.cache_data-wrapped
-    # and process-global — without clearing, a later test calling one with
-    # the SAME args (e.g. the same literal cache_version string) as an
-    # earlier test would silently get that earlier test's cached return
-    # value instead of actually re-executing.
+    # _fetch_prices_cached is @st.cache_data-wrapped and process-global —
+    # without clearing, a later test calling it with the SAME args as an
+    # earlier one would silently get that earlier test's cached return value.
     import streamlit as st
     st.cache_data.clear()
+    # _debounced_bucket() keeps process-global state (last token + timestamp +
+    # running flag) that would otherwise leak the debounce clock between tests.
+    data_module._version_state.update(token=None, advanced_at=0.0, was_running=False)
+    # The off-thread scored-universe store (uvalu.store, WP-5) is process-global
+    # too — drop it so a stale/empty entry from another test doesn't stand in.
+    from uvalu import store as _store
+    _store._STORE.clear()
     yield
 
 
@@ -71,6 +76,74 @@ class TestMtimeBucket:
         p.write_text("{}", encoding="utf-8")
         # seconds=1 → every whole-second mtime is its own bucket
         assert data_module._mtime_bucket(p, seconds=1) == str(int(p.stat().st_mtime))
+
+
+class TestCacheVersionDebounce:
+    """WP-1 — _cache_version() holds its token steady while a background
+    screener fetch churns fundamentals.json, so the scored-universe store
+    (keyed on it) doesn't re-score the whole universe on every ~20s
+    cache-file rewrite for the full length of a cold fetch."""
+
+    def _set_progress(self, monkeypatch, *, running, done):
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": running, "done": done, "total": 9999})
+
+    def _set_bucket(self, monkeypatch, value):
+        monkeypatch.setattr(data_module, "_mtime_bucket", lambda *a, **k: value)
+
+    def test_no_fetch_running_passes_bucket_through(self, monkeypatch):
+        self._set_progress(monkeypatch, running=False, done=0)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"   # advances freely when idle
+
+    def test_running_fetch_holds_token_within_debounce_window(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)   # well past the cold cutoff
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"              # first sighting → adopt
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "100"              # held: no re-score
+        self._set_bucket(monkeypatch, "105")
+        assert data_module._cache_version() == "100"              # still held
+
+    def test_debounce_bypassed_while_cache_still_cold(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=10)    # < _DEBOUNCE_COLD_DONE
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"              # cold → fills every bucket
+
+    def test_token_advances_once_debounce_window_elapses(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        # Backdate the last-advance stamp past the debounce window.
+        data_module._version_state["advanced_at"] -= data_module.RECOMPUTE_DEBOUNCE_S + 1
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"
+
+    def test_fetch_finishing_releases_the_held_token(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "110")
+        assert data_module._cache_version() == "100"              # held while running
+        self._set_progress(monkeypatch, running=False, done=500)
+        assert data_module._cache_version() == "110"              # released once done
+
+    def test_first_change_after_fetch_starts_is_allowed(self, monkeypatch):
+        # Cache already warm and idle at bucket 100...
+        self._set_progress(monkeypatch, running=False, done=800)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        # ...a new fetch kicks off and writes once: that first roll should land
+        # immediately (pre-existing stale data surfaces), then debounce.
+        self._set_progress(monkeypatch, running=True, done=800)
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"
+        self._set_bucket(monkeypatch, "102")
+        assert data_module._cache_version() == "101"              # now held
 
 
 class TestCacheAgeStr:
@@ -255,9 +328,9 @@ class TestLoadAllScreenerData:
                             pd.DataFrame())
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",))
+            result = _build_all_screener_data(("brussels",))
             st.text(len(result))
             st.text(all(d.empty for d in result))
 
@@ -275,9 +348,9 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",))
+            result = _build_all_screener_data(("brussels",))
             *exch_dfs, extra_df = result
             st.text(exch_dfs[0].iloc[0]["Ticker"])  # brussels (ALL_EXCHANGES[0])
             st.text(exch_dfs[1].empty)  # amsterdam untouched
@@ -299,9 +372,9 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _load_all_screener_data("v1", ("brussels",), ("BBB.BR",), ("Beta Corp",))
+            result = _build_all_screener_data(("brussels",), ("BBB.BR",), ("Beta Corp",))
             *exch_dfs, extra_df = result
             st.text(set(exch_dfs[0]["Ticker"]))
             st.text(extra_df.iloc[0]["Ticker"])
@@ -320,11 +393,11 @@ class TestLoadAllScreenerData:
         )
 
         def _script():
-            from uvalu.data import _load_all_screener_data
+            from uvalu.data import _build_all_screener_data
             import streamlit as st
             # AAA.BR is already covered by the brussels exchange list, so it
             # should NOT be duplicated into the "extra" tickers/df.
-            result = _load_all_screener_data("v1", ("brussels",), ("AAA.BR",), ("Alpha Corp",))
+            result = _build_all_screener_data(("brussels",), ("AAA.BR",), ("Alpha Corp",))
             *_, extra_df = result
             st.text(extra_df.empty)
 
@@ -332,6 +405,33 @@ class TestLoadAllScreenerData:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "True"
+
+
+# ── screener_refresh_signature / _price_refresh_signature (WP-6) ──────────
+
+class TestRefreshSignatures:
+    def test_screener_signature_tracks_store_version_and_fetch_progress(self, monkeypatch):
+        monkeypatch.setattr("uvalu.store.universe_version", lambda: 7)
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 63, "total": 999})
+        assert data_module.screener_refresh_signature() == (7, True, 63 // 25)
+
+    def test_screener_signature_done_is_bucketed(self, monkeypatch):
+        monkeypatch.setattr("uvalu.store.universe_version", lambda: 0)
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 24, "total": 999})
+        a = data_module.screener_refresh_signature()
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 25, "total": 999})
+        b = data_module.screener_refresh_signature()
+        assert a == (0, True, 0) and b == (0, True, 1)   # crosses a 25-ticker bucket
+
+    def test_price_signature_tracks_bucket_and_portfolio_lane(self, monkeypatch):
+        monkeypatch.setattr(data_module, "_price_bucket", lambda: 111)
+        monkeypatch.setattr(data_module, "_portfolio_cache_version", lambda: "tok")
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": False, "done": 5, "total": 0})
+        assert data_module._price_refresh_signature() == (111, "tok", False, 5 // 10)
 
 
 # ── _portfolio_cache_version ──────────────────────────────────────────────

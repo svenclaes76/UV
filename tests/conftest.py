@@ -56,6 +56,12 @@ def isolated_data(tmp_path, monkeypatch):
     # Keep the Fama-French disk cache off the developer's real .cache/factors.
     monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
     monkeypatch.setattr(risk, "_ff_cache", {})
+    # Drop the process-global scored-universe store (uvalu.store, WP-5) so no
+    # stale entry — or a background worker another test kicked — leaks in. Page
+    # tests monkeypatch _load_all_screener_data wholesale and never reach it,
+    # but this keeps that guarantee cheap and explicit.
+    from uvalu import store as _uv_store
+    _uv_store._STORE.clear()
     # Sets the pytest thread's own portfolio "current user" -- covers direct,
     # non-AppTest calls into portfolio.py made straight from a test body. An
     # AppTest-executed script runs on its own separate thread and needs its
@@ -112,13 +118,36 @@ def scored_df():
 
 def make_portfolio_scored_df(tickers=("AAA.BR",), names=("Alpha Corp",)) -> pd.DataFrame:
     """Stand-in for uvalu.data._load_portfolio_screener_data() — a scored row
-    per held/sold ticker, same column set as make_scored_df(). Page test _run
-    helpers patch _load_portfolio_screener_data with
-    `lambda _v, tickers, names, _t=None, _w=None: make_portfolio_scored_df(tickers, names)`
-    (`_t` = veto thresholds, `_w` = the WS-18 screening-style weight vector).
+    per held/sold ticker, same column set as make_scored_df().
     """
     rows = [make_scored_row(Ticker=t, Name=n) for t, n in zip(tickers, names)]
     return pd.DataFrame(rows if rows else [make_scored_row()])
+
+
+def fake_portfolio_scored(override=None):
+    """Build a stand-in for uvalu.data._load_portfolio_scored(held, sold=None) —
+    the WP-3 portfolio-fast-path loader that Dashboard/Portfolio/Risk call
+    instead of _load_all_screener_data(). Returns one scored row per held (+
+    sold) ticker, deduped held-first, mirroring the real helper. Pass
+    `override` (a DataFrame) to return a fixed frame regardless of input.
+
+    Page test `_run` helpers patch with
+    `monkeypatch.setattr(<page>, "_load_portfolio_scored", fake_portfolio_scored())`.
+    """
+    def _fn(held, sold=None):
+        if override is not None:
+            return override
+        seen: dict[str, str] = {}
+        for df in (held, sold):
+            if df is None or getattr(df, "empty", True) or "ticker" not in df.columns:
+                continue
+            names = df["name"] if "name" in df.columns else df["ticker"]
+            for t, n in zip(df["ticker"], names):
+                t = str(t).strip()
+                if t and t not in seen:
+                    seen[t] = str(n)
+        return make_portfolio_scored_df(tuple(seen), tuple(seen.values()))
+    return _fn
 
 
 def make_screener_data_tuple(exchange_df: pd.DataFrame | None = None,

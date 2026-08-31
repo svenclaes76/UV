@@ -14,7 +14,8 @@ import portfolio
 import risk as risk_module
 from uvalu import nav as nav_registry
 from uvalu.pages_ import dashboard as dashboard_page
-from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df, USER_SETUP_SRC
+from tests.conftest import (make_scored_row, make_scored_df, make_portfolio_df,
+                            fake_portfolio_scored, USER_SETUP_SRC)
 
 
 @pytest.fixture(autouse=True)
@@ -57,9 +58,9 @@ nav_registry.pages["risk"] = st.Page(lambda: None, title="Risk")
 """
 
 
-def _run(monkeypatch, screener_tuple=None, with_risk_cache=False, prices=None) -> AppTest:
-    monkeypatch.setattr(dashboard_page, "_load_all_screener_data",
-                        lambda *a, **k: screener_tuple or make_screener_data_tuple())
+def _run(monkeypatch, scored=None, with_risk_cache=False, prices=None) -> AppTest:
+    monkeypatch.setattr(dashboard_page, "_load_portfolio_scored",
+                        fake_portfolio_scored(override=scored))
     # A non-empty cache is required to even ENTER the risk-assessment try
     # block (`if ... and _db_risk_cache:`) — most tests leave this empty to
     # skip that path entirely and keep runs fast; the dedicated risk-card
@@ -154,7 +155,7 @@ def test_refresh_button_clears_cache_and_reruns(isolated_data, monkeypatch):
 def test_shows_dividends_received_kpi_when_no_dividend_yield(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     empty_scr = make_scored_df([])
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty_scr))
+    at = _run(monkeypatch, scored=empty_scr)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Dividends received" in "".join(m.value for m in at.markdown)
 
@@ -222,7 +223,7 @@ def test_multi_lot_same_ticker_does_not_crash(isolated_data, monkeypatch):
     ]
     portfolio.save_portfolio(make_portfolio_df(rows=two_lots))
     future_row = make_scored_row(exDividendDate="15-01-2099", dividendRate=3.2, dividendYield=0.03)
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([future_row])))
+    at = _run(monkeypatch, scored=make_scored_df([future_row]))
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
     assert "Composite conviction" in html
@@ -260,7 +261,7 @@ def test_holdings_view_details_opens_drawer(isolated_data, monkeypatch):
 def test_holdings_no_screener_data_shows_caption(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     empty_scr = make_scored_df([])
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty_scr))
+    at = _run(monkeypatch, scored=empty_scr)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "No screener data available for your holdings" in "".join(c.value for c in at.caption)
 
@@ -269,7 +270,7 @@ def test_upcoming_dividend_row_renders_for_future_ex_date(isolated_data, monkeyp
     from tests.conftest import make_scored_row
     portfolio.save_portfolio(make_portfolio_df())
     future_row = make_scored_row(exDividendDate="15-01-2099", dividendRate=3.2, dividendYield=0.03)
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([future_row])))
+    at = _run(monkeypatch, scored=make_scored_df([future_row]))
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
     assert "Alpha Corp" in html
@@ -279,7 +280,7 @@ def test_upcoming_dividends_no_cached_dates_shows_caption(isolated_data, monkeyp
     from tests.conftest import make_scored_row
     portfolio.save_portfolio(make_portfolio_df())
     no_date_row = make_scored_row(exDividendDate=None)
-    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=make_scored_df([no_date_row])))
+    at = _run(monkeypatch, scored=make_scored_df([no_date_row]))
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Ex-dividend dates not yet in cache" in "".join(c.value for c in at.caption)
 

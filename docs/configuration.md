@@ -152,7 +152,7 @@ All paths are relative to the project root and are created automatically on firs
 
 ## Stock universe
 
-Ticker lists are fetched from [stockanalysis.com](https://stockanalysis.com) at startup and cached for the session. If the fetch fails, hardcoded fallback lists are used.
+Ticker lists are scraped from [stockanalysis.com](https://stockanalysis.com) by the background scored-universe worker (`uvalu/store.py`) whenever it recomputes — not on the render thread, and not memoised. If a scrape fails, a hardcoded fallback list is used for that exchange.
 
 | Exchange | Approx. stocks | Fallback index |
 |---|---|---|

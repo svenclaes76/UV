@@ -102,12 +102,45 @@ def _dialog_is_open() -> bool:
     return bool(_ts) and (time.time() - _ts) < _DIALOG_GRACE_S
 
 
-def _auto_rerun(seconds: float, key: str) -> None:
+_UNSET = object()
+
+
+def _tick_should_rerun(key: str, version_fn, max_idle_ticks: int) -> bool:
+    """The version-diff decision for ``_auto_rerun``'s fragment tick (WP-6),
+    pulled out so it is unit-testable without waiting for a real ``run_every``
+    fire. With no ``version_fn`` every tick reruns (legacy behaviour). Otherwise
+    a tick reruns only when ``version_fn()`` differs from the value stored at the
+    previous rerun — except that after ``max_idle_ticks`` unchanged ticks it
+    reruns anyway, so a signal that silently stops moving can't freeze the page.
+    Advances the stored version / idle counter as a side effect.
+    """
+    if version_fn is None:
+        return True
+    _ver_key  = f"_auto_rerun_ver_{key}"
+    _idle_key = f"_auto_rerun_idle_{key}"
+    _cur = version_fn()
+    _idle = st.session_state.get(_idle_key, 0)
+    if _cur == st.session_state.get(_ver_key, _UNSET) and _idle < max_idle_ticks:
+        st.session_state[_idle_key] = _idle + 1
+        return False
+    st.session_state[_ver_key] = _cur
+    st.session_state[_idle_key] = 0
+    return True
+
+
+def _auto_rerun(seconds: float, key: str, version_fn=None, *, max_idle_ticks: int = 15) -> None:
     """Rerun the whole app every `seconds` while the caller keeps rendering this.
 
     Native replacement for streamlit-autorefresh: a fragment re-executes on the
     timer; the session flag distinguishes the initial render (part of a full
     script run — just arm the timer) from a timer tick (trigger the rerun).
+
+    ``version_fn`` (WP-6): a plain, no-``st.*`` callable evaluated inside the
+    fragment. When given, a timer tick only triggers the full-app rerun if its
+    value changed since the last rerun — otherwise the fragment just re-fires on
+    the next interval, sparing a whole page re-render when nothing the page
+    depends on has moved. ``max_idle_ticks`` forces a rerun after that many
+    unchanged ticks regardless, as a safety net.
 
     On a real timer tick it also sets ``_tick_<key>`` in session state just
     before the rerun, so the page body can tell a timed refresh from a user
@@ -129,10 +162,17 @@ def _auto_rerun(seconds: float, key: str) -> None:
             return
         if _dialog_is_open():
             return
+        if not _tick_should_rerun(key, version_fn, max_idle_ticks):
+            return
         st.session_state[f"_tick_{key}"] = True
         st.rerun(scope="app")
 
     st.session_state[_flag] = True
+    if version_fn is not None:
+        # Seed the baseline from the full run that is arming the timer, so the
+        # first idle tick can skip instead of always firing one sync rerun.
+        st.session_state[f"_auto_rerun_ver_{key}"] = version_fn()
+        st.session_state[f"_auto_rerun_idle_{key}"] = 0
     _tick()
 
 
@@ -146,17 +186,54 @@ def consumed_tick(key: str) -> bool:
     return bool(st.session_state.pop(f"_tick_{key}", False))
 
 
+def poll_while_fetching(key: str, lane: str = "screener", *, seconds: float = 5.0) -> dict:
+    """While the named background fundamentals-fetch lane is running, arm a
+    short ``_auto_rerun`` so a page showing a cold-cache loading skeleton
+    (components.loading_skeleton_html) fills in on its own — no user
+    interaction, no waiting for the 60s price cadence.
+
+    ``lane`` is ``"screener"`` (the exchange universe — Screener/Watchlist) or
+    ``"portfolio"`` (held/sold tickers — Dashboard/Portfolio). Returns the
+    fetch-progress snapshot (``{"running", "done", "total"}``) so the caller
+    can render an "N/M tickers" line.
+
+    For the screener lane the poll is also armed while the off-thread
+    scored-universe recompute is in flight (uvalu.store) — the fundamentals
+    fetch can be idle while the worker is still scoring what it already has.
+    """
+    from screener import get_fetch_progress, SCREENER_FETCH, PORTFOLIO_FETCH
+    prog = get_fetch_progress(PORTFOLIO_FETCH if lane == "portfolio" else SCREENER_FETCH)
+    _busy = bool(prog.get("running"))
+    _screener_lane = lane != "portfolio"
+    if _screener_lane:
+        from uvalu.store import universe_recomputing
+        _busy = _busy or universe_recomputing()
+    if _busy:
+        _vfn = None
+        if _screener_lane:
+            from uvalu.data import screener_refresh_signature
+            _vfn = screener_refresh_signature
+        _auto_rerun(seconds, key, version_fn=_vfn)
+    return prog
+
+
 def price_autorefresh(key: str) -> None:
     """Timed refresh for the live-price pages (dashboard / portfolio / risk).
 
     Cadence is the user's ``refresh_interval_s`` during market hours, stretched
     to at least 15 minutes outside them so idle overnight tabs don't keep
     hammering the quote feed. One implementation shared by all three pages.
+
+    A tick only forces a full rerun when something the page actually shows has
+    moved — a new price bucket, the portfolio fetch lane advancing/stopping, or
+    its scored-frame token (WP-6) — so a short user-set interval (or a weekend
+    tab) stops re-rendering into identical output.
     """
+    from uvalu.data import _price_refresh_signature
     interval = load_settings(current_user().email).get("refresh_interval_s", 60)
     if not is_market_hours():
         interval = max(interval, 900)
-    _auto_rerun(interval, key)
+    _auto_rerun(interval, key, version_fn=_price_refresh_signature)
 
 
 def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) -> None:

@@ -18,9 +18,7 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
-from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
-from uvalu.data import (_load_all_screener_data, _cache_version, _fetch_prices_cached,
-                        _load_portfolio_screener_data, _portfolio_cache_version)
+from uvalu.data import _fetch_prices_cached, _load_portfolio_scored
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
@@ -86,33 +84,13 @@ def render() -> None:
         pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
-    _pf_enabled  = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
-    # Held + sold tickers, scored through the portfolio's own fetch lane
-    # (uvalu/data.py's _load_portfolio_screener_data) — independent of which
-    # exchanges are enabled and of the screener's refresh/bust cycle.
-    _sold_early  = load_sold()
-    _sold_tickers = tuple(_sold_early["ticker"].dropna().tolist()) if _sold_early is not None and not _sold_early.empty else ()
-    _sold_names   = tuple(_sold_early["name"].dropna().tolist())   if _sold_early is not None and not _sold_early.empty else ()
-    _pf_tickers  = tuple(pf["ticker"].tolist()) if "ticker" in pf.columns else ()
-    _pf_names    = tuple(pf["name"].tolist())   if "name"   in pf.columns else ()
-    _extra_tickers = tuple(dict.fromkeys(_pf_tickers + _sold_tickers))  # dedup, preserve order
-    _extra_names   = tuple(
-        {**dict(zip(_sold_tickers, _sold_names)), **dict(zip(_pf_tickers, _pf_names))}[t]
-        for t in _extra_tickers
-    )
-    *_pf_exch_dfs, _ = _load_all_screener_data(
-        _cache_version(), _pf_enabled, thresholds=get_veto_thresholds(),
-        score_weights=get_score_weights())
-    _pf_port_df = _load_portfolio_screener_data(
-        _portfolio_cache_version(), _extra_tickers, _extra_names,
-        get_veto_thresholds(), get_score_weights())
-    # Used to look up the full screener row (fair value, models, etc.) for
-    # whichever open-position ticker the user clicks — the drawer needs more
-    # than the portfolio row alone provides. keep="last" → the portfolio lane's
-    # row wins for a held ticker that also sits on an enabled exchange.
-    _all_scr_df = pd.concat(list(_pf_exch_dfs) + [_pf_port_df], ignore_index=True)
-    if "Ticker" in _all_scr_df.columns:
-        _all_scr_df = _all_scr_df.drop_duplicates(subset="Ticker", keep="last").reset_index(drop=True)
+    # Scored rows for held + sold tickers via the portfolio's own fetch lane
+    # (uvalu/data.py's PORTFOLIO_FETCH) — no full-universe scoring on the
+    # render path (WP-3), and independent of which exchanges are enabled or of
+    # the screener's refresh/bust cycle. Used to look up the full screener row
+    # (fair value, models, etc.) for whichever position ticker the user clicks
+    # — the drawer needs more than the portfolio row alone provides.
+    _all_scr_df = _load_portfolio_scored(pf, load_sold())
     _pf_dlg_pending: list = []  # at most one dialog call per render
 
     _user = current_user()
@@ -266,7 +244,7 @@ def render() -> None:
             if _ov_view_target is not None:
                 _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                 if not _r.empty:
-                    _pf_dlg_pending.append((_r.iloc[0], None))
+                    _pf_dlg_pending.append((_r.iloc[0],))
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -425,7 +403,7 @@ def render() -> None:
             if _view_target is not None:
                 _r = _all_scr_df[_all_scr_df["Ticker"] == _view_target]
                 if not _r.empty:
-                    _pf_dlg_pending.append((_r.iloc[0], None))
+                    _pf_dlg_pending.append((_r.iloc[0],))
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":

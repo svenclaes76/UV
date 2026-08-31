@@ -5,7 +5,7 @@ old centered uvalu/stock_dialog.py modal (retired).
 Implemented as a restyled @st.dialog: Streamlit has no native right-edge
 slide-in panel, so CSS pins the dialog to the right edge and narrows it,
 while every existing row-click-to-dialog call site keeps working unchanged
-(same (row, pf_context) call signature as the old _dlg_stock_detail).
+(a single `row` Series, same as the old _dlg_stock_detail).
 
 Matches Uvalu.dc.html's "Detail drawer" section exactly: header with an X
 close button (no watchlist star — this drawer is a pure quick-preview, not a
@@ -134,7 +134,7 @@ def _go_portfolio_edit(ticker: str) -> None:
 
 
 @st.dialog("Stock preview", width="small")
-def open_drawer(row: "pd.Series", pf_context: dict | None = None) -> None:
+def open_drawer(row: "pd.Series") -> None:
     enter_dialog()
     st.markdown(f"<style>{_DRAWER_CSS}</style>", unsafe_allow_html=True)
 

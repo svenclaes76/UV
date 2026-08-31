@@ -9,9 +9,10 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import stock_row, empty_results_html
+from uvalu.components import stock_row, empty_results_html, loading_skeleton_html
 from uvalu.drawer import open_drawer
 from uvalu.runtime import current_user
+from uvalu.ui import poll_while_fetching
 
 _EXCHANGE_LABELS = {
     "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
@@ -93,11 +94,28 @@ def render() -> None:
 
     # ── Results list ─────────────────────────────────────────────────────────
     wl_df = all_df[all_df["Ticker"].isin(watchlist)].reset_index(drop=True)
-    if wl_df.empty:
+    if not watchlist:
         with st.container(border=True):
             st.markdown(empty_results_html(
                 "Your watchlist is empty. Star a ticker in the screener or add one above."),
                 unsafe_allow_html=True)
+        return
+    if wl_df.empty:
+        # Watchlist has tickers but none are scored yet — cold fundamentals
+        # cache. Show a skeleton and (while a fetch is running) let it fill in
+        # on its own, instead of the old "your watchlist is empty" message
+        # that made a still-loading list look like a mistake.
+        _n = len(watchlist)
+        _s = "s" if _n != 1 else ""
+        _wl_prog = poll_while_fetching("wl_fetch_refresh")
+        if _wl_prog["running"] and _wl_prog["total"] > 0:
+            _wl_msg = (f"Fetching data for your {_n} watchlisted ticker{_s}… "
+                      f"{_wl_prog['done']}/{_wl_prog['total']} companies scored.")
+        else:
+            _wl_msg = (f"No screener data yet for your watchlisted ticker{_s} — "
+                      "they'll appear after the next screener refresh.")
+        with st.container(key="wl_table_card", border=True):
+            st.markdown(loading_skeleton_html(_wl_msg), unsafe_allow_html=True)
         return
 
     # 8 widths matching stock_row's show_action=True layout exactly (star,
@@ -153,4 +171,4 @@ def render() -> None:
     if _drawer_target is not None:
         _r = wl_df[wl_df["Ticker"] == _drawer_target]
         if not _r.empty:
-            open_drawer(_r.iloc[0], None)
+            open_drawer(_r.iloc[0])

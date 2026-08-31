@@ -7,13 +7,15 @@ now, same call the abandoned redesign-v2 branch made for this exact page)."""
 import pandas as pd
 import streamlit as st
 
-from portfolio import (load_portfolio, load_manual_tickers, load_watchlist,
+from portfolio import (load_manual_tickers, load_watchlist,
                        save_watchlist, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
-from screener import get_fetch_progress, _load_cache
-from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
+from screener import get_fetch_progress
+from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
+                        screener_refresh_signature)
 from uvalu.drawer import open_drawer
-from uvalu.components import signal_badge_for_decision, stock_row, empty_results_html
+from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
+                              loading_skeleton_html)
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -132,73 +134,18 @@ def render() -> None:
 
     _any_data = any(not d.empty for d in _exch_dfs)
     _prog = get_fetch_progress()
-    if _prog["running"] and _prog["total"] > 0:
+    # With rows already on screen, a running fetch just gets a "refreshing"
+    # caption; the cold-cache case (no rows yet) is handled by the skeleton
+    # branch below, which arms its own auto-rerun.
+    if _any_data and _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
         st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
-        _auto_rerun(5, "screener_fetch_refresh")
-    elif not _any_data:
-        _auto_rerun(5, "screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
 
     _all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
         for k, d in zip(_exch_keys, _exch_dfs)
     ], ignore_index=True) if _exch_dfs else pd.DataFrame()
-
-    # ── Portfolio fit context (sector/country/beta weights) ──────────────────
-    _scr_pf_context: dict | None = None
-    _scr_pf = load_portfolio()
-    if _scr_pf is not None and not _scr_pf.empty:
-        _fund_cache = _load_cache()
-        _suffix_to_country = {
-            ".BR": "Belgium", ".AS": "Netherlands", ".PA": "France",
-            ".MI": "Italy",   ".DE": "Germany",     ".SW": "Switzerland",
-        }
-        _pf_m = _scr_pf.copy()
-        for _col in ("sector", "country", "Price"):
-            _pf_m[_col] = None
-        for _idx, _prow in _pf_m.iterrows():
-            _tick = str(_prow.get("ticker", ""))
-            _cached = _fund_cache.get(_tick, {})
-            _pf_m.at[_idx, "sector"]  = _cached.get("sector") or None
-            _pf_m.at[_idx, "country"] = _cached.get("country") or None
-            _pf_m.at[_idx, "Price"]   = _cached.get("Price") or None
-        _missing_country = _pf_m["country"].isna()
-        if _missing_country.any():
-            _pf_m.loc[_missing_country, "country"] = _pf_m.loc[_missing_country, "ticker"].apply(
-                lambda t: next((c for s, c in _suffix_to_country.items() if str(t).endswith(s)), None)
-            )
-        _pf_m["_val"] = (
-            pd.to_numeric(_pf_m["shares"], errors="coerce") *
-            pd.to_numeric(_pf_m["Price"], errors="coerce")
-        )
-        _missing_val = _pf_m["_val"].isna()
-        if _missing_val.any():
-            if "purchase_value" in _pf_m.columns:
-                _pf_m.loc[_missing_val, "_val"] = pd.to_numeric(
-                    _pf_m.loc[_missing_val, "purchase_value"], errors="coerce")
-            _still_missing = _pf_m["_val"].isna()
-            if _still_missing.any() and "purchase_price" in _pf_m.columns:
-                _pf_m.loc[_still_missing, "_val"] = (
-                    pd.to_numeric(_pf_m.loc[_still_missing, "shares"], errors="coerce") *
-                    pd.to_numeric(_pf_m.loc[_still_missing, "purchase_price"], errors="coerce")
-                )
-        _pf_total = _pf_m["_val"].sum()
-        if _pf_total > 0:
-            _scr_pf_context = {
-                "total": _pf_total,
-                "sector_weights": (
-                    _pf_m[_pf_m["sector"].notna()].groupby("sector")["_val"].sum() / _pf_total
-                    if "sector" in _pf_m.columns else pd.Series(dtype=float)
-                ),
-                "country_weights": (
-                    _pf_m[_pf_m["country"].notna()].groupby("country")["_val"].sum() / _pf_total
-                    if "country" in _pf_m.columns else pd.Series(dtype=float)
-                ),
-                "portfolio_beta": (
-                    (pd.to_numeric(_pf_m["beta"], errors="coerce") * _pf_m["_val"]).sum() / _pf_total
-                    if "beta" in _pf_m.columns else float("nan")
-                ),
-            }
 
     # ── Heading — filled in after filters are computed so the "Export list"
     # button (which needs the filtered set) can sit in the header row like
@@ -210,7 +157,15 @@ def render() -> None:
         with _header_slot.container():
             st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
                        unsafe_allow_html=True)
-        st.info("No screener data available yet.")
+        if _prog["running"] and _prog["total"] > 0:
+            _skel_msg = (f"Loading the screening universe… {_prog['done']}/{_prog['total']} "
+                        "companies scored — results appear here as they land.")
+        else:
+            _skel_msg = ("Loading the screening universe — the first results appear as soon as "
+                        "the background fetch returns.")
+        with st.container(key="scr_table_card", border=True):
+            st.markdown(loading_skeleton_html(_skel_msg), unsafe_allow_html=True)
+        _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
     # ── Filter bar — one bordered/shadowed panel holding every control in a
@@ -374,4 +329,4 @@ def render() -> None:
     if _drawer_target is not None:
         _r = _filtered[_filtered["Ticker"] == _drawer_target]
         if not _r.empty:
-            open_drawer(_r.iloc[0], _scr_pf_context)
+            open_drawer(_r.iloc[0])

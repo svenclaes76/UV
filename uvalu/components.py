@@ -506,6 +506,24 @@ def empty_results_html(message: str) -> str:
     return f'<div style="padding:48px 20px;text-align:center;color:var(--faint);font-size:13px;">{message}</div>'
 
 
+def loading_skeleton_html(message: str, *, n_rows: int = 6) -> str:
+    """A bordered panel with a caption and `n_rows` shimmer bars (styles.py's
+    .uv-skel-bar), shown while a cold fundamentals cache is still being
+    fetched. Replaces a bare st.info()/empty-state so a page paints its table
+    shape immediately and visibly "fills in" as the background fetch lands
+    rows. The caller pairs this with uvalu.ui.poll_while_fetching() so the
+    view refreshes itself without an interaction."""
+    _bars = "".join(
+        f'<div class="uv-skel-bar" style="width:{w}%;margin:14px 0;"></div>'
+        for w in ([92, 78, 85, 70, 88, 74, 81, 66, 90, 76][:max(1, n_rows)])
+    )
+    return (
+        f'<div style="padding:22px 20px 8px;">'
+        f'<div style="font-size:13px;color:var(--faint);margin-bottom:6px;">{message}</div>'
+        f'{_bars}</div>'
+    )
+
+
 def fair_value_legend_row() -> None:
     """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
     accompanies fair_value_bar_compact in a holdings/screener table header."""
