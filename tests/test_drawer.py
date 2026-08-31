@@ -176,7 +176,7 @@ def _open_drawer_script(veto=False) -> str:
 import pandas as pd
 from uvalu.drawer import open_drawer
 row = pd.Series({make_scored_row(veto=veto)!r})
-open_drawer(row, None)
+open_drawer(row)
 """
 
 
@@ -223,7 +223,7 @@ class TestOpenDrawer:
 import pandas as pd
 from uvalu.drawer import open_drawer
 row = pd.Series({make_scored_row(Price=100.0, live_price=150.0)!r})
-open_drawer(row, None)
+open_drawer(row)
 """
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
@@ -249,7 +249,7 @@ import pandas as pd
 from uvalu.drawer import open_drawer
 row = pd.Series({make_scored_row()!r})
 row["Price"] = float("nan")
-open_drawer(row, None)
+open_drawer(row)
 """
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
@@ -274,7 +274,7 @@ from uvalu import nav as nav_registry
 from uvalu.drawer import open_drawer
 nav_registry.pages["analysis"] = st.Page(lambda: None, title="Analysis")
 row = pd.Series({make_scored_row()!r})
-open_drawer(row, None)
+open_drawer(row)
 """
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
@@ -308,7 +308,7 @@ import streamlit as st
 from uvalu.drawer import open_drawer
 st.session_state["user_role"] = "Viewer"
 row = pd.Series({make_scored_row()!r})
-open_drawer(row, None)
+open_drawer(row)
 """
         at = AppTest.from_string(script, default_timeout=60)
         at.run()

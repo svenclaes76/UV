@@ -266,7 +266,7 @@ def render() -> None:
             if _ov_view_target is not None:
                 _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                 if not _r.empty:
-                    _pf_dlg_pending.append((_r.iloc[0], None))
+                    _pf_dlg_pending.append((_r.iloc[0],))
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -425,7 +425,7 @@ def render() -> None:
             if _view_target is not None:
                 _r = _all_scr_df[_all_scr_df["Ticker"] == _view_target]
                 if not _r.empty:
-                    _pf_dlg_pending.append((_r.iloc[0], None))
+                    _pf_dlg_pending.append((_r.iloc[0],))
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":

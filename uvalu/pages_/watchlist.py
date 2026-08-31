@@ -153,4 +153,4 @@ def render() -> None:
     if _drawer_target is not None:
         _r = wl_df[wl_df["Ticker"] == _drawer_target]
         if not _r.empty:
-            open_drawer(_r.iloc[0], None)
+            open_drawer(_r.iloc[0])

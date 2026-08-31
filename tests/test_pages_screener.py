@@ -10,7 +10,6 @@ from tests.conftest import make_screener_data_tuple, make_scored_row, make_score
 def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
     monkeypatch.setattr(screener_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
-    monkeypatch.setattr(screener_page, "_load_cache", lambda: {})
     monkeypatch.setattr(screener_page, "get_fetch_progress",
                         lambda: fetch_progress or {"running": False, "total": 0, "done": 0})
 
@@ -81,7 +80,11 @@ def test_reset_filters_button_clears_search(isolated_data, monkeypatch):
     assert "Alpha Corp" in "".join(m.value for m in at.markdown)
 
 
-def test_portfolio_context_computed_when_holdings_present(isolated_data, monkeypatch):
+def test_renders_with_saved_portfolio_present(isolated_data, monkeypatch):
+    # A saved portfolio used to trigger a per-render _load_cache() +
+    # portfolio-fit-context computation whose result open_drawer never read
+    # (WP-2 removed it). Kept as a smoke test that a non-empty portfolio on
+    # disk still renders the screener cleanly.
     from tests.conftest import make_portfolio_df
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch)
@@ -216,7 +219,6 @@ def test_star_button_disabled_for_viewer_role(isolated_data, monkeypatch):
     # Edit/Sell/Add).
     monkeypatch.setattr(screener_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
-    monkeypatch.setattr(screener_page, "_load_cache", lambda: {})
     monkeypatch.setattr(screener_page, "get_fetch_progress",
                         lambda: {"running": False, "total": 0, "done": 0})
     script = USER_SETUP_SRC + """

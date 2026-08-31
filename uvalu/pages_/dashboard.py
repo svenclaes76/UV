@@ -415,7 +415,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                             _drawer_target = _hidx
 
             if _drawer_target is not None:
-                open_drawer(_hold.iloc[_drawer_target], None)
+                open_drawer(_hold.iloc[_drawer_target])
         else:
             st.caption("No screener data available for your holdings.")
 

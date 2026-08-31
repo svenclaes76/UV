@@ -142,7 +142,7 @@ Two pure value formatters — `fmt_eur` and `safe_pct`. The old `COLUMN_HELP` / 
 
 #### `uvalu/drawer.py`
 
-`open_drawer(row, pf_context)` — the slide-in stock-preview panel opened from every row-click table (Dashboard holdings, Screener, Watchlist, Portfolio, Risk contribution table): compact hero, six-model fair-value list, key metrics, Buy/Sell footer action (disabled for `Viewer` role), star toggle to add/remove from the watchlist, and a "View full analysis" link to `uvalu/pages_/analysis.py`. Replaced the old single 4-tab `uvalu/stock_dialog.py` modal, which has been removed.
+`open_drawer(row)` — the slide-in stock-preview panel opened from every row-click table (Dashboard holdings, Screener, Watchlist, Portfolio, Risk contribution table): compact hero, six-model fair-value list, key metrics, Buy/Sell footer action (disabled for `Viewer` role), star toggle to add/remove from the watchlist, and a "View full analysis" link to `uvalu/pages_/analysis.py`. Replaced the old single 4-tab `uvalu/stock_dialog.py` modal, which has been removed.
 
 #### `uvalu/components.py`
 

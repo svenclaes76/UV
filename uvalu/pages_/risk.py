@@ -338,7 +338,7 @@ def render() -> None:
                 if st.button("View", key=f"risk_hold_{_idx}_{p.ticker}_view"):
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]
                     if not _sel_row.empty:
-                        _risk_dlg_pending.append((_sel_row.iloc[0], None))
+                        _risk_dlg_pending.append((_sel_row.iloc[0],))
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:

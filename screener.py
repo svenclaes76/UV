@@ -208,6 +208,7 @@ class _Fetcher:
         self.bg_thread: "threading.Thread | None" = None
         self.cancelled  = threading.Event()          # set by cancel_background_fetch()
         self.file_lock  = threading.Lock()           # guards all cache_file writes
+        self.warm_lock  = threading.Lock()           # serialises the cold-start disk parse
         self.row_lock   = threading.Lock()           # guards live_cache dict + done counter
         self.state: dict = {"done": 0, "total": 0, "running": False}
         self.state_lock = threading.Lock()
@@ -681,10 +682,20 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
 
 
 def _warm_live_cache(fetcher: "_Fetcher | None" = None) -> None:
-    """Populate the fetcher's live cache from disk on first call (cold start only)."""
+    """Populate the fetcher's live cache from disk on first call (cold start only).
+
+    Double-checked lock: the screener file is ~14 MB, so if two Streamlit
+    script threads hit a cold cache in the same instant (fresh process, two
+    sessions) an unguarded ``if not f.live_cache`` lets both run the full
+    json.loads. The lock lets the first parse win and the second see a
+    populated cache and skip straight through.
+    """
     f = fetcher or SCREENER_FETCH
-    if not f.live_cache:
-        f.live_cache.update(_load_cache(f))
+    if f.live_cache:
+        return
+    with f.warm_lock:
+        if not f.live_cache:
+            f.live_cache.update(_load_cache(f))
 
 
 def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = None,
