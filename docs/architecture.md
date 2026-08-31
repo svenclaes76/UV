@@ -43,10 +43,11 @@ UV/
 │   ├── drawer.py                # Slide-in stock-preview panel (row-click target everywhere)
 │   ├── components.py           # Pure-render helpers: signal badges, fair-value ladder, gauges, sparkline
 │   ├── runtime.py              # Per-run accessors: current_user(), theme_colors()
-│   ├── data.py                 # Cache-backed screener/price/fundamentals data layer
+│   ├── data.py                 # Cache-backed data layer — non-blocking screener/price/portfolio accessors
+│   ├── store.py                # Off-thread scored-universe store (background worker: fetch + compute_scores)
 │   ├── formatting.py           # Pure value formatters (fmt_eur, safe_pct)
-│   ├── styles.py               # Global CSS injected once per run (native-widget tokens + mockup tokens)
-│   ├── ui.py                   # Reusable widgets: click-to-select table, charts, auto-refresh
+│   ├── styles.py               # Global CSS injected once per run (native-widget tokens + mockup tokens + skeletons)
+│   ├── ui.py                   # Reusable widgets: click-to-select table, charts, version-diffed auto-refresh
 │   └── pages_/
 │       ├── dashboard.py        # Dashboard page render()
 │       ├── screener.py         # Screener page render() (unified ranked list + filter bar)
@@ -118,11 +119,10 @@ The cache-backed data layer between pages and the root modules — no UI. Key fu
 - `_load_all_screener_data(cache_version, enabled, extra_tickers, extra_names, thresholds, weights)` — non-blocking accessor kept under its original name/signature for **Screener / Watchlist / Analysis** (and admin/settings `.clear()`). Returns `uvalu.store`'s last computed 7-tuple immediately (empty frames on a cold start) and kicks a background recompute when `cache_version` (the WP-1-debounced fundamentals mtime token) has moved. `.clear()` → `uvalu.store.clear_scored_universe()`.
 - `_load_portfolio_screener_data(pf_cache_version, tickers, names, thresholds, weights)` — `@st.cache_data`; scores just the given tickers through the dedicated `PORTFOLIO_FETCH` lane (own thread + cache file), keyed on the portfolio cache-file mtime, **not** on enabled exchanges.
 - `_load_portfolio_scored(held, sold=None)` — the portfolio fast path for **Dashboard / Portfolio / Risk**: builds the deduped held+sold ticker/name tuples and calls `_load_portfolio_screener_data`. These pages only ever look up rows for their own holdings, so they never touch `_load_all_screener_data` / the full-universe scoring (WP-3).
-- `_cache_version()` is debounced while a background screener fetch runs (`RECOMPUTE_DEBOUNCE_S`, WP-1) so the universe isn't re-scored on every ~20s cache-file rewrite.
-- `_fetch_prices_cached(tickers)` — batch live prices, `ttl=60s`.
-- `_fetch_fundamentals(tickers)` — per-ticker fundamentals + fair-value estimates via `yf.info`, `ttl=6h`.
-- `_fetch_live_data(tickers)` — merges fast prices with slower fundamentals.
-- `_cache_version()`, `_cache_age_str()`, `_bust_cache()` — cache introspection and invalidation.
+- `_cache_version()` is debounced while a background screener fetch runs (`RECOMPUTE_DEBOUNCE_S`, WP-1) so the universe isn't re-scored on every ~20s cache-file rewrite; it's the token the store keys its recompute on.
+- `_fetch_prices_cached(tickers)` / `_fetch_prices_batch(tickers, bucket)` — batch live prices, `@st.cache_data` `ttl=60s`, with `_price_bucket()` making the effective TTL market-hours-aware (60s open / 900s closed). This is the only per-ticker fetch left in this module — the old `_fetch_fundamentals` / `_fetch_live_data` / `_compute_fair_values` duplicate valuation engine was removed; pages read fair value / sector / dividend fields from their already-scored DataFrame by ticker.
+- `screener_refresh_signature()` / `_price_refresh_signature()` — plain (no-`st.*`) version-diff keys passed to `ui._auto_rerun` so a timed refresh fragment only forces a rerun when something the page shows has actually moved (WP-6).
+- `_cache_age_str()`, `_bust_cache()` — cache introspection / invalidation (`_bust_cache` cancels the fetch, wipes `.cache/fundamentals.json`, and drops the store).
 
 #### `uvalu/store.py`
 
@@ -272,6 +272,17 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
                               └─ settings.py ───► data/settings/*.json
 ```
 
+### Instant-paint render model (WP-1…WP-6)
+
+Nothing heavy runs on the Streamlit render thread any more; a page paints from
+whatever is already computed and refreshes itself as background work lands.
+
+- **Universe pages (Screener / Watchlist / Analysis)** call `data._load_all_screener_data()`, now a non-blocking accessor over `uvalu.store._UniverseStore`. It returns the last-computed 7-tuple of scored per-exchange DataFrames straight away — empty frames on a cold start — and kicks **one** background daemon worker when the `_cache_version()` token has moved. The worker runs `data._build_all_screener_data()`: the live `fetch_tickers` scrapes **and** the per-exchange `compute_scores` pass (a dozen `df.apply(axis=1)` sweeps over ~2000 rows) — all off-thread.
+- `_cache_version()` is a coarsened `fundamentals.json` mtime, **debounced** while a fetch is running (`RECOMPUTE_DEBOUNCE_S = 180 s`) so a 20–40 min cold fetch triggers ~10 recomputes, not one per 20 s cache-file rewrite.
+- **Cold state** → `components.loading_skeleton_html()` (shimmer bars in the real table card) plus `ui.poll_while_fetching()`, which arms a 5 s `_auto_rerun` while the fetch lane **or** the store worker is busy.
+- **Portfolio pages (Dashboard / Portfolio / Risk)** never touch the universe. `data._load_portfolio_scored(held, sold)` scores only the ~30 held+sold tickers through the dedicated `PORTFOLIO_FETCH` lane (`_load_portfolio_screener_data`, `@st.cache_data`).
+- **Timed refreshes** (`ui._auto_rerun` / `price_autorefresh`) are version-diffed: the `run_every` fragment only fires a full `st.rerun` when a plain signature (`data.screener_refresh_signature` / `data._price_refresh_signature`) changed since the last one, with a `max_idle_ticks` anti-freeze fallback. The dialog-open guard still short-circuits every tick.
+
 ---
 
 ## Authentication flow
@@ -289,8 +300,7 @@ app.py  ──►  uvalu.authgate ──────────► auth.py ─�
 | Screener fundamentals (disk) | `.cache/fundamentals.json` (per-ticker mtime) | 24 h ± 4 h jitter |
 | Screener DataFrames (universe) | `uvalu.store._UniverseStore` (process-global, off-thread worker — WP-5) | Recomputed when the WP-1-debounced fundamentals mtime token moves; served stale meanwhile |
 | Portfolio-scoped scored rows | `@st.cache_data` (`_load_portfolio_screener_data`, via `_load_portfolio_scored`) | Until the portfolio fundamentals-file mtime or held/sold set changes |
-| Live prices | `@st.cache_data` (`_fetch_prices_cached`) | 60 seconds |
-| Per-ticker fundamentals | `@st.cache_data` (`_fetch_fundamentals`) | 6 hours |
+| Live prices | `@st.cache_data` (`_fetch_prices_cached`) | 60 s open / 900 s closed (`_price_bucket`) |
 | Risk report | `st.session_state` | 1 hour (or on portfolio change) |
 | Value history | `data/portfolio/{hash}/value_history.json` | Daily snapshot (auto back-filled) |
 

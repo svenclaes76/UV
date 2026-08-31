@@ -6,7 +6,18 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Performance
+
+Every screen now paints from already-computed data and fills in as background
+work lands, instead of blocking the render thread on the screener fetch + scoring
+(WP-1…WP-6 of the instant-paint plan).
+
+- **Universe scoring moved off the render thread** — new `uvalu/store.py` (`_UniverseStore`): `_load_all_screener_data()` is now a non-blocking accessor that returns the last-computed per-exchange scored frames immediately and kicks a single background daemon worker when the fundamentals-cache token has moved. The worker runs the `compute_scores` pass **and** the 1–6 live `stockanalysis.com` ticker-list scrapes (`fetch_tickers.py` has no memoisation of its own, so those had been re-running on every render-thread cache miss)
+- **Re-score debounce** — `_cache_version()` holds its token steady while a background fetch churns `fundamentals.json`, so a 20–40 min cold fetch triggers ~10 recomputes instead of one per ~20 s cache-file rewrite (`RECOMPUTE_DEBOUNCE_S`)
+- **Dashboard / Portfolio / Risk** no longer score the whole enabled-exchange universe just to look up their ~30 holdings — a new `_load_portfolio_scored()` fast path scores only held + sold tickers through the dedicated `PORTFOLIO_FETCH` lane (held tickers on a disabled exchange are covered now too)
+- **Version-diffed timed refreshes** — `ui._auto_rerun` / `price_autorefresh` only fire a full rerun when a plain signature (store version, fetch progress, price bucket, portfolio token) has actually changed since the last one, with a `max_idle_ticks` anti-freeze fallback; the dialog-open guard is unchanged
+- **Cold-cache loading skeletons** for Screener and Watchlist (`components.loading_skeleton_html` + `ui.poll_while_fetching`) — a still-loading list shows shimmer rows and refreshes itself, instead of a bare "no data" line (Watchlist previously had no auto-refresh at all and looked identical to a genuinely empty watchlist)
+- Dropped a dead per-render ~14 MB `fundamentals.json` `json.loads` from the Screener page (the unused `_scr_pf_context` / `open_drawer(pf_context)` path), and made `screener._warm_live_cache` a double-checked lock so two cold-start sessions don't both parse the file
 
 ---
 

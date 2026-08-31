@@ -47,9 +47,10 @@ root modules; the root modules never import back.
 | `uvalu/authgate.py` | JWT/localStorage bridges, logout, login wall |
 | `uvalu/nav.py` | Registry of `st.Page` objects (breaks the app.py↔pages import cycle) |
 | `uvalu/runtime.py` | Per-run accessors: `current_user()`, `theme_colors()` |
-| `uvalu/data.py` | Cache-backed screener/price/fundamentals data layer |
-| `uvalu/ui.py`, `formatting.py`, `styles.py`, `stock_dialog.py` | Shared rendering helpers |
-| `uvalu/pages_/*.py` | One `render()` per page (dashboard, portfolio, risk, screener, settings, help) |
+| `uvalu/data.py` | Cache-backed screener/price/fundamentals data layer (non-blocking accessors) |
+| `uvalu/store.py` | Off-thread scored-universe store — background worker runs the screener fetch + scoring |
+| `uvalu/ui.py`, `formatting.py`, `styles.py`, `components.py`, `drawer.py` | Shared rendering helpers (incl. the row-click stock-preview drawer) |
+| `uvalu/pages_/*.py` | One `render()` per page (dashboard, portfolio, risk, screener, watchlist, analysis, settings, help, admin) |
 
 See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
