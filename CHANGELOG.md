@@ -6,6 +6,12 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.2.0] — 2026-08-31
+
 ### Performance
 
 Every screen now paints from already-computed data and fills in as background
