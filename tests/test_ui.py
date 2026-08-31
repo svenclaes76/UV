@@ -172,6 +172,59 @@ class TestAutoRerun:
         at = _run(_script)
         assert "_uv_dialog_open_ts" not in at.session_state
 
+    def test_version_fn_seeds_a_baseline_on_arm(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _auto_rerun
+            _auto_rerun(30, "vt", version_fn=lambda: "sig-A")
+            st.text(st.session_state["_auto_rerun_ver_vt"])
+
+        at = _run(_script)
+        assert at.text[0].value == "sig-A"
+
+
+# ── _tick_should_rerun (the version-diff decision, WP-6) ──────────────────
+
+class TestTickShouldRerun:
+    def test_no_version_fn_always_reruns(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _tick_should_rerun
+            st.text(_tick_should_rerun("k", None, 15))
+
+        at = _run(_script)
+        assert at.text[0].value == "True"
+
+    def test_unchanged_signature_skips_then_forces_after_max_idle(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _tick_should_rerun
+            st.session_state["_auto_rerun_ver_k"] = "same"
+            st.session_state["_auto_rerun_idle_k"] = 0
+            vfn = lambda: "same"
+            # first three ticks: unchanged, idle below cap → skip
+            st.text(_tick_should_rerun("k", vfn, 3))   # False, idle→1
+            st.text(_tick_should_rerun("k", vfn, 3))   # False, idle→2
+            st.text(_tick_should_rerun("k", vfn, 3))   # False, idle→3
+            st.text(_tick_should_rerun("k", vfn, 3))   # idle==cap → True, idle reset
+            st.text(st.session_state["_auto_rerun_idle_k"])
+
+        at = _run(_script)
+        assert [t.value for t in at.text] == ["False", "False", "False", "True", "0"]
+
+    def test_changed_signature_reruns_and_stores_new_value(self):
+        def _script():
+            import streamlit as st
+            from uvalu.ui import _tick_should_rerun
+            st.session_state["_auto_rerun_ver_k"] = "old"
+            st.session_state["_auto_rerun_idle_k"] = 2
+            st.text(_tick_should_rerun("k", lambda: "new", 15))   # True
+            st.text(st.session_state["_auto_rerun_ver_k"])         # "new"
+            st.text(st.session_state["_auto_rerun_idle_k"])        # reset to 0
+
+        at = _run(_script)
+        assert [t.value for t in at.text] == ["True", "new", "0"]
+
 
 # ── mark_dialog_open / _dialog_is_open ────────────────────────────────────
 
@@ -262,13 +315,15 @@ class TestPriceAutorefresh:
         monkeypatch.setattr(ui, "current_user",
                             lambda: type("U", (), {"email": "x@y.z"})())
         monkeypatch.setattr(ui, "_auto_rerun",
-                            lambda secs, key: captured.update(secs=secs, key=key))
+                            lambda secs, key, version_fn=None, **kw: captured.update(
+                                secs=secs, key=key, version_fn=version_fn))
         return captured
 
     def test_uses_user_interval_during_market_hours(self, monkeypatch):
         captured = self._capture(monkeypatch, market_open=True, interval_s=30)
         ui.price_autorefresh("portfolio_refresh")
-        assert captured == {"secs": 30, "key": "portfolio_refresh"}
+        assert captured["secs"] == 30
+        assert captured["key"] == "portfolio_refresh"
 
     def test_stretches_to_15min_off_hours(self, monkeypatch):
         captured = self._capture(monkeypatch, market_open=False, interval_s=60)
@@ -279,3 +334,9 @@ class TestPriceAutorefresh:
         captured = self._capture(monkeypatch, market_open=False, interval_s=1800)
         ui.price_autorefresh("risk_refresh")
         assert captured["secs"] == 1800   # max(user, 900)
+
+    def test_passes_a_version_diff_signature(self, monkeypatch):
+        from uvalu.data import _price_refresh_signature
+        captured = self._capture(monkeypatch, market_open=True, interval_s=60)
+        ui.price_autorefresh("dashboard_refresh")
+        assert captured["version_fn"] is _price_refresh_signature

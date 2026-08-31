@@ -84,6 +84,13 @@ class _UniverseStore:
             return any(e["thread"] is not None and e["thread"].is_alive()
                        for e in self._entries.values())
 
+    def version(self) -> int:
+        """Sum of per-key frame versions — a single 'something recomputed'
+        counter for version-diffing auto-reruns (WP-6). With the one screener
+        key in play this is just that key's version."""
+        with self._lock:
+            return sum(e["version"] for e in self._entries.values())
+
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
@@ -127,6 +134,13 @@ def universe_recomputing() -> bool:
     use this to keep a loading skeleton polling (see
     ``uvalu.ui.poll_while_fetching``)."""
     return _STORE.recomputing()
+
+
+def universe_version() -> int:
+    """Monotonic-ish counter that advances every time the store finishes a
+    recompute — the version-diff signal for the Screener/Watchlist auto-refresh
+    fragments (WP-6, via ``uvalu.data.screener_refresh_signature``)."""
+    return _STORE.version()
 
 
 def clear_scored_universe() -> None:

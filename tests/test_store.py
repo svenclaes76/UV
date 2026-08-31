@@ -86,6 +86,15 @@ class TestUniverseStore:
         s.clear()
         assert s._entries == {}
 
+    def test_version_sums_per_key_frame_versions(self):
+        s = _UniverseStore()
+        assert s.version() == 0
+        s.get(("k",), "t1", lambda: _frame("a"))
+        assert _wait(lambda: s.version() == 1)
+        s._entries[("k",)]["attempt_at"] = 0.0
+        s.get(("k",), "t2", lambda: _frame("b"))
+        assert _wait(lambda: s.version() == 2)
+
 
 class TestGetScoredUniverse:
     def test_serves_copies_the_caller_can_mutate(self, monkeypatch):

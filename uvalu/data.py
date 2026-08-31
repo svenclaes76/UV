@@ -253,6 +253,30 @@ def _load_all_screener_data(cache_version: str, enabled: tuple,
 _load_all_screener_data.clear = clear_scored_universe
 
 
+def screener_refresh_signature() -> tuple:
+    """Version-diff key for the Screener / Watchlist auto-refresh fragments
+    (WP-6, passed to uvalu.ui._auto_rerun). Changes when the off-thread store
+    finishes a recompute, when the background fetch's progress advances by ~25
+    tickers, or when it starts / stops — so those 5s poll fragments stop
+    re-rendering the page into identical output between recomputes.
+
+    Plain function, no st.* — it runs inside the timer fragment.
+    """
+    from uvalu.store import universe_version
+    _p = get_fetch_progress(SCREENER_FETCH)
+    return (universe_version(), bool(_p.get("running")), (_p.get("done") or 0) // 25)
+
+
+def _price_refresh_signature() -> tuple:
+    """Version-diff key for the live-price auto-refresh fragments (WP-6). Changes
+    when the market-hours-aware price bucket rolls (a fresh upstream quote fetch
+    is due), when the portfolio fetch lane advances / stops, or when its scored
+    frame's mtime token moves. Plain function, no st.*."""
+    _p = get_fetch_progress(PORTFOLIO_FETCH)
+    return (_price_bucket(), _portfolio_cache_version(),
+            bool(_p.get("running")), (_p.get("done") or 0) // 10)
+
+
 @st.cache_data(show_spinner=False)
 def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: tuple,
                                   thresholds: tuple = (500.0, 0.90, 0.0, 70.0),

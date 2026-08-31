@@ -407,6 +407,33 @@ class TestLoadAllScreenerData:
         assert at.text[0].value == "True"
 
 
+# ── screener_refresh_signature / _price_refresh_signature (WP-6) ──────────
+
+class TestRefreshSignatures:
+    def test_screener_signature_tracks_store_version_and_fetch_progress(self, monkeypatch):
+        monkeypatch.setattr("uvalu.store.universe_version", lambda: 7)
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 63, "total": 999})
+        assert data_module.screener_refresh_signature() == (7, True, 63 // 25)
+
+    def test_screener_signature_done_is_bucketed(self, monkeypatch):
+        monkeypatch.setattr("uvalu.store.universe_version", lambda: 0)
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 24, "total": 999})
+        a = data_module.screener_refresh_signature()
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": True, "done": 25, "total": 999})
+        b = data_module.screener_refresh_signature()
+        assert a == (0, True, 0) and b == (0, True, 1)   # crosses a 25-ticker bucket
+
+    def test_price_signature_tracks_bucket_and_portfolio_lane(self, monkeypatch):
+        monkeypatch.setattr(data_module, "_price_bucket", lambda: 111)
+        monkeypatch.setattr(data_module, "_portfolio_cache_version", lambda: "tok")
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": False, "done": 5, "total": 0})
+        assert data_module._price_refresh_signature() == (111, "tok", False, 5 // 10)
+
+
 # ── _portfolio_cache_version ──────────────────────────────────────────────
 
 class TestPortfolioCacheVersion:

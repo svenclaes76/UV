@@ -11,7 +11,8 @@ from portfolio import (load_manual_tickers, load_watchlist,
                        save_watchlist, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from screener import get_fetch_progress
-from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
+from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
+                        screener_refresh_signature)
 from uvalu.drawer import open_drawer
 from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
                               loading_skeleton_html)
@@ -139,7 +140,7 @@ def render() -> None:
     if _any_data and _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
         st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
-        _auto_rerun(5, "screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
 
     _all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
@@ -164,7 +165,7 @@ def render() -> None:
                         "the background fetch returns.")
         with st.container(key="scr_table_card", border=True):
             st.markdown(loading_skeleton_html(_skel_msg), unsafe_allow_html=True)
-        _auto_rerun(5, "screener_fetch_refresh")
+        _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
     # ── Filter bar — one bordered/shadowed panel holding every control in a

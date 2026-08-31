@@ -133,8 +133,9 @@ The off-thread scored-universe store (WP-5). `_UniverseStore` is a process-globa
 Reusable, theme-aware rendering helpers:
 
 - `_row_select_table()` — `st.dataframe` with single-row click selection (used everywhere to open the stock-preview drawer via `uvalu.drawer.open_drawer`); a nonce in the widget key prevents the dialog from immediately re-opening after close.
-- `_auto_rerun(seconds, key)` — timed page refresh.
-- `poll_while_fetching(key, lane="screener")` — while a background fundamentals-fetch lane is running, arms a short `_auto_rerun` so a page showing a cold-cache loading skeleton (`components.loading_skeleton_html`) fills in on its own; returns the `{running, done, total}` progress snapshot. Used by Screener/Watchlist for the "no data yet" state (WP-4).
+- `_auto_rerun(seconds, key, version_fn=None)` — timed page refresh via an `st.fragment(run_every=seconds)`. With `version_fn` (WP-6) a tick only forces the full-app `st.rerun` when `version_fn()` (a plain, no-`st.*` signature — e.g. `data.screener_refresh_signature` / `data._price_refresh_signature`) has changed since the last rerun; `max_idle_ticks` is the anti-freeze fallback. The dialog-open guard still short-circuits every tick. `_tick_should_rerun()` holds the decision (unit-tested directly).
+- `poll_while_fetching(key, lane="screener")` — while a background fundamentals-fetch lane **or** the off-thread universe recompute is running, arms a short `_auto_rerun` (with the screener-lane `version_fn`) so a page showing a cold-cache loading skeleton (`components.loading_skeleton_html`) fills in on its own; returns the `{running, done, total}` progress snapshot. Used by Screener/Watchlist for the "no data yet" state (WP-4/6).
+- `price_autorefresh(key)` — the dashboard/portfolio/risk live-price cadence; passes `data._price_refresh_signature` so a short user interval (or a weekend tab) stops re-rendering into identical output.
 - `_static_bar()`, `_donut_chart()`, `_hm_color()` — chart primitives and the treemap colour scale.
 
 #### `uvalu/formatting.py`
