@@ -1311,9 +1311,15 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         df[col] = fv_cols[col]
 
     # ── Stage 3: MoS · TER · Dividend Sustainability ─────────────────────────
-    df["margin_of_safety"] = df.apply(
-        lambda r: _margin_of_safety(r["Price"], r["fair_value"]), axis=1
-    )
+    # Vectorised equivalent of `_margin_of_safety(Price, fair_value)` applied
+    # row-wise (the scalar stays for its own callers/tests): (fv − price) / fv
+    # where both are finite and > 0, NaN otherwise. `> 0` already excludes
+    # NaN/None/≤0, matching the scalar's `price and fv and fv > 0 and price > 0`.
+    _mos_price = pd.to_numeric(df["Price"], errors="coerce")
+    _mos_fv    = pd.to_numeric(df["fair_value"], errors="coerce")
+    df["margin_of_safety"] = (
+        (_mos_fv - _mos_price) / _mos_fv
+    ).where((_mos_price > 0) & (_mos_fv > 0))
     df["TER %"] = df.apply(
         lambda r: _total_expected_return(
             r["Price"], r["fair_value"],
@@ -1385,18 +1391,24 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # with no computable fair value (NaN MoS — every model failed) can't have
     # its margin of safety confirmed, so it can't reach Strong Buy either; it
     # falls through to Monitor/Avoid on score alone instead of bypassing the gate.
-    def _decision(row):
-        if row["_hard_veto"]:
-            return "Avoid"
-        s   = row["Value Score"]
-        mos = row["margin_of_safety"]
-        if s >= buy_threshold and pd.notna(mos) and mos >= min_mos:
-            return "Strong Buy"
-        if s >= SCORE_AVOID:
-            return "Monitor"
-        return "Avoid"
-
-    df["Decision"]   = df.apply(_decision, axis=1)
+    # Vectorised equivalent of the former per-row `_decision`: veto → Avoid;
+    # else score ≥ buy_threshold with a confirmed MoS ≥ min_mos → Strong Buy;
+    # else score ≥ SCORE_AVOID → Monitor; else Avoid. np.select takes the first
+    # true branch, and every non-veto branch already excludes veto rows, so the
+    # priority matches the if/elif ladder exactly. NaN score compares False
+    # everywhere → Avoid, same as the scalar path.
+    _dec_veto  = df["_hard_veto"].fillna(False).astype(bool)
+    _dec_score = pd.to_numeric(df["Value Score"], errors="coerce")
+    _dec_mos   = pd.to_numeric(df["margin_of_safety"], errors="coerce")
+    df["Decision"] = np.select(
+        [
+            _dec_veto,
+            (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna() & (_dec_mos >= min_mos),
+            (~_dec_veto) & (_dec_score >= SCORE_AVOID),
+        ],
+        ["Avoid", "Strong Buy", "Monitor"],
+        default="Avoid",
+    )
     df["Risk Score"] = df["_risk_raw"].round(1)
     df["MoS %"]      = (df["margin_of_safety"] * 100).round(1)
 
