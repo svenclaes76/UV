@@ -39,6 +39,9 @@ def isolated_cache(tmp_path, monkeypatch):
     # value instead of actually re-executing.
     import streamlit as st
     st.cache_data.clear()
+    # _debounced_bucket() keeps process-global state (last token + timestamp +
+    # running flag) that would otherwise leak the debounce clock between tests.
+    data_module._version_state.update(token=None, advanced_at=0.0, was_running=False)
     yield
 
 
@@ -71,6 +74,74 @@ class TestMtimeBucket:
         p.write_text("{}", encoding="utf-8")
         # seconds=1 → every whole-second mtime is its own bucket
         assert data_module._mtime_bucket(p, seconds=1) == str(int(p.stat().st_mtime))
+
+
+class TestCacheVersionDebounce:
+    """WP-1 — _cache_version() holds its token steady while a background
+    screener fetch churns fundamentals.json, so _load_all_screener_data
+    (@st.cache_data keyed on it) doesn't re-score the whole universe on every
+    ~20s cache-file rewrite for the full length of a cold fetch."""
+
+    def _set_progress(self, monkeypatch, *, running, done):
+        monkeypatch.setattr(data_module, "get_fetch_progress",
+                            lambda *a, **k: {"running": running, "done": done, "total": 9999})
+
+    def _set_bucket(self, monkeypatch, value):
+        monkeypatch.setattr(data_module, "_mtime_bucket", lambda *a, **k: value)
+
+    def test_no_fetch_running_passes_bucket_through(self, monkeypatch):
+        self._set_progress(monkeypatch, running=False, done=0)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"   # advances freely when idle
+
+    def test_running_fetch_holds_token_within_debounce_window(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)   # well past the cold cutoff
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"              # first sighting → adopt
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "100"              # held: no re-score
+        self._set_bucket(monkeypatch, "105")
+        assert data_module._cache_version() == "100"              # still held
+
+    def test_debounce_bypassed_while_cache_still_cold(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=10)    # < _DEBOUNCE_COLD_DONE
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"              # cold → fills every bucket
+
+    def test_token_advances_once_debounce_window_elapses(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        # Backdate the last-advance stamp past the debounce window.
+        data_module._version_state["advanced_at"] -= data_module.RECOMPUTE_DEBOUNCE_S + 1
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"
+
+    def test_fetch_finishing_releases_the_held_token(self, monkeypatch):
+        self._set_progress(monkeypatch, running=True, done=500)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        self._set_bucket(monkeypatch, "110")
+        assert data_module._cache_version() == "100"              # held while running
+        self._set_progress(monkeypatch, running=False, done=500)
+        assert data_module._cache_version() == "110"              # released once done
+
+    def test_first_change_after_fetch_starts_is_allowed(self, monkeypatch):
+        # Cache already warm and idle at bucket 100...
+        self._set_progress(monkeypatch, running=False, done=800)
+        self._set_bucket(monkeypatch, "100")
+        assert data_module._cache_version() == "100"
+        # ...a new fetch kicks off and writes once: that first roll should land
+        # immediately (pre-existing stale data surfaces), then debounce.
+        self._set_progress(monkeypatch, running=True, done=800)
+        self._set_bucket(monkeypatch, "101")
+        assert data_module._cache_version() == "101"
+        self._set_bucket(monkeypatch, "102")
+        assert data_module._cache_version() == "101"              # now held
 
 
 class TestCacheAgeStr:

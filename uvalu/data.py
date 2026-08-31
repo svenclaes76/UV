@@ -3,6 +3,7 @@
 Functions keep their original private names so app.py and page modules can
 import them unchanged. All @st.cache_data identity is preserved.
 """
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -16,7 +17,7 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
-                      cancel_background_fetch, clear_live_cache)
+                      cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES
 
 
@@ -74,9 +75,69 @@ def _mtime_bucket(path, seconds: int = _CACHE_VERSION_BUCKET_S) -> str:
         return "0"
 
 
+# ── WP-1: debounce the full-universe re-score during a background fetch ────────
+# _load_all_screener_data is @st.cache_data keyed on _cache_version(). While a
+# cold SCREENER_FETCH runs it rewrites fundamentals.json every ~25 tickers, so
+# the 30s mtime bucket above still rolls over every ~15-30s for the whole
+# 20-40 min fetch — every roll is a cache miss that re-scores the entire
+# enabled-exchange universe (~a dozen df.apply(axis=1) passes in
+# screener.compute_scores) on the next rerun. That re-score storm is the bulk
+# of the "screens load slowly while data is updating" symptom.
+#
+# So while the fetch is running, hold the version token steady and let it
+# advance at most once per RECOMPUTE_DEBOUNCE_S: new data still lands, in
+# ~3-minute batches instead of ~20-second ones. Two escape hatches keep a
+# genuinely cold cache responsive:
+#   * the first advance after a fetch starts is always allowed (data that
+#     accumulated before the first page view shows up right away), and
+#   * while very few tickers have been fetched (_DEBOUNCE_COLD_DONE) the
+#     debounce is bypassed entirely, so an empty universe still fills on each
+#     bucket for the first page views.
+# Once the fetch stops, the raw bucket is used again for one final re-score
+# against the complete data.
+RECOMPUTE_DEBOUNCE_S = 180
+_DEBOUNCE_COLD_DONE  = 40
+
+_version_lock = threading.Lock()
+_version_state: dict = {"token": None, "advanced_at": 0.0, "was_running": False}
+
+
+def _debounced_bucket(raw_bucket: str, *, running: bool, cold: bool) -> str:
+    """Hold `raw_bucket` steady while a background fetch churns the cache file
+    (see RECOMPUTE_DEBOUNCE_S). Process-global state, guarded by _version_lock
+    since Streamlit runs script threads concurrently in one process."""
+    now = time.time()
+    with _version_lock:
+        state = _version_state
+        # Fetch just transitioned idle -> running: reset the clock so the first
+        # token change of this fetch lands immediately rather than being held
+        # for up to RECOMPUTE_DEBOUNCE_S behind a stale timestamp from a prior
+        # fetch (or from process start).
+        if running and not state["was_running"]:
+            state["advanced_at"] = 0.0
+        state["was_running"] = running
+
+        if state["token"] is None:
+            state.update(token=raw_bucket, advanced_at=now)
+            return raw_bucket
+        if raw_bucket == state["token"]:
+            return state["token"]
+        if running and not cold and (now - state["advanced_at"]) < RECOMPUTE_DEBOUNCE_S:
+            return state["token"]
+        state.update(token=raw_bucket, advanced_at=now)
+        return raw_bucket
+
+
 def _cache_version() -> str:
-    """Coarsened mtime token for the screener fundamentals file."""
-    return _mtime_bucket(SCREENER_FETCH.cache_file)
+    """Coarsened mtime token for the screener fundamentals file, debounced while
+    a background screener fetch is running (WP-1, see _debounced_bucket)."""
+    raw  = _mtime_bucket(SCREENER_FETCH.cache_file)
+    prog = get_fetch_progress(SCREENER_FETCH)
+    return _debounced_bucket(
+        raw,
+        running=bool(prog.get("running")),
+        cold=int(prog.get("done", 0)) < _DEBOUNCE_COLD_DONE,
+    )
 
 
 def _portfolio_cache_version() -> str:
