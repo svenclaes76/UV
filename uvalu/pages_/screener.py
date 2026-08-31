@@ -13,7 +13,8 @@ from settings import load_shared_settings, get_veto_thresholds, get_score_weight
 from screener import get_fetch_progress
 from uvalu.data import _load_all_screener_data, _cache_version, _bust_cache
 from uvalu.drawer import open_drawer
-from uvalu.components import signal_badge_for_decision, stock_row, empty_results_html
+from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
+                              loading_skeleton_html)
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -132,11 +133,12 @@ def render() -> None:
 
     _any_data = any(not d.empty for d in _exch_dfs)
     _prog = get_fetch_progress()
-    if _prog["running"] and _prog["total"] > 0:
+    # With rows already on screen, a running fetch just gets a "refreshing"
+    # caption; the cold-cache case (no rows yet) is handled by the skeleton
+    # branch below, which arms its own auto-rerun.
+    if _any_data and _prog["running"] and _prog["total"] > 0:
         _pct = _prog["done"] / _prog["total"]
         st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
-        _auto_rerun(5, "screener_fetch_refresh")
-    elif not _any_data:
         _auto_rerun(5, "screener_fetch_refresh")
 
     _all_df = pd.concat([
@@ -154,7 +156,15 @@ def render() -> None:
         with _header_slot.container():
             st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
                        unsafe_allow_html=True)
-        st.info("No screener data available yet.")
+        if _prog["running"] and _prog["total"] > 0:
+            _skel_msg = (f"Loading the screening universe… {_prog['done']}/{_prog['total']} "
+                        "companies scored — results appear here as they land.")
+        else:
+            _skel_msg = ("Loading the screening universe — the first results appear as soon as "
+                        "the background fetch returns.")
+        with st.container(key="scr_table_card", border=True):
+            st.markdown(loading_skeleton_html(_skel_msg), unsafe_allow_html=True)
+        _auto_rerun(5, "screener_fetch_refresh")
         return
 
     # ── Filter bar — one bordered/shadowed panel holding every control in a

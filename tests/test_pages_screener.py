@@ -25,10 +25,21 @@ def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
     return at
 
 
-def test_renders_with_no_data(isolated_data, monkeypatch):
+def test_renders_skeleton_when_no_data(isolated_data, monkeypatch):
     empty = make_scored_df([])
     at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty))
-    assert "No screener data available yet" in "".join(i.value for i in at.info)
+    html = "".join(m.value for m in at.markdown)
+    assert "Loading the screening universe" in html
+    assert "uv-skel-bar" in html
+
+
+def test_skeleton_shows_fetch_progress_when_running(isolated_data, monkeypatch):
+    empty = make_scored_df([])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty),
+              fetch_progress={"running": True, "total": 40, "done": 12})
+    html = "".join(m.value for m in at.markdown)
+    assert "12/40 companies scored" in html
+    assert "uv-skel-bar" in html
 
 
 def test_shows_ticker_row_for_default_buy_filter(isolated_data, monkeypatch):

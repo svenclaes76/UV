@@ -129,6 +129,7 @@ Reusable, theme-aware rendering helpers:
 
 - `_row_select_table()` — `st.dataframe` with single-row click selection (used everywhere to open the stock-preview drawer via `uvalu.drawer.open_drawer`); a nonce in the widget key prevents the dialog from immediately re-opening after close.
 - `_auto_rerun(seconds, key)` — timed page refresh.
+- `poll_while_fetching(key, lane="screener")` — while a background fundamentals-fetch lane is running, arms a short `_auto_rerun` so a page showing a cold-cache loading skeleton (`components.loading_skeleton_html`) fills in on its own; returns the `{running, done, total}` progress snapshot. Used by Screener/Watchlist for the "no data yet" state (WP-4).
 - `_static_bar()`, `_donut_chart()`, `_hm_color()` — chart primitives and the treemap colour scale.
 
 #### `uvalu/formatting.py`

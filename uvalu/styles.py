@@ -54,6 +54,18 @@ GLOBAL_CSS = """
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+  /* ── Loading skeletons (components.loading_skeleton_html) — shown while a
+     cold fundamentals cache is still being fetched, so a page paints its
+     shape immediately instead of a bare "no data" line. ──────────────────── */
+  @keyframes uvShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
+  .uv-skel-bar {
+    height: 13px; border-radius: 5px;
+    background: var(--line-2);
+    background-image: linear-gradient(90deg, var(--line-2) 0px, var(--line) 60px, var(--line-2) 120px);
+    background-size: 420px 100%;
+    animation: uvShimmer 1.25s ease-in-out infinite;
+  }
+
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }

@@ -146,6 +146,24 @@ def consumed_tick(key: str) -> bool:
     return bool(st.session_state.pop(f"_tick_{key}", False))
 
 
+def poll_while_fetching(key: str, lane: str = "screener", *, seconds: float = 5.0) -> dict:
+    """While the named background fundamentals-fetch lane is running, arm a
+    short ``_auto_rerun`` so a page showing a cold-cache loading skeleton
+    (components.loading_skeleton_html) fills in on its own — no user
+    interaction, no waiting for the 60s price cadence.
+
+    ``lane`` is ``"screener"`` (the exchange universe — Screener/Watchlist) or
+    ``"portfolio"`` (held/sold tickers — Dashboard/Portfolio). Returns the
+    fetch-progress snapshot (``{"running", "done", "total"}``) so the caller
+    can render an "N/M tickers" line.
+    """
+    from screener import get_fetch_progress, SCREENER_FETCH, PORTFOLIO_FETCH
+    prog = get_fetch_progress(PORTFOLIO_FETCH if lane == "portfolio" else SCREENER_FETCH)
+    if prog.get("running"):
+        _auto_rerun(seconds, key)
+    return prog
+
+
 def price_autorefresh(key: str) -> None:
     """Timed refresh for the live-price pages (dashboard / portfolio / risk).
 

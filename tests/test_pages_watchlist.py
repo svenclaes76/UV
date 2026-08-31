@@ -8,9 +8,11 @@ from uvalu.pages_ import watchlist as watchlist_page
 from tests.conftest import make_screener_data_tuple, make_scored_row, USER_SETUP_SRC
 
 
-def _run(monkeypatch, screener_tuple=None) -> AppTest:
+def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
     monkeypatch.setattr(watchlist_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
+    monkeypatch.setattr(watchlist_page, "poll_while_fetching",
+                        lambda *a, **k: fetch_progress or {"running": False, "total": 0, "done": 0})
 
     def _script():
         import portfolio
@@ -37,12 +39,24 @@ def test_shows_row_for_watchlisted_ticker(isolated_data, monkeypatch):
     assert "Alpha Corp" in html
 
 
-def test_ticker_not_in_screener_data_falls_back_to_empty_state(isolated_data, monkeypatch):
-    # ZZZ.BR has no matching row in the fake screener data -> filtered out
-    # of wl_df, same empty-results branch as an actually-empty watchlist.
+def test_watchlisted_ticker_with_no_scored_row_shows_loading_state(isolated_data, monkeypatch):
+    # ZZZ.BR has no matching row in the fake screener data -> wl_df is empty
+    # even though the watchlist isn't. That's the cold-cache case now: a
+    # loading skeleton, not the "your watchlist is empty" message.
     portfolio.save_watchlist({"ZZZ.BR"})
     at = _run(monkeypatch)
-    assert "Your watchlist is empty" in "".join(m.value for m in at.markdown)
+    html = "".join(m.value for m in at.markdown)
+    assert "Your watchlist is empty" not in html
+    assert "No screener data yet for your watchlisted ticker" in html
+    assert "uv-skel-bar" in html
+
+
+def test_watchlist_loading_state_shows_fetch_progress(isolated_data, monkeypatch):
+    portfolio.save_watchlist({"ZZZ.BR"})
+    at = _run(monkeypatch, fetch_progress={"running": True, "total": 8, "done": 2})
+    html = "".join(m.value for m in at.markdown)
+    assert "Fetching data for your 1 watchlisted ticker" in html
+    assert "2/8 companies scored" in html
 
 
 def test_add_ticker_form_present(isolated_data, monkeypatch):
