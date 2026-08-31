@@ -6,7 +6,9 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Performance
+
+- Screener: `compute_scores` computes `margin_of_safety` and the `Decision` label with vectorised pandas/NumPy expressions instead of a per-row `df.apply` — bit-identical output, locked by an equivalence test (WP-7). The fair-value models and the composite risk sub-scores stay row-wise (scoring math shared with the risk engine).
 
 ---
 
