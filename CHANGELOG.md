@@ -8,6 +8,7 @@ All notable changes to UV are documented here.
 
 ### Fixed
 
+- Dashboard / Risk page: both now build the portfolio `RiskReport` through one shared `uvalu.data.load_portfolio_risk()` builder — same enriched frame, hard-veto lookup, target allocation and session cache — so the composite risk score can't differ between the Dashboard's Conviction & risk card and the Risk page gauge for the same portfolio (was ~32 vs ~29; the Dashboard had been calling `assess_portfolio` with none of that context) (WP-DQ4).
 - Risk page: the score-gauge caption no longer renders "Moderate risk **risk**" — `composite.label` already carries the "… risk" suffix, the template appended a second one (WP-DQ5).
 - Risk page: the **Max drawdown (1Y)** tier word ("Low"/"Moderate"/"High") is now derived from the 1-year drawdown it sits next to, not the 5-year figure — the number said −15% while the label said "High" off the deeper 2022 drawdown. The composite risk score still uses the 5-year drawdown independently (WP-DQ5).
 - Dashboard / Screener / Watchlist: the fair-value column and KPI tile are labelled **"Margin of safety"** instead of "Upside" — the value shown has always been `(fair value − price) / fair value`, not raw upside `(fair value / price − 1)`, which differ materially for deep-discount names (WP-DQ2).

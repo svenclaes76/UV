@@ -9,7 +9,7 @@ import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import load_fundamentals_cache
 from settings import load_shared_settings
-from uvalu.data import _load_portfolio_scored, _fetch_prices_cached
+from uvalu.data import _load_portfolio_scored, _fetch_prices_cached, load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
@@ -254,17 +254,20 @@ def render() -> None:
                 _conv_score = float((_scr_vs.fillna(0) * _w).sum() / _w.sum())
         _n_veto = int(_db_scr.get("veto", pd.Series(dtype=bool)).fillna(False).sum()) if "veto" in _db_scr.columns else 0
 
-        # Real bug fixed: `.composite.total`/`.quant.max_drawdown` don't
-        # exist on RiskReport (the real fields are `.composite.score` and
-        # `.quant.mdd_1y` — see risk.py) — this silently raised inside the
-        # bare except below on every real portfolio, so the risk-score bar
-        # and Beta/Volatility/Max-drawdown row never actually rendered.
+        # Risk report comes from the SAME shared builder the Risk page uses
+        # (uvalu/data.py::load_portfolio_risk) — session-cached, enriched
+        # frame, hard-veto lookup, targets — so the score shown here can never
+        # disagree with the Risk page's gauge for one portfolio (WP-DQ4). It
+        # used to call assess_portfolio(_db_pf, cache, False) with none of
+        # that, which drifted a few points (Dashboard 32 vs Risk page 29).
+        # The `_db_risk_cache` gate is kept: a cold fundamentals cache means
+        # assess_portfolio would do an unpriced history fetch for nothing.
         _db_risk_cache = load_fundamentals_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
-                _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
+                _db_report = load_portfolio_risk(_db_pf).report
                 _risk_score = float(_db_report.composite.score)
                 # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50) —
                 # not separate hand-picked numbers — so this card's Low/

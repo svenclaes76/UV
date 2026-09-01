@@ -1,15 +1,9 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
-from datetime import date, datetime, timezone
-
 import pandas as pd
 import streamlit as st
 
-import risk as _risk_module
-from portfolio import (load_portfolio, load_sold, load_targets,
-                       load_risk_snapshot, save_risk_snapshot)
-from portfolio_enrichment import enrich_for_risk
-from screener import load_fundamentals_cache
-from uvalu.data import _fetch_prices_cached, _load_portfolio_scored
+from portfolio import load_portfolio
+from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
 from uvalu.ui import price_autorefresh
@@ -51,69 +45,22 @@ def render() -> None:
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
 
-    # Scored rows for held + sold tickers via the portfolio's own fetch lane
-    # (uvalu/data.py's PORTFOLIO_FETCH) — no full-universe scoring on the
-    # render path (WP-3). One row per ticker already; feeds _veto_lookup
-    # (assess_portfolio's Stage-8 rebalance trigger + the holdings-table Flag
-    # column) and enrich_for_risk's fair-value/sector/dividend lookup.
-    _risk_scr_df = _load_portfolio_scored(pf, load_sold())
+    # Build (or reuse the session-cached) risk report via the shared builder in
+    # uvalu/data.py — the SAME call path the Dashboard's Conviction & risk card
+    # uses, so the two screens can never show different composite scores for
+    # one portfolio (WP-DQ4). It also returns the scored held+sold frame and
+    # the hard-veto lookup this page needs below for the Flag column, the
+    # concentration alert and the per-holding drawer.
+    try:
+        _bundle = load_portfolio_risk(pf)
+    except Exception as _risk_err:
+        st.error(f"Risk assessment failed: {_risk_err}")
+        st.stop()
 
-    # Real hard-veto lookup (screener's own `veto` column) — feeds both
-    # assess_portfolio()'s Stage 8 rebalance trigger below and the concentration
-    # alert box / holdings table's Flag column further down.
-    _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
-
-    # ── Enrich the portfolio for the risk engine — live price + the
-    # fundamentals-derived fields (fair value, sector, country, dividend rate)
-    # looked up from the screener's own scored DataFrame so this page's numbers
-    # match the Screener/Analysis pages. See portfolio_enrichment. ────────────
-    _risk_scr_by_ticker = _risk_scr_df.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
-    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
-    pf = enrich_for_risk(pf, _risk_scr_by_ticker, _risk_live)
-
-    _risk_full_cache = load_fundamentals_cache()
-
-    _income_portfolio = False
-
-    # Target allocation + the prior day's snapshot feed Stage 8's drift triggers.
-    _targets        = load_targets()
-    _prior_snapshot = load_risk_snapshot()
-
-    # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
-    # Not keyed on the snapshot: writing today's snapshot below would otherwise
-    # self-invalidate the cache on the very next render. The 1-hour TTL covers
-    # day rollover in practice.
-    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio,
-                           tuple(sorted(_veto_lookup.items())),
-                           repr(sorted(_targets.items()))))
-    _risk_cached    = st.session_state.get("_risk_report_cache", {})
-    _risk_report: _risk_module.RiskReport | None = None
-
-    if (_risk_cached.get("key") == _risk_cache_key and "report" in _risk_cached):
-        _gen_at = datetime.fromisoformat(_risk_cached["report"].generated_at)
-        _age_s  = (datetime.now(timezone.utc) - _gen_at).total_seconds()
-        if _age_s < 3600:
-            _risk_report = _risk_cached["report"]
-
-    if _risk_report is None:
-        try:
-            _risk_report = _risk_module.assess_portfolio(
-                pf, _risk_full_cache, _income_portfolio, _veto_lookup,
-                targets=_targets, prior_snapshot=_prior_snapshot)
-            st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
-        except Exception as _risk_err:
-            st.error(f"Risk assessment failed: {_risk_err}")
-            st.stop()
-
-        # Upsert today's snapshot as the reference point for future drift
-        # checks — only once per day, so the diff is against a real prior run.
-        if _prior_snapshot.get("date") != date.today().isoformat():
-            try:
-                save_risk_snapshot(_risk_module.snapshot_from_report(_risk_report))
-            except Exception:
-                pass
-
-    r = _risk_report
+    _risk_scr_df = _bundle.scored
+    _veto_lookup = _bundle.veto_lookup
+    pf           = _bundle.pf
+    r            = _bundle.report
 
     # ══ Top section — score gauge, factor/concentration, risk contribution ═══
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',

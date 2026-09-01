@@ -5,7 +5,8 @@ import them unchanged. All @st.cache_data identity is preserved.
 """
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from typing import NamedTuple
 
 import pandas as pd
 import streamlit as st
@@ -16,6 +17,7 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
+                      load_fundamentals_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
@@ -335,6 +337,86 @@ def _load_portfolio_scored(held: "pd.DataFrame | None",
         _portfolio_cache_version(), tuple(seen), tuple(seen.values()),
         get_veto_thresholds(), get_score_weights(),
     )
+
+
+# ── Shared portfolio risk report (WP-DQ4) ────────────────────────────────────
+# The Risk page and the Dashboard's "Conviction & risk" card both render
+# risk.assess_portfolio() output. They used to build it independently with
+# different arguments — the Dashboard passed neither the hard-veto lookup nor
+# the sector/country/fair-value-enriched frame — so the same portfolio showed
+# two different composite risk scores side by side (e.g. Risk page 29 vs
+# Dashboard 32). This is the one builder both call: identical inputs, a single
+# session-cached RiskReport.
+
+class PortfolioRisk(NamedTuple):
+    report: object            # risk.RiskReport
+    scored: pd.DataFrame      # _load_portfolio_scored(held, sold) — one row/ticker
+    veto_lookup: dict         # {ticker: bool} from the screener's own `veto` column
+    pf: pd.DataFrame          # the portfolio enriched for the risk engine
+
+
+_RISK_REPORT_TTL_S = 3600
+
+
+def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
+    """Build (or return the session-cached) portfolio ``RiskReport`` plus the
+    scored-holdings frame and hard-veto lookup the consumer pages also need.
+
+    Enriches ``pf`` via ``portfolio_enrichment.enrich_for_risk`` (live price →
+    ``current_value``, plus ``fair_value`` / ``sector`` / ``country`` /
+    ``expected_annual`` from the portfolio screener lane) and calls
+    ``risk.assess_portfolio`` with the hard-veto lookup, target allocation and
+    prior snapshot — the full-fidelity argument set the Risk page always used.
+
+    Cached in ``st.session_state`` keyed on the ticker set, the veto lookup and
+    the target allocation, with a 1-hour TTL (day rollover covered in
+    practice). Deliberately not keyed on the snapshot, which this call also
+    writes — keying on it would self-invalidate the cache on the next render.
+    """
+    import risk as _risk
+    from portfolio import (load_sold, load_targets, load_risk_snapshot,
+                           save_risk_snapshot)
+    from portfolio_enrichment import enrich_for_risk
+
+    scored = _load_portfolio_scored(pf, load_sold())
+    veto_lookup = (scored.set_index("Ticker")["veto"].to_dict()
+                   if "veto" in getattr(scored, "columns", []) else {})
+    scored_by_ticker = (
+        scored.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
+        if not scored.empty else scored
+    )
+    live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    pf_enriched = enrich_for_risk(pf, scored_by_ticker, live)
+
+    cache = load_fundamentals_cache()
+    income_portfolio = False
+    targets = load_targets()
+    prior_snapshot = load_risk_snapshot()
+
+    key = str((tuple(sorted(pf_enriched["ticker"].tolist())), income_portfolio,
+               tuple(sorted(veto_lookup.items())),
+               repr(sorted(targets.items()))))
+    cached = st.session_state.get("_risk_report_cache", {})
+    report = None
+    if cached.get("key") == key and "report" in cached:
+        _gen = datetime.fromisoformat(cached["report"].generated_at)
+        if (datetime.now(timezone.utc) - _gen).total_seconds() < _RISK_REPORT_TTL_S:
+            report = cached["report"]
+
+    if report is None:
+        report = _risk.assess_portfolio(
+            pf_enriched, cache, income_portfolio, veto_lookup,
+            targets=targets, prior_snapshot=prior_snapshot)
+        st.session_state["_risk_report_cache"] = {"key": key, "report": report}
+        # Upsert today's snapshot as the reference point for future drift
+        # checks — once per day, so the diff is against a real prior run.
+        if prior_snapshot.get("date") != date.today().isoformat():
+            try:
+                save_risk_snapshot(_risk.snapshot_from_report(report))
+            except Exception:
+                pass
+
+    return PortfolioRisk(report, scored, veto_lookup, pf_enriched)
 
 
 def prefetch_portfolio_data() -> None:
