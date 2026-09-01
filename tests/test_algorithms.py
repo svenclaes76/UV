@@ -1537,6 +1537,10 @@ class TestStage2:
 
         assert c.sector_weights["Energy"] == pytest.approx(0.70)
         assert c.largest_sector == "Energy" and c.sector_flag
+        # sector-level HHI is distinct from the position-level `hhi` above:
+        # Energy 0.70, Utilities 0.30 -> 0.49 + 0.09
+        assert c.sector_hhi == pytest.approx(0.58)
+        assert c.sector_hhi_label == "Highly concentrated"
         assert c.geo_weights["Germany"] == pytest.approx(0.90)
         assert c.largest_geo == "Germany" and c.geo_flag
 
@@ -1554,9 +1558,35 @@ class TestStage2:
         assert c.hhi_label == "Well diversified"
         assert not (c.top1_flag or c.top3_flag or c.top5_flag)
 
+    def test_equal_weight_portfolio_sector_hhi(self):
+        # 12 equal sectors across 20 names -> sector weights ~0.10/0.10/0.05...
+        pf = pd.DataFrame([{"ticker": f"T{i}", "current_value": 5.0,
+                            "sector": f"S{i % 12}", "country": f"C{i % 5}",
+                            "expected_annual": 1.0} for i in range(20)])
+        c = _stage2_concentration(pf, 100.0)
+        # 8 sectors at 0.10 (two names each) + 4 at 0.05 -> 8*0.01 + 4*0.0025
+        assert c.sector_hhi == pytest.approx(0.09)
+        assert c.sector_hhi_label == "Well diversified"
+
+    def test_missing_sector_metadata_buckets_as_unknown_not_nan(self):
+        # A DataFrame cell with no value comes through as float NaN, which is
+        # truthy — the old `str(v or "Unknown")` leaked the literal "nan".
+        pf = pd.DataFrame([
+            {"ticker": "A", "current_value": 60.0, "sector": float("nan"),
+             "country": None, "expected_annual": 0.0},
+            {"ticker": "B", "current_value": 40.0, "sector": "Tech",
+             "country": "France", "expected_annual": 0.0},
+        ])
+        c = _stage2_concentration(pf, 100.0)
+        assert "nan" not in c.sector_weights and "nan" not in c.geo_weights
+        assert c.sector_weights["Unknown"] == pytest.approx(0.60)
+        assert c.geo_weights["Unknown"] == pytest.approx(0.60)
+        assert c.largest_sector == "Unknown"
+
     def test_empty_portfolio_value(self):
-        pf = pd.DataFrame([{"ticker": "A", "current_value": 0.0}])
-        assert _stage2_concentration(pf, 0.0).hhi_label == "N/A"
+        _c = _stage2_concentration(pd.DataFrame([{"ticker": "A", "current_value": 0.0}]), 0.0)
+        assert _c.hhi_label == "N/A"
+        assert _c.sector_hhi_label == "N/A"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -103,7 +103,7 @@ def render() -> None:
             ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label),
             ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label),
             ("VAR 95% (1D)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A", "Max expected 1-day loss"),
-            ("SECTOR HHI", f"{r.concentration.hhi:.2f}", r.concentration.hhi_label),
+            ("SECTOR HHI", f"{r.concentration.sector_hhi:.2f}", r.concentration.sector_hhi_label),
         ]
         _cells = "".join(
             f'<div style="padding:18px 20px;">'
@@ -160,11 +160,9 @@ def render() -> None:
         # country — geo concentration is still surfaced via the flag banner
         # below when c.geo_flag trips, just not as one of these 3 bars.
         # Top 3's 35% limit is the same real threshold top3_flag already uses.
-        # pd.notna(), not a bare truthiness check — a position missing sector
-        # metadata makes largest_sector an actual NaN float (not None), and
-        # NaN is truthy in Python (same recurring gotcha noted across this
-        # redesign, see [[uvalu-redesign-v2]]) — `if c.largest_sector` let the
-        # literal string "nan" through into the label/flag text.
+        # largest_sector is now always a real string (risk._category_label
+        # collapses missing/NaN sector metadata to "Unknown" upstream, WP-DQ3);
+        # pd.notna() stays as belt-and-braces for the empty-portfolio None.
         _has_sector = pd.notna(c.largest_sector)
         _sector_label = f"Largest sector — {c.largest_sector}" if _has_sector else "Largest sector"
         for _label, _val, _limit in [

@@ -8,6 +8,8 @@ All notable changes to UV are documented here.
 
 ### Fixed
 
+- Risk page: the **"Sector HHI"** tile now shows an actual sector-level Herfindahl (`Σ sector_weightᵢ²`), not the position-count Herfindahl it had been displaying under that label — for a ~16-name book across 8 sectors that was ~0.07 "Well diversified" when the real sector concentration was ~0.16. The position HHI is unchanged and still feeds the composite risk score (WP-DQ3).
+- Risk page: a holding with no sector/country metadata is bucketed as **"Unknown"** instead of leaking the literal string `"nan"` into the concentration labels and flag text (`risk._category_label`, NaN-safe) — matches how the Dashboard sector donut already labels that bucket (WP-DQ3).
 - Dashboard / Risk page: both now build the portfolio `RiskReport` through one shared `uvalu.data.load_portfolio_risk()` builder — same enriched frame, hard-veto lookup, target allocation and session cache — so the composite risk score can't differ between the Dashboard's Conviction & risk card and the Risk page gauge for the same portfolio (was ~32 vs ~29; the Dashboard had been calling `assess_portfolio` with none of that context) (WP-DQ4).
 - Risk page: the score-gauge caption no longer renders "Moderate risk **risk**" — `composite.label` already carries the "… risk" suffix, the template appended a second one (WP-DQ5).
 - Risk page: the **Max drawdown (1Y)** tier word ("Low"/"Moderate"/"High") is now derived from the 1-year drawdown it sits next to, not the 5-year figure — the number said −15% while the label said "High" off the deeper 2022 drawdown. The composite risk score still uses the 5-year drawdown independently (WP-DQ5).
