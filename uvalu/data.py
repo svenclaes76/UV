@@ -339,6 +339,57 @@ def _load_portfolio_scored(held: "pd.DataFrame | None",
     )
 
 
+# ── Live-price margin of safety overlay (WP-DQ1) ─────────────────────────────
+
+def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.DataFrame | None":
+    """Refresh ``Price`` / ``live_price`` / ``MoS %`` on a scored portfolio
+    frame so the Holdings ladder's three numbers reconcile.
+
+    ``screener.compute_scores`` computes ``margin_of_safety`` / ``MoS %``
+    against the fundamentals-cache ``Price`` snapshot, which can be hours or
+    days stale. The portfolio screens render that percentage next to a live
+    price and a fair value, so the three didn't agree — worst case a holding
+    shown "at fair value" beside a deeply negative MoS because its cached
+    price was weeks old (WP-DQ1).
+
+    This recomputes ``margin_of_safety`` = ``(fair_value − live_price) /
+    fair_value`` from the batch fair value and the live quote. It deliberately
+    leaves ``fair_value``, the six sub-model values, ``Value Score``, the
+    ``Sub *`` ranks and ``Decision`` on the universe-ranked batch basis: those
+    need the whole scored universe and are not live figures. Only ``EPV``'s
+    net-debt term is price-sensitive in the fair-value blend, a second-order
+    effect not worth a row-wise model re-run here.
+
+    Adds ``price_stale`` — True when there is no live quote, or the live quote
+    is more than 10% off the batch price (a sign the cached fundamentals row,
+    and so the fair value built from it, is old).
+    """
+    if scored is None or getattr(scored, "empty", True) or "Ticker" not in getattr(scored, "columns", []):
+        return scored
+
+    out = scored.copy()
+    _batch_price = pd.to_numeric(out.get("Price"), errors="coerce")
+    _live = pd.to_numeric(
+        out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("price")),
+        errors="coerce",
+    )
+    _price = _live.where(_live > 0, _batch_price)
+
+    out["live_price"] = _live
+    out["Price"] = _price
+    out["price_stale"] = _live.isna() | (
+        _batch_price.notna() & _live.notna() & _batch_price.gt(0)
+        & (_live / _batch_price - 1).abs().gt(0.10)
+    )
+
+    if "fair_value" in out.columns:
+        _fv = pd.to_numeric(out["fair_value"], errors="coerce")
+        _mos = ((_fv - _price) / _fv).where((_price > 0) & (_fv > 0))
+        out["margin_of_safety"] = _mos
+        out["MoS %"] = (_mos * 100).round(1)
+    return out
+
+
 # ── Shared portfolio risk report (WP-DQ4) ────────────────────────────────────
 # The Risk page and the Dashboard's "Conviction & risk" card both render
 # risk.assess_portfolio() output. They used to build it independently with
@@ -378,14 +429,17 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
                            save_risk_snapshot)
     from portfolio_enrichment import enrich_for_risk
 
-    scored = _load_portfolio_scored(pf, load_sold())
+    live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    # Refresh Price / MoS on the live quote so the drawer opened from this
+    # page (and the Dashboard, which shares this frame's convention) shows a
+    # margin of safety that agrees with the price beside it (WP-DQ1).
+    scored = apply_live_mos(_load_portfolio_scored(pf, load_sold()), live)
     veto_lookup = (scored.set_index("Ticker")["veto"].to_dict()
                    if "veto" in getattr(scored, "columns", []) else {})
     scored_by_ticker = (
         scored.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
         if not scored.empty else scored
     )
-    live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     pf_enriched = enrich_for_risk(pf, scored_by_ticker, live)
 
     cache = load_fundamentals_cache()

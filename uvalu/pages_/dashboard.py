@@ -9,7 +9,8 @@ import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
 from screener import load_fundamentals_cache
 from settings import load_shared_settings
-from uvalu.data import _load_portfolio_scored, _fetch_prices_cached, load_portfolio_risk
+from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
+                        load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
@@ -79,7 +80,9 @@ def render() -> None:
 
     # Scored rows for just this portfolio's holdings, via the dedicated
     # PORTFOLIO_FETCH lane — no full-universe scoring on the render path (WP-3).
-    _db_scr = _load_portfolio_scored(_db_pf).copy()
+    # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
+    # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
+    _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
