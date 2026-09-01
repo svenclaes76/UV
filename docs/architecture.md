@@ -206,7 +206,9 @@ The 0–10 fundamental scorers shared by the screener and the risk engine — `_
 
 #### `prices.py`
 
-`fetch_prices(tickers)` — live prices for many tickers in a batched yfinance call. Returns per-ticker current price, previous close, day change %, and volume.
+`fetch_prices(tickers)` — live prices for many tickers in a batched yfinance call. Returns per-ticker current price, previous close, day change %, volume, `as_of` (UTC), `stale`, and `quote_source` (`intraday` / `eod` / `stale`).
+
+> Cross-page data invariants — how the Dashboard / Portfolio / Risk / Analysis screens are kept consistent about prices, margin of safety, sectors, veto state and the risk score — are documented in [data-contracts.md](data-contracts.md) and locked by `tests/test_data_contracts.py`.
 
 #### `risk.py`
 

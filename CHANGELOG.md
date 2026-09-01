@@ -6,6 +6,10 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+### Documentation
+
+- `docs/data-contracts.md` — the cross-page invariants (price freshness, margin-of-safety reconciliation, one sector source, the three-state signal badge, position vs sector HHI, a single portfolio risk score, variance-based risk contribution), with `tests/test_data_contracts.py` as the regression layer that checks the screens actually agree (WP-DQ10).
+
 ### Fixed
 
 - Risk page: **"Contribution to risk"** is now percent contribution to portfolio variance — `wᵢ · (Σw)ᵢ` with `Σᵢⱼ = σᵢσⱼρᵢⱼ`, using each holding's own volatility and its correlation to the rest of the book — instead of `weight × |beta|`, which ignored idiosyncratic vol entirely and buried a 53%-vol / 0.39-beta name near the bottom of the list. Falls back to `weight × |beta|` (with a caption saying so) when there isn't enough correlated return history. No change to the composite risk score (WP-DQ9).
