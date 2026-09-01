@@ -231,7 +231,7 @@ def render() -> None:
         ]
     if _signal:
         _filtered = _filtered[_filtered.apply(
-            lambda r: signal_badge_for_decision(r.get("Decision", ""), veto=bool(r.get("veto")))[1] in _signal,
+            lambda r: signal_badge_for_decision(r.get("Decision"), veto=r.get("veto"))[1] in _signal,
             axis=1)]
     if _sector_sel and _sector_sel != "All sectors":
         _filtered = _filtered[_filtered.get("sector") == _sector_sel]
@@ -244,7 +244,7 @@ def render() -> None:
     _sort_dir = st.session_state.get("scr_sort_dir", "desc")
     if _sort_key == "signal":
         _filtered["_signal_label"] = _filtered.apply(
-            lambda r: signal_badge_for_decision(str(r.get("Decision", "")), veto=bool(r.get("veto")))[1], axis=1)
+            lambda r: signal_badge_for_decision(r.get("Decision"), veto=r.get("veto"))[1], axis=1)
     _sort_col = next(c for k, _, c in _SORT_COLUMNS if k == _sort_key)
     _filtered = _filtered.sort_values(
         _sort_col, ascending=(_sort_dir == "asc"), na_position="last").reset_index(drop=True)
@@ -306,7 +306,7 @@ def render() -> None:
             _result = stock_row(
                 key=f"scr_row_{_ridx}_{_ticker}",
                 ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
-                decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+                decision=str(_row.get("Decision", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=_in_wl,

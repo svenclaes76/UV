@@ -7,7 +7,7 @@ import streamlit as st
 
 import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
-from screener import load_fundamentals_cache
+from screener import load_fundamentals_cache, sector_for
 from settings import load_shared_settings
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
@@ -408,8 +408,9 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                     _cv = _hr.get("current_value")
                     _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
                     st.markdown(_holdings_row_html(
-                        ticker=_hr.get("ticker", ""), sector=_hr.get("sector"), name=_hr.get("name", ""),
-                        decision=_decision, veto=bool(_hr.get("veto")),
+                        ticker=_hr.get("ticker", ""),
+                        sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
+                        decision=_decision, veto=_hr.get("veto"),
                         price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, day_change_pct=_hr.get("day_change_pct"),
                     ), unsafe_allow_html=True)
@@ -437,7 +438,8 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         )
         _db_al = (
             _db_pf.dropna(subset=["current_value"])
-              .assign(sector=_db_pf["ticker"].map(_db_sector_map).fillna("Unknown"))
+              .assign(sector=_db_pf["ticker"].map(
+                  lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
               .groupby("sector")["current_value"].sum()
               .sort_values(ascending=False)
         )

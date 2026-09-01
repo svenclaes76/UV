@@ -204,6 +204,22 @@ class TestSectorRelativePE:
         assert out.iloc[0]["pe_fair_value"] == pytest.approx(40.0)
 
 
+class TestSectorFor:
+    def test_provider_value_wins(self):
+        assert screener.sector_for("RET.BR", "Real Estate") == "Real Estate"
+        # a provider value the override map disagrees with is still respected
+        assert screener.sector_for("MELE.BR", "Consumer Cyclical") == "Consumer Cyclical"
+
+    def test_override_used_when_provider_value_missing(self):
+        for _bad in (None, float("nan"), "", "  ", "nan"):
+            assert screener.sector_for("SYENS.BR", _bad) == "Basic Materials"
+            assert screener.sector_for("PROX.BR", _bad) == "Communication Services"
+
+    def test_returns_none_for_unknown_ticker_without_provider_value(self):
+        assert screener.sector_for("ZZZZ.BR", None) is None
+        assert screener.sector_for("ZZZZ.BR", float("nan")) is None
+
+
 class TestDDM:
     def test_single_stage_gordon(self):
         # D1 / (wacc − g) = 2×1.02 / (0.08 − 0.02) = 34.0

@@ -387,6 +387,14 @@ def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.Data
         _mos = ((_fv - _price) / _fv).where((_price > 0) & (_fv > 0))
         out["margin_of_safety"] = _mos
         out["MoS %"] = (_mos * 100).round(1)
+
+    # Curated sector fallback for provider-unclassified names (WP-DQ7) — so a
+    # drawer opened from the Portfolio page shows the same sector the Dashboard
+    # donut and the Risk page do.
+    from screener import sector_for
+    out["sector"] = [
+        sector_for(t, s) for t, s in zip(out["Ticker"], out.get("sector", pd.Series(index=out.index, dtype=object)))
+    ]
     return out
 
 

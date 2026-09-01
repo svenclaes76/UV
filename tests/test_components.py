@@ -8,7 +8,9 @@ or missing import fails loudly instead of only showing up visually.
 import pandas as pd
 from streamlit.testing.v1 import AppTest
 
-from uvalu.components import (signal_badge_for_decision, signal_badge_html,
+import numpy as np
+
+from uvalu.components import (signal_badge_for_decision, signal_badge_html, is_hard_veto,
                               score_color, radial_gauge_svg, sub_score_bar_html,
                               sparkline_svg, veto_reason_str, _fair_value_bar_html,
                               holdings_row_html, _score_bar_cell_html,
@@ -25,10 +27,23 @@ def test_signal_badge_for_decision_veto_overrides_decision():
     assert signal_badge_for_decision("Strong Buy", veto=True) == ("veto", "VETO")
 
 
-def test_signal_badge_for_decision_unknown_falls_back_to_avoid_kind():
-    kind, label = signal_badge_for_decision("Something Else")
-    assert kind == "avoid"
-    assert label == "SOMETHING ELSE"
+def test_signal_badge_for_decision_missing_decision_is_nodata_not_avoid():
+    # A holding with no scored screener row (fundamentals gap) has no Decision
+    # and a NaN veto cell — it must read as "NO DATA", never AVOID or (via
+    # bool(nan)) VETO (WP-DQ6).
+    assert signal_badge_for_decision("") == ("neutral", "NO DATA")
+    assert signal_badge_for_decision(None) == ("neutral", "NO DATA")
+    assert signal_badge_for_decision(np.nan) == ("neutral", "NO DATA")
+    assert signal_badge_for_decision("Something Else") == ("neutral", "NO DATA")
+    assert signal_badge_for_decision(np.nan, veto=np.nan) == ("neutral", "NO DATA")
+
+
+def test_is_hard_veto_is_nan_safe():
+    assert is_hard_veto(True) is True
+    assert is_hard_veto(False) is False
+    assert is_hard_veto(None) is False
+    assert is_hard_veto(np.nan) is False
+    assert is_hard_veto(1) is True
 
 
 def test_signal_badge_html_renders_expected_span():
@@ -322,6 +337,13 @@ class TestHoldingsRowHtml:
     def test_no_sector_omits_sector_pill(self):
         html = self._row(sector=None)
         assert "border-radius:5px;padding:1px 6px" not in html
+
+    def test_dataless_row_renders_nodata_badge_not_veto(self):
+        # A held ticker with no scored screener row merges in as NaN veto /
+        # empty decision — must be NO DATA, never VETO via bool(nan) (WP-DQ6).
+        html = self._row(decision="", veto=np.nan, fair_value=np.nan, mos_pct=np.nan)
+        assert "uv-badge-neutral" in html and ">NO DATA<" in html
+        assert "uv-badge-veto" not in html
 
 
 class TestScoreBarCellHtml:

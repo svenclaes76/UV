@@ -183,6 +183,31 @@ MIN_UNIVERSE_SIZE = 20
 # low coverage) still apply.
 LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
 
+# Sector fallback for tickers the fundamentals provider classifies as null — a
+# gap that otherwise leaves a held name in the "Unknown" bucket on every screen
+# (sector allocation donut, Risk-page sector HHI/concentration) and with no
+# sector tag on the Holdings row. Keyed by exact ticker; only consulted when the
+# provider's own `sector` is missing. Extend as gaps surface — these are stable
+# GICS-style classifications, not judgement calls.
+SECTOR_OVERRIDES = {
+    "RET.BR":   "Real Estate",            # Retail Estates NV — Belgian retail REIT
+    "SYENS.BR": "Basic Materials",        # Syensqo SA/NV — specialty chemicals
+    "MELE.BR":  "Technology",             # Melexis NV — automotive semiconductors
+    "PROX.BR":  "Communication Services", # Proximus PLC — telecom
+}
+
+
+def sector_for(ticker: object, raw_sector: object = None) -> "str | None":
+    """The sector to display/aggregate for ``ticker``: the provider's own value
+    when it has one, else a curated ``SECTOR_OVERRIDES`` fallback, else None.
+    Shared by every screen that reads a sector so the Holdings tag, the
+    allocation donut and the Risk-page concentration never disagree (WP-DQ7)."""
+    if raw_sector is not None and not (isinstance(raw_sector, float) and pd.isna(raw_sector)):
+        s = str(raw_sector).strip()
+        if s and s.lower() != "nan":
+            return s
+    return SECTOR_OVERRIDES.get(str(ticker).strip())
+
 MAX_WORKERS      = 4    # parallel yfinance requests
 REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff

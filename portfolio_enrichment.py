@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from screener import sector_for
+
 
 def enrich_for_risk(pf: pd.DataFrame, scored_by_ticker: pd.DataFrame | None,
                     live_prices: dict) -> pd.DataFrame:
@@ -35,7 +37,12 @@ def enrich_for_risk(pf: pd.DataFrame, scored_by_ticker: pd.DataFrame | None,
         return out["ticker"].map(scored_by_ticker[field])
 
     out["fair_value"]      = _scr("fair_value")
-    out["sector"]          = _scr("sector")
+    # Curated fallback for tickers the provider leaves unclassified, so the
+    # Risk page's sector concentration / HHI don't dump a quarter of the book
+    # into an "Unknown" bucket (WP-DQ7). Same helper the Dashboard donut and
+    # Holdings tags use, so the three never disagree.
+    _raw_sector            = _scr("sector")
+    out["sector"]          = [sector_for(t, s) for t, s in zip(out["ticker"], _raw_sector)]
     out["country"]         = _scr("country")
     out["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
     out["expected_annual"] = (out["div_rate"] * out["shares"]).round(2)

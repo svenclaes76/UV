@@ -147,7 +147,7 @@ def render() -> None:
             _result = stock_row(
                 key=f"wl_row_{_ridx}_{_ticker}",
                 ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
-                decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+                decision=str(_row.get("Decision", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=True, action_help="Remove from watchlist",

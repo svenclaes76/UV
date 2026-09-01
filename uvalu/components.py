@@ -23,11 +23,33 @@ _DECISION_BADGE = {
 _TIP_LABELS = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
 
 
-def signal_badge_for_decision(decision: str, veto: bool = False) -> tuple[str, str]:
-    """Map a screener Decision string (+ veto flag) to a (kind, label) badge pair."""
-    if veto:
+def is_hard_veto(v: object) -> bool:
+    """NaN-safe truthiness for a scored row's ``veto`` cell. A holding with no
+    scored screener row (fundamentals gap) merges in as NaN, and ``bool(nan)``
+    is ``True`` in Python — which was painting dataless rows as hard vetoes
+    (the 6-vs-5 "under hard veto" mismatch between the Holdings ladder and the
+    Risk page). Only a real truthy, non-NaN value counts."""
+    if v is None:
+        return False
+    if isinstance(v, float) and pd.isna(v):
+        return False
+    return bool(v)
+
+
+def signal_badge_for_decision(decision: object, veto: object = False) -> tuple[str, str]:
+    """Map a screener Decision string (+ veto flag) to a (kind, label) badge pair.
+
+    Three distinct states, not two: a real hard veto → VETO; a scored
+    BUY/MONITOR/AVOID → that; anything else (no Decision — the row has no
+    scored screener data at all) → a neutral "NO DATA" badge, so a
+    fundamentals gap never masquerades as an AVOID or, via ``bool(nan)``, a
+    VETO."""
+    if is_hard_veto(veto):
         return "veto", "VETO"
-    return _DECISION_BADGE.get(decision, ("avoid", decision.upper() if decision else "—"))
+    decision = "" if decision is None or (isinstance(decision, float) and pd.isna(decision)) else str(decision)
+    if decision in _DECISION_BADGE:
+        return _DECISION_BADGE[decision]
+    return "neutral", "NO DATA"
 
 
 def veto_reason_str(row: "pd.Series") -> str:
