@@ -216,3 +216,39 @@ class TestLoadingTier:
 
     def test_elevated(self):
         assert risk_page._loading_tier(2.0) == ("Elevated", "var(--down-txt)")
+
+
+class _P:
+    def __init__(self, ticker, weight, beta, vol_annual):
+        self.ticker, self.weight, self.beta, self.vol_annual = ticker, weight, beta, vol_annual
+
+
+class TestRiskContributions:
+    def test_falls_back_to_weight_times_abs_beta_without_corr(self):
+        profs = [_P("A", 0.6, 1.2, 0.30), _P("B", 0.4, 0.5, 0.20)]
+        raw, method = risk_page._risk_contributions(profs, None)
+        assert method == "beta"
+        assert raw == pytest.approx([0.6 * 1.2, 0.4 * 0.5])
+
+    def test_empty_profiles(self):
+        assert risk_page._risk_contributions([], None) == ([], "beta")
+
+    def test_variance_basis_lifts_a_high_vol_low_beta_name(self):
+        # B: half the beta of A but ~2x the vol. Under weight x |beta| its
+        # share is tiny; under the variance decomposition its own vol makes it
+        # a real contributor (the CEK.DE case from the review).
+        profs = [_P("A", 0.5, 1.2, 0.20), _P("B", 0.5, 0.4, 0.55)]
+        corr = pd.DataFrame([[1.0, 0.1], [0.1, 1.0]], index=["A", "B"], columns=["A", "B"])
+        raw, method = risk_page._risk_contributions(profs, corr)
+        assert method == "variance"
+        beta_share_B = (0.5 * 0.4) / (0.5 * 1.2 + 0.5 * 0.4)
+        var_share_B = raw[1] / sum(raw)
+        assert var_share_B > beta_share_B
+        assert var_share_B > 0.5          # the higher-vol name now dominates
+
+    def test_profile_missing_from_corr_matrix_still_contributes(self):
+        profs = [_P("A", 0.5, 1.0, 0.25), _P("ZZZ", 0.5, 1.0, 0.25)]
+        corr = pd.DataFrame([[1.0]], index=["A"], columns=["A"])   # ZZZ absent
+        raw, method = risk_page._risk_contributions(profs, corr)
+        assert method == "variance"
+        assert all(x >= 0 for x in raw) and sum(raw) > 0

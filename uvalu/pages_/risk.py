@@ -1,8 +1,10 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
+import numpy as np
 import pandas as pd
 import streamlit as st
 
 from portfolio import load_portfolio
+from risk import MARKET_DAILY_VOL, TRADING_DAYS
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
@@ -21,6 +23,58 @@ _FACTOR_NOTES = {
     "CMA":    "Investment conservatism tilt",
     "WML":    "Momentum tilt",
 }
+
+
+def _position_vol(p) -> float:
+    """A holding's annualised vol for the risk-contribution model: its own
+    realised vol when available, else a beta-implied proxy."""
+    if p.vol_annual is not None and p.vol_annual > 0:
+        return float(p.vol_annual)
+    return abs(p.beta if p.beta is not None else 1.0) * MARKET_DAILY_VOL * (TRADING_DAYS ** 0.5)
+
+
+def _risk_contributions(profiles: list, corr_matrix) -> tuple[list[float], str]:
+    """Non-negative raw risk contributions aligned 1:1 with ``profiles``.
+
+    Preferred basis is **percent contribution to portfolio variance**:
+    ``wᵢ · (Σw)ᵢ`` with ``Σᵢⱼ = σᵢ σⱼ ρᵢⱼ`` — it uses each holding's own
+    volatility and its correlation to the rest of the book, so an
+    idiosyncratic high-vol / low-beta name (a defence micro-cap, say) is no
+    longer understated the way ``weight × |beta|`` alone understated it
+    (WP-DQ9). Falls back to ``weight × |beta|`` when there is no usable
+    correlation history this run.
+
+    Returns ``(raw_contributions, method)`` where method is "variance" or
+    "beta".
+    """
+    n = len(profiles)
+    if n == 0:
+        return [], "beta"
+
+    w = np.array([float(p.weight or 0.0) for p in profiles])
+    beta_raw = list(w * np.array([abs(p.beta or 0.0) for p in profiles]))
+
+    if corr_matrix is None or getattr(corr_matrix, "empty", True):
+        return beta_raw, "beta"
+
+    vol = np.array([_position_vol(p) for p in profiles])
+    rho = np.eye(n)
+    col_ix = {str(t): i for i, t in enumerate(corr_matrix.columns)}
+    cvals = corr_matrix.values
+    present = {a: col_ix[profiles[a].ticker] for a in range(n) if profiles[a].ticker in col_ix}
+    for a in present:
+        for b in present:
+            if b <= a:
+                continue
+            c = cvals[present[a], present[b]]
+            if np.isfinite(c):
+                rho[a, b] = rho[b, a] = float(c)
+
+    cov = rho * np.outer(vol, vol)
+    mctr = np.clip(w * (cov @ w), 0.0, None)
+    if not np.isfinite(mctr).all() or mctr.sum() <= 0:
+        return beta_raw, "beta"
+    return list(mctr), "variance"
 
 
 def _loading_tier(abs_val: float) -> tuple[str, str]:
@@ -227,10 +281,11 @@ def render() -> None:
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
 
+        _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
         _contrib_rows = []
-        for p in r.position_profiles:
+        for p, _raw in zip(r.position_profiles, _contribs):
             _exch = next((v for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
-            _contrib_rows.append({"p": p, "exch": _exch, "raw": p.weight * abs(p.beta or 0)})
+            _contrib_rows.append({"p": p, "exch": _exch, "raw": float(_raw)})
         _total_raw = sum(row["raw"] for row in _contrib_rows) or 1.0
         _max_pct = max((row["raw"] / _total_raw * 100 for row in _contrib_rows), default=1.0) or 1.0
         _contrib_rows.sort(key=lambda row: row["raw"], reverse=True)
@@ -264,6 +319,15 @@ def render() -> None:
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]
                     if not _sel_row.empty:
                         _risk_dlg_pending.append((_sel_row.iloc[0],))
+
+        st.caption(
+            "Percent contribution to portfolio variance — each holding's weight × its "
+            "marginal contribution, from its own volatility and its correlation to the "
+            "rest of the book."
+            if _contrib_method == "variance" else
+            "Weight × |beta| — not enough correlated return history this run for the "
+            "full variance decomposition."
+        )
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:
