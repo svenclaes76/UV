@@ -6,6 +6,19 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.3.0] — 2026-09-01
+
+Data-integrity pass (WP-DQ1…DQ10) from a review of the Dashboard / Risk /
+Portfolio screens against the app's own numbers: the same portfolio no longer
+shows two risk scores, the Holdings ladder's price / fair value / margin of
+safety reconcile, sectors and hard-veto state agree across every screen, the
+price-freshness indicator tells the truth, and the concentration / risk-
+contribution figures measure what their labels claim.
+
 ### Documentation
 
 - `docs/data-contracts.md` — the cross-page invariants (price freshness, margin-of-safety reconciliation, one sector source, the three-state signal badge, position vs sector HHI, a single portfolio risk score, variance-based risk contribution), with `tests/test_data_contracts.py` as the regression layer that checks the screens actually agree (WP-DQ10).
