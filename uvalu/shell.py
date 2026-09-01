@@ -4,13 +4,38 @@ Replaces the old st.sidebar navigation (see app.py) with the mockup's dark
 top bar. Call render_topbar(nav) once per run, after st.navigation(...) is
 built but before nav.run() so the bar renders above the page body.
 """
-from datetime import datetime
-
 import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
+from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
+
+
+def _price_indicator() -> tuple[str, str]:
+    """(text, hex color) for the topbar price-freshness pill.
+
+    Reads the summary uvalu/data.py's _fetch_prices_cached() stashes in
+    session state on the price-bearing pages (Dashboard / Portfolio / Risk).
+    Falls back to the market clock alone on pages that never fetch prices, so
+    the pill never asserts "Live" when the feed is actually a stale daily
+    close (WP-DQ8).
+    """
+    _open = is_market_hours()
+    try:
+        status = st.session_state.get("_price_feed_status") or {}
+    except Exception:
+        status = {}
+    as_of = status.get("as_of")
+    _t = as_of.strftime("%H:%M") if as_of is not None else market_now().strftime("%H:%M")
+
+    if not _open:
+        return f"Market closed · {_t}", "#8A8A8A"
+    if status.get("stale"):
+        return f"Feed stale · {_t}", "#C98A3A"
+    if status.get("delayed"):
+        return f"Delayed {status['delayed']}/{status.get('total', 0)} · {_t}", "#C98A3A"
+    return f"Live · {_t}", "#1DD6A4"
 
 _NAV_ITEMS = (
     ("dashboard", "Dashboard"),
@@ -261,17 +286,19 @@ def render_topbar(nav) -> None:
         with col_right:
             with st.container(horizontal=True, gap="small", horizontal_alignment="right",
                               vertical_alignment="center"):
-                # "Live ·" + a pulsing dot, matching Uvalu.dc.html's asOf indicator —
-                # no "CET" suffix though, since the app has no real timezone
-                # awareness anywhere else (every other timestamp in the app is
-                # naive local time) and asserting one here would be its own
-                # small fabrication.
+                # A dot + status pill matching Uvalu.dc.html's asOf indicator,
+                # but driven by the real price feed (WP-DQ8): the time is the
+                # feed's own `as_of` in CET/CEST (the market timezone —
+                # meaningful here, unlike the app's naive-local timestamps
+                # elsewhere), and the label/colour tell live vs delayed vs
+                # market-closed instead of always claiming "Live".
+                _pi_text, _pi_color = _price_indicator()
                 st.markdown(
-                    '<div style="display:flex;align-items:center;gap:7px;font-size:11px;'
-                    'color:var(--faint);font-family:var(--uv-mono);">'
-                    '<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);'
-                    'box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>'
-                    f'Live · {datetime.now().strftime("%H:%M")}</div>',
+                    f'<div style="display:flex;align-items:center;gap:7px;font-size:11px;'
+                    f'color:var(--faint);font-family:var(--uv-mono);">'
+                    f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};'
+                    f'box-shadow:0 0 0 3px {_pi_color}2E;"></span>'
+                    f'{_pi_text}</div>',
                     unsafe_allow_html=True,
                 )
 

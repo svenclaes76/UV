@@ -204,6 +204,22 @@ class TestSectorRelativePE:
         assert out.iloc[0]["pe_fair_value"] == pytest.approx(40.0)
 
 
+class TestSectorFor:
+    def test_provider_value_wins(self):
+        assert screener.sector_for("RET.BR", "Real Estate") == "Real Estate"
+        # a provider value the override map disagrees with is still respected
+        assert screener.sector_for("MELE.BR", "Consumer Cyclical") == "Consumer Cyclical"
+
+    def test_override_used_when_provider_value_missing(self):
+        for _bad in (None, float("nan"), "", "  ", "nan"):
+            assert screener.sector_for("SYENS.BR", _bad) == "Basic Materials"
+            assert screener.sector_for("PROX.BR", _bad) == "Communication Services"
+
+    def test_returns_none_for_unknown_ticker_without_provider_value(self):
+        assert screener.sector_for("ZZZZ.BR", None) is None
+        assert screener.sector_for("ZZZZ.BR", float("nan")) is None
+
+
 class TestDDM:
     def test_single_stage_gordon(self):
         # D1 / (wacc − g) = 2×1.02 / (0.08 − 0.02) = 34.0
@@ -417,9 +433,87 @@ class TestFairValueBlend:
         assert smoothed["epv"] < peak["epv"]
 
 
+class TestFairValueSanityClamp:
+    """WP-DQ9: a blended fair value >FV_SANITY_MULT× price that only one model
+    agrees with is a single runaway model — clamp to the models' median."""
+
+    def test_clamps_to_median_when_one_model_runs_away(self):
+        # eps 20 → pe_fair_value 20×15 = 300 (the outlier). Graham ≈ 47,
+        # analyst 60×0.9 = 54. Blend would be ~130 (>2× the 50 price) but only
+        # pe_fv is that high → clamp to the 3-model median (54).
+        row = pd.Series({"Price": 50.0, "trailingEps": 20.0, "bookValue": 5.0,
+                         "targetMeanPrice": 60.0, "targetHighPrice": 63.0,
+                         "targetLowPrice": 57.0})
+        fv = _fair_value_models(row)
+        assert fv["pe_fair_value"] == pytest.approx(300.0)   # raw model untouched
+        assert fv["fair_value_clamped"] is True
+        assert fv["fair_value"] == pytest.approx(54.0, abs=0.5)
+
+    def test_no_clamp_when_models_corroborate_the_high_value(self):
+        # eps 8 → pe_fv 120; Graham √(22.5·8·40)=√7200≈84.9; analyst 130×0.9=117.
+        # Two of three land ≥2× the 50 price, so the blend is trusted as-is.
+        row = pd.Series({"Price": 50.0, "trailingEps": 8.0, "bookValue": 40.0,
+                         "targetMeanPrice": 130.0, "targetHighPrice": 138.0,
+                         "targetLowPrice": 122.0})
+        fv = _fair_value_models(row)
+        assert fv["fair_value_clamped"] is False
+        assert fv["fair_value"] > 2 * 50.0
+
+    def test_no_clamp_for_normal_valuations(self):
+        fv = _fair_value_models(pd.Series({"Price": 50.0, "trailingEps": 5.0,
+                                           "bookValue": 20.0, "targetMeanPrice": 60.0}))
+        assert fv["fair_value_clamped"] is False
+
+    def test_compute_scores_exposes_the_flag_column(self):
+        out = compute_scores(pd.DataFrame([
+            {"Name": "N", "Ticker": "N.BR", "Price": 50.0, "trailingEps": 20.0,
+             "bookValue": 5.0, "targetMeanPrice": 60.0,
+             "targetHighPrice": 63.0, "targetLowPrice": 57.0}]))
+        assert bool(out.iloc[0]["fair_value_clamped"]) is True
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 3 — MoS, TER, dividend sustainability
 # ══════════════════════════════════════════════════════════════════════════════
+
+class TestDecisionReason:
+    """WP-DQ9: one-line explanation of a row's Decision, mirroring
+    compute_scores Stage 6."""
+
+    def test_strong_buy_states_both_conditions_met(self):
+        r = pd.Series({"Decision": "Strong Buy", "Value Score": 82.0,
+                       "margin_of_safety": 0.25, "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "82" in msg and "25%" in msg and "both BUY conditions met" in msg
+
+    def test_monitor_names_the_failing_gates(self):
+        # score below the BUY bar AND a negative MoS -> both gates listed;
+        # still Monitor (not Avoid) because score clears the 40 floor.
+        r = pd.Series({"Decision": "Monitor", "Value Score": 46.0,
+                       "margin_of_safety": -0.22, "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert msg.startswith("Not a BUY:")
+        assert "below the 70 BUY threshold" in msg
+        assert "-22% is below the +0% minimum" in msg
+
+    def test_monitor_flags_missing_fair_value(self):
+        r = pd.Series({"Decision": "Monitor", "Value Score": 55.0,
+                       "margin_of_safety": float("nan"), "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "no computable fair value" in msg
+
+    def test_avoid_points_at_the_score_floor_not_the_mos(self):
+        # MONT.BR-style: barely-negative MoS but Avoid — driven by score < 40.
+        r = pd.Series({"Decision": "Avoid", "Value Score": 31.0,
+                       "margin_of_safety": -0.01, "veto": False})
+        msg = screener.decision_reason(r)
+        assert msg == "Composite score 31 is below the 40 Avoid floor."
+
+    def test_veto_short_circuits(self):
+        r = pd.Series({"Decision": "Avoid", "Value Score": 0.0,
+                       "margin_of_safety": 0.4, "veto": True})
+        assert "Hard veto active" in screener.decision_reason(r)
+
 
 class TestStage3:
     def test_margin_of_safety(self):
@@ -1537,6 +1631,10 @@ class TestStage2:
 
         assert c.sector_weights["Energy"] == pytest.approx(0.70)
         assert c.largest_sector == "Energy" and c.sector_flag
+        # sector-level HHI is distinct from the position-level `hhi` above:
+        # Energy 0.70, Utilities 0.30 -> 0.49 + 0.09
+        assert c.sector_hhi == pytest.approx(0.58)
+        assert c.sector_hhi_label == "Highly concentrated"
         assert c.geo_weights["Germany"] == pytest.approx(0.90)
         assert c.largest_geo == "Germany" and c.geo_flag
 
@@ -1554,9 +1652,35 @@ class TestStage2:
         assert c.hhi_label == "Well diversified"
         assert not (c.top1_flag or c.top3_flag or c.top5_flag)
 
+    def test_equal_weight_portfolio_sector_hhi(self):
+        # 12 equal sectors across 20 names -> sector weights ~0.10/0.10/0.05...
+        pf = pd.DataFrame([{"ticker": f"T{i}", "current_value": 5.0,
+                            "sector": f"S{i % 12}", "country": f"C{i % 5}",
+                            "expected_annual": 1.0} for i in range(20)])
+        c = _stage2_concentration(pf, 100.0)
+        # 8 sectors at 0.10 (two names each) + 4 at 0.05 -> 8*0.01 + 4*0.0025
+        assert c.sector_hhi == pytest.approx(0.09)
+        assert c.sector_hhi_label == "Well diversified"
+
+    def test_missing_sector_metadata_buckets_as_unknown_not_nan(self):
+        # A DataFrame cell with no value comes through as float NaN, which is
+        # truthy — the old `str(v or "Unknown")` leaked the literal "nan".
+        pf = pd.DataFrame([
+            {"ticker": "A", "current_value": 60.0, "sector": float("nan"),
+             "country": None, "expected_annual": 0.0},
+            {"ticker": "B", "current_value": 40.0, "sector": "Tech",
+             "country": "France", "expected_annual": 0.0},
+        ])
+        c = _stage2_concentration(pf, 100.0)
+        assert "nan" not in c.sector_weights and "nan" not in c.geo_weights
+        assert c.sector_weights["Unknown"] == pytest.approx(0.60)
+        assert c.geo_weights["Unknown"] == pytest.approx(0.60)
+        assert c.largest_sector == "Unknown"
+
     def test_empty_portfolio_value(self):
-        pf = pd.DataFrame([{"ticker": "A", "current_value": 0.0}])
-        assert _stage2_concentration(pf, 0.0).hhi_label == "N/A"
+        _c = _stage2_concentration(pd.DataFrame([{"ticker": "A", "current_value": 0.0}]), 0.0)
+        assert _c.hhi_label == "N/A"
+        assert _c.sector_hhi_label == "N/A"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,15 +1,11 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
-from datetime import date, datetime, timezone
-
+import numpy as np
 import pandas as pd
 import streamlit as st
 
-import risk as _risk_module
-from portfolio import (load_portfolio, load_sold, load_targets,
-                       load_risk_snapshot, save_risk_snapshot)
-from portfolio_enrichment import enrich_for_risk
-from screener import load_fundamentals_cache
-from uvalu.data import _fetch_prices_cached, _load_portfolio_scored
+from portfolio import load_portfolio
+from risk import MARKET_DAILY_VOL, TRADING_DAYS
+from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
 from uvalu.ui import price_autorefresh
@@ -27,6 +23,58 @@ _FACTOR_NOTES = {
     "CMA":    "Investment conservatism tilt",
     "WML":    "Momentum tilt",
 }
+
+
+def _position_vol(p) -> float:
+    """A holding's annualised vol for the risk-contribution model: its own
+    realised vol when available, else a beta-implied proxy."""
+    if p.vol_annual is not None and p.vol_annual > 0:
+        return float(p.vol_annual)
+    return abs(p.beta if p.beta is not None else 1.0) * MARKET_DAILY_VOL * (TRADING_DAYS ** 0.5)
+
+
+def _risk_contributions(profiles: list, corr_matrix) -> tuple[list[float], str]:
+    """Non-negative raw risk contributions aligned 1:1 with ``profiles``.
+
+    Preferred basis is **percent contribution to portfolio variance**:
+    ``wᵢ · (Σw)ᵢ`` with ``Σᵢⱼ = σᵢ σⱼ ρᵢⱼ`` — it uses each holding's own
+    volatility and its correlation to the rest of the book, so an
+    idiosyncratic high-vol / low-beta name (a defence micro-cap, say) is no
+    longer understated the way ``weight × |beta|`` alone understated it
+    (WP-DQ9). Falls back to ``weight × |beta|`` when there is no usable
+    correlation history this run.
+
+    Returns ``(raw_contributions, method)`` where method is "variance" or
+    "beta".
+    """
+    n = len(profiles)
+    if n == 0:
+        return [], "beta"
+
+    w = np.array([float(p.weight or 0.0) for p in profiles])
+    beta_raw = list(w * np.array([abs(p.beta or 0.0) for p in profiles]))
+
+    if corr_matrix is None or getattr(corr_matrix, "empty", True):
+        return beta_raw, "beta"
+
+    vol = np.array([_position_vol(p) for p in profiles])
+    rho = np.eye(n)
+    col_ix = {str(t): i for i, t in enumerate(corr_matrix.columns)}
+    cvals = corr_matrix.values
+    present = {a: col_ix[profiles[a].ticker] for a in range(n) if profiles[a].ticker in col_ix}
+    for a in present:
+        for b in present:
+            if b <= a:
+                continue
+            c = cvals[present[a], present[b]]
+            if np.isfinite(c):
+                rho[a, b] = rho[b, a] = float(c)
+
+    cov = rho * np.outer(vol, vol)
+    mctr = np.clip(w * (cov @ w), 0.0, None)
+    if not np.isfinite(mctr).all() or mctr.sum() <= 0:
+        return beta_raw, "beta"
+    return list(mctr), "variance"
 
 
 def _loading_tier(abs_val: float) -> tuple[str, str]:
@@ -51,69 +99,22 @@ def render() -> None:
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
 
-    # Scored rows for held + sold tickers via the portfolio's own fetch lane
-    # (uvalu/data.py's PORTFOLIO_FETCH) — no full-universe scoring on the
-    # render path (WP-3). One row per ticker already; feeds _veto_lookup
-    # (assess_portfolio's Stage-8 rebalance trigger + the holdings-table Flag
-    # column) and enrich_for_risk's fair-value/sector/dividend lookup.
-    _risk_scr_df = _load_portfolio_scored(pf, load_sold())
+    # Build (or reuse the session-cached) risk report via the shared builder in
+    # uvalu/data.py — the SAME call path the Dashboard's Conviction & risk card
+    # uses, so the two screens can never show different composite scores for
+    # one portfolio (WP-DQ4). It also returns the scored held+sold frame and
+    # the hard-veto lookup this page needs below for the Flag column, the
+    # concentration alert and the per-holding drawer.
+    try:
+        _bundle = load_portfolio_risk(pf)
+    except Exception as _risk_err:
+        st.error(f"Risk assessment failed: {_risk_err}")
+        st.stop()
 
-    # Real hard-veto lookup (screener's own `veto` column) — feeds both
-    # assess_portfolio()'s Stage 8 rebalance trigger below and the concentration
-    # alert box / holdings table's Flag column further down.
-    _veto_lookup = _risk_scr_df.set_index("Ticker")["veto"].to_dict() if "veto" in _risk_scr_df.columns else {}
-
-    # ── Enrich the portfolio for the risk engine — live price + the
-    # fundamentals-derived fields (fair value, sector, country, dividend rate)
-    # looked up from the screener's own scored DataFrame so this page's numbers
-    # match the Screener/Analysis pages. See portfolio_enrichment. ────────────
-    _risk_scr_by_ticker = _risk_scr_df.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
-    _risk_live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
-    pf = enrich_for_risk(pf, _risk_scr_by_ticker, _risk_live)
-
-    _risk_full_cache = load_fundamentals_cache()
-
-    _income_portfolio = False
-
-    # Target allocation + the prior day's snapshot feed Stage 8's drift triggers.
-    _targets        = load_targets()
-    _prior_snapshot = load_risk_snapshot()
-
-    # ── Cached risk report (1-hour TTL stored in session_state) ──────────────
-    # Not keyed on the snapshot: writing today's snapshot below would otherwise
-    # self-invalidate the cache on the very next render. The 1-hour TTL covers
-    # day rollover in practice.
-    _risk_cache_key = str((tuple(sorted(pf["ticker"].tolist())), _income_portfolio,
-                           tuple(sorted(_veto_lookup.items())),
-                           repr(sorted(_targets.items()))))
-    _risk_cached    = st.session_state.get("_risk_report_cache", {})
-    _risk_report: _risk_module.RiskReport | None = None
-
-    if (_risk_cached.get("key") == _risk_cache_key and "report" in _risk_cached):
-        _gen_at = datetime.fromisoformat(_risk_cached["report"].generated_at)
-        _age_s  = (datetime.now(timezone.utc) - _gen_at).total_seconds()
-        if _age_s < 3600:
-            _risk_report = _risk_cached["report"]
-
-    if _risk_report is None:
-        try:
-            _risk_report = _risk_module.assess_portfolio(
-                pf, _risk_full_cache, _income_portfolio, _veto_lookup,
-                targets=_targets, prior_snapshot=_prior_snapshot)
-            st.session_state["_risk_report_cache"] = {"key": _risk_cache_key, "report": _risk_report}
-        except Exception as _risk_err:
-            st.error(f"Risk assessment failed: {_risk_err}")
-            st.stop()
-
-        # Upsert today's snapshot as the reference point for future drift
-        # checks — only once per day, so the diff is against a real prior run.
-        if _prior_snapshot.get("date") != date.today().isoformat():
-            try:
-                save_risk_snapshot(_risk_module.snapshot_from_report(_risk_report))
-            except Exception:
-                pass
-
-    r = _risk_report
+    _risk_scr_df = _bundle.scored
+    _veto_lookup = _bundle.veto_lookup
+    pf           = _bundle.pf
+    r            = _bundle.report
 
     # ══ Top section — score gauge, factor/concentration, risk contribution ═══
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
@@ -136,7 +137,7 @@ def render() -> None:
     <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
   </div>
 </div>
-<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label} risk</div>
+<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
@@ -156,7 +157,7 @@ def render() -> None:
             ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label),
             ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label),
             ("VAR 95% (1D)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A", "Max expected 1-day loss"),
-            ("SECTOR HHI", f"{r.concentration.hhi:.2f}", r.concentration.hhi_label),
+            ("SECTOR HHI", f"{r.concentration.sector_hhi:.2f}", r.concentration.sector_hhi_label),
         ]
         _cells = "".join(
             f'<div style="padding:18px 20px;">'
@@ -213,11 +214,9 @@ def render() -> None:
         # country — geo concentration is still surfaced via the flag banner
         # below when c.geo_flag trips, just not as one of these 3 bars.
         # Top 3's 35% limit is the same real threshold top3_flag already uses.
-        # pd.notna(), not a bare truthiness check — a position missing sector
-        # metadata makes largest_sector an actual NaN float (not None), and
-        # NaN is truthy in Python (same recurring gotcha noted across this
-        # redesign, see [[uvalu-redesign-v2]]) — `if c.largest_sector` let the
-        # literal string "nan" through into the label/flag text.
+        # largest_sector is now always a real string (risk._category_label
+        # collapses missing/NaN sector metadata to "Unknown" upstream, WP-DQ3);
+        # pd.notna() stays as belt-and-braces for the empty-portfolio None.
         _has_sector = pd.notna(c.largest_sector)
         _sector_label = f"Largest sector — {c.largest_sector}" if _has_sector else "Largest sector"
         for _label, _val, _limit in [
@@ -282,10 +281,11 @@ def render() -> None:
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
 
+        _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
         _contrib_rows = []
-        for p in r.position_profiles:
+        for p, _raw in zip(r.position_profiles, _contribs):
             _exch = next((v for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
-            _contrib_rows.append({"p": p, "exch": _exch, "raw": p.weight * abs(p.beta or 0)})
+            _contrib_rows.append({"p": p, "exch": _exch, "raw": float(_raw)})
         _total_raw = sum(row["raw"] for row in _contrib_rows) or 1.0
         _max_pct = max((row["raw"] / _total_raw * 100 for row in _contrib_rows), default=1.0) or 1.0
         _contrib_rows.sort(key=lambda row: row["raw"], reverse=True)
@@ -319,6 +319,15 @@ def render() -> None:
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]
                     if not _sel_row.empty:
                         _risk_dlg_pending.append((_sel_row.iloc[0],))
+
+        st.caption(
+            "Percent contribution to portfolio variance — each holding's weight × its "
+            "marginal contribution, from its own volatility and its correlation to the "
+            "rest of the book."
+            if _contrib_method == "variance" else
+            "Weight × |beta| — not enough correlated return history this run for the "
+            "full variance decomposition."
+        )
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:

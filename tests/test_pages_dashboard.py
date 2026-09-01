@@ -12,6 +12,7 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 import risk as risk_module
+import uvalu.data as uv_data
 from uvalu import nav as nav_registry
 from uvalu.pages_ import dashboard as dashboard_page
 from tests.conftest import (make_scored_row, make_scored_df, make_portfolio_df,
@@ -59,17 +60,24 @@ nav_registry.pages["risk"] = st.Page(lambda: None, title="Risk")
 
 
 def _run(monkeypatch, scored=None, with_risk_cache=False, prices=None) -> AppTest:
-    monkeypatch.setattr(dashboard_page, "_load_portfolio_scored",
-                        fake_portfolio_scored(override=scored))
+    _fake_scored = fake_portfolio_scored(override=scored)
+    _fake_cache = lambda: ({"AAA.BR": {"Price": 100.0}} if with_risk_cache else {})
+    _fake_prices = lambda tickers: prices or {
+        t: {"price": 110.0, "prev_close": 108.0, "day_change_pct": 1.8, "volume": 1000} for t in tickers
+    }
+    monkeypatch.setattr(dashboard_page, "_load_portfolio_scored", _fake_scored)
     # A non-empty cache is required to even ENTER the risk-assessment try
     # block (`if ... and _db_risk_cache:`) — most tests leave this empty to
     # skip that path entirely and keep runs fast; the dedicated risk-card
     # tests below turn it on.
-    monkeypatch.setattr(dashboard_page, "load_fundamentals_cache",
-                        lambda: ({"AAA.BR": {"Price": 100.0}} if with_risk_cache else {}))
-    monkeypatch.setattr(dashboard_page, "_fetch_prices_cached", lambda tickers: prices or {
-        t: {"price": 110.0, "prev_close": 108.0, "day_change_pct": 1.8, "volume": 1000} for t in tickers
-    })
+    monkeypatch.setattr(dashboard_page, "load_fundamentals_cache", _fake_cache)
+    monkeypatch.setattr(dashboard_page, "_fetch_prices_cached", _fake_prices)
+    # The risk-card path now goes through uvalu.data.load_portfolio_risk (the
+    # shared builder the Risk page also uses, WP-DQ4), which reads these names
+    # from the uvalu.data module namespace rather than the page's.
+    monkeypatch.setattr(uv_data, "_load_portfolio_scored", _fake_scored)
+    monkeypatch.setattr(uv_data, "load_fundamentals_cache", _fake_cache)
+    monkeypatch.setattr(uv_data, "_fetch_prices_cached", _fake_prices)
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
 

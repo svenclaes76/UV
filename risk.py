@@ -123,7 +123,7 @@ class PositionRisk:
 
 @dataclass
 class ConcentrationMetrics:
-    hhi: float
+    hhi: float                      # position-level Herfindahl (Σ wᵢ²) — feeds the composite score
     hhi_label: str
     top1_weight: float
     top1_ticker: str
@@ -141,6 +141,8 @@ class ConcentrationMetrics:
     div_hhi: float | None
     div_top3_pct: float | None
     income_concentration_flag: bool
+    sector_hhi: float = 0.0         # sector-level Herfindahl (Σ sector_weight²) — what the Risk page's "Sector HHI" tile shows
+    sector_hhi_label: str = "N/A"
 
 
 @dataclass
@@ -520,6 +522,17 @@ def _hhi_label(hhi: float) -> str:
     return "Highly concentrated"
 
 
+def _category_label(v: object) -> str:
+    """Sector / country bucket name — NaN-safe. A DataFrame cell with no value
+    arrives as a float NaN, which is truthy in Python, so `v or "Unknown"`
+    let the literal string "nan" leak into the labels and flag text (the
+    recurring gotcha noted across this codebase). Empty strings collapse to
+    "Unknown" too."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return "Unknown"
+    return str(v).strip() or "Unknown"
+
+
 def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> ConcentrationMetrics:
     _empty = ConcentrationMetrics(
         hhi=0.0, hhi_label="N/A", top1_weight=0.0, top1_ticker="",
@@ -527,6 +540,7 @@ def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> Concentration
         top5_flag=False, sector_weights={}, largest_sector=None, sector_flag=False,
         geo_weights={}, largest_geo=None, geo_flag=False,
         div_hhi=None, div_top3_pct=None, income_concentration_flag=False,
+        sector_hhi=0.0, sector_hhi_label="N/A",
     )
     if total_value <= 0:
         return _empty
@@ -545,12 +559,16 @@ def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> Concentration
     # Sector weights
     sec_map: dict[str, float] = {}
     for _, row in pf.iterrows():
-        sec = str(row.get("sector") or "Unknown")
+        sec = _category_label(row.get("sector"))
         val = _safe(row.get("current_value"), 0)
         sec_map[sec] = sec_map.get(sec, 0.0) + val / total_value
     sec_map = {k: round(v, 4) for k, v in sorted(sec_map.items(), key=lambda x: -x[1])}
     largest_sector = next(iter(sec_map), None)
     sec_vals = list(sec_map.values())
+    # Sector-level Herfindahl (Σ sector_weight²) — the real "how concentrated
+    # across sectors" number, distinct from `hhi` above which is the
+    # position-count Herfindahl. The Risk page's "Sector HHI" tile shows this.
+    sector_hhi = float(sum(v ** 2 for v in sec_vals))
     sector_flag = bool(
         (largest_sector and sec_map.get(largest_sector, 0) > 0.30)
         or (len(sec_vals) >= 2 and sec_vals[0] + sec_vals[1] > 0.50)
@@ -559,7 +577,7 @@ def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> Concentration
     # Geographic weights
     geo_map: dict[str, float] = {}
     for _, row in pf.iterrows():
-        geo = str(row.get("country") or "Unknown")
+        geo = _category_label(row.get("country"))
         val = _safe(row.get("current_value"), 0)
         geo_map[geo] = geo_map.get(geo, 0.0) + val / total_value
     geo_map = {k: round(v, 4) for k, v in sorted(geo_map.items(), key=lambda x: -x[1])}
@@ -596,6 +614,8 @@ def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> Concentration
         div_hhi=round(div_hhi, 4) if div_hhi is not None else None,
         div_top3_pct=round(top3_inc, 4) if top3_inc is not None else None,
         income_concentration_flag=bool(top3_inc and top3_inc > 0.50),
+        sector_hhi=round(sector_hhi, 4),
+        sector_hhi_label=_hhi_label(sector_hhi),
     )
 
 
@@ -741,7 +761,12 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         mdd_1y=round(float(mdd_1y), 4) if mdd_1y is not None else None,
         mdd_3y=round(float(mdd_3y), 4) if mdd_3y is not None else None,
         mdd_5y=round(float(mdd_5y), 4) if mdd_5y is not None else None,
-        mdd_label=_mdd_label(mdd_5y if mdd_5y is not None else mdd_1y),
+        # Tier word must describe the same window as the number shown next to
+        # it — the Risk page renders `mdd_1y` under a "(1Y)" heading, so the
+        # label is derived from the 1Y drawdown (falling back to 5Y only when
+        # there isn't a full year of history). The composite score still uses
+        # the deeper 5Y figure independently (see _stage7_composite).
+        mdd_label=_mdd_label(mdd_1y if mdd_1y is not None else mdd_5y),
         sharpe=round(float(sharpe), 2) if sharpe is not None else None,
         sortino=round(float(sortino), 2) if sortino is not None else None,
         ratio_label=_sharpe_label(sharpe),

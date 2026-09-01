@@ -127,13 +127,13 @@ def render() -> None:
     # Upside/Price/P-E/Yield are right-aligned (matching their own
     # right-aligned data cells in stock_row); Position/Signal/Composite
     # score stay left-aligned like their left-anchored cells.
-    _hh_right = {"Upside", "Price", "P/E", "Yield"}
+    _hh_right = {"Margin of safety", "Price", "P/E", "Yield"}
 
     with st.container(key="wl_table_card", border=True):
         with st.container(key="wl_col_header"):
             _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
             for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
-                                             "Upside", "Price", "P/E", "Yield")):
+                                             "Margin of safety", "Price", "P/E", "Yield")):
                 if _label:
                     _align = "right" if _label in _hh_right else "left"
                     with _hh:
@@ -147,7 +147,7 @@ def render() -> None:
             _result = stock_row(
                 key=f"wl_row_{_ridx}_{_ticker}",
                 ticker=_ticker, name=_row.get("Name", ""), exchange=_row.get("Exchange"),
-                decision=str(_row.get("Decision", "")), veto=bool(_row.get("veto")),
+                decision=str(_row.get("Decision", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=True, action_help="Remove from watchlist",

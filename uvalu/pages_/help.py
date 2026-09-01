@@ -41,6 +41,9 @@ _SIGNAL_LEGEND = [
     ("avoid", "AVOID", "Composite score falls well below the BUY threshold."),
     ("veto", "VETO", "A hard-veto rule tripped (see below) — excluded from BUY scoring no matter "
                      "what the composite score would otherwise be."),
+    ("neutral", "NO DATA", "No scored screener row for this holding — the fundamentals feed "
+                           "returned nothing (or no price) for it, so there is no fair value, "
+                           "score or signal to show. Not a veto."),
 ]
 
 _MODELS = [

@@ -17,9 +17,11 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_watchlist, load_portfolio
+from screener import decision_reason
+from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_ladder, veto_reason_str)
+                              fair_value_ladder, veto_reason_str, is_hard_veto)
 from uvalu.dialogs import add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
@@ -139,7 +141,7 @@ def open_drawer(row: "pd.Series") -> None:
     st.markdown(f"<style>{_DRAWER_CSS}</style>", unsafe_allow_html=True)
 
     ticker = str(row.get("Ticker", ""))
-    kind, label = signal_badge_for_decision(str(row.get("Decision", "")), veto=bool(row.get("veto")))
+    kind, label = signal_badge_for_decision(row.get("Decision"), veto=row.get("veto"))
 
     # Prefer a live price when the row has one — dashboard.py's holdings
     # table merges in a 60s-fresh live_price alongside the screener's own
@@ -204,7 +206,7 @@ def open_drawer(row: "pd.Series") -> None:
         f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_ter_color};">{_fv(row, "TER %", lambda v: f"{v:+.1f}%")}</div></div>'
         f'</div>', unsafe_allow_html=True)
 
-    if row.get("veto"):
+    if is_hard_veto(row.get("veto")):
         st.markdown(
             f'<div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
@@ -212,6 +214,9 @@ def open_drawer(row: "pd.Series") -> None:
             f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">Hard veto triggered</div>'
             f'<div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True)
+    else:
+        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     _section_header("Six-model fair value")
     if pd.notna(_price):
@@ -235,6 +240,9 @@ def open_drawer(row: "pd.Series") -> None:
             composite=row.get("fair_value"),
             bar_width=96,
         )
+        if bool(row.get("fair_value_clamped")):
+            st.caption("⚑ Composite capped at the models' median — one model ran "
+                       "far above the rest.")
 
     # ── Position & metrics — matches Uvalu.dc.html's rowsD builder exactly:
     # 4 always-shown fields, then either 3 held-position fields or a single
@@ -248,7 +256,7 @@ def open_drawer(row: "pd.Series") -> None:
             _held_row = _match.iloc[0]
     _held = _held_row is not None
 
-    _veto = bool(row.get("veto"))
+    _veto = is_hard_veto(row.get("veto"))
     _score = row.get("Value Score")
     _score_str = "excluded" if _veto else _fv(row, "Value Score", lambda v: f"{v:.0f} / 100")
     _score_color = "var(--down-txt)" if _veto else ("var(--mint)" if pd.notna(_score) else "inherit")

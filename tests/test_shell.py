@@ -38,6 +38,35 @@ class TestDisplayName:
         assert shell._display_name("") == ""
 
 
+class TestPriceIndicator:
+    """WP-DQ8: the topbar pill reflects the real price feed, not a hardcoded
+    'Live'."""
+
+    @pytest.fixture(autouse=True)
+    def _no_session(self, monkeypatch):
+        # Force the session-state read to miss so each test controls `status`.
+        monkeypatch.setattr(shell.st, "session_state", {}, raising=False)
+
+    def test_market_closed_is_grey_and_not_live(self, monkeypatch):
+        monkeypatch.setattr(shell, "is_market_hours", lambda: False)
+        text, color = shell._price_indicator()
+        assert text.startswith("Market closed") and color == "#8A8A8A"
+
+    def test_all_intraday_is_live_mint(self, monkeypatch):
+        monkeypatch.setattr(shell, "is_market_hours", lambda: True)
+        shell.st.session_state["_price_feed_status"] = {
+            "as_of": None, "total": 5, "intraday": 5, "delayed": 0, "stale": 0}
+        text, color = shell._price_indicator()
+        assert text.startswith("Live") and color == "#1DD6A4"
+
+    def test_delayed_names_show_amber_count(self, monkeypatch):
+        monkeypatch.setattr(shell, "is_market_hours", lambda: True)
+        shell.st.session_state["_price_feed_status"] = {
+            "as_of": None, "total": 8, "intraday": 5, "delayed": 3, "stale": 0}
+        text, color = shell._price_indicator()
+        assert "3/8" in text and color == "#C98A3A"
+
+
 def _run_topbar(active_path="dashboard", is_admin=False, register_admin=True):
     script = f"""
 import streamlit as st

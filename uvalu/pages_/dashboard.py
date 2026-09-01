@@ -7,9 +7,10 @@ import streamlit as st
 
 import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
-from screener import load_fundamentals_cache
+from screener import load_fundamentals_cache, sector_for
 from settings import load_shared_settings
-from uvalu.data import _load_portfolio_scored, _fetch_prices_cached
+from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
+                        load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
@@ -79,7 +80,9 @@ def render() -> None:
 
     # Scored rows for just this portfolio's holdings, via the dedicated
     # PORTFOLIO_FETCH lane — no full-universe scoring on the render path (WP-3).
-    _db_scr = _load_portfolio_scored(_db_pf).copy()
+    # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
+    # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
+    _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
@@ -132,9 +135,9 @@ def render() -> None:
             else:
                 _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
         with _k4:
-            _kpi_card("Avg fair value upside",
+            _kpi_card("Avg margin of safety",
                      f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                     "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
+                     "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
 
     st.container(height=4, border=False, key="db_gap_1")
 
@@ -254,17 +257,20 @@ def render() -> None:
                 _conv_score = float((_scr_vs.fillna(0) * _w).sum() / _w.sum())
         _n_veto = int(_db_scr.get("veto", pd.Series(dtype=bool)).fillna(False).sum()) if "veto" in _db_scr.columns else 0
 
-        # Real bug fixed: `.composite.total`/`.quant.max_drawdown` don't
-        # exist on RiskReport (the real fields are `.composite.score` and
-        # `.quant.mdd_1y` — see risk.py) — this silently raised inside the
-        # bare except below on every real portfolio, so the risk-score bar
-        # and Beta/Volatility/Max-drawdown row never actually rendered.
+        # Risk report comes from the SAME shared builder the Risk page uses
+        # (uvalu/data.py::load_portfolio_risk) — session-cached, enriched
+        # frame, hard-veto lookup, targets — so the score shown here can never
+        # disagree with the Risk page's gauge for one portfolio (WP-DQ4). It
+        # used to call assess_portfolio(_db_pf, cache, False) with none of
+        # that, which drifted a few points (Dashboard 32 vs Risk page 29).
+        # The `_db_risk_cache` gate is kept: a cold fundamentals cache means
+        # assess_portfolio would do an unpriced history fetch for nothing.
         _db_risk_cache = load_fundamentals_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
-                _db_report = _risk_module.assess_portfolio(_db_pf, _db_risk_cache, False)
+                _db_report = load_portfolio_risk(_db_pf).report
                 _risk_score = float(_db_report.composite.score)
                 # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50) —
                 # not separate hand-picked numbers — so this card's Low/
@@ -359,7 +365,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
 
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")
+                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Margin of safety", "Weight", "Value", "Today")
                 _hh_cells = "".join(
                     f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
@@ -401,11 +407,14 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                     _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
                     _cv = _hr.get("current_value")
                     _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
+                    _ps = _hr.get("price_stale")
                     st.markdown(_holdings_row_html(
-                        ticker=_hr.get("ticker", ""), sector=_hr.get("sector"), name=_hr.get("name", ""),
-                        decision=_decision, veto=bool(_hr.get("veto")),
+                        ticker=_hr.get("ticker", ""),
+                        sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
+                        decision=_decision, veto=_hr.get("veto"),
                         price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, day_change_pct=_hr.get("day_change_pct"),
+                        price_stale=bool(_ps) if pd.notna(_ps) else False,
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):
@@ -431,7 +440,8 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         )
         _db_al = (
             _db_pf.dropna(subset=["current_value"])
-              .assign(sector=_db_pf["ticker"].map(_db_sector_map).fillna("Unknown"))
+              .assign(sector=_db_pf["ticker"].map(
+                  lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
               .groupby("sector")["current_value"].sum()
               .sort_values(ascending=False)
         )

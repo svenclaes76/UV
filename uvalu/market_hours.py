@@ -18,8 +18,14 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 _TZ    = ZoneInfo("Europe/Brussels")   # CET/CEST, DST handled by the tz database
+MARKET_TZ = _TZ                        # public alias for callers that render market-local times
 _OPEN  = time(9, 0)
 _CLOSE = time(17, 30)
+
+
+def market_now() -> datetime:
+    """Current wall-clock time in the shared market timezone (CET/CEST)."""
+    return datetime.now(_TZ)
 
 
 def is_market_hours(now: datetime | None = None) -> bool:

@@ -123,6 +123,15 @@ W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
 W_ANALYST    = 0.130
 
+# Composite fair-value sanity guard. A blended fair value above this multiple of
+# the current price is only trusted when at least two of the individual models
+# independently land that high — otherwise it's a single runaway model (a DDM
+# with WACC barely above g, a stale REIT NAV) dragging the weighted mean up, and
+# the composite is clamped to the models' median (never below the current
+# price). REIT / NAV-style names are the usual offenders; a proper P/B-anchored
+# model for that cohort is the real fix, this is the guardrail.
+FV_SANITY_MULT = 2.0
+
 # PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
 # the median trailing P/E of the stock's own *sector* across the screened universe
 # (screener._sector_pe_medians), winsorized to PE_MULTIPLE_BAND and given a bounded
@@ -182,6 +191,31 @@ MIN_UNIVERSE_SIZE = 20
 # these sectors are exempt from it — other vetoes (negative FCF, at-risk dividend +
 # low coverage) still apply.
 LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
+
+# Sector fallback for tickers the fundamentals provider classifies as null — a
+# gap that otherwise leaves a held name in the "Unknown" bucket on every screen
+# (sector allocation donut, Risk-page sector HHI/concentration) and with no
+# sector tag on the Holdings row. Keyed by exact ticker; only consulted when the
+# provider's own `sector` is missing. Extend as gaps surface — these are stable
+# GICS-style classifications, not judgement calls.
+SECTOR_OVERRIDES = {
+    "RET.BR":   "Real Estate",            # Retail Estates NV — Belgian retail REIT
+    "SYENS.BR": "Basic Materials",        # Syensqo SA/NV — specialty chemicals
+    "MELE.BR":  "Technology",             # Melexis NV — automotive semiconductors
+    "PROX.BR":  "Communication Services", # Proximus PLC — telecom
+}
+
+
+def sector_for(ticker: object, raw_sector: object = None) -> "str | None":
+    """The sector to display/aggregate for ``ticker``: the provider's own value
+    when it has one, else a curated ``SECTOR_OVERRIDES`` fallback, else None.
+    Shared by every screen that reads a sector so the Holdings tag, the
+    allocation donut and the Risk-page concentration never disagree (WP-DQ7)."""
+    if raw_sector is not None and not (isinstance(raw_sector, float) and pd.isna(raw_sector)):
+        s = str(raw_sector).strip()
+        if s and s.lower() != "nan":
+            return s
+    return SECTOR_OVERRIDES.get(str(ticker).strip())
 
 MAX_WORKERS      = 4    # parallel yfinance requests
 REQUEST_DELAY    = 0.5  # seconds between requests per worker
@@ -951,10 +985,28 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     if not avail:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
-                "ddm_contributed": False}
+                "ddm_contributed": False, "fair_value_clamped": False}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
+
+    # ── Sanity guard (WP-DQ9) ────────────────────────────────────────────────
+    # If the blend implies a fair value more than FV_SANITY_MULT× the price but
+    # at most one individual model agrees it's that high, one model is running
+    # away with the weighted mean — clamp to the models' median, floored at the
+    # current price so the clamp itself never manufactures a negative MoS.
+    fv_clamped = False
+    if price and price > 0 and iv > FV_SANITY_MULT * price:
+        model_vals = sorted(v for v, _ in avail)
+        corroborating = sum(1 for v in model_vals if v >= FV_SANITY_MULT * price)
+        if corroborating <= 1:
+            m = len(model_vals)
+            median = (model_vals[m // 2] if m % 2
+                      else 0.5 * (model_vals[m // 2 - 1] + model_vals[m // 2]))
+            capped = max(median, float(price))
+            if capped < iv:
+                iv = capped
+                fv_clamped = True
 
     # Did either DDM variant actually feed the composite? (a positive ramp factor
     # alone isn't enough — the variant can still be None, e.g. the WACC<=g guard
@@ -969,6 +1021,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "ddm_multistage": round(ddm2, 2) if ddm2 else None,
         "fair_value":     round(iv, 2),
         "ddm_contributed": ddm_contributed,
+        "fair_value_clamped": fv_clamped,
     }
 
 
@@ -978,6 +1031,43 @@ def _margin_of_safety(price, fair_value) -> float | None:
     if price and fair_value and fair_value > 0 and price > 0:
         return (fair_value - price) / fair_value
     return None
+
+
+def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
+                    min_mos: float = 0.0) -> str:
+    """One-line, stock-specific explanation of a row's ``Decision`` — why it's a
+    BUY, or which gate is holding it at Monitor / Avoid. Mirrors
+    ``compute_scores`` Stage 6 exactly (veto → Avoid; else score ≥
+    buy_threshold AND a confirmed MoS ≥ min_mos → Strong Buy; else score ≥
+    SCORE_AVOID → Monitor; else Avoid). ``min_mos`` is a fraction
+    (``settings.get_veto_thresholds`` already divides by 100). Shared by the
+    Analysis page and the drawer so the two never explain the same signal
+    differently."""
+    dec = str(row.get("Decision") or "")
+    _s = row.get("Value Score")
+    _m = row.get("margin_of_safety")
+    score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
+    mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
+    _score_txt = "—" if score is None else f"{score:.0f}"
+
+    if bool(row.get("veto")):
+        return "Hard veto active — excluded from BUY scoring regardless of composite score."
+
+    if dec == "Strong Buy":
+        _mos_clause = f" and margin of safety {mos:+.0%} ≥ {min_mos:+.0%}" if mos is not None else ""
+        return f"Composite score {_score_txt} ≥ {buy_threshold:.0f}{_mos_clause} — both BUY conditions met."
+
+    gates = []
+    if score is None or score < buy_threshold:
+        gates.append(f"composite score {_score_txt} is below the {buy_threshold:.0f} BUY threshold")
+    if mos is None:
+        gates.append("no computable fair value, so the margin of safety can't be confirmed")
+    elif mos < min_mos:
+        gates.append(f"margin of safety {mos:+.0%} is below the {min_mos:+.0%} minimum")
+
+    if dec == "Avoid":
+        return f"Composite score {_score_txt} is below the {SCORE_AVOID:.0f} Avoid floor."
+    return ("Not a BUY: " + "; ".join(gates) + ".") if gates else "Sits in the Monitor band."
 
 
 def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:

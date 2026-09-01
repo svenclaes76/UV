@@ -80,7 +80,7 @@ def isolated_data(tmp_path, monkeypatch):
 _SCREENER_COLUMNS = dict(
     Ticker="AAA.BR", Name="Alpha Corp", sector="Technology", country="Belgium",
     Exchange="Brussels", Price=100.0, Decision="Strong Buy", veto=False,
-    **{"Value Score": 78.0, "MoS %": 18.5},
+    **{"Value Score": 78.0, "MoS %": 18.5, "margin_of_safety": 0.185},
     fair_value=122.0, graham_number=118.0, pe_fair_value=125.0, epv=120.0,
     ddm=115.0, ddm_multistage=124.0, targetMeanPrice=130.0,
     trailingPE=14.2, dividendYield=0.032, dividendRate=3.2,

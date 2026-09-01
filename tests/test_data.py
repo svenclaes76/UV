@@ -520,3 +520,77 @@ class TestPrefetchPortfolioData:
         assert seen["fetcher"] is screener.PORTFOLIO_FETCH
         assert "AAA.BR" in seen["tickers"]
         assert "AAA.BR" in seen["price_tickers"]
+
+
+class TestApplyLiveMos:
+    """WP-DQ1: refresh Price / live_price / MoS % on a scored portfolio frame
+    from the live quote so the Holdings ladder's three numbers reconcile,
+    without touching fair_value / Value Score / Decision."""
+
+    def _frame(self, **over):
+        row = {"Ticker": "AAA.BR", "Price": 100.0, "fair_value": 120.0,
+               "MoS %": 16.7, "margin_of_safety": 0.1667, "Value Score": 70.0,
+               "Decision": "Monitor"}
+        row.update(over)
+        return pd.DataFrame([row])
+
+    def test_recomputes_mos_from_live_price_and_batch_fair_value(self):
+        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 108.0}})
+        r = out.iloc[0]
+        assert r["Price"] == 108.0 and r["live_price"] == 108.0
+        # (120 - 108) / 120 = 0.10
+        assert r["margin_of_safety"] == pytest.approx(0.10)
+        assert r["MoS %"] == pytest.approx(10.0)
+        assert not r["price_stale"]
+        # untouched
+        assert r["fair_value"] == 120.0 and r["Value Score"] == 70.0 and r["Decision"] == "Monitor"
+
+    def test_flags_price_stale_when_live_quote_far_from_batch(self):
+        # batch 100, live 140 -> 40% gap -> the cached fundamentals row is old
+        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 140.0}})
+        r = out.iloc[0]
+        assert r["price_stale"]
+        assert r["MoS %"] == pytest.approx((120.0 - 140.0) / 120.0 * 100, abs=0.05)
+
+    def test_missing_live_quote_keeps_batch_price_and_flags_stale(self):
+        out = data_module.apply_live_mos(self._frame(), {})
+        r = out.iloc[0]
+        assert r["Price"] == 100.0 and pd.isna(r["live_price"]) and r["price_stale"]
+        # (120 - 100) / 120 = 0.16667 -> 16.7 at 1dp
+        assert r["MoS %"] == pytest.approx(16.7)
+
+    def test_no_fair_value_column_sets_price_without_crashing(self):
+        f = self._frame().drop(columns=["fair_value", "MoS %", "margin_of_safety"])
+        out = data_module.apply_live_mos(f, {"AAA.BR": {"price": 108.0}})
+        assert out.iloc[0]["Price"] == 108.0 and "MoS %" not in out.columns
+
+    def test_none_or_empty_frame_passes_through(self):
+        assert data_module.apply_live_mos(None, {}) is None
+        empty = pd.DataFrame(columns=["Ticker"])
+        assert data_module.apply_live_mos(empty, {}).empty
+
+
+class TestPriceFeedStatus:
+    """WP-DQ8: summarise a fetch_prices() result for the topbar freshness pill."""
+
+    def test_counts_by_quote_source_and_parses_as_of(self):
+        pm = {
+            "A.BR": {"price": 10.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "intraday"},
+            "B.BR": {"price": 20.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "eod"},
+            "C.BR": {"price": 30.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "stale"},
+            "D.BR": {"price": None, "as_of": None, "quote_source": None},
+        }
+        s = data_module.price_feed_status(pm)
+        assert s["total"] == 3          # D.BR has no price -> not counted
+        assert s["intraday"] == 1 and s["delayed"] == 1 and s["stale"] == 1
+        assert s["as_of"] is not None and s["as_of"].tzinfo is not None
+        assert isinstance(s["market_open"], bool)
+
+    def test_empty_map(self):
+        s = data_module.price_feed_status({})
+        assert s["total"] == 0 and s["as_of"] is None
+
+    def test_naive_as_of_is_treated_as_utc(self):
+        s = data_module.price_feed_status(
+            {"A.BR": {"price": 1.0, "as_of": "2026-09-01T12:00:00", "quote_source": "eod"}})
+        assert s["as_of"].tzinfo is not None

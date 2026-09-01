@@ -18,7 +18,7 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
                        record_value_snapshot, backfill_value_history,
                        load_value_history)
-from uvalu.data import _fetch_prices_cached, _load_portfolio_scored
+from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
@@ -112,6 +112,9 @@ def render() -> None:
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
     live_data = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    # Refresh Price / MoS on the scored lookup frame so a drawer opened from a
+    # position shows a margin of safety consistent with its live price (WP-DQ1).
+    _all_scr_df = apply_live_mos(_all_scr_df, live_data)
     pf["live_price"]     = pf["ticker"].map(lambda t: live_data[t].get("price"))
     pf["current_value"]  = pf["live_price"] * pf["shares"]
     pf["price_gain"]     = pf["current_value"] - pf["purchase_value"]

@@ -4,7 +4,8 @@
     {
       "name": "uvalu",
       "runtimeExecutable": ".venv/Scripts/streamlit.exe",
-      "runtimeArgs": ["run", "app.py", "--server.port", "8502"],
+      "runtimeArgs": ["run", "app.py", "--server.port", "8502",
+                      "--server.sslCertFile", "", "--server.sslKeyFile", ""],
       "port": 8502
     }
   ]

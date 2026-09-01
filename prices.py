@@ -11,10 +11,14 @@ Two batch HTTP calls per refresh, regardless of ticker count:
 Falls back to yf.Ticker.fast_info per ticker when the daily batch download
 fails entirely.
 
-Returns per-ticker: price, prev_close, day_change_pct, volume, as_of, stale.
+Returns per-ticker: price, prev_close, day_change_pct, volume, as_of, stale,
+quote_source.
 `as_of` is the ISO-8601 UTC timestamp the value was fetched; `stale` is True
 when the fetch returned nothing this round and a previous known-good value is
-being served instead.
+being served instead. `quote_source` is how *this* ticker's price was
+obtained: "intraday" (a fresh 1-minute bar), "eod" (fell back to the most
+recent daily close — lags during a live session), or "stale" (served from the
+last-known-good cache because the fetch returned nothing).
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ _EMPTY = {
     "volume":         None,
     "as_of":          None,
     "stale":          False,
+    "quote_source":   None,
 }
 
 # Process-global cache of the last successful per-ticker result, shared across
@@ -125,6 +130,7 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
                     "volume":         volume,
                     "as_of":          now_iso,
                     "stale":          False,
+                    "quote_source":   "eod",
                 }
             except Exception:
                 pass
@@ -143,6 +149,7 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
                     "volume":         fi.get("three_month_average_volume"),
                     "as_of":          now_iso,
                     "stale":          False,
+                    "quote_source":   "eod",
                 }
             except Exception:
                 pass
@@ -157,6 +164,7 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
         entry["price"] = px
         entry["as_of"] = now_iso
         entry["stale"] = False
+        entry["quote_source"] = "intraday"
         if entry.get("prev_close"):
             entry["day_change_pct"] = _day_change(px, entry["prev_close"])
 
@@ -168,7 +176,7 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
         entry = result[t]
         if entry.get("price") is None:
             if t in _last_good:
-                result[t] = {**_last_good[t], "stale": True}
+                result[t] = {**_last_good[t], "stale": True, "quote_source": "stale"}
         else:
             _last_good[t] = dict(entry)
 

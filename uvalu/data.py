@@ -5,17 +5,19 @@ import them unchanged. All @st.cache_data identity is preserved.
 """
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from typing import NamedTuple
 
 import pandas as pd
 import streamlit as st
 
 from prices import fetch_prices
-from uvalu.market_hours import is_market_hours
+from uvalu.market_hours import is_market_hours, MARKET_TZ
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
+                      load_fundamentals_cache,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
@@ -337,6 +339,155 @@ def _load_portfolio_scored(held: "pd.DataFrame | None",
     )
 
 
+# ── Live-price margin of safety overlay (WP-DQ1) ─────────────────────────────
+
+def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.DataFrame | None":
+    """Refresh ``Price`` / ``live_price`` / ``MoS %`` on a scored portfolio
+    frame so the Holdings ladder's three numbers reconcile.
+
+    ``screener.compute_scores`` computes ``margin_of_safety`` / ``MoS %``
+    against the fundamentals-cache ``Price`` snapshot, which can be hours or
+    days stale. The portfolio screens render that percentage next to a live
+    price and a fair value, so the three didn't agree — worst case a holding
+    shown "at fair value" beside a deeply negative MoS because its cached
+    price was weeks old (WP-DQ1).
+
+    This recomputes ``margin_of_safety`` = ``(fair_value − live_price) /
+    fair_value`` from the batch fair value and the live quote. It deliberately
+    leaves ``fair_value``, the six sub-model values, ``Value Score``, the
+    ``Sub *`` ranks and ``Decision`` on the universe-ranked batch basis: those
+    need the whole scored universe and are not live figures. Only ``EPV``'s
+    net-debt term is price-sensitive in the fair-value blend, a second-order
+    effect not worth a row-wise model re-run here.
+
+    Adds ``price_stale`` — True when there is no live quote, or the live quote
+    is more than 10% off the batch price (a sign the cached fundamentals row,
+    and so the fair value built from it, is old).
+    """
+    if scored is None or getattr(scored, "empty", True) or "Ticker" not in getattr(scored, "columns", []):
+        return scored
+
+    out = scored.copy()
+    _batch_price = pd.to_numeric(out.get("Price"), errors="coerce")
+    _live = pd.to_numeric(
+        out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("price")),
+        errors="coerce",
+    )
+    _src = out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("quote_source"))
+    _price = _live.where(_live > 0, _batch_price)
+
+    out["live_price"] = _live
+    out["Price"] = _price
+    # A row's price is "stale" for display purposes when there's no live
+    # quote, the live quote is >10% off the cached price (old fundamentals
+    # row), or — during a live session — the feed only had a daily close for
+    # it, not an intraday tick (WP-DQ1 + WP-DQ8).
+    out["price_stale"] = (
+        _live.isna()
+        | (_batch_price.notna() & _live.notna() & _batch_price.gt(0)
+           & (_live / _batch_price - 1).abs().gt(0.10))
+        | (is_market_hours() & _src.isin(["eod", "stale"]))
+    )
+
+    if "fair_value" in out.columns:
+        _fv = pd.to_numeric(out["fair_value"], errors="coerce")
+        _mos = ((_fv - _price) / _fv).where((_price > 0) & (_fv > 0))
+        out["margin_of_safety"] = _mos
+        out["MoS %"] = (_mos * 100).round(1)
+
+    # Curated sector fallback for provider-unclassified names (WP-DQ7) — so a
+    # drawer opened from the Portfolio page shows the same sector the Dashboard
+    # donut and the Risk page do.
+    from screener import sector_for
+    out["sector"] = [
+        sector_for(t, s) for t, s in zip(out["Ticker"], out.get("sector", pd.Series(index=out.index, dtype=object)))
+    ]
+    return out
+
+
+# ── Shared portfolio risk report (WP-DQ4) ────────────────────────────────────
+# The Risk page and the Dashboard's "Conviction & risk" card both render
+# risk.assess_portfolio() output. They used to build it independently with
+# different arguments — the Dashboard passed neither the hard-veto lookup nor
+# the sector/country/fair-value-enriched frame — so the same portfolio showed
+# two different composite risk scores side by side (e.g. Risk page 29 vs
+# Dashboard 32). This is the one builder both call: identical inputs, a single
+# session-cached RiskReport.
+
+class PortfolioRisk(NamedTuple):
+    report: object            # risk.RiskReport
+    scored: pd.DataFrame      # _load_portfolio_scored(held, sold) — one row/ticker
+    veto_lookup: dict         # {ticker: bool} from the screener's own `veto` column
+    pf: pd.DataFrame          # the portfolio enriched for the risk engine
+
+
+_RISK_REPORT_TTL_S = 3600
+
+
+def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
+    """Build (or return the session-cached) portfolio ``RiskReport`` plus the
+    scored-holdings frame and hard-veto lookup the consumer pages also need.
+
+    Enriches ``pf`` via ``portfolio_enrichment.enrich_for_risk`` (live price →
+    ``current_value``, plus ``fair_value`` / ``sector`` / ``country`` /
+    ``expected_annual`` from the portfolio screener lane) and calls
+    ``risk.assess_portfolio`` with the hard-veto lookup, target allocation and
+    prior snapshot — the full-fidelity argument set the Risk page always used.
+
+    Cached in ``st.session_state`` keyed on the ticker set, the veto lookup and
+    the target allocation, with a 1-hour TTL (day rollover covered in
+    practice). Deliberately not keyed on the snapshot, which this call also
+    writes — keying on it would self-invalidate the cache on the next render.
+    """
+    import risk as _risk
+    from portfolio import (load_sold, load_targets, load_risk_snapshot,
+                           save_risk_snapshot)
+    from portfolio_enrichment import enrich_for_risk
+
+    live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
+    # Refresh Price / MoS on the live quote so the drawer opened from this
+    # page (and the Dashboard, which shares this frame's convention) shows a
+    # margin of safety that agrees with the price beside it (WP-DQ1).
+    scored = apply_live_mos(_load_portfolio_scored(pf, load_sold()), live)
+    veto_lookup = (scored.set_index("Ticker")["veto"].to_dict()
+                   if "veto" in getattr(scored, "columns", []) else {})
+    scored_by_ticker = (
+        scored.drop_duplicates(subset="Ticker", keep="first").set_index("Ticker")
+        if not scored.empty else scored
+    )
+    pf_enriched = enrich_for_risk(pf, scored_by_ticker, live)
+
+    cache = load_fundamentals_cache()
+    income_portfolio = False
+    targets = load_targets()
+    prior_snapshot = load_risk_snapshot()
+
+    key = str((tuple(sorted(pf_enriched["ticker"].tolist())), income_portfolio,
+               tuple(sorted(veto_lookup.items())),
+               repr(sorted(targets.items()))))
+    cached = st.session_state.get("_risk_report_cache", {})
+    report = None
+    if cached.get("key") == key and "report" in cached:
+        _gen = datetime.fromisoformat(cached["report"].generated_at)
+        if (datetime.now(timezone.utc) - _gen).total_seconds() < _RISK_REPORT_TTL_S:
+            report = cached["report"]
+
+    if report is None:
+        report = _risk.assess_portfolio(
+            pf_enriched, cache, income_portfolio, veto_lookup,
+            targets=targets, prior_snapshot=prior_snapshot)
+        st.session_state["_risk_report_cache"] = {"key": key, "report": report}
+        # Upsert today's snapshot as the reference point for future drift
+        # checks — once per day, so the diff is against a real prior run.
+        if prior_snapshot.get("date") != date.today().isoformat():
+            try:
+                save_risk_snapshot(_risk.snapshot_from_report(report))
+            except Exception:
+                pass
+
+    return PortfolioRisk(report, scored, veto_lookup, pf_enriched)
+
+
 def prefetch_portfolio_data() -> None:
     """Warm the portfolio's fundamentals + price caches at login, before the
     first page renders. Fire-and-forget: kicks the PORTFOLIO_FETCH background
@@ -403,8 +554,49 @@ def _fetch_prices_cached(tickers: tuple) -> dict:
     dashboard, portfolio, risk — collapses onto a single shared cache entry
     and a single upstream fetch, regardless of the order or duplicate tickers
     in the portfolio DataFrame they happen to pass in.
+
+    Side effect: stashes a ``price_feed_status()`` summary of the result in
+    ``st.session_state["_price_feed_status"]`` so the shell topbar can show a
+    truthful "as of" / delayed / closed indicator (WP-DQ8).
     """
     norm = tuple(sorted({str(t).strip() for t in tickers if t and str(t).strip()}))
     if not norm:
         return {}
-    return _fetch_prices_batch(norm, _price_bucket())
+    _map = _fetch_prices_batch(norm, _price_bucket())
+    try:
+        st.session_state["_price_feed_status"] = price_feed_status(_map)
+    except Exception:
+        pass
+    return _map
+
+
+def price_feed_status(price_map: dict) -> dict:
+    """Summarise a ``prices.fetch_prices`` result for the freshness indicator.
+
+    Returns ``as_of`` (a MARKET_TZ-aware datetime, the batch fetch time — all
+    tickers in one batch share it), ``market_open``, and per-``quote_source``
+    counts. "delayed" = tickers still on the most recent daily close during a
+    live session; "stale" = served from the last-known-good cache.
+    """
+    entries = [e for e in price_map.values() if isinstance(e, dict)]
+    as_of = None
+    for e in entries:
+        raw = e.get("as_of")
+        if raw:
+            try:
+                dt = datetime.fromisoformat(raw)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.astimezone(MARKET_TZ)
+                as_of = dt if as_of is None else max(as_of, dt)
+            except ValueError:
+                pass
+    srcs = [e.get("quote_source") for e in entries if e.get("price") is not None]
+    return {
+        "as_of":       as_of,
+        "market_open": is_market_hours(),
+        "total":       len(srcs),
+        "intraday":    sum(s == "intraday" for s in srcs),
+        "delayed":     sum(s == "eod" for s in srcs),
+        "stale":       sum(s == "stale" for s in srcs),
+    }

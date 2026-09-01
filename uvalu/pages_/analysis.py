@@ -7,13 +7,14 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
-from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
+from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
+                      sector_for, decision_reason)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, sub_score_bar_html, quality_score_color,
-                              veto_reason_str)
+                              veto_reason_str, is_hard_veto)
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors
 from uvalu.ui import _CHART_CONFIG
@@ -59,9 +60,10 @@ def render() -> None:
         st.warning(f"No data found for **{ticker}**.")
         return
     row = _match.iloc[0]
+    _sector = sector_for(ticker, row.get("sector"))
 
     # ── Header ────────────────────────────────────────────────────────────────
-    kind, label = signal_badge_for_decision(str(row.get("Decision", "")), veto=bool(row.get("veto")))
+    kind, label = signal_badge_for_decision(row.get("Decision"), veto=row.get("veto"))
     _score = row.get("Value Score")
     if pd.notna(_score) and _score >= 70:
         _score_rating, _score_color = "Strong", "var(--up-txt, #0F6E56)"
@@ -90,7 +92,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
-            f'{row.get("Name", "—")} · {_fv(row, "sector")} · {_fv(row, "Exchange")}</div>'
+            f'{row.get("Name", "—")} · {_sector or "—"} · {_fv(row, "Exchange")}</div>'
             f'{_score_rating_html}</div>',
             unsafe_allow_html=True,
         )
@@ -127,7 +129,7 @@ def render() -> None:
             unsafe_allow_html=True,
         )
 
-    if row.get("veto"):
+    if is_hard_veto(row.get("veto")):
         st.markdown(
             f'<div style="background:var(--navy);border-radius:12px;padding:15px 18px;display:flex;'
             f'gap:12px;align-items:flex-start;">'
@@ -140,6 +142,11 @@ def render() -> None:
             f'{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True,
         )
+    else:
+        # Why this Decision — which gate keeps it out of BUY, or why Avoid vs
+        # Monitor (WP-DQ9). Vetoed names already get the banner above.
+        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
@@ -216,6 +223,10 @@ def render() -> None:
                 ],
                 composite=row.get("fair_value"),
             )
+            if bool(row.get("fair_value_clamped")):
+                st.caption(
+                    "⚑ Composite capped at the models' median — one model ran far "
+                    "above the rest and the others don't corroborate it.")
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
     _col3, _col4 = st.columns([1.25, 1])
@@ -269,7 +280,7 @@ def render() -> None:
                    unsafe_allow_html=True)
         _max_de_thr, _, _, _ = get_veto_thresholds()
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
-        sector = row.get("sector")
+        sector = _sector
         div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
         # Terse note phrasing (bare value, no trailing sentence) matches
         # Uvalu.dc.html's checks model exactly (see modelDefs' `checks`
