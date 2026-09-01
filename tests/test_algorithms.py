@@ -433,6 +433,45 @@ class TestFairValueBlend:
         assert smoothed["epv"] < peak["epv"]
 
 
+class TestFairValueSanityClamp:
+    """WP-DQ9: a blended fair value >FV_SANITY_MULT× price that only one model
+    agrees with is a single runaway model — clamp to the models' median."""
+
+    def test_clamps_to_median_when_one_model_runs_away(self):
+        # eps 20 → pe_fair_value 20×15 = 300 (the outlier). Graham ≈ 47,
+        # analyst 60×0.9 = 54. Blend would be ~130 (>2× the 50 price) but only
+        # pe_fv is that high → clamp to the 3-model median (54).
+        row = pd.Series({"Price": 50.0, "trailingEps": 20.0, "bookValue": 5.0,
+                         "targetMeanPrice": 60.0, "targetHighPrice": 63.0,
+                         "targetLowPrice": 57.0})
+        fv = _fair_value_models(row)
+        assert fv["pe_fair_value"] == pytest.approx(300.0)   # raw model untouched
+        assert fv["fair_value_clamped"] is True
+        assert fv["fair_value"] == pytest.approx(54.0, abs=0.5)
+
+    def test_no_clamp_when_models_corroborate_the_high_value(self):
+        # eps 8 → pe_fv 120; Graham √(22.5·8·40)=√7200≈84.9; analyst 130×0.9=117.
+        # Two of three land ≥2× the 50 price, so the blend is trusted as-is.
+        row = pd.Series({"Price": 50.0, "trailingEps": 8.0, "bookValue": 40.0,
+                         "targetMeanPrice": 130.0, "targetHighPrice": 138.0,
+                         "targetLowPrice": 122.0})
+        fv = _fair_value_models(row)
+        assert fv["fair_value_clamped"] is False
+        assert fv["fair_value"] > 2 * 50.0
+
+    def test_no_clamp_for_normal_valuations(self):
+        fv = _fair_value_models(pd.Series({"Price": 50.0, "trailingEps": 5.0,
+                                           "bookValue": 20.0, "targetMeanPrice": 60.0}))
+        assert fv["fair_value_clamped"] is False
+
+    def test_compute_scores_exposes_the_flag_column(self):
+        out = compute_scores(pd.DataFrame([
+            {"Name": "N", "Ticker": "N.BR", "Price": 50.0, "trailingEps": 20.0,
+             "bookValue": 5.0, "targetMeanPrice": 60.0,
+             "targetHighPrice": 63.0, "targetLowPrice": 57.0}]))
+        assert bool(out.iloc[0]["fair_value_clamped"]) is True
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Screener Stage 3 — MoS, TER, dividend sustainability
 # ══════════════════════════════════════════════════════════════════════════════

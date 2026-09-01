@@ -217,6 +217,10 @@ def render() -> None:
                 ],
                 composite=row.get("fair_value"),
             )
+            if bool(row.get("fair_value_clamped")):
+                st.caption(
+                    "⚑ Composite capped at the models' median — one model ran far "
+                    "above the rest and the others don't corroborate it.")
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
     _col3, _col4 = st.columns([1.25, 1])

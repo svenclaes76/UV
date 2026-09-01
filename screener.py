@@ -123,6 +123,15 @@ W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
 W_ANALYST    = 0.130
 
+# Composite fair-value sanity guard. A blended fair value above this multiple of
+# the current price is only trusted when at least two of the individual models
+# independently land that high — otherwise it's a single runaway model (a DDM
+# with WACC barely above g, a stale REIT NAV) dragging the weighted mean up, and
+# the composite is clamped to the models' median (never below the current
+# price). REIT / NAV-style names are the usual offenders; a proper P/B-anchored
+# model for that cohort is the real fix, this is the guardrail.
+FV_SANITY_MULT = 2.0
+
 # PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
 # the median trailing P/E of the stock's own *sector* across the screened universe
 # (screener._sector_pe_medians), winsorized to PE_MULTIPLE_BAND and given a bounded
@@ -976,10 +985,28 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     if not avail:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
-                "ddm_contributed": False}
+                "ddm_contributed": False, "fair_value_clamped": False}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
+
+    # ── Sanity guard (WP-DQ9) ────────────────────────────────────────────────
+    # If the blend implies a fair value more than FV_SANITY_MULT× the price but
+    # at most one individual model agrees it's that high, one model is running
+    # away with the weighted mean — clamp to the models' median, floored at the
+    # current price so the clamp itself never manufactures a negative MoS.
+    fv_clamped = False
+    if price and price > 0 and iv > FV_SANITY_MULT * price:
+        model_vals = sorted(v for v, _ in avail)
+        corroborating = sum(1 for v in model_vals if v >= FV_SANITY_MULT * price)
+        if corroborating <= 1:
+            m = len(model_vals)
+            median = (model_vals[m // 2] if m % 2
+                      else 0.5 * (model_vals[m // 2 - 1] + model_vals[m // 2]))
+            capped = max(median, float(price))
+            if capped < iv:
+                iv = capped
+                fv_clamped = True
 
     # Did either DDM variant actually feed the composite? (a positive ramp factor
     # alone isn't enough — the variant can still be None, e.g. the WACC<=g guard
@@ -994,6 +1021,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "ddm_multistage": round(ddm2, 2) if ddm2 else None,
         "fair_value":     round(iv, 2),
         "ddm_contributed": ddm_contributed,
+        "fair_value_clamped": fv_clamped,
     }
 
 
