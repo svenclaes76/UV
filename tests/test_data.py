@@ -568,3 +568,29 @@ class TestApplyLiveMos:
         assert data_module.apply_live_mos(None, {}) is None
         empty = pd.DataFrame(columns=["Ticker"])
         assert data_module.apply_live_mos(empty, {}).empty
+
+
+class TestPriceFeedStatus:
+    """WP-DQ8: summarise a fetch_prices() result for the topbar freshness pill."""
+
+    def test_counts_by_quote_source_and_parses_as_of(self):
+        pm = {
+            "A.BR": {"price": 10.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "intraday"},
+            "B.BR": {"price": 20.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "eod"},
+            "C.BR": {"price": 30.0, "as_of": "2026-09-01T12:00:00+00:00", "quote_source": "stale"},
+            "D.BR": {"price": None, "as_of": None, "quote_source": None},
+        }
+        s = data_module.price_feed_status(pm)
+        assert s["total"] == 3          # D.BR has no price -> not counted
+        assert s["intraday"] == 1 and s["delayed"] == 1 and s["stale"] == 1
+        assert s["as_of"] is not None and s["as_of"].tzinfo is not None
+        assert isinstance(s["market_open"], bool)
+
+    def test_empty_map(self):
+        s = data_module.price_feed_status({})
+        assert s["total"] == 0 and s["as_of"] is None
+
+    def test_naive_as_of_is_treated_as_utc(self):
+        s = data_module.price_feed_status(
+            {"A.BR": {"price": 1.0, "as_of": "2026-09-01T12:00:00", "quote_source": "eod"}})
+        assert s["as_of"].tzinfo is not None

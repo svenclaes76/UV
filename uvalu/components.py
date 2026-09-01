@@ -309,15 +309,17 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       decision: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, day_change_pct: float | None,
-                      currency: str = "€") -> str:
+                      price_stale: bool = False, currency: str = "€") -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, margin-of-safety/weight/value, and a
     day-change chip — matching Uvalu.dc.html's row spec column-for-column.
     `mos_pct` is the margin of safety, (fair_value − price) / fair_value — the
     same convention as _margin_of_safety() and the ladder legend, not raw
-    upside (fair_value / price − 1). Embed inside an outer
-    st.markdown(unsafe_allow_html=True) call; pair with a
-    HOLDINGS_GRID_COLS-templated header for aligned column labels."""
+    upside (fair_value / price − 1). `price_stale` dims the day-change chip and
+    adds a "delayed quote" tooltip when this row isn't on a fresh intraday
+    tick (WP-DQ8). Embed inside an outer st.markdown(unsafe_allow_html=True)
+    call; pair with a HOLDINGS_GRID_COLS-templated header for aligned column
+    labels."""
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{sector}</span>"
                    if sector and pd.notna(sector) else "")
@@ -334,6 +336,9 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
         day_html = chip_html(f"{float(day_change_pct):+.2f}%", float(day_change_pct) >= 0)
     else:
         day_html = "<span style='color:var(--faint);'>—</span>"
+    if price_stale:
+        day_html = (f"<span title='Delayed quote — not a live intraday price' "
+                    f"style='opacity:0.45;'>{day_html}</span>")
     # Built as one single-line string, not a multi-line f-string template —
     # confirmed live that Streamlit's frontend pre-estimates a markdown
     # element's height from something like a newline count in the *raw*

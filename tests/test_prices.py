@@ -204,6 +204,7 @@ class TestFetchPricesIntradayOverlay:
         assert result["AAA.BR"]["volume"] == 120          # untouched — daily volume
         assert result["AAA.BR"]["stale"] is False
         assert result["AAA.BR"]["as_of"] is not None
+        assert result["AAA.BR"]["quote_source"] == "intraday"
 
     def test_daily_close_kept_when_intraday_call_raises(self, monkeypatch):
         daily = _multiindex_download(
@@ -215,6 +216,7 @@ class TestFetchPricesIntradayOverlay:
         result = prices.fetch_prices(("AAA.BR",))
         assert result["AAA.BR"]["price"] == 100.0
         assert result["AAA.BR"]["day_change_pct"] == pytest.approx(2.04, abs=0.01)
+        assert result["AAA.BR"]["quote_source"] == "eod"   # no intraday tick this round
 
     def test_daily_close_kept_when_intraday_frame_empty(self, monkeypatch):
         daily = _multiindex_download(
@@ -266,6 +268,7 @@ class TestFetchPricesStaleFallback:
         second = prices.fetch_prices(("AAA.BR",))
         assert second["AAA.BR"]["price"] == 50.0
         assert second["AAA.BR"]["stale"] is True
+        assert second["AAA.BR"]["quote_source"] == "stale"
         assert second["AAA.BR"]["as_of"] == first["AAA.BR"]["as_of"]
 
     def test_no_last_good_leaves_empty_result(self, monkeypatch):

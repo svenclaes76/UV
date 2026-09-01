@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from prices import fetch_prices
-from uvalu.market_hours import is_market_hours
+from uvalu.market_hours import is_market_hours, MARKET_TZ
 from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
@@ -373,13 +373,20 @@ def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.Data
         out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("price")),
         errors="coerce",
     )
+    _src = out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("quote_source"))
     _price = _live.where(_live > 0, _batch_price)
 
     out["live_price"] = _live
     out["Price"] = _price
-    out["price_stale"] = _live.isna() | (
-        _batch_price.notna() & _live.notna() & _batch_price.gt(0)
-        & (_live / _batch_price - 1).abs().gt(0.10)
+    # A row's price is "stale" for display purposes when there's no live
+    # quote, the live quote is >10% off the cached price (old fundamentals
+    # row), or — during a live session — the feed only had a daily close for
+    # it, not an intraday tick (WP-DQ1 + WP-DQ8).
+    out["price_stale"] = (
+        _live.isna()
+        | (_batch_price.notna() & _live.notna() & _batch_price.gt(0)
+           & (_live / _batch_price - 1).abs().gt(0.10))
+        | (is_market_hours() & _src.isin(["eod", "stale"]))
     )
 
     if "fair_value" in out.columns:
@@ -547,8 +554,49 @@ def _fetch_prices_cached(tickers: tuple) -> dict:
     dashboard, portfolio, risk — collapses onto a single shared cache entry
     and a single upstream fetch, regardless of the order or duplicate tickers
     in the portfolio DataFrame they happen to pass in.
+
+    Side effect: stashes a ``price_feed_status()`` summary of the result in
+    ``st.session_state["_price_feed_status"]`` so the shell topbar can show a
+    truthful "as of" / delayed / closed indicator (WP-DQ8).
     """
     norm = tuple(sorted({str(t).strip() for t in tickers if t and str(t).strip()}))
     if not norm:
         return {}
-    return _fetch_prices_batch(norm, _price_bucket())
+    _map = _fetch_prices_batch(norm, _price_bucket())
+    try:
+        st.session_state["_price_feed_status"] = price_feed_status(_map)
+    except Exception:
+        pass
+    return _map
+
+
+def price_feed_status(price_map: dict) -> dict:
+    """Summarise a ``prices.fetch_prices`` result for the freshness indicator.
+
+    Returns ``as_of`` (a MARKET_TZ-aware datetime, the batch fetch time — all
+    tickers in one batch share it), ``market_open``, and per-``quote_source``
+    counts. "delayed" = tickers still on the most recent daily close during a
+    live session; "stale" = served from the last-known-good cache.
+    """
+    entries = [e for e in price_map.values() if isinstance(e, dict)]
+    as_of = None
+    for e in entries:
+        raw = e.get("as_of")
+        if raw:
+            try:
+                dt = datetime.fromisoformat(raw)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.astimezone(MARKET_TZ)
+                as_of = dt if as_of is None else max(as_of, dt)
+            except ValueError:
+                pass
+    srcs = [e.get("quote_source") for e in entries if e.get("price") is not None]
+    return {
+        "as_of":       as_of,
+        "market_open": is_market_hours(),
+        "total":       len(srcs),
+        "intraday":    sum(s == "intraday" for s in srcs),
+        "delayed":     sum(s == "eod" for s in srcs),
+        "stale":       sum(s == "stale" for s in srcs),
+    }
