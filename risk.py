@@ -741,7 +741,12 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
         mdd_1y=round(float(mdd_1y), 4) if mdd_1y is not None else None,
         mdd_3y=round(float(mdd_3y), 4) if mdd_3y is not None else None,
         mdd_5y=round(float(mdd_5y), 4) if mdd_5y is not None else None,
-        mdd_label=_mdd_label(mdd_5y if mdd_5y is not None else mdd_1y),
+        # Tier word must describe the same window as the number shown next to
+        # it — the Risk page renders `mdd_1y` under a "(1Y)" heading, so the
+        # label is derived from the 1Y drawdown (falling back to 5Y only when
+        # there isn't a full year of history). The composite score still uses
+        # the deeper 5Y figure independently (see _stage7_composite).
+        mdd_label=_mdd_label(mdd_1y if mdd_1y is not None else mdd_5y),
         sharpe=round(float(sharpe), 2) if sharpe is not None else None,
         sortino=round(float(sortino), 2) if sortino is not None else None,
         ratio_label=_sharpe_label(sharpe),

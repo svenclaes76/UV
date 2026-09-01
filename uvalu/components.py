@@ -289,9 +289,12 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       weight: float, value: float, day_change_pct: float | None,
                       currency: str = "€") -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
-    signal badge, fair-value ladder, upside/weight/value, and a day-change
-    chip — matching Uvalu.dc.html's row spec column-for-column. Embed inside
-    an outer st.markdown(unsafe_allow_html=True) call; pair with a
+    signal badge, fair-value ladder, margin-of-safety/weight/value, and a
+    day-change chip — matching Uvalu.dc.html's row spec column-for-column.
+    `mos_pct` is the margin of safety, (fair_value − price) / fair_value — the
+    same convention as _margin_of_safety() and the ladder legend, not raw
+    upside (fair_value / price − 1). Embed inside an outer
+    st.markdown(unsafe_allow_html=True) call; pair with a
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{sector}</span>"
@@ -300,11 +303,11 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
-        _up_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
-        upside_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                       f"color:{_up_color};'>{mos_pct:+.1f}%</span>")
+        _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
+        mos_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
+                    f"color:{_mos_color};'>{mos_pct:+.1f}%</span>")
     else:
-        upside_html = "<span style='color:var(--faint);'>—</span>"
+        mos_html = "<span style='color:var(--faint);'>—</span>"
     if day_change_pct is not None and pd.notna(day_change_pct):
         day_html = chip_html(f"{float(day_change_pct):+.2f}%", float(day_change_pct) >= 0)
     else:
@@ -326,7 +329,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
            f'text-overflow:ellipsis;">{name}</div></div>'
            f'<div>{signal_badge_html(kind, label)}</div>'
            f'<div style="min-width:0;">{ladder_html}</div>'
-           f'<div style="text-align:right;">{upside_html}</div>'
+           f'<div style="text-align:right;">{mos_html}</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{weight*100:.1f}%</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;font-weight:500;">{_fmt_eur(value)}</div>'
            f'<div style="text-align:right;">{day_html}</div></div>')
@@ -359,7 +362,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
              show_action: bool = True, action_active: bool = False, action_help: str = "",
              action_disabled: bool = False) -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
-    ticker+exchange+name, colored signal badge, score bar, colored MoS/upside,
+    ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
     hairline-divided list item (no per-row border/shadow — the caller wraps
     the whole header+rows list in one shared panel, see styles.py's

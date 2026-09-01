@@ -127,13 +127,13 @@ def render() -> None:
     # Upside/Price/P-E/Yield are right-aligned (matching their own
     # right-aligned data cells in stock_row); Position/Signal/Composite
     # score stay left-aligned like their left-anchored cells.
-    _hh_right = {"Upside", "Price", "P/E", "Yield"}
+    _hh_right = {"Margin of safety", "Price", "P/E", "Yield"}
 
     with st.container(key="wl_table_card", border=True):
         with st.container(key="wl_col_header"):
             _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
             for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
-                                             "Upside", "Price", "P/E", "Yield")):
+                                             "Margin of safety", "Price", "P/E", "Yield")):
                 if _label:
                     _align = "right" if _label in _hh_right else "left"
                     with _hh:

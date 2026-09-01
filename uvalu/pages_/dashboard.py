@@ -132,9 +132,9 @@ def render() -> None:
             else:
                 _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
         with _k4:
-            _kpi_card("Avg fair value upside",
+            _kpi_card("Avg margin of safety",
                      f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                     "", (_db_avg_mos or 0) >= 0, "margin of safety", icon="target")
+                     "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
 
     st.container(height=4, border=False, key="db_gap_1")
 
@@ -359,7 +359,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
 
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Upside", "Weight", "Value", "Today")
+                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Margin of safety", "Weight", "Value", "Today")
                 _hh_cells = "".join(
                     f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'

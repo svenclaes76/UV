@@ -6,6 +6,12 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Risk page: the score-gauge caption no longer renders "Moderate risk **risk**" — `composite.label` already carries the "… risk" suffix, the template appended a second one (WP-DQ5).
+- Risk page: the **Max drawdown (1Y)** tier word ("Low"/"Moderate"/"High") is now derived from the 1-year drawdown it sits next to, not the 5-year figure — the number said −15% while the label said "High" off the deeper 2022 drawdown. The composite risk score still uses the 5-year drawdown independently (WP-DQ5).
+- Dashboard / Screener / Watchlist: the fair-value column and KPI tile are labelled **"Margin of safety"** instead of "Upside" — the value shown has always been `(fair value − price) / fair value`, not raw upside `(fair value / price − 1)`, which differ materially for deep-discount names (WP-DQ2).
+
 ### Performance
 
 - Screener: `compute_scores` computes `margin_of_safety` and the `Decision` label with vectorised pandas/NumPy expressions instead of a per-row `df.apply` — bit-identical output, locked by an equivalence test (WP-7). The fair-value models and the composite risk sub-scores stay row-wise (scoring math shared with the risk engine).

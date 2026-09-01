@@ -34,7 +34,7 @@ _SORT_COLUMNS = [
     ("name",   "Position",        "Name"),
     ("signal", "Signal",          "_signal_label"),
     ("score",  "Composite score", "Value Score"),
-    ("mos",    "Upside",          "MoS %"),
+    ("mos",    "Margin of safety", "MoS %"),
     ("price",  "Price",           "Price"),
     ("pe",     "P/E",             "trailingPE"),
     ("dy",     "Yield",           "dividendYield"),

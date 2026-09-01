@@ -136,7 +136,7 @@ def render() -> None:
     <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
   </div>
 </div>
-<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label} risk</div>
+<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
