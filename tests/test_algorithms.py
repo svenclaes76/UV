@@ -476,6 +476,45 @@ class TestFairValueSanityClamp:
 # Screener Stage 3 — MoS, TER, dividend sustainability
 # ══════════════════════════════════════════════════════════════════════════════
 
+class TestDecisionReason:
+    """WP-DQ9: one-line explanation of a row's Decision, mirroring
+    compute_scores Stage 6."""
+
+    def test_strong_buy_states_both_conditions_met(self):
+        r = pd.Series({"Decision": "Strong Buy", "Value Score": 82.0,
+                       "margin_of_safety": 0.25, "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "82" in msg and "25%" in msg and "both BUY conditions met" in msg
+
+    def test_monitor_names_the_failing_gates(self):
+        # score below the BUY bar AND a negative MoS -> both gates listed;
+        # still Monitor (not Avoid) because score clears the 40 floor.
+        r = pd.Series({"Decision": "Monitor", "Value Score": 46.0,
+                       "margin_of_safety": -0.22, "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert msg.startswith("Not a BUY:")
+        assert "below the 70 BUY threshold" in msg
+        assert "-22% is below the +0% minimum" in msg
+
+    def test_monitor_flags_missing_fair_value(self):
+        r = pd.Series({"Decision": "Monitor", "Value Score": 55.0,
+                       "margin_of_safety": float("nan"), "veto": False})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "no computable fair value" in msg
+
+    def test_avoid_points_at_the_score_floor_not_the_mos(self):
+        # MONT.BR-style: barely-negative MoS but Avoid — driven by score < 40.
+        r = pd.Series({"Decision": "Avoid", "Value Score": 31.0,
+                       "margin_of_safety": -0.01, "veto": False})
+        msg = screener.decision_reason(r)
+        assert msg == "Composite score 31 is below the 40 Avoid floor."
+
+    def test_veto_short_circuits(self):
+        r = pd.Series({"Decision": "Avoid", "Value Score": 0.0,
+                       "margin_of_safety": 0.4, "veto": True})
+        assert "Hard veto active" in screener.decision_reason(r)
+
+
 class TestStage3:
     def test_margin_of_safety(self):
         assert _margin_of_safety(80.0, 100.0) == pytest.approx(0.20)

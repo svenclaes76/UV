@@ -17,6 +17,8 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_watchlist, load_portfolio
+from screener import decision_reason
+from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, veto_reason_str, is_hard_veto)
@@ -212,6 +214,9 @@ def open_drawer(row: "pd.Series") -> None:
             f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">Hard veto triggered</div>'
             f'<div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True)
+    else:
+        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     _section_header("Six-model fair value")
     if pd.notna(_price):
@@ -235,6 +240,9 @@ def open_drawer(row: "pd.Series") -> None:
             composite=row.get("fair_value"),
             bar_width=96,
         )
+        if bool(row.get("fair_value_clamped")):
+            st.caption("⚑ Composite capped at the models' median — one model ran "
+                       "far above the rest.")
 
     # ── Position & metrics — matches Uvalu.dc.html's rowsD builder exactly:
     # 4 always-shown fields, then either 3 held-position fields or a single

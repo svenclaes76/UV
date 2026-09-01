@@ -1033,6 +1033,43 @@ def _margin_of_safety(price, fair_value) -> float | None:
     return None
 
 
+def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
+                    min_mos: float = 0.0) -> str:
+    """One-line, stock-specific explanation of a row's ``Decision`` — why it's a
+    BUY, or which gate is holding it at Monitor / Avoid. Mirrors
+    ``compute_scores`` Stage 6 exactly (veto → Avoid; else score ≥
+    buy_threshold AND a confirmed MoS ≥ min_mos → Strong Buy; else score ≥
+    SCORE_AVOID → Monitor; else Avoid). ``min_mos`` is a fraction
+    (``settings.get_veto_thresholds`` already divides by 100). Shared by the
+    Analysis page and the drawer so the two never explain the same signal
+    differently."""
+    dec = str(row.get("Decision") or "")
+    _s = row.get("Value Score")
+    _m = row.get("margin_of_safety")
+    score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
+    mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
+    _score_txt = "—" if score is None else f"{score:.0f}"
+
+    if bool(row.get("veto")):
+        return "Hard veto active — excluded from BUY scoring regardless of composite score."
+
+    if dec == "Strong Buy":
+        _mos_clause = f" and margin of safety {mos:+.0%} ≥ {min_mos:+.0%}" if mos is not None else ""
+        return f"Composite score {_score_txt} ≥ {buy_threshold:.0f}{_mos_clause} — both BUY conditions met."
+
+    gates = []
+    if score is None or score < buy_threshold:
+        gates.append(f"composite score {_score_txt} is below the {buy_threshold:.0f} BUY threshold")
+    if mos is None:
+        gates.append("no computable fair value, so the margin of safety can't be confirmed")
+    elif mos < min_mos:
+        gates.append(f"margin of safety {mos:+.0%} is below the {min_mos:+.0%} minimum")
+
+    if dec == "Avoid":
+        return f"Composite score {_score_txt} is below the {SCORE_AVOID:.0f} Avoid floor."
+    return ("Not a BUY: " + "; ".join(gates) + ".") if gates else "Sits in the Monitor band."
+
+
 def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:
     """TER = capital gain % + forward dividend yield + expected DGR (all as %).
 

@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import load_portfolio, load_manual_tickers
-from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS, sector_for
+from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
+                      sector_for, decision_reason)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
@@ -141,6 +142,11 @@ def render() -> None:
             f'{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True,
         )
+    else:
+        # Why this Decision — which gate keeps it out of BUY, or why Avoid vs
+        # Monitor (WP-DQ9). Vetoed names already get the banner above.
+        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
