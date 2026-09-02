@@ -145,6 +145,15 @@ PE_MULTIPLE_BAND     = (6.0, 30.0)
 PEG_TILT_BAND        = (0.7, 1.5)
 MIN_SECTOR_SAMPLE    = 5
 
+# WP-B: when a fetched row is missing trailingEps but carries a trailingPE (a
+# common shape for a partial Yahoo payload — summaryDetail lands, the
+# defaultKeyStatistics module doesn't), _fetch_one recovers EPS as
+# Price / trailingPE. Yahoo only publishes a positive trailingPE, so this only
+# ever yields the eps > 0 that Graham Number and PE fair value need. The band
+# rejects a nonsense ratio: the raw 0 < pe < 10_000 guard in _fetch_one is a
+# display sanity bound, far too wide to divide a price by.
+_PE_DERIVE_BAND = (2.0, 200.0)
+
 # Composite score weights — must sum to 1.0. Rebalanced away from the original
 # 0.30/0.18/0.22/0.15/0.15: MoS no longer dominates outright (it co-leads with
 # quality), and risk carries more weight, so a wide margin of safety can't by
@@ -222,6 +231,15 @@ REQUEST_DELAY    = 0.5  # seconds between requests per worker
 MAX_RETRIES      = 4    # retries on rate-limit (429), with exponential backoff
 CACHE_TTL_HOURS  = 24   # base TTL; actual refresh is jittered ±4h per ticker
 CACHE_TTL_JITTER = 4    # hours of random jitter added to each ticker's TTL
+
+# WP-A: a row that fetched with a price but came back too thin to value (see
+# _row_is_scorable — a partial Yahoo payload that raised no exception) is still
+# cached so the holding keeps a price and a score, but on this much shorter TTL,
+# so it heals on the next fetch cycle instead of being trusted for a full day.
+# A couple of immediate in-loop retries come first, since such payloads are
+# usually transient.
+CACHE_TTL_SHORT_HOURS = 3
+_THIN_ROW_RETRIES     = 2
 
 
 class _Fetcher:
@@ -329,6 +347,51 @@ def load_fundamentals_cache() -> dict:
     return {**SCREENER_FETCH.live_cache, **PORTFOLIO_FETCH.live_cache}
 
 
+def _row_fetch_time(row: "dict | pd.Series"):
+    """A fundamentals row's ``fetched_at`` as a datetime, or None if absent/bad."""
+    ts = row.get("fetched_at")
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(str(ts))
+    except (TypeError, ValueError):
+        return None
+
+
+def backfill_thin_rows_from_screener_lane(fund: "pd.DataFrame") -> "pd.DataFrame":
+    """WP-C: swap in the SCREENER_FETCH lane's row for any PORTFOLIO_FETCH-lane
+    row that can't be valued (``_row_is_scorable`` is False).
+
+    A degraded provider payload cached in the portfolio lane is otherwise sticky
+    until its (WP-A short) TTL expires, even when the screener lane already holds
+    a complete row for the same ticker. Both lanes run the identical scorer on
+    the identical row schema, so borrowing a healthy, not-older row is a no-op
+    for correctness and an immediate heal. Rows that are already scorable, and
+    tickers the screener lane doesn't have (held on a disabled exchange), are
+    left untouched.
+    """
+    if fund is None or getattr(fund, "empty", True) or "Ticker" not in getattr(fund, "columns", []):
+        return fund
+    records = fund.to_dict("records")
+    thin = [i for i, r in enumerate(records) if not _row_is_scorable(r)]
+    if not thin:
+        return fund
+    _warm_live_cache(SCREENER_FETCH)
+    alt_cache = SCREENER_FETCH.live_cache
+    changed = False
+    for i in thin:
+        r = records[i]
+        alt = alt_cache.get(str(r.get("Ticker")))
+        if not alt or not _row_is_scorable(alt):
+            continue
+        _rt, _at = _row_fetch_time(r), _row_fetch_time(alt)
+        if _rt is not None and _at is not None and _at < _rt:
+            continue   # don't trade a newer-but-thin row for a stale one
+        records[i] = {**r, **alt}   # alt wins on shared keys; portfolio-only keys survive
+        changed = True
+    return pd.DataFrame(records) if changed else fund
+
+
 def _is_fresh(entry: dict) -> bool:
     try:
         # Prefer explicit next_fetch_at (set with jitter); fall back to legacy age check
@@ -341,11 +404,18 @@ def _is_fresh(entry: dict) -> bool:
         return False
 
 
-def _next_fetch_at() -> str:
-    """Random refresh time: base TTL ± jitter, so fetches spread across the day."""
-    jitter_hours = random.uniform(-CACHE_TTL_JITTER, CACHE_TTL_JITTER)
-    delta_hours  = CACHE_TTL_HOURS + jitter_hours
-    return (datetime.now(timezone.utc) + timedelta(hours=delta_hours)).isoformat()
+def _next_fetch_at(short: bool = False) -> str:
+    """Random refresh time: base TTL ± jitter, so fetches spread across the day.
+
+    ``short=True`` uses ``CACHE_TTL_SHORT_HOURS`` with a proportionally smaller
+    jitter — for a row that fetched but came back unscorable, so it is retried
+    soon rather than trusted for a day (WP-A).
+    """
+    if short:
+        base, jitter = CACHE_TTL_SHORT_HOURS, random.uniform(-1.0, 1.0)
+    else:
+        base, jitter = CACHE_TTL_HOURS, random.uniform(-CACHE_TTL_JITTER, CACHE_TTL_JITTER)
+    return (datetime.now(timezone.utc) + timedelta(hours=base + jitter)).isoformat()
 
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
@@ -575,6 +645,21 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         if key not in row:   # don't overwrite already-processed fields
             row[key] = _safe_float(info.get(key))
 
+    # WP-B: recover a missing trailing EPS from the P/E multiple. A degraded
+    # Yahoo payload often drops trailingEps (defaultKeyStatistics) while keeping
+    # trailingPE (summaryDetail); Price / trailingPE is the same figure to within
+    # the price snapshot, and only ever positive (Yahoo suppresses P/E for
+    # loss-makers). Fires only for a sane P/E in _PE_DERIVE_BAND. Flagged so
+    # downstream — the fair-value models, dividend-coverage derivation below, and
+    # the UI's thin-data hint — can see the input was reconstructed, not fetched.
+    row["trailingEps_derived"] = False
+    if row.get("trailingEps") is None:
+        _pe = row.get("trailingPE")
+        _px = _safe_float(price)
+        if _pe is not None and _PE_DERIVE_BAND[0] < _pe < _PE_DERIVE_BAND[1] and _px and _px > 0:
+            row["trailingEps"] = round(_px / _pe, 4)
+            row["trailingEps_derived"] = True
+
     # Multi-year FCF history for the hard veto's "3+ consecutive negative years"
     # check; falls back to the single most-recent-period check when unavailable.
     row["fcfHistory"] = _fcf_history(tkr)
@@ -659,12 +744,26 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
             return
         ticker = stock["ticker"]
         row = None
+        thin_tries = 0
         for attempt in range(MAX_RETRIES + 1):
             if f.cancelled.is_set():
                 return
             try:
                 with contextlib.redirect_stderr(io.StringIO()):
                     row = _fetch_one(ticker, stock)
+                if _row_is_scorable(row) or row.get("Price") is None:
+                    break   # good row, or a dead/blocked symbol retrying can't improve
+                # Priced but too thin to value — almost always a partial Yahoo
+                # payload that raised no exception (some quoteSummary modules
+                # missing). Retry a couple of times; if it stays thin, keep the
+                # row but flag it for a short-TTL refetch so it self-heals next
+                # cycle rather than being trusted for a full day (WP-A).
+                thin_tries += 1
+                if thin_tries <= _THIN_ROW_RETRIES:
+                    row = None
+                    time.sleep(min(2 ** thin_tries * 3, 20))
+                    continue
+                row["next_fetch_at"] = _next_fetch_at(short=True)
                 break
             except Exception as e:
                 msg = str(e)
@@ -905,6 +1004,54 @@ def _normalised_ebit(row: pd.Series):
     if len(vals) >= 3:
         return sum(vals) / len(vals)
     return _get_num(row, "ebit")
+
+
+def _row_is_scorable(row: "dict | pd.Series") -> bool:
+    """True when a fundamentals row carries enough for at least one of the six
+    fair-value models below to produce a value — i.e. ``compute_scores`` can give
+    it a real ``fair_value`` / ``MoS`` rather than a NaN the rank layer papers
+    over with a neutral 50 (``_pct_rank`` / ``_abs_band``).
+
+    Kept deliberately in lock-step with ``_fair_value_models``' per-model input
+    guards; if a model's requirements change there, mirror the change here.
+    ``bookValue`` alone does not count (no model uses it without a positive EPS —
+    Graham needs both), but a sane ``trailingPE`` lets ``_fetch_one`` recover
+    that EPS (WP-B), so P/E + book value does. The EBIT branch is deliberately
+    lenient: it accepts a multi-year history without re-checking the mean's sign,
+    since a false "scorable" only means the row keeps its normal TTL — it still
+    renders "—" if the models genuinely can't value it, exactly as today.
+    """
+    def _num(key):
+        v = row.get(key)
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        return v if v == v else None   # NaN -> None
+
+    eps    = _num("trailingEps")
+    pe     = _num("trailingPE")
+    book   = _num("bookValue")
+    ebit   = _num("ebit")
+    ev     = _num("enterpriseValue")
+    target = _num("targetMeanPrice")
+    div    = _num("trailingAnnualDividendRate") or _num("dividendRate")
+    payout = _num("payoutRatio")
+
+    _hist = row.get("ebitHistory")
+    have_ebit = (ebit is not None and ebit > 0) or (
+        isinstance(_hist, list)
+        and len([v for v in _hist if isinstance(v, (int, float)) and v == v]) >= 3
+    )
+
+    return any((
+        eps is not None and eps > 0,                                     # Graham, PE fair value
+        book is not None and book > 0
+            and pe is not None and _PE_DERIVE_BAND[0] < pe < _PE_DERIVE_BAND[1],  # WP-B recovers EPS -> Graham, PE
+        target is not None and target > 0,                              # analyst target
+        div is not None and div > 0 and payout is not None,             # DDM (payout needed for a non-zero weight)
+        have_ebit and ev is not None and ev > 0,                        # earnings power value
+    ))
 
 
 def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
@@ -1392,6 +1539,23 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # then returns a 2-value Series and blows up the scalar guards downstream.
     _missing = [f for f in dict.fromkeys(all_fields) if f not in df.columns]
     df = df.reindex(columns=[*df.columns, *_missing])
+
+    # WP-B: recover a missing trailing EPS from the P/E multiple before the
+    # fair-value models run — so a row cached before _fetch_one learned to do
+    # this, or borrowed from the other fetch lane (backfill_thin_rows_*), still
+    # gets Graham / PE fair value. Same _PE_DERIVE_BAND contract as _fetch_one;
+    # Yahoo only publishes a positive P/E, so this only ever yields eps > 0.
+    if "trailingEps_derived" not in df.columns:
+        df["trailingEps_derived"] = False
+    df["trailingEps_derived"] = df["trailingEps_derived"].fillna(False).astype(bool)
+    if len(df) and "trailingPE" in df.columns:
+        _eps = pd.to_numeric(df["trailingEps"], errors="coerce")
+        _pe  = pd.to_numeric(df["trailingPE"], errors="coerce")
+        _px  = pd.to_numeric(df["Price"], errors="coerce")
+        _derive = _eps.isna() & _pe.gt(_PE_DERIVE_BAND[0]) & _pe.lt(_PE_DERIVE_BAND[1]) & _px.gt(0)
+        if _derive.any():
+            df.loc[_derive, "trailingEps"] = (_px / _pe).round(4)[_derive]
+            df.loc[_derive, "trailingEps_derived"] = True
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
     sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples

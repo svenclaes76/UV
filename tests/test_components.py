@@ -317,6 +317,16 @@ class TestFairValueBarHtml:
         assert "€100.00" in html
         assert "fv €120.00" in html
 
+    def test_data_thin_renders_pending_chip_not_dash(self):
+        html = _fair_value_bar_html(100.0, None, None, data_thin=True)
+        assert "fv pending" in html
+        assert "—" not in html
+
+    def test_data_thin_ignored_once_fair_value_is_present(self):
+        html = _fair_value_bar_html(100.0, 120.0, 16.7, data_thin=True)
+        assert "fv pending" not in html
+        assert "€100.00" in html
+
 
 class TestHoldingsRowHtml:
     def _row(self, **overrides):
@@ -344,6 +354,18 @@ class TestHoldingsRowHtml:
         html = self._row(decision="", veto=np.nan, fair_value=np.nan, mos_pct=np.nan)
         assert "uv-badge-neutral" in html and ">NO DATA<" in html
         assert "uv-badge-veto" not in html
+
+    def test_data_thin_row_shows_pending_for_ladder_and_mos(self):
+        # WP-E: incomplete fundamentals -> "fv pending", not a bare "—".
+        html = self._row(fair_value=None, mos_pct=None, data_thin=True)
+        assert "fv pending" in html
+        assert ">pending<" in html          # the MoS cell
+        assert "—" not in html
+
+    def test_thin_flag_without_data_thin_still_dashes(self):
+        html = self._row(fair_value=None, mos_pct=None, data_thin=False)
+        assert "fv pending" not in html
+        assert "—" in html
 
 
 class TestScoreBarCellHtml:

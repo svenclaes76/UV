@@ -408,6 +408,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                     _cv = _hr.get("current_value")
                     _cv = float(_cv) if _cv is not None and pd.notna(_cv) else 0.0
                     _ps = _hr.get("price_stale")
+                    _dt = _hr.get("data_thin")
                     st.markdown(_holdings_row_html(
                         ticker=_hr.get("ticker", ""),
                         sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
@@ -415,6 +416,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                         price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, day_change_pct=_hr.get("day_change_pct"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
+                        data_thin=bool(_dt) if pd.notna(_dt) else False,
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):
