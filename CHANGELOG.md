@@ -6,6 +6,18 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.4.0] — 2026-09-02
+
+Blank fair-value ladders on the Dashboard / Portfolio / Risk screens for a few
+holdings (AED.BR, CPINV.BR, FGR.PA): a partial Yahoo payload raised no error,
+so the row was cached for a full day with every fair-value model gated off. The
+fix recovers what it can from the row it has, retries what it can't on a short
+TTL, borrows a complete row from the other fetch lane, and labels the rest.
+
 ### Fixed
 
 - Dashboard / Portfolio / Risk: holdings that showed a blank fair-value ladder and margin of safety (a `—` next to a `MONITOR` badge — seen on AED.BR, CPINV.BR, FGR.PA) now get a real valuation. Root cause was a partial Yahoo payload — `trailingEps` / `targetMeanPrice` / `enterpriseValue` / `payoutRatio` all missing — that raised no error, so `_fetch_one` cached it and stamped a full 24 h TTL; every one of the six fair-value models then gated off and `fair_value` came back `None`, but the row still scored (the MoS sub-score falls back to a neutral 50) so it read as `MONITOR`. The fix:
