@@ -53,6 +53,30 @@ between screens at some point (see the `dq/*` history); the tests in
   high, the composite is clamped to the models' median (floored at the current
   price) and **`fair_value_clamped`** is set. Individual model values are
   never modified.
+- **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
+  row carries enough for at least one of the six models to produce a value
+  (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
+  `targetMeanPrice`, or a dividend rate **with** a payout ratio, or ≥3yr
+  `ebitHistory` + `enterpriseValue`). It mirrors `_fair_value_models`' own
+  per-model input guards and must be kept in step with them. A row that is not
+  scorable produces a NaN `fair_value` / `MoS`, which the rank layer papers over
+  with a neutral 50 (`_pct_rank` / `_abs_band`) — so such a row still gets a
+  `Decision`, usually `Monitor`.
+- **A thin fetch never sticks for a day.** `_fetch_one` recovers a missing
+  `trailingEps` from `trailingPE` (`trailingEps_derived` flags it). If the row
+  still isn't scorable but has a price, `_fetch_and_store` retries it, then
+  caches it on `CACHE_TTL_SHORT_HOURS` (not the 24h TTL) so a partial provider
+  payload heals on the next fetch cycle.
+- **The two lanes agree on "has a fair value".** `_load_portfolio_screener_data`
+  runs `backfill_thin_rows_from_screener_lane(fund)` before scoring: any
+  portfolio-lane row that isn't scorable is replaced by the `SCREENER_FETCH`
+  lane's row for the same ticker when that one is scorable and no older. Both
+  lanes run the identical scorer, so a held ticker never shows a fair value on
+  the Screener page and a blank ladder on the Dashboard.
+- **UI.** `uvalu.data.apply_live_mos` adds **`data_thin`** (`~_row_is_scorable`
+  per row). The Dashboard Holdings ladder renders "fv pending" for a
+  `data_thin` row with no fair value, instead of the bare "—" a genuinely
+  unvaluable business gets.
 
 ## Sectors
 

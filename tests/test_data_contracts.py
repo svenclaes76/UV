@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import portfolio
+import screener
 from tests.conftest import make_portfolio_df, make_scored_df, make_scored_row
 from tests.test_pages_dashboard import _run as _run_dashboard
 from tests.test_pages_risk import _run as _run_risk
@@ -153,3 +154,30 @@ def test_sector_hhi_and_position_hhi_are_distinct(isolated_data):
     assert c.hhi == pytest.approx(0.16 + 0.09 + 0.09)        # position-count
     assert c.sector_hhi == pytest.approx(0.49 + 0.09)        # Tech 0.70, Energy 0.30
     assert c.hhi != c.sector_hhi
+
+
+def test_the_two_fetch_lanes_agree_on_whether_a_held_ticker_has_a_fair_value():
+    """docs/data-contracts.md → Fair value: a held ticker never shows a fair
+    value on the Screener page and a blank ladder on the Dashboard. When the
+    portfolio lane's own row came back too thin, it borrows the screener lane's
+    (screener.backfill_thin_rows_from_screener_lane), then both run the same
+    scorer — so the composite fair value matches."""
+    saved = dict(screener.SCREENER_FETCH.live_cache)
+    try:
+        healthy = {"Ticker": "HELD.BR", "Name": "Held", "Price": 50.0,
+                   "trailingEps": 4.0, "bookValue": 30.0, "targetMeanPrice": 72.0,
+                   "fetched_at": "2026-09-02T00:00:00+00:00"}
+        screener.SCREENER_FETCH.live_cache.clear()
+        screener.SCREENER_FETCH.live_cache["HELD.BR"] = healthy
+        thin = pd.DataFrame([{"Ticker": "HELD.BR", "Name": "Held", "Price": 50.0,
+                              "fetched_at": "2026-09-01T00:00:00+00:00"}])
+
+        borrowed = screener.backfill_thin_rows_from_screener_lane(thin)
+        lane_fv = screener.run_screener_from_df(borrowed).iloc[0]["fair_value"]
+        direct_fv = screener.run_screener_from_df(pd.DataFrame([healthy])).iloc[0]["fair_value"]
+
+        assert pd.notna(lane_fv) and lane_fv > 0
+        assert lane_fv == pytest.approx(direct_fv)
+    finally:
+        screener.SCREENER_FETCH.live_cache.clear()
+        screener.SCREENER_FETCH.live_cache.update(saved)

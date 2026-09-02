@@ -256,11 +256,21 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 
 
 def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct: float | None,
-                         currency: str = "€") -> str:
+                         currency: str = "€", data_thin: bool = False) -> str:
     """Raw markup for the price-vs-fair-value ladder — factored out of
     fair_value_bar_compact() so holdings_row_html() can embed it inside a
-    larger row grid without a nested st.markdown() call."""
+    larger row grid without a nested st.markdown() call.
+
+    `data_thin` (WP-E) marks a row that has no fair value because its
+    fundamentals record came back incomplete and is being refetched — rendered
+    as a "fv pending" chip rather than the bare "—" a genuinely unvaluable
+    business gets."""
     if fair_value is None or pd.isna(fair_value) or not price or pd.isna(price) or mos_pct is None or pd.isna(mos_pct):
+        if data_thin:
+            return ('<span title="Fair value pending: this holding&#39;s fundamentals record came '
+                    'back incomplete and is being refetched" style="font:500 10px var(--uv-mono);'
+                    'color:var(--uv-muted,var(--muted));border:0.5px solid var(--line);'
+                    'border-radius:5px;padding:1px 7px;white-space:nowrap;">fv pending</span>')
         return '<span style="color:var(--uv-faint,var(--faint));">—</span>'
     price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
     color = _ladder_bar_color(mos_pct)
@@ -309,7 +319,8 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       decision: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, day_change_pct: float | None,
-                      price_stale: bool = False, currency: str = "€") -> str:
+                      price_stale: bool = False, data_thin: bool = False,
+                      currency: str = "€") -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, margin-of-safety/weight/value, and a
     day-change chip — matching Uvalu.dc.html's row spec column-for-column.
@@ -317,19 +328,24 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     same convention as _margin_of_safety() and the ladder legend, not raw
     upside (fair_value / price − 1). `price_stale` dims the day-change chip and
     adds a "delayed quote" tooltip when this row isn't on a fresh intraday
-    tick (WP-DQ8). Embed inside an outer st.markdown(unsafe_allow_html=True)
-    call; pair with a HOLDINGS_GRID_COLS-templated header for aligned column
-    labels."""
+    tick (WP-DQ8). `data_thin` (WP-E) renders "fv pending" for the ladder and
+    margin-of-safety cells instead of a bare "—" when there's no fair value
+    because the fundamentals record came back incomplete. Embed inside an outer
+    st.markdown(unsafe_allow_html=True) call; pair with a
+    HOLDINGS_GRID_COLS-templated header for aligned column labels."""
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{sector}</span>"
                    if sector and pd.notna(sector) else "")
     kind, label = signal_badge_for_decision(decision, veto=veto)
-    ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency)
+    ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
         _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
         mos_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
                     f"color:{_mos_color};'>{mos_pct:+.1f}%</span>")
+    elif data_thin:
+        mos_html = ("<span title='Margin of safety pending, no fair value yet' "
+                    "style='color:var(--muted);font-family:var(--uv-mono);font-size:11px;'>pending</span>")
     else:
         mos_html = "<span style='color:var(--faint);'>—</span>"
     if day_change_pct is not None and pd.notna(day_change_pct):

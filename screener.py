@@ -347,6 +347,51 @@ def load_fundamentals_cache() -> dict:
     return {**SCREENER_FETCH.live_cache, **PORTFOLIO_FETCH.live_cache}
 
 
+def _row_fetch_time(row: "dict | pd.Series"):
+    """A fundamentals row's ``fetched_at`` as a datetime, or None if absent/bad."""
+    ts = row.get("fetched_at")
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(str(ts))
+    except (TypeError, ValueError):
+        return None
+
+
+def backfill_thin_rows_from_screener_lane(fund: "pd.DataFrame") -> "pd.DataFrame":
+    """WP-C: swap in the SCREENER_FETCH lane's row for any PORTFOLIO_FETCH-lane
+    row that can't be valued (``_row_is_scorable`` is False).
+
+    A degraded provider payload cached in the portfolio lane is otherwise sticky
+    until its (WP-A short) TTL expires, even when the screener lane already holds
+    a complete row for the same ticker. Both lanes run the identical scorer on
+    the identical row schema, so borrowing a healthy, not-older row is a no-op
+    for correctness and an immediate heal. Rows that are already scorable, and
+    tickers the screener lane doesn't have (held on a disabled exchange), are
+    left untouched.
+    """
+    if fund is None or getattr(fund, "empty", True) or "Ticker" not in getattr(fund, "columns", []):
+        return fund
+    records = fund.to_dict("records")
+    thin = [i for i, r in enumerate(records) if not _row_is_scorable(r)]
+    if not thin:
+        return fund
+    _warm_live_cache(SCREENER_FETCH)
+    alt_cache = SCREENER_FETCH.live_cache
+    changed = False
+    for i in thin:
+        r = records[i]
+        alt = alt_cache.get(str(r.get("Ticker")))
+        if not alt or not _row_is_scorable(alt):
+            continue
+        _rt, _at = _row_fetch_time(r), _row_fetch_time(alt)
+        if _rt is not None and _at is not None and _at < _rt:
+            continue   # don't trade a newer-but-thin row for a stale one
+        records[i] = {**r, **alt}   # alt wins on shared keys; portfolio-only keys survive
+        changed = True
+    return pd.DataFrame(records) if changed else fund
+
+
 def _is_fresh(entry: dict) -> bool:
     try:
         # Prefer explicit next_fetch_at (set with jitter); fall back to legacy age check
@@ -1494,6 +1539,23 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # then returns a 2-value Series and blows up the scalar guards downstream.
     _missing = [f for f in dict.fromkeys(all_fields) if f not in df.columns]
     df = df.reindex(columns=[*df.columns, *_missing])
+
+    # WP-B: recover a missing trailing EPS from the P/E multiple before the
+    # fair-value models run — so a row cached before _fetch_one learned to do
+    # this, or borrowed from the other fetch lane (backfill_thin_rows_*), still
+    # gets Graham / PE fair value. Same _PE_DERIVE_BAND contract as _fetch_one;
+    # Yahoo only publishes a positive P/E, so this only ever yields eps > 0.
+    if "trailingEps_derived" not in df.columns:
+        df["trailingEps_derived"] = False
+    df["trailingEps_derived"] = df["trailingEps_derived"].fillna(False).astype(bool)
+    if len(df) and "trailingPE" in df.columns:
+        _eps = pd.to_numeric(df["trailingEps"], errors="coerce")
+        _pe  = pd.to_numeric(df["trailingPE"], errors="coerce")
+        _px  = pd.to_numeric(df["Price"], errors="coerce")
+        _derive = _eps.isna() & _pe.gt(_PE_DERIVE_BAND[0]) & _pe.lt(_PE_DERIVE_BAND[1]) & _px.gt(0)
+        if _derive.any():
+            df.loc[_derive, "trailingEps"] = (_px / _pe).round(4)[_derive]
+            df.loc[_derive, "trailingEps_derived"] = True
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
     sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples

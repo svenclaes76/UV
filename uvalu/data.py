@@ -17,7 +17,7 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
                             fetch_paris_tickers, fetch_milan_tickers,
                             fetch_frankfurt_tickers, fetch_swiss_tickers)
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
-                      load_fundamentals_cache,
+                      load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
@@ -300,6 +300,10 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     fund = fetch_fundamentals_nowait(stocks, fetcher=PORTFOLIO_FETCH, priority=stocks)
     if fund.empty:
         return pd.DataFrame(columns=["Ticker"])
+    # WP-C: if the portfolio lane cached a row too thin to value but the screener
+    # lane already holds a complete one for that ticker, borrow it — a degraded
+    # payload otherwise sits until its short TTL (WP-A) expires.
+    fund = backfill_thin_rows_from_screener_lane(fund)
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
                                 weights=score_weights)
@@ -394,6 +398,17 @@ def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.Data
         _mos = ((_fv - _price) / _fv).where((_price > 0) & (_fv > 0))
         out["margin_of_safety"] = _mos
         out["MoS %"] = (_mos * 100).round(1)
+
+    # WP-E: `data_thin` == "no fair value AND none of the six models can produce
+    # one from this row's own fundamentals" — i.e. a partial provider payload
+    # still being refetched (WP-A gives it a short TTL). The Holdings ladder
+    # shows a "fv pending" hint for these instead of the bare "—" a genuinely
+    # unvaluable business gets. A row that already carries a fair value (incl. a
+    # WP-B EPS-derived one, or a WP-C cross-lane backfill) is never `data_thin`.
+    from screener import _row_is_scorable
+    _fv_missing = (pd.to_numeric(out["fair_value"], errors="coerce").isna()
+                   if "fair_value" in out.columns else pd.Series(True, index=out.index))
+    out["data_thin"] = _fv_missing & ~out.apply(_row_is_scorable, axis=1)
 
     # Curated sector fallback for provider-unclassified names (WP-DQ7) — so a
     # drawer opened from the Portfolio page shows the same sector the Dashboard

@@ -485,6 +485,29 @@ class TestLoadPortfolioScreenerData:
         assert captured["fetcher"] is screener.PORTFOLIO_FETCH
         assert captured["priority"] == ["AAA.BR"]
 
+    def test_backfills_a_thin_portfolio_row_from_the_screener_lane(self, monkeypatch):
+        # WP-C: portfolio lane returns a row with nothing to value it on; the
+        # screener lane holds a complete row for the same ticker -> the scored
+        # output still gets a fair value, so the Dashboard doesn't blank a
+        # holding the Screener page can price.
+        thin = {"Ticker": "AAA.BR", "Name": "Alpha Corp", "Price": 50.0,
+                "fetched_at": "2026-09-01T00:00:00+00:00"}
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait",
+                            lambda stocks, fetcher=None, priority=(): pd.DataFrame([thin]))
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = dict(
+            _FUND_ROW, fetched_at="2026-09-02T00:00:00+00:00")
+
+        def _script():
+            from uvalu.data import _load_portfolio_screener_data
+            import streamlit as st
+            df = _load_portfolio_screener_data("v-wpc", ("AAA.BR",), ("Alpha Corp",))
+            st.text(str(df.iloc[0]["fair_value"]))
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.text[0].value not in ("nan", "None", "")
+
 
 # ── prefetch_portfolio_data ──────────────────────────────────────────────
 
@@ -568,6 +591,21 @@ class TestApplyLiveMos:
         assert data_module.apply_live_mos(None, {}) is None
         empty = pd.DataFrame(columns=["Ticker"])
         assert data_module.apply_live_mos(empty, {}).empty
+
+    # WP-E: data_thin == no fair value AND no model can produce one from this row.
+    def test_data_thin_true_when_unscorable_and_no_fair_value(self):
+        f = self._frame(fair_value=float("nan")).drop(columns=["MoS %", "margin_of_safety"])
+        out = data_module.apply_live_mos(f, {"AAA.BR": {"price": 100.0}})
+        assert bool(out.iloc[0]["data_thin"]) is True
+
+    def test_data_thin_false_when_fair_value_present(self):
+        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 108.0}})
+        assert bool(out.iloc[0]["data_thin"]) is False
+
+    def test_data_thin_false_when_row_is_scorable_even_without_fair_value(self):
+        f = self._frame(fair_value=float("nan"), trailingEps=6.0)
+        out = data_module.apply_live_mos(f, {})
+        assert bool(out.iloc[0]["data_thin"]) is False
 
 
 class TestPriceFeedStatus:

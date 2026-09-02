@@ -9,8 +9,14 @@ All notable changes to UV are documented here.
 ### Fixed
 
 - Dashboard / Portfolio / Risk: holdings that showed a blank fair-value ladder and margin of safety (a `—` next to a `MONITOR` badge — seen on AED.BR, CPINV.BR, FGR.PA) now get a real valuation. Root cause was a partial Yahoo payload — `trailingEps` / `targetMeanPrice` / `enterpriseValue` / `payoutRatio` all missing — that raised no error, so `_fetch_one` cached it and stamped a full 24 h TTL; every one of the six fair-value models then gated off and `fair_value` came back `None`, but the row still scored (the MoS sub-score falls back to a neutral 50) so it read as `MONITOR`. Two changes:
-  - **WP-B** — `screener._fetch_one` recovers a missing `trailingEps` from `trailingPE` (`Price / trailingPE`, only for a sane P/E in `_PE_DERIVE_BAND` and only ever a positive EPS), so Graham Number and PE fair value can run. Flagged on the row as `trailingEps_derived`.
+  - **WP-B** — a missing `trailingEps` is recovered from `trailingPE` (`Price / trailingPE`, only for a sane P/E in `_PE_DERIVE_BAND` and only ever a positive EPS) so Graham Number and PE fair value can run. Done in `screener._fetch_one` for new fetches **and** in `compute_scores`, so a row already cached without an EPS heals on the next score rather than the next fetch. Flagged on the row as `trailingEps_derived`.
   - **WP-A** — a fetched row that has a price but still can't feed any fair-value model (`screener._row_is_scorable`) is retried a couple of times in-loop, then cached on a short `CACHE_TTL_SHORT_HOURS` (3 h) TTL instead of 24 h, so a degraded payload self-heals on the next fetch cycle. A symbol that returned no price at all is left alone (retrying can't fix a delisting).
+  - **WP-C** — `_load_portfolio_screener_data` runs `screener.backfill_thin_rows_from_screener_lane`: an unscorable portfolio-lane row is replaced by the `SCREENER_FETCH` lane's row for the same ticker when that one is scorable and no older, so a held ticker never shows a fair value on the Screener page and a blank ladder on the Dashboard.
+  - **WP-E** — `apply_live_mos` adds `data_thin`; the Dashboard Holdings ladder shows a "fv pending" hint (not a bare `—`) for a row with no fair value because its fundamentals record came back incomplete.
+
+### Documentation
+
+- `docs/data-contracts.md` — the Fair value section now covers the scorable-row requirement (`screener._row_is_scorable`), the short-TTL retry on a thin fetch, the cross-lane backfill, and the `data_thin` UI hint. `tests/test_data_contracts.py` gains a check that the two fetch lanes agree on whether a held ticker has a fair value.
 
 ---
 

@@ -541,3 +541,54 @@ class TestPriorityAndLanes:
         screener.PORTFOLIO_FETCH.live_cache.update({"B.BR": {"Price": 99}, "C.BR": {"Price": 3}})
         merged = screener.load_fundamentals_cache()
         assert merged == {"A.BR": {"Price": 1}, "B.BR": {"Price": 99}, "C.BR": {"Price": 3}}
+
+
+# ── backfill_thin_rows_from_screener_lane (WP-C) ──────────────────────────
+
+class TestBackfillThinRows:
+    def test_thin_row_is_swapped_for_the_screener_lane_row(self):
+        screener.SCREENER_FETCH.live_cache["AED.BR"] = {
+            "Ticker": "AED.BR", "Price": 68.0, "trailingEps": 11.5,
+            "fetched_at": "2026-09-02T10:00:00+00:00",
+        }
+        thin = pd.DataFrame([{"Ticker": "AED.BR", "Price": 68.1, "trailingPE": None,
+                              "fetched_at": "2026-09-01T10:00:00+00:00"}])
+        out = screener.backfill_thin_rows_from_screener_lane(thin)
+        assert out.iloc[0]["trailingEps"] == 11.5
+        assert screener._row_is_scorable(out.iloc[0])
+
+    def test_already_scorable_row_is_left_untouched(self):
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {"Ticker": "AAA.BR", "trailingEps": 99.0}
+        fund = pd.DataFrame([{"Ticker": "AAA.BR", "trailingEps": 5.0, "Price": 100.0}])
+        out = screener.backfill_thin_rows_from_screener_lane(fund)
+        assert out is fund
+        assert out.iloc[0]["trailingEps"] == 5.0
+
+    def test_no_swap_when_the_screener_lane_row_is_also_thin(self):
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {"Ticker": "AAA.BR", "Price": 100.0}
+        fund = pd.DataFrame([{"Ticker": "AAA.BR", "Price": 100.0}])
+        out = screener.backfill_thin_rows_from_screener_lane(fund)
+        assert out is fund
+
+    def test_no_swap_when_the_screener_lane_row_is_older(self):
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {
+            "Ticker": "AAA.BR", "trailingEps": 11.0, "fetched_at": "2026-08-01T00:00:00+00:00"}
+        fund = pd.DataFrame([{"Ticker": "AAA.BR", "Price": 100.0,
+                              "fetched_at": "2026-09-01T00:00:00+00:00"}])
+        out = screener.backfill_thin_rows_from_screener_lane(fund)
+        assert not screener._row_is_scorable(out.iloc[0])
+
+    def test_missing_fetched_at_does_not_block_the_swap(self):
+        screener.SCREENER_FETCH.live_cache["AAA.BR"] = {"Ticker": "AAA.BR", "trailingEps": 8.0}
+        fund = pd.DataFrame([{"Ticker": "AAA.BR", "Price": 100.0}])
+        out = screener.backfill_thin_rows_from_screener_lane(fund)
+        assert screener._row_is_scorable(out.iloc[0])
+
+    def test_ticker_absent_from_screener_lane_is_left_as_is(self):
+        fund = pd.DataFrame([{"Ticker": "ZZZ.BR", "Price": 1.0}])
+        out = screener.backfill_thin_rows_from_screener_lane(fund)
+        assert out is fund
+
+    def test_empty_frame_passes_through(self):
+        empty = pd.DataFrame(columns=["Ticker"])
+        assert screener.backfill_thin_rows_from_screener_lane(empty).empty
