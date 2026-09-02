@@ -92,6 +92,12 @@ class TestNextFetchAt:
         hi = screener.CACHE_TTL_HOURS + screener.CACHE_TTL_JITTER
         assert lo - 0.1 <= delta_hours <= hi + 0.1
 
+    def test_short_flag_uses_short_ttl(self):
+        parsed = datetime.fromisoformat(screener._next_fetch_at(short=True))
+        delta_hours = (parsed - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert screener.CACHE_TTL_SHORT_HOURS - 1.1 <= delta_hours <= screener.CACHE_TTL_SHORT_HOURS + 1.1
+        assert delta_hours < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
+
 
 # ── _safe_float ────────────────────────────────────────────────────────────
 
@@ -106,6 +112,50 @@ class TestSafeFloat:
     def test_invalid_returns_none(self):
         assert screener._safe_float("not-a-number") is None
         assert screener._safe_float(object()) is None
+
+
+# ── _row_is_scorable (WP-A gate) ──────────────────────────────────────────
+
+class TestRowIsScorable:
+    def test_positive_eps_is_scorable(self):
+        assert screener._row_is_scorable({"trailingEps": 4.2}) is True
+
+    def test_analyst_target_alone_is_scorable(self):
+        assert screener._row_is_scorable({"targetMeanPrice": 88.0}) is True
+
+    def test_dividend_needs_payout_to_count(self):
+        assert screener._row_is_scorable({"dividendRate": 4.0}) is False
+        assert screener._row_is_scorable({"dividendRate": 4.0, "payoutRatio": 0.6}) is True
+
+    def test_book_value_needs_a_sane_pe_to_count(self):
+        assert screener._row_is_scorable({"bookValue": 80.0}) is False
+        assert screener._row_is_scorable({"bookValue": 80.0, "trailingPE": 6.0}) is True
+        assert screener._row_is_scorable({"bookValue": 80.0, "trailingPE": 999.0}) is False
+
+    def test_ebit_history_needs_enterprise_value(self):
+        assert screener._row_is_scorable({"ebitHistory": [10.0, 11.0, 12.0]}) is False
+        assert screener._row_is_scorable(
+            {"ebitHistory": [10.0, 11.0, 12.0], "enterpriseValue": 5e8}) is True
+
+    def test_degraded_portfolio_row_is_rescued_by_pe_plus_book(self):
+        # AED.BR / CPINV.BR / FGR.PA as they sat in portfolio_fundamentals.json:
+        # no EPS / payout / target / EV, but a sane P/E and a book value — which
+        # WP-B turns into a usable EPS, so the gate must treat it as scorable and
+        # NOT send it round the thin-payload retry.
+        degraded = {
+            "Price": 68.1, "trailingPE": 5.93, "bookValue": 79.8, "dividendRate": 4.0,
+            "trailingEps": None, "payoutRatio": None, "targetMeanPrice": None,
+            "enterpriseValue": None,
+        }
+        assert screener._row_is_scorable(degraded) is True
+        # Strip the P/E too and there is genuinely nothing to value it on.
+        assert screener._row_is_scorable({**degraded, "trailingPE": None}) is False
+
+    def test_nan_values_are_treated_as_missing(self):
+        assert screener._row_is_scorable({"trailingEps": float("nan")}) is False
+
+    def test_accepts_a_pandas_series(self):
+        assert screener._row_is_scorable(pd.Series({"trailingEps": 3.0})) is True
 
 
 # ── _df_from_cache ─────────────────────────────────────────────────────────
@@ -174,6 +224,31 @@ class TestFetchOne:
         }))
         row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
         assert row["trailingPE"] is None
+
+    def test_trailing_eps_recovered_from_pe_when_missing(self, monkeypatch):
+        # Partial-payload shape: P/E present, trailingEps absent (WP-B).
+        monkeypatch.setattr(yf, "Ticker", self._fake_ticker({
+            "currentPrice": 68.1, "trailingPE": 5.9269,
+        }))
+        row = screener._fetch_one("AED.BR", {"name": "Aedifica", "isin": ""})
+        assert row["trailingEps"] == pytest.approx(11.49, abs=0.01)
+        assert row["trailingEps_derived"] is True
+
+    def test_trailing_eps_not_recovered_when_pe_absurd(self, monkeypatch):
+        monkeypatch.setattr(yf, "Ticker", self._fake_ticker({
+            "currentPrice": 100.0, "trailingPE": 0.4,   # inside 0<pe<10_000 but outside _PE_DERIVE_BAND
+        }))
+        row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
+        assert row["trailingEps"] is None
+        assert row["trailingEps_derived"] is False
+
+    def test_real_trailing_eps_is_left_untouched(self, monkeypatch):
+        monkeypatch.setattr(yf, "Ticker", self._fake_ticker({
+            "currentPrice": 100.0, "trailingPE": 8.0, "trailingEps": 9.99,
+        }))
+        row = screener._fetch_one("AAA.BR", {"name": "X", "isin": ""})
+        assert row["trailingEps"] == 9.99
+        assert row["trailingEps_derived"] is False
 
     def test_fcf_yield_derived_from_fcf_and_market_cap(self, monkeypatch):
         monkeypatch.setattr(yf, "Ticker", self._fake_ticker({
@@ -278,8 +353,10 @@ class TestWarmLiveCache:
 
 class TestRunFetch:
     def test_fetches_and_persists_all_stale_tickers(self, monkeypatch):
+        # trailingEps present -> _row_is_scorable is True, so the row isn't
+        # treated as a thin partial payload and retried (WP-A).
         monkeypatch.setattr(screener, "_fetch_one", lambda ticker, stock: {
-            "Name": stock["name"], "Ticker": ticker, "Price": 100.0,
+            "Name": stock["name"], "Ticker": ticker, "Price": 100.0, "trailingEps": 5.0,
         })
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
         cache = {}
@@ -316,7 +393,7 @@ class TestRunFetch:
             attempts["n"] += 1
             if attempts["n"] < 2:
                 raise ValueError("429 Too Many Requests")
-            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0}
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0, "trailingEps": 5.0}
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
@@ -326,6 +403,60 @@ class TestRunFetch:
 
         assert attempts["n"] == 2
         assert cache["AAA.BR"]["Price"] == 100.0
+
+    def test_thin_priced_row_retried_then_cached_on_short_ttl(self, monkeypatch):
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            # Priced, but nothing any fair-value model can use (WP-A).
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0}
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "AED.BR", "name": "Aedifica", "isin": ""}], cache)
+
+        assert len(calls) == 1 + screener._THIN_ROW_RETRIES        # one try + the retries
+        row = cache["AED.BR"]
+        assert row["Price"] == 100.0                               # still cached, holding keeps a price
+        delta_h = (datetime.fromisoformat(row["next_fetch_at"])
+                   - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
+
+    def test_thin_row_without_price_is_not_retried(self, monkeypatch):
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker}   # dead / blocked symbol
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "DEAD.BR", "name": "Dead", "isin": ""}], cache)
+
+        assert calls == ["DEAD.BR"]            # no spin on a symbol retrying can't fix
+        assert "DEAD.BR" in cache
+
+    def test_thin_row_that_recovers_on_retry_is_kept(self, monkeypatch):
+        attempts = {"n": 0}
+
+        def _fake_fetch_one(ticker, stock):
+            attempts["n"] += 1
+            base = {"Name": stock["name"], "Ticker": ticker, "Price": 100.0}
+            if attempts["n"] >= 2:
+                base["trailingEps"] = 5.0          # second call comes back complete
+            return base
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "AAA.BR", "name": "Alpha", "isin": ""}], cache)
+
+        assert attempts["n"] == 2
+        assert cache["AAA.BR"]["trailingEps"] == 5.0
+        assert "next_fetch_at" not in cache["AAA.BR"]   # not forced onto the short TTL
 
     def test_cancellation_stops_processing(self, monkeypatch):
         def _fake_fetch_one(ticker, stock):
@@ -356,7 +487,7 @@ class TestFetchFundamentalsNowait:
 
     def test_stale_spawns_background_thread_that_populates_cache(self, monkeypatch):
         monkeypatch.setattr(screener, "_fetch_one", lambda ticker, stock: {
-            "Name": stock["name"], "Ticker": ticker, "Price": 100.0,
+            "Name": stock["name"], "Ticker": ticker, "Price": 100.0, "trailingEps": 5.0,
         })
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
 
@@ -381,7 +512,7 @@ class TestPriorityAndLanes:
         monkeypatch.setattr(screener, "MAX_WORKERS", 1)   # sequential → deterministic order
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
         monkeypatch.setattr(screener, "_fetch_one", lambda t, s: (
-            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0}))
+            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0, "trailingEps": 0.5}))
 
     def test_priority_tickers_fetched_before_the_rest(self, monkeypatch):
         order: list[str] = []

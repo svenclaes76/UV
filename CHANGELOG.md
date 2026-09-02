@@ -6,7 +6,11 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- Dashboard / Portfolio / Risk: holdings that showed a blank fair-value ladder and margin of safety (a `—` next to a `MONITOR` badge — seen on AED.BR, CPINV.BR, FGR.PA) now get a real valuation. Root cause was a partial Yahoo payload — `trailingEps` / `targetMeanPrice` / `enterpriseValue` / `payoutRatio` all missing — that raised no error, so `_fetch_one` cached it and stamped a full 24 h TTL; every one of the six fair-value models then gated off and `fair_value` came back `None`, but the row still scored (the MoS sub-score falls back to a neutral 50) so it read as `MONITOR`. Two changes:
+  - **WP-B** — `screener._fetch_one` recovers a missing `trailingEps` from `trailingPE` (`Price / trailingPE`, only for a sane P/E in `_PE_DERIVE_BAND` and only ever a positive EPS), so Graham Number and PE fair value can run. Flagged on the row as `trailingEps_derived`.
+  - **WP-A** — a fetched row that has a price but still can't feed any fair-value model (`screener._row_is_scorable`) is retried a couple of times in-loop, then cached on a short `CACHE_TTL_SHORT_HOURS` (3 h) TTL instead of 24 h, so a degraded payload self-heals on the next fetch cycle. A symbol that returned no price at all is left alone (retrying can't fix a delisting).
 
 ---
 
