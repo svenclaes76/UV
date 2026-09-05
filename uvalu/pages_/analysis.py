@@ -14,7 +14,7 @@ from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, sub_score_bar_html, quality_score_color,
-                              veto_reason_str, is_hard_veto)
+                              veto_reason_str, is_hard_veto, skeleton_chart_html)
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors
 from uvalu.ui import _CHART_CONFIG
@@ -23,6 +23,26 @@ _EXCHANGE_LABELS = {
     "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
     "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
 }
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _fetch_price_history_1y_cached(ticker: str) -> pd.DataFrame:
+    """1Y daily OHLC for the price-vs-fair-value chart. Cached for an hour —
+    this is a single quick per-ticker call (unlike the multi-ticker
+    fundamentals crawl's dedicated background lanes), so caching the common
+    case (revisiting a ticker already viewed this session) is the right-sized
+    fix rather than standing up a background thread for it. Left undecorated
+    for failures (raises instead of swallowing) so st.cache_data doesn't
+    pin a transient yfinance error as this ticker's result for the full TTL —
+    see _fetch_price_history_1y, which is what callers should use."""
+    return yf.Ticker(ticker).history(period="1y")
+
+
+def _fetch_price_history_1y(ticker: str) -> pd.DataFrame:
+    try:
+        return _fetch_price_history_1y_cached(ticker)
+    except Exception:
+        return pd.DataFrame()
 
 
 def _fv(row, field, fmt=None):
@@ -161,11 +181,14 @@ def render() -> None:
                 st.markdown(f'<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
                            f'color:var(--muted);"><span style="width:12px;height:0;border-top:1.5px dashed '
                            f'{_C.axis};display:inline-block;"></span>Fair value</span>', unsafe_allow_html=True)
-        with st.spinner("Loading price history…"):
-            try:
-                _hist = yf.Ticker(ticker).history(period="1y")
-            except Exception:
-                _hist = pd.DataFrame()
+        # A placeholder so the skeleton (shown only on a genuine cache miss —
+        # see _fetch_price_history_1y) is replaced by the real chart in place
+        # rather than both stacking on the page.
+        _chart_slot = st.empty()
+        if ticker not in st.session_state.get("_an_hist_cache_warm", set()):
+            _chart_slot.markdown(skeleton_chart_html(height=260), unsafe_allow_html=True)
+        _hist = _fetch_price_history_1y(ticker)
+        st.session_state.setdefault("_an_hist_cache_warm", set()).add(ticker)
         if not _hist.empty:
             _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
             _fig = go.Figure()
@@ -185,7 +208,9 @@ def render() -> None:
                 xaxis=dict(showgrid=False, tickfont=dict(color=_C.axis)),
                 font=dict(color=_C.axis), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             )
-            st.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
+            _chart_slot.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
+        else:
+            _chart_slot.empty()
 
     # ── Sub-scores | six-model fair value ─────────────────────────────────────
     _col1, _col2 = st.columns([1, 1.25])

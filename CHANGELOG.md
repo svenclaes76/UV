@@ -7,8 +7,9 @@ All notable changes to UV are documented here.
 ## [Unreleased]
 
 Implements the "Loading Patterns" design concept (Claude Design handoff,
-`Loading Patterns.dc.html`): a small shimmer/spinner pattern library plus two
-concrete gaps it exposed on the Dashboard.
+`Loading Patterns.dc.html`): a small shimmer/spinner pattern library, applied
+consistently across every remaining page-load loading state in the app —
+including two that used to genuinely delay a page's first paint.
 
 ### Added
 
@@ -16,6 +17,9 @@ concrete gaps it exposed on the Dashboard.
 - Dashboard: the Holdings table and the "Avg margin of safety" KPI tile previously fell back to a bare "No screener data available"/"—" the moment the page loaded before the `PORTFOLIO_FETCH` background lane finished scoring a held ticker (most visible right after adding a new position). They now show the matching skeleton shape instead and poll until real rows arrive, the same cold-cache idiom the Screener page already used (`loading_skeleton_html`) but shaped like this table's own grid.
 - Dashboard / Portfolio / Risk: a timer-triggered price refresh (`price_autorefresh`) now shows a slim non-disruptive top-of-page sweep for that one rerun instead of the page just silently repainting, via `uvalu.ui.consumed_tick`.
 - Topbar price-freshness dot (`uvalu/shell.py`) now pulses (`uvRing`) while the feed is genuinely live — static for Delayed/Feed stale/Market closed, so the animation itself signals "still updating".
+- Screener: the "🔄 Updating data… N/M tickers" plain-text caption shown above already-visible results while a background fetch runs is now the same top-of-page sweep used everywhere else, instead of a persistent text banner.
+- **Portfolio's value-history backfill no longer blocks the page.** Loading Portfolio with missing/stale `value_history.json` used to show a blank page behind `st.spinner("Updating value history…")` until the full yfinance backfill finished. It now runs in a background thread (`portfolio.ensure_value_history_fresh`) and the page renders immediately; Dashboard's value-over-time chart (the only consumer of that data — Portfolio dropped its own history chart in an earlier redesign) shows `skeleton_chart_html` and polls until the backfill lands. Either page can now trigger the backfill, whichever is visited first. Also retires a dead "click **Rebuild history**" hint that pointed at a button removed in that same earlier redesign.
+- Analysis/Stock Detail's 1Y price chart no longer re-fetches from yfinance on every render — cached for an hour, with `skeleton_chart_html` shown in place of the old `st.spinner` on a genuine cache miss.
 
 ---
 

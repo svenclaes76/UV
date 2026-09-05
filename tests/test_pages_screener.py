@@ -150,11 +150,16 @@ def test_bust_cache_triggered_when_a_non_first_exchange_is_stale(isolated_data, 
     assert calls == [True]
 
 
-def test_fetch_in_progress_shows_progress_caption(isolated_data, monkeypatch):
+def test_fetch_in_progress_shows_refresh_sweep(isolated_data, monkeypatch):
+    # With rows already on screen, a running fetch shows the same
+    # non-disruptive top-of-page sweep used elsewhere (Dashboard/Portfolio/
+    # Risk's timed refresh) instead of a persistent "Updating data… N/M
+    # tickers" text caption.
     at = _run(monkeypatch, fetch_progress={"running": True, "total": 10, "done": 3})
     caption_html = "".join(c.value for c in at.caption)
-    assert "Updating data" in caption_html
-    assert "3/10" in caption_html
+    markdown_html = "".join(m.value for m in at.markdown)
+    assert "Updating data" not in caption_html
+    assert "uvBar" in markdown_html
 
 
 def test_sector_filter_narrows_results(isolated_data, monkeypatch):

@@ -12,6 +12,7 @@ makes a real network call.
 """
 import pandas as pd
 import pytest
+import streamlit as st
 
 import auth
 import backup
@@ -62,6 +63,12 @@ def isolated_data(tmp_path, monkeypatch):
     # but this keeps that guarantee cheap and explicit.
     from uvalu import store as _uv_store
     _uv_store._STORE.clear()
+    # @st.cache_data caches are process-global and keyed only on argument
+    # values (e.g. ticker) — without clearing, a fake price/history fixture
+    # from one test (analysis.py's _fetch_price_history_1y, keyed on ticker
+    # "AAA.BR", is the common case) would leak into a later test that expects
+    # different fake data for the same key.
+    st.cache_data.clear()
     # Sets the pytest thread's own portfolio "current user" -- covers direct,
     # non-AppTest calls into portfolio.py made straight from a test body. An
     # AppTest-executed script runs on its own separate thread and needs its

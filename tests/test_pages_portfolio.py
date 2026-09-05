@@ -14,7 +14,6 @@ each .run(), keeping the trigger condition true on every run that needs
 the dialog's body to actually execute.
 """
 import pandas as pd
-import yfinance as yf
 from streamlit.testing.v1 import AppTest
 
 import portfolio
@@ -27,11 +26,14 @@ def _run(monkeypatch, section=None) -> AppTest:
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
-    # A populated portfolio with no/stale value history triggers a real
-    # backfill_value_history() -> yf.download() network call otherwise
-    # (caught internally, so it doesn't fail the test, just slow and
-    # network-dependent) — stub it out like tests/test_portfolio.py does.
-    monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
+    # A populated portfolio with no/stale value history would otherwise spawn
+    # a real background ensure_value_history_fresh() -> backfill_value_history()
+    # -> yf.download() thread. It's non-blocking so it wouldn't fail/slow this
+    # test directly, but a stray daemon thread outliving this test's tmp_path
+    # and monkeypatches (torn down as soon as the test function returns) is
+    # exactly the kind of cross-test leak isolated_data exists to prevent —
+    # stub the whole call out, like tests/test_pages_dashboard.py does.
+    monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
 
     # setdefault, not a plain assignment: this line re-executes on EVERY
     # script rerun (it's part of the persistent script text), so a plain
@@ -412,7 +414,8 @@ portfolio_page.render()
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached",
                             lambda tickers: {t: {"price": 110.0} for t in tickers})
         monkeypatch.setattr(portfolio_page, "record_value_snapshot", lambda *a: snap.append(a))
-        monkeypatch.setattr(portfolio_page, "backfill_value_history", lambda *a: backfill.append(a))
+        monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh",
+                            lambda *a: backfill.append(a) or False)
 
     def test_timed_refresh_skips_snapshot_and_backfill(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())

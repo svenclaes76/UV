@@ -6,20 +6,20 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import risk as _risk_module
-from portfolio import portfolio_exists, load_portfolio, load_value_history
+from portfolio import portfolio_exists, load_portfolio, load_value_history, load_sold, ensure_value_history_fresh
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.runtime import theme_colors
+from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
-                              refresh_top_bar_html)
-from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick
+                              skeleton_chart_html, refresh_top_bar_html)
+from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick, _auto_rerun
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
@@ -250,10 +250,18 @@ def render() -> None:
                         st.pills("Benchmarks", options=_db_bench_opts, selection_mode="multi",
                                 default=_db_bench_default, key="db_bench_pills",
                                 label_visibility="collapsed")
+        elif ensure_value_history_fresh(_db_pf, load_sold(), current_user().email):
+            # Backfill is running in the background (kicked off from here or
+            # from Portfolio, whichever the user visited first) — paint the
+            # chart's shape immediately and poll until it fills in on its own.
+            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
+                       unsafe_allow_html=True)
+            st.markdown(skeleton_chart_html(), unsafe_allow_html=True)
+            _auto_rerun(5, "dashboard_value_history_backfill")
         else:
             st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
                        unsafe_allow_html=True)
-            st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
+            st.caption("No history yet — it will appear after your first portfolio snapshot.")
 
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")

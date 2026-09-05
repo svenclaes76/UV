@@ -15,7 +15,7 @@ from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
 from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
-                              loading_skeleton_html)
+                              loading_skeleton_html, refresh_top_bar_html)
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -134,12 +134,13 @@ def render() -> None:
 
     _any_data = any(not d.empty for d in _exch_dfs)
     _prog = get_fetch_progress()
-    # With rows already on screen, a running fetch just gets a "refreshing"
-    # caption; the cold-cache case (no rows yet) is handled by the skeleton
-    # branch below, which arms its own auto-rerun.
+    # With rows already on screen, a running fetch just gets the same
+    # non-disruptive top sweep as a timed price refresh (Dashboard/Portfolio/
+    # Risk) — real data is already showing, so no text banner is needed; the
+    # cold-cache case (no rows yet) is handled by the skeleton branch below,
+    # which arms its own auto-rerun.
     if _any_data and _prog["running"] and _prog["total"] > 0:
-        _pct = _prog["done"] / _prog["total"]
-        st.caption(f"🔄 Updating data… {_prog['done']}/{_prog['total']} tickers ({int(_pct*100)}%)")
+        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
 
     _all_df = pd.concat([

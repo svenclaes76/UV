@@ -16,8 +16,7 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
-                       record_value_snapshot, backfill_value_history,
-                       load_value_history)
+                       record_value_snapshot, ensure_value_history_fresh)
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
@@ -133,23 +132,14 @@ def render() -> None:
     price_gain      = total_current - total_invested
     price_gain_pct  = _safe_pct(price_gain, total_invested)
 
-    # Auto-backfill missing trading days — check BEFORE recording today's snapshot
-    # so first-ever load (empty history) correctly triggers the full backfill
-    _vh_check = load_value_history()
-    _yesterday = (pd.Timestamp.today() - pd.Timedelta(days=1)).normalize()
-    _last_date = (
-        pd.to_datetime(_vh_check["date"]).max()
-        if _vh_check is not None and not _vh_check.empty
-        else pd.Timestamp("1970-01-01")
-    )
-    _needs_backfill = (
-        not _timer_refresh
-        and total_current > 0
-        and (_last_date < _yesterday or (_vh_check is None or len(_vh_check) <= 1))
-    )
-    if _needs_backfill:
-        with st.spinner("Updating value history…"):
-            backfill_value_history(pf, load_sold())
+    # Auto-backfill missing trading days in the background — non-blocking, so
+    # a stale/empty value_history.json never delays this page's own paint.
+    # This page doesn't display value-history data itself (see module
+    # docstring), so there's nothing to show progress on here; Dashboard's
+    # value chart is the one that polls ensure_value_history_fresh() for its
+    # own skeleton/fill-in.
+    if not _timer_refresh and total_current > 0:
+        ensure_value_history_fresh(pf, load_sold(), _user.email)
 
     # record_value_snapshot upserts one row per calendar day, so skipping it on
     # timed refreshes and throttling it to ~every 10 min on genuine renders

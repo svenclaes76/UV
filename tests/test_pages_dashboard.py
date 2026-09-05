@@ -59,7 +59,7 @@ nav_registry.pages["risk"] = st.Page(lambda: None, title="Risk")
 """
 
 
-def _run(monkeypatch, scored=None, with_risk_cache=False, prices=None) -> AppTest:
+def _run(monkeypatch, scored=None, with_risk_cache=False, prices=None, history_backfill_running=False) -> AppTest:
     _fake_scored = fake_portfolio_scored(override=scored)
     _fake_cache = lambda: ({"AAA.BR": {"Price": 100.0}} if with_risk_cache else {})
     _fake_prices = lambda tickers: prices or {
@@ -80,6 +80,14 @@ def _run(monkeypatch, scored=None, with_risk_cache=False, prices=None) -> AppTes
     monkeypatch.setattr(uv_data, "_fetch_prices_cached", _fake_prices)
     monkeypatch.setattr(risk_module, "_fetch_history", _fake_history)
     monkeypatch.setattr(risk_module, "_fetch_ff_csv", _fake_ff_csv)
+    # Defaults to "nothing to backfill" so tests that don't care about the
+    # value-history chart never spawn a real background thread (which would
+    # make real yfinance calls). Tests exercising that path pass
+    # history_backfill_running=True instead of monkeypatching this themselves
+    # — this call runs last, so a test-level monkeypatch.setattr() made
+    # before calling _run() would just get clobbered by the line below.
+    monkeypatch.setattr(dashboard_page, "ensure_value_history_fresh",
+                        lambda *a: history_backfill_running)
 
     script_src = USER_SETUP_SRC + NAV_SETUP + """
 from uvalu.pages_ import dashboard as dashboard_page
@@ -134,7 +142,19 @@ def test_shows_no_history_caption_when_value_history_missing(isolated_data, monk
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert "No history yet" in "".join(c.value for c in at.caption)
+    caption_html = "".join(c.value for c in at.caption)
+    assert "No history yet" in caption_html
+    # The old copy pointed at a "Rebuild history" button that no longer
+    # exists anywhere in the app — backfill is automatic now.
+    assert "Rebuild history" not in caption_html
+
+
+def test_shows_chart_skeleton_while_backfill_runs(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch, history_backfill_running=True)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "No history yet" not in "".join(c.value for c in at.caption)
+    assert "uv-skel-bar" in "".join(m.value for m in at.markdown)
 
 
 def test_shows_value_chart_when_history_present(isolated_data, monkeypatch):
