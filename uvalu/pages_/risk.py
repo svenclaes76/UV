@@ -102,7 +102,11 @@ def render() -> None:
     if consumed_tick("risk_refresh"):
         # Slim top-of-page sweep instead of a silent repaint — same
         # non-disruptive "Data refresh" cue as the Dashboard/Portfolio pages.
-        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
+        # uv_hidden_util: it's position:fixed (zero layout height), but its
+        # own element-container would still eat a full row-gap and push the
+        # heading down (same trick as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     # Build (or reuse the session-cached) risk report via the shared builder in
     # uvalu/data.py — the SAME call path the Dashboard's Conviction & risk card

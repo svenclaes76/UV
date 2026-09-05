@@ -140,7 +140,12 @@ def render() -> None:
     # cold-cache case (no rows yet) is handled by the skeleton branch below,
     # which arms its own auto-rerun.
     if _any_data and _prog["running"] and _prog["total"] > 0:
-        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
+        # uv_hidden_util: the sweep is position:fixed (zero layout height),
+        # but its own element-container would still eat a full row-gap in
+        # the page's vertical block and push the heading down (same trick
+        # as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
 
     _all_df = pd.concat([

@@ -104,7 +104,11 @@ def render() -> None:
         # Slim top-of-page sweep instead of a silent repaint — same
         # non-disruptive "Data refresh" cue as the Dashboard (uvalu/
         # components.py's refresh_top_bar_html), only for this one script run.
-        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
+        # uv_hidden_util: it's position:fixed (zero layout height), but its
+        # own element-container would still eat a full row-gap and push the
+        # heading down (same trick as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────

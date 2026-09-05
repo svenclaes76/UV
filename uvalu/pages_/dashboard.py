@@ -60,7 +60,12 @@ def render() -> None:
     # renders for this one script run; the next run (real or timed) starts
     # clean, so it never lingers.
     if consumed_tick("dashboard_refresh"):
-        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
+        # uv_hidden_util: the sweep is position:fixed (zero layout height),
+        # but its own element-container would still eat a full row-gap in
+        # the page's vertical block and push the heading down (same trick
+        # as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
     _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
