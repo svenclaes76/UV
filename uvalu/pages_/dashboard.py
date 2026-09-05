@@ -7,7 +7,7 @@ import streamlit as st
 
 import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history
-from screener import load_fundamentals_cache, sector_for
+from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
@@ -16,8 +16,10 @@ from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
-                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
-from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh
+                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
+                              skeleton_kpi_card_html, skeleton_holdings_table_html,
+                              refresh_top_bar_html)
+from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
@@ -51,6 +53,14 @@ def render() -> None:
     # Refresh live prices on the shared portfolio cadence (see uvalu/ui.py) —
     # without this the dashboard's quotes only move when the user interacts.
     price_autorefresh("dashboard_refresh")
+    # A timer-triggered rerun (not a real navigation) gets a slim top-of-page
+    # sweep instead of the page just silently repainting — matches the
+    # "Data refresh" half of the Loading Patterns design (never a disruptive
+    # blank flash for a page that already has real data on screen). It only
+    # renders for this one script run; the next run (real or timed) starts
+    # clean, so it never lingers.
+    if consumed_tick("dashboard_refresh"):
+        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
     _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
@@ -83,6 +93,11 @@ def render() -> None:
     # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
     # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
     _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
+    # True only while there's genuinely nothing scored yet AND the background
+    # fetch is still working on it — an empty _db_scr for any other reason
+    # (fetch finished with nothing to show) falls through to the plain "no
+    # data" captions below instead of an endless skeleton.
+    _db_fetch_running = _db_scr.empty and bool(get_fetch_progress(PORTFOLIO_FETCH).get("running"))
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
@@ -135,9 +150,12 @@ def render() -> None:
             else:
                 _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
         with _k4:
-            _kpi_card("Avg margin of safety",
-                     f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                     "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
+            if _db_avg_mos is None and _db_fetch_running:
+                st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
+            else:
+                _kpi_card("Avg margin of safety",
+                         f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
+                         "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
 
     st.container(height=4, border=False, key="db_gap_1")
 
@@ -358,11 +376,11 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                            unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()
-        if not _db_scr.empty:
-            _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
-            _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
-            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
-
+        # Column header renders for the real table AND the fetch-in-progress
+        # skeleton below (never just the header floating over a blank body,
+        # never rows with no header) — only the genuine "nothing here" case
+        # (fetch finished, still no data) drops it entirely.
+        if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
                 _hh_labels = ("Position", "Signal", "Fair-value ladder", "Margin of safety", "Weight", "Value", "Today")
@@ -371,6 +389,11 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
+
+        if not _db_scr.empty:
+            _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
+            _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
+            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
 
             # Row-click opens the shared drawer (same right-edge sidepanel used
             # by Screener/Watchlist/Portfolio) — @st.dialog can't be invoked
@@ -425,6 +448,15 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
 
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target])
+        elif _db_fetch_running:
+            # Nothing scored yet, but the PORTFOLIO_FETCH lane is still
+            # working on it — paint the table's real shape immediately
+            # instead of a blank/captioned panel, and arm a short auto-rerun
+            # so it resolves into real rows on its own. Same cold-cache idiom
+            # as Screener's loading_skeleton_html (uvalu/pages_/screener.py),
+            # shaped like this table's own grid instead of a generic bar list.
+            poll_while_fetching("dashboard_portfolio_fetch", lane="portfolio")
+            st.markdown(skeleton_holdings_table_html(), unsafe_allow_html=True)
         else:
             st.caption("No screener data available for your holdings.")
 

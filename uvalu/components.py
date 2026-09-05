@@ -570,6 +570,104 @@ def loading_skeleton_html(message: str, *, n_rows: int = 6) -> str:
     )
 
 
+def skeleton_kpi_card_html() -> str:
+    """One shimmering placeholder matching kpi_card()'s exact card shell —
+    label/value/delta bars in place of real content — for a KPI tile whose
+    figure isn't computable yet (e.g. Dashboard's Avg margin of safety while
+    the PORTFOLIO_FETCH lane is still scoring holdings)."""
+    return (
+        '<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
+        'padding:15px 17px;box-shadow:var(--shadow);">'
+        '<div class="uv-skel-bar" style="width:60%;height:9px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:50%;height:22px;margin:10px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:38%;height:16px;margin:9px 0 0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_holdings_row_html() -> str:
+    """One shimmering placeholder row matching holdings_row_html()'s grid
+    (HOLDINGS_GRID_COLS column-for-column) — for the Dashboard Holdings table
+    while the PORTFOLIO_FETCH lane hasn't scored any rows yet. Pair with
+    uvalu.ui.poll_while_fetching(lane="portfolio") so the skeleton resolves
+    into real rows on its own."""
+    return (
+        f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;'
+        'padding:13px 20px;border-bottom:0.5px solid var(--line-2);min-height:60px;">'
+        '<div><div class="uv-skel-bar" style="width:76px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:130px;height:9px;margin:8px 0 0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:48px;height:18px;margin:0;border-radius:6px;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:42px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:56px;height:11px;margin:0 0 0 auto;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_holdings_table_html(n_rows: int = 3) -> str:
+    """`n_rows` stacked skeleton_holdings_row_html() rows — matches the
+    Dashboard Holdings panel's real row list exactly so the panel's shape
+    appears before the first row is scored."""
+    return "".join(skeleton_holdings_row_html() for _ in range(max(1, n_rows)))
+
+
+def skeleton_chart_html(height: int = 160) -> str:
+    """A single shimmering block sized like a chart, for a chart whose data
+    isn't ready yet."""
+    return f'<div class="uv-skel-bar" style="width:100%;height:{height}px;margin:0;border-radius:8px;"></div>'
+
+
+def skeleton_text_html(widths: tuple = (100, 92, 96, 60)) -> str:
+    """A handful of shimmering bars of varying width mimicking paragraph
+    text, for descriptive copy that loads alongside a scored result."""
+    _bars = "".join(
+        f'<div class="uv-skel-bar" style="width:{w}%;height:11px;margin:0;"></div>' for w in widths
+    )
+    return f'<div style="display:flex;flex-direction:column;gap:10px;">{_bars}</div>'
+
+
+def spinner_html(label: str, size: int = 32) -> str:
+    """A centered ring spinner + caption, for a whole panel with nothing else
+    to show yet (matches the "Loading dashboard…" tile in the design)."""
+    return (
+        f'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        f'gap:14px;padding:24px 0;"><div style="width:{size}px;height:{size}px;border-radius:50%;'
+        f'border:3px solid var(--line);border-top-color:var(--mint);animation:uvSpin 0.8s linear infinite;">'
+        f'</div><div style="font-size:12.5px;color:var(--muted);">{label}</div></div>'
+    )
+
+
+def refresh_spinner_inline_html(label: str, dimmed_value: str) -> str:
+    """A small inline spinner + label above a dimmed value, for a figure
+    that's re-fetching in place (e.g. a ticking price) rather than loading
+    for the first time."""
+    return (
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">'
+        '<div style="display:flex;align-items:center;gap:8px;">'
+        '<div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--line);'
+        'border-top-color:var(--teal);animation:uvSpin 0.7s linear infinite;"></div>'
+        f'<span style="font-size:12.5px;color:var(--muted);">{label}</span></div>'
+        f'<div style="font-family:var(--uv-mono);font-size:20px;font-weight:500;opacity:0.5;">{dimmed_value}</div>'
+        '</div>'
+    )
+
+
+def refresh_top_bar_html() -> str:
+    """A slim progress sweep pinned to the top of the viewport — a
+    non-disruptive cue for a background re-fetch on a page already showing
+    real data (a timer-triggered price refresh), as opposed to the
+    skeleton_*_html helpers above (nothing to show yet). Render only for the
+    one script run that uvalu.ui.consumed_tick() reports as a genuine timer
+    tick — it disappears on its own once that run's fresh output paints.
+    z-index sits above uvalu/shell.py's sticky top bar (999)."""
+    return (
+        '<div style="position:fixed;top:0;left:0;width:100%;height:2px;background:var(--line);'
+        'z-index:1001;overflow:hidden;"><div style="position:absolute;top:0;height:2px;width:30%;'
+        'background:var(--mint);animation:uvBar 0.9s ease-in-out infinite;"></div></div>'
+    )
+
+
 def fair_value_legend_row() -> None:
     """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
     accompanies fair_value_bar_compact in a holdings/screener table header."""

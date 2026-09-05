@@ -7,8 +7,9 @@ from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, TRADING_DAYS
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
-from uvalu.ui import price_autorefresh
+from uvalu.components import (score_color, radial_gauge_svg, risk_holding_row_html,
+                              RISK_HOLDINGS_GRID_COLS, refresh_top_bar_html)
+from uvalu.ui import price_autorefresh, consumed_tick
 
 _TICKER_SUFFIX_EXCHANGE = {
     ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
@@ -98,6 +99,10 @@ def render() -> None:
 
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
+    if consumed_tick("risk_refresh"):
+        # Slim top-of-page sweep instead of a silent repaint — same
+        # non-disruptive "Data refresh" cue as the Dashboard/Portfolio pages.
+        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     # Build (or reuse the session-cached) risk report via the shared builder in
     # uvalu/data.py — the SAME call path the Dashboard's Conviction & risk card

@@ -6,7 +6,16 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
-_Nothing yet._
+Implements the "Loading Patterns" design concept (Claude Design handoff,
+`Loading Patterns.dc.html`): a small shimmer/spinner pattern library plus two
+concrete gaps it exposed on the Dashboard.
+
+### Added
+
+- `uvalu/components.py`: `skeleton_kpi_card_html`, `skeleton_holdings_row_html` / `skeleton_holdings_table_html`, `skeleton_chart_html`, `skeleton_text_html`, `spinner_html`, `refresh_spinner_inline_html`, `refresh_top_bar_html` — shimmer/spinner primitives matching the design's shapes, built on the existing `.uv-skel-bar` shimmer treatment plus two new keyframes (`uvSpin`, `uvRing`) and a top-of-viewport sweep (`uvBar`) in `uvalu/styles.py`.
+- Dashboard: the Holdings table and the "Avg margin of safety" KPI tile previously fell back to a bare "No screener data available"/"—" the moment the page loaded before the `PORTFOLIO_FETCH` background lane finished scoring a held ticker (most visible right after adding a new position). They now show the matching skeleton shape instead and poll until real rows arrive, the same cold-cache idiom the Screener page already used (`loading_skeleton_html`) but shaped like this table's own grid.
+- Dashboard / Portfolio / Risk: a timer-triggered price refresh (`price_autorefresh`) now shows a slim non-disruptive top-of-page sweep for that one rerun instead of the page just silently repainting, via `uvalu.ui.consumed_tick`.
+- Topbar price-freshness dot (`uvalu/shell.py`) now pulses (`uvRing`) while the feed is genuinely live — static for Delayed/Feed stale/Market closed, so the animation itself signals "still updating".
 
 ---
 

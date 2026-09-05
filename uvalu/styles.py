@@ -54,9 +54,10 @@ GLOBAL_CSS = """
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ── Loading skeletons (components.loading_skeleton_html) — shown while a
-     cold fundamentals cache is still being fetched, so a page paints its
-     shape immediately instead of a bare "no data" line. ──────────────────── */
+  /* ── Loading skeletons (components.loading_skeleton_html, skeleton_*_html)
+     — shown while a cold fundamentals cache is still being fetched, so a
+     page paints its shape immediately instead of a bare "no data" line.
+     Matches the "Loading Patterns" design concept. ────────────────────────── */
   @keyframes uvShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
   .uv-skel-bar {
     height: 13px; border-radius: 5px;
@@ -65,6 +66,15 @@ GLOBAL_CSS = """
     background-size: 420px 100%;
     animation: uvShimmer 1.25s ease-in-out infinite;
   }
+  /* Spinner ring (components.spinner_html/refresh_spinner_inline_html) and the
+     top-of-viewport refresh sweep (components.refresh_top_bar_html) — the
+     "already showing real data, just re-fetching" half of the same design,
+     as opposed to the skeleton bars above (nothing to show yet). uvRing also
+     drives the topbar's price-freshness dot (uvalu/shell.py) when the feed
+     is genuinely live, not delayed/stale/closed. */
+  @keyframes uvSpin { to { transform: rotate(360deg); } }
+  @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
+  @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
 
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }

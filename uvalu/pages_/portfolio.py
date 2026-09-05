@@ -22,7 +22,7 @@ from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
-                              portfolio_closed_row, portfolio_dividend_row)
+                              portfolio_closed_row, portfolio_dividend_row, refresh_top_bar_html)
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -101,6 +101,11 @@ def render() -> None:
     # with it every minute. Those only need to run when the user actually
     # lands on the page.
     _timer_refresh = consumed_tick("portfolio_refresh")
+    if _timer_refresh:
+        # Slim top-of-page sweep instead of a silent repaint — same
+        # non-disruptive "Data refresh" cue as the Dashboard (uvalu/
+        # components.py's refresh_top_bar_html), only for this one script run.
+        st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
