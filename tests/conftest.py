@@ -12,6 +12,7 @@ makes a real network call.
 """
 import pandas as pd
 import pytest
+import streamlit as st
 
 import auth
 import backup
@@ -62,6 +63,20 @@ def isolated_data(tmp_path, monkeypatch):
     # but this keeps that guarantee cheap and explicit.
     from uvalu import store as _uv_store
     _uv_store._STORE.clear()
+    # @st.cache_data caches are process-global and keyed only on argument
+    # values (e.g. ticker) — without clearing, a fake price/history fixture
+    # from one test (analysis.py's _fetch_price_history_1y, keyed on ticker
+    # "AAA.BR", is the common case) would leak into a later test that expects
+    # different fake data for the same key.
+    st.cache_data.clear()
+    # uvalu.data.load_portfolio_risk()'s background-computation coordination
+    # dicts are process-global too — without clearing, a leftover "running"
+    # flag or finished report from one test's cache key could otherwise leak
+    # into another test (see settle_background_risk() below).
+    import uvalu.data as _uv_data
+    _uv_data._risk_compute_running.clear()
+    _uv_data._risk_compute_result.clear()
+    _uv_data._risk_compute_error.clear()
     # Sets the pytest thread's own portfolio "current user" -- covers direct,
     # non-AppTest calls into portfolio.py made straight from a test body. An
     # AppTest-executed script runs on its own separate thread and needs its
@@ -69,6 +84,28 @@ def isolated_data(tmp_path, monkeypatch):
     portfolio.set_user(TEST_EMAIL)
     yield
     portfolio.set_user("")
+
+
+def settle_background_risk(at) -> None:
+    """uvalu.data.load_portfolio_risk() computes a fresh report in a
+    background thread on a cache miss and returns None immediately,
+    rendering a loading skeleton — the real page then polls (_auto_rerun)
+    until a later rerun picks up the finished result. Call this right after
+    an AppTest's first at.run() in any test that needs the REAL report
+    (not just the skeleton) rendered: if that run kicked off a background
+    computation, poll briefly for it to land — the test's own mocked
+    _fetch_history/_fetch_ff_csv are instant, so it finishes in
+    milliseconds — then rerun once to render the real content, matching what
+    a real session's next poll-triggered rerun would show. A no-op when no
+    computation was kicked off (most tests never touch this path)."""
+    import time
+    import uvalu.data as _uv_data
+    if _uv_data._risk_compute_running or _uv_data._risk_compute_result or _uv_data._risk_compute_error:
+        for _ in range(200):
+            if not any(_uv_data._risk_compute_running.values()):
+                break
+            time.sleep(0.01)
+        at.run()
 
 
 # ── Fake scored-screener-row builder ──────────────────────────────────────

@@ -15,7 +15,7 @@ import risk as risk_module
 import uvalu.data as uv_data
 from uvalu.pages_ import risk as risk_page
 from tests.conftest import (make_scored_row, make_scored_df,
-                            make_portfolio_df, fake_portfolio_scored)
+                            make_portfolio_df, fake_portfolio_scored, settle_background_risk)
 
 
 def _fake_history(tickers, period="5y"):
@@ -57,6 +57,8 @@ def _run(monkeypatch, prices=None, risk_cache=None, portfolio_scored=None) -> Ap
     at = AppTest.from_function(_script, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
+    settle_background_risk(at)
+    assert not at.exception, [str(e.value) for e in at.exception]
     return at
 
 
@@ -79,7 +81,10 @@ def test_wires_price_autorefresh(isolated_data, monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(risk_page, "price_autorefresh", lambda key: calls.append(key))
     _run(monkeypatch)
-    assert calls == ["risk_refresh"]
+    # _run() may settle a background risk computation with an extra internal
+    # rerun (see settle_background_risk) — every call must still be the right
+    # key, but there can legitimately be more than one.
+    assert calls and set(calls) == {"risk_refresh"}
 
 
 def test_shows_holdings_contribution_rows(isolated_data, monkeypatch):
@@ -115,11 +120,15 @@ def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
     at = AppTest.from_function(_script, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
+    # The first render only kicks off the background computation (see
+    # uvalu/data.py's load_portfolio_risk) — settle it before counting.
+    settle_background_risk(at)
+    assert not at.exception, [str(e.value) for e in at.exception]
     assert calls["n"] == 1
 
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert calls["n"] == 1  # second render reuses the cached report
+    assert calls["n"] == 1  # second genuine render reuses the cached report
 
 
 def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
@@ -142,6 +151,10 @@ def test_risk_assessment_failure_shows_error(isolated_data, monkeypatch):
 
     at = AppTest.from_function(_script, default_timeout=60)
     at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    # The failure happens inside the background computation (uvalu/data.py)
+    # and is re-raised on the next consuming rerun, not this first one.
+    settle_background_risk(at)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Risk assessment failed" in "".join(e.value for e in at.error)
 
@@ -169,6 +182,8 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
 
     at = AppTest.from_function(_script, default_timeout=60)
     at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    settle_background_risk(at)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Factor analysis unavailable" in "".join(c.value for c in at.caption)
 

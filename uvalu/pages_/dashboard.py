@@ -6,18 +6,22 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import risk as _risk_module
-from portfolio import portfolio_exists, load_portfolio, load_value_history
-from screener import load_fundamentals_cache, sector_for
+from portfolio import portfolio_exists, load_portfolio, load_value_history, load_sold, ensure_value_history_fresh
+from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.runtime import theme_colors
+from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
-                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID)
-from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh
+                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
+                              skeleton_kpi_card_html, skeleton_holdings_table_html,
+                              skeleton_chart_html, skeleton_gauge_card_html,
+                              skeleton_metrics_grid_html, skeleton_text_html,
+                              refresh_top_bar_html)
+from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick, _auto_rerun
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
@@ -51,6 +55,19 @@ def render() -> None:
     # Refresh live prices on the shared portfolio cadence (see uvalu/ui.py) —
     # without this the dashboard's quotes only move when the user interacts.
     price_autorefresh("dashboard_refresh")
+    # A timer-triggered rerun (not a real navigation) gets a slim top-of-page
+    # sweep instead of the page just silently repainting — matches the
+    # "Data refresh" half of the Loading Patterns design (never a disruptive
+    # blank flash for a page that already has real data on screen). It only
+    # renders for this one script run; the next run (real or timed) starts
+    # clean, so it never lingers.
+    if consumed_tick("dashboard_refresh"):
+        # uv_hidden_util: the sweep is position:fixed (zero layout height),
+        # but its own element-container would still eat a full row-gap in
+        # the page's vertical block and push the heading down (same trick
+        # as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     _db_tickers = _db_pf["ticker"].dropna().astype(str).str.strip().tolist()
     _db_prices  = _fetch_prices_cached(tuple(_db_tickers))
@@ -83,6 +100,11 @@ def render() -> None:
     # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
     # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
     _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
+    # True only while there's genuinely nothing scored yet AND the background
+    # fetch is still working on it — an empty _db_scr for any other reason
+    # (fetch finished with nothing to show) falls through to the plain "no
+    # data" captions below instead of an endless skeleton.
+    _db_fetch_running = _db_scr.empty and bool(get_fetch_progress(PORTFOLIO_FETCH).get("running"))
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
@@ -135,9 +157,12 @@ def render() -> None:
             else:
                 _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
         with _k4:
-            _kpi_card("Avg margin of safety",
-                     f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                     "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
+            if _db_avg_mos is None and _db_fetch_running:
+                st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
+            else:
+                _kpi_card("Avg margin of safety",
+                         f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
+                         "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
 
     st.container(height=4, border=False, key="db_gap_1")
 
@@ -232,10 +257,18 @@ def render() -> None:
                         st.pills("Benchmarks", options=_db_bench_opts, selection_mode="multi",
                                 default=_db_bench_default, key="db_bench_pills",
                                 label_visibility="collapsed")
+        elif ensure_value_history_fresh(_db_pf, load_sold(), current_user().email):
+            # Backfill is running in the background (kicked off from here or
+            # from Portfolio, whichever the user visited first) — paint the
+            # chart's shape immediately and poll until it fills in on its own.
+            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
+                       unsafe_allow_html=True)
+            st.markdown(skeleton_chart_html(), unsafe_allow_html=True)
+            _auto_rerun(5, "dashboard_value_history_backfill")
         else:
             st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
                        unsafe_allow_html=True)
-            st.caption("No history yet — go to Portfolio → Positions and click **Rebuild history**.")
+            st.caption("No history yet — it will appear after your first portfolio snapshot.")
 
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
@@ -268,37 +301,54 @@ def render() -> None:
         _db_risk_cache = load_fundamentals_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
+        _risk_pending = False
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
-                _db_report = load_portfolio_risk(_db_pf).report
-                _risk_score = float(_db_report.composite.score)
-                # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50) —
-                # not separate hand-picked numbers — so this card's Low/
-                # Moderate never contradicts the Risk page's own labelling for
-                # the same score. This card's 3-tier gauge (mockup constraint)
-                # can't show risk.py's full Low/Moderate/Elevated/High/
-                # Critical taxonomy, so Elevated/High/Critical are
-                # deliberately collapsed into one "Elevated" bucket here —
-                # coarser, but never disagrees with what the Risk page says.
-                _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
-                              else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
-                              else "Elevated")
-                _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
-                _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
-                _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
+                _db_risk_bundle = load_portfolio_risk(_db_pf)
+                if _db_risk_bundle is None:
+                    # Still computing in the background (uvalu/data.py) —
+                    # distinct from "no risk data" (the bare except below).
+                    _risk_pending = True
+                else:
+                    _db_report = _db_risk_bundle.report
+                    _risk_score = float(_db_report.composite.score)
+                    # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50)
+                    # — not separate hand-picked numbers — so this card's Low/
+                    # Moderate never contradicts the Risk page's own labelling
+                    # for the same score. This card's 3-tier gauge (mockup
+                    # constraint) can't show risk.py's full Low/Moderate/
+                    # Elevated/High/Critical taxonomy, so Elevated/High/
+                    # Critical are deliberately collapsed into one "Elevated"
+                    # bucket here — coarser, but never disagrees with what the
+                    # Risk page says.
+                    _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
+                                  else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
+                                  else "Elevated")
+                    _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
+                    _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
+                    _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
             except Exception:
                 pass
 
-        if _conv_score is not None:
-            # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
-            # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
-            # (not this card's earlier "Strong/Moderate/Weak conviction" at
-            # 70/40), and the label is always mint-colored regardless of
-            # tier — the spec hardcodes `color:var(--mint)` unconditionally,
-            # not a tier-dependent color.
-            _conv_label = ("High conviction" if _conv_score >= 75 else
-                          "Constructive" if _conv_score >= 55 else "Cautious")
-            st.markdown(f"""
+        if _db_fetch_running or _risk_pending:
+            # Either half of this card can independently still be computing
+            # (conviction from the PORTFOLIO_FETCH lane, risk score from the
+            # background risk report) — one combined skeleton covers both
+            # rather than a half-real/half-shimmer card.
+            st.markdown(skeleton_gauge_card_html(118), unsafe_allow_html=True)
+            st.markdown(skeleton_metrics_grid_html(n_cells=3, n_cols=3), unsafe_allow_html=True)
+            _auto_rerun(5, "dashboard_conviction_pending")
+        else:
+            if _conv_score is not None:
+                # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
+                # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
+                # (not this card's earlier "Strong/Moderate/Weak conviction" at
+                # 70/40), and the label is always mint-colored regardless of
+                # tier — the spec hardcodes `color:var(--mint)` unconditionally,
+                # not a tier-dependent color.
+                _conv_label = ("High conviction" if _conv_score >= 75 else
+                              "Constructive" if _conv_score >= 55 else "Cautious")
+                st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
     {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
@@ -313,14 +363,14 @@ def render() -> None:
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>
   </div>
 </div>""", unsafe_allow_html=True)
-        else:
-            st.caption("Not enough scored holdings for a conviction score.")
+            else:
+                st.caption("Not enough scored holdings for a conviction score.")
 
-        if _risk_score is not None:
-            _marker_pct = min(100.0, max(0.0, _risk_score))
-            _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
-                               "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
-            st.markdown(f"""
+            if _risk_score is not None:
+                _marker_pct = min(100.0, max(0.0, _risk_score))
+                _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
+                                   "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
+                st.markdown(f"""
 <div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
     <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
@@ -333,16 +383,16 @@ def render() -> None:
   <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
 </div>""", unsafe_allow_html=True)
 
-            with st.container(key="db_conv_metrics"):
-                _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
-                                   ("Max drawdown", _dd_str, "var(--down-txt)")]
-                _dd_cells = "".join(
-                    f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
-                    f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
-                    for _l, _v, _c in _dd_metric_defs
-                )
-                st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
-                           unsafe_allow_html=True)
+                with st.container(key="db_conv_metrics"):
+                    _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
+                                       ("Max drawdown", _dd_str, "var(--down-txt)")]
+                    _dd_cells = "".join(
+                        f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
+                        f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
+                        for _l, _v, _c in _dd_metric_defs
+                    )
+                    st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
+                               unsafe_allow_html=True)
 
     st.container(height=4, border=False, key="db_gap_2")
 
@@ -358,11 +408,11 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                            unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()
-        if not _db_scr.empty:
-            _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
-            _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
-            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
-
+        # Column header renders for the real table AND the fetch-in-progress
+        # skeleton below (never just the header floating over a blank body,
+        # never rows with no header) — only the genuine "nothing here" case
+        # (fetch finished, still no data) drops it entirely.
+        if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
                 _hh_labels = ("Position", "Signal", "Fair-value ladder", "Margin of safety", "Weight", "Value", "Today")
@@ -371,6 +421,11 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
+
+        if not _db_scr.empty:
+            _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
+            _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
+            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
 
             # Row-click opens the shared drawer (same right-edge sidepanel used
             # by Screener/Watchlist/Portfolio) — @st.dialog can't be invoked
@@ -425,6 +480,15 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
 
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target])
+        elif _db_fetch_running:
+            # Nothing scored yet, but the PORTFOLIO_FETCH lane is still
+            # working on it — paint the table's real shape immediately
+            # instead of a blank/captioned panel, and arm a short auto-rerun
+            # so it resolves into real rows on its own. Same cold-cache idiom
+            # as Screener's loading_skeleton_html (uvalu/pages_/screener.py),
+            # shaped like this table's own grid instead of a generic bar list.
+            poll_while_fetching("dashboard_portfolio_fetch", lane="portfolio")
+            st.markdown(skeleton_holdings_table_html(), unsafe_allow_html=True)
         else:
             st.caption("No screener data available for your holdings.")
 
@@ -436,18 +500,24 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
     with _al_col, st.container(key="db_card_sector", border=True):
         st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Sector allocation</div>',
                    unsafe_allow_html=True)
-        _db_sector_map = (
-            _db_scr.drop_duplicates("Ticker").set_index("Ticker")["sector"]
-            if not _db_scr.empty and "sector" in _db_scr.columns else pd.Series(dtype=object)
-        )
-        _db_al = (
-            _db_pf.dropna(subset=["current_value"])
-              .assign(sector=_db_pf["ticker"].map(
-                  lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
-              .groupby("sector")["current_value"].sum()
-              .sort_values(ascending=False)
-        )
-        _donut_chart(_db_al)
+        if _db_fetch_running:
+            # Without real sector data yet, every holding would fall back to
+            # "Unknown" below — a skeleton is honest about "still loading"
+            # instead of a misleading all-Unknown donut for a few seconds.
+            st.markdown(skeleton_chart_html(180), unsafe_allow_html=True)
+        else:
+            _db_sector_map = (
+                _db_scr.drop_duplicates("Ticker").set_index("Ticker")["sector"]
+                if not _db_scr.empty and "sector" in _db_scr.columns else pd.Series(dtype=object)
+            )
+            _db_al = (
+                _db_pf.dropna(subset=["current_value"])
+                  .assign(sector=_db_pf["ticker"].map(
+                      lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
+                  .groupby("sector")["current_value"].sum()
+                  .sort_values(ascending=False)
+            )
+            _donut_chart(_db_al)
 
     with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
@@ -458,7 +528,9 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
             if _db_fwd_income is not None:
                 st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
                            f'color:var(--mint);">€{_db_fwd_income:,.0f} / yr</div>', unsafe_allow_html=True)
-        if not _db_scr.empty:
+        if _db_fetch_running:
+            st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
+        elif not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
                 _db_div_scr.get("exDividendDate"), errors="coerce", dayfirst=True)

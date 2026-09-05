@@ -54,9 +54,10 @@ GLOBAL_CSS = """
   .block-container { animation: uvFadeIn 0.18s ease; }
   @keyframes uvFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ── Loading skeletons (components.loading_skeleton_html) — shown while a
-     cold fundamentals cache is still being fetched, so a page paints its
-     shape immediately instead of a bare "no data" line. ──────────────────── */
+  /* ── Loading skeletons (components.loading_skeleton_html, skeleton_*_html)
+     — shown while a cold fundamentals cache is still being fetched, so a
+     page paints its shape immediately instead of a bare "no data" line.
+     Matches the "Loading Patterns" design concept. ────────────────────────── */
   @keyframes uvShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
   .uv-skel-bar {
     height: 13px; border-radius: 5px;
@@ -64,6 +65,27 @@ GLOBAL_CSS = """
     background-image: linear-gradient(90deg, var(--line-2) 0px, var(--line) 60px, var(--line-2) 120px);
     background-size: 420px 100%;
     animation: uvShimmer 1.25s ease-in-out infinite;
+  }
+  /* Spinner ring (components.spinner_html/refresh_spinner_inline_html) and the
+     top-of-viewport refresh sweep (components.refresh_top_bar_html) — the
+     "already showing real data, just re-fetching" half of the same design,
+     as opposed to the skeleton bars above (nothing to show yet). uvRing also
+     drives the topbar's price-freshness dot (uvalu/shell.py) when the feed
+     is genuinely live, not delayed/stale/closed. */
+  @keyframes uvSpin { to { transform: rotate(360deg); } }
+  @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
+  @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
+  /* components.skeleton_rows()'s hairline row divider — a native st.columns()
+     row can't take a border via raw HTML the way skeleton_holdings_row_html's
+     CSS-grid string can, so each row is its own st-key-uv_skel_row_<caller>_N
+     container styled here instead (same idiom as stock_row's own
+     st-key-scr_row_ rule). Matches every real row class's own treatment
+     (scr_row_/wl_row_/pf_open_row_/etc.) property-for-property — including
+     the same margin-top cancellation of Streamlit's default inter-sibling
+     gap — so a skeleton row list sits exactly where its real rows will. */
+  [class*="st-key-uv_skel_row_"] {
+    border-bottom: 0.5px solid var(--line-2) !important; padding: 12px 20px !important;
+    margin-top: -16px !important; min-height: 67px !important;
   }
 
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
@@ -543,10 +565,16 @@ GLOBAL_CSS = """
     background: var(--panel) !important; border-color: var(--line) !important;
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
     overflow: hidden !important; padding: 0 !important;
-    /* The plain default gap between these two top-level bordered containers
-       measured 32px live (double the 16px rhythm used everywhere else in
-       this app, e.g. the Dashboard's db_gap_ spacers) — pull it in to match. */
-    margin-top: -16px !important;
+    /* No margin-top cancellation here, unlike scr_row_'s below. This used to
+       carry a -16px pull for an observed 32px double gap against
+       scr_filter_panel — but that gap's real cause was a phantom sibling
+       (a bare <style> injection between them, now fixed at the source with
+       the uv_hidden_util wrapper in uvalu/pages_/screener.py, same as
+       uvalu/shell.py's topbar CSS injection), not a genuinely doubled
+       normal gap. The loading-skeleton branch never had that phantom
+       sibling, so this same hack was over-cancelling ITS already-correct
+       16px gap down to 0px — same class of blanket-copy drift already
+       caught once for pf_panel_title_ (see that rule's comment). */
   }
   .st-key-scr_col_header {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;

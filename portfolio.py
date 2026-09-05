@@ -359,6 +359,55 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     return len(new_hist)
 
 
+# One in-flight backfill per user at a time — keyed by email so two users
+# (or two tabs of the same user) never race, and so either page (Portfolio or
+# Dashboard, whichever the user visits first) can trigger and poll the same
+# run instead of each kicking off its own.
+_backfill_state: dict[str, bool] = {}
+_backfill_lock = threading.Lock()
+
+
+def ensure_value_history_fresh(open_df: pd.DataFrame, sold_df: "pd.DataFrame | None", email: str) -> bool:
+    """Non-blocking replacement for calling backfill_value_history() directly
+    on the render path. Kicks it off in a background thread when this user's
+    value_history.json is missing/stale and no backfill is already running for
+    them; otherwise a no-op. Returns True while a backfill is in flight for
+    this user, so a caller with somewhere to show progress (Dashboard's value
+    chart) can render a skeleton and poll instead of the page just blocking.
+    """
+    with _backfill_lock:
+        if _backfill_state.get(email):
+            return True
+        vh = load_value_history()
+        yesterday = (pd.Timestamp.today() - pd.Timedelta(days=1)).normalize()
+        last_date = (
+            pd.to_datetime(vh["date"]).max()
+            if vh is not None and not vh.empty
+            else pd.Timestamp("1970-01-01")
+        )
+        needs_backfill = last_date < yesterday or vh is None or len(vh) <= 1
+        if not needs_backfill:
+            return False
+        _backfill_state[email] = True
+
+    def _run() -> None:
+        try:
+            # set_user() is required here: _user_dir() resolves the active
+            # user from this thread's OWN threading.local() storage, which
+            # starts unset on a freshly spawned thread — without this the
+            # backfill would silently write into the anonymous default/
+            # bucket instead of this user's directory (same bug class as the
+            # dialog-fragment issue enter_dialog() fixes in uvalu/ui.py).
+            set_user(email)
+            backfill_value_history(open_df, sold_df)
+        finally:
+            with _backfill_lock:
+                _backfill_state[email] = False
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 def _save_user_json(filename: str, data) -> None:
     write_encrypted(_user_dir() / filename, json.dumps(data, indent=2))
 

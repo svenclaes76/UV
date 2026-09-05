@@ -9,7 +9,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import stock_row, empty_results_html, loading_skeleton_html
+from uvalu.components import stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
 from uvalu.runtime import current_user
 from uvalu.ui import poll_while_fetching
@@ -18,6 +18,30 @@ _EXCHANGE_LABELS = {
     "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
     "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
 }
+
+# 8 widths matching stock_row's show_action=True layout exactly (star, then
+# the 7 shared data columns) — shared by the real column header, the real
+# rows (stock_row), and the loading skeleton's column-header/rows so all
+# three always stay pixel-aligned.
+_HH_WIDTHS = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+_HH_LABELS = ("", "Position", "Signal", "Composite score", "Margin of safety", "Price", "P/E", "Yield")
+# Upside/Price/P-E/Yield are right-aligned (matching their own right-aligned
+# data cells in stock_row); Position/Signal/Composite score stay left-aligned
+# like their left-anchored cells.
+_HH_RIGHT = {"Margin of safety", "Price", "P/E", "Yield"}
+
+
+def _col_header() -> None:
+    """The real column-header row — shared by the loaded results table and
+    the loading skeleton (labels are static text, no reason to shimmer
+    them)."""
+    for _hh, _label in zip(st.columns(_HH_WIDTHS, vertical_alignment="center"), _HH_LABELS):
+        if _label:
+            _align = "right" if _label in _HH_RIGHT else "left"
+            with _hh:
+                st.markdown(f'<div style="text-align:{_align};font-size:10px;letter-spacing:0.06em;'
+                           f'text-transform:uppercase;color:var(--faint);">{_label}</div>',
+                           unsafe_allow_html=True)
 
 
 def render() -> None:
@@ -115,31 +139,21 @@ def render() -> None:
             _wl_msg = (f"No screener data yet for your watchlisted ticker{_s} — "
                       "they'll appear after the next screener refresh.")
         with st.container(key="wl_table_card", border=True):
-            st.markdown(loading_skeleton_html(_wl_msg), unsafe_allow_html=True)
+            # wl_table_card is padding:0 by design (uvalu/styles.py) so its
+            # own children — the column header, the rows — each own their
+            # exact padding; a bare st.caption() here would sit flush against
+            # the card's raw edge instead of aligned with those 20px-indented
+            # children. Same padding loading_skeleton_html() used to carry.
+            st.markdown(f'<div style="padding:22px 20px 8px;font-size:13px;color:var(--faint);">{_wl_msg}</div>',
+                       unsafe_allow_html=True)
+            with st.container(key="wl_col_header"):
+                _col_header()
+            skeleton_rows(_HH_WIDTHS, n=min(len(watchlist), 6), name_col=1, key_prefix="uv_skel_row_wl")
         return
-
-    # 8 widths matching stock_row's show_action=True layout exactly (star,
-    # then the 7 shared data columns) — identical to Screener's own row
-    # widths now, since every ticker shown here is already in the watchlist
-    # by definition, so the star always renders filled/active; clicking it
-    # removes the ticker instead of a separate trailing "x" column.
-    _hh_widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
-    # Upside/Price/P-E/Yield are right-aligned (matching their own
-    # right-aligned data cells in stock_row); Position/Signal/Composite
-    # score stay left-aligned like their left-anchored cells.
-    _hh_right = {"Margin of safety", "Price", "P/E", "Yield"}
 
     with st.container(key="wl_table_card", border=True):
         with st.container(key="wl_col_header"):
-            _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
-            for _hh, _label in zip(_hh_cols, ("", "Position", "Signal", "Composite score",
-                                             "Margin of safety", "Price", "P/E", "Yield")):
-                if _label:
-                    _align = "right" if _label in _hh_right else "left"
-                    with _hh:
-                        st.markdown(f'<div style="text-align:{_align};font-size:10px;letter-spacing:0.06em;'
-                                   f'text-transform:uppercase;color:var(--faint);">{_label}</div>',
-                                   unsafe_allow_html=True)
+            _col_header()
 
         _drawer_target = None
         for _ridx, _row in wl_df.iterrows():

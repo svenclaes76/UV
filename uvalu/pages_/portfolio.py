@@ -16,17 +16,18 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
-                       record_value_snapshot, backfill_value_history,
-                       load_value_history)
+                       record_value_snapshot, ensure_value_history_fresh)
+from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
-                              portfolio_closed_row, portfolio_dividend_row)
+                              portfolio_closed_row, portfolio_dividend_row, refresh_top_bar_html,
+                              skeleton_kpi_card_html, skeleton_rows)
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
-from uvalu.ui import price_autorefresh, consumed_tick, enter_dialog
+from uvalu.ui import price_autorefresh, consumed_tick, enter_dialog, poll_while_fetching
 
 # Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
 # row components render a compact mono exchange chip next to the ticker.
@@ -92,6 +93,10 @@ def render() -> None:
     # — the drawer needs more than the portfolio row alone provides.
     _all_scr_df = _load_portfolio_scored(pf, load_sold())
     _pf_dlg_pending: list = []  # at most one dialog call per render
+    # True only on a genuinely cold PORTFOLIO_FETCH lane (a fresh session /
+    # newly-added position) — used to skeleton the Overview KPI strip and
+    # preview lists below instead of a blank page while the lane warms up.
+    _pf_fetch_running = _all_scr_df.empty and bool(get_fetch_progress(PORTFOLIO_FETCH).get("running"))
 
     _user = current_user()
     _is_viewer = _user.is_viewer
@@ -101,6 +106,15 @@ def render() -> None:
     # with it every minute. Those only need to run when the user actually
     # lands on the page.
     _timer_refresh = consumed_tick("portfolio_refresh")
+    if _timer_refresh:
+        # Slim top-of-page sweep instead of a silent repaint — same
+        # non-disruptive "Data refresh" cue as the Dashboard (uvalu/
+        # components.py's refresh_top_bar_html), only for this one script run.
+        # uv_hidden_util: it's position:fixed (zero layout height), but its
+        # own element-container would still eat a full row-gap and push the
+        # heading down (same trick as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     if pf.empty:
         # ── Empty portfolio — show Add button only ────────────────────────────
@@ -128,23 +142,14 @@ def render() -> None:
     price_gain      = total_current - total_invested
     price_gain_pct  = _safe_pct(price_gain, total_invested)
 
-    # Auto-backfill missing trading days — check BEFORE recording today's snapshot
-    # so first-ever load (empty history) correctly triggers the full backfill
-    _vh_check = load_value_history()
-    _yesterday = (pd.Timestamp.today() - pd.Timedelta(days=1)).normalize()
-    _last_date = (
-        pd.to_datetime(_vh_check["date"]).max()
-        if _vh_check is not None and not _vh_check.empty
-        else pd.Timestamp("1970-01-01")
-    )
-    _needs_backfill = (
-        not _timer_refresh
-        and total_current > 0
-        and (_last_date < _yesterday or (_vh_check is None or len(_vh_check) <= 1))
-    )
-    if _needs_backfill:
-        with st.spinner("Updating value history…"):
-            backfill_value_history(pf, load_sold())
+    # Auto-backfill missing trading days in the background — non-blocking, so
+    # a stale/empty value_history.json never delays this page's own paint.
+    # This page doesn't display value-history data itself (see module
+    # docstring), so there's nothing to show progress on here; Dashboard's
+    # value chart is the one that polls ensure_value_history_fresh() for its
+    # own skeleton/fill-in.
+    if not _timer_refresh and total_current > 0:
+        ensure_value_history_fresh(pf, load_sold(), _user.email)
 
     # record_value_snapshot upserts one row per calendar day, so skipping it on
     # timed refreshes and throttling it to ~every 10 min on genuine renders
@@ -203,20 +208,32 @@ def render() -> None:
             # recorded against current holdings rather than showing zero.
             _div_12m = total_dividends
 
+        if _pf_fetch_running:
+            # A genuinely cold PORTFOLIO_FETCH lane (fresh session / newly-
+            # added position) — arm one poll for the whole Overview section
+            # (KPI strip + the three previews below) instead of a separate
+            # auto_rerun per section.
+            poll_while_fetching("portfolio_overview_fetch", lane="portfolio")
+
         with st.container(key="pf_kpi_row"):
             _o1, _o2, _o3, _o4, _o5 = st.columns(5)
-            with _o1:
-                _kpi_card("Invested", f"€{total_invested:,.0f}", sub=f"{len(pf)} open positions", icon="wallet")
-            with _o2:
-                _kpi_card("Market value", f"€{total_current:,.0f}", f"{price_gain_pct:+.1f}%",
-                          price_gain >= 0, "current holdings", icon="wallet")
-            with _o3:
-                _kpi_card("Unrealised P&L", f"€{price_gain:,.0f}", f"{price_gain_pct:+.1f}%",
-                          price_gain >= 0, "open positions", icon="trend")
-            with _o4:
-                _kpi_card("Realised P&L", f"€{_realised_pl:,.0f}", sub=f"{_realised_count} closed trades", icon="trend")
-            with _o5:
-                _kpi_card("Dividends (12m)", f"€{_div_12m:,.0f}", sub="income received", icon="coin")
+            if _pf_fetch_running:
+                for _oc in (_o1, _o2, _o3, _o4, _o5):
+                    with _oc:
+                        st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
+            else:
+                with _o1:
+                    _kpi_card("Invested", f"€{total_invested:,.0f}", sub=f"{len(pf)} open positions", icon="wallet")
+                with _o2:
+                    _kpi_card("Market value", f"€{total_current:,.0f}", f"{price_gain_pct:+.1f}%",
+                              price_gain >= 0, "current holdings", icon="wallet")
+                with _o3:
+                    _kpi_card("Unrealised P&L", f"€{price_gain:,.0f}", f"{price_gain_pct:+.1f}%",
+                              price_gain >= 0, "open positions", icon="trend")
+                with _o4:
+                    _kpi_card("Realised P&L", f"€{_realised_pl:,.0f}", sub=f"{_realised_count} closed trades", icon="trend")
+                with _o5:
+                    _kpi_card("Dividends (12m)", f"€{_div_12m:,.0f}", sub="income received", icon="coin")
 
         # ── Open positions preview (top 5 by market value) ────────────────────
         with st.container(key="pf_card_open_ov", border=True):
@@ -230,24 +247,28 @@ def render() -> None:
                            ["Position", "Shares", "Avg cost", "Price", "Cost basis",
                             "Market value", "Unrealised P&L", "Weight"],
                            [False, True, True, True, True, True, True, False])
-            _ov_view_target = None
-            _ov_open = pf.sort_values("current_value", ascending=False).head(5)
-            for _idx, _prow in _ov_open.iterrows():
-                _res = portfolio_open_row(
-                    key=f"pf_open_row_ov_{_idx}_{_prow['ticker']}", ticker=_prow["ticker"],
-                    exchange=_exchange_label(_prow["ticker"]), name=_prow["name"],
-                    shares=_prow["shares"], avg_cost=_prow["purchase_price"], price=_prow["live_price"],
-                    cost_basis=_prow["purchase_value"], value=_prow["current_value"],
-                    gain=_prow["price_gain"], gain_pct=_prow["price_gain_pct"],
-                    weight_pct=(_prow["current_value"] / total_current * 100) if total_current else 0,
-                    show_edit=False,
-                )
-                if _res["view"]:
-                    _ov_view_target = _prow["ticker"]
-            if _ov_view_target is not None:
-                _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
-                if not _r.empty:
-                    _pf_dlg_pending.append((_r.iloc[0],))
+            if _pf_fetch_running:
+                skeleton_rows([200, 68, 88, 88, 108, 118, 132, 96], n=min(len(pf), 5),
+                             key_prefix="uv_skel_row_pf_open")
+            else:
+                _ov_view_target = None
+                _ov_open = pf.sort_values("current_value", ascending=False).head(5)
+                for _idx, _prow in _ov_open.iterrows():
+                    _res = portfolio_open_row(
+                        key=f"pf_open_row_ov_{_idx}_{_prow['ticker']}", ticker=_prow["ticker"],
+                        exchange=_exchange_label(_prow["ticker"]), name=_prow["name"],
+                        shares=_prow["shares"], avg_cost=_prow["purchase_price"], price=_prow["live_price"],
+                        cost_basis=_prow["purchase_value"], value=_prow["current_value"],
+                        gain=_prow["price_gain"], gain_pct=_prow["price_gain_pct"],
+                        weight_pct=(_prow["current_value"] / total_current * 100) if total_current else 0,
+                        show_edit=False,
+                    )
+                    if _res["view"]:
+                        _ov_view_target = _prow["ticker"]
+                if _ov_view_target is not None:
+                    _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
+                    if not _r.empty:
+                        _pf_dlg_pending.append((_r.iloc[0],))
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -262,32 +283,39 @@ def render() -> None:
                                unsafe_allow_html=True)
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help="Open full page"):
                         _goto("closed")
-                _ov_sold = load_sold()
-                if _ov_sold is not None and not _ov_sold.empty:
-                    _ov_sold = _ov_sold.copy()
-                    _pv = pd.to_numeric(_ov_sold["purchase_value"], errors="coerce")
-                    _sv = pd.to_numeric(_ov_sold["sale_value"], errors="coerce")
-                    _ov_sold["_gain"] = _sv - _pv
-                    _ov_sold["_gain_pct"] = (_ov_sold["_gain"] / _pv.replace(0, float("nan")) * 100).round(2)
-                    _ov_sold["_buy"]  = _pv / pd.to_numeric(_ov_sold["shares"], errors="coerce")
-                    _ov_sold["_sell"] = _sv / pd.to_numeric(_ov_sold["shares"], errors="coerce")
-                    _ov_sold["_closed_str"] = pd.to_datetime(
-                        _ov_sold["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%b %Y")
-                    _ov_sold = _ov_sold.sort_values("date_out", ascending=False).head(5)
+                if _pf_fetch_running:
                     with st.container(key="pf_col_header_closed_ov"):
                         _col_header([300, 56, 74, 74, 110],
                                    ["Position", "Shares", "Buy", "Sell", "Realised P&L"],
                                    [False, True, True, True, True])
-                    for _sidx, _srow in _ov_sold.iterrows():
-                        portfolio_closed_row(
-                            key=f"pf_closed_row_ov_{_sidx}_{_srow['ticker']}", ticker=_srow["ticker"],
-                            exchange=_exchange_label(_srow["ticker"]), name=_srow["name"],
-                            closed_date=_srow["_closed_str"] or "—", shares=_srow["shares"],
-                            buy=_srow["_buy"], sell=_srow["_sell"], pl=_srow["_gain"], pl_pct=_srow["_gain_pct"],
-                            show_edit=False,
-                        )
+                    skeleton_rows([300, 56, 74, 74, 110], n=3, key_prefix="uv_skel_row_pf_closed")
                 else:
-                    st.caption("No closed positions yet.")
+                    _ov_sold = load_sold()
+                    if _ov_sold is not None and not _ov_sold.empty:
+                        _ov_sold = _ov_sold.copy()
+                        _pv = pd.to_numeric(_ov_sold["purchase_value"], errors="coerce")
+                        _sv = pd.to_numeric(_ov_sold["sale_value"], errors="coerce")
+                        _ov_sold["_gain"] = _sv - _pv
+                        _ov_sold["_gain_pct"] = (_ov_sold["_gain"] / _pv.replace(0, float("nan")) * 100).round(2)
+                        _ov_sold["_buy"]  = _pv / pd.to_numeric(_ov_sold["shares"], errors="coerce")
+                        _ov_sold["_sell"] = _sv / pd.to_numeric(_ov_sold["shares"], errors="coerce")
+                        _ov_sold["_closed_str"] = pd.to_datetime(
+                            _ov_sold["date_out"], format="mixed", dayfirst=False, errors="coerce").dt.strftime("%b %Y")
+                        _ov_sold = _ov_sold.sort_values("date_out", ascending=False).head(5)
+                        with st.container(key="pf_col_header_closed_ov"):
+                            _col_header([300, 56, 74, 74, 110],
+                                       ["Position", "Shares", "Buy", "Sell", "Realised P&L"],
+                                       [False, True, True, True, True])
+                        for _sidx, _srow in _ov_sold.iterrows():
+                            portfolio_closed_row(
+                                key=f"pf_closed_row_ov_{_sidx}_{_srow['ticker']}", ticker=_srow["ticker"],
+                                exchange=_exchange_label(_srow["ticker"]), name=_srow["name"],
+                                closed_date=_srow["_closed_str"] or "—", shares=_srow["shares"],
+                                buy=_srow["_buy"], sell=_srow["_sell"], pl=_srow["_gain"], pl_pct=_srow["_gain_pct"],
+                                show_edit=False,
+                            )
+                    else:
+                        st.caption("No closed positions yet.")
         with _oc2:
             with st.container(key="pf_card_div_ov", border=True):
                 with st.container(key="pf_panel_title_div_ov", horizontal=True, vertical_alignment="center",
@@ -295,22 +323,27 @@ def render() -> None:
                     st.markdown("Dividends received")
                     if st.button("", key="ov_div_expand", icon=":material/open_in_full:", help="Open full page"):
                         _goto("dividends")
-                _ov_div = load_div_hist()
-                if _ov_div is not None and not _ov_div.empty:
-                    _ov_div = _ov_div.copy()
-                    _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
-                    _ov_div["_date_str"] = _ov_div["date"].dt.strftime("%d %b %Y")
-                    _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
+                if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
                         _col_header([6, 1.3], ["Position", "Dividend"], [False, True])
-                    for _didx, _drow in _ov_div.iterrows():
-                        portfolio_dividend_row(
-                            key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
-                            ticker=_drow.get("ticker", ""), date=_drow["_date_str"] or "—",
-                            amount=pd.to_numeric(_drow.get("amount"), errors="coerce"), show_edit=False,
-                        )
+                    skeleton_rows([6, 1.3], n=3, key_prefix="uv_skel_row_pf_div")
                 else:
-                    st.caption("No dividends received yet.")
+                    _ov_div = load_div_hist()
+                    if _ov_div is not None and not _ov_div.empty:
+                        _ov_div = _ov_div.copy()
+                        _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
+                        _ov_div["_date_str"] = _ov_div["date"].dt.strftime("%d %b %Y")
+                        _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
+                        with st.container(key="pf_col_header_div_ov"):
+                            _col_header([6, 1.3], ["Position", "Dividend"], [False, True])
+                        for _didx, _drow in _ov_div.iterrows():
+                            portfolio_dividend_row(
+                                key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
+                                ticker=_drow.get("ticker", ""), date=_drow["_date_str"] or "—",
+                                amount=pd.to_numeric(_drow.get("amount"), errors="coerce"), show_edit=False,
+                            )
+                    else:
+                        st.caption("No dividends received yet.")
 
     # ── Full page: Open positions ──────────────────────────────────────────────
     if _section == "open":

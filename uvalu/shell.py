@@ -293,11 +293,15 @@ def render_topbar(nav) -> None:
                 # elsewhere), and the label/colour tell live vs delayed vs
                 # market-closed instead of always claiming "Live".
                 _pi_text, _pi_color = _price_indicator()
+                # Only the genuinely-live state pulses (uvRing, uvalu/styles.py)
+                # — an animated dot next to "Delayed"/"Feed stale"/"Market
+                # closed" would read as "still updating" when it isn't.
+                _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
                 st.markdown(
                     f'<div style="display:flex;align-items:center;gap:7px;font-size:11px;'
                     f'color:var(--faint);font-family:var(--uv-mono);">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};'
-                    f'box-shadow:0 0 0 3px {_pi_color}2E;"></span>'
+                    f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
                     f'{_pi_text}</div>',
                     unsafe_allow_html=True,
                 )

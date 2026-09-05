@@ -7,8 +7,11 @@ from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, TRADING_DAYS
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import score_color, radial_gauge_svg, risk_holding_row_html, RISK_HOLDINGS_GRID_COLS
-from uvalu.ui import price_autorefresh
+from uvalu.components import (score_color, radial_gauge_svg, risk_holding_row_html,
+                              RISK_HOLDINGS_GRID_COLS, refresh_top_bar_html,
+                              skeleton_gauge_card_html, skeleton_metrics_grid_html,
+                              skeleton_factor_rows_html, skeleton_risk_holdings_html)
+from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
 _TICKER_SUFFIX_EXCHANGE = {
     ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
@@ -90,14 +93,63 @@ def _loading_tier(abs_val: float) -> tuple[str, str]:
     return "Elevated", "var(--down-txt)"
 
 
+def _render_skeleton() -> None:
+    """Every section's real shape, in the real layout's own containers and
+    column ratios, for the window while load_portfolio_risk() is still
+    computing in the background. Column headers are rendered for real (their
+    labels are static, not data) — only the rows/values shimmer."""
+    _gauge_col, _metrics_col = st.columns([1, 2.2])
+    with _gauge_col, st.container(key="risk_card_gauge", border=True):
+        st.markdown(skeleton_gauge_card_html(132), unsafe_allow_html=True)
+    with _metrics_col, st.container(key="risk_card_metrics", border=True):
+        st.markdown(skeleton_metrics_grid_html(n_cells=6, n_cols=3), unsafe_allow_html=True)
+
+    _factor_col, _conc_col = st.columns([1.35, 1])
+    with _factor_col, st.container(key="risk_card_factors", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Risk factor breakdown</div>',
+                   unsafe_allow_html=True)
+        st.markdown(skeleton_factor_rows_html(6), unsafe_allow_html=True)
+    with _conc_col, st.container(key="risk_card_conc", border=True):
+        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Concentration</div>',
+                   unsafe_allow_html=True)
+        st.markdown(skeleton_factor_rows_html(3), unsafe_allow_html=True)
+
+    with st.container(key="risk_card_holdings", border=True):
+        with st.container(key="risk_col_header"):
+            _rh_labels = ("Position", "Weight", "Beta", "Vol", "Contribution to risk", "Flag")
+            _rh_align = ("left", "right", "right", "right", "left", "left")
+            _rh_cells = "".join(
+                f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
+            st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+                       f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
+                       f'{_rh_cells}</div>', unsafe_allow_html=True)
+        st.markdown(skeleton_risk_holdings_html(5), unsafe_allow_html=True)
+
+
 def render() -> None:
     pf = load_portfolio()
     if pf is None or pf.empty:
         st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
         st.stop()
 
+    # Title first, before anything that might still be computing — it
+    # doesn't depend on the risk report, so there's no reason for it to wait
+    # behind load_portfolio_risk() the way it used to (that call used to gate
+    # the ENTIRE page, this heading included).
+    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
+               unsafe_allow_html=True)
+    st.caption("Factor exposures, concentration and per-holding risk contribution across the portfolio.")
+
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
+    if consumed_tick("risk_refresh"):
+        # Slim top-of-page sweep instead of a silent repaint — same
+        # non-disruptive "Data refresh" cue as the Dashboard/Portfolio pages.
+        # uv_hidden_util: it's position:fixed (zero layout height), but its
+        # own element-container would still eat a full row-gap and push the
+        # heading down (same trick as uvalu/shell.py's topbar CSS injection).
+        with st.container(key="uv_hidden_util_refresh_sweep"):
+            st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     # Build (or reuse the session-cached) risk report via the shared builder in
     # uvalu/data.py — the SAME call path the Dashboard's Conviction & risk card
@@ -111,15 +163,19 @@ def render() -> None:
         st.error(f"Risk assessment failed: {_risk_err}")
         st.stop()
 
+    if _bundle is None:
+        # Still computing in the background (cold/stale cache — a real
+        # network-bound assess_portfolio() call, see uvalu/data.py) — paint
+        # every section's real shape immediately instead of a blank page,
+        # and poll until it lands.
+        _render_skeleton()
+        _auto_rerun(5, "risk_report_pending")
+        return
+
     _risk_scr_df = _bundle.scored
     _veto_lookup = _bundle.veto_lookup
     pf           = _bundle.pf
     r            = _bundle.report
-
-    # ══ Top section — score gauge, factor/concentration, risk contribution ═══
-    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
-               unsafe_allow_html=True)
-    st.caption("Factor exposures, concentration and per-holding risk contribution across the portfolio.")
 
     # ── Score gauge + metric grid — matches Uvalu.dc.html's 300px/1fr card row,
     # both panels stretched to the row's tallest via risk_card_'s shared CSS.

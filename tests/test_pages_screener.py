@@ -28,17 +28,22 @@ def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
 def test_renders_skeleton_when_no_data(isolated_data, monkeypatch):
     empty = make_scored_df([])
     at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty))
+    caption_txt = "".join(c.value for c in at.caption)
     html = "".join(m.value for m in at.markdown)
-    assert "Loading the screening universe" in html
+    assert "Loading the screening universe" in caption_txt
+    # Layout-matching skeleton: filter-bar and column-header shapes render
+    # too, not just a generic shimmer card (uvalu/pages_/screener.py).
     assert "uv-skel-bar" in html
+    assert "Position" in html and "Margin of safety" in html
 
 
 def test_skeleton_shows_fetch_progress_when_running(isolated_data, monkeypatch):
     empty = make_scored_df([])
     at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty),
               fetch_progress={"running": True, "total": 40, "done": 12})
+    caption_txt = "".join(c.value for c in at.caption)
     html = "".join(m.value for m in at.markdown)
-    assert "12/40 companies scored" in html
+    assert "12/40 companies scored" in caption_txt
     assert "uv-skel-bar" in html
 
 
@@ -150,11 +155,16 @@ def test_bust_cache_triggered_when_a_non_first_exchange_is_stale(isolated_data, 
     assert calls == [True]
 
 
-def test_fetch_in_progress_shows_progress_caption(isolated_data, monkeypatch):
+def test_fetch_in_progress_shows_refresh_sweep(isolated_data, monkeypatch):
+    # With rows already on screen, a running fetch shows the same
+    # non-disruptive top-of-page sweep used elsewhere (Dashboard/Portfolio/
+    # Risk's timed refresh) instead of a persistent "Updating data… N/M
+    # tickers" text caption.
     at = _run(monkeypatch, fetch_progress={"running": True, "total": 10, "done": 3})
     caption_html = "".join(c.value for c in at.caption)
-    assert "Updating data" in caption_html
-    assert "3/10" in caption_html
+    markdown_html = "".join(m.value for m in at.markdown)
+    assert "Updating data" not in caption_html
+    assert "uvBar" in markdown_html
 
 
 def test_sector_filter_narrows_results(isolated_data, monkeypatch):

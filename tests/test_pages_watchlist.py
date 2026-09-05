@@ -47,8 +47,12 @@ def test_watchlisted_ticker_with_no_scored_row_shows_loading_state(isolated_data
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
     assert "Your watchlist is empty" not in html
+    # Rendered as a padded st.markdown div (not st.caption) so it aligns with
+    # wl_table_card's other 20px-indented children — see watchlist.py.
     assert "No screener data yet for your watchlisted ticker" in html
     assert "uv-skel-bar" in html
+    # Layout-matching skeleton: the real column header renders too.
+    assert "Position" in html and "Margin of safety" in html
 
 
 def test_watchlist_loading_state_shows_fetch_progress(isolated_data, monkeypatch):

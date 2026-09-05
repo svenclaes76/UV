@@ -570,6 +570,235 @@ def loading_skeleton_html(message: str, *, n_rows: int = 6) -> str:
     )
 
 
+def skeleton_kpi_card_html() -> str:
+    """One shimmering placeholder matching kpi_card()'s exact card shell —
+    label/value/delta bars in place of real content — for a KPI tile whose
+    figure isn't computable yet (e.g. Dashboard's Avg margin of safety while
+    the PORTFOLIO_FETCH lane is still scoring holdings)."""
+    return (
+        '<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
+        'padding:15px 17px;box-shadow:var(--shadow);">'
+        '<div class="uv-skel-bar" style="width:60%;height:9px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:50%;height:22px;margin:10px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:38%;height:16px;margin:9px 0 0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_holdings_row_html() -> str:
+    """One shimmering placeholder row matching holdings_row_html()'s grid
+    (HOLDINGS_GRID_COLS column-for-column) — for the Dashboard Holdings table
+    while the PORTFOLIO_FETCH lane hasn't scored any rows yet. Pair with
+    uvalu.ui.poll_while_fetching(lane="portfolio") so the skeleton resolves
+    into real rows on its own."""
+    return (
+        f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;'
+        'padding:13px 20px;border-bottom:0.5px solid var(--line-2);min-height:60px;">'
+        '<div><div class="uv-skel-bar" style="width:76px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:130px;height:9px;margin:8px 0 0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:48px;height:18px;margin:0;border-radius:6px;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:42px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:56px;height:11px;margin:0 0 0 auto;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_holdings_table_html(n_rows: int = 3) -> str:
+    """`n_rows` stacked skeleton_holdings_row_html() rows — matches the
+    Dashboard Holdings panel's real row list exactly so the panel's shape
+    appears before the first row is scored."""
+    return "".join(skeleton_holdings_row_html() for _ in range(max(1, n_rows)))
+
+
+def skeleton_chart_html(height: int = 160) -> str:
+    """A single shimmering block sized like a chart, for a chart whose data
+    isn't ready yet."""
+    return f'<div class="uv-skel-bar" style="width:100%;height:{height}px;margin:0;border-radius:8px;"></div>'
+
+
+def skeleton_row(widths: list, *, name_col: int = 0) -> None:
+    """Render one shimmer placeholder row via st.columns(widths) — matches
+    ANY real row built the same way (stock_row, portfolio_open_row/
+    portfolio_closed_row/portfolio_dividend_row) column-for-column for free,
+    since it's rendered with that row's own exact widths rather than a
+    hand-replicated CSS grid. `name_col` gets a two-line ticker+name-shaped
+    shimmer (matching every one of those rows' own leading cell); every
+    other column gets one right-aligned shimmer line."""
+    for _i, _c in enumerate(st.columns(widths, vertical_alignment="center")):
+        with _c:
+            if _i == name_col:
+                st.markdown(
+                    '<div class="uv-skel-bar" style="width:70%;height:11px;margin:0;"></div>'
+                    '<div class="uv-skel-bar" style="width:50%;height:9px;margin:8px 0 0;"></div>',
+                    unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    '<div class="uv-skel-bar" style="width:60%;height:11px;margin:0 0 0 auto;"></div>',
+                    unsafe_allow_html=True)
+
+
+def skeleton_rows(widths: list, *, n: int = 5, name_col: int = 0, key_prefix: str = "uv_skel_row") -> None:
+    """`n` stacked skeleton_row() rows, each hairline-divided like the real
+    row lists they stand in for (stock_row/portfolio_*_row's own shared
+    divider convention). Each row is its own `st.container(key=...)` — the
+    divider itself is a global CSS rule keyed off `key_prefix`
+    (`[class*="st-key-<key_prefix>_"]` in uvalu/styles.py), the same
+    "wrap in a keyed container, style it globally" idiom every other row
+    component in this app already uses (e.g. stock_row's own `st-key-scr_row_`
+    rule) — a bottom-border can't be applied any other way around a row built
+    from native st.columns()."""
+    for _i in range(max(1, n)):
+        with st.container(key=f"{key_prefix}_{_i}"):
+            skeleton_row(widths, name_col=name_col)
+
+
+def skeleton_filter_bar_html() -> str:
+    """Six label+control shimmer shapes approximating the Screener filter
+    bar's Search/Signal/Sector/Market/Min-score/Min-MoS row (scr_filter_row)
+    — a decorative shape match, not a pixel-exact replica (the filter bar
+    itself needs no column-for-column alignment the way a table does)."""
+    _shapes = [
+        (150, "24px"), (170, "30px"), (130, "34px"),
+        (130, "34px"), (110, "34px"), (150, "34px"),
+    ]
+    _cells = "".join(
+        f'<div style="display:flex;flex-direction:column;gap:8px;">'
+        f'<div class="uv-skel-bar" style="width:60px;height:9px;margin:0;"></div>'
+        f'<div class="uv-skel-bar" style="width:{_w}px;height:{_h};margin:0;border-radius:8px;"></div></div>'
+        for _w, _h in _shapes
+    )
+    return f'<div style="display:flex;gap:32px;flex-wrap:wrap;">{_cells}</div>'
+
+
+def skeleton_metrics_grid_html(n_cells: int = 6, n_cols: int = 3) -> str:
+    """A `grid-template-columns:repeat(n_cols,1fr)` grid of label/value/sub
+    shimmer cells — matches both the Risk page's 6-cell metrics grid
+    (risk_card_metrics) and the Dashboard Conviction card's 3-cell one
+    (db_conv_metrics), which use the identical grid shape at different
+    cell counts."""
+    _cell = (
+        '<div style="padding:18px 20px;">'
+        '<div class="uv-skel-bar" style="width:70%;height:9px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:45%;height:20px;margin:9px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:80%;height:9px;margin:7px 0 0;"></div></div>'
+    )
+    return (f'<div style="display:grid;grid-template-columns:repeat({n_cols},1fr);">'
+           f'{_cell * max(1, n_cells)}</div>')
+
+
+def skeleton_gauge_card_html(size: int = 132) -> str:
+    """A shimmering ring + two shimmer lines, centered — matches the Risk
+    page's composite-score gauge card and the Dashboard Conviction card's
+    smaller gauge (same shape at a different `size`)."""
+    return (
+        '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;">'
+        f'<div class="uv-skel-bar" style="width:{size}px;height:{size}px;margin:0;border-radius:50%;"></div>'
+        '<div class="uv-skel-bar" style="width:120px;height:14px;margin:14px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:180px;height:11px;margin:8px 0 0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_factor_rows_html(n: int = 6) -> str:
+    """`n` stacked label+bar+caption shimmer blocks matching the Risk page's
+    factor-breakdown rows (risk_card_factors) and its Concentration panel's
+    bar rows (risk_card_conc) — same 3-line shape, both real sections use it."""
+    _row = (
+        '<div style="margin-bottom:15px;">'
+        '<div style="display:flex;justify-content:space-between;margin-bottom:7px;">'
+        '<div class="uv-skel-bar" style="width:70px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:50px;height:11px;margin:0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:7px;margin:0;border-radius:4px;"></div>'
+        '<div class="uv-skel-bar" style="width:60%;height:9px;margin:6px 0 0;"></div></div>'
+    )
+    return _row * max(1, n)
+
+
+def skeleton_risk_holding_row_html() -> str:
+    """One shimmering placeholder row matching risk_holding_row_html()'s
+    grid (RISK_HOLDINGS_GRID_COLS column-for-column) — for the Risk page's
+    holdings-contribution table while load_portfolio_risk() is still
+    computing in the background. RISK_HOLDINGS_GRID_COLS is defined further
+    down in this module (Risk holdings table section) — fine to reference
+    here since it's resolved at call time, not definition time.
+
+    Padding is baked in here (13px 20px, matching the real risk_hold_ row's
+    12px 20px from its own st-key-risk_hold_ CSS) rather than relying on a
+    wrapping container, since all of these rows are concatenated into one
+    st.markdown() call by skeleton_risk_holdings_html() below — there's no
+    per-row Streamlit container here to hang per-row CSS off of, the way
+    skeleton_holdings_row_html() (Dashboard) does it the same inline way."""
+    return (
+        f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+        'align-items:center;padding:13px 20px;border-bottom:0.5px solid var(--line-2);">'
+        '<div><div class="uv-skel-bar" style="width:60px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:140px;height:9px;margin:8px 0 0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:50px;height:11px;margin:0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_risk_holdings_html(n_rows: int = 5) -> str:
+    """`n_rows` stacked skeleton_risk_holding_row_html() rows."""
+    return "".join(skeleton_risk_holding_row_html() for _ in range(max(1, n_rows)))
+
+
+def skeleton_text_html(widths: tuple = (100, 92, 96, 60)) -> str:
+    """A handful of shimmering bars of varying width mimicking paragraph
+    text, for descriptive copy that loads alongside a scored result."""
+    _bars = "".join(
+        f'<div class="uv-skel-bar" style="width:{w}%;height:11px;margin:0;"></div>' for w in widths
+    )
+    return f'<div style="display:flex;flex-direction:column;gap:10px;">{_bars}</div>'
+
+
+def spinner_html(label: str, size: int = 32) -> str:
+    """A centered ring spinner + caption, for a whole panel with nothing else
+    to show yet (matches the "Loading dashboard…" tile in the design)."""
+    return (
+        f'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+        f'gap:14px;padding:24px 0;"><div style="width:{size}px;height:{size}px;border-radius:50%;'
+        f'border:3px solid var(--line);border-top-color:var(--mint);animation:uvSpin 0.8s linear infinite;">'
+        f'</div><div style="font-size:12.5px;color:var(--muted);">{label}</div></div>'
+    )
+
+
+def refresh_spinner_inline_html(label: str, dimmed_value: str) -> str:
+    """A small inline spinner + label above a dimmed value, for a figure
+    that's re-fetching in place (e.g. a ticking price) rather than loading
+    for the first time."""
+    return (
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">'
+        '<div style="display:flex;align-items:center;gap:8px;">'
+        '<div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--line);'
+        'border-top-color:var(--teal);animation:uvSpin 0.7s linear infinite;"></div>'
+        f'<span style="font-size:12.5px;color:var(--muted);">{label}</span></div>'
+        f'<div style="font-family:var(--uv-mono);font-size:20px;font-weight:500;opacity:0.5;">{dimmed_value}</div>'
+        '</div>'
+    )
+
+
+def refresh_top_bar_html() -> str:
+    """A slim progress sweep pinned to the top of the viewport — a
+    non-disruptive cue for a background re-fetch on a page already showing
+    real data (a timer-triggered price refresh), as opposed to the
+    skeleton_*_html helpers above (nothing to show yet). Render only for the
+    one script run that uvalu.ui.consumed_tick() reports as a genuine timer
+    tick — it disappears on its own once that run's fresh output paints.
+    z-index sits above uvalu/shell.py's sticky top bar (999)."""
+    return (
+        '<div style="position:fixed;top:0;left:0;width:100%;height:2px;background:var(--line);'
+        'z-index:1001;overflow:hidden;"><div style="position:absolute;top:0;height:2px;width:30%;'
+        'background:var(--mint);animation:uvBar 0.9s ease-in-out infinite;"></div></div>'
+    )
+
+
 def fair_value_legend_row() -> None:
     """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
     accompanies fair_value_bar_compact in a holdings/screener table header."""
