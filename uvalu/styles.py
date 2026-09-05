@@ -75,6 +75,12 @@ GLOBAL_CSS = """
   @keyframes uvSpin { to { transform: rotate(360deg); } }
   @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
   @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
+  /* components.skeleton_rows()'s hairline row divider — a native st.columns()
+     row can't take a border via raw HTML the way skeleton_holdings_row_html's
+     CSS-grid string can, so each row is its own st-key-uv_skel_row_N
+     container styled here instead (same idiom as stock_row's own
+     st-key-scr_row_ rule). */
+  [class*="st-key-uv_skel_row_"] { border-bottom: 0.5px solid var(--line-2); padding: 13px 0; }
 
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }

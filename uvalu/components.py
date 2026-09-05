@@ -618,6 +618,130 @@ def skeleton_chart_html(height: int = 160) -> str:
     return f'<div class="uv-skel-bar" style="width:100%;height:{height}px;margin:0;border-radius:8px;"></div>'
 
 
+def skeleton_row(widths: list, *, name_col: int = 0) -> None:
+    """Render one shimmer placeholder row via st.columns(widths) — matches
+    ANY real row built the same way (stock_row, portfolio_open_row/
+    portfolio_closed_row/portfolio_dividend_row) column-for-column for free,
+    since it's rendered with that row's own exact widths rather than a
+    hand-replicated CSS grid. `name_col` gets a two-line ticker+name-shaped
+    shimmer (matching every one of those rows' own leading cell); every
+    other column gets one right-aligned shimmer line."""
+    for _i, _c in enumerate(st.columns(widths, vertical_alignment="center")):
+        with _c:
+            if _i == name_col:
+                st.markdown(
+                    '<div class="uv-skel-bar" style="width:70%;height:11px;margin:0;"></div>'
+                    '<div class="uv-skel-bar" style="width:50%;height:9px;margin:8px 0 0;"></div>',
+                    unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    '<div class="uv-skel-bar" style="width:60%;height:11px;margin:0 0 0 auto;"></div>',
+                    unsafe_allow_html=True)
+
+
+def skeleton_rows(widths: list, *, n: int = 5, name_col: int = 0, key_prefix: str = "uv_skel_row") -> None:
+    """`n` stacked skeleton_row() rows, each hairline-divided like the real
+    row lists they stand in for (stock_row/portfolio_*_row's own shared
+    divider convention). Each row is its own `st.container(key=...)` — the
+    divider itself is a global CSS rule keyed off `key_prefix`
+    (`[class*="st-key-<key_prefix>_"]` in uvalu/styles.py), the same
+    "wrap in a keyed container, style it globally" idiom every other row
+    component in this app already uses (e.g. stock_row's own `st-key-scr_row_`
+    rule) — a bottom-border can't be applied any other way around a row built
+    from native st.columns()."""
+    for _i in range(max(1, n)):
+        with st.container(key=f"{key_prefix}_{_i}"):
+            skeleton_row(widths, name_col=name_col)
+
+
+def skeleton_filter_bar_html() -> str:
+    """Six label+control shimmer shapes approximating the Screener filter
+    bar's Search/Signal/Sector/Market/Min-score/Min-MoS row (scr_filter_row)
+    — a decorative shape match, not a pixel-exact replica (the filter bar
+    itself needs no column-for-column alignment the way a table does)."""
+    _shapes = [
+        (150, "24px"), (170, "30px"), (130, "34px"),
+        (130, "34px"), (110, "34px"), (150, "34px"),
+    ]
+    _cells = "".join(
+        f'<div style="display:flex;flex-direction:column;gap:8px;">'
+        f'<div class="uv-skel-bar" style="width:60px;height:9px;margin:0;"></div>'
+        f'<div class="uv-skel-bar" style="width:{_w}px;height:{_h};margin:0;border-radius:8px;"></div></div>'
+        for _w, _h in _shapes
+    )
+    return f'<div style="display:flex;gap:32px;flex-wrap:wrap;">{_cells}</div>'
+
+
+def skeleton_metrics_grid_html(n_cells: int = 6, n_cols: int = 3) -> str:
+    """A `grid-template-columns:repeat(n_cols,1fr)` grid of label/value/sub
+    shimmer cells — matches both the Risk page's 6-cell metrics grid
+    (risk_card_metrics) and the Dashboard Conviction card's 3-cell one
+    (db_conv_metrics), which use the identical grid shape at different
+    cell counts."""
+    _cell = (
+        '<div style="padding:18px 20px;">'
+        '<div class="uv-skel-bar" style="width:70%;height:9px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:45%;height:20px;margin:9px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:80%;height:9px;margin:7px 0 0;"></div></div>'
+    )
+    return (f'<div style="display:grid;grid-template-columns:repeat({n_cols},1fr);">'
+           f'{_cell * max(1, n_cells)}</div>')
+
+
+def skeleton_gauge_card_html(size: int = 132) -> str:
+    """A shimmering ring + two shimmer lines, centered — matches the Risk
+    page's composite-score gauge card and the Dashboard Conviction card's
+    smaller gauge (same shape at a different `size`)."""
+    return (
+        '<div style="display:flex;flex-direction:column;align-items:center;text-align:center;">'
+        f'<div class="uv-skel-bar" style="width:{size}px;height:{size}px;margin:0;border-radius:50%;"></div>'
+        '<div class="uv-skel-bar" style="width:120px;height:14px;margin:14px 0 0;"></div>'
+        '<div class="uv-skel-bar" style="width:180px;height:11px;margin:8px 0 0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_factor_rows_html(n: int = 6) -> str:
+    """`n` stacked label+bar+caption shimmer blocks matching the Risk page's
+    factor-breakdown rows (risk_card_factors) and its Concentration panel's
+    bar rows (risk_card_conc) — same 3-line shape, both real sections use it."""
+    _row = (
+        '<div style="margin-bottom:15px;">'
+        '<div style="display:flex;justify-content:space-between;margin-bottom:7px;">'
+        '<div class="uv-skel-bar" style="width:70px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:50px;height:11px;margin:0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:7px;margin:0;border-radius:4px;"></div>'
+        '<div class="uv-skel-bar" style="width:60%;height:9px;margin:6px 0 0;"></div></div>'
+    )
+    return _row * max(1, n)
+
+
+def skeleton_risk_holding_row_html() -> str:
+    """One shimmering placeholder row matching risk_holding_row_html()'s
+    grid (RISK_HOLDINGS_GRID_COLS column-for-column) — for the Risk page's
+    holdings-contribution table while load_portfolio_risk() is still
+    computing in the background. RISK_HOLDINGS_GRID_COLS is defined further
+    down in this module (Risk holdings table section) — fine to reference
+    here since it's resolved at call time, not definition time."""
+    return (
+        f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+        'align-items:center;padding:13px 0;border-bottom:0.5px solid var(--line-2);">'
+        '<div><div class="uv-skel-bar" style="width:60px;height:11px;margin:0;"></div>'
+        '<div class="uv-skel-bar" style="width:140px;height:9px;margin:8px 0 0;"></div></div>'
+        '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:50px;height:11px;margin:0;"></div>'
+        '</div>'
+    )
+
+
+def skeleton_risk_holdings_html(n_rows: int = 5) -> str:
+    """`n_rows` stacked skeleton_risk_holding_row_html() rows."""
+    return "".join(skeleton_risk_holding_row_html() for _ in range(max(1, n_rows)))
+
+
 def skeleton_text_html(widths: tuple = (100, 92, 96, 60)) -> str:
     """A handful of shimmering bars of varying width mimicking paragraph
     text, for descriptive copy that loads alongside a scored result."""

@@ -16,7 +16,7 @@ import uvalu.data as uv_data
 from uvalu import nav as nav_registry
 from uvalu.pages_ import dashboard as dashboard_page
 from tests.conftest import (make_scored_row, make_scored_df, make_portfolio_df,
-                            fake_portfolio_scored, USER_SETUP_SRC)
+                            fake_portfolio_scored, USER_SETUP_SRC, settle_background_risk)
 
 
 @pytest.fixture(autouse=True)
@@ -95,6 +95,7 @@ dashboard_page.render()
 """
     at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
+    settle_background_risk(at)
     return at
 
 

@@ -18,7 +18,9 @@ from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
-                              skeleton_chart_html, refresh_top_bar_html)
+                              skeleton_chart_html, skeleton_gauge_card_html,
+                              skeleton_metrics_grid_html, skeleton_text_html,
+                              refresh_top_bar_html)
 from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick, _auto_rerun
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
@@ -299,37 +301,54 @@ def render() -> None:
         _db_risk_cache = load_fundamentals_cache()
         _risk_score = _beta_str = _vol_str = _dd_str = None
         _risk_label = "—"
+        _risk_pending = False
         if _db_pf is not None and not _db_pf.empty and _db_risk_cache:
             try:
-                _db_report = load_portfolio_risk(_db_pf).report
-                _risk_score = float(_db_report.composite.score)
-                # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50) —
-                # not separate hand-picked numbers — so this card's Low/
-                # Moderate never contradicts the Risk page's own labelling for
-                # the same score. This card's 3-tier gauge (mockup constraint)
-                # can't show risk.py's full Low/Moderate/Elevated/High/
-                # Critical taxonomy, so Elevated/High/Critical are
-                # deliberately collapsed into one "Elevated" bucket here —
-                # coarser, but never disagrees with what the Risk page says.
-                _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
-                              else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
-                              else "Elevated")
-                _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
-                _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
-                _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
+                _db_risk_bundle = load_portfolio_risk(_db_pf)
+                if _db_risk_bundle is None:
+                    # Still computing in the background (uvalu/data.py) —
+                    # distinct from "no risk data" (the bare except below).
+                    _risk_pending = True
+                else:
+                    _db_report = _db_risk_bundle.report
+                    _risk_score = float(_db_report.composite.score)
+                    # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50)
+                    # — not separate hand-picked numbers — so this card's Low/
+                    # Moderate never contradicts the Risk page's own labelling
+                    # for the same score. This card's 3-tier gauge (mockup
+                    # constraint) can't show risk.py's full Low/Moderate/
+                    # Elevated/High/Critical taxonomy, so Elevated/High/
+                    # Critical are deliberately collapsed into one "Elevated"
+                    # bucket here — coarser, but never disagrees with what the
+                    # Risk page says.
+                    _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
+                                  else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
+                                  else "Elevated")
+                    _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
+                    _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
+                    _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
             except Exception:
                 pass
 
-        if _conv_score is not None:
-            # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
-            # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
-            # (not this card's earlier "Strong/Moderate/Weak conviction" at
-            # 70/40), and the label is always mint-colored regardless of
-            # tier — the spec hardcodes `color:var(--mint)` unconditionally,
-            # not a tier-dependent color.
-            _conv_label = ("High conviction" if _conv_score >= 75 else
-                          "Constructive" if _conv_score >= 55 else "Cautious")
-            st.markdown(f"""
+        if _db_fetch_running or _risk_pending:
+            # Either half of this card can independently still be computing
+            # (conviction from the PORTFOLIO_FETCH lane, risk score from the
+            # background risk report) — one combined skeleton covers both
+            # rather than a half-real/half-shimmer card.
+            st.markdown(skeleton_gauge_card_html(118), unsafe_allow_html=True)
+            st.markdown(skeleton_metrics_grid_html(n_cells=3, n_cols=3), unsafe_allow_html=True)
+            _auto_rerun(5, "dashboard_conviction_pending")
+        else:
+            if _conv_score is not None:
+                # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
+                # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
+                # (not this card's earlier "Strong/Moderate/Weak conviction" at
+                # 70/40), and the label is always mint-colored regardless of
+                # tier — the spec hardcodes `color:var(--mint)` unconditionally,
+                # not a tier-dependent color.
+                _conv_label = ("High conviction" if _conv_score >= 75 else
+                              "Constructive" if _conv_score >= 55 else "Cautious")
+                st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
     {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
@@ -344,14 +363,14 @@ def render() -> None:
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>
   </div>
 </div>""", unsafe_allow_html=True)
-        else:
-            st.caption("Not enough scored holdings for a conviction score.")
+            else:
+                st.caption("Not enough scored holdings for a conviction score.")
 
-        if _risk_score is not None:
-            _marker_pct = min(100.0, max(0.0, _risk_score))
-            _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
-                               "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
-            st.markdown(f"""
+            if _risk_score is not None:
+                _marker_pct = min(100.0, max(0.0, _risk_score))
+                _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
+                                   "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
+                st.markdown(f"""
 <div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
     <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
@@ -364,16 +383,16 @@ def render() -> None:
   <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
 </div>""", unsafe_allow_html=True)
 
-            with st.container(key="db_conv_metrics"):
-                _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
-                                   ("Max drawdown", _dd_str, "var(--down-txt)")]
-                _dd_cells = "".join(
-                    f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
-                    f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
-                    for _l, _v, _c in _dd_metric_defs
-                )
-                st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
-                           unsafe_allow_html=True)
+                with st.container(key="db_conv_metrics"):
+                    _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
+                                       ("Max drawdown", _dd_str, "var(--down-txt)")]
+                    _dd_cells = "".join(
+                        f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
+                        f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
+                        for _l, _v, _c in _dd_metric_defs
+                    )
+                    st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">{_dd_cells}</div>',
+                               unsafe_allow_html=True)
 
     st.container(height=4, border=False, key="db_gap_2")
 
@@ -481,18 +500,24 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
     with _al_col, st.container(key="db_card_sector", border=True):
         st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Sector allocation</div>',
                    unsafe_allow_html=True)
-        _db_sector_map = (
-            _db_scr.drop_duplicates("Ticker").set_index("Ticker")["sector"]
-            if not _db_scr.empty and "sector" in _db_scr.columns else pd.Series(dtype=object)
-        )
-        _db_al = (
-            _db_pf.dropna(subset=["current_value"])
-              .assign(sector=_db_pf["ticker"].map(
-                  lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
-              .groupby("sector")["current_value"].sum()
-              .sort_values(ascending=False)
-        )
-        _donut_chart(_db_al)
+        if _db_fetch_running:
+            # Without real sector data yet, every holding would fall back to
+            # "Unknown" below — a skeleton is honest about "still loading"
+            # instead of a misleading all-Unknown donut for a few seconds.
+            st.markdown(skeleton_chart_html(180), unsafe_allow_html=True)
+        else:
+            _db_sector_map = (
+                _db_scr.drop_duplicates("Ticker").set_index("Ticker")["sector"]
+                if not _db_scr.empty and "sector" in _db_scr.columns else pd.Series(dtype=object)
+            )
+            _db_al = (
+                _db_pf.dropna(subset=["current_value"])
+                  .assign(sector=_db_pf["ticker"].map(
+                      lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
+                  .groupby("sector")["current_value"].sum()
+                  .sort_values(ascending=False)
+            )
+            _donut_chart(_db_al)
 
     with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
@@ -503,7 +528,9 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
             if _db_fwd_income is not None:
                 st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
                            f'color:var(--mint);">€{_db_fwd_income:,.0f} / yr</div>', unsafe_allow_html=True)
-        if not _db_scr.empty:
+        if _db_fetch_running:
+            st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
+        elif not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
             _db_div_scr["exDividendDate"] = pd.to_datetime(
                 _db_div_scr.get("exDividendDate"), errors="coerce", dayfirst=True)

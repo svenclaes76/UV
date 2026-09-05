@@ -438,8 +438,20 @@ class PortfolioRisk(NamedTuple):
 
 _RISK_REPORT_TTL_S = 3600
 
+# risk.assess_portfolio() is a synchronous, network-bound call on a cold/stale
+# cache (5y OHLC per holding + a Ken-French factor download, uvalu/pages_/
+# dashboard.py's Conviction card and the whole Risk page both used to block on
+# it with no placeholder). Keyed exactly like the session-state cache below —
+# so a background computation started by one page/session is picked up by
+# whichever page/session asks for that same key next — guarded by a lock so
+# concurrent reruns for the same key don't spawn duplicate threads.
+_risk_compute_running: dict[str, bool] = {}
+_risk_compute_result: dict[str, object] = {}
+_risk_compute_error: dict[str, BaseException] = {}
+_risk_compute_lock = threading.Lock()
 
-def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
+
+def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
     """Build (or return the session-cached) portfolio ``RiskReport`` plus the
     scored-holdings frame and hard-veto lookup the consumer pages also need.
 
@@ -453,11 +465,16 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
     the target allocation, with a 1-hour TTL (day rollover covered in
     practice). Deliberately not keyed on the snapshot, which this call also
     writes — keying on it would self-invalidate the cache on the next render.
+
+    Returns ``None`` while a fresh report is still being computed in the
+    background — callers must render a loading skeleton and poll (e.g. via
+    ``uvalu.ui._auto_rerun``) rather than treating ``None`` as "no risk data".
     """
     import risk as _risk
     from portfolio import (load_sold, load_targets, load_risk_snapshot,
-                           save_risk_snapshot)
+                           save_risk_snapshot, set_user)
     from portfolio_enrichment import enrich_for_risk
+    from uvalu.runtime import current_user
 
     live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     # Refresh Price / MoS on the live quote so the drawer opened from this
@@ -488,17 +505,66 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> PortfolioRisk:
             report = cached["report"]
 
     if report is None:
-        report = _risk.assess_portfolio(
-            pf_enriched, cache, income_portfolio, veto_lookup,
-            targets=targets, prior_snapshot=prior_snapshot)
-        st.session_state["_risk_report_cache"] = {"key": key, "report": report}
-        # Upsert today's snapshot as the reference point for future drift
-        # checks — once per day, so the diff is against a real prior run.
-        if prior_snapshot.get("date") != date.today().isoformat():
-            try:
-                save_risk_snapshot(_risk.snapshot_from_report(report))
-            except Exception:
-                pass
+        with _risk_compute_lock:
+            report = _risk_compute_result.pop(key, None)
+            _error = _risk_compute_error.pop(key, None)
+            already_running = _risk_compute_running.get(key, False)
+            if report is None and _error is None and not already_running:
+                _risk_compute_running[key] = True
+                _spawn = True
+            else:
+                _spawn = False
+
+        if _error is not None:
+            # Surface it on THIS (consuming) rerun exactly like the old
+            # synchronous call would have — callers already wrap
+            # load_portfolio_risk() in their own try/except. Re-raising
+            # rather than silently retrying forever also means a
+            # persistently-failing input (bad ticker, unreachable factor
+            # data) fails once per rerun instead of respawning a thread that
+            # would just fail again immediately.
+            raise _error
+
+        if report is not None:
+            st.session_state["_risk_report_cache"] = {"key": key, "report": report}
+            # Upsert today's snapshot as the reference point for future drift
+            # checks — once per day, so the diff is against a real prior run.
+            # Runs on this (consuming) rerun's own thread, already correctly
+            # user-scoped via app.py's per-run set_user(), not inside the
+            # background thread below.
+            if prior_snapshot.get("date") != date.today().isoformat():
+                try:
+                    save_risk_snapshot(_risk.snapshot_from_report(report))
+                except Exception:
+                    pass
+        else:
+            if _spawn:
+                _email = current_user().email
+
+                def _run() -> None:
+                    try:
+                        # _user_dir() (load_targets/load_risk_snapshot above
+                        # already ran on the main thread, correctly scoped —
+                        # this only guards assess_portfolio itself, which
+                        # doesn't touch user-scoped storage, but a freshly
+                        # spawned thread still starts with no thread-local
+                        # active user at all, same class of bug
+                        # ensure_value_history_fresh already had to handle).
+                        set_user(_email)
+                        _r = _risk.assess_portfolio(
+                            pf_enriched, cache, income_portfolio, veto_lookup,
+                            targets=targets, prior_snapshot=prior_snapshot)
+                        with _risk_compute_lock:
+                            _risk_compute_result[key] = _r
+                    except BaseException as _e:  # noqa: BLE001 — re-raised on the consuming rerun, see above
+                        with _risk_compute_lock:
+                            _risk_compute_error[key] = _e
+                    finally:
+                        with _risk_compute_lock:
+                            _risk_compute_running[key] = False
+
+                threading.Thread(target=_run, daemon=True).start()
+            return None
 
     return PortfolioRisk(report, scored, veto_lookup, pf_enriched)
 

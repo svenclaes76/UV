@@ -15,7 +15,7 @@ from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
 from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
-                              loading_skeleton_html, refresh_top_bar_html)
+                              refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows)
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -24,6 +24,12 @@ _EXCHANGE_LABELS = {
     "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
 }
 _SIGNAL_CHIPS = ["BUY", "MONITOR", "AVOID", "VETO"]
+
+# Matches stock_row's own column widths exactly (star=0.5, name=3.0,
+# signal=1.0, score=1.5, mos=1.0, price=0.9, pe=0.8, dy=0.9) — shared between
+# the real column header, the real rows (stock_row), and the loading
+# skeleton's column-header/rows so all three always stay pixel-aligned.
+_HH_WIDTHS = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
 
 # Sortable columns, matching Uvalu.dc.html's colDefs/keyf exactly — key is
 # what's stored in session state, column is the DataFrame column it sorts by.
@@ -163,14 +169,29 @@ def render() -> None:
         with _header_slot.container():
             st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Value screener</div>',
                        unsafe_allow_html=True)
-        if _prog["running"] and _prog["total"] > 0:
-            _skel_msg = (f"Loading the screening universe… {_prog['done']}/{_prog['total']} "
-                        "companies scored — results appear here as they land.")
-        else:
-            _skel_msg = ("Loading the screening universe — the first results appear as soon as "
-                        "the background fetch returns.")
+            if _prog["running"] and _prog["total"] > 0:
+                st.caption(f"Loading the screening universe… {_prog['done']}/{_prog['total']} "
+                          "companies scored — results appear here as they land.")
+            else:
+                st.caption("Loading the screening universe — results appear as soon as "
+                          "the background fetch returns.")
+        # Filter-bar and column-header shapes, matching the loaded page's own
+        # containers/widths (scr_filter_panel, scr_table_card, the same
+        # _hh_widths stock_row's real header uses) so there's zero layout
+        # shift once real data replaces this — only the plain shimmer bars/
+        # rows differ from the loaded state, not the panel shapes around them.
+        with st.container(key="scr_filter_panel", border=True):
+            st.markdown(skeleton_filter_bar_html(), unsafe_allow_html=True)
         with st.container(key="scr_table_card", border=True):
-            st.markdown(loading_skeleton_html(_skel_msg), unsafe_allow_html=True)
+            with st.container(key="scr_col_header"):
+                for _hh, _label in zip(
+                    st.columns(_HH_WIDTHS, vertical_alignment="center"),
+                    ("", "Position", "Signal", "Composite score", "Margin of safety", "Price", "P/E", "Yield"),
+                ):
+                    with _hh:
+                        st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                                   f'color:var(--faint);">{_label}</div>', unsafe_allow_html=True)
+            skeleton_rows(_HH_WIDTHS, n=6, name_col=1, key_prefix="scr_skel_row")
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
@@ -287,16 +308,13 @@ def render() -> None:
     _watchlist = load_watchlist()
     st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
     _sortable = {k: (label, col) for k, label, col in _SORT_COLUMNS}
-    # Matches stock_row's own column widths exactly (star=0.5, name=3.0,
-    # signal=1.0, score=1.5, mos=1.0, price=0.9, pe=0.8, dy=0.9) — no "#"
-    # rank column (added no real value) and no trailing arrow column (the
-    # whole ticker/name cell is the click target now, see stock_row).
-    _hh_widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+    # No "#" rank column (added no real value) and no trailing arrow column
+    # (the whole ticker/name cell is the click target now, see stock_row).
     _hh_slots = ("", "name", "signal", "score", "mos", "price", "pe", "dy")
 
     with st.container(key="scr_table_card", border=True):
         with st.container(key="scr_col_header"):
-            _hh_cols = st.columns(_hh_widths, vertical_alignment="center")
+            _hh_cols = st.columns(_HH_WIDTHS, vertical_alignment="center")
             for _hh, _slot in zip(_hh_cols, _hh_slots):
                 if _slot in _sortable:
                     _label, _ = _sortable[_slot]
