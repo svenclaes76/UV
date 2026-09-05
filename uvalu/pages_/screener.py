@@ -191,7 +191,7 @@ def render() -> None:
                     with _hh:
                         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                                    f'color:var(--faint);">{_label}</div>', unsafe_allow_html=True)
-            skeleton_rows(_HH_WIDTHS, n=6, name_col=1, key_prefix="scr_skel_row")
+            skeleton_rows(_HH_WIDTHS, n=6, name_col=1, key_prefix="uv_skel_row_scr")
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
@@ -306,7 +306,16 @@ def render() -> None:
     # hairline-divided rows), matching Uvalu.dc.html instead of Streamlit's
     # individually-boxed/gapped st.container(border=True) rows.
     _watchlist = load_watchlist()
-    st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
+    # uv_hidden_util: this <style> tag is zero visible height, but its own
+    # element-container would still eat a full row-gap as a distinct flex
+    # sibling between scr_filter_panel and scr_table_card — this (not a
+    # stale measurement) was the real source of the old "32px double gap"
+    # scr_table_card's since-removed margin-top hack was band-aiding, and
+    # why that hack over-corrected the skeleton branch below (which never
+    # runs this line) down to 0px. Same trick as uvalu/shell.py's topbar CSS
+    # injection.
+    with st.container(key="uv_hidden_util_scr_header_css"):
+        st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
     _sortable = {k: (label, col) for k, label, col in _SORT_COLUMNS}
     # No "#" rank column (added no real value) and no trailing arrow column
     # (the whole ticker/name cell is the click target now, see stock_row).

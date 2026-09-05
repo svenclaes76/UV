@@ -249,7 +249,7 @@ def render() -> None:
                            [False, True, True, True, True, True, True, False])
             if _pf_fetch_running:
                 skeleton_rows([200, 68, 88, 88, 108, 118, 132, 96], n=min(len(pf), 5),
-                             key_prefix="pf_skel_open_ov")
+                             key_prefix="uv_skel_row_pf_open")
             else:
                 _ov_view_target = None
                 _ov_open = pf.sort_values("current_value", ascending=False).head(5)
@@ -288,7 +288,7 @@ def render() -> None:
                         _col_header([300, 56, 74, 74, 110],
                                    ["Position", "Shares", "Buy", "Sell", "Realised P&L"],
                                    [False, True, True, True, True])
-                    skeleton_rows([300, 56, 74, 74, 110], n=3, key_prefix="pf_skel_closed_ov")
+                    skeleton_rows([300, 56, 74, 74, 110], n=3, key_prefix="uv_skel_row_pf_closed")
                 else:
                     _ov_sold = load_sold()
                     if _ov_sold is not None and not _ov_sold.empty:
@@ -326,7 +326,7 @@ def render() -> None:
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
                         _col_header([6, 1.3], ["Position", "Dividend"], [False, True])
-                    skeleton_rows([6, 1.3], n=3, key_prefix="pf_skel_div_ov")
+                    skeleton_rows([6, 1.3], n=3, key_prefix="uv_skel_row_pf_div")
                 else:
                     _ov_div = load_div_hist()
                     if _ov_div is not None and not _ov_div.empty:

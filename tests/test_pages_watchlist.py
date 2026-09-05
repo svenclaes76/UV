@@ -46,9 +46,10 @@ def test_watchlisted_ticker_with_no_scored_row_shows_loading_state(isolated_data
     portfolio.save_watchlist({"ZZZ.BR"})
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    caption_txt = "".join(c.value for c in at.caption)
     assert "Your watchlist is empty" not in html
-    assert "No screener data yet for your watchlisted ticker" in caption_txt
+    # Rendered as a padded st.markdown div (not st.caption) so it aligns with
+    # wl_table_card's other 20px-indented children — see watchlist.py.
+    assert "No screener data yet for your watchlisted ticker" in html
     assert "uv-skel-bar" in html
     # Layout-matching skeleton: the real column header renders too.
     assert "Position" in html and "Margin of safety" in html
@@ -57,9 +58,9 @@ def test_watchlisted_ticker_with_no_scored_row_shows_loading_state(isolated_data
 def test_watchlist_loading_state_shows_fetch_progress(isolated_data, monkeypatch):
     portfolio.save_watchlist({"ZZZ.BR"})
     at = _run(monkeypatch, fetch_progress={"running": True, "total": 8, "done": 2})
-    caption_txt = "".join(c.value for c in at.caption)
-    assert "Fetching data for your 1 watchlisted ticker" in caption_txt
-    assert "2/8 companies scored" in caption_txt
+    html = "".join(m.value for m in at.markdown)
+    assert "Fetching data for your 1 watchlisted ticker" in html
+    assert "2/8 companies scored" in html
 
 
 def test_add_ticker_form_present(isolated_data, monkeypatch):

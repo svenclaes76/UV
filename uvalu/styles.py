@@ -77,10 +77,16 @@ GLOBAL_CSS = """
   @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
   /* components.skeleton_rows()'s hairline row divider — a native st.columns()
      row can't take a border via raw HTML the way skeleton_holdings_row_html's
-     CSS-grid string can, so each row is its own st-key-uv_skel_row_N
+     CSS-grid string can, so each row is its own st-key-uv_skel_row_<caller>_N
      container styled here instead (same idiom as stock_row's own
-     st-key-scr_row_ rule). */
-  [class*="st-key-uv_skel_row_"] { border-bottom: 0.5px solid var(--line-2); padding: 13px 0; }
+     st-key-scr_row_ rule). Matches every real row class's own treatment
+     (scr_row_/wl_row_/pf_open_row_/etc.) property-for-property — including
+     the same margin-top cancellation of Streamlit's default inter-sibling
+     gap — so a skeleton row list sits exactly where its real rows will. */
+  [class*="st-key-uv_skel_row_"] {
+    border-bottom: 0.5px solid var(--line-2) !important; padding: 12px 20px !important;
+    margin-top: -16px !important; min-height: 67px !important;
+  }
 
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }
@@ -559,10 +565,16 @@ GLOBAL_CSS = """
     background: var(--panel) !important; border-color: var(--line) !important;
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
     overflow: hidden !important; padding: 0 !important;
-    /* The plain default gap between these two top-level bordered containers
-       measured 32px live (double the 16px rhythm used everywhere else in
-       this app, e.g. the Dashboard's db_gap_ spacers) — pull it in to match. */
-    margin-top: -16px !important;
+    /* No margin-top cancellation here, unlike scr_row_'s below. This used to
+       carry a -16px pull for an observed 32px double gap against
+       scr_filter_panel — but that gap's real cause was a phantom sibling
+       (a bare <style> injection between them, now fixed at the source with
+       the uv_hidden_util wrapper in uvalu/pages_/screener.py, same as
+       uvalu/shell.py's topbar CSS injection), not a genuinely doubled
+       normal gap. The loading-skeleton branch never had that phantom
+       sibling, so this same hack was over-cancelling ITS already-correct
+       16px gap down to 0px — same class of blanket-copy drift already
+       caught once for pf_panel_title_ (see that rule's comment). */
   }
   .st-key-scr_col_header {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;

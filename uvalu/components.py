@@ -722,10 +722,17 @@ def skeleton_risk_holding_row_html() -> str:
     holdings-contribution table while load_portfolio_risk() is still
     computing in the background. RISK_HOLDINGS_GRID_COLS is defined further
     down in this module (Risk holdings table section) — fine to reference
-    here since it's resolved at call time, not definition time."""
+    here since it's resolved at call time, not definition time.
+
+    Padding is baked in here (13px 20px, matching the real risk_hold_ row's
+    12px 20px from its own st-key-risk_hold_ CSS) rather than relying on a
+    wrapping container, since all of these rows are concatenated into one
+    st.markdown() call by skeleton_risk_holdings_html() below — there's no
+    per-row Streamlit container here to hang per-row CSS off of, the way
+    skeleton_holdings_row_html() (Dashboard) does it the same inline way."""
     return (
         f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
-        'align-items:center;padding:13px 0;border-bottom:0.5px solid var(--line-2);">'
+        'align-items:center;padding:13px 20px;border-bottom:0.5px solid var(--line-2);">'
         '<div><div class="uv-skel-bar" style="width:60px;height:11px;margin:0;"></div>'
         '<div class="uv-skel-bar" style="width:140px;height:9px;margin:8px 0 0;"></div></div>'
         '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
