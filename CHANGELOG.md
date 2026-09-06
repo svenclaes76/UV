@@ -4,7 +4,10 @@ All notable changes to UV are documented here.
 
 ---
 
-## [Unreleased]
+## [1.5.0] — 2026-09-06
+
+Two independent workstreams: the "Loading Patterns" design rollout and a new
+structured logging system (`uvalu/logkit/`).
 
 Implements the "Loading Patterns" design concept (Claude Design handoff,
 `Loading Patterns.dc.html`): a small shimmer/spinner pattern library, applied
@@ -24,6 +27,48 @@ including two that used to genuinely delay a page's first paint.
 - **`uvalu/data.py`'s `load_portfolio_risk()` is now non-blocking.** It's a network-bound call on a cold/stale cache (5y OHLC per holding + a Ken-French factor download) that used to run synchronously with no placeholder — gating the Risk page's *entire* render (not even the title showed) and silently stalling Dashboard's Conviction card plus everything below it (Holdings/Sector allocation/Dividends/Top movers). It now returns `None` while computing in a background thread; both pages render their real layout's shape immediately (skeleton gauge/metrics/factor-breakdown/holdings-table on Risk; a skeleton Conviction card and Sector-allocation/Dividends placeholders on Dashboard) and poll until the report lands.
 - Screener/Watchlist's cold-cache loading state now shows the real filter-bar and column-header shapes (not just a generic shimmer card), so there's no layout shift when real rows replace it. Portfolio's Overview KPI strip and Open/Closed/Dividends previews get the same skeleton treatment while the `PORTFOLIO_FETCH` lane is cold.
 - Fixed four spacing bugs found right after the skeleton work above landed: Screener's filter-panel-to-results-table gap was collapsing to 0px in both the loading and loaded states (a stale `-16px` CSS hack band-aiding a phantom-sibling gap — same `uv_hidden_util`-shaped root cause as the `refresh_top_bar_html()` fix, now fixed at the source instead); Watchlist's loading-state caption had no padding, sitting flush against its card instead of aligned with the header/rows below it; and the new skeleton-row helpers (Screener/Watchlist/Portfolio's `skeleton_rows()`, Risk's `skeleton_risk_holding_row_html()`) weren't fully replicating the padding/row-gap CSS every real row already has — in Screener/Watchlist/Portfolio's case the shared CSS rule's selector didn't even match any of their actual container keys, so it silently never applied at all.
+
+### Added — structured logging system (`uvalu/logkit/`)
+
+The app previously logged nothing beyond ~23 stray `print()` calls and
+swallow-everything `except` blocks. `uvalu/logkit/` adds structured JSON logging
+to a colorized terminal and a rotating `logs/uvalu.log`, driven by one config
+file (`logging.config.json`). See [docs/logging.md](docs/logging.md) for the
+record schema and [docs/logging-implementation-plan.md](docs/logging-implementation-plan.md)
+for the rollout.
+
+- **Pipeline** — stdlib `logging` with an async `QueueHandler` → `QueueListener`
+  (non-blocking on the caller). One JSON object per line, frozen v1 schema
+  (`timestamp` UTC/ms, `level`, `service`, `module`, `correlation_id`,
+  `user_id`, `message`, `metadata`). Colorized key=value console when stderr is
+  a TTY. Config hot-reload on a 5 s mtime poll for `level` / `per_logger_levels`
+  / `sampling` / `stack_traces`.
+- **Correlation ID** — one UUID per Streamlit script run (`begin_run()` in
+  `app.py`), propagated into every background worker: all four raw
+  `threading.Thread` sites (screener fundamentals fetch, off-thread universe
+  re-score, risk-report compute, value-history backfill) now go through
+  `logkit.spawn()`, which copies the `contextvars` context and logs any crash.
+- **User identifier** — `sha256(email)[:16]`, the same pseudonymous hash
+  `portfolio.py` / `settings.py` already use for on-disk directory slugs.
+- **Redaction** — a filter scrubs passwords, JWTs, `AUTH_SECRET` /
+  `ENCRYPTION_KEY`, Fernet tokens, bcrypt hashes and raw emails (→ `user:<hash>`)
+  from the message, the `extra` metadata, and rendered stack traces.
+- **What's logged** — auth events (login ok/failed + reason, session
+  restore/revoke, logout), authorization denials, every data mutation
+  (portfolio CRUD, watchlist, user administration, backups — never a money
+  amount), config changes (per key, `old`→`new`), external-call timing
+  (yfinance / stockanalysis batches: endpoint, `latency_ms`, `status`,
+  `retries`), background-job lifecycle (`job.start` / `job.ok` / `job.failed`
+  with counts), page-render telemetry (INFO on navigation, DEBUG on re-render),
+  and previously-silent data-read failures (`storage.read_failed`).
+- **Hardening** — recurring exceptions are grouped by a 6-hex fingerprint and
+  deduplicated; high-volume per-ticker fetch progress is sampled to 5%;
+  `sys` / `threading` excepthooks catch anything that escaped; the bounded
+  queue blocks WARNING+ but drops-and-counts INFO/DEBUG when full;
+  `RotatingFileHandler` + a retention sweep cap `logs/` on disk.
+- **Config** — `UVALU_ENV` (`development` | `staging` | `production`) added to
+  `.env.example`; controls `metadata.environment` and prod stack-trace
+  redaction.
 
 ---
 

@@ -53,6 +53,15 @@ def test_authenticated_app_renders_without_exceptions(monkeypatch):
     assert not at.exception, _exceptions(at)
 
 
+def test_app_defines_render_telemetry_hook():
+    # The full render_event wiring can't be asserted through AppTest (Streamlit
+    # swaps root log handlers for the duration of a scripted run, so caplog
+    # misses cross-thread records); the decision logic is covered by
+    # tests/test_logkit.py::test_render_event_* and the wiring is exercised
+    # end-to-end in a real run. Here just guard that app.py still calls it.
+    assert "logkit.render_event(" in Path(APP).read_text(encoding="utf-8")
+
+
 def test_legacy_page_query_param_redirects_without_exceptions(monkeypatch):
     # Pre-st.navigation deep links (?page=<name>) get redirected to the new
     # url-path-based page — see app.py's "Legacy ?page= deep links" block.

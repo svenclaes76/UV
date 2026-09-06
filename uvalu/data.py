@@ -21,6 +21,7 @@ from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_ca
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
+from uvalu import logkit
 from uvalu.store import get_scored_universe, clear_scored_universe
 
 
@@ -198,7 +199,9 @@ def _build_all_screener_data(enabled: tuple,
     ]
     all_stocks.extend(_extra_stocks)
 
-    print(f"Loading screener data for {len(all_stocks)} stocks…")
+    logkit.get_logger("uvalu.data").debug(
+        "building scored universe for %d stocks", len(all_stocks),
+        extra={"event": "universe.build", "stocks": len(all_stocks)})
     all_fund = fetch_fundamentals_nowait(all_stocks)
 
     if all_fund.empty:
@@ -541,6 +544,8 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
             if _spawn:
                 _email = current_user().email
 
+                _n_tickers = len(pf_enriched)
+
                 def _run() -> None:
                     try:
                         # _user_dir() (load_targets/load_risk_snapshot above
@@ -551,9 +556,11 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
                         # active user at all, same class of bug
                         # ensure_value_history_fresh already had to handle).
                         set_user(_email)
-                        _r = _risk.assess_portfolio(
-                            pf_enriched, cache, income_portfolio, veto_lookup,
-                            targets=targets, prior_snapshot=prior_snapshot)
+                        with logkit.job("risk_report", trigger="cache_miss",
+                                        tickers=_n_tickers):
+                            _r = _risk.assess_portfolio(
+                                pf_enriched, cache, income_portfolio, veto_lookup,
+                                targets=targets, prior_snapshot=prior_snapshot)
                         with _risk_compute_lock:
                             _risk_compute_result[key] = _r
                     except BaseException as _e:  # noqa: BLE001 — re-raised on the consuming rerun, see above
@@ -563,7 +570,7 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
                         with _risk_compute_lock:
                             _risk_compute_running[key] = False
 
-                threading.Thread(target=_run, daemon=True).start()
+                logkit.spawn(_run, name="risk_report")
             return None
 
     return PortfolioRisk(report, scored, veto_lookup, pf_enriched)
@@ -595,7 +602,9 @@ def prefetch_portfolio_data() -> None:
         fetch_fundamentals_nowait(stocks, fetcher=PORTFOLIO_FETCH, priority=stocks)
         _fetch_prices_cached(tuple(seen))
     except Exception:
-        pass
+        logkit.get_logger("uvalu.data").warning(
+            "portfolio prefetch failed", exc_info=True,
+            extra={"event": "job.failed", "job": "portfolio_prefetch"})
 
 
 def _price_bucket() -> int:

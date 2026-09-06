@@ -138,6 +138,36 @@ Reusable, theme-aware rendering helpers:
 - `price_autorefresh(key)` — the dashboard/portfolio/risk live-price cadence; passes `data._price_refresh_signature` so a short user interval (or a weekend tab) stops re-rendering into identical output.
 - `_static_bar()`, `_donut_chart()`, `_hm_color()` — chart primitives and the treemap colour scale.
 
+#### `uvalu/logkit/`
+
+The logging system (see [logging.md](logging.md) for the record schema and
+[configuration.md](configuration.md#logging) for the config keys). Structured
+JSON to a colorized terminal + a rotating `logs/uvalu.log`, one config file
+(`logging.config.json`), correlation ids propagated into background threads,
+secret/PII redaction, per-logger sampling, and recurring-error grouping.
+
+- `context.py` — `contextvars` for `correlation_id` / `user_id`; `begin_run()`
+  (top of `app.py` per rerun), `ensure_run()` (fragment / dialog entry),
+  `bind(email=…)`, `user_hash()`, and **`spawn()`** — a `threading.Thread`
+  wrapper that copies the current context into the worker (every background
+  thread in the app is started this way) and logs a crash as `thread.uncaught`.
+- `setup.py` — `init_logging()`, idempotent, called first thing in `app.py`.
+  Async pipeline: `uvalu` logger → `_RecordQueueHandler` (bounded queue;
+  WARNING+ block, INFO/DEBUG drop-and-count) → `QueueListener` on a daemon
+  thread → console + `RotatingFileHandler`. Also installs `sys` /
+  `threading` excepthooks and starts a maintenance thread (config hot-reload,
+  daily retention sweep, queue-overflow reporting).
+- `formatters.py` — `JsonFormatter` (the frozen v1 schema) and
+  `ColorTextFormatter` (TTY console).
+- `filters.py` — `ContextFilter` (stamps correlation id / user / env / build
+  version), `RedactionFilter` (key denylist + JWT/Fernet/bcrypt/hex/email
+  patterns), `SamplingFilter` (per-logger `{level, rate}`), `FingerprintFilter`
+  (dedups recurring exceptions, feeds `error_stats()`).
+- `events.py` — the typed one-liners call sites use: `auth_event`,
+  `authz_denied`, `data_mutation`, `config_change`, `render_event`, and the
+  `external_call()` / `job()` context managers.
+- `retention.py` — purge rotated backups older than `retention_days`.
+
 #### `uvalu/formatting.py`
 
 Two pure value formatters — `fmt_eur` and `safe_pct`. The old `COLUMN_HELP` / `_HINT_WATCHLIST` tooltip dicts and the `fmt_div_flag` / `f_str` helpers were removed once the Help page moved to a signal-legend/FAQ layout and `help.py` took over column glossary text.
@@ -305,6 +335,33 @@ whatever is already computed and refreshes itself as background work lands.
 | Live prices | `@st.cache_data` (`_fetch_prices_cached`) | 60 s open / 900 s closed (`_price_bucket`) |
 | Risk report | `st.session_state` | 1 hour (or on portfolio change) |
 | Value history | `data/portfolio/{hash}/value_history.json` | Daily snapshot (auto back-filled) |
+
+---
+
+## Logging & observability
+
+`uvalu/logkit/` (above) is the whole system. What flows through it:
+
+| Signal | Where it's emitted | Level |
+|---|---|---|
+| `render` — page, `duration_ms`, `outcome` | `app.py` after `_nav.run()` | INFO on navigation, DEBUG on re-render (gated by `health_check_logging`) |
+| `auth.login.ok` / `.failed` (+ reason), `auth.session.restored` / `.revoked`, `auth.logout` | `auth.py`, `uvalu/authgate.py` | INFO / WARN |
+| `authz.denied` — admin/viewer gates, backup-download, last-admin locks | `auth.py`, `uvalu/pages_/admin.py`, `backup.py` | WARN |
+| `mutation` — every portfolio / watchlist / user / backup CRUD (no money amounts) | `portfolio.py`, `auth.py`, `backup.py` | INFO |
+| `config.change` — per changed key, `old`→`new` | `settings.py` | INFO |
+| `secret.export` — `AUTH_SECRET` / `ENCRYPTION_KEY` handed out | `backup.export_env_key` | CRITICAL |
+| `external_call.*` — every yfinance / stockanalysis batch: endpoint, `latency_ms`, `status`, `retries` | `prices.py`, `marketdata.py`, `screener.py`, `fetch_tickers.py`, `portfolio.py` | INFO / WARN / ERROR |
+| `job.start` / `job.ok` / `job.failed` — the 4 background workers | `screener._run_fetch`, `uvalu/store._recompute`, `uvalu/data.load_portfolio_risk`, `portfolio.ensure_value_history_fresh` | INFO / ERROR |
+| `storage.read_failed` — a data file existed but couldn't be decrypted/parsed | `portfolio._load`, `settings.load_*`, `backup._load_backup_manifest` | WARN |
+| `process.uncaught` / `thread.uncaught` — anything that escaped every handler | `sys` / `threading` excepthooks | CRITICAL / ERROR |
+
+Every record carries a `correlation_id` (one UUID per script run, propagated
+into `logkit.spawn` workers), a pseudonymous `user_id` (`sha256(email)[:16]` —
+the same hash as the data-dir slug), `environment`, and `build_version`. The
+redaction filter scrubs secrets/PII from the message, the `extra` metadata, and
+rendered stack traces. High-volume per-ticker fetch progress is sampled to 5%.
+Recurring exceptions are grouped by a 6-hex fingerprint (`error_stats()` exposes
+the table for a future admin indicator).
 
 ---
 

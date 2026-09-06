@@ -12,6 +12,7 @@ import streamlit as st
 
 from portfolio import set_user
 from settings import load_settings
+from uvalu import logkit
 from uvalu.market_hours import is_market_hours
 from uvalu.runtime import current_user, theme_colors
 
@@ -94,7 +95,13 @@ def enter_dialog() -> None:
        ``st.session_state``, which is correct across fragment reruns.
     """
     mark_dialog_open()
-    set_user(current_user().email)
+    _email = current_user().email
+    set_user(_email)
+    # A dialog body runs as a fragment; a fragment rerun never re-executes
+    # app.py's begin_run()/bind(), so without this a mutation logged from a
+    # Save/Delete handler would carry a stale or missing correlation id + user.
+    logkit.ensure_run()
+    logkit.bind(email=_email)
 
 
 def _dialog_is_open() -> bool:
@@ -158,6 +165,10 @@ def _auto_rerun(seconds: float, key: str, version_fn=None, *, max_idle_ticks: in
 
     @st.fragment(run_every=seconds)
     def _tick():
+        # A fragment rerun doesn't re-enter app.py's begin_run(); keep a
+        # correlation id bound so anything logged from here (or from work this
+        # tick kicks off) is traceable.
+        logkit.ensure_run()
         if st.session_state.pop(_flag, False):
             return
         if _dialog_is_open():

@@ -30,7 +30,7 @@ import streamlit as st
 from auth import ROLES, list_users, set_role, set_status, delete_user, invite_user
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
-from uvalu import nav as nav_registry
+from uvalu import logkit, nav as nav_registry
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user
 from uvalu.shell import _initials, _display_name, apply_theme_script, _close_stray_popover_script
@@ -887,6 +887,8 @@ def _force_native_dark_once() -> None:
 def render() -> None:
     _u = current_user()
     if not _u.is_admin:
+        logkit.authz_denied(action="admin.view", actor=logkit.user_id(),
+                            required_role="Admin", got_role=_u.role)
         st.error("Admin access required.")
         st.stop()
 

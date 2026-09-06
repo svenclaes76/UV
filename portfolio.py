@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
+from uvalu import logkit  # noqa: E402
 
 _BASE_DIR  = Path(__file__).parent / "data" / "portfolio"
 _CACHE_DIR = Path(__file__).parent / ".cache"
@@ -64,6 +65,11 @@ def _load(path: Path) -> pd.DataFrame | None:
     try:
         return pd.DataFrame(json.loads(read_encrypted(path)))
     except Exception:
+        # File exists but couldn't be decrypted/parsed — a silent None here
+        # reads downstream as "no portfolio", so make the failure visible.
+        logkit.get_logger("uvalu.portfolio").warning(
+            "could not read %s", path.name, exc_info=True,
+            extra={"event": "storage.read_failed", "file": path.name})
         return None
 
 
@@ -84,6 +90,9 @@ def add_position(row: dict) -> None:
     new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
     save_portfolio(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="position.add",
+                         entity_type="ticker", entity_id=str(row.get("ticker") or ""),
+                         shares=row.get("shares"))
 
 
 def remove_positions(indices: list[int]) -> None:
@@ -92,11 +101,15 @@ def remove_positions(indices: list[int]) -> None:
     if df is None:
         return
     save_portfolio(df.drop(index=indices).reset_index(drop=True))
+    logkit.data_mutation(actor=logkit.user_id(), action="position.remove",
+                         entity_type="ticker", removed=len(indices))
 
 
 def update_positions(df: pd.DataFrame) -> None:
     """Persist a fully-updated positions DataFrame."""
     save_portfolio(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="position.bulk_update",
+                         entity_type="ticker", rows=(0 if df is None else len(df)))
 
 
 def _annual_return_pct(purchase_value: float, proceeds: float, dividends: float,
@@ -153,6 +166,9 @@ def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> 
     # Remove from portfolio
     pf = pf[~mask].reset_index(drop=True)
     save_portfolio(pf)
+    logkit.data_mutation(actor=logkit.user_id(), action="position.sell",
+                         entity_type="ticker", entity_id=ticker,
+                         shares=shares, sell_date=sell_date)
 
 
 def add_closed_trade(row: dict) -> None:
@@ -165,6 +181,8 @@ def add_closed_trade(row: dict) -> None:
     new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
     save_sold(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="trade.add_closed",
+                         entity_type="ticker", entity_id=str(row.get("ticker") or ""))
 
 
 def add_dividend(row: dict) -> None:
@@ -174,12 +192,16 @@ def add_dividend(row: dict) -> None:
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
     save_div_hist(df)
     _sync_portfolio_dividends(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="dividend.add",
+                         entity_type="ticker", entity_id=str(row.get("ticker") or ""))
 
 
 def update_div_hist(df: pd.DataFrame) -> None:
     """Persist updated dividend history and sync portfolio totals."""
     save_div_hist(df)
     _sync_portfolio_dividends(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="dividend.bulk_update",
+                         entity_type="ticker", rows=(0 if df is None else len(df)))
 
 
 def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
@@ -193,7 +215,13 @@ def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
     save_portfolio(pf)
 
 
-def save_cash(df: pd.DataFrame) -> None:    _save(df, _user_dir() / "cash.json")
+def save_cash(df: pd.DataFrame) -> None:
+    _save(df, _user_dir() / "cash.json")
+    # Rows only — never the balances (money amounts stay out of the log).
+    logkit.data_mutation(actor=logkit.user_id(), action="cash.update",
+                         entity_type="cash", rows=(0 if df is None else len(df)))
+
+
 def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json")
 
 
@@ -276,13 +304,17 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     _BENCHMARKS = {"^GSPC": "benchmark_spx", "^STOXX50E": "benchmark_stoxx"}
     tickers = list({s["ticker"] for s in segments})
     fetch_tickers = tickers + list(_BENCHMARKS)
-    raw = yf.download(
-        fetch_tickers,
-        start=earliest.strftime("%Y-%m-%d"),
-        end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
-        auto_adjust=True,
-        progress=False,
-    )
+    with logkit.external_call("yfinance.download.backfill", logger="uvalu.portfolio",
+                              params={"tickers": len(fetch_tickers)}) as _call:
+        raw = yf.download(
+            fetch_tickers,
+            start=earliest.strftime("%Y-%m-%d"),
+            end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+            auto_adjust=True,
+            progress=False,
+        )
+        if raw.empty:
+            _call.note(status="empty")
 
     if raw.empty:
         return 0
@@ -399,12 +431,15 @@ def ensure_value_history_fresh(open_df: pd.DataFrame, sold_df: "pd.DataFrame | N
             # bucket instead of this user's directory (same bug class as the
             # dialog-fragment issue enter_dialog() fixes in uvalu/ui.py).
             set_user(email)
-            backfill_value_history(open_df, sold_df)
+            with logkit.job("value_history_backfill", reraise=False,
+                            trigger="stale_history") as _j:
+                _rows = backfill_value_history(open_df, sold_df)
+                _j.note(rows_written=_rows)
         finally:
             with _backfill_lock:
                 _backfill_state[email] = False
 
-    threading.Thread(target=_run, daemon=True).start()
+    logkit.spawn(_run, name="value_history_backfill")
     return True
 
 
@@ -423,7 +458,12 @@ def _load_user_json(filename: str, default):
 
 
 def save_watchlist(tickers: set[str]) -> None:
+    _prev = load_watchlist()
     _save_user_json("watchlist.json", sorted(tickers))
+    _added, _removed = sorted(set(tickers) - _prev), sorted(_prev - set(tickers))
+    if _added or _removed:
+        logkit.data_mutation(actor=logkit.user_id(), action="watchlist.update",
+                             entity_type="watchlist", added=_added, removed=_removed)
 
 
 def load_watchlist() -> set[str]:
@@ -431,7 +471,12 @@ def load_watchlist() -> set[str]:
 
 
 def save_manual_tickers(tickers: dict[str, str]) -> None:
+    _prev = set(load_manual_tickers())
     _save_user_json("manual_tickers.json", tickers)
+    _added, _removed = sorted(set(tickers) - _prev), sorted(_prev - set(tickers))
+    if _added or _removed:
+        logkit.data_mutation(actor=logkit.user_id(), action="manual_tickers.update",
+                             entity_type="manual_tickers", added=_added, removed=_removed)
 
 
 def load_manual_tickers() -> dict[str, str]:
@@ -470,6 +515,11 @@ def save_targets(targets: dict) -> None:
     except (TypeError, ValueError):
         pass
     _save_user_json("targets.json", clean)
+    logkit.data_mutation(actor=logkit.user_id(), action="targets.update",
+                         entity_type="targets",
+                         sectors=len(clean.get("sectors", {})),
+                         tickers=len(clean.get("tickers", {})),
+                         has_hhi_max=("hhi_max" in clean))
 
 
 def load_targets() -> dict:

@@ -18,6 +18,10 @@ import pandas as pd
 from io import StringIO
 import yfinance as yf
 
+from uvalu import logkit
+
+_log = logkit.get_logger("uvalu.tickers")
+
 _EXCEPTIONS_FILE  = Path(__file__).parent / ".cache" / "frankfurt_exceptions.json"
 _VALIDATE_BATCH   = 30   # rejected symbols to probe per fetch run
 
@@ -47,41 +51,46 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
     Stops when a page returns fewer than PAGE_SIZE rows.
     Falls back to `fallback_fn()` on any error.
     """
+    _endpoint = f"stockanalysis.{label.lower()}"
     try:
-        stocks: list[dict] = []
-        seen: set[str] = set()
-        page = 1
-        while True:
-            page_url = f"{url}?page={page}" if page > 1 else url
-            resp = requests.get(page_url, headers=HEADERS, timeout=20)
-            resp.raise_for_status()
-            tables = pd.read_html(StringIO(resp.text))
-            if not tables:
-                raise ValueError("No tables found on page")
+        with logkit.external_call(_endpoint, logger="uvalu.tickers") as _call:
+            stocks: list[dict] = []
+            seen: set[str] = set()
+            page = 1
+            while True:
+                page_url = f"{url}?page={page}" if page > 1 else url
+                resp = requests.get(page_url, headers=HEADERS, timeout=20)
+                resp.raise_for_status()
+                tables = pd.read_html(StringIO(resp.text))
+                if not tables:
+                    raise ValueError("No tables found on page")
 
-            df = tables[0]
-            if "Symbol" not in df.columns or "Company Name" not in df.columns:
-                raise ValueError(f"Unexpected columns: {list(df.columns)}")
+                df = tables[0]
+                if "Symbol" not in df.columns or "Company Name" not in df.columns:
+                    raise ValueError(f"Unexpected columns: {list(df.columns)}")
 
-            for _, row in df.iterrows():
-                symbol = str(row["Symbol"]).strip()
-                name   = str(row["Company Name"]).strip()
-                if not symbol or symbol == "nan" or symbol in seen:
-                    continue
-                seen.add(symbol)
-                stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
+                for _, row in df.iterrows():
+                    symbol = str(row["Symbol"]).strip()
+                    name   = str(row["Company Name"]).strip()
+                    if not symbol or symbol == "nan" or symbol in seen:
+                        continue
+                    seen.add(symbol)
+                    stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
 
-            if len(df) < PAGE_SIZE:
-                break
-            page += 1
+                if len(df) < PAGE_SIZE:
+                    break
+                page += 1
 
+            _call.note(pages=page, stocks=len(stocks),
+                       status="ok" if stocks else "empty")
         if stocks:
-            print(f"[fetch_tickers] Loaded {len(stocks)} {label} stocks from stockanalysis.com")
             return stocks
 
-    except Exception as e:
-        print(f"[fetch_tickers] stockanalysis.com {label} failed: {e}. Using fallback.")
+    except Exception:
+        pass  # external_call() already logged external_call.failed; fall back
 
+    _log.info("using hardcoded fallback list for %s", label,
+              extra={"event": "fallback", "endpoint": _endpoint})
     return fallback_fn()
 
 
@@ -102,7 +111,8 @@ def fetch_amsterdam_tickers() -> list[dict]:
 
 
 def _build_hardcoded(pairs: list[tuple[str, str]], suffix: str, mic: str, label: str) -> list[dict]:
-    print(f"[fetch_tickers] Using hardcoded {label} ({len(pairs)} stocks)")
+    _log.debug("using hardcoded %s list (%d stocks)", label, len(pairs),
+               extra={"event": "fallback", "list": label})
     return [{"name": n, "isin": "", "ticker": f"{t}{suffix}", "mic": mic} for n, t in pairs]
 
 
@@ -169,7 +179,8 @@ def _auto_validate(rejected: list[str], exceptions: dict[str, bool]) -> dict[str
     unchecked = [s for s in rejected if s not in exceptions][:_VALIDATE_BATCH]
     if not unchecked:
         return exceptions
-    print(f"[fetch_tickers] Validating {len(unchecked)} new Frankfurt symbols against Yahoo…")
+    _log.debug("validating %d new Frankfurt symbols against Yahoo", len(unchecked),
+               extra={"event": "tickers.validate", "count": len(unchecked)})
     found = []
     for sym in unchecked:
         valid = _is_valid_on_yahoo(sym)
@@ -177,7 +188,8 @@ def _auto_validate(rejected: list[str], exceptions: dict[str, bool]) -> dict[str
         if valid:
             found.append(sym)
     if found:
-        print(f"[fetch_tickers] Auto-added Frankfurt exceptions: {found}")
+        _log.info("auto-added Frankfurt equity exceptions: %s", found,
+                  extra={"event": "tickers.validate", "added": found})
     return exceptions
 
 
@@ -225,7 +237,8 @@ def fetch_frankfurt_tickers() -> list[dict]:
     _save_exceptions(exceptions)
 
     filtered = [s for s in all_tickers if _is_equity_symbol(s["ticker"].removesuffix(".DE"), exceptions)]
-    print(f"[fetch_tickers] Frankfurt: {len(filtered)}/{len(all_tickers)} kept after equity filter")
+    _log.debug("Frankfurt: kept %d/%d after equity filter", len(filtered), len(all_tickers),
+               extra={"event": "tickers.filter", "kept": len(filtered), "total": len(all_tickers)})
     return filtered
 
 

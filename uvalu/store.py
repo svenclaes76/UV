@@ -20,6 +20,7 @@ import time
 import pandas as pd
 
 from settings import ALL_EXCHANGES
+from uvalu import logkit
 
 _EMPTY = pd.DataFrame(columns=["Ticker"])
 _EMPTY_TUPLE = tuple(_EMPTY for _ in ALL_EXCHANGES) + (_EMPTY,)
@@ -62,16 +63,18 @@ class _UniverseStore:
             alive = e["thread"] is not None and e["thread"].is_alive()
             if is_stale and not alive and (now - e["attempt_at"]) >= _MIN_RECOMPUTE_INTERVAL_S:
                 e["attempt_at"] = now
-                e["thread"] = threading.Thread(
-                    target=self._recompute, args=(key, token, builder), daemon=True)
-                e["thread"].start()
+                e["thread"] = logkit.spawn(self._recompute, key, token, builder,
+                                           name="universe_rescore")
         return frame, version, is_stale
 
     def _recompute(self, key: tuple, token: str, builder) -> None:
         try:
-            new_frame = tuple(builder())
+            with logkit.job("universe_rescore", trigger="cache_token_advance") as _j:
+                new_frame = tuple(builder())
+                _j.note(frames=len(new_frame),
+                        rows=sum(int(getattr(d, "shape", (0,))[0]) for d in new_frame))
         except Exception:
-            return  # leave the previous frame in place; get() retries after the interval
+            return  # job() logged job.failed + re-raised; leave the previous frame in place
         with self._lock:
             e = self._entry(key)
             e["frame"] = new_frame

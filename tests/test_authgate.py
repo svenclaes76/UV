@@ -246,3 +246,68 @@ class TestAuthWall:
         at = _run_auth_wall()
         sso = [b for b in at.button if b.label == "Continue with SSO"][0]
         assert sso.disabled
+
+
+# ── logging (logkit Phase 1) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+from uvalu import logkit  # noqa: E402
+
+
+def _events(caplog, slug):
+    return [r for r in caplog.records if getattr(r, "event", None) == slug]
+
+
+class TestAuthgateLogging:
+    def test_cookie_recovery_logs_session_restored(self, monkeypatch, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        _, token = auth.login("first@example.com", "password123")
+        _with_cookie(monkeypatch, {"uv_jwt": token})
+        script = """
+import streamlit as st
+from uvalu import authgate
+authgate.recover_session_from_cookie()
+"""
+        AppTest.from_string(script, default_timeout=60).run()
+        (rec,) = _events(caplog, "auth.session.restored")
+        assert rec.user_id == logkit.user_hash("first@example.com")
+
+    def test_logout_logs_auth_logout(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        script = """
+import streamlit as st
+st.session_state["jwt_token"] = "tok"
+st.session_state["user_email"] = "first@example.com"
+from uvalu import authgate
+authgate.handle_logout()
+"""
+        at = AppTest.from_string(script, default_timeout=60)
+        at.query_params["logout"] = "1"
+        at.run()
+        (rec,) = _events(caplog, "auth.logout")
+        assert rec.user_id == logkit.user_hash("first@example.com")
+
+    @pytest.mark.parametrize("scenario,reason", [
+        ("suspended", "suspended"),
+        ("deleted", "account_deleted"),
+        ("garbage", "invalid_token"),
+    ])
+    def test_auth_wall_logs_session_revoked(self, caplog, scenario, reason):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        if scenario == "garbage":
+            state = {"jwt_token": "garbage"}
+        else:
+            auth.register("first@example.com", "password123")
+            auth.register("second@example.com", "password12345", role="Viewer")
+            _, token = auth.login("second@example.com", "password12345")
+            if scenario == "suspended":
+                auth.set_status("second@example.com", "Suspended")
+            else:
+                auth.delete_user("second@example.com")
+            state = {"jwt_token": token, "user_email": "second@example.com",
+                     "user_role": "Viewer"}
+        _run_auth_wall(state)
+        revoked = _events(caplog, "auth.session.revoked")
+        assert any(r.reason == reason for r in revoked)

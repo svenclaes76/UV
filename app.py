@@ -4,10 +4,18 @@ This module is the thin app shell: page config, global styles, the auth gate,
 navigation registration and the sidebar. All page bodies and shared helpers live
 in the ``uvalu`` package (see uvalu/pages_/ and the shared modules).
 """
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
+
+# Logging must come up before anything else can want to log. init_logging() is
+# idempotent (a no-op after the first rerun in this process); begin_run() stamps
+# a fresh correlation id on every rerun (see uvalu/logkit/).
+from uvalu import logkit
+logkit.init_logging()
+logkit.begin_run()
 
 import streamlit as st
 
@@ -38,6 +46,7 @@ authgate.handle_logout()
 # Resolve the current user and point the data layer at their storage.
 _email = current_user().email
 set_user(_email)
+logkit.bind(email=_email)
 
 authgate.auth_wall()
 
@@ -108,4 +117,28 @@ if _nav.url_path != "admin":
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).
 dispatch_pending_drawer_action()
-_nav.run()
+
+_nav_started = time.perf_counter()
+_render_ok = True
+try:
+    _nav.run()
+except Exception:
+    _render_ok = False
+    logkit.get_logger("uvalu.render").exception(
+        "page render failed",
+        extra={"event": "render.error", "page": getattr(_nav, "url_path", None),
+               "duration_ms": int((time.perf_counter() - _nav_started) * 1000)},
+    )
+    raise
+finally:
+    # Render telemetry (spec §4), in `finally` so a page that ends its render
+    # with st.stop() (a BaseException, not caught above) is still counted. A
+    # genuine navigation (url_path changed since this session's last run) logs
+    # at INFO; a timer/interaction re-render is a DEBUG no-op unless
+    # health_check_logging is on.
+    _prev_page = st.session_state.get("_uv_render_page")
+    st.session_state["_uv_render_page"] = _nav.url_path
+    logkit.render_event(_nav.url_path,
+                        int((time.perf_counter() - _nav_started) * 1000),
+                        is_navigation=(_prev_page != _nav.url_path),
+                        outcome="ok" if _render_ok else "error")

@@ -38,6 +38,15 @@ def test_non_admin_sees_access_denied(isolated_data, monkeypatch):
     assert "Admin access required" in "".join(e.value for e in at.error)
 
 
+def test_non_admin_access_is_logged_as_authz_denied(isolated_data, monkeypatch, caplog):
+    import logging
+    caplog.set_level(logging.DEBUG, logger="uvalu")
+    _run(monkeypatch, role="Viewer")
+    denied = [r for r in caplog.records if getattr(r, "event", None) == "authz.denied"
+              and getattr(r, "action", None) == "admin.view"]
+    assert denied and denied[0].got_role == "Viewer" and denied[0].required_role == "Admin"
+
+
 def test_admin_renders_users_section_by_default(isolated_data, monkeypatch):
     auth.register("test@example.com", "password123")
     at = _run(monkeypatch, role="Admin")

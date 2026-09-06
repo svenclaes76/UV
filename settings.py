@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
+from uvalu import logkit  # noqa: E402
 
 _DATA_DIR = Path(__file__).parent / "data" / "settings"
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -81,11 +82,25 @@ def load_shared_settings() -> dict:
             data.setdefault(k, v)
         return data
     except Exception:
+        # Unreadable shared-settings file silently reverts every workspace-wide
+        # veto threshold to its default — worth surfacing.
+        logkit.get_logger("uvalu.settings").warning(
+            "shared settings unreadable — falling back to defaults", exc_info=True,
+            extra={"event": "storage.read_failed", "file": "shared.json"})
         return dict(_SHARED_DEFAULTS)
 
 
+def _log_setting_changes(prev: dict, new: dict, scope: str) -> None:
+    for k in sorted(set(prev) | set(new)):
+        if prev.get(k) != new.get(k):
+            logkit.config_change(actor=logkit.user_id(), key=k,
+                                 old=prev.get(k), new=new.get(k), scope=scope)
+
+
 def save_shared_settings(s: dict) -> None:
+    _prev = load_shared_settings()
     write_encrypted(_SHARED_FILE, json.dumps(s, indent=2))
+    _log_setting_changes(_prev, s, scope="shared")
 
 
 def get_veto_thresholds() -> tuple[float, float, float, float]:
@@ -120,9 +135,14 @@ def load_settings(email: str = "") -> dict:
             data.setdefault(k, v)
         return data
     except Exception:
+        logkit.get_logger("uvalu.settings").warning(
+            "user settings unreadable — falling back to defaults", exc_info=True,
+            extra={"event": "storage.read_failed", "file": path.name})
         return dict(_USER_DEFAULTS)
 
 
 def save_settings(s: dict, email: str = "") -> None:
+    _prev = load_settings(email)
     path = _settings_file(email) if email else _DATA_DIR / "default.json"
     write_encrypted(path, json.dumps(s, indent=2))
+    _log_setting_changes(_prev, s, scope=f"user:{logkit.user_hash(email) or 'default'}")

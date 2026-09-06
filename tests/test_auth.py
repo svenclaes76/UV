@@ -381,3 +381,115 @@ class TestLoadUsers:
         auth.USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
         auth.USERS_FILE.write_bytes(b"not a valid encrypted payload")
         assert auth._load_users() == {}
+
+
+# ── logging (logkit Phase 1) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+from uvalu import logkit  # noqa: E402
+
+
+def _events(caplog, slug):
+    return [r for r in caplog.records if getattr(r, "event", None) == slug]
+
+
+class TestAuthLogging:
+    def test_successful_login_logs_auth_login_ok(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "password123")
+        (rec,) = _events(caplog, "auth.login.ok")
+        assert rec.outcome == "ok"
+        assert rec.user_id == logkit.user_hash("first@example.com")
+        assert rec.role == "Admin"
+        assert rec.was_invited is False
+        assert "password123" not in caplog.text
+
+    @pytest.mark.parametrize("scenario,reason", [
+        ("unknown", "unknown_user"),
+        ("badpw", "bad_password"),
+        ("suspended", "suspended"),
+    ])
+    def test_failed_login_logs_reason_without_password(self, caplog, scenario, reason):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Admin")
+        if scenario == "unknown":
+            auth.login("nobody@example.com", "hunter2secret")
+        elif scenario == "badpw":
+            auth.login("first@example.com", "hunter2secret")
+        else:
+            auth.set_status("first@example.com", "Suspended")
+            auth.login("first@example.com", "password123")
+        (rec,) = _events(caplog, "auth.login.failed")
+        assert rec.reason == reason
+        assert rec.levelname == "WARNING"
+        assert "hunter2secret" not in caplog.text
+
+    def test_unreadable_store_logs_critical(self, caplog):
+        auth.register("first@example.com", "password123")
+        auth.USERS_FILE.write_text("not valid encrypted content")
+        auth.login("first@example.com", "password123")
+        (rec,) = _events(caplog, "auth.store.unreadable")
+        assert rec.levelname == "CRITICAL"
+        assert rec.op == "login"
+
+    def test_register_logs_user_create_mutation(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        (rec,) = _events(caplog, "mutation")
+        assert rec.action == "user.create"
+        assert rec.entity_id == logkit.user_hash("first@example.com")
+        assert rec.bootstrap_admin is True
+
+    def test_invite_logs_user_invite_mutation_without_temp_password(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("admin@example.com", "password123")
+        _, _, temp_pw = auth.invite_user("new@example.com", role="Viewer")
+        invites = [r for r in _events(caplog, "mutation") if r.action == "user.invite"]
+        assert len(invites) == 1
+        assert invites[0].entity_id == logkit.user_hash("new@example.com")
+        assert temp_pw not in caplog.text
+
+    @pytest.mark.parametrize("call,action", [
+        (lambda: auth.set_role("first@example.com", "Viewer"), "admin.demote_last_admin"),
+        (lambda: auth.set_status("first@example.com", "Suspended"), "admin.suspend_last_admin"),
+        (lambda: auth.delete_user("first@example.com"), "admin.delete_last_admin"),
+    ])
+    def test_last_admin_blocks_log_authz_denied(self, caplog, call, action):
+        auth.register("first@example.com", "password123")   # sole Admin
+        call()
+        (rec,) = _events(caplog, "authz.denied")
+        assert rec.action == action
+        assert rec.resource == logkit.user_hash("first@example.com")
+        assert rec.levelname == "WARNING"
+
+    def test_set_role_success_logs_mutation_with_before_after(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Analyst")
+        caplog.clear()
+        auth.set_role("second@example.com", "Viewer")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.set_role"]
+        assert len(muts) == 1
+        assert muts[0].before == "Analyst" and muts[0].after == "Viewer"
+        assert muts[0].entity_id == logkit.user_hash("second@example.com")
+
+    def test_reset_password_logs_mutation_without_the_password(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        caplog.clear()
+        auth.reset_password("first@example.com", "brandnewsecret9")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.reset_password"]
+        assert len(muts) == 1
+        assert "brandnewsecret9" not in caplog.text
+
+    def test_delete_user_success_logs_mutation(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Viewer")
+        caplog.clear()
+        auth.delete_user("second@example.com")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.delete"]
+        assert len(muts) == 1 and muts[0].before == "Viewer"

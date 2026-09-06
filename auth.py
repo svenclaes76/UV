@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
+from uvalu import logkit  # noqa: E402
 
 USERS_FILE  = Path(__file__).parent / ".cache" / "users.json"
 _JWT_SECRET = os.environ.get("AUTH_SECRET") or secrets.token_hex(32)
@@ -97,13 +98,16 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
 
     users = _load_users()
     if _store_broken(users):
+        logkit.get_logger("uvalu.auth").critical(
+            "user store unreadable", extra={"event": "auth.store.unreadable", "op": "register"})
         return False, ("The user store could not be read (wrong encryption key or a "
                        "corrupted file). Registration is disabled until this is fixed.")
     if email in users:
         return False, "An account with this email already exists."
 
     # Bootstrap: first user becomes Admin
-    effective_role = "Admin" if not users else role
+    bootstrap_admin = not users
+    effective_role = "Admin" if bootstrap_admin else role
 
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     users[email] = {
@@ -114,6 +118,9 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
         "last_active":   "",
     }
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.create", entity_type="user",
+                         entity_id=logkit.user_hash(email), role=effective_role,
+                         bootstrap_admin=bootstrap_admin)
     return True, "Account created. You can now log in."
 
 
@@ -142,6 +149,8 @@ def invite_user(email: str, role: str = "Analyst") -> tuple[bool, str, str | Non
         "last_active":   "",
     }
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.invite", entity_type="user",
+                         entity_id=logkit.user_hash(email), role=role, status="Invited")
     return True, f"{email} invited.", temp_password
 
 
@@ -150,19 +159,28 @@ def login(email: str, password: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if _store_broken(users):
+        logkit.get_logger("uvalu.auth").critical(
+            "user store unreadable", extra={"event": "auth.store.unreadable", "op": "login"})
         return False, ("The user store could not be read (wrong encryption key or a "
                        "corrupted file). Contact your administrator.")
     user = users.get(email)
     if not user:
+        logkit.auth_event("login.failed", outcome="failed", reason="unknown_user",
+                          user_id=logkit.user_hash(email))
         return False, "Invalid email or password."
     if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        logkit.auth_event("login.failed", outcome="failed", reason="bad_password",
+                          user_id=logkit.user_hash(email))
         return False, "Invalid email or password."
     if user.get("status") == "Suspended":
+        logkit.auth_event("login.failed", outcome="failed", reason="suspended",
+                          user_id=logkit.user_hash(email))
         return False, "This account has been suspended."
 
     # First successful login clears the Invited status; every login refreshes
     # last_active (shown in the Admin portal's Users table).
-    if user.get("status") == "Invited":
+    was_invited = user.get("status") == "Invited"
+    if was_invited:
         user["status"] = "Active"
     user["last_active"] = datetime.now(timezone.utc).isoformat()
     users[email] = user
@@ -178,6 +196,8 @@ def login(email: str, password: str) -> tuple[bool, str]:
         _JWT_SECRET,
         algorithm=_JWT_ALGO,
     )
+    logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
+                      role=user.get("role", "Analyst"), was_invited=was_invited)
     return True, token
 
 
@@ -189,6 +209,8 @@ def verify_token(token: str) -> tuple[str, str] | tuple[None, None]:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
         return payload["sub"], payload.get("role", "Analyst")
     except jwt.PyJWTError:
+        logkit.get_logger("uvalu.auth").debug(
+            "jwt verification failed", extra={"event": "auth.token.invalid"})
         return None, None
 
 
@@ -250,9 +272,14 @@ def set_role(email: str, role: str) -> tuple[bool, str]:
         return False, "User not found."
     if (users[email].get("role") == "Admin" and role != "Admin"
             and _other_active_admins(users, email) == 0):
+        logkit.authz_denied(action="admin.demote_last_admin", actor=logkit.user_id(),
+                            resource=logkit.user_hash(email))
         return False, "Can't demote the last active Admin — promote another user first."
+    _old_role = users[email].get("role")
     users[email]["role"] = role
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.set_role", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_old_role, after=role)
     return True, f"{email} is now {role}."
 
 
@@ -265,9 +292,14 @@ def set_status(email: str, status: str) -> tuple[bool, str]:
         return False, "User not found."
     if (status == "Suspended" and users[email].get("role") == "Admin"
             and _other_active_admins(users, email) == 0):
+        logkit.authz_denied(action="admin.suspend_last_admin", actor=logkit.user_id(),
+                            resource=logkit.user_hash(email))
         return False, "Can't suspend the last active Admin — promote another user first."
+    _old_status = users[email].get("status")
     users[email]["status"] = status
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.set_status", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_old_status, after=status)
     return True, f"{email} is now {status}."
 
 
@@ -281,6 +313,8 @@ def reset_password(email: str, new_password: str) -> tuple[bool, str]:
         return False, "User not found."
     users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.reset_password",
+                         entity_type="user", entity_id=logkit.user_hash(email))
     return True, f"Password reset for {email}."
 
 
@@ -291,7 +325,12 @@ def delete_user(email: str) -> tuple[bool, str]:
         return False, "User not found."
     if (users[email].get("role") == "Admin"
             and _other_active_admins(users, email) == 0):
+        logkit.authz_denied(action="admin.delete_last_admin", actor=logkit.user_id(),
+                            resource=logkit.user_hash(email))
         return False, "Can't delete the last active Admin — promote another user first."
+    _deleted_role = users[email].get("role")
     del users[email]
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.delete", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_deleted_role)
     return True, f"{email} deleted."

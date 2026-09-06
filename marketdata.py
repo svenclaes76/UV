@@ -25,6 +25,10 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
+from uvalu import logkit
+
+_log = logkit.get_logger("uvalu.marketdata")
+
 # Module-level so tests can redirect them into tmp_path, like portfolio._BASE_DIR.
 _HISTORY_DIR  = Path(__file__).parent / ".cache" / "history"
 _DIVIDEND_DIR = Path(__file__).parent / ".cache" / "dividends"
@@ -129,20 +133,23 @@ def _download_closes(tickers: list[str], start: date | None, period: str) -> pd.
         kwargs["period"] = period
 
     raw = None
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                raw = yf.download(tickers, **kwargs)
-            break
-        except Exception as e:                    # yfinance raises bare Exception
-            msg = str(e)
-            transient = any(m in msg for m in _TRANSIENT_MARKERS)
-            if transient and attempt < _MAX_RETRIES:
-                time.sleep(_RETRY_BASE_WAIT * 2 ** attempt)
-                continue
-            print(f"  marketdata: price-history fetch failed ({e})")
-            return pd.DataFrame()
+    with logkit.external_call("yfinance.download.history", logger="uvalu.marketdata",
+                              params={"tickers": len(tickers), "period": period}) as _call:
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    raw = yf.download(tickers, **kwargs)
+                _call.note(retries=attempt)
+                break
+            except Exception as e:                    # yfinance raises bare Exception
+                msg = str(e)
+                transient = any(m in msg for m in _TRANSIENT_MARKERS)
+                if transient and attempt < _MAX_RETRIES:
+                    time.sleep(_RETRY_BASE_WAIT * 2 ** attempt)
+                    continue
+                _call.note(status="failed", retries=attempt, reason=type(e).__name__)
+                return pd.DataFrame()
 
     if raw is None or raw.empty:
         return pd.DataFrame()
@@ -269,7 +276,9 @@ def dividends(ticker: str) -> pd.Series:
             return cached
 
     try:
-        raw = yf.Ticker(ticker).dividends
+        with logkit.external_call("yfinance.dividends", logger="uvalu.marketdata",
+                                  params={"ticker": ticker}):
+            raw = yf.Ticker(ticker).dividends
     except Exception:
         return cached if cached is not None else pd.Series(dtype=float, name="amount")
 

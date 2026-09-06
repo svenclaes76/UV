@@ -239,6 +239,18 @@ class TestBackupHistory:
         with pytest.raises(PermissionError):
             backup.get_backup_bytes(entry["id"], "someone-else@example.com")
 
+    def test_blocked_download_is_logged_as_authz_denied(self, caplog):
+        import logging
+        from uvalu import logkit
+        caplog.set_level(logging.DEBUG, logger="uvalu")
+        entry = backup.create_backup(EMAIL)
+        with pytest.raises(PermissionError):
+            backup.get_backup_bytes(entry["id"], "someone-else@example.com")
+        denied = [r for r in caplog.records if getattr(r, "event", None) == "authz.denied"]
+        assert denied and denied[0].action == "backup.download"
+        assert denied[0].resource == entry["id"]
+        assert denied[0].actor == logkit.user_hash("someone-else@example.com")
+
     def test_restore_backup_roundtrips(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
         entry = backup.create_backup(EMAIL)
@@ -260,8 +272,61 @@ class TestBackupHistory:
     def test_load_backup_manifest_returns_empty_list_when_missing(self):
         assert backup._load_backup_manifest() == []
 
-    def test_load_backup_manifest_returns_empty_list_on_corrupt_file(self):
+    def test_load_backup_manifest_returns_empty_list_on_corrupt_file(self, caplog):
+        import logging
         from crypto import write_encrypted
+        caplog.set_level(logging.DEBUG, logger="uvalu")
         backup._BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         write_encrypted(backup._BACKUPS_MANIFEST, "not valid json{{{")
         assert backup._load_backup_manifest() == []
+        reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
+        assert reads and reads[0].file == "manifest.json"
+
+
+# ── logging (logkit Phase 2) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+from uvalu import logkit  # noqa: E402
+
+
+def _events(caplog, event):
+    return [r for r in caplog.records if getattr(r, "event", None) == event]
+
+
+class TestBackupLogging:
+    def test_create_backup_logs_mutation_with_id_and_size(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+        entry = backup.create_backup(EMAIL)
+        muts = [r for r in _events(caplog, "mutation") if r.action == "backup.create"]
+        assert len(muts) == 1
+        assert muts[0].entity_id == entry["id"]
+        assert muts[0].size_bytes == entry["size_bytes"]
+        assert muts[0].subject == logkit.user_hash(EMAIL)
+
+    def test_import_zip_logs_restored_files(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+        zip_bytes = backup.export_zip(EMAIL)
+        caplog.clear()
+        backup.import_zip(zip_bytes, EMAIL)
+        muts = [r for r in _events(caplog, "mutation") if r.action == "backup.import"]
+        assert len(muts) == 1 and "portfolio.json" in muts[0].restored
+
+    def test_restore_backup_logs_backup_restore_with_id(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+        entry = backup.create_backup(EMAIL)
+        caplog.clear()
+        backup.restore_backup(entry["id"], EMAIL)
+        restores = [r for r in _events(caplog, "mutation") if r.action == "backup.restore"]
+        assert len(restores) == 1 and restores[0].entity_id == entry["id"]
+
+    def test_export_env_key_logs_critical_secret_export(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        backup._ENV_FILE.write_text("AUTH_SECRET=x\nENCRYPTION_KEY=y\n")
+        backup.export_env_key()
+        (rec,) = _events(caplog, "secret.export")
+        assert rec.levelname == "CRITICAL"
+        assert "AUTH_SECRET=x" not in caplog.text
