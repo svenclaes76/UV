@@ -27,6 +27,8 @@ _LOGGER_ROOT = "uvalu"
 _LEVEL_ALIAS = {"WARN": "WARNING", "FATAL": "CRITICAL"}
 _LIVE_RELOAD_POLL_S = 5.0
 _DAILY_SWEEP_S = 86400
+_DROP_REPORT_S = 60.0
+_WARNING_PUT_TIMEOUT_S = 2.0   # cap the block if the listener is wedged
 
 _init_lock = threading.Lock()
 _initialised = False
@@ -178,10 +180,10 @@ def init_logging(*, synchronous: "bool | None" = None,
         _install_excepthooks()
         _initialised = True
 
-    # outside the lock: one-shot retention sweep + the hot-reload / daily-sweep thread
+    # outside the lock: one-shot retention sweep + the maintenance thread
+    # (config hot-reload + daily retention sweep + queue-overflow reporting)
     _safe_sweep(cfg, log_dir)
-    if cfg.get("hot_reload", True):
-        _start_background_thread(config_path, log_dir)
+    _start_background_thread(config_path, log_dir, hot_reload=bool(cfg.get("hot_reload", True)))
 
 
 def error_stats() -> dict:
@@ -190,38 +192,43 @@ def error_stats() -> dict:
 
 # ── hot reload + daily sweep ───────────────────────────────────────────────
 
-def _start_background_thread(config_path, log_dir) -> None:
+def _start_background_thread(config_path, log_dir, *, hot_reload: bool = True) -> None:
     global _reload_stop
     if _reload_stop is not None:
         return
     _reload_stop = threading.Event()
     last_mtime = _config.file_mtime(config_path)
     last_sweep = [0.0]
+    last_drop_report = [time.time()]
 
     def _loop() -> None:
         nonlocal last_mtime
         while not _reload_stop.wait(_LIVE_RELOAD_POLL_S):
-            m = _config.file_mtime(config_path)
-            if m and m != last_mtime:
-                last_mtime = m
-                try:
-                    cfg = _config.load(config_path)
-                    _apply_live(cfg)
-                    logging.getLogger("uvalu.logkit").info(
-                        "logging config reloaded",
-                        extra={"event": "config.change", "key": "logging.config.json"},
-                    )
-                except Exception:
-                    logging.getLogger("uvalu.logkit").exception(
-                        "logging config reload failed",
-                        extra={"event": "job.failed", "job": "config_reload"},
-                    )
+            if hot_reload:
+                m = _config.file_mtime(config_path)
+                if m and m != last_mtime:
+                    last_mtime = m
+                    try:
+                        cfg = _config.load(config_path)
+                        _apply_live(cfg)
+                        logging.getLogger("uvalu.logkit").info(
+                            "logging config reloaded",
+                            extra={"event": "config.change", "key": "logging.config.json"},
+                        )
+                    except Exception:
+                        logging.getLogger("uvalu.logkit").exception(
+                            "logging config reload failed",
+                            extra={"event": "job.failed", "job": "config_reload"},
+                        )
             now = time.time()
+            if now - last_drop_report[0] >= _DROP_REPORT_S:
+                last_drop_report[0] = now
+                _report_drops()
             if now - last_sweep[0] >= _DAILY_SWEEP_S:
                 last_sweep[0] = now
                 _safe_sweep(_config.current(), log_dir)
 
-    threading.Thread(target=_loop, name="logkit-hot-reload", daemon=True).start()
+    threading.Thread(target=_loop, name="logkit-maintenance", daemon=True).start()
 
 
 def _apply_live(cfg: dict) -> None:
@@ -318,23 +325,73 @@ def _reset_for_tests() -> None:
         root.propagate = True
         _initialised = False
     _filters.reset()
+    _reset_drop_stats()
     from uvalu.logkit import context
     context.clear()
 
 
-class _RecordQueueHandler(logging.handlers.QueueHandler):
-    """QueueHandler that enqueues the live ``LogRecord`` unchanged.
+# ── bounded-queue overflow accounting ─────────────────────────────────────
+_drop_lock = threading.Lock()
+_drops: "dict[str, int]" = {}
 
-    The stock ``prepare()`` renders the record to text (merging the traceback
-    into ``msg`` and dropping ``exc_info``) for cross-process pickling — which
-    would put the stack in the ``message`` field and, worse, bypass the stack
-    scrubbing the sink-side formatter does. This is a same-process thread
-    handoff, so no rendering is needed; the filters have already run on the
-    calling thread before ``emit``.
+
+def _note_drop(logger_name: str) -> None:
+    with _drop_lock:
+        _drops[logger_name] = _drops.get(logger_name, 0) + 1
+
+
+def _drain_drops() -> "dict[str, int]":
+    with _drop_lock:
+        out = dict(_drops)
+        _drops.clear()
+        return out
+
+
+def _reset_drop_stats() -> None:
+    with _drop_lock:
+        _drops.clear()
+
+
+def _report_drops() -> None:
+    dropped = _drain_drops()
+    if not dropped:
+        return
+    total = sum(dropped.values())
+    logging.getLogger("uvalu.logkit").warning(
+        "log queue full — dropped %d INFO/DEBUG record(s)", total,
+        extra={"event": "queue.overflow", "dropped": total, "by_logger": dropped},
+    )
+
+
+class _RecordQueueHandler(logging.handlers.QueueHandler):
+    """QueueHandler that enqueues the live ``LogRecord`` unchanged, with a
+    level-aware full-queue policy (spec §9).
+
+    ``prepare()`` is a no-op: the stock one renders the record to text (merging
+    the traceback into ``msg``, dropping ``exc_info``) for cross-process
+    pickling, which would put the stack in ``message`` and bypass the sink-side
+    stack scrubbing. This is a same-process thread handoff — the filters have
+    already run on the calling thread before ``emit``.
+
+    On a full queue: WARNING and above **block** (bounded by
+    ``_WARNING_PUT_TIMEOUT_S``) so an error is never silently lost; INFO/DEBUG
+    are dropped and counted (``_report_drops`` flushes a summary once a minute).
     """
 
     def prepare(self, record: logging.LogRecord) -> logging.LogRecord:
         return record
+
+    def enqueue(self, record: logging.LogRecord) -> None:
+        if record.levelno >= logging.WARNING:
+            try:
+                self.queue.put(record, block=True, timeout=_WARNING_PUT_TIMEOUT_S)
+            except queue.Full:
+                _note_drop(record.name)      # listener wedged — nothing better to do
+            return
+        try:
+            self.queue.put_nowait(record)
+        except queue.Full:
+            _note_drop(record.name)
 
 
 class _Tee(logging.Handler):

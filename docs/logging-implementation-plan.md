@@ -483,11 +483,24 @@ across `test_portfolio.py`, `test_pages_settings.py`, `test_auth.py`,
   `test_app_smoke.py`, `test_portfolio.py`, `test_pages_settings.py`,
   `test_backup.py`. Full suite 1017 passed.
 
-### Phase 5 — hardening & docs
-Queue load-test under the `_auto_rerun` 5 s cadence; tune `queue_capacity` +
-drop policy. Retention disk-fill guard test. `docs/architecture.md` "Logging &
-observability" section. `CHANGELOG.md` entry. Bump `pyproject.toml`. Lock the
-prod stack-trace / health-check / deletion decisions in `docs/logging.md`.
+### Phase 5 — hardening & docs ✅ (branch `feat/logging-phase-0`)
+- **Bounded-queue policy** — `_RecordQueueHandler.enqueue` now: WARNING+ block
+  (capped at 2 s), INFO/DEBUG `put_nowait` + drop-and-count. A maintenance
+  thread (always on in async mode; was gated on `hot_reload`) flushes one
+  `queue.overflow` summary per minute and runs the daily retention sweep.
+- **Tests** — queue drop/block policy, `queue.overflow` reporting, an async
+  flood test (500 INFO + 25 ERROR through a 5-slot queue → every ERROR
+  survives, no deadlock), and a rotation disk-fill guard (3000 lines through a
+  4 KB × 4 cap → `logs/` stays bounded).
+- **Docs** — `docs/architecture.md` gains a `uvalu/logkit/` module entry + a
+  "Logging & observability" signal table; `docs/logging.md` "Operational
+  decisions" locks the non-blocking-under-load, prod-stack-trace,
+  health-check-noise and account-deletion (D12) decisions;
+  `docs/configuration.md` updated.
+- **Release** — `CHANGELOG.md` `[Unreleased]` cut to `[1.5.0] — 2026-09-06`
+  (covering this + the loading-patterns rollout already on master);
+  `pyproject.toml` → `1.5.0`.
+- Full suite 1022 passed. Ready for `--no-ff` merge to master + `v1.5.0` tag.
 
 ---
 

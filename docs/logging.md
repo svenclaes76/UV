@@ -176,8 +176,18 @@ survive into the formatted output.
   an explicit erasure request.
 - **Health-check noise** — uvalu has no health endpoint of its own, but the 5 s
   `_auto_rerun` fragments are the equivalent high-frequency, low-value churn.
-  Render telemetry for timer/fragment reruns is DEBUG and sampled to ~0 by
-  default (`health_check_logging: false`, `sampling."uvalu.render"`).
+  Render telemetry for timer/fragment re-renders is a DEBUG no-op unless
+  `health_check_logging` is on; a genuine page navigation always logs at INFO.
+- **Non-blocking under load** — the queue is bounded (`queue_capacity`, default
+  10 000). When it fills, WARNING and above **block** (capped at 2 s in case the
+  listener is wedged) so an error is never silently lost; INFO/DEBUG are dropped
+  and counted, and the maintenance thread emits one `queue.overflow` summary per
+  minute. Verified by a flood test that pushes 500 INFO + 25 ERROR through a
+  5-slot queue and asserts every ERROR still reaches the file.
+- **Prod stack traces** — `stack_traces: "auto"` (the default) means full
+  tracebacks in `development` / `staging`, and only `error_type` +
+  `error_fingerprint` in `production` (`metadata.stack` is omitted). Override
+  with `"always"` / `"never"`.
 
 ---
 

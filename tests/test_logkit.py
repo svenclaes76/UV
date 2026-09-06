@@ -571,6 +571,99 @@ def test_thread_excepthook_logs_and_chains(caplog, monkeypatch):
     assert uncaught[0].thread_name == threading.current_thread().name
 
 
+# ── bounded queue + rotation (Phase 5 hardening) ───────────────────────
+
+def _async_config(tmp_path, *, queue_capacity=10000, max_bytes=1_000_000, backup_count=3):
+    import json as _json
+    p = tmp_path / "logging.config.json"
+    p.write_text(_json.dumps({
+        "async": True, "hot_reload": False, "queue_capacity": queue_capacity,
+        "console": {"enabled": False},
+        "file": {"enabled": True, "path": "logs/uvalu.log", "format": "json",
+                 "max_bytes": max_bytes, "backup_count": backup_count},
+    }))
+    return p
+
+
+def test_queue_handler_drops_info_when_full_and_counts_by_logger():
+    import queue as q
+    _setup._reset_drop_stats()
+    Q = q.Queue(maxsize=2)
+    h = _setup._RecordQueueHandler(Q)
+    h.enqueue(_record(level=logging.INFO))
+    h.enqueue(_record(level=logging.INFO))                      # queue now full
+    h.enqueue(_record(name="uvalu.noisy", level=logging.INFO))  # dropped
+    h.enqueue(_record(name="uvalu.noisy", level=logging.DEBUG)) # dropped
+    assert Q.qsize() == 2
+    assert _setup._drain_drops() == {"uvalu.noisy": 2}
+
+
+def test_queue_handler_blocks_warnings_until_space_frees_up():
+    import queue as q
+    Q = q.Queue(maxsize=1)
+    h = _setup._RecordQueueHandler(Q)
+    Q.put_nowait(_record(level=logging.INFO))                   # full
+
+    def _drain():
+        time.sleep(0.05)
+        Q.get_nowait()
+
+    threading.Thread(target=_drain, daemon=True).start()
+    t0 = time.monotonic()
+    h.enqueue(_record(level=logging.ERROR))                     # blocks, then lands
+    assert time.monotonic() - t0 >= 0.03
+    assert Q.get_nowait().levelno == logging.ERROR
+
+
+def test_report_drops_emits_one_summary_then_resets(caplog):
+    caplog.set_level(logging.DEBUG, logger="uvalu")
+    _setup._reset_drop_stats()
+    _setup._note_drop("uvalu.a"); _setup._note_drop("uvalu.a"); _setup._note_drop("uvalu.b")
+    _setup._report_drops()
+    _setup._report_drops()                                      # nothing left to report
+    overflow = [r for r in caplog.records if getattr(r, "event", None) == "queue.overflow"]
+    assert len(overflow) == 1
+    assert overflow[0].dropped == 3 and overflow[0].by_logger == {"uvalu.a": 2, "uvalu.b": 1}
+
+
+def test_async_flood_never_loses_a_warning_or_deadlocks(tmp_path):
+    import json
+    cfgp = _async_config(tmp_path, queue_capacity=5, max_bytes=2_000_000, backup_count=2)
+    _setup._reset_for_tests()
+    try:
+        _setup.init_logging(synchronous=False, config_path=cfgp, log_dir=tmp_path)
+        log = logkit.get_logger("uvalu.flood")
+        for i in range(500):
+            log.info("noise %d", i)
+        for i in range(25):
+            log.error("real problem %d", i, extra={"event": "boom"})
+        _setup._shutdown()                       # stops + flushes the listener
+        dropped = sum(_setup._drain_drops().values())
+    finally:
+        _setup._reset_for_tests()
+    parsed = [json.loads(x) for x in
+              (tmp_path / "logs" / "uvalu.log").read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert sum(p["level"] == "ERROR" for p in parsed) == 25       # no WARN+ lost
+    assert len(parsed) == 525 - dropped                            # only INFO dropped, none duped
+
+
+def test_rotating_file_handler_caps_total_on_disk(tmp_path):
+    cfgp = _async_config(tmp_path, max_bytes=4096, backup_count=3)
+    _setup._reset_for_tests()
+    try:
+        _setup.init_logging(synchronous=False, config_path=cfgp, log_dir=tmp_path)
+        log = logkit.get_logger("uvalu.spam")
+        for i in range(3000):
+            log.warning("disk fill attempt %d with a bit of padding text", i)
+        _setup._shutdown()
+    finally:
+        _setup._reset_for_tests()
+    logdir = tmp_path / "logs"
+    files = list(logdir.glob("uvalu.log*"))
+    assert len(files) <= 4                                        # active + 3 rotated backups
+    assert sum(f.stat().st_size for f in files) <= 4096 * 4 + 8192
+
+
 def test_install_excepthooks_is_idempotent_and_restorable():
     import sys as _sys
     original = _sys.excepthook
