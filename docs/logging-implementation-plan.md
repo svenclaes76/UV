@@ -411,8 +411,24 @@ non-admin → `authz.denied` (`admin.view`). `backup.get_backup_bytes`
 `test_pages_admin.py`, `test_backup.py`, `test_logkit.py` (event helpers). Full
 suite 985 passed.
 
-### Phase 2 — data mutations & config changes
-§5.3. Extend `test_portfolio.py`, `test_pages_settings.py`, `test_backup.py`.
+### Phase 2 — data mutations & config changes ✅ (branch `feat/logging-phase-0`)
+§5.3. `portfolio.py`: `add_position` / `remove_positions` / `update_positions` /
+`sell_position` / `add_closed_trade` / `add_dividend` / `update_div_hist` /
+`save_cash` (rows only — **no money amounts**), `save_watchlist` /
+`save_manual_tickers` (added/removed delta, no-op suppressed), `save_targets`
+(counts only). `record_value_snapshot` deliberately skipped (automatic,
+high-frequency). `settings.py`: `save_shared_settings` / `save_settings` →
+`config_change` per changed key (`old`→`new`, `scope` = `shared` /
+`user:<hash>`). `auth.py` success mutations: `user.set_role` /
+`user.set_status` (`before`/`after`) / `user.reset_password` (no password) /
+`user.delete`. `backup.py`: `backup.create` (id + size + subject),
+`backup.import` (restored file list), `backup.restore` (backup id),
+`export_env_key` → **CRITICAL** `secret.export`. `uvalu/ui.py`
+`enter_dialog()` now calls `logkit.ensure_run()` + `bind()` so dialog-fragment
+mutations carry a correlation id + user (the Phase 4 `_auto_rerun` hook still
+pending). `events.py`: `data_mutation` `entity_id` now optional. Tests: +16
+across `test_portfolio.py`, `test_pages_settings.py`, `test_auth.py`,
+`test_backup.py`. Full suite 1001 passed.
 
 ### Phase 3 — external calls & background jobs
 §5.4 + §5.5 + `spawn()` swap at the 5 sites + `print()` cleanup (§5.8). Extend

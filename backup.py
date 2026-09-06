@@ -99,6 +99,12 @@ def export_env_key() -> bytes | None:
     """
     if not _ENV_FILE.exists():
         return None
+    # Master secrets (AUTH_SECRET / ENCRYPTION_KEY) are about to be handed to a
+    # browser — the single most sensitive action in the app.
+    logkit.get_logger("uvalu.backup").critical(
+        "environment key material exported",
+        extra={"event": "secret.export", "actor": logkit.user_id()},
+    )
     return _ENV_FILE.read_bytes()
 
 
@@ -180,6 +186,9 @@ def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
                     continue
     except zipfile.BadZipFile:
         raise ValueError("File is not a valid ZIP archive.")
+    logkit.data_mutation(actor=logkit.user_id(), action="backup.import",
+                         entity_type="backup", restored=restored,
+                         subject=logkit.user_hash(email) if email else None)
     return restored
 
 
@@ -232,6 +241,9 @@ def create_backup(email: str) -> dict:
     entries = _load_backup_manifest()
     entries.append(entry)
     _save_backup_manifest(entries)
+    logkit.data_mutation(actor=logkit.user_id(), action="backup.create",
+                         entity_type="backup", entity_id=backup_id,
+                         size_bytes=len(zip_bytes), subject=logkit.user_hash(email))
     return entry
 
 
@@ -264,4 +276,7 @@ def get_backup_bytes(backup_id: str, requester_email: str | None = None) -> byte
 
 def restore_backup(backup_id: str, email: str) -> list[str]:
     """Restore a backup-history entry into the given user's data dirs."""
+    logkit.data_mutation(actor=logkit.user_id(), action="backup.restore",
+                         entity_type="backup", entity_id=backup_id,
+                         subject=logkit.user_hash(email) if email else None)
     return import_zip(get_backup_bytes(backup_id), email)

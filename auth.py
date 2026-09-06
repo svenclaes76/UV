@@ -275,8 +275,11 @@ def set_role(email: str, role: str) -> tuple[bool, str]:
         logkit.authz_denied(action="admin.demote_last_admin", actor=logkit.user_id(),
                             resource=logkit.user_hash(email))
         return False, "Can't demote the last active Admin — promote another user first."
+    _old_role = users[email].get("role")
     users[email]["role"] = role
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.set_role", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_old_role, after=role)
     return True, f"{email} is now {role}."
 
 
@@ -292,8 +295,11 @@ def set_status(email: str, status: str) -> tuple[bool, str]:
         logkit.authz_denied(action="admin.suspend_last_admin", actor=logkit.user_id(),
                             resource=logkit.user_hash(email))
         return False, "Can't suspend the last active Admin — promote another user first."
+    _old_status = users[email].get("status")
     users[email]["status"] = status
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.set_status", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_old_status, after=status)
     return True, f"{email} is now {status}."
 
 
@@ -307,6 +313,8 @@ def reset_password(email: str, new_password: str) -> tuple[bool, str]:
         return False, "User not found."
     users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.reset_password",
+                         entity_type="user", entity_id=logkit.user_hash(email))
     return True, f"Password reset for {email}."
 
 
@@ -320,6 +328,9 @@ def delete_user(email: str) -> tuple[bool, str]:
         logkit.authz_denied(action="admin.delete_last_admin", actor=logkit.user_id(),
                             resource=logkit.user_hash(email))
         return False, "Can't delete the last active Admin — promote another user first."
+    _deleted_role = users[email].get("role")
     del users[email]
     _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.delete", entity_type="user",
+                         entity_id=logkit.user_hash(email), before=_deleted_role)
     return True, f"{email} deleted."

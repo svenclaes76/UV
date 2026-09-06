@@ -242,3 +242,40 @@ def test_account_footer_shows_email_and_role(isolated_data, monkeypatch):
     assert TEST_EMAIL in html
     assert "Analyst" in html
     assert "Sign out" in html
+
+
+# ── logging (logkit Phase 2) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+from uvalu import logkit  # noqa: E402
+
+
+def _config_changes(caplog, key=None):
+    return [r for r in caplog.records
+            if getattr(r, "event", None) == "config.change"
+            and (key is None or getattr(r, "key", None) == key)]
+
+
+class TestSettingsLogging:
+    def test_shared_settings_change_logs_per_key_with_old_and_new(self, isolated_data, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        base = settings.load_shared_settings()
+        settings.save_shared_settings({**base, "max_debt_equity": 400.0, "screen_style": "value"})
+        changed = {r.key: (r.old, r.new, r.scope) for r in _config_changes(caplog)}
+        assert changed["max_debt_equity"] == (500.0, 400.0, "shared")
+        assert changed["screen_style"][1] == "value"
+        assert "buy_threshold" not in changed          # unchanged keys don't log
+
+    def test_user_settings_change_scope_is_user_hash(self, isolated_data, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        settings.save_settings({**settings.load_settings(TEST_EMAIL), "density": "compact"}, TEST_EMAIL)
+        (rec,) = _config_changes(caplog, "density")
+        assert rec.new == "compact"
+        assert rec.scope == f"user:{logkit.user_hash(TEST_EMAIL)}"
+
+    def test_no_op_save_logs_nothing(self, isolated_data, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        current = settings.load_shared_settings()
+        settings.save_shared_settings(dict(current))
+        assert _config_changes(caplog) == []

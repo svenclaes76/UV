@@ -40,8 +40,11 @@ def authz_denied(*, action, actor=None, required_role=None, got_role=None,
     )
 
 
-def data_mutation(*, actor, action, entity_type, entity_id,
+def data_mutation(*, actor, action, entity_type, entity_id=None,
                   before=None, after=None, **meta) -> None:
+    """``mutation`` — a create/update/delete. ``entity_id`` may be omitted for a
+    collection-wide change (e.g. a watchlist replace). Pass ``before``/``after``
+    only for cheap scalars — never a DataFrame or a money amount."""
     get_logger("uvalu.mutation").info(
         "data mutation: %s", action,
         extra={

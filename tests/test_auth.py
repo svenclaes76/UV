@@ -464,3 +464,32 @@ class TestAuthLogging:
         assert rec.action == action
         assert rec.resource == logkit.user_hash("first@example.com")
         assert rec.levelname == "WARNING"
+
+    def test_set_role_success_logs_mutation_with_before_after(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Analyst")
+        caplog.clear()
+        auth.set_role("second@example.com", "Viewer")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.set_role"]
+        assert len(muts) == 1
+        assert muts[0].before == "Analyst" and muts[0].after == "Viewer"
+        assert muts[0].entity_id == logkit.user_hash("second@example.com")
+
+    def test_reset_password_logs_mutation_without_the_password(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        caplog.clear()
+        auth.reset_password("first@example.com", "brandnewsecret9")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.reset_password"]
+        assert len(muts) == 1
+        assert "brandnewsecret9" not in caplog.text
+
+    def test_delete_user_success_logs_mutation(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        auth.register("first@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Viewer")
+        caplog.clear()
+        auth.delete_user("second@example.com")
+        muts = [r for r in _events(caplog, "mutation") if r.action == "user.delete"]
+        assert len(muts) == 1 and muts[0].before == "Viewer"

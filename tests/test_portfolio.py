@@ -449,3 +449,65 @@ class TestParseExcel:
         assert len(div_df) == 1
         assert div_df.iloc[0]["amount"] == 25.0
         assert div_df.iloc[0]["date"] == pd.Timestamp("2024-03-01")
+
+
+# ── logging (logkit Phase 2) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+from uvalu import logkit  # noqa: E402
+
+
+def _mutations(caplog, action=None):
+    return [r for r in caplog.records
+            if getattr(r, "event", None) == "mutation"
+            and (action is None or getattr(r, "action", None) == action)]
+
+
+class TestPortfolioLogging:
+    def test_add_position_logs_ticker_and_shares_no_money(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.add_position({"ticker": "AAA.BR", "shares": 10, "purchase_value": 1234.56})
+        (rec,) = _mutations(caplog, "position.add")
+        assert rec.entity_id == "AAA.BR" and rec.shares == 10
+        assert "1234.56" not in caplog.text          # money amount never logged
+
+    def test_sell_position_logs_when_it_actually_sells(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_portfolio(pd.DataFrame([{
+            "ticker": "AAA.BR", "shares": 10, "purchase_value": 1000.0,
+            "dividends": 0.0, "date_in": "2023-01-01",
+        }]))
+        caplog.clear()
+        portfolio.sell_position("AAA.BR", 10, 1500.0, "2024-01-01")
+        (rec,) = _mutations(caplog, "position.sell")
+        assert rec.entity_id == "AAA.BR" and rec.shares == 10 and rec.sell_date == "2024-01-01"
+        assert "1500" not in caplog.text
+
+    def test_sell_position_silent_when_ticker_absent(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "shares": 10}]))
+        caplog.clear()
+        portfolio.sell_position("ZZZ.BR", 5, 100.0, "2024-01-01")
+        assert _mutations(caplog, "position.sell") == []
+
+    def test_save_watchlist_logs_added_and_removed_delta(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_watchlist({"AAA.BR", "BBB.BR"})
+        caplog.clear()
+        portfolio.save_watchlist({"BBB.BR", "CCC.BR"})
+        (rec,) = _mutations(caplog, "watchlist.update")
+        assert rec.added == ["CCC.BR"] and rec.removed == ["AAA.BR"]
+
+    def test_save_watchlist_no_log_when_unchanged(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_watchlist({"AAA.BR"})
+        caplog.clear()
+        portfolio.save_watchlist({"AAA.BR"})
+        assert _mutations(caplog, "watchlist.update") == []
+
+    def test_save_targets_logs_counts_not_weights(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        portfolio.save_targets({"sectors": {"Tech": 0.4, "Energy": 0.2}, "hhi_max": 0.25})
+        (rec,) = _mutations(caplog, "targets.update")
+        assert rec.sectors == 2 and rec.tickers == 0 and rec.has_hhi_max is True
