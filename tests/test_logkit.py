@@ -236,7 +236,7 @@ def test_spawn_propagates_context_into_worker():
     assert seen["uid"] == hashlib.sha256(b"alice@example.com").hexdigest()[:16]
 
 
-def test_spawn_logs_worker_crash_as_job_failed(caplog):
+def test_spawn_logs_worker_crash_via_thread_guard(caplog):
     caplog.set_level(logging.DEBUG, logger="uvalu")
     logkit.begin_run()
 
@@ -245,7 +245,7 @@ def test_spawn_logs_worker_crash_as_job_failed(caplog):
 
     logkit.spawn(_boom, name="doomed-worker").join(timeout=2)
     failures = [r for r in caplog.records
-                if getattr(r, "event", None) == "job.failed"
+                if getattr(r, "event", None) == "thread.uncaught"
                 and getattr(r, "job", None) == "doomed-worker"]
     assert failures and failures[0].exc_info is not None
 
@@ -385,8 +385,15 @@ def test_user_hash_matches_the_data_dir_slug_scheme():
 # ── event helpers (events.py) ──────────────────────────────────────────
 
 def _captured():
-    """Attach a list-capturing handler (with the real filters) to the uvalu
-    logger and return (handler, records)."""
+    """Attach a bare list-capturing handler to the uvalu logger and return
+    (handler, records).
+
+    No filters here: the autouse conftest fixture already attaches one handler
+    carrying the shared filter singletons, and it runs first (handler insertion
+    order), so records reaching this handler are already context-stamped /
+    redacted. Re-running the *stateful* filters (Sampling, Fingerprint) on a
+    second handler would double-count and wrongly drop records.
+    """
     recs: list[logging.LogRecord] = []
 
     class _H(logging.Handler):
@@ -394,8 +401,6 @@ def _captured():
             recs.append(record)
 
     h = _H(level=logging.DEBUG)
-    for f in _filters.all_filters():
-        h.addFilter(f)
     logging.getLogger("uvalu").addHandler(h)
     return h, recs
 
@@ -439,6 +444,67 @@ def test_data_mutation_shape():
     assert rec.name == "uvalu.mutation" and rec.event == "mutation"
     assert rec.action == "user.create" and rec.entity_id == "deadbeef"
     assert rec.bootstrap_admin is True
+
+
+# ── job() / external_call() context managers ──────────────────────────
+
+def test_job_logs_start_and_ok_with_latency_and_notes():
+    h, recs = _captured()
+    try:
+        with logkit.job("universe_rescore", trigger="tok", items=5) as j:
+            j.note(rows=1843)
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    start, ok = recs
+    assert start.event == "job.start" and start.job == "universe_rescore" and start.trigger == "tok"
+    assert ok.event == "job.ok" and ok.rows == 1843
+    assert isinstance(ok.latency_ms, int) and ok.name == "uvalu.job"
+
+
+def test_job_failed_reraises_by_default_and_swallows_when_asked():
+    h, recs = _captured()
+    try:
+        with pytest.raises(ValueError):
+            with logkit.job("j1"):
+                raise ValueError("boom")
+        with logkit.job("j2", reraise=False):
+            raise ValueError("swallowed")
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    failed = [r for r in recs if r.event == "job.failed"]
+    assert {r.job for r in failed} == {"j1", "j2"}
+    assert all(r.exc_info is not None for r in failed)
+
+
+def test_external_call_ok_and_failed_carry_endpoint_and_latency():
+    h, recs = _captured()
+    try:
+        with logkit.external_call("yfinance.download.5d", logger="uvalu.prices",
+                                  params={"tickers": 12}) as call:
+            call.note(retries=1)
+        with pytest.raises(RuntimeError):
+            with logkit.external_call("yfinance.dividends", logger="uvalu.marketdata"):
+                raise RuntimeError("network down")
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    ok = [r for r in recs if r.event == "external_call.ok"][0]
+    assert ok.endpoint == "yfinance.download.5d" and ok.params == {"tickers": 12}
+    assert ok.retries == 1 and isinstance(ok.latency_ms, int)
+    failed = [r for r in recs if r.event == "external_call.failed"][0]
+    assert failed.endpoint == "yfinance.dividends" and failed.status == "failed"
+    assert failed.levelno == logging.ERROR
+
+
+def test_external_call_non_ok_status_logs_warning_not_exception():
+    h, recs = _captured()
+    try:
+        with logkit.external_call("yfinance.download.history", logger="uvalu.marketdata") as call:
+            call.note(status="failed", retries=4)
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    (rec,) = recs
+    assert rec.event == "external_call.failed" and rec.levelno == logging.WARNING
+    assert rec.retries == 4 and rec.exc_info is None
 
 
 # ── console formatter ───────────────────────────────────────────────────

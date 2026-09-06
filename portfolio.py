@@ -299,13 +299,17 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
     _BENCHMARKS = {"^GSPC": "benchmark_spx", "^STOXX50E": "benchmark_stoxx"}
     tickers = list({s["ticker"] for s in segments})
     fetch_tickers = tickers + list(_BENCHMARKS)
-    raw = yf.download(
-        fetch_tickers,
-        start=earliest.strftime("%Y-%m-%d"),
-        end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
-        auto_adjust=True,
-        progress=False,
-    )
+    with logkit.external_call("yfinance.download.backfill", logger="uvalu.portfolio",
+                              params={"tickers": len(fetch_tickers)}) as _call:
+        raw = yf.download(
+            fetch_tickers,
+            start=earliest.strftime("%Y-%m-%d"),
+            end=(latest + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+            auto_adjust=True,
+            progress=False,
+        )
+        if raw.empty:
+            _call.note(status="empty")
 
     if raw.empty:
         return 0
@@ -422,12 +426,15 @@ def ensure_value_history_fresh(open_df: pd.DataFrame, sold_df: "pd.DataFrame | N
             # bucket instead of this user's directory (same bug class as the
             # dialog-fragment issue enter_dialog() fixes in uvalu/ui.py).
             set_user(email)
-            backfill_value_history(open_df, sold_df)
+            with logkit.job("value_history_backfill", reraise=False,
+                            trigger="stale_history") as _j:
+                _rows = backfill_value_history(open_df, sold_df)
+                _j.note(rows_written=_rows)
         finally:
             with _backfill_lock:
                 _backfill_state[email] = False
 
-    threading.Thread(target=_run, daemon=True).start()
+    logkit.spawn(_run, name="value_history_backfill")
     return True
 
 

@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 import yfinance as yf
 import pandas as pd
 
+from uvalu import logkit
+
 
 _EMPTY = {
     "price":          None,
@@ -97,17 +99,18 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
     result = {t: dict(_EMPTY) for t in tickers}
 
     try:
-        raw = yf.download(
-            list(tickers),
-            period="5d",       # last 5 trading days → guaranteed two closing prices
-            interval="1d",
-            auto_adjust=True,
-            progress=False,
-            threads=True,
-        )
-
-        if raw.empty:
-            raise ValueError("Empty download response")
+        with logkit.external_call("yfinance.download.5d", logger="uvalu.prices",
+                                  params={"tickers": len(tickers)}):
+            raw = yf.download(
+                list(tickers),
+                period="5d",       # last 5 trading days → guaranteed two closing prices
+                interval="1d",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+            )
+            if raw.empty:
+                raise ValueError("Empty download response")
 
         # yf.download always returns MultiIndex columns (Field, Ticker) when
         # given a list — even a single-element list.

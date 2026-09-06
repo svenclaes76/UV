@@ -33,12 +33,16 @@ import pandas as pd
 import yfinance as yf
 
 import marketdata
+from uvalu import logkit
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
     _financial_health_score, _earnings_quality_score, _dividend_sustainability_flag,
 )
 
 # ── Constants ─────────────────────────────────────────────────────────────────
+
+_log = logkit.get_logger("uvalu.screener")
+_fetch_log = logkit.get_logger("uvalu.screener.fetch")  # per-ticker; sampled (see logging.config.json)
 
 RISK_FREE_RATE      = 0.03    # Euro area approximation
 EQUITY_RISK_PREMIUM = 0.05
@@ -730,7 +734,9 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
     incrementally. `stale` is processed in the order given — callers put
     priority tickers first (see fetch_fundamentals_nowait)."""
     f = fetcher or SCREENER_FETCH
+    _lane = "screener" if f is SCREENER_FETCH else "portfolio"
     done = 0
+    failed = 0
 
     def _refresh_crumb():
         try:
@@ -739,7 +745,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
             pass
 
     def _fetch_and_store(stock):
-        nonlocal done
+        nonlocal done, failed
         if f.cancelled.is_set():
             return
         ticker = stock["ticker"]
@@ -783,7 +789,10 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
                     if attempt < MAX_RETRIES:
                         time.sleep(wait)
                         continue
-                print(f"\n  Warning: could not fetch {ticker}: {e}")
+                _fetch_log.warning(
+                    "fundamentals fetch failed for %s", ticker,
+                    extra={"event": "external_call.failed", "endpoint": "yfinance.quoteSummary",
+                           "ticker": ticker, "reason": type(e).__name__, "lane": _lane})
                 break
         if f.cancelled.is_set():
             return
@@ -795,21 +804,29 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
         with f.row_lock:
             cache[ticker] = row
             done += 1
+            if not row.get("fetched_at"):
+                failed += 1
             current = done
         with f.state_lock:
             f.state["done"] = current
         if not f.cancelled.is_set() and (current % 25 == 0 or current == len(stale)):
             with f.file_lock:
                 _save_cache(cache, f)
-        print(f"  Fetching [{current}/{len(stale)}] {ticker}          ", end="\r")
+        # Per-ticker progress — sampled to ~5% by logging.config.json so a
+        # 1500-ticker refresh doesn't flood the log.
+        _fetch_log.info("fetched %s (%d/%d)", ticker, current, len(stale),
+                        extra={"event": "external_call.ok", "endpoint": "yfinance.quoteSummary",
+                               "ticker": ticker, "lane": _lane})
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        list(executor.map(_fetch_and_store, stale))
+    with logkit.job("fundamentals_fetch", reraise=False, trigger="stale_tickers",
+                    lane=_lane, items=len(stale)) as _j:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            list(executor.map(_fetch_and_store, stale))
+        _j.note(done=done, failed=failed, cancelled=f.cancelled.is_set())
 
     if not f.cancelled.is_set():
         with f.file_lock:
             _save_cache(cache, f)
-    print()
     with f.state_lock:
         f.state["running"] = False
 
@@ -851,19 +868,22 @@ def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = N
     stale = [s for s in stocks if not _is_fresh(f.live_cache.get(s["ticker"], {}))]
     fresh_count = len(stocks) - len(stale)
 
+    _lane = "screener" if f is SCREENER_FETCH else "portfolio"
     if stale and (not f.bg_thread or not f.bg_thread.is_alive()):
-        print(f"  {fresh_count} cached  |  {len(stale)} stale — starting background fetch")
+        _log.info("background fundamentals fetch queued",
+                  extra={"event": "job.queued", "job": "fundamentals_fetch",
+                         "lane": _lane, "stale": len(stale), "cached": fresh_count})
         f.cancelled.clear()
         with f.state_lock:
             f.state.update({"done": 0, "total": len(stale), "running": True})
         _prio = [s for s in stale if s["ticker"] in _priority_tickers]
         _rest = [s for s in stale if s["ticker"] not in _priority_tickers]
         random.shuffle(_rest)
-        f.bg_thread = threading.Thread(
-            target=_run_fetch, args=(_prio + _rest, f.live_cache, f), daemon=True)
-        f.bg_thread.start()
+        f.bg_thread = logkit.spawn(_run_fetch, _prio + _rest, f.live_cache, f,
+                                   name=f"fundamentals_fetch:{_lane}")
     elif not stale:
-        print(f"  All {fresh_count} tickers served from cache (max age {CACHE_TTL_HOURS}h)")
+        _log.debug("all %d tickers served from fundamentals cache", fresh_count,
+                   extra={"event": "cache.hit", "lane": _lane})
 
     return _df_from_cache(stocks, f.live_cache)
 
@@ -1697,9 +1717,11 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df      = df[df["Price"].notna()].reset_index(drop=True)
     dropped = before - len(df)
     if dropped:
-        print(f"  Dropped {dropped} ticker(s) with no price (likely delisted/inactive)")
+        _log.debug("dropped %d ticker(s) with no price (likely delisted/inactive)", dropped,
+                   extra={"event": "score.clean", "dropped": dropped})
     if df.empty:
         return df
-    print("Computing valuation scores...")
+    _log.debug("computing valuation scores for %d rows", len(df),
+               extra={"event": "score.compute", "rows": len(df)})
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
                           min_mos=min_mos, buy_threshold=buy_threshold, weights=weights)

@@ -511,3 +511,28 @@ class TestPortfolioLogging:
         portfolio.save_targets({"sectors": {"Tech": 0.4, "Energy": 0.2}, "hhi_max": 0.25})
         (rec,) = _mutations(caplog, "targets.update")
         assert rec.sectors == 2 and rec.tickers == 0 and rec.has_hhi_max is True
+
+    def test_ensure_value_history_fresh_runs_backfill_job_on_spawned_thread(self, monkeypatch, caplog):
+        import yfinance as yf
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        cid = logkit.begin_run()
+        dates = pd.to_datetime(["2024-01-01", "2024-01-02"])
+        raw = pd.concat({"Close": pd.DataFrame(
+            {"AAA.BR": [10.0, 11.0], "^GSPC": [1.0, 1.0], "^STOXX50E": [1.0, 1.0]}, index=dates)}, axis=1)
+        monkeypatch.setattr(yf, "download", lambda *a, **k: raw)
+        open_df = pd.DataFrame([{"ticker": "AAA.BR", "shares": 10,
+                                 "date_in": "2024-01-01", "purchase_value": 1000.0}])
+
+        started = portfolio.ensure_value_history_fresh(open_df, None, "test@example.com")
+        assert started is True
+        deadline = dt.datetime.now() + dt.timedelta(seconds=3)
+        while dt.datetime.now() < deadline and not any(
+                getattr(r, "event", None) == "job.ok" and getattr(r, "job", None) == "value_history_backfill"
+                for r in caplog.records):
+            import time as _t
+            _t.sleep(0.02)
+        job_ok = [r for r in caplog.records
+                  if getattr(r, "event", None) == "job.ok" and getattr(r, "job", None) == "value_history_backfill"]
+        assert job_ok and job_ok[0].rows_written == 2
+        # correlation id propagated from this thread into the spawned worker
+        assert job_ok[0].correlation_id == cid

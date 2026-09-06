@@ -85,11 +85,11 @@ def spawn(target: Callable, *args, name: "str | None" = None,
     def _run() -> None:
         try:
             ctx.run(target, *args, **kwargs)
-        except BaseException:  # noqa: BLE001 — logged here, re-raise would only reach threading.excepthook
+        except BaseException:  # noqa: BLE001 — outer net; re-raise would only reach threading.excepthook
             from uvalu.logkit import get_logger
             get_logger("uvalu.job").exception(
-                "background thread crashed",
-                extra={"event": "job.failed", "job": job_name},
+                "uncaught exception in spawned worker",
+                extra={"event": "thread.uncaught", "job": job_name},
             )
 
     t = threading.Thread(target=_run, name=name, daemon=daemon)

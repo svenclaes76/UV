@@ -105,9 +105,14 @@ def external_call(endpoint: str, *, params=None, logger: str = "uvalu.external")
 
 
 @contextmanager
-def job(name: str, *, trigger=None, **meta):
+def job(name: str, *, trigger=None, reraise: bool = True, **meta):
     """Bracket a background job with ``job.start`` / ``job.ok`` / ``job.failed``
-    (+ ``latency_ms``). Use ``.note(**counts)`` to attach completion metadata."""
+    (+ ``latency_ms``). Use ``.note(**counts)`` to attach completion metadata.
+
+    ``reraise=False`` for a top-level worker body with no caller that would
+    catch — the failure is logged and swallowed so the (daemon) thread just
+    ends. Leave it True when an outer ``try`` already handles the exception, to
+    avoid a duplicate log from ``spawn``'s thread guard."""
     log = get_logger("uvalu.job")
     t0 = time.perf_counter()
     log.info("job start: %s", name,
@@ -119,7 +124,9 @@ def job(name: str, *, trigger=None, **meta):
         dt = int((time.perf_counter() - t0) * 1000)
         log.exception("job failed: %s", name,
                       extra={"event": "job.failed", "job": name, "latency_ms": dt, **result})
-        raise
+        if reraise:
+            raise
+        return
     dt = int((time.perf_counter() - t0) * 1000)
     log.info("job complete: %s", name,
              extra={"event": "job.ok", "job": name, "latency_ms": dt, **result})

@@ -129,3 +129,39 @@ class TestGetScoredUniverse:
         clear_scored_universe()
         assert _wait(lambda: get_scored_universe(("brussels",), token="t1")[1] == 1)
         assert seen == [1, 1]
+
+
+# ── logging (logkit Phase 3) ─────────────────────────────────────────────
+
+import logging as _logging  # noqa: E402
+
+
+class TestUniverseStoreLogging:
+    def test_recompute_logs_job_start_and_ok(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        s = _UniverseStore()
+        s.get(("k",), "t1", lambda: _frame("a"))
+        assert _wait(lambda: s._entries[("k",)]["version"] == 1)
+        events = [getattr(r, "event", None) for r in caplog.records
+                  if getattr(r, "job", None) == "universe_rescore"]
+        assert "job.start" in events and "job.ok" in events
+
+    def test_failed_builder_logs_job_failed_and_keeps_prev_frame(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        s = _UniverseStore()
+        s.get(("k",), "t1", lambda: _frame("a"))
+        assert _wait(lambda: s._entries[("k",)]["version"] == 1)
+        caplog.clear()
+        s._entries[("k",)]["attempt_at"] = 0.0                  # skip the interval guard
+
+        def _boom():
+            raise RuntimeError("scoring blew up")
+
+        s.get(("k",), "t2", _boom)
+        assert _wait(lambda: any(getattr(r, "event", None) == "job.failed"
+                                 and getattr(r, "job", None) == "universe_rescore"
+                                 for r in caplog.records))
+        # previous good frame is still served (version unchanged)
+        assert _wait(lambda: not s._entries[("k",)]["thread"].is_alive())
+        assert s._entries[("k",)]["version"] == 1
+        assert s.get(("k",), "t1", lambda: _frame("c"))[0][0].iloc[0]["Ticker"] == "a0"

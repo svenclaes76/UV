@@ -200,6 +200,24 @@ class TestDownloadCloses:
         monkeypatch.setattr(yf, "download", boom)
         assert marketdata._download_closes(["AAA.BR"], start=None, period="5y").empty
 
+    def test_success_logs_external_call_ok_with_ticker_count(self, monkeypatch, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG, logger="uvalu")
+        dates = pd.date_range("2024-01-01", periods=2)
+        monkeypatch.setattr(yf, "download", lambda *a, **k: _multiindex_download({"AAA.BR": [1.0, 2.0]}, dates))
+        marketdata._download_closes(["AAA.BR"], start=None, period="5y")
+        (rec,) = [r for r in caplog.records if getattr(r, "event", None) == "external_call.ok"]
+        assert rec.endpoint == "yfinance.download.history"
+        assert rec.params == {"tickers": 1, "period": "5y"} and rec.retries == 0
+
+    def test_failure_logs_external_call_failed_not_ok(self, monkeypatch, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG, logger="uvalu")
+        monkeypatch.setattr(yf, "download", lambda *a, **k: (_ for _ in ()).throw(ValueError("bad symbol")))
+        marketdata._download_closes(["AAA.BR"], start=None, period="5y")
+        events = {getattr(r, "event", None) for r in caplog.records}
+        assert "external_call.failed" in events and "external_call.ok" not in events
+
     def test_tz_aware_index_is_localised_away(self, monkeypatch):
         dates = pd.date_range("2024-01-01", periods=2, tz="America/New_York")
         raw = _multiindex_download({"AAA.BR": [1.0, 2.0]}, dates)

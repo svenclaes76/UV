@@ -430,10 +430,31 @@ pending). `events.py`: `data_mutation` `entity_id` now optional. Tests: +16
 across `test_portfolio.py`, `test_pages_settings.py`, `test_auth.py`,
 `test_backup.py`. Full suite 1001 passed.
 
-### Phase 3 — external calls & background jobs
-§5.4 + §5.5 + `spawn()` swap at the 5 sites + `print()` cleanup (§5.8). Extend
-`test_prices.py`, `test_marketdata.py`, `test_screener_cache.py`,
-`test_store.py`, `test_fetch_tickers.py`.
+### Phase 3 — external calls & background jobs ✅ (branch `feat/logging-phase-0`)
+§5.4 + §5.5 + `spawn()` swap + `print()` cleanup.
+- **`job()` wrappers:** `fundamentals_fetch` (`screener._run_fetch`, `reraise=False`,
+  notes done/failed/cancelled), `universe_rescore` (`uvalu/store._recompute`,
+  notes frames/rows), `risk_report` (`uvalu/data.load_portfolio_risk._run`,
+  notes tickers), `value_history_backfill` (`portfolio.ensure_value_history_fresh._run`,
+  `reraise=False`, notes rows_written).
+- **`external_call()` wrappers:** `yfinance.download.history` +
+  `yfinance.dividends` (`marketdata.py`), `yfinance.download.5d`
+  (`prices.fetch_prices`), `stockanalysis.<exchange>`
+  (`fetch_tickers._fetch_via_stockanalysis`), `yfinance.download.backfill`
+  (`portfolio.backfill_value_history`). Records `params` (ticker **count**),
+  `latency_ms`, `status`, `retries`.
+- **`logkit.spawn` swap** at all 4 raw `threading.Thread` sites — correlation id
+  + user propagate into every background worker; `spawn`'s guard logs
+  `thread.uncaught` as the outer net (distinct from `job.failed`).
+- **Per-ticker fundamentals progress** → `uvalu.screener.fetch` logger, sampled
+  to 5% by `logging.config.json`; per-ticker failures at WARNING.
+- **`print()` cleanup:** all 23 app-code `print()`s → structured logger calls
+  (mostly DEBUG); `run_app.py`'s pre-boot cert prints kept.
+- **`events.py`:** `job()` gained `reraise` param. **`context.spawn`** guard
+  event renamed `job.failed` → `thread.uncaught`.
+- Tests: +10 across `test_logkit.py` (job/external_call CMs), `test_store.py`,
+  `test_marketdata.py`, `test_portfolio.py` (spawn correlation-id propagation).
+  `_captured()` helper no longer re-runs stateful filters. Full suite 1010 passed.
 
 ### Phase 4 — render telemetry, global hooks, fingerprinting
 §5.6 + §5.7. `sys`/`threading` excepthooks. `FingerprintFilter` +
