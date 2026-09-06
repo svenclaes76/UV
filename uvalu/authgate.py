@@ -6,7 +6,7 @@ These run at module scope in the app's boot sequence. Each step is a function so
 import streamlit as st
 
 from auth import get_user_status, login, verify_token
-from uvalu import shell
+from uvalu import logkit, shell
 from uvalu.runtime import theme_colors
 
 
@@ -33,14 +33,17 @@ def recover_session_from_cookie() -> None:
         st.session_state["jwt_token"]  = tok
         st.session_state["user_email"] = email
         st.session_state["user_role"]  = role
+        logkit.auth_event("session.restored", outcome="ok", user_id=logkit.user_hash(email))
 
 
 def handle_logout() -> None:
     """Clear session + query params when ``?logout=1`` is present."""
     if st.query_params.get("logout") == "1":
         st.query_params.clear()
+        _who = logkit.user_hash(st.session_state.get("user_email"))
         for _k in ("jwt_token", "user_email", "user_role"):
             st.session_state.pop(_k, None)
+        logkit.auth_event("logout", outcome="ok", user_id=_who)
         # Expire the uv_jwt cookie/localStorage entry, THEN reload, both
         # inside the same script so the clearing genuinely finishes first.
         # An earlier version called st.rerun() right after queuing this
@@ -83,12 +86,18 @@ def auth_wall() -> None:
             _status = get_user_status(email)
             if _status is None:
                 _revoked_msg = "Your account no longer exists. Please contact your admin."
+                logkit.auth_event("session.revoked", outcome="revoked", reason="account_deleted",
+                                  user_id=logkit.user_hash(email))
             elif _status[1] == "Suspended":
                 _revoked_msg = "This account has been suspended."
+                logkit.auth_event("session.revoked", outcome="revoked", reason="suspended",
+                                  user_id=logkit.user_hash(email))
             else:
                 st.session_state["user_email"] = email
                 st.session_state["user_role"]  = _status[0]
                 return  # still a valid, active session
+        else:
+            logkit.auth_event("session.revoked", outcome="revoked", reason="invalid_token")
         for _k in ("jwt_token", "user_email", "user_role"):
             st.session_state.pop(_k, None)
 

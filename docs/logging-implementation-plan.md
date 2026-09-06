@@ -394,9 +394,22 @@ in `.gitignore`; `UVALU_ENV` in `.env.example` + `docs/configuration.md`;
 reset). `docs/logging.md`. `tests/test_logkit.py` — 37 tests. Full suite
 965 passed. **No call sites instrumented yet.**
 
-### Phase 1 — auth & authz (highest audit value, smallest surface)
-§5.1 + §5.2. Extend `test_auth.py`, `test_authgate.py`, `test_pages_admin.py`,
-`test_pages_settings.py`.
+### Phase 1 — auth & authz ✅ (branch `feat/logging-phase-0`)
+§5.1 + §5.2. `auth.py`: `login` ok / failed (`unknown_user` | `bad_password` |
+`suspended`, hashed `user_id`, never the password), `store.unreadable`
+(CRITICAL), `register` → `user.create` mutation (+ `bootstrap_admin`),
+`invite_user` → `user.invite` mutation (never the temp password), `verify_token`
+failure → `auth.token.invalid` (DEBUG), last-admin blocks in
+`set_role`/`set_status`/`delete_user` → `authz.denied`
+(`admin.{demote,suspend,delete}_last_admin`). `uvalu/authgate.py`:
+`session.restored`, `logout`, `session.revoked`
+(`suspended`/`account_deleted`/`invalid_token`). `uvalu/pages_/admin.py`
+non-admin → `authz.denied` (`admin.view`). `backup.get_backup_bytes`
+`PermissionError` → `authz.denied` (`backup.download`). `events.py`:
+`authz_denied` gained optional `actor` + `**meta`, `auth_event` default
+`outcome="ok"`. Tests: +20 across `test_auth.py`, `test_authgate.py`,
+`test_pages_admin.py`, `test_backup.py`, `test_logkit.py` (event helpers). Full
+suite 985 passed.
 
 ### Phase 2 — data mutations & config changes
 §5.3. Extend `test_portfolio.py`, `test_pages_settings.py`, `test_backup.py`.

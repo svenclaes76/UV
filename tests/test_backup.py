@@ -239,6 +239,18 @@ class TestBackupHistory:
         with pytest.raises(PermissionError):
             backup.get_backup_bytes(entry["id"], "someone-else@example.com")
 
+    def test_blocked_download_is_logged_as_authz_denied(self, caplog):
+        import logging
+        from uvalu import logkit
+        caplog.set_level(logging.DEBUG, logger="uvalu")
+        entry = backup.create_backup(EMAIL)
+        with pytest.raises(PermissionError):
+            backup.get_backup_bytes(entry["id"], "someone-else@example.com")
+        denied = [r for r in caplog.records if getattr(r, "event", None) == "authz.denied"]
+        assert denied and denied[0].action == "backup.download"
+        assert denied[0].resource == entry["id"]
+        assert denied[0].actor == logkit.user_hash("someone-else@example.com")
+
     def test_restore_backup_roundtrips(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
         entry = backup.create_backup(EMAIL)

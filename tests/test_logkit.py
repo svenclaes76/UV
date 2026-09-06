@@ -382,6 +382,65 @@ def test_user_hash_matches_the_data_dir_slug_scheme():
     assert logkit.user_hash(None) is None
 
 
+# ── event helpers (events.py) ──────────────────────────────────────────
+
+def _captured():
+    """Attach a list-capturing handler (with the real filters) to the uvalu
+    logger and return (handler, records)."""
+    recs: list[logging.LogRecord] = []
+
+    class _H(logging.Handler):
+        def emit(self, record):
+            recs.append(record)
+
+    h = _H(level=logging.DEBUG)
+    for f in _filters.all_filters():
+        h.addFilter(f)
+    logging.getLogger("uvalu").addHandler(h)
+    return h, recs
+
+
+def test_auth_event_levels_and_fields():
+    h, recs = _captured()
+    try:
+        logkit.begin_run()
+        logkit.auth_event("login.ok", outcome="ok", user_id="abc123", role="Admin")
+        logkit.auth_event("login.failed", outcome="failed", reason="bad_password")
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    ok, failed = recs
+    assert ok.name == "uvalu.auth" and ok.levelno == logging.INFO
+    assert ok.event == "auth.login.ok" and ok.user_id == "abc123" and ok.role == "Admin"
+    assert failed.levelno == logging.WARNING
+    assert failed.event == "auth.login.failed" and failed.reason == "bad_password"
+
+
+def test_authz_denied_shape():
+    h, recs = _captured()
+    try:
+        logkit.authz_denied(action="admin.view", actor="u1", required_role="Admin",
+                            got_role="Viewer", resource="page:admin")
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    (rec,) = recs
+    assert rec.name == "uvalu.authz" and rec.levelno == logging.WARNING
+    assert rec.event == "authz.denied" and rec.action == "admin.view"
+    assert rec.got_role == "Viewer" and rec.resource == "page:admin"
+
+
+def test_data_mutation_shape():
+    h, recs = _captured()
+    try:
+        logkit.data_mutation(actor="u1", action="user.create", entity_type="user",
+                             entity_id="deadbeef", bootstrap_admin=True)
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    (rec,) = recs
+    assert rec.name == "uvalu.mutation" and rec.event == "mutation"
+    assert rec.action == "user.create" and rec.entity_id == "deadbeef"
+    assert rec.bootstrap_admin is True
+
+
 # ── console formatter ───────────────────────────────────────────────────
 
 def test_color_formatter_wraps_error_lines_and_plain_mode_does_not():

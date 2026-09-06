@@ -32,6 +32,7 @@ import pandas as pd
 from crypto import read_encrypted, write_encrypted
 from portfolio import user_data_dir, load_portfolio, load_sold, load_div_hist, load_watchlist
 from settings import _settings_file, _SHARED_FILE
+from uvalu import logkit
 
 _ENV_FILE        = Path(__file__).parent / ".env"
 _ZIP_DATA_PREFIX = "data/"
@@ -252,6 +253,8 @@ def get_backup_bytes(backup_id: str, requester_email: str | None = None) -> byte
     if not entry:
         raise ValueError("Backup not found.")
     if requester_email is not None and entry.get("email") != requester_email:
+        logkit.authz_denied(action="backup.download", actor=logkit.user_hash(requester_email),
+                            resource=backup_id)
         raise PermissionError("You can only download your own backups.")
     path = _BACKUPS_DIR / entry["filename"]
     if not path.exists():

@@ -12,8 +12,9 @@ from contextlib import contextmanager
 from uvalu.logkit import get_logger
 
 
-def auth_event(event: str, *, outcome: str, user_id=None, reason=None, **meta) -> None:
-    """``auth.<event>`` — outcome one of ``ok`` / ``failed`` / ``revoked``."""
+def auth_event(event: str, *, outcome: str = "ok", user_id=None, reason=None, **meta) -> None:
+    """``auth.<event>`` — outcome one of ``ok`` / ``failed`` / ``revoked``. A
+    non-``ok`` outcome logs at WARN, ``ok`` at INFO."""
     log = get_logger("uvalu.auth")
     extra = {"event": f"auth.{event}", "outcome": outcome, **meta}
     if user_id is not None:
@@ -24,12 +25,17 @@ def auth_event(event: str, *, outcome: str, user_id=None, reason=None, **meta) -
     emit("auth %s: %s", event, outcome, extra=extra)
 
 
-def authz_denied(*, actor, action, required_role=None, got_role=None, resource=None) -> None:
+def authz_denied(*, action, actor=None, required_role=None, got_role=None,
+                 resource=None, **meta) -> None:
+    """``authz.denied`` — a role/ownership gate refused ``action``. ``actor`` is
+    the acting user hash when the caller has it (the ``user_id`` context field
+    also carries it); ``resource`` names the thing they were denied."""
     get_logger("uvalu.authz").warning(
         "authorization denied: %s", action,
         extra={
             "event": "authz.denied", "actor": actor, "action": action,
-            "required_role": required_role, "got_role": got_role, "resource": resource,
+            "required_role": required_role, "got_role": got_role,
+            "resource": resource, **meta,
         },
     )
 
