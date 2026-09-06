@@ -65,6 +65,11 @@ def _load(path: Path) -> pd.DataFrame | None:
     try:
         return pd.DataFrame(json.loads(read_encrypted(path)))
     except Exception:
+        # File exists but couldn't be decrypted/parsed — a silent None here
+        # reads downstream as "no portfolio", so make the failure visible.
+        logkit.get_logger("uvalu.portfolio").warning(
+            "could not read %s", path.name, exc_info=True,
+            extra={"event": "storage.read_failed", "file": path.name})
         return None
 
 

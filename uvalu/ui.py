@@ -165,6 +165,10 @@ def _auto_rerun(seconds: float, key: str, version_fn=None, *, max_idle_ticks: in
 
     @st.fragment(run_every=seconds)
     def _tick():
+        # A fragment rerun doesn't re-enter app.py's begin_run(); keep a
+        # correlation id bound so anything logged from here (or from work this
+        # tick kicks off) is traceable.
+        logkit.ensure_run()
         if st.session_state.pop(_flag, False):
             return
         if _dialog_is_open():

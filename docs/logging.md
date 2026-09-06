@@ -7,9 +7,10 @@ is and isn't logged, and the operational decisions. The phased rollout lives in
 [logging-implementation-plan.md](logging-implementation-plan.md); the config-key
 table is in [configuration.md](configuration.md#logging).
 
-> **Status:** Phase 0 (pipeline + schema + `app.py` boot hooks) is in place.
-> Individual call sites — auth, data mutations, external calls, background jobs —
-> are instrumented in Phases 1–4.
+> **Status:** Phases 0–4 are in place — the pipeline plus auth/authz events,
+> data mutations, config changes, external-call timing, background-job
+> lifecycle, render telemetry, and process/thread excepthooks. Phase 5
+> (hardening + queue load-test) remains.
 
 ---
 

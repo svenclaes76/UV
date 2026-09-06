@@ -206,6 +206,9 @@ def _load_backup_manifest() -> list[dict]:
     try:
         return json.loads(read_encrypted(_BACKUPS_MANIFEST))
     except Exception:
+        logkit.get_logger("uvalu.backup").warning(
+            "backup manifest unreadable", exc_info=True,
+            extra={"event": "storage.read_failed", "file": "manifest.json"})
         return []
 
 

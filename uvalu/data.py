@@ -602,7 +602,9 @@ def prefetch_portfolio_data() -> None:
         fetch_fundamentals_nowait(stocks, fetcher=PORTFOLIO_FETCH, priority=stocks)
         _fetch_prices_cached(tuple(seen))
     except Exception:
-        pass
+        logkit.get_logger("uvalu.data").warning(
+            "portfolio prefetch failed", exc_info=True,
+            extra={"event": "job.failed", "job": "portfolio_prefetch"})
 
 
 def _price_bucket() -> int:

@@ -456,9 +456,32 @@ across `test_portfolio.py`, `test_pages_settings.py`, `test_auth.py`,
   `test_marketdata.py`, `test_portfolio.py` (spawn correlation-id propagation).
   `_captured()` helper no longer re-runs stateful filters. Full suite 1010 passed.
 
-### Phase 4 — render telemetry, global hooks, fingerprinting
-§5.6 + §5.7. `sys`/`threading` excepthooks. `FingerprintFilter` +
-`error_stats()`. Tune `sampling["uvalu.render"]`.
+### Phase 4 — render telemetry, global hooks, swallowed-error sweep ✅ (branch `feat/logging-phase-0`)
+§5.6 + §5.7.
+- **Render telemetry** — `app.py` logs a `render` event after `_nav.run()` in a
+  `finally` (so an `st.stop()` page still counts): `page`, `duration_ms`,
+  `outcome`, `kind`. A genuine navigation (url_path changed this session) →
+  INFO; a timer/interaction re-render → DEBUG, and only when
+  `health_check_logging` is on. `render.error` (ERROR + stack) on a real
+  exception. Helper `logkit.render_event()`.
+- **`per_logger_levels["uvalu.render"]`** default `WARNING` → `INFO` so
+  navigation telemetry is visible by default.
+- **`sys.excepthook` + `threading.excepthook`** installed by `init_logging()`
+  (non-synchronous path only) → `process.uncaught` (CRITICAL) /
+  `thread.uncaught` (ERROR), then chain to the previous hook. Catches crashes
+  in threads *not* started via `logkit.spawn` (Streamlit's ScriptRunner /
+  fragment / `@st.cache_data` workers). `_reset_for_tests` restores them.
+- **`_auto_rerun`** `_tick` fragment now calls `logkit.ensure_run()`.
+- **Swallowed-error sweep** — `portfolio._load`, `settings.load_shared_settings`
+  / `load_settings`, `backup._load_backup_manifest` now log
+  `storage.read_failed` (WARNING + `exc_info`) before their silent
+  default-fallback; `uvalu/data.prefetch_portfolio_data`'s bare `except`
+  now logs `job.failed`. Behaviour unchanged.
+- **Fingerprinting / `error_stats()`** — already shipped in Phase 0
+  (`FingerprintFilter` + re-export); no further work.
+- Tests: +11 across `test_logkit.py` (render_event, excepthook install/chain),
+  `test_app_smoke.py`, `test_portfolio.py`, `test_pages_settings.py`,
+  `test_backup.py`. Full suite 1017 passed.
 
 ### Phase 5 — hardening & docs
 Queue load-test under the `_auto_rerun` 5 s cadence; tune `queue_capacity` +

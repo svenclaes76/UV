@@ -32,11 +32,11 @@ from uvalu.logkit.context import (begin_run, bind, clear, correlation_id,  # noq
                                   ensure_run, spawn, user_hash, user_id)
 from uvalu.logkit.setup import error_stats, init_logging  # noqa: E402
 from uvalu.logkit.events import (auth_event, authz_denied, config_change,  # noqa: E402
-                                 data_mutation, external_call, job)
+                                 data_mutation, external_call, job, render_event)
 
 __all__ = [
     "init_logging", "get_logger", "begin_run", "ensure_run", "bind", "clear",
     "correlation_id", "user_id", "user_hash", "spawn", "error_stats",
     "auth_event", "authz_denied", "config_change", "data_mutation",
-    "external_call", "job",
+    "external_call", "job", "render_event",
 ]

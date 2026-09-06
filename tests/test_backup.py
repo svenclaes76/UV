@@ -272,11 +272,15 @@ class TestBackupHistory:
     def test_load_backup_manifest_returns_empty_list_when_missing(self):
         assert backup._load_backup_manifest() == []
 
-    def test_load_backup_manifest_returns_empty_list_on_corrupt_file(self):
+    def test_load_backup_manifest_returns_empty_list_on_corrupt_file(self, caplog):
+        import logging
         from crypto import write_encrypted
+        caplog.set_level(logging.DEBUG, logger="uvalu")
         backup._BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         write_encrypted(backup._BACKUPS_MANIFEST, "not valid json{{{")
         assert backup._load_backup_manifest() == []
+        reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
+        assert reads and reads[0].file == "manifest.json"
 
 
 # ── logging (logkit Phase 2) ─────────────────────────────────────────────

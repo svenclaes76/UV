@@ -279,3 +279,12 @@ class TestSettingsLogging:
         current = settings.load_shared_settings()
         settings.save_shared_settings(dict(current))
         assert _config_changes(caplog) == []
+
+    def test_corrupt_shared_settings_file_logs_and_falls_back(self, isolated_data, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        settings._SHARED_FILE.parent.mkdir(parents=True, exist_ok=True)
+        settings._SHARED_FILE.write_bytes(b"not a valid encrypted payload")
+        got = settings.load_shared_settings()
+        assert got["max_debt_equity"] == 500.0           # defaults, behaviour unchanged
+        reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
+        assert reads and reads[0].file == "shared.json" and reads[0].exc_info is not None

@@ -33,7 +33,7 @@ DEFAULTS: dict = {
     "stack_traces": "auto",
     "health_check_logging": False,
     "hot_reload": True,
-    "per_logger_levels": {"uvalu.render": "WARNING"},
+    "per_logger_levels": {"uvalu.render": "INFO"},
     "sampling": {
         "uvalu.screener.fetch": {"level": "INFO", "rate": 0.05},
         "uvalu.render": {"level": "DEBUG", "rate": 0.0},

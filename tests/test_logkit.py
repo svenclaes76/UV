@@ -507,6 +507,82 @@ def test_external_call_non_ok_status_logs_warning_not_exception():
     assert rec.retries == 4 and rec.exc_info is None
 
 
+# ── render telemetry ─────────────────────────────────────────────────────
+
+def test_render_event_navigation_is_info_rerun_is_gated(monkeypatch):
+    h, recs = _captured()
+    try:
+        logkit.render_event("dashboard", 42, is_navigation=True)
+        # rerun: silent by default
+        monkeypatch.setattr(_config, "_current",
+                            {**_config.DEFAULTS, "health_check_logging": False})
+        logkit.render_event("dashboard", 5, is_navigation=False)
+        # rerun: DEBUG when health_check_logging on
+        monkeypatch.setattr(_config, "_current",
+                            {**_config.DEFAULTS, "health_check_logging": True})
+        logkit.render_event("dashboard", 6, is_navigation=False)
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    kinds = [(r.kind, r.levelno) for r in recs]
+    assert ("navigation", logging.INFO) in kinds
+    assert ("rerun", logging.DEBUG) in kinds
+    assert sum(k == "rerun" for k, _ in kinds) == 1     # the gated-off one didn't emit
+
+
+def test_render_event_error_outcome_always_logs():
+    h, recs = _captured()
+    try:
+        logkit.render_event("risk", 900, is_navigation=False, outcome="error")
+    finally:
+        logging.getLogger("uvalu").removeHandler(h)
+    (rec,) = recs
+    assert rec.event == "render" and rec.outcome == "error" and rec.levelno == logging.INFO
+
+
+# ── excepthooks ─────────────────────────────────────────────────────────
+
+def test_thread_excepthook_logs_and_chains(caplog, monkeypatch):
+    caplog.set_level(logging.DEBUG, logger="uvalu")
+    saved = threading.excepthook
+    _setup._install_excepthooks()
+    assert threading.excepthook is not saved
+    chained = []
+    # Chain to a no-op instead of pytest's own thread-exception collector so
+    # invoking the hook here doesn't register a spurious unhandled-thread warning.
+    monkeypatch.setattr(_setup, "_prev_thread_excepthook", lambda a: chained.append(a))
+    try:
+        raise RuntimeError("thread died")
+    except RuntimeError:
+        ei = sys.exc_info()
+
+    class _Args:
+        exc_type, exc_value, exc_traceback = ei
+        thread = threading.current_thread()
+
+    try:
+        threading.excepthook(_Args)          # invoke our installed hook
+    finally:
+        threading.excepthook = saved
+        _setup._prev_excepthook = _setup._prev_thread_excepthook = None
+
+    assert chained                            # previous hook still called
+    uncaught = [r for r in caplog.records if getattr(r, "event", None) == "thread.uncaught"]
+    assert uncaught and uncaught[0].exc_info is not None
+    assert uncaught[0].thread_name == threading.current_thread().name
+
+
+def test_install_excepthooks_is_idempotent_and_restorable():
+    import sys as _sys
+    original = _sys.excepthook
+    _setup._install_excepthooks()
+    hooked = _sys.excepthook
+    assert hooked is not original
+    _setup._install_excepthooks()          # no-op second call
+    assert _sys.excepthook is hooked
+    _setup._restore_excepthooks()
+    assert _sys.excepthook is original
+
+
 # ── console formatter ───────────────────────────────────────────────────
 
 def test_color_formatter_wraps_error_lines_and_plain_mode_does_not():

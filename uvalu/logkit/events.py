@@ -65,6 +65,21 @@ def config_change(*, actor, key, old, new, scope) -> None:
     )
 
 
+def render_event(page, duration_ms: int, *, is_navigation: bool, outcome: str = "ok") -> None:
+    """Page-render telemetry (spec §4 "API requests"). A real navigation logs at
+    INFO; a timer/fragment re-render logs at DEBUG only when
+    ``health_check_logging`` is on (uvalu has no health endpoint, but the 5s
+    auto-rerun fragments are the equivalent churn — spec §11)."""
+    from uvalu.logkit import config as _config
+    log = get_logger("uvalu.render")
+    extra = {"event": "render", "page": page, "outcome": outcome,
+             "duration_ms": duration_ms, "kind": "navigation" if is_navigation else "rerun"}
+    if is_navigation or outcome != "ok":
+        log.info("rendered %s", page, extra=extra)
+    elif _config.current().get("health_check_logging", False):
+        log.debug("re-rendered %s", page, extra=extra)
+
+
 class _Note:
     def __init__(self, state: dict) -> None:
         self._state = state

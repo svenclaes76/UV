@@ -22,7 +22,7 @@
   "hot_reload": true,
 
   "per_logger_levels": {
-    "uvalu.render": "WARNING"
+    "uvalu.render": "INFO"
   },
 
   "sampling": {

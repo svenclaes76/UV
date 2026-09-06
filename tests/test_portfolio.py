@@ -512,6 +512,14 @@ class TestPortfolioLogging:
         (rec,) = _mutations(caplog, "targets.update")
         assert rec.sectors == 2 and rec.tickers == 0 and rec.has_hhi_max is True
 
+    def test_corrupt_portfolio_file_logs_storage_read_failed(self, caplog):
+        caplog.set_level(_logging.DEBUG, logger="uvalu")
+        (portfolio._user_dir() / "portfolio.json").write_bytes(b"not a valid encrypted payload")
+        assert portfolio.load_portfolio() is None       # behaviour unchanged
+        reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
+        assert reads and reads[0].file == "portfolio.json"
+        assert reads[0].levelname == "WARNING" and reads[0].exc_info is not None
+
     def test_ensure_value_history_fresh_runs_backfill_job_on_spawned_thread(self, monkeypatch, caplog):
         import yfinance as yf
         caplog.set_level(_logging.DEBUG, logger="uvalu")

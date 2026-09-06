@@ -33,6 +33,8 @@ _initialised = False
 _synchronous = False
 _listener: "logging.handlers.QueueListener | None" = None
 _reload_stop: "threading.Event | None" = None
+_prev_excepthook = None
+_prev_thread_excepthook = None
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -173,6 +175,7 @@ def init_logging(*, synchronous: "bool | None" = None,
 
         _apply_per_logger_levels(cfg)
         logging.getLogger().setLevel(logging.WARNING)  # third-party noise floor
+        _install_excepthooks()
         _initialised = True
 
     # outside the lock: one-shot retention sweep + the hot-reload / daily-sweep thread
@@ -240,6 +243,53 @@ def _safe_sweep(cfg, log_dir) -> None:
         )
 
 
+def _install_excepthooks() -> None:
+    """Route otherwise-unhandled exceptions — process-level and in threads not
+    started via ``logkit.spawn`` (Streamlit's own ScriptRunner / fragment
+    threads, ``@st.cache_data`` workers) — through a structured record, then
+    chain to the previous hook so nothing that used to happen stops happening."""
+    global _prev_excepthook, _prev_thread_excepthook
+    if _prev_excepthook is not None:
+        return
+    _prev_excepthook = sys.excepthook
+    _prev_thread_excepthook = threading.excepthook
+
+    def _sys_hook(exc_type, exc_value, tb):
+        if not issubclass(exc_type, KeyboardInterrupt):
+            try:
+                logging.getLogger("uvalu").critical(
+                    "uncaught exception", exc_info=(exc_type, exc_value, tb),
+                    extra={"event": "process.uncaught"})
+            except Exception:
+                pass
+        _prev_excepthook(exc_type, exc_value, tb)
+
+    def _thread_hook(args):
+        if args.exc_type is not SystemExit:
+            try:
+                _name = getattr(args.thread, "name", None)
+                logging.getLogger("uvalu").error(
+                    "uncaught exception in thread %s", _name or "?",
+                    exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+                    extra={"event": "thread.uncaught", "thread_name": _name})
+            except Exception:
+                pass
+        _prev_thread_excepthook(args)
+
+    sys.excepthook = _sys_hook
+    threading.excepthook = _thread_hook
+
+
+def _restore_excepthooks() -> None:
+    global _prev_excepthook, _prev_thread_excepthook
+    if _prev_excepthook is not None:
+        sys.excepthook = _prev_excepthook
+        _prev_excepthook = None
+    if _prev_thread_excepthook is not None:
+        threading.excepthook = _prev_thread_excepthook
+        _prev_thread_excepthook = None
+
+
 def _shutdown() -> None:
     global _listener
     if _listener is not None:
@@ -258,6 +308,7 @@ def _reset_for_tests() -> None:
     global _initialised, _reload_stop
     with _init_lock:
         _shutdown()
+        _restore_excepthooks()
         if _reload_stop is not None:
             _reload_stop.set()
             _reload_stop = None

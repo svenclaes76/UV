@@ -200,7 +200,7 @@ are in [logging.md](logging.md); the rollout is in
 | `async` | `true` | restart | Log off the caller thread via a queue + listener (spec §9). |
 | `queue_capacity` | `10000` | restart | Bounded queue; INFO/DEBUG dropped (and counted) when full, WARN+ block. |
 | `stack_traces` | `"auto"` | yes | `auto` = full in dev/staging, `error_type` + `error_fingerprint` only in `production`. Also `always` / `never`. |
-| `health_check_logging` | `false` | yes | When false, timer/fragment auto-rerun renders don't emit render telemetry. |
+| `health_check_logging` | `false` | yes | When false, timer/fragment auto-rerun re-renders emit no telemetry; a genuine page navigation still logs at INFO either way. |
 | `hot_reload` | `true` | — | Poll this file for changes at runtime. |
-| `per_logger_levels` | `{"uvalu.render": "WARNING"}` | yes | Per-logger level overrides. |
+| `per_logger_levels` | `{"uvalu.render": "INFO"}` | yes | Per-logger level overrides. |
 | `sampling` | see file | yes | Per-logger `{level, rate}` — keep `rate` (0–1) of that level's records; WARN+ never sampled. |

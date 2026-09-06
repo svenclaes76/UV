@@ -82,6 +82,11 @@ def load_shared_settings() -> dict:
             data.setdefault(k, v)
         return data
     except Exception:
+        # Unreadable shared-settings file silently reverts every workspace-wide
+        # veto threshold to its default — worth surfacing.
+        logkit.get_logger("uvalu.settings").warning(
+            "shared settings unreadable — falling back to defaults", exc_info=True,
+            extra={"event": "storage.read_failed", "file": "shared.json"})
         return dict(_SHARED_DEFAULTS)
 
 
@@ -130,6 +135,9 @@ def load_settings(email: str = "") -> dict:
             data.setdefault(k, v)
         return data
     except Exception:
+        logkit.get_logger("uvalu.settings").warning(
+            "user settings unreadable — falling back to defaults", exc_info=True,
+            extra={"event": "storage.read_failed", "file": path.name})
         return dict(_USER_DEFAULTS)
 
 
