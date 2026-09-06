@@ -4,6 +4,12 @@ All notable changes to UV are documented here.
 
 ---
 
+## [Unreleased]
+
+_Nothing yet._
+
+---
+
 ## [1.5.0] — 2026-09-06
 
 Two independent workstreams: the "Loading Patterns" design rollout and a new
