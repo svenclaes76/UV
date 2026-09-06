@@ -9,6 +9,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
+# Logging must come up before anything else can want to log. init_logging() is
+# idempotent (a no-op after the first rerun in this process); begin_run() stamps
+# a fresh correlation id on every rerun (see uvalu/logkit/).
+from uvalu import logkit
+logkit.init_logging()
+logkit.begin_run()
+
 import streamlit as st
 
 from portfolio import set_user
@@ -38,6 +45,7 @@ authgate.handle_logout()
 # Resolve the current user and point the data layer at their storage.
 _email = current_user().email
 set_user(_email)
+logkit.bind(email=_email)
 
 authgate.auth_wall()
 
@@ -108,4 +116,12 @@ if _nav.url_path != "admin":
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).
 dispatch_pending_drawer_action()
-_nav.run()
+
+try:
+    _nav.run()
+except Exception:
+    logkit.get_logger("uvalu.render").exception(
+        "page render failed",
+        extra={"event": "render", "page": getattr(_nav, "url_path", None)},
+    )
+    raise

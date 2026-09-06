@@ -1,0 +1,32 @@
+{
+  "level": "INFO",
+  "environment": null,
+
+  "console": { "enabled": true, "format": "auto", "color": "auto" },
+
+  "file": {
+    "enabled": true,
+    "path": "logs/uvalu.log",
+    "max_bytes": 5242880,
+    "backup_count": 10,
+    "format": "json"
+  },
+
+  "retention_days": 31,
+
+  "async": true,
+  "queue_capacity": 10000,
+
+  "stack_traces": "auto",
+  "health_check_logging": false,
+  "hot_reload": true,
+
+  "per_logger_levels": {
+    "uvalu.render": "WARNING"
+  },
+
+  "sampling": {
+    "uvalu.screener.fetch": { "level": "INFO", "rate": 0.05 },
+    "uvalu.render":         { "level": "DEBUG", "rate": 0.0 }
+  }
+}

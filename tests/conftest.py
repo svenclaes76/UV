@@ -43,6 +43,23 @@ USER_SETUP_SRC = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _logkit_isolated(tmp_path):
+    """Route uvalu/logkit into synchronous, file-less mode for every test and
+    reset its process-global state (filter counters, the fingerprint table,
+    context vars) between tests — the same treatment conftest already gives
+    uvalu.store and the risk-compute dicts in isolated_data below.
+
+    Synchronous mode keeps ``propagate`` on so pytest's ``caplog`` captures
+    ``uvalu.*`` records; no queue listener thread, no ``logs/`` file.
+    """
+    from uvalu.logkit import setup as _lk_setup
+    _lk_setup._reset_for_tests()
+    _lk_setup.init_logging(synchronous=True, log_dir=tmp_path)
+    yield
+    _lk_setup._reset_for_tests()
+
+
 @pytest.fixture
 def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")

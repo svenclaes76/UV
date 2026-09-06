@@ -8,8 +8,9 @@ Stored in `.env` in the project root. Required — the app will not start withou
 |---|---|---|
 | `AUTH_SECRET` | 64-char hex | HMAC-SHA256 signing key for JWT tokens. Must be kept secret. |
 | `ENCRYPTION_KEY` | 64-char hex | Fernet key for encrypting portfolio and settings files at rest. Must be kept secret. Changing this key makes all existing encrypted files unreadable. |
+| `UVALU_ENV` | `development` \| `staging` \| `production` | Optional (default `development`). Tags every log line (`metadata.environment`) and controls stack-trace verbosity — full traces in `development`/`staging`, `error_type` + `error_fingerprint` only in `production`. Overridden by `environment` in `logging.config.json` if that is set. |
 
-Generate both with:
+Generate the two secrets with:
 
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
@@ -176,3 +177,30 @@ Defined in `auth.py`.
 | JWT algorithm | HS256 | HMAC-SHA256 |
 | JWT TTL | 24 hours | Fixed expiry from issue time (not a sliding/inactivity window); re-login required after |
 | Password hashing | bcrypt | `bcrypt.hashpw` with a per-password salt |
+
+---
+
+## Logging
+
+**`logging.config.json`** (project root, committed with defaults). Read at
+startup by `uvalu/logkit/`; the live-adjustable keys are re-read on a 5-second
+mtime poll while the app runs (`hot_reload`). Full schema and per-key semantics
+are in [logging.md](logging.md); the rollout is in
+[logging-implementation-plan.md](logging-implementation-plan.md).
+
+| Key | Default | Hot-reload | Description |
+|---|---|---|---|
+| `level` | `"INFO"` | yes | Root level for the `uvalu` logger tree. |
+| `environment` | `null` | — | Overrides `UVALU_ENV` when set. `null` → use `UVALU_ENV`, then `development`. |
+| `console.enabled` / `console.format` / `console.color` | `true` / `"auto"` / `"auto"` | restart | `format`: `text` \| `json` \| `auto` (json when stderr is not a TTY). `color`: `always` \| `never` \| `auto` (on when TTY and `NO_COLOR` unset). |
+| `file.enabled` | `true` | restart | Write JSON lines to `file.path`. |
+| `file.path` | `"logs/uvalu.log"` | restart | Relative to project root. `logs/` is gitignored. |
+| `file.max_bytes` / `file.backup_count` | `5242880` / `10` | restart | Size-based rotation; total cap ≈ `max_bytes × (backup_count + 1)` ≈ 55 MB. |
+| `retention_days` | `31` | next sweep | Rotated backups older than this are purged at startup and ~daily. |
+| `async` | `true` | restart | Log off the caller thread via a queue + listener (spec §9). |
+| `queue_capacity` | `10000` | restart | Bounded queue; INFO/DEBUG dropped (and counted) when full, WARN+ block. |
+| `stack_traces` | `"auto"` | yes | `auto` = full in dev/staging, `error_type` + `error_fingerprint` only in `production`. Also `always` / `never`. |
+| `health_check_logging` | `false` | yes | When false, timer/fragment auto-rerun renders don't emit render telemetry. |
+| `hot_reload` | `true` | — | Poll this file for changes at runtime. |
+| `per_logger_levels` | `{"uvalu.render": "WARNING"}` | yes | Per-logger level overrides. |
+| `sampling` | see file | yes | Per-logger `{level, rate}` — keep `rate` (0–1) of that level's records; WARN+ never sampled. |
