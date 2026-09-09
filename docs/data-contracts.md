@@ -56,7 +56,9 @@ between screens at some point (see the `dq/*` history); the tests in
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
-  `targetMeanPrice`, or a dividend rate **with** a payout ratio, or ≥3yr
+  `targetMeanPrice`, or a dividend rate whose **payout signal** —
+  `_payout_signal`: reported ratio in [0, 0.95], else `cashPayoutRatio`, else
+  `1 / dividendCoverage` — lands inside the DDM ramp band, or ≥3yr
   `ebitHistory` + `enterpriseValue`). It mirrors `_fair_value_models`' own
   per-model input guards and must be kept in step with them. A row that is not
   scorable produces a NaN `fair_value` / `MoS`, which the rank layer papers over

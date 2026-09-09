@@ -964,6 +964,36 @@ def _ddm_weight_factor(div_rate, payout) -> float:
     return (hi0 - payout) / (hi0 - hi1)
 
 
+# FV-1: the payout ramp above needs a payout ratio, but yfinance's reported
+# `payoutRatio` divides by trailing GAAP net income — it comes back absurd
+# (1.4×, 7.7×), negative, or null for a loss-making, trough-earnings or
+# freshly-demerged payer, and any value outside the ramp's own contributing band
+# silently zero-weights BOTH DDM variants. `_payout_signal` trusts the reported
+# ratio only while it is inside `[0, _DDM_PAYOUT_KNOTS[3]]` (0–95%) — the regime
+# where the GAAP denominator is sound — and otherwise falls back to the cash
+# payout (`cashPayoutRatio` = DPS·shares / FCF, derived in `_fetch_one`), then to
+# the reciprocal of the EPS/DPS coverage ratio. Only when no proxy at all is
+# available does it surface the extreme reported value (so the ramp still zeroes
+# it). Returns (value | None, source); `source` is persisted on the scored row
+# as `payout_source` for the UI.
+_PAYOUT_CASH_MAX = 1.5   # accept the cash payout ratio as a signal up to here
+
+
+def _payout_signal(row: "dict | pd.Series") -> "tuple[float | None, str]":
+    pr = _finite(row.get("payoutRatio"))
+    if pr is not None and 0.0 <= pr <= _DDM_PAYOUT_KNOTS[3]:
+        return pr, "reported"
+    cpr = _finite(row.get("cashPayoutRatio"))
+    if cpr is not None and 0.0 < cpr <= _PAYOUT_CASH_MAX:
+        return cpr, "cash"
+    cov = _finite(row.get("dividendCoverage"))
+    if cov is not None and cov > 0:
+        return min(1.0 / cov, 10.0), "coverage"
+    if pr is not None:
+        return pr, "reported"   # extreme / negative and no better proxy — ramp zeroes it
+    return None, "none"
+
+
 def _analyst_weight_factor(row: pd.Series) -> float:
     """Multiplier in [~0.09, 1.0] applied to W_ANALYST. Scales the analyst
     target's pull down when the sell-side estimates disagree (wide high–low
@@ -1012,18 +1042,34 @@ def _sector_pe_medians(df: pd.DataFrame) -> dict:
     }
 
 
+# FV-2: a plain mean of `ebitHistory` does *not* survive a single catastrophic
+# year — one −20bn writedown drags a 4-year mean negative even when the other
+# three years are solidly positive, and EPV then refuses the stock entirely.
+# `_normalised_ebit` drops years more than `_EBIT_OUTLIER_MAD_K` MADs from the
+# median before averaging, so a lone crisis (or windfall) year is removed rather
+# than merely diluted. Falls back to the median when the spread is degenerate,
+# and to the point-in-time `ebit` below `_EBIT_MIN_YEARS` finite years.
+_EBIT_MIN_YEARS     = 3
+_EBIT_OUTLIER_MAD_K = 3.0
+
+
 def _normalised_ebit(row: pd.Series):
-    """Mean EBIT across the available multi-year window (`ebitHistory`, newest
-    first) when at least 3 finite years exist — EPV capitalises a
-    through-the-cycle *earnings power*, so a single peak or trough year
-    shouldn't set the whole valuation. Falls back to the point-in-time `ebit`
-    otherwise (recent IPOs, tickers whose statement fetch failed)."""
+    """Robust mean EBIT across the multi-year window (`ebitHistory`, newest
+    first) when at least `_EBIT_MIN_YEARS` finite years exist — EPV capitalises a
+    through-the-cycle *earnings power*, so neither a single crisis year nor a
+    single peak should set the whole valuation. Falls back to the point-in-time
+    `ebit` otherwise (recent IPOs, tickers whose statement fetch failed)."""
     hist = row.get("ebitHistory")
     vals = ([f for f in (_finite(v) for v in hist) if f is not None]
             if isinstance(hist, list) else [])
-    if len(vals) >= 3:
-        return sum(vals) / len(vals)
-    return _get_num(row, "ebit")
+    if len(vals) < _EBIT_MIN_YEARS:
+        return _get_num(row, "ebit")
+    med = float(np.median(vals))
+    mad = float(np.median([abs(v - med) for v in vals]))
+    if mad <= 0:
+        return med
+    kept = [v for v in vals if abs(v - med) <= _EBIT_OUTLIER_MAD_K * mad]
+    return sum(kept) / len(kept) if len(kept) >= 2 else med
 
 
 def _row_is_scorable(row: "dict | pd.Series") -> bool:
@@ -1036,10 +1082,14 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     guards; if a model's requirements change there, mirror the change here.
     ``bookValue`` alone does not count (no model uses it without a positive EPS —
     Graham needs both), but a sane ``trailingPE`` lets ``_fetch_one`` recover
-    that EPS (WP-B), so P/E + book value does. The EBIT branch is deliberately
-    lenient: it accepts a multi-year history without re-checking the mean's sign,
-    since a false "scorable" only means the row keeps its normal TTL — it still
-    renders "—" if the models genuinely can't value it, exactly as today.
+    that EPS (WP-B), so P/E + book value does. The DDM branch mirrors
+    ``_payout_signal`` + ``_ddm_weight_factor`` (FV-1): a payer is scorable via
+    DDM whenever *some* payout proxy — reported ratio, cash payout, or
+    1/coverage — lands inside the ramp band, not only when ``payoutRatio`` is
+    present. The EBIT branch is deliberately lenient: it accepts a multi-year
+    history without re-checking the mean's sign, since a false "scorable" only
+    means the row keeps its normal TTL — it still renders "—" if the models
+    genuinely can't value it, exactly as today.
     """
     def _num(key):
         v = row.get(key)
@@ -1056,7 +1106,6 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     ev     = _num("enterpriseValue")
     target = _num("targetMeanPrice")
     div    = _num("trailingAnnualDividendRate") or _num("dividendRate")
-    payout = _num("payoutRatio")
 
     _hist = row.get("ebitHistory")
     have_ebit = (ebit is not None and ebit > 0) or (
@@ -1069,7 +1118,8 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         book is not None and book > 0
             and pe is not None and _PE_DERIVE_BAND[0] < pe < _PE_DERIVE_BAND[1],  # WP-B recovers EPS -> Graham, PE
         target is not None and target > 0,                              # analyst target
-        div is not None and div > 0 and payout is not None,             # DDM (payout needed for a non-zero weight)
+        div is not None and div > 0
+            and _ddm_weight_factor(div, _payout_signal(row)[0]) > 0,     # DDM (payout ramp must be non-zero)
         have_ebit and ev is not None and ev > 0,                        # earnings power value
     ))
 
@@ -1079,9 +1129,9 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
-    payout   = row.get("payoutRatio")
+    payout, payout_source = _payout_signal(row)   # FV-1: reported / cash / 1-over-coverage
     analyst  = row.get("targetMeanPrice")
-    ebit     = _normalised_ebit(row)   # mean of ebitHistory (≥3yr) else point-in-time
+    ebit     = _normalised_ebit(row)   # robust mean of ebitHistory (≥3yr) else point-in-time
     ev       = row.get("enterpriseValue")
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")
@@ -1121,9 +1171,10 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
             # Fallback when shares outstanding is unavailable: EV-ratio approximation.
             epv = price * (epv_ev / ev)
 
-    # DDM weight ramps with the payout ratio (_ddm_weight_factor) rather than a
+    # DDM weight ramps with the payout signal (_ddm_weight_factor) rather than a
     # hard 5–90% in/out gate — full base weight in the 30–70% band, tapering to 0
     # by 5% / 95%, so an 89%→91% payer shifts by a sliver, not the whole block.
+    # `payout` is _payout_signal's best proxy (FV-1), not the raw reported ratio.
     ddm_factor  = _ddm_weight_factor(div_rate, payout)
     ddm_usable  = ddm_factor > 0
     w_ddm1 = W_DDM_SINGLE * ddm_factor
@@ -1152,7 +1203,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     if not avail:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
-                "ddm_contributed": False, "fair_value_clamped": False}
+                "ddm_contributed": False, "fair_value_clamped": False,
+                "payout_source": payout_source}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
@@ -1189,6 +1241,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "fair_value":     round(iv, 2),
         "ddm_contributed": ddm_contributed,
         "fair_value_clamped": fv_clamped,
+        "payout_source":  payout_source,
     }
 
 

@@ -21,6 +21,7 @@ from screener import (
     _ddm_single,
     _ddm_multistage,
     _ddm_weight_factor,
+    _payout_signal,
     _analyst_weight_factor,
     _fair_value_models,
     _margin_of_safety,
@@ -401,6 +402,44 @@ class TestFairValueBlend:
         swing = abs(fv(0.60)["fair_value"] - fv(0.97)["fair_value"])
         assert step < 0.25 * swing
 
+    def test_payout_signal_prefers_reported_then_cash_then_coverage(self):
+        f = _payout_signal
+        # a sane reported ratio wins
+        assert f({"payoutRatio": 0.55, "cashPayoutRatio": 0.9}) == (0.55, "reported")
+        # an absurd reported ratio (loss year) → fall through to the cash payout
+        assert f({"payoutRatio": 7.74, "cashPayoutRatio": 0.31}) == (0.31, "cash")
+        assert f({"payoutRatio": None, "cashPayoutRatio": 0.45}) == (0.45, "cash")
+        # neither available → 1 / coverage
+        val, src = f({"payoutRatio": 1.4, "dividendCoverage": 0.8})
+        assert src == "coverage" and val == pytest.approx(1.25)
+        # nothing usable → None, but an extreme reported value is still surfaced
+        assert f({"payoutRatio": 3.0})[0] == 3.0
+        assert f({"dividendRate": 2.0}) == (None, "none")
+
+    def test_ddm_rescued_when_reported_payout_is_unusable_but_cash_is_sane(self):
+        # NEXI-shaped: reported payoutRatio 1.09 (loss year) would zero-weight
+        # the DDM block; cashPayoutRatio 0.45 is inside the comfortable band, so
+        # both DDM variants now feed the composite.
+        row = pd.Series({"Price": 50.0, "trailingAnnualDividendRate": 2.0,
+                         "beta": 1.0, "payoutRatio": 1.09,
+                         "cashPayoutRatio": 0.45})
+        fv = _fair_value_models(row)
+        assert fv["ddm"] is not None and fv["ddm_multistage"] is not None
+        assert fv["ddm_contributed"] is True
+        assert fv["payout_source"] == "cash"
+        assert screener._row_is_scorable(row) is True
+
+    def test_ddm_stays_dark_when_every_payout_proxy_is_stretched(self):
+        # MELE-shaped: reported 1.44 is rejected, cash 1.36 is accepted as the
+        # signal but sits above the ramp's 0.95 knot → factor 0, so DDM is
+        # correctly still excluded (the fallback doesn't over-rescue).
+        row = pd.Series({"Price": 50.0, "trailingAnnualDividendRate": 2.0,
+                         "beta": 1.0, "payoutRatio": 1.44,
+                         "cashPayoutRatio": 1.36, "dividendCoverage": 0.69})
+        fv = _fair_value_models(row)
+        assert fv["ddm"] is None and fv["ddm_multistage"] is None
+        assert fv["ddm_contributed"] is False
+
     def test_epv_included_when_ebit_and_ev_available(self):
         row = pd.Series({"Price": 50.0, "ebit": 1_000_000.0, "enterpriseValue": 10_000_000.0,
                          "beta": 1.0})
@@ -414,7 +453,7 @@ class TestFairValueBlend:
 
     def test_normalised_ebit_averages_history_or_falls_back(self):
         f = screener._normalised_ebit
-        # >= 3 finite years → mean of the window
+        # >= 3 finite years with no outlier → mean of the window
         assert f(pd.Series({"ebit": 999.0, "ebitHistory": [40.0, 30.0, 20.0]})) == pytest.approx(30.0)
         assert f(pd.Series({"ebit": 999.0,
                             "ebitHistory": [40.0, float("nan"), 30.0, 20.0]})) == pytest.approx(30.0)
@@ -423,7 +462,20 @@ class TestFairValueBlend:
         assert f(pd.Series({"ebit": 55.0})) == 55.0
         assert f(pd.Series({"ebit": float("nan"), "ebitHistory": None})) is None
 
-    def test_epv_uses_mean_ebit_not_a_peak_year(self):
+    def test_normalised_ebit_drops_a_single_crisis_year(self):
+        # FV-2: [+2957, −19790, +5442, +5407] — a one-off writedown year. A plain
+        # mean is −1496 (EPV then refuses the stock); the MAD guard drops the
+        # −19790 outlier and averages the other three → solidly positive.
+        f = screener._normalised_ebit
+        got = f(pd.Series({"ebitHistory": [2957.0, -19790.0, 5442.0, 5407.0]}))
+        assert got == pytest.approx((2957.0 + 5442.0 + 5407.0) / 3)
+        assert got > 0
+        # a windfall spike is trimmed the same way
+        assert f(pd.Series({"ebitHistory": [100.0, 105.0, 900.0, 110.0]})) == pytest.approx(105.0)
+        # no outlier → every year still counts
+        assert f(pd.Series({"ebitHistory": [100.0, 110.0, 90.0, 105.0]})) == pytest.approx(101.25)
+
+    def test_epv_uses_normalised_ebit_not_a_peak_year(self):
         base = {"Price": 50.0, "enterpriseValue": 10_000_000.0, "beta": 1.0}
         peak = _fair_value_models(pd.Series({**base, "ebit": 4_000_000.0}))
         # same latest EBIT, but the multi-year mean is far lower → lower EPV

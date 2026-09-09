@@ -6,7 +6,12 @@ All notable changes to UV are documented here.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **Fair-value coverage — DDM and EPV no longer vanish for trough-earnings payers** (`docs/valuation_fv_coverage_plan.md`, FV-1 / FV-2).
+  - **FV-1:** the DDM payout ramp (`screener._ddm_weight_factor`) is fed by a new `screener._payout_signal(row)` instead of the raw `payoutRatio`. yfinance's reported ratio divides by trailing GAAP net income, so a loss-making or freshly-demerged payer gets an absurd (1.4×, 7.7×) or null value that silently zero-weights **both** DDM variants. `_payout_signal` trusts the reported ratio only inside `[0, 0.95]`, then falls back to `cashPayoutRatio` (DPS·shares / FCF), then to `1 / dividendCoverage`. In the reference portfolio this brings both DDM models back for NEXI.MI, SYENS.BR and LIGHT.AS (previously composite = the lone haircut analyst target) while correctly leaving MELE.BR / BPOST.BR dark. The dimension is recorded as a new `payout_source` column; the dividend **risk / sustainability** scores are unchanged (they still read raw `payoutRatio`).
+  - **FV-2:** `screener._normalised_ebit` now drops years more than `_EBIT_OUTLIER_MAD_K` (3) MADs from the median before averaging, instead of a plain mean. A single one-off writedown year (e.g. −€19.8bn) was dragging a 4-year mean negative and making EPV refuse the stock outright; the outlier is now removed rather than merely diluted.
+  - `screener._row_is_scorable`'s DDM branch mirrors the new payout-signal chain, so a payer valuable only via its cash payout is no longer wrongly parked on the 24h TTL.
 
 ---
 
