@@ -48,13 +48,22 @@ between screens at some point (see the `dq/*` history); the tests in
 
 ## Fair value
 
-- `screener._fair_value_models` blends up to six models. If the blend exceeds
-  `FV_SANITY_MULT` (2.0) × price but at most one individual model is that
-  high, the composite is clamped to the models' median (floored at the current
-  price) and **`fair_value_clamped`** is set. Individual model values are
-  never modified. The two DDM variants count as **one** corroborating vote here
-  (same model family, identical inputs) — otherwise a Gordon-model blow-up where
-  only `ddm` + `ddm_multistage` are high could never be caught.
+- `screener._fair_value_models` blends up to six core models, plus two
+  conditional fallbacks. If the blend exceeds `FV_SANITY_MULT` (2.0) × price but
+  at most one individual model is that high, the composite is clamped to the
+  models' median (floored at the current price) and **`fair_value_clamped`** is
+  set. Individual model values are never modified. The two DDM variants count as
+  **one** corroborating vote here (same model family, identical inputs) —
+  otherwise a Gordon-model blow-up where only `ddm` + `ddm_multistage` are high
+  could never be caught.
+- **FV-3 fallbacks.** `pb_fair_value` (`bookValue` × winsorized sector-median
+  `priceToBook`) and `fcf_fair_value` (`freeCashflow` × 15 − net debt, per
+  share) are computed and blended (weight 0.10 each, outside the six-model sum)
+  **only** when none of Graham / PE / EPV produced a value — a genuine
+  loss-maker. Both are `None` for any row with a live earnings anchor. The
+  drawer / Analysis ladder keeps six rows: a fired fallback replaces the first
+  dark Graham/PE/EPV slot and is relabelled ("Book value" / "FCF value",
+  `components.six_model_ladder_rows`).
 - `_payout_source` records which payout proxy fed the DDM ramp: `reported`
   (raw `payoutRatio`, trusted only in `[0, 0.95]`), `cash` (`cashPayoutRatio`),
   `coverage` (`1 / dividendCoverage`), or `none`.

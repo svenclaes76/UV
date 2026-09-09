@@ -517,6 +517,63 @@ class TestFairValueBlend:
                                            "enterpriseValue": 10_000_000.0, "beta": 1.0}))
         assert fv["epv"] > 0 and fv["epv_negative"] is False
 
+    # ── FV-3: book-value / FCF fallbacks ────────────────────────────────────
+    def test_pb_and_fcf_fallbacks_fire_only_for_a_thin_fundamentals_trio(self):
+        # Loss-maker: no EPS (→ no Graham / PE), no EBIT/EV (→ no EPV), but a
+        # book value and positive FCF. Both fallbacks contribute; the composite
+        # is no longer just the haircut analyst target.
+        loss = pd.Series({"Price": 4.0, "bookValue": 5.8, "freeCashflow": 7.8e8,
+                          "sharesOutstanding": 1.17e9, "targetMeanPrice": 4.0,
+                          "sector": "Technology", "beta": 1.0})
+        fv = _fair_value_models(loss)
+        assert fv["pb_fair_value"] == pytest.approx(5.8 * screener.PB_MULTIPLE_FALLBACK)
+        assert fv["fcf_fair_value"] is not None and fv["fcf_fair_value"] > 0
+        assert fv["fair_value"] > 4.0 * 0.9      # more than analyst-only would give
+
+    def test_fallbacks_stay_dark_when_the_trio_is_healthy(self):
+        # Positive EPS → Graham + PE both compute, so neither fallback feeds the
+        # blend even though bookValue / FCF are present.
+        healthy = pd.Series({"Price": 50.0, "trailingEps": 4.0, "bookValue": 30.0,
+                             "freeCashflow": 2e8, "sharesOutstanding": 1e7,
+                             "beta": 1.0})
+        fv = _fair_value_models(healthy)
+        assert fv["pb_fair_value"] is None and fv["fcf_fair_value"] is None
+
+    def test_fallbacks_stay_dark_when_only_epv_fired(self):
+        # A single live trio model (EPV, from an EBIT history + EV) is enough —
+        # the crude fallbacks are for names with *no* earnings anchor at all.
+        epv_only = pd.Series({"Price": 80.0, "ebitHistory": [2e8, 5e8, 6e8, 1.1e9],
+                              "enterpriseValue": 1.0e10, "sharesOutstanding": 1e8,
+                              "bookValue": 60.0, "freeCashflow": 5e8, "beta": 0.5})
+        fv = _fair_value_models(epv_only)
+        assert fv["epv"] is not None and fv["epv"] > 0
+        assert fv["pb_fair_value"] is None and fv["fcf_fair_value"] is None
+
+    def test_fcf_fallback_subtracts_net_debt(self):
+        # Same gross FCF, but a levered EV → lower FCF fair value than the
+        # debt-free case.
+        base = {"Price": 4.0, "freeCashflow": 5e8, "sharesOutstanding": 1e8,
+                "bookValue": 3.0, "beta": 1.0}
+        lean = _fair_value_models(pd.Series({**base, "enterpriseValue": 4e8}))
+        levered = _fair_value_models(pd.Series({**base, "enterpriseValue": 4e9}))
+        assert levered["fcf_fair_value"] < lean["fcf_fair_value"]
+
+    def test_pb_fallback_uses_the_sector_median_when_supplied(self):
+        row = pd.Series({"Price": 4.0, "bookValue": 10.0, "sector": "Utilities",
+                         "beta": 1.0})
+        fv = _fair_value_models(row, sector_pb={"Utilities": 0.8})
+        assert fv["pb_fair_value"] == pytest.approx(8.0)
+
+    def test_sector_pb_medians_winsorizes_and_gates_on_sample_size(self):
+        lo, hi = screener.PB_MULTIPLE_BAND
+        df = pd.DataFrame(
+            [{"sector": "Growth", "priceToBook": v} for v in (5.0, 6.0, 7.0, 8.0, 9.0)]
+            + [{"sector": "Tiny", "priceToBook": 2.0}]
+        )
+        out = screener._sector_pb_medians(df)
+        assert "Tiny" not in out                      # < MIN_SECTOR_SAMPLE
+        assert out["Growth"] == pytest.approx(hi)     # median 7.0 winsorized down to the band top
+
     def test_normalised_ebit_averages_history_or_falls_back(self):
         f = screener._normalised_ebit
         # >= 3 finite years with no outlier → mean of the window

@@ -172,6 +172,33 @@ def test_fair_value_ladder_shows_dash_for_unavailable_model_not_dropped_row():
     assert html.count("–") == 4
 
 
+def test_six_model_ladder_rows_relabels_dark_slots_with_fv3_fallbacks():
+    from uvalu.components import six_model_ladder_rows
+    # Graham + P/E dark (loss-maker), EPV present. Book-value and FCF fallbacks
+    # fired → they take the first two dark fundamentals slots, relabelled.
+    row = {"graham_number": None, "pe_fair_value": None, "epv": 30.0,
+           "ddm": None, "ddm_multistage": None, "targetMeanPrice": 12.0,
+           "pb_fair_value": 8.5, "fcf_fair_value": 10.2}
+    rows = six_model_ladder_rows(row)
+    assert [lbl for lbl, _ in rows] == [
+        "Book value", "FCF value", "EPV", "Dividend discount",
+        "DDM 2-stage", "Analyst Target"]
+    assert rows[0] == ("Book value", 8.5)
+    assert rows[1] == ("FCF value", 10.2)
+    assert rows[2] == ("EPV", 30.0)
+
+
+def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
+    from uvalu.components import six_model_ladder_rows
+    row = {"graham_number": 52.0, "pe_fair_value": 60.0, "epv": 48.0,
+           "ddm": 40.0, "ddm_multistage": 44.0, "targetMeanPrice": 55.0,
+           "pb_fair_value": None, "fcf_fair_value": None}
+    rows = six_model_ladder_rows(row)
+    assert [lbl for lbl, _ in rows] == [
+        "Graham Number", "P/E fair value", "EPV", "Dividend discount",
+        "DDM 2-stage", "Analyst Target"]
+
+
 def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
     def _script():
         from uvalu.components import fair_value_bar_compact

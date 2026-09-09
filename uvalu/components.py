@@ -186,6 +186,41 @@ def _ladder_bar_color(delta_pct: float) -> str:
     return "var(--uv-neg-txt)"
 
 
+def _is_live(v) -> bool:
+    return v is not None and not (isinstance(v, float) and pd.isna(v)) and v > 0
+
+
+def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
+    """The ordered (label, value) list for the drawer / Analysis "Six-model fair
+    value" ladder. Always six rows in a fixed order (Graham, P/E, EPV, DDM
+    single, DDM 2-stage, Analyst). FV-3: when a book-value or FCF *fallback*
+    produced a value (they only do so for a loss-maker where none of
+    Graham / P·E / EPV could be computed), it is slotted into the first
+    still-dark of those three rows and relabelled "Book value" / "FCF value" —
+    so the ladder stays six rows rather than sprouting a seventh/eighth that is
+    dark for every healthy stock. Callers show the explanatory caption when
+    `row` carries a live `pb_fair_value` / `fcf_fair_value`.
+    """
+    rows = [
+        ["Graham Number",     row.get("graham_number")],
+        ["P/E fair value",    row.get("pe_fair_value")],
+        ["EPV",               row.get("epv")],
+        ["Dividend discount", row.get("ddm")],
+        ["DDM 2-stage",       row.get("ddm_multistage")],
+        ["Analyst Target",    row.get("targetMeanPrice")],
+    ]
+    fallbacks = [("Book value", row.get("pb_fair_value")),
+                 ("FCF value",  row.get("fcf_fair_value"))]
+    for label, value in fallbacks:
+        if not _is_live(value):
+            continue
+        for i in (0, 1, 2):                         # Graham / P/E / EPV slots
+            if not _is_live(rows[i][1]):
+                rows[i] = [label, value]
+                break
+    return [(lbl, v) for lbl, v in rows]
+
+
 def fair_value_ladder(price: float, models: list[tuple[str, float]],
                       composite: float | None = None, currency: str = "€",
                       composite_label: str = "Composite fair value",

@@ -1,8 +1,8 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1, FV-2, FV-7 (+ two DDM-stability guards) and FV-4 (parts a–c)
-> implemented 2026-09-09 (branch `feat/fv-coverage-quickwins`) — see
-> `CHANGELOG.md` `[Unreleased]`. FV-3 / FV-5 / FV-6 / FV-8 still open.
+> **Status:** FV-1, FV-2, FV-3, FV-7 (+ two DDM-stability guards) and FV-4
+> (parts a–c) implemented 2026-09-09 (branch `feat/fv-coverage-quickwins`) —
+> see `CHANGELOG.md` `[Unreleased]`. FV-5 / FV-6 / FV-8 still open.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -199,21 +199,31 @@ inflate both EPS and book value. No sector guard.
   NEXI +0.19bn (was −0.58bn). EPV still negative for both on *net-debt* grounds
   (FV-4b), but the earnings-power input is no longer the blocker.
 
-### FV-3 — Book-value & FCF fallback models for loss-makers *(RC-3)* — effort **M**
-Two new models in `_fair_value_models`, contributing **only** when the
-fundamentals trio (Graham / P/E / EPV) produced ≤ 1 value:
-- **P/B fair value** = `bookValue × sector_median_pb` — new
-  `_sector_pb_medians(df)` sibling of `_sector_pe_medians`, winsorized to a
-  `PB_MULTIPLE_BAND` (≈ 0.6–3.0), `PB_MULTIPLE_FALLBACK` ≈ 1.0.
-- **FCF value** = `(freeCashflow / sharesOutstanding) × FCF_MULTIPLE` (≈ 12–18,
-  or `1/(wacc − g_stable)` capped), guarded on `freeCashflow > 0`.
-- New weights `W_PB`, `W_FCF` (≈ 0.10 each); rebalance the base-weight block to
-  keep the sum at 1.00. Add both to `_row_is_scorable`.
-- **Decision needed:** drawer ladder becomes an 8-row list, *or* the two dark
-  fundamentals slots are swapped for whichever fallback fired. Recommend: keep 6
-  rows, relabel slot 1/2 dynamically ("Book value" / "FCF value") when they
-  substitute, with a tooltip.
-- Expected: NEXI gets FCF + P/B; BPOST / SYENS get P/B.
+### FV-3 — Book-value & FCF fallback models for loss-makers *(RC-3)* — effort **M** — ✅ shipped 2026-09-09
+Decisions taken: **conditional contribution** (not permanent weights) and **keep
+6 ladder rows, relabel** (not 8 rows).
+- Both models in `_fair_value_models`, eligible only when **`_trio == 0`** —
+  none of Graham / P/E / EPV produced a value (tightened from the plan's "≤ 1":
+  a single live EPV is a real valuation, not a thin one).
+- **Book value** = `bookValue × m`, `m` = winsorized (`PB_MULTIPLE_BAND` 0.5–4.0)
+  sector-median `priceToBook` (`_sector_pb_medians`, `MIN_SECTOR_SAMPLE` gate),
+  else `PB_MULTIPLE_FALLBACK` 1.5.
+- **FCF value** = `(freeCashflow × FCF_MULTIPLE − net_debt) / shares`,
+  `FCF_MULTIPLE` = 15 fixed (not `1/(wacc−g)` — that reintroduces the Gordon
+  instability FV-7 just guarded); `net_debt = ev − Price·shares` (reuses the
+  FV-4 `_enterprise_value`), so a levered cash generator isn't overvalued.
+- `W_PB` = `W_FCF` = 0.10, **outside** the six-model sum (conditionally applied,
+  like the DDM ramp — no rebalance of the core six). `_row_is_scorable` now
+  accepts `bookValue > 0` or `freeCashflow > 0` + `sharesOutstanding` alone.
+- Ladder: shared `components.six_model_ladder_rows(row)` (drawer + Analysis) —
+  a fired fallback takes the first dark Graham/P·E/EPV slot, relabelled; a
+  `st.caption` explains it. Tooltip deferred to FV-6.
+- **Result:** in the reference portfolio only **NEXI.MI** and **BPOST.BR** hit
+  `_trio == 0`. NEXI 8.30 → 7.48 (composite now book + FCF + DDM×2 + analyst =
+  5 live models, was 3). BPOST 1.87 → 7.07 (was analyst-only; book €6.45 + FCF
+  €8.96 + analyst). **Caveat:** BPOST's crude models can't see off-balance-sheet
+  pension / restructuring liabilities — the €7 anchor deserves scepticism; the
+  ladder now shows the basis so a user can judge.
 
 ### FV-4 — EPV hardening *(RC-4)* — effort **S–M** — ✅ shipped 2026-09-09 (parts a–c)
 - `totalDebt`, `totalCash`, `marketCap` added to `VALUATION_FIELDS` (pulled via
@@ -328,7 +338,7 @@ small UI conflict** (FV-6).
 |---|---|---|
 | **FV-1** robust payout signal | **Doc-sync.** Lines 48 / 59 state the DDM ramp is "keyed on **the payout ratio**", with knots (`0.05 / 0.30 / 0.70 / 0.95`) calibrated for the *accounting* `payoutRatio`. Feeding `cashPayoutRatio` / `1 ÷ coverage` through the same knots is a semantic mismatch — those ratios have different distributions. Needs the Stage 2 "DDM payout ramp" paragraph + summary lines 162–164 rewritten, ideally with per-source knots. | 48, 59–61, 162–164 |
 | **FV-2** median / trimmed EBIT | **Doc-sync, reverses a deliberate choice.** Lines 39 & 159 say three times "EBIT is the **mean** over `ebitHistory` … so a peak or trough year doesn't set the valuation". The PAH3 case (one −19.8 bn year) shows the mean does *not* survive a lone catastrophe — frame FV-2 as revising review 2.3, not a bug fix. | 39, 159 |
-| **FV-3** P/B + FCF models | **Explicit reversal + structural.** Line 44: "an **asset-based / P/B model are not implemented**". Line 29: "Price-to-book and EV/EBITDA … are **display-only**". Line 32: "**Six models** run per stock". And line 68–71's composite is a flat weighted average over *available* models — "contribute only when Graham/PE/EPV gave ≤ 1" is new conditional-gating the design doesn't have. FCF-capitalisation also overlaps EPV (double-weighting cash-flow valuation). | 29, 32, 44, 54, 68–71, Stage 2 table, summary |
+| **FV-3** P/B + FCF models *(shipped)* | **Explicit reversal + structural — done deliberately.** `stock_valuation_algorithm.md` rewritten: line 29 (`priceToBook` now feeds a model), Stage 2 intro ("six **core** models" + a "Fallback models" subsection), line 44 ("asset-based / P/B … not implemented" → EV/EBITDA & comps only), the weights paragraph (W_PB/W_FCF outside the sum), and the summary. Conditional gating is a new concept vs. the flat weighted average, but it is scoped to `_trio == 0` and mirrors how a conditionally-absent DDM already re-normalises. The "six-model" UI surface is **preserved** (ladder still 6 rows, relabel). FCF/EPV overlap is bounded — they never co-fire (`_trio == 0` excludes EPV). | done: 29, 32, 44, 54, Stage 2, summary; `data-contracts.md` |
 | **FV-4** EPV hardening *(shipped)* | **Additive, minor — as predicted.** New fetched fields extended the Stage 1 list; `_enterprise_value` extended the EPV row's EV definition; `epv_negative` / `ev_source` are new advisory columns — line 32's `> 0` filter still does the excluding. No principle conflict. | Stage 1 fields, EPV row, `data-contracts.md` |
 | **FV-5** thin-basis flag + heal | **No conflict** with this spec (TTL / `data_thin` live elsewhere). The *optional* "down-weight the Composite score" would reach into Stage 5/6 — keep that as a separate proposal. | 26 (optional) |
 | **FV-6** reason strings | **UI-only, except** the "show the haircut analyst value in the ladder" sub-point — line 42 documents raw-vs-haircut display as *intentional* ("the undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI"). Keep raw, annotate instead. | 42 |
@@ -347,13 +357,13 @@ small UI conflict** (FV-6).
   stays accurate for them.
 - **WACC, Blume beta, Stage 5 weights, MoS / TER formulas, every veto** — untouched.
 
-### Two decisions to settle before coding
+### Two decisions (settled 2026-09-09, FV-3 shipped)
 
-1. **"Six models" identity.** FV-3 breaks the count that appears in the Stage 2
-   title, line 32, the drawer section header, and `Uvalu.dc.html`'s design spec.
-   Lower-conflict path: keep 6 ladder rows, dynamically relabel slots 1–2 as
-   "Book value" / "FCF value" when they substitute (recommended in FV-3).
-2. **Flat weighted average vs. conditional contribution.** Fallback models that
-   fire only when the primary trio is thin depart from line 68–71. Alternative:
-   give P/B and FCF permanent small weights and let the existing `v > 0` filter
-   handle availability — stays within the current design.
+1. **"Six models" identity** → *keep 6 ladder rows, relabel.* A fired fallback
+   substitutes into the first dark Graham/P·E/EPV slot
+   (`components.six_model_ladder_rows`). The Stage 2 doc now says "six **core**
+   models" + a Fallback subsection; `Uvalu.dc.html` still matches (6 rows).
+2. **Flat weighted average vs. conditional contribution** → *conditional*
+   (`_trio == 0`). P/B is genuinely misleading for a healthy high-ROE name, so
+   permanent weights were rejected. The re-normalisation over `avail` is the
+   same machinery a conditionally-absent DDM already uses.

@@ -21,7 +21,8 @@ from screener import decision_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_ladder, veto_reason_str, is_hard_veto)
+                              fair_value_ladder, six_model_ladder_rows,
+                              veto_reason_str, is_hard_veto)
 from uvalu.dialogs import add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import current_user
@@ -222,24 +223,19 @@ def open_drawer(row: "pd.Series") -> None:
     if pd.notna(_price):
         fair_value_ladder(
             price=float(_price),
-            # Labels match Uvalu.dc.html's model list ("Graham Number"/"P/E
-            # fair value"/"EPV"/"Dividend discount"/.../"Analyst target") —
-            # "Dividend discount" is this app's single-stage DDM (the
-            # classic Gordon Growth dividend-discount model); the design's
-            # 5th slot is "DCF", which this app doesn't compute, so that
-            # slot keeps its own real model (2-stage DDM) rather than
-            # mislabeling it as a DCF figure it isn't.
-            models=[
-                ("Graham Number",     row.get("graham_number")),
-                ("P/E fair value",    row.get("pe_fair_value")),
-                ("EPV",                row.get("epv")),
-                ("Dividend discount",  row.get("ddm")),
-                ("DDM 2-stage",       row.get("ddm_multistage")),
-                ("Analyst Target",    row.get("targetMeanPrice")),
-            ],
+            # Six fixed rows (Uvalu.dc.html's model list). "Dividend discount" is
+            # this app's single-stage DDM; the design's 5th slot is "DCF", which
+            # this app doesn't compute, so it keeps the 2-stage DDM instead.
+            # FV-3: a book-value / FCF fallback substitutes into a dark
+            # Graham / P/E / EPV slot for loss-makers (see six_model_ladder_rows).
+            models=six_model_ladder_rows(row),
             composite=row.get("fair_value"),
             bar_width=96,
         )
+        _pb, _fcf = row.get("pb_fair_value"), row.get("fcf_fair_value")
+        if (pd.notna(_pb) and _pb) or (pd.notna(_fcf) and _fcf):
+            st.caption("“Book value” / “FCF value” stand in where a core model "
+                       "(Graham, P/E, EPV) couldn’t be computed.")
         if bool(row.get("fair_value_clamped")):
             st.caption("⚑ Composite capped at the models' median — one model ran "
                        "far above the rest.")

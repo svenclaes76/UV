@@ -134,6 +134,19 @@ W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
 W_ANALYST    = 0.130
 
+# FV-3: book-value and FCF fair-value *fallbacks*. Both are crude — a
+# sector-median P/B misprices high-ROE compounders, a flat FCF multiple misprices
+# growth — so they enter the blend ONLY when *none* of the fundamentals trio
+# (Graham / PE / EPV) produced a value, i.e. for genuine loss-makers where any
+# fundamentals anchor beats a lone haircut analyst target. Their weights sit
+# *outside* the six-model sum above (like the DDM payout ramp and the analyst
+# dispersion factor, they're conditionally applied, not part of the base rate).
+W_PB  = 0.10
+W_FCF = 0.10
+PB_MULTIPLE_FALLBACK = 1.5          # sector has < MIN_SECTOR_SAMPLE priced peers / no priceToBook
+PB_MULTIPLE_BAND     = (0.5, 4.0)   # winsor bounds on a sector-median P/B
+FCF_MULTIPLE         = 15.0         # ≈ 6.7% FCF yield; fixed, not 1/(WACC−g) (Gordon instability)
+
 # Composite fair-value sanity guard. A blended fair value above this multiple of
 # the current price is only trusted when at least two of the individual models
 # independently land that high — otherwise it's a single runaway model (a DDM
@@ -1052,6 +1065,27 @@ def _sector_pe_medians(df: pd.DataFrame) -> dict:
     }
 
 
+def _sector_pb_medians(df: pd.DataFrame) -> dict:
+    """{sector: winsorized median `priceToBook`} across `df`, for the FV-3 P/B
+    fallback. Same shape and MIN_SECTOR_SAMPLE gate as `_sector_pe_medians`;
+    callers fall back to PB_MULTIPLE_FALLBACK for an unlisted sector. Returns {}
+    when the frame carries no `priceToBook`/`sector` columns (hand-built test
+    frames) so `_fair_value_models` stays usable stand-alone."""
+    if "priceToBook" not in df.columns or "sector" not in df.columns:
+        return {}
+    pb    = pd.to_numeric(df["priceToBook"], errors="coerce")
+    valid = pd.DataFrame({"sector": df["sector"], "pb": pb})
+    valid = valid[(valid["pb"] > 0) & (valid["pb"] < 100) & valid["sector"].notna()]
+    if valid.empty:
+        return {}
+    lo, hi = PB_MULTIPLE_BAND
+    return {
+        sector: float(np.clip(grp["pb"].median(), lo, hi))
+        for sector, grp in valid.groupby("sector")
+        if len(grp) >= MIN_SECTOR_SAMPLE
+    }
+
+
 # FV-2: a plain mean of `ebitHistory` does *not* survive a single catastrophic
 # year — one −20bn writedown drags a 4-year mean negative even when the other
 # three years are solidly positive, and EPV then refuses the stock entirely.
@@ -1116,9 +1150,11 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
 
     Kept deliberately in lock-step with ``_fair_value_models``' per-model input
     guards; if a model's requirements change there, mirror the change here.
-    ``bookValue`` alone does not count (no model uses it without a positive EPS —
-    Graham needs both), but a sane ``trailingPE`` lets ``_fetch_one`` recover
-    that EPS (WP-B), so P/E + book value does. The DDM branch mirrors
+    ``bookValue > 0`` alone now counts (FV-3: the P/B fallback values it when no
+    trio model fired; a live trio makes the row scorable anyway, so the
+    unconditional check here stays in step with the conditional blend). Positive
+    ``freeCashflow`` + ``sharesOutstanding`` likewise (FV-3 FCF fallback). The
+    DDM branch mirrors
     ``_payout_signal`` + ``_ddm_weight_factor`` (FV-1): a payer is scorable via
     DDM whenever *some* payout proxy — reported ratio, cash payout, or
     1/coverage — lands inside the ramp band, not only when ``payoutRatio`` is
@@ -1150,6 +1186,9 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         and len([v for v in _hist if isinstance(v, (int, float)) and v == v]) >= 3
     )
 
+    fcf    = _num("freeCashflow")
+    shares = _num("sharesOutstanding")
+
     return any((
         eps is not None and eps > 0,                                     # Graham, PE fair value
         book is not None and book > 0
@@ -1158,10 +1197,13 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         div is not None and div > 0
             and _ddm_weight_factor(div, _payout_signal(row)[0]) > 0,     # DDM (payout ramp must be non-zero)
         have_ebit and _enterprise_value(row)[0] is not None,            # EPV (EV from provider or FV-4 reconstruction)
+        book is not None and book > 0,                                  # FV-3 P/B fallback
+        fcf is not None and fcf > 0 and shares is not None and shares > 0,  # FV-3 FCF fallback
     ))
 
 
-def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
+def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
+                       sector_pb: "dict | None" = None) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
@@ -1237,7 +1279,32 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
     w_analyst  = W_ANALYST * _analyst_weight_factor(row)
 
-    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage)
+    # FV-3: book-value and FCF fallbacks. Eligible only when *none* of the
+    # fundamentals trio (Graham / PE / EPV) produced a value — a genuine
+    # loss-maker with no earnings anchor, where a crude book/cash number beats a
+    # lone haircut analyst target. Even one live trio model (usually EPV) is
+    # enough to leave these dark, so a normally-valued name is untouched.
+    _trio = sum(1 for v in (gn, pe_fv, epv) if v is not None and v > 0)
+    fallback_eligible = _trio == 0
+
+    pb_fv = None
+    if fallback_eligible and bvps and bvps > 0:
+        pb_multiple = (sector_pb or {}).get(sector, PB_MULTIPLE_FALLBACK)
+        pb_fv = bvps * pb_multiple
+
+    fcf_fv = None
+    if fallback_eligible:
+        fcf = _finite(row.get("freeCashflow"))
+        if fcf and fcf > 0 and shares and shares > 0 and price and price > 0:
+            # Capitalise FCF at a fixed multiple, then subtract net debt (like EPV)
+            # so a cash-generative but heavily-levered name isn't overvalued.
+            gross    = fcf * FCF_MULTIPLE
+            net_debt = (ev - price * shares) if (ev and ev > 0) else 0.0
+            _v = (gross - net_debt) / shares
+            fcf_fv = _v if _v > 0 else None
+
+    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage;
+    # W_PB / W_FCF are 0 unless the fallback is eligible and produced a value)
     candidates = [
         (gn,         W_GRAHAM),
         (pe_fv,      W_PE),
@@ -1245,6 +1312,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         (ddm1,       w_ddm1),
         (ddm2,       w_ddm2),
         (analyst_fv, w_analyst),
+        (pb_fv,      W_PB),
+        (fcf_fv,     W_FCF),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
@@ -1252,7 +1321,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
                 "ddm_contributed": False, "fair_value_clamped": False,
                 "payout_source": payout_source, "epv_negative": epv_negative,
-                "ev_source": ev_source}
+                "ev_source": ev_source,
+                "pb_fair_value": pb_fv, "fcf_fair_value": fcf_fv}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
@@ -1294,6 +1364,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "epv":            epv,
         "ddm":            round(ddm1, 2) if ddm1 else None,
         "ddm_multistage": round(ddm2, 2) if ddm2 else None,
+        "pb_fair_value":  round(pb_fv, 2) if pb_fv else None,
+        "fcf_fair_value": round(fcf_fv, 2) if fcf_fv else None,
         "fair_value":     round(iv, 2),
         "ddm_contributed": ddm_contributed,
         "fair_value_clamped": fv_clamped,
@@ -1690,7 +1762,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
     sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
-    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe),
+    sector_pb = _sector_pb_medians(df)   # ...and P/B, for the FV-3 fallback
+    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe,
+                                                    sector_pb=sector_pb),
                        axis=1, result_type="expand")
     for col in fv_cols.columns:
         df[col] = fv_cols[col]

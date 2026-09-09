@@ -26,10 +26,10 @@ There is a partial multi-year financial-statement history (the lines listed abov
 - Multi-year statement history → `revenueHistory`, `ebitHistory`, `netIncomeHistory`, `cfoHistory`, `retainedEarningsHistory`, `totalAssetsHistory` (`screener._statement_history`)
 - Dividend history → `true_dgr`, `dividend_growth_streak`, `dividend_payment_years`, `dividend_last_cut_year` (`screener._dividend_stats`)
 
-Price-to-book and EV/EBITDA are also fetched but are **display-only** — they do not feed any fair-value model. Trailing P/E is display-only per row, but its **sector median across the screened universe** now sets the PE Fair Value multiple (Stage 2).
+EV/EBITDA is fetched but **display-only**. Trailing P/E is display-only per row, but its **sector median across the screened universe** sets the PE Fair Value multiple (Stage 2). Price-to-book is display-only for a normally-valued stock, but its **sector median** feeds the FV-3 book-value fallback below when a stock has no earnings anchor.
 ---
 ## Stage 2 — Fair Value Estimation (Multi-Model)
-Six models run per stock; each stock's composite is a weighted average of whichever models produced a positive value for it (`screener._fair_value_models`).
+Six core models run per stock; the composite is a weighted average of whichever produced a positive value (`screener._fair_value_models`). Two further **fallback** models (book value, FCF) join the blend **only** for a stock where none of the three earnings-anchored core models (Graham / PE / EPV) could be computed — see "Fallback models" below.
 
 ### Models
 | Model | Formula / Approach | Base weight |
@@ -41,7 +41,18 @@ Six models run per stock; each stock's composite is a weighted average of whiche
 | **DDM — multi-stage** | 5-year explicit high-growth phase (`g` = the same DPS CAGR, clamped 0–15%) + Gordon terminal value (terminal g = 2%). Dropped when `WACC − 2% < DDM_MIN_SPREAD` | 0.167 (`W_DDM_MULTI`) × payout ramp |
 | **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI (e.g. the Analysis/drawer "Analyst Target" tile) — only the model input is haircut. | 0.130 (`W_ANALYST`) × dispersion & coverage factor |
 
-`DCF`, comparable multiples (P/E, EV/EBITDA, P/S), and an asset-based / P/B model are **not implemented** — they don't exist as separate fair-value inputs.
+#### Fallback models (FV-3) — only when Graham, PE **and** EPV all failed
+
+Both are crude anchors, present in the blend only for a stock with no earnings-anchored value at all (a loss-maker with negative/absent EPS and an EPV that couldn't run). A single live core model leaves them dark, so a normally-valued stock's composite is unchanged. Their weights sit **outside** the six-model sum (they are conditionally applied, like the DDM payout ramp).
+
+| Model | Formula / Approach | Weight |
+|---|---|---|
+| **Book value** | `bookValue × m`, `m` = winsorized (`PB_MULTIPLE_BAND` 0.5–4.0) sector-median `priceToBook` across the screened universe (`screener._sector_pb_medians`), or `PB_MULTIPLE_FALLBACK` (1.5) for a sector with < `MIN_SECTOR_SAMPLE` peers | 0.10 (`W_PB`) |
+| **FCF value** | `(freeCashflow × FCF_MULTIPLE − NetDebt) / SharesOutstanding`, `FCF_MULTIPLE` = 15 (≈ 6.7% FCF yield, fixed — not `1/(WACC−g)`), `NetDebt = EnterpriseValue − Price×Shares` (same as EPV); guarded on `freeCashflow > 0` | 0.10 (`W_FCF`) |
+
+In the drawer / Analysis "Six-model fair value" ladder these do **not** add rows — when they fire, whichever produced a value is slotted into the first dark Graham / PE / EPV row and relabelled "Book value" / "FCF value" (`components.six_model_ladder_rows`), so the ladder stays six rows.
+
+`DCF`, comparable multiples (EV/EBITDA, P/S), and a peer/comps dataset are still **not implemented**.
 
 **WACC** = 3% risk-free rate + beta × 5% equity risk premium. A raw beta outside [0.1, 5.0] (or missing/NaN) is rejected and defaults to 1.0; an in-band beta is **Blume-adjusted** — shrunk two-thirds of the way toward the market beta of 1.0 (`0.67 × raw + 0.33 × 1.0`, `screener.BLUME_WEIGHT` / `_adjust_beta`) — since yfinance's trailing single-estimate beta is noisy and mean-reverts.
 
@@ -53,7 +64,7 @@ The `payout` fed to the ramp is **not** the raw reported field — it is `screen
 - **dispersion** — from `spread = (targetHighPrice − targetLowPrice) / targetMeanPrice`: `1.0` while `spread ≤ 0.20` (`_ANALYST_SPREAD_TIGHT`), then a linear ramp down to `0.30` (`_ANALYST_DISPERSION_FLOOR`) at `spread = 0.80` (`_ANALYST_SPREAD_WIDE`), staying at the floor for any wider spread. Wide disagreement among analysts ⇒ the mean target carries less information.
 - **coverage** — `clamp(numberOfAnalystOpinions / 8, 0.30, 1.0)` (`_ANALYST_COVERAGE_FULL` / `_ANALYST_COVERAGE_FLOOR`). A target built from one or two analysts is downweighted toward the floor.
 
-The base weights above (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULTI`, `W_ANALYST`) sum to exactly **1.00**. They were originally 0.18/0.18/0.19/0.20/0.20/0.25 (a stale sum of 1.20), rescaled to 0.150/0.150/0.158/0.167/0.167/0.208, then — since sell-side targets are optimism-biased and slow to react to regime changes — the analyst weight was cut to **0.130** and the freed ≈0.078 handed to the two most fundamentals-anchored models: `W_EPV` 0.158 → **0.208** and `W_GRAHAM` 0.150 → **0.178**.
+The six **core** base weights (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_DDM_MULTI`, `W_ANALYST`) sum to exactly **1.00**. They were originally 0.18/0.18/0.19/0.20/0.20/0.25 (a stale sum of 1.20), rescaled to 0.150/0.150/0.158/0.167/0.167/0.208, then — since sell-side targets are optimism-biased and slow to react to regime changes — the analyst weight was cut to **0.130** and the freed ≈0.078 handed to the two most fundamentals-anchored models: `W_EPV` 0.158 → **0.208** and `W_GRAHAM` 0.150 → **0.178**. The FV-3 fallback weights (`W_PB`, `W_FCF`, 0.10 each) are **not** part of this sum — they are 0 unless the fallback is both eligible (no core model fired) and produced a value, at which point the composite re-normalises over whatever is in `avail` exactly as it does for a conditionally-absent DDM.
 
 ### Dividend-Specific Valuation Checks
 | Check | Formula | Where it's used |
@@ -158,7 +169,7 @@ Not implemented — no data source exists: active fraud investigation / accounti
 Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on an outlier-trimmed multi-year EBIT mean] + DDM single-stage + DDM multi-stage + Analyst target [10% haircut, weight scaled by dispersion & coverage])
+  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on an outlier-trimmed multi-year EBIT mean, EV reconstructed if the provider dropped it] + DDM single-stage + DDM multi-stage + Analyst target [10% haircut, weight scaled by dispersion & coverage]; plus Book-value and FCF *fallbacks* only when none of Graham/PE/EPV fired)
     ↓
 Weighted fair value
   (base weights sum to 1.00; combined DDM weight ≈0.334 × a continuous payout
