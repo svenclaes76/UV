@@ -199,6 +199,56 @@ def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
         "DDM 2-stage", "Analyst Target"]
 
 
+def test_six_model_ladder_reasons_explains_each_dark_row():
+    from uvalu.components import six_model_ladder_reasons
+    # loss-maker: no EPS, EPV negative on net debt, non-payer, no coverage
+    row = {"trailingEps": -1.2, "graham_number": None, "pe_fair_value": None,
+           "epv": -3.0, "epv_negative": True, "ev_source": "provider",
+           "ddm": None, "ddm_multistage": None, "targetMeanPrice": None}
+    r = six_model_ladder_reasons(row)
+    assert r["Graham Number"] == "no positive EPS"
+    assert r["P/E fair value"] == "no positive EPS"
+    assert r["EPV"] == "net debt > earnings"
+    assert r["Dividend discount"] == "not a dividend payer"
+    assert r["Analyst Target"] == "no analyst coverage"
+    # a live row gets no entry
+    assert "EPV" not in six_model_ladder_reasons(
+        {**row, "epv": 40.0, "epv_negative": False})
+
+
+def test_six_model_ladder_reasons_distinguishes_epv_failure_modes():
+    from uvalu.components import six_model_ladder_reasons
+    base = {"trailingEps": 3.0, "graham_number": 1, "pe_fair_value": 1, "epv": None}
+    assert six_model_ladder_reasons({**base, "ev_source": "none"})["EPV"] == "no enterprise value"
+    assert six_model_ladder_reasons({**base, "ev_source": "provider"})["EPV"] == "no multi-year EBIT"
+
+
+def test_six_model_ladder_caption_flags_fallback_and_haircut():
+    from uvalu.components import six_model_ladder_caption
+    assert six_model_ladder_caption({"pb_fair_value": None, "fcf_fair_value": None,
+                                     "targetMeanPrice": None}) is None
+    cap = six_model_ladder_caption({"pb_fair_value": 8.0, "targetMeanPrice": 12.0})
+    assert "Book value" in cap and "haircut" in cap
+
+
+def test_fair_value_ladder_shows_reason_and_basis_line():
+    def _script():
+        from uvalu.components import fair_value_ladder
+        fair_value_ladder(
+            price=50.0,
+            models=[("Graham Number", None), ("P/E fair value", 60.0)],
+            composite=58.0,
+            reasons={"Graham Number": "no positive EPS"},
+            basis_count=1, basis_thin=True,
+        )
+
+    at = _run(_script)
+    html = at.markdown[0].value
+    assert "no positive EPS" in html            # reason in the dark row
+    assert "1 of 6 models" in html              # basis line
+    assert "lightly corroborated" in html       # thin flag
+
+
 def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
     def _script():
         from uvalu.components import fair_value_bar_compact

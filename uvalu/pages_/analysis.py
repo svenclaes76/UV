@@ -14,6 +14,7 @@ from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, six_model_ladder_rows,
+                              six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html)
 from uvalu.formatting import fmt_eur as _fmt_eur
@@ -241,11 +242,13 @@ def render() -> None:
                 price=float(_price),
                 models=six_model_ladder_rows(row),
                 composite=row.get("fair_value"),
+                reasons=six_model_ladder_reasons(row),        # FV-6
+                basis_count=row.get("fv_model_count"),
+                basis_thin=bool(row.get("fv_basis_thin")),
             )
-            _pb, _fcf = row.get("pb_fair_value"), row.get("fcf_fair_value")
-            if (pd.notna(_pb) and _pb) or (pd.notna(_fcf) and _fcf):
-                st.caption("“Book value” / “FCF value” stand in where a core "
-                           "model (Graham, P/E, EPV) couldn’t be computed.")
+            _cap = six_model_ladder_caption(row)
+            if _cap:
+                st.caption(_cap)
             if bool(row.get("fair_value_clamped")):
                 st.caption(
                     "⚑ Composite capped at the models' median — one model ran far "

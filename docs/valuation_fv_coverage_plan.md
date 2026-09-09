@@ -1,9 +1,9 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1, FV-2, FV-3, FV-4 (parts a–c), FV-5 and FV-7 (+ two
+> **Status:** FV-1, FV-2, FV-3, FV-4 (parts a–c), FV-5, FV-6 and FV-7 (+ two
 > DDM-stability guards) implemented 2026-09-09 (branch
 > `feat/fv-coverage-quickwins`) — see `CHANGELOG.md` `[Unreleased]`.
-> FV-6 / FV-8 still open.
+> **Only FV-8 (REIT Graham/P·E guard) still open.**
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -266,14 +266,24 @@ Decisions taken: **conditional contribution** (not permanent weights) and **keep
   short TTL. `fv_model_count` distribution: 0→4 (those are `data_thin`), 1→1,
   3→1, 4→8, 5→11, 6→7.
 
-### FV-6 — UI: reasons for dark / refused models *(RC-6)* — effort **M**
-- `fair_value_ladder(..., reasons: dict[str,str] | None)` — muted suffix or
-  hover on a dark row: "no positive EPS", "EPV negative — net debt", "dividend
-  not covered (payout 144 %)", "no analyst coverage", "input pending — refetch".
-- Add a "basis: N of 6 models" line under the composite; caption when N < 2.
-- "Analyst Target" ladder row shows the **haircut** value used in the composite
-  (or annotates "−10 % optimism haircut applied downstream") so the numbers
-  reconcile.
+### FV-6 — UI: reasons for dark / refused models *(RC-6)* — effort **M** — ✅ shipped 2026-09-09
+- `fair_value_ladder(..., reasons=, basis_count=, basis_thin=)`. A dark row
+  renders its reason (`components.six_model_ladder_reasons`, derived purely from
+  the flags `_fair_value_models` already emits — no model logic re-derived) in
+  the otherwise-empty bar slot, full phrase on `title=` hover: "no positive
+  EPS", "no book value", "net debt > earnings", "no enterprise value", "no
+  multi-year EBIT", "not a dividend payer", "dividend not covered", "payout
+  outside DDM range", "no analyst coverage".
+- "basis · N of 6 models" line under the composite (`fv_model_count`); amber +
+  "· lightly corroborated" when `fv_basis_thin`.
+- Analyst row keeps the **raw** target (per §7 / spec line 42 — the raw figure
+  is deliberately what the UI shows); a caption
+  (`components.six_model_ladder_caption`) now says "the composite applies a
+  −10% optimism haircut to the Analyst Target shown", and also flags the FV-3
+  book/FCF substitution, so the printed rows reconcile with the composite.
+- Wired in both `uvalu/drawer.py` and `uvalu/pages_/analysis.py`. Verified live:
+  the NEXI.MI drawer shows the relabelled Book/FCF rows, "EPV — net debt >
+  earnings", "basis · 5 of 6 models", and the combined caption.
 
 ### FV-7 — DDM growth from `true_dgr` *(RC-7)* — effort **S** — ✅ shipped 2026-09-09
 - `_fair_value_models` passes `_dgr_estimate(row)` (true DPS CAGR, else the
@@ -355,7 +365,7 @@ small UI conflict** (FV-6).
 | **FV-3** P/B + FCF models *(shipped)* | **Explicit reversal + structural — done deliberately.** `stock_valuation_algorithm.md` rewritten: line 29 (`priceToBook` now feeds a model), Stage 2 intro ("six **core** models" + a "Fallback models" subsection), line 44 ("asset-based / P/B … not implemented" → EV/EBITDA & comps only), the weights paragraph (W_PB/W_FCF outside the sum), and the summary. Conditional gating is a new concept vs. the flat weighted average, but it is scoped to `_trio == 0` and mirrors how a conditionally-absent DDM already re-normalises. The "six-model" UI surface is **preserved** (ladder still 6 rows, relabel). FCF/EPV overlap is bounded — they never co-fire (`_trio == 0` excludes EPV). | done: 29, 32, 44, 54, Stage 2, summary; `data-contracts.md` |
 | **FV-4** EPV hardening *(shipped)* | **Additive, minor — as predicted.** New fetched fields extended the Stage 1 list; `_enterprise_value` extended the EPV row's EV definition; `epv_negative` / `ev_source` are new advisory columns — line 32's `> 0` filter still does the excluding. No principle conflict. | Stage 1 fields, EPV row, `data-contracts.md` |
 | **FV-5** thin-basis flag + heal *(shipped)* | **No conflict** — `fv_model_count` / `fv_basis_thin` are advisory columns; the composite math is untouched. Heal scoped to reconstructed-EPS payloads (not "any thin-basis row") so it can't spin a data-poor small-cap. Composite-score asterisk deferred (Stage 5/6). | `data-contracts.md` |
-| **FV-6** reason strings | **UI-only, except** the "show the haircut analyst value in the ladder" sub-point — line 42 documents raw-vs-haircut display as *intentional* ("the undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI"). Keep raw, annotate instead. | 42 |
+| **FV-6** reason strings *(shipped)* | **UI-only.** The analyst row keeps the raw target (spec line 42's deliberate choice) — a caption states the −10% haircut instead of swapping the value. Line 42 updated to note the caption. | 42 (note added) |
 | **FV-7** DDM growth from `true_dgr` (+ `DDM_MIN_SPREAD`, clamp DDM-collapse) | **Doc-sync, consistent direction.** Lines 40–41 didn't say where `g` comes from; the DDM rows + the sanity-guard note in `data-contracts.md` were updated. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. The `WACC ≤ g` → `WACC − g < 3 pp` change makes the DDM slightly more conservative for a handful of low-beta payers. | Stage 2 DDM rows, `data-contracts.md` |
 | **FV-8** skip Graham/PE for REITs | **Structural addition.** Line 37 has no sector gate; `LEVERAGE_EXEMPT_SECTORS` (line 142) is currently veto-only; Stage 2 applies all six models uniformly. Conceptually consistent with the existing sector-exempt pattern, but new. | 37, 142, Stage 2 |
 
