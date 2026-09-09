@@ -82,6 +82,49 @@ SCORE_MODERATE = 50
 SCORE_ELEVATED = 70
 SCORE_HIGH     = 85
 
+# Canonical composite-risk bands — the single source of truth for the 0-100
+# score's label, recommended action, and semantic colour tone. `_risk_label_action`
+# and the UI colour mappers (`uvalu.components.score_color` /
+# `.risk_score_meter_html`) all derive from this table, so the Risk-page gauge,
+# the Dashboard risk bar, and docs/portfolio_risk_assessment_algorithm.md can't
+# drift apart again. Each row's first field is the band's inclusive upper bound;
+# `tone` keys `uvalu.components._RISK_TONE_COLORS`. The green→amber break is
+# SCORE_LOW (25) and amber→red is SCORE_ELEVATED (70): red is reserved for
+# "immediate action" scores, matching the wording of the actions themselves.
+RISK_BANDS: list[tuple[float, str, str, str]] = [
+    (SCORE_LOW,      "Low risk",      "Hold — monitor quarterly",                              "low"),
+    (SCORE_MODERATE, "Moderate risk", "Review annually; consider minor rebalancing",           "moderate"),
+    (SCORE_ELEVATED, "Elevated risk", "Active monitoring; targeted rebalancing",               "elevated"),
+    (SCORE_HIGH,     "High risk",     "Immediate rebalancing required",                        "high"),
+    (100.0,          "Critical risk", "Defensive repositioning — reduce exposure immediately", "critical"),
+]
+
+
+def risk_band(score: float) -> tuple[str, str, str]:
+    """(label, action, tone) for a 0-100 composite risk score, from `RISK_BANDS`."""
+    for upper, label, action, tone in RISK_BANDS:
+        if score <= upper:
+            return label, action, tone
+    _, label, action, tone = RISK_BANDS[-1]
+    return label, action, tone
+
+
+# The Stage-1/3 quant band words (`_beta_label` / `_vol_label` / `_mdd_label` /
+# `_sharpe_label` / `_sortino_label`) mapped onto the same three visual tones the
+# composite gauge uses, so "High" volatility reads red and "Low" reads green on
+# the Risk page's metric grid instead of flat grey.
+_QUANT_LABEL_TONE = {
+    "Low": "low", "Moderate": "moderate", "High": "high",
+    "Defensive": "low", "Market-like": "moderate", "Aggressive": "high",
+    "Strong": "low", "Acceptable": "moderate", "Suboptimal": "high",
+}
+
+
+def band_tone(label: str) -> str:
+    """Visual tone (``low`` | ``moderate`` | ``high``) for a quant band word;
+    ``""`` when unknown (e.g. ``"N/A"``) so callers fall back to a neutral colour."""
+    return _QUANT_LABEL_TONE.get(label, "")
+
 # name, label, benchmark drawdown, window start, window end. The window dates
 # gate the "replay the held basket's own drawdown" path in _stage6_stress —
 # when port_rets covers a window, that scenario's portfolio_drawdown is the
@@ -1309,11 +1352,8 @@ def _score_income(income: IncomeRisk) -> float:
 
 
 def _risk_label_action(score: float) -> tuple[str, str]:
-    if score <= SCORE_LOW:       return "Low risk",       "Hold — monitor quarterly"
-    if score <= SCORE_MODERATE:  return "Moderate risk",  "Review annually; consider minor rebalancing"
-    if score <= SCORE_ELEVATED:  return "Elevated risk",  "Active monitoring; targeted rebalancing"
-    if score <= SCORE_HIGH:      return "High risk",      "Immediate rebalancing required"
-    return "Critical risk", "Defensive repositioning — reduce exposure immediately"
+    label, action, _tone = risk_band(score)
+    return label, action
 
 
 def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,

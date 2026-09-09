@@ -186,7 +186,7 @@ Two pure value formatters — `fmt_eur` and `safe_pct`. The old `COLUMN_HELP` / 
 
 #### `uvalu/components.py`
 
-Pure-render helpers shared by the drawer, Analysis page, and Dashboard: `signal_badge_html`/`signal_badge_for_decision`, `render_signal_tips`, `fair_value_ladder`, `fair_value_bar_compact`, `signals_feed`, `score_color`, `radial_gauge_svg`, `sub_score_bar_html`, `sparkline_svg`. No Streamlit or data-layer coupling — covered by `tests/test_components.py`.
+Pure-render helpers shared by the drawer, Analysis page, and Dashboard: `signal_badge_html`/`signal_badge_for_decision`, `render_signal_tips`, `fair_value_ladder`, `fair_value_bar_compact`, `signals_feed`, `score_color`, `band_tone_color`, `risk_score_meter_html`, `radial_gauge_svg`, `sub_score_bar_html`, `sparkline_svg`. Covered by `tests/test_components.py`. The composite-risk colour scale (`score_color`, `risk_score_meter_html`) derives its band cut-offs from `risk.RISK_BANDS`, so the Risk-page gauge and the Dashboard risk bar can't disagree on one score's colour — green *Low*, amber (`#C98A3A`) *Moderate*/*Elevated*, red (`#A32D2D`) *High*/*Critical*.
 
 #### `uvalu/pages_/`
 

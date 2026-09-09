@@ -259,15 +259,16 @@ def test_multi_lot_same_ticker_does_not_crash(isolated_data, monkeypatch):
 
 
 def test_risk_label_never_disagrees_with_risk_page_bands(isolated_data, monkeypatch):
-    # The dashboard's simplified 3-tier gauge must never contradict
-    # risk.py's own SCORE_LOW/SCORE_MODERATE bands for the same score --
-    # it used to use unrelated hand-picked 35/65 boundaries.
+    # The dashboard risk bar shares uvalu.components.risk_score_meter_html with
+    # the Risk page, so its gradient stops are risk.py's own band edges
+    # (SCORE_LOW green->amber, SCORE_ELEVATED amber->red) -- it used to
+    # hand-roll a 25/50 gradient that reddened at a merely-"review" score.
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, with_risk_cache=True)
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
     assert f"#1DD6A4 {risk_module.SCORE_LOW}%" in html
-    assert f"#C98A3A {risk_module.SCORE_MODERATE}%" in html
+    assert f"#C98A3A {risk_module.SCORE_ELEVATED}%" in html
 
 
 def test_conviction_score_renders_from_scored_holdings(isolated_data, monkeypatch):

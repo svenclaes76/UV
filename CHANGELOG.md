@@ -10,6 +10,16 @@ _Nothing yet._
 
 ---
 
+## [1.5.1] — 2026-09-09
+
+### Fixed
+
+- **Portfolio-risk colours are now consistent between the Dashboard and the Risk page.** The Risk page's composite-score gauge used a hand-picked `< 40` / `< 70` colour split (`uvalu.components.score_color`) that didn't line up with the algorithm's own band edges — so a score of 26–39 was labelled **"Moderate risk"** but the ring and label were painted **green**, and the same score showed **amber** on the Dashboard. `score_color` now derives its cut-offs from the new single source of truth `risk.RISK_BANDS` (`risk.risk_band()`): green only for *Low* (≤ 25), amber (`#C98A3A`) for *Moderate* / *Elevated*, red (`#A32D2D`) for *High* / *Critical* (amber→red at 70). Both screens now render one score's meter through the shared `uvalu.components.risk_score_meter_html`, and `score_color` is theme-aware (legible label text on the dark card).
+- Dashboard's "Conviction & risk" card now shows the exact band word from `risk.RISK_BANDS` (Low / Moderate / Elevated / High / Critical) instead of collapsing everything above *Moderate* into one "Elevated" bucket.
+- Risk page: the per-metric band labels (beta, volatility, max drawdown, Sharpe) are now tinted low/moderate/high via `risk.band_tone()` instead of rendering in flat grey.
+
+---
+
 ## [1.5.0] — 2026-09-06
 
 Two independent workstreams: the "Loading Patterns" design rollout and a new
