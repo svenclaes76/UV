@@ -474,6 +474,49 @@ class TestFairValueBlend:
         fv = _fair_value_models(pd.Series({"Price": 50.0, "beta": 1.0}))
         assert fv["epv"] is None
 
+    def test_enterprise_value_reconstructed_when_provider_drops_it(self):
+        # FV-4: no `enterpriseValue`, but the balance-sheet pieces survived →
+        # EV = marketCap + totalDebt − totalCash.
+        f = screener._enterprise_value
+        assert f({"enterpriseValue": 9e9}) == (9e9, "provider")
+        ev, src = f({"marketCap": 6e9, "totalDebt": 4e9, "totalCash": 1e9})
+        assert src == "reconstructed" and ev == pytest.approx(9e9)
+        # no marketCap → Price × shares is the equity leg
+        ev, src = f({"Price": 10.0, "sharesOutstanding": 5e8,
+                     "totalDebt": 2e9, "totalCash": 0.0})
+        assert src == "reconstructed" and ev == pytest.approx(7e9)
+        # not enough to reconstruct
+        assert f({"marketCap": 6e9}) == (None, "none")           # no debt
+        assert f({"totalDebt": 4e9, "totalCash": 1e9}) == (None, "none")   # no equity leg
+        # a non-positive reconstruction is treated as no EV
+        assert f({"marketCap": 1e8, "totalDebt": 0.0, "totalCash": 5e8}) == (None, "none")
+
+    def test_epv_computes_off_a_reconstructed_ev(self):
+        # PAH3-shaped: enterpriseValue dropped, but Market Cap + totalDebt present.
+        row = pd.Series({"Price": 30.0, "ebitHistory": [3e9, 5e9, 5e9, 4e9],
+                         "Market Cap": 9e9, "totalDebt": 3e9, "totalCash": 1e9,
+                         "sharesOutstanding": 1.5e8, "beta": 1.0})
+        fv = _fair_value_models(row)
+        assert fv["ev_source"] == "reconstructed"
+        assert fv["epv"] is not None
+
+    def test_epv_negative_is_flagged_not_silently_dropped(self):
+        # net debt swamps the capitalised earnings power → EPV ≤ 0. It stays out
+        # of the blend, but `epv_negative` says why.
+        row = pd.Series({"Price": 1.25, "ebitHistory": [1e8, -1e8, 1.5e8, 3e8],
+                         "enterpriseValue": 2e9, "sharesOutstanding": 2e8,
+                         "beta": 0.5, "targetMeanPrice": 2.0})
+        fv = _fair_value_models(row)
+        assert fv["epv"] is not None and fv["epv"] <= 0
+        assert fv["epv_negative"] is True
+        # excluded from the composite (analyst target is the only live model)
+        assert fv["fair_value"] == pytest.approx(2.0 * 0.9, abs=0.2)
+
+    def test_epv_negative_false_for_a_healthy_epv(self):
+        fv = _fair_value_models(pd.Series({"Price": 50.0, "ebit": 1_000_000.0,
+                                           "enterpriseValue": 10_000_000.0, "beta": 1.0}))
+        assert fv["epv"] > 0 and fv["epv_negative"] is False
+
     def test_normalised_ebit_averages_history_or_falls_back(self):
         f = screener._normalised_ebit
         # >= 3 finite years with no outlier → mean of the window

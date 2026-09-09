@@ -1,8 +1,8 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1 + FV-2 + FV-7 (with two DDM-stability guards) implemented
-> 2026-09-09 (branch `feat/fv-coverage-quickwins`) — see `CHANGELOG.md`
-> `[Unreleased]`. FV-3 / FV-4 / FV-5 / FV-6 / FV-8 still open.
+> **Status:** FV-1, FV-2, FV-7 (+ two DDM-stability guards) and FV-4 (parts a–c)
+> implemented 2026-09-09 (branch `feat/fv-coverage-quickwins`) — see
+> `CHANGELOG.md` `[Unreleased]`. FV-3 / FV-5 / FV-6 / FV-8 still open.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -215,14 +215,25 @@ fundamentals trio (Graham / P/E / EPV) produced ≤ 1 value:
   substitute, with a tooltip.
 - Expected: NEXI gets FCF + P/B; BPOST / SYENS get P/B.
 
-### FV-4 — EPV hardening *(RC-4)* — effort **S–M**
-- Add `totalDebt`, `totalCash`, `marketCap` to `VALUATION_FIELDS`
-  (each `_safe_float`, isolated — a miss must not trip the ticker backoff).
-- When `enterpriseValue` is `None`, reconstruct
-  `ev = (marketCap or price·shares) + totalDebt − totalCash`.
-- When per-share EPV ≤ 0, keep it out of the blend but set `epv_negative=True`.
-- Optionally expose an EV-level EPV (no net-debt subtraction) as a secondary,
-  clearly-labelled figure for `LEVERAGE_EXEMPT_SECTORS`.
+### FV-4 — EPV hardening *(RC-4)* — effort **S–M** — ✅ shipped 2026-09-09 (parts a–c)
+- `totalDebt`, `totalCash`, `marketCap` added to `VALUATION_FIELDS` (pulled via
+  the existing `_safe_float` `ALL_EXTRA_FIELDS` loop — a miss degrades to `None`,
+  never trips the ticker backoff; `compute_scores` reindexes them for old caches).
+- New `screener._enterprise_value(row) -> (ev|None, source)`: the provider's
+  `enterpriseValue` when positive, else `(marketCap or "Market Cap" or
+  Price·shares) + totalDebt − totalCash`; a ≤0 result is treated as no EV.
+  `_fair_value_models` and `_row_is_scorable` both consume it (kept in lock-step).
+- `epv_negative` set when a per-share EPV computes to ≤ 0 (kept out of the blend
+  by the `> 0` filter); `ev_source` records `provider` / `reconstructed` / `none`.
+- **Deferred:** the EV-level EPV variant for `LEVERAGE_EXEMPT_SECTORS` — EPV is
+  the wrong tool for asset-heavy balance sheets regardless of the net-debt step;
+  folded into FV-8.
+- **Result:** `epv_negative` now flags NEXI.MI / BPOST.BR / AED.BR / CPINV.BR
+  (previously silent "—"). The EV-reconstruction is a no-op on the *current*
+  portfolio cache (it predates the new fields) — it takes effect for a held
+  ticker after the next `PORTFOLIO_FETCH` cycle; verified end-to-end against a
+  PAH3.DE row with `totalDebt` injected (`ev_source` → `reconstructed`, EPV
+  computes, composite still protected by the sanity clamp).
 
 ### FV-5 — Thin-basis detection & heal *(RC-5)* — effort **S**
 - `screener._fair_value_model_count(row)` → how many sub-models produced a value.
@@ -318,7 +329,7 @@ small UI conflict** (FV-6).
 | **FV-1** robust payout signal | **Doc-sync.** Lines 48 / 59 state the DDM ramp is "keyed on **the payout ratio**", with knots (`0.05 / 0.30 / 0.70 / 0.95`) calibrated for the *accounting* `payoutRatio`. Feeding `cashPayoutRatio` / `1 ÷ coverage` through the same knots is a semantic mismatch — those ratios have different distributions. Needs the Stage 2 "DDM payout ramp" paragraph + summary lines 162–164 rewritten, ideally with per-source knots. | 48, 59–61, 162–164 |
 | **FV-2** median / trimmed EBIT | **Doc-sync, reverses a deliberate choice.** Lines 39 & 159 say three times "EBIT is the **mean** over `ebitHistory` … so a peak or trough year doesn't set the valuation". The PAH3 case (one −19.8 bn year) shows the mean does *not* survive a lone catastrophe — frame FV-2 as revising review 2.3, not a bug fix. | 39, 159 |
 | **FV-3** P/B + FCF models | **Explicit reversal + structural.** Line 44: "an **asset-based / P/B model are not implemented**". Line 29: "Price-to-book and EV/EBITDA … are **display-only**". Line 32: "**Six models** run per stock". And line 68–71's composite is a flat weighted average over *available* models — "contribute only when Graham/PE/EPV gave ≤ 1" is new conditional-gating the design doesn't have. FCF-capitalisation also overlaps EPV (double-weighting cash-flow valuation). | 29, 32, 44, 54, 68–71, Stage 2 table, summary |
-| **FV-4** EPV hardening | **Additive, minor.** New fetched fields extend line 17–27; EV reconstruction extends the `NetDebt = EV − Price×Shares` chain in line 39. `epv_negative` is UI-only — line 32 already excludes non-positive models. No principle conflict. | 21, 39 |
+| **FV-4** EPV hardening *(shipped)* | **Additive, minor — as predicted.** New fetched fields extended the Stage 1 list; `_enterprise_value` extended the EPV row's EV definition; `epv_negative` / `ev_source` are new advisory columns — line 32's `> 0` filter still does the excluding. No principle conflict. | Stage 1 fields, EPV row, `data-contracts.md` |
 | **FV-5** thin-basis flag + heal | **No conflict** with this spec (TTL / `data_thin` live elsewhere). The *optional* "down-weight the Composite score" would reach into Stage 5/6 — keep that as a separate proposal. | 26 (optional) |
 | **FV-6** reason strings | **UI-only, except** the "show the haircut analyst value in the ladder" sub-point — line 42 documents raw-vs-haircut display as *intentional* ("the undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI"). Keep raw, annotate instead. | 42 |
 | **FV-7** DDM growth from `true_dgr` (+ `DDM_MIN_SPREAD`, clamp DDM-collapse) | **Doc-sync, consistent direction.** Lines 40–41 didn't say where `g` comes from; the DDM rows + the sanity-guard note in `data-contracts.md` were updated. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. The `WACC ≤ g` → `WACC − g < 3 pp` change makes the DDM slightly more conservative for a handful of low-beta payers. | Stage 2 DDM rows, `data-contracts.md` |

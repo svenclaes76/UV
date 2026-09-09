@@ -294,6 +294,9 @@ VALUATION_FIELDS = [
     "numberOfAnalystOpinions",      # Analyst target — coverage depth
     "ebit",                         # EPV
     "enterpriseValue",              # EPV: EV → per-share scaling
+    "totalDebt",                    # EPV: EV reconstruction when enterpriseValue is dropped (FV-4)
+    "totalCash",                    # EPV: EV reconstruction (FV-4)
+    "marketCap",                    # EPV: EV reconstruction — equity leg (FV-4)
     "sharesOutstanding",            # Cash payout ratio
 ]
 
@@ -1079,6 +1082,32 @@ def _normalised_ebit(row: pd.Series):
     return sum(kept) / len(kept) if len(kept) >= 2 else med
 
 
+def _enterprise_value(row: "dict | pd.Series") -> "tuple[float | None, str]":
+    """Enterprise value for the EPV model. FV-4: yfinance drops `enterpriseValue`
+    on a partial payload while usually still carrying the balance-sheet pieces,
+    so fall back to a reconstruction — ``(market cap or Price × shares) +
+    totalDebt − totalCash`` — before giving up. Returns ``(ev | None, source)``
+    with ``source`` in ``{"provider", "reconstructed", "none"}``; a non-positive
+    result is treated as no EV."""
+    ev = _finite(row.get("enterpriseValue"))
+    if ev is not None and ev > 0:
+        return ev, "provider"
+
+    equity = _finite(row.get("marketCap")) or _finite(row.get("Market Cap"))
+    if equity is None or equity <= 0:
+        price  = _finite(row.get("Price"))
+        shares = _finite(row.get("sharesOutstanding"))
+        equity = (price * shares
+                  if price and shares and price > 0 and shares > 0 else None)
+
+    total_debt = _finite(row.get("totalDebt"))
+    if equity is None or total_debt is None:
+        return None, "none"
+    total_cash = _finite(row.get("totalCash")) or 0.0
+    ev = equity + total_debt - total_cash
+    return (ev, "reconstructed") if ev > 0 else (None, "none")
+
+
 def _row_is_scorable(row: "dict | pd.Series") -> bool:
     """True when a fundamentals row carries enough for at least one of the six
     fair-value models below to produce a value — i.e. ``compute_scores`` can give
@@ -1093,10 +1122,12 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     ``_payout_signal`` + ``_ddm_weight_factor`` (FV-1): a payer is scorable via
     DDM whenever *some* payout proxy — reported ratio, cash payout, or
     1/coverage — lands inside the ramp band, not only when ``payoutRatio`` is
-    present. The EBIT branch is deliberately lenient: it accepts a multi-year
-    history without re-checking the mean's sign, since a false "scorable" only
-    means the row keeps its normal TTL — it still renders "—" if the models
-    genuinely can't value it, exactly as today.
+    present. The EPV branch takes ``_enterprise_value`` (FV-4), so a row whose
+    ``enterpriseValue`` was dropped but whose balance-sheet pieces survived
+    still counts. The EBIT branch is deliberately lenient: it accepts a
+    multi-year history without re-checking the mean's sign, since a false
+    "scorable" only means the row keeps its normal TTL — it still renders "—"
+    if the models genuinely can't value it, exactly as today.
     """
     def _num(key):
         v = row.get(key)
@@ -1110,7 +1141,6 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     pe     = _num("trailingPE")
     book   = _num("bookValue")
     ebit   = _num("ebit")
-    ev     = _num("enterpriseValue")
     target = _num("targetMeanPrice")
     div    = _num("trailingAnnualDividendRate") or _num("dividendRate")
 
@@ -1127,7 +1157,7 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         target is not None and target > 0,                              # analyst target
         div is not None and div > 0
             and _ddm_weight_factor(div, _payout_signal(row)[0]) > 0,     # DDM (payout ramp must be non-zero)
-        have_ebit and ev is not None and ev > 0,                        # earnings power value
+        have_ebit and _enterprise_value(row)[0] is not None,            # EPV (EV from provider or FV-4 reconstruction)
     ))
 
 
@@ -1139,7 +1169,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     payout, payout_source = _payout_signal(row)   # FV-1: reported / cash / 1-over-coverage
     analyst  = row.get("targetMeanPrice")
     ebit     = _normalised_ebit(row)   # robust mean of ebitHistory (≥3yr) else point-in-time
-    ev       = row.get("enterpriseValue")
+    ev, ev_source = _enterprise_value(row)   # FV-4: provider EV, else reconstructed from mcap+debt−cash
     beta     = row.get("beta")
     eg       = row.get("earningsGrowth")            # PEG tilt on the PE model
     ddm_g    = _dgr_estimate(row)                   # FV-7: true DPS CAGR, else earningsGrowth
@@ -1167,6 +1197,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
     # valuation; t is the country's statutory rate (COUNTRY_TAX_RATES), else DEFAULT_TAX_RATE.
     epv = None
+    epv_negative = False
     if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
         epv_ev = ebit * (1 - tax_rate) / wacc
         if shares and shares > 0:
@@ -1178,6 +1209,11 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         else:
             # Fallback when shares outstanding is unavailable: EV-ratio approximation.
             epv = price * (epv_ev / ev)
+        # FV-4: a ≤0 EPV means net debt swamps the capitalised earnings power
+        # (common for leveraged names / REITs). It's kept out of the blend by the
+        # v > 0 filter below, but the flag lets the UI say *why* the row is dark
+        # rather than showing a bare "—".
+        epv_negative = bool(epv is not None and epv <= 0)
 
     # DDM weight ramps with the payout signal (_ddm_weight_factor) rather than a
     # hard 5–90% in/out gate — full base weight in the 30–70% band, tapering to 0
@@ -1215,7 +1251,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
                 "ddm_contributed": False, "fair_value_clamped": False,
-                "payout_source": payout_source}
+                "payout_source": payout_source, "epv_negative": epv_negative,
+                "ev_source": ev_source}
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
@@ -1261,6 +1298,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "ddm_contributed": ddm_contributed,
         "fair_value_clamped": fv_clamped,
         "payout_source":  payout_source,
+        "epv_negative":   epv_negative,
+        "ev_source":      ev_source,
     }
 
 

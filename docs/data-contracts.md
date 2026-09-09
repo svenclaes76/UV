@@ -58,14 +58,21 @@ between screens at some point (see the `dq/*` history); the tests in
 - `_payout_source` records which payout proxy fed the DDM ramp: `reported`
   (raw `payoutRatio`, trusted only in `[0, 0.95]`), `cash` (`cashPayoutRatio`),
   `coverage` (`1 / dividendCoverage`), or `none`.
+- `ev_source` records where the EPV model's enterprise value came from:
+  `provider` (`enterpriseValue`), `reconstructed`
+  (`(marketCap or Price×shares) + totalDebt − totalCash`, FV-4), or `none`.
+  `epv_negative` is `True` when a per-share EPV was computed but came out ≤ 0
+  (net debt > capitalised earnings power); it is excluded from the blend, the
+  flag is for the UI.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
   `targetMeanPrice`, or a dividend rate whose **payout signal** —
   `_payout_signal`: reported ratio in [0, 0.95], else `cashPayoutRatio`, else
   `1 / dividendCoverage` — lands inside the DDM ramp band, or ≥3yr
-  `ebitHistory` + `enterpriseValue`). It mirrors `_fair_value_models`' own
-  per-model input guards and must be kept in step with them. A row that is not
+  `ebitHistory` + an enterprise value from `_enterprise_value` (provider or the
+  FV-4 reconstruction)). It mirrors `_fair_value_models`' own per-model input
+  guards and must be kept in step with them. A row that is not
   scorable produces a NaN `fair_value` / `MoS`, which the rank layer papers over
   with a neutral 50 (`_pct_rank` / `_abs_band`) — so such a row still gets a
   `Decision`, usually `Monitor`.
