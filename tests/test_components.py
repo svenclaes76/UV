@@ -223,6 +223,24 @@ def test_six_model_ladder_reasons_distinguishes_epv_failure_modes():
     assert six_model_ladder_reasons({**base, "ev_source": "provider"})["EPV"] == "no multi-year EBIT"
 
 
+def test_six_model_ladder_reasons_marks_sector_skipped_rows():
+    from uvalu.components import six_model_ladder_reasons
+    # FV-8: a REIT with real EPS but Graham / P/E / EPV skipped by sector
+    reit = six_model_ladder_reasons({
+        "trailingEps": 8.0, "sector": "Real Estate",
+        "graham_number": None, "pe_fair_value": None, "epv": None})
+    assert reit["Graham Number"] == "n/a for this sector"
+    assert reit["P/E fair value"] == "n/a for this sector"
+    assert reit["EPV"] == "n/a for this sector"
+    # a bank keeps P/E, so only Graham + EPV are "n/a"
+    bank = six_model_ladder_reasons({
+        "trailingEps": 4.0, "sector": "Financial Services",
+        "graham_number": None, "pe_fair_value": 36.0, "epv": None})
+    assert bank["Graham Number"] == "n/a for this sector"
+    assert bank["EPV"] == "n/a for this sector"
+    assert "P/E fair value" not in bank            # live, no reason
+
+
 def test_six_model_ladder_caption_flags_fallback_and_haircut():
     from uvalu.components import six_model_ladder_caption
     assert six_model_ladder_caption({"pb_fair_value": None, "fcf_fair_value": None,

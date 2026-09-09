@@ -232,17 +232,24 @@ def six_model_ladder_reasons(row) -> dict:
         v = row.get(k)
         return None if v is None or (isinstance(v, float) and pd.isna(v)) else v
 
+    from screener import _GRAHAM_EPV_SKIP_SECTORS, _PE_SKIP_SECTORS
+
     eps      = _num("trailingEps")
+    sector   = row.get("sector")
     div_rate = _num("trailingAnnualDividendRate") or _num("dividendRate")
     no_eps   = eps is None or eps <= 0
+    _sector_skip = "n/a for this sector"   # FV-8
     out: dict = {}
 
     if not _is_live(row.get("graham_number")):
-        out["Graham Number"] = "no positive EPS" if no_eps else "no book value"
+        out["Graham Number"] = (_sector_skip if sector in _GRAHAM_EPV_SKIP_SECTORS
+                                else "no positive EPS" if no_eps else "no book value")
     if not _is_live(row.get("pe_fair_value")):
-        out["P/E fair value"] = "no positive EPS"
+        out["P/E fair value"] = (_sector_skip if sector in _PE_SKIP_SECTORS
+                                 else "no positive EPS")
     if not _is_live(row.get("epv")):
-        out["EPV"] = ("net debt > earnings" if bool(row.get("epv_negative"))
+        out["EPV"] = (_sector_skip if sector in _GRAHAM_EPV_SKIP_SECTORS
+                      else "net debt > earnings" if bool(row.get("epv_negative"))
                       else "no enterprise value" if row.get("ev_source") == "none"
                       else "no multi-year EBIT")
     if not _is_live(row.get("ddm")) or not _is_live(row.get("ddm_multistage")):

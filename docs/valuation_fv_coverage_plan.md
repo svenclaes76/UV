@@ -1,9 +1,8 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1, FV-2, FV-3, FV-4 (parts a–c), FV-5, FV-6 and FV-7 (+ two
-> DDM-stability guards) implemented 2026-09-09 (branch
-> `feat/fv-coverage-quickwins`) — see `CHANGELOG.md` `[Unreleased]`.
-> **Only FV-8 (REIT Graham/P·E guard) still open.**
+> **Status: COMPLETE.** FV-1 … FV-8 (+ two DDM-stability guards, minus the
+> deliberately-dropped FV-4 EV-level-EPV variant) all implemented 2026-09-09 on
+> branch `feat/fv-coverage-quickwins` — see `CHANGELOG.md` `[Unreleased]`.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -300,9 +299,26 @@ Decisions taken: **conditional contribution** (not permanent weights) and **keep
   (noisy-`earningsGrowth` inflation removed); RI.PA 121 → 90, MONT.BR 88 → 75,
   EDEN.PA 41 → 32 (min-spread guard); NEXI.MI now trips the clamp correctly.
 
-### FV-8 — Sector guard on Graham / P-E *(RC-8)* — effort **M**
-- Skip Graham (and optionally P/E) for `LEVERAGE_EXEMPT_SECTORS`; rely on the
-  FV-3 P/B model + DDM there. Add a regression test on AED.BR.
+### FV-8 — Sector guard on Graham / P-E / EPV *(RC-8)* — effort **M** — ✅ shipped 2026-09-09
+- Not `LEVERAGE_EXEMPT_SECTORS` wholesale — that set groups sectors by *leverage
+  structure*, but the model-distortion is narrower. Two new sets:
+  - `_GRAHAM_EPV_SKIP_SECTORS = {"Real Estate", "Financial Services"}` — skip
+    Graham and EPV. REIT EPS carries IFRS revaluation gains; banks/insurers
+    have no operating EBIT for a Greenwald EPV.
+  - `_PE_SKIP_SECTORS = {"Real Estate"}` — also skip P/E (revaluation-distorted
+    EPS × a sector median built from the same distorted EPS). Banks **keep**
+    P/E — it's the standard bank metric and their EPS isn't revaluation-noise.
+  - `Utilities` deliberately **excluded** — regulated, stable EPS, a real EBIT.
+- With the earnings trio skipped, `_trio == 0` for these names → the FV-3
+  book-value fallback fires; they value off **P/B (NAV proxy) + DDM + analyst**.
+- FV-6: dark Graham/P·E/EPV rows in these sectors read "n/a for this sector"
+  (`six_model_ladder_reasons` imports the two sets).
+- **Result:** AED.BR fair value **92 → 62** (price 66 — was €131 Graham / €131
+  P/E dragging it up; now P/B €58 ≈ 1.1× NAV + DDM + analyst). Every held REIT
+  (CPINV, RET, MONT, XIOR) now anchored on ~1× NAV. Financials (INGA, NN)
+  shed a spurious Graham; P/E retained. Non-affected sectors unchanged.
+  Residual: RET.BR's 2-stage DDM still runs high on its DGR — a DDM-for-REITs
+  concern, out of FV-8's scope; the sanity clamp is the backstop.
 
 ---
 
@@ -367,7 +383,7 @@ small UI conflict** (FV-6).
 | **FV-5** thin-basis flag + heal *(shipped)* | **No conflict** — `fv_model_count` / `fv_basis_thin` are advisory columns; the composite math is untouched. Heal scoped to reconstructed-EPS payloads (not "any thin-basis row") so it can't spin a data-poor small-cap. Composite-score asterisk deferred (Stage 5/6). | `data-contracts.md` |
 | **FV-6** reason strings *(shipped)* | **UI-only.** The analyst row keeps the raw target (spec line 42's deliberate choice) — a caption states the −10% haircut instead of swapping the value. Line 42 updated to note the caption. | 42 (note added) |
 | **FV-7** DDM growth from `true_dgr` (+ `DDM_MIN_SPREAD`, clamp DDM-collapse) | **Doc-sync, consistent direction.** Lines 40–41 didn't say where `g` comes from; the DDM rows + the sanity-guard note in `data-contracts.md` were updated. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. The `WACC ≤ g` → `WACC − g < 3 pp` change makes the DDM slightly more conservative for a handful of low-beta payers. | Stage 2 DDM rows, `data-contracts.md` |
-| **FV-8** skip Graham/PE for REITs | **Structural addition.** Line 37 has no sector gate; `LEVERAGE_EXEMPT_SECTORS` (line 142) is currently veto-only; Stage 2 applies all six models uniformly. Conceptually consistent with the existing sector-exempt pattern, but new. | 37, 142, Stage 2 |
+| **FV-8** skip Graham/PE/EPV for NAV sectors *(shipped)* | **Structural addition, done.** Two new sets (`_GRAHAM_EPV_SKIP_SECTORS`, `_PE_SKIP_SECTORS`) — *not* `LEVERAGE_EXEMPT_SECTORS`, whose grouping is by leverage not model-fit. Stage 2 model rows + the Fallback subsection + the summary now note the per-sector skip. Consistent with the existing sector-exempt pattern. | done: Stage 2 rows, Fallback subsection, summary; `data-contracts.md` |
 
 ### Not in conflict (verified)
 

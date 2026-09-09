@@ -225,6 +225,17 @@ MIN_UNIVERSE_SIZE = 20
 # low coverage) still apply.
 LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
 
+# FV-8: sectors whose value is driven by the balance sheet, not an income
+# statement, so the earnings-anchored models (Graham √(EPS·BVPS), a Greenwald
+# EPV on EBIT) are noise. Real estate books IFRS fair-value revaluation gains in
+# EPS — so EPS, and any P/E built on it, swings ±50% year to year; banks and
+# insurers have no "EBIT" in the industrial sense. These names are valued off
+# P/B (a NAV proxy) + DDM + analyst instead, and with the earnings trio skipped
+# `_trio` hits 0, so the FV-3 book-value fallback fires. Utilities are NOT here —
+# regulated, stable EPS, a real operating EBIT.
+_GRAHAM_EPV_SKIP_SECTORS = {"Real Estate", "Financial Services"}
+_PE_SKIP_SECTORS         = {"Real Estate"}   # + revaluation-distorted P/E; banks keep P/E
+
 # Sector fallback for tickers the fundamentals provider classifies as null — a
 # gap that otherwise leaves a held name in the "Unknown" bucket on every screen
 # (sector allocation donut, Risk-page sector HHI/concentration) and with no
@@ -1176,7 +1187,10 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     1/coverage — lands inside the ramp band, not only when ``payoutRatio`` is
     present. The EPV branch takes ``_enterprise_value`` (FV-4), so a row whose
     ``enterpriseValue`` was dropped but whose balance-sheet pieces survived
-    still counts. The EBIT branch is deliberately lenient: it accepts a
+    still counts. FV-8's per-sector model skips are *not* mirrored here — a
+    ``Real Estate`` / ``Financial Services`` row with ``eps > 0`` still reads as
+    scorable (it is, via P/B + DDM + analyst); the worst case is the usual
+    tolerated one below. The EBIT branch is deliberately lenient: it accepts a
     multi-year history without re-checking the mean's sign, since a false
     "scorable" only means the row keeps its normal TTL — it still renders "—"
     if the models genuinely can't value it, exactly as today.
@@ -1238,9 +1252,15 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
 
     wacc = _approx_wacc(beta)
 
+    # FV-8: for a NAV-driven sector the earnings-anchored models are skipped
+    # (see _GRAHAM_EPV_SKIP_SECTORS / _PE_SKIP_SECTORS) — the row is valued off
+    # P/B + DDM + analyst instead.
+    _skip_graham_epv = sector in _GRAHAM_EPV_SKIP_SECTORS
+    _skip_pe         = sector in _PE_SKIP_SECTORS
+
     # Graham Number
     gn = None
-    if eps and bvps and eps > 0 and bvps > 0:
+    if eps and bvps and eps > 0 and bvps > 0 and not _skip_graham_epv:
         gn = (22.5 * eps * bvps) ** 0.5
 
     # PE Fair Value: sector-median trailing P/E (winsorized to PE_MULTIPLE_BAND)
@@ -1249,14 +1269,15 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
     if pd.notna(eg):
         pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
-    pe_fv = (eps * pe_multiple) if (eps and eps > 0) else None
+    pe_fv = (eps * pe_multiple) if (eps and eps > 0 and not _skip_pe) else None
 
     # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). EBIT is the multi-year mean
     # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
     # valuation; t is the country's statutory rate (COUNTRY_TAX_RATES), else DEFAULT_TAX_RATE.
     epv = None
     epv_negative = False
-    if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
+    if (ebit and ebit > 0 and ev and ev > 0 and price and price > 0
+            and not _skip_graham_epv):
         epv_ev = ebit * (1 - tax_rate) / wacc
         if shares and shares > 0:
             # Exact: subtract net debt (EV − market cap) from EPV_EV, then divide

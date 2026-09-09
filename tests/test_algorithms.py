@@ -564,6 +564,46 @@ class TestFairValueBlend:
         fv = _fair_value_models(row, sector_pb={"Utilities": 0.8})
         assert fv["pb_fair_value"] == pytest.approx(8.0)
 
+    # ── FV-8: NAV-driven sector guard ──────────────────────────────────────
+    def test_real_estate_skips_graham_pe_epv_and_falls_through_to_pb(self):
+        # AED.BR-shaped: solid EPS / book / EBIT + EV, but a REIT — the
+        # earnings-anchored models are noise (IFRS revaluation in EPS), so they
+        # are skipped and the row is valued off P/B + DDM + analyst.
+        reit = pd.Series({
+            "Price": 66.0, "trailingEps": 10.0, "bookValue": 77.0,
+            "ebitHistory": [3.5e8, 2.9e8, 7e7, 4.1e8], "enterpriseValue": 1.17e10,
+            "sharesOutstanding": 8.3e7, "trailingAnnualDividendRate": 4.0,
+            "payoutRatio": 0.40, "targetMeanPrice": 83.0, "beta": 0.96,
+            "sector": "Real Estate"})
+        fv = _fair_value_models(reit, sector_pb={"Real Estate": 0.76})
+        assert fv["graham_number"] is None
+        assert fv["pe_fair_value"] is None
+        assert fv["epv"] is None and fv["epv_negative"] is False   # skipped, not "negative"
+        assert fv["pb_fair_value"] == pytest.approx(77.0 * 0.76)    # NAV proxy
+        assert fv["ddm"] is not None                                # DDM still runs
+        # composite is a sane multiple of NAV, not the €130+ Graham used to give
+        assert 40.0 < fv["fair_value"] < 90.0
+
+    def test_financials_skip_graham_and_epv_but_keep_pe(self):
+        bank = pd.Series({
+            "Price": 32.0, "trailingEps": 4.0, "bookValue": 60.0,
+            "ebitHistory": [5e9, 5e9, 5e9], "enterpriseValue": 8e10,
+            "sharesOutstanding": 3e9, "targetMeanPrice": 35.0, "beta": 1.1,
+            "sector": "Financial Services"})
+        fv = _fair_value_models(bank, sector_pe={"Financial Services": 9.0})
+        assert fv["graham_number"] is None and fv["epv"] is None
+        assert fv["pe_fair_value"] == pytest.approx(4.0 * 9.0)      # banks keep P/E
+
+    def test_utilities_are_not_touched_by_the_sector_guard(self):
+        util = pd.Series({
+            "Price": 20.0, "trailingEps": 2.0, "bookValue": 15.0,
+            "ebit": 1e9, "enterpriseValue": 2e10, "sharesOutstanding": 1e9,
+            "beta": 0.6, "sector": "Utilities"})
+        fv = _fair_value_models(util)
+        assert fv["graham_number"] is not None
+        assert fv["pe_fair_value"] is not None
+        assert fv["epv"] is not None
+
     # ── FV-5: fv_model_count ────────────────────────────────────────────────
     def test_fv_model_count_reflects_the_number_of_live_models(self):
         # eps + book + dividend + payout + analyst → Graham, PE, DDM×2, analyst

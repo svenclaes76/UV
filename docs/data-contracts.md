@@ -63,7 +63,10 @@ between screens at some point (see the `dq/*` history); the tests in
   loss-maker. Both are `None` for any row with a live earnings anchor. The
   drawer / Analysis ladder keeps six rows: a fired fallback replaces the first
   dark Graham/PE/EPV slot and is relabelled ("Book value" / "FCF value",
-  `components.six_model_ladder_rows`). FV-6: a dark row shows a short "why"
+  `components.six_model_ladder_rows`). FV-8: for `Real Estate` /
+  `Financial Services` (`_GRAHAM_EPV_SKIP_SECTORS`) Graham and EPV are skipped —
+  and P/E too for `Real Estate` (`_PE_SKIP_SECTORS`) — so those names value off
+  the book-value fallback + DDM + analyst; `Utilities` are unaffected. FV-6: a dark row shows a short "why"
   phrase (`components.six_model_ladder_reasons`), the ladder prints
   "basis · N of 6 models" (`fv_model_count`, amber when `fv_basis_thin`), and a
   caption reconciles the fallback substitution and the analyst-target haircut
