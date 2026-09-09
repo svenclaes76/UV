@@ -227,11 +227,16 @@ class TestDDM:
         assert _ddm_single(2.0, 0.08, 0.02) == pytest.approx(34.0)
 
     def test_growth_clamped_to_5pct(self):
-        # g=0.10 → clamped 0.05 → 2×1.05 / 0.03 = 70.0
+        # g=0.10 → clamped 0.05 → 2×1.05 / 0.03 = 70.0 (spread exactly at the
+        # DDM_MIN_SPREAD floor of 0.03 → still allowed, the guard is a strict <)
         assert _ddm_single(2.0, 0.08, 0.10) == pytest.approx(70.0)
 
-    def test_wacc_below_growth_returns_none(self):
-        assert _ddm_single(2.0, 0.04, 0.05) is None
+    def test_narrow_wacc_minus_g_spread_returns_none(self):
+        # DDM_MIN_SPREAD (FV-7 companion): a discount rate within 3pp of the
+        # growth rate makes the Gordon denominator dominate — drop the variant.
+        assert _ddm_single(2.0, 0.04, 0.05) is None      # wacc below g
+        assert _ddm_single(2.0, 0.062, 0.05) is None     # spread 0.012 < 0.03
+        assert _ddm_single(2.0, 0.09, 0.05) == pytest.approx(2.1 / 0.04)  # spread 0.04 ok
 
     def test_non_payer_returns_none(self):
         assert _ddm_single(None, 0.08, 0.02) is None
@@ -440,6 +445,24 @@ class TestFairValueBlend:
         assert fv["ddm"] is None and fv["ddm_multistage"] is None
         assert fv["ddm_contributed"] is False
 
+    def test_ddm_growth_uses_true_dgr_not_earnings_growth(self):
+        # FV-7: `_fair_value_models` feeds the DDM its true DPS CAGR (`true_dgr`),
+        # not the noisier `earningsGrowth`. Same dividend + payout; only the
+        # growth source differs → the DDM-driven composite must move with
+        # `true_dgr` and ignore a wildly different `earningsGrowth`.
+        base = {"Price": 50.0, "trailingAnnualDividendRate": 2.0, "beta": 1.0,
+                "payoutRatio": 0.5}
+        by_true = _fair_value_models(pd.Series({**base, "true_dgr": 0.01,
+                                                "earningsGrowth": 0.9}))
+        by_proxy = _fair_value_models(pd.Series({**base, "earningsGrowth": 0.01}))
+        # true_dgr 0.01 drives it, not earningsGrowth 0.9
+        assert by_true["ddm"] == pytest.approx(by_proxy["ddm"])
+        assert by_true["ddm_multistage"] == pytest.approx(by_proxy["ddm_multistage"])
+        # a real true_dgr of 0.0 still wins over a positive proxy
+        flat = _fair_value_models(pd.Series({**base, "true_dgr": 0.0,
+                                             "earningsGrowth": 0.9}))
+        assert flat["ddm"] is not None and flat["ddm"] < by_true["ddm"]
+
     def test_epv_included_when_ebit_and_ev_available(self):
         row = pd.Series({"Price": 50.0, "ebit": 1_000_000.0, "enterpriseValue": 10_000_000.0,
                          "beta": 1.0})
@@ -510,6 +533,19 @@ class TestFairValueSanityClamp:
         fv = _fair_value_models(row)
         assert fv["fair_value_clamped"] is False
         assert fv["fair_value"] > 2 * 50.0
+
+    def test_two_ddm_variants_count_as_one_corroborating_vote(self):
+        # FV-7 companion: a low-beta / positive-DGR payer where both DDM
+        # variants blow past 2× price but no other model does. They must NOT
+        # corroborate each other — the composite is clamped to the median.
+        row = pd.Series({"Price": 10.0, "trailingAnnualDividendRate": 2.0,
+                         "payoutRatio": 0.5, "true_dgr": 0.05, "beta": 1.0,
+                         "targetMeanPrice": 12.0})
+        fv = _fair_value_models(row)
+        assert fv["ddm"] is not None and fv["ddm_multistage"] is not None
+        assert fv["ddm"] > 2 * 10.0 and fv["ddm_multistage"] > 2 * 10.0
+        assert fv["fair_value_clamped"] is True
+        assert fv["fair_value"] < fv["ddm"]
 
     def test_no_clamp_for_normal_valuations(self):
         fv = _fair_value_models(pd.Series({"Price": 50.0, "trailingEps": 5.0,

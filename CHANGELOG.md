@@ -11,10 +11,12 @@ Version numbers follow the scheme in
 
 ### Fixed
 
-- **Fair-value coverage — DDM and EPV no longer vanish for trough-earnings payers** (`docs/valuation_fv_coverage_plan.md`, FV-1 / FV-2).
+- **Fair-value coverage — DDM and EPV no longer vanish for trough-earnings payers** (`docs/valuation_fv_coverage_plan.md`, FV-1 / FV-2 / FV-7).
   - **FV-1:** the DDM payout ramp (`screener._ddm_weight_factor`) is fed by a new `screener._payout_signal(row)` instead of the raw `payoutRatio`. yfinance's reported ratio divides by trailing GAAP net income, so a loss-making or freshly-demerged payer gets an absurd (1.4×, 7.7×) or null value that silently zero-weights **both** DDM variants. `_payout_signal` trusts the reported ratio only inside `[0, 0.95]`, then falls back to `cashPayoutRatio` (DPS·shares / FCF), then to `1 / dividendCoverage`. In the reference portfolio this brings both DDM models back for NEXI.MI, SYENS.BR and LIGHT.AS (previously composite = the lone haircut analyst target) while correctly leaving MELE.BR / BPOST.BR dark. The dimension is recorded as a new `payout_source` column; the dividend **risk / sustainability** scores are unchanged (they still read raw `payoutRatio`).
   - **FV-2:** `screener._normalised_ebit` now drops years more than `_EBIT_OUTLIER_MAD_K` (3) MADs from the median before averaging, instead of a plain mean. A single one-off writedown year (e.g. −€19.8bn) was dragging a 4-year mean negative and making EPV refuse the stock outright; the outlier is now removed rather than merely diluted.
   - `screener._row_is_scorable`'s DDM branch mirrors the new payout-signal chain, so a payer valuable only via its cash payout is no longer wrongly parked on the 24h TTL.
+  - **FV-7:** the DDM's growth rate `g` is now the true DPS CAGR (`_dgr_estimate` → `true_dgr`, else the `earningsGrowth` proxy) — the same figure TER and the dividend scores already use — instead of the raw, noisy `earningsGrowth`. Names whose `earningsGrowth` was a wild TTM number (2–5×) no longer have their DDM pinned to the growth clamp ceiling (e.g. SOLB.BR fair value 77 → 20, back in line with the other five models).
+  - **DDM stability guards (FV-7 companions).** A Gordon model collapses as the discount rate approaches the growth rate; feeding the real DPS CAGR makes low-beta payers hit that regime often. `_ddm_single` / `_ddm_multistage` now return `None` when `WACC − g < DDM_MIN_SPREAD` (3 pp) instead of only when `WACC ≤ g`, and the composite sanity clamp (`FV_SANITY_MULT`) counts the two DDM variants as **one** corroborating vote so a twin blow-up can't defeat it (RI.PA fair value 121 → 90; NEXI.MI now correctly clamps to the model median).
 
 ---
 

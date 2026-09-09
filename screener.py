@@ -56,6 +56,13 @@ DEFAULT_BETA        = 1.0
 BLUME_WEIGHT        = 0.67
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
+# Gordon-growth models blow up as the discount rate approaches the growth rate:
+# the whole valuation collapses onto a near-zero denominator. Below this spread
+# between WACC and g the DDM output is dominated by that instability rather than
+# by the cash flows, so the variant is dropped instead of returned. Feeding the
+# real dividend CAGR into the DDM (FV-7) makes low-beta / high-DGR names hit this
+# regime far more often, so the guard is load-bearing, not cosmetic.
+DDM_MIN_SPREAD      = 0.03
 
 # Statutory corporate tax rates by country, for EPV's EBIT×(1-t) step. Static headline
 # rates (approx. 2024/2025), not a live feed — a known simplification like RISK_FREE_RATE
@@ -914,7 +921,7 @@ def _ddm_single(div_rate, wacc, g) -> float | None:
     if not div_rate or div_rate <= 0:
         return None
     g = max(0.0, min(0.05, g if g is not None else 0.02))
-    if wacc <= g:
+    if wacc - g < DDM_MIN_SPREAD:
         return None
     d1  = div_rate * (1 + g)
     val = d1 / (wacc - g)
@@ -926,7 +933,7 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
     """2-stage DDM: explicit high-growth phase + Gordon terminal value."""
     if not div_rate or div_rate <= 0:
         return None
-    if wacc <= g_stable:
+    if wacc - g_stable < DDM_MIN_SPREAD:
         return None
     g_high = max(0.0, min(0.15, g_high if g_high is not None else 0.05))
     pv  = 0.0
@@ -1134,7 +1141,8 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     ebit     = _normalised_ebit(row)   # robust mean of ebitHistory (≥3yr) else point-in-time
     ev       = row.get("enterpriseValue")
     beta     = row.get("beta")
-    eg       = row.get("earningsGrowth")
+    eg       = row.get("earningsGrowth")            # PEG tilt on the PE model
+    ddm_g    = _dgr_estimate(row)                   # FV-7: true DPS CAGR, else earningsGrowth
     country  = row.get("country")
     sector   = row.get("sector")
     shares   = row.get("sharesOutstanding")
@@ -1180,8 +1188,11 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     w_ddm1 = W_DDM_SINGLE * ddm_factor
     w_ddm2 = W_DDM_MULTI  * ddm_factor
 
-    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_usable else None
-    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_usable else None
+    # FV-7: DDM growth is the true DPS CAGR (`_dgr_estimate` → `true_dgr`, else
+    # the `earningsGrowth` proxy) — the same figure TER and the dividend scores
+    # use — not the raw `earningsGrowth` this passed before.
+    ddm1 = _ddm_single(div_rate, wacc, ddm_g)     if ddm_usable else None
+    ddm2 = _ddm_multistage(div_rate, wacc, ddm_g) if ddm_usable else None
 
     # Discount the raw analyst target for its well-documented optimism bias before it
     # feeds the composite (the undiscounted target is still shown elsewhere in the UI),
@@ -1217,7 +1228,15 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     fv_clamped = False
     if price and price > 0 and iv > FV_SANITY_MULT * price:
         model_vals = sorted(v for v, _ in avail)
-        corroborating = sum(1 for v in model_vals if v >= FV_SANITY_MULT * price)
+        thr = FV_SANITY_MULT * price
+        # The two DDM variants are one model family fed identical inputs — when
+        # they run high they run high together, so they count as a single
+        # corroborating vote, not two (otherwise a Gordon-model blow-up can
+        # never be caught: ddm1 + ddm2 alone would "agree").
+        _ddm_vals = {v for v in (ddm1, ddm2) if v is not None}
+        corroborating = sum(1 for v in model_vals
+                            if v >= thr and v not in _ddm_vals)
+        corroborating += 1 if any(v >= thr for v in _ddm_vals) else 0
         if corroborating <= 1:
             m = len(model_vals)
             median = (model_vals[m // 2] if m % 2

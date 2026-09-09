@@ -52,7 +52,12 @@ between screens at some point (see the `dq/*` history); the tests in
   `FV_SANITY_MULT` (2.0) × price but at most one individual model is that
   high, the composite is clamped to the models' median (floored at the current
   price) and **`fair_value_clamped`** is set. Individual model values are
-  never modified.
+  never modified. The two DDM variants count as **one** corroborating vote here
+  (same model family, identical inputs) — otherwise a Gordon-model blow-up where
+  only `ddm` + `ddm_multistage` are high could never be caught.
+- `_payout_source` records which payout proxy fed the DDM ramp: `reported`
+  (raw `payoutRatio`, trusted only in `[0, 0.95]`), `cash` (`cashPayoutRatio`),
+  `coverage` (`1 / dividendCoverage`), or `none`.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or

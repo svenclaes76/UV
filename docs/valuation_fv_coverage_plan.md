@@ -1,8 +1,8 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1 + FV-2 implemented 2026-09-09 (branch
-> `feat/fv-coverage-quickwins`) — see `CHANGELOG.md` `[Unreleased]`. FV-3…FV-8
-> still open.
+> **Status:** FV-1 + FV-2 + FV-7 (with two DDM-stability guards) implemented
+> 2026-09-09 (branch `feat/fv-coverage-quickwins`) — see `CHANGELOG.md`
+> `[Unreleased]`. FV-3 / FV-4 / FV-5 / FV-6 / FV-8 still open.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -240,9 +240,20 @@ fundamentals trio (Graham / P/E / EPV) produced ≤ 1 value:
   (or annotates "−10 % optimism haircut applied downstream") so the numbers
   reconcile.
 
-### FV-7 — DDM growth from `true_dgr` *(RC-7)* — effort **S**
-- Pass `_dgr_estimate(row)` into `_ddm_single` / `_ddm_multistage` instead of
-  raw `earningsGrowth`. Aligns the fair-value DDM with TER / dividend scoring.
+### FV-7 — DDM growth from `true_dgr` *(RC-7)* — effort **S** — ✅ shipped 2026-09-09
+- `_fair_value_models` passes `_dgr_estimate(row)` (true DPS CAGR, else the
+  `earningsGrowth` proxy) into `_ddm_single` / `_ddm_multistage`; the PEG tilt on
+  the P/E model still reads raw `earningsGrowth`. Aligns the DDM with TER /
+  dividend scoring.
+- **Two companion guards** (the real DPS CAGR pushes low-beta payers into
+  Gordon-model instability far more often than the old noisy proxy did):
+  - `DDM_MIN_SPREAD` (0.03) — `_ddm_single` / `_ddm_multistage` return `None`
+    when `WACC − g` (resp. `WACC − 2%`) is under 3 pp, not only when `WACC ≤ g`.
+  - the `FV_SANITY_MULT` clamp counts `ddm` + `ddm_multistage` as **one**
+    corroborating vote (same family, same inputs) so a twin blow-up is caught.
+- **Result:** SOLB.BR 77 → 20, KIN.BR 36 → 24, NN.AS 167 → 121, RET.BR 159 → 111
+  (noisy-`earningsGrowth` inflation removed); RI.PA 121 → 90, MONT.BR 88 → 75,
+  EDEN.PA 41 → 32 (min-spread guard); NEXI.MI now trips the clamp correctly.
 
 ### FV-8 — Sector guard on Graham / P-E *(RC-8)* — effort **M**
 - Skip Graham (and optionally P/E) for `LEVERAGE_EXEMPT_SECTORS`; rely on the
@@ -310,7 +321,7 @@ small UI conflict** (FV-6).
 | **FV-4** EPV hardening | **Additive, minor.** New fetched fields extend line 17–27; EV reconstruction extends the `NetDebt = EV − Price×Shares` chain in line 39. `epv_negative` is UI-only — line 32 already excludes non-positive models. No principle conflict. | 21, 39 |
 | **FV-5** thin-basis flag + heal | **No conflict** with this spec (TTL / `data_thin` live elsewhere). The *optional* "down-weight the Composite score" would reach into Stage 5/6 — keep that as a separate proposal. | 26 (optional) |
 | **FV-6** reason strings | **UI-only, except** the "show the haircut analyst value in the ladder" sub-point — line 42 documents raw-vs-haircut display as *intentional* ("the undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI"). Keep raw, annotate instead. | 42 |
-| **FV-7** DDM growth from `true_dgr` | **Doc-sync, consistent direction.** Lines 40–41 don't say where `g` comes from; line 62 lists `_dgr_estimate` for TER / dividend scores but not the DDM models. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. | 62, Dividend-Specific table |
+| **FV-7** DDM growth from `true_dgr` (+ `DDM_MIN_SPREAD`, clamp DDM-collapse) | **Doc-sync, consistent direction.** Lines 40–41 didn't say where `g` comes from; the DDM rows + the sanity-guard note in `data-contracts.md` were updated. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. The `WACC ≤ g` → `WACC − g < 3 pp` change makes the DDM slightly more conservative for a handful of low-beta payers. | Stage 2 DDM rows, `data-contracts.md` |
 | **FV-8** skip Graham/PE for REITs | **Structural addition.** Line 37 has no sector gate; `LEVERAGE_EXEMPT_SECTORS` (line 142) is currently veto-only; Stage 2 applies all six models uniformly. Conceptually consistent with the existing sector-exempt pattern, but new. | 37, 142, Stage 2 |
 
 ### Not in conflict (verified)
