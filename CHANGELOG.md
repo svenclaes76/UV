@@ -2,6 +2,9 @@
 
 All notable changes to UV are documented here.
 
+Version numbers follow the scheme in
+[CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning-and-releases).
+
 ---
 
 ## [Unreleased]
