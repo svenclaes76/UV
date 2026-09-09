@@ -8,6 +8,7 @@ uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 import pandas as pd
 import streamlit as st
 
+from risk import SCORE_LOW, SCORE_ELEVATED, risk_band
 from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu.formatting import fmt_eur as _fmt_eur
@@ -832,18 +833,79 @@ def signals_feed(items: list[tuple[str, str, str]]) -> None:
 # Shared by the Dashboard risk-pulse widget (Phase 3.1) and the full Risk page's
 # composite radial + six sub-scores (Phase 3.4) — same 3-tone brand scale for both.
 
-def score_color(value: float) -> tuple[str, str]:
-    """(bar/ring color, text color) for a 0-100 risk score, brand 3-tone scale.
+# tone (risk.RISK_BANDS) → (ring/bar hex, light-theme text hex, dark-theme text hex).
+# The ring/bar hex is theme-constant (the Dashboard already trusts these three
+# literals on both themes); the text hex mirrors runtime.theme_colors()'s
+# up_txt / down_txt so a green/red label stays legible on the dark card surface,
+# with the app's single house amber (#C98A3A — analysis rating, risk flags,
+# stale-feed pill) for the mid tiers. Green covers "Low", amber "Moderate"+
+# "Elevated", red "High"+"Critical" — break points risk.SCORE_LOW (25) and
+# risk.SCORE_ELEVATED (70).
+_RISK_TONE_COLORS = {
+    "low":      ("#1DD6A4", "#0F6E56", "#1DD6A4"),
+    "moderate": ("#C98A3A", "#C98A3A", "#C98A3A"),
+    "elevated": ("#C98A3A", "#C98A3A", "#C98A3A"),
+    "high":     ("#A32D2D", "#A32D2D", "#F0A6A6"),
+    "critical": ("#A32D2D", "#A32D2D", "#F0A6A6"),
+}
 
-    Returned as literal hex, not var(--uv-*) — callers feed the ring color into
-    an SVG `stroke=` attribute (radial_gauge_svg), and CSS custom properties
-    aren't reliably readable there the way they are inside a style="" string.
+
+def score_color(value: float, dark: bool = False) -> tuple[str, str]:
+    """(bar/ring color, text color) for a 0-100 composite risk score.
+
+    The band cut-offs come from ``risk.risk_band`` (``RISK_BANDS``), so this
+    mapper can never disagree with the Risk page's ``"Moderate risk"`` /
+    ``"Elevated risk"`` label or the Dashboard's risk bar for the same score —
+    the old hand-picked 40/70 split painted a 26–39 "Moderate" score green.
+
+    Returned as literal hex, not ``var(--uv-*)`` — callers feed the ring color
+    into an SVG ``stroke=`` attribute (``radial_gauge_svg``), where CSS custom
+    properties don't resolve. Pass ``dark=True`` (from
+    ``runtime.theme_colors().effective_light``) to get the dark-surface text hex.
     """
-    if value < 40:
-        return "#1DD6A4", "#0F6E56"
-    if value < 70:
-        return "#854F0B", "#854F0B"
-    return "#A32D2D", "#A32D2D"
+    _, _, tone = risk_band(value)
+    ring, light_txt, dark_txt = _RISK_TONE_COLORS.get(tone, _RISK_TONE_COLORS["moderate"])
+    return ring, (dark_txt if dark else light_txt)
+
+
+def band_tone_color(tone: str, dark: bool = False) -> str:
+    """Text hex for a quant band-label tone (``risk.band_tone`` output: ``low`` /
+    ``moderate`` / ``high``); ``var(--faint)`` grey when the tone is empty (an
+    ``"N/A"`` label). Lets the Risk page colour its metric-grid sub-labels on the
+    same scale as the composite gauge instead of flat grey."""
+    entry = _RISK_TONE_COLORS.get(tone)
+    if entry is None:
+        return "var(--faint)"
+    return entry[2] if dark else entry[1]
+
+
+def risk_score_meter_html(score: float, label: str, *, dark: bool = False,
+                          heading: str | None = "Portfolio risk score") -> str:
+    """Horizontal composite-risk meter — gradient track + score marker + LOW/
+    MODERATE/HIGH legend. Shared by the Dashboard's Conviction & risk card and
+    the Risk page's gauge so both screens colour one score identically. The
+    gradient stops are ``risk.SCORE_LOW`` (green→amber) and
+    ``risk.SCORE_ELEVATED`` (amber→red); pass ``heading=None`` for just the
+    track (the Risk page renders its own score text in the radial gauge).
+    """
+    _, num_txt = score_color(score, dark)
+    marker = min(100.0, max(0.0, float(score)))
+    head = (
+        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">'
+        f'<span style="font-size:12px;color:var(--muted);">{heading}</span>'
+        f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">'
+        f'<span style="color:{num_txt};">{score:.0f}</span> · {label}</span></div>'
+    ) if heading is not None else ""
+    return (
+        f'{head}'
+        f'<div style="height:7px;border-radius:4px;background:linear-gradient(90deg,'
+        f'#1DD6A4 0%,#1DD6A4 {SCORE_LOW}%,#C98A3A {SCORE_LOW}%,#C98A3A {SCORE_ELEVATED}%,'
+        f'#A32D2D {SCORE_ELEVATED}%,#A32D2D 100%);position:relative;opacity:0.85;">'
+        f'<div style="position:absolute;left:{marker:.1f}%;top:-3px;width:3px;height:13px;'
+        f'border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div></div>'
+        f'<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);'
+        f'margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>HIGH</span></div>'
+    )
 
 
 def radial_gauge_svg(score: float, color: str, size: int = 96, stroke: int = 10,

@@ -11,7 +11,8 @@ from streamlit.testing.v1 import AppTest
 import numpy as np
 
 from uvalu.components import (signal_badge_for_decision, signal_badge_html, is_hard_veto,
-                              score_color, radial_gauge_svg, sub_score_bar_html,
+                              score_color, band_tone_color, risk_score_meter_html,
+                              radial_gauge_svg, sub_score_bar_html,
                               sparkline_svg, veto_reason_str, _fair_value_bar_html,
                               holdings_row_html, _score_bar_cell_html,
                               quality_score_color, _gain_color)
@@ -206,9 +207,52 @@ def test_signals_feed_empty_shows_caption():
 
 
 def test_score_color_bands():
+    # Green only for "Low" (<=25), amber for "Moderate"/"Elevated" (<=70),
+    # red for "High"/"Critical" — cut-offs come from risk.RISK_BANDS.
     assert score_color(20) == ("#1DD6A4", "#0F6E56")
-    assert score_color(55) == ("#854F0B", "#854F0B")
+    assert score_color(55) == ("#C98A3A", "#C98A3A")
     assert score_color(85) == ("#A32D2D", "#A32D2D")
+    # dark=True swaps only the text hex (mirrors runtime.theme_colors()).
+    assert score_color(20, dark=True) == ("#1DD6A4", "#1DD6A4")
+    assert score_color(85, dark=True) == ("#A32D2D", "#F0A6A6")
+
+
+def test_score_color_36_is_amber_not_green():
+    # Regression: a 26-39 score is labelled "Moderate risk" by risk.risk_band,
+    # so its gauge must be amber. The old 40/70 split painted it green.
+    import risk
+    assert risk.risk_band(36)[0] == "Moderate risk"
+    ring, _ = score_color(36)
+    assert ring == "#C98A3A"
+
+
+def test_score_color_breaks_align_with_risk_bands():
+    # The colour flips exactly on risk.py's own band edges, so the two can't
+    # drift apart again.
+    import risk
+    assert score_color(risk.SCORE_LOW)[0] == "#1DD6A4"
+    assert score_color(risk.SCORE_LOW + 1)[0] == "#C98A3A"
+    assert score_color(risk.SCORE_ELEVATED)[0] == "#C98A3A"
+    assert score_color(risk.SCORE_ELEVATED + 1)[0] == "#A32D2D"
+
+
+def test_band_tone_color_maps_quant_words():
+    import risk
+    assert band_tone_color(risk.band_tone("High")) == "#A32D2D"
+    assert band_tone_color(risk.band_tone("Low")) == "#0F6E56"
+    assert band_tone_color(risk.band_tone("Aggressive")) == "#A32D2D"
+    assert band_tone_color(risk.band_tone("N/A")) == "var(--faint)"
+
+
+def test_risk_score_meter_html_gradient_and_marker():
+    import risk
+    html = risk_score_meter_html(36, "Moderate risk")
+    assert f"#1DD6A4 {risk.SCORE_LOW}%" in html
+    assert f"#C98A3A {risk.SCORE_ELEVATED}%" in html
+    assert "left:36.0%" in html
+    assert "· Moderate risk" in html
+    # heading=None drops the score-text row but keeps the track.
+    assert "Portfolio risk score" not in risk_score_meter_html(36, "Moderate risk", heading=None)
 
 
 def test_radial_gauge_svg_clamps_and_scales_offset():
@@ -225,7 +269,7 @@ def test_sub_score_bar_html_contains_label_and_value():
     html = sub_score_bar_html("Concentration", 58)
     assert "Concentration" in html
     assert "58" in html
-    assert "#854F0B" in html  # 58 falls in the caution band
+    assert "#C98A3A" in html  # 58 falls in the amber (Moderate/Elevated) band
 
 
 def test_sparkline_svg_returns_empty_for_insufficient_data():

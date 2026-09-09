@@ -4,13 +4,15 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_portfolio
-from risk import MARKET_DAILY_VOL, TRADING_DAYS
+from risk import MARKET_DAILY_VOL, TRADING_DAYS, band_tone
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import (score_color, radial_gauge_svg, risk_holding_row_html,
+from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
+                              risk_score_meter_html, risk_holding_row_html,
                               RISK_HOLDINGS_GRID_COLS, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
+from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
 _TICKER_SUFFIX_EXCHANGE = {
@@ -182,9 +184,15 @@ def render() -> None:
     # Widened from the spec's literal 300px:1fr (~1:3.55) to 1:2.2 per Sven's
     # feedback — the gauge card's wrapped 3-line description needed more
     # room than a pixel-exact ratio gave it at this app's content width. ────
+    _dark = not theme_colors().effective_light
     _gauge_col, _metrics_col = st.columns([1, 2.2])
     with _gauge_col, st.container(key="risk_card_gauge", border=True):
-        _ring_color, _label_color = score_color(r.composite.score)
+        # Ring + label colour come from the shared risk.RISK_BANDS scale (via
+        # score_color) — green only for "Low risk", amber for "Moderate"/
+        # "Elevated", red for "High"/"Critical" — so the ring can no longer be
+        # green under a "Moderate risk" label, and it agrees with the Dashboard
+        # bar and the LOW/MODERATE/HIGH legend rendered just below.
+        _ring_color, _label_color = score_color(r.composite.score, dark=_dark)
         st.markdown(f"""<div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
 <div style="position:relative;width:132px;height:132px;">
   {radial_gauge_svg(r.composite.score, _ring_color, size=132)}
@@ -195,6 +203,7 @@ def render() -> None:
 </div>
 <div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
+<div style="width:100%;margin-top:16px;">{risk_score_meter_html(r.composite.score, r.composite.label, dark=_dark, heading=None)}</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
         # Plain grid cells (no st.metric()) — st.metric() is styled app-wide
@@ -207,20 +216,24 @@ def render() -> None:
         if _pbr is not None and abs(_pbr - r.quant.portfolio_beta) >= 0.15:
             _beta_sub = f"{r.quant.beta_label} · regression {_pbr:.2f}"
 
+        # 4th field is the quant band word whose tone (risk.band_tone) colours
+        # the sub-label on the same low/moderate/high scale as the composite
+        # gauge — so "High" volatility reads red, not flat grey. "" leaves the
+        # sub-label neutral (descriptive text, or a scale band_tone doesn't map).
         _metric_defs = [
-            ("BETA", f"{r.quant.portfolio_beta:.2f}", _beta_sub),
-            ("VOLATILITY", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A", r.quant.volatility_label),
-            ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label),
-            ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label),
-            ("VAR 95% (1D)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A", "Max expected 1-day loss"),
-            ("SECTOR HHI", f"{r.concentration.sector_hhi:.2f}", r.concentration.sector_hhi_label),
+            ("BETA", f"{r.quant.portfolio_beta:.2f}", _beta_sub, r.quant.beta_label),
+            ("VOLATILITY", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A", r.quant.volatility_label, r.quant.volatility_label),
+            ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label, r.quant.mdd_label),
+            ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label, r.quant.ratio_label),
+            ("VAR 95% (1D)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A", "Max expected 1-day loss", ""),
+            ("SECTOR HHI", f"{r.concentration.sector_hhi:.2f}", r.concentration.sector_hhi_label, ""),
         ]
         _cells = "".join(
             f'<div style="padding:18px 20px;">'
             f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{_l}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:24px;font-weight:500;margin-top:9px;line-height:1;">{_v}</div>'
-            f'<div style="font-size:11px;color:var(--faint);margin-top:7px;">{_s}</div></div>'
-            for _l, _v, _s in _metric_defs
+            f'<div style="font-size:11px;color:{band_tone_color(band_tone(_t), _dark) if _t else "var(--faint)"};margin-top:7px;">{_s}</div></div>'
+            for _l, _v, _s, _t in _metric_defs
         )
         st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);">{_cells}</div>',
                    unsafe_allow_html=True)

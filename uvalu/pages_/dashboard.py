@@ -5,7 +5,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-import risk as _risk_module
 from portfolio import portfolio_exists, load_portfolio, load_value_history, load_sold, ensure_value_history_fresh
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings
@@ -14,7 +13,7 @@ from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import theme_colors, current_user
-from uvalu.components import (fair_value_legend_row, radial_gauge_svg,
+from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -312,18 +311,12 @@ def render() -> None:
                 else:
                     _db_report = _db_risk_bundle.report
                     _risk_score = float(_db_report.composite.score)
-                    # Bucketed at risk.py's own SCORE_LOW/SCORE_MODERATE (25/50)
-                    # — not separate hand-picked numbers — so this card's Low/
-                    # Moderate never contradicts the Risk page's own labelling
-                    # for the same score. This card's 3-tier gauge (mockup
-                    # constraint) can't show risk.py's full Low/Moderate/
-                    # Elevated/High/Critical taxonomy, so Elevated/High/
-                    # Critical are deliberately collapsed into one "Elevated"
-                    # bucket here — coarser, but never disagrees with what the
-                    # Risk page says.
-                    _risk_label = ("Low" if _risk_score <= _risk_module.SCORE_LOW
-                                  else "Moderate" if _risk_score <= _risk_module.SCORE_MODERATE
-                                  else "Elevated")
+                    # The exact band label from risk.RISK_BANDS (minus the
+                    # trailing " risk"), so this card shows the same
+                    # Low/Moderate/Elevated/High/Critical word as the Risk
+                    # page's gauge for one score — the old 3-way re-bucket
+                    # here collapsed Elevated/High/Critical into one word.
+                    _risk_label = _db_report.composite.label.replace(" risk", "")
                     _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
                     _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
                     _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
@@ -367,21 +360,16 @@ def render() -> None:
                 st.caption("Not enough scored holdings for a conviction score.")
 
             if _risk_score is not None:
-                _marker_pct = min(100.0, max(0.0, _risk_score))
-                _risk_num_color = ("var(--up-txt)" if _risk_score <= _risk_module.SCORE_LOW else
-                                   "#C98A3A" if _risk_score <= _risk_module.SCORE_MODERATE else "var(--down-txt)")
-                st.markdown(f"""
-<div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
-    <span style="font-size:12px;color:var(--muted);">Portfolio risk score</span>
-    <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">
-      <span style="color:{_risk_num_color};">{_risk_score:.0f}</span> · {_risk_label}</span>
-  </div>
-  <div style="height:7px;border-radius:4px;background:linear-gradient(90deg,#1DD6A4 0%,#1DD6A4 {_risk_module.SCORE_LOW}%,#C98A3A {_risk_module.SCORE_LOW}%,#C98A3A {_risk_module.SCORE_MODERATE}%,#A32D2D {_risk_module.SCORE_MODERATE}%,#A32D2D 100%);position:relative;opacity:0.85;">
-    <div style="position:absolute;left:{_marker_pct:.1f}%;top:-3px;width:3px;height:13px;border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div>
-  </div>
-  <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:5px;font-family:var(--uv-mono);"><span>LOW</span><span>MODERATE</span><span>ELEVATED</span></div>
-</div>""", unsafe_allow_html=True)
+                # Shared renderer (uvalu/components.risk_score_meter_html) — same
+                # risk.RISK_BANDS gradient stops (green→amber at SCORE_LOW,
+                # amber→red at SCORE_ELEVATED) and the same score-number colour
+                # as the Risk page's composite gauge, so the two screens can't
+                # disagree on one portfolio's risk colour again.
+                st.markdown(
+                    '<div style="margin-top:16px;padding-top:15px;border-top:0.5px solid var(--line-2);">'
+                    + risk_score_meter_html(_risk_score, _risk_label,
+                                            dark=not theme_colors().effective_light)
+                    + "</div>", unsafe_allow_html=True)
 
                 with st.container(key="db_conv_metrics"):
                     _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),

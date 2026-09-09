@@ -348,13 +348,17 @@ Weights (`risk._W_DEFAULT` / `_W_INCOME`, selected by the `income_portfolio` fla
 
 ### Score Interpretation
 
-| Risk score | Rating | Action |
-|---|---|---|
-| 0 – 25 | Low risk | Hold; monitor quarterly |
-| 26 – 50 | Moderate risk | Review annually; minor rebalancing |
-| 51 – 70 | Elevated risk | Active monitoring; targeted rebalancing |
-| 71 – 85 | High risk | Immediate rebalancing required |
-| 86 – 100 | Critical risk | Defensive repositioning — reduce exposure |
+`risk.RISK_BANDS` is the single source of truth for the label, action and **UI colour** of a composite score — `risk._risk_label_action`, the Risk-page gauge and the Dashboard risk bar all derive from it (`risk.risk_band()` → `uvalu.components.score_color` / `risk_score_meter_html`). The colour scale is three-tone: **green** for *Low*, **amber** (`#C98A3A`) for *Moderate* and *Elevated*, **red** (`#A32D2D`) for *High* and *Critical* — i.e. amber = "review / monitor", red = "act now", matching the wording of the actions. The green→amber break is at 25 and amber→red at 70.
+
+| Risk score | Rating | Colour | Action |
+|---|---|---|---|
+| 0 – 25 | Low risk | green | Hold; monitor quarterly |
+| 26 – 50 | Moderate risk | amber | Review annually; minor rebalancing |
+| 51 – 70 | Elevated risk | amber | Active monitoring; targeted rebalancing |
+| 71 – 85 | High risk | red | Immediate rebalancing required |
+| 86 – 100 | Critical risk | red | Defensive repositioning — reduce exposure |
+
+The Risk page's per-metric band labels (beta, volatility, max drawdown, Sharpe) are tinted on the same three-tone scale via `risk.band_tone()`.
 
 ---
 
