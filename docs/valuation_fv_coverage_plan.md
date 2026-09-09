@@ -1,8 +1,9 @@
 # Fair-Value Coverage — Investigation & Improvement Plan
 
-> **Status:** FV-1, FV-2, FV-3, FV-7 (+ two DDM-stability guards) and FV-4
-> (parts a–c) implemented 2026-09-09 (branch `feat/fv-coverage-quickwins`) —
-> see `CHANGELOG.md` `[Unreleased]`. FV-5 / FV-6 / FV-8 still open.
+> **Status:** FV-1, FV-2, FV-3, FV-4 (parts a–c), FV-5 and FV-7 (+ two
+> DDM-stability guards) implemented 2026-09-09 (branch
+> `feat/fv-coverage-quickwins`) — see `CHANGELOG.md` `[Unreleased]`.
+> FV-6 / FV-8 still open.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -245,12 +246,25 @@ Decisions taken: **conditional contribution** (not permanent weights) and **keep
   PAH3.DE row with `totalDebt` injected (`ev_source` → `reconstructed`, EPV
   computes, composite still protected by the sanity clamp).
 
-### FV-5 — Thin-basis detection & heal *(RC-5)* — effort **S**
-- `screener._fair_value_model_count(row)` → how many sub-models produced a value.
-- `uvalu/data.py`: new column `fv_basis_thin = count < MIN_FV_MODELS` (default 2).
-- Add `fv_basis_thin` rows to the thin-row retry set in `compute_scores` so they
-  heal on `CACHE_TTL_SHORT_HOURS`, alongside `~_row_is_scorable`.
-- Optionally asterisk / down-weight the Composite score when `fv_basis_thin`.
+### FV-5 — Thin-basis detection & heal *(RC-5)* — effort **S** — ✅ shipped 2026-09-09
+- `_fair_value_models` emits **`fv_model_count`** = `len(avail)`, with Graham + PE
+  counted **once** when their EPS was reconstructed (`trailingEps_derived`) —
+  they're one guessed anchor, not two. `screener._fair_value_model_count(row)`
+  wraps it for callers that only have a raw row (accepts a dict).
+- `compute_scores` sets **`fv_basis_thin`** = has a `fair_value` **and**
+  `fv_model_count < MIN_FV_MODELS` (2). Distinct from `data_thin` (no composite).
+- **Heal, scoped.** `_fetch_and_store` re-fetches on `CACHE_TTL_SHORT_HOURS` a
+  row that is scorable but thin-basis **only when its lone anchor is a
+  reconstructed EPS** — i.e. an actual degraded payload. The plan's unscoped
+  "any `fv_basis_thin` row" was rejected: a real no-dividend / no-coverage
+  small-cap has one live model (PE off a genuine EPS) and would then re-fetch
+  every 3 h forever with nothing to gain.
+- **Composite-score asterisk:** deferred (would reach into Stage 5/6 — separate
+  proposal per §7). FV-6 renders the caveat instead.
+- **Result:** in the scored portfolio exactly **PAH3.DE** is `fv_basis_thin`
+  (`fv_model_count` 1 — Graham + PE off one derived EPS); it now heals on the
+  short TTL. `fv_model_count` distribution: 0→4 (those are `data_thin`), 1→1,
+  3→1, 4→8, 5→11, 6→7.
 
 ### FV-6 — UI: reasons for dark / refused models *(RC-6)* — effort **M**
 - `fair_value_ladder(..., reasons: dict[str,str] | None)` — muted suffix or
@@ -340,7 +354,7 @@ small UI conflict** (FV-6).
 | **FV-2** median / trimmed EBIT | **Doc-sync, reverses a deliberate choice.** Lines 39 & 159 say three times "EBIT is the **mean** over `ebitHistory` … so a peak or trough year doesn't set the valuation". The PAH3 case (one −19.8 bn year) shows the mean does *not* survive a lone catastrophe — frame FV-2 as revising review 2.3, not a bug fix. | 39, 159 |
 | **FV-3** P/B + FCF models *(shipped)* | **Explicit reversal + structural — done deliberately.** `stock_valuation_algorithm.md` rewritten: line 29 (`priceToBook` now feeds a model), Stage 2 intro ("six **core** models" + a "Fallback models" subsection), line 44 ("asset-based / P/B … not implemented" → EV/EBITDA & comps only), the weights paragraph (W_PB/W_FCF outside the sum), and the summary. Conditional gating is a new concept vs. the flat weighted average, but it is scoped to `_trio == 0` and mirrors how a conditionally-absent DDM already re-normalises. The "six-model" UI surface is **preserved** (ladder still 6 rows, relabel). FCF/EPV overlap is bounded — they never co-fire (`_trio == 0` excludes EPV). | done: 29, 32, 44, 54, Stage 2, summary; `data-contracts.md` |
 | **FV-4** EPV hardening *(shipped)* | **Additive, minor — as predicted.** New fetched fields extended the Stage 1 list; `_enterprise_value` extended the EPV row's EV definition; `epv_negative` / `ev_source` are new advisory columns — line 32's `> 0` filter still does the excluding. No principle conflict. | Stage 1 fields, EPV row, `data-contracts.md` |
-| **FV-5** thin-basis flag + heal | **No conflict** with this spec (TTL / `data_thin` live elsewhere). The *optional* "down-weight the Composite score" would reach into Stage 5/6 — keep that as a separate proposal. | 26 (optional) |
+| **FV-5** thin-basis flag + heal *(shipped)* | **No conflict** — `fv_model_count` / `fv_basis_thin` are advisory columns; the composite math is untouched. Heal scoped to reconstructed-EPS payloads (not "any thin-basis row") so it can't spin a data-poor small-cap. Composite-score asterisk deferred (Stage 5/6). | `data-contracts.md` |
 | **FV-6** reason strings | **UI-only, except** the "show the haircut analyst value in the ladder" sub-point — line 42 documents raw-vs-haircut display as *intentional* ("the undiscounted `targetMeanPrice` is still shown as-is elsewhere in the UI"). Keep raw, annotate instead. | 42 |
 | **FV-7** DDM growth from `true_dgr` (+ `DDM_MIN_SPREAD`, clamp DDM-collapse) | **Doc-sync, consistent direction.** Lines 40–41 didn't say where `g` comes from; the DDM rows + the sanity-guard note in `data-contracts.md` were updated. Strengthens (doesn't break) the Stage 3 DGR-halving rationale. The `WACC ≤ g` → `WACC − g < 3 pp` change makes the DDM slightly more conservative for a handful of low-beta payers. | Stage 2 DDM rows, `data-contracts.md` |
 | **FV-8** skip Graham/PE for REITs | **Structural addition.** Line 37 has no sector gate; `LEVERAGE_EXEMPT_SECTORS` (line 142) is currently veto-only; Stage 2 applies all six models uniformly. Conceptually consistent with the existing sector-exempt pattern, but new. | 37, 142, Stage 2 |

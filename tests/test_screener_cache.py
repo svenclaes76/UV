@@ -438,6 +438,48 @@ class TestRunFetch:
                    - datetime.now(timezone.utc)).total_seconds() / 3600
         assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
 
+    def test_degraded_row_scorable_only_off_a_derived_eps_gets_short_ttl(self, monkeypatch):
+        # FV-5: PAH3-shaped — a partial payload where the only EPS is the one
+        # _fetch_one reconstructs from trailingPE (Graham + PE off one guess,
+        # nothing else). Scorable, but too thin: heal it on the short TTL.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 29.0,
+                    "trailingEps": 0.31, "trailingEps_derived": True,
+                    "bookValue": 116.0}
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "PAH3.DE", "name": "Porsche", "isin": ""}], cache)
+
+        assert len(calls) == 1 + screener._THIN_ROW_RETRIES
+        row = cache["PAH3.DE"]
+        assert row["Price"] == 29.0
+        delta_h = (datetime.fromisoformat(row["next_fetch_at"])
+                   - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
+
+    def test_data_poor_but_real_row_is_not_forced_onto_the_short_ttl(self, monkeypatch):
+        # A genuine no-dividend / no-coverage small-cap: one live model (PE off a
+        # *real* EPS). Thin, but not degraded — leave its TTL alone, don't spin.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 12.0,
+                    "trailingEps": 0.9}
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "SMALL.BR", "name": "Small", "isin": ""}], cache)
+
+        assert calls == ["SMALL.BR"]                       # no retry spin
+        assert "next_fetch_at" not in cache["SMALL.BR"]    # keeps _fetch_one's own (long) TTL
+
     def test_thin_row_without_price_is_not_retried(self, monkeypatch):
         calls = []
 

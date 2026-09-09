@@ -73,6 +73,14 @@ between screens at some point (see the `dq/*` history); the tests in
   `epv_negative` is `True` when a per-share EPV was computed but came out ≤ 0
   (net debt > capitalised earnings power); it is excluded from the blend, the
   flag is for the UI.
+- **FV-5.** `fv_model_count` is `len(avail)` — how many sub-models fed the
+  composite — with Graham + PE counted **once** when the EPS behind them was
+  reconstructed from `trailingPE` (`trailingEps_derived`). `fv_basis_thin`
+  (`compute_scores`) is `True` when a row *has* a `fair_value` but
+  `fv_model_count < MIN_FV_MODELS` (2) — a real but weakly-corroborated
+  composite, as opposed to `data_thin` (no composite at all). A `fv_basis_thin`
+  row whose only anchor is a reconstructed EPS is also treated as a degraded
+  payload by `_fetch_and_store` and re-fetched on `CACHE_TTL_SHORT_HOURS`.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or

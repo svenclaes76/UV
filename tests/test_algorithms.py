@@ -564,6 +564,33 @@ class TestFairValueBlend:
         fv = _fair_value_models(row, sector_pb={"Utilities": 0.8})
         assert fv["pb_fair_value"] == pytest.approx(8.0)
 
+    # ── FV-5: fv_model_count ────────────────────────────────────────────────
+    def test_fv_model_count_reflects_the_number_of_live_models(self):
+        # eps + book + dividend + payout + analyst → Graham, PE, DDM×2, analyst
+        fv = _fair_value_models(pd.Series({
+            "Price": 50.0, "trailingEps": 4.0, "bookValue": 30.0,
+            "trailingAnnualDividendRate": 2.0, "payoutRatio": 0.5,
+            "targetMeanPrice": 55.0, "beta": 1.0}))
+        assert fv["fv_model_count"] == 5
+        # nothing → 0
+        assert _fair_value_models(pd.Series({"Price": 50.0}))["fv_model_count"] == 0
+
+    def test_fv_model_count_collapses_graham_and_pe_on_a_reconstructed_eps(self):
+        # trailingEps_derived → Graham + PE are one anchor off one guessed EPS.
+        derived = _fair_value_models(pd.Series({
+            "Price": 30.0, "trailingEps": 0.31, "bookValue": 116.0,
+            "trailingEps_derived": True, "beta": 1.0}))
+        assert derived["graham_number"] is not None and derived["pe_fair_value"] is not None
+        assert derived["fv_model_count"] == 1        # not 2
+        real = _fair_value_models(pd.Series({
+            "Price": 30.0, "trailingEps": 0.31, "bookValue": 116.0, "beta": 1.0}))
+        assert real["fv_model_count"] == 2
+
+    def test_fair_value_model_count_helper_matches_and_takes_a_dict(self):
+        row = {"Price": 50.0, "trailingEps": 4.0, "bookValue": 30.0, "beta": 1.0}
+        assert screener._fair_value_model_count(row) == 2
+        assert screener._fair_value_model_count(pd.Series(row)) == 2
+
     def test_sector_pb_medians_winsorizes_and_gates_on_sample_size(self):
         lo, hi = screener.PB_MULTIPLE_BAND
         df = pd.DataFrame(
@@ -658,6 +685,30 @@ class TestFairValueSanityClamp:
              "bookValue": 5.0, "targetMeanPrice": 60.0,
              "targetHighPrice": 63.0, "targetLowPrice": 57.0}]))
         assert bool(out.iloc[0]["fair_value_clamped"]) is True
+
+
+class TestFvBasisThin:
+    """FV-5: fv_model_count / fv_basis_thin surface a weakly-corroborated
+    composite (distinct from data_thin, which is *no* composite)."""
+
+    def test_thin_and_broad_rows_flagged_correctly(self):
+        out = compute_scores(pd.DataFrame([
+            # only an analyst target → 1 model → thin
+            {"Name": "T", "Ticker": "T.BR", "Price": 40.0, "targetMeanPrice": 44.0},
+            # eps + book + dividend → Graham + PE + DDM×2 → broad
+            {"Name": "B", "Ticker": "B.BR", "Price": 50.0, "trailingEps": 4.0,
+             "bookValue": 30.0, "trailingAnnualDividendRate": 2.0, "payoutRatio": 0.5},
+        ])).set_index("Ticker")
+        assert bool(out.loc["T.BR", "fv_basis_thin"]) is True
+        assert int(out.loc["T.BR", "fv_model_count"]) == 1
+        assert bool(out.loc["B.BR", "fv_basis_thin"]) is False
+
+    def test_row_with_no_fair_value_is_not_basis_thin(self):
+        # data_thin territory — no composite at all, so fv_basis_thin stays False
+        out = compute_scores(pd.DataFrame([
+            {"Name": "X", "Ticker": "X.BR", "Price": 40.0}])).iloc[0]
+        assert pd.isna(out["fair_value"])
+        assert bool(out["fv_basis_thin"]) is False
 
 
 # ══════════════════════════════════════════════════════════════════════════════

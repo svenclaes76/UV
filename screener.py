@@ -261,9 +261,15 @@ CACHE_TTL_JITTER = 4    # hours of random jitter added to each ticker's TTL
 # cached so the holding keeps a price and a score, but on this much shorter TTL,
 # so it heals on the next fetch cycle instead of being trusted for a full day.
 # A couple of immediate in-loop retries come first, since such payloads are
-# usually transient.
+# usually transient. FV-5 widens the "too thin" test a little: a row that is
+# technically scorable but only via a *reconstructed* EPS (Graham + PE off one
+# guessed number, < MIN_FV_MODELS models total) is a degraded payload too, and
+# gets the same short-TTL heal. `fv_model_count` / `fv_basis_thin` (a superset —
+# also flags a lone analyst target) are surfaced for the UI but do NOT force the
+# short TTL, so a genuinely data-poor small-cap isn't re-fetched forever.
 CACHE_TTL_SHORT_HOURS = 3
 _THIN_ROW_RETRIES     = 2
+MIN_FV_MODELS         = 2
 
 
 class _Fetcher:
@@ -780,13 +786,23 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
             try:
                 with contextlib.redirect_stderr(io.StringIO()):
                     row = _fetch_one(ticker, stock)
-                if _row_is_scorable(row) or row.get("Price") is None:
+                _scorable = _row_is_scorable(row)
+                # FV-5: a row that IS scorable but whose fair value would rest on
+                # fewer than MIN_FV_MODELS models *and* has no real earnings
+                # anchor (its only EPS was reconstructed from the P/E — WP-B) is
+                # a degraded payload, not a data-poor company; heal it like an
+                # unscorable one. A row scorable via a genuinely fetched field
+                # (a real no-dividend / no-coverage small-cap) is left alone.
+                _thin_degraded = (_scorable and bool(row.get("trailingEps_derived"))
+                                  and _fair_value_model_count(row) < MIN_FV_MODELS)
+                if (_scorable and not _thin_degraded) or row.get("Price") is None:
                     break   # good row, or a dead/blocked symbol retrying can't improve
-                # Priced but too thin to value — almost always a partial Yahoo
-                # payload that raised no exception (some quoteSummary modules
-                # missing). Retry a couple of times; if it stays thin, keep the
-                # row but flag it for a short-TTL refetch so it self-heals next
-                # cycle rather than being trusted for a full day (WP-A).
+                # Priced but too thin to value: not scorable at all, or a
+                # degraded payload scorable only off a reconstructed EPS — almost
+                # always a partial Yahoo payload that raised no exception (some
+                # quoteSummary modules missing). Retry a couple of times; if it
+                # stays thin, keep the row but flag it for a short-TTL refetch so
+                # it self-heals next cycle rather than being trusted a full day (WP-A).
                 thin_tries += 1
                 if thin_tries <= _THIN_ROW_RETRIES:
                     row = None
@@ -1321,8 +1337,17 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
                 "ddm_contributed": False, "fair_value_clamped": False,
                 "payout_source": payout_source, "epv_negative": epv_negative,
-                "ev_source": ev_source,
+                "ev_source": ev_source, "fv_model_count": 0,
                 "pb_fair_value": pb_fv, "fcf_fair_value": fcf_fv}
+
+    # FV-5: how many *independent* sub-models back the composite. Graham and PE
+    # both key off EPS; when that EPS was itself reconstructed from the P/E
+    # (trailingEps_derived, WP-B) they are one anchor, not two — mirror the
+    # sanity clamp's DDM-collapse and count them once.
+    fv_model_count = len(avail)
+    if (bool(row.get("trailingEps_derived"))
+            and gn is not None and gn > 0 and pe_fv is not None and pe_fv > 0):
+        fv_model_count -= 1
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
@@ -1367,12 +1392,23 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
         "pb_fair_value":  round(pb_fv, 2) if pb_fv else None,
         "fcf_fair_value": round(fcf_fv, 2) if fcf_fv else None,
         "fair_value":     round(iv, 2),
+        "fv_model_count": fv_model_count,
         "ddm_contributed": ddm_contributed,
         "fair_value_clamped": fv_clamped,
         "payout_source":  payout_source,
         "epv_negative":   epv_negative,
         "ev_source":      ev_source,
     }
+
+
+def _fair_value_model_count(row: "dict | pd.Series") -> int:
+    """`_fair_value_models`' own `fv_model_count` for a single row (FV-5). Run
+    with no sector context — the sector P/E and P/B medians scale model *values*
+    but never change which models produce one, so the count is exact. Used by
+    `_fetch_and_store` (which sees a raw row, before `compute_scores`) to spot a
+    degraded payload whose fair value would rest on too thin a basis."""
+    r = row if isinstance(row, pd.Series) else pd.Series(row)
+    return int(_fair_value_models(r).get("fv_model_count", 0))
 
 
 # ── Stage 3: MoS, TER, Dividend Sustainability Flag ──────────────────────────
@@ -1768,6 +1804,12 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                        axis=1, result_type="expand")
     for col in fv_cols.columns:
         df[col] = fv_cols[col]
+
+    # FV-5: a row that has a fair value but fewer than MIN_FV_MODELS independent
+    # sub-models behind it — the composite is real but weakly corroborated.
+    _fv_present = pd.to_numeric(df["fair_value"], errors="coerce").notna()
+    _cnt        = pd.to_numeric(df["fv_model_count"], errors="coerce")
+    df["fv_basis_thin"] = _fv_present & (_cnt < MIN_FV_MODELS)
 
     # ── Stage 3: MoS · TER · Dividend Sustainability ─────────────────────────
     # Vectorised equivalent of `_margin_of_safety(Price, fair_value)` applied
