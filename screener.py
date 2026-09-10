@@ -56,6 +56,13 @@ DEFAULT_BETA        = 1.0
 BLUME_WEIGHT        = 0.67
 DDM_STABLE_GROWTH   = 0.02    # Terminal growth rate for multi-stage DDM
 DDM_HIGH_GROWTH_YRS = 5       # Number of high-growth years in 2-stage DDM
+# Gordon-growth models blow up as the discount rate approaches the growth rate:
+# the whole valuation collapses onto a near-zero denominator. Below this spread
+# between WACC and g the DDM output is dominated by that instability rather than
+# by the cash flows, so the variant is dropped instead of returned. Feeding the
+# real dividend CAGR into the DDM (FV-7) makes low-beta / high-DGR names hit this
+# regime far more often, so the guard is load-bearing, not cosmetic.
+DDM_MIN_SPREAD      = 0.03
 
 # Statutory corporate tax rates by country, for EPV's EBIT×(1-t) step. Static headline
 # rates (approx. 2024/2025), not a live feed — a known simplification like RISK_FREE_RATE
@@ -126,6 +133,19 @@ W_EPV        = 0.208
 W_DDM_SINGLE = 0.167
 W_DDM_MULTI  = 0.167
 W_ANALYST    = 0.130
+
+# FV-3: book-value and FCF fair-value *fallbacks*. Both are crude — a
+# sector-median P/B misprices high-ROE compounders, a flat FCF multiple misprices
+# growth — so they enter the blend ONLY when *none* of the fundamentals trio
+# (Graham / PE / EPV) produced a value, i.e. for genuine loss-makers where any
+# fundamentals anchor beats a lone haircut analyst target. Their weights sit
+# *outside* the six-model sum above (like the DDM payout ramp and the analyst
+# dispersion factor, they're conditionally applied, not part of the base rate).
+W_PB  = 0.10
+W_FCF = 0.10
+PB_MULTIPLE_FALLBACK = 1.5          # sector has < MIN_SECTOR_SAMPLE priced peers / no priceToBook
+PB_MULTIPLE_BAND     = (0.5, 4.0)   # winsor bounds on a sector-median P/B
+FCF_MULTIPLE         = 15.0         # ≈ 6.7% FCF yield; fixed, not 1/(WACC−g) (Gordon instability)
 
 # Composite fair-value sanity guard. A blended fair value above this multiple of
 # the current price is only trusted when at least two of the individual models
@@ -205,6 +225,22 @@ MIN_UNIVERSE_SIZE = 20
 # low coverage) still apply.
 LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
 
+# FV-8: sectors whose value is driven by the balance sheet, not an income
+# statement, so the earnings-anchored models (Graham √(EPS·BVPS), a Greenwald
+# EPV on EBIT) are noise. Real estate books IFRS fair-value revaluation gains in
+# EPS — so EPS, and any P/E built on it, swings ±50% year to year; banks and
+# insurers have no "EBIT" in the industrial sense.
+#   • Real estate → Graham + P/E + EPV all skipped → `_trio` is 0 → valued off
+#     the FV-3 book-value model (a NAV proxy) + DDM + analyst.
+#   • Financial Services → Graham + EPV skipped, **P/E kept** (the standard bank
+#     metric, on real not-revaluation-distorted EPS). The book-value model still
+#     fires for them (see `pb_eligible` — it's a primary anchor for this cohort,
+#     not just a loss-maker fallback), so a bank is valued off P/E + P/B + DDM +
+#     analyst.
+# Utilities are NOT here — regulated, stable EPS, a real operating EBIT.
+_GRAHAM_EPV_SKIP_SECTORS = {"Real Estate", "Financial Services"}
+_PE_SKIP_SECTORS         = {"Real Estate"}   # + revaluation-distorted P/E; banks keep P/E
+
 # Sector fallback for tickers the fundamentals provider classifies as null — a
 # gap that otherwise leaves a held name in the "Unknown" bucket on every screen
 # (sector allocation donut, Risk-page sector HHI/concentration) and with no
@@ -241,9 +277,15 @@ CACHE_TTL_JITTER = 4    # hours of random jitter added to each ticker's TTL
 # cached so the holding keeps a price and a score, but on this much shorter TTL,
 # so it heals on the next fetch cycle instead of being trusted for a full day.
 # A couple of immediate in-loop retries come first, since such payloads are
-# usually transient.
+# usually transient. FV-5 widens the "too thin" test a little: a row that is
+# technically scorable but only via a *reconstructed* EPS (Graham + PE off one
+# guessed number, < MIN_FV_MODELS models total) is a degraded payload too, and
+# gets the same short-TTL heal. `fv_model_count` / `fv_basis_thin` (a superset —
+# also flags a lone analyst target) are surfaced for the UI but do NOT force the
+# short TTL, so a genuinely data-poor small-cap isn't re-fetched forever.
 CACHE_TTL_SHORT_HOURS = 3
 _THIN_ROW_RETRIES     = 2
+MIN_FV_MODELS         = 2
 
 
 class _Fetcher:
@@ -287,6 +329,9 @@ VALUATION_FIELDS = [
     "numberOfAnalystOpinions",      # Analyst target — coverage depth
     "ebit",                         # EPV
     "enterpriseValue",              # EPV: EV → per-share scaling
+    "totalDebt",                    # EPV: EV reconstruction when enterpriseValue is dropped (FV-4)
+    "totalCash",                    # EPV: EV reconstruction (FV-4)
+    "marketCap",                    # EPV: EV reconstruction — equity leg (FV-4)
     "sharesOutstanding",            # Cash payout ratio
 ]
 
@@ -364,20 +409,24 @@ def _row_fetch_time(row: "dict | pd.Series"):
 
 def backfill_thin_rows_from_screener_lane(fund: "pd.DataFrame") -> "pd.DataFrame":
     """WP-C: swap in the SCREENER_FETCH lane's row for any PORTFOLIO_FETCH-lane
-    row that can't be valued (``_row_is_scorable`` is False).
+    row that can't be valued, *or* whose fair value would rest on fewer than
+    MIN_FV_MODELS independent sub-models (review: a book-value-only degraded
+    payload is now technically ``_row_is_scorable`` but still thin, and would
+    otherwise show a lone ``bookValue × PB_MULTIPLE_FALLBACK`` composite on the
+    portfolio screens while the Screener page shows a full one).
 
     A degraded provider payload cached in the portfolio lane is otherwise sticky
     until its (WP-A short) TTL expires, even when the screener lane already holds
     a complete row for the same ticker. Both lanes run the identical scorer on
-    the identical row schema, so borrowing a healthy, not-older row is a no-op
-    for correctness and an immediate heal. Rows that are already scorable, and
-    tickers the screener lane doesn't have (held on a disabled exchange), are
-    left untouched.
+    the identical row schema, so borrowing a not-older row with *more* live
+    models is a no-op for correctness and an immediate heal. Tickers the screener
+    lane doesn't have (held on a disabled exchange) are left untouched.
     """
     if fund is None or getattr(fund, "empty", True) or "Ticker" not in getattr(fund, "columns", []):
         return fund
     records = fund.to_dict("records")
-    thin = [i for i, r in enumerate(records) if not _row_is_scorable(r)]
+    thin = [i for i, r in enumerate(records)
+            if not _row_is_scorable(r) or _fair_value_model_count(r) < MIN_FV_MODELS]
     if not thin:
         return fund
     _warm_live_cache(SCREENER_FETCH)
@@ -388,6 +437,8 @@ def backfill_thin_rows_from_screener_lane(fund: "pd.DataFrame") -> "pd.DataFrame
         alt = alt_cache.get(str(r.get("Ticker")))
         if not alt or not _row_is_scorable(alt):
             continue
+        if _fair_value_model_count(alt) <= _fair_value_model_count(r):
+            continue   # the other lane isn't actually richer — don't churn the row
         _rt, _at = _row_fetch_time(r), _row_fetch_time(alt)
         if _rt is not None and _at is not None and _at < _rt:
             continue   # don't trade a newer-but-thin row for a stale one
@@ -757,13 +808,21 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
             try:
                 with contextlib.redirect_stderr(io.StringIO()):
                     row = _fetch_one(ticker, stock)
-                if _row_is_scorable(row) or row.get("Price") is None:
+                _scorable = _row_is_scorable(row)
+                # FV-5: a row that IS scorable but whose fair value would rest on
+                # fewer than MIN_FV_MODELS independent sub-models is a thin fetch
+                # — almost always a partial Yahoo payload (some quoteSummary
+                # modules missing) rather than a genuinely data-poor company.
+                # Heal it like an unscorable one so it doesn't stick for a day
+                # (review: gating this on `trailingEps_derived` missed the
+                # book-value-only shape and let it diverge from the other lane).
+                _thin = (_scorable and _fair_value_model_count(row) < MIN_FV_MODELS)
+                if (_scorable and not _thin) or row.get("Price") is None:
                     break   # good row, or a dead/blocked symbol retrying can't improve
-                # Priced but too thin to value — almost always a partial Yahoo
-                # payload that raised no exception (some quoteSummary modules
-                # missing). Retry a couple of times; if it stays thin, keep the
-                # row but flag it for a short-TTL refetch so it self-heals next
-                # cycle rather than being trusted for a full day (WP-A).
+                # Priced but too thin to value: not scorable at all, or scorable
+                # only via a single sub-model. Retry a couple of times; if it
+                # stays thin, keep the row but flag it for a short-TTL refetch so
+                # it self-heals next cycle rather than being trusted a full day (WP-A).
                 thin_tries += 1
                 if thin_tries <= _THIN_ROW_RETRIES:
                     row = None
@@ -913,9 +972,14 @@ def _ddm_single(div_rate, wacc, g) -> float | None:
     """Gordon growth single-stage DDM."""
     if not div_rate or div_rate <= 0:
         return None
-    g = max(0.0, min(0.05, g if g is not None else 0.02))
-    if wacc <= g:
+    # Keep the Gordon denominator sane by *clamping* g down to `wacc − DDM_MIN_SPREAD`
+    # rather than dropping the model outright — a low-beta payer (wacc ≈ 5–7%) whose
+    # dividend really compounds ~5% would otherwise silently lose single-stage DDM
+    # (review). Only give up when WACC itself is below the minimum spread.
+    g_cap = wacc - DDM_MIN_SPREAD
+    if g_cap <= 0:
         return None
+    g = _clamp(g if g is not None else 0.02, 0.0, min(0.05, g_cap))
     d1  = div_rate * (1 + g)
     val = d1 / (wacc - g)
     return val if 0 < val < 1e6 else None
@@ -926,9 +990,13 @@ def _ddm_multistage(div_rate, wacc, g_high, g_stable=DDM_STABLE_GROWTH,
     """2-stage DDM: explicit high-growth phase + Gordon terminal value."""
     if not div_rate or div_rate <= 0:
         return None
-    if wacc <= g_stable:
+    if wacc - g_stable < DDM_MIN_SPREAD:
         return None
-    g_high = max(0.0, min(0.15, g_high if g_high is not None else 0.05))
+    # Cap g_high at `wacc − DDM_MIN_SPREAD` too: with g_high near/above wacc the
+    # explicit-phase terms grow with t and inflate the PV before the terminal
+    # value is even reached, and the terminal-leg guard above never sees it (review).
+    g_high = _clamp(g_high if g_high is not None else 0.05,
+                    0.0, min(0.15, wacc - DDM_MIN_SPREAD))
     pv  = 0.0
     dps = div_rate
     for t in range(1, years + 1):
@@ -962,6 +1030,39 @@ def _ddm_weight_factor(div_rate, payout) -> float:
     if payout <= hi1:
         return 1.0
     return (hi0 - payout) / (hi0 - hi1)
+
+
+# FV-1: the payout ramp above needs a payout ratio, but yfinance's reported
+# `payoutRatio` divides by trailing GAAP net income — it comes back absurd
+# (1.4×, 7.7×), negative, or null for a loss-making, trough-earnings or
+# freshly-demerged payer, and any value outside the ramp's own contributing band
+# silently zero-weights BOTH DDM variants. `_payout_signal` trusts the reported
+# ratio only while it is inside `[0, _DDM_PAYOUT_KNOTS[3]]` (0–95%) — the regime
+# where the GAAP denominator is sound — and otherwise falls back to the cash
+# payout (`cashPayoutRatio` = DPS·shares / FCF, derived in `_fetch_one`), then to
+# the reciprocal of the EPS/DPS coverage ratio. Only when no proxy at all is
+# available does it surface the extreme reported value (so the ramp still zeroes
+# it). Returns (value | None, source); `source` is persisted on the scored row
+# as `payout_source` for the UI.
+_PAYOUT_CASH_MAX = 1.5   # accept the cash payout ratio as a signal up to here
+
+
+def _payout_signal(row: "dict | pd.Series") -> "tuple[float | None, str]":
+    pr = _finite(row.get("payoutRatio"))
+    # `> 0`, not `>= 0`: a real payer's payout is never exactly zero, so a
+    # provider `0.0` is missing-as-zero — fall through to the cash / coverage
+    # proxies instead of trusting it (review).
+    if pr is not None and 0.0 < pr <= _DDM_PAYOUT_KNOTS[3]:
+        return pr, "reported"
+    cpr = _finite(row.get("cashPayoutRatio"))
+    if cpr is not None and 0.0 < cpr <= _PAYOUT_CASH_MAX:
+        return cpr, "cash"
+    cov = _finite(row.get("dividendCoverage"))
+    if cov is not None and cov > 0:
+        return min(1.0 / cov, 10.0), "coverage"
+    if pr is not None and pr > 0:
+        return pr, "reported"   # extreme (>0.95) and no better proxy — ramp zeroes it
+    return None, "none"
 
 
 def _analyst_weight_factor(row: pd.Series) -> float:
@@ -1012,18 +1113,81 @@ def _sector_pe_medians(df: pd.DataFrame) -> dict:
     }
 
 
+def _sector_pb_medians(df: pd.DataFrame) -> dict:
+    """{sector: winsorized median `priceToBook`} across `df`, for the FV-3 P/B
+    fallback. Same shape and MIN_SECTOR_SAMPLE gate as `_sector_pe_medians`;
+    callers fall back to PB_MULTIPLE_FALLBACK for an unlisted sector. Returns {}
+    when the frame carries no `priceToBook`/`sector` columns (hand-built test
+    frames) so `_fair_value_models` stays usable stand-alone."""
+    if "priceToBook" not in df.columns or "sector" not in df.columns:
+        return {}
+    pb    = pd.to_numeric(df["priceToBook"], errors="coerce")
+    valid = pd.DataFrame({"sector": df["sector"], "pb": pb})
+    valid = valid[(valid["pb"] > 0) & (valid["pb"] < 100) & valid["sector"].notna()]
+    if valid.empty:
+        return {}
+    lo, hi = PB_MULTIPLE_BAND
+    return {
+        sector: float(np.clip(grp["pb"].median(), lo, hi))
+        for sector, grp in valid.groupby("sector")
+        if len(grp) >= MIN_SECTOR_SAMPLE
+    }
+
+
+# FV-2: a plain mean of `ebitHistory` does *not* survive a single catastrophic
+# year — one −20bn writedown drags a 4-year mean negative even when the other
+# three years are solidly positive, and EPV then refuses the stock entirely.
+# A MAD-based outlier test was tried but is unreliable on the 3–4 point windows
+# yfinance gives: for a fast grower it flags the newest (most relevant) year as
+# the outlier (review). `_normalised_ebit` now uses an order-statistic estimator
+# instead — median at 3 points, a symmetric trimmed mean (drop one from each
+# end) at 4+ — which is stable, has no discontinuity, and still removes a lone
+# crisis/windfall year. Point-in-time `ebit` below `_EBIT_MIN_YEARS` finite years.
+_EBIT_MIN_YEARS = 3
+
+
 def _normalised_ebit(row: pd.Series):
-    """Mean EBIT across the available multi-year window (`ebitHistory`, newest
-    first) when at least 3 finite years exist — EPV capitalises a
-    through-the-cycle *earnings power*, so a single peak or trough year
-    shouldn't set the whole valuation. Falls back to the point-in-time `ebit`
-    otherwise (recent IPOs, tickers whose statement fetch failed)."""
+    """Robust central EBIT across the multi-year window (`ebitHistory`) when at
+    least `_EBIT_MIN_YEARS` finite years exist — EPV capitalises a
+    through-the-cycle *earnings power*, so neither a single crisis year nor a
+    single peak should set the whole valuation. Falls back to the point-in-time
+    `ebit` otherwise (recent IPOs, tickers whose statement fetch failed)."""
     hist = row.get("ebitHistory")
-    vals = ([f for f in (_finite(v) for v in hist) if f is not None]
-            if isinstance(hist, list) else [])
-    if len(vals) >= 3:
-        return sum(vals) / len(vals)
-    return _get_num(row, "ebit")
+    vals = sorted(f for f in ((_finite(v) for v in hist)
+                              if isinstance(hist, list) else ()) if f is not None)
+    n = len(vals)
+    if n < _EBIT_MIN_YEARS:
+        return _get_num(row, "ebit")
+    if n == 3:
+        return vals[1]                       # median of 3 — drops any lone extreme
+    trimmed = vals[1:-1]                      # 4+ years: drop one extreme per end
+    return sum(trimmed) / len(trimmed)
+
+
+def _enterprise_value(row: "dict | pd.Series") -> "tuple[float | None, str]":
+    """Enterprise value for the EPV model. FV-4: yfinance drops `enterpriseValue`
+    on a partial payload while usually still carrying the balance-sheet pieces,
+    so fall back to a reconstruction — ``(market cap or Price × shares) +
+    totalDebt − totalCash`` — before giving up. Returns ``(ev | None, source)``
+    with ``source`` in ``{"provider", "reconstructed", "none"}``; a non-positive
+    result is treated as no EV."""
+    ev = _finite(row.get("enterpriseValue"))
+    if ev is not None and ev > 0:
+        return ev, "provider"
+
+    equity = _finite(row.get("marketCap")) or _finite(row.get("Market Cap"))
+    if equity is None or equity <= 0:
+        price  = _finite(row.get("Price"))
+        shares = _finite(row.get("sharesOutstanding"))
+        equity = (price * shares
+                  if price and shares and price > 0 and shares > 0 else None)
+
+    total_debt = _finite(row.get("totalDebt"))
+    if equity is None or total_debt is None:
+        return None, "none"
+    total_cash = _finite(row.get("totalCash")) or 0.0
+    ev = equity + total_debt - total_cash
+    return (ev, "reconstructed") if ev > 0 else (None, "none")
 
 
 def _row_is_scorable(row: "dict | pd.Series") -> bool:
@@ -1034,12 +1198,23 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
 
     Kept deliberately in lock-step with ``_fair_value_models``' per-model input
     guards; if a model's requirements change there, mirror the change here.
-    ``bookValue`` alone does not count (no model uses it without a positive EPS —
-    Graham needs both), but a sane ``trailingPE`` lets ``_fetch_one`` recover
-    that EPS (WP-B), so P/E + book value does. The EBIT branch is deliberately
-    lenient: it accepts a multi-year history without re-checking the mean's sign,
-    since a false "scorable" only means the row keeps its normal TTL — it still
-    renders "—" if the models genuinely can't value it, exactly as today.
+    ``bookValue > 0`` alone now counts (FV-3: the P/B fallback values it when no
+    trio model fired; a live trio makes the row scorable anyway, so the
+    unconditional check here stays in step with the conditional blend). Positive
+    ``freeCashflow`` + ``sharesOutstanding`` likewise (FV-3 FCF fallback). The
+    DDM branch mirrors
+    ``_payout_signal`` + ``_ddm_weight_factor`` (FV-1): a payer is scorable via
+    DDM whenever *some* payout proxy — reported ratio, cash payout, or
+    1/coverage — lands inside the ramp band, not only when ``payoutRatio`` is
+    present. The EPV branch takes ``_enterprise_value`` (FV-4), so a row whose
+    ``enterpriseValue`` was dropped but whose balance-sheet pieces survived
+    still counts. FV-8's per-sector model skips are *not* mirrored here — a
+    ``Real Estate`` / ``Financial Services`` row with ``eps > 0`` still reads as
+    scorable (it is, via P/B + DDM + analyst); the worst case is the usual
+    tolerated one below. The EBIT branch is deliberately lenient: it accepts a
+    multi-year history without re-checking the mean's sign, since a false
+    "scorable" only means the row keeps its normal TTL — it still renders "—"
+    if the models genuinely can't value it, exactly as today.
     """
     def _num(key):
         v = row.get(key)
@@ -1053,10 +1228,8 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
     pe     = _num("trailingPE")
     book   = _num("bookValue")
     ebit   = _num("ebit")
-    ev     = _num("enterpriseValue")
     target = _num("targetMeanPrice")
     div    = _num("trailingAnnualDividendRate") or _num("dividendRate")
-    payout = _num("payoutRatio")
 
     _hist = row.get("ebitHistory")
     have_ebit = (ebit is not None and ebit > 0) or (
@@ -1064,37 +1237,55 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         and len([v for v in _hist if isinstance(v, (int, float)) and v == v]) >= 3
     )
 
+    fcf    = _num("freeCashflow")
+    shares = _num("sharesOutstanding")
+
     return any((
         eps is not None and eps > 0,                                     # Graham, PE fair value
         book is not None and book > 0
             and pe is not None and _PE_DERIVE_BAND[0] < pe < _PE_DERIVE_BAND[1],  # WP-B recovers EPS -> Graham, PE
         target is not None and target > 0,                              # analyst target
-        div is not None and div > 0 and payout is not None,             # DDM (payout needed for a non-zero weight)
-        have_ebit and ev is not None and ev > 0,                        # earnings power value
+        div is not None and div > 0
+            and _ddm_weight_factor(div, _payout_signal(row)[0]) > 0,     # DDM (payout ramp must be non-zero)
+        have_ebit and _enterprise_value(row)[0] is not None,            # EPV (EV from provider or FV-4 reconstruction)
+        book is not None and book > 0,                                  # FV-3 P/B fallback
+        fcf is not None and fcf > 0 and shares is not None and shares > 0,  # FV-3 FCF fallback
     ))
 
 
-def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
+def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
+                       sector_pb: "dict | None" = None) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
-    payout   = row.get("payoutRatio")
+    payout, payout_source = _payout_signal(row)   # FV-1: reported / cash / 1-over-coverage
     analyst  = row.get("targetMeanPrice")
-    ebit     = _normalised_ebit(row)   # mean of ebitHistory (≥3yr) else point-in-time
-    ev       = row.get("enterpriseValue")
+    ebit     = _normalised_ebit(row)   # robust mean of ebitHistory (≥3yr) else point-in-time
+    ev, ev_source = _enterprise_value(row)   # FV-4: provider EV, else reconstructed from mcap+debt−cash
     beta     = row.get("beta")
-    eg       = row.get("earningsGrowth")
+    eg       = row.get("earningsGrowth")            # PEG tilt on the PE model
+    ddm_g    = _dgr_estimate(row)                   # FV-7: true DPS CAGR, else earningsGrowth
     country  = row.get("country")
-    sector   = row.get("sector")
+    # FV-8 keys off the *resolved* sector (SECTOR_OVERRIDES fills provider gaps for
+    # the exact REITs the guard is for — e.g. RET.BR, whose raw sector is often
+    # null); `compute_scores` also resolves `df["sector"]` before Stage 2 so the
+    # sector-median buckets and this agree (review).
+    sector   = sector_for(row.get("Ticker"), row.get("sector"))
     shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
     wacc = _approx_wacc(beta)
 
+    # FV-8: for a NAV-driven sector the earnings-anchored models are skipped
+    # (see _GRAHAM_EPV_SKIP_SECTORS / _PE_SKIP_SECTORS) — the row is valued off
+    # P/B + DDM + analyst instead.
+    _skip_graham_epv = sector in _GRAHAM_EPV_SKIP_SECTORS
+    _skip_pe         = sector in _PE_SKIP_SECTORS
+
     # Graham Number
     gn = None
-    if eps and bvps and eps > 0 and bvps > 0:
+    if eps and bvps and eps > 0 and bvps > 0 and not _skip_graham_epv:
         gn = (22.5 * eps * bvps) ** 0.5
 
     # PE Fair Value: sector-median trailing P/E (winsorized to PE_MULTIPLE_BAND)
@@ -1103,34 +1294,52 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
     if pd.notna(eg):
         pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
-    pe_fv = (eps * pe_multiple) if (eps and eps > 0) else None
+    pe_fv = (eps * pe_multiple) if (eps and eps > 0 and not _skip_pe) else None
 
     # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). EBIT is the multi-year mean
     # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
     # valuation; t is the country's statutory rate (COUNTRY_TAX_RATES), else DEFAULT_TAX_RATE.
     epv = None
-    if ebit and ebit > 0 and ev and ev > 0 and price and price > 0:
+    epv_negative = False
+    if (ebit and ebit > 0 and ev and ev > 0 and price and price > 0
+            and not _skip_graham_epv):
         epv_ev = ebit * (1 - tax_rate) / wacc
         if shares and shares > 0:
             # Exact: subtract net debt (EV − market cap) from EPV_EV, then divide
             # by shares — avoids assuming EPV_EV's implied capital structure mirrors
             # the actual EV/market-cap ratio, which the EV-ratio shortcut below does.
-            net_debt = ev - (price * shares)
+            if ev_source == "reconstructed":
+                # `ev` was built as equity + totalDebt − totalCash; take net debt
+                # straight from those legs. Using `ev − price·shares` here would
+                # inject phantom debt whenever the `marketCap` leg counts share
+                # classes that `sharesOutstanding` omits (review).
+                net_debt = (_finite(row.get("totalDebt")) or 0.0) - (_finite(row.get("totalCash")) or 0.0)
+            else:
+                net_debt = ev - (price * shares)
             epv = (epv_ev - net_debt) / shares
         else:
             # Fallback when shares outstanding is unavailable: EV-ratio approximation.
             epv = price * (epv_ev / ev)
+        # FV-4: a ≤0 EPV means net debt swamps the capitalised earnings power
+        # (common for leveraged names / REITs). It's kept out of the blend by the
+        # v > 0 filter below, but the flag lets the UI say *why* the row is dark
+        # rather than showing a bare "—".
+        epv_negative = bool(epv is not None and epv <= 0)
 
-    # DDM weight ramps with the payout ratio (_ddm_weight_factor) rather than a
+    # DDM weight ramps with the payout signal (_ddm_weight_factor) rather than a
     # hard 5–90% in/out gate — full base weight in the 30–70% band, tapering to 0
     # by 5% / 95%, so an 89%→91% payer shifts by a sliver, not the whole block.
+    # `payout` is _payout_signal's best proxy (FV-1), not the raw reported ratio.
     ddm_factor  = _ddm_weight_factor(div_rate, payout)
     ddm_usable  = ddm_factor > 0
     w_ddm1 = W_DDM_SINGLE * ddm_factor
     w_ddm2 = W_DDM_MULTI  * ddm_factor
 
-    ddm1 = _ddm_single(div_rate, wacc, eg)     if ddm_usable else None
-    ddm2 = _ddm_multistage(div_rate, wacc, eg) if ddm_usable else None
+    # FV-7: DDM growth is the true DPS CAGR (`_dgr_estimate` → `true_dgr`, else
+    # the `earningsGrowth` proxy) — the same figure TER and the dividend scores
+    # use — not the raw `earningsGrowth` this passed before.
+    ddm1 = _ddm_single(div_rate, wacc, ddm_g)     if ddm_usable else None
+    ddm2 = _ddm_multistage(div_rate, wacc, ddm_g) if ddm_usable else None
 
     # Discount the raw analyst target for its well-documented optimism bias before it
     # feeds the composite (the undiscounted target is still shown elsewhere in the UI),
@@ -1139,7 +1348,38 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
     w_analyst  = W_ANALYST * _analyst_weight_factor(row)
 
-    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage)
+    # FV-3: book-value and FCF fallbacks. Eligible only when *none* of the
+    # fundamentals trio (Graham / PE / EPV) produced a value — a genuine
+    # loss-maker with no earnings anchor, where a crude book/cash number beats a
+    # lone haircut analyst target. Even one live trio model (usually EPV) is
+    # enough to leave these dark, so a normally-valued name is untouched.
+    _trio = sum(1 for v in (gn, pe_fv, epv) if v is not None and v > 0)
+    fallback_eligible = _trio == 0
+
+    # FV-8: for a NAV-driven sector the book-value model is a *primary* anchor,
+    # not a fallback — so it also fires when the trio is only alive via a kept
+    # model (a bank's P/E). REITs still reach it via _trio == 0. (FCF stays a
+    # pure loss-maker fallback — a bank's "free cash flow" is not meaningful.)
+    pb_eligible = fallback_eligible or _skip_graham_epv
+
+    pb_fv = None
+    if pb_eligible and bvps and bvps > 0:
+        pb_multiple = (sector_pb or {}).get(sector, PB_MULTIPLE_FALLBACK)
+        pb_fv = bvps * pb_multiple
+
+    fcf_fv = None
+    if fallback_eligible:
+        fcf = _finite(row.get("freeCashflow"))
+        if fcf and fcf > 0 and shares and shares > 0 and price and price > 0:
+            # Capitalise FCF at a fixed multiple, then subtract net debt (like EPV)
+            # so a cash-generative but heavily-levered name isn't overvalued.
+            gross    = fcf * FCF_MULTIPLE
+            net_debt = (ev - price * shares) if (ev and ev > 0) else 0.0
+            _v = (gross - net_debt) / shares
+            fcf_fv = _v if _v > 0 else None
+
+    # Base weights (DDM scaled by the payout ramp, analyst by dispersion/coverage;
+    # W_PB / W_FCF are 0 unless the fallback is eligible and produced a value)
     candidates = [
         (gn,         W_GRAHAM),
         (pe_fv,      W_PE),
@@ -1147,12 +1387,35 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         (ddm1,       w_ddm1),
         (ddm2,       w_ddm2),
         (analyst_fv, w_analyst),
+        (pb_fv,      W_PB),
+        (fcf_fv,     W_FCF),
     ]
     avail = [(v, w) for v, w in candidates if v is not None and v > 0 and w > 0]
     if not avail:
         return {"graham_number": gn, "pe_fair_value": pe_fv, "epv": epv,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
-                "ddm_contributed": False, "fair_value_clamped": False}
+                "ddm_contributed": False, "fair_value_clamped": False,
+                "payout_source": payout_source, "epv_negative": epv_negative,
+                "ev_source": ev_source, "fv_model_count": 0,
+                "pb_fair_value": pb_fv, "fcf_fair_value": fcf_fv,
+                "fv_dark_reasons": _fv_dark_reasons(
+                    gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
+                    eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
+                    epv_negative=epv_negative, skip_graham_epv=_skip_graham_epv,
+                    skip_pe=_skip_pe)}
+
+    # FV-5: how many *independent* sub-models back the composite.
+    #  • ddm1 + ddm2 are one Gordon family fed identical inputs (the sanity clamp
+    #    already collapses them) — count once.
+    #  • Graham + PE both key off EPS; when that EPS was reconstructed from the
+    #    P/E (trailingEps_derived, WP-B) they are one anchor — count once.
+    fv_model_count = len(avail)
+    if ddm1 is not None and ddm1 > 0 and ddm2 is not None and ddm2 > 0:
+        fv_model_count -= 1
+    if (bool(row.get("trailingEps_derived"))
+            and gn is not None and gn > 0 and pe_fv is not None and pe_fv > 0):
+        fv_model_count -= 1
+    fv_model_count = max(fv_model_count, 1)
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
@@ -1165,7 +1428,15 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
     fv_clamped = False
     if price and price > 0 and iv > FV_SANITY_MULT * price:
         model_vals = sorted(v for v, _ in avail)
-        corroborating = sum(1 for v in model_vals if v >= FV_SANITY_MULT * price)
+        thr = FV_SANITY_MULT * price
+        # The two DDM variants are one model family fed identical inputs — when
+        # they run high they run high together, so they count as a single
+        # corroborating vote, not two (otherwise a Gordon-model blow-up can
+        # never be caught: ddm1 + ddm2 alone would "agree").
+        _ddm_vals = {v for v in (ddm1, ddm2) if v is not None}
+        corroborating = sum(1 for v in model_vals
+                            if v >= thr and v not in _ddm_vals)
+        corroborating += 1 if any(v >= thr for v in _ddm_vals) else 0
         if corroborating <= 1:
             m = len(model_vals)
             median = (model_vals[m // 2] if m % 2
@@ -1186,10 +1457,63 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None) -> dict:
         "epv":            epv,
         "ddm":            round(ddm1, 2) if ddm1 else None,
         "ddm_multistage": round(ddm2, 2) if ddm2 else None,
+        "pb_fair_value":  round(pb_fv, 2) if pb_fv else None,
+        "fcf_fair_value": round(fcf_fv, 2) if fcf_fv else None,
         "fair_value":     round(iv, 2),
+        "fv_model_count": fv_model_count,
         "ddm_contributed": ddm_contributed,
         "fair_value_clamped": fv_clamped,
+        "payout_source":  payout_source,
+        "epv_negative":   epv_negative,
+        "ev_source":      ev_source,
+        "fv_dark_reasons": _fv_dark_reasons(
+            gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
+            eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
+            epv_negative=epv_negative, skip_graham_epv=_skip_graham_epv,
+            skip_pe=_skip_pe),
     }
+
+
+def _fv_dark_reasons(gn, pe_fv, epv, ddm1, ddm2, analyst_fv, *, eps, ev, ebit,
+                     div_rate, payout, epv_negative, skip_graham_epv, skip_pe) -> dict:
+    """FV-6: authoritative {model key -> short 'why dark' code} for the models
+    that did not feed the composite. Built alongside the guards in
+    `_fair_value_models` so the UI only formats codes — it never re-derives a
+    model's input conditions (`uvalu.components._REASON_TEXT` maps the codes)."""
+    def _dead(x):
+        return not (x is not None and x > 0)
+
+    out: dict = {}
+    if _dead(gn):
+        out["graham_number"] = ("sector" if skip_graham_epv
+                                else "no_eps" if _dead(eps) else "no_book")
+    if _dead(pe_fv):
+        out["pe_fair_value"] = "sector" if skip_pe else "no_eps"
+    if _dead(epv):
+        out["epv"] = ("sector" if skip_graham_epv
+                      else "epv_negative" if epv_negative
+                      else "no_ev" if _dead(ev)
+                      else "no_ebit" if ebit is None
+                      else "low_ebit")
+    if ddm1 is None and ddm2 is None:
+        out["ddm"] = ("non_payer" if _dead(div_rate)
+                      else "payout_missing" if payout is None
+                      else "payout_band" if (payout <= _DDM_PAYOUT_KNOTS[0]
+                                             or payout >= _DDM_PAYOUT_KNOTS[3])
+                      else "spread")
+    if _dead(analyst_fv):
+        out["analyst"] = "no_coverage"
+    return out
+
+
+def _fair_value_model_count(row: "dict | pd.Series") -> int:
+    """`_fair_value_models`' own `fv_model_count` for a single row (FV-5). Run
+    with no sector context — the sector P/E and P/B medians scale model *values*
+    but never change which models produce one, so the count is exact. Used by
+    `_fetch_and_store` (which sees a raw row, before `compute_scores`) to spot a
+    degraded payload whose fair value would rest on too thin a basis."""
+    r = row if isinstance(row, pd.Series) else pd.Series(row)
+    return int(_fair_value_models(r).get("fv_model_count", 0))
 
 
 # ── Stage 3: MoS, TER, Dividend Sustainability Flag ──────────────────────────
@@ -1578,11 +1902,24 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
             df.loc[_derive, "trailingEps_derived"] = True
 
     # ── Stage 2: fair values ──────────────────────────────────────────────────
+    # FV-8 / sector-median buckets key off the resolved sector (SECTOR_OVERRIDES
+    # fills provider gaps) — resolve it once here so Stage 2 and the downstream
+    # UI never disagree about a ticker's sector (review).
+    if "Ticker" in df.columns:
+        df["sector"] = [sector_for(t, s) for t, s in zip(df["Ticker"], df["sector"])]
     sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
-    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe),
+    sector_pb = _sector_pb_medians(df)   # ...and P/B, for the FV-3 fallback
+    fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe,
+                                                    sector_pb=sector_pb),
                        axis=1, result_type="expand")
     for col in fv_cols.columns:
         df[col] = fv_cols[col]
+
+    # FV-5: a row that has a fair value but fewer than MIN_FV_MODELS independent
+    # sub-models behind it — the composite is real but weakly corroborated.
+    _fv_present = pd.to_numeric(df["fair_value"], errors="coerce").notna()
+    _cnt        = pd.to_numeric(df["fv_model_count"], errors="coerce")
+    df["fv_basis_thin"] = _fv_present & (_cnt < MIN_FV_MODELS)
 
     # ── Stage 3: MoS · TER · Dividend Sustainability ─────────────────────────
     # Vectorised equivalent of `_margin_of_safety(Price, fair_value)` applied

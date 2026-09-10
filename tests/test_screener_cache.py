@@ -127,10 +127,20 @@ class TestRowIsScorable:
         assert screener._row_is_scorable({"dividendRate": 4.0}) is False
         assert screener._row_is_scorable({"dividendRate": 4.0, "payoutRatio": 0.6}) is True
 
-    def test_book_value_needs_a_sane_pe_to_count(self):
-        assert screener._row_is_scorable({"bookValue": 80.0}) is False
+    def test_book_value_alone_is_scorable_via_pb_fallback(self):
+        # FV-3: bookValue > 0 now values a row on its own (sector-median P/B),
+        # so the gate accepts it — with or without a usable P/E.
+        assert screener._row_is_scorable({"bookValue": 80.0}) is True
         assert screener._row_is_scorable({"bookValue": 80.0, "trailingPE": 6.0}) is True
-        assert screener._row_is_scorable({"bookValue": 80.0, "trailingPE": 999.0}) is False
+        assert screener._row_is_scorable({"bookValue": 80.0, "trailingPE": 999.0}) is True
+        assert screener._row_is_scorable({"bookValue": 0.0}) is False
+        assert screener._row_is_scorable({"bookValue": -3.0}) is False
+
+    def test_positive_fcf_with_shares_is_scorable_via_fcf_fallback(self):
+        # FV-3: the other fallback — positive freeCashflow + sharesOutstanding.
+        assert screener._row_is_scorable({"freeCashflow": 5e8, "sharesOutstanding": 1e8}) is True
+        assert screener._row_is_scorable({"freeCashflow": 5e8}) is False          # no share count
+        assert screener._row_is_scorable({"freeCashflow": -5e8, "sharesOutstanding": 1e8}) is False
 
     def test_ebit_history_needs_enterprise_value(self):
         assert screener._row_is_scorable({"ebitHistory": [10.0, 11.0, 12.0]}) is False
@@ -148,8 +158,12 @@ class TestRowIsScorable:
             "enterpriseValue": None,
         }
         assert screener._row_is_scorable(degraded) is True
-        # Strip the P/E too and there is genuinely nothing to value it on.
-        assert screener._row_is_scorable({**degraded, "trailingPE": None}) is False
+        # Strip the P/E and the EPS route is gone, but the book value still
+        # values it via the FV-3 P/B fallback.
+        assert screener._row_is_scorable({**degraded, "trailingPE": None}) is True
+        # Strip the book value too and there is genuinely nothing left.
+        assert screener._row_is_scorable(
+            {**degraded, "trailingPE": None, "bookValue": None}) is False
 
     def test_nan_values_are_treated_as_missing(self):
         assert screener._row_is_scorable({"trailingEps": float("nan")}) is False
@@ -393,7 +407,8 @@ class TestRunFetch:
             attempts["n"] += 1
             if attempts["n"] < 2:
                 raise ValueError("429 Too Many Requests")
-            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0, "trailingEps": 5.0}
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0,
+                    "trailingEps": 5.0, "bookValue": 30.0}   # Graham + PE -> not thin
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
@@ -424,6 +439,70 @@ class TestRunFetch:
                    - datetime.now(timezone.utc)).total_seconds() / 3600
         assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
 
+    def test_degraded_row_scorable_only_off_a_derived_eps_gets_short_ttl(self, monkeypatch):
+        # FV-5: PAH3-shaped — a partial payload where the only EPS is the one
+        # _fetch_one reconstructs from trailingPE (Graham + PE off one guess,
+        # nothing else). Scorable, but too thin: heal it on the short TTL.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 29.0,
+                    "trailingEps": 0.31, "trailingEps_derived": True,
+                    "bookValue": 116.0}
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "PAH3.DE", "name": "Porsche", "isin": ""}], cache)
+
+        assert len(calls) == 1 + screener._THIN_ROW_RETRIES
+        row = cache["PAH3.DE"]
+        assert row["Price"] == 29.0
+        delta_h = (datetime.fromisoformat(row["next_fetch_at"])
+                   - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
+
+    def test_a_two_model_row_is_not_forced_onto_the_short_ttl(self, monkeypatch):
+        # >= MIN_FV_MODELS live sub-models (Graham + PE off a real EPS + book
+        # value) → not thin → keep the normal TTL, don't spin.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 12.0,
+                    "trailingEps": 0.9, "bookValue": 8.0}
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "SMALL.BR", "name": "Small", "isin": ""}], cache)
+
+        assert calls == ["SMALL.BR"]                       # no retry spin
+        assert "next_fetch_at" not in cache["SMALL.BR"]    # keeps _fetch_one's own (long) TTL
+
+    def test_a_one_model_row_is_healed_on_the_short_ttl(self, monkeypatch):
+        # review: a payload thin enough that its fair value would rest on a
+        # single sub-model is retried then short-TTL'd, regardless of whether the
+        # EPS was reconstructed — otherwise a book-value-only row sticks for 24h
+        # and diverges from the other fetch lane.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 40.0,
+                    "bookValue": 80.0}      # only the FV-3 P/B fallback -> 1 model
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "BONLY.BR", "name": "BookOnly", "isin": ""}], cache)
+
+        assert len(calls) == 1 + screener._THIN_ROW_RETRIES
+        delta_h = (datetime.fromisoformat(cache["BONLY.BR"]["next_fetch_at"])
+                   - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
+
     def test_thin_row_without_price_is_not_retried(self, monkeypatch):
         calls = []
 
@@ -447,6 +526,7 @@ class TestRunFetch:
             base = {"Name": stock["name"], "Ticker": ticker, "Price": 100.0}
             if attempts["n"] >= 2:
                 base["trailingEps"] = 5.0          # second call comes back complete
+                base["bookValue"] = 30.0          # Graham + PE -> not thin
             return base
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
@@ -512,7 +592,8 @@ class TestPriorityAndLanes:
         monkeypatch.setattr(screener, "MAX_WORKERS", 1)   # sequential → deterministic order
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
         monkeypatch.setattr(screener, "_fetch_one", lambda t, s: (
-            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0, "trailingEps": 0.5}))
+            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0,
+                                "trailingEps": 0.5, "bookValue": 2.0}))   # Graham+PE -> not thin
 
     def test_priority_tickers_fetched_before_the_rest(self, monkeypatch):
         order: list[str] = []

@@ -172,6 +172,83 @@ def test_fair_value_ladder_shows_dash_for_unavailable_model_not_dropped_row():
     assert html.count("–") == 4
 
 
+def test_six_model_ladder_rows_relabels_dark_slots_with_fv3_fallbacks():
+    from uvalu.components import six_model_ladder_rows
+    # Graham + P/E dark (loss-maker), EPV present. Book-value and FCF fallbacks
+    # fired → they take the first two dark fundamentals slots, relabelled.
+    row = {"graham_number": None, "pe_fair_value": None, "epv": 30.0,
+           "ddm": None, "ddm_multistage": None, "targetMeanPrice": 12.0,
+           "pb_fair_value": 8.5, "fcf_fair_value": 10.2}
+    rows = six_model_ladder_rows(row)
+    assert [lbl for lbl, _ in rows] == [
+        "Book value", "FCF value", "EPV", "Dividend discount",
+        "DDM 2-stage", "Analyst Target"]
+    assert rows[0] == ("Book value", 8.5)
+    assert rows[1] == ("FCF value", 10.2)
+    assert rows[2] == ("EPV", 30.0)
+
+
+def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
+    from uvalu.components import six_model_ladder_rows
+    row = {"graham_number": 52.0, "pe_fair_value": 60.0, "epv": 48.0,
+           "ddm": 40.0, "ddm_multistage": 44.0, "targetMeanPrice": 55.0,
+           "pb_fair_value": None, "fcf_fair_value": None}
+    rows = six_model_ladder_rows(row)
+    assert [lbl for lbl, _ in rows] == [
+        "Graham Number", "P/E fair value", "EPV", "Dividend discount",
+        "DDM 2-stage", "Analyst Target"]
+
+
+def test_six_model_ladder_reasons_formats_the_dark_codes():
+    from uvalu.components import six_model_ladder_reasons
+    # FV-6 (review): the component only maps codes emitted by _fair_value_models.
+    row = {"fv_dark_reasons": {"graham_number": "no_eps", "pe_fair_value": "no_eps",
+                               "epv": "epv_negative", "ddm": "non_payer",
+                               "analyst": "no_coverage"}}
+    r = six_model_ladder_reasons(row)
+    assert r["Graham Number"] == "no positive EPS"
+    assert r["P/E fair value"] == "no positive EPS"
+    assert r["EPV"] == "net debt > earnings"
+    assert r["Dividend discount"] == "not a dividend payer"
+    assert r["DDM 2-stage"] == "not a dividend payer"
+    assert r["Analyst Target"] == "no analyst coverage"
+    # every EPV / DDM failure mode has distinct text
+    for code, text in [("no_ev", "no enterprise value"), ("no_ebit", "no multi-year EBIT"),
+                       ("low_ebit", "through-cycle EBIT ≤ 0"), ("sector", "n/a for this sector")]:
+        assert six_model_ladder_reasons({"fv_dark_reasons": {"epv": code}})["EPV"] == text
+    assert six_model_ladder_reasons(
+        {"fv_dark_reasons": {"ddm": "spread"}})["Dividend discount"] == "discount rate ≈ dividend growth"
+    # no field / a live model → no entry
+    assert six_model_ladder_reasons({}) == {}
+    assert "Graham Number" not in six_model_ladder_reasons({"fv_dark_reasons": {"epv": "sector"}})
+
+
+def test_six_model_ladder_caption_flags_fallback_and_haircut():
+    from uvalu.components import six_model_ladder_caption
+    assert six_model_ladder_caption({"pb_fair_value": None, "fcf_fair_value": None,
+                                     "targetMeanPrice": None}) is None
+    cap = six_model_ladder_caption({"pb_fair_value": 8.0, "targetMeanPrice": 12.0})
+    assert "Book value" in cap and "haircut" in cap
+
+
+def test_fair_value_ladder_shows_reason_and_basis_line():
+    def _script():
+        from uvalu.components import fair_value_ladder
+        fair_value_ladder(
+            price=50.0,
+            models=[("Graham Number", None), ("P/E fair value", 60.0)],
+            composite=58.0,
+            reasons={"Graham Number": "no positive EPS"},
+            basis_count=1, basis_thin=True,
+        )
+
+    at = _run(_script)
+    html = at.markdown[0].value
+    assert "no positive EPS" in html            # reason in the dark row
+    assert "1 of 6 models" in html              # basis line
+    assert "lightly corroborated" in html       # thin flag
+
+
 def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
     def _script():
         from uvalu.components import fair_value_bar_compact

@@ -13,7 +13,9 @@ from settings import load_shared_settings, get_veto_thresholds, get_score_weight
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
-                              fair_value_ladder, sub_score_bar_html, quality_score_color,
+                              fair_value_ladder, six_model_ladder_rows,
+                              six_model_ladder_reasons, six_model_ladder_caption,
+                              sub_score_bar_html, quality_score_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html)
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.runtime import theme_colors
@@ -233,21 +235,20 @@ def render() -> None:
                    unsafe_allow_html=True)
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
-            # Labels match uvalu/drawer.py's — same shared component, same
-            # underlying models, kept in sync so the two screens never show
-            # different names for the identical figure.
+            # Same shared row builder as uvalu/drawer.py so the two screens never
+            # show different names for the identical figure (incl. the FV-3
+            # book-value / FCF fallback substitution).
             fair_value_ladder(
                 price=float(_price),
-                models=[
-                    ("Graham Number",     row.get("graham_number")),
-                    ("P/E fair value",    row.get("pe_fair_value")),
-                    ("EPV",                row.get("epv")),
-                    ("Dividend discount",  row.get("ddm")),
-                    ("DDM 2-stage",       row.get("ddm_multistage")),
-                    ("Analyst Target",    row.get("targetMeanPrice")),
-                ],
+                models=six_model_ladder_rows(row),
                 composite=row.get("fair_value"),
+                reasons=six_model_ladder_reasons(row),        # FV-6
+                basis_count=row.get("fv_model_count"),
+                basis_thin=bool(row.get("fv_basis_thin")),
             )
+            _cap = six_model_ladder_caption(row)
+            if _cap:
+                st.caption(_cap)
             if bool(row.get("fair_value_clamped")):
                 st.caption(
                     "⚑ Composite capped at the models' median — one model ran far "

@@ -76,6 +76,65 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
 ---
 
+## Versioning and releases
+
+UV uses **`MAJOR.MINOR.PATCH`** (SemVer), but adapted for a deployed app rather
+than a library: nobody imports UV, so "breaking change" is defined by what
+breaks for the operator or user on `git pull && restart`, not by a public API.
+
+### Which digit to bump
+
+**MAJOR** — the release needs a migration step or a manual action; you can't
+just pull and restart:
+
+- On-disk schema change that isn't auto-migrated — `portfolio/*.json`,
+  `value_history.json`, `manual_tickers.json`, the watchlist store, the backup
+  ZIP format.
+- A new **required** `.env` key, or a rotated `AUTH_SECRET` / `ENCRYPTION_KEY`
+  (forces re-login or re-encryption).
+- Python floor raised, or a dependency bump that changes stored-data
+  compatibility.
+- A page/URL removed or renamed (`/risk`, `/analysis`, …) that could be
+  bookmarked.
+- An auth-model change that invalidates existing sessions or user records.
+
+**MINOR** — new capability, backward-compatible:
+
+- A new page, screen, or subsystem.
+- A new user-facing feature, or a materially new UX behaviour.
+- A **valuation or risk algorithm change that moves scores or flips
+  BUY/AVOID decisions** — even when it's "a fix". Call it out in the CHANGELOG.
+- New *optional* config; a deprecation that still works but warns.
+
+**PATCH** — nothing new; something wrong is now right:
+
+- Bug fixes with no intended change to correct-path output.
+- Performance, CSS/visual polish, copy changes.
+- Refactors, test-only changes, docs, dependency bumps with no behaviour change.
+
+**Tie-breaker (MINOR vs PATCH):** would a user *notice* or need to *do*
+something? → MINOR. Does it only make a wrong thing right, with no new surface?
+→ PATCH. Score-affecting changes always round up to MINOR.
+
+Never retag or renumber a release that's already tagged and pushed.
+
+### Release checklist
+
+All steps on the feature branch first, so the merge commit that gets the tag
+already carries the right version:
+
+1. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
+   add a fresh empty `## [Unreleased]` above it.
+2. `pyproject.toml`: `version = "x.y.z"`.
+3. Commit: `chore(release): x.y.z`.
+4. `git checkout master && git merge --no-ff <branch>`.
+5. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
+   the branch (local + remote).
+6. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
+   full-changelog compare link.
+
+---
+
 ## Secrets and data
 
 - Never commit `.env` — it is git-ignored

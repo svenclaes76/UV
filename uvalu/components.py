@@ -186,10 +186,103 @@ def _ladder_bar_color(delta_pct: float) -> str:
     return "var(--uv-neg-txt)"
 
 
+def _is_live(v) -> bool:
+    return v is not None and not (isinstance(v, float) and pd.isna(v)) and v > 0
+
+
+def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
+    """The ordered (label, value) list for the drawer / Analysis "Six-model fair
+    value" ladder. Always six rows in a fixed order (Graham, P/E, EPV, DDM
+    single, DDM 2-stage, Analyst). FV-3: when a book-value or FCF *fallback*
+    produced a value (they only do so for a loss-maker where none of
+    Graham / P·E / EPV could be computed), it is slotted into the first
+    still-dark of those three rows and relabelled "Book value" / "FCF value" —
+    so the ladder stays six rows rather than sprouting a seventh/eighth that is
+    dark for every healthy stock. Callers show the explanatory caption when
+    `row` carries a live `pb_fair_value` / `fcf_fair_value`.
+    """
+    rows = [
+        ["Graham Number",     row.get("graham_number")],
+        ["P/E fair value",    row.get("pe_fair_value")],
+        ["EPV",               row.get("epv")],
+        ["Dividend discount", row.get("ddm")],
+        ["DDM 2-stage",       row.get("ddm_multistage")],
+        ["Analyst Target",    row.get("targetMeanPrice")],
+    ]
+    fallbacks = [("Book value", row.get("pb_fair_value")),
+                 ("FCF value",  row.get("fcf_fair_value"))]
+    for label, value in fallbacks:
+        if not _is_live(value):
+            continue
+        for i in (0, 1, 2):                         # Graham / P/E / EPV slots
+            if not _is_live(rows[i][1]):
+                rows[i] = [label, value]
+                break
+    return [(lbl, v) for lbl, v in rows]
+
+
+# FV-6: display text for the `fv_dark_reasons` codes that `_fv_dark_reasons`
+# emits from `_fair_value_models` (the codes are authoritative — built where the
+# model guards live; this only formats them).
+_REASON_TEXT = {
+    "sector":         "n/a for this sector",
+    "no_eps":         "no positive EPS",
+    "no_book":        "no book value",
+    "epv_negative":   "net debt > earnings",
+    "no_ev":          "no enterprise value",
+    "no_ebit":        "no multi-year EBIT",
+    "low_ebit":       "through-cycle EBIT ≤ 0",
+    "non_payer":      "not a dividend payer",
+    "payout_missing": "no usable payout ratio",
+    "payout_band":    "payout outside DDM range",
+    "spread":         "discount rate ≈ dividend growth",
+    "no_coverage":    "no analyst coverage",
+}
+_REASON_LABELS = {"graham_number": "Graham Number", "pe_fair_value": "P/E fair value",
+                  "epv": "EPV", "analyst": "Analyst Target"}
+
+
+def six_model_ladder_reasons(row) -> dict:
+    """FV-6: {ladder label → short 'why dark' phrase}. Formats the authoritative
+    `fv_dark_reasons` codes from `_fair_value_models` — no model logic is
+    re-derived here. A row scored before that field existed simply gets no
+    hints (the ladder still renders) until the next re-score."""
+    codes = row.get("fv_dark_reasons")
+    if not isinstance(codes, dict):
+        return {}
+    out: dict = {}
+    for key, code in codes.items():
+        text = _REASON_TEXT.get(code)
+        if not text:
+            continue
+        if key == "ddm":
+            out["Dividend discount"] = text
+            out["DDM 2-stage"] = text
+        elif key in _REASON_LABELS:
+            out[_REASON_LABELS[key]] = text
+    return out
+
+
+def six_model_ladder_caption(row) -> "str | None":
+    """FV-6: the one-line note under the ladder — flags the FV-3 book/FCF
+    substitution and the analyst-target haircut so the printed rows reconcile
+    with the composite. `None` when neither applies."""
+    parts = []
+    if _is_live(row.get("pb_fair_value")) or _is_live(row.get("fcf_fair_value")):
+        parts.append("“Book value” / “FCF value” stand in where a core model "
+                     "(Graham, P/E, EPV) couldn’t be computed.")
+    if _is_live(row.get("targetMeanPrice")):
+        parts.append("The composite applies a −10% optimism haircut to the "
+                     "Analyst Target shown.")
+    return " ".join(parts) if parts else None
+
+
 def fair_value_ladder(price: float, models: list[tuple[str, float]],
                       composite: float | None = None, currency: str = "€",
                       composite_label: str = "Composite fair value",
-                      bar_width: int = 110) -> None:
+                      bar_width: int = 110, reasons: "dict | None" = None,
+                      basis_count: "int | None" = None,
+                      basis_thin: bool = False) -> None:
     """Compact per-model fair-value list: a thin bar, the model's value, and
     its delta vs. the current price, ending in an explicit composite row —
     matching Uvalu.dc.html's Six-model fair value spec exactly: every model
@@ -206,6 +299,11 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
     convention used for the composite row and for fair_value_bar_compact
     elsewhere. `bar_width` lets callers match the design's per-context bar
     size (96px in the drawer vs. 110px on the Analysis screen).
+
+    FV-6: `reasons` maps a dark row's label → a short "why" phrase (see
+    `six_model_ladder_reasons`), shown in the bar slot and on hover.
+    `basis_count` / `basis_thin` render the "basis · N of 6 models" line under
+    the composite (`fv_model_count` / `fv_basis_thin`).
     """
     if not price or pd.isna(price):
         st.caption("Not enough model data for a fair-value ladder.")
@@ -220,9 +318,17 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 
     def _row(label: str, value: float | None) -> str:
         if value is None or pd.isna(value) or value <= 0:
-            return (f'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
+            # FV-6: a dark row shows *why* in the (otherwise meaningless) bar
+            # slot, with the full phrase on hover, instead of a bare empty track.
+            why = (reasons or {}).get(label)
+            slot = (f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);"></div>'
+                    if not why else
+                    f'<span style="width:{bar_width}px;flex:none;font-size:9.5px;line-height:1.15;'
+                    f'color:var(--faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{why}</span>')
+            _t = f' title="{why}"' if why else ''
+            return (f'<div{_t} style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
                    f'<span style="flex:1;font-size:12.5px;color:var(--muted);">{label}</span>'
-                   f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);"></div>'
+                   f'{slot}'
                    f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;color:var(--faint);">–</span>'
                    f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:var(--faint);">–</span></div>')
         value = float(value)
@@ -253,7 +359,16 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
                           f'<span style="flex:1;font-size:12.5px;font-weight:600;">{composite_label}</span>'
                           f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--mint);">{currency}{composite:,.2f}</span></div>')
 
-    st.markdown(rows_html + composite_html, unsafe_allow_html=True)
+    # FV-6: "basis" line — how many sub-models actually back the composite, and a
+    # muted flag when that's a weakly-corroborated one (fv_basis_thin).
+    basis_html = ""
+    if basis_count is not None and not pd.isna(basis_count):
+        _c = "var(--uv-neg-txt)" if basis_thin else "var(--faint)"
+        _tail = " · lightly corroborated" if basis_thin else ""
+        basis_html = (f'<div style="padding:2px 0 0;font-size:10.5px;color:{_c};">'
+                      f'basis · {int(basis_count)} of 6 models{_tail}</div>')
+
+    st.markdown(rows_html + composite_html + basis_html, unsafe_allow_html=True)
 
 
 def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct: float | None,
