@@ -9,6 +9,12 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.6.0] — 2026-09-10
+
 ### Fixed
 
 - **Fair-value coverage — DDM and EPV no longer vanish for trough-earnings payers** (`docs/valuation_fv_coverage_plan.md`, FV-1 … FV-8 — the full plan).
