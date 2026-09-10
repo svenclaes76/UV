@@ -221,48 +221,45 @@ def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
     return [(lbl, v) for lbl, v in rows]
 
 
+# FV-6: display text for the `fv_dark_reasons` codes that `_fv_dark_reasons`
+# emits from `_fair_value_models` (the codes are authoritative — built where the
+# model guards live; this only formats them).
+_REASON_TEXT = {
+    "sector":         "n/a for this sector",
+    "no_eps":         "no positive EPS",
+    "no_book":        "no book value",
+    "epv_negative":   "net debt > earnings",
+    "no_ev":          "no enterprise value",
+    "no_ebit":        "no multi-year EBIT",
+    "low_ebit":       "through-cycle EBIT ≤ 0",
+    "non_payer":      "not a dividend payer",
+    "payout_missing": "no usable payout ratio",
+    "payout_band":    "payout outside DDM range",
+    "spread":         "discount rate ≈ dividend growth",
+    "no_coverage":    "no analyst coverage",
+}
+_REASON_LABELS = {"graham_number": "Graham Number", "pe_fair_value": "P/E fair value",
+                  "epv": "EPV", "analyst": "Analyst Target"}
+
+
 def six_model_ladder_reasons(row) -> dict:
-    """FV-6: short "why is this row dark" hints (ladder label → phrase), derived
-    from the flags `screener._fair_value_models` already put on the row — no
-    model logic is re-derived. Only rows that are actually dark get an entry;
-    relabelled fallback rows (which are live) never do. The phrase is kept terse
-    enough to sit in the ladder's bar slot; the caller also puts it in `title=`.
-    """
-    def _num(k):
-        v = row.get(k)
-        return None if v is None or (isinstance(v, float) and pd.isna(v)) else v
-
-    from screener import _GRAHAM_EPV_SKIP_SECTORS, _PE_SKIP_SECTORS
-
-    eps      = _num("trailingEps")
-    sector   = row.get("sector")
-    div_rate = _num("trailingAnnualDividendRate") or _num("dividendRate")
-    no_eps   = eps is None or eps <= 0
-    _sector_skip = "n/a for this sector"   # FV-8
+    """FV-6: {ladder label → short 'why dark' phrase}. Formats the authoritative
+    `fv_dark_reasons` codes from `_fair_value_models` — no model logic is
+    re-derived here. A row scored before that field existed simply gets no
+    hints (the ladder still renders) until the next re-score."""
+    codes = row.get("fv_dark_reasons")
+    if not isinstance(codes, dict):
+        return {}
     out: dict = {}
-
-    if not _is_live(row.get("graham_number")):
-        out["Graham Number"] = (_sector_skip if sector in _GRAHAM_EPV_SKIP_SECTORS
-                                else "no positive EPS" if no_eps else "no book value")
-    if not _is_live(row.get("pe_fair_value")):
-        out["P/E fair value"] = (_sector_skip if sector in _PE_SKIP_SECTORS
-                                 else "no positive EPS")
-    if not _is_live(row.get("epv")):
-        out["EPV"] = (_sector_skip if sector in _GRAHAM_EPV_SKIP_SECTORS
-                      else "net debt > earnings" if bool(row.get("epv_negative"))
-                      else "no enterprise value" if row.get("ev_source") == "none"
-                      else "no multi-year EBIT")
-    if not _is_live(row.get("ddm")) or not _is_live(row.get("ddm_multistage")):
-        if not div_rate or div_rate <= 0:
-            _r = "not a dividend payer"
-        elif row.get("payout_source") in ("cash", "coverage", "none"):
-            _r = "dividend not covered"
-        else:
-            _r = "payout outside DDM range"
-        out.setdefault("Dividend discount", _r)
-        out.setdefault("DDM 2-stage", _r)
-    if not _is_live(row.get("targetMeanPrice")):
-        out["Analyst Target"] = "no analyst coverage"
+    for key, code in codes.items():
+        text = _REASON_TEXT.get(code)
+        if not text:
+            continue
+        if key == "ddm":
+            out["Dividend discount"] = text
+            out["DDM 2-stage"] = text
+        elif key in _REASON_LABELS:
+            out[_REASON_LABELS[key]] = text
     return out
 
 

@@ -3,6 +3,9 @@
 > **Status: COMPLETE.** FV-1 … FV-8 (+ two DDM-stability guards, minus the
 > deliberately-dropped FV-4 EV-level-EPV variant) all implemented 2026-09-09 on
 > branch `feat/fv-coverage-quickwins` — see `CHANGELOG.md` `[Unreleased]`.
+> A multi-agent `/code-review` of the branch (2026-09-10) found 10 correctness
+> issues; all fixed on the branch — see the "Self-review pass" bullet in the
+> CHANGELOG and §8 below.
 >
 > Point-in-time analysis, 2026-09-09. Triggered by portfolio holdings whose
 > drawer "Six-model fair value" section shows "—" for most or all sub-models
@@ -407,3 +410,23 @@ small UI conflict** (FV-6).
    (`_trio == 0`). P/B is genuinely misleading for a healthy high-ROE name, so
    permanent weights were rejected. The re-normalisation over `avail` is the
    same machinery a conditionally-absent DDM already uses.
+
+---
+
+## 8. Self-review fixes (2026-09-10)
+
+A high-effort multi-agent `/code-review` of the branch surfaced 10 CONFIRMED
+correctness findings. All fixed on the branch:
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | `_normalised_ebit` MAD trim discarded a fast grower's newest year / had a `mad ≤ 0` discontinuity | Order-statistic estimator: median at 3 years, symmetric trimmed mean at 4+. `_EBIT_OUTLIER_MAD_K` removed. |
+| 2 | Book-value-only degraded payload passed `_row_is_scorable` but skipped the FV-5 heal + two-lane backfill → Screener vs drawer diverged | `_run_fetch` heal and `backfill_thin_rows_from_screener_lane` now key on `_fair_value_model_count(row) < MIN_FV_MODELS` (not `trailingEps_derived`); backfill swaps only for a row with *more* live models. |
+| 3 | FV-8 read the raw provider sector, missing `SECTOR_OVERRIDES` REITs (RET.BR) | `_fair_value_models` resolves via `sector_for(Ticker, sector)`; `compute_scores` resolves `df["sector"]` before Stage 2 so the sector-median buckets agree. |
+| 4 | `DDM_MIN_SPREAD` didn't bound the multistage explicit high-growth phase → inflated `ddm2` | `_ddm_multistage` caps `g_high` at `min(15%, WACC − DDM_MIN_SPREAD)`. |
+| 5 | `DDM_MIN_SPREAD` hard-rejected single-stage DDM for every beta < ~1 payer, silently | `_ddm_single` clamps `g` down to keep the denominator ≥ `DDM_MIN_SPREAD`; only gives up when WACC ≤ `DDM_MIN_SPREAD`. |
+| 6 | Reconstructed EV via the `marketCap` leg injected phantom net debt for multi-class names → false `epv_negative` | EPV takes `net_debt = totalDebt − totalCash` directly when `ev_source == "reconstructed"`. |
+| 7 | `_payout_signal` trusted a provider `payoutRatio` of exactly `0.0` (missing-as-zero) | Guard tightened to `0 < pr ≤ 0.95`; falls through to `cashPayoutRatio` / coverage. |
+| 8 | `fv_model_count` collapsed derived Graham+PE but not `ddm1`+`ddm2` → DDM-only composites read "well corroborated" | Also decrement when both DDM variants are live (matches the sanity clamp). |
+| 9 | `six_model_ladder_reasons` re-derived model guards in the UI → factually-wrong tooltips ("payout outside DDM range" at 50%, "no multi-year EBIT" when history was just negative) | `_fair_value_models` emits authoritative `fv_dark_reasons` codes; the component only maps codes → text (`_REASON_TEXT`). |
+| 10 | Banks never got the P/B anchor the FV-8 comment promised (kept P/E → `_trio ≥ 1`) | `pb_eligible = _trio == 0 or sector in _GRAHAM_EPV_SKIP_SECTORS`; FCF stays a pure loss-maker fallback. |

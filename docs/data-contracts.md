@@ -63,36 +63,47 @@ between screens at some point (see the `dq/*` history); the tests in
   loss-maker. Both are `None` for any row with a live earnings anchor. The
   drawer / Analysis ladder keeps six rows: a fired fallback replaces the first
   dark Graham/PE/EPV slot and is relabelled ("Book value" / "FCF value",
-  `components.six_model_ladder_rows`). FV-8: for `Real Estate` /
-  `Financial Services` (`_GRAHAM_EPV_SKIP_SECTORS`) Graham and EPV are skipped —
-  and P/E too for `Real Estate` (`_PE_SKIP_SECTORS`) — so those names value off
-  the book-value fallback + DDM + analyst; `Utilities` are unaffected. FV-6: a dark row shows a short "why"
-  phrase (`components.six_model_ladder_reasons`), the ladder prints
-  "basis · N of 6 models" (`fv_model_count`, amber when `fv_basis_thin`), and a
-  caption reconciles the fallback substitution and the analyst-target haircut
-  (`components.six_model_ladder_caption`).
+  `components.six_model_ladder_rows`). FV-8: on the **resolved** sector
+  (`sector_for()`, so a provider-null REIT still matches), `Real Estate` /
+  `Financial Services` (`_GRAHAM_EPV_SKIP_SECTORS`) skip Graham + EPV — and P/E
+  too for `Real Estate` (`_PE_SKIP_SECTORS`). The **book-value model** fires for
+  these sectors as a *primary* anchor regardless of `_trio` (`pb_eligible`), so
+  a bank is valued off P/E + P/B + DDM + analyst and a REIT off P/B + DDM +
+  analyst; FCF stays a pure loss-maker fallback. `Utilities` are unaffected.
+- **FV-6.** A dark ladder row shows a short "why" phrase from
+  `components.six_model_ladder_reasons`, which only *formats* the authoritative
+  **`fv_dark_reasons`** codes (`{model_key → code}`) that `_fair_value_models`
+  emits alongside the guards themselves — the component re-derives nothing. The
+  ladder also prints "basis · N of 6 models" (`fv_model_count`, amber when
+  `fv_basis_thin`) and a caption reconciling the fallback substitution and the
+  analyst-target haircut (`components.six_model_ladder_caption`).
 - `_payout_source` records which payout proxy fed the DDM ramp: `reported`
-  (raw `payoutRatio`, trusted only in `[0, 0.95]`), `cash` (`cashPayoutRatio`),
-  `coverage` (`1 / dividendCoverage`), or `none`.
+  (raw `payoutRatio`, trusted only in `(0, 0.95]` — an exact `0.0` is
+  missing-as-zero), `cash` (`cashPayoutRatio`), `coverage`
+  (`1 / dividendCoverage`), or `none`.
 - `ev_source` records where the EPV model's enterprise value came from:
   `provider` (`enterpriseValue`), `reconstructed`
-  (`(marketCap or Price×shares) + totalDebt − totalCash`, FV-4), or `none`.
+  (`(marketCap or Price×shares) + totalDebt − totalCash`, FV-4; the EPV net-debt
+  term then comes straight from `totalDebt − totalCash`), or `none`.
   `epv_negative` is `True` when a per-share EPV was computed but came out ≤ 0
   (net debt > capitalised earnings power); it is excluded from the blend, the
   flag is for the UI.
-- **FV-5.** `fv_model_count` is `len(avail)` — how many sub-models fed the
-  composite — with Graham + PE counted **once** when the EPS behind them was
+- **FV-5.** `fv_model_count` is `len(avail)` — how many *independent* sub-models
+  fed the composite — with `ddm` + `ddm_multistage` counted **once** (one Gordon
+  family) and Graham + PE counted **once** when the EPS behind them was
   reconstructed from `trailingPE` (`trailingEps_derived`). `fv_basis_thin`
   (`compute_scores`) is `True` when a row *has* a `fair_value` but
   `fv_model_count < MIN_FV_MODELS` (2) — a real but weakly-corroborated
-  composite, as opposed to `data_thin` (no composite at all). A `fv_basis_thin`
-  row whose only anchor is a reconstructed EPS is also treated as a degraded
-  payload by `_fetch_and_store` and re-fetched on `CACHE_TTL_SHORT_HOURS`.
+  composite, as opposed to `data_thin` (no composite at all). Any scorable row
+  with `fv_model_count < MIN_FV_MODELS` is treated as a degraded payload:
+  `_fetch_and_store` re-fetches it on `CACHE_TTL_SHORT_HOURS` and
+  `backfill_thin_rows_from_screener_lane` swaps in the screener lane's row when
+  that one has *more* live models.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
   `targetMeanPrice`, or a dividend rate whose **payout signal** —
-  `_payout_signal`: reported ratio in [0, 0.95], else `cashPayoutRatio`, else
+  `_payout_signal`: reported ratio in (0, 0.95], else `cashPayoutRatio`, else
   `1 / dividendCoverage` — lands inside the DDM ramp band, or ≥3yr
   `ebitHistory` + an enterprise value from `_enterprise_value` (provider or the
   FV-4 reconstruction)). It mirrors `_fair_value_models`' own per-model input

@@ -227,16 +227,21 @@ class TestDDM:
         assert _ddm_single(2.0, 0.08, 0.02) == pytest.approx(34.0)
 
     def test_growth_clamped_to_5pct(self):
-        # g=0.10 → clamped 0.05 → 2×1.05 / 0.03 = 70.0 (spread exactly at the
-        # DDM_MIN_SPREAD floor of 0.03 → still allowed, the guard is a strict <)
+        # g=0.10 → clamped to 0.05, and 0.05 == wacc - DDM_MIN_SPREAD (0.08-0.03)
+        # so it stays 0.05 → 2×1.05 / 0.03 = 70.0
         assert _ddm_single(2.0, 0.08, 0.10) == pytest.approx(70.0)
 
-    def test_narrow_wacc_minus_g_spread_returns_none(self):
-        # DDM_MIN_SPREAD (FV-7 companion): a discount rate within 3pp of the
-        # growth rate makes the Gordon denominator dominate — drop the variant.
-        assert _ddm_single(2.0, 0.04, 0.05) is None      # wacc below g
-        assert _ddm_single(2.0, 0.062, 0.05) is None     # spread 0.012 < 0.03
-        assert _ddm_single(2.0, 0.09, 0.05) == pytest.approx(2.1 / 0.04)  # spread 0.04 ok
+    def test_g_is_clamped_to_keep_the_gordon_denominator_at_min_spread(self):
+        # DDM_MIN_SPREAD (review): instead of dropping the model when wacc-g is
+        # narrow, g is clamped down so the denominator floors at DDM_MIN_SPREAD —
+        # the model keeps contributing with a conservative growth assumption.
+        # wacc 0.062, g would be 0.05 -> clamped to 0.062-0.03 = 0.032:
+        assert _ddm_single(2.0, 0.062, 0.05) == pytest.approx(2.0 * 1.032 / 0.03)
+        # wacc 0.09, g 0.05 (cap is 0.06) -> stays 0.05, denominator 0.04:
+        assert _ddm_single(2.0, 0.09, 0.05) == pytest.approx(2.1 / 0.04)
+        # only give up when WACC itself is at/below the min spread:
+        assert _ddm_single(2.0, 0.03, 0.05) is None
+        assert _ddm_single(2.0, 0.02, 0.01) is None
 
     def test_non_payer_returns_none(self):
         assert _ddm_single(None, 0.08, 0.02) is None
@@ -584,15 +589,20 @@ class TestFairValueBlend:
         # composite is a sane multiple of NAV, not the €130+ Graham used to give
         assert 40.0 < fv["fair_value"] < 90.0
 
-    def test_financials_skip_graham_and_epv_but_keep_pe(self):
+    def test_financials_skip_graham_and_epv_keep_pe_and_still_get_pb(self):
         bank = pd.Series({
             "Price": 32.0, "trailingEps": 4.0, "bookValue": 60.0,
             "ebitHistory": [5e9, 5e9, 5e9], "enterpriseValue": 8e10,
             "sharesOutstanding": 3e9, "targetMeanPrice": 35.0, "beta": 1.1,
             "sector": "Financial Services"})
-        fv = _fair_value_models(bank, sector_pe={"Financial Services": 9.0})
+        fv = _fair_value_models(bank, sector_pe={"Financial Services": 9.0},
+                                sector_pb={"Financial Services": 0.8})
         assert fv["graham_number"] is None and fv["epv"] is None
         assert fv["pe_fair_value"] == pytest.approx(4.0 * 9.0)      # banks keep P/E
+        # review: the P/B model is a *primary* anchor for a bank (NAV), so it
+        # fires even though the kept P/E means _trio >= 1.
+        assert fv["pb_fair_value"] == pytest.approx(60.0 * 0.8)
+        assert fv["fcf_fair_value"] is None                        # FCF stays a loss-maker fallback
 
     def test_utilities_are_not_touched_by_the_sector_guard(self):
         util = pd.Series({
@@ -604,16 +614,64 @@ class TestFairValueBlend:
         assert fv["pe_fair_value"] is not None
         assert fv["epv"] is not None
 
+    # ── FV-6: fv_dark_reasons (authoritative dark-model codes) ─────────────
+    def test_fv_dark_reasons_are_accurate_per_failure_mode(self):
+        # loss-maker, non-payer, no analyst → each dark model gets a true code
+        dr = _fair_value_models(pd.Series({
+            "Price": 4.0, "trailingEps": -1.2, "beta": 1.0}))["fv_dark_reasons"]
+        assert dr["graham_number"] == "no_eps" and dr["pe_fair_value"] == "no_eps"
+        assert dr["epv"] == "no_ev"                    # no enterpriseValue on this row
+        assert dr["ddm"] == "non_payer"
+        assert dr["analyst"] == "no_coverage"
+        # with an EV but no EBIT history at all -> 'no_ebit'
+        dr2 = _fair_value_models(pd.Series({
+            "Price": 4.0, "trailingEps": -1.2, "enterpriseValue": 1e9,
+            "sharesOutstanding": 1e8, "beta": 1.0}))["fv_dark_reasons"]
+        assert dr2["epv"] == "no_ebit"
+
+        # DDM dark on the WACC/growth spread, NOT the payout band: a healthy 50%
+        # payer whose low beta clamps g -> ddm is still None only if wacc itself
+        # is too low; construct that and check the code isn't 'payout_band'.
+        low = _fair_value_models(pd.Series({
+            "Price": 50.0, "trailingAnnualDividendRate": 2.0, "payoutRatio": 0.5,
+            "beta": 0.1, "true_dgr": 0.05}))
+        if low["ddm"] is None and low["ddm_multistage"] is None:
+            assert low["fv_dark_reasons"]["ddm"] == "spread"
+
+        # EPV dark because the through-cycle EBIT is negative (history present)
+        neg = _fair_value_models(pd.Series({
+            "Price": 10.0, "trailingEps": -1.0, "enterpriseValue": 1e9,
+            "sharesOutstanding": 1e8, "ebitHistory": [-5e8, -4e8, -6e8], "beta": 1.0}))
+        assert neg["fv_dark_reasons"]["epv"] == "low_ebit"
+
+        # a fully-valued name has no dark reasons for the core trio
+        ok = _fair_value_models(pd.Series({
+            "Price": 50.0, "trailingEps": 4.0, "bookValue": 30.0,
+            "ebit": 1e7, "enterpriseValue": 1e8, "sharesOutstanding": 1e6,
+            "beta": 1.0}))["fv_dark_reasons"]
+        assert "graham_number" not in ok and "pe_fair_value" not in ok and "epv" not in ok
+
     # ── FV-5: fv_model_count ────────────────────────────────────────────────
     def test_fv_model_count_reflects_the_number_of_live_models(self):
         # eps + book + dividend + payout + analyst → Graham, PE, DDM×2, analyst
+        # live; the two DDM variants collapse to one independent anchor → 4.
         fv = _fair_value_models(pd.Series({
             "Price": 50.0, "trailingEps": 4.0, "bookValue": 30.0,
             "trailingAnnualDividendRate": 2.0, "payoutRatio": 0.5,
             "targetMeanPrice": 55.0, "beta": 1.0}))
-        assert fv["fv_model_count"] == 5
+        assert fv["ddm"] is not None and fv["ddm_multistage"] is not None
+        assert fv["fv_model_count"] == 4
         # nothing → 0
         assert _fair_value_models(pd.Series({"Price": 50.0}))["fv_model_count"] == 0
+
+    def test_fv_model_count_collapses_the_two_ddm_variants(self):
+        # a DDM-only composite is a single Gordon family with no cross-check —
+        # it must not read as 2 independent models (review).
+        fv = _fair_value_models(pd.Series({
+            "Price": 50.0, "trailingAnnualDividendRate": 2.0,
+            "payoutRatio": 0.5, "beta": 1.0}))
+        assert fv["ddm"] is not None and fv["ddm_multistage"] is not None
+        assert fv["fv_model_count"] == 1
 
     def test_fv_model_count_collapses_graham_and_pe_on_a_reconstructed_eps(self):
         # trailingEps_derived → Graham + PE are one anchor off one guessed EPS.
@@ -643,7 +701,7 @@ class TestFairValueBlend:
 
     def test_normalised_ebit_averages_history_or_falls_back(self):
         f = screener._normalised_ebit
-        # >= 3 finite years with no outlier → mean of the window
+        # exactly 3 finite years → median of the window
         assert f(pd.Series({"ebit": 999.0, "ebitHistory": [40.0, 30.0, 20.0]})) == pytest.approx(30.0)
         assert f(pd.Series({"ebit": 999.0,
                             "ebitHistory": [40.0, float("nan"), 30.0, 20.0]})) == pytest.approx(30.0)
@@ -652,18 +710,18 @@ class TestFairValueBlend:
         assert f(pd.Series({"ebit": 55.0})) == 55.0
         assert f(pd.Series({"ebit": float("nan"), "ebitHistory": None})) is None
 
-    def test_normalised_ebit_drops_a_single_crisis_year(self):
-        # FV-2: [+2957, −19790, +5442, +5407] — a one-off writedown year. A plain
-        # mean is −1496 (EPV then refuses the stock); the MAD guard drops the
-        # −19790 outlier and averages the other three → solidly positive.
+    def test_normalised_ebit_trims_one_extreme_from_each_end(self):
+        # FV-2 (review): 4+ years → symmetric trimmed mean, no MAD.
         f = screener._normalised_ebit
+        # [+2957, −19790, +5442, +5407] — a one-off writedown year: sorted, the
+        # −19790 and the +5442 are dropped, mean of the middle two is positive.
         got = f(pd.Series({"ebitHistory": [2957.0, -19790.0, 5442.0, 5407.0]}))
-        assert got == pytest.approx((2957.0 + 5442.0 + 5407.0) / 3)
-        assert got > 0
+        assert got == pytest.approx((2957.0 + 5407.0) / 2) and got > 0
         # a windfall spike is trimmed the same way
-        assert f(pd.Series({"ebitHistory": [100.0, 105.0, 900.0, 110.0]})) == pytest.approx(105.0)
-        # no outlier → every year still counts
-        assert f(pd.Series({"ebitHistory": [100.0, 110.0, 90.0, 105.0]})) == pytest.approx(101.25)
+        assert f(pd.Series({"ebitHistory": [100.0, 105.0, 900.0, 110.0]})) == pytest.approx((105.0 + 110.0) / 2)
+        # a steadily-growing company: the newest year is no longer discarded as
+        # an "outlier" — the trim is symmetric, mean of the middle two.
+        assert f(pd.Series({"ebitHistory": [800.0, 400.0, 200.0, 100.0]})) == pytest.approx((200.0 + 400.0) / 2)
 
     def test_epv_uses_normalised_ebit_not_a_peak_year(self):
         base = {"Price": 50.0, "enterpriseValue": 10_000_000.0, "beta": 1.0}

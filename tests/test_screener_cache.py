@@ -407,7 +407,8 @@ class TestRunFetch:
             attempts["n"] += 1
             if attempts["n"] < 2:
                 raise ValueError("429 Too Many Requests")
-            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0, "trailingEps": 5.0}
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 100.0,
+                    "trailingEps": 5.0, "bookValue": 30.0}   # Graham + PE -> not thin
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
@@ -462,15 +463,15 @@ class TestRunFetch:
                    - datetime.now(timezone.utc)).total_seconds() / 3600
         assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
 
-    def test_data_poor_but_real_row_is_not_forced_onto_the_short_ttl(self, monkeypatch):
-        # A genuine no-dividend / no-coverage small-cap: one live model (PE off a
-        # *real* EPS). Thin, but not degraded — leave its TTL alone, don't spin.
+    def test_a_two_model_row_is_not_forced_onto_the_short_ttl(self, monkeypatch):
+        # >= MIN_FV_MODELS live sub-models (Graham + PE off a real EPS + book
+        # value) → not thin → keep the normal TTL, don't spin.
         calls = []
 
         def _fake_fetch_one(ticker, stock):
             calls.append(ticker)
             return {"Name": stock["name"], "Ticker": ticker, "Price": 12.0,
-                    "trailingEps": 0.9}
+                    "trailingEps": 0.9, "bookValue": 8.0}
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
@@ -479,6 +480,28 @@ class TestRunFetch:
 
         assert calls == ["SMALL.BR"]                       # no retry spin
         assert "next_fetch_at" not in cache["SMALL.BR"]    # keeps _fetch_one's own (long) TTL
+
+    def test_a_one_model_row_is_healed_on_the_short_ttl(self, monkeypatch):
+        # review: a payload thin enough that its fair value would rest on a
+        # single sub-model is retried then short-TTL'd, regardless of whether the
+        # EPS was reconstructed — otherwise a book-value-only row sticks for 24h
+        # and diverges from the other fetch lane.
+        calls = []
+
+        def _fake_fetch_one(ticker, stock):
+            calls.append(ticker)
+            return {"Name": stock["name"], "Ticker": ticker, "Price": 40.0,
+                    "bookValue": 80.0}      # only the FV-3 P/B fallback -> 1 model
+
+        monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
+        monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
+        cache = {}
+        screener._run_fetch([{"ticker": "BONLY.BR", "name": "BookOnly", "isin": ""}], cache)
+
+        assert len(calls) == 1 + screener._THIN_ROW_RETRIES
+        delta_h = (datetime.fromisoformat(cache["BONLY.BR"]["next_fetch_at"])
+                   - datetime.now(timezone.utc)).total_seconds() / 3600
+        assert 0 < delta_h < screener.CACHE_TTL_HOURS - screener.CACHE_TTL_JITTER
 
     def test_thin_row_without_price_is_not_retried(self, monkeypatch):
         calls = []
@@ -503,6 +526,7 @@ class TestRunFetch:
             base = {"Name": stock["name"], "Ticker": ticker, "Price": 100.0}
             if attempts["n"] >= 2:
                 base["trailingEps"] = 5.0          # second call comes back complete
+                base["bookValue"] = 30.0          # Graham + PE -> not thin
             return base
 
         monkeypatch.setattr(screener, "_fetch_one", _fake_fetch_one)
@@ -568,7 +592,8 @@ class TestPriorityAndLanes:
         monkeypatch.setattr(screener, "MAX_WORKERS", 1)   # sequential → deterministic order
         monkeypatch.setattr(screener.time, "sleep", lambda *_: None)
         monkeypatch.setattr(screener, "_fetch_one", lambda t, s: (
-            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0, "trailingEps": 0.5}))
+            order.append(t) or {"Ticker": t, "Name": s["name"], "Price": 1.0,
+                                "trailingEps": 0.5, "bookValue": 2.0}))   # Graham+PE -> not thin
 
     def test_priority_tickers_fetched_before_the_rest(self, monkeypatch):
         order: list[str] = []

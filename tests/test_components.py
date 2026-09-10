@@ -199,46 +199,28 @@ def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
         "DDM 2-stage", "Analyst Target"]
 
 
-def test_six_model_ladder_reasons_explains_each_dark_row():
+def test_six_model_ladder_reasons_formats_the_dark_codes():
     from uvalu.components import six_model_ladder_reasons
-    # loss-maker: no EPS, EPV negative on net debt, non-payer, no coverage
-    row = {"trailingEps": -1.2, "graham_number": None, "pe_fair_value": None,
-           "epv": -3.0, "epv_negative": True, "ev_source": "provider",
-           "ddm": None, "ddm_multistage": None, "targetMeanPrice": None}
+    # FV-6 (review): the component only maps codes emitted by _fair_value_models.
+    row = {"fv_dark_reasons": {"graham_number": "no_eps", "pe_fair_value": "no_eps",
+                               "epv": "epv_negative", "ddm": "non_payer",
+                               "analyst": "no_coverage"}}
     r = six_model_ladder_reasons(row)
     assert r["Graham Number"] == "no positive EPS"
     assert r["P/E fair value"] == "no positive EPS"
     assert r["EPV"] == "net debt > earnings"
     assert r["Dividend discount"] == "not a dividend payer"
+    assert r["DDM 2-stage"] == "not a dividend payer"
     assert r["Analyst Target"] == "no analyst coverage"
-    # a live row gets no entry
-    assert "EPV" not in six_model_ladder_reasons(
-        {**row, "epv": 40.0, "epv_negative": False})
-
-
-def test_six_model_ladder_reasons_distinguishes_epv_failure_modes():
-    from uvalu.components import six_model_ladder_reasons
-    base = {"trailingEps": 3.0, "graham_number": 1, "pe_fair_value": 1, "epv": None}
-    assert six_model_ladder_reasons({**base, "ev_source": "none"})["EPV"] == "no enterprise value"
-    assert six_model_ladder_reasons({**base, "ev_source": "provider"})["EPV"] == "no multi-year EBIT"
-
-
-def test_six_model_ladder_reasons_marks_sector_skipped_rows():
-    from uvalu.components import six_model_ladder_reasons
-    # FV-8: a REIT with real EPS but Graham / P/E / EPV skipped by sector
-    reit = six_model_ladder_reasons({
-        "trailingEps": 8.0, "sector": "Real Estate",
-        "graham_number": None, "pe_fair_value": None, "epv": None})
-    assert reit["Graham Number"] == "n/a for this sector"
-    assert reit["P/E fair value"] == "n/a for this sector"
-    assert reit["EPV"] == "n/a for this sector"
-    # a bank keeps P/E, so only Graham + EPV are "n/a"
-    bank = six_model_ladder_reasons({
-        "trailingEps": 4.0, "sector": "Financial Services",
-        "graham_number": None, "pe_fair_value": 36.0, "epv": None})
-    assert bank["Graham Number"] == "n/a for this sector"
-    assert bank["EPV"] == "n/a for this sector"
-    assert "P/E fair value" not in bank            # live, no reason
+    # every EPV / DDM failure mode has distinct text
+    for code, text in [("no_ev", "no enterprise value"), ("no_ebit", "no multi-year EBIT"),
+                       ("low_ebit", "through-cycle EBIT ≤ 0"), ("sector", "n/a for this sector")]:
+        assert six_model_ladder_reasons({"fv_dark_reasons": {"epv": code}})["EPV"] == text
+    assert six_model_ladder_reasons(
+        {"fv_dark_reasons": {"ddm": "spread"}})["Dividend discount"] == "discount rate ≈ dividend growth"
+    # no field / a live model → no entry
+    assert six_model_ladder_reasons({}) == {}
+    assert "Graham Number" not in six_model_ladder_reasons({"fv_dark_reasons": {"epv": "sector"}})
 
 
 def test_six_model_ladder_caption_flags_fallback_and_haircut():
