@@ -1,8 +1,10 @@
 # Valuation & Risk Accuracy Audit — Problem, Solution, Process
 
-Status: **proposed, not built**. This document describes the gap found during the
-2026-09-11 investigation session (the `NAITR.AS` incident and its follow-ons) and
-the tool proposed to close it. No code has been written yet.
+Status: **proposed, pre-work complete, not built**. This document describes the
+gap found during the 2026-09-11 investigation session (the `NAITR.AS` incident
+and its follow-ons) and the tool proposed to close it. No code has been written
+yet, but every blocker identified in a build-readiness review has been resolved
+(v1.3) — implementation can start directly from this document.
 
 **Revision history:**
 - v1.0 — initial draft.
@@ -20,6 +22,17 @@ the tool proposed to close it. No code has been written yet.
   control and an explicit report-vs-log division of labor added (§3.2);
   "change-triggered" decided as a `CONTRIBUTING.md` convention rather than left
   as an open question (§3.1, §4).
+- v1.3 — build-readiness pre-work: suppression log format decided (JSON,
+  `.cache/valuation_audit_log.json`, §2.5); `sharesOutstanding` sanity
+  recalibrated against the real universe — confirmed-zero threshold, no upper
+  bound (the candidate `> 10 billion` ceiling was disproven by real legitimate
+  `Strong Buy` rows, `BCY.DE`/`HBC1.DE`), and found to partially close the
+  `LISPE.SW` gap (§2.2, §2.2.2); the net-income check's sector-volatility band
+  moved from `proposed` to explicitly deferred, since it's blocked on a metric
+  that doesn't exist, not on a calibration pass (§2.2); the §2.7 falsifying
+  fixtures given actual data, not just a description of what they'd contain;
+  new §2.8 commits the audit tool to the same test-coverage discipline as the
+  rest of the codebase.
 
 ---
 
@@ -158,17 +171,27 @@ fair values even when the algorithm itself behaves correctly.
   coverage explicitly (see "Check coverage completeness" below). *Proposed
   refinement, not yet scoped*: a
   confidence band keyed to sector-level earnings volatility, to narrow the
-  ambiguous zone around `ALGTR.PA`-shaped cases — needs a volatility metric
-  that doesn't exist yet, so this stays a noted idea, not v1 scope.
-- **`sharesOutstanding` sanity** — `proposed`, **not yet validated**. Candidate
-  thresholds: `< 1,000` or `> 10 billion`. Flagged as informational-only, and
-  only escalated when combined with another hit, specifically because the
-  lower bound has a known real counterexample already in this catalog: `SNBN.SW`
-  has a genuine, legitimate `sharesOutstanding` of 100,000 — an order of
-  magnitude above a naive "implausibly low" cutoff, but real. Calibrate the
-  actual bounds against the live universe (same method used for the P/B floor
-  — find the real floor/ceiling among currently-legitimate rows) before
-  trusting this beyond informational.
+  ambiguous zone around `ALGTR.PA`-shaped cases. **Deferred out of the v1
+  catalog, not merely `proposed`** — this is blocked on a sector-level earnings
+  volatility metric that doesn't exist anywhere in the app yet, not on a
+  calibration pass that just hasn't happened. Revisit only if that metric gets
+  built for an unrelated reason.
+- **`sharesOutstanding` sanity** — `calibrated`. Threshold:
+  `sharesOutstanding == 0` (exact — not a fuzzy "implausibly low" band).
+  Calibration, run against the real universe this session: `LISPE.SW` is the
+  *only* current `Strong Buy` row with `sharesOutstanding == 0`, so this fires
+  with zero collateral damage among currently-legitimate signals — and it's a
+  genuinely new catch: this is the first per-row signal found for the
+  `LISPE.SW` shape that doesn't need cross-ticker identity data (see the
+  updated §2.2.2). No upper bound: a candidate `> 10 billion` ceiling was
+  tested and disproven the same way the P/E floor was — real, currently
+  legitimate `Strong Buy` rows exceed it (`BCY.DE`/Glencore at 13.4B shares,
+  `HBC1.DE`/HSBC at 17.1B), and no bug found this session involved an
+  implausibly *high* share count. Dropped rather than guessed at.
+  Confirmed-zero here is deliberately the same shape as the zero-volume veto
+  (§2.2's signal-safety family): a fuzzy low threshold risks `SNBN.SW`, whose
+  genuine, legitimate `sharesOutstanding` is 100,000 — real, and nowhere near
+  zero, so the exact-zero form correctly leaves it alone.
 
 #### Signal-safety checks (protecting BUY / Strong Buy)
 
@@ -249,18 +272,25 @@ today), not a price-ratio heuristic.
 
 ##### 2.2.2 Known catalog gap: share-class fundamentals contamination
 
-Stated plainly rather than left implicit: **`LISPE.SW`'s failure shape is not
-covered by anything in v1.1.** `LISPE.SW` (a Lindt & Sprüngli participation
-certificate whose cached `bookValue`/`trailingEps` were silently copied from
-its sibling registered share, `LISN.SW`) has a normal-looking implied P/B, real
-trading volume, and enough corroborating models to clear `fv_basis_thin` — none
-of the four families above reach it. The one approach that would (comparing a
-row's fundamentals against a same-company sibling's) is exactly what §2.2.1
-rejects, for good reason. Four functional families covering every check in this
-catalog should not be read as four families covering every *failure shape* —
-this one is a known, accepted, currently-uncovered gap, tracked in
-`docs/data-contracts.md` rather than in this catalog, and it stays that way
-until reliable cross-ticker company-identity data exists.
+Stated plainly rather than left implicit: **`LISPE.SW`'s failure shape is only
+partially covered, not fully, even after v1.2's calibration pass.**
+`LISPE.SW` (a Lindt & Sprüngli participation certificate whose cached
+`bookValue`/`trailingEps` were silently copied from its sibling registered
+share, `LISN.SW`) has a normal-looking implied P/B, real trading volume, and
+enough corroborating models to clear `fv_basis_thin`. The `sharesOutstanding`
+sanity check (§2.2, basis-integrity family) does catch this *specific* row —
+`LISPE.SW`'s own `sharesOutstanding` is exactly `0`, and it's the only current
+`Strong Buy` row with that value — but that's a correlate of the contamination
+(no instrument-specific share count exists for this listing, which is
+consistent with why its other fundamentals got borrowed from its sibling), not
+a guaranteed catch of the failure shape in general: a differently-corrupted row
+with a populated-but-wrong `sharesOutstanding` would still slip past every
+check in this catalog. The one approach that would catch the *shape*
+in general (comparing a row's fundamentals against a same-company sibling's)
+is exactly what §2.2.1 rejects, for good reason. This catalog covers this one
+instance by chance, not the underlying failure mode by design — tracked as
+such in `docs/data-contracts.md`, and it stays that way until reliable
+cross-ticker company-identity data exists.
 
 #### Catalog-integrity checks (meta-level consistency)
 
@@ -314,8 +344,16 @@ reuses them rather than re-deriving the explanation.
 
 ### 2.5 Suppression / history log
 
-A gitignored, persisted file (alongside `.cache/`, not committed — same treatment
-as the fundamentals cache itself) recording, per ticker + check:
+**Decided: a single JSON file, `.cache/valuation_audit_log.json`.** Same
+precedent already in this codebase for small, local, single-user, append/update
+state — `fetch_tickers.py`'s `frankfurt_exceptions.json` lives in the same
+`.cache/` directory for the same reason (a curated, persisted decision cache,
+not a queryable dataset). No concurrent-access or query-performance need
+justifies SQLite here: the tool runs a handful of times a week at most, over a
+few hundred flagged tickers at most, and every read is "look up this one
+ticker + check pair" or "load the whole file" — both trivial for JSON. Keyed
+`{ticker: {check_name: {...}}}`, gitignored, not committed — same treatment as
+the fundamentals cache itself, recording per ticker + check:
 
 - **First seen** (run timestamp, `screener.py` commit, and the check
   catalog's own version — e.g. `v1.1` — so a disposition made under an older
@@ -341,6 +379,58 @@ a `fixed` ticker's regression sentinel (§2.6) tripping again.
   flagged when a jump is large enough to suggest a broken fetch or feed rather
   than one bad ticker. Lower priority than the per-row checks; proposed as a
   fast-follow, not part of v1.
+
+### 2.7 Falsifying-fixture data
+
+§2.2's catalog-integrity family requires a persisted fixture behind every
+rejected check, not prose alone. The actual data, gathered this session, so
+implementation is a transcription, not a fresh investigation:
+
+- **Standalone P/E floor (rejected)** — `ALNRG.PA` (SA Energisme), real
+  cached values at time of investigation: `Price = 0.0038`,
+  `trailingEps = 7.53`, `sharesOutstanding = 2,727,222`,
+  `netIncomeHistory[0] = 15,998,776`. Implied P/E ≈ 0.0005 — *lower* (more
+  "extreme") than the actual corrupted case (`BC.MI`, implied P/E ≈ 0.0007) it
+  was meant to catch. Assertion the fixture backs: a standalone implied-P/E
+  floor at any threshold that would catch `BC.MI` must also catch this row,
+  which is legitimate (its net-income cross-check passes: implied NI ≈
+  €20.5M vs. reported €16.0M, ~1.3× — well inside the real net-income
+  cross-validation's own 20×/0.05× band).
+- **Price vs. sibling listings (rejected)** — Berkshire Hathaway's Class A /
+  Class B share structure: each Class A share converts to exactly 1,500 Class
+  B shares, a real, public, permanent ratio (not a data defect). Assertion the
+  fixture backs: any same-company price-ratio threshold intended to flag a
+  phantom/treasury-style listing must not fire on a same-company ratio of
+  1,500× or less, which rules out every ratio actually observed among the
+  confirmed bugs this session (`NAITR.AS`/`NAI.AS` ≈ 216×, `QEV.AS`/`QEVT.AS` ≈
+  670×) *and* leaves the check unable to distinguish them from Berkshire's
+  legitimate ratio — the concrete reason this check has no safe threshold, not
+  merely an inconvenient one.
+- **`sharesOutstanding` upper bound (considered, dropped)** — `BCY.DE`
+  (Glencore's Frankfurt line, ~13.4 billion shares) and `HBC1.DE` (HSBC's
+  Frankfurt line, ~17.1 billion shares), both real, currently-legitimate
+  `Strong Buy` rows. Assertion the fixture backs: no upper bound below ~17.1
+  billion is safe to ship; since no bug this session involved an implausibly
+  high share count, no upper bound is included at all rather than one picked
+  to clear this fixture with no positive evidence behind it.
+
+### 2.8 Test coverage for the audit tool itself
+
+Not addressed in earlier drafts — the tool gets the same testing discipline as
+the rest of this codebase (~900 tests, synthetic fixtures), not an exemption
+because it's a checking tool rather than product code:
+
+- Each check function gets a positive fixture (fires on the shape it's meant
+  to catch — e.g. a `SNBN.SW`-shaped row for the P/B floor re-assertion) and a
+  negative fixture (does not fire on the corresponding real counterexample —
+  the §2.7 fixtures serve directly as these negative cases).
+- The aggregation, severity-tiering, and suppression-log diff logic get their
+  own tests independent of any specific check, the same way `compute_scores`'
+  Stage 6 plumbing is tested independently of any one fair-value model.
+- The regression sentinels (§2.6) effectively *are* an additional layer of
+  tests already, just against the live cache rather than a fixture — worth
+  noting in the tool's own test docs so a future contributor doesn't try to
+  duplicate them as synthetic fixtures too.
 
 ---
 
@@ -420,21 +510,19 @@ followed three times:
 
 ## 4. Open questions for v1 scoping
 
-- Where does the persisted suppression log live exactly, and what format (JSON
-  next to `.cache/`, or a small SQLite file)?
-- Decided (§3.1): "change-triggered" defaults to a `CONTRIBUTING.md` checklist
-  convention, not a git hook. Open remainder: once that convention has actually
+All pre-work blockers identified when this document was reviewed for
+build-readiness are now resolved (v1.3, §2.5, §2.2, §2.7, §2.8). What's left is
+genuinely deferred scope, not pre-work:
+
+- Once the `CONTRIBUTING.md` change-triggered convention (§3.1) has actually
   been used a few times, is a real pre-commit/pre-push hook worth the added
   infrastructure, or does the convention hold up on its own?
 - Is a scheduled (cron/cloud-agent) cadence worth adding on top of the
   change-triggered run, given the fundamentals cache itself only refreshes on a
   24h (main) / 3h (thin-row heal) cycle — or does that make a daily scheduled run
   redundant with the change-triggered one in practice?
-- Exposure-weighting (prioritize held/watchlisted tickers) and distribution-drift
-  checks were proposed as fast-follows, not v1 scope — confirm that's still right
-  once the core catalog is in use.
-- The two `proposed` (not yet validated) checks — `sharesOutstanding` sanity and
-  the net-income cross-check's sector-volatility confidence band — need the same
-  real-universe calibration pass the P/B floor and the 20×/0.05× net-income
-  bounds already got before they should count for more than informational
-  severity. Do that calibration before or as part of v1 build, not after.
+- Exposure-weighting (prioritize held/watchlisted tickers), distribution-drift
+  checks (§2.6), and the net-income cross-check's sector-volatility confidence
+  band (§2.2 — blocked on a metric that doesn't exist yet) were all deferred
+  as fast-follows, not v1 scope — confirm that's still right once the core
+  catalog is in use.
