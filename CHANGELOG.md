@@ -21,6 +21,11 @@ Version numbers follow the scheme in
   - Calibrated against the full 7,859-ticker cached universe: a controlled before/after diff changed exactly one row; the lowest P/B among legitimate current `Strong Buy` rows sits at ~0.11, a 5×+ margin above the floor.
   - New `fv_dark_reasons` code `implausible_book` ("price too far below book value to trust") so the drawer's "Six-model fair value" ladder explains the gap instead of showing a bare dash.
   - `docs/data-contracts.md` also records a related, distinct, currently-unfixed case (`LISPE.SW`, a Lindt & Sprüngli participation certificate whose cached fundamentals were contaminated by its sibling registered share) and why closing it needs cross-ticker company-identity data (`ISIN`) the app doesn't reliably have.
+- **Dashboard Holdings table: "Margin of safety" column header wrapped to two lines.** Its grid column was only 82px wide — too narrow for the uppercase, letter-spaced label at 10px. Shortened to **"MoS %"**, the abbreviation already used everywhere else in the app (the underlying DataFrame column, the drawer, the Screener sort key).
+
+### Changed
+
+- **Dashboard Holdings table's last column now shows total P&L instead of today's price move.** The "Today" column (daily % change) is replaced by **"P&L"** — each position's unrealised gain/loss in € (`current_value − purchase_value`, excluding dividends; same formula as the Portfolio page's "Unrealised P&L"). Rows now sort by that figure, biggest gain first, biggest loss last, instead of by position value.
 
 ---
 
