@@ -157,6 +157,26 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
             except Exception:
                 pass
 
+        # fast_info can come back with every field None (silently — a rate
+        # limit or outage on this endpoint doesn't raise, unlike the batch
+        # download above) as well as raise outright. Either way the ticker
+        # ends up with no price, but until now nothing recorded WHY — a
+        # rate-limited fallback and a genuinely delisted ticker looked
+        # identical to any caller, showing up downstream as a blank "No
+        # daily price data available" with no signal in the logs to explain
+        # it. One summary line per fetch_prices() call (not per ticker) since
+        # this fallback only ever runs for a portfolio-sized ticker list.
+        _fallback_misses = [t for t in tickers if result[t].get("price") is None]
+        if _fallback_misses:
+            logkit.get_logger("uvalu.prices").warning(
+                "fast_info fallback recovered no price for %d/%d ticker(s) after the "
+                "batch download failed — likely a Yahoo Finance rate limit or outage",
+                len(_fallback_misses), len(tickers),
+                extra={"event": "prices.fallback_incomplete",
+                       "tickers_failed": len(_fallback_misses), "tickers_total": len(tickers),
+                       "sample": _fallback_misses[:10]},
+            )
+
     # ── Intraday overlay ─────────────────────────────────────────────────────
     # Replace the daily close with a true 1-minute last price wherever we can
     # get one, and recompute the day change against the daily prev_close.

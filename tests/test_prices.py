@@ -181,6 +181,37 @@ class TestFetchPricesFallbackPath:
         assert result["AAA.BR"]["price"] == 1.0
         assert result["BAD.BR"] == dict(prices._EMPTY)
 
+    def test_silent_empty_fast_info_logs_a_warning(self, monkeypatch, caplog):
+        # A rate-limited/outaged fast_info doesn't raise — it just returns
+        # every field as None. Before this fix that looked identical to a
+        # genuinely delisted ticker, with nothing in the logs to tell them
+        # apart.
+        monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
+
+        class FakeTicker:
+            def __init__(self, ticker):
+                self.fast_info = {"last_price": None, "previous_close": None}
+
+        monkeypatch.setattr(yf, "Ticker", FakeTicker)
+        with caplog.at_level("WARNING", logger="uvalu.prices"):
+            result = prices.fetch_prices(("AAA.BR", "BBB.BR"))
+        assert result["AAA.BR"]["price"] is None
+        assert any(r.event == "prices.fallback_incomplete" for r in caplog.records)
+        warn = next(r for r in caplog.records if r.event == "prices.fallback_incomplete")
+        assert warn.tickers_failed == 2 and warn.tickers_total == 2
+
+    def test_fallback_success_logs_no_warning(self, monkeypatch, caplog):
+        monkeypatch.setattr(yf, "download", lambda *a, **k: pd.DataFrame())
+
+        class FakeTicker:
+            def __init__(self, ticker):
+                self.fast_info = {"last_price": 1.0, "previous_close": 1.0}
+
+        monkeypatch.setattr(yf, "Ticker", FakeTicker)
+        with caplog.at_level("WARNING", logger="uvalu.prices"):
+            prices.fetch_prices(("AAA.BR",))
+        assert not any(r.event == "prices.fallback_incomplete" for r in caplog.records)
+
 
 class TestFetchPricesIntradayOverlay:
     def test_intraday_last_replaces_daily_close(self, monkeypatch):
