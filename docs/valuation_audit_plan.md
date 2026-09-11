@@ -4,6 +4,23 @@ Status: **proposed, not built**. This document describes the gap found during th
 2026-09-11 investigation session (the `NAITR.AS` incident and its follow-ons) and
 the tool proposed to close it. No code has been written yet.
 
+**Revision history:**
+- v1.0 — initial draft.
+- v1.1 — check catalog reorganized into four functional families per human
+  review; thresholds corrected to match the actually-shipped `PTB_SANITY_FLOOR`
+  formula; three new checks added (net-income cross-validation refinement,
+  `sharesOutstanding` sanity, Decision/veto consistency, dividend-yield sanity,
+  catalog-integrity meta-checks); one proposed check (`Price vs. sibling
+  listings`) evaluated against evidence already gathered this session and kept
+  out of v1 — see §2.2.1.
+- v1.2 — self-review pass: findings aggregate per ticker rather than per check
+  (§2.1); rejected checks now require a persisted falsifying fixture, not
+  prose alone (§2.2's catalog-integrity family); the `LISPE.SW`-shaped catalog
+  gap stated explicitly rather than left implicit (§2.2.2); report volume
+  control and an explicit report-vs-log division of labor added (§3.2);
+  "change-triggered" decided as a `CONTRIBUTING.md` convention rather than left
+  as an open question (§3.1, §4).
+
 ---
 
 ## 1. Problem
@@ -89,43 +106,204 @@ an auto-fixer.
 2. Run `screener.compute_scores` once over the full frame (~2 seconds for the
    current ~7,900-ticker universe).
 3. Apply the check catalog (§2.2) to the scored frame.
-4. Tier each hit by severity (§2.3).
-5. Attach the algorithm's own explanation fields to each hit (§2.4) — no
+4. **Aggregate hits per ticker, not per check.** A single row commonly fails
+   more than one check at once — a treasury-share-style listing typically trips
+   both the zero-volume veto *and* `fv_basis_thin` simultaneously, as several
+   Amsterdam rows did this session. One finding per ticker, listing every check
+   it failed, not one fragment per check-row pair scattered across sections.
+5. Tier each finding by severity (§2.3), using the *worst* check confidence it
+   carries once aggregated.
+6. Attach the algorithm's own explanation fields to each finding (§2.4) — no
    re-deriving "why does this look wrong" by hand.
-6. Diff against the persisted suppression/history log (§2.5); drop anything
+7. Diff against the persisted suppression/history log (§2.5); drop anything
    already triaged and unchanged.
-7. Run the distribution-drift comparison against the previous run (§2.6).
-8. Write one markdown report, stamped with the universe size and the
+8. Run the distribution-drift comparison against the previous run (§2.6).
+9. Write one markdown report, stamped with the universe size and the
    `screener.py` git commit it ran against.
 
-### 2.2 Check catalog
+### 2.2 Check catalog (v1.1)
 
-Each check is a named, documented unit — what it catches, its threshold and the
-reasoning behind it, and its known false-positive history. Starting set, all
-already exercised by hand this session:
+Reorganized (per human review) into four functional families, each check
+carrying an explicit **status** — `shipped` (re-asserts real code, doesn't
+re-derive it), `calibrated` (threshold checked against this session's real
+data), or `proposed` (plausible, not yet validated against the real universe —
+must be calibrated before it's trusted at anything above informational
+severity). New checks get added to this catalog with the same fields — status,
+threshold, false-positive evidence — before they're wired in; the catalog is
+the spec, the code is the implementation.
 
-| Check | Catches | Notes |
-|---|---|---|
-| **Implied P/B floor** | A per-share basis broken for the whole row (`bookValue` *and* `trailingEps`, which share a `sharesOutstanding` divisor) | Already shipped as `PTB_SANITY_FLOOR`; the audit re-asserts it holds, it doesn't re-derive it |
-| **Net-income cross-validation** | `trailingEps × sharesOutstanding` wildly inconsistent with `netIncomeHistory[0]` — catches a corrupted EPS *even when the implied P/B looks normal* (the `BC.MI` shape) | Coverage-limited: only evaluates rows with both fields present; ambiguous on genuine year-over-year earnings volatility (`ALGTR.PA`) — flag as informational, not critical, when the mismatch is under some higher multiple |
-| **Zero-volume vs. Strong Buy** | A `Strong Buy` on a confirmed-zero-`averageVolume` row | Already shipped as a hard veto; the audit re-asserts, doesn't re-derive |
-| **`fv_basis_thin` vs. Strong Buy** | A `Strong Buy` resting on a single uncorroborated fair-value model | Already shipped as a Stage 6 gate; same as above |
-| **Fair-value/price ratio outliers** | Any row (regardless of `Decision`) with `fair_value` many multiples of `Price` | Broader net than the two above — catches display-level nonsense even on `Avoid` rows (the `VEZ.DE`/`MLVST.PA`/`ALHGO.PA` shape), which matters for "does this look right" even when it isn't a signal-safety issue |
-| **Known-rejected checks, recorded as such** | Nothing — deliberately not implemented | e.g. a standalone P/E floor. Recorded in the catalog specifically so nobody re-proposes and re-tests it without first reading why it failed |
+#### Basis-integrity checks (structural correctness)
 
-New checks get added to this table with the same four columns before they're
-wired in — the table is the spec, the code is the implementation.
+Detect structural corruption in fundamentals — the kind that produces absurd
+fair values even when the algorithm itself behaves correctly.
+
+- **Implied P/B floor** — `shipped`. Re-asserts `screener.PTB_SANITY_FLOOR`.
+  Threshold: `Price / bookValue < 0.02` (the audit reads the constant from
+  `screener.py` rather than hardcoding it, so the two can never drift apart).
+  False positives: none found — a controlled before/after diff across the full
+  7,859-ticker cached universe changed exactly the one targeted row
+  (`SNBN.SW`), confirmed this session.
+- **Net-income cross-validation** — `calibrated`. Catches a corrupted
+  `trailingEps` even when the implied P/B looks entirely normal (the `BC.MI`
+  shape — `priceToBook` was a plausible 9.76). Threshold:
+  `(trailingEps × sharesOutstanding) / netIncomeHistory[0] > 20` or `< 0.05`,
+  **or** a sign mismatch (implied net income positive, latest reported net
+  income negative, or vice versa) — stated as its own explicit trigger rather
+  than relying on the ratio going negative to fall under `0.05`, which works
+  but is easy to miss when reading the check. 20×/0.05× keeps real earnings
+  volatility (`ALGTR.PA`, ~2.2× either direction) safely below the line while
+  still catching every corrupted case found this session (`BC.MI` ~56,000×,
+  `MLVST.PA` ~4,838×, `ALHGO.PA` ~100×). Coverage-limited: only evaluates rows
+  with both `sharesOutstanding` and `netIncomeHistory` present — report
+  coverage explicitly (see "Check coverage completeness" below). *Proposed
+  refinement, not yet scoped*: a
+  confidence band keyed to sector-level earnings volatility, to narrow the
+  ambiguous zone around `ALGTR.PA`-shaped cases — needs a volatility metric
+  that doesn't exist yet, so this stays a noted idea, not v1 scope.
+- **`sharesOutstanding` sanity** — `proposed`, **not yet validated**. Candidate
+  thresholds: `< 1,000` or `> 10 billion`. Flagged as informational-only, and
+  only escalated when combined with another hit, specifically because the
+  lower bound has a known real counterexample already in this catalog: `SNBN.SW`
+  has a genuine, legitimate `sharesOutstanding` of 100,000 — an order of
+  magnitude above a naive "implausibly low" cutoff, but real. Calibrate the
+  actual bounds against the live universe (same method used for the P/B floor
+  — find the real floor/ceiling among currently-legitimate rows) before
+  trusting this beyond informational.
+
+#### Signal-safety checks (protecting BUY / Strong Buy)
+
+Assert that no BUY / Strong Buy is issued on structurally unsafe data —
+regression sentinels for the Stage 6 rules specifically.
+
+- **Zero-volume vs. Strong Buy** — `shipped`. Re-asserts the hard veto.
+  `averageVolume == 0` (confirmed, not missing) **and** `Decision == "Strong Buy"`
+  should never co-occur.
+- **`fv_basis_thin` vs. Strong Buy** — `shipped`. Re-asserts the Stage 6 gate.
+  `fv_basis_thin == True` **and** `Decision == "Strong Buy"` should never
+  co-occur.
+- **`Decision` / `veto` internal consistency** — `calibrated` (as a code
+  invariant, not against ticker data). Asserts `veto == True ⟹ Decision ==
+  "Avoid"` — a pure internal-consistency check, not tied to any specific
+  ticker, so it has no false-positive risk by construction: either the
+  invariant holds or `compute_scores`' own Stage 6 logic has regressed. This is
+  the real-data counterpart to `TestVectorisedStage3And6.
+  test_decision_matches_scalar_ladder`, which already caught one instance of
+  this exact class of drift (the `fv_basis_thin`/row-`D` case) — on synthetic
+  fixtures only. Worth extending to the full Stage 6 formula (`Strong Buy ⟹
+  score ≥ buy_threshold ∧ MoS ≥ min_mos ∧ ¬fv_basis_thin ∧ ¬veto`) rather than
+  just the veto leg, as a fast-follow.
+
+#### Display-correctness checks (nonsense values even when the signal is safe)
+
+Catch rows that "look wrong" even where they don't affect BUY/Strong-Buy
+safety — the `VEZ.DE`/`MLVST.PA`/`ALHGO.PA` shape, already `Avoid` via an
+unrelated veto but still showing a garbage `fair_value`.
+
+- **Fair-value/price ratio outliers** — `calibrated`, with an important
+  caveat. Bands: informational `> 20×`, notable `> 50×`, critical `> 200×` —
+  but this check's own magnitude alone must **not** set final severity, only a
+  confidence floor within it. `TPG0.DE`, a real, currently-legitimate `Strong
+  Buy`, sits at ~23.5× — informational by this check alone, and correctly so.
+  Final severity still comes from the §2.3 Decision-context rule (is it
+  currently reaching Strong Buy); this check's bands should only push a
+  finding toward `critical` when corroborated by a basis-integrity hit on the
+  same row, the same combinability rule applied to `sharesOutstanding` sanity
+  above.
+- **Dividend-yield sanity** — `calibrated`, and explicitly a *symptom* check,
+  not an independent root-cause detector. Threshold: yield `> 40%` or `< -5%`.
+  Directly motivated by `NAITR.AS`'s 562.5% figure, but that number is
+  `screener.py`'s own documented `trailingAnnualDividendRate / Price`
+  computation working exactly as designed on an already-corrupted price — this
+  check will almost always co-fire with a basis-integrity or zero-volume hit
+  on the same row, not stand alone. The `< -5%` branch is untested: the
+  current `dividendYield` computation has no code path that produces a
+  negative value, so this branch is defensive (if it ever fires, something
+  upstream is already broken) rather than calibrated against an observed case.
+
+##### 2.2.1 Considered and not included: price vs. sibling listings
+
+Proposed: flag cross-listed tickers whose price differs from a same-company
+sibling by more than 50×, as a cheap way to catch phantom/treasury-style
+listings (`NAITR.AS` vs. `NAI.AS`, `INPHI.AS` vs. `PHIA.AS`).
+
+**Not included in v1.1.** This is the same approach — same-company duplicate
+price/listing detection — already investigated and rejected earlier in this
+session, for a reason a 50× threshold doesn't route around: real, legitimate
+cross-listings routinely exceed it. The concrete counterexample already in
+hand: Berkshire Hathaway's own dual share classes differ by design by roughly
+**1,500×** (each Class A share converts to 1,500 Class B shares) — a real,
+public, well-known ratio, not a data defect — and its actual Frankfurt
+cross-listings in this session's own data showed exactly that shape (`BRH
+646000` vs. `BRHF 22.6`, a ~28,600× spread from currency/depositary-ratio
+effects on top of the real A/B split). A same-page duplicate-name scan across
+all six exchanges earlier in this session found 681 duplicate company names on
+Frankfurt alone, the large majority legitimate multi-tranche listings of
+foreign megacaps (`NVIDIA`, `Alphabet`, `Roche` all appear twice there, several
+with both lines actively trading) — see `docs/data-contracts.md`'s "Known
+residual gap" entries for the full evidence. A ratio threshold, even used only
+as an informational tiebreaker, would misfire across a meaningful share of
+that population. If this is revisited, it needs the same missing ingredient
+identified in `data-contracts.md`: reliable cross-ticker company-identity data
+(`ISIN` is fetched into the schema but populated on 0 of 7,861 cached tickers
+today), not a price-ratio heuristic.
+
+##### 2.2.2 Known catalog gap: share-class fundamentals contamination
+
+Stated plainly rather than left implicit: **`LISPE.SW`'s failure shape is not
+covered by anything in v1.1.** `LISPE.SW` (a Lindt & Sprüngli participation
+certificate whose cached `bookValue`/`trailingEps` were silently copied from
+its sibling registered share, `LISN.SW`) has a normal-looking implied P/B, real
+trading volume, and enough corroborating models to clear `fv_basis_thin` — none
+of the four families above reach it. The one approach that would (comparing a
+row's fundamentals against a same-company sibling's) is exactly what §2.2.1
+rejects, for good reason. Four functional families covering every check in this
+catalog should not be read as four families covering every *failure shape* —
+this one is a known, accepted, currently-uncovered gap, tracked in
+`docs/data-contracts.md` rather than in this catalog, and it stays that way
+until reliable cross-ticker company-identity data exists.
+
+#### Catalog-integrity checks (meta-level consistency)
+
+Keep the audit itself correct and legible across versions, distinct from
+checks that assess ticker data.
+
+- **Known-rejected checks, recorded as such** — `shipped` (as documentation),
+  backed by a **falsifying fixture**, not prose alone. Every check considered
+  and rejected (the standalone P/E floor, disproven by `ALNRG.PA`;
+  price-vs-sibling-listings, §2.2.1) stays in the catalog with its
+  `catalog_version`, its rejection evidence, *and* the actual counterexample
+  data point that disproved it, persisted as a permanent test fixture (e.g.
+  `ALNRG.PA`'s real field values from this session; the Berkshire A/B ratio).
+  A prose warning only works if someone reads it first; a fixture means a
+  reintroduced version of either check fails a real assertion the moment it's
+  wired in, the same way a shipped regression test protects code rather than
+  a code comment.
+- **Check coverage completeness** — `proposed`, meta-check. For each row,
+  record which checks *could* run given the fields present (e.g. "EPS present,
+  `netIncomeHistory` missing → net-income cross-validation skipped, not
+  passed"). A silent row in the report must be distinguishable from "checked,
+  clean" — this directly answers the coverage question raised in §2.2's
+  net-income check.
 
 ### 2.3 Severity tiers
 
-- **Critical** — currently `Strong Buy` (or `Decision` better than the check
-  would imply) *and* fails a check. Review before anything else.
+Two separate axes, not one: a check's own threshold bands (§2.2 — e.g. the
+fair-value/price ratio's informational/notable/critical bands) set how
+*confident* that single check is; final severity also depends on the row's
+`Decision` context, and the two combine rather than either alone deciding:
+
+- **Critical** — currently `Strong Buy` (or `Decision` better than a
+  signal-safety check implies — see the `Decision`/`veto` consistency check)
+  *and* fails a check at calibrated or shipped confidence. Review before
+  anything else.
 - **Notable** — fails a check but is already gated to `Avoid`/`Monitor` by
   something else (an unrelated veto, a low score). Real defect, low urgency —
   worth fixing for display correctness, not signal safety.
-- **Informational** — fails a check at low confidence (e.g. the net-income
-  cross-check on a name with plausible real earnings volatility). Surfaced for
-  awareness, not for action, unless a pattern emerges across runs.
+- **Informational** — fails a check at low confidence (a `proposed`,
+  not-yet-validated check; a display-correctness check firing without
+  basis-integrity corroboration; the net-income cross-check on a name with
+  plausible real earnings volatility). Surfaced for awareness, not action,
+  unless a pattern emerges across runs.
 
 ### 2.4 Self-explanation surfacing
 
@@ -139,7 +317,9 @@ reuses them rather than re-deriving the explanation.
 A gitignored, persisted file (alongside `.cache/`, not committed — same treatment
 as the fundamentals cache itself) recording, per ticker + check:
 
-- **First seen** (run timestamp, `screener.py` commit).
+- **First seen** (run timestamp, `screener.py` commit, and the check
+  catalog's own version — e.g. `v1.1` — so a disposition made under an older
+  catalog is visibly stale if the check that produced it later changes).
 - **Disposition** — `fixed` (with the commit that fixed it), `documented-gap`
   (with the `data-contracts.md` section), or `dismissed-false-positive` (with a
   one-line reason, e.g. "real earnings volatility, see netIncomeHistory").
@@ -171,19 +351,40 @@ a `fixed` ticker's regression sentinel (§2.6) tripping again.
 1. **On-demand.** Run manually — after a suspicious screenshot, during a periodic
    review, or any time a real answer is needed rather than a memory of the last
    answer.
-2. **Change-triggered.** Run automatically after any edit to `screener.py`'s
-   valuation logic (`_fair_value_models`, `compute_scores`, the Stage 5/6 rules).
-   This is the higher-value trigger: it catches real-world edge cases the ~900
-   synthetic unit tests structurally cannot, at a cost of ~2 seconds per run.
+2. **Change-triggered.** Run after any edit to `screener.py`'s valuation logic
+   (`_fair_value_models`, `compute_scores`, the Stage 5/6 rules). This is the
+   higher-value trigger: it catches real-world edge cases the ~900 synthetic
+   unit tests structurally cannot, at a cost of ~2 seconds per run. **Default
+   mechanism: a checklist line in `CONTRIBUTING.md`** (which already governs
+   the release checklist) — "run the valuation audit before committing a
+   change to `_fair_value_models`/`compute_scores`" — not a git hook. A
+   convention needs zero new infrastructure to start; an enforced pre-commit
+   hook is a valid upgrade later (§4) once the convention has actually been
+   used a few times.
 
 ### 3.2 Output
 
-One markdown report per run: critical findings first (each with its numbers, its
-algorithm-native explanation, and a suggested next step), then notable, then
-informational, then the drift-check summary. Written to disk (gitignored,
-alongside `.cache/`), not committed — it's operational output, not documentation
-of a decision. A decision *about* a finding belongs in `data-contracts.md` /
-`CHANGELOG.md`, same as the three fixes from this session.
+One markdown report per run: critical findings first (each aggregated per
+ticker per §2.1 — its numbers, its algorithm-native explanation, and a
+suggested next step), then notable, then informational, then the drift-check
+summary.
+
+- **Volume control.** Critical and notable findings are always shown in full.
+  Informational findings are capped — the top N (by check confidence) shown in
+  full, the remainder summarized by count ("+ 47 more informational hits, see
+  the full log") rather than dumped inline. Today's own scan surfaced dozens of
+  borderline P/B/P/E rows in the tail; an uncapped report would be unreadable
+  within a few runs.
+- **Report vs. log, explicit division of labor.** The markdown report is a
+  human-readable snapshot of *this run only* — nothing should ever need to
+  parse it back out. The suppression/history log (§2.5) is the durable,
+  structured, machine-readable state; any future automation (the run-over-run
+  diff in §2.6, a later tool) reads the log, never the report.
+
+Written to disk (gitignored, alongside `.cache/`), not committed — it's
+operational output, not documentation of a decision. A decision *about* a
+finding belongs in `data-contracts.md` / `CHANGELOG.md`, same as the three
+fixes from this session.
 
 ### 3.3 Triage workflow
 
@@ -221,8 +422,10 @@ followed three times:
 
 - Where does the persisted suppression log live exactly, and what format (JSON
   next to `.cache/`, or a small SQLite file)?
-- Does "change-triggered" mean a git pre-commit/pre-push hook, or does it stay a
-  manual "run it before you commit a valuation change" convention?
+- Decided (§3.1): "change-triggered" defaults to a `CONTRIBUTING.md` checklist
+  convention, not a git hook. Open remainder: once that convention has actually
+  been used a few times, is a real pre-commit/pre-push hook worth the added
+  infrastructure, or does the convention hold up on its own?
 - Is a scheduled (cron/cloud-agent) cadence worth adding on top of the
   change-triggered run, given the fundamentals cache itself only refreshes on a
   24h (main) / 3h (thin-row heal) cycle — or does that make a daily scheduled run
@@ -230,3 +433,8 @@ followed three times:
 - Exposure-weighting (prioritize held/watchlisted tickers) and distribution-drift
   checks were proposed as fast-follows, not v1 scope — confirm that's still right
   once the core catalog is in use.
+- The two `proposed` (not yet validated) checks — `sharesOutstanding` sanity and
+  the net-income cross-check's sector-volatility confidence band — need the same
+  real-universe calibration pass the P/B floor and the 20×/0.05× net-income
+  bounds already got before they should count for more than informational
+  severity. Do that calibration before or as part of v1 build, not after.
