@@ -427,6 +427,13 @@ GLOBAL_CSS = """
     background: var(--panel) !important; border-color: var(--line) !important;
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
     padding: 16px 18px !important;
+    /* Pinned to the real filter row's measured height (98px live: 64px
+       content + 16px top/bottom padding) so the loading-skeleton panel
+       (components.skeleton_filter_bar_html, shorter shimmer controls) and
+       the real filled panel always render at the exact same height —
+       fixing the container directly instead of hand-matching two very
+       different child DOM trees (shimmer bars vs. real widgets). */
+    min-height: 98px !important;
   }
   /* Filter row — each filter sized to its own content with a fixed 32px
      gap between, matching Uvalu.dc.html's flex-wrap filter bar instead of
@@ -595,6 +602,21 @@ GLOBAL_CSS = """
      30px matching pf_col_header/db_holdings_colheader. */
   .st-key-scr_col_header .stButton {
     display: flex !important; align-items: center !important; line-height: normal !important;
+  }
+  /* The loading-skeleton column header (screener.py's cold-cache branch)
+     reuses this same scr_col_header container but fills it with plain
+     st.markdown label divs instead of the real st.button headers above —
+     so it never gets the .stButton height-normalizing rule and hits the
+     same "stColumn under-reports a raw markdown block's real height" bug
+     fixed elsewhere in this file (name_cell/score/price/pe/dy columns):
+     confirmed live, the column reported ~15px tall while its own 16px
+     label text actually rendered past that, overflowing into the first
+     skeleton row pulled up right underneath (margin-top:-16px above) and
+     visibly crossing the header text. :not(:has(.stButton)) scopes this
+     to exactly the skeleton's bare-markdown columns, leaving the real
+     button-based header (already correct at 31px) untouched. */
+  .st-key-scr_col_header [data-testid="stColumn"]:not(:has(.stButton)) {
+    min-height: 17px !important;
   }
   /* Watchlist "Add ticker" form — same card treatment as the rest of the
      app (Screener's scr_filter_panel) instead of st.form()'s plain default

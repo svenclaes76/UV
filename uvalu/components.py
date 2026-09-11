@@ -772,18 +772,20 @@ def skeleton_rows(widths: list, *, n: int = 5, name_col: int = 0, key_prefix: st
 
 def skeleton_filter_bar_html() -> str:
     """Six label+control shimmer shapes approximating the Screener filter
-    bar's Search/Signal/Sector/Market/Min-score/Min-MoS row (scr_filter_row)
-    — a decorative shape match, not a pixel-exact replica (the filter bar
-    itself needs no column-for-column alignment the way a table does)."""
-    _shapes = [
-        (150, "24px"), (170, "30px"), (130, "34px"),
-        (130, "34px"), (110, "34px"), (150, "34px"),
-    ]
+    bar's Search/Signal/Sector/Market/Min-score/Min-MoS row (scr_filter_row).
+    Every control shares the same 40px height (the search input's own box,
+    measured live) and the label-to-control gap is 15px (also measured live
+    on the real row) — the real controls all sit in the same 40px band once
+    centered in the row, so a uniform bar height is what actually reads as
+    one level row instead of the previous 24/30/34px staircase, and matches
+    the real row's 64px content height (9px label + 15px gap + 40px control)
+    so scr_filter_panel's pinned min-height (styles.py) needs no fudging."""
+    _shapes = [150, 170, 130, 130, 110, 150]
     _cells = "".join(
-        f'<div style="display:flex;flex-direction:column;gap:8px;">'
+        f'<div style="display:flex;flex-direction:column;gap:15px;">'
         f'<div class="uv-skel-bar" style="width:60px;height:9px;margin:0;"></div>'
-        f'<div class="uv-skel-bar" style="width:{_w}px;height:{_h};margin:0;border-radius:8px;"></div></div>'
-        for _w, _h in _shapes
+        f'<div class="uv-skel-bar" style="width:{_w}px;height:40px;margin:0;border-radius:8px;"></div></div>'
+        for _w in _shapes
     )
     return f'<div style="display:flex;gap:32px;flex-wrap:wrap;">{_cells}</div>'
 
