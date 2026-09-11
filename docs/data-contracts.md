@@ -105,6 +105,37 @@ between screens at some point (see the `dq/*` history); the tests in
   asterisk" deferred at ship time; the NAITR.AS incident (a lone book-value
   fallback off a corrupted price producing a spurious Strong Buy) is what
   prompted implementing it.
+- **Known residual gap — untraded secondary listings with no volume data at
+  all.** The zero-volume veto above only fires on a *confirmed* `averageVolume
+  == 0`. A listing where `averageVolume` is simply unreported (`None` —
+  e.g. `INPHI.AS`, a secondary Amsterdam line for Koninklijke Philips N.V.
+  that shares its fundamentals with the real `PHIA.AS` listing but trades at
+  a materially different, seemingly stale price) is not vetoed by it, and
+  could in principle inherit ≥2 fair-value models from the real company's
+  fundamentals (so it isn't `fv_basis_thin` either) while its own divergent
+  price produces a plausible-looking, uncaught MoS. Two heuristics to close
+  this were investigated and rejected as unsafe, not merely undesirable:
+  - *Same-page duplicate company name* (within one `fetch_tickers.py`
+    exchange fetch). Checked live against all 6 exchange listings: Frankfurt
+    alone carries **681** duplicate company names among 10,614 rows, the
+    large majority legitimate multi-tranche cross-listings of foreign
+    megacaps with both lines actively trading (e.g. `NVIDIA Corporation →
+    NVD | NVDG`, `Alphabet Inc. → ABE0 | ABEA | ABEC`, `Roche Holding AG →
+    RHO | RHO6`). A same-page dedupe would misfire on hundreds of real,
+    liquid securities.
+  - *`averageVolume` and `sharesOutstanding` both missing.* Checked against
+    the cache: **4,226 of 7,861 tickers (54%)** match, including `ROG.SW` —
+    Roche Holding AG, one of the most liquid stocks in Europe — whose gap
+    here is an ordinary Yahoo coverage artifact, not evidence of anything.
+    Far too broad to veto on.
+  No narrow, safe signal was found; closing this gap would need genuine
+  per-ticker ground truth the app doesn't have, not a smarter guess from
+  existing fields. Left as an accepted limitation — in the current universe
+  it does not produce a wrong signal (`INPHI.AS` itself lands on `Avoid`
+  today via the unrelated pre-existing revenue-decline trend veto and a
+  deeply negative MoS), and the intersection of conditions needed to slip
+  through (dodge the volume veto, avoid `fv_basis_thin`, and land a price
+  gap too moderate to trip the MoS sanity clamp or fail `min_mos`) is narrow.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
