@@ -308,6 +308,7 @@ def render() -> None:
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
         sector = _sector
         div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
+        volume = row.get("averageVolume")
         # Terse note phrasing (bare value, no trailing sentence) matches
         # Uvalu.dc.html's checks model exactly (see modelDefs' `checks`
         # builder: de.toFixed(2)+'×', fcfY.toFixed(1)+'% yield', etc.) — our
@@ -345,6 +346,10 @@ def render() -> None:
         # list of tripped reasons; empty means the row passes.
         _trend_reasons = _trend_veto(row)
         _trend_note = _trend_reasons[0] if _trend_reasons else "—"
+        # Zero-volume check re-uses the same `== 0` (not `.fillna(0)`) test as
+        # compute_scores's `_hard_veto` — a confirmed zero fails, a missing
+        # field passes (unreported volume isn't evidence of no trading).
+        _no_trade = pd.notna(volume) and volume == 0
         _checks = [
             (f"Debt / equity below {_max_de_thr/100:.1f}×",
              not (pd.notna(de) and de > _max_de_thr) or _de_exempt, _de_note),
@@ -352,6 +357,7 @@ def render() -> None:
              _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
             ("Dividend coverage adequate", not _div_veto, _div_note),
             ("No adverse multi-year trend", not _trend_reasons, _trend_note),
+            ("Confirmed trading volume", not _no_trade, _fv(row, "averageVolume", lambda v: f"{v:,.0f}")),
         ]
         for check_label, passed, note in _checks:
             icon = "✓" if passed else "✕"

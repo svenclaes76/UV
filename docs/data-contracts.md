@@ -98,7 +98,13 @@ between screens at some point (see the `dq/*` history); the tests in
   with `fv_model_count < MIN_FV_MODELS` is treated as a degraded payload:
   `_fetch_and_store` re-fetches it on `CACHE_TTL_SHORT_HOURS` and
   `backfill_thin_rows_from_screener_lane` swaps in the screener lane's row when
-  that one has *more* live models.
+  that one has *more* live models. `fv_basis_thin` also gates Stage 6: a thin
+  row cannot reach `Decision == "Strong Buy"` (it falls through to Monitor on
+  score instead) — a weakly-corroborated composite alone isn't a hard veto,
+  just not enough to confirm a BUY. This was the FV-5 "Composite-score
+  asterisk" deferred at ship time; the NAITR.AS incident (a lone book-value
+  fallback off a corrupted price producing a spurious Strong Buy) is what
+  prompted implementing it.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or

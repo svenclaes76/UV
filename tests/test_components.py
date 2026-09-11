@@ -426,6 +426,17 @@ class TestVetoReasonStr:
         row = pd.Series({"revenueHistory": [80.0, 100.0]})   # < 3 years
         assert veto_reason_str(row) == "a hard-veto rule"
 
+    def test_confirmed_zero_volume_is_a_reason(self, isolated_data):
+        row = pd.Series({"averageVolume": 0.0})
+        assert "no confirmed trading volume" in veto_reason_str(row)
+
+    def test_missing_volume_is_not_a_reason(self, isolated_data):
+        # Unreported volume (field absent, not a confirmed 0) must not
+        # surface as a reason — matches screener.py's `== 0` (not
+        # `.fillna(0)`) hard-veto test.
+        row = pd.Series({"averageVolume": None})
+        assert veto_reason_str(row) == "a hard-veto rule"
+
 
 class TestFairValueBarHtml:
     def test_missing_data_returns_dash(self):

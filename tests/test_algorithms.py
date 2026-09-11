@@ -851,6 +851,74 @@ class TestDecisionReason:
                        "margin_of_safety": 0.4, "veto": True})
         assert "Hard veto active" in screener.decision_reason(r)
 
+    def test_monitor_flags_thin_fair_value_basis(self):
+        r = pd.Series({"Decision": "Monitor", "Value Score": 82.0,
+                       "margin_of_safety": 0.9, "veto": False, "fv_basis_thin": True})
+        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "too few independent models" in msg
+
+
+class TestUntradeableInstruments:
+    """A confirmed zero average volume (the ticker genuinely hasn't traded —
+    e.g. treasury shares or a dormant secondary listing sharing a company's
+    market data, as with NAITR.AS) is a hard veto, distinct from a merely
+    unreported volume field which stays neutral."""
+
+    def test_zero_volume_is_hard_veto_even_with_a_strong_score(self):
+        # Same recipe as test_single_strong_row_reaches_strong_buy_decision
+        # (would clear Strong Buy on every other dimension) but with a
+        # confirmed-zero averageVolume instead of a healthy one.
+        row = pd.DataFrame([{
+            "Name": "Untraded Co", "Ticker": "NOVOL", "Price": 50.0,
+            "trailingEps": 5.0, "bookValue": 20.0, "targetMeanPrice": 90.0,
+            "beta": 1.0, "returnOnEquity": 0.20, "returnOnAssets": 0.10,
+            "operatingMargins": 0.25, "freeCashflow": 1e9, "netIncome": 8e8,
+            "debtToEquity": 50.0, "currentRatio": 2.0, "averageVolume": 0.0,
+            "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+        }])
+        out = compute_scores(row).iloc[0]
+        assert bool(out["veto"]) is True
+        assert out["Decision"] == "Avoid"
+
+    def test_missing_volume_is_not_vetoed(self):
+        # Same row, averageVolume simply absent (not confirmed zero) -> the
+        # veto must not fire; unreported volume stays neutral, not worst-case.
+        row = pd.DataFrame([{
+            "Name": "Unknown Volume Co", "Ticker": "NOVOL2", "Price": 50.0,
+            "trailingEps": 5.0, "bookValue": 20.0, "targetMeanPrice": 90.0,
+            "beta": 1.0, "returnOnEquity": 0.20, "returnOnAssets": 0.10,
+            "operatingMargins": 0.25, "freeCashflow": 1e9, "netIncome": 8e8,
+            "debtToEquity": 50.0, "currentRatio": 2.0,
+            "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+        }])
+        out = compute_scores(row).iloc[0]
+        assert bool(out["veto"]) is False
+        assert out["Decision"] == "Strong Buy"
+
+    def test_thin_fair_value_basis_blocks_strong_buy_not_avoid(self):
+        # NAITR.AS-shaped case: no earnings/PE/EPV/DDM/analyst anchor at all,
+        # so the composite fair value rests on the lone book-value fallback
+        # (FV-3) -> fv_model_count == 1 -> fv_basis_thin. Real, healthy
+        # trading volume this time (isolates this gate from the veto above):
+        # a weakly-corroborated fair value should hold the row at Monitor,
+        # not promote it to Strong Buy on an unconfirmed number, and it must
+        # NOT be treated as a hard veto (a thin basis isn't a red flag, just
+        # an unproven one).
+        row = pd.DataFrame([{
+            "Name": "Thin Basis Co", "Ticker": "THIN", "Price": 50.0,
+            "bookValue": 80.0,
+            "beta": 1.0, "returnOnEquity": 0.20, "returnOnAssets": 0.10,
+            "operatingMargins": 0.25, "freeCashflow": 1e9, "netIncome": 8e8,
+            "debtToEquity": 50.0, "currentRatio": 2.0, "averageVolume": 1e6,
+            "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+        }])
+        out = compute_scores(row).iloc[0]
+        assert int(out["fv_model_count"]) == 1
+        assert bool(out["fv_basis_thin"]) is True
+        assert bool(out["veto"]) is False
+        assert out["margin_of_safety"] > 0
+        assert out["Decision"] == "Monitor"
+
 
 class TestStage3:
     def test_margin_of_safety(self):
@@ -1124,6 +1192,10 @@ class TestDimensionScores:
         assert _liquidity_score(pd.Series({"averageVolume": 30_000})) == 5.0
         assert _liquidity_score(pd.Series({"averageVolume": 10_000})) == 2.5
         assert _liquidity_score(pd.Series({})) == 5.0
+        # A *confirmed* zero (genuinely hasn't traded) is worst-case, not the
+        # neutral "unknown" treatment a missing field gets above.
+        assert _liquidity_score(pd.Series({"averageVolume": 0})) == 0.0
+        assert _liquidity_score(pd.Series({"averageVolume": 0.0})) == 0.0
 
     def test_dividend_risk_non_payer_neutral(self):
         assert _dividend_risk_score(pd.Series({})) == 5.0

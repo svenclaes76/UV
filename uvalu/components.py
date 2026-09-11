@@ -63,7 +63,9 @@ def veto_reason_str(row: "pd.Series") -> str:
     less history is available] | _trend_veto(row) [multi-year revenue
     decline / EBIT collapse / retained-earnings erosion / a recent
     dividend cut on thin cover] | (Div Flag == "At Risk" AND
-    dividendCoverage < 1.0) — the last one is a single AND-combined
+    dividendCoverage < 1.0) | (averageVolume == 0) [a confirmed zero — the
+    ticker genuinely hasn't traded, e.g. treasury shares or a dormant
+    secondary listing] — the Div Flag condition is a single AND-combined
     condition, not two independent ones, so it's only listed as failing
     when BOTH sub-conditions hold. Shared by uvalu/drawer.py and
     uvalu/pages_/analysis.py so the two veto banners never drift out of
@@ -73,6 +75,7 @@ def veto_reason_str(row: "pd.Series") -> str:
     de = row.get("debtToEquity"); fcf = row.get("freeCashflow")
     sector = row.get("sector")
     div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
+    volume = row.get("averageVolume")
     reasons = []
     if pd.notna(de) and de > max_de and sector not in LEVERAGE_EXEMPT_SECTORS:
         reasons.append(f"debt/equity of {de:.0f}% exceeds the {max_de:.0f}% limit")
@@ -85,6 +88,8 @@ def veto_reason_str(row: "pd.Series") -> str:
     reasons.extend(_trend_veto(row))
     if div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0:
         reasons.append(f"dividend flagged at risk with {coverage:.2f}× coverage")
+    if pd.notna(volume) and volume == 0:
+        reasons.append("no confirmed trading volume")
     return "; ".join(reasons) if reasons else "a hard-veto rule"
 
 

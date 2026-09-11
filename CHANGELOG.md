@@ -9,7 +9,13 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **Spurious Strong Buy on an untraded instrument, and Stage 6 catches up with FV-5's thin-basis flag.** `NAITR.AS` (New Amsterdam Invest N.V. *treasury shares*, a near-untraded secondary listing sharing the company's market data with its real, actively-traded `NAI.AS` line) scored a "Strong Buy" with a +99.7% margin of safety and a 562.5% dividend yield — all downstream of a corrupted €0.04 price on a listing with `averageVolume == 0` and only one fair-value sub-model (a lone book-value fallback, `fv_basis_thin`).
+  - `screener._liquidity_score`: a *confirmed* zero `averageVolume` (the ticker genuinely hasn't traded) now scores worst-case (0/10) instead of sharing the neutral 5.0 treatment a merely-*unreported* volume gets.
+  - `screener.compute_scores`'s `_hard_veto` gains a new condition: confirmed zero average volume forces Avoid, same as the existing D/E / FCF / trend / dividend-cut vetoes. `uvalu.components.veto_reason_str` and the Analysis page's "Hard-veto checks" panel surface it alongside the others.
+  - Stage 6 decision: a `fv_basis_thin` fair value (FV-5, shipped 1.6.0 — fewer than `MIN_FV_MODELS` independent sub-models back the composite) can no longer reach `Decision == "Strong Buy"`; it falls through to Monitor on score instead. This was FV-5's "composite-score asterisk," explicitly deferred at the time as a separate Stage 5/6 proposal — not a hard veto, since a weakly-corroborated fair value isn't a red flag on its own, just unconfirmed.
+  - `screener.decision_reason` gained the matching gate string ("the fair value rests on too few independent models to confirm a BUY").
 
 ---
 

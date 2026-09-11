@@ -1529,16 +1529,17 @@ def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY
     """One-line, stock-specific explanation of a row's ``Decision`` — why it's a
     BUY, or which gate is holding it at Monitor / Avoid. Mirrors
     ``compute_scores`` Stage 6 exactly (veto → Avoid; else score ≥
-    buy_threshold AND a confirmed MoS ≥ min_mos → Strong Buy; else score ≥
-    SCORE_AVOID → Monitor; else Avoid). ``min_mos`` is a fraction
-    (``settings.get_veto_thresholds`` already divides by 100). Shared by the
-    Analysis page and the drawer so the two never explain the same signal
-    differently."""
+    buy_threshold AND a confirmed MoS ≥ min_mos AND a corroborated fair value
+    (not ``fv_basis_thin``) → Strong Buy; else score ≥ SCORE_AVOID → Monitor;
+    else Avoid). ``min_mos`` is a fraction (``settings.get_veto_thresholds``
+    already divides by 100). Shared by the Analysis page and the drawer so the
+    two never explain the same signal differently."""
     dec = str(row.get("Decision") or "")
     _s = row.get("Value Score")
     _m = row.get("margin_of_safety")
     score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
     mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
+    thin  = bool(row.get("fv_basis_thin"))
     _score_txt = "—" if score is None else f"{score:.0f}"
 
     if bool(row.get("veto")):
@@ -1555,6 +1556,8 @@ def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY
         gates.append("no computable fair value, so the margin of safety can't be confirmed")
     elif mos < min_mos:
         gates.append(f"margin of safety {mos:+.0%} is below the {min_mos:+.0%} minimum")
+    if thin:
+        gates.append("the fair value rests on too few independent models to confirm a BUY")
 
     if dec == "Avoid":
         return f"Composite score {_score_txt} is below the {SCORE_AVOID:.0f} Avoid floor."
@@ -1639,10 +1642,16 @@ def _dividend_risk_score(row: pd.Series) -> float:
 
 
 def _liquidity_score(row: pd.Series) -> float:
-    """0–10, higher = more liquid."""
+    """0–10, higher = more liquid. A *confirmed* zero (the ticker genuinely
+    hasn't traded — e.g. treasury shares, a dormant secondary listing) is not
+    the same as a missing field, and must not share its neutral treatment:
+    scored worst-case instead. `vol < 0` shouldn't occur but is treated the
+    same as missing rather than crashing the band checks below."""
     vol = _get_num(row, "averageVolume")
-    if vol is None or vol <= 0:
+    if vol is None or vol < 0:
         return 5.0
+    if vol == 0:
+        return 0.0
     if vol >= 500_000: return 10.0
     if vol >= 100_000: return 7.5
     if vol >= 25_000:  return 5.0
@@ -1951,15 +1960,19 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # FCF negative for 3+ consecutive years (single most-recent period if less history
     # is available) OR dividend flagged at risk with coverage < 1.0 (imminent cut risk)
     # OR any multi-year deterioration trend (_trend_veto: revenue decline, EBIT
-    # collapse, retained-earnings erosion, a recent dividend cut on thin cover).
+    # collapse, retained-earnings erosion, a recent dividend cut on thin cover) OR a
+    # confirmed zero average volume — a ticker that genuinely hasn't traded (treasury
+    # shares, a dormant secondary listing) rather than one where volume is simply
+    # unreported (`== 0`, not `.fillna(0)`, so a missing field never vetoes).
     de            = df["debtToEquity"].fillna(0)
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
     fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
     trend_veto    = df.apply(lambda r: bool(_trend_veto(r)), axis=1)
+    no_trade_veto = pd.to_numeric(df["averageVolume"], errors="coerce") == 0
     df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | trend_veto | (
         (df["Div Flag"] == "At Risk") & (coverage < 1.0)
-    )
+    ) | no_trade_veto
 
     # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
     mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True)
@@ -2002,19 +2015,28 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # with no computable fair value (NaN MoS — every model failed) can't have
     # its margin of safety confirmed, so it can't reach Strong Buy either; it
     # falls through to Monitor/Avoid on score alone instead of bypassing the gate.
+    # A `fv_basis_thin` fair value (FV-5: fewer than MIN_FV_MODELS independent
+    # sub-models, e.g. a lone book-value fallback) is real but weakly
+    # corroborated — deferred at FV-5 ship time as its own Stage 6 change; it
+    # gates Strong Buy here rather than joining `_hard_veto`, since a thin basis
+    # isn't a red flag on its own, just an unconfirmed one — the row still falls
+    # through to Monitor on score.
     # Vectorised equivalent of the former per-row `_decision`: veto → Avoid;
-    # else score ≥ buy_threshold with a confirmed MoS ≥ min_mos → Strong Buy;
-    # else score ≥ SCORE_AVOID → Monitor; else Avoid. np.select takes the first
-    # true branch, and every non-veto branch already excludes veto rows, so the
-    # priority matches the if/elif ladder exactly. NaN score compares False
-    # everywhere → Avoid, same as the scalar path.
+    # else score ≥ buy_threshold with a confirmed MoS ≥ min_mos and a
+    # corroborated fair value → Strong Buy; else score ≥ SCORE_AVOID → Monitor;
+    # else Avoid. np.select takes the first true branch, and every non-veto
+    # branch already excludes veto rows, so the priority matches the if/elif
+    # ladder exactly. NaN score compares False everywhere → Avoid, same as the
+    # scalar path.
     _dec_veto  = df["_hard_veto"].fillna(False).astype(bool)
     _dec_score = pd.to_numeric(df["Value Score"], errors="coerce")
     _dec_mos   = pd.to_numeric(df["margin_of_safety"], errors="coerce")
+    _dec_thin  = df["fv_basis_thin"].fillna(False).astype(bool)
     df["Decision"] = np.select(
         [
             _dec_veto,
-            (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna() & (_dec_mos >= min_mos),
+            (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
+                & (_dec_mos >= min_mos) & ~_dec_thin,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         ["Avoid", "Strong Buy", "Monitor"],

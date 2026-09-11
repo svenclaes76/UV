@@ -116,7 +116,7 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 | **Earnings quality** | FCF-to-net-income conversion **blended with** `fcfHistory` consistency (fraction of positive years + level stability via coefficient of variation, when ≥3 years) **and** a Sloan **accrual ratio** `(netIncome − operating cash flow) / totalAssets` from the latest `cfoHistory` / `totalAssetsHistory` year (falls back to `freeCashflow` for CFO; skipped when total assets are unavailable) — large positive accruals score low. Any subset of the three that has inputs is averaged; conversion ratio alone otherwise, then neutral 5.0 | Risk |
 | **Market risk** | Beta, **Blume-adjusted** (shrunk toward 1.0 — same `_adjust_beta` as WACC) so a noisy trailing estimate can't swing the dimension as hard | Risk |
 | **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, DGR (`_dgr_estimate` — true DGR when available, else `earningsGrowth`) | Risk |
-| **Liquidity** | Average daily volume | Risk |
+| **Liquidity** | Average daily volume — a confirmed 0 scores worst-case (0/10), a missing value stays neutral (5/10); a confirmed 0 also forces the Stage 6 hard veto, see above | Risk |
 | **Quality** | ROE, ROA, operating margin, FCF yield, current ratio | *Separate score* |
 | **Momentum** | Earnings growth, revenue growth, analyst recommendation mean | *Separate score* |
 
@@ -143,11 +143,16 @@ Score = 0.24×MoS_sub + 0.22×Risk_sub + 0.24×Quality_sub + 0.15×Momentum_sub 
 ## Stage 6 — Decision
 | Score | Action |
 |---|---|
-| ≥ 70 **(configurable, `buy_threshold`)** — *and* MoS ≥ `min_mos` (default 0%) | **Strong Buy** |
+| ≥ 70 **(configurable, `buy_threshold`)** — *and* MoS ≥ `min_mos` (default 0%) — *and* the fair value is not `fv_basis_thin` (FV-5) | **Strong Buy** |
 | 40–70 | **Monitor / watch list** |
 | < 40 | **Avoid** |
 
-A hard veto forces **Avoid** regardless of score.
+A hard veto forces **Avoid** regardless of score. A `fv_basis_thin` fair value —
+fewer than `MIN_FV_MODELS` (2) independent sub-models back the composite, e.g.
+a lone book-value fallback with no earnings/PE/EPV/DDM/analyst anchor at all —
+is not itself a hard veto (an unconfirmed fair value isn't a red flag the way
+a D/E blowout is); it only blocks the row from reaching Strong Buy, so it
+falls through to Monitor on score instead.
 
 ### Hard Veto Rules
 `screener.compute_scores`'s `_hard_veto` is true when **any** of the following holds. The
@@ -155,6 +160,7 @@ static, point-in-time checks:
 - Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
 - Free cash flow negative for the **3 most recent consecutive fiscal years** (`fcfHistory`, from the cash flow statement's "Free Cash Flow" row, newest first — `screener._fcf_history`). Falls back to the **single most recent reported period** (`freeCashflow`) when fewer than 3 years of history are available (recent IPOs, or tickers where the statement fetch failed/doesn't expose the row) — a single bad year no longer vetoes an otherwise-sound stock on its own once 3-year history exists.
 - Dividend sustainability flag is **At Risk** *and* dividend coverage < 1.0×
+- **Confirmed zero average trading volume** (`averageVolume == 0`, not merely unreported) — the instrument genuinely hasn't traded (e.g. treasury shares or a dormant secondary listing sharing a company's market data with its real, actively-traded line, as with `NAITR.AS` vs `NAI.AS`). A *missing* `averageVolume` field is not evidence of no trading and stays neutral in the Liquidity risk sub-score below — only a confirmed 0 vetoes.
 
 …and the multi-year **deterioration trends** (`screener._trend_veto`, each requiring at least `_TREND_MIN_YEARS` = 3 points of the relevant series from `screener._statement_history`; a shorter or absent series never triggers):
 - **Revenue decline** — `revenueHistory` has fallen year-over-year for at least `_TREND_DECLINE_RUN` (2) consecutive years at the newest end (i.e. 3+ straight declining years).
@@ -187,7 +193,7 @@ Each sub-score (0–100) = BLEND_PCT×(cross-sectional percentile rank) + (1−B
     ↓
 Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.24/0.22/0.24/0.15/0.15)
     ↓
-Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
+Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
     ↓
-Strong Buy (score ≥ threshold AND MoS ≥ min_mos) | Monitor | Avoid
+Strong Buy (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Monitor | Avoid
 ```
