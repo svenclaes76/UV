@@ -126,7 +126,7 @@ class TestHoldingsRowReconciles:
         return holdings_row_html(
             ticker="X.BR", sector=None, name="X", decision="Monitor", veto=False,
             price=row["live_price"], fair_value=row["fair_value"], mos_pct=row["MoS %"],
-            weight=0.1, value=1000.0, day_change_pct=0.0)
+            weight=0.1, value=1000.0, total_gain=0.0)
 
     def test_stale_cache_price_does_not_desync_the_row(self):
         # Porsche case: €40 cached price, €28 fair value, €28.21 live.

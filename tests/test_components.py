@@ -464,7 +464,7 @@ class TestHoldingsRowHtml:
     def _row(self, **overrides):
         kwargs = dict(ticker="AAA.BR", sector="Technology", name="Alpha Corp",
                       decision="Strong Buy", veto=False, price=100.0, fair_value=120.0,
-                      mos_pct=16.7, weight=0.25, value=2500.0, day_change_pct=1.5)
+                      mos_pct=16.7, weight=0.25, value=2500.0, total_gain=125.0)
         kwargs.update(overrides)
         return holdings_row_html(**kwargs)
 
@@ -472,9 +472,15 @@ class TestHoldingsRowHtml:
         html = self._row(mos_pct=None)
         assert "<span style='color:var(--faint);'>—</span>" in html
 
-    def test_missing_day_change_shows_dash(self):
-        html = self._row(day_change_pct=None)
-        assert html.count("<span style='color:var(--faint);'>—</span>") == 1  # only day-change dash
+    def test_missing_total_gain_shows_dash(self):
+        html = self._row(total_gain=None)
+        assert html.count("<span style='color:var(--faint);'>—</span>") == 1  # only P&L dash
+
+    def test_total_gain_colors_and_formats_by_sign(self):
+        assert "+€125.00" in self._row(total_gain=125.0)
+        assert "-€125.00" in self._row(total_gain=-125.0)
+        assert "var(--up-txt)" in self._row(total_gain=125.0)
+        assert "var(--down-txt)" in self._row(total_gain=-125.0)
 
     def test_no_sector_omits_sector_pill(self):
         html = self._row(sector=None)

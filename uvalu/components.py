@@ -433,26 +433,30 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 # align-items:center handles vertical centering natively. The one thing this
 # can't do is a native onClick, so the caller renders this in a wide column
 # next to a normal narrow st.button("→", ...) column for the drawer link.
-HOLDINGS_GRID_COLS = "210px 78px 1fr 82px 66px 108px 78px"
+HOLDINGS_GRID_COLS = "210px 78px 1fr 82px 66px 108px 96px"
 
 
 def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       decision: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
-                      weight: float, value: float, day_change_pct: float | None,
+                      weight: float, value: float, total_gain: float | None,
                       price_stale: bool = False, data_thin: bool = False,
                       currency: str = "€") -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, margin-of-safety/weight/value, and a
-    day-change chip — matching Uvalu.dc.html's row spec column-for-column.
+    P&L cell — matching Uvalu.dc.html's row spec column-for-column.
     `mos_pct` is the margin of safety, (fair_value − price) / fair_value — the
     same convention as _margin_of_safety() and the ladder legend, not raw
-    upside (fair_value / price − 1). `price_stale` dims the day-change chip and
-    adds a "delayed quote" tooltip when this row isn't on a fresh intraday
-    tick (WP-DQ8). `data_thin` (WP-E) renders "fv pending" for the ladder and
-    margin-of-safety cells instead of a bare "—" when there's no fair value
-    because the fundamentals record came back incomplete. Embed inside an outer
-    st.markdown(unsafe_allow_html=True) call; pair with a
+    upside (fair_value / price − 1). `total_gain` is the position's unrealised
+    P&L in € (current_value − purchase_value, excluding dividends) — same
+    formula and semantics as the Portfolio page's "Unrealised P&L" column, not
+    the day's price move. `price_stale` dims the P&L cell and adds a "delayed
+    quote" tooltip when this row isn't on a fresh intraday tick (WP-DQ8) —
+    `total_gain` is derived from the live price, so a stale quote still means
+    a stale P&L figure. `data_thin` (WP-E) renders "fv pending" for the
+    ladder and margin-of-safety cells instead of a bare "—" when there's no
+    fair value because the fundamentals record came back incomplete. Embed
+    inside an outer st.markdown(unsafe_allow_html=True) call; pair with a
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{sector}</span>"
@@ -469,13 +473,16 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                     "style='color:var(--muted);font-family:var(--uv-mono);font-size:11px;'>pending</span>")
     else:
         mos_html = "<span style='color:var(--faint);'>—</span>"
-    if day_change_pct is not None and pd.notna(day_change_pct):
-        day_html = chip_html(f"{float(day_change_pct):+.2f}%", float(day_change_pct) >= 0)
+    if total_gain is not None and pd.notna(total_gain):
+        total_gain = float(total_gain)
+        _gain_color = "var(--up-txt)" if total_gain >= 0 else "var(--down-txt)"
+        gain_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
+                    f"color:{_gain_color};'>{'+' if total_gain >= 0 else '-'}{_fmt_eur(abs(total_gain))}</span>")
     else:
-        day_html = "<span style='color:var(--faint);'>—</span>"
+        gain_html = "<span style='color:var(--faint);'>—</span>"
     if price_stale:
-        day_html = (f"<span title='Delayed quote — not a live intraday price' "
-                    f"style='opacity:0.45;'>{day_html}</span>")
+        gain_html = (f"<span title='Delayed quote — not a live intraday price' "
+                    f"style='opacity:0.45;'>{gain_html}</span>")
     # Built as one single-line string, not a multi-line f-string template —
     # confirmed live that Streamlit's frontend pre-estimates a markdown
     # element's height from something like a newline count in the *raw*
@@ -496,7 +503,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
            f'<div style="text-align:right;">{mos_html}</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{weight*100:.1f}%</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;font-weight:500;">{_fmt_eur(value)}</div>'
-           f'<div style="text-align:right;">{day_html}</div></div>')
+           f'<div style="text-align:right;">{gain_html}</div></div>')
 
 
 def _score_bar_cell_html(score: float | None) -> str:

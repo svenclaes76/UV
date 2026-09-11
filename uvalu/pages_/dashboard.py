@@ -403,7 +403,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = ("Position", "Signal", "Fair-value ladder", "Margin of safety", "Weight", "Value", "Today")
+                _hh_labels = ("Position", "Signal", "Fair-value ladder", "MoS %", "Weight", "Value", "P&amp;L")
                 _hh_cells = "".join(
                     f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
@@ -413,7 +413,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         if not _db_scr.empty:
             _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
             _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
-            _hold = _hold.sort_values("current_value", ascending=False).reset_index(drop=True)
+            _hold = _hold.sort_values("price_gain", ascending=False).reset_index(drop=True)
 
             # Row-click opens the shared drawer (same right-edge sidepanel used
             # by Screener/Watchlist/Portfolio) — @st.dialog can't be invoked
@@ -457,7 +457,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                         sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
                         decision=_decision, veto=_hr.get("veto"),
                         price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
-                        weight=_w, value=_cv, day_change_pct=_hr.get("day_change_pct"),
+                        weight=_w, value=_cv, total_gain=_hr.get("price_gain"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
                         data_thin=bool(_dt) if pd.notna(_dt) else False,
                     ), unsafe_allow_html=True)
