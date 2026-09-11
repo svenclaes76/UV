@@ -9,6 +9,17 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.7.0] — 2026-09-12
+
+### Added
+
+- **Valuation & risk accuracy audit** (`tools/valuation_audit.py`, `docs/valuation_audit_plan.md`). A standalone tool, not wired into the app, for catching the class of bug this release's `NAITR.AS`/`SNBN.SW` fixes came from — before a screenshot has to surface it. Runs `screener.compute_scores` over the full cached fundamentals universe and applies a documented, versioned check catalog: an implied-P/B floor (re-asserting `PTB_SANITY_FLOOR`), a net-income cross-validation (`trailingEps × sharesOutstanding` vs. `netIncomeHistory`, catching a corrupted EPS even when P/B looks normal), `sharesOutstanding == 0` sanity, zero-volume/`fv_basis_thin`-vs-Strong-Buy and `Decision`/`veto` consistency (regression sentinels for the Stage 6 rules in check form), fair-value/price ratio outliers, and dividend-yield sanity. Findings aggregate per ticker, tier by severity (critical/notable/informational), carry the algorithm's own `fv_dark_reasons`/`decision_reason`/`veto_reason_str` explanations, and diff against a persisted suppression/history log (`.cache/valuation_audit_log.json`) so a triaged finding doesn't resurface until its disposition changes. Detection only — no automatic fixes; a human decides fixed / documented-gap / dismissed-false-positive via `--dispose`. `CONTRIBUTING.md` now asks for a run before committing a change to `_fair_value_models`/`compute_scores`/the Stage 5/6 rules.
+  - Building it surfaced two things the design pass didn't catch: the net-income check's ratio test collapsed toward zero-noise whenever `trailingEps` or `sharesOutstanding` was near zero (129 of 235 raw hits on the first real run were this artifact, fixed with two coverage exclusions); and its `NAITR.AS` regression sentinel caught a real pending-fetch placeholder row from another running app instance's background fetcher, taught to recognize and skip that shape rather than false-alarm.
+
 ### Fixed
 
 - **Spurious Strong Buy on an untraded instrument, and Stage 6 catches up with FV-5's thin-basis flag.** `NAITR.AS` (New Amsterdam Invest N.V. *treasury shares*, a near-untraded secondary listing sharing the company's market data with its real, actively-traded `NAI.AS` line) scored a "Strong Buy" with a +99.7% margin of safety and a 562.5% dividend yield — all downstream of a corrupted €0.04 price on a listing with `averageVolume == 0` and only one fair-value sub-model (a lone book-value fallback, `fv_basis_thin`).
@@ -22,6 +33,7 @@ Version numbers follow the scheme in
   - New `fv_dark_reasons` code `implausible_book` ("price too far below book value to trust") so the drawer's "Six-model fair value" ladder explains the gap instead of showing a bare dash.
   - `docs/data-contracts.md` also records a related, distinct, currently-unfixed case (`LISPE.SW`, a Lindt & Sprüngli participation certificate whose cached fundamentals were contaminated by its sibling registered share) and why closing it needs cross-ticker company-identity data (`ISIN`) the app doesn't reliably have.
 - **Dashboard Holdings table: "Margin of safety" column header wrapped to two lines.** Its grid column was only 82px wide — too narrow for the uppercase, letter-spaced label at 10px. Shortened to **"MoS %"**, the abbreviation already used everywhere else in the app (the underlying DataFrame column, the drawer, the Screener sort key).
+- **Silent portfolio price-fetch failures.** yfinance's per-ticker `fast_info` fallback can return every field as `None` (a rate limit or outage on that endpoint, unlike the batch download, doesn't raise) — a rate-limited fetch and a genuinely delisted ticker looked identical, surfacing downstream only as a blank "No daily price data available" with nothing in the logs to explain why. `prices.fetch_prices` now logs one summary warning per call when the fallback ends the round with no price for one or more tickers.
 
 ### Changed
 
