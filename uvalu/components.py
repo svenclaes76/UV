@@ -233,6 +233,7 @@ _REASON_TEXT = {
     "sector":         "n/a for this sector",
     "no_eps":         "no positive EPS",
     "no_book":        "no book value",
+    "implausible_book": "price too far below book value to trust",
     "epv_negative":   "net debt > earnings",
     "no_ev":          "no enterprise value",
     "no_ebit":        "no multi-year EBIT",

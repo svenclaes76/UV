@@ -785,6 +785,60 @@ class TestFairValueSanityClamp:
         assert bool(out.iloc[0]["fair_value_clamped"]) is True
 
 
+class TestPerShareInputSanityFloor:
+    """PTB_SANITY_FLOOR: bookValue and trailingEps share the same
+    sharesOutstanding basis for a row, so an implausibly low implied P/B
+    (Price/bookValue) is evidence that basis is broken for the whole row —
+    holds Graham, PE fair value, and the P/B model dark rather than building
+    a number the market price already contradicts by orders of magnitude.
+    Modeled on the SNBN.SW (Swiss National Bank) incident: legally capped
+    dividend + only 100,000 shares outstanding produces a genuinely enormous
+    bookValue/trailingEps per share, which fed a >$6M "fair value" against a
+    ~CHF 3,140 price."""
+
+    def test_implausible_book_value_holds_graham_pe_and_pb_dark(self):
+        # SNBN.SW-shaped: Price=3140, bookValue in the millions -> implied
+        # P/B ~0.0019, far below the floor. trailingEps is equally huge (same
+        # sharesOutstanding basis), so PE fair value is affected too.
+        row = pd.Series({"Price": 3140.0, "bookValue": 1_659_593.0,
+                         "trailingEps": 666_185.9, "sector": "Financial Services"})
+        fv = _fair_value_models(row)
+        assert fv["graham_number"] is None
+        assert fv["pe_fair_value"] is None
+        assert fv["pb_fair_value"] is None
+        assert fv["fair_value"] is None
+        assert fv["fv_model_count"] == 0
+        assert fv["fv_dark_reasons"]["pe_fair_value"] == "implausible_book"
+
+    def test_normal_price_to_book_is_untouched(self):
+        # Comfortably above the floor (Price/bookValue = 0.4) -> models fire
+        # normally, same as before this guard existed.
+        row = pd.Series({"Price": 50.0, "trailingEps": 5.0, "bookValue": 125.0})
+        fv = _fair_value_models(row)
+        assert fv["graham_number"] is not None
+        assert fv["pe_fair_value"] is not None
+
+    def test_low_trailing_pe_alone_does_not_trigger_the_guard(self):
+        # A genuinely cheap, legitimately low-P/E stock (real earnings
+        # volatility, not a data defect) must NOT be caught — the guard is
+        # P/B-only precisely because P/E alone is too noisy a signal (real
+        # TPG0.DE/ALWEC.PA-shaped Strong Buys have implied P/E well under 2
+        # with nothing wrong). Price/bookValue here is a normal ~0.11.
+        row = pd.Series({"Price": 1.0, "trailingEps": 2.0, "bookValue": 9.0})
+        fv = _fair_value_models(row)
+        assert fv["graham_number"] is not None
+        assert fv["pe_fair_value"] is not None
+
+    def test_compute_scores_keeps_the_row_off_strong_buy(self):
+        out = compute_scores(pd.DataFrame([
+            {"Name": "SNB", "Ticker": "SNBN.SW", "Price": 3140.0,
+             "bookValue": 1_659_593.0, "trailingEps": 666_185.9,
+             "sector": "Financial Services", "averageVolume": 59.0,
+             "payoutRatio": 0.0}])).iloc[0]
+        assert pd.isna(out["fair_value"])
+        assert out["Decision"] != "Strong Buy"
+
+
 class TestFvBasisThin:
     """FV-5: fv_model_count / fv_basis_thin surface a weakly-corroborated
     composite (distinct from data_thin, which is *no* composite)."""
@@ -1683,7 +1737,8 @@ class TestVectorisedStage3And6:
         if row["_hard_veto"] if "_hard_veto" in row else row["veto"]:
             return "Avoid"
         s, mos = row["Value Score"], row["margin_of_safety"]
-        if s >= buy_threshold and pd.notna(mos) and mos >= min_mos:
+        if (s >= buy_threshold and pd.notna(mos) and mos >= min_mos
+                and not bool(row["fv_basis_thin"])):
             return "Strong Buy"
         if s >= screener.SCORE_AVOID:
             return "Monitor"

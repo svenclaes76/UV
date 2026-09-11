@@ -156,6 +156,29 @@ FCF_MULTIPLE         = 15.0         # ≈ 6.7% FCF yield; fixed, not 1/(WACC−g
 # model for that cohort is the real fix, this is the guardrail.
 FV_SANITY_MULT = 2.0
 
+# Per-share input sanity floor. `bookValue` / `trailingEps` are both scaled by
+# the same `sharesOutstanding` figure for a given row, so when Price/bookValue
+# (the implied P/B) falls below this floor, that scaling is suspect for the
+# whole row — either a genuine data defect (a secondary listing whose reported
+# per-share fundamentals were computed off a different share count/class than
+# the one actually priced, e.g. a foreign megacap's illiquid depositary line)
+# or a real but structural mismatch (a central-bank-style issuer whose legally
+# capped dividend breaks the standard proportional-equity-claim assumption
+# these models rely on). Either way, book-value- and earnings-anchored models
+# built on that basis (Graham, PE fair value, the P/B fallback/NAV-primary
+# model) aren't trustworthy for this row and are held dark rather than
+# contributing a number the market's own pricing already contradicts by orders
+# of magnitude. Deliberately P/B-only, not a symmetric P/E floor: trailingEps
+# is a flow figure that legitimately swings on ordinary earnings volatility (a
+# real one-off gain can push implied P/E below 1 with nothing wrong), while
+# bookValue is comparatively stable — an implausible P/B is a much cleaner
+# signal on its own than an implausible P/E, which produced real false
+# positives (genuinely cheap, legitimately low-P/E small caps) when tried.
+# Calibrated against the full scored universe: the lowest P/B among live
+# Strong Buy rows outside this failure mode sits at ~0.11, a 5×+ margin above
+# this floor.
+PTB_SANITY_FLOOR = 0.02
+
 # PE Fair Value multiple. Instead of a flat 15x for every stock, the multiple is
 # the median trailing P/E of the stock's own *sector* across the screened universe
 # (screener._sector_pe_medians), winsorized to PE_MULTIPLE_BAND and given a bounded
@@ -1283,9 +1306,19 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     _skip_graham_epv = sector in _GRAHAM_EPV_SKIP_SECTORS
     _skip_pe         = sector in _PE_SKIP_SECTORS
 
+    # Per-share input sanity floor (PTB_SANITY_FLOOR): bookValue and trailingEps
+    # share the same sharesOutstanding basis for a row, so an implied P/B this
+    # far below the market's own price is evidence that basis is broken for
+    # the whole row — holds Graham, PE fair value, and the P/B model dark
+    # rather than building a number the market price already contradicts by
+    # orders of magnitude. See the constant's own comment for the full
+    # rationale, including why this is P/B-only, not a symmetric P/E floor.
+    _ptb_implausible = bool(price and bvps and bvps > 0
+                            and price / bvps < PTB_SANITY_FLOOR)
+
     # Graham Number
     gn = None
-    if eps and bvps and eps > 0 and bvps > 0 and not _skip_graham_epv:
+    if eps and bvps and eps > 0 and bvps > 0 and not _skip_graham_epv and not _ptb_implausible:
         gn = (22.5 * eps * bvps) ** 0.5
 
     # PE Fair Value: sector-median trailing P/E (winsorized to PE_MULTIPLE_BAND)
@@ -1294,7 +1327,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
     if pd.notna(eg):
         pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
-    pe_fv = (eps * pe_multiple) if (eps and eps > 0 and not _skip_pe) else None
+    pe_fv = (eps * pe_multiple) if (eps and eps > 0 and not _skip_pe and not _ptb_implausible) else None
 
     # Earnings Power Value (EPV_EV = EBIT×(1-t)/WACC). EBIT is the multi-year mean
     # (_normalised_ebit) when history allows, so a peak/trough year doesn't set the
@@ -1363,7 +1396,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     pb_eligible = fallback_eligible or _skip_graham_epv
 
     pb_fv = None
-    if pb_eligible and bvps and bvps > 0:
+    if pb_eligible and bvps and bvps > 0 and not _ptb_implausible:
         pb_multiple = (sector_pb or {}).get(sector, PB_MULTIPLE_FALLBACK)
         pb_fv = bvps * pb_multiple
 
@@ -1402,7 +1435,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
                     gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
                     eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
                     epv_negative=epv_negative, skip_graham_epv=_skip_graham_epv,
-                    skip_pe=_skip_pe)}
+                    skip_pe=_skip_pe, ptb_implausible=_ptb_implausible)}
 
     # FV-5: how many *independent* sub-models back the composite.
     #  • ddm1 + ddm2 are one Gordon family fed identical inputs (the sanity clamp
@@ -1470,12 +1503,13 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
             gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
             eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
             epv_negative=epv_negative, skip_graham_epv=_skip_graham_epv,
-            skip_pe=_skip_pe),
+            skip_pe=_skip_pe, ptb_implausible=_ptb_implausible),
     }
 
 
 def _fv_dark_reasons(gn, pe_fv, epv, ddm1, ddm2, analyst_fv, *, eps, ev, ebit,
-                     div_rate, payout, epv_negative, skip_graham_epv, skip_pe) -> dict:
+                     div_rate, payout, epv_negative, skip_graham_epv, skip_pe,
+                     ptb_implausible: bool = False) -> dict:
     """FV-6: authoritative {model key -> short 'why dark' code} for the models
     that did not feed the composite. Built alongside the guards in
     `_fair_value_models` so the UI only formats codes — it never re-derives a
@@ -1486,9 +1520,12 @@ def _fv_dark_reasons(gn, pe_fv, epv, ddm1, ddm2, analyst_fv, *, eps, ev, ebit,
     out: dict = {}
     if _dead(gn):
         out["graham_number"] = ("sector" if skip_graham_epv
+                                else "implausible_book" if ptb_implausible
                                 else "no_eps" if _dead(eps) else "no_book")
     if _dead(pe_fv):
-        out["pe_fair_value"] = "sector" if skip_pe else "no_eps"
+        out["pe_fair_value"] = ("sector" if skip_pe
+                                else "implausible_book" if ptb_implausible
+                                else "no_eps")
     if _dead(epv):
         out["epv"] = ("sector" if skip_graham_epv
                       else "epv_negative" if epv_negative

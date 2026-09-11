@@ -34,8 +34,8 @@ Six core models run per stock; the composite is a weighted average of whichever 
 ### Models
 | Model | Formula / Approach | Base weight |
 |---|---|---|
-| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS. **FV-8: skipped for `Real Estate` and `Financial Services`** (`_GRAHAM_EPV_SKIP_SECTORS`, matched on the *resolved* sector — `sector_for()`, so a provider-null REIT still counts) — a REIT's EPS carries IFRS fair-value revaluation gains, a bank/insurer has no industrial "earnings power". Banks then value off P/E + **P/B** + DDM + analyst (the book-value model is a primary anchor for that cohort, not just a loss-maker fallback); REITs off P/B + DDM + analyst. | 0.178 (`W_GRAHAM`) |
-| **PE Fair Value** | `EPS × m`, where `m` is the median trailing P/E of the stock's own **sector** across the current screened universe (`screener._sector_pe_medians`), winsorized to `PE_MULTIPLE_BAND` (6–30×), then multiplied by a bounded PEG tilt `clamp(1 + earningsGrowth, 0.7, 1.5)` (`PEG_TILT_BAND`). Falls back to a flat `PE_MULTIPLE_FALLBACK` (15×, the value used unconditionally before this) when the sector has fewer than `MIN_SECTOR_SAMPLE` (5) priced peers, or when `trailingPE`/`sector` aren't in the frame (pre-WS-10 caches, direct callers). The 15× fallback is *not* Graham's no-growth base multiplier (8.5×) — just a round heuristic near the long-run market-average P/E. **FV-8: skipped for `Real Estate`** (`_PE_SKIP_SECTORS`) — revaluation-distorted EPS; banks/insurers keep it. | 0.150 (`W_PE`) |
+| **Graham Number** | `√(22.5 × EPS × BVPS)` — requires positive EPS and BVPS. **FV-8: skipped for `Real Estate` and `Financial Services`** (`_GRAHAM_EPV_SKIP_SECTORS`, matched on the *resolved* sector — `sector_for()`, so a provider-null REIT still counts) — a REIT's EPS carries IFRS fair-value revaluation gains, a bank/insurer has no industrial "earnings power". Banks then value off P/E + **P/B** + DDM + analyst (the book-value model is a primary anchor for that cohort, not just a loss-maker fallback); REITs off P/B + DDM + analyst. **Also skipped when `Price / BVPS < PTB_SANITY_FLOOR`** (0.02, per-share input sanity floor, below) regardless of sector. | 0.178 (`W_GRAHAM`) |
+| **PE Fair Value** | `EPS × m`, where `m` is the median trailing P/E of the stock's own **sector** across the current screened universe (`screener._sector_pe_medians`), winsorized to `PE_MULTIPLE_BAND` (6–30×), then multiplied by a bounded PEG tilt `clamp(1 + earningsGrowth, 0.7, 1.5)` (`PEG_TILT_BAND`). Falls back to a flat `PE_MULTIPLE_FALLBACK` (15×, the value used unconditionally before this) when the sector has fewer than `MIN_SECTOR_SAMPLE` (5) priced peers, or when `trailingPE`/`sector` aren't in the frame (pre-WS-10 caches, direct callers). The 15× fallback is *not* Graham's no-growth base multiplier (8.5×) — just a round heuristic near the long-run market-average P/E. **FV-8: skipped for `Real Estate`** (`_PE_SKIP_SECTORS`) — revaluation-distorted EPS; banks/insurers keep it. **Also skipped when `Price / BVPS < PTB_SANITY_FLOOR`**, same guard as Graham above — despite being an EPS-anchored model, not a book-value one (see the guard's own rationale below). | 0.150 (`W_PE`) |
 | **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, where **EBIT is a robust central value of `ebitHistory`** (`screener._normalised_ebit`, ≥ `_EBIT_MIN_YEARS` = 3 finite years): the **median** at exactly 3 years, a **symmetric trimmed mean** (drop the min and the max, average the rest) at 4+. This removes a lone crisis (a one-off multi-billion writedown) or windfall year without the MAD-based rule's failure of flagging a fast grower's newest, most-relevant year as the "outlier" (FV-2, review). Fewer than 3 finite years → point-in-time `ebit` (recent IPOs / failed statement fetches). Converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's EV/market-cap ratio; falls back to the `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. **`EnterpriseValue` itself** (FV-4) is the provider's `enterpriseValue` when positive, else reconstructed as `(marketCap or Price × shares) + totalDebt − totalCash` (`screener._enterprise_value`, `ev_source` records which) — yfinance drops `enterpriseValue` on a partial payload while keeping the balance-sheet legs; when the EV was reconstructed, `NetDebt` is taken straight from `totalDebt − totalCash` so a multi-class `marketCap` leg can't inject phantom debt (review). A per-share EPV that comes out **≤ 0** (net debt exceeds the capitalised earnings power — routine for leveraged names) is kept out of the blend by the `> 0` filter but sets **`epv_negative`** so the UI can explain the gap. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or unlisted. **FV-8: skipped entirely for `Real Estate` and `Financial Services`** — a Greenwald EPV needs an operating EBIT that neither cohort has. | 0.208 (`W_EPV`) |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, `g` = the true DPS CAGR (`_dgr_estimate`, FV-7), clamped to 0–5% **and further to `WACC − DDM_MIN_SPREAD`** so the denominator floors at 3 pp — a low-beta payer keeps the model with a conservative growth assumption rather than losing it silently (review). Dropped only when WACC itself is ≤ `DDM_MIN_SPREAD` | 0.167 (`W_DDM_SINGLE`) × payout ramp |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (`g_high` = the same DPS CAGR, clamped to `min(15%, WACC − DDM_MIN_SPREAD)` so the explicit terms can't compound above the discount rate — review) + Gordon terminal value (terminal g = 2%). Dropped when `WACC − 2% < DDM_MIN_SPREAD` | 0.167 (`W_DDM_MULTI`) × payout ramp |
@@ -47,12 +47,34 @@ Both are crude anchors, present in the blend only for a stock with no earnings-a
 
 | Model | Formula / Approach | Weight |
 |---|---|---|
-| **Book value** | `bookValue × m`, `m` = winsorized (`PB_MULTIPLE_BAND` 0.5–4.0) sector-median `priceToBook` across the screened universe (`screener._sector_pb_medians`), or `PB_MULTIPLE_FALLBACK` (1.5) for a sector with < `MIN_SECTOR_SAMPLE` peers | 0.10 (`W_PB`) |
+| **Book value** | `bookValue × m`, `m` = winsorized (`PB_MULTIPLE_BAND` 0.5–4.0) sector-median `priceToBook` across the screened universe (`screener._sector_pb_medians`), or `PB_MULTIPLE_FALLBACK` (1.5) for a sector with < `MIN_SECTOR_SAMPLE` peers. **Also skipped when `Price / BVPS < PTB_SANITY_FLOOR`**, below — the model FV-8 makes a *primary* NAV anchor for banks/REITs is exactly the one this guard has to reach too. | 0.10 (`W_PB`) |
 | **FCF value** | `(freeCashflow × FCF_MULTIPLE − NetDebt) / SharesOutstanding`, `FCF_MULTIPLE` = 15 (≈ 6.7% FCF yield, fixed — not `1/(WACC−g)`), `NetDebt = EnterpriseValue − Price×Shares` (same as EPV); guarded on `freeCashflow > 0` | 0.10 (`W_FCF`) |
 
 In the drawer / Analysis "Six-model fair value" ladder these do **not** add rows — when they fire, whichever produced a value is slotted into the first dark Graham / PE / EPV row and relabelled "Book value" / "FCF value" (`components.six_model_ladder_rows`), so the ladder stays six rows.
 
 `DCF`, comparable multiples (EV/EBITDA, P/S), and a peer/comps dataset are still **not implemented**.
+
+**Per-share input sanity floor (`PTB_SANITY_FLOOR` = 0.02).** `bookValue` and
+`trailingEps` are both scaled by the same `sharesOutstanding` figure for a
+given row, so an implied `Price / bookValue` this far below the market's own
+price is evidence that basis is broken for the *whole* row — either a data
+defect (a secondary/cross-listing whose per-share fundamentals were computed
+off a different share count or class than the one actually priced) or a
+genuine structural mismatch (a central-bank-style issuer whose legally capped
+dividend breaks the standard proportional-equity-claim assumption these
+models rely on). When it fires, Graham, PE Fair Value, and the Book value
+model are all held dark for that row, regardless of sector — deliberately
+P/B-only, not a symmetric P/E floor: `trailingEps` is a flow figure that
+legitimately swings on ordinary earnings volatility (a real one-off gain can
+push implied P/E below 1 with nothing wrong), while `bookValue` is
+comparatively stable, so an implausible P/B is a much cleaner standalone
+signal. Found via the Swiss National Bank (`SNBN.SW`): only 100,000 shares
+outstanding against a genuinely enormous balance sheet produces a bookValue
+and trailingEps per share in the hundreds of thousands, feeding a >CHF 6M
+"fair value" against a ~CHF 3,140 price — while the market price correctly
+reflects that the National Bank Act caps the dividend shareholders can
+receive, so book value/earnings per share don't translate to a proportional
+equity claim at all.
 
 **WACC** = 3% risk-free rate + beta × 5% equity risk premium. A raw beta outside [0.1, 5.0] (or missing/NaN) is rejected and defaults to 1.0; an in-band beta is **Blume-adjusted** — shrunk two-thirds of the way toward the market beta of 1.0 (`0.67 × raw + 0.33 × 1.0`, `screener.BLUME_WEIGHT` / `_adjust_beta`) — since yfinance's trailing single-estimate beta is noisy and mean-reverts.
 
@@ -175,7 +197,7 @@ Not implemented — no data source exists: active fraud investigation / accounti
 Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on a median/trimmed-mean multi-year EBIT, EV reconstructed if the provider dropped it] + DDM single-stage + DDM multi-stage [g clamped so the Gordon denominator ≥ DDM_MIN_SPREAD] + Analyst target [10% haircut, weight scaled by dispersion & coverage]; Graham/PE/EPV skipped for Real Estate / Financial Services [FV-8, NAV-driven, on the resolved sector] — those value off P/B + DDM + analyst [banks also keep P/E]; Book-value/FCF *fallbacks* otherwise fire only when none of Graham/PE/EPV did)
+  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on a median/trimmed-mean multi-year EBIT, EV reconstructed if the provider dropped it] + DDM single-stage + DDM multi-stage [g clamped so the Gordon denominator ≥ DDM_MIN_SPREAD] + Analyst target [10% haircut, weight scaled by dispersion & coverage]; Graham/PE/EPV skipped for Real Estate / Financial Services [FV-8, NAV-driven, on the resolved sector] — those value off P/B + DDM + analyst [banks also keep P/E]; Book-value/FCF *fallbacks* otherwise fire only when none of Graham/PE/EPV did; Graham/PE/Book-value also held dark, any sector, when Price/BVPS < PTB_SANITY_FLOOR [0.02] — bookValue and trailingEps share a sharesOutstanding basis, so an implausible implied P/B taints both]
     ↓
 Weighted fair value
   (base weights sum to 1.00; combined DDM weight ≈0.334 × a continuous payout

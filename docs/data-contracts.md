@@ -130,12 +130,57 @@ between screens at some point (see the `dq/*` history); the tests in
     Far too broad to veto on.
   No narrow, safe signal was found; closing this gap would need genuine
   per-ticker ground truth the app doesn't have, not a smarter guess from
-  existing fields. Left as an accepted limitation — in the current universe
-  it does not produce a wrong signal (`INPHI.AS` itself lands on `Avoid`
-  today via the unrelated pre-existing revenue-decline trend veto and a
-  deeply negative MoS), and the intersection of conditions needed to slip
-  through (dodge the volume veto, avoid `fv_basis_thin`, and land a price
-  gap too moderate to trip the MoS sanity clamp or fail `min_mos`) is narrow.
+  existing fields. Left as an accepted limitation — `INPHI.AS` itself lands
+  on `Avoid` today via the unrelated pre-existing revenue-decline trend veto
+  and a deeply negative MoS, so the *volume-absent* shape of this gap has not
+  been observed to produce a wrong signal in the current universe. A related
+  but distinct shape — a real, actively-traded listing whose per-share
+  fundamentals were computed off a *different* security's basis — has been
+  observed and is documented separately below (`LISPE.SW`).
+- **Per-share input sanity floor (`PTB_SANITY_FLOOR`).** `_fair_value_models`
+  holds Graham, PE Fair Value, and the Book value model dark, any sector, when
+  `Price / bookValue < PTB_SANITY_FLOOR` (0.02) — `bookValue` and
+  `trailingEps` share the same `sharesOutstanding` basis for a row, so an
+  implausible implied P/B taints both. Deliberately P/B-only: a symmetric P/E
+  floor was tried and rejected — `trailingEps` is a flow figure that
+  legitimately swings on ordinary earnings volatility (real Strong Buy rows
+  with implied P/E well under 2, e.g. `TPG0.DE`, `ALWEC.PA`, were found and
+  would have been broken by it), so a low P/E alone isn't a safe signal the
+  way an extreme P/B is. Calibrated against the full scored universe: the
+  lowest P/B among legitimate `Strong Buy` rows sits at ~0.11, a 5×+ margin
+  above the floor; a controlled before/after diff across all 7,859 cached
+  tickers changed exactly one row (`SNBN.SW`, added to `Strong Buy`/removed
+  by the fix), zero collateral additions or removals elsewhere. Found via the
+  Swiss National Bank (`SNBN.SW`, 100,000 shares outstanding against an
+  enormous balance sheet → bookValue/trailingEps in the hundreds of
+  thousands per share, feeding a >CHF 6M composite fair value against a
+  ~CHF 3,140 price) — the market price correctly reflects that the National
+  Bank Act caps the dividend shareholders receive, so per-share book
+  value/earnings don't translate to a proportional equity claim at all. New
+  `fv_dark_reasons` code `implausible_book`
+  (`components._REASON_TEXT`: "price too far below book value to trust").
+- **Known residual gap — share-class fundamentals contamination
+  (`LISPE.SW`).** A *different*, real, currently-live failure mode from the
+  two above: `LISPE.SW` (Lindt & Sprüngli participation certificates, €8,530)
+  and `LISN.SW` (the registered share, €88,700) are legitimate, independently
+  and actively traded securities of the same company, but our cached
+  `bookValue`/`trailingEps` are identical between them — the registered
+  share's per-share figures, applied unchanged to the certificate. Graham/PE
+  fair value then price the certificate off earnings that actually belong to
+  the 10×-pricier share, producing a spurious Strong Buy. Unlike `INPHI.AS`
+  or `SNBN.SW`, this is not caught by anything shipped: `LISPE.SW` has real
+  trading volume and ≥`MIN_FV_MODELS` corroborating models (so it isn't
+  `fv_basis_thin`), and its own implied P/B (0.44) looks entirely normal — the
+  problem is a plausible ratio built from someone else's numerator, not an
+  implausible ratio, so `PTB_SANITY_FLOOR` above doesn't reach it. Closing
+  this would need reliable cross-ticker company-identity data, which the app
+  doesn't have: `ISIN` is fetched into the schema but populated on 0 of 7,861
+  cached tickers (`fetch_tickers.py` hardcodes `"isin": ""` for every ticker;
+  stockanalysis.com's own listing tables don't expose one to scrape either),
+  and the cached `Name` field differs per share class already (`LINDT N` vs
+  `LINDT PS 2.LINIE`), so it can't be used to group siblings. Left as an
+  accepted limitation for the same reason as `INPHI.AS`: no narrow, safe
+  signal was found.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
