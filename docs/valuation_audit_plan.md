@@ -1,10 +1,9 @@
 # Valuation & Risk Accuracy Audit — Problem, Solution, Process
 
-Status: **proposed, pre-work complete, not built**. This document describes the
-gap found during the 2026-09-11 investigation session (the `NAITR.AS` incident
-and its follow-ons) and the tool proposed to close it. No code has been written
-yet, but every blocker identified in a build-readiness review has been resolved
-(v1.3) — implementation can start directly from this document.
+Status: **implemented (v1)**. `tools/valuation_audit.py`, `tools/valuation_audit_fixtures.py`
+(§2.7's fixture data), and `tests/test_valuation_audit.py` (§2.8's coverage) are built and
+passing. Run it with `.venv/Scripts/python.exe -m tools.valuation_audit`; see
+`CONTRIBUTING.md` § Conventions for the change-triggered convention (§3.1).
 
 **Revision history:**
 - v1.0 — initial draft.
@@ -33,6 +32,22 @@ yet, but every blocker identified in a build-readiness review has been resolved
   fixtures given actual data, not just a description of what they'd contain;
   new §2.8 commits the audit tool to the same test-coverage discipline as the
   rest of the codebase.
+- v1.4 — implemented. Building against the real universe surfaced one more
+  calibration gap the hand-driven design pass hadn't hit: `net_income_cross_validation`'s
+  ratio test collapses `implied_ni` toward 0 whenever `trailingEps` or
+  `sharesOutstanding` is near zero, mechanically tripping on precision noise
+  rather than real corruption — 129 of 235 raw hits against the live universe
+  were this artifact (most of them the same `sharesOutstanding == 0` rows the
+  dedicated shares check already flags). Two coverage exclusions
+  (`sharesOutstanding != 0`, `|trailingEps| >= NET_INCOME_MIN_ABS_EPS` = 0.10)
+  fix it — verified against the same real fixtures as before: every known
+  corrupted case (`BC.MI`, `MLVST.PA`, `ALHGO.PA`, `VEZ.DE`) still fires,
+  every known-legitimate case (`ALNRG.PA`, `TPG0.DE`, `ALOPM.PA`, `ALWEC.PA`,
+  `NWL.MI`, `ALGTR.PA`) still clears. A genuinely new finding surfaced on the
+  first real run this hand investigation never caught: `DBAN.DE`, currently
+  `Strong Buy`, `trailingEps = -1.04` inconsistent in sign with the most
+  recent reported annual net income (+€24.7M) — undispositioned, awaiting
+  triage.
 
 ---
 
@@ -167,8 +182,13 @@ fair values even when the algorithm itself behaves correctly.
   volatility (`ALGTR.PA`, ~2.2× either direction) safely below the line while
   still catching every corrupted case found this session (`BC.MI` ~56,000×,
   `MLVST.PA` ~4,838×, `ALHGO.PA` ~100×). Coverage-limited: only evaluates rows
-  with both `sharesOutstanding` and `netIncomeHistory` present — report
-  coverage explicitly (see "Check coverage completeness" below). *Proposed
+  with both `sharesOutstanding` and `netIncomeHistory` present, **and**
+  (found during implementation, v1.4) `sharesOutstanding != 0` and
+  `|trailingEps| >= 0.10` — both `eps` and `shares` near zero collapse
+  `implied_ni` toward 0 mechanically, tripping the ratio test on precision
+  noise rather than real corruption (129 of 235 raw hits against the live
+  universe, before this exclusion). Report coverage explicitly (see "Check
+  coverage completeness" below). *Proposed
   refinement, not yet scoped*: a
   confidence band keyed to sector-level earnings volatility, to narrow the
   ambiguous zone around `ALGTR.PA`-shaped cases. **Deferred out of the v1

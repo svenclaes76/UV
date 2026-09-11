@@ -64,6 +64,10 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 - **No comments** unless the reason is non-obvious (a hidden constraint, a workaround, a subtle invariant)
 - **No premature abstractions** — solve the problem at hand, not hypothetical future ones
 - **Streamlit state:** use `st.session_state` for ephemeral UI state; never store secrets in session state
+- **Valuation logic changes:** run `.venv/Scripts/python.exe -m tools.valuation_audit` before committing a
+  change to `screener._fair_value_models`, `screener.compute_scores`, or the Stage 5/6 scoring rules —
+  it catches real-world edge cases the unit tests' synthetic fixtures structurally can't (see
+  `docs/valuation_audit_plan.md`).
 
 ---
 
