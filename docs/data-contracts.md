@@ -181,6 +181,42 @@ between screens at some point (see the `dq/*` history); the tests in
   `LINDT PS 2.LINIE`), so it can't be used to group siblings. Left as an
   accepted limitation for the same reason as `INPHI.AS`: no narrow, safe
   signal was found.
+- **Known residual gap — an isolated, corrupted `trailingEps` with a normal
+  `bookValue` (`BC.MI`).** A *third* shape, distinct from both above:
+  `BC.MI` (Brunello Cucinelli) showed `trailingEps = €111,944.91` (real EPS
+  is roughly €2-3) while `bookValue` (€8.058) and every other fetched field
+  (`netIncomeHistory`, `revenueHistory`, …) looked like a real, healthy
+  company — `priceToBook` (9.76) is nowhere near `PTB_SANITY_FLOOR`, so
+  Graham and PE fair value both fired on the poisoned EPS, producing a
+  €352,229 composite fair value against a €78.62 price and a spurious Strong
+  Buy. Two candidate fixes were investigated:
+  - *A standalone implied-P/E floor* (mirroring `PTB_SANITY_FLOOR`'s shape)
+    was **disproven directly**, not just judged risky: `ALNRG.PA` (SA
+    Energisme), a real, legitimate micro-cap, had an implied P/E of 0.0005 —
+    lower than `BC.MI`'s 0.0007 — with its net income cross-checking out fine
+    (a penny stock whose price crashed while trailing EPS still reflected an
+    older, better period). No threshold separates the two by magnitude alone,
+    the same lesson (P/E is too noisy a standalone signal) that already sank
+    the first symmetric-floor attempt during the `SNBN.SW` fix, proven more
+    starkly this time.
+  - *Cross-validating `trailingEps × sharesOutstanding` against the latest
+    `netIncomeHistory` entry* does separate the cases correctly for
+    everything checked — `BC.MI` (~56,000× off), `MLVST.PA` (~4,838×),
+    `ALHGO.PA` (~100×), `VEZ.DE` (sign flip, +€41M implied vs a real −€4.8M)
+    vs. legitimate rows landing within ~1.3× (`ALNRG.PA`, `TPG0.DE`) — except
+    `ALGTR.PA`, an ambiguous 0.45× mismatch plausibly explained by ordinary
+    year-over-year earnings volatility rather than corruption. This is a
+    materially more complex mechanism than anything shipped so far (a
+    cross-field consistency check, not a single ratio-vs-threshold guard),
+    only applies when both `sharesOutstanding` and `netIncomeHistory` are
+    present, and carries an unresolved false-positive risk.
+  Not implemented. `BC.MI`'s own cache record went fully empty twice during
+  the investigation session (`Price`/`trailingEps` both `None`, then
+  repopulated with the corrupted value) — consistent with an unstable,
+  flapping provider fetch rather than a stably-wrong cached value, so the
+  app's normal refresh cycle may resolve this specific instance without any
+  code change. Revisit if this shape recurs on a ticker whose fetch is
+  otherwise stable.
 - **Scorable row.** `screener._row_is_scorable(row)` is True when a fundamentals
   row carries enough for at least one of the six models to produce a value
   (`trailingEps > 0`, or `bookValue` + a sane `trailingPE`, or
