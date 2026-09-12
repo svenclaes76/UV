@@ -65,9 +65,8 @@ def _ensure_cert() -> None:
 
 if __name__ == "__main__":
     _ensure_cert()
-    venv_streamlit = Path(sys.executable).parent / "streamlit.exe"
     port = os.environ.get("PORT", "8501")
     subprocess.run(
-        [str(venv_streamlit), "run", str(ROOT / "app.py"), "--server.port", port],
-        check=True,
-    )
+    [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port],
+    check=True,
+)
