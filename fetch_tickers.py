@@ -61,7 +61,7 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                 page_url = f"{url}?page={page}" if page > 1 else url
                 resp = requests.get(page_url, headers=HEADERS, timeout=20)
                 resp.raise_for_status()
-                tables = pd.read_html(StringIO(resp.text))
+                tables = pd.read_html(StringIO(resp.text), flavor='html5lib')
                 if not tables:
                     raise ValueError("No tables found on page")
 
