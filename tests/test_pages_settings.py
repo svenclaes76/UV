@@ -381,6 +381,39 @@ class TestDlgChangePassword:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "match" in "".join(e.value for e in at.error).lower()
 
+    def test_new_password_shows_live_strength_caption(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_new").set_value("weak")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Weak" in html
+
+        at.text_input(key="set_pw_new").set_value("Str0ng!-Passphrase-99")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Strong" in html
+
+
+def _run_dlg_set_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    script = f"""
+from uvalu.pages_.settings import _dlg_set_password
+_dlg_set_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgSetPassword:
+    def test_new_password_shows_live_strength_caption(self, isolated_data, monkeypatch):
+        at = _run_dlg_set_password(monkeypatch)
+        at.text_input(key="set_pw2_new").set_value("weak")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Weak" in html
+
 
 # ── Active sessions card ──────────────────────────────────────────────────
 

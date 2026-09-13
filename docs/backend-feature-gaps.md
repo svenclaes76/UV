@@ -19,9 +19,9 @@ Verified by grepping every public symbol in each root module against `app.py` + 
 
 **Follow-up:** design a second risk-page section (or tab) for income risk + stress/Monte Carlo + rebalancing actions. This is the highest-value gap — fully computed, zero UI cost to prototype since no backend work is needed first.
 
-### 2. Admin can't reset a user's password
+### 2. ~~Admin can't reset a user's password~~ — resolved
 
-`auth.reset_password(email, new_password)` exists but is not imported by [uvalu/pages_/admin.py](../uvalu/pages_/admin.py). An Admin can invite/suspend/delete/change-role but has no way to reset an existing (non-`Invited`) user's password. (`docs/architecture.md` now correctly notes this as "not wired into the Admin portal yet".)
+`admin.py`'s Users table now has a "Send password reset" row action (`auth.admin_request_password_reset()`), added as part of the auth overhaul's M4 milestone (admin-assisted password recovery, `feature/auth-overhaul-m1`). Kept here struck through rather than deleted so the audit trail (this doc was the source of the gap) stays visible.
 
 ### 3. Cash balances — fully invisible feature
 
@@ -36,10 +36,11 @@ Verified by grepping every public symbol in each root module against `app.py` + 
 - **`screener.py` `TER %`** (Total Expected Return) — computed for every scored row, shown on no page.
 - **`portfolio.remove_positions()`** (`portfolio.py:82-87`) — dead code, not a missing feature: the UI (`uvalu/pages_/portfolio.py:360,473,556`) reimplements the same delete-then-save logic inline instead of calling it. Candidate for a cleanup pass (replace 3 call sites), not new UI work.
 - **`uvalu/data.py` `_cache_age_str()`** (`uvalu/data.py:35-50`) — computes a "Cache age: X min" string, never called; Screener shows fetch progress instead.
+- **Per-IP login rate limiting** — the auth overhaul's implementation plan (`docs/uvalu-auth-implementation-plan.md`) called for this alongside the per-account lockout that did ship (`settings.py`'s `login_attempts_before_lock`/`lock_minutes`). Investigated and deliberately deferred: this Streamlit deployment has no reliable client IP anywhere (`st.context.headers` exposes `User-Agent` only — grepped the whole repo, nothing reads `X-Forwarded-For`/`remote_ip`). Building it now would mean either trusting a client-supplied header (trivially spoofable — an attacker rotates the header value to bypass the limit) or bucketing unrelated users together behind a shared proxy. Revisit only once a deployment guarantees a trusted, proxy-set `X-Forwarded-For` (or equivalent) and a corresponding `st.context.headers` read is added for it.
 
 ## Confirmed intentional (not gaps)
 
-- **`auth.register()`** (`auth.py:73`) — self-service signup is implemented but deliberately unused; `uvalu/authgate.py:169-176` documents invite-only as the product decision.
+- **`auth.register()`** (`auth.py:73`) — self-service *signup UI* is deliberately unused (invite-only, `uvalu/authgate.py:169-176`), but `register()` itself isn't dead: it's also the underlying call for `bootstrap_admin_from_env()` (`ADMIN_EMAIL`/`ADMIN_PASSWORD` env-var bootstrap, `app.py` boot sequence) and the `scripts/create_admin.py` break-glass CLI — the only way to create an account on a fresh, otherwise invite-only deployment.
 - **Notification alert toggles** (`settings._USER_DEFAULTS["alert_*"]`, `settings.py:49-51`) and **density setting** (`settings.py:46`) — both explicitly noted in `uvalu/pages_/settings.py` as removed-on-purpose; dead schema, not missing UI.
 - **US-listed exchange toggle** (`settings._SHARED_DEFAULTS["us_listed_enabled"]`, `settings.py:42`) — shown in Settings as a disabled/no-op toggle; source comment says "not yet wired — no US ticker universe exists" yet.
 

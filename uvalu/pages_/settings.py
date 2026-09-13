@@ -45,7 +45,7 @@ from settings import (load_shared_settings, save_shared_settings, load_settings,
 from uvalu import nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
-from uvalu.shell import _display_name, _initials, set_theme_script
+from uvalu.shell import _display_name, _initials, _password_strength, set_theme_script
 
 
 def _targets_to_text(m) -> str:
@@ -185,11 +185,24 @@ def _device_label(user_agent: str) -> str:
     return f"{browser} on {os_label}"
 
 
+def _strength_caption(password: str) -> None:
+    """Advisory-only label under a new-password field — auth.validate_new_
+    password()'s min-length/HIBP check is the actual hard block on submit;
+    this is just live feedback while typing (see uvalu.shell._password_strength)."""
+    label, tone = _password_strength(password)
+    if not label:
+        return
+    st.markdown(f'<div style="font-size:12px;margin-top:-8px;margin-bottom:8px;color:var(--{tone}-txt);">'
+               f'Password strength: {label}</div>', unsafe_allow_html=True)
+
+
 @st.dialog("Change password", width="large")
 def _dlg_change_password(email: str):
+    _min_len = int(load_shared_settings().get("min_password_length", 12))
     _current = st.text_input("Current password", type="password", key="set_pw_current")
     _new = st.text_input("New password", type="password", key="set_pw_new",
-                         help="At least 8 characters.")
+                         help=f"At least {_min_len} characters.")
+    _strength_caption(_new)
     _confirm = st.text_input("Confirm new password", type="password", key="set_pw_confirm")
 
     _b1, _b2 = st.columns(2)
@@ -218,8 +231,10 @@ def _dlg_set_password(email: str):
     so you can still sign in when your provider is unavailable, mockup
     frame 11's "Password / NOT SET / Set a password" row."""
     st.caption("Add a password so you can sign in when your provider is unavailable.")
+    _min_len = int(load_shared_settings().get("min_password_length", 12))
     _new = st.text_input("New password", type="password", key="set_pw2_new",
-                         help="At least 8 characters.")
+                         help=f"At least {_min_len} characters.")
+    _strength_caption(_new)
     _confirm = st.text_input("Confirm new password", type="password", key="set_pw2_confirm")
 
     _b1, _b2 = st.columns(2)

@@ -44,6 +44,13 @@ _SHARED_DEFAULTS: dict = {
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
     # Login rate limiting — read by auth.py's login() on every attempt. Surfaced
     # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).
+    # Per-account only — a per-IP limiter was considered and deliberately
+    # deferred (see docs/backend-feature-gaps.md): this Streamlit deployment
+    # has no reliable client IP anywhere (st.context.headers exposes
+    # User-Agent only), so one would either be trivially spoofable via a
+    # client-supplied header or collide unrelated users behind a shared
+    # proxy — not worth shipping until there's a trusted reverse-proxy
+    # header contract.
     "login_attempts_before_lock": 5,   # failed attempts on one account before it locks
     "lock_minutes": 15,                # how long a lock lasts once triggered
     # Provider (OAuth) sign-in policy — read by auth.py's oauth_login() when a

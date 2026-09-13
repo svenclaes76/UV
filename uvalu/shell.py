@@ -67,6 +67,28 @@ def _display_name(email: str) -> str:
     return " ".join(p.capitalize() for p in parts) if parts else email
 
 
+def _password_strength(password: str) -> tuple[str, str]:
+    """(label, css-tone) advisory indicator — NOT the security check itself
+    (that's auth.validate_new_password()'s hard min-length/HIBP block).
+    Length + character-class variety only, three tiers, no new dependency;
+    tone is one of "down"/"amber"/"up" for the caller to render against the
+    app's existing --down-txt/--amber-txt/--up-txt tokens (uvalu/styles.py)
+    rather than a hardcoded color."""
+    if not password:
+        return "", ""
+    variety = sum([
+        any(c.islower() for c in password),
+        any(c.isupper() for c in password),
+        any(c.isdigit() for c in password),
+        any(not c.isalnum() for c in password),
+    ])
+    if len(password) < 12 or variety <= 1:
+        return "Weak", "down"
+    if len(password) < 16 or variety <= 2:
+        return "Fair", "amber"
+    return "Strong", "up"
+
+
 def apply_theme_script(light: bool) -> None:
     """Set data-theme on the parent document's <html> element from Streamlit's
     OWN active theme (st.context.theme, resolved via theme_colors()) so the
