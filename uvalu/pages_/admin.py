@@ -332,9 +332,16 @@ def _render_users() -> None:
 
 
 def _sec_row_header(label: str) -> None:
-    st.markdown(f'<div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
+    # padding/min-height match .st-key-admin_users_colheader's own values
+    # exactly (uvalu/pages_/admin.py's _admin_shell_css) — previously 15px
+    # 20px with no height floor, 4px more generous per side than the Users
+    # table's own header with nothing keeping it consistent, which read as
+    # "the header looks too tall" once the two pages were compared side by
+    # side.
+    st.markdown(f'<div style="padding:11px 20px;min-height:34px;box-sizing:border-box;'
+               f'border-bottom:0.5px solid var(--line-2);font-size:13px;'
                f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
-               f'line-height:1.3;">{label}</div>', unsafe_allow_html=True)
+               f'line-height:1.3;display:flex;align-items:center;">{label}</div>', unsafe_allow_html=True)
 
 
 def _sec_row_title(title: str, desc: str) -> None:
@@ -952,8 +959,26 @@ def _admin_shell_css(active: str) -> str:
    `_grace`, `_attempts`, `_lockmin`, `_session_ttl`, the per-provider loop's
    `_provider_{id}`, `_autoprov`, `_domains`, `_passkeys`) without listing
    each one. ── */
+/* `_sec_row_header()`'s own wrapper has the same under-reported-height bug
+   as everywhere else in this file: the styled div inside it correctly
+   grows to its real ~40px (11px padding top/bottom + line height, now that
+   it also carries an explicit min-height and flex centering — see
+   _sec_row_header itself), but the surrounding stElementContainer Streamlit
+   generates still reports only 24px, letting the header's own bottom edge
+   visually run into the first row below it. Floored at that same 40px,
+   matching the pattern already used for every other raw-HTML block on this
+   page. Always the card's own first direct child, so no need to reach for
+   the wider admin_sec_row_ prefix or a card-by-card list. */
+[class*="st-key-admin_sec_card_"] > [data-testid="stElementContainer"]:first-child {{
+  min-height: 40px !important;
+}}
 [class*="st-key-admin_sec_row_"] {{
-  padding: 15px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  /* padding/min-height match the Users table's own row values exactly
+     (`[class*="st-key-admin_user_row_"]` below) — previously 15px 20px /
+     64px, both a few px more generous than Users' 12px 20px / 60px, which
+     read as an inconsistency once the two pages were compared side by
+     side. */
+  padding: 12px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   margin-top: -16px !important;
   /* Floors every row at the sliders' own natural height (title + floating
      value label) — previously unset, so row height tracked whatever that
@@ -962,7 +987,7 @@ def _admin_shell_css(active: str) -> str:
      inconsistent row heights. `admin_sec_row_domains` (title + description
      + input, stacked) is naturally taller than this floor already, so it's
      unaffected without needing its own exception. */
-  min-height: 64px !important;
+  min-height: 60px !important;
 }}
 /* The title+description block `_sec_row_title()` renders is raw HTML in a
    markdown container that under-reports its own height to Streamlit's
@@ -1117,6 +1142,33 @@ def _admin_shell_css(active: str) -> str:
   color: var(--muted) !important;
 }}
 
+/* ── Center narrow controls (toggles, status badges) in their own column —
+   sliders and segmented controls already fill the full column width so
+   centering is a no-op for them, but a small toggle or a "Configured"/
+   "Not configured" badge just started at the column's left edge by default,
+   confirmed live sitting flush against the left with 0px gap on one side
+   and well over half the column empty on the other. Listed by each row's
+   own key rather than a generic "column holds a small widget" selector, so
+   this can't accidentally catch a future wide control added to one of
+   these same rows.
+   Two false starts before this, both confirmed live: `display:flex;
+   justify-content:center` on the COLUMN itself had no effect (its one
+   direct child, a Streamlit-generated `stVerticalBlock`, already spans the
+   column's full width on its own, so centering *that* is a no-op — the
+   actual narrow element, a 32px stElementContainer, is nested another
+   level inside it); the same rule on that inner stVerticalBlock ALSO had
+   no effect, because it's a column-direction flex container by default —
+   `justify-content` there centers the (single, vertical) main axis, not
+   the horizontal one. `align-items` is the property that controls the
+   CROSS axis, which is horizontal for a column-direction flex — that's
+   the one that actually moves the toggle. */
+[class*="st-key-admin_sec_row_breach"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_autoprov"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_passkeys"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_provider_"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"] {{
+  align-items: center !important;
+}}
+
 /* ── Feed toggle — recolor Streamlit's default switch to the design's
    teal-when-on pill instead of the generic red/gray default. DOM order is
    track-div, then <input>, then the label-text div (confirmed live via
@@ -1142,10 +1194,22 @@ def _admin_shell_css(active: str) -> str:
 }}
 
 /* ── Role select / search input — dark panel-2 fields matching every other
-   page's input treatment instead of Streamlit's default light chrome. ── */
+   page's input treatment instead of Streamlit's default light chrome.
+   `.st-key-admin_topbar ~ * [data-testid="stTextInput"]` was meant as a
+   catch-all for "any text input after the topbar" (including the domains
+   input below) but confirmed live via `el.matches(...)` to match NOTHING —
+   the `~` general-sibling combinator needs admin_topbar and the input's
+   ancestor to share the same direct parent, and Streamlit's own layout-
+   wrapper divs put them one level deeper than that, so they're never
+   actually siblings. Left in place rather than removed (harmless no-op,
+   and auditing every other place that might coincidentally depend on it
+   is its own separate pass) but no longer trusted alone — every text input
+   on this page now also gets its own dedicated `:has()` rule below, which
+   doesn't have this problem. ── */
 [class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div,
 .st-key-admin_topbar ~ * [data-testid="stTextInput"] > div,
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div {{
   background-color: var(--panel-2) !important; border-color: var(--line) !important;
 }}
 /* Direct, unconditional override on the specific NATIVE-themed div underneath
@@ -1161,10 +1225,15 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div {{
    completing correctly; this rule fixes the same symptom unconditionally
    via plain CSS, with no dependency on reload timing, as a guaranteed
    backstop regardless of whether the reload path succeeds in a given
-   browser/environment. */
+   browser/environment. The domains input was missing from here specifically
+   (only its border/text/placeholder got a dedicated rule in an earlier
+   round, background was wrongly assumed to already be covered by the
+   general topbar-sibling selector above) — confirmed live as the actual
+   cause of it still rendering with a white background. */
 [class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div,
 .st-key-admin_topbar ~ * [data-testid="stTextInput"] > div > div,
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div > div {{
   background-color: var(--panel-2) !important;
 }}
 /* This same deep div also paints its BORDER from the native theme's
