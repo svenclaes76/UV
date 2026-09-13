@@ -11,7 +11,8 @@ commits on this project diff the app against these files.
 |---|---|
 | [`Uvalu.dc.html`](Uvalu.dc.html) | Main app — Dashboard, Screener, Portfolio, Risk, Stock Detail, Settings, Help, Watchlist |
 | [`Uvalu Admin.dc.html`](Uvalu%20Admin.dc.html) | Admin portal — Users, Data feeds, Backups & restore |
-| [`support.js`](support.js) | Runtime the two `.dc.html` files depend on (`<x-dc>` template engine + `DCLogic` base class). Required for the mockups to render standalone in a browser; not meaningful as a design reference on its own. |
+| [`Uvalu Auth.dc.html`](Uvalu%20Auth.dc.html) | Authentication — sign in/failure/throttle states, invite acceptance, password recovery, TOTP challenge, Settings → Security, Admin → Users/Security. From a separate Claude Design handoff session (not the `edc1baa4-ffbe-46e8-828c-a545703d9112` project the two files above came from), built for the auth overhaul on `feature/auth-overhaul-m1`; see [`docs/uvalu-auth-implementation-plan.md`](../uvalu-auth-implementation-plan.md) for how its 16 frames map to the real app and where the build deviates from it. |
+| [`support.js`](support.js) | Runtime the `.dc.html` files depend on (`<x-dc>` template engine + `DCLogic` base class). Required for the mockups to render standalone in a browser; not meaningful as a design reference on its own. |
 
 `Uvalu-brand-guidelines.md` lives at [`docs/uvalu-brand-guidelines.md`](../uvalu-brand-guidelines.md)
 (kept alongside the other product docs, not duplicated here) and is the same
