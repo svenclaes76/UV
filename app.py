@@ -19,6 +19,7 @@ logkit.begin_run()
 
 import streamlit as st
 
+from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
 from uvalu import authgate, nav, shell, styles
@@ -42,6 +43,10 @@ styles.inject()
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
 authgate.recover_session_from_cookie()
 authgate.handle_logout()
+
+# No-op once any account exists — the only way to create the very first
+# account now that the sign-in wall is invite-only (see uvalu/authgate.py).
+bootstrap_admin_from_env()
 
 # Resolve the current user and point the data layer at their storage.
 _email = current_user().email

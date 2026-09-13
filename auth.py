@@ -8,9 +8,13 @@ Roles:
             are hidden or disabled across the app
 
 Users are stored in .cache/users.json. The first account created is
-automatically assigned the Admin role. The JWT secret is read from
-the AUTH_SECRET environment variable; a random fallback is generated at
-startup (sessions survive until the process restarts).
+automatically assigned the Admin role — on a fresh deployment (no accounts
+yet, and the sign-in wall is invite-only) that first account normally comes
+from bootstrap_admin_from_env() (ADMIN_EMAIL/ADMIN_PASSWORD) or the
+scripts/create_admin.py break-glass CLI, rather than self-service signup.
+The JWT secret is read from the AUTH_SECRET environment variable; a random
+fallback is generated at startup (sessions survive until the process
+restarts).
 """
 
 import hashlib
@@ -154,6 +158,32 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
                          entity_id=logkit.user_hash(email), role=effective_role,
                          bootstrap_admin=bootstrap_admin)
     return True, "Account created. You can now log in."
+
+
+def bootstrap_admin_from_env() -> tuple[bool, str] | None:
+    """If the user store is empty and both ADMIN_EMAIL/ADMIN_PASSWORD are set
+    in the environment, create that account — register()'s own "first
+    account becomes Admin" logic promotes it. Returns None if skipped (store
+    non-empty, or the env vars aren't both set — ADMIN_EMAIL alone logs a
+    warning and skips, rather than generating a password with no channel to
+    surface it on a fresh headless deployment). Called once at app boot
+    (app.py), before auth_wall() — the only way left to create an account on
+    a fresh instance now that the sign-in wall is invite-only (see
+    uvalu/authgate.py). scripts/create_admin.py is the break-glass CLI
+    equivalent for an instance that already has accounts but no working
+    Admin."""
+    if _load_users():
+        return None
+    email = os.environ.get("ADMIN_EMAIL", "").strip()
+    if not email:
+        return None
+    password = os.environ.get("ADMIN_PASSWORD", "")
+    if not password:
+        logkit.get_logger("uvalu.auth").warning(
+            "ADMIN_EMAIL is set but ADMIN_PASSWORD is not -- skipping admin bootstrap",
+            extra={"event": "auth.bootstrap.skipped_no_password"})
+        return None
+    return register(email, password)
 
 
 _INVITE_TTL_DAYS = 7

@@ -99,6 +99,42 @@ class TestRegister:
         assert "could not be read" in msg
 
 
+class TestBootstrapAdminFromEnv:
+    def test_creates_and_promotes_admin_when_store_empty_and_both_vars_set(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        result = auth.bootstrap_admin_from_env()
+        assert result == (True, "Account created. You can now log in.")
+        users = auth._load_users()
+        assert users["boss@example.com"]["role"] == "Admin"
+
+    def test_skipped_when_admin_email_set_without_password(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+        assert auth.bootstrap_admin_from_env() is None
+        assert auth._load_users() == {}
+
+    def test_skipped_when_neither_var_set(self, monkeypatch):
+        monkeypatch.delenv("ADMIN_EMAIL", raising=False)
+        monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+        assert auth.bootstrap_admin_from_env() is None
+        assert auth._load_users() == {}
+
+    def test_skipped_when_store_already_has_an_account(self, monkeypatch):
+        auth.register("existing@example.com", "password123")
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        assert auth.bootstrap_admin_from_env() is None
+        assert "boss@example.com" not in auth._load_users()
+
+    def test_second_call_is_a_no_op(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        auth.bootstrap_admin_from_env()
+        assert auth.bootstrap_admin_from_env() is None
+        assert len(auth._load_users()) == 1
+
+
 # ── login / verify_token ─────────────────────────────────────────────────
 
 class TestLogin:

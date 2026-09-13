@@ -9,6 +9,8 @@ Stored in `.env` in the project root. Required — the app will not start withou
 | `AUTH_SECRET` | 64-char hex | HMAC-SHA256 signing key for JWT tokens. Must be kept secret. |
 | `ENCRYPTION_KEY` | 64-char hex | Fernet key for encrypting portfolio and settings files at rest. Must be kept secret. Changing this key makes all existing encrypted files unreadable. |
 | `UVALU_ENV` | `development` \| `staging` \| `production` | Optional (default `development`). Tags every log line (`metadata.environment`) and controls stack-trace verbosity — full traces in `development`/`staging`, `error_type` + `error_fingerprint` only in `production`. Overridden by `environment` in `logging.config.json` if that is set. |
+| `ADMIN_EMAIL` | email address | Optional. If set and the user store is empty at startup, this account is created and promoted to `Admin` via `auth.bootstrap_admin_from_env()` — the only way to create the first account now that the sign-in wall is invite-only. Ignored once any account exists. |
+| `ADMIN_PASSWORD` | string, 8+ chars | Optional. Password for `ADMIN_EMAIL`'s bootstrap account. If `ADMIN_EMAIL` is set but this isn't, bootstrap is skipped (logged as a warning) rather than generating a password with nowhere to show it — use `scripts/create_admin.py` instead. |
 
 Generate the two secrets with:
 

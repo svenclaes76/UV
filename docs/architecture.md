@@ -199,7 +199,7 @@ One module per page, each exposing `render()`: `dashboard`, `screener`, `watchli
 Email/password authentication with JWT sessions.
 
 - `ROLES = ("Admin", "Analyst", "Viewer")`, `STATUSES = ("Active", "Invited", "Suspended")`. Older accounts stored with the pre-Admin-portal lowercase `admin`/`user` roles are transparently upgraded on load by `_normalize_user()` (`admin`→`Admin`, `user`→`Analyst`).
-- `register(email, password, role=...)` — bcrypt-hash the password, store in `.cache/users.json`. First user becomes `Admin`.
+- `register(email, password, role=...)` — bcrypt-hash the password, store in `.cache/users.json`. First user becomes `Admin`. The sign-in wall is invite-only (no self-service signup UI), so on a fresh deployment the first account normally comes from `bootstrap_admin_from_env()` (`ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars, checked once at boot in `app.py`) or the `scripts/create_admin.py` break-glass CLI, both of which call `register()`/`set_role()` directly.
 - `invite_user(email, role=...)` — creates an account with `Invited` status and a random temporary password, returned once for the inviter to hand off manually (no outbound email is sent).
 - `login(email, password)` — verify hash, reject `Suspended` accounts, flip `Invited`→`Active` and stamp `last_active` on success, issue an HS256 JWT (24 h TTL, signed with `AUTH_SECRET`).
 - `verify_token(token)` → `(email, role)`.
