@@ -410,6 +410,13 @@ class TestSecuritySection:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert settings.load_shared_settings()["auto_provision_oauth"] is True
 
+    def test_passkeys_row_shows_phase_3_badge_and_disabled_toggle(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        html = "".join(m.value for m in at.markdown)
+        assert "Passkeys" in html
+        assert "PHASE 3" in html
+        assert at.toggle(key="admin_sec_passkeys").disabled
+
 
 # ── Feeds section ─────────────────────────────────────────────────────────
 

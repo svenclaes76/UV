@@ -471,6 +471,22 @@ def render() -> None:
                         revoke_trusted_devices(_email)
                         st.rerun()
 
+        # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
+        # py_webauthn registration or login exists yet. Shown regardless of
+        # password/TOTP state (unlike the rows above) since a passkey is its
+        # own independent credential, not gated behind having a password.
+        with st.container(key="set_row_passkeys"):
+            _pkc1, _pkc2 = st.columns([3, 1], vertical_alignment="center")
+            with _pkc1:
+                _row_title(
+                    'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
+                    'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
+                    'PHASE 3</span>',
+                    "Sign in with Face ID, Touch ID or a security key.")
+            with _pkc2:
+                st.button("Manage", key="set_passkeys_manage_btn", width="stretch", disabled=True,
+                         help="Not built yet — feature-flagged off until Phase 3.")
+
     # ── Active sessions ────────────────────────────────────────────────────────
     with st.container(key="set_card_sessions", border=True):
         _row_header("Active sessions")

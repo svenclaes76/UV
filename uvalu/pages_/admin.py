@@ -494,6 +494,22 @@ def _render_security() -> None:
             save_shared_settings(_shared)
             st.rerun()
 
+        # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
+        # py_webauthn registration or login exists yet, so there's no real
+        # setting behind this toggle to persist — it's permanently off until
+        # that's built.
+        with st.container(key="admin_sec_row_passkeys"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title(
+                    'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
+                    'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
+                    'PHASE 3</span>',
+                    "Feature flag. Off until the custom component is verified on real devices.")
+            with _c2:
+                st.toggle("Passkeys", value=False, disabled=True, key="admin_sec_passkeys",
+                         label_visibility="collapsed")
+
 
 def _render_feeds() -> None:
     st.caption("Enable or disable exchanges included in the Screener and portfolio analysis. "

@@ -732,3 +732,21 @@ class TestTrustedDevicesCard:
         at = _run(monkeypatch)
         revoke_btn = [b for b in at.button if b.label == "Revoke all"][0]
         assert revoke_btn.disabled
+
+
+# ── Passkeys stub (Phase 3 — UI only, no WebAuthn) ──────────────────────────
+
+class TestPasskeysStubRow:
+    def test_shows_phase_3_badge_and_disabled_manage_button(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Passkeys" in html
+        assert "PHASE 3" in html
+        manage_btn = [b for b in at.button if b.label == "Manage"][0]
+        assert manage_btn.disabled
+
+    def test_shown_regardless_of_password_or_totp_state(self, isolated_data, monkeypatch):
+        # No account registered at all (provider-only) -- the row still
+        # appears, unlike the TOTP-gated rows above it.
+        at = _run(monkeypatch)
+        assert any(b.label == "Manage" for b in at.button)
