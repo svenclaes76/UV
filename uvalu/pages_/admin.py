@@ -1035,19 +1035,33 @@ def _admin_shell_css(active: str) -> str:
 [class*="st-key-admin_feed_row_"] [data-testid="stColumn"]:nth-child(2) {{
   min-height: 34px !important;
 }}
-/* Same bug, fourth column (Last active) — measured 2.4px reported against
-   18.4px real content (a single-line mono-font date string), pushing its
-   visual center ~7.7px below the row's true center despite the row itself
-   correctly centering every OTHER column. */
+/* Same bug, fourth column — this comment and the two rules below it
+   originally targeted "Last active" and "You" by nth-child position, but
+   the table has since gained Sign-in and 2FA columns in between Status and
+   Last active, shifting every column after Status two positions to the
+   right without these selectors being updated to match. Re-measured live
+   against the current 7-column layout (User, Role, Status, Sign-in, 2FA,
+   Last active, actions): Last active and You now center correctly on
+   their own (0px offset from the Role select's own center, a reliably-
+   centered reference); nth-child(4) is actually Sign-in ("Password"),
+   which measured 8px too high. Kept the existing min-height on the COLUMN
+   itself (harmless, and Sign-in's own natural content really is ~18px) but
+   that alone wasn't the real fix here — confirmed live the column's own
+   floor doesn't help because its DIRECT CHILD (an auto-generated
+   stVerticalBlock wrapping the st.markdown call) is itself under-reporting
+   (2px reported vs. the column's real 18px), the same bug one level
+   deeper. Flooring that inner block too is what actually centers it. */
 [class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(4) {{
   min-height: 18px !important;
 }}
-/* Same bug again, fifth column's "You" case specifically (the current
-   user's row has no buttons, just a plain right-aligned "You" label) —
-   measured ~7.7px below the row's true center, identical symptom/cause as
-   Last Active. Harmless to the OTHER case this same column holds (the
-   Suspend+⋯ buttons, already correctly 40px tall) since this is only a
-   floor, not a fixed height. */
+[class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(4) [data-testid="stVerticalBlock"] {{
+  min-height: 18px !important;
+}}
+/* 2FA (nth-child(5), badge) already centers correctly on its own (+1px,
+   within measurement noise) — this floor predates the column reshuffle
+   above and is a harmless no-op today (19px is below its natural ~27px),
+   left in place rather than removed since it costs nothing and a future
+   layout change could plausibly need it again. */
 [class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(5) {{
   min-height: 19px !important;
 }}
