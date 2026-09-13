@@ -74,7 +74,7 @@ def _stat_tile(label: str, value) -> str:
 
 @st.dialog("Invite user", width="large")
 def _dlg_invite():
-    st.caption("They'll need this temporary password to sign in — there's no outbound email, "
+    st.caption("They'll need this link to set up their account — there's no outbound email, "
               "so share it with them yourself.")
     _email = st.text_input("Email", key="admin_invite_email", placeholder="name@company.com")
     _role = st.selectbox("Role", options=list(ROLES), index=list(ROLES).index("Analyst"),
@@ -88,11 +88,11 @@ def _dlg_invite():
         _do_invite = st.button("Send invite", key="admin_invite_submit", type="primary", width="stretch")
 
     if _do_invite:
-        ok, msg, temp_pw = invite_user(_email, _role)
+        ok, msg, token = invite_user(_email, _role, invited_by=current_user().email)
         if ok:
             st.success(msg)
-            st.code(temp_pw, language=None)
-            st.caption("Temporary password — shown once. Copy it now.")
+            st.code(f"{st.context.url}?invite={token}", language=None)
+            st.caption("Invite link — shown once. Copy it now. Valid for 7 days.")
         else:
             st.error(msg)
 

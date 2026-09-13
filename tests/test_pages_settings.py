@@ -3,13 +3,23 @@ import io
 
 import pandas as pd
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 import auth
 import portfolio
 import settings
+from uvalu import oauth
 from uvalu.pages_ import settings as settings_page
 from tests.conftest import TEST_EMAIL, fake_cached_fn, USER_SETUP_SRC
+
+
+class FakeUser(dict):
+    """Minimal stand-in for streamlit.user_info.UserInfoProxy — see
+    tests/test_oauth.py's identical class for why this suffices."""
+    def __init__(self, is_logged_in: bool, **claims):
+        super().__init__(**claims)
+        self.is_logged_in = is_logged_in
 
 
 def _run(monkeypatch, role="Analyst", jwt_sid=None) -> AppTest:
@@ -301,13 +311,15 @@ class TestSecurityCard:
         html = "".join(m.value for m in at.markdown)
         assert "Last changed" in html
 
-    def test_no_account_shows_no_record_caption(self, isolated_data, monkeypatch):
+    def test_no_account_shows_set_a_password(self, isolated_data, monkeypatch):
         # TEST_EMAIL isn't registered in auth's user store at all — only
-        # portfolio.set_user() was called (see USER_SETUP_SRC) — so there's
-        # no password_changed_at to show.
+        # portfolio.set_user() was called (see USER_SETUP_SRC) — has_password()
+        # is False for a nonexistent account, same UI as a real provider-only
+        # account with no password_hash yet.
         at = _run(monkeypatch)
         html = "".join(m.value for m in at.markdown)
-        assert "No password change on record" in html
+        assert "NOT SET" in html
+        assert any(b.label == "Set a password" for b in at.button)
 
     def test_change_button_opens_dialog(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")
@@ -426,3 +438,87 @@ class TestActiveSessions:
         _, _, sid1 = auth.verify_token(tok1)
         at = _run(monkeypatch, jwt_sid=sid1)
         assert not any(b.label == "Sign out everywhere else" for b in at.button)
+
+
+# ── Linked accounts ───────────────────────────────────────────────────────
+
+class TestLinkedAccounts:
+    def test_unlinked_configured_provider_shows_connect(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(oauth, "_auth_secrets", lambda: {
+            "google": {"client_id": "x", "client_secret": "y",
+                      "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
+        at = _run(monkeypatch)
+        assert any(b.label == "Connect" for b in at.button)
+
+    def test_unconfigured_provider_shows_unavailable(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Not configured for this workspace" in html
+        assert "Unavailable" in html
+
+    def test_linked_provider_shows_connected_and_disconnect(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.link_identity(TEST_EMAIL, "https://accounts.google.com", "sub-123", "test@example.com")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "CONNECTED" in html
+        assert any(b.label == "Disconnect" for b in at.button)
+
+    def test_disconnect_unlinks_provider(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.link_identity(TEST_EMAIL, "https://accounts.google.com", "sub-123", "test@example.com")
+        at = _run(monkeypatch)
+        disconnect_btn = [b for b in at.button if b.label == "Disconnect"][0]
+        disconnect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.list_linked_identities(TEST_EMAIL) == []
+
+    def test_disconnecting_only_method_is_refused(self, isolated_data, monkeypatch):
+        # Password-less account with exactly one linked identity -- refused
+        # by auth.unlink_identity(), surfaced here as a toast rather than
+        # silently vanishing.
+        _, _, token = auth.invite_user(TEST_EMAIL)
+        auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", TEST_EMAIL)
+        at = _run(monkeypatch)
+        disconnect_btn = [b for b in at.button if b.label == "Disconnect"][0]
+        disconnect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(auth.list_linked_identities(TEST_EMAIL)) == 1
+
+    def test_connect_click_starts_login(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(oauth, "_auth_secrets", lambda: {
+            "google": {"client_id": "x", "client_secret": "y",
+                      "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
+        started = {"provider": None}
+        monkeypatch.setattr(oauth, "start_login", lambda pid: started.__setitem__("provider", pid))
+        at = _run(monkeypatch)
+        connect_btn = [b for b in at.button if b.label == "Connect"][0]
+        connect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert started["provider"] == "google"
+
+
+class TestOAuthSelfLinking:
+    def test_completed_identity_links_to_current_account(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(st, "user", FakeUser(
+            True, iss="https://accounts.google.com", sub="sub-123", email=TEST_EMAIL))
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        linked = auth.list_linked_identities(TEST_EMAIL)
+        assert len(linked) == 1
+        assert linked[0]["subject"] == "sub-123"
+
+    def test_identity_already_linked_elsewhere_is_not_stolen(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.register("other@example.com", "password123456")
+        auth.link_identity("other@example.com", "https://accounts.google.com", "sub-123", "other@example.com")
+        monkeypatch.setattr(st, "user", FakeUser(
+            True, iss="https://accounts.google.com", sub="sub-123", email=TEST_EMAIL))
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.list_linked_identities(TEST_EMAIL) == []
+        assert len(auth.list_linked_identities("other@example.com")) == 1

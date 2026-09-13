@@ -46,6 +46,12 @@ _SHARED_DEFAULTS: dict = {
     # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).
     "login_attempts_before_lock": 5,   # failed attempts on one account before it locks
     "lock_minutes": 15,                # how long a lock lasts once triggered
+    # Provider (OAuth) sign-in policy — read by auth.py's oauth_login() when a
+    # completed Google/Microsoft sign-in doesn't match any linked identity.
+    # Off keeps Uvalu invite-only; on creates an account for any address in
+    # an allowed domain instead of refusing it. Applies to every provider.
+    "auto_provision_oauth": False,
+    "allowed_email_domains": [],
 }
 
 # Composite-score sub-weight vectors per screening style, each

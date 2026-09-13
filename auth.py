@@ -58,6 +58,10 @@ def _normalize_user(data: dict) -> dict:
         "locked_until":    data.get("locked_until"),
         "sessions":        data.get("sessions", []),
         "password_changed_at": data.get("password_changed_at", data.get("created_at", "")),
+        "linked_identities":   data.get("linked_identities", []),
+        "invite_token":         data.get("invite_token"),
+        "invite_token_expires": data.get("invite_token_expires"),
+        "invited_by":           data.get("invited_by", ""),
     }
 
 
@@ -132,11 +136,18 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     return True, "Account created. You can now log in."
 
 
-def invite_user(email: str, role: str = "Analyst") -> tuple[bool, str, str | None]:
+_INVITE_TTL_DAYS = 7
+
+
+def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tuple[bool, str, str | None]:
     """
-    Create an Invited account with a random temporary password. No outbound
-    email exists — returns (success, message, temp_password) so the caller
-    can display the password once for the admin to hand off manually.
+    Create a pending Invited account and a one-time invite token. No outbound
+    email exists — returns (success, message, invite_token) so the caller can
+    build a link (e.g. "?invite=<token>") and hand it to the invitee
+    themselves. The account has no password and no linked identity until
+    accept_invite_with_password() / accept_invite_with_oauth() finalizes it —
+    unlike the account this replaces (a temp password usable immediately),
+    the pending account can't sign in on its own until then.
     """
     email = email.strip().lower()
     if not email or "@" not in email:
@@ -147,21 +158,115 @@ def invite_user(email: str, role: str = "Analyst") -> tuple[bool, str, str | Non
     if email in users:
         return False, "An account with this email already exists.", None
 
-    temp_password = secrets.token_urlsafe(9)
-    hashed = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
-    _now = datetime.now(timezone.utc).isoformat()
+    token = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
     users[email] = {
-        "password_hash": hashed,
+        "password_hash": None,
         "role":          role,
         "status":        "Invited",
-        "created_at":    _now,
+        "created_at":    now.isoformat(),
         "last_active":   "",
-        "password_changed_at": _now,
+        "password_changed_at": "",
+        "linked_identities": [],
+        "invite_token":        token,
+        "invite_token_expires": (now + timedelta(days=_INVITE_TTL_DAYS)).isoformat(),
+        "invited_by":          invited_by,
     }
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.invite", entity_type="user",
                          entity_id=logkit.user_hash(email), role=role, status="Invited")
-    return True, f"{email} invited.", temp_password
+    return True, f"{email} invited.", token
+
+
+def get_pending_invite(token: str) -> dict | None:
+    """{email, role, invited_by} for a not-yet-expired invite token, for the
+    invite-acceptance screen — or None if the token is unknown or expired."""
+    if not token:
+        return None
+    users = _load_users()
+    now = datetime.now(timezone.utc)
+    for email, user in users.items():
+        if user.get("invite_token") != token:
+            continue
+        expires = user.get("invite_token_expires")
+        if not expires or datetime.fromisoformat(expires) < now:
+            return None
+        return {"email": email, "role": user.get("role", "Analyst"),
+                "invited_by": user.get("invited_by", "")}
+    return None
+
+
+def find_pending_invite_by_email(email: str) -> dict | None:
+    """Same as get_pending_invite(), keyed by email instead of token.
+
+    Needed because Streamlit's st.login() redirects back to the app's home
+    page, not the page (or query params) the user started from — so a
+    "Continue with Google" click from the invite-acceptance screen loses the
+    ?invite=<token> in the URL by the time the identity comes back.
+    auth_wall()'s post-redirect handling falls back to this once oauth_login()
+    finds no existing linked identity, rather than needing the token to
+    survive the round trip at all."""
+    email = email.strip().lower()
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("invite_token"):
+        return None
+    expires = user.get("invite_token_expires")
+    if not expires or datetime.fromisoformat(expires) < datetime.now(timezone.utc):
+        return None
+    return {"token": user["invite_token"], "role": user.get("role", "Analyst"),
+            "invited_by": user.get("invited_by", "")}
+
+
+def accept_invite_with_password(token: str, password: str, user_agent: str = "") -> tuple[bool, str]:
+    """Finalize a pending invite by setting a password — the invited user is
+    signed in immediately, same as login(). Returns (True, jwt) on success,
+    (False, error_message) otherwise."""
+    invite = get_pending_invite(token)
+    if not invite:
+        return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters."
+    users = _load_users()
+    email = invite["email"]
+    user = users[email]
+    now = datetime.now(timezone.utc)
+    user["password_hash"]        = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    user["password_changed_at"]  = now.isoformat()
+    user["status"]                = "Active"
+    user["last_active"]           = now.isoformat()
+    user["invite_token"]          = None
+    user["invite_token_expires"]  = None
+    token_jwt = _issue_session(users, email, user, user_agent)
+    logkit.auth_event("invite.accepted", outcome="ok", user_id=logkit.user_hash(email), method="password")
+    return True, token_jwt
+
+
+def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email: str,
+                             user_agent: str = "") -> tuple[bool, str]:
+    """Finalize a pending invite by linking a provider identity instead of
+    setting a password. The signed-in provider identity's email must match
+    the address the invite was sent to — otherwise this would let anyone who
+    knows (or guesses) an invite link claim it with an unrelated account."""
+    invite = get_pending_invite(token)
+    if not invite:
+        return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    email = invite["email"]
+    if oauth_email.strip().lower() != email:
+        return False, (f"This invite was sent to {email}. Sign in with a matching account, "
+                       f"or ask your admin to invite {oauth_email}.")
+    users = _load_users()
+    user = users[email]
+    now = datetime.now(timezone.utc)
+    user["status"]      = "Active"
+    user["last_active"] = now.isoformat()
+    user["invite_token"] = None
+    user["invite_token_expires"] = None
+    user["linked_identities"] = [{"issuer": issuer, "subject": subject,
+                                  "email_at_link": oauth_email, "linked_at": now.isoformat()}]
+    token_jwt = _issue_session(users, email, user, user_agent)
+    logkit.auth_event("invite.accepted", outcome="ok", user_id=logkit.user_hash(email), method="oauth")
+    return True, token_jwt
 
 
 def _rate_limit_settings() -> tuple[int, int]:
@@ -172,6 +277,42 @@ def _rate_limit_settings() -> tuple[int, int]:
     return (
         int(s.get("login_attempts_before_lock", 5)),
         int(s.get("lock_minutes", 15)),
+    )
+
+
+def _issue_session(users: dict, email: str, user: dict, user_agent: str = "") -> str:
+    """Mint a session (sid + JWT) for `user`, persist it, and return the
+    token. Shared by login(), accept_invite_with_password/oauth(), and
+    oauth_login() — every path that ends with "this browser is now signed
+    in" goes through here so there's exactly one place that mints a sid,
+    prunes stale sessions, and shapes the JWT claims."""
+    now = datetime.now(timezone.utc)
+    sid = uuid.uuid4().hex
+    _cutoff = now - timedelta(hours=_JWT_TTL_H)
+    sessions = [
+        s for s in user.get("sessions", [])
+        if datetime.fromisoformat(s["created_at"]) > _cutoff
+    ]
+    sessions.append({
+        "sid":        sid,
+        "created_at": now.isoformat(),
+        "user_agent": (user_agent or "")[:200],
+        "revoked":    False,
+    })
+    user["sessions"] = sessions
+    users[email] = user
+    _save_users(users)
+
+    return jwt.encode(
+        {
+            "sub":  email,
+            "role": user.get("role", "Analyst"),
+            "sid":  sid,
+            "exp":  now + timedelta(hours=_JWT_TTL_H),
+            "iat":  now,
+        },
+        _JWT_SECRET,
+        algorithm=_JWT_ALGO,
     )
 
 
@@ -216,7 +357,12 @@ def login(email: str, password: str, user_agent: str = "") -> tuple[bool, str]:
         user["locked_until"] = None
         user["failed_attempts"] = 0
 
-    if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+    # No password_hash means a provider-only account (invited-but-not-yet-
+    # accepted, or an OAuth account that never set one) — treated exactly
+    # like a wrong password rather than its own branch, so this can't be
+    # used to detect which accounts are password-less from the outside.
+    _hash = user.get("password_hash")
+    if not _hash or not bcrypt.checkpw(password.encode(), _hash.encode()):
         user["failed_attempts"] = user.get("failed_attempts", 0) + 1
         remaining_attempts = max_attempts - user["failed_attempts"]
         if remaining_attempts <= 0:
@@ -249,40 +395,7 @@ def login(email: str, password: str, user_agent: str = "") -> tuple[bool, str]:
     user["last_active"] = now.isoformat()
     user["failed_attempts"] = 0
     user["locked_until"] = None
-
-    # One session-store row per issued token, so Settings -> Security can
-    # list "active sessions" and sign one (or all-but-one) of them out —
-    # something a bare stateless JWT can't support on its own. Sessions
-    # whose token would already be expired are dropped here rather than by
-    # a separate cleanup job; an unbounded list only grows if something signs
-    # in far more than _JWT_TTL_H's worth of times without ever expiring.
-    sid = uuid.uuid4().hex
-    _cutoff = now - timedelta(hours=_JWT_TTL_H)
-    sessions = [
-        s for s in user.get("sessions", [])
-        if datetime.fromisoformat(s["created_at"]) > _cutoff
-    ]
-    sessions.append({
-        "sid":         sid,
-        "created_at":  now.isoformat(),
-        "user_agent":  (user_agent or "")[:200],
-        "revoked":     False,
-    })
-    user["sessions"] = sessions
-    users[email] = user
-    _save_users(users)
-
-    token = jwt.encode(
-        {
-            "sub":  email,
-            "role": user.get("role", "Analyst"),
-            "sid":  sid,
-            "exp":  now + timedelta(hours=_JWT_TTL_H),
-            "iat":  now,
-        },
-        _JWT_SECRET,
-        algorithm=_JWT_ALGO,
-    )
+    token = _issue_session(users, email, user, user_agent)
     logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                       role=user.get("role", "Analyst"), was_invited=was_invited)
     return True, token
@@ -392,6 +505,141 @@ def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
     return True, f"Signed out of {_n} other session{'s' if _n != 1 else ''}."
 
 
+# ── Provider identities (OAuth) ──────────────────────────────────────────────
+#
+# An identity is keyed by (issuer, subject) — the OIDC issuer URL and that
+# issuer's own stable subject id for the account — not by email or by our own
+# "google"/"microsoft" provider label. Addresses get reused and renamed, and
+# two providers can assert the same address, but issuer+subject is exactly
+# what the provider itself guarantees is stable and unique (see Auth GUI
+# Impact.dc.html's "Is a provider identity keyed by email or by subject?").
+# One account can hold several (e.g. Google AND Microsoft at once) —
+# `linked_identities` is a list, not a single column.
+
+def _find_identity_owner(users: dict, issuer: str, subject: str) -> str | None:
+    for email, user in users.items():
+        for ident in user.get("linked_identities", []):
+            if ident.get("issuer") == issuer and ident.get("subject") == subject:
+                return email
+    return None
+
+
+def link_identity(email: str, issuer: str, subject: str, oauth_email: str = "") -> tuple[bool, str]:
+    """Attach a provider identity to an already-authenticated account (the
+    Settings -> Security 'Connect' action) — distinct from oauth_login()
+    below, which resolves a *sign-in* attempt rather than a same-session
+    linking action."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    owner = _find_identity_owner(users, issuer, subject)
+    if owner and owner != email:
+        return False, "This identity is already linked to a different account."
+    identities = users[email].get("linked_identities", [])
+    if any(i.get("issuer") == issuer for i in identities):
+        return False, "This provider is already linked to your account."
+    identities.append({"issuer": issuer, "subject": subject, "email_at_link": oauth_email,
+                       "linked_at": datetime.now(timezone.utc).isoformat()})
+    users[email]["linked_identities"] = identities
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.link_identity",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Provider connected."
+
+
+def unlink_identity(email: str, issuer: str) -> tuple[bool, str]:
+    """Detach a provider identity — refused if it's the only sign-in method
+    left (no password and no other linked identity), matching the mockup's
+    'the last remaining method can never be removed'."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    user = users[email]
+    identities = user.get("linked_identities", [])
+    remaining = [i for i in identities if i.get("issuer") != issuer]
+    if len(remaining) == len(identities):
+        return False, "That provider isn't linked to your account."
+    if not remaining and not user.get("password_hash"):
+        return False, "Can't disconnect your only sign-in method — set a password first."
+    users[email]["linked_identities"] = remaining
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.unlink_identity",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Provider disconnected."
+
+
+def set_password(email: str, new_password: str) -> tuple[bool, str]:
+    """Set a first password on a provider-only account (Settings' 'Set a
+    password' action) — distinct from change_password(), which requires
+    proving the CURRENT password and so only applies once one already
+    exists."""
+    email = email.strip().lower()
+    if len(new_password) < 8:
+        return False, "Password must be at least 8 characters."
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    if users[email].get("password_hash"):
+        return False, "This account already has a password — use Change instead."
+    users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    users[email]["password_changed_at"] = datetime.now(timezone.utc).isoformat()
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.set_password",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Password set."
+
+
+def oauth_login(issuer: str, subject: str, email: str, user_agent: str = "") -> tuple[bool, str]:
+    """Resolve a completed OIDC sign-in (Streamlit's st.login()/st.user, via
+    uvalu/oauth.py) against the user store. Returns (True, jwt) on success;
+    (False, "not_invited") if this identity has no Uvalu account and
+    workspace policy doesn't auto-provision one — the caller (authgate.py)
+    renders the refusal screen using the email it already has, rather than
+    this needing to round-trip it back."""
+    email = email.strip().lower()
+    users = _load_users()
+    owner = _find_identity_owner(users, issuer, subject)
+    if owner:
+        user = users[owner]
+        if user.get("status") == "Suspended":
+            logkit.auth_event("login.failed", outcome="failed", reason="suspended",
+                              user_id=logkit.user_hash(owner))
+            return False, "suspended"
+        was_invited = user.get("status") == "Invited"
+        if was_invited:
+            user["status"] = "Active"
+        user["last_active"] = datetime.now(timezone.utc).isoformat()
+        token = _issue_session(users, owner, user, user_agent)
+        logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(owner),
+                          role=user.get("role", "Analyst"), was_invited=was_invited, method="oauth")
+        return True, token
+
+    shared = load_shared_settings()
+    domain = email.rsplit("@", 1)[-1] if "@" in email else ""
+    if shared.get("auto_provision_oauth", False) and domain in shared.get("allowed_email_domains", []):
+        now = datetime.now(timezone.utc)
+        new_user = {
+            "password_hash": None, "role": "Analyst", "status": "Active",
+            "created_at": now.isoformat(), "last_active": now.isoformat(),
+            "password_changed_at": "", "linked_identities": [
+                {"issuer": issuer, "subject": subject, "email_at_link": email, "linked_at": now.isoformat()}],
+            "invite_token": None, "invite_token_expires": None, "invited_by": "",
+        }
+        users[email] = new_user
+        token = _issue_session(users, email, new_user, user_agent)
+        logkit.data_mutation(actor="system", action="user.auto_provision", entity_type="user",
+                             entity_id=logkit.user_hash(email), role="Analyst")
+        logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
+                          role="Analyst", method="oauth", auto_provisioned=True)
+        return True, token
+
+    logkit.auth_event("login.failed", outcome="failed", reason="not_invited",
+                      user_id=logkit.user_hash(email))
+    return False, "not_invited"
+
+
 def get_user_status(email: str) -> tuple[str, str] | None:
     """
     Current (role, status) for an email from the live user store, or None if
@@ -418,6 +666,23 @@ def password_last_changed(email: str) -> str | None:
     if not user:
         return None
     return user.get("password_changed_at") or None
+
+
+def has_password(email: str) -> bool:
+    """True if the account can sign in with a password at all — false for a
+    provider-only account (Settings shows 'Set a password' instead of
+    'Change' for these, mockup frame 11)."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    return bool(user and user.get("password_hash"))
+
+
+def list_linked_identities(email: str) -> list[dict]:
+    """This account's linked provider identities, for Settings ->
+    Linked accounts. Each entry: {issuer, subject, email_at_link, linked_at}."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    return list(user.get("linked_identities", [])) if user else []
 
 
 # ── Admin helpers ─────────────────────────────────────────────────────────────
@@ -502,7 +767,8 @@ def change_password(email: str, current_password: str, new_password: str) -> tup
     users = _load_users()
     if email not in users:
         return False, "User not found."
-    if not bcrypt.checkpw(current_password.encode(), users[email]["password_hash"].encode()):
+    _hash = users[email].get("password_hash")
+    if not _hash or not bcrypt.checkpw(current_password.encode(), _hash.encode()):
         logkit.auth_event("password.change_failed", outcome="failed", reason="bad_current_password",
                           user_id=logkit.user_hash(email))
         return False, "Current password is incorrect."

@@ -30,14 +30,15 @@ from datetime import datetime
 
 import streamlit as st
 
-from auth import (change_password, list_sessions, password_last_changed,
-                  revoke_other_sessions, revoke_session)
+from auth import (change_password, has_password, link_identity, list_linked_identities,
+                  list_sessions, password_last_changed, revoke_other_sessions, revoke_session,
+                  set_password, unlink_identity)
 from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       _SCORE_STYLES)
-from uvalu import nav as nav_registry
+from uvalu import nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
 from uvalu.shell import _display_name, _initials, set_theme_script
@@ -207,11 +208,53 @@ def _dlg_change_password(email: str):
                 st.error(msg)
 
 
+@st.dialog("Set a password", width="large")
+def _dlg_set_password(email: str):
+    """For a provider-only account (no current password to prove) — add one
+    so you can still sign in when your provider is unavailable, mockup
+    frame 11's "Password / NOT SET / Set a password" row."""
+    st.caption("Add a password so you can sign in when your provider is unavailable.")
+    _new = st.text_input("New password", type="password", key="set_pw2_new",
+                         help="At least 8 characters.")
+    _confirm = st.text_input("Confirm new password", type="password", key="set_pw2_confirm")
+
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("Cancel", key="set_pw2_cancel", width="stretch"):
+            st.rerun()
+    with _b2:
+        _do_set = st.button("Set password", key="set_pw2_submit", type="primary", width="stretch")
+
+    if _do_set:
+        if _new != _confirm:
+            st.error("New password and confirmation don't match.")
+        else:
+            ok, msg = set_password(email, _new)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+
+
 def render() -> None:
     _u = current_user()
     _email = _u.email
     _s = load_settings(_email)
     _shared = load_shared_settings()
+
+    # Completing a "Connect" click below (oauth.start_login()) lands back on
+    # the app's home page already signed in as _email via the uv_jwt cookie
+    # (recover_session_from_cookie() restores it before auth_wall() ever
+    # gets a chance to treat this as a fresh sign-in) — so linking the
+    # identity that just came back happens here, not in authgate.py's
+    # unauthenticated-visitor flow. Guarded the same way that flow guards
+    # itself: st.user stays populated for the life of the OIDC session, so
+    # this only fires once per identity rather than re-linking every rerun.
+    _identity = oauth.current_identity()
+    if _identity and not st.session_state.get("set_oauth_link_handled"):
+        st.session_state["set_oauth_link_handled"] = True
+        _ok, _msg = link_identity(_email, _identity["issuer"], _identity["subject"], _identity["email"])
+        st.toast(_msg, icon=None if _ok else ":material/warning:")
 
     _dash_page = nav_registry.pages.get("dashboard")
     if _dash_page is not None and st.button("← Back", key="set_back", type="tertiary"):
@@ -222,17 +265,68 @@ def render() -> None:
     st.caption("Display preferences and screening thresholds. Changes apply immediately.")
 
     # ── Security ─────────────────────────────────────────────────────────────────
+    _has_pw = has_password(_email)
     with st.container(key="set_card_security", border=True):
         _row_header("Security")
         with st.container(key="set_row_password"):
             _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
             with _pc1:
-                _changed = password_last_changed(_email)
-                _row_title("Password", f"Last changed {_fmt_date(_changed)}." if _changed
-                          else "No password change on record.")
+                if _has_pw:
+                    _changed = password_last_changed(_email)
+                    _row_title("Password", f"Last changed {_fmt_date(_changed)}." if _changed
+                              else "No password change on record.")
+                else:
+                    _row_title(
+                        'Password<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;'
+                        'border-radius:4px;background:var(--line-2);color:var(--faint);margin-left:8px;">'
+                        'NOT SET</span>',
+                        "Add one so you can sign in when your provider is unavailable.")
             with _pc2:
-                if st.button("Change", key="set_pw_change_btn", width="stretch"):
-                    _dlg_change_password(_email)
+                if _has_pw:
+                    if st.button("Change", key="set_pw_change_btn", width="stretch"):
+                        _dlg_change_password(_email)
+                else:
+                    if st.button("Set a password", key="set_pw_set_btn", width="stretch", type="primary"):
+                        _dlg_set_password(_email)
+
+        # Linked accounts — one row per known provider (oauth.PROVIDERS), not
+        # just the ones this account has linked, so an unconfigured/
+        # unlinked provider still shows up dimmed instead of only appearing
+        # once someone connects it (mockup: "adding one later changes a
+        # state rather than a layout").
+        with st.container(key="set_row_linked"):
+            _lc1, _lc2 = st.columns([3, 1], vertical_alignment="center")
+            with _lc1:
+                _row_title("Linked accounts", "One row per configured provider.")
+            _linked = {oauth.label_for_issuer(i["issuer"]): i for i in list_linked_identities(_email)}
+            for _prov in oauth.configured_providers():
+                _ident = _linked.get(_prov["label"])
+                with st.container(key=f"set_row_linked_{_prov['id']}"):
+                    _pc1b, _pc2b = st.columns([3, 1], vertical_alignment="center")
+                    with _pc1b:
+                        if _ident:
+                            _meta = f"{_ident.get('email_at_link', '')} · linked {_fmt_date(_ident.get('linked_at', ''))}"
+                            _row_title(
+                                f'{_prov["label"]}<span style="font-size:9.5px;letter-spacing:0.04em;'
+                                f'padding:2px 6px;border-radius:4px;background:var(--up-bg);'
+                                f'color:var(--up-txt);margin-left:8px;">CONNECTED</span>', _meta)
+                        elif _prov["configured"]:
+                            _row_title(_prov["label"], "Available for this workspace.")
+                        else:
+                            _row_title(_prov["label"], "Not configured for this workspace.")
+                    with _pc2b:
+                        if _ident:
+                            if st.button("Disconnect", key=f"set_unlink_{_prov['id']}", width="stretch"):
+                                ok, msg = unlink_identity(_email, _ident["issuer"])
+                                if not ok:
+                                    st.toast(msg, icon=":material/warning:")
+                                st.rerun()
+                        elif _prov["configured"]:
+                            if st.button("Connect", key=f"set_link_{_prov['id']}", width="stretch"):
+                                oauth.start_login(_prov["id"])
+                        else:
+                            st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
+                                       'Unavailable</div>', unsafe_allow_html=True)
 
     # ── Active sessions ────────────────────────────────────────────────────────
     with st.container(key="set_card_sessions", border=True):

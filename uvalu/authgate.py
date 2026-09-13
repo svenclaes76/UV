@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 
 import streamlit as st
 
-from auth import get_lockout, get_user_status, is_session_active, login, verify_token
-from uvalu import logkit, shell
+from auth import (accept_invite_with_oauth, accept_invite_with_password,
+                  find_pending_invite_by_email, get_lockout, get_pending_invite, get_user_status,
+                  is_session_active, login, oauth_login, verify_token)
+from uvalu import logkit, oauth, shell
 from uvalu.runtime import theme_colors
+from uvalu.shell import _display_name
 
 
 def recover_session_from_cookie() -> None:
@@ -44,7 +47,8 @@ def handle_logout() -> None:
     if st.query_params.get("logout") == "1":
         st.query_params.clear()
         _who = logkit.user_hash(st.session_state.get("user_email"))
-        for _k in ("jwt_token", "user_email", "user_role", "jwt_sid"):
+        for _k in ("jwt_token", "user_email", "user_role", "jwt_sid",
+                  "uv_oauth_handled", "uv_oauth_refused"):
             st.session_state.pop(_k, None)
         logkit.auth_event("logout", outcome="ok", user_id=_who)
         # Expire the uv_jwt cookie/localStorage entry, THEN reload, both
@@ -70,8 +74,168 @@ def handle_logout() -> None:
         st.stop()
 
 
+def _user_agent() -> str:
+    return st.context.headers.get("User-Agent", "") if st.context.headers else ""
+
+
+def _sync_cookie_script(token: str) -> None:
+    """Same localStorage+cookie sync every successful sign-in path needs
+    (password, invite acceptance, OAuth) — see app.py's own copy of this for
+    every already-authenticated render."""
+    st.iframe(
+        f"<script>localStorage.setItem('uv_jwt',{repr(token)});"
+        f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})+"
+        f"'; path=/; max-age=86400';</script>",
+        height=1,
+    )
+
+
+def _start_session(token: str) -> None:
+    email, role, sid = verify_token(token)
+    st.session_state["jwt_token"]  = token
+    st.session_state["user_email"] = email
+    st.session_state["user_role"]  = role
+    st.session_state["jwt_sid"]    = sid
+    _sync_cookie_script(token)
+
+
+def _render_brand_panel() -> None:
+    st.markdown("""
+    <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
+      <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
+      <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
+    </div>
+    <div style="position:relative;z-index:2;">
+      <div class="uv-login-headline">Find value before the market does.</div>
+      <div class="uv-login-copy">A six-model fair-value engine across 6 European exchanges —
+        margin of safety, conviction scoring and hard-veto discipline in one workspace.</div>
+      <div class="uv-login-stats">
+        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">valuation models</div></div>
+        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">EU exchanges</div></div>
+        <div><div class="uv-login-stat-val">24/7</div><div class="uv-login-stat-lbl">signal monitoring</div></div>
+      </div>
+    </div>
+    <div class="uv-login-foot">© 2026 Uvalu · Not investment advice.</div>
+    <div class="uv-login-ring" style="right:-120px;bottom:-120px;width:420px;height:420px;"></div>
+    <div class="uv-login-ring" style="right:-40px;bottom:-40px;width:260px;height:260px;"></div>
+    """, unsafe_allow_html=True)
+
+
+def _render_provider_buttons(key_prefix: str) -> None:
+    """One button per entry in oauth.configured_providers() — Google ships in
+    phase 1, Microsoft is drawn as the unconfigured second entry so a later
+    addition changes data (secrets.toml + uvalu/oauth.py's PROVIDERS tuple),
+    not this layout (Uvalu Auth.dc.html frame 01's whole point)."""
+    for _p in oauth.configured_providers():
+        if _p["configured"]:
+            if st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch"):
+                oauth.start_login(_p["id"])
+        else:
+            st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch",
+                     disabled=True, help=f"{_p['label']} isn't configured for this deployment yet")
+
+
+def _render_oauth_refused(info: dict) -> None:
+    if info.get("reason") == "suspended":
+        _heading = "This account has been suspended"
+        _body = f"Sign-in via {info['label']} succeeded, but the Uvalu account for it is suspended."
+    else:
+        _heading = f"No Uvalu account for this {info['label']} identity"
+        _body = (f"Uvalu is invite-only. <span style=\"font-family:var(--uv-mono);font-size:12.5px;"
+                f"color:var(--text);\">{info['email']}</span> is not a member of this workspace, "
+                f"so no account was created.")
+    st.markdown(
+        f'<div class="uv-login-heading">{_heading}</div>'
+        f'<div class="uv-login-subhead">{_body}</div>'
+        '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+        'padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
+        'If you were invited on a different address, sign in with that one — or ask an admin '
+        'to invite this address.</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Back to sign in", key="oauth_refused_back", width="stretch"):
+        oauth.sign_out()
+        st.session_state.pop("uv_oauth_refused", None)
+        st.session_state.pop("uv_oauth_handled", None)
+        st.rerun()
+
+
+def _render_invite_acceptance(token: str) -> None:
+    invite = get_pending_invite(token)
+    shell.apply_theme_script(theme_colors().effective_light)
+    with st.container(key="uv_login", horizontal=True, gap=None):
+        with st.container(key="uv_login_left"):
+            _render_brand_panel()
+        with st.container(key="uv_login_right"):
+            if not invite:
+                st.markdown(
+                    '<div class="uv-login-heading">Invite link invalid</div>'
+                    '<div class="uv-login-subhead">This invite link is invalid or has expired. '
+                    'Ask your admin to send a new one.</div>',
+                    unsafe_allow_html=True,
+                )
+                return
+
+            _inviter = _display_name(invite["invited_by"]) if invite["invited_by"] else "an admin"
+            st.markdown(
+                '<div class="uv-login-heading">Create your account</div>'
+                f'<div class="uv-login-subhead">Invited by {_inviter} as '
+                f'<span style="color:var(--text);">{invite["role"]}</span>. Pick a password, or use a '
+                'connected provider — you can add another method later.</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div style="margin-top:22px;">'
+                '<div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
+                'color:var(--faint);margin-bottom:8px;">Email</div>'
+                '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:9px;'
+                'padding:11px 13px;font-size:14px;color:var(--muted);display:flex;align-items:center;'
+                'justify-content:space-between;">'
+                f'<span style="font-family:var(--uv-mono);font-size:13px;">{invite["email"]}</span>'
+                '<span style="font-size:10px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;'
+                'background:var(--line-2);color:var(--faint);">FIXED BY INVITE</span></div></div>',
+                unsafe_allow_html=True,
+            )
+            with st.form("invite_accept_form", border=False):
+                password = st.text_input("Password", type="password", placeholder="••••••••",
+                                         icon=":material/lock:", help="At least 8 characters.")
+                submitted = st.form_submit_button("Create account", width="stretch", type="primary")
+            if submitted:
+                ok, result = accept_invite_with_password(token, password, user_agent=_user_agent())
+                if ok:
+                    st.query_params.clear()
+                    _start_session(result)
+                    st.rerun()
+                else:
+                    st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+
+            st.markdown(
+                '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
+                '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                '<span style="font-size:11px;color:var(--faint);">or</span>'
+                '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                unsafe_allow_html=True,
+            )
+            # Deliberately just starts st.login() — doesn't try to complete
+            # accept_invite_with_oauth() here even if oauth.current_identity()
+            # already has one, because st.login()'s redirect lands back on the
+            # app's home page, not this one, dropping ?invite=<token> from the
+            # URL. auth_wall()'s own post-redirect handling (find_pending_
+            # invite_by_email) finishes the acceptance once the user is back
+            # there instead — see that function's docstring.
+            _render_provider_buttons("invite_accept_provider")
+
+
 def auth_wall() -> None:
     """Show the login form and halt execution if not authenticated."""
+    # Invite links (?invite=<token>) render their own screen regardless of any
+    # existing session — an explicit click on a specific link is unambiguous
+    # intent, checked before anything else the same way handle_logout()'s own
+    # query param is (both in app.py's boot sequence, this one called first).
+    if st.query_params.get("invite"):
+        _render_invite_acceptance(st.query_params["invite"])
+        st.stop()
+
     # Re-verified on every rerun, not cached — a session_state-only "already
     # verified this session" fast path used to skip this entirely once set,
     # which meant an Admin suspending/deleting a user, or changing their
@@ -110,6 +274,33 @@ def auth_wall() -> None:
         for _k in ("jwt_token", "user_email", "user_role", "jwt_sid"):
             st.session_state.pop(_k, None)
 
+    # Resolve a completed native Streamlit OIDC login (st.login()/st.user,
+    # uvalu/oauth.py) into a uvalu session — guarded by uv_oauth_handled so
+    # this runs once per browser OIDC session rather than on every rerun
+    # after (st.user stays populated for the life of that identity cookie).
+    if not st.session_state.get("uv_oauth_handled"):
+        _identity = oauth.current_identity()
+        if _identity:
+            st.session_state["uv_oauth_handled"] = True
+            _ok, _result = oauth_login(_identity["issuer"], _identity["subject"], _identity["email"],
+                                       user_agent=_user_agent())
+            if not _ok and _result == "not_invited":
+                # A pending invite's token doesn't survive st.login()'s
+                # redirect (it always lands back on the app's home page, not
+                # wherever ?invite=<token> was) — fall back to looking one up
+                # by the identity's own email instead.
+                _pending = find_pending_invite_by_email(_identity["email"])
+                if _pending:
+                    _ok, _result = accept_invite_with_oauth(
+                        _pending["token"], _identity["issuer"], _identity["subject"],
+                        _identity["email"], user_agent=_user_agent())
+            if _ok:
+                _start_session(_result)
+                st.rerun()
+            else:
+                st.session_state["uv_oauth_refused"] = {
+                    "email": _identity["email"], "label": _identity["label"], "reason": _result}
+
     # Login runs before shell.render_topbar() ever gets a chance to set
     # data-theme on <html>, so without this the page's --panel/--navy tokens
     # would stay pinned to their dark defaults regardless of the user's
@@ -118,27 +309,13 @@ def auth_wall() -> None:
 
     with st.container(key="uv_login", horizontal=True, gap=None):
         with st.container(key="uv_login_left"):
-            st.markdown("""
-            <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
-              <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
-              <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
-            </div>
-            <div style="position:relative;z-index:2;">
-              <div class="uv-login-headline">Find value before the market does.</div>
-              <div class="uv-login-copy">A six-model fair-value engine across 6 European exchanges —
-                margin of safety, conviction scoring and hard-veto discipline in one workspace.</div>
-              <div class="uv-login-stats">
-                <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">valuation models</div></div>
-                <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">EU exchanges</div></div>
-                <div><div class="uv-login-stat-val">24/7</div><div class="uv-login-stat-lbl">signal monitoring</div></div>
-              </div>
-            </div>
-            <div class="uv-login-foot">© 2026 Uvalu · Not investment advice.</div>
-            <div class="uv-login-ring" style="right:-120px;bottom:-120px;width:420px;height:420px;"></div>
-            <div class="uv-login-ring" style="right:-40px;bottom:-40px;width:260px;height:260px;"></div>
-            """, unsafe_allow_html=True)
+            _render_brand_panel()
 
         with st.container(key="uv_login_right"):
+            if st.session_state.get("uv_oauth_refused"):
+                _render_oauth_refused(st.session_state["uv_oauth_refused"])
+                st.stop()
+
             _attempted_email = st.session_state.get("uv_login_attempted_email")
             _lock_expiry = get_lockout(_attempted_email) if _attempted_email else None
 
@@ -166,8 +343,7 @@ def auth_wall() -> None:
                     '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                     unsafe_allow_html=True,
                 )
-                st.button("Continue with SSO", key="login_sso_locked", width="stretch", disabled=True,
-                          help="SSO isn't configured for this deployment yet")
+                _render_provider_buttons("login_locked_provider")
                 st.markdown(
                     '<div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;'
                     'line-height:1.5;">The lock applies to password sign-in only. Providers are unaffected.</div>',
@@ -209,22 +385,10 @@ def auth_wall() -> None:
                     st.markdown('<div class="uv-login-err">Enter your email and password to continue.</div>',
                                unsafe_allow_html=True)
                 else:
-                    _user_agent = st.context.headers.get("User-Agent", "") if st.context.headers else ""
-                    ok, result = login(email, password, user_agent=_user_agent)
+                    ok, result = login(email, password, user_agent=_user_agent())
                     if ok:
-                        _, role, sid = verify_token(result)
-                        _login_email = email.strip().lower()
-                        st.session_state["jwt_token"]  = result
-                        st.session_state["user_email"] = _login_email
-                        st.session_state["user_role"]  = role
-                        st.session_state["jwt_sid"]    = sid
                         st.session_state.pop("uv_login_attempted_email", None)
-                        st.iframe(
-                            f"<script>localStorage.setItem('uv_jwt',{repr(result)});"
-                            f"document.cookie='uv_jwt='+encodeURIComponent({repr(result)})+"
-                            f"'; path=/; max-age=86400';</script>",
-                            height=1,
-                        )
+                        _start_session(result)
                         st.rerun()
                     else:
                         st.session_state["uv_login_attempted_email"] = email.strip().lower()
@@ -236,10 +400,6 @@ def auth_wall() -> None:
                             st.rerun()
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
 
-            # "or" divider + SSO — disabled rather than wired to the same login
-            # action the mockup uses, since a button labelled SSO that silently
-            # re-submits a password form would be actively misleading; this app
-            # has no real SSO integration to redirect to.
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
@@ -247,14 +407,13 @@ def auth_wall() -> None:
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                 unsafe_allow_html=True,
             )
-            st.button("Continue with SSO", key="login_sso", width="stretch", disabled=True,
-                      help="SSO isn't configured for this deployment yet")
-            # Same reasoning as "Forgot?" — no self-service request-access flow
-            # exists (accounts are created via the Admin portal's Invite flow),
-            # so this is styled text, not a dead link.
+            _render_provider_buttons("login_provider")
+            # No self-service request-access flow exists (accounts are created
+            # via the Admin portal's Invite flow), so this is styled text, not
+            # a dead link.
             st.markdown(
                 '<div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">'
-                'New to Uvalu? <span style="color:var(--teal);">Request access</span></div>',
+                'New to Uvalu? <span style="color:var(--teal);">Ask your admin for an invite</span></div>',
                 unsafe_allow_html=True,
             )
 

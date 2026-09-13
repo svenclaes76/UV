@@ -123,11 +123,14 @@ class TestLogin:
         assert not ok
         assert "suspended" in msg.lower()
 
-    def test_invited_account_activates_on_first_login(self):
+    def test_invited_account_activates_on_accepting_the_invite(self):
+        # Activation now happens at invite-acceptance (see TestAcceptInvite),
+        # not at first login with a temp password -- a pending invite has no
+        # password to log in with at all until then.
         auth.register("admin@example.com", "password123")
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="Viewer")
+        ok, msg, token = auth.invite_user("new@example.com", role="Viewer")
         assert ok
-        auth.login("new@example.com", temp_password)
+        auth.accept_invite_with_password(token, "a-real-password")
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Active"
 
@@ -244,35 +247,115 @@ class TestVerifyToken:
 # ── invite_user ───────────────────────────────────────────────────────────
 
 class TestInviteUser:
-    def test_creates_invited_status_with_temp_password(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="Analyst")
+    def test_creates_invited_status_with_no_usable_password_yet(self):
+        ok, msg, token = auth.invite_user("new@example.com", role="Analyst")
         assert ok
-        assert temp_password is not None
+        assert token is not None
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Invited"
         assert users["new@example.com"]["role"] == "Analyst"
+        assert users["new@example.com"]["password_hash"] is None
 
-    def test_temp_password_actually_works_for_login(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com")
-        login_ok, _ = auth.login("new@example.com", temp_password)
-        assert login_ok
+    def test_pending_account_cannot_log_in_before_acceptance(self):
+        # Nothing to log in with yet -- the point of the invite-token flow is
+        # that the account isn't usable until accept_invite_with_password()/
+        # accept_invite_with_oauth() finalizes it.
+        auth.invite_user("new@example.com")
+        login_ok, _ = auth.login("new@example.com", "anything-at-all")
+        assert not login_ok
 
     def test_duplicate_email_fails(self):
         auth.register("first@example.com", "password123")
-        ok, msg, temp_password = auth.invite_user("first@example.com")
+        ok, msg, token = auth.invite_user("first@example.com")
         assert not ok
-        assert temp_password is None
+        assert token is None
 
     def test_rejects_unknown_role(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="SuperUser")
+        ok, msg, token = auth.invite_user("new@example.com", role="SuperUser")
         assert not ok
-        assert temp_password is None
+        assert token is None
 
     def test_rejects_invalid_email(self):
-        ok, msg, temp_password = auth.invite_user("not-an-email")
+        ok, msg, token = auth.invite_user("not-an-email")
         assert not ok
         assert "valid email" in msg
-        assert temp_password is None
+        assert token is None
+
+    def test_records_who_invited(self):
+        auth.invite_user("new@example.com", invited_by="admin@example.com")
+        invite = auth.get_pending_invite(
+            auth._load_users()["new@example.com"]["invite_token"])
+        assert invite["invited_by"] == "admin@example.com"
+
+
+class TestAcceptInvite:
+    def test_get_pending_invite_returns_email_and_role(self):
+        _, _, token = auth.invite_user("new@example.com", role="Viewer", invited_by="admin@example.com")
+        invite = auth.get_pending_invite(token)
+        assert invite == {"email": "new@example.com", "role": "Viewer", "invited_by": "admin@example.com"}
+
+    def test_unknown_token_returns_none(self):
+        assert auth.get_pending_invite("not-a-real-token") is None
+
+    def test_expired_token_returns_none(self):
+        from datetime import datetime, timedelta, timezone
+        _, _, token = auth.invite_user("new@example.com")
+        users = auth._load_users()
+        users["new@example.com"]["invite_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_pending_invite(token) is None
+
+    def test_accept_with_password_activates_and_logs_in(self):
+        _, _, token = auth.invite_user("new@example.com", role="Viewer")
+        ok, result = auth.accept_invite_with_password(token, "a-real-password")
+        assert ok
+        email, role, sid = auth.verify_token(result)
+        assert email == "new@example.com"
+        assert role == "Viewer"
+        assert sid
+        users = auth._load_users()
+        assert users["new@example.com"]["status"] == "Active"
+        assert users["new@example.com"]["invite_token"] is None
+
+    def test_accept_with_password_can_then_log_in_normally(self):
+        _, _, token = auth.invite_user("new@example.com")
+        auth.accept_invite_with_password(token, "a-real-password")
+        ok, _ = auth.login("new@example.com", "a-real-password")
+        assert ok
+
+    def test_accept_with_short_password_fails(self):
+        _, _, token = auth.invite_user("new@example.com")
+        ok, msg = auth.accept_invite_with_password(token, "short")
+        assert not ok
+        assert "8 characters" in msg
+
+    def test_accept_with_invalid_token_fails(self):
+        ok, msg = auth.accept_invite_with_password("garbage-token", "a-real-password")
+        assert not ok
+        assert "invalid or has expired" in msg
+
+    def test_accept_with_oauth_links_identity_and_logs_in(self):
+        _, _, token = auth.invite_user("new@example.com", role="Analyst")
+        ok, result = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
+                                                   "new@example.com")
+        assert ok
+        email, role, _ = auth.verify_token(result)
+        assert email == "new@example.com"
+        assert role == "Analyst"
+        users = auth._load_users()
+        assert users["new@example.com"]["linked_identities"] == [
+            {"issuer": "https://accounts.google.com", "subject": "sub-123",
+             "email_at_link": "new@example.com",
+             "linked_at": users["new@example.com"]["linked_identities"][0]["linked_at"]}
+        ]
+
+    def test_accept_with_oauth_refuses_mismatched_email(self):
+        _, _, token = auth.invite_user("invited@example.com")
+        ok, msg = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
+                                                "someone-else@example.com")
+        assert not ok
+        assert "invited@example.com" in msg
 
 
 # ── admin helpers ─────────────────────────────────────────────────────────
