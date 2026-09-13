@@ -16,6 +16,7 @@ startup (sessions survive until the process restarts).
 import json
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -55,6 +56,8 @@ def _normalize_user(data: dict) -> dict:
         "last_active":     data.get("last_active", ""),
         "failed_attempts": data.get("failed_attempts", 0),
         "locked_until":    data.get("locked_until"),
+        "sessions":        data.get("sessions", []),
+        "password_changed_at": data.get("password_changed_at", data.get("created_at", "")),
     }
 
 
@@ -113,12 +116,14 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     effective_role = "Admin" if bootstrap_admin else role
 
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    _now = datetime.now(timezone.utc).isoformat()
     users[email] = {
         "password_hash": hashed,
         "role":          effective_role,
         "status":        "Active",
-        "created_at":    datetime.now(timezone.utc).isoformat(),
+        "created_at":    _now,
         "last_active":   "",
+        "password_changed_at": _now,
     }
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.create", entity_type="user",
@@ -144,12 +149,14 @@ def invite_user(email: str, role: str = "Analyst") -> tuple[bool, str, str | Non
 
     temp_password = secrets.token_urlsafe(9)
     hashed = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
+    _now = datetime.now(timezone.utc).isoformat()
     users[email] = {
         "password_hash": hashed,
         "role":          role,
         "status":        "Invited",
-        "created_at":    datetime.now(timezone.utc).isoformat(),
+        "created_at":    _now,
         "last_active":   "",
+        "password_changed_at": _now,
     }
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.invite", entity_type="user",
@@ -168,7 +175,7 @@ def _rate_limit_settings() -> tuple[int, int]:
     )
 
 
-def login(email: str, password: str) -> tuple[bool, str]:
+def login(email: str, password: str, user_agent: str = "") -> tuple[bool, str]:
     """Verify credentials. Returns (success, jwt_token_or_error_message).
 
     Failed attempts on a *known* account count towards a per-account lockout
@@ -242,6 +249,26 @@ def login(email: str, password: str) -> tuple[bool, str]:
     user["last_active"] = now.isoformat()
     user["failed_attempts"] = 0
     user["locked_until"] = None
+
+    # One session-store row per issued token, so Settings -> Security can
+    # list "active sessions" and sign one (or all-but-one) of them out —
+    # something a bare stateless JWT can't support on its own. Sessions
+    # whose token would already be expired are dropped here rather than by
+    # a separate cleanup job; an unbounded list only grows if something signs
+    # in far more than _JWT_TTL_H's worth of times without ever expiring.
+    sid = uuid.uuid4().hex
+    _cutoff = now - timedelta(hours=_JWT_TTL_H)
+    sessions = [
+        s for s in user.get("sessions", [])
+        if datetime.fromisoformat(s["created_at"]) > _cutoff
+    ]
+    sessions.append({
+        "sid":         sid,
+        "created_at":  now.isoformat(),
+        "user_agent":  (user_agent or "")[:200],
+        "revoked":     False,
+    })
+    user["sessions"] = sessions
     users[email] = user
     _save_users(users)
 
@@ -249,8 +276,9 @@ def login(email: str, password: str) -> tuple[bool, str]:
         {
             "sub":  email,
             "role": user.get("role", "Analyst"),
-            "exp":  datetime.now(timezone.utc) + timedelta(hours=_JWT_TTL_H),
-            "iat":  datetime.now(timezone.utc),
+            "sid":  sid,
+            "exp":  now + timedelta(hours=_JWT_TTL_H),
+            "iat":  now,
         },
         _JWT_SECRET,
         algorithm=_JWT_ALGO,
@@ -275,17 +303,93 @@ def get_lockout(email: str) -> datetime | None:
     return locked_dt if datetime.now(timezone.utc) < locked_dt else None
 
 
-def verify_token(token: str) -> tuple[str, str] | tuple[None, None]:
+def verify_token(token: str) -> tuple[str, str, str | None] | tuple[None, None, None]:
     """
-    Validate a JWT. Returns (email, role) on success, (None, None) on failure.
+    Validate a JWT. Returns (email, role, sid) on success, (None, None, None)
+    on failure. `sid` identifies which entry in the user's `sessions` list
+    this token belongs to (see login()) — it's None for a token issued
+    before session tracking existed, which is treated as always-active by
+    is_session_active() below rather than forcing every open tab to
+    re-authenticate the moment this feature ships.
     """
     try:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
-        return payload["sub"], payload.get("role", "Analyst")
+        return payload["sub"], payload.get("role", "Analyst"), payload.get("sid")
     except jwt.PyJWTError:
         logkit.get_logger("uvalu.auth").debug(
             "jwt verification failed", extra={"event": "auth.token.invalid"})
-        return None, None
+        return None, None, None
+
+
+def is_session_active(email: str, sid: str | None) -> bool:
+    """False if `sid` was explicitly signed out (see revoke_session() /
+    revoke_other_sessions()). A missing sid (pre-session-tracking token) or a
+    sid that's aged out of the list (see login()'s pruning) is treated as
+    active — there's nothing to check it against, and the user's own
+    password/lockout/suspension checks in auth_wall() already cover the
+    security-relevant cases."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user or not sid:
+        return True
+    for s in user.get("sessions", []):
+        if s["sid"] == sid:
+            return not s.get("revoked", False)
+    return True
+
+
+def list_sessions(email: str) -> list[dict]:
+    """Non-revoked sessions for Settings -> Security's "Active sessions"
+    card, most recent first."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return []
+    return sorted(
+        (s for s in user.get("sessions", []) if not s.get("revoked", False)),
+        key=lambda s: s["created_at"], reverse=True,
+    )
+
+
+def revoke_session(email: str, sid: str) -> tuple[bool, str]:
+    """Sign out one session (e.g. a per-row 'Sign out' in Settings). Its JWT
+    keeps decoding successfully — revocation is enforced by
+    is_session_active(), not by invalidating the signature — so this only
+    takes effect once that device's auth_wall() next re-checks (every
+    rerun, same as a suspended account)."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    found = False
+    for s in users[email].get("sessions", []):
+        if s["sid"] == sid:
+            s["revoked"] = True
+            found = True
+    if not found:
+        return False, "Session not found."
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_session",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Signed out of that session."
+
+
+def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
+    """'Sign out everywhere else' — revoke every session except `keep_sid`
+    (the caller's own, current one)."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    _n = 0
+    for s in users[email].get("sessions", []):
+        if s["sid"] != keep_sid and not s.get("revoked", False):
+            s["revoked"] = True
+            _n += 1
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_other_sessions",
+                         entity_type="user", entity_id=logkit.user_hash(email), count=_n)
+    return True, f"Signed out of {_n} other session{'s' if _n != 1 else ''}."
 
 
 def get_user_status(email: str) -> tuple[str, str] | None:
@@ -303,6 +407,17 @@ def get_user_status(email: str) -> tuple[str, str] | None:
     if not user:
         return None
     return user.get("role", "Analyst"), user.get("status", "Active")
+
+
+def password_last_changed(email: str) -> str | None:
+    """ISO timestamp of the account's most recent password set/change/reset,
+    for Settings -> Security's "Last changed" caption. None if the account
+    doesn't exist (or has no password — a future OAuth-only account)."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return None
+    return user.get("password_changed_at") or None
 
 
 # ── Admin helpers ─────────────────────────────────────────────────────────────
@@ -377,6 +492,28 @@ def set_status(email: str, status: str) -> tuple[bool, str]:
     return True, f"{email} is now {status}."
 
 
+def change_password(email: str, current_password: str, new_password: str) -> tuple[bool, str]:
+    """Self-service password change from Settings -> Security — unlike
+    reset_password() (Admin-only, no current-password check), this requires
+    proving you already know the old one."""
+    email = email.strip().lower()
+    if len(new_password) < 8:
+        return False, "New password must be at least 8 characters."
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    if not bcrypt.checkpw(current_password.encode(), users[email]["password_hash"].encode()):
+        logkit.auth_event("password.change_failed", outcome="failed", reason="bad_current_password",
+                          user_id=logkit.user_hash(email))
+        return False, "Current password is incorrect."
+    users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    users[email]["password_changed_at"] = datetime.now(timezone.utc).isoformat()
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.change_password",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Password changed."
+
+
 def reset_password(email: str, new_password: str) -> tuple[bool, str]:
     """Overwrite a user's password hash. Returns (success, message)."""
     email = email.strip().lower()
@@ -386,6 +523,7 @@ def reset_password(email: str, new_password: str) -> tuple[bool, str]:
     if email not in users:
         return False, "User not found."
     users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    users[email]["password_changed_at"] = datetime.now(timezone.utc).isoformat()
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.reset_password",
                          entity_type="user", entity_id=logkit.user_hash(email))

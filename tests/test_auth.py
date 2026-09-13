@@ -92,9 +92,10 @@ class TestLogin:
         auth.register("first@example.com", "password123")
         ok, token = auth.login("first@example.com", "password123")
         assert ok
-        email, role = auth.verify_token(token)
+        email, role, sid = auth.verify_token(token)
         assert email == "first@example.com"
         assert role == "Admin"
+        assert sid  # login() always mints one
 
     def test_wrong_password_fails(self):
         auth.register("first@example.com", "password123")
@@ -205,11 +206,11 @@ class TestLoginRateLimiting:
 
 
 class TestVerifyToken:
-    def test_garbage_token_returns_none_none(self):
-        email, role = auth.verify_token("not-a-real-jwt")
-        assert (email, role) == (None, None)
+    def test_garbage_token_returns_none_none_none(self):
+        email, role, sid = auth.verify_token("not-a-real-jwt")
+        assert (email, role, sid) == (None, None, None)
 
-    def test_tampered_token_returns_none_none(self):
+    def test_tampered_token_returns_none_none_none(self):
         auth.register("first@example.com", "password123")
         _, token = auth.login("first@example.com", "password123")
         # Flip a character in the PAYLOAD segment, not the signature's last
@@ -220,10 +221,10 @@ class TestVerifyToken:
         # breaks the HMAC unconditionally.
         header, payload, sig = token.split(".")
         payload = ("A" if payload[0] != "A" else "B") + payload[1:]
-        email, role = auth.verify_token(f"{header}.{payload}.{sig}")
-        assert (email, role) == (None, None)
+        email, role, sid = auth.verify_token(f"{header}.{payload}.{sig}")
+        assert (email, role, sid) == (None, None, None)
 
-    def test_expired_token_returns_none_none(self):
+    def test_expired_token_returns_none_none_none(self):
         # Craft a token identical in shape to login()'s but already expired.
         from datetime import datetime, timedelta, timezone
         expired = pyjwt.encode(
@@ -236,8 +237,8 @@ class TestVerifyToken:
             auth._JWT_SECRET,
             algorithm=auth._JWT_ALGO,
         )
-        email, role = auth.verify_token(expired)
-        assert (email, role) == (None, None)
+        email, role, sid = auth.verify_token(expired)
+        assert (email, role, sid) == (None, None, None)
 
 
 # ── invite_user ───────────────────────────────────────────────────────────

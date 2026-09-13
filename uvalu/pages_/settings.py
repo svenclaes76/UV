@@ -26,9 +26,12 @@ borrows its visual chrome:
 - Account footer shows the real derived display name/email/role, not the
   mockup's fabricated "Marek Kowalski · Pro plan"."""
 import traceback
+from datetime import datetime
 
 import streamlit as st
 
+from auth import (change_password, list_sessions, password_last_changed,
+                  revoke_other_sessions, revoke_session)
 from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
@@ -132,6 +135,78 @@ def _threshold_slider(widget_key, label, minv, maxv, step, current, fmt, caption
     return _val
 
 
+def _fmt_date(iso: str) -> str:
+    if not iso:
+        return "unknown date"
+    try:
+        return datetime.fromisoformat(iso).strftime("%d %b %Y")
+    except ValueError:
+        return "unknown date"
+
+
+def _device_label(user_agent: str) -> str:
+    """"Chrome on macOS" from a raw User-Agent string — a light substring
+    match, not a real parser (no dependency exists in requirements.txt for
+    one, and this only has to be good enough to tell two of your own
+    sessions apart in a list, not to fingerprint a device)."""
+    ua = user_agent or ""
+    if "iPhone" in ua:
+        os_label = "iOS"
+    elif "iPad" in ua:
+        os_label = "iPadOS"
+    elif "Android" in ua:
+        os_label = "Android"
+    elif "Macintosh" in ua or "Mac OS X" in ua:
+        os_label = "macOS"
+    elif "Windows" in ua:
+        os_label = "Windows"
+    elif "Linux" in ua:
+        os_label = "Linux"
+    else:
+        return "Unknown device"
+
+    if "Edg/" in ua:
+        browser = "Edge"
+    elif "OPR/" in ua or "Opera" in ua:
+        browser = "Opera"
+    elif "Firefox" in ua:
+        browser = "Firefox"
+    elif "CriOS" in ua or "Chrome" in ua:
+        browser = "Chrome"
+    elif "Safari" in ua:
+        browser = "Safari"
+    else:
+        browser = "a browser"
+    return f"{browser} on {os_label}"
+
+
+@st.dialog("Change password", width="large")
+def _dlg_change_password(email: str):
+    _current = st.text_input("Current password", type="password", key="set_pw_current")
+    _new = st.text_input("New password", type="password", key="set_pw_new",
+                         help="At least 8 characters.")
+    _confirm = st.text_input("Confirm new password", type="password", key="set_pw_confirm")
+
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("Cancel", key="set_pw_cancel", width="stretch"):
+            st.rerun()
+    with _b2:
+        _do_change = st.button("Change password", key="set_pw_submit", type="primary", width="stretch")
+
+    if _do_change:
+        if _new != _confirm:
+            st.error("New password and confirmation don't match.")
+        else:
+            ok, msg = change_password(email, _current, _new)
+            if ok:
+                st.success(msg)
+                st.caption("Other devices stay signed in — use “Sign out everywhere else” "
+                          "below if you want to end those sessions too.")
+            else:
+                st.error(msg)
+
+
 def render() -> None:
     _u = current_user()
     _email = _u.email
@@ -145,6 +220,46 @@ def render() -> None:
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Settings</div>',
                unsafe_allow_html=True)
     st.caption("Display preferences and screening thresholds. Changes apply immediately.")
+
+    # ── Security ─────────────────────────────────────────────────────────────────
+    with st.container(key="set_card_security", border=True):
+        _row_header("Security")
+        with st.container(key="set_row_password"):
+            _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
+            with _pc1:
+                _changed = password_last_changed(_email)
+                _row_title("Password", f"Last changed {_fmt_date(_changed)}." if _changed
+                          else "No password change on record.")
+            with _pc2:
+                if st.button("Change", key="set_pw_change_btn", width="stretch"):
+                    _dlg_change_password(_email)
+
+    # ── Active sessions ────────────────────────────────────────────────────────
+    with st.container(key="set_card_sessions", border=True):
+        _row_header("Active sessions")
+        _sessions = list_sessions(_email)
+        _current_sid = st.session_state.get("jwt_sid")
+        for _sess in _sessions:
+            with st.container(key=f"set_row_session_{_sess['sid']}"):
+                _sc1, _sc2 = st.columns([3, 1], vertical_alignment="center")
+                with _sc1:
+                    _is_current = _sess["sid"] == _current_sid
+                    _meta = f"{_device_label(_sess.get('user_agent', ''))} · signed in {_fmt_date(_sess['created_at'])}"
+                    _row_title("This browser" if _is_current else _device_label(_sess.get("user_agent", "")), _meta)
+                with _sc2:
+                    if _is_current:
+                        st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">Current</div>',
+                                   unsafe_allow_html=True)
+                    elif st.button("Sign out", key=f"set_session_signout_{_sess['sid']}", width="stretch"):
+                        ok, msg = revoke_session(_email, _sess["sid"])
+                        if not ok:
+                            st.toast(msg, icon=":material/warning:")
+                        st.rerun()
+        if len(_sessions) > 1:
+            if st.button("Sign out everywhere else", key="set_sessions_revoke_others"):
+                ok, msg = revoke_other_sessions(_email, _current_sid)
+                st.toast(msg)
+                st.rerun()
 
     # ── Display ────────────────────────────────────────────────────────────────
     with st.container(key="set_card_display", border=True):

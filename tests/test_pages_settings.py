@@ -5,13 +5,14 @@ import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
+import auth
 import portfolio
 import settings
 from uvalu.pages_ import settings as settings_page
 from tests.conftest import TEST_EMAIL, fake_cached_fn, USER_SETUP_SRC
 
 
-def _run(monkeypatch, role="Analyst") -> AppTest:
+def _run(monkeypatch, role="Analyst", jwt_sid=None) -> AppTest:
     # AppTest.from_function re-executes a function's SOURCE TEXT as a fresh
     # script (no closure over enclosing variables — see tests/test_pages_admin.py's
     # identical note), so `role` can't be passed as a real Python value into a
@@ -19,12 +20,13 @@ def _run(monkeypatch, role="Analyst") -> AppTest:
     # text directly instead.
     monkeypatch.setattr(settings_page, "_load_all_screener_data", fake_cached_fn(None))
 
+    _sid_line = f'st.session_state["jwt_sid"] = {jwt_sid!r}\n' if jwt_sid else ""
     script_src = USER_SETUP_SRC + f"""
 import streamlit as st
 from uvalu.pages_ import settings as settings_page
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = {role!r}
-settings_page.render()
+{_sid_line}settings_page.render()
 """
     at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
@@ -288,3 +290,139 @@ class TestSettingsLogging:
         assert got["max_debt_equity"] == 500.0           # defaults, behaviour unchanged
         reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
         assert reads and reads[0].file == "shared.json" and reads[0].exc_info is not None
+
+
+# ── Security card ─────────────────────────────────────────────────────────
+
+class TestSecurityCard:
+    def test_shows_password_last_changed(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Last changed" in html
+
+    def test_no_account_shows_no_record_caption(self, isolated_data, monkeypatch):
+        # TEST_EMAIL isn't registered in auth's user store at all — only
+        # portfolio.set_user() was called (see USER_SETUP_SRC) — so there's
+        # no password_changed_at to show.
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "No password change on record" in html
+
+    def test_change_button_opens_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        open_btn = [b for b in at.button if b.label == "Change"][0]
+        open_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(w.key == "set_pw_current" for w in at.text_input)
+
+
+def _run_dlg_change_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    # Same one-shot-gate limitation as admin.py's _dlg_invite (see the long
+    # comment above TestInviteUserButtonWiring in test_pages_admin.py) —
+    # call the @st.dialog function directly and unconditionally instead of
+    # driving it through the "Change" button click.
+    script = f"""
+from uvalu.pages_.settings import _dlg_change_password
+_dlg_change_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgChangePassword:
+    def test_correct_current_password_changes_it(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("password123")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("newpassword456")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.success) == 1
+        ok, _ = auth.login(TEST_EMAIL, "newpassword456")
+        assert ok
+
+    def test_wrong_current_password_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("wrong-password")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("newpassword456")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "incorrect" in "".join(e.value for e in at.error).lower()
+
+    def test_mismatched_confirmation_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("password123")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("different789")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "match" in "".join(e.value for e in at.error).lower()
+
+
+# ── Active sessions card ──────────────────────────────────────────────────
+
+class TestActiveSessions:
+    def test_shows_current_and_other_sessions(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123",
+                             user_agent="Mozilla/5.0 (Macintosh) AppleWebKit Chrome/120.0")
+        _, _, sid1 = auth.verify_token(tok1)
+        auth.login(TEST_EMAIL, "password123",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit Firefox/120.0")
+        at = _run(monkeypatch, jwt_sid=sid1)
+        html = "".join(m.value for m in at.markdown)
+        assert "Current" in html
+        assert "Chrome on macOS" in html
+        assert "Firefox on Windows" in html
+        assert any(b.label == "Sign out" for b in at.button)
+
+    def test_current_session_has_no_sign_out_button(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        assert not any(b.key == f"set_session_signout_{sid1}" for b in at.button)
+
+    def test_sign_out_one_session_revokes_only_that_one(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        _, tok2 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid2 = auth.verify_token(tok2)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        signout_btn = [b for b in at.button if b.key == f"set_session_signout_{sid2}"][0]
+        signout_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_session_active(TEST_EMAIL, sid1)
+        assert not auth.is_session_active(TEST_EMAIL, sid2)
+
+    def test_sign_out_everywhere_else_keeps_current_only(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        auth.login(TEST_EMAIL, "password123")
+        auth.login(TEST_EMAIL, "password123")
+        at = _run(monkeypatch, jwt_sid=sid1)
+        revoke_btn = [b for b in at.button if b.label == "Sign out everywhere else"][0]
+        revoke_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_session_active(TEST_EMAIL, sid1)
+        assert len(auth.list_sessions(TEST_EMAIL)) == 1
+
+    def test_single_session_hides_sign_out_everywhere_button(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        assert not any(b.label == "Sign out everywhere else" for b in at.button)

@@ -33,8 +33,9 @@ def _fake_authenticated_session(monkeypatch) -> None:
     # needing a real registered user + real JWT just to smoke-test that the
     # nav + default page render.
     monkeypatch.setattr(authgate, "verify_token",
-                        lambda tok: ("smoke-test@example.invalid", "Admin"))
+                        lambda tok: ("smoke-test@example.invalid", "Admin", "smoke-test-sid"))
     monkeypatch.setattr(authgate, "get_user_status", lambda email: ("Admin", "Active"))
+    monkeypatch.setattr(authgate, "is_session_active", lambda email, sid: True)
 
 
 def test_login_wall_renders_without_exceptions():

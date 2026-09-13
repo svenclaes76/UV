@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import streamlit as st
 
-from auth import get_lockout, get_user_status, login, verify_token
+from auth import get_lockout, get_user_status, is_session_active, login, verify_token
 from uvalu import logkit, shell
 from uvalu.runtime import theme_colors
 
@@ -30,11 +30,12 @@ def recover_session_from_cookie() -> None:
     tok = st.context.cookies.get("uv_jwt")
     if not tok:
         return
-    email, role = verify_token(tok)
-    if email:
+    email, role, sid = verify_token(tok)
+    if email and is_session_active(email, sid):
         st.session_state["jwt_token"]  = tok
         st.session_state["user_email"] = email
         st.session_state["user_role"]  = role
+        st.session_state["jwt_sid"]    = sid
         logkit.auth_event("session.restored", outcome="ok", user_id=logkit.user_hash(email))
 
 
@@ -43,7 +44,7 @@ def handle_logout() -> None:
     if st.query_params.get("logout") == "1":
         st.query_params.clear()
         _who = logkit.user_hash(st.session_state.get("user_email"))
-        for _k in ("jwt_token", "user_email", "user_role"):
+        for _k in ("jwt_token", "user_email", "user_role", "jwt_sid"):
             st.session_state.pop(_k, None)
         logkit.auth_event("logout", outcome="ok", user_id=_who)
         # Expire the uv_jwt cookie/localStorage entry, THEN reload, both
@@ -77,14 +78,19 @@ def auth_wall() -> None:
     # role, had NO effect on that user's already-open tab until their JWT
     # happened to expire (up to 24h) — session_state persists for the life
     # of the browser connection, so in practice this could be indefinite.
-    # verify_token() is a pure in-memory JWT decode (no I/O), and
-    # get_user_status() reads a small local file — neither is expensive
-    # enough to justify caching a security-relevant check across reruns.
+    # verify_token() is a pure in-memory JWT decode (no I/O); is_session_active()
+    # and get_user_status() each read the same small local user-store file —
+    # none of the three is expensive enough to justify caching a
+    # security-relevant check across reruns.
     token = st.session_state.get("jwt_token")
     _revoked_msg = None
     if token:
-        email, _ = verify_token(token)
-        if email:
+        email, _, sid = verify_token(token)
+        if email and not is_session_active(email, sid):
+            _revoked_msg = "You were signed out of this session."
+            logkit.auth_event("session.revoked", outcome="revoked", reason="session_signed_out",
+                              user_id=logkit.user_hash(email))
+        elif email:
             _status = get_user_status(email)
             if _status is None:
                 _revoked_msg = "Your account no longer exists. Please contact your admin."
@@ -97,10 +103,11 @@ def auth_wall() -> None:
             else:
                 st.session_state["user_email"] = email
                 st.session_state["user_role"]  = _status[0]
+                st.session_state["jwt_sid"]    = sid
                 return  # still a valid, active session
         else:
             logkit.auth_event("session.revoked", outcome="revoked", reason="invalid_token")
-        for _k in ("jwt_token", "user_email", "user_role"):
+        for _k in ("jwt_token", "user_email", "user_role", "jwt_sid"):
             st.session_state.pop(_k, None)
 
     # Login runs before shell.render_topbar() ever gets a chance to set
@@ -202,13 +209,15 @@ def auth_wall() -> None:
                     st.markdown('<div class="uv-login-err">Enter your email and password to continue.</div>',
                                unsafe_allow_html=True)
                 else:
-                    ok, result = login(email, password)
+                    _user_agent = st.context.headers.get("User-Agent", "") if st.context.headers else ""
+                    ok, result = login(email, password, user_agent=_user_agent)
                     if ok:
-                        _, role = verify_token(result)
+                        _, role, sid = verify_token(result)
                         _login_email = email.strip().lower()
                         st.session_state["jwt_token"]  = result
                         st.session_state["user_email"] = _login_email
                         st.session_state["user_role"]  = role
+                        st.session_state["jwt_sid"]    = sid
                         st.session_state.pop("uv_login_attempted_email", None)
                         st.iframe(
                             f"<script>localStorage.setItem('uv_jwt',{repr(result)});"
