@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1440, initial-scale=1">
+<style>
+  :root{
+    --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
+    --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
+    --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
+    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
+    --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
+    --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
+    --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D;
+    --grid:rgba(255,255,255,0.06); --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+    --mono:"SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{color:var(--mint)}
+  ::placeholder{color:var(--faint)}
+  ::selection{background:rgba(29,214,164,0.28)}
+  table{border-collapse:collapse}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--sans);padding:44px 48px 100px;">
+
+  <div style="max-width:1180px;">
+    <div style="display:flex;align-items:baseline;gap:9px;">
+      <span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--mint)">u</span></span>
+      <span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);">auth proposal</span>
+    </div>
+    <div style="font-size:30px;font-weight:500;letter-spacing:-0.02em;margin-top:22px;line-height:1.25;max-width:640px;text-wrap:balance;">Authentication in the GUI</div>
+    <div style="font-size:14px;color:var(--muted);margin-top:12px;line-height:1.6;max-width:620px;">Every screen the implementation plan touches, drawn in the current Uvalu design language. Existing frames are recreated from <span style="font-family:var(--mono);font-size:13px;">docs/design/Uvalu.dc.html</span> and <span style="font-family:var(--mono);font-size:13px;">uvalu/authgate.py</span>; new frames follow the same tokens.</div>
+    <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:3px 9px;border-radius:5px;background:var(--soft);color:var(--mint);">PHASE 1 · PASSWORD + FIRST PROVIDER</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:3px 9px;border-radius:5px;background:var(--up-bg);color:var(--up-txt);">PHASE 2 · TOTP</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:3px 9px;border-radius:5px;background:var(--amber-bg);color:var(--amber-txt);">PHASE 3 · PASSKEYS (FUTURE)</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:3px 9px;border-radius:5px;background:var(--line-2);color:var(--muted);">EXISTS TODAY</span>
+    </div>
+  </div>
+
+  <!-- ════════ 1 · UNAUTHENTICATED ════════ -->
+  <div style="margin-top:52px;padding-top:22px;border-top:0.5px solid var(--line);">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);">01 — Unauthenticated</div>
+    <div style="font-size:19px;font-weight:500;letter-spacing:-0.01em;margin-top:8px;">The login wall</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;max-width:700px;line-height:1.6;">One entry point for every method. The left brand panel is untouched in every frame below; only the 480px form column changes. The provider buttons are rendered from a list, not written one by one — Google ships in phase 1, Microsoft is drawn here as the unconfigured second entry so a later addition changes data, not layout.</div>
+  </div>
+
+  <!-- 01 Sign in -->
+  <div style="margin-top:30px;">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">01</span>
+      <span style="font-size:14.5px;font-weight:500;">Sign in</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">PHASE 1</span>
+      <span style="font-size:12px;color:var(--muted);">A provider list replaces the disabled SSO button. “Forgot?” and “Request access” become real.</span>
+    </div>
+    <div style="border:0.5px solid var(--line);border-radius:14px;overflow:hidden;display:flex;height:680px;width:1180px;flex:none;">
+      <div style="flex:1;min-width:0;background:var(--navy);display:flex;flex-direction:column;justify-content:space-between;padding:48px 52px;position:relative;overflow:hidden;">
+        <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
+          <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
+          <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
+        </div>
+        <div style="position:relative;z-index:2;">
+          <div style="font-size:30px;font-weight:500;letter-spacing:-0.02em;color:#F5F7FA;line-height:1.25;max-width:420px;text-wrap:balance;">Find value before the market does.</div>
+          <div style="font-size:14px;color:rgba(245,247,250,0.55);margin-top:16px;line-height:1.6;max-width:400px;">A six-model fair-value engine across 6 European exchanges — margin of safety, conviction scoring and hard-veto discipline in one workspace.</div>
+          <div style="display:flex;gap:28px;margin-top:32px;">
+            <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">6</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">valuation models</div></div>
+            <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">6</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">EU exchanges</div></div>
+            <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--mint);">24/7</div><div style="font-size:11px;color:rgba(245,247,250,0.5);margin-top:3px;">signal monitoring</div></div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:rgba(245,247,250,0.35);position:relative;z-index:2;">© 2026 Uvalu · Not investment advice.</div>
+        <div style="position:absolute;right:-120px;bottom:-120px;width:420px;height:420px;border-radius:50%;border:1px solid rgba(29,214,164,0.12);"></div>
+        <div style="position:absolute;right:-40px;bottom:-40px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(29,214,164,0.1);"></div>
+      </div>
+      <div style="width:480px;flex:none;background:var(--panel);display:flex;flex-direction:column;justify-content:center;padding:48px 56px;border-left:0.5px solid var(--line);">
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Sign in</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;">Welcome back. Enter your credentials to continue.</div>
+        <div style="margin-top:28px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Email</div>
+          <div style="display:flex;align-items:center;gap:9px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"></path><path d="M3 7l9 6l9 -6"></path></svg>
+            <span style="font-size:14px;color:var(--text);">marek.k@uvalu.eu</span>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);">Password</span><span style="font-size:11.5px;color:var(--teal);cursor:pointer;">Forgot?</span></div>
+          <div style="display:flex;align-items:center;gap:9px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11v-4a4 4 0 0 1 8 0v4"></path></svg>
+            <span style="font-size:14px;color:var(--text);">••••••••••••</span>
+          </div>
+        </div>
+        <div style="margin-top:24px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Sign in</div>
+        <div style="display:flex;align-items:center;gap:12px;margin:22px 0;"><div style="flex:1;height:0.5px;background:var(--line);"></div><span style="font-size:11px;color:var(--faint);">or</span><div style="flex:1;height:0.5px;background:var(--line);"></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ providers }}" as="p" hint-placeholder-count="2">
+            <div style="{{ p.btnStyle }}" style-hover="border-color:var(--teal)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 0 0 18M3 12h18"></path></svg>
+              {{ p.btnLabel }}
+              <sc-if value="{{ p.later }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--line-2);color:var(--faint);">NOT CONFIGURED</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:9px;padding:11px;border-radius:9px;border:0.5px dashed var(--line);font-size:13px;color:var(--faint);margin-top:10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6"></path><path d="M6 21v-2a4 4 0 0 1 4-4h4"></path><path d="M15 19l2 2l4-4"></path></svg>
+          Sign in with a passkey
+          <span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);">PHASE 3</span></div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">New to Uvalu? <span style="color:var(--teal);cursor:pointer;">Ask your admin for an invite</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02–04 form-column variants -->
+  <div style="margin-top:38px;">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">02 – 04</span>
+      <span style="font-size:14.5px;font-weight:500;">Failure and throttle states</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">PHASE 1</span>
+      <span style="font-size:12px;color:var(--muted);">Rate limiting is new and needs its own copy — today every failure looks the same.</span>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">02 · WRONG PASSWORD</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Sign in</div>
+        <div style="font-size:12.5px;color:var(--down-txt);margin-top:14px;background:rgba(163,45,45,0.12);border:0.5px solid rgba(163,45,45,0.3);border-radius:8px;padding:10px 12px;line-height:1.5;">Incorrect email or password. 2 attempts remain before this account is locked for 15 minutes.</div>
+        <div style="margin-top:18px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Email</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;">marek.k@uvalu.eu</div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Password</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--down-txt);border-radius:9px;padding:11px 13px;font-size:14px;color:var(--muted);">••••••</div>
+        </div>
+        <div style="margin-top:20px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;">Sign in</div>
+      </div>
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">03 · LOCKED OUT</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Sign in temporarily locked</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;">Too many failed attempts on this account. Uvalu will accept a new attempt when the timer expires.</div>
+        <div style="display:flex;align-items:center;gap:14px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:18px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber-txt)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+          <div><div style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--amber-txt);">04:38</div><div style="font-size:11px;color:var(--faint);margin-top:2px;">until the next attempt</div></div>
+        </div>
+        <div style="text-align:center;padding:12px;border-radius:9px;background:var(--faint);color:rgba(13,31,60,0.5);font-size:13.5px;font-weight:500;margin-top:18px;">Sign in</div>
+        <div style="display:flex;align-items:center;gap:12px;margin:18px 0;"><div style="flex:1;height:0.5px;background:var(--line);"></div><span style="font-size:11px;color:var(--faint);">or</span><div style="flex:1;height:0.5px;background:var(--line);"></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ providers }}" as="p" hint-placeholder-count="2">
+            <div style="{{ p.btnStyle }}" style-hover="border-color:var(--teal)">{{ p.btnLabel }}</div>
+          </sc-for>
+        </div>
+        <div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;line-height:1.5;">The lock applies to password sign-in only. Providers are unaffected.</div>
+      </div>
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">04 · PROVIDER IDENTITY NOT INVITED</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">No Uvalu account for this Google identity</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;">Uvalu is invite-only. <span style="font-family:var(--mono);font-size:12.5px;color:var(--text);">j.weber@gmail.com</span> is not a member of this workspace, so no account was created.</div>
+        <div style="font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.55;">One screen for every provider — only the provider name is substituted.</div>
+        <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">If you were invited on a different address, sign in with that one — or ask an admin to invite this address.</div>
+        <div style="margin-top:18px;text-align:center;padding:12px;border-radius:9px;border:0.5px solid var(--line);font-size:13.5px;color:var(--text);cursor:pointer;" style-hover="border-color:var(--teal)">Back to sign in</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 invite acceptance -->
+  <div style="margin-top:38px;">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">05 – 07</span>
+      <span style="font-size:14.5px;font-weight:500;">Account creation and recovery</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">PHASE 1</span>
+      <span style="font-size:12px;color:var(--muted);">Three screens that do not exist today. Invite-only, so there is no open signup form.</span>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">05 · ACCEPT INVITE / FIRST RUN</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Create your account</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Invited by Marek Kowalski as <span style="color:var(--text);">Analyst</span>. Pick a password, or use a connected provider — you can add another method later.</div>
+        <div style="margin-top:22px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Email</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:9px;padding:11px 13px;font-size:14px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:var(--mono);font-size:13px;">elena.n@uvalu.eu</span>
+            <span style="font-size:10px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;background:var(--line-2);color:var(--faint);">FIXED BY INVITE</span></div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Full name</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;">Elena Novak</div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Password</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;">••••••••••••••••</div>
+          <div style="display:flex;gap:4px;margin-top:9px;">
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--line);"></div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;">
+            <span style="font-size:11.5px;color:var(--muted);">16 characters · not in any known breach</span>
+            <span style="font-size:11.5px;color:var(--mint);font-weight:500;">Strong</span>
+          </div>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;line-height:1.5;">12 characters minimum. Length beats symbols — a passphrase is fine.</div>
+        </div>
+        <div style="margin-top:20px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Create account</div>
+        <div style="display:flex;align-items:center;gap:12px;margin:18px 0;"><div style="flex:1;height:0.5px;background:var(--line);"></div><span style="font-size:11px;color:var(--faint);">or</span><div style="flex:1;height:0.5px;background:var(--line);"></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ providers }}" as="p" hint-placeholder-count="2">
+            <div style="{{ p.btnStyle }}" style-hover="border-color:var(--teal)">{{ p.btnLabel }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">05b · BREACHED PASSWORD</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Create your account</div>
+        <div style="margin-top:22px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Password</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--amber-txt);border-radius:9px;padding:11px 13px;font-size:14px;">•••••••••••••</div>
+          <div style="display:flex;gap:4px;margin-top:9px;">
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--amber-txt);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--amber-txt);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--line);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--line);"></div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;">
+            <span style="font-size:11.5px;color:var(--muted);">13 characters</span>
+            <span style="font-size:11.5px;color:var(--amber-txt);font-weight:500;">Reused</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:11px;background:var(--amber-bg);border:0.5px solid rgba(214,158,29,0.3);border-radius:9px;padding:12px 14px;margin-top:16px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--amber-txt)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.24 3.96l-8.1 14.04a2 2 0 0 0 1.75 3h16.22a2 2 0 0 0 1.75-3l-8.1-14.04a2 2 0 0 0-3.5 0"></path></svg>
+          <div style="font-size:12.5px;color:var(--amber-txt);line-height:1.55;">This password appears in <span style="font-family:var(--mono);font-size:12px;">2,984</span> known breaches. Choose a different one.
+            <div style="font-size:11px;color:rgba(224,185,77,0.7);margin-top:5px;">Checked against Have I Been Pwned by hash prefix — the password never leaves this server.</div></div>
+        </div>
+        <div style="text-align:center;padding:12px;border-radius:9px;background:var(--faint);color:rgba(13,31,60,0.5);font-size:13.5px;font-weight:500;margin-top:18px;">Create account</div>
+        <div style="font-size:11.5px;color:var(--faint);margin-top:16px;line-height:1.55;">Blocking, not advisory: a breached password is the one rule Uvalu enforces hard. Everything else about the password is guidance.</div>
+      </div>
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">06 · FORGOT PASSWORD</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Reset your password</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Enter your account email. Uvalu sends a single-use link valid for 30 minutes.</div>
+        <div style="margin-top:22px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Email</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;color:var(--faint);">you@company.com</div>
+        </div>
+        <div style="margin-top:18px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Send reset link</div>
+
+        <div style="margin-top:26px;padding-top:20px;border-top:0.5px solid var(--line-2);">
+          <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">06b · AFTER SUBMIT</div>
+          <div style="display:flex;gap:11px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:14px 16px;margin-top:11px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mint)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;"><circle cx="12" cy="12" r="9"></circle><path d="M9 12l2 2l4-4"></path></svg>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.55;">If an account exists for that address, a reset link is on its way.
+              <div style="font-size:11px;color:var(--faint);margin-top:5px;">Deliberately does not confirm whether the account exists.</div></div>
+          </div>
+          <div style="font-size:12px;color:var(--amber-txt);margin-top:12px;line-height:1.55;background:var(--amber-bg);border-radius:8px;padding:10px 12px;">Open question: Uvalu has no mail sender today. Until one exists, this screen should read “Ask an admin to reset your password” and the reset happens in the Admin portal.</div>
+        </div>
+      </div>
+
+      <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">07 · SET A NEW PASSWORD</div>
+        <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Choose a new password</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Resetting for <span style="font-family:var(--mono);font-size:12.5px;color:var(--text);">marek.k@uvalu.eu</span>. All other sessions will be signed out.</div>
+        <div style="margin-top:22px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">New password</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;">••••••••••••••</div>
+          <div style="display:flex;gap:4px;margin-top:9px;">
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+            <div style="flex:1;height:3px;border-radius:2px;background:var(--mint);"></div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;"><span style="font-size:11.5px;color:var(--muted);">14 characters</span><span style="font-size:11.5px;color:var(--mint);font-weight:500;">Very strong</span></div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Confirm</div>
+          <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;">••••••••••••••</div>
+        </div>
+        <div style="margin-top:20px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Set password and sign in</div>
+        <div style="font-size:11.5px;color:var(--faint);margin-top:14px;line-height:1.55;">If 2FA is enabled on the account, the challenge still runs after this step — a reset link alone must not bypass it.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 2 · SECOND FACTOR ════════ -->
+  <div style="margin-top:52px;padding-top:22px;border-top:0.5px solid var(--line);">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);">02 — Second factor</div>
+    <div style="font-size:19px;font-weight:500;letter-spacing:-0.01em;margin-top:8px;">A step between password and app</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;max-width:660px;line-height:1.6;">The login wall becomes two-step for password users with TOTP on. Provider users skip it — their second factor belongs to the provider. This is the one structural change to <span style="font-family:var(--mono);font-size:12.5px;">auth_wall()</span>: it needs an intermediate state that is neither signed out nor signed in.</div>
+  </div>
+
+  <div style="margin-top:26px;display:flex;gap:20px;flex-wrap:wrap;">
+    <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+      <div style="display:flex;align-items:baseline;gap:9px;"><span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">08 · TOTP CHALLENGE</span><span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--up-bg);color:var(--up-txt);">PHASE 2</span></div>
+      <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Two-factor verification</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Enter the 6-digit code from your authenticator app for <span style="font-family:var(--mono);font-size:12.5px;color:var(--text);">marek.k@uvalu.eu</span>.</div>
+      <div style="display:flex;gap:9px;margin-top:24px;">
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;">4</div>
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;">1</div>
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;">7</div>
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:22px;color:var(--faint);">|</div>
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:0.5px solid var(--line);"></div>
+        <div style="flex:1;height:54px;border-radius:9px;background:var(--panel-2);border:0.5px solid var(--line);"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:22px;">
+        <div><div style="font-size:13px;font-weight:500;">Remember this device</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Skip the code here for 30 days.</div></div>
+        <div onClick="{{ remember.onClick }}" style="{{ remember.trackStyle }}"><div style="{{ remember.knobStyle }}"></div></div>
+      </div>
+      <div style="margin-top:22px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Verify</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;">
+        <span style="font-size:12px;color:var(--teal);cursor:pointer;" style-hover="color:var(--mint)">Use a backup code</span>
+        <span style="font-size:12px;color:var(--muted);cursor:pointer;" style-hover="color:var(--text)">Cancel</span>
+      </div>
+    </div>
+
+    <div style="width:480px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;padding:40px 44px;">
+      <div style="display:flex;align-items:baseline;gap:9px;"><span style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">09 · BACKUP CODE</span><span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--up-bg);color:var(--up-txt);">PHASE 2</span></div>
+      <div style="font-size:20px;font-weight:500;letter-spacing:-0.02em;margin-top:14px;">Use a backup code</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;">Each code works once. Using one here does not disable your authenticator app.</div>
+      <div style="margin-top:22px;">
+        <div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px;">Backup code</div>
+        <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:9px;padding:13px 15px;font-family:var(--mono);font-size:16px;letter-spacing:0.08em;">7f3a-92kd</div>
+      </div>
+      <div style="margin-top:20px;text-align:center;padding:12px;border-radius:9px;background:var(--teal);color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Verify</div>
+      <div style="font-size:12px;color:var(--teal);margin-top:18px;cursor:pointer;">Back to the authenticator code</div>
+      <div style="margin-top:24px;padding-top:20px;border-top:0.5px solid var(--line-2);">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.04em;">09b · NO CODES LEFT</div>
+        <div style="font-size:12.5px;color:var(--down-txt);margin-top:11px;background:rgba(163,45,45,0.12);border:0.5px solid rgba(163,45,45,0.3);border-radius:8px;padding:11px 13px;line-height:1.55;">All 10 backup codes have been used. An admin can reset two-factor on your account from the Admin portal.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 3 · SETTINGS → SECURITY ════════ -->
+  <div style="margin-top:52px;padding-top:22px;border-top:0.5px solid var(--line);">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);">03 — Settings → Security</div>
+    <div style="font-size:19px;font-weight:500;letter-spacing:-0.01em;margin-top:8px;">One new section, above Display</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;max-width:700px;line-height:1.6;">Same 920px column, same card and row grammar as the existing Settings page. Nothing in Display, Screening or Alerts moves; the sign-out control in the account footer stays where it is. Providers sit in a repeating Linked accounts group rather than a hard-coded Google row.</div>
+  </div>
+
+  <div style="margin-top:26px;border:0.5px solid var(--line);border-radius:14px;background:var(--bg);padding:22px 28px 34px;max-width:1000px;">
+    <div style="max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:18px;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"></path></svg>Back</div>
+        <div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Settings</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">Display preferences, screening thresholds and alerts. Changes apply immediately.</div>
+      </div>
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:9px;">Security<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--soft);color:var(--mint);">NEW</span></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Password</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Last changed 14 March 2026.</div></div>
+          <div style="padding:7px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;flex:none;" style-hover="border-color:var(--teal);color:var(--text)">Change</div>
+        </div>
+
+        <div style="padding:15px 20px 6px;border-bottom:0.5px solid var(--line-2);">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;">
+            <div style="font-size:13.5px;font-weight:500;">Linked accounts</div>
+            <div style="font-size:11.5px;color:var(--faint);">One row per configured provider</div>
+          </div>
+          <div style="margin-top:4px;">
+            <sc-for list="{{ linked }}" as="l" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:11px 0;">
+                <div><div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;">{{ l.label }}<span style="{{ l.stateStyle }}">{{ l.state }}</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;">{{ l.meta }}</div></div>
+                <div style="{{ l.actionStyle }}" style-hover="border-color:var(--teal);color:var(--text)">{{ l.action }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Two-factor authentication</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ totpDesc }}</div></div>
+          <div onClick="{{ totp.onClick }}" style="{{ totp.trackStyle }}"><div style="{{ totp.knobStyle }}"></div></div>
+        </div>
+
+        <sc-if value="{{ totp.on }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px 15px 34px;border-bottom:0.5px solid var(--line-2);background:var(--soft);">
+            <div><div style="font-size:13.5px;font-weight:500;">Backup codes</div><div style="font-size:12px;color:var(--muted);margin-top:2px;"><span style="font-family:var(--mono);">7 of 10</span> unused. Regenerating invalidates the old set.</div></div>
+            <div style="display:flex;gap:8px;flex:none;">
+              <div style="padding:7px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Regenerate</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px 15px 34px;border-bottom:0.5px solid var(--line-2);background:var(--soft);">
+            <div><div style="font-size:13.5px;font-weight:500;">Trusted devices</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">2 devices skip the code until 8 October 2026.</div></div>
+            <div style="padding:7px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;flex:none;" style-hover="border-color:var(--down-txt);color:var(--down-txt)">Revoke all</div>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+          <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);">PHASE 3</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;">Sign in with Face ID, Touch ID or a security key.</div></div>
+          <div style="padding:7px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;flex:none;" style-hover="border-color:var(--teal);color:var(--text)">Manage</div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:9px;">Active sessions<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--soft);color:var(--mint);">NEW</span></div>
+        <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div><div style="font-size:13.5px;font-weight:500;">{{ s.device }}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">{{ s.meta }}</div></div>
+            <div style="font-size:12px;color:{{ s.actionColor }};cursor:pointer;flex:none;">{{ s.action }}</div>
+          </div>
+        </sc-for>
+        <div style="padding:14px 20px;">
+          <div style="display:inline-block;padding:8px 14px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--down-txt);color:var(--down-txt)">Sign out everywhere else</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:4px 2px;">
+        <div style="width:38px;height:38px;border-radius:9px;background:var(--navy);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--mint);flex:none;">MK</div>
+        <div style="flex:1;"><div style="font-size:13.5px;font-weight:500;">Marek Kowalski</div><div style="font-size:12px;color:var(--faint);font-family:var(--mono);">marek.k@uvalu.eu · Pro plan</div></div>
+        <div style="padding:8px 14px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--down-txt);color:var(--down-txt)">Sign out</div>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--faint);margin-top:20px;font-family:var(--mono);">10 · settings → security · toggle the 2FA switch to see the disabled state</div>
+  </div>
+
+  <!-- OAuth-only variant -->
+  <div style="margin-top:34px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+    <div style="width:600px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">11</span>
+        <span style="font-size:14.5px;font-weight:500;">Provider-only account</span>
+        <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">PHASE 1</span>
+      </div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Security</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">Password<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;background:var(--line-2);color:var(--faint);">NOT SET</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;">Add one so you can sign in when your provider is unavailable.</div></div>
+          <div style="padding:7px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;flex:none;" style-hover="background:var(--mint);color:var(--navy)">Set a password</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">Google<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;background:var(--up-bg);color:var(--up-txt);">CONNECTED</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);">elena.n@uvalu.eu · only sign-in method</div></div>
+          <div style="padding:7px 13px;border-radius:8px;border:0.5px solid var(--line-2);font-size:12.5px;color:var(--faint);flex:none;">Disconnect</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">Microsoft Entra ID</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">Not configured for this workspace.</div></div>
+          <div style="font-size:12px;color:var(--faint);flex:none;">Unavailable</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+          <div><div style="font-size:13.5px;font-weight:500;">Two-factor authentication</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Managed by your identity provider for this account.</div></div>
+          <div style="font-size:12px;color:var(--faint);flex:none;">Not applicable</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:11px;line-height:1.6;">Disconnect is inert with a reason rather than hidden — the last remaining method can never be removed. TOTP is stated as not applicable instead of shown off, so it does not read as a security gap. Unconfigured providers stay visible and dimmed, so adding one later changes a state rather than a layout.</div>
+    </div>
+
+    <div style="width:520px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">12</span>
+        <span style="font-size:14.5px;font-weight:500;">Enrol an authenticator</span>
+        <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--up-bg);color:var(--up-txt);">PHASE 2</span>
+      </div>
+      <div style="width:440px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">Enable two-factor</div>
+          <div style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--faint);" style-hover="background:var(--line-2);color:var(--text)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6l-12 12"></path></svg></div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">Step 1 of 2 — scan this with your authenticator app.</div>
+        <div style="display:flex;gap:16px;align-items:flex-start;">
+          <div style="width:150px;height:150px;flex:none;border-radius:10px;border:0.5px solid var(--line);background:repeating-linear-gradient(135deg,rgba(255,255,255,0.05) 0 6px,transparent 6px 12px),var(--panel-2);display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px;">
+            <span style="font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:0.04em;">OTPAUTH QR</span></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Or enter this key manually</div>
+            <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:10px 11px;font-family:var(--mono);font-size:12px;line-height:1.5;word-break:break-all;color:var(--text);">JBSW Y3DP EHPK 3PXP 6LQ2 4KJN</div>
+            <div style="font-size:11px;color:var(--faint);margin-top:8px;line-height:1.5;">Issuer <span style="font-family:var(--mono);">Uvalu</span>, account <span style="font-family:var(--mono);">marek.k@uvalu.eu</span>.</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;">
+          <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">Step 2 — confirm a code</div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;">9</div>
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;">0</div>
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;">4</div>
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;">2</div>
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;">7</div>
+            <div style="flex:1;height:46px;border-radius:8px;background:var(--panel-2);border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;color:var(--faint);">|</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <div style="flex:1;text-align:center;padding:10px;border-radius:8px;border:0.5px solid var(--line);color:var(--muted);font-size:12.5px;cursor:pointer;" style-hover="border-color:var(--text);color:var(--text)">Cancel</div>
+          <div style="flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">Confirm and enable</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:11px;line-height:1.6;">Both steps in one modal. <span style="font-family:var(--mono);font-size:11.5px;">totp_enabled</span> only flips after a code verifies, so a half-finished enrolment cannot lock anyone out.</div>
+    </div>
+  </div>
+
+  <!-- backup codes + passkeys -->
+  <div style="margin-top:34px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+    <div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">13</span>
+        <span style="font-size:14.5px;font-weight:500;">Backup codes, shown once</span>
+        <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--up-bg);color:var(--up-txt);">PHASE 2</span>
+      </div>
+      <div style="width:440px;background:var(--panel);border:0.5px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);padding:26px 26px 22px;">
+        <div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">Two-factor is on</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.55;">Save these 10 single-use codes somewhere safe. This is the only time Uvalu will show them.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:16px;font-family:var(--mono);font-size:13px;letter-spacing:0.06em;">
+          <div>7f3a-92kd</div><div>b1c8-4mpz</div>
+          <div>x9k2-01ra</div><div>t4he-77vn</div>
+          <div>q8mz-3plc</div><div>d2wr-96ky</div>
+          <div>k5nb-18tj</div><div>v7ap-42gs</div>
+          <div>m3qd-65xe</div><div>z6lu-09hf</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <div style="flex:1;text-align:center;padding:9px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Copy</div>
+          <div style="flex:1;text-align:center;padding:9px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;" style-hover="border-color:var(--teal);color:var(--text)">Download .txt</div>
+        </div>
+        <div onClick="{{ saved.onClick }}" style="display:flex;align-items:center;gap:10px;margin-top:18px;cursor:pointer;">
+          <div style="{{ saved.boxStyle }}"><sc-if value="{{ saved.on }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9-9"></path></svg></sc-if></div>
+          <span style="font-size:12.5px;color:var(--muted);">I have saved these codes.</span>
+        </div>
+        <div style="text-align:center;padding:10px;border-radius:8px;font-size:12.5px;font-weight:500;margin-top:16px;cursor:pointer;background:{{ saved.btnBg }};color:{{ saved.btnColor }};">Done</div>
+      </div>
+    </div>
+
+    <div style="width:600px;">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">14</span>
+        <span style="font-size:14.5px;font-weight:500;">Passkeys</span>
+        <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--amber-bg);color:var(--amber-txt);">PHASE 3 · FUTURE</span>
+      </div>
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);display:flex;align-items:center;justify-content:space-between;gap:16px;">
+          <div style="font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Passkeys</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;background:var(--teal);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:var(--mint);color:var(--navy)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>Add a passkey</div>
+        </div>
+        <sc-for list="{{ passkeys }}" as="p" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--panel-2);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;flex:none;color:var(--mint);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6"></path><path d="M6 21v-2a4 4 0 0 1 4-4h4"></path><path d="M15 19l2 2l4-4"></path></svg></div>
+              <div><div style="font-size:13.5px;font-weight:500;">{{ p.label }}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono);">{{ p.meta }}</div></div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);cursor:pointer;flex:none;" style-hover="color:var(--down-txt)">Remove</div>
+          </div>
+        </sc-for>
+        <div style="padding:14px 20px;font-size:11.5px;color:var(--faint);line-height:1.55;">Register at least two devices. A single passkey that is lost leaves password and Google as the only way back in.</div>
+      </div>
+      <div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px;">
+        <div style="font-size:12px;font-weight:500;color:var(--amber-txt);">GUI cost of this phase</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6;">Everything above is ordinary Streamlit. The Add and Sign-in actions are not: <span style="font-family:var(--mono);font-size:11.5px;">navigator.credentials</span> only runs in the browser, so this card is the one place in the app that needs a custom component. Keep it behind a feature flag until it is verified on real devices.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ 4 · ADMIN ════════ -->
+  <div style="margin-top:52px;padding-top:22px;border-top:0.5px solid var(--line);">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--faint);">04 — Admin portal</div>
+    <div style="font-size:19px;font-weight:500;letter-spacing:-0.01em;margin-top:8px;">Two new columns and one new section</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;max-width:700px;line-height:1.6;">The Users table gains how each member authenticates and whether their second factor is on. The Sign-in column holds one badge per linked method, so a new provider is a new badge value rather than a new column. Policy that applies to everyone moves into a new sidebar item next to Data feeds and Backups.</div>
+  </div>
+
+  <div style="margin-top:26px;border:0.5px solid var(--line);border-radius:14px;overflow:hidden;width:1180px;flex:none;display:flex;background:var(--bg);">
+    <div style="width:220px;flex:none;border-right:0.5px solid var(--line);background:var(--panel);display:flex;flex-direction:column;padding:20px 14px;">
+      <div style="display:flex;align-items:baseline;gap:9px;padding:0 8px 22px;">
+        <span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--teal)">u</span></span>
+        <span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint);">admin</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;background:var(--soft);color:var(--mint);font-weight:500;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M2 20a7 7 0 0 1 14 0"></path><path d="M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 6"></path></svg>Users</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--muted);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 16 0M4 12a8 8 0 0 0 16 0" transform="rotate(90 12 12)"></path><circle cx="12" cy="12" r="1.5"></circle></svg>Data feeds</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--muted);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6a8 3 0 0 0 16 0v-6M4 12v6a8 3 0 0 0 16 0v-6"></path></svg>Backups</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:12.5px;color:var(--muted);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 4.5-3 8-7 9c-4-1-7-4.5-7-9v-5z"></path><path d="M9 12l2 2l4-4"></path></svg>Security
+        <span style="margin-left:auto;font-size:9px;letter-spacing:0.04em;padding:2px 5px;border-radius:4px;background:var(--soft);color:var(--mint);">NEW</span></div>
+    </div>
+
+    <div style="flex:1;min-width:0;">
+      <div style="height:58px;border-bottom:0.5px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 28px;background:var(--panel);">
+        <div style="font-size:15px;font-weight:500;letter-spacing:-0.01em;">Users</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--mono);">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>All systems operational</div>
+          <div style="width:30px;height:30px;border-radius:8px;background:var(--navy);border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--mint);">MK</div>
+        </div>
+      </div>
+
+      <div style="padding:28px 32px 34px;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+            <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;">
+              <div style="font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);">{{ s.label }}</div>
+              <div style="font-family:var(--mono);font-size:22px;font-weight:500;margin-top:7px;color:{{ s.color }};">{{ s.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+          <table style="width:100%;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:0.5px solid var(--line);">
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">User</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Role</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--mint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Sign-in</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--mint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">2FA</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Status</th>
+                <th style="text-align:left;padding:11px 16px;color:var(--faint);font-weight:500;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;">Last active</th>
+                <th style="padding:11px 16px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ users }}" as="u" hint-placeholder-count="6">
+                <tr style="border-bottom:0.5px solid var(--line-2);">
+                  <td style="padding:12px 16px;">
+                    <div style="font-size:13px;font-weight:500;">{{ u.name }}</div>
+                    <div style="font-size:11.5px;color:var(--faint);font-family:var(--mono);margin-top:2px;">{{ u.email }}</div>
+                  </td>
+                  <td style="padding:12px 16px;color:var(--muted);">{{ u.role }}</td>
+                  <td style="padding:12px 16px;">
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                      <sc-for list="{{ u.methods }}" as="m" hint-placeholder-count="1">
+                        <span style="{{ m.style }}">{{ m.label }}</span>
+                      </sc-for>
+                    </div>
+                  </td>
+                  <td style="padding:12px 16px;"><span style="{{ u.mfaStyle }}">{{ u.mfa }}</span></td>
+                  <td style="padding:12px 16px;"><span style="{{ u.statusStyle }}">{{ u.status }}</span></td>
+                  <td style="padding:12px 16px;color:var(--faint);font-family:var(--mono);font-size:11.5px;">{{ u.lastActive }}</td>
+                  <td style="padding:12px 16px;text-align:right;color:var(--faint);">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;gap:18px;margin-top:16px;align-items:flex-start;">
+          <div style="width:230px;flex:none;background:var(--panel);border:0.5px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,0.4);padding:6px;">
+            <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);padding:7px 10px 5px;">Row menu — new items</div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text);border-radius:6px;" style-hover="background:var(--line-2)">Send password reset</div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text);border-radius:6px;" style-hover="background:var(--line-2)">Reset two-factor</div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text);border-radius:6px;" style-hover="background:var(--line-2)">Revoke passkeys</div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--text);border-radius:6px;" style-hover="background:var(--line-2)">Sign out all sessions</div>
+            <div style="height:0.5px;background:var(--line-2);margin:5px 8px;"></div>
+            <div style="padding:8px 10px;font-size:12.5px;color:var(--muted);border-radius:6px;">Suspend · Delete</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.65;padding-top:4px;">Resetting two-factor is the recovery path when a member loses their device and their backup codes — the plan needs an owner for it, and the Admin portal is the only place in Uvalu that already has this authority.
+            <div style="margin-top:8px;">The four stat cards change too: <span style="font-family:var(--mono);font-size:11.5px;">2FA coverage</span> replaces one of today's counts, so policy compliance is visible without opening the table.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin security policy -->
+  <div style="margin-top:34px;">
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--faint);">16</span>
+      <span style="font-size:14.5px;font-weight:500;">Admin → Security</span>
+      <span style="font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--mint);">NEW SECTION</span>
+      <span style="font-size:12px;color:var(--muted);">Same shell as above. Content column only, shown here without the chrome.</span>
+    </div>
+    <div style="border:0.5px solid var(--line);border-radius:14px;background:var(--bg);padding:28px 32px;max-width:1000px;display:flex;flex-direction:column;gap:16px;">
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Password policy</div>
+        <div style="padding:16px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Minimum length</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ minLen.label }}</span></div>
+          <input type="range" min="{{ minLen.min }}" max="{{ minLen.max }}" step="{{ minLen.step }}" value="{{ minLen.value }}" onInput="{{ minLen.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px;">NIST guidance is 12 or more. Uvalu adds no symbol or case requirements.</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+          <div><div style="font-size:13.5px;font-weight:500;">Block breached passwords</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Check every new password against Have I Been Pwned by hash prefix.</div></div>
+          <div onClick="{{ pwned.onClick }}" style="{{ pwned.trackStyle }}"><div style="{{ pwned.knobStyle }}"></div></div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Two-factor requirement</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Require two-factor</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Applies to password sign-in. Provider accounts are exempt.</div></div>
+          <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;flex:none;">
+            <sc-for list="{{ requireMfa.opts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+          <div><div style="font-size:13.5px;font-weight:500;">Grace period</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">How long a member can defer enrolment before the app blocks on it.</div></div>
+          <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;flex:none;">
+            <sc-for list="{{ grace.opts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Rate limiting</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;padding:6px 20px 16px;">
+          <div style="padding-top:14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Attempts before lock</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ attempts.label }}</span></div>
+            <input type="range" min="{{ attempts.min }}" max="{{ attempts.max }}" step="{{ attempts.step }}" value="{{ attempts.value }}" onInput="{{ attempts.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+            <div style="font-size:11px;color:var(--faint);margin-top:6px;">Counted per account.</div>
+          </div>
+          <div style="padding-top:14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;"><span style="font-size:13px;font-weight:500;">Lock duration</span><span style="font-family:var(--mono);font-size:13px;color:var(--mint);">{{ lockMins.label }}</span></div>
+            <input type="range" min="{{ lockMins.min }}" max="{{ lockMins.max }}" step="{{ lockMins.step }}" value="{{ lockMins.value }}" onInput="{{ lockMins.onInput }}" style="width:100%;accent-color:var(--teal);cursor:pointer;"/>
+            <div style="font-size:11px;color:var(--faint);margin-top:6px;">Cleared early by a successful admin reset.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-top:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Also limit per IP address</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Blunts spraying across many accounts from one source.</div></div>
+          <div onClick="{{ ipLimit.onClick }}" style="{{ ipLimit.trackStyle }}"><div style="{{ ipLimit.knobStyle }}"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-top:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Session lifetime</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">How long the signed cookie stays valid. Today: 24 hours, hard-coded.</div></div>
+          <div style="display:flex;gap:3px;background:var(--panel-2);border-radius:8px;padding:3px;flex:none;">
+            <sc-for list="{{ sessionTtl.opts }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</div></sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;overflow:hidden;">
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">Identity providers</div>
+        <sc-for list="{{ adminProviders }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+            <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">{{ p.label }}<span style="{{ p.stateStyle }}">{{ p.state }}</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--mono);">{{ p.detail }}</div></div>
+            <div style="font-size:11.5px;color:var(--faint);flex:none;text-align:right;line-height:1.5;">Read-only —<br/>set in secrets.toml</div>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div><div style="font-size:13.5px;font-weight:500;">Auto-provision on first provider sign-in</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">Off keeps Uvalu invite-only. On creates an account for any address in an allowed domain.</div></div>
+          <div onClick="{{ autoProv.onClick }}" style="{{ autoProv.trackStyle }}"><div style="{{ autoProv.knobStyle }}"></div></div>
+        </div>
+        <div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);">
+          <div style="font-size:13.5px;font-weight:500;">Allowed email domains</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Provider identities outside these domains are refused before any account lookup. Applies to every provider.</div>
+          <div style="display:flex;gap:7px;margin-top:11px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:6px;background:var(--panel-2);border:0.5px solid var(--line);">uvalu.eu</span>
+            <span style="font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:6px;background:var(--panel-2);border:0.5px solid var(--line);">novak-capital.cz</span>
+            <span style="font-size:12px;padding:5px 10px;border-radius:6px;border:0.5px dashed var(--line);color:var(--faint);cursor:pointer;">+ Add domain</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px;">
+          <div><div style="font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:8px;">Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);">PHASE 3</span></div><div style="font-size:12px;color:var(--muted);margin-top:3px;">Feature flag. Off until the custom component is verified on real devices.</div></div>
+          <div style="width:38px;height:22px;border-radius:12px;flex:none;position:relative;background:var(--line);"><div style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--faint);"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:52px;padding-top:22px;border-top:0.5px solid var(--line);font-size:12px;color:var(--faint);max-width:900px;line-height:1.7;">
+    Recreated from <span style="font-family:var(--mono);">docs/design/Uvalu.dc.html</span> (login, Settings), <span style="font-family:var(--mono);">docs/design/Uvalu Admin.dc.html</span> (shell, Users table, modals) and <span style="font-family:var(--mono);">uvalu/authgate.py</span> (live login-wall copy and behaviour). Tokens and spacing follow <span style="font-family:var(--mono);">docs/uvalu-brand-guidelines.md</span>.
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1300,&quot;height&quot;:1100}}">
+class Component extends DCLogic {
+  state = { totpOn:true, remember:false, saved:false, pwned:true, ipLimit:true, autoProv:false,
+    minLen:12, attempts:5, lockMins:15, requireMfa:'Admins', grace:'7 days', sessionTtl:'24 h' };
+
+  tog(key){
+    const on = !!this.state[key];
+    return { on, onClick:()=>this.setState({[key]:!on}),
+      trackStyle:'width:38px;height:22px;border-radius:12px;flex:none;cursor:pointer;position:relative;transition:background .2s;background:'+(on?'var(--teal)':'var(--faint)')+';',
+      knobStyle:'position:absolute;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;left:'+(on?'18px':'2px')+';box-shadow:0 1px 2px rgba(0,0,0,0.3);' };
+  }
+  seg(key, opts){
+    return { opts: opts.map(o=>({ label:o, onClick:()=>this.setState({[key]:o}),
+      style:'padding:6px 13px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;'+(this.state[key]===o?'background:var(--panel);color:var(--text);box-shadow:var(--shadow);':'color:var(--muted);') })) };
+  }
+  slider(key,min,max,step,fmt){
+    return { value:this.state[key], label:fmt(this.state[key]), min, max, step,
+      onInput:(e)=>this.setState({[key]:+e.target.value}) };
+  }
+
+  renderVals(){
+    const S = this.state;
+    const badge = (bg,fg)=>'font-size:10px;font-weight:500;letter-spacing:0.04em;padding:2px 8px;border-radius:5px;background:'+bg+';color:'+fg+';white-space:nowrap;';
+    const pw   = badge('var(--line-2)','var(--muted)');
+    const goog = badge('var(--soft)','var(--mint)');
+
+    const gIcon = '<circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 0 0 18M3 12h18"></path>';
+    const providers = [
+      {id:'google',    label:'Google',            status:'live'},
+      {id:'microsoft', label:'Microsoft Entra ID', status:'later'},
+    ].map(p=>({...p,
+      btnLabel:'Continue with '+p.label,
+      later: p.status!=='live',
+      btnStyle:'display:flex;align-items:center;justify-content:center;gap:9px;padding:11px;border-radius:9px;font-size:13px;cursor:pointer;border:0.5px '+(p.status==='live'?'solid var(--line);color:var(--text);':'dashed var(--line);color:var(--faint);'),
+    }));
+
+    const linked = [
+      {label:'Google',            meta:'marek.k@uvalu.eu · linked 2 Feb 2026', state:'CONNECTED', action:'Disconnect'},
+      {label:'Microsoft Entra ID', meta:'Available — not configured for this workspace', state:'', action:'Connect'},
+    ].map(l=>({...l,
+      stateStyle: l.state ? badge('var(--up-bg)','var(--up-txt)') : 'display:none;',
+      actionStyle:'padding:7px 13px;border-radius:8px;border:0.5px solid var(--line);font-size:12.5px;color:var(--muted);cursor:pointer;flex:none;',
+    }));
+
+    const adminProviders = [
+      {label:'Google', state:'CONFIGURED', detail:'redirect_uri · https://uvalu.eu/oauth2callback', stateOn:true},
+      {label:'Microsoft Entra ID', state:'NOT CONFIGURED', detail:'Add client_id and tenant to secrets.toml to enable', stateOn:false},
+      {label:'Okta · generic OIDC', state:'NOT CONFIGURED', detail:'Any OIDC issuer with a discovery document', stateOn:false},
+    ].map(p=>({...p,
+      stateStyle: p.stateOn ? badge('var(--up-bg)','var(--up-txt)') : badge('var(--line-2)','var(--faint)'),
+    }));
+
+    const users = [
+      {name:'Marek Kowalski', email:'marek.k@uvalu.eu', role:'Admin',   methods:['Password','Google'], mfa:'ON',       status:'Active',    lastActive:'2 min ago'},
+      {name:'Elena Novak',    email:'elena.n@uvalu.eu', role:'Analyst', methods:['Google'],            mfa:'PROVIDER', status:'Active',    lastActive:'1 hr ago'},
+      {name:'Jonas Weber',    email:'jonas.w@uvalu.eu', role:'Analyst', methods:['Password'],          mfa:'OFF',      status:'Active',    lastActive:'Yesterday'},
+      {name:'Priya Shah',     email:'priya.s@uvalu.eu', role:'Viewer',  methods:['Invite pending'],    mfa:'—',        status:'Invited',   lastActive:'—'},
+      {name:'Tomás Rocha',    email:'tomas.r@uvalu.eu', role:'Viewer',  methods:['Password'],          mfa:'REQUIRED', status:'Suspended', lastActive:'12d ago'},
+      {name:'Ingrid Larsen',  email:'ingrid.l@uvalu.eu',role:'Analyst', methods:['Microsoft'],         mfa:'PROVIDER', status:'Active',    lastActive:'3 hr ago'},
+    ].map(u=>({
+      ...u,
+      methods: u.methods.map(m=>({label:m, style: (m==='Google'||m==='Microsoft') ? goog : pw})),
+      mfaStyle: u.mfa==='ON' ? badge('var(--up-bg)','var(--up-txt)')
+              : u.mfa==='OFF' ? badge('var(--line-2)','var(--muted)')
+              : u.mfa==='REQUIRED' ? badge('var(--amber-bg)','var(--amber-txt)')
+              : u.mfa==='PROVIDER' ? badge('var(--soft)','var(--mint)')
+              : 'font-size:12px;color:var(--faint);',
+      statusStyle: u.status==='Active' ? badge('var(--up-bg)','var(--up-txt)')
+                 : u.status==='Invited' ? badge('var(--amber-bg)','var(--amber-txt)')
+                 : badge('var(--down-bg)','var(--down-txt)'),
+    }));
+
+    const savedOn = S.saved;
+    return {
+      users, providers, linked, adminProviders,
+      stats: [
+        {label:'Members',        value:'6',   color:'var(--text)'},
+        {label:'2FA coverage',   value:'50%', color:'var(--amber-txt)'},
+        {label:'Provider-linked',value:'3',   color:'var(--mint)'},
+        {label:'Locked out',   value:'0',    color:'var(--text)'},
+      ],
+      sessions: [
+        {device:'This browser — Chrome on macOS', meta:'Amsterdam · signed in 08:12 today · password + 2FA', action:'Current', actionColor:'var(--faint)'},
+        {device:'Safari on iPhone',               meta:'Amsterdam · last seen 2 days ago · Google SSO',       action:'Sign out', actionColor:'var(--muted)'},
+        {device:'Firefox on Windows',             meta:'Unknown location · last seen 11 days ago · password', action:'Sign out', actionColor:'var(--muted)'},
+      ],
+      passkeys: [
+        {label:"Marek's MacBook Pro", meta:'Touch ID · added 2 Sep 2026 · last used today'},
+        {label:'iPhone 15',           meta:'Face ID · added 2 Sep 2026 · last used 4 days ago'},
+      ],
+      totp: this.tog('totpOn'),
+      totpDesc: S.totpOn ? 'Authenticator app enabled 12 August 2026.' : 'Off. Add a time-based code from an authenticator app.',
+      remember: this.tog('remember'),
+      pwned: this.tog('pwned'),
+      ipLimit: this.tog('ipLimit'),
+      autoProv: this.tog('autoProv'),
+      minLen: this.slider('minLen',8,24,1,v=>v+' chars'),
+      attempts: this.slider('attempts',3,10,1,v=>v+''),
+      lockMins: this.slider('lockMins',5,60,5,v=>v+' min'),
+      requireMfa: this.seg('requireMfa',['Off','Admins','Everyone']),
+      grace: this.seg('grace',['None','7 days','30 days']),
+      sessionTtl: this.seg('sessionTtl',['8 h','24 h','7 d']),
+      saved: {
+        on: savedOn,
+        onClick: ()=>this.setState({saved:!savedOn}),
+        boxStyle: 'width:17px;height:17px;flex:none;border-radius:5px;display:flex;align-items:center;justify-content:center;border:0.5px solid '+(savedOn?'var(--teal)':'var(--line)')+';background:'+(savedOn?'var(--teal)':'var(--panel-2)')+';',
+        btnBg: savedOn ? 'var(--teal)' : 'var(--faint)',
+        btnColor: savedOn ? '#fff' : 'rgba(13,31,60,0.5)',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

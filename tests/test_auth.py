@@ -13,12 +13,31 @@ import jwt as pyjwt
 import pytest
 
 import auth
+import settings
+
+
+class _NoBreachResponse:
+    """Fake requests.Response — a k-anonymity range lookup with no matching
+    suffix, i.e. "not found in the breach corpus". Patched onto
+    auth.requests.get (not check_password_breached itself) so the REAL
+    validate_new_password()/check_password_breached() implementation runs in
+    every test by default, without ever making a real HIBP network call —
+    specific tests re-patch requests.get to exercise breached/unreachable
+    scenarios instead."""
+    status_code = 200
+    text = ""
+    def raise_for_status(self): pass
 
 
 @pytest.fixture(autouse=True)
 def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # login()'s rate-limit thresholds come from the shared (Admin-controlled)
+    # settings file — isolate it too so these tests can't read/leak real
+    # data/settings/shared.json and can freely override the thresholds.
+    monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "data" / "settings" / "shared.json")
+    monkeypatch.setattr(auth.requests, "get", lambda *a, **k: _NoBreachResponse())
 
 
 # ── register ──────────────────────────────────────────────────────────────
@@ -80,6 +99,42 @@ class TestRegister:
         assert "could not be read" in msg
 
 
+class TestBootstrapAdminFromEnv:
+    def test_creates_and_promotes_admin_when_store_empty_and_both_vars_set(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        result = auth.bootstrap_admin_from_env()
+        assert result == (True, "Account created. You can now log in.")
+        users = auth._load_users()
+        assert users["boss@example.com"]["role"] == "Admin"
+
+    def test_skipped_when_admin_email_set_without_password(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+        assert auth.bootstrap_admin_from_env() is None
+        assert auth._load_users() == {}
+
+    def test_skipped_when_neither_var_set(self, monkeypatch):
+        monkeypatch.delenv("ADMIN_EMAIL", raising=False)
+        monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+        assert auth.bootstrap_admin_from_env() is None
+        assert auth._load_users() == {}
+
+    def test_skipped_when_store_already_has_an_account(self, monkeypatch):
+        auth.register("existing@example.com", "password123")
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        assert auth.bootstrap_admin_from_env() is None
+        assert "boss@example.com" not in auth._load_users()
+
+    def test_second_call_is_a_no_op(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")
+        monkeypatch.setenv("ADMIN_PASSWORD", "bootstrap-password123")
+        auth.bootstrap_admin_from_env()
+        assert auth.bootstrap_admin_from_env() is None
+        assert len(auth._load_users()) == 1
+
+
 # ── login / verify_token ─────────────────────────────────────────────────
 
 class TestLogin:
@@ -87,9 +142,10 @@ class TestLogin:
         auth.register("first@example.com", "password123")
         ok, token = auth.login("first@example.com", "password123")
         assert ok
-        email, role = auth.verify_token(token)
+        email, role, sid = auth.verify_token(token)
         assert email == "first@example.com"
         assert role == "Admin"
+        assert sid  # login() always mints one
 
     def test_wrong_password_fails(self):
         auth.register("first@example.com", "password123")
@@ -117,13 +173,81 @@ class TestLogin:
         assert not ok
         assert "suspended" in msg.lower()
 
-    def test_invited_account_activates_on_first_login(self):
+    def test_invited_account_activates_on_accepting_the_invite(self):
+        # Activation now happens at invite-acceptance (see TestAcceptInvite),
+        # not at first login with a temp password -- a pending invite has no
+        # password to log in with at all until then.
         auth.register("admin@example.com", "password123")
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="Viewer")
+        ok, msg, token = auth.invite_user("new@example.com", role="Viewer")
         assert ok
-        auth.login("new@example.com", temp_password)
+        auth.accept_invite_with_password(token, "a-real-password")
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Active"
+
+
+# ── login rate limiting / lockout ────────────────────────────────────────
+
+class TestLoginRateLimiting:
+    def test_wrong_password_reports_attempts_remaining(self):
+        auth.register("first@example.com", "password123")
+        ok, msg = auth.login("first@example.com", "wrong-password")
+        assert not ok
+        assert "4 attempts remain" in msg  # default threshold is 5
+
+    def test_unknown_email_never_reports_attempts_or_locks(self):
+        # No account to attach a counter to, and revealing a count would let
+        # an attacker distinguish real emails from made-up ones.
+        for _ in range(10):
+            ok, msg = auth.login("nobody@example.com", "whatever")
+            assert not ok
+            assert msg == "Invalid email or password."
+        assert auth.get_lockout("nobody@example.com") is None
+
+    def test_account_locks_after_configured_attempts(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        ok1, msg1 = auth.login("first@example.com", "wrong-password")
+        assert not ok1
+        assert "1 attempt remain" in msg1
+        ok2, msg2 = auth.login("first@example.com", "wrong-password")
+        assert not ok2
+        assert "now locked for 10 minutes" in msg2
+        assert auth.get_lockout("first@example.com") is not None
+
+    def test_locked_account_rejects_even_the_correct_password(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trips the lock
+        ok, msg = auth.login("first@example.com", "password123")
+        assert not ok
+        assert "temporarily locked" in msg
+
+    def test_successful_login_clears_failed_attempts(self):
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")
+        ok, _ = auth.login("first@example.com", "password123")
+        assert ok
+        users = auth._load_users()
+        assert users["first@example.com"]["failed_attempts"] == 0
+        assert users["first@example.com"]["locked_until"] is None
+
+    def test_lock_expires_on_its_own(self):
+        from datetime import datetime, timedelta, timezone
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trips the lock
+        assert auth.get_lockout("first@example.com") is not None
+        # Backdate the lock as if the window had already elapsed.
+        users = auth._load_users()
+        users["first@example.com"]["locked_until"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_lockout("first@example.com") is None
+        ok, _ = auth.login("first@example.com", "password123")
+        assert ok
 
     def test_login_updates_last_active(self):
         auth.register("first@example.com", "password123")
@@ -135,11 +259,11 @@ class TestLogin:
 
 
 class TestVerifyToken:
-    def test_garbage_token_returns_none_none(self):
-        email, role = auth.verify_token("not-a-real-jwt")
-        assert (email, role) == (None, None)
+    def test_garbage_token_returns_none_none_none(self):
+        email, role, sid = auth.verify_token("not-a-real-jwt")
+        assert (email, role, sid) == (None, None, None)
 
-    def test_tampered_token_returns_none_none(self):
+    def test_tampered_token_returns_none_none_none(self):
         auth.register("first@example.com", "password123")
         _, token = auth.login("first@example.com", "password123")
         # Flip a character in the PAYLOAD segment, not the signature's last
@@ -150,10 +274,10 @@ class TestVerifyToken:
         # breaks the HMAC unconditionally.
         header, payload, sig = token.split(".")
         payload = ("A" if payload[0] != "A" else "B") + payload[1:]
-        email, role = auth.verify_token(f"{header}.{payload}.{sig}")
-        assert (email, role) == (None, None)
+        email, role, sid = auth.verify_token(f"{header}.{payload}.{sig}")
+        assert (email, role, sid) == (None, None, None)
 
-    def test_expired_token_returns_none_none(self):
+    def test_expired_token_returns_none_none_none(self):
         # Craft a token identical in shape to login()'s but already expired.
         from datetime import datetime, timedelta, timezone
         expired = pyjwt.encode(
@@ -166,42 +290,203 @@ class TestVerifyToken:
             auth._JWT_SECRET,
             algorithm=auth._JWT_ALGO,
         )
-        email, role = auth.verify_token(expired)
-        assert (email, role) == (None, None)
+        email, role, sid = auth.verify_token(expired)
+        assert (email, role, sid) == (None, None, None)
 
 
 # ── invite_user ───────────────────────────────────────────────────────────
 
 class TestInviteUser:
-    def test_creates_invited_status_with_temp_password(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="Analyst")
+    def test_creates_invited_status_with_no_usable_password_yet(self):
+        ok, msg, token = auth.invite_user("new@example.com", role="Analyst")
         assert ok
-        assert temp_password is not None
+        assert token is not None
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Invited"
         assert users["new@example.com"]["role"] == "Analyst"
+        assert users["new@example.com"]["password_hash"] is None
 
-    def test_temp_password_actually_works_for_login(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com")
-        login_ok, _ = auth.login("new@example.com", temp_password)
-        assert login_ok
+    def test_pending_account_cannot_log_in_before_acceptance(self):
+        # Nothing to log in with yet -- the point of the invite-token flow is
+        # that the account isn't usable until accept_invite_with_password()/
+        # accept_invite_with_oauth() finalizes it.
+        auth.invite_user("new@example.com")
+        login_ok, _ = auth.login("new@example.com", "anything-at-all")
+        assert not login_ok
 
     def test_duplicate_email_fails(self):
         auth.register("first@example.com", "password123")
-        ok, msg, temp_password = auth.invite_user("first@example.com")
+        ok, msg, token = auth.invite_user("first@example.com")
         assert not ok
-        assert temp_password is None
+        assert token is None
 
     def test_rejects_unknown_role(self):
-        ok, msg, temp_password = auth.invite_user("new@example.com", role="SuperUser")
+        ok, msg, token = auth.invite_user("new@example.com", role="SuperUser")
         assert not ok
-        assert temp_password is None
+        assert token is None
 
     def test_rejects_invalid_email(self):
-        ok, msg, temp_password = auth.invite_user("not-an-email")
+        ok, msg, token = auth.invite_user("not-an-email")
         assert not ok
         assert "valid email" in msg
-        assert temp_password is None
+        assert token is None
+
+    def test_records_who_invited(self):
+        auth.invite_user("new@example.com", invited_by="admin@example.com")
+        invite = auth.get_pending_invite(
+            auth._load_users()["new@example.com"]["invite_token"])
+        assert invite["invited_by"] == "admin@example.com"
+
+
+class TestAcceptInvite:
+    def test_get_pending_invite_returns_email_and_role(self):
+        _, _, token = auth.invite_user("new@example.com", role="Viewer", invited_by="admin@example.com")
+        invite = auth.get_pending_invite(token)
+        assert invite == {"email": "new@example.com", "role": "Viewer", "invited_by": "admin@example.com"}
+
+    def test_unknown_token_returns_none(self):
+        assert auth.get_pending_invite("not-a-real-token") is None
+
+    def test_expired_token_returns_none(self):
+        from datetime import datetime, timedelta, timezone
+        _, _, token = auth.invite_user("new@example.com")
+        users = auth._load_users()
+        users["new@example.com"]["invite_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_pending_invite(token) is None
+
+    def test_accept_with_password_activates_and_logs_in(self):
+        _, _, token = auth.invite_user("new@example.com", role="Viewer")
+        ok, result = auth.accept_invite_with_password(token, "a-real-password")
+        assert ok
+        email, role, sid = auth.verify_token(result)
+        assert email == "new@example.com"
+        assert role == "Viewer"
+        assert sid
+        users = auth._load_users()
+        assert users["new@example.com"]["status"] == "Active"
+        assert users["new@example.com"]["invite_token"] is None
+
+    def test_accept_with_password_can_then_log_in_normally(self):
+        _, _, token = auth.invite_user("new@example.com")
+        auth.accept_invite_with_password(token, "a-real-password")
+        ok, _ = auth.login("new@example.com", "a-real-password")
+        assert ok
+
+    def test_accept_with_short_password_fails(self):
+        _, _, token = auth.invite_user("new@example.com")
+        ok, msg = auth.accept_invite_with_password(token, "short")
+        assert not ok
+        assert "characters" in msg
+
+    def test_accept_with_invalid_token_fails(self):
+        ok, msg = auth.accept_invite_with_password("garbage-token", "a-real-password")
+        assert not ok
+        assert "invalid or has expired" in msg
+
+    def test_accept_with_oauth_links_identity_and_logs_in(self):
+        _, _, token = auth.invite_user("new@example.com", role="Analyst")
+        ok, result = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
+                                                   "new@example.com")
+        assert ok
+        email, role, _ = auth.verify_token(result)
+        assert email == "new@example.com"
+        assert role == "Analyst"
+        users = auth._load_users()
+        assert users["new@example.com"]["linked_identities"] == [
+            {"issuer": "https://accounts.google.com", "subject": "sub-123",
+             "email_at_link": "new@example.com",
+             "linked_at": users["new@example.com"]["linked_identities"][0]["linked_at"]}
+        ]
+
+    def test_accept_with_oauth_refuses_mismatched_email(self):
+        _, _, token = auth.invite_user("invited@example.com")
+        ok, msg = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
+                                                "someone-else@example.com")
+        assert not ok
+        assert "invited@example.com" in msg
+
+
+class TestAdminPasswordReset:
+    def test_request_reset_for_unknown_user_fails(self):
+        ok, msg, token = auth.admin_request_password_reset("nobody@example.com")
+        assert not ok
+        assert token is None
+
+    def test_request_reset_for_invited_user_fails(self):
+        auth.invite_user("pending@example.com")
+        ok, msg, token = auth.admin_request_password_reset("pending@example.com")
+        assert not ok
+        assert "invite" in msg.lower()
+        assert token is None
+
+    def test_request_reset_returns_token_for_active_user(self):
+        auth.register("first@example.com", "password123")
+        ok, msg, token = auth.admin_request_password_reset("first@example.com", requested_by="admin@example.com")
+        assert ok
+        assert token
+        assert auth.get_pending_reset(token) == {"email": "first@example.com"}
+
+    def test_unknown_reset_token_returns_none(self):
+        assert auth.get_pending_reset("not-a-real-token") is None
+
+    def test_expired_reset_token_returns_none(self):
+        from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        users = auth._load_users()
+        users["first@example.com"]["reset_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_pending_reset(token) is None
+
+    def test_complete_reset_sets_new_password_and_logs_in(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        ok, result = auth.complete_password_reset(token, "brand-new-password")
+        assert ok
+        email, role, sid = auth.verify_token(result)
+        assert email == "first@example.com"
+        assert sid
+        users = auth._load_users()
+        assert users["first@example.com"]["reset_token"] is None
+        ok2, _ = auth.login("first@example.com", "brand-new-password")
+        assert ok2
+
+    def test_complete_reset_with_short_password_fails(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        ok, msg = auth.complete_password_reset(token, "short")
+        assert not ok
+        assert "characters" in msg
+
+    def test_complete_reset_with_invalid_token_fails(self):
+        ok, msg = auth.complete_password_reset("garbage-token", "brand-new-password")
+        assert not ok
+        assert "invalid or has expired" in msg
+
+    def test_complete_reset_clears_existing_lockout(self):
+        auth.register("first@example.com", "password123")
+        users = auth._load_users()
+        from datetime import datetime, timedelta, timezone
+        users["first@example.com"]["locked_until"] = (
+            datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        users["first@example.com"]["failed_attempts"] = 5
+        auth._save_users(users)
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        auth.complete_password_reset(token, "brand-new-password")
+        users = auth._load_users()
+        assert users["first@example.com"]["locked_until"] is None
+        assert users["first@example.com"]["failed_attempts"] == 0
+
+    def test_reset_token_is_single_use(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        auth.complete_password_reset(token, "brand-new-password")
+        ok, msg = auth.complete_password_reset(token, "another-password")
+        assert not ok
+        assert "invalid or has expired" in msg
 
 
 # ── admin helpers ─────────────────────────────────────────────────────────

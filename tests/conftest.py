@@ -71,6 +71,15 @@ def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setattr(backup, "_BACKUPS_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup, "_BACKUPS_MANIFEST", tmp_path / "backups" / "manifest.json")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # Never hit the real Have I Been Pwned API from a test (block_breached_
+    # passwords defaults True) — same guard as test_auth.py's isolated_store
+    # (patches requests.get, not check_password_breached, so the real
+    # implementation still runs against a fake "no breach" response).
+    class _NoBreachResponse:
+        status_code = 200
+        text = ""
+        def raise_for_status(self): pass
+    monkeypatch.setattr(auth.requests, "get", lambda *a, **k: _NoBreachResponse())
     # Keep the Fama-French disk cache off the developer's real .cache/factors.
     monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
     monkeypatch.setattr(risk, "_ff_cache", {})

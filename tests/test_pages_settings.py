@@ -3,15 +3,26 @@ import io
 
 import pandas as pd
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
+import auth
 import portfolio
 import settings
+from uvalu import oauth
 from uvalu.pages_ import settings as settings_page
 from tests.conftest import TEST_EMAIL, fake_cached_fn, USER_SETUP_SRC
 
 
-def _run(monkeypatch, role="Analyst") -> AppTest:
+class FakeUser(dict):
+    """Minimal stand-in for streamlit.user_info.UserInfoProxy — see
+    tests/test_oauth.py's identical class for why this suffices."""
+    def __init__(self, is_logged_in: bool, **claims):
+        super().__init__(**claims)
+        self.is_logged_in = is_logged_in
+
+
+def _run(monkeypatch, role="Analyst", jwt_sid=None) -> AppTest:
     # AppTest.from_function re-executes a function's SOURCE TEXT as a fresh
     # script (no closure over enclosing variables — see tests/test_pages_admin.py's
     # identical note), so `role` can't be passed as a real Python value into a
@@ -19,12 +30,13 @@ def _run(monkeypatch, role="Analyst") -> AppTest:
     # text directly instead.
     monkeypatch.setattr(settings_page, "_load_all_screener_data", fake_cached_fn(None))
 
+    _sid_line = f'st.session_state["jwt_sid"] = {jwt_sid!r}\n' if jwt_sid else ""
     script_src = USER_SETUP_SRC + f"""
 import streamlit as st
 from uvalu.pages_ import settings as settings_page
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = {role!r}
-settings_page.render()
+{_sid_line}settings_page.render()
 """
     at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
@@ -288,3 +300,486 @@ class TestSettingsLogging:
         assert got["max_debt_equity"] == 500.0           # defaults, behaviour unchanged
         reads = [r for r in caplog.records if getattr(r, "event", None) == "storage.read_failed"]
         assert reads and reads[0].file == "shared.json" and reads[0].exc_info is not None
+
+
+# ── Security card ─────────────────────────────────────────────────────────
+
+class TestSecurityCard:
+    def test_shows_password_last_changed(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Last changed" in html
+
+    def test_no_account_shows_set_a_password(self, isolated_data, monkeypatch):
+        # TEST_EMAIL isn't registered in auth's user store at all — only
+        # portfolio.set_user() was called (see USER_SETUP_SRC) — has_password()
+        # is False for a nonexistent account, same UI as a real provider-only
+        # account with no password_hash yet.
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "NOT SET" in html
+        assert any(b.label == "Set a password" for b in at.button)
+
+    def test_change_button_opens_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        open_btn = [b for b in at.button if b.label == "Change"][0]
+        open_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(w.key == "set_pw_current" for w in at.text_input)
+
+
+def _run_dlg_change_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    # Same one-shot-gate limitation as admin.py's _dlg_invite (see the long
+    # comment above TestInviteUserButtonWiring in test_pages_admin.py) —
+    # call the @st.dialog function directly and unconditionally instead of
+    # driving it through the "Change" button click.
+    script = f"""
+from uvalu.pages_.settings import _dlg_change_password
+_dlg_change_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgChangePassword:
+    def test_correct_current_password_changes_it(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("password123")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("newpassword456")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.success) == 1
+        ok, _ = auth.login(TEST_EMAIL, "newpassword456")
+        assert ok
+
+    def test_wrong_current_password_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("wrong-password")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("newpassword456")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "incorrect" in "".join(e.value for e in at.error).lower()
+
+    def test_mismatched_confirmation_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_current").set_value("password123")
+        at.text_input(key="set_pw_new").set_value("newpassword456")
+        at.text_input(key="set_pw_confirm").set_value("different789")
+        submit = [b for b in at.button if b.label == "Change password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "match" in "".join(e.value for e in at.error).lower()
+
+    def test_new_password_shows_live_strength_caption(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_change_password(monkeypatch)
+        at.text_input(key="set_pw_new").set_value("weak")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Weak" in html
+
+        at.text_input(key="set_pw_new").set_value("Str0ng!-Passphrase-99")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Strong" in html
+
+
+def _run_dlg_set_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    script = f"""
+from uvalu.pages_.settings import _dlg_set_password
+_dlg_set_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgSetPassword:
+    def test_new_password_shows_live_strength_caption(self, isolated_data, monkeypatch):
+        at = _run_dlg_set_password(monkeypatch)
+        at.text_input(key="set_pw2_new").set_value("weak")
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Password strength: Weak" in html
+
+
+# ── Active sessions card ──────────────────────────────────────────────────
+
+class TestActiveSessions:
+    def test_shows_current_and_other_sessions(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123",
+                             user_agent="Mozilla/5.0 (Macintosh) AppleWebKit Chrome/120.0")
+        _, _, sid1 = auth.verify_token(tok1)
+        auth.login(TEST_EMAIL, "password123",
+                  user_agent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit Firefox/120.0")
+        at = _run(monkeypatch, jwt_sid=sid1)
+        html = "".join(m.value for m in at.markdown)
+        assert "Current" in html
+        assert "Chrome on macOS" in html
+        assert "Firefox on Windows" in html
+        assert any(b.label == "Sign out" for b in at.button)
+
+    def test_current_session_has_no_sign_out_button(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        assert not any(b.key == f"set_session_signout_{sid1}" for b in at.button)
+
+    def test_sign_out_one_session_revokes_only_that_one(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        _, tok2 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid2 = auth.verify_token(tok2)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        signout_btn = [b for b in at.button if b.key == f"set_session_signout_{sid2}"][0]
+        signout_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_session_active(TEST_EMAIL, sid1)
+        assert not auth.is_session_active(TEST_EMAIL, sid2)
+
+    def test_sign_out_everywhere_else_keeps_current_only(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        auth.login(TEST_EMAIL, "password123")
+        auth.login(TEST_EMAIL, "password123")
+        at = _run(monkeypatch, jwt_sid=sid1)
+        revoke_btn = [b for b in at.button if b.label == "Sign out everywhere else"][0]
+        revoke_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_session_active(TEST_EMAIL, sid1)
+        assert len(auth.list_sessions(TEST_EMAIL)) == 1
+
+    def test_single_session_hides_sign_out_everywhere_button(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _, tok1 = auth.login(TEST_EMAIL, "password123")
+        _, _, sid1 = auth.verify_token(tok1)
+        at = _run(monkeypatch, jwt_sid=sid1)
+        assert not any(b.label == "Sign out everywhere else" for b in at.button)
+
+
+# ── Linked accounts ───────────────────────────────────────────────────────
+
+class TestLinkedAccounts:
+    def test_unlinked_configured_provider_shows_connect(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(oauth, "_auth_secrets", lambda: {
+            "google": {"client_id": "x", "client_secret": "y",
+                      "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
+        at = _run(monkeypatch)
+        assert any(b.label == "Connect" for b in at.button)
+
+    def test_unconfigured_provider_shows_unavailable(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Not configured for this workspace" in html
+        assert "Unavailable" in html
+
+    def test_linked_provider_shows_connected_and_disconnect(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.link_identity(TEST_EMAIL, "https://accounts.google.com", "sub-123", "test@example.com")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "CONNECTED" in html
+        assert any(b.label == "Disconnect" for b in at.button)
+
+    def test_disconnect_unlinks_provider(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.link_identity(TEST_EMAIL, "https://accounts.google.com", "sub-123", "test@example.com")
+        at = _run(monkeypatch)
+        disconnect_btn = [b for b in at.button if b.label == "Disconnect"][0]
+        disconnect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.list_linked_identities(TEST_EMAIL) == []
+
+    def test_disconnecting_only_method_is_refused(self, isolated_data, monkeypatch):
+        # Password-less account with exactly one linked identity -- refused
+        # by auth.unlink_identity(), surfaced here as a toast rather than
+        # silently vanishing.
+        _, _, token = auth.invite_user(TEST_EMAIL)
+        auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", TEST_EMAIL)
+        at = _run(monkeypatch)
+        disconnect_btn = [b for b in at.button if b.label == "Disconnect"][0]
+        disconnect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(auth.list_linked_identities(TEST_EMAIL)) == 1
+
+    def test_connect_click_starts_login(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(oauth, "_auth_secrets", lambda: {
+            "google": {"client_id": "x", "client_secret": "y",
+                      "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
+        started = {"provider": None}
+        monkeypatch.setattr(oauth, "start_login", lambda pid: started.__setitem__("provider", pid))
+        at = _run(monkeypatch)
+        connect_btn = [b for b in at.button if b.label == "Connect"][0]
+        connect_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert started["provider"] == "google"
+
+
+class TestOAuthSelfLinking:
+    def test_completed_identity_links_to_current_account(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        monkeypatch.setattr(st, "user", FakeUser(
+            True, iss="https://accounts.google.com", sub="sub-123", email=TEST_EMAIL))
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        linked = auth.list_linked_identities(TEST_EMAIL)
+        assert len(linked) == 1
+        assert linked[0]["subject"] == "sub-123"
+
+    def test_identity_already_linked_elsewhere_is_not_stolen(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.register("other@example.com", "password123456")
+        auth.link_identity("other@example.com", "https://accounts.google.com", "sub-123", "other@example.com")
+        monkeypatch.setattr(st, "user", FakeUser(
+            True, iss="https://accounts.google.com", sub="sub-123", email=TEST_EMAIL))
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.list_linked_identities(TEST_EMAIL) == []
+        assert len(auth.list_linked_identities("other@example.com")) == 1
+
+
+# ── Two-factor authentication ─────────────────────────────────────────────
+
+def _enable_totp(email=TEST_EMAIL):
+    import pyotp
+    secret, _ = auth.begin_totp_enrollment(email)
+    auth.confirm_totp_enrollment(email, pyotp.TOTP(secret).now())
+
+
+class TestTotpToggleRow:
+    def test_provider_only_account_shows_not_applicable(self, isolated_data, monkeypatch):
+        # TEST_EMAIL isn't registered at all -- has_password() is False, same
+        # as a real provider-only account.
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Not applicable" in html
+        assert not any(w.key == "set_totp_toggle" for w in at.toggle)
+
+    def test_toggle_off_by_default(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        assert not at.toggle(key="set_totp_toggle").value
+
+    def test_turning_on_opens_enrollment_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        at.toggle(key="set_totp_toggle").set_value(True)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(w.key == "totp_enroll_code" for w in at.text_input)
+        assert any(b.label == "Confirm and enable" for b in at.button)
+
+    def test_turning_off_disables_totp(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        at.toggle(key="set_totp_toggle").set_value(False)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+
+    def test_enabled_shows_backup_codes_and_trusted_devices_rows(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Backup codes" in html
+        assert "Trusted devices" in html
+
+    def test_disabled_hides_backup_codes_and_trusted_devices_rows(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Backup codes" not in html
+        assert "Trusted devices" not in html
+
+
+def _run_dlg_totp_enroll(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    # Same one-shot-gate limitation as _dlg_change_password — call the
+    # @st.dialog function directly and unconditionally.
+    script = f"""
+from uvalu.pages_.settings import _dlg_totp_enroll
+_dlg_totp_enroll({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgTotpEnroll:
+    def test_shows_qr_and_code_input(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        assert len(at.image) == 1
+        assert any(w.key == "totp_enroll_code" for w in at.text_input)
+        assert any(b.label == "Confirm and enable" for b in at.button)
+
+    def test_correct_code_enables_totp(self, isolated_data, monkeypatch):
+        import pyotp
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        secret = auth._load_users()[TEST_EMAIL]["totp_secret"]
+        at.text_input(key="totp_enroll_code").set_value(pyotp.TOTP(secret).now())
+        confirm_btn = [b for b in at.button if b.label == "Confirm and enable"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_totp_enabled(TEST_EMAIL)
+
+    def test_wrong_code_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        at.text_input(key="totp_enroll_code").set_value("000000")
+        confirm_btn = [b for b in at.button if b.label == "Confirm and enable"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+        assert "didn't match" in "".join(e.value for e in at.error)
+
+    def test_cancel_does_not_enable_totp(self, isolated_data, monkeypatch):
+        # A cancel-click's st.session_state.pop() inside this @st.dialog
+        # function doesn't reliably surface via the outer at.session_state
+        # after .click().run() (confirmed via a minimal repro — a plain
+        # counter increment/pop showed the same staleness), so this checks
+        # the actually-observable outcome (auth.py's own persisted state)
+        # instead of asserting on at.session_state directly.
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        cancel_btn = [b for b in at.button if b.label == "Cancel"][0]
+        cancel_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+
+
+def _run_with_backup_codes_flag(monkeypatch, codes) -> AppTest:
+    script = f"""
+import streamlit as st
+st.session_state["totp_new_backup_codes"] = {codes!r}
+from uvalu.pages_.settings import _dlg_backup_codes_shown
+_dlg_backup_codes_shown()
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgBackupCodesShown:
+    def test_shows_all_codes(self, isolated_data, monkeypatch):
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111", "bbbb-2222"])
+        assert len(at.code) == 1
+        assert "aaaa-1111" in at.code[0].value
+        assert "bbbb-2222" in at.code[0].value
+
+    def test_done_disabled_until_checked(self, isolated_data, monkeypatch):
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111"])
+        done_btn = [b for b in at.button if b.label == "Done"][0]
+        assert done_btn.disabled
+
+    def test_done_clickable_once_checked(self, isolated_data, monkeypatch):
+        # See TestDlgTotpEnroll's cancel test for why this doesn't assert on
+        # at.session_state directly across a dialog button click.
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111"])
+        at.checkbox(key="totp_backup_saved").set_value(True)
+        at.run()
+        done_btn = [b for b in at.button if b.label == "Done"][0]
+        assert not done_btn.disabled
+        done_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+
+
+class TestBackupCodesCard:
+    def test_shows_remaining_count(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "10 unused code" in html
+
+    def test_regenerate_opens_confirm_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        regen_btn = [b for b in at.button if b.label == "Regenerate"][0]
+        regen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.key == "totp_regen_confirm" for b in at.button)
+
+    def test_confirm_regenerates_codes(self, isolated_data, monkeypatch):
+        # Same AppTest dialog-session_state limitation noted on TestDlgTotpEnroll's
+        # cancel test -- checks the real backup-codes-remaining count (an
+        # observable, persisted side effect) rather than the staged
+        # at.session_state["totp_new_backup_codes"] value.
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        regen_btn = [b for b in at.button if b.label == "Regenerate"][0]
+        regen_btn.click().run()
+        confirm_btn = [b for b in at.button if b.key == "totp_regen_confirm"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.backup_codes_remaining(TEST_EMAIL) == 10
+
+
+class TestTrustedDevicesCard:
+    def test_shows_device_count(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        auth.trust_this_device(TEST_EMAIL)
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "1 device" in html
+
+    def test_revoke_all_clears_devices(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        auth.trust_this_device(TEST_EMAIL)
+        at = _run(monkeypatch)
+        revoke_btn = [b for b in at.button if b.label == "Revoke all"][0]
+        revoke_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.trusted_device_count(TEST_EMAIL) == 0
+
+    def test_revoke_all_disabled_when_no_devices(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        revoke_btn = [b for b in at.button if b.label == "Revoke all"][0]
+        assert revoke_btn.disabled
+
+
+# ── Passkeys stub (Phase 3 — UI only, no WebAuthn) ──────────────────────────
+
+class TestPasskeysStubRow:
+    def test_shows_phase_3_badge_and_disabled_manage_button(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Passkeys" in html
+        assert "PHASE 3" in html
+        manage_btn = [b for b in at.button if b.label == "Manage"][0]
+        assert manage_btn.disabled
+
+    def test_shown_regardless_of_password_or_totp_state(self, isolated_data, monkeypatch):
+        # No account registered at all (provider-only) -- the row still
+        # appears, unlike the TOTP-gated rows above it.
+        at = _run(monkeypatch)
+        assert any(b.label == "Manage" for b in at.button)

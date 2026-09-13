@@ -27,20 +27,32 @@ the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 "they'll receive an email invite" copy. Admin-role only."""
 import streamlit as st
 
-from auth import ROLES, list_users, set_role, set_status, delete_user, invite_user
+from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
+                  has_password, invite_user, list_linked_identities, list_users,
+                  revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
-from uvalu import logkit, nav as nav_registry
+from uvalu import logkit, nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user
 from uvalu.shell import _initials, _display_name, apply_theme_script, _close_stray_popover_script
 
 _NAV_ITEMS = (
-    ("users",   "Users",       ":material/group:"),
-    ("feeds",   "Data feeds",  ":material/dns:"),
-    ("backups", "Backups",     ":material/backup:"),
+    ("users",    "Users",       ":material/group:"),
+    ("security", "Security",    ":material/shield:"),
+    ("feeds",    "Data feeds",  ":material/dns:"),
+    ("backups",  "Backups",     ":material/backup:"),
 )
-_SECTION_TITLES = {"users": "User management", "feeds": "Data feeds", "backups": "Backups & restore"}
+_SECTION_TITLES = {"users": "User management", "security": "Security", "feeds": "Data feeds",
+                   "backups": "Backups & restore"}
+
+_2FA_STYLE = {
+    "ON":       ("var(--up-bg)",    "var(--up-txt)"),
+    "REQUIRED": ("var(--down-bg)",  "var(--down-txt)"),
+    "OFF":      ("var(--line-2)",   "var(--faint)"),
+    "PROVIDER": ("var(--line-2)",   "var(--faint)"),
+    "—":        ("var(--line-2)",   "var(--faint)"),
+}
 
 _STATUS_STYLE = {
     "Active":    ("var(--up-bg)",    "var(--up-txt)"),
@@ -63,6 +75,21 @@ def _status_badge(status: str) -> str:
            f'border-radius:5px;font-size:11px;font-weight:500;">{status}</span>')
 
 
+_2FA_LABELS = {"ON": "ON", "OFF": "OFF", "PROVIDER": "Provider", "REQUIRED": "Required", "—": "—"}
+
+
+def _2fa_badge(status: str) -> str:
+    bg, txt = _2FA_STYLE.get(status, ("var(--line-2)", "var(--faint)"))
+    return (f'<span style="display:inline-block;background:{bg};color:{txt};padding:3px 9px;'
+           f'border-radius:5px;font-size:11px;font-weight:500;">{_2FA_LABELS.get(status, status)}</span>')
+
+
+def _signin_methods_label(email: str) -> str:
+    methods = ["Password"] if has_password(email) else []
+    methods += [oauth.label_for_issuer(i["issuer"]) for i in list_linked_identities(email)]
+    return " + ".join(methods) if methods else "—"
+
+
 def _stat_tile(label: str, value) -> str:
     return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
            f'padding:16px 18px;">'
@@ -74,7 +101,7 @@ def _stat_tile(label: str, value) -> str:
 
 @st.dialog("Invite user", width="large")
 def _dlg_invite():
-    st.caption("They'll need this temporary password to sign in — there's no outbound email, "
+    st.caption("They'll need this link to set up their account — there's no outbound email, "
               "so share it with them yourself.")
     _email = st.text_input("Email", key="admin_invite_email", placeholder="name@company.com")
     _role = st.selectbox("Role", options=list(ROLES), index=list(ROLES).index("Analyst"),
@@ -88,11 +115,11 @@ def _dlg_invite():
         _do_invite = st.button("Send invite", key="admin_invite_submit", type="primary", width="stretch")
 
     if _do_invite:
-        ok, msg, temp_pw = invite_user(_email, _role)
+        ok, msg, token = invite_user(_email, _role, invited_by=current_user().email)
         if ok:
             st.success(msg)
-            st.code(temp_pw, language=None)
-            st.caption("Temporary password — shown once. Copy it now.")
+            st.code(f"{st.context.url}?invite={token}", language=None)
+            st.caption("Invite link — shown once. Copy it now. Valid for 7 days.")
         else:
             st.error(msg)
 
@@ -166,6 +193,20 @@ def _dlg_export_env():
                            key="admin_export_env_dl")
 
 
+@st.dialog("Send password reset", width="large")
+def _dlg_reset_password(email: str):
+    st.caption("They'll need this link to set a new password — there's no outbound email, "
+              "so share it with them yourself. Existing sessions stay signed in until they use it.")
+    if st.button("Generate reset link", key="admin_reset_pw_submit", type="primary", width="stretch"):
+        ok, msg, token = admin_request_password_reset(email, requested_by=current_user().email)
+        if ok:
+            st.success(msg)
+            st.code(f"{st.context.url}?reset={token}", language=None)
+            st.caption("Reset link — shown once. Copy it now. Valid for 24 hours.")
+        else:
+            st.error(msg)
+
+
 def _render_users() -> None:
     users = list_users()
     _current_email = current_user().email
@@ -200,9 +241,9 @@ def _render_users() -> None:
 
     with st.container(key="admin_users_card", border=True):
         with st.container(key="admin_users_colheader"):
-            _h1, _h2, _h3, _h4, _h5 = st.columns([3, 1.4, 1.2, 1.6, 1.2])
-            for _col, _label in zip((_h1, _h2, _h3, _h4, _h5),
-                                    ("User", "Role", "Status", "Last active", "")):
+            _h1, _h2, _h3, _h4, _h5, _h6, _h7 = st.columns([2.4, 1, 1, 1.3, 0.9, 1.5, 1.2])
+            for _col, _label in zip((_h1, _h2, _h3, _h4, _h5, _h6, _h7),
+                                    ("User", "Role", "Status", "Sign-in", "2FA", "Last active", "")):
                 with _col:
                     st.markdown(f'<div style="font-size:10.5px;color:var(--faint);font-weight:500;'
                                f'letter-spacing:0.05em;text-transform:uppercase;line-height:1.3;">'
@@ -215,7 +256,8 @@ def _render_users() -> None:
 
         for u in _filtered:
             with st.container(key=f"admin_user_row_{u['email']}"):
-                _c1, _c2, _c3, _c4, _c5 = st.columns([3, 1.4, 1.2, 1.6, 1.2], vertical_alignment="center")
+                _c1, _c2, _c3, _c4, _c5, _c6, _c7 = st.columns(
+                    [2.4, 1, 1, 1.3, 0.9, 1.5, 1.2], vertical_alignment="center")
                 with _c1:
                     st.markdown(f'<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                f'{_display_name(u["email"])}</div>'
@@ -237,11 +279,16 @@ def _render_users() -> None:
                 with _c3:
                     st.markdown(_status_badge(u["status"]), unsafe_allow_html=True)
                 with _c4:
+                    st.markdown(f'<div style="font-size:11.5px;color:var(--muted);">'
+                               f'{_signin_methods_label(u["email"])}</div>', unsafe_allow_html=True)
+                with _c5:
+                    st.markdown(_2fa_badge(two_factor_status(u["email"])), unsafe_allow_html=True)
+                with _c6:
                     _last = u["last_active"]
                     st.markdown(f'<div style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);">'
                                f'{_last[:16].replace("T", " ") if _last else "Never"}</div>',
                                unsafe_allow_html=True)
-                with _c5:
+                with _c7:
                     if u["email"] == _current_email:
                         st.markdown('<div style="font-size:12px;color:var(--faint);text-align:right;">You</div>',
                                    unsafe_allow_html=True)
@@ -261,13 +308,214 @@ def _render_users() -> None:
                                     st.toast(_msg, icon=":material/warning:")
                                 st.rerun()
                         with _ac2:
-                            with st.popover("", icon=":material/more_vert:", width=160):
+                            with st.popover("", icon=":material/more_vert:", width=200):
+                                if st.button("Send password reset", key=f"admin_reset_pw_{u['email']}",
+                                            width="stretch"):
+                                    _dlg_reset_password(u["email"])
+                                if two_factor_status(u["email"]) == "ON":
+                                    if st.button("Reset two-factor", key=f"admin_reset_totp_{u['email']}",
+                                                width="stretch"):
+                                        _ok, _msg = admin_reset_totp(u["email"])
+                                        st.toast(_msg, icon=None if _ok else ":material/warning:")
+                                        st.rerun()
+                                if st.button("Sign out all sessions", key=f"admin_signout_all_{u['email']}",
+                                            width="stretch"):
+                                    _ok, _msg = revoke_other_sessions(u["email"], keep_sid=None)
+                                    st.toast(_msg, icon=None if _ok else ":material/warning:")
+                                    st.rerun()
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
                                     _ok, _msg = delete_user(u["email"])
                                     if not _ok:
                                         st.toast(_msg, icon=":material/warning:")
                                     st.rerun()
+
+
+def _sec_row_header(label: str) -> None:
+    # padding/min-height match .st-key-admin_users_colheader's own values
+    # exactly (uvalu/pages_/admin.py's _admin_shell_css) — previously 15px
+    # 20px with no height floor, 4px more generous per side than the Users
+    # table's own header with nothing keeping it consistent, which read as
+    # "the header looks too tall" once the two pages were compared side by
+    # side.
+    st.markdown(f'<div style="padding:11px 20px;min-height:34px;box-sizing:border-box;'
+               f'border-bottom:0.5px solid var(--line-2);font-size:13px;'
+               f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
+               f'line-height:1.3;display:flex;align-items:center;">{label}</div>', unsafe_allow_html=True)
+
+
+def _sec_row_title(title: str, desc: str) -> None:
+    st.markdown(f'<div><div style="font-size:13.5px;font-weight:500;line-height:1.3;">{title}</div>'
+               f'<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5;">{desc}</div></div>',
+               unsafe_allow_html=True)
+
+
+_MFA_GRACE_OPTS = ["3 d", "7 d", "14 d", "30 d"]
+_SESSION_TTL_OPTS = ["8 h", "24 h", "7 d"]
+
+
+def _render_security() -> None:
+    st.caption("Workspace-wide authentication policy — applies to every account, not just this one.")
+    _shared = load_shared_settings()
+
+    # ── Password policy ────────────────────────────────────────────────────
+    with st.container(key="admin_sec_card_password", border=True):
+        _sec_row_header("Password policy")
+        with st.container(key="admin_sec_row_minlen"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Minimum password length", "Applies to every new password — invite "
+                              "acceptance, admin resets, and self-service changes.")
+            with _c2:
+                _min_len = st.slider("Minimum password length", 8, 20,
+                                     int(_shared.get("min_password_length", 12)),
+                                     key="admin_sec_min_len", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_breach"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Block breached passwords", "Checked against Have I Been Pwned by hash "
+                              "prefix — the password never leaves this server.")
+            with _c2:
+                _block_breach = st.toggle("Block breached passwords",
+                                          value=bool(_shared.get("block_breached_passwords", True)),
+                                          key="admin_sec_block_breach", label_visibility="collapsed")
+
+        if (int(_min_len) != int(_shared.get("min_password_length", 12))
+                or bool(_block_breach) != bool(_shared.get("block_breached_passwords", True))):
+            _shared["min_password_length"] = int(_min_len)
+            _shared["block_breached_passwords"] = bool(_block_breach)
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Two-factor authentication ──────────────────────────────────────────
+    with st.container(key="admin_sec_card_mfa", border=True):
+        _sec_row_header("Two-factor authentication")
+        with st.container(key="admin_sec_row_require_mfa"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Require 2FA", "Who must enroll in an authenticator app before they can "
+                              "sign in with a password.")
+            with _c2:
+                _require_mfa = st.segmented_control(
+                    "Require 2FA", options=["Off", "Admins", "Everyone"],
+                    default=str(_shared.get("require_mfa", "Admins")), label_visibility="collapsed",
+                    key="admin_sec_require_mfa", width="stretch")
+        with st.container(key="admin_sec_row_grace"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Grace period", "How long a newly-required account can still sign in "
+                              "before enrolling. Not yet enforced — display only.")
+            with _c2:
+                _cur_grace = str(_shared.get("mfa_grace_days", "7 d"))
+                _grace = st.segmented_control(
+                    "Grace period", options=_MFA_GRACE_OPTS,
+                    default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 d",
+                    label_visibility="collapsed", key="admin_sec_grace", width="stretch")
+
+        if ((_require_mfa and _require_mfa != _shared.get("require_mfa", "Admins"))
+                or (_grace and _grace != _shared.get("mfa_grace_days", "7 d"))):
+            _shared["require_mfa"] = _require_mfa or _shared.get("require_mfa", "Admins")
+            _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 d")
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Rate limiting & sessions ────────────────────────────────────────────
+    with st.container(key="admin_sec_card_ratelimit", border=True):
+        _sec_row_header("Rate limiting &amp; sessions")
+        with st.container(key="admin_sec_row_attempts"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Attempts before lock", "Failed password attempts on one account before "
+                              "it locks.")
+            with _c2:
+                _attempts = st.slider("Attempts before lock", 3, 10,
+                                      int(_shared.get("login_attempts_before_lock", 5)),
+                                      key="admin_sec_attempts", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_lockmin"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Lock duration", "How long an account stays locked once triggered.")
+            with _c2:
+                _lock_min = st.slider("Lock duration (minutes)", 5, 60,
+                                      int(_shared.get("lock_minutes", 15)), step=5,
+                                      key="admin_sec_lock_min", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_session_ttl"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Session lifetime", "How long a signed-in session stays valid before "
+                              "requiring another sign-in.")
+            with _c2:
+                _cur_ttl = str(_shared.get("session_ttl", "24 h"))
+                _ttl = st.segmented_control(
+                    "Session lifetime", options=_SESSION_TTL_OPTS,
+                    default=_cur_ttl if _cur_ttl in _SESSION_TTL_OPTS else "24 h",
+                    label_visibility="collapsed", key="admin_sec_session_ttl", width="stretch")
+
+        if (int(_attempts) != int(_shared.get("login_attempts_before_lock", 5))
+                or int(_lock_min) != int(_shared.get("lock_minutes", 15))
+                or (_ttl and _ttl != _shared.get("session_ttl", "24 h"))):
+            _shared["login_attempts_before_lock"] = int(_attempts)
+            _shared["lock_minutes"] = int(_lock_min)
+            _shared["session_ttl"] = _ttl or _shared.get("session_ttl", "24 h")
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Identity providers ──────────────────────────────────────────────────
+    with st.container(key="admin_sec_card_providers", border=True):
+        _sec_row_header("Identity providers")
+        for _p in oauth.configured_providers():
+            with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
+                                  else "Not configured — add credentials to secrets.toml.")
+                with _c2:
+                    _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
+                        else ("var(--line-2)", "var(--faint)")
+                    st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
+                               f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
+                               f'{"Configured" if _p["configured"] else "Not configured"}</span>',
+                               unsafe_allow_html=True)
+
+        with st.container(key="admin_sec_row_autoprov"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
+                              "sign-in from an allowed domain below, instead of requiring an invite first.")
+            with _c2:
+                _auto_prov = st.toggle("Auto-provision new accounts",
+                                       value=bool(_shared.get("auto_provision_oauth", False)),
+                                       key="admin_sec_auto_prov", label_visibility="collapsed")
+
+        with st.container(key="admin_sec_row_domains"):
+            _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
+            _domains_txt = st.text_input(
+                "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
+                value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
+
+        _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
+        if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
+                or _new_domains != _shared.get("allowed_email_domains", [])):
+            _shared["auto_provision_oauth"] = bool(_auto_prov)
+            _shared["allowed_email_domains"] = _new_domains
+            save_shared_settings(_shared)
+            st.rerun()
+
+        # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
+        # py_webauthn registration or login exists yet, so there's no real
+        # setting behind this toggle to persist — it's permanently off until
+        # that's built.
+        with st.container(key="admin_sec_row_passkeys"):
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+            with _c1:
+                _sec_row_title(
+                    'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
+                    'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
+                    'PHASE 3</span>',
+                    "Feature flag. Off until the custom component is verified on real devices.")
+            with _c2:
+                st.toggle("Passkeys", value=False, disabled=True, key="admin_sec_passkeys",
+                         label_visibility="collapsed")
 
 
 def _render_feeds() -> None:
@@ -472,12 +720,32 @@ def _admin_shell_css(active: str) -> str:
      (which centers in its own separate 58px bar via completely different
      CSS). Left/right/bottom padding stays for the nav buttons below. */
   padding: 0 14px 20px;
-  /* Full-height nav rail reaching the true viewport edges now that the
-     block-container padding above is zeroed for this page — 100vh is exact
-     here (no more approximating against the main column's height with a
-     fudged constant, since there's no longer any outer padding/offset to
-     account for). */
-  min-height: 100vh;
+  /* Pin the nav rail in place while a tall section (e.g. Security, whose
+     stacked cards run well past one viewport) scrolls underneath it.
+     `position:sticky` was tried first (tracking the nearest scrolling
+     ancestor, Streamlit's own `[data-testid="stMain"]`, confirmed live via
+     scrollHeight/clientHeight) but doesn't actually work here: Streamlit
+     gives every `stVerticalBlock` — this column's own nav rail included —
+     `flex:1 0 0%` by default, so as soon as its immediate wrapper chain is
+     given enough height for sticky to have "room" to work in, that same
+     `flex-grow` re-stretches the nav rail to fill it, cancelling the fixed
+     100vh box sticky needs (confirmed live: forcing the two ancestor
+     wrappers to `height:100%` made the rail's own rendered height balloon
+     from 900px to the full 1192px scrollable content height, and it still
+     didn't stick, until `flex:none` was *also* forced on the rail itself —
+     three separate overrides fighting Streamlit's own flex defaults, and
+     fragile to any future DOM change in how Streamlit nests these wrapper
+     divs). `position:fixed` sidesteps all of it: fixed's containing block
+     is the viewport itself (no ancestor here has a transform/filter/
+     perspective/contain that would redefine that, confirmed live), so it
+     doesn't care about any ancestor's flex/height behavior at all. The nav
+     COLUMN itself (`st.columns([0.16, 0.84])`, the flex item one level up)
+     is untouched and still reserves 16% of the row's width as an empty
+     box — this fixed rail just visually overlays that same reserved
+     stripe instead of rendering inside it, so the main column needs no
+     compensating margin. */
+  position: fixed !important; top: 0 !important; left: 0 !important;
+  width: 16% !important; height: 100vh !important; z-index: 20 !important;
   display: flex !important; flex-direction: column !important;
 }}
 /* Matches the topbar's own height:58px + flex-centering technique exactly
@@ -535,7 +803,35 @@ def _admin_shell_css(active: str) -> str:
 .st-key-admin_topbar {{
   /* Same tiny-hairline-border reversal as the sidebar above. */
   background: var(--panel); border-bottom: 0.5px solid var(--line);
-  padding: 0 20px; margin-bottom: 18px;
+  padding: 0 20px;
+  /* Fixed, not sticky — same reasoning as the sidebar's own fix above:
+     Streamlit's default `flex:1 0 0%` on every stVerticalBlock (this bar's
+     own wrapper included) fights any attempt to give its ancestor chain
+     "room" for sticky to work in, so `position:fixed` (relative to the
+     viewport, not any ancestor's flex box) is used instead. `left:16%`
+     starts it exactly where the sidebar's own `width:16%` ends, matching
+     Uvalu Admin.dc.html's own header spec (`position:sticky;top:0;
+     z-index:10` — sticky works there because that's a static HTML mockup
+     with none of Streamlit's generated wrapper divs in between). Otherwise
+     the title/status/avatar row scrolls out of view with the rest of a
+     tall section (Security) while the now-fixed sidebar stays put, which
+     would look like only half the chrome is fixed. Taking this out of
+     normal flow drops its old `margin-bottom:18px` reserved space — that
+     gap is added back as `admin_content`'s own `padding-top` below instead,
+     since a fixed element no longer pushes its flow-siblings down on its
+     own. */
+  /* `width:auto !important` is required alongside `left`/`right` — Streamlit
+     gives every `stVerticalBlock` (this bar's own wrapper included) an
+     explicit `width:100%` from its own base CSS, and per the CSS
+     positioning spec, an explicit `width` on a `left`+`right`-anchored
+     positioned box makes `right` get silently RECOMPUTED (i.e. ignored)
+     instead of the reverse — confirmed live: without this, the bar's own
+     `right:0` had no effect and it rendered 1440px wide starting at
+     `left:16%`, overflowing ~230px off the right edge of the (1440px)
+     viewport used in that test. Forcing `width:auto` restores the normal
+     "compute width from left+right" behavior this rule actually wants. */
+  position: fixed !important; top: 0 !important; left: 16% !important; right: 0 !important;
+  width: auto !important; z-index: 20 !important;
   /* Both !important AND flex-direction needed, confirmed live after a first
      attempt silently failed: (1) `height` alone (no !important) lost to
      Streamlit's own un-important-but-higher-specificity rule, computed
@@ -590,17 +886,30 @@ def _admin_shell_css(active: str) -> str:
    edges, but it also stripped the main content's only source of horizontal
    inset — confirmed live via a screenshot showing stat cards touching the
    topbar's own left edge with zero margin). Matches the design's own
-   `padding:28px 32px 60px` on its main content wrapper (top handled by
-   admin_topbar's existing margin-bottom instead, so only left/right/bottom
-   are needed here). ── */
-.st-key-admin_content {{ padding: 0 32px 60px; }}
+   `padding:28px 32px 60px` on its main content wrapper. Top padding is
+   `76px` (58px topbar height + its old 18px margin-bottom), not the
+   design's `28px`: the topbar is `position:fixed` now (see its own rule
+   above) and no longer reserves its own space in normal flow, so
+   admin_content would otherwise render its first 76px of content hidden
+   behind the fixed bar. ── */
+.st-key-admin_content {{ padding: 76px 32px 60px; }}
 
 /* ── Users/Feeds/Backups table panels — one seamless bordered card
    (header + hairline-divided rows) instead of a stack of individually
    bordered/gapped st.container(border=True) cards, matching the design's
    <table>/row-list markup. Same overflow:hidden/padding:0/margin-top:-16px
-   row-divider convention used by Screener's scr_table_card. ── */
-.st-key-admin_users_card, .st-key-admin_feeds_card, .st-key-admin_backups_card {{
+   row-divider convention used by Screener's scr_table_card.
+   Security's four cards (admin_sec_card_*) join the same rule — there's no
+   "Security" section in Uvalu Admin.dc.html to match, so these previously
+   kept Streamlit's bare st.container(border=True) look: native
+   theme-driven border color/radius (8px, not this app's 12px), transparent
+   background, and no box-shadow — visibly different chrome from every
+   other admin card once compared side by side, confirmed live via
+   getComputedStyle (border `0.666667px solid rgb(34,51,78)` vs. this rule's
+   `var(--line)`, radius 8px vs. 12px, no shadow). ── */
+.st-key-admin_users_card, .st-key-admin_feeds_card, .st-key-admin_backups_card,
+.st-key-admin_sec_card_password, .st-key-admin_sec_card_mfa,
+.st-key-admin_sec_card_ratelimit, .st-key-admin_sec_card_providers {{
   background: var(--panel) !important; border-color: var(--line) !important;
   border-radius: 12px !important; box-shadow: var(--shadow) !important;
   overflow: hidden !important; padding: 0 !important;
@@ -638,6 +947,81 @@ def _admin_shell_css(active: str) -> str:
 .st-key-admin_backups_card > div:first-child [class*="st-key-admin_backup_row_"] {{
   margin-top: 0 !important;
 }}
+
+/* ── Security cards' own setting rows (admin_sec_row_*) — same hairline
+   row-divider convention as the Users/Feeds/Backups rows above, cancelling
+   the same default ~16px inter-sibling gap against the `_sec_row_header`
+   markdown title directly above each card's first row (every security card
+   has one, unlike Feeds/Backups' headerless first row above — so no
+   first-row exception is needed here: -16px is correct for every row in
+   every security card). One shared prefix selector reaches all eleven keys
+   this file uses (`admin_sec_row_minlen`, `_breach`, `_require_mfa`,
+   `_grace`, `_attempts`, `_lockmin`, `_session_ttl`, the per-provider loop's
+   `_provider_{id}`, `_autoprov`, `_domains`, `_passkeys`) without listing
+   each one. ── */
+/* `_sec_row_header()`'s own wrapper has the same under-reported-height bug
+   as everywhere else in this file: the styled div inside it correctly
+   grows to its real ~40px (11px padding top/bottom + line height, now that
+   it also carries an explicit min-height and flex centering — see
+   _sec_row_header itself), but the surrounding stElementContainer Streamlit
+   generates still reports only 24px, letting the header's own bottom edge
+   visually run into the first row below it. Floored at that same 40px,
+   matching the pattern already used for every other raw-HTML block on this
+   page. Always the card's own first direct child, so no need to reach for
+   the wider admin_sec_row_ prefix or a card-by-card list. */
+[class*="st-key-admin_sec_card_"] > [data-testid="stElementContainer"]:first-child {{
+  min-height: 40px !important;
+}}
+[class*="st-key-admin_sec_row_"] {{
+  /* padding/min-height match the Users table's own row values exactly
+     (`[class*="st-key-admin_user_row_"]` below) — previously 15px 20px /
+     64px, both a few px more generous than Users' 12px 20px / 60px, which
+     read as an inconsistency once the two pages were compared side by
+     side. */
+  padding: 12px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  margin-top: -16px !important;
+  /* Floors every row at the sliders' own natural height (title + floating
+     value label) — previously unset, so row height tracked whatever that
+     row's own control needed (55px for a bare toggle up to 99px for a
+     segmented control that wrapped to two lines), reported as visibly
+     inconsistent row heights. `admin_sec_row_domains` (title + description
+     + input, stacked) is naturally taller than this floor already, so it's
+     unaffected without needing its own exception. */
+  min-height: 60px !important;
+}}
+/* The title+description block `_sec_row_title()` renders is raw HTML in a
+   markdown container that under-reports its own height to Streamlit's
+   layout engine — confirmed live: a two-line block measured 38px tall but
+   its wrapping stColumn reported only 22px. Every row already sets
+   `vertical_alignment="center"` on its st.columns(...) correctly; the
+   centering math was just running against that wrong, shorter number,
+   which visibly offset the text from the control next to it. Same bug
+   class as the Users table's name+email column elsewhere in this file;
+   Security's own rows just never got the equivalent fix. */
+[class*="st-key-admin_sec_row_"] [data-testid="stColumn"]:first-child {{
+  min-height: 38px !important;
+}}
+/* Same under-reported-height bug, different symptom: the "Allowed email
+   domains" row isn't a two-column layout, so the title+description block
+   and the text input just stack with a normal 16px flex gap between them.
+   Because the block's wrapper reports 22px against its real 38px, the
+   visible text overflows 16px below where the layout thinks it ends,
+   swallowing the entire gap meant to separate it from the input (confirmed
+   live: 0px between the two). The ACTUAL flex item participating in that
+   16px gap is the `stElementContainer` wrapper one level further out than
+   `stMarkdownContainer` — flooring the inner container alone (tried first)
+   didn't move the outer one, which still reported 22px and still ate the
+   gap. `:first-child` reaches only the row's own first direct child (the
+   title+description container specifically) — not the general
+   admin_sec_row_ prefix, since other rows' markdown also includes small
+   badge/status spans that shouldn't be forced to the same height. */
+[class*="st-key-admin_sec_row_domains"] > [data-testid="stElementContainer"]:first-child {{
+  min-height: 38px !important;
+}}
+/* Deliberately not special-casing each card's own last row to drop its
+   border-bottom — the Users table's last row keeps its own border-bottom
+   too, matching the design's identical per-row `<tr>` styling in Uvalu
+   Admin.dc.html, so this stays consistent with every other row list here. */
 /* The name+email 2-line raw-HTML block under-reports its own wrapper height
    (17px reported vs. ~33px real, live-measured) — with vertical_alignment=
    "center" on the row's columns, that mismatch centers the text on the
@@ -651,19 +1035,33 @@ def _admin_shell_css(active: str) -> str:
 [class*="st-key-admin_feed_row_"] [data-testid="stColumn"]:nth-child(2) {{
   min-height: 34px !important;
 }}
-/* Same bug, fourth column (Last active) — measured 2.4px reported against
-   18.4px real content (a single-line mono-font date string), pushing its
-   visual center ~7.7px below the row's true center despite the row itself
-   correctly centering every OTHER column. */
+/* Same bug, fourth column — this comment and the two rules below it
+   originally targeted "Last active" and "You" by nth-child position, but
+   the table has since gained Sign-in and 2FA columns in between Status and
+   Last active, shifting every column after Status two positions to the
+   right without these selectors being updated to match. Re-measured live
+   against the current 7-column layout (User, Role, Status, Sign-in, 2FA,
+   Last active, actions): Last active and You now center correctly on
+   their own (0px offset from the Role select's own center, a reliably-
+   centered reference); nth-child(4) is actually Sign-in ("Password"),
+   which measured 8px too high. Kept the existing min-height on the COLUMN
+   itself (harmless, and Sign-in's own natural content really is ~18px) but
+   that alone wasn't the real fix here — confirmed live the column's own
+   floor doesn't help because its DIRECT CHILD (an auto-generated
+   stVerticalBlock wrapping the st.markdown call) is itself under-reporting
+   (2px reported vs. the column's real 18px), the same bug one level
+   deeper. Flooring that inner block too is what actually centers it. */
 [class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(4) {{
   min-height: 18px !important;
 }}
-/* Same bug again, fifth column's "You" case specifically (the current
-   user's row has no buttons, just a plain right-aligned "You" label) —
-   measured ~7.7px below the row's true center, identical symptom/cause as
-   Last Active. Harmless to the OTHER case this same column holds (the
-   Suspend+⋯ buttons, already correctly 40px tall) since this is only a
-   floor, not a fixed height. */
+[class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(4) [data-testid="stVerticalBlock"] {{
+  min-height: 18px !important;
+}}
+/* 2FA (nth-child(5), badge) already centers correctly on its own (+1px,
+   within measurement noise) — this floor predates the column reshuffle
+   above and is a harmless no-op today (19px is below its natural ~27px),
+   left in place rather than removed since it costs nothing and a future
+   layout change could plausibly need it again. */
 [class*="st-key-admin_user_row_"] [data-testid="stColumn"]:nth-child(5) {{
   min-height: 19px !important;
 }}
@@ -732,25 +1130,100 @@ def _admin_shell_css(active: str) -> str:
   border: 0.5px solid var(--line) !important;
 }}
 
+/* ── Segmented controls (Require 2FA, Grace period, Session lifetime) — the
+   unselected pills had NO app CSS at all before this (Streamlit's own
+   default styling only). The selected pill already renders correctly (a
+   mint-tinted background/border Streamlit applies natively) and isn't
+   touched here — only the unselected state needs a rule, keyed on the
+   `aria-checked` attribute rather than any Emotion-generated class name so
+   it survives a selection change. NOTE: this rule is confirmed CORRECT via
+   getComputedStyle() (resolves to exactly `var(--panel-2)`/`var(--line)`),
+   but repeated live screenshots in this session's own testing tool kept
+   showing the pill painting white regardless — including with the value
+   forced as an inline style, with `appearance:none`, and combinations of
+   both, while an unrelated medium-brightness test color (`rgb(80,80,80)`)
+   painted correctly in the same spot every time. That pattern (only very
+   low-luminance colors on this one native `<button>` element failing to
+   paint, independent of how the color is set) points at a rendering quirk
+   in that specific testing tool rather than a real browser bug — plain
+   `<div>`-based dark surfaces elsewhere on this exact page paint fine at
+   similar luminance. Left as this straightforward, spec-correct rule
+   rather than adding an unproven workaround; verify in a real browser
+   after this ships, since the automated check here could not confirm it
+   visually one way or the other. */
+.st-key-admin_root [data-testid="stButtonGroup"] button[aria-checked="false"] {{
+  background-color: var(--panel-2) !important; border-color: var(--line) !important;
+  color: var(--muted) !important;
+}}
+
+/* ── Center narrow controls (toggles, status badges) in their own column —
+   sliders and segmented controls already fill the full column width so
+   centering is a no-op for them, but a small toggle or a "Configured"/
+   "Not configured" badge just started at the column's left edge by default,
+   confirmed live sitting flush against the left with 0px gap on one side
+   and well over half the column empty on the other. Listed by each row's
+   own key rather than a generic "column holds a small widget" selector, so
+   this can't accidentally catch a future wide control added to one of
+   these same rows.
+   Two false starts before this, both confirmed live: `display:flex;
+   justify-content:center` on the COLUMN itself had no effect (its one
+   direct child, a Streamlit-generated `stVerticalBlock`, already spans the
+   column's full width on its own, so centering *that* is a no-op — the
+   actual narrow element, a 32px stElementContainer, is nested another
+   level inside it); the same rule on that inner stVerticalBlock ALSO had
+   no effect, because it's a column-direction flex container by default —
+   `justify-content` there centers the (single, vertical) main axis, not
+   the horizontal one. `align-items` is the property that controls the
+   CROSS axis, which is horizontal for a column-direction flex — that's
+   the one that actually moves the toggle. */
+[class*="st-key-admin_sec_row_breach"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_autoprov"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_passkeys"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
+[class*="st-key-admin_sec_row_provider_"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"] {{
+  align-items: center !important;
+}}
+
 /* ── Feed toggle — recolor Streamlit's default switch to the design's
    teal-when-on pill instead of the generic red/gray default. DOM order is
    track-div, then <input>, then the label-text div (confirmed live via
    outerHTML) — the checked input has no LATER sibling that's the track, so
    `input:checked + div` (which was tried first) silently matched nothing;
    `:has()` targeting the track from its checked-input DESCENDANT sibling is
-   what actually works. */
-[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label > div:first-child {{
+   what actually works. `:first-child` (not `:first-of-type`) happened to
+   still be correct here only because Data feeds' own toggle label has no
+   leading non-div sibling — confirmed live it breaks for Security's toggles
+   specifically, whose label's actual first CHILD is a `<span>` (screen-
+   reader text?), making the real track div only `:first-of-type`, never
+   `:first-child`; the old selector silently matched nothing there, and the
+   "Block breached passwords" toggle only ever looked teal-when-on by
+   coincidence (Streamlit's own native checked-toggle color), not from this
+   rule. `:first-of-type` works for both rows' actual DOM shape. */
+[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label > div:first-of-type,
+[class*="st-key-admin_sec_row_"] [data-testid="stCheckbox"] label > div:first-of-type {{
   background-color: var(--panel-2) !important; border-color: var(--line) !important;
 }}
-[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-child {{
+[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-of-type,
+[class*="st-key-admin_sec_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-of-type {{
   background-color: var(--teal) !important; border-color: var(--teal) !important;
 }}
 
 /* ── Role select / search input — dark panel-2 fields matching every other
-   page's input treatment instead of Streamlit's default light chrome. ── */
+   page's input treatment instead of Streamlit's default light chrome.
+   `.st-key-admin_topbar ~ * [data-testid="stTextInput"]` was meant as a
+   catch-all for "any text input after the topbar" (including the domains
+   input below) but confirmed live via `el.matches(...)` to match NOTHING —
+   the `~` general-sibling combinator needs admin_topbar and the input's
+   ancestor to share the same direct parent, and Streamlit's own layout-
+   wrapper divs put them one level deeper than that, so they're never
+   actually siblings. Left in place rather than removed (harmless no-op,
+   and auditing every other place that might coincidentally depend on it
+   is its own separate pass) but no longer trusted alone — every text input
+   on this page now also gets its own dedicated `:has()` rule below, which
+   doesn't have this problem. ── */
 [class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div,
 .st-key-admin_topbar ~ * [data-testid="stTextInput"] > div,
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div {{
   background-color: var(--panel-2) !important; border-color: var(--line) !important;
 }}
 /* Direct, unconditional override on the specific NATIVE-themed div underneath
@@ -766,10 +1239,15 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div {{
    completing correctly; this rule fixes the same symptom unconditionally
    via plain CSS, with no dependency on reload timing, as a guaranteed
    backstop regardless of whether the reload path succeeds in a given
-   browser/environment. */
+   browser/environment. The domains input was missing from here specifically
+   (only its border/text/placeholder got a dedicated rule in an earlier
+   round, background was wrongly assumed to already be covered by the
+   general topbar-sibling selector above) — confirmed live as the actual
+   cause of it still rendering with a white background. */
 [class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div,
 .st-key-admin_topbar ~ * [data-testid="stTextInput"] > div > div,
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div > div {{
   background-color: var(--panel-2) !important;
 }}
 /* This same deep div also paints its BORDER from the native theme's
@@ -781,7 +1259,19 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > 
    button's own subtle `var(--line)` hairline right next to it. Same
    guaranteed-CSS-backstop pattern as the background fix, matching the
    Suspend button's exact border spec. */
-[class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div {{
+/* The search box's own deep div was missing from this same border-fix —
+   only its BACKGROUND got the guaranteed-backstop treatment above; its
+   border was left to inherit the native theme's borderColor exactly like
+   the select box's deep div did before the rule below existed for it.
+   Confirmed as the actual cause of the reported white search-bar outline
+   (a real-light-theme session's `[theme.light]` "#E5E7EB" against this
+   page's forced-dark background) — not the same class of bug as the
+   segmented-control/toggle "stale paint" issue fixed elsewhere in this
+   file, just this one selector never having been extended when the
+   pattern was first established for the Role select. */
+[class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div > div {{
   border: 0.5px solid var(--line) !important;
 }}
 /* The search box's actual TEXT never had an explicit color at all (only its
@@ -792,10 +1282,12 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > 
    every fix above) went dark-on-dark. `::placeholder` needs its own rule
    separately from `color` — browsers don't inherit placeholder color from
    the input's own text color. */
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) input {{
   color: var(--text) !important;
 }}
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input::placeholder {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input::placeholder,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) input::placeholder {{
   color: var(--faint) !important; opacity: 1 !important;
 }}
 
@@ -985,6 +1477,8 @@ def render() -> None:
             with st.container(key="admin_content"):
                 if _section == "users":
                     _render_users()
+                elif _section == "security":
+                    _render_security()
                 elif _section == "feeds":
                     _render_feeds()
                 else:

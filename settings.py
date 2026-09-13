@@ -42,6 +42,39 @@ _SHARED_DEFAULTS: dict = {
     "screen_style":    "balanced",  # composite sub-score weighting — see _SCORE_STYLES
     "benchmark_stoxx": False,   # default state of the Dashboard's Euro Stoxx 50 overlay checkbox
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
+    # Login rate limiting — read by auth.py's login() on every attempt. Surfaced
+    # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).
+    # Per-account only — a per-IP limiter was considered and deliberately
+    # deferred (see docs/backend-feature-gaps.md): this Streamlit deployment
+    # has no reliable client IP anywhere (st.context.headers exposes
+    # User-Agent only), so one would either be trivially spoofable via a
+    # client-supplied header or collide unrelated users behind a shared
+    # proxy — not worth shipping until there's a trusted reverse-proxy
+    # header contract.
+    "login_attempts_before_lock": 5,   # failed attempts on one account before it locks
+    "lock_minutes": 15,                # how long a lock lasts once triggered
+    # Provider (OAuth) sign-in policy — read by auth.py's oauth_login() when a
+    # completed Google/Microsoft sign-in doesn't match any linked identity.
+    # Off keeps Uvalu invite-only; on creates an account for any address in
+    # an allowed domain instead of refusing it. Applies to every provider.
+    "auto_provision_oauth": False,
+    "allowed_email_domains": [],
+    # Password policy — read by auth.py's validate_new_password() whenever a
+    # new password is set (invite acceptance, admin reset, self-service
+    # change, provider-only "set a password"). Surfaced on the Admin ->
+    # Security page.
+    "min_password_length": 12,
+    "block_breached_passwords": True,
+    # 2FA requirement policy — storage/display only for now (Admin -> Security
+    # page shows and edits these), not yet enforced anywhere: login() doesn't
+    # currently block a sign-in for an Admin who hasn't enabled TOTP just
+    # because require_mfa says "Admins". Enforcing the grace-period countdown
+    # is future work once there's a UI nudge to enroll.
+    "require_mfa": "Admins",       # "Off" | "Admins" | "Everyone"
+    "mfa_grace_days": "7 d",
+    # Session lifetime — read by auth.py's _issue_session() for both the JWT's
+    # own exp claim and how far back it prunes a user's stored sessions list.
+    "session_ttl": "24 h",         # "8 h" | "24 h" | "7 d"
 }
 
 # Composite-score sub-weight vectors per screening style, each

@@ -143,6 +143,15 @@ class TestUserRowActions:
         users = {u["email"]: u for u in auth.list_users()}
         assert users["second@example.com"]["status"] == "Active"
 
+    def test_reset_password_via_overflow_popover_opens_dialog(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        at = _run(monkeypatch, role="Admin")
+        reset_btn = [b for b in at.button if b.key == "admin_reset_pw_second@example.com"][0]
+        reset_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.label == "Generate reset link" for b in at.button)
+
     def test_delete_via_overflow_popover(self, isolated_data, monkeypatch):
         auth.register("admin@example.com", "password123")
         auth.register("second@example.com", "password12345")
@@ -233,6 +242,180 @@ class TestDlgInvite:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "valid email" in "".join(e.value for e in at.error)
         assert len(auth.list_users()) == 0
+
+
+# ── Send password reset dialog ──────────────────────────────────────────────
+# Same one-shot-gate limitation as _dlg_invite/_dlg_restore — called directly
+# and unconditionally here to test its own generate-link flow.
+
+def _run_dlg_reset_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    script = f"""
+from uvalu.pages_.admin import _dlg_reset_password
+_dlg_reset_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgResetPassword:
+    def test_generate_link_creates_token_and_shows_code(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_reset_password(monkeypatch)
+        gen_btn = [b for b in at.button if b.label == "Generate reset link"][0]
+        gen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.code) == 1
+        assert "?reset=" in at.code[0].value
+
+    def test_unknown_user_shows_error(self, isolated_data, monkeypatch):
+        at = _run_dlg_reset_password(monkeypatch, email="nobody@example.com")
+        gen_btn = [b for b in at.button if b.label == "Generate reset link"][0]
+        gen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "not found" in "".join(e.value for e in at.error).lower()
+
+
+# ── Users table — Sign-in / 2FA columns and row actions ─────────────────────
+
+class TestUsersTable2FAColumn:
+    def test_password_only_account_shows_password_signin_and_off(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        at = _run(monkeypatch, role="Admin")
+        html = "".join(m.value for m in at.markdown)
+        assert "Password" in html
+        assert "OFF" in html
+
+    def test_provider_only_account_shows_provider_badge(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("invited@example.com")
+        auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", "invited@example.com")
+        at = _run(monkeypatch, role="Admin")
+        html = "".join(m.value for m in at.markdown)
+        assert "Provider" in html
+        assert "Google" in html
+
+    def test_enrolled_account_shows_on(self, isolated_data, monkeypatch):
+        import pyotp
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        secret, _ = auth.begin_totp_enrollment("second@example.com")
+        auth.confirm_totp_enrollment("second@example.com", pyotp.TOTP(secret).now())
+        at = _run(monkeypatch, role="Admin")
+        html = "".join(m.value for m in at.markdown)
+        assert "ON" in html
+
+    def test_admin_without_totp_shows_required_when_policy_requires_admins(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345", role="Admin")
+        at = _run(monkeypatch, role="Admin")
+        html = "".join(m.value for m in at.markdown)
+        assert "Required" in html
+
+
+class TestUsersRowSecurityActions:
+    def test_reset_two_factor_row_action_only_shown_when_enrolled(self, isolated_data, monkeypatch):
+        import pyotp
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        secret, _ = auth.begin_totp_enrollment("second@example.com")
+        auth.confirm_totp_enrollment("second@example.com", pyotp.TOTP(secret).now())
+        at = _run(monkeypatch, role="Admin")
+        assert any(b.key == "admin_reset_totp_second@example.com" for b in at.button)
+
+    def test_reset_two_factor_disables_totp(self, isolated_data, monkeypatch):
+        import pyotp
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        secret, _ = auth.begin_totp_enrollment("second@example.com")
+        auth.confirm_totp_enrollment("second@example.com", pyotp.TOTP(secret).now())
+        at = _run(monkeypatch, role="Admin")
+        reset_btn = [b for b in at.button if b.key == "admin_reset_totp_second@example.com"][0]
+        reset_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled("second@example.com")
+
+    def test_sign_out_all_sessions_revokes_every_session(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        _, tok1 = auth.login("second@example.com", "password12345")
+        _, _, sid1 = auth.verify_token(tok1)
+        auth.login("second@example.com", "password12345")
+        at = _run(monkeypatch, role="Admin")
+        signout_btn = [b for b in at.button if b.key == "admin_signout_all_second@example.com"][0]
+        signout_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_session_active("second@example.com", sid1)
+
+
+# ── Security section ─────────────────────────────────────────────────────────
+
+class TestSecuritySection:
+    def test_renders_without_exceptions(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        assert not at.exception, [str(e.value) for e in at.exception]
+
+    def test_shows_password_policy_defaults(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        assert at.slider(key="admin_sec_min_len").value == 12
+        assert at.toggle(key="admin_sec_block_breach").value is True
+
+    def test_changing_min_length_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.slider(key="admin_sec_min_len").set_value(16)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["min_password_length"] == 16
+
+    def test_changing_require_mfa_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.segmented_control(key="admin_sec_require_mfa").set_value("Everyone")
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["require_mfa"] == "Everyone"
+
+    def test_changing_rate_limit_sliders_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.slider(key="admin_sec_attempts").set_value(8)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["login_attempts_before_lock"] == 8
+
+    def test_changing_session_ttl_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.segmented_control(key="admin_sec_session_ttl").set_value("7 d")
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["session_ttl"] == "7 d"
+
+    def test_shows_provider_configured_status(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        html = "".join(m.value for m in at.markdown)
+        assert "Google" in html
+        assert "Not configured" in html
+
+    def test_changing_allowed_domains_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.text_input(key="admin_sec_domains").set_value("company.com, other.org")
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["allowed_email_domains"] == ["company.com", "other.org"]
+
+    def test_toggling_auto_provision_persists(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        at.toggle(key="admin_sec_auto_prov").set_value(True)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert settings.load_shared_settings()["auto_provision_oauth"] is True
+
+    def test_passkeys_row_shows_phase_3_badge_and_disabled_toggle(self, isolated_data, monkeypatch):
+        at = _run(monkeypatch, role="Admin", section="security")
+        html = "".join(m.value for m in at.markdown)
+        assert "Passkeys" in html
+        assert "PHASE 3" in html
+        assert at.toggle(key="admin_sec_passkeys").disabled
 
 
 # ── Feeds section ─────────────────────────────────────────────────────────

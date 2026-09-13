@@ -1083,7 +1083,17 @@ GLOBAL_CSS = """
      has no preceding sibling row to cancel against; a negative margin there
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
-  .st-key-set_row_theme, .st-key-set_row_refresh { margin-top: 0 !important; }
+  .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
+    margin-top: 0 !important;
+  }
+  /* Active sessions rows use a per-session dynamic key (set_row_session_<sid>)
+     so there's no single static key to except like set_row_theme above — every
+     row gets margin-top:0 instead, trading the tight hairline-list look (which
+     needs each row's gap cancelled against the one before it) for Streamlit's
+     natural ~16px sibling spacing, which reads fine without dividers between
+     rows of equal weight (no row here is visually "the header row" the way
+     Theme/Currency/Number format read as one unit at the top of Display). */
+  [class*="st-key-set_row_session_"] { margin-top: 0 !important; }
   .st-key-set_row_theme, .st-key-set_row_currency {
     border-bottom: 0.5px solid var(--line-2) !important;
   }
@@ -1400,7 +1410,31 @@ GLOBAL_CSS = """
     border-radius: 9px !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
-  .uv-login-err { font-size: 12px; color: var(--down-txt); margin-top: 6px; }
+  /* A tinted, bordered alert box — matches Uvalu Auth.dc.html frames 02/09b
+     (`background:rgba(163,45,45,.12);border:.5px solid rgba(163,45,45,.3)`).
+     Was plain colored text with no fill/border at all, which read as
+     incidental copy rather than a distinct error on every failed-login,
+     lockout, invalid-invite and invalid-reset-link message. `--down-bg`
+     already carries this same rgb(163,45,45) hue at a theme-correct alpha
+     (styles.py's :root/[data-theme="light"] blocks) for the fill; the
+     border keeps the design's own literal alpha since there's no separate
+     "--down-border" token and this hue doesn't otherwise shift by theme. */
+  .uv-login-err {
+    font-size: 12.5px; color: var(--down-txt); margin-top: 10px; line-height: 1.5;
+    background: var(--down-bg); border: 0.5px solid rgba(163,45,45,0.3);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .uv-lock-card {
+    display: flex; align-items: center; gap: 14px; background: var(--panel-2);
+    border: 0.5px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 18px;
+  }
+  .uv-lock-icon { color: var(--amber-txt); flex: none; }
+  .uv-lock-timer { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--amber-txt); }
+  .uv-lock-caption { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .uv-login-btn-disabled {
+    text-align: center; padding: 12px; border-radius: 9px; background: var(--faint);
+    color: rgba(13,31,60,0.5); font-size: 13.5px; font-weight: 500; margin-top: 18px;
+  }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
