@@ -713,12 +713,32 @@ def _admin_shell_css(active: str) -> str:
      (which centers in its own separate 58px bar via completely different
      CSS). Left/right/bottom padding stays for the nav buttons below. */
   padding: 0 14px 20px;
-  /* Full-height nav rail reaching the true viewport edges now that the
-     block-container padding above is zeroed for this page — 100vh is exact
-     here (no more approximating against the main column's height with a
-     fudged constant, since there's no longer any outer padding/offset to
-     account for). */
-  min-height: 100vh;
+  /* Pin the nav rail in place while a tall section (e.g. Security, whose
+     stacked cards run well past one viewport) scrolls underneath it.
+     `position:sticky` was tried first (tracking the nearest scrolling
+     ancestor, Streamlit's own `[data-testid="stMain"]`, confirmed live via
+     scrollHeight/clientHeight) but doesn't actually work here: Streamlit
+     gives every `stVerticalBlock` — this column's own nav rail included —
+     `flex:1 0 0%` by default, so as soon as its immediate wrapper chain is
+     given enough height for sticky to have "room" to work in, that same
+     `flex-grow` re-stretches the nav rail to fill it, cancelling the fixed
+     100vh box sticky needs (confirmed live: forcing the two ancestor
+     wrappers to `height:100%` made the rail's own rendered height balloon
+     from 900px to the full 1192px scrollable content height, and it still
+     didn't stick, until `flex:none` was *also* forced on the rail itself —
+     three separate overrides fighting Streamlit's own flex defaults, and
+     fragile to any future DOM change in how Streamlit nests these wrapper
+     divs). `position:fixed` sidesteps all of it: fixed's containing block
+     is the viewport itself (no ancestor here has a transform/filter/
+     perspective/contain that would redefine that, confirmed live), so it
+     doesn't care about any ancestor's flex/height behavior at all. The nav
+     COLUMN itself (`st.columns([0.16, 0.84])`, the flex item one level up)
+     is untouched and still reserves 16% of the row's width as an empty
+     box — this fixed rail just visually overlays that same reserved
+     stripe instead of rendering inside it, so the main column needs no
+     compensating margin. */
+  position: fixed !important; top: 0 !important; left: 0 !important;
+  width: 16% !important; height: 100vh !important; z-index: 20 !important;
   display: flex !important; flex-direction: column !important;
 }}
 /* Matches the topbar's own height:58px + flex-centering technique exactly
@@ -776,7 +796,35 @@ def _admin_shell_css(active: str) -> str:
 .st-key-admin_topbar {{
   /* Same tiny-hairline-border reversal as the sidebar above. */
   background: var(--panel); border-bottom: 0.5px solid var(--line);
-  padding: 0 20px; margin-bottom: 18px;
+  padding: 0 20px;
+  /* Fixed, not sticky — same reasoning as the sidebar's own fix above:
+     Streamlit's default `flex:1 0 0%` on every stVerticalBlock (this bar's
+     own wrapper included) fights any attempt to give its ancestor chain
+     "room" for sticky to work in, so `position:fixed` (relative to the
+     viewport, not any ancestor's flex box) is used instead. `left:16%`
+     starts it exactly where the sidebar's own `width:16%` ends, matching
+     Uvalu Admin.dc.html's own header spec (`position:sticky;top:0;
+     z-index:10` — sticky works there because that's a static HTML mockup
+     with none of Streamlit's generated wrapper divs in between). Otherwise
+     the title/status/avatar row scrolls out of view with the rest of a
+     tall section (Security) while the now-fixed sidebar stays put, which
+     would look like only half the chrome is fixed. Taking this out of
+     normal flow drops its old `margin-bottom:18px` reserved space — that
+     gap is added back as `admin_content`'s own `padding-top` below instead,
+     since a fixed element no longer pushes its flow-siblings down on its
+     own. */
+  /* `width:auto !important` is required alongside `left`/`right` — Streamlit
+     gives every `stVerticalBlock` (this bar's own wrapper included) an
+     explicit `width:100%` from its own base CSS, and per the CSS
+     positioning spec, an explicit `width` on a `left`+`right`-anchored
+     positioned box makes `right` get silently RECOMPUTED (i.e. ignored)
+     instead of the reverse — confirmed live: without this, the bar's own
+     `right:0` had no effect and it rendered 1440px wide starting at
+     `left:16%`, overflowing ~230px off the right edge of the (1440px)
+     viewport used in that test. Forcing `width:auto` restores the normal
+     "compute width from left+right" behavior this rule actually wants. */
+  position: fixed !important; top: 0 !important; left: 16% !important; right: 0 !important;
+  width: auto !important; z-index: 20 !important;
   /* Both !important AND flex-direction needed, confirmed live after a first
      attempt silently failed: (1) `height` alone (no !important) lost to
      Streamlit's own un-important-but-higher-specificity rule, computed
@@ -831,17 +879,30 @@ def _admin_shell_css(active: str) -> str:
    edges, but it also stripped the main content's only source of horizontal
    inset — confirmed live via a screenshot showing stat cards touching the
    topbar's own left edge with zero margin). Matches the design's own
-   `padding:28px 32px 60px` on its main content wrapper (top handled by
-   admin_topbar's existing margin-bottom instead, so only left/right/bottom
-   are needed here). ── */
-.st-key-admin_content {{ padding: 0 32px 60px; }}
+   `padding:28px 32px 60px` on its main content wrapper. Top padding is
+   `76px` (58px topbar height + its old 18px margin-bottom), not the
+   design's `28px`: the topbar is `position:fixed` now (see its own rule
+   above) and no longer reserves its own space in normal flow, so
+   admin_content would otherwise render its first 76px of content hidden
+   behind the fixed bar. ── */
+.st-key-admin_content {{ padding: 76px 32px 60px; }}
 
 /* ── Users/Feeds/Backups table panels — one seamless bordered card
    (header + hairline-divided rows) instead of a stack of individually
    bordered/gapped st.container(border=True) cards, matching the design's
    <table>/row-list markup. Same overflow:hidden/padding:0/margin-top:-16px
-   row-divider convention used by Screener's scr_table_card. ── */
-.st-key-admin_users_card, .st-key-admin_feeds_card, .st-key-admin_backups_card {{
+   row-divider convention used by Screener's scr_table_card.
+   Security's four cards (admin_sec_card_*) join the same rule — there's no
+   "Security" section in Uvalu Admin.dc.html to match, so these previously
+   kept Streamlit's bare st.container(border=True) look: native
+   theme-driven border color/radius (8px, not this app's 12px), transparent
+   background, and no box-shadow — visibly different chrome from every
+   other admin card once compared side by side, confirmed live via
+   getComputedStyle (border `0.666667px solid rgb(34,51,78)` vs. this rule's
+   `var(--line)`, radius 8px vs. 12px, no shadow). ── */
+.st-key-admin_users_card, .st-key-admin_feeds_card, .st-key-admin_backups_card,
+.st-key-admin_sec_card_password, .st-key-admin_sec_card_mfa,
+.st-key-admin_sec_card_ratelimit, .st-key-admin_sec_card_providers {{
   background: var(--panel) !important; border-color: var(--line) !important;
   border-radius: 12px !important; box-shadow: var(--shadow) !important;
   overflow: hidden !important; padding: 0 !important;
@@ -879,6 +940,26 @@ def _admin_shell_css(active: str) -> str:
 .st-key-admin_backups_card > div:first-child [class*="st-key-admin_backup_row_"] {{
   margin-top: 0 !important;
 }}
+
+/* ── Security cards' own setting rows (admin_sec_row_*) — same hairline
+   row-divider convention as the Users/Feeds/Backups rows above, cancelling
+   the same default ~16px inter-sibling gap against the `_sec_row_header`
+   markdown title directly above each card's first row (every security card
+   has one, unlike Feeds/Backups' headerless first row above — so no
+   first-row exception is needed here: -16px is correct for every row in
+   every security card). One shared prefix selector reaches all eleven keys
+   this file uses (`admin_sec_row_minlen`, `_breach`, `_require_mfa`,
+   `_grace`, `_attempts`, `_lockmin`, `_session_ttl`, the per-provider loop's
+   `_provider_{id}`, `_autoprov`, `_domains`, `_passkeys`) without listing
+   each one. ── */
+[class*="st-key-admin_sec_row_"] {{
+  padding: 15px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+  margin-top: -16px !important;
+}}
+/* Deliberately not special-casing each card's own last row to drop its
+   border-bottom — the Users table's last row keeps its own border-bottom
+   too, matching the design's identical per-row `<tr>` styling in Uvalu
+   Admin.dc.html, so this stays consistent with every other row list here. */
 /* The name+email 2-line raw-HTML block under-reports its own wrapper height
    (17px reported vs. ~33px real, live-measured) — with vertical_alignment=
    "center" on the row's columns, that mismatch centers the text on the
