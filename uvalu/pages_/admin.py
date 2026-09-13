@@ -27,21 +27,32 @@ the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 "they'll receive an email invite" copy. Admin-role only."""
 import streamlit as st
 
-from auth import (ROLES, admin_request_password_reset, delete_user, invite_user, list_users,
-                  set_role, set_status)
+from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
+                  has_password, invite_user, list_linked_identities, list_users,
+                  revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
-from uvalu import logkit, nav as nav_registry
+from uvalu import logkit, nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user
 from uvalu.shell import _initials, _display_name, apply_theme_script, _close_stray_popover_script
 
 _NAV_ITEMS = (
-    ("users",   "Users",       ":material/group:"),
-    ("feeds",   "Data feeds",  ":material/dns:"),
-    ("backups", "Backups",     ":material/backup:"),
+    ("users",    "Users",       ":material/group:"),
+    ("security", "Security",    ":material/shield:"),
+    ("feeds",    "Data feeds",  ":material/dns:"),
+    ("backups",  "Backups",     ":material/backup:"),
 )
-_SECTION_TITLES = {"users": "User management", "feeds": "Data feeds", "backups": "Backups & restore"}
+_SECTION_TITLES = {"users": "User management", "security": "Security", "feeds": "Data feeds",
+                   "backups": "Backups & restore"}
+
+_2FA_STYLE = {
+    "ON":       ("var(--up-bg)",    "var(--up-txt)"),
+    "REQUIRED": ("var(--down-bg)",  "var(--down-txt)"),
+    "OFF":      ("var(--line-2)",   "var(--faint)"),
+    "PROVIDER": ("var(--line-2)",   "var(--faint)"),
+    "—":        ("var(--line-2)",   "var(--faint)"),
+}
 
 _STATUS_STYLE = {
     "Active":    ("var(--up-bg)",    "var(--up-txt)"),
@@ -62,6 +73,21 @@ def _status_badge(status: str) -> str:
     bg, txt = _STATUS_STYLE.get(status, ("var(--line-2)", "var(--muted)"))
     return (f'<span style="display:inline-block;background:{bg};color:{txt};padding:3px 9px;'
            f'border-radius:5px;font-size:11px;font-weight:500;">{status}</span>')
+
+
+_2FA_LABELS = {"ON": "ON", "OFF": "OFF", "PROVIDER": "Provider", "REQUIRED": "Required", "—": "—"}
+
+
+def _2fa_badge(status: str) -> str:
+    bg, txt = _2FA_STYLE.get(status, ("var(--line-2)", "var(--faint)"))
+    return (f'<span style="display:inline-block;background:{bg};color:{txt};padding:3px 9px;'
+           f'border-radius:5px;font-size:11px;font-weight:500;">{_2FA_LABELS.get(status, status)}</span>')
+
+
+def _signin_methods_label(email: str) -> str:
+    methods = ["Password"] if has_password(email) else []
+    methods += [oauth.label_for_issuer(i["issuer"]) for i in list_linked_identities(email)]
+    return " + ".join(methods) if methods else "—"
 
 
 def _stat_tile(label: str, value) -> str:
@@ -215,9 +241,9 @@ def _render_users() -> None:
 
     with st.container(key="admin_users_card", border=True):
         with st.container(key="admin_users_colheader"):
-            _h1, _h2, _h3, _h4, _h5 = st.columns([3, 1.4, 1.2, 1.6, 1.2])
-            for _col, _label in zip((_h1, _h2, _h3, _h4, _h5),
-                                    ("User", "Role", "Status", "Last active", "")):
+            _h1, _h2, _h3, _h4, _h5, _h6, _h7 = st.columns([2.4, 1, 1, 1.3, 0.9, 1.5, 1.2])
+            for _col, _label in zip((_h1, _h2, _h3, _h4, _h5, _h6, _h7),
+                                    ("User", "Role", "Status", "Sign-in", "2FA", "Last active", "")):
                 with _col:
                     st.markdown(f'<div style="font-size:10.5px;color:var(--faint);font-weight:500;'
                                f'letter-spacing:0.05em;text-transform:uppercase;line-height:1.3;">'
@@ -230,7 +256,8 @@ def _render_users() -> None:
 
         for u in _filtered:
             with st.container(key=f"admin_user_row_{u['email']}"):
-                _c1, _c2, _c3, _c4, _c5 = st.columns([3, 1.4, 1.2, 1.6, 1.2], vertical_alignment="center")
+                _c1, _c2, _c3, _c4, _c5, _c6, _c7 = st.columns(
+                    [2.4, 1, 1, 1.3, 0.9, 1.5, 1.2], vertical_alignment="center")
                 with _c1:
                     st.markdown(f'<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                f'{_display_name(u["email"])}</div>'
@@ -252,11 +279,16 @@ def _render_users() -> None:
                 with _c3:
                     st.markdown(_status_badge(u["status"]), unsafe_allow_html=True)
                 with _c4:
+                    st.markdown(f'<div style="font-size:11.5px;color:var(--muted);">'
+                               f'{_signin_methods_label(u["email"])}</div>', unsafe_allow_html=True)
+                with _c5:
+                    st.markdown(_2fa_badge(two_factor_status(u["email"])), unsafe_allow_html=True)
+                with _c6:
                     _last = u["last_active"]
                     st.markdown(f'<div style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);">'
                                f'{_last[:16].replace("T", " ") if _last else "Never"}</div>',
                                unsafe_allow_html=True)
-                with _c5:
+                with _c7:
                     if u["email"] == _current_email:
                         st.markdown('<div style="font-size:12px;color:var(--faint);text-align:right;">You</div>',
                                    unsafe_allow_html=True)
@@ -280,12 +312,187 @@ def _render_users() -> None:
                                 if st.button("Send password reset", key=f"admin_reset_pw_{u['email']}",
                                             width="stretch"):
                                     _dlg_reset_password(u["email"])
+                                if two_factor_status(u["email"]) == "ON":
+                                    if st.button("Reset two-factor", key=f"admin_reset_totp_{u['email']}",
+                                                width="stretch"):
+                                        _ok, _msg = admin_reset_totp(u["email"])
+                                        st.toast(_msg, icon=None if _ok else ":material/warning:")
+                                        st.rerun()
+                                if st.button("Sign out all sessions", key=f"admin_signout_all_{u['email']}",
+                                            width="stretch"):
+                                    _ok, _msg = revoke_other_sessions(u["email"], keep_sid=None)
+                                    st.toast(_msg, icon=None if _ok else ":material/warning:")
+                                    st.rerun()
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
                                     _ok, _msg = delete_user(u["email"])
                                     if not _ok:
                                         st.toast(_msg, icon=":material/warning:")
                                     st.rerun()
+
+
+def _sec_row_header(label: str) -> None:
+    st.markdown(f'<div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
+               f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
+               f'line-height:1.3;">{label}</div>', unsafe_allow_html=True)
+
+
+def _sec_row_title(title: str, desc: str) -> None:
+    st.markdown(f'<div><div style="font-size:13.5px;font-weight:500;line-height:1.3;">{title}</div>'
+               f'<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5;">{desc}</div></div>',
+               unsafe_allow_html=True)
+
+
+_MFA_GRACE_OPTS = ["3 days", "7 days", "14 days", "30 days"]
+_SESSION_TTL_OPTS = ["8 h", "24 h", "7 d"]
+
+
+def _render_security() -> None:
+    st.caption("Workspace-wide authentication policy — applies to every account, not just this one.")
+    _shared = load_shared_settings()
+
+    # ── Password policy ────────────────────────────────────────────────────
+    with st.container(key="admin_sec_card_password", border=True):
+        _sec_row_header("Password policy")
+        with st.container(key="admin_sec_row_minlen"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Minimum password length", "Applies to every new password — invite "
+                              "acceptance, admin resets, and self-service changes.")
+            with _c2:
+                _min_len = st.slider("Minimum password length", 8, 20,
+                                     int(_shared.get("min_password_length", 12)),
+                                     key="admin_sec_min_len", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_breach"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Block breached passwords", "Checked against Have I Been Pwned by hash "
+                              "prefix — the password never leaves this server.")
+            with _c2:
+                _block_breach = st.toggle("Block breached passwords",
+                                          value=bool(_shared.get("block_breached_passwords", True)),
+                                          key="admin_sec_block_breach", label_visibility="collapsed")
+
+        if (int(_min_len) != int(_shared.get("min_password_length", 12))
+                or bool(_block_breach) != bool(_shared.get("block_breached_passwords", True))):
+            _shared["min_password_length"] = int(_min_len)
+            _shared["block_breached_passwords"] = bool(_block_breach)
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Two-factor authentication ──────────────────────────────────────────
+    with st.container(key="admin_sec_card_mfa", border=True):
+        _sec_row_header("Two-factor authentication")
+        with st.container(key="admin_sec_row_require_mfa"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Require 2FA", "Who must enroll in an authenticator app before they can "
+                              "sign in with a password.")
+            with _c2:
+                _require_mfa = st.segmented_control(
+                    "Require 2FA", options=["Off", "Admins", "Everyone"],
+                    default=str(_shared.get("require_mfa", "Admins")), label_visibility="collapsed",
+                    key="admin_sec_require_mfa")
+        with st.container(key="admin_sec_row_grace"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Grace period", "How long a newly-required account can still sign in "
+                              "before enrolling. Not yet enforced — display only.")
+            with _c2:
+                _cur_grace = str(_shared.get("mfa_grace_days", "7 days"))
+                _grace = st.segmented_control(
+                    "Grace period", options=_MFA_GRACE_OPTS,
+                    default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 days",
+                    label_visibility="collapsed", key="admin_sec_grace")
+
+        if ((_require_mfa and _require_mfa != _shared.get("require_mfa", "Admins"))
+                or (_grace and _grace != _shared.get("mfa_grace_days", "7 days"))):
+            _shared["require_mfa"] = _require_mfa or _shared.get("require_mfa", "Admins")
+            _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 days")
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Rate limiting & sessions ────────────────────────────────────────────
+    with st.container(key="admin_sec_card_ratelimit", border=True):
+        _sec_row_header("Rate limiting &amp; sessions")
+        with st.container(key="admin_sec_row_attempts"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Attempts before lock", "Failed password attempts on one account before "
+                              "it locks.")
+            with _c2:
+                _attempts = st.slider("Attempts before lock", 3, 10,
+                                      int(_shared.get("login_attempts_before_lock", 5)),
+                                      key="admin_sec_attempts", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_lockmin"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Lock duration", "How long an account stays locked once triggered.")
+            with _c2:
+                _lock_min = st.slider("Lock duration (minutes)", 5, 60,
+                                      int(_shared.get("lock_minutes", 15)), step=5,
+                                      key="admin_sec_lock_min", label_visibility="collapsed")
+        with st.container(key="admin_sec_row_session_ttl"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Session lifetime", "How long a signed-in session stays valid before "
+                              "requiring another sign-in.")
+            with _c2:
+                _cur_ttl = str(_shared.get("session_ttl", "24 h"))
+                _ttl = st.segmented_control(
+                    "Session lifetime", options=_SESSION_TTL_OPTS,
+                    default=_cur_ttl if _cur_ttl in _SESSION_TTL_OPTS else "24 h",
+                    label_visibility="collapsed", key="admin_sec_session_ttl")
+
+        if (int(_attempts) != int(_shared.get("login_attempts_before_lock", 5))
+                or int(_lock_min) != int(_shared.get("lock_minutes", 15))
+                or (_ttl and _ttl != _shared.get("session_ttl", "24 h"))):
+            _shared["login_attempts_before_lock"] = int(_attempts)
+            _shared["lock_minutes"] = int(_lock_min)
+            _shared["session_ttl"] = _ttl or _shared.get("session_ttl", "24 h")
+            save_shared_settings(_shared)
+            st.rerun()
+
+    # ── Identity providers ──────────────────────────────────────────────────
+    with st.container(key="admin_sec_card_providers", border=True):
+        _sec_row_header("Identity providers")
+        for _p in oauth.configured_providers():
+            with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
+                _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
+                                  else "Not configured — add credentials to secrets.toml.")
+                with _c2:
+                    _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
+                        else ("var(--line-2)", "var(--faint)")
+                    st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
+                               f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
+                               f'{"Configured" if _p["configured"] else "Not configured"}</span>',
+                               unsafe_allow_html=True)
+
+        with st.container(key="admin_sec_row_autoprov"):
+            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            with _c1:
+                _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
+                              "sign-in from an allowed domain below, instead of requiring an invite first.")
+            with _c2:
+                _auto_prov = st.toggle("Auto-provision new accounts",
+                                       value=bool(_shared.get("auto_provision_oauth", False)),
+                                       key="admin_sec_auto_prov", label_visibility="collapsed")
+
+        with st.container(key="admin_sec_row_domains"):
+            _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
+            _domains_txt = st.text_input(
+                "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
+                value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
+
+        _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
+        if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
+                or _new_domains != _shared.get("allowed_email_domains", [])):
+            _shared["auto_provision_oauth"] = bool(_auto_prov)
+            _shared["allowed_email_domains"] = _new_domains
+            save_shared_settings(_shared)
+            st.rerun()
 
 
 def _render_feeds() -> None:
@@ -1003,6 +1210,8 @@ def render() -> None:
             with st.container(key="admin_content"):
                 if _section == "users":
                     _render_users()
+                elif _section == "security":
+                    _render_security()
                 elif _section == "feeds":
                     _render_feeds()
                 else:

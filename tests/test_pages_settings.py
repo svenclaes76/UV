@@ -522,3 +522,213 @@ class TestOAuthSelfLinking:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert auth.list_linked_identities(TEST_EMAIL) == []
         assert len(auth.list_linked_identities("other@example.com")) == 1
+
+
+# ── Two-factor authentication ─────────────────────────────────────────────
+
+def _enable_totp(email=TEST_EMAIL):
+    import pyotp
+    secret, _ = auth.begin_totp_enrollment(email)
+    auth.confirm_totp_enrollment(email, pyotp.TOTP(secret).now())
+
+
+class TestTotpToggleRow:
+    def test_provider_only_account_shows_not_applicable(self, isolated_data, monkeypatch):
+        # TEST_EMAIL isn't registered at all -- has_password() is False, same
+        # as a real provider-only account.
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Not applicable" in html
+        assert not any(w.key == "set_totp_toggle" for w in at.toggle)
+
+    def test_toggle_off_by_default(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        assert not at.toggle(key="set_totp_toggle").value
+
+    def test_turning_on_opens_enrollment_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        at.toggle(key="set_totp_toggle").set_value(True)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(w.key == "totp_enroll_code" for w in at.text_input)
+        assert any(b.label == "Confirm and enable" for b in at.button)
+
+    def test_turning_off_disables_totp(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        at.toggle(key="set_totp_toggle").set_value(False)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+
+    def test_enabled_shows_backup_codes_and_trusted_devices_rows(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Backup codes" in html
+        assert "Trusted devices" in html
+
+    def test_disabled_hides_backup_codes_and_trusted_devices_rows(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Backup codes" not in html
+        assert "Trusted devices" not in html
+
+
+def _run_dlg_totp_enroll(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    # Same one-shot-gate limitation as _dlg_change_password — call the
+    # @st.dialog function directly and unconditionally.
+    script = f"""
+from uvalu.pages_.settings import _dlg_totp_enroll
+_dlg_totp_enroll({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgTotpEnroll:
+    def test_shows_qr_and_code_input(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        assert len(at.image) == 1
+        assert any(w.key == "totp_enroll_code" for w in at.text_input)
+        assert any(b.label == "Confirm and enable" for b in at.button)
+
+    def test_correct_code_enables_totp(self, isolated_data, monkeypatch):
+        import pyotp
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        secret = auth._load_users()[TEST_EMAIL]["totp_secret"]
+        at.text_input(key="totp_enroll_code").set_value(pyotp.TOTP(secret).now())
+        confirm_btn = [b for b in at.button if b.label == "Confirm and enable"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.is_totp_enabled(TEST_EMAIL)
+
+    def test_wrong_code_shows_error(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        at.text_input(key="totp_enroll_code").set_value("000000")
+        confirm_btn = [b for b in at.button if b.label == "Confirm and enable"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+        assert "didn't match" in "".join(e.value for e in at.error)
+
+    def test_cancel_does_not_enable_totp(self, isolated_data, monkeypatch):
+        # A cancel-click's st.session_state.pop() inside this @st.dialog
+        # function doesn't reliably surface via the outer at.session_state
+        # after .click().run() (confirmed via a minimal repro — a plain
+        # counter increment/pop showed the same staleness), so this checks
+        # the actually-observable outcome (auth.py's own persisted state)
+        # instead of asserting on at.session_state directly.
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_totp_enroll(monkeypatch)
+        cancel_btn = [b for b in at.button if b.label == "Cancel"][0]
+        cancel_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not auth.is_totp_enabled(TEST_EMAIL)
+
+
+def _run_with_backup_codes_flag(monkeypatch, codes) -> AppTest:
+    script = f"""
+import streamlit as st
+st.session_state["totp_new_backup_codes"] = {codes!r}
+from uvalu.pages_.settings import _dlg_backup_codes_shown
+_dlg_backup_codes_shown()
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgBackupCodesShown:
+    def test_shows_all_codes(self, isolated_data, monkeypatch):
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111", "bbbb-2222"])
+        assert len(at.code) == 1
+        assert "aaaa-1111" in at.code[0].value
+        assert "bbbb-2222" in at.code[0].value
+
+    def test_done_disabled_until_checked(self, isolated_data, monkeypatch):
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111"])
+        done_btn = [b for b in at.button if b.label == "Done"][0]
+        assert done_btn.disabled
+
+    def test_done_clickable_once_checked(self, isolated_data, monkeypatch):
+        # See TestDlgTotpEnroll's cancel test for why this doesn't assert on
+        # at.session_state directly across a dialog button click.
+        at = _run_with_backup_codes_flag(monkeypatch, ["aaaa-1111"])
+        at.checkbox(key="totp_backup_saved").set_value(True)
+        at.run()
+        done_btn = [b for b in at.button if b.label == "Done"][0]
+        assert not done_btn.disabled
+        done_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+
+
+class TestBackupCodesCard:
+    def test_shows_remaining_count(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "10 unused code" in html
+
+    def test_regenerate_opens_confirm_dialog(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        regen_btn = [b for b in at.button if b.label == "Regenerate"][0]
+        regen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.key == "totp_regen_confirm" for b in at.button)
+
+    def test_confirm_regenerates_codes(self, isolated_data, monkeypatch):
+        # Same AppTest dialog-session_state limitation noted on TestDlgTotpEnroll's
+        # cancel test -- checks the real backup-codes-remaining count (an
+        # observable, persisted side effect) rather than the staged
+        # at.session_state["totp_new_backup_codes"] value.
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        regen_btn = [b for b in at.button if b.label == "Regenerate"][0]
+        regen_btn.click().run()
+        confirm_btn = [b for b in at.button if b.key == "totp_regen_confirm"][0]
+        confirm_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.backup_codes_remaining(TEST_EMAIL) == 10
+
+
+class TestTrustedDevicesCard:
+    def test_shows_device_count(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        auth.trust_this_device(TEST_EMAIL)
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "1 device" in html
+
+    def test_revoke_all_clears_devices(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        auth.trust_this_device(TEST_EMAIL)
+        at = _run(monkeypatch)
+        revoke_btn = [b for b in at.button if b.label == "Revoke all"][0]
+        revoke_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.trusted_device_count(TEST_EMAIL) == 0
+
+    def test_revoke_all_disabled_when_no_devices(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        _enable_totp()
+        at = _run(monkeypatch)
+        revoke_btn = [b for b in at.button if b.label == "Revoke all"][0]
+        assert revoke_btn.disabled

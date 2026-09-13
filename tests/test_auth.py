@@ -16,6 +16,19 @@ import auth
 import settings
 
 
+class _NoBreachResponse:
+    """Fake requests.Response — a k-anonymity range lookup with no matching
+    suffix, i.e. "not found in the breach corpus". Patched onto
+    auth.requests.get (not check_password_breached itself) so the REAL
+    validate_new_password()/check_password_breached() implementation runs in
+    every test by default, without ever making a real HIBP network call —
+    specific tests re-patch requests.get to exercise breached/unreachable
+    scenarios instead."""
+    status_code = 200
+    text = ""
+    def raise_for_status(self): pass
+
+
 @pytest.fixture(autouse=True)
 def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
@@ -24,6 +37,7 @@ def isolated_store(tmp_path, monkeypatch):
     # settings file — isolate it too so these tests can't read/leak real
     # data/settings/shared.json and can freely override the thresholds.
     monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "data" / "settings" / "shared.json")
+    monkeypatch.setattr(auth.requests, "get", lambda *a, **k: _NoBreachResponse())
 
 
 # ── register ──────────────────────────────────────────────────────────────
@@ -328,7 +342,7 @@ class TestAcceptInvite:
         _, _, token = auth.invite_user("new@example.com")
         ok, msg = auth.accept_invite_with_password(token, "short")
         assert not ok
-        assert "8 characters" in msg
+        assert "characters" in msg
 
     def test_accept_with_invalid_token_fails(self):
         ok, msg = auth.accept_invite_with_password("garbage-token", "a-real-password")

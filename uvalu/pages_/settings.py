@@ -25,14 +25,18 @@ borrows its visual chrome:
   settings were removed per a separate request.
 - Account footer shows the real derived display name/email/role, not the
   mockup's fabricated "Marek Kowalski · Pro plan"."""
+import io
 import traceback
 from datetime import datetime
 
+import qrcode
 import streamlit as st
 
-from auth import (change_password, has_password, link_identity, list_linked_identities,
-                  list_sessions, password_last_changed, revoke_other_sessions, revoke_session,
-                  set_password, unlink_identity)
+from auth import (backup_codes_remaining, begin_totp_enrollment, change_password,
+                  confirm_totp_enrollment, disable_totp, has_password, is_totp_enabled,
+                  link_identity, list_linked_identities, list_sessions, password_last_changed,
+                  regenerate_backup_codes, revoke_other_sessions, revoke_session,
+                  revoke_trusted_devices, set_password, trusted_device_count, unlink_identity)
 from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
@@ -236,7 +240,97 @@ def _dlg_set_password(email: str):
                 st.error(msg)
 
 
+def _qr_png_bytes(uri: str) -> bytes:
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+@st.dialog("Set up two-factor authentication", width="large")
+def _dlg_totp_enroll(email: str):
+    # Cache the secret/URI in session_state so re-running this dialog on
+    # every widget interaction (the code text_input, the confirm button)
+    # doesn't regenerate a NEW secret each time — begin_totp_enrollment()
+    # would otherwise invalidate the one already shown in the QR code.
+    if "totp_enroll_secret" not in st.session_state:
+        _result = begin_totp_enrollment(email)
+        if _result is None:
+            st.error("Could not start enrollment. Try again.")
+            return
+        st.session_state["totp_enroll_secret"], st.session_state["totp_enroll_uri"] = _result
+
+    st.caption("Step 1 of 2 — scan this QR code with your authenticator app "
+              "(Google Authenticator, 1Password, Authy, etc.).")
+    st.image(_qr_png_bytes(st.session_state["totp_enroll_uri"]), width=200)
+    st.caption("Can't scan it? Enter this key manually:")
+    st.code(st.session_state["totp_enroll_secret"], language=None)
+
+    st.caption("Step 2 of 2 — enter the 6-digit code your app is showing.")
+    code = st.text_input("Code", key="totp_enroll_code", placeholder="000000")
+
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("Cancel", key="totp_enroll_cancel", width="stretch"):
+            st.session_state.pop("totp_enroll_secret", None)
+            st.session_state.pop("totp_enroll_uri", None)
+            st.rerun()
+    with _b2:
+        _do_confirm = st.button("Confirm and enable", key="totp_enroll_confirm",
+                                type="primary", width="stretch")
+
+    if _do_confirm:
+        ok, msg, backup_codes = confirm_totp_enrollment(email, code)
+        if ok:
+            st.session_state.pop("totp_enroll_secret", None)
+            st.session_state.pop("totp_enroll_uri", None)
+            st.session_state["totp_new_backup_codes"] = backup_codes
+            st.rerun()
+        else:
+            st.error(msg)
+
+
+@st.dialog("Save your backup codes", width="large")
+def _dlg_backup_codes_shown():
+    """Shown once right after enrolling (or regenerating) — the plaintext
+    codes are never retrievable again after this dialog closes."""
+    codes = st.session_state.get("totp_new_backup_codes") or []
+    st.warning("Save these somewhere safe. Each code can be used once if you lose access "
+              "to your authenticator app. They won't be shown again.", icon=":material/warning:")
+    st.code("\n".join(codes), language=None)
+    _confirmed = st.checkbox("I have saved these codes.", key="totp_backup_saved")
+    if st.button("Done", key="totp_backup_done", type="primary", width="stretch",
+                disabled=not _confirmed):
+        st.session_state.pop("totp_new_backup_codes", None)
+        st.session_state.pop("totp_backup_saved", None)
+        st.rerun()
+
+
+@st.dialog("Regenerate backup codes", width="large")
+def _dlg_regenerate_backup_codes(email: str):
+    st.warning("This invalidates every existing backup code — only the new ones will work.",
+              icon=":material/warning:")
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("Cancel", key="totp_regen_cancel", width="stretch"):
+            st.rerun()
+    with _b2:
+        _do_regen = st.button("Regenerate", key="totp_regen_confirm", type="primary", width="stretch")
+    if _do_regen:
+        codes = regenerate_backup_codes(email)
+        st.session_state["totp_new_backup_codes"] = codes
+        st.rerun()
+
+
 def render() -> None:
+    # Called unconditionally at the top of every render (not gated behind a
+    # button click) so a fresh rerun after enrolling/regenerating re-enters
+    # this dialog instead of it disappearing the moment the triggering
+    # button's own script run ends — same pattern as _dlg_restore's "done"
+    # state in uvalu/pages_/admin.py.
+    if st.session_state.get("totp_new_backup_codes"):
+        _dlg_backup_codes_shown()
+
     _u = current_user()
     _email = _u.email
     _s = load_settings(_email)
@@ -327,6 +421,55 @@ def render() -> None:
                         else:
                             st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
                                        'Unavailable</div>', unsafe_allow_html=True)
+
+        # Two-factor authentication — password-path only. A provider-only
+        # account's 2FA is whatever its provider itself enforces (Google's own
+        # 2-step verification, say) — Uvalu has no password step to challenge
+        # for that account, so this shows static "managed by provider" text
+        # instead of a toggle, matching the impact doc's own scoping of 2FA
+        # to the password path.
+        _totp_on = is_totp_enabled(_email)
+        with st.container(key="set_row_totp"):
+            _tc1, _tc2 = st.columns([3, 1], vertical_alignment="center")
+            with _tc1:
+                _row_title("Two-factor authentication",
+                          "Require a code from an authenticator app in addition to your password."
+                          if _has_pw else "Managed by your identity provider.")
+            with _tc2:
+                if not _has_pw:
+                    st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
+                               'Not applicable</div>', unsafe_allow_html=True)
+                else:
+                    _new_totp = st.toggle("Two-factor authentication", value=_totp_on,
+                                          key="set_totp_toggle", label_visibility="collapsed")
+                    if _new_totp and not _totp_on:
+                        _dlg_totp_enroll(_email)
+                    elif not _new_totp and _totp_on:
+                        disable_totp(_email)
+                        st.rerun()
+
+        if _has_pw and _totp_on:
+            with st.container(key="set_row_backup_codes"):
+                _bc1, _bc2 = st.columns([3, 1], vertical_alignment="center")
+                with _bc1:
+                    _remaining = backup_codes_remaining(_email)
+                    _row_title("Backup codes", f"{_remaining} unused code{'s' if _remaining != 1 else ''} "
+                              "remaining.")
+                with _bc2:
+                    if st.button("Regenerate", key="set_totp_regen_btn", width="stretch"):
+                        _dlg_regenerate_backup_codes(_email)
+
+            with st.container(key="set_row_trusted_devices"):
+                _dc1, _dc2 = st.columns([3, 1], vertical_alignment="center")
+                with _dc1:
+                    _dev_count = trusted_device_count(_email)
+                    _row_title("Trusted devices", f"{_dev_count} device{'s' if _dev_count != 1 else ''} "
+                              "skip the two-factor challenge.")
+                with _dc2:
+                    if st.button("Revoke all", key="set_totp_revoke_devices_btn", width="stretch",
+                                disabled=_dev_count == 0):
+                        revoke_trusted_devices(_email)
+                        st.rerun()
 
     # ── Active sessions ────────────────────────────────────────────────────────
     with st.container(key="set_card_sessions", border=True):

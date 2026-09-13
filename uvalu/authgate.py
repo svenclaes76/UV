@@ -3,17 +3,25 @@
 These run at module scope in the app's boot sequence. Each step is a function so
 ``app.py`` can invoke them in order while keeping the logic out of its body.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
-from auth import (accept_invite_with_oauth, accept_invite_with_password,
-                  complete_password_reset, find_pending_invite_by_email, get_lockout,
+from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_password,
+                  backup_codes_remaining, complete_backup_code_login, complete_password_reset,
+                  complete_totp_login, find_pending_invite_by_email, get_lockout,
                   get_pending_invite, get_pending_reset, get_user_status,
-                  is_session_active, login, oauth_login, verify_token)
+                  is_session_active, login, oauth_login, trust_this_device,
+                  verify_token)
 from uvalu import logkit, oauth, shell
 from uvalu.runtime import theme_colors
 from uvalu.shell import _display_name
+
+# A TOTP/backup-code challenge is a short-lived marker in st.session_state
+# only (never written to the uv_jwt cookie) — a reload drops back to the
+# password step instead of leaving a half-authenticated session hanging
+# around, per the impact doc's own recommendation.
+_TOTP_PENDING_TTL_MIN = 5
 
 
 def recover_session_from_cookie() -> None:
@@ -89,6 +97,93 @@ def _sync_cookie_script(token: str) -> None:
         f"'; path=/; max-age=86400';</script>",
         height=1,
     )
+
+
+def _device_id_from_cookie() -> str | None:
+    return st.context.cookies.get("uv_td") if st.context.cookies else None
+
+
+def _sync_trusted_device_cookie(device_id: str) -> None:
+    """Persist a "remember this device" grant client-side — a separate,
+    longer-lived cookie from the session cookie (uv_jwt) so it survives a
+    sign-out and is available the next time this browser hits the TOTP
+    challenge."""
+    st.iframe(
+        f"<script>document.cookie='uv_td='+encodeURIComponent({repr(device_id)})+"
+        f"'; path=/; max-age={30 * 86400}';</script>",
+        height=1,
+    )
+
+
+def _render_totp_challenge(pending: dict) -> None:
+    st.markdown(
+        '<div class="uv-login-heading">Enter your authenticator code</div>'
+        '<div class="uv-login-subhead">Open your authenticator app and enter the 6-digit code '
+        'for Uvalu.</div>',
+        unsafe_allow_html=True,
+    )
+    with st.form("totp_challenge_form", border=False):
+        code = st.text_input("Code", placeholder="000000", icon=":material/pin:")
+        remember = st.toggle("Remember this device for 30 days", key="totp_remember_device")
+        submitted = st.form_submit_button("Verify", width="stretch", type="primary")
+    if submitted:
+        ok, result = complete_totp_login(pending["email"], code, user_agent=_user_agent())
+        if ok:
+            st.session_state.pop("uv_totp_pending", None)
+            _start_session(result)
+            if remember:
+                device_id = trust_this_device(pending["email"])
+                _sync_trusted_device_cookie(device_id)
+            st.rerun()
+        else:
+            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("Use a backup code", key="totp_use_backup", width="stretch"):
+            st.session_state["uv_totp_pending"]["mode"] = "backup"
+            st.rerun()
+    with _b2:
+        if st.button("Cancel", key="totp_cancel", width="stretch"):
+            st.session_state.pop("uv_totp_pending", None)
+            st.rerun()
+
+
+def _render_backup_code_challenge(pending: dict) -> None:
+    st.markdown(
+        '<div class="uv-login-heading">Enter a backup code</div>'
+        '<div class="uv-login-subhead">Use one of the one-time backup codes you saved when you '
+        'set up two-factor authentication.</div>',
+        unsafe_allow_html=True,
+    )
+    if backup_codes_remaining(pending["email"]) == 0:
+        st.markdown(
+            '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+            'padding:14px 16px;margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
+            'No backup codes left on this account. Ask an admin to reset your two-factor '
+            'authentication so you can re-enroll.</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Cancel", key="backup_dead_end_cancel", width="stretch"):
+            st.session_state.pop("uv_totp_pending", None)
+            st.rerun()
+        return
+
+    with st.form("backup_code_challenge_form", border=False):
+        code = st.text_input("Backup code", placeholder="xxxx-xxxx", icon=":material/key:")
+        submitted = st.form_submit_button("Verify", width="stretch", type="primary")
+    if submitted:
+        ok, result = complete_backup_code_login(pending["email"], code, user_agent=_user_agent())
+        if ok:
+            st.session_state.pop("uv_totp_pending", None)
+            _start_session(result)
+            st.rerun()
+        else:
+            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+
+    if st.button("Back to the authenticator code", key="backup_back_to_totp", width="stretch"):
+        st.session_state["uv_totp_pending"]["mode"] = "totp"
+        st.rerun()
 
 
 def _start_session(token: str) -> None:
@@ -387,6 +482,17 @@ def auth_wall() -> None:
                 _render_oauth_refused(st.session_state["uv_oauth_refused"])
                 st.stop()
 
+            _pending_totp = st.session_state.get("uv_totp_pending")
+            if _pending_totp:
+                if datetime.now(timezone.utc) > datetime.fromisoformat(_pending_totp["expires"]):
+                    st.session_state.pop("uv_totp_pending", None)
+                elif _pending_totp.get("mode") == "backup":
+                    _render_backup_code_challenge(_pending_totp)
+                    st.stop()
+                else:
+                    _render_totp_challenge(_pending_totp)
+                    st.stop()
+
             _attempted_email = st.session_state.get("uv_login_attempted_email")
             _lock_expiry = get_lockout(_attempted_email) if _attempted_email else None
 
@@ -457,8 +563,17 @@ def auth_wall() -> None:
                     st.markdown('<div class="uv-login-err">Enter your email and password to continue.</div>',
                                unsafe_allow_html=True)
                 else:
-                    ok, result = login(email, password, user_agent=_user_agent())
-                    if ok:
+                    ok, result = login(email, password, user_agent=_user_agent(),
+                                       device_id=_device_id_from_cookie())
+                    if ok and result == TOTP_REQUIRED:
+                        st.session_state.pop("uv_login_attempted_email", None)
+                        st.session_state["uv_totp_pending"] = {
+                            "email": email.strip().lower(), "mode": "totp",
+                            "expires": (datetime.now(timezone.utc)
+                                       + timedelta(minutes=_TOTP_PENDING_TTL_MIN)).isoformat(),
+                        }
+                        st.rerun()
+                    elif ok:
                         st.session_state.pop("uv_login_attempted_email", None)
                         _start_session(result)
                         st.rerun()

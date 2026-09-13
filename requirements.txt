@@ -6,8 +6,10 @@ numpy==2.4.6
 openpyxl==3.1.5
 pandas==3.0.3
 plotly==6.8.0
+pyotp==2.10.0
 python-dotenv==1.2.2
 PyJWT==2.13.0
+qrcode==8.2
 requests==2.34.2
 streamlit==1.60.0
 tzdata==2026.2  # IANA tz database for zoneinfo on Windows (uvalu/market_hours.py)

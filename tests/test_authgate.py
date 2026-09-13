@@ -24,11 +24,20 @@ class FakeUser(dict):
         self.is_logged_in = is_logged_in
 
 
+class _NoBreachResponse:
+    """See tests/test_auth.py's identical class — patched onto
+    auth.requests.get so validate_new_password() never makes a real HIBP call."""
+    status_code = 200
+    text = ""
+    def raise_for_status(self): pass
+
+
 @pytest.fixture(autouse=True)
 def isolated_auth(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
     monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "data" / "settings" / "shared.json")
+    monkeypatch.setattr(auth.requests, "get", lambda *a, **k: _NoBreachResponse())
     # No real st.user session by default -- individual OAuth tests opt in via
     # monkeypatch.setattr(st, "user", FakeUser(...)).
     monkeypatch.setattr(st, "user", FakeUser(False))
@@ -423,7 +432,7 @@ class TestInviteAcceptanceScreen:
         submit = [b for b in at.button if b.label == "Create account"][0]
         submit.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert "8 characters" in "".join(m.value for m in at.markdown)
+        assert "characters" in "".join(m.value for m in at.markdown)
         assert "jwt_token" not in at.session_state
 
     def test_provider_buttons_present_on_acceptance_screen(self):
@@ -504,6 +513,147 @@ class TestPasswordResetScreen:
 
 
 # ── OAuth resolution ─────────────────────────────────────────────────────
+
+def _enroll_totp(email: str) -> str:
+    import pyotp
+    secret, _ = auth.begin_totp_enrollment(email)
+    auth.confirm_totp_enrollment(email, pyotp.TOTP(secret).now())
+    return secret
+
+
+def _submit_login(at, email, password):
+    at.text_input[0].set_value(email)
+    at.text_input[1].set_value(password)
+    [b for b in at.button if b.label == "Sign in"][0].click().run()
+    return at
+
+
+class TestTotpChallengeFlow:
+    def test_correct_password_with_totp_enabled_shows_challenge_not_sign_in(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "authenticator code" in "".join(m.value for m in at.markdown).lower()
+        assert "jwt_token" not in at.session_state
+
+    def test_correct_totp_code_completes_sign_in(self):
+        import pyotp
+        auth.register("first@example.com", "password123")
+        secret = _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        at.text_input[0].set_value(pyotp.TOTP(secret).now())
+        [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.session_state["user_email"] == "first@example.com"
+        assert "jwt_token" in at.session_state
+        assert "uv_totp_pending" not in at.session_state
+
+    def test_wrong_code_shows_error_and_stays_on_challenge(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        at.text_input[0].set_value("000000")
+        [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "didn't match" in "".join(m.value for m in at.markdown)
+        assert "jwt_token" not in at.session_state
+
+    def test_expired_pending_drops_back_to_login_form(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        from datetime import datetime, timedelta, timezone
+        at = _run_auth_wall(session_state={"uv_totp_pending": {
+            "email": "first@example.com", "mode": "totp",
+            "expires": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+        }})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.label == "Sign in" for b in at.button)
+        assert "uv_totp_pending" not in at.session_state
+
+    def test_cancel_clears_pending_and_returns_to_login(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Cancel"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.label == "Sign in" for b in at.button)
+        assert "uv_totp_pending" not in at.session_state
+
+    def test_remember_device_sets_trusted_device_and_cookie(self):
+        import pyotp
+        auth.register("first@example.com", "password123")
+        secret = _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        at.toggle(key="totp_remember_device").set_value(True)
+        at.text_input[0].set_value(pyotp.TOTP(secret).now())
+        [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert auth.trusted_device_count("first@example.com") == 1
+
+    def test_trusted_device_cookie_skips_challenge(self, monkeypatch):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        device_id = auth.trust_this_device("first@example.com")
+        _with_cookie(monkeypatch, {"uv_td": device_id})
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.session_state["user_email"] == "first@example.com"
+        assert "jwt_token" in at.session_state
+
+
+class TestBackupCodeChallengeFlow:
+    def test_switch_to_backup_code_screen(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Use a backup code"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "backup code" in "".join(m.value for m in at.markdown).lower()
+
+    def test_valid_backup_code_completes_sign_in(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        code = auth.regenerate_backup_codes("first@example.com")[0]
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Use a backup code"][0].click().run()
+        at.text_input[0].set_value(code)
+        [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.session_state["user_email"] == "first@example.com"
+        assert "jwt_token" in at.session_state
+
+    def test_invalid_backup_code_shows_error(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Use a backup code"][0].click().run()
+        at.text_input[0].set_value("nope-nope")
+        [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "didn't match" in "".join(m.value for m in at.markdown)
+
+    def test_back_to_authenticator_code(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Use a backup code"][0].click().run()
+        [b for b in at.button if b.label == "Back to the authenticator code"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "authenticator code" in "".join(m.value for m in at.markdown).lower()
+
+    def test_no_codes_left_shows_dead_end(self):
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        users = auth._load_users()
+        users["first@example.com"]["backup_codes"] = []
+        auth._save_users(users)
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        [b for b in at.button if b.label == "Use a backup code"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "no backup codes left" in "".join(m.value for m in at.markdown).lower()
+        assert any(b.label == "Cancel" for b in at.button)
+
 
 class TestOAuthResolution:
     def test_existing_linked_identity_signs_in(self, monkeypatch):

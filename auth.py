@@ -13,6 +13,7 @@ the AUTH_SECRET environment variable; a random fallback is generated at
 startup (sessions survive until the process restarts).
 """
 
+import hashlib
 import json
 import os
 import secrets
@@ -22,6 +23,8 @@ from pathlib import Path
 
 import bcrypt
 import jwt
+import pyotp
+import requests
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -34,6 +37,17 @@ USERS_FILE  = Path(__file__).parent / ".cache" / "users.json"
 _JWT_SECRET = os.environ.get("AUTH_SECRET") or secrets.token_hex(32)
 _JWT_ALGO   = "HS256"
 _JWT_TTL_H  = 24
+
+# Sentinel login() returns instead of a JWT when the password checked out but
+# a TOTP code is still needed — distinct from (False, error_message) since
+# this isn't a failure, and distinct from (True, jwt) since no session has
+# been minted yet. uvalu/authgate.py checks for this exact string before
+# treating a truthy `login()` result as a completed sign-in.
+TOTP_REQUIRED = "TOTP_REQUIRED"
+
+# Session lifetime options surfaced on the Admin -> Security page
+# (settings.py's "session_ttl" shared setting) -> hours, for _issue_session().
+_SESSION_TTL_HOURS = {"8 h": 8, "24 h": 24, "7 d": 24 * 7}
 
 ROLES = ("Admin", "Analyst", "Viewer")
 STATUSES = ("Active", "Invited", "Suspended")
@@ -64,6 +78,10 @@ def _normalize_user(data: dict) -> dict:
         "invited_by":           data.get("invited_by", ""),
         "reset_token":          data.get("reset_token"),
         "reset_token_expires":  data.get("reset_token_expires"),
+        "totp_secret":      data.get("totp_secret"),
+        "totp_enabled":     data.get("totp_enabled", False),
+        "backup_codes":     data.get("backup_codes", []),
+        "trusted_devices":  data.get("trusted_devices", []),
     }
 
 
@@ -227,8 +245,9 @@ def accept_invite_with_password(token: str, password: str, user_agent: str = "")
     invite = get_pending_invite(token)
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters."
+    _ok, _err = validate_new_password(password)
+    if not _ok:
+        return False, _err
     users = _load_users()
     email = invite["email"]
     user = users[email]
@@ -323,8 +342,9 @@ def complete_password_reset(token: str, new_password: str, user_agent: str = "")
     pending = get_pending_reset(token)
     if not pending:
         return False, "This reset link is invalid or has expired. Ask your admin to send a new one."
-    if len(new_password) < 8:
-        return False, "Password must be at least 8 characters."
+    _ok, _err = validate_new_password(new_password)
+    if not _ok:
+        return False, _err
     users = _load_users()
     email = pending["email"]
     user = users[email]
@@ -360,9 +380,10 @@ def _issue_session(users: dict, email: str, user: dict, user_agent: str = "") ->
     oauth_login() — every path that ends with "this browser is now signed
     in" goes through here so there's exactly one place that mints a sid,
     prunes stale sessions, and shapes the JWT claims."""
+    ttl_hours = _SESSION_TTL_HOURS.get(load_shared_settings().get("session_ttl", "24 h"), _JWT_TTL_H)
     now = datetime.now(timezone.utc)
     sid = uuid.uuid4().hex
-    _cutoff = now - timedelta(hours=_JWT_TTL_H)
+    _cutoff = now - timedelta(hours=ttl_hours)
     sessions = [
         s for s in user.get("sessions", [])
         if datetime.fromisoformat(s["created_at"]) > _cutoff
@@ -382,7 +403,7 @@ def _issue_session(users: dict, email: str, user: dict, user_agent: str = "") ->
             "sub":  email,
             "role": user.get("role", "Analyst"),
             "sid":  sid,
-            "exp":  now + timedelta(hours=_JWT_TTL_H),
+            "exp":  now + timedelta(hours=ttl_hours),
             "iat":  now,
         },
         _JWT_SECRET,
@@ -390,7 +411,7 @@ def _issue_session(users: dict, email: str, user: dict, user_agent: str = "") ->
     )
 
 
-def login(email: str, password: str, user_agent: str = "") -> tuple[bool, str]:
+def login(email: str, password: str, user_agent: str = "", device_id: str | None = None) -> tuple[bool, str]:
     """Verify credentials. Returns (success, jwt_token_or_error_message).
 
     Failed attempts on a *known* account count towards a per-account lockout
@@ -469,6 +490,12 @@ def login(email: str, password: str, user_agent: str = "") -> tuple[bool, str]:
     user["last_active"] = now.isoformat()
     user["failed_attempts"] = 0
     user["locked_until"] = None
+    _save_users(users)  # persist status/last_active before the TOTP gate below
+
+    if user.get("totp_enabled") and not is_trusted_device(email, device_id):
+        logkit.auth_event("login.totp_required", outcome="pending", user_id=logkit.user_hash(email))
+        return True, TOTP_REQUIRED
+
     token = _issue_session(users, email, user, user_agent)
     logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                       role=user.get("role", "Analyst"), was_invited=was_invited)
@@ -579,6 +606,284 @@ def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
     return True, f"Signed out of {_n} other session{'s' if _n != 1 else ''}."
 
 
+# ── Two-factor authentication (TOTP) ─────────────────────────────────────────
+
+def is_totp_enabled(email: str) -> bool:
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    return bool(user and user.get("totp_enabled"))
+
+
+def begin_totp_enrollment(email: str) -> tuple[str, str] | None:
+    """Generate (but don't yet enable) a TOTP secret for `email` — the
+    Settings enrollment dialog shows the QR/manual key from this, then calls
+    confirm_totp_enrollment() once the user proves they scanned it correctly.
+    Returns (secret, otpauth_uri), or None if the account doesn't exist.
+    Calling this again before confirming overwrites the pending secret —
+    intentional, since it means the user is retrying enrollment (e.g. after
+    closing the dialog without finishing) rather than holding two secrets."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return None
+    secret = pyotp.random_base32()
+    users[email]["totp_secret"] = secret
+    _save_users(users)
+    uri = pyotp.totp.TOTP(secret).provisioning_uri(name=email, issuer_name="Uvalu")
+    return secret, uri
+
+
+def _fresh_backup_codes() -> tuple[list[str], list[str]]:
+    """(plaintext_codes, bcrypt_hashes) — 10 single-use "xxxx-xxxx" codes.
+    Plaintext is returned only so the caller can show it once; only the
+    hashes are ever persisted, same as a password."""
+    plain = [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(10)]
+    hashed = [bcrypt.hashpw(c.encode(), bcrypt.gensalt()).decode() for c in plain]
+    return plain, hashed
+
+
+def confirm_totp_enrollment(email: str, code: str) -> tuple[bool, str, list[str] | None]:
+    """Verify the enrollment code against the pending secret and, on success,
+    enable TOTP and mint a fresh set of backup codes. Returns
+    (success, message, backup_codes_or_None) — the plaintext codes are only
+    ever returned from here (and regenerate_backup_codes()), never re-readable
+    afterward, matching the mockup's "shown once, save them now" copy."""
+    email = email.strip().lower()
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("totp_secret"):
+        return False, "Start enrollment again — no pending setup found.", None
+    if not pyotp.totp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
+        return False, "That code didn't match. Try again.", None
+    plain_codes, hashed_codes = _fresh_backup_codes()
+    user["totp_enabled"]  = True
+    user["backup_codes"]  = hashed_codes
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.totp_enabled",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Two-factor authentication enabled.", plain_codes
+
+
+def disable_totp(email: str) -> tuple[bool, str]:
+    """Self-service turn-off from Settings — also drops backup codes and any
+    trusted-device grants, since both are meaningless without TOTP enabled."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    users[email]["totp_enabled"]    = False
+    users[email]["totp_secret"]     = None
+    users[email]["backup_codes"]    = []
+    users[email]["trusted_devices"] = []
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.totp_disabled",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "Two-factor authentication turned off."
+
+
+def admin_reset_totp(email: str) -> tuple[bool, str]:
+    """Admin Users-table 'Reset two-factor' action — same effect as
+    disable_totp() (the user re-enrolls from scratch), for an account whose
+    owner has lost their authenticator and can't disable it themselves."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    ok, _ = disable_totp(email)
+    logkit.data_mutation(actor=logkit.user_id(), action="admin.reset_totp",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return ok, f"Two-factor authentication reset for {email}."
+
+
+def backup_codes_remaining(email: str) -> int:
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    return len(user.get("backup_codes", [])) if user else 0
+
+
+def regenerate_backup_codes(email: str) -> list[str] | None:
+    """Invalidate every existing backup code and issue 10 new ones — returns
+    the plaintext list (shown once), or None if the account doesn't exist or
+    doesn't have TOTP enabled (backup codes are meaningless without it)."""
+    email = email.strip().lower()
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("totp_enabled"):
+        return None
+    plain_codes, hashed_codes = _fresh_backup_codes()
+    user["backup_codes"] = hashed_codes
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.backup_codes_regenerated",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return plain_codes
+
+
+def complete_totp_login(email: str, code: str, user_agent: str = "") -> tuple[bool, str]:
+    """Second step of a TOTP-gated login() — verifies the 6-digit code and,
+    on success, mints the session login() withheld."""
+    email = email.strip().lower()
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("totp_enabled"):
+        return False, "Two-factor authentication isn't enabled for this account."
+    if not pyotp.totp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
+        logkit.auth_event("login.failed", outcome="failed", reason="bad_totp_code",
+                          user_id=logkit.user_hash(email))
+        return False, "That code didn't match. Try again."
+    token = _issue_session(users, email, user, user_agent)
+    logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
+                      role=user.get("role", "Analyst"), method="totp")
+    return True, token
+
+
+def complete_backup_code_login(email: str, code: str, user_agent: str = "") -> tuple[bool, str]:
+    """Alternate second step when the authenticator itself isn't available —
+    consumes one single-use backup code."""
+    email = email.strip().lower()
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("totp_enabled"):
+        return False, "Two-factor authentication isn't enabled for this account."
+    code = code.strip().lower()
+    for i, hashed in enumerate(user.get("backup_codes", [])):
+        if bcrypt.checkpw(code.encode(), hashed.encode()):
+            user["backup_codes"].pop(i)
+            token = _issue_session(users, email, user, user_agent)
+            logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
+                              role=user.get("role", "Analyst"), method="backup_code")
+            return True, token
+    logkit.auth_event("login.failed", outcome="failed", reason="bad_backup_code",
+                      user_id=logkit.user_hash(email))
+    return False, "That code didn't match. Try again."
+
+
+def two_factor_status(email: str) -> str:
+    """"ON" / "OFF" / "PROVIDER" / "REQUIRED" / "—" for the Admin Users
+    table's 2FA column: ON/OFF for a password-capable account that has/hasn't
+    enrolled; PROVIDER for a provider-only account (2FA is a password-path
+    feature — see Settings); REQUIRED flags an Admin who hasn't enrolled while
+    workspace policy requires it for Admins; "—" if the account doesn't
+    exist."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return "—"
+    if user.get("totp_enabled"):
+        return "ON"
+    if not user.get("password_hash"):
+        return "PROVIDER"
+    policy = load_shared_settings().get("require_mfa", "Admins")
+    if policy == "Everyone" or (policy == "Admins" and user.get("role") == "Admin"):
+        return "REQUIRED"
+    return "OFF"
+
+
+# ── Trusted devices ───────────────────────────────────────────────────────────
+
+def is_trusted_device(email: str, device_id: str | None) -> bool:
+    if not device_id:
+        return False
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return False
+    now = datetime.now(timezone.utc)
+    for d in user.get("trusted_devices", []):
+        if d.get("device_id") == device_id and datetime.fromisoformat(d["expires_at"]) > now:
+            return True
+    return False
+
+
+def trust_this_device(email: str, days: int = 30) -> str:
+    """Mark a new opaque device id as trusted for `days` (default 30) —
+    "Remember this device" on the TOTP challenge. Returns the device_id for
+    the caller to persist client-side (a long-lived cookie, distinct from the
+    session cookie, so it survives a sign-out)."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return ""
+    device_id = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
+    devices = [d for d in users[email].get("trusted_devices", [])
+              if datetime.fromisoformat(d["expires_at"]) > now]
+    devices.append({"device_id": device_id, "created_at": now.isoformat(),
+                    "expires_at": (now + timedelta(days=days)).isoformat()})
+    users[email]["trusted_devices"] = devices
+    _save_users(users)
+    return device_id
+
+
+def trusted_device_count(email: str) -> int:
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return 0
+    now = datetime.now(timezone.utc)
+    return sum(1 for d in user.get("trusted_devices", [])
+              if datetime.fromisoformat(d["expires_at"]) > now)
+
+
+def revoke_trusted_devices(email: str) -> tuple[bool, str]:
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found."
+    users[email]["trusted_devices"] = []
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_trusted_devices",
+                         entity_type="user", entity_id=logkit.user_hash(email))
+    return True, "All trusted devices revoked."
+
+
+# ── Password policy ───────────────────────────────────────────────────────────
+
+_HIBP_TIMEOUT_S = 3.0
+
+
+def check_password_breached(password: str) -> int | None:
+    """Number of times this password appears in the Have I Been Pwned corpus,
+    via the k-anonymity range API (only a 5-char SHA-1 prefix ever leaves this
+    server) — or None if the check couldn't be completed (network error,
+    non-200 response). Callers must treat None as "unknown", not "clean": a
+    dependency outage shouldn't silently block every password change in the
+    workspace, so validate_new_password() below fails OPEN on None rather
+    than treating it as a hard block."""
+    sha1 = hashlib.sha1(password.encode()).hexdigest().upper()
+    prefix, suffix = sha1[:5], sha1[5:]
+    try:
+        resp = requests.get(f"https://api.pwnedpasswords.com/range/{prefix}", timeout=_HIBP_TIMEOUT_S)
+        resp.raise_for_status()
+    except requests.RequestException:
+        logkit.get_logger("uvalu.auth").warning(
+            "HIBP breach check unreachable — allowing password", exc_info=True,
+            extra={"event": "auth.hibp.unreachable"})
+        return None
+    for line in resp.text.splitlines():
+        parts = line.split(":")
+        if len(parts) == 2 and parts[0] == suffix:
+            return int(parts[1])
+    return 0
+
+
+def validate_new_password(password: str) -> tuple[bool, str | None]:
+    """(ok, error_message) against the workspace's Admin -> Security password
+    policy (min length, breach-block). Wired into every path that sets a
+    NEW password chosen by the account owner themselves (invite acceptance,
+    password reset, self-service change, provider-only "set a password") —
+    deliberately NOT into register()/reset_password(), which are
+    dev-only/admin-only paths predating this policy."""
+    min_len = int(load_shared_settings().get("min_password_length", 12))
+    if len(password) < min_len:
+        return False, f"Password must be at least {min_len} characters."
+    if load_shared_settings().get("block_breached_passwords", True):
+        count = check_password_breached(password)
+        if count:
+            return False, ("This password has appeared in known data breaches. "
+                           "Choose a different one.")
+    return True, None
+
+
 # ── Provider identities (OAuth) ──────────────────────────────────────────────
 #
 # An identity is keyed by (issuer, subject) — the OIDC issuer URL and that
@@ -650,8 +955,9 @@ def set_password(email: str, new_password: str) -> tuple[bool, str]:
     proving the CURRENT password and so only applies once one already
     exists."""
     email = email.strip().lower()
-    if len(new_password) < 8:
-        return False, "Password must be at least 8 characters."
+    _ok, _err = validate_new_password(new_password)
+    if not _ok:
+        return False, _err
     users = _load_users()
     if email not in users:
         return False, "User not found."
@@ -836,8 +1142,9 @@ def change_password(email: str, current_password: str, new_password: str) -> tup
     reset_password() (Admin-only, no current-password check), this requires
     proving you already know the old one."""
     email = email.strip().lower()
-    if len(new_password) < 8:
-        return False, "New password must be at least 8 characters."
+    _ok, _err = validate_new_password(new_password)
+    if not _ok:
+        return False, _err
     users = _load_users()
     if email not in users:
         return False, "User not found."

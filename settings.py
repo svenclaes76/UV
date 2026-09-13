@@ -52,6 +52,22 @@ _SHARED_DEFAULTS: dict = {
     # an allowed domain instead of refusing it. Applies to every provider.
     "auto_provision_oauth": False,
     "allowed_email_domains": [],
+    # Password policy — read by auth.py's validate_new_password() whenever a
+    # new password is set (invite acceptance, admin reset, self-service
+    # change, provider-only "set a password"). Surfaced on the Admin ->
+    # Security page.
+    "min_password_length": 12,
+    "block_breached_passwords": True,
+    # 2FA requirement policy — storage/display only for now (Admin -> Security
+    # page shows and edits these), not yet enforced anywhere: login() doesn't
+    # currently block a sign-in for an Admin who hasn't enabled TOTP just
+    # because require_mfa says "Admins". Enforcing the grace-period countdown
+    # is future work once there's a UI nudge to enroll.
+    "require_mfa": "Admins",       # "Off" | "Admins" | "Everyone"
+    "mfa_grace_days": "7 days",
+    # Session lifetime — read by auth.py's _issue_session() for both the JWT's
+    # own exp claim and how far back it prunes a user's stored sessions list.
+    "session_ttl": "24 h",         # "8 h" | "24 h" | "7 d"
 }
 
 # Composite-score sub-weight vectors per screening style, each
