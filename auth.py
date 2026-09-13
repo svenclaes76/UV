@@ -62,6 +62,8 @@ def _normalize_user(data: dict) -> dict:
         "invite_token":         data.get("invite_token"),
         "invite_token_expires": data.get("invite_token_expires"),
         "invited_by":           data.get("invited_by", ""),
+        "reset_token":          data.get("reset_token"),
+        "reset_token_expires":  data.get("reset_token_expires"),
     }
 
 
@@ -266,6 +268,78 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
                                   "email_at_link": oauth_email, "linked_at": now.isoformat()}]
     token_jwt = _issue_session(users, email, user, user_agent)
     logkit.auth_event("invite.accepted", outcome="ok", user_id=logkit.user_hash(email), method="oauth")
+    return True, token_jwt
+
+
+_RESET_TTL_HOURS = 24
+
+
+def admin_request_password_reset(email: str, requested_by: str = "") -> tuple[bool, str, str | None]:
+    """An admin generates a one-time password-reset link for an existing
+    account that's locked out of its own password (there's no self-service
+    "forgot password" — no outbound email exists, so the admin relays this
+    link the same way invite_user() hands off an invite link). Returns
+    (success, message, reset_token). Refuses a not-yet-accepted Invited
+    account — that already has its own invite link/token; issuing a second,
+    different token for the same account would just be confusing."""
+    email = email.strip().lower()
+    users = _load_users()
+    if email not in users:
+        return False, "User not found.", None
+    if users[email].get("status") == "Invited":
+        return False, "This account hasn't accepted its invite yet — resend the invite instead.", None
+
+    token = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    users[email]["reset_token"]         = token
+    users[email]["reset_token_expires"] = (now + timedelta(hours=_RESET_TTL_HOURS)).isoformat()
+    _save_users(users)
+    logkit.data_mutation(actor=logkit.user_id(), action="user.request_password_reset",
+                         entity_type="user", entity_id=logkit.user_hash(email), requested_by=requested_by)
+    return True, f"Reset link generated for {email}.", token
+
+
+def get_pending_reset(token: str) -> dict | None:
+    """{email} for a not-yet-expired reset token, for the reset-landing
+    screen — or None if the token is unknown or expired."""
+    if not token:
+        return None
+    users = _load_users()
+    now = datetime.now(timezone.utc)
+    for email, user in users.items():
+        if user.get("reset_token") != token:
+            continue
+        expires = user.get("reset_token_expires")
+        if not expires or datetime.fromisoformat(expires) < now:
+            return None
+        return {"email": email}
+    return None
+
+
+def complete_password_reset(token: str, new_password: str, user_agent: str = "") -> tuple[bool, str]:
+    """Finalize an admin-issued reset by setting a new password — signs the
+    user in immediately, same as accept_invite_with_password(). Returns
+    (True, jwt) on success, (False, error_message) otherwise."""
+    pending = get_pending_reset(token)
+    if not pending:
+        return False, "This reset link is invalid or has expired. Ask your admin to send a new one."
+    if len(new_password) < 8:
+        return False, "Password must be at least 8 characters."
+    users = _load_users()
+    email = pending["email"]
+    user = users[email]
+    now = datetime.now(timezone.utc)
+    user["password_hash"]       = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    user["password_changed_at"] = now.isoformat()
+    user["reset_token"]         = None
+    user["reset_token_expires"] = None
+    # A successful reset also clears any standing lockout — the whole point
+    # is regaining access, and leaving a stale lock in place would let the
+    # new password sit unusable until the timer happened to expire on its own.
+    user["failed_attempts"] = 0
+    user["locked_until"]    = None
+    token_jwt = _issue_session(users, email, user, user_agent)
+    logkit.auth_event("password.reset_completed", outcome="ok", user_id=logkit.user_hash(email))
     return True, token_jwt
 
 

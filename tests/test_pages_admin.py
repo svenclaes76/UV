@@ -143,6 +143,15 @@ class TestUserRowActions:
         users = {u["email"]: u for u in auth.list_users()}
         assert users["second@example.com"]["status"] == "Active"
 
+    def test_reset_password_via_overflow_popover_opens_dialog(self, isolated_data, monkeypatch):
+        auth.register("admin@example.com", "password123")
+        auth.register("second@example.com", "password12345")
+        at = _run(monkeypatch, role="Admin")
+        reset_btn = [b for b in at.button if b.key == "admin_reset_pw_second@example.com"][0]
+        reset_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(b.label == "Generate reset link" for b in at.button)
+
     def test_delete_via_overflow_popover(self, isolated_data, monkeypatch):
         auth.register("admin@example.com", "password123")
         auth.register("second@example.com", "password12345")
@@ -233,6 +242,39 @@ class TestDlgInvite:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "valid email" in "".join(e.value for e in at.error)
         assert len(auth.list_users()) == 0
+
+
+# ── Send password reset dialog ──────────────────────────────────────────────
+# Same one-shot-gate limitation as _dlg_invite/_dlg_restore — called directly
+# and unconditionally here to test its own generate-link flow.
+
+def _run_dlg_reset_password(monkeypatch, email=TEST_EMAIL) -> AppTest:
+    script = f"""
+from uvalu.pages_.admin import _dlg_reset_password
+_dlg_reset_password({email!r})
+"""
+    at = AppTest.from_string(script, default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestDlgResetPassword:
+    def test_generate_link_creates_token_and_shows_code(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        at = _run_dlg_reset_password(monkeypatch)
+        gen_btn = [b for b in at.button if b.label == "Generate reset link"][0]
+        gen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.code) == 1
+        assert "?reset=" in at.code[0].value
+
+    def test_unknown_user_shows_error(self, isolated_data, monkeypatch):
+        at = _run_dlg_reset_password(monkeypatch, email="nobody@example.com")
+        gen_btn = [b for b in at.button if b.label == "Generate reset link"][0]
+        gen_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "not found" in "".join(e.value for e in at.error).lower()
 
 
 # ── Feeds section ─────────────────────────────────────────────────────────

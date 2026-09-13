@@ -432,6 +432,77 @@ class TestInviteAcceptanceScreen:
         assert any(b.label == "Continue with Google" for b in at.button)
 
 
+class TestForgotPasswordScreen:
+    def test_shows_ask_an_admin_message(self):
+        at = _run_auth_wall(query_params={"forgot": "1"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Forgot your password" in html
+        assert "ask an admin" in html.lower()
+
+    def test_back_to_sign_in_clears_query_param(self):
+        at = _run_auth_wall(query_params={"forgot": "1"})
+        back = [b for b in at.button if b.label == "Back to sign in"][0]
+        back.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.query_params.get("forgot") is None
+
+
+class TestPasswordResetScreen:
+    def test_invalid_token_shows_invalid_link_message(self):
+        at = _run_auth_wall(query_params={"reset": "garbage-token"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Reset link invalid" in html
+        assert len(at.text_input) == 0
+
+    def test_valid_reset_token_shows_reset_form(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        at = _run_auth_wall(query_params={"reset": token})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Choose a new password" in html
+        assert "first@example.com" in html
+        assert len(at.text_input) == 2  # New password + Confirm
+
+    def test_resetting_with_matching_password_signs_in(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        at = _run_auth_wall(query_params={"reset": token})
+        at.text_input[0].set_value("brand-new-password")
+        at.text_input[1].set_value("brand-new-password")
+        submit = [b for b in at.button if b.label == "Reset password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.session_state["user_email"] == "first@example.com"
+        assert "jwt_token" in at.session_state
+
+    def test_mismatched_confirmation_shows_error(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        at = _run_auth_wall(query_params={"reset": token})
+        at.text_input[0].set_value("brand-new-password")
+        at.text_input[1].set_value("something-else")
+        submit = [b for b in at.button if b.label == "Reset password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "don't match" in "".join(m.value for m in at.markdown)
+        assert "jwt_token" not in at.session_state
+
+    def test_short_password_shows_error(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        at = _run_auth_wall(query_params={"reset": token})
+        at.text_input[0].set_value("short")
+        at.text_input[1].set_value("short")
+        submit = [b for b in at.button if b.label == "Reset password"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "characters" in "".join(m.value for m in at.markdown)
+        assert "jwt_token" not in at.session_state
+
+
 # ── OAuth resolution ─────────────────────────────────────────────────────
 
 class TestOAuthResolution:

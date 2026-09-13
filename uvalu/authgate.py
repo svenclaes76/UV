@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 import streamlit as st
 
 from auth import (accept_invite_with_oauth, accept_invite_with_password,
-                  find_pending_invite_by_email, get_lockout, get_pending_invite, get_user_status,
+                  complete_password_reset, find_pending_invite_by_email, get_lockout,
+                  get_pending_invite, get_pending_reset, get_user_status,
                   is_session_active, login, oauth_login, verify_token)
 from uvalu import logkit, oauth, shell
 from uvalu.runtime import theme_colors
@@ -226,6 +227,70 @@ def _render_invite_acceptance(token: str) -> None:
             _render_provider_buttons("invite_accept_provider")
 
 
+def _render_forgot_password() -> None:
+    """There's no self-service password reset — no outbound email exists, so
+    the plan's own resolution for this open question is "ask an admin", who
+    generates a one-time link via the Admin portal's "Send password reset"
+    action (uvalu/pages_/admin.py) and relays it manually, same as an
+    invite link."""
+    shell.apply_theme_script(theme_colors().effective_light)
+    with st.container(key="uv_login", horizontal=True, gap=None):
+        with st.container(key="uv_login_left"):
+            _render_brand_panel()
+        with st.container(key="uv_login_right"):
+            st.markdown(
+                '<div class="uv-login-heading">Forgot your password?</div>'
+                '<div class="uv-login-subhead">Uvalu has no automated password reset — ask an admin '
+                'to send you a one-time reset link from the Admin portal.</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("Back to sign in", key="forgot_back", width="stretch"):
+                st.query_params.clear()
+                st.rerun()
+
+
+def _render_password_reset(token: str) -> None:
+    pending = get_pending_reset(token)
+    shell.apply_theme_script(theme_colors().effective_light)
+    with st.container(key="uv_login", horizontal=True, gap=None):
+        with st.container(key="uv_login_left"):
+            _render_brand_panel()
+        with st.container(key="uv_login_right"):
+            if not pending:
+                st.markdown(
+                    '<div class="uv-login-heading">Reset link invalid</div>'
+                    '<div class="uv-login-subhead">This reset link is invalid or has expired. '
+                    'Ask your admin to send a new one.</div>',
+                    unsafe_allow_html=True,
+                )
+                return
+
+            st.markdown(
+                '<div class="uv-login-heading">Choose a new password</div>'
+                f'<div class="uv-login-subhead">Resetting the password for '
+                f'<span style="color:var(--text);">{pending["email"]}</span>.</div>',
+                unsafe_allow_html=True,
+            )
+            with st.form("password_reset_form", border=False):
+                password = st.text_input("New password", type="password", placeholder="••••••••",
+                                         icon=":material/lock:", help="At least 8 characters.")
+                confirm = st.text_input("Confirm new password", type="password", placeholder="••••••••",
+                                        icon=":material/lock:")
+                submitted = st.form_submit_button("Reset password", width="stretch", type="primary")
+            if submitted:
+                if password != confirm:
+                    st.markdown('<div class="uv-login-err">New password and confirmation don\'t match.</div>',
+                               unsafe_allow_html=True)
+                else:
+                    ok, result = complete_password_reset(token, password, user_agent=_user_agent())
+                    if ok:
+                        st.query_params.clear()
+                        _start_session(result)
+                        st.rerun()
+                    else:
+                        st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+
+
 def auth_wall() -> None:
     """Show the login form and halt execution if not authenticated."""
     # Invite links (?invite=<token>) render their own screen regardless of any
@@ -234,6 +299,12 @@ def auth_wall() -> None:
     # query param is (both in app.py's boot sequence, this one called first).
     if st.query_params.get("invite"):
         _render_invite_acceptance(st.query_params["invite"])
+        st.stop()
+    if st.query_params.get("reset"):
+        _render_password_reset(st.query_params["reset"])
+        st.stop()
+    if st.query_params.get("forgot"):
+        _render_forgot_password()
         st.stop()
 
     # Re-verified on every rerun, not cached — a session_state-only "already
@@ -374,7 +445,8 @@ def auth_wall() -> None:
                     'margin-top:4px;">'
                     '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
                     'color:var(--faint);">Password</span>'
-                    '<span style="font-size:11.5px;color:var(--teal);">Forgot?</span></div>',
+                    '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--teal);'
+                    'text-decoration:none;">Forgot?</a></div>',
                     unsafe_allow_html=True,
                 )
                 password = st.text_input("Password", type="password", placeholder="••••••••",

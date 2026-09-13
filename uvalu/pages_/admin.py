@@ -27,7 +27,8 @@ the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 "they'll receive an email invite" copy. Admin-role only."""
 import streamlit as st
 
-from auth import ROLES, list_users, set_role, set_status, delete_user, invite_user
+from auth import (ROLES, admin_request_password_reset, delete_user, invite_user, list_users,
+                  set_role, set_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
 from uvalu import logkit, nav as nav_registry
@@ -166,6 +167,20 @@ def _dlg_export_env():
                            key="admin_export_env_dl")
 
 
+@st.dialog("Send password reset", width="large")
+def _dlg_reset_password(email: str):
+    st.caption("They'll need this link to set a new password — there's no outbound email, "
+              "so share it with them yourself. Existing sessions stay signed in until they use it.")
+    if st.button("Generate reset link", key="admin_reset_pw_submit", type="primary", width="stretch"):
+        ok, msg, token = admin_request_password_reset(email, requested_by=current_user().email)
+        if ok:
+            st.success(msg)
+            st.code(f"{st.context.url}?reset={token}", language=None)
+            st.caption("Reset link — shown once. Copy it now. Valid for 24 hours.")
+        else:
+            st.error(msg)
+
+
 def _render_users() -> None:
     users = list_users()
     _current_email = current_user().email
@@ -261,7 +276,10 @@ def _render_users() -> None:
                                     st.toast(_msg, icon=":material/warning:")
                                 st.rerun()
                         with _ac2:
-                            with st.popover("", icon=":material/more_vert:", width=160):
+                            with st.popover("", icon=":material/more_vert:", width=200):
+                                if st.button("Send password reset", key=f"admin_reset_pw_{u['email']}",
+                                            width="stretch"):
+                                    _dlg_reset_password(u["email"])
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
                                     _ok, _msg = delete_user(u["email"])

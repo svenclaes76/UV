@@ -358,6 +358,87 @@ class TestAcceptInvite:
         assert "invited@example.com" in msg
 
 
+class TestAdminPasswordReset:
+    def test_request_reset_for_unknown_user_fails(self):
+        ok, msg, token = auth.admin_request_password_reset("nobody@example.com")
+        assert not ok
+        assert token is None
+
+    def test_request_reset_for_invited_user_fails(self):
+        auth.invite_user("pending@example.com")
+        ok, msg, token = auth.admin_request_password_reset("pending@example.com")
+        assert not ok
+        assert "invite" in msg.lower()
+        assert token is None
+
+    def test_request_reset_returns_token_for_active_user(self):
+        auth.register("first@example.com", "password123")
+        ok, msg, token = auth.admin_request_password_reset("first@example.com", requested_by="admin@example.com")
+        assert ok
+        assert token
+        assert auth.get_pending_reset(token) == {"email": "first@example.com"}
+
+    def test_unknown_reset_token_returns_none(self):
+        assert auth.get_pending_reset("not-a-real-token") is None
+
+    def test_expired_reset_token_returns_none(self):
+        from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        users = auth._load_users()
+        users["first@example.com"]["reset_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_pending_reset(token) is None
+
+    def test_complete_reset_sets_new_password_and_logs_in(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        ok, result = auth.complete_password_reset(token, "brand-new-password")
+        assert ok
+        email, role, sid = auth.verify_token(result)
+        assert email == "first@example.com"
+        assert sid
+        users = auth._load_users()
+        assert users["first@example.com"]["reset_token"] is None
+        ok2, _ = auth.login("first@example.com", "brand-new-password")
+        assert ok2
+
+    def test_complete_reset_with_short_password_fails(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        ok, msg = auth.complete_password_reset(token, "short")
+        assert not ok
+        assert "characters" in msg
+
+    def test_complete_reset_with_invalid_token_fails(self):
+        ok, msg = auth.complete_password_reset("garbage-token", "brand-new-password")
+        assert not ok
+        assert "invalid or has expired" in msg
+
+    def test_complete_reset_clears_existing_lockout(self):
+        auth.register("first@example.com", "password123")
+        users = auth._load_users()
+        from datetime import datetime, timedelta, timezone
+        users["first@example.com"]["locked_until"] = (
+            datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        users["first@example.com"]["failed_attempts"] = 5
+        auth._save_users(users)
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        auth.complete_password_reset(token, "brand-new-password")
+        users = auth._load_users()
+        assert users["first@example.com"]["locked_until"] is None
+        assert users["first@example.com"]["failed_attempts"] == 0
+
+    def test_reset_token_is_single_use(self):
+        auth.register("first@example.com", "password123")
+        _, _, token = auth.admin_request_password_reset("first@example.com")
+        auth.complete_password_reset(token, "brand-new-password")
+        ok, msg = auth.complete_password_reset(token, "another-password")
+        assert not ok
+        assert "invalid or has expired" in msg
+
+
 # ── admin helpers ─────────────────────────────────────────────────────────
 
 class TestListUsers:
