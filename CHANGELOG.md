@@ -13,6 +13,41 @@ _Nothing yet._
 
 ---
 
+## [1.8.0] — 2026-09-13
+
+A ground-up auth overhaul (M1–M6, `docs/uvalu-auth-implementation-plan.md`): per-account
+lockout, session tracking and self-service password change, Google OAuth + invite-only
+account creation, admin-assisted password recovery, TOTP two-factor with backup codes, a
+new Admin → Security policy page, a Passkeys UI stub, and first-admin bootstrap for a
+genuinely fresh deployment — plus a full pass aligning the Admin portal's Users/Security
+pages to the design that drove this work.
+
+### Added
+
+- **Per-account login rate limiting and lockout** (M1) — configurable attempts-before-lock and lock duration, with "attempts remaining" copy and a dedicated locked-out screen; unknown emails never reveal a count or lock, avoiding an account-existence leak.
+- **Session tracking + self-service password change** (M2) — `auth.py` mints a per-login session id embedded as a JWT claim; Settings → Security/Active sessions lets a user change their password, sign out one session, or sign out everywhere else without invalidating the JWT signature itself.
+- **Google OAuth sign-in and invite-acceptance** (M3, `uvalu/oauth.py` new) — Streamlit's native `st.login()`/`st.user` wired to a provider list driven by `secrets.toml`; identities are keyed by `(issuer, subject)` so one account can hold a password and multiple providers at once. Self-service signup is gone — accounts are created only via a one-time `?invite=<token>` link.
+- **Admin-assisted password recovery** (M4) — a "Send password reset" row action generates a one-time, 24-hour link (no outbound email exists, so an admin relays it manually, the same pattern already used for invites).
+- **TOTP two-factor, backup codes, and a new Admin → Security page** (M5) — QR + manual-key enrollment, 10 single-use backup codes shown once, a session-state-only login challenge (never written to the session cookie), "remember this device" for 30 days, and a new password/2FA/rate-limit/identity-provider policy page for admins. The Users table gains Sign-in and 2FA columns plus "Reset two-factor"/"Sign out all sessions" row actions.
+- **Passkeys UI stub** (M6) — Settings and Admin → Security render the design's Passkeys row (PHASE 3 badge, disabled controls); no WebAuthn implementation behind it yet, per the plan's own scoping.
+- **First-admin bootstrap** — `bootstrap_admin_from_env()` (`ADMIN_EMAIL`/`ADMIN_PASSWORD`) and `scripts/create_admin.py`, a break-glass CLI, since removing self-service signup left a genuinely fresh deployment with no way to create the first account.
+- Advisory, non-blocking password-strength indicator in the Change/Set-password dialogs.
+- `docs/design/Uvalu Auth.dc.html` — the 16-frame mockup this branch's UI was built from.
+
+### Fixed
+
+- Admin Security page: cards used Streamlit's native border/radius instead of this app's `var(--line)`/12px-radius/shadow treatment (a stray white border in a real-light-theme session); the left nav and header scrolled away on a tall section instead of staying pinned (`position:fixed`, since Streamlit's own `flex:1 0 0%` default breaks `position:sticky` here).
+- Closed 4 gaps between the Auth mockup and the shipped screens: login/lockout error styling, missing wrong-password field highlighting, unconfigured-provider button treatment, and invite/reset screens hardcoding "8 characters" against the real (admin-configurable, 12-char) minimum.
+- Several native-widget color leaks (search bar / Role select border, Security's toggles, segmented controls) where Streamlit's real theme showed through this app's own dark tokens, plus an incomplete earlier fix for the "Allowed email domains" field's background.
+- Security page: segmented controls (Require 2FA, Grace period, Session lifetime) and sliders now share one consistent control width; row heights, vertical text/control centering, and header padding aligned to the Users table's own values; small controls (toggles, status badges) centered in their column instead of sitting flush-left.
+- Users table: the Sign-in column ("Password") rendered 8px off-center against every other cell — two CSS rules for exactly this bug already existed, but their selectors still targeted the columns' old positions from before the Sign-in/2FA columns were added to the table.
+
+### Docs
+
+- `docs/backend-feature-gaps.md`, `docs/architecture.md`, `docs/configuration.md`, `.env.example` updated for the bootstrap path and the deliberately-deferred per-IP rate limiting (no reliable client IP is available in this deployment today).
+
+---
+
 ## [1.7.0] — 2026-09-12
 
 ### Added
