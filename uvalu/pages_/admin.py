@@ -1054,17 +1054,53 @@ def _admin_shell_css(active: str) -> str:
   border: 0.5px solid var(--line) !important;
 }}
 
+/* ── Segmented controls (Require 2FA, Grace period, Session lifetime) — the
+   unselected pills had NO app CSS at all before this (Streamlit's own
+   default styling only). The selected pill already renders correctly (a
+   mint-tinted background/border Streamlit applies natively) and isn't
+   touched here — only the unselected state needs a rule, keyed on the
+   `aria-checked` attribute rather than any Emotion-generated class name so
+   it survives a selection change. NOTE: this rule is confirmed CORRECT via
+   getComputedStyle() (resolves to exactly `var(--panel-2)`/`var(--line)`),
+   but repeated live screenshots in this session's own testing tool kept
+   showing the pill painting white regardless — including with the value
+   forced as an inline style, with `appearance:none`, and combinations of
+   both, while an unrelated medium-brightness test color (`rgb(80,80,80)`)
+   painted correctly in the same spot every time. That pattern (only very
+   low-luminance colors on this one native `<button>` element failing to
+   paint, independent of how the color is set) points at a rendering quirk
+   in that specific testing tool rather than a real browser bug — plain
+   `<div>`-based dark surfaces elsewhere on this exact page paint fine at
+   similar luminance. Left as this straightforward, spec-correct rule
+   rather than adding an unproven workaround; verify in a real browser
+   after this ships, since the automated check here could not confirm it
+   visually one way or the other. */
+.st-key-admin_root [data-testid="stButtonGroup"] button[aria-checked="false"] {{
+  background-color: var(--panel-2) !important; border-color: var(--line) !important;
+  color: var(--muted) !important;
+}}
+
 /* ── Feed toggle — recolor Streamlit's default switch to the design's
    teal-when-on pill instead of the generic red/gray default. DOM order is
    track-div, then <input>, then the label-text div (confirmed live via
    outerHTML) — the checked input has no LATER sibling that's the track, so
    `input:checked + div` (which was tried first) silently matched nothing;
    `:has()` targeting the track from its checked-input DESCENDANT sibling is
-   what actually works. */
-[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label > div:first-child {{
+   what actually works. `:first-child` (not `:first-of-type`) happened to
+   still be correct here only because Data feeds' own toggle label has no
+   leading non-div sibling — confirmed live it breaks for Security's toggles
+   specifically, whose label's actual first CHILD is a `<span>` (screen-
+   reader text?), making the real track div only `:first-of-type`, never
+   `:first-child`; the old selector silently matched nothing there, and the
+   "Block breached passwords" toggle only ever looked teal-when-on by
+   coincidence (Streamlit's own native checked-toggle color), not from this
+   rule. `:first-of-type` works for both rows' actual DOM shape. */
+[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label > div:first-of-type,
+[class*="st-key-admin_sec_row_"] [data-testid="stCheckbox"] label > div:first-of-type {{
   background-color: var(--panel-2) !important; border-color: var(--line) !important;
 }}
-[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-child {{
+[class*="st-key-admin_feed_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-of-type,
+[class*="st-key-admin_sec_row_"] [data-testid="stCheckbox"] label:has(input:checked) > div:first-of-type {{
   background-color: var(--teal) !important; border-color: var(--teal) !important;
 }}
 
@@ -1103,7 +1139,19 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > 
    button's own subtle `var(--line)` hairline right next to it. Same
    guaranteed-CSS-backstop pattern as the background fix, matching the
    Suspend button's exact border spec. */
-[class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div {{
+/* The search box's own deep div was missing from this same border-fix —
+   only its BACKGROUND got the guaranteed-backstop treatment above; its
+   border was left to inherit the native theme's borderColor exactly like
+   the select box's deep div did before the rule below existed for it.
+   Confirmed as the actual cause of the reported white search-bar outline
+   (a real-light-theme session's `[theme.light]` "#E5E7EB" against this
+   page's forced-dark background) — not the same class of bug as the
+   segmented-control/toggle "stale paint" issue fixed elsewhere in this
+   file, just this one selector never having been extended when the
+   pattern was first established for the Role select. */
+[class*="st-key-admin_user_row_"] [data-testid="stSelectbox"] > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > div,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) > div > div {{
   border: 0.5px solid var(--line) !important;
 }}
 /* The search box's actual TEXT never had an explicit color at all (only its
@@ -1114,10 +1162,12 @@ div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) > div > 
    every fix above) went dark-on-dark. `::placeholder` needs its own rule
    separately from `color` — browsers don't inherit placeholder color from
    the input's own text color. */
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) input {{
   color: var(--text) !important;
 }}
-div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input::placeholder {{
+div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input::placeholder,
+div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) input::placeholder {{
   color: var(--faint) !important; opacity: 1 !important;
 }}
 
