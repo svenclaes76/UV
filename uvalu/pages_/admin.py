@@ -343,7 +343,7 @@ def _sec_row_title(title: str, desc: str) -> None:
                unsafe_allow_html=True)
 
 
-_MFA_GRACE_OPTS = ["3 days", "7 days", "14 days", "30 days"]
+_MFA_GRACE_OPTS = ["3 d", "7 d", "14 d", "30 d"]
 _SESSION_TTL_OPTS = ["8 h", "24 h", "7 d"]
 
 
@@ -355,7 +355,7 @@ def _render_security() -> None:
     with st.container(key="admin_sec_card_password", border=True):
         _sec_row_header("Password policy")
         with st.container(key="admin_sec_row_minlen"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Minimum password length", "Applies to every new password — invite "
                               "acceptance, admin resets, and self-service changes.")
@@ -364,7 +364,7 @@ def _render_security() -> None:
                                      int(_shared.get("min_password_length", 12)),
                                      key="admin_sec_min_len", label_visibility="collapsed")
         with st.container(key="admin_sec_row_breach"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Block breached passwords", "Checked against Have I Been Pwned by hash "
                               "prefix — the password never leaves this server.")
@@ -384,7 +384,7 @@ def _render_security() -> None:
     with st.container(key="admin_sec_card_mfa", border=True):
         _sec_row_header("Two-factor authentication")
         with st.container(key="admin_sec_row_require_mfa"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Require 2FA", "Who must enroll in an authenticator app before they can "
                               "sign in with a password.")
@@ -392,23 +392,23 @@ def _render_security() -> None:
                 _require_mfa = st.segmented_control(
                     "Require 2FA", options=["Off", "Admins", "Everyone"],
                     default=str(_shared.get("require_mfa", "Admins")), label_visibility="collapsed",
-                    key="admin_sec_require_mfa")
+                    key="admin_sec_require_mfa", width="stretch")
         with st.container(key="admin_sec_row_grace"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Grace period", "How long a newly-required account can still sign in "
                               "before enrolling. Not yet enforced — display only.")
             with _c2:
-                _cur_grace = str(_shared.get("mfa_grace_days", "7 days"))
+                _cur_grace = str(_shared.get("mfa_grace_days", "7 d"))
                 _grace = st.segmented_control(
                     "Grace period", options=_MFA_GRACE_OPTS,
-                    default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 days",
-                    label_visibility="collapsed", key="admin_sec_grace")
+                    default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 d",
+                    label_visibility="collapsed", key="admin_sec_grace", width="stretch")
 
         if ((_require_mfa and _require_mfa != _shared.get("require_mfa", "Admins"))
-                or (_grace and _grace != _shared.get("mfa_grace_days", "7 days"))):
+                or (_grace and _grace != _shared.get("mfa_grace_days", "7 d"))):
             _shared["require_mfa"] = _require_mfa or _shared.get("require_mfa", "Admins")
-            _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 days")
+            _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 d")
             save_shared_settings(_shared)
             st.rerun()
 
@@ -416,7 +416,7 @@ def _render_security() -> None:
     with st.container(key="admin_sec_card_ratelimit", border=True):
         _sec_row_header("Rate limiting &amp; sessions")
         with st.container(key="admin_sec_row_attempts"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Attempts before lock", "Failed password attempts on one account before "
                               "it locks.")
@@ -425,7 +425,7 @@ def _render_security() -> None:
                                       int(_shared.get("login_attempts_before_lock", 5)),
                                       key="admin_sec_attempts", label_visibility="collapsed")
         with st.container(key="admin_sec_row_lockmin"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Lock duration", "How long an account stays locked once triggered.")
             with _c2:
@@ -433,7 +433,7 @@ def _render_security() -> None:
                                       int(_shared.get("lock_minutes", 15)), step=5,
                                       key="admin_sec_lock_min", label_visibility="collapsed")
         with st.container(key="admin_sec_row_session_ttl"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Session lifetime", "How long a signed-in session stays valid before "
                               "requiring another sign-in.")
@@ -442,7 +442,7 @@ def _render_security() -> None:
                 _ttl = st.segmented_control(
                     "Session lifetime", options=_SESSION_TTL_OPTS,
                     default=_cur_ttl if _cur_ttl in _SESSION_TTL_OPTS else "24 h",
-                    label_visibility="collapsed", key="admin_sec_session_ttl")
+                    label_visibility="collapsed", key="admin_sec_session_ttl", width="stretch")
 
         if (int(_attempts) != int(_shared.get("login_attempts_before_lock", 5))
                 or int(_lock_min) != int(_shared.get("lock_minutes", 15))
@@ -458,7 +458,7 @@ def _render_security() -> None:
         _sec_row_header("Identity providers")
         for _p in oauth.configured_providers():
             with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
-                _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                 with _c1:
                     _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
                                   else "Not configured — add credentials to secrets.toml.")
@@ -471,7 +471,7 @@ def _render_security() -> None:
                                unsafe_allow_html=True)
 
         with st.container(key="admin_sec_row_autoprov"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
                               "sign-in from an allowed domain below, instead of requiring an invite first.")
@@ -499,7 +499,7 @@ def _render_security() -> None:
         # setting behind this toggle to persist — it's permanently off until
         # that's built.
         with st.container(key="admin_sec_row_passkeys"):
-            _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
             with _c1:
                 _sec_row_title(
                     'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
@@ -955,6 +955,43 @@ def _admin_shell_css(active: str) -> str:
 [class*="st-key-admin_sec_row_"] {{
   padding: 15px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
   margin-top: -16px !important;
+  /* Floors every row at the sliders' own natural height (title + floating
+     value label) — previously unset, so row height tracked whatever that
+     row's own control needed (55px for a bare toggle up to 99px for a
+     segmented control that wrapped to two lines), reported as visibly
+     inconsistent row heights. `admin_sec_row_domains` (title + description
+     + input, stacked) is naturally taller than this floor already, so it's
+     unaffected without needing its own exception. */
+  min-height: 64px !important;
+}}
+/* The title+description block `_sec_row_title()` renders is raw HTML in a
+   markdown container that under-reports its own height to Streamlit's
+   layout engine — confirmed live: a two-line block measured 38px tall but
+   its wrapping stColumn reported only 22px. Every row already sets
+   `vertical_alignment="center"` on its st.columns(...) correctly; the
+   centering math was just running against that wrong, shorter number,
+   which visibly offset the text from the control next to it. Same bug
+   class as the Users table's name+email column elsewhere in this file;
+   Security's own rows just never got the equivalent fix. */
+[class*="st-key-admin_sec_row_"] [data-testid="stColumn"]:first-child {{
+  min-height: 38px !important;
+}}
+/* Same under-reported-height bug, different symptom: the "Allowed email
+   domains" row isn't a two-column layout, so the title+description block
+   and the text input just stack with a normal 16px flex gap between them.
+   Because the block's wrapper reports 22px against its real 38px, the
+   visible text overflows 16px below where the layout thinks it ends,
+   swallowing the entire gap meant to separate it from the input (confirmed
+   live: 0px between the two). The ACTUAL flex item participating in that
+   16px gap is the `stElementContainer` wrapper one level further out than
+   `stMarkdownContainer` — flooring the inner container alone (tried first)
+   didn't move the outer one, which still reported 22px and still ate the
+   gap. `:first-child` reaches only the row's own first direct child (the
+   title+description container specifically) — not the general
+   admin_sec_row_ prefix, since other rows' markdown also includes small
+   badge/status spans that shouldn't be forced to the same height. */
+[class*="st-key-admin_sec_row_domains"] > [data-testid="stElementContainer"]:first-child {{
+  min-height: 38px !important;
 }}
 /* Deliberately not special-casing each card's own last row to drop its
    border-bottom — the Users table's last row keeps its own border-bottom

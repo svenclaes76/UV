@@ -71,7 +71,7 @@ _SHARED_DEFAULTS: dict = {
     # because require_mfa says "Admins". Enforcing the grace-period countdown
     # is future work once there's a UI nudge to enroll.
     "require_mfa": "Admins",       # "Off" | "Admins" | "Everyone"
-    "mfa_grace_days": "7 days",
+    "mfa_grace_days": "7 d",
     # Session lifetime — read by auth.py's _issue_session() for both the JWT's
     # own exp claim and how far back it prunes a user's stored sessions list.
     "session_ttl": "24 h",         # "8 h" | "24 h" | "7 d"
