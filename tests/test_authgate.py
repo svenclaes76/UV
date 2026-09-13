@@ -270,13 +270,16 @@ class TestAuthWall:
 
     def test_provider_buttons_are_disabled_when_unconfigured(self):
         # No secrets.toml [auth] section exists in the test environment, so
-        # both providers render disabled (see tests/test_oauth.py for the
-        # is_configured() logic itself).
+        # both providers render as inert "NOT CONFIGURED" markdown, not a
+        # real st.button (see tests/test_oauth.py for the is_configured()
+        # logic itself).
         at = _run_auth_wall()
-        google = [b for b in at.button if b.label == "Continue with Google"][0]
-        microsoft = [b for b in at.button if b.label == "Continue with Microsoft Entra ID"][0]
-        assert google.disabled
-        assert microsoft.disabled
+        assert not any(b.label == "Continue with Google" for b in at.button)
+        assert not any(b.label == "Continue with Microsoft Entra ID" for b in at.button)
+        html = "".join(m.value for m in at.markdown)
+        assert "Continue with Google" in html
+        assert "Continue with Microsoft Entra ID" in html
+        assert html.count("NOT CONFIGURED") == 2
 
 
 class TestAuthWallLockout:
@@ -436,9 +439,13 @@ class TestInviteAcceptanceScreen:
         assert "jwt_token" not in at.session_state
 
     def test_provider_buttons_present_on_acceptance_screen(self):
+        # Unconfigured in the test environment, so it's inert "NOT
+        # CONFIGURED" markdown rather than a real button — see
+        # TestAuthWall.test_provider_buttons_are_disabled_when_unconfigured.
         _, _, token = auth.invite_user("new@example.com")
         at = _run_auth_wall(query_params={"invite": token})
-        assert any(b.label == "Continue with Google" for b in at.button)
+        html = "".join(m.value for m in at.markdown)
+        assert "Continue with Google" in html
 
 
 class TestForgotPasswordScreen:

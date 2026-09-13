@@ -1410,7 +1410,20 @@ GLOBAL_CSS = """
     border-radius: 9px !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
-  .uv-login-err { font-size: 12px; color: var(--down-txt); margin-top: 6px; }
+  /* A tinted, bordered alert box — matches Uvalu Auth.dc.html frames 02/09b
+     (`background:rgba(163,45,45,.12);border:.5px solid rgba(163,45,45,.3)`).
+     Was plain colored text with no fill/border at all, which read as
+     incidental copy rather than a distinct error on every failed-login,
+     lockout, invalid-invite and invalid-reset-link message. `--down-bg`
+     already carries this same rgb(163,45,45) hue at a theme-correct alpha
+     (styles.py's :root/[data-theme="light"] blocks) for the fill; the
+     border keeps the design's own literal alpha since there's no separate
+     "--down-border" token and this hue doesn't otherwise shift by theme. */
+  .uv-login-err {
+    font-size: 12.5px; color: var(--down-txt); margin-top: 10px; line-height: 1.5;
+    background: var(--down-bg); border: 0.5px solid rgba(163,45,45,0.3);
+    border-radius: 8px; padding: 10px 12px;
+  }
   .uv-lock-card {
     display: flex; align-items: center; gap: 14px; background: var(--panel-2);
     border: 0.5px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 18px;

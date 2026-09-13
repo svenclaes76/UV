@@ -13,9 +13,10 @@ from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_pa
                   get_pending_invite, get_pending_reset, get_user_status,
                   is_session_active, login, oauth_login, trust_this_device,
                   verify_token)
+from settings import load_shared_settings
 from uvalu import logkit, oauth, shell
 from uvalu.runtime import theme_colors
-from uvalu.shell import _display_name
+from uvalu.shell import _display_name, _password_strength
 
 # A TOTP/backup-code challenge is a short-lived marker in st.session_state
 # only (never written to the uv_jwt cookie) — a reload drops back to the
@@ -186,6 +187,25 @@ def _render_backup_code_challenge(pending: dict) -> None:
         st.rerun()
 
 
+def _render_strength_caption(password: str) -> None:
+    """Advisory-only, shown after a failed submit on invite-accept/password-
+    reset — the same tiny indicator uvalu/pages_/settings.py's Change/Set-
+    password dialogs show live while typing (uvalu.shell._password_strength);
+    not duplicated here as a live check because both screens wrap their
+    password field in st.form, which only reruns on submit, so "live" isn't
+    available without restructuring either screen for a one-time, low-
+    frequency flow — see the Sep 13 password-strength-indicator commit. This
+    still closes most of the gap against Uvalu Auth.dc.html frames 05/07
+    (both themselves static screenshots, not live either): the strength read-
+    out is visible after the one submit a real user actually makes here,
+    instead of never appearing on these two screens at all."""
+    label, tone = _password_strength(password)
+    if not label:
+        return
+    st.markdown(f'<div style="font-size:12px;margin-top:8px;color:var(--{tone}-txt);">'
+               f'Password strength: {label}</div>', unsafe_allow_html=True)
+
+
 def _start_session(token: str) -> None:
     email, role, sid = verify_token(token)
     st.session_state["jwt_token"]  = token
@@ -221,14 +241,29 @@ def _render_provider_buttons(key_prefix: str) -> None:
     """One button per entry in oauth.configured_providers() — Google ships in
     phase 1, Microsoft is drawn as the unconfigured second entry so a later
     addition changes data (secrets.toml + uvalu/oauth.py's PROVIDERS tuple),
-    not this layout (Uvalu Auth.dc.html frame 01's whole point)."""
+    not this layout (Uvalu Auth.dc.html frame 01's whole point).
+
+    An unconfigured provider is inert markdown, not a disabled st.button —
+    matches frame 01's own dashed-border + "NOT CONFIGURED" badge treatment
+    (the same convention Settings' Passkeys row already uses for its own
+    "not built yet" state), and sidesteps a real bug a plain disabled button
+    had: Streamlit's disabled-button border follows the REAL native theme
+    (confirmed live: `rgb(34,51,78)`, `[theme.dark].borderColor`) rather than
+    this app's `var(--line)`, the same "native chrome leaks through" class of
+    bug already fixed twice elsewhere (Admin's search/select boxes)."""
     for _p in oauth.configured_providers():
         if _p["configured"]:
             if st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch"):
                 oauth.start_login(_p["id"])
         else:
-            st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch",
-                     disabled=True, help=f"{_p['label']} isn't configured for this deployment yet")
+            st.markdown(
+                f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
+                f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
+                f'border:0.5px dashed var(--line);color:var(--faint);">Continue with {_p["label"]}'
+                f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
+                f'background:var(--line-2);color:var(--faint);">NOT CONFIGURED</span></div>',
+                unsafe_allow_html=True,
+            )
 
 
 def _render_oauth_refused(info: dict) -> None:
@@ -292,9 +327,11 @@ def _render_invite_acceptance(token: str) -> None:
                 'background:var(--line-2);color:var(--faint);">FIXED BY INVITE</span></div></div>',
                 unsafe_allow_html=True,
             )
+            _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("invite_accept_form", border=False):
                 password = st.text_input("Password", type="password", placeholder="••••••••",
-                                         icon=":material/lock:", help="At least 8 characters.")
+                                         icon=":material/lock:",
+                                         help=f"At least {_min_len} characters.")
                 submitted = st.form_submit_button("Create account", width="stretch", type="primary")
             if submitted:
                 ok, result = accept_invite_with_password(token, password, user_agent=_user_agent())
@@ -304,6 +341,7 @@ def _render_invite_acceptance(token: str) -> None:
                     st.rerun()
                 else:
                     st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+                    _render_strength_caption(password)
 
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
@@ -366,9 +404,11 @@ def _render_password_reset(token: str) -> None:
                 f'<span style="color:var(--text);">{pending["email"]}</span>.</div>',
                 unsafe_allow_html=True,
             )
+            _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("password_reset_form", border=False):
                 password = st.text_input("New password", type="password", placeholder="••••••••",
-                                         icon=":material/lock:", help="At least 8 characters.")
+                                         icon=":material/lock:",
+                                         help=f"At least {_min_len} characters.")
                 confirm = st.text_input("Confirm new password", type="password", placeholder="••••••••",
                                         icon=":material/lock:")
                 submitted = st.form_submit_button("Reset password", width="stretch", type="primary")
@@ -376,6 +416,7 @@ def _render_password_reset(token: str) -> None:
                 if password != confirm:
                     st.markdown('<div class="uv-login-err">New password and confirmation don\'t match.</div>',
                                unsafe_allow_html=True)
+                    _render_strength_caption(password)
                 else:
                     ok, result = complete_password_reset(token, password, user_agent=_user_agent())
                     if ok:
@@ -384,6 +425,7 @@ def _render_password_reset(token: str) -> None:
                         st.rerun()
                     else:
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+                        _render_strength_caption(password)
 
 
 def auth_wall() -> None:
@@ -586,6 +628,21 @@ def auth_wall() -> None:
                             # instead of the plain inline error.
                             st.rerun()
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+                        # Highlights the password field itself alongside the error above,
+                        # per Uvalu Auth.dc.html frame 02 — CSS application doesn't depend
+                        # on DOM order, so this still reaches the password input even
+                        # though that input was already emitted earlier in this same run
+                        # (its value came back wrong, but Streamlit had already drawn it
+                        # by the time login() returns). Scoped to this screen's own
+                        # `uv_login_right` container — the only other place a "Password"-
+                        # labeled field renders is invite-accept/reset, on a completely
+                        # different, mutually-exclusive branch of auth_wall().
+                        st.markdown(
+                            '<style>.st-key-uv_login_right div[data-testid="stTextInput"]'
+                            ':has(input[aria-label="Password"]) > div '
+                            '{ border-color: var(--down-txt) !important; }</style>',
+                            unsafe_allow_html=True,
+                        )
 
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
