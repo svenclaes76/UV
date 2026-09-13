@@ -13,12 +13,17 @@ import jwt as pyjwt
 import pytest
 
 import auth
+import settings
 
 
 @pytest.fixture(autouse=True)
 def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    # login()'s rate-limit thresholds come from the shared (Admin-controlled)
+    # settings file — isolate it too so these tests can't read/leak real
+    # data/settings/shared.json and can freely override the thresholds.
+    monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "data" / "settings" / "shared.json")
 
 
 # ── register ──────────────────────────────────────────────────────────────
@@ -124,6 +129,71 @@ class TestLogin:
         auth.login("new@example.com", temp_password)
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Active"
+
+
+# ── login rate limiting / lockout ────────────────────────────────────────
+
+class TestLoginRateLimiting:
+    def test_wrong_password_reports_attempts_remaining(self):
+        auth.register("first@example.com", "password123")
+        ok, msg = auth.login("first@example.com", "wrong-password")
+        assert not ok
+        assert "4 attempts remain" in msg  # default threshold is 5
+
+    def test_unknown_email_never_reports_attempts_or_locks(self):
+        # No account to attach a counter to, and revealing a count would let
+        # an attacker distinguish real emails from made-up ones.
+        for _ in range(10):
+            ok, msg = auth.login("nobody@example.com", "whatever")
+            assert not ok
+            assert msg == "Invalid email or password."
+        assert auth.get_lockout("nobody@example.com") is None
+
+    def test_account_locks_after_configured_attempts(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        ok1, msg1 = auth.login("first@example.com", "wrong-password")
+        assert not ok1
+        assert "1 attempt remain" in msg1
+        ok2, msg2 = auth.login("first@example.com", "wrong-password")
+        assert not ok2
+        assert "now locked for 10 minutes" in msg2
+        assert auth.get_lockout("first@example.com") is not None
+
+    def test_locked_account_rejects_even_the_correct_password(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trips the lock
+        ok, msg = auth.login("first@example.com", "password123")
+        assert not ok
+        assert "temporarily locked" in msg
+
+    def test_successful_login_clears_failed_attempts(self):
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")
+        ok, _ = auth.login("first@example.com", "password123")
+        assert ok
+        users = auth._load_users()
+        assert users["first@example.com"]["failed_attempts"] == 0
+        assert users["first@example.com"]["locked_until"] is None
+
+    def test_lock_expires_on_its_own(self):
+        from datetime import datetime, timedelta, timezone
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trips the lock
+        assert auth.get_lockout("first@example.com") is not None
+        # Backdate the lock as if the window had already elapsed.
+        users = auth._load_users()
+        users["first@example.com"]["locked_until"] = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        auth._save_users(users)
+        assert auth.get_lockout("first@example.com") is None
+        ok, _ = auth.login("first@example.com", "password123")
+        assert ok
 
     def test_login_updates_last_active(self):
         auth.register("first@example.com", "password123")

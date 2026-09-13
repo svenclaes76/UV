@@ -1401,6 +1401,17 @@ GLOBAL_CSS = """
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
   .uv-login-err { font-size: 12px; color: var(--down-txt); margin-top: 6px; }
+  .uv-lock-card {
+    display: flex; align-items: center; gap: 14px; background: var(--panel-2);
+    border: 0.5px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 18px;
+  }
+  .uv-lock-icon { color: var(--amber-txt); flex: none; }
+  .uv-lock-timer { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--amber-txt); }
+  .uv-lock-caption { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .uv-login-btn-disabled {
+    text-align: center; padding: 12px; border-radius: 9px; background: var(--faint);
+    color: rgba(13,31,60,0.5); font-size: 13.5px; font-weight: 500; margin-top: 18px;
+  }
 
   /* ── Misc spacing ────────────────────────────────────────────────────────── */
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }

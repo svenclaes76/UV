@@ -11,12 +11,14 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import auth
+import settings
 
 
 @pytest.fixture(autouse=True)
 def isolated_auth(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / ".cache" / "users.json")
+    monkeypatch.setattr(settings, "_SHARED_FILE", tmp_path / "data" / "settings" / "shared.json")
 
 
 def _with_cookie(monkeypatch, cookies: dict):
@@ -246,6 +248,56 @@ class TestAuthWall:
         at = _run_auth_wall()
         sso = [b for b in at.button if b.label == "Continue with SSO"][0]
         assert sso.disabled
+
+
+class TestAuthWallLockout:
+    def test_locked_out_card_replaces_form_after_attempts_exhausted(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall()
+        at.text_input[0].set_value("first@example.com")
+        at.text_input[1].set_value("wrong-password")
+        submit = [b for b in at.button if b.label == "Sign in"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Sign in temporarily locked" in html
+        assert len(at.text_input) == 0  # form is hidden, not just an inline error
+
+    def test_reload_while_locked_shows_card_without_resubmitting(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        auth.login("first@example.com", "wrong-password")  # trip the lock directly
+        at2 = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        assert not at2.exception, [str(e.value) for e in at2.exception]
+        html = "".join(m.value for m in at2.markdown)
+        assert "Sign in temporarily locked" in html
+        assert len(at2.text_input) == 0
+
+    def test_correct_password_still_blocked_while_locked(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trip the lock
+        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.text_input) == 0
+        assert "jwt_token" not in at.session_state
+
+    def test_switch_account_button_reveals_form_again(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trip the lock
+        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        switch = [b for b in at.button if b.label == "Not you? Use a different account"][0]
+        switch.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.text_input) == 2  # form is back, even though the account is still locked
+        assert "uv_login_attempted_email" not in at.session_state
 
 
 # ── logging (logkit Phase 1) ─────────────────────────────────────────────

@@ -3,9 +3,11 @@
 These run at module scope in the app's boot sequence. Each step is a function so
 ``app.py`` can invoke them in order while keeping the logic out of its body.
 """
+from datetime import datetime, timezone
+
 import streamlit as st
 
-from auth import get_user_status, login, verify_token
+from auth import get_lockout, get_user_status, login, verify_token
 from uvalu import logkit, shell
 from uvalu.runtime import theme_colors
 
@@ -130,6 +132,46 @@ def auth_wall() -> None:
             """, unsafe_allow_html=True)
 
         with st.container(key="uv_login_right"):
+            _attempted_email = st.session_state.get("uv_login_attempted_email")
+            _lock_expiry = get_lockout(_attempted_email) if _attempted_email else None
+
+            if _lock_expiry:
+                _mins_left = max(1, -(-int((_lock_expiry - datetime.now(timezone.utc)).total_seconds()) // 60))
+                st.markdown(
+                    '<div class="uv-login-heading">Sign in temporarily locked</div>'
+                    '<div class="uv-login-subhead">Too many failed attempts on this account. '
+                    'Uvalu will accept a new attempt when the timer expires.</div>'
+                    '<div class="uv-lock-card">'
+                      '<div class="uv-lock-icon">'
+                        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                        'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+                        '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></div>'
+                     f'<div><div class="uv-lock-timer">{_mins_left} min</div>'
+                      '<div class="uv-lock-caption">until the next attempt</div></div>'
+                    '</div>'
+                    '<div class="uv-login-btn-disabled">Sign in</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:12px;margin:18px 0;">'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                    '<span style="font-size:11px;color:var(--faint);">or</span>'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.button("Continue with SSO", key="login_sso_locked", width="stretch", disabled=True,
+                          help="SSO isn't configured for this deployment yet")
+                st.markdown(
+                    '<div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;'
+                    'line-height:1.5;">The lock applies to password sign-in only. Providers are unaffected.</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("Not you? Use a different account", key="login_switch_account",
+                             width="stretch"):
+                    st.session_state.pop("uv_login_attempted_email", None)
+                    st.rerun()
+                st.stop()
+
             st.markdown(
                 '<div class="uv-login-heading">Sign in</div>'
                 '<div class="uv-login-subhead">Welcome back. Enter your credentials to continue.</div>',
@@ -167,6 +209,7 @@ def auth_wall() -> None:
                         st.session_state["jwt_token"]  = result
                         st.session_state["user_email"] = _login_email
                         st.session_state["user_role"]  = role
+                        st.session_state.pop("uv_login_attempted_email", None)
                         st.iframe(
                             f"<script>localStorage.setItem('uv_jwt',{repr(result)});"
                             f"document.cookie='uv_jwt='+encodeURIComponent({repr(result)})+"
@@ -175,6 +218,13 @@ def auth_wall() -> None:
                         )
                         st.rerun()
                     else:
+                        st.session_state["uv_login_attempted_email"] = email.strip().lower()
+                        if get_lockout(email):
+                            # This attempt is the one that tripped the lock (or the
+                            # account was already locked) — rerun so the top of this
+                            # function renders the dedicated locked-out card above
+                            # instead of the plain inline error.
+                            st.rerun()
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
 
             # "or" divider + SSO — disabled rather than wired to the same login

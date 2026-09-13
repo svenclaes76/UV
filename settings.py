@@ -42,6 +42,10 @@ _SHARED_DEFAULTS: dict = {
     "screen_style":    "balanced",  # composite sub-score weighting — see _SCORE_STYLES
     "benchmark_stoxx": False,   # default state of the Dashboard's Euro Stoxx 50 overlay checkbox
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
+    # Login rate limiting — read by auth.py's login() on every attempt. Surfaced
+    # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).
+    "login_attempts_before_lock": 5,   # failed attempts on one account before it locks
+    "lock_minutes": 15,                # how long a lock lasts once triggered
 }
 
 # Composite-score sub-weight vectors per screening style, each

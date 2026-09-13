@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
+from settings import load_shared_settings  # noqa: E402
 from uvalu import logkit  # noqa: E402
 
 USERS_FILE  = Path(__file__).parent / ".cache" / "users.json"
@@ -49,9 +50,11 @@ def _normalize_user(data: dict) -> dict:
         role = "Analyst"
     return {
         **data,
-        "role":         role,
-        "status":       data.get("status", "Active"),
-        "last_active":  data.get("last_active", ""),
+        "role":            role,
+        "status":          data.get("status", "Active"),
+        "last_active":     data.get("last_active", ""),
+        "failed_attempts": data.get("failed_attempts", 0),
+        "locked_until":    data.get("locked_until"),
     }
 
 
@@ -154,8 +157,26 @@ def invite_user(email: str, role: str = "Analyst") -> tuple[bool, str, str | Non
     return True, f"{email} invited.", temp_password
 
 
+def _rate_limit_settings() -> tuple[int, int]:
+    """(attempts_before_lock, lock_minutes) from the Admin -> Security policy
+    (settings.py's shared settings), workspace-wide like every other veto/
+    threshold the Admin portal controls."""
+    s = load_shared_settings()
+    return (
+        int(s.get("login_attempts_before_lock", 5)),
+        int(s.get("lock_minutes", 15)),
+    )
+
+
 def login(email: str, password: str) -> tuple[bool, str]:
-    """Verify credentials. Returns (success, jwt_token_or_error_message)."""
+    """Verify credentials. Returns (success, jwt_token_or_error_message).
+
+    Failed attempts on a *known* account count towards a per-account lockout
+    (fields on the user record: failed_attempts, locked_until) so repeated
+    guessing eventually has to wait out a timer rather than retry forever.
+    Unknown emails never lock or reveal a count — there's no account to lock,
+    and doing so would let an attacker use the "attempts remaining" copy to
+    tell real accounts from made-up ones."""
     email = email.strip().lower()
     users = _load_users()
     if _store_broken(users):
@@ -168,21 +189,59 @@ def login(email: str, password: str) -> tuple[bool, str]:
         logkit.auth_event("login.failed", outcome="failed", reason="unknown_user",
                           user_id=logkit.user_hash(email))
         return False, "Invalid email or password."
+
+    max_attempts, lock_minutes = _rate_limit_settings()
+    now = datetime.now(timezone.utc)
+    locked_until = user.get("locked_until")
+    if locked_until:
+        locked_dt = datetime.fromisoformat(locked_until)
+        if now < locked_dt:
+            # Checked before touching the password at all — a locked account
+            # doesn't verify credentials, so a correct guess during the lock
+            # window can't be distinguished from an incorrect one by timing
+            # or response shape, and the lock can't be reset by retrying.
+            remaining_min = max(1, -(-int((locked_dt - now).total_seconds()) // 60))  # ceil
+            logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
+                              user_id=logkit.user_hash(email))
+            return False, (f"This account is temporarily locked. Try again in "
+                           f"{remaining_min} minute{'s' if remaining_min != 1 else ''}.")
+        # Lock has expired — clear it before evaluating this attempt.
+        user["locked_until"] = None
+        user["failed_attempts"] = 0
+
     if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        user["failed_attempts"] = user.get("failed_attempts", 0) + 1
+        remaining_attempts = max_attempts - user["failed_attempts"]
+        if remaining_attempts <= 0:
+            user["locked_until"] = (now + timedelta(minutes=lock_minutes)).isoformat()
+            user["failed_attempts"] = 0
+            users[email] = user
+            _save_users(users)
+            logkit.auth_event("login.failed", outcome="locked", reason="bad_password",
+                              user_id=logkit.user_hash(email))
+            return False, (f"Invalid email or password. Too many failed attempts — "
+                           f"this account is now locked for {lock_minutes} minutes.")
+        users[email] = user
+        _save_users(users)
         logkit.auth_event("login.failed", outcome="failed", reason="bad_password",
                           user_id=logkit.user_hash(email))
-        return False, "Invalid email or password."
+        return False, (f"Invalid email or password. {remaining_attempts} attempt"
+                       f"{'s' if remaining_attempts != 1 else ''} remain before this "
+                       f"account is locked for {lock_minutes} minutes.")
     if user.get("status") == "Suspended":
         logkit.auth_event("login.failed", outcome="failed", reason="suspended",
                           user_id=logkit.user_hash(email))
         return False, "This account has been suspended."
 
     # First successful login clears the Invited status; every login refreshes
-    # last_active (shown in the Admin portal's Users table).
+    # last_active (shown in the Admin portal's Users table) and clears any
+    # stale lockout bookkeeping from earlier failed attempts.
     was_invited = user.get("status") == "Invited"
     if was_invited:
         user["status"] = "Active"
-    user["last_active"] = datetime.now(timezone.utc).isoformat()
+    user["last_active"] = now.isoformat()
+    user["failed_attempts"] = 0
+    user["locked_until"] = None
     users[email] = user
     _save_users(users)
 
@@ -199,6 +258,21 @@ def login(email: str, password: str) -> tuple[bool, str]:
     logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                       role=user.get("role", "Analyst"), was_invited=was_invited)
     return True, token
+
+
+def get_lockout(email: str) -> datetime | None:
+    """Current lock expiry for an account, or None if it isn't locked (or
+    doesn't exist) — lets a caller like uvalu/authgate.py render a countdown
+    without re-deriving login()'s own lock-expiry check."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return None
+    locked_until = user.get("locked_until")
+    if not locked_until:
+        return None
+    locked_dt = datetime.fromisoformat(locked_until)
+    return locked_dt if datetime.now(timezone.utc) < locked_dt else None
 
 
 def verify_token(token: str) -> tuple[str, str] | tuple[None, None]:
