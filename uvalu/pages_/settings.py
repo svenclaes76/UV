@@ -96,11 +96,17 @@ def _row_title(title: str, desc: str) -> None:
                unsafe_allow_html=True)
 
 
-def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False):
+def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1)):
     """Title+desc on the left, a segmented control flush right — Theme/
-    Display currency/Number format all share this shape."""
+    Display currency/Number format all share this shape. `ratio` defaults to
+    the [3, 1] every 1-2-option row uses; Screening style and Price refresh
+    interval (4 options each) pass a wider control column — the default
+    ratio's control column is too narrow for 4 segments inside this page's
+    920px-capped width (see styles.py's `nowrap` note on the segmented-
+    control track, which stops them silently wrapping but doesn't by itself
+    make the column wide enough)."""
     with st.container(key=f"set_row_{row_key}"):
-        _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+        _c1, _c2 = st.columns(list(ratio), vertical_alignment="center")
         with _c1:
             _row_title(title, desc)
         with _c2:
@@ -398,10 +404,10 @@ def render() -> None:
                             "Add one so you can sign in when your provider is unavailable.")
                 with _pc2:
                     if _has_pw:
-                        if st.button("Change", key="set_pw_change_btn", width="stretch"):
+                        if st.button("Change", key="set_pw_change_btn"):
                             _dlg_change_password(_email)
                     else:
-                        if st.button("Set a password", key="set_pw_set_btn", width="stretch", type="primary"):
+                        if st.button("Set a password", key="set_pw_set_btn", type="primary"):
                             _dlg_set_password(_email)
 
             # Linked accounts — one row per known provider (oauth.PROVIDERS), not
@@ -431,13 +437,13 @@ def render() -> None:
                                 _row_title(_prov["label"], "Not configured for this workspace.")
                         with _pc2b:
                             if _ident:
-                                if st.button("Disconnect", key=f"set_unlink_{_prov['id']}", width="stretch"):
+                                if st.button("Disconnect", key=f"set_unlink_{_prov['id']}"):
                                     ok, msg = unlink_identity(_email, _ident["issuer"])
                                     if not ok:
                                         st.toast(msg, icon=":material/warning:")
                                     st.rerun()
                             elif _prov["configured"]:
-                                if st.button("Connect", key=f"set_link_{_prov['id']}", width="stretch"):
+                                if st.button("Connect", key=f"set_link_{_prov['id']}"):
                                     oauth.start_login(_prov["id"])
                             else:
                                 st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
@@ -477,7 +483,7 @@ def render() -> None:
                         _row_title("Backup codes", f"{_remaining} unused code{'s' if _remaining != 1 else ''} "
                                   "remaining.")
                     with _bc2:
-                        if st.button("Regenerate", key="set_totp_regen_btn", width="stretch"):
+                        if st.button("Regenerate", key="set_totp_regen_btn"):
                             _dlg_regenerate_backup_codes(_email)
 
                 with st.container(key="set_row_trusted_devices"):
@@ -487,7 +493,7 @@ def render() -> None:
                         _row_title("Trusted devices", f"{_dev_count} device{'s' if _dev_count != 1 else ''} "
                                   "skip the two-factor challenge.")
                     with _dc2:
-                        if st.button("Revoke all", key="set_totp_revoke_devices_btn", width="stretch",
+                        if st.button("Revoke all", key="set_totp_revoke_devices_btn",
                                     disabled=_dev_count == 0):
                             revoke_trusted_devices(_email)
                             st.rerun()
@@ -505,7 +511,7 @@ def render() -> None:
                         'PHASE 3</span>',
                         "Sign in with Face ID, Touch ID or a security key.")
                 with _pkc2:
-                    st.button("Manage", key="set_passkeys_manage_btn", width="stretch", disabled=True,
+                    st.button("Manage", key="set_passkeys_manage_btn", disabled=True,
                              help="Not built yet — feature-flagged off until Phase 3.")
 
         # ── Active sessions ────────────────────────────────────────────────────────
@@ -524,7 +530,7 @@ def render() -> None:
                         if _is_current:
                             st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">Current</div>',
                                        unsafe_allow_html=True)
-                        elif st.button("Sign out", key=f"set_session_signout_{_sess['sid']}", width="stretch"):
+                        elif st.button("Sign out", key=f"set_session_signout_{_sess['sid']}"):
                             ok, msg = revoke_session(_email, _sess["sid"])
                             if not ok:
                                 st.toast(msg, icon=":material/warning:")
@@ -600,7 +606,7 @@ def render() -> None:
                 "screen_style", "scr_style", "Screening style",
                 "Which signals lead the composite score — Value tilts to margin of safety "
                 "&amp; quality, Growth to momentum, Income to dividends.",
-                _style_opts, _cur_style.capitalize(), disabled=not _is_admin)
+                _style_opts, _cur_style.capitalize(), disabled=not _is_admin, ratio=(2, 2))
 
             _stoxx = _toggle_row("stoxx", "scr_stoxx", "Benchmark — Euro Stoxx 50",
                                  "Overlay on the portfolio value chart.",
@@ -649,24 +655,33 @@ def render() -> None:
             with st.container(key="set_targets_body"):
                 _tc1, _tc2 = st.columns(2, gap="large")
                 with _tc1:
+                    _row_title("Sector targets",
+                              "Blank = no sector targets; the 30% guideline applies instead.")
                     _tgt_sectors_txt = st.text_area(
                         "Sector targets", key="tgt_sectors",
                         value=_targets_to_text(_targets.get("sectors")), height=140,
                         placeholder="One per line — sector and target %:\nTechnology 25\nHealthcare 15",
-                        help="Blank = no sector targets; the 30% guideline applies instead.")
+                        label_visibility="collapsed")
                 with _tc2:
+                    _row_title("Per-name targets",
+                              "Blank = no per-name targets; only the 20% hard cap applies.")
                     _tgt_tickers_txt = st.text_area(
                         "Per-name targets", key="tgt_tickers",
                         value=_targets_to_text(_targets.get("tickers")), height=140,
                         placeholder="One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5",
-                        help="Blank = no per-name targets; only the 20% hard cap applies.")
+                        label_visibility="collapsed")
 
-            _hhi_max = st.number_input(
-                "Concentration ceiling (HHI)", min_value=0.0, max_value=0.50,
-                value=float(_targets.get("hhi_max") or 0.0), step=0.01, key="tgt_hhi",
-                help="Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands.")
+            with st.container(key="set_targets_hhi"):
+                _row_title("Concentration ceiling (HHI)",
+                          "Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands.")
+                _hhi_max = st.number_input(
+                    "Concentration ceiling (HHI)", min_value=0.0, max_value=0.50,
+                    value=float(_targets.get("hhi_max") or 0.0), step=0.01, key="tgt_hhi",
+                    label_visibility="collapsed")
 
-            if st.button("Save target allocation", key="tgt_save", type="secondary"):
+            with st.container(key="set_targets_save"):
+                _save_clicked = st.button("Save target allocation", key="tgt_save", type="secondary")
+            if _save_clicked:
                 _new: dict = {}
                 _secs = _parse_targets_text(_tgt_sectors_txt)
                 _tks  = _parse_targets_text(_tgt_tickers_txt)
@@ -684,21 +699,22 @@ def render() -> None:
         with st.container(key="set_card_data", border=True):
             _row_header("Data")
 
-            with st.container(key="set_row_refresh"):
-                _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
-                with _c1:
-                    _row_title("Price refresh interval", "How often quotes update during market hours.")
-                with _c2:
-                    _refresh_opts = [30, 60, 300, 900]
-                    _refresh_fmt = lambda s: f"{s}s" if s < 60 else f"{s // 60} min"
-                    _cur_refresh = _s.get("refresh_interval_s", 60)
-                    _refresh_idx = _refresh_opts.index(_cur_refresh) if _cur_refresh in _refresh_opts else 1
-                    _slider_label("", _refresh_fmt(st.session_state.get("disp_refresh_interval",
-                                                                        _refresh_opts[_refresh_idx])))
-                    _new_refresh = st.select_slider(
-                        "Price refresh interval", options=_refresh_opts,
-                        value=_refresh_opts[_refresh_idx], format_func=_refresh_fmt,
-                        key="disp_refresh_interval", label_visibility="collapsed")
+            # A segmented control, not a select_slider — every other discrete-
+            # choice row on this page (Theme, Screening style) already uses
+            # one, and unlike a BaseWeb slider it has a genuinely fixed width
+            # regardless of which option is selected (was visibly resizing
+            # per value before).
+            _refresh_opts = [30, 60, 300, 900]
+            _refresh_fmt = lambda s: f"{s}s" if s < 60 else f"{s // 60} min"
+            _refresh_labels = [_refresh_fmt(s) for s in _refresh_opts]
+            _label_to_refresh = dict(zip(_refresh_labels, _refresh_opts))
+            _cur_refresh = _s.get("refresh_interval_s", 60)
+            _cur_refresh_label = _refresh_fmt(_cur_refresh if _cur_refresh in _refresh_opts else 60)
+            _new_refresh_label = _seg_row(
+                "refresh", "disp_refresh_interval", "Price refresh interval",
+                "How often quotes update during market hours.",
+                _refresh_labels, _cur_refresh_label, ratio=(2, 2))
+            _new_refresh = _label_to_refresh.get(_new_refresh_label, _cur_refresh)
 
             if int(_new_refresh) != _cur_refresh:
                 _s["refresh_interval_s"] = int(_new_refresh)

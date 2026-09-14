@@ -119,9 +119,10 @@ def test_screening_style_disabled_and_not_persisted_for_non_admin(isolated_data,
 
 
 def test_changing_refresh_interval_persists(isolated_data, monkeypatch):
+    # A segmented control, not a select_slider — see uvalu/pages_/settings.py's
+    # "Data" card comment (fixed width regardless of the selected option).
     at = _run(monkeypatch)
-    select_slider = at.select_slider(key="disp_refresh_interval")
-    select_slider.set_value(300)
+    at.segmented_control(key="disp_refresh_interval").set_value("5 min")
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert settings.load_settings(TEST_EMAIL)["refresh_interval_s"] == 300
