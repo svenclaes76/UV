@@ -9,6 +9,12 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [1.9.0] — 2026-09-14
+
 ### Added
 
 - **First-admin setup screen** on the login wall (`auth.no_users_exist()`) — a fresh install with no `ADMIN_EMAIL`/`ADMIN_PASSWORD` configured now gets a working "Create the first admin account" form instead of a dead-end invite-only sign-in screen.
