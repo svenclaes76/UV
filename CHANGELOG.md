@@ -136,7 +136,7 @@ The app previously logged nothing beyond ~23 stray `print()` calls and
 swallow-everything `except` blocks. `uvalu/logkit/` adds structured JSON logging
 to a colorized terminal and a rotating `logs/uvalu.log`, driven by one config
 file (`logging.config.json`). See [docs/logging.md](docs/logging.md) for the
-record schema and [docs/logging-implementation-plan.md](docs/logging-implementation-plan.md)
+record schema and [docs/archive/logging-implementation-plan.md](docs/archive/logging-implementation-plan.md)
 for the rollout.
 
 - **Pipeline** — stdlib `logging` with an async `QueueHandler` → `QueueListener`

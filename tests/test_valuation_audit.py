@@ -1,5 +1,5 @@
 """
-Tests for tools/valuation_audit.py — see docs/valuation_audit_plan.md §2.8.
+Tests for tools/valuation_audit.py — see docs/archive/valuation_audit_plan.md §2.8.
 
 Each check function gets a positive fixture (fires on the shape it's meant to
 catch) and a negative fixture (does not fire on the corresponding real

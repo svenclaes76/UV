@@ -4,7 +4,7 @@
 > `feat/ws1-marketdata-provider`, plus the EPV normalised-EBIT follow-up (review 2.3)
 > and the composite-weight rebalance (review 4.2 / 5.2, `W_MOS/W_RISK/W_QUALITY`
 > → 0.24 / 0.22 / 0.24). This document is kept as the historical rationale; the
-> shipped behaviour is described in [`stock_valuation_algorithm.md`](stock_valuation_algorithm.md)
+> shipped behaviour is described in [`stock_valuation_algorithm.md`](../stock_valuation_algorithm.md)
 > and `CHANGELOG.md`. The "Still open" column below records what was *deliberately
 > deferred* (all no-data-source items).
 
@@ -12,7 +12,7 @@ Turns the external technical review (`valuation_cop.md`, Aug 2026) into a sequen
 workstream plan, cross-referenced against what already shipped in the WS-1…WS-9
 risk-engine rework and the four rounds of `screener.py` valuation fixes
 (see `valuation-algorithm-fixes` / `risk-algorithm-fixes` memories and
-[`stock_valuation_algorithm.md`](stock_valuation_algorithm.md)).
+[`stock_valuation_algorithm.md`](../stock_valuation_algorithm.md)).
 
 Scope: the `screener.py` / `scoring.py` valuation track only — `risk.py`'s 8-stage
 portfolio engine is untouched. Workstream numbering continues from the risk track
@@ -270,7 +270,7 @@ WS-16 S · WS-17 S/M · WS-18 M.
    happened with `small_universe`).
 5. **Weight constants:** don't hardcode weight literals in tests — reference the
    named constants (round-1 item 9 precedent), so re-tuning doesn't break the suite.
-6. **Keep [`stock_valuation_algorithm.md`](stock_valuation_algorithm.md) in sync per
+6. **Keep [`stock_valuation_algorithm.md`](../stock_valuation_algorithm.md) in sync per
    change** (the established practice through all four fix rounds) and add each item
    to `CHANGELOG.md` `[Unreleased]`.
 7. Treat the four prior review rounds as the **known-clean baseline** — re-verify

@@ -67,7 +67,7 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 - **Valuation logic changes:** run `.venv/Scripts/python.exe -m tools.valuation_audit` before committing a
   change to `screener._fair_value_models`, `screener.compute_scores`, or the Stage 5/6 scoring rules —
   it catches real-world edge cases the unit tests' synthetic fixtures structurally can't (see
-  `docs/valuation_audit_plan.md`).
+  `docs/archive/valuation_audit_plan.md`).
 
 ---
 

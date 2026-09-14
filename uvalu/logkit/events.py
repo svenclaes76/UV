@@ -2,7 +2,7 @@
 consistent across the app.
 
 Phase 0 ships the API and its tests; the auth / mutation / external-call / job
-call sites are wired in later phases (see docs/logging-implementation-plan.md).
+call sites are wired in later phases (see docs/archive/logging-implementation-plan.md).
 """
 from __future__ import annotations
 

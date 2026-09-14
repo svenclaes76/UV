@@ -1,5 +1,5 @@
 """
-Falsifying-fixture data for rejected checks — docs/valuation_audit_plan.md §2.7.
+Falsifying-fixture data for rejected checks — docs/archive/valuation_audit_plan.md §2.7.
 
 Every check the audit considered and rejected stays here as real, concrete
 data (not just prose) so a reintroduced version of the check fails an actual

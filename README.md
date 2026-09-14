@@ -101,8 +101,12 @@ All user data is stored locally and never sent to a third party:
 | [docs/support-manual.md](docs/support-manual.md) | Admin/support procedures — creating accounts, lockouts, backups |
 | [docs/architecture.md](docs/architecture.md) | Codebase structure and data flow |
 | [docs/configuration.md](docs/configuration.md) | All settings, env vars, and constants |
+| [docs/data-contracts.md](docs/data-contracts.md) | Cross-page data-shape invariants, locked by tests |
+| [docs/logging.md](docs/logging.md) | Structured-logging reference — record schema, what's logged |
+| [docs/backend-feature-gaps.md](docs/backend-feature-gaps.md) | Known gaps — backend capability with no UI yet, and deliberate non-gaps |
 | [docs/stock_valuation_algorithm.md](docs/stock_valuation_algorithm.md) | 6-stage valuation pipeline with formulas |
 | [docs/portfolio_risk_assessment_algorithm.md](docs/portfolio_risk_assessment_algorithm.md) | 8-stage risk assessment methodology |
 | [docs/uvalu-brand-guidelines.md](docs/uvalu-brand-guidelines.md) | Visual identity — colours, typography, logo usage |
+| [docs/archive/](docs/archive/README.md) | Completed implementation plans, kept for historical rationale — not living docs |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and notable changes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, conventions, and PR process |

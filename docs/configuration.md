@@ -188,7 +188,7 @@ Defined in `auth.py`.
 startup by `uvalu/logkit/`; the live-adjustable keys are re-read on a 5-second
 mtime poll while the app runs (`hot_reload`). Full schema and per-key semantics
 are in [logging.md](logging.md); the rollout is in
-[logging-implementation-plan.md](logging-implementation-plan.md).
+[archive/logging-implementation-plan.md](archive/logging-implementation-plan.md).
 
 | Key | Default | Hot-reload | Description |
 |---|---|---|---|
