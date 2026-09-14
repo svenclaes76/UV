@@ -1,5 +1,5 @@
 """
-Valuation & Risk Accuracy Audit — see docs/valuation_audit_plan.md.
+Valuation & Risk Accuracy Audit — see docs/archive/valuation_audit_plan.md.
 
 Runs screener.compute_scores over the full cached fundamentals universe,
 applies the documented check catalog (doc §2.2), aggregates findings per

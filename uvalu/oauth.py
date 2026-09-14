@@ -5,7 +5,7 @@ st.user (Authlib-based OIDC, configured via secrets.toml's [auth] /
 Kept separate from auth.py so that module can stay framework-agnostic (plain
 pytest, no live Streamlit script context needed) — everything here needs one.
 
-No real provider credentials exist in this deployment yet (see docs/
+No real provider credentials exist in this deployment yet (see docs/archive/
 uvalu-auth-implementation-plan.md's Phase 1 and Auth GUI Impact.dc.html) — the
 whole point of is_configured() is that every caller here already degrades
 gracefully to "not configured" rather than assuming Google is live.

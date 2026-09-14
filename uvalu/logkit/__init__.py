@@ -3,7 +3,7 @@
 Structured JSON logs to a colorized terminal + a rotating local file, one config
 file (``logging.config.json``), correlation ids propagated into background
 threads, secret/PII redaction, sampling, and recurring-error grouping. See
-``docs/logging.md`` for the record schema and ``docs/logging-implementation-plan.md``
+``docs/logging.md`` for the record schema and ``docs/archive/logging-implementation-plan.md``
 for the rollout.
 
 Phase 0 wires the pipeline and the ``app.py`` boot hooks; individual call sites

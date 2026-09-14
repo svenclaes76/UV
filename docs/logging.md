@@ -4,7 +4,7 @@ uvalu logs through **`uvalu/logkit/`** — structured JSON to a colorized
 terminal and a rotating local file, driven by one config file
 (`logging.config.json`). This page is the reference for the record schema, what
 is and isn't logged, and the operational decisions. The phased rollout lives in
-[logging-implementation-plan.md](logging-implementation-plan.md); the config-key
+[archive/logging-implementation-plan.md](archive/logging-implementation-plan.md); the config-key
 table is in [configuration.md](configuration.md#logging).
 
 > **Status:** Phases 0–4 are in place — the pipeline plus auth/authz events,

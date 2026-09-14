@@ -4,10 +4,12 @@
 
 ### Registration and login
 
-On first launch, navigate to the app's URL and register an account with your
-email and a password. The first account created is automatically assigned
-the **Admin** role; every subsequent account defaults to **Analyst** unless
-an admin invites them with a different role.
+Uvalu is invite-only — there's no open sign-up form. An Admin invites you
+from the Admin portal's Users tab, sending you a one-time link to set your
+password (or connect Google/Microsoft, where configured); the invited role
+determines what you can do (below). See
+[support-manual.md](support-manual.md) if you're setting up a brand-new
+deployment and need to create the very first account.
 
 Roles: **Admin** (full access + the Admin portal), **Analyst** (full
 read/write access), **Viewer** (read-only — Buy/Sell/Edit/Add-dividend
