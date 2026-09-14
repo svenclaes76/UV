@@ -98,6 +98,7 @@ All user data is stored locally and never sent to a third party:
 | Document | Description |
 |---|---|
 | [docs/user-guide.md](docs/user-guide.md) | Feature walkthrough for end users |
+| [docs/support-manual.md](docs/support-manual.md) | Admin/support procedures — creating accounts, lockouts, backups |
 | [docs/architecture.md](docs/architecture.md) | Codebase structure and data flow |
 | [docs/configuration.md](docs/configuration.md) | All settings, env vars, and constants |
 | [docs/stock_valuation_algorithm.md](docs/stock_valuation_algorithm.md) | 6-stage valuation pipeline with formulas |
