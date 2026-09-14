@@ -160,6 +160,15 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     return True, "Account created. You can now log in."
 
 
+def no_users_exist() -> bool:
+    """True if the user store has no accounts at all — a genuinely fresh
+    install. Used by uvalu/authgate.py's auth_wall() to show a first-admin
+    setup screen instead of the normal sign-in form, so a fresh instance
+    with no ADMIN_EMAIL/ADMIN_PASSWORD configured still has a working path
+    to create an account from the login screen itself."""
+    return not _load_users()
+
+
 def bootstrap_admin_from_env() -> tuple[bool, str] | None:
     """If the user store is empty and both ADMIN_EMAIL/ADMIN_PASSWORD are set
     in the environment, create that account — register()'s own "first
@@ -167,11 +176,12 @@ def bootstrap_admin_from_env() -> tuple[bool, str] | None:
     non-empty, or the env vars aren't both set — ADMIN_EMAIL alone logs a
     warning and skips, rather than generating a password with no channel to
     surface it on a fresh headless deployment). Called once at app boot
-    (app.py), before auth_wall() — the only way left to create an account on
-    a fresh instance now that the sign-in wall is invite-only (see
-    uvalu/authgate.py). scripts/create_admin.py is the break-glass CLI
-    equivalent for an instance that already has accounts but no working
-    Admin."""
+    (app.py), before auth_wall() — the preferred way to seed a headless/CI
+    deployment non-interactively. For an interactive fresh install with no
+    env vars set, auth_wall()'s own first-admin setup screen (gated on
+    no_users_exist(), above) covers the same case from the login screen.
+    scripts/create_admin.py is the break-glass CLI equivalent for an
+    instance that already has accounts but no working Admin."""
     if _load_users():
         return None
     email = os.environ.get("ADMIN_EMAIL", "").strip()

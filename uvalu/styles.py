@@ -1049,6 +1049,15 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
+  /* ── Settings page — centered, width-capped column matching Uvalu.dc.html's
+     own Settings frame (`max-width:920px;margin:0 auto`). The app's global
+     block-container rule above is deliberately full-width for pages like
+     Screener/Dashboard that need table space; Settings has no tables and
+     without this override its rows stretched edge-to-edge on a wide window
+     (label pinned far left, control pinned far right, large dead gap between
+     them) instead of the design's tightly grouped card rows. */
+  .st-key-set_root { max-width: 920px !important; margin: 0 auto !important; }
+
   /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
      panel per section (uppercase header row, then flat hairline-divided
@@ -1401,6 +1410,14 @@ GLOBAL_CSS = """
   .uv-login-ring {
     position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
   }
+  /* Provider-button list (Continue with Google/Microsoft) — pin the gap
+     between entries to the design's 10px (Uvalu Auth.dc.html frame 01's
+     `gap:10px` flex column) instead of Streamlit's larger default
+     inter-element spacing. Substring selector: _render_provider_buttons()
+     is called with a different key_prefix per screen (login_provider,
+     login_locked_provider, invite_accept_provider), each producing its own
+     "..._list" keyed container. */
+  [class*="_provider_list"] { gap: 10px !important; }
   .st-key-uv_login_right div[data-testid="stTextInput"] label p {
     font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--faint) !important; font-weight: 400 !important;

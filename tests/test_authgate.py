@@ -225,6 +225,7 @@ class TestAuthWall:
         assert at.session_state["user_email"] == "first@example.com"
 
     def test_no_session_shows_login_form_and_stops(self):
+        auth.register("first@example.com", "password123")
         at = _run_auth_wall()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert len(at.text) == 0
@@ -232,12 +233,14 @@ class TestAuthWall:
         assert any(b.label == "Sign in" for b in at.button)
 
     def test_expired_or_invalid_token_falls_back_to_login_form(self):
+        auth.register("first@example.com", "password123")
         at = _run_auth_wall({"jwt_token": "garbage"})
         assert not at.exception, [str(e.value) for e in at.exception]
         assert len(at.text) == 0
         assert any(b.label == "Sign in" for b in at.button)
 
     def test_empty_submission_shows_validation_error(self):
+        auth.register("first@example.com", "password123")
         at = _run_auth_wall()
         submit = [b for b in at.button if b.label == "Sign in"][0]
         submit.click().run()
@@ -273,6 +276,7 @@ class TestAuthWall:
         # both providers render as inert "NOT CONFIGURED" markdown, not a
         # real st.button (see tests/test_oauth.py for the is_configured()
         # logic itself).
+        auth.register("first@example.com", "password123")
         at = _run_auth_wall()
         assert not any(b.label == "Continue with Google" for b in at.button)
         assert not any(b.label == "Continue with Microsoft Entra ID" for b in at.button)
@@ -280,6 +284,67 @@ class TestAuthWall:
         assert "Continue with Google" in html
         assert "Continue with Microsoft Entra ID" in html
         assert html.count("NOT CONFIGURED") == 2
+
+
+class TestFirstAdminSetupScreen:
+    """A genuinely empty user store (no accounts, no ADMIN_EMAIL/ADMIN_PASSWORD
+    bootstrap) used to leave the login wall showing only the invite-only sign-in
+    form -- a dead end with no way to create the very first account. auth_wall()
+    now renders a dedicated setup screen instead whenever auth.no_users_exist()."""
+
+    def test_empty_store_shows_setup_form_instead_of_sign_in(self):
+        at = _run_auth_wall()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(at.text_input) == 2
+        assert any(b.label == "Create admin account" for b in at.button)
+        assert not any(b.label == "Sign in" for b in at.button)
+        html = "".join(m.value for m in at.markdown)
+        assert "Create the first admin account" in html
+
+    def test_submitting_creates_admin_and_signs_in(self):
+        at = _run_auth_wall()
+        at.text_input[0].set_value("boss@example.com")
+        at.text_input[1].set_value("bootstrap-password123")
+        submit = [b for b in at.button if b.label == "Create admin account"][0]
+        submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.session_state["user_email"] == "boss@example.com"
+        assert at.session_state["user_role"] == "Admin"
+        assert "jwt_token" in at.session_state
+        assert auth._load_users()["boss@example.com"]["role"] == "Admin"
+
+    def test_invalid_email_shows_error_and_store_stays_empty(self):
+        at = _run_auth_wall()
+        at.text_input[0].set_value("not-an-email")
+        at.text_input[1].set_value("bootstrap-password123")
+        submit = [b for b in at.button if b.label == "Create admin account"][0]
+        at = submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "valid email" in html.lower()
+        assert auth._load_users() == {}
+
+    def test_short_password_shows_error_and_store_stays_empty(self):
+        at = _run_auth_wall()
+        at.text_input[0].set_value("boss@example.com")
+        at.text_input[1].set_value("short")
+        submit = [b for b in at.button if b.label == "Create admin account"][0]
+        at = submit.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "at least 8 characters" in html.lower()
+        assert auth._load_users() == {}
+
+    def test_second_account_no_longer_sees_setup_screen(self):
+        # Once any account exists (including one created via this very
+        # screen), auth_wall() falls back to the normal invite-only sign-in
+        # form for the next unauthenticated visitor.
+        auth.register("boss@example.com", "bootstrap-password123")
+        at = _run_auth_wall()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Create the first admin account" not in html
+        assert any(b.label == "Sign in" for b in at.button)
 
 
 class TestAuthWallLockout:
@@ -381,6 +446,7 @@ authgate.handle_logout()
     def test_auth_wall_logs_session_revoked(self, caplog, scenario, reason):
         caplog.set_level(_logging.DEBUG, logger="uvalu")
         if scenario == "garbage":
+            auth.register("first@example.com", "password123")
             state = {"jwt_token": "garbage"}
         else:
             auth.register("first@example.com", "password123")
@@ -676,6 +742,7 @@ class TestOAuthResolution:
         assert "jwt_token" in at.session_state
 
     def test_unknown_identity_with_no_pending_invite_shows_refusal(self, monkeypatch):
+        auth.register("admin@example.com", "password123")
         monkeypatch.setattr(st, "user", FakeUser(
             True, iss="https://accounts.google.com", sub="sub-999", email="stranger@example.com"))
         at = _run_auth_wall()
@@ -713,6 +780,7 @@ class TestOAuthResolution:
         # Simulates a later rerun in the same browser OIDC session -- the
         # identity is still there (st.user persists) but oauth_login()
         # shouldn't fire a second time and mint a redundant session.
+        auth.register("admin@example.com", "password123")
         monkeypatch.setattr(st, "user", FakeUser(
             True, iss="https://accounts.google.com", sub="sub-999", email="stranger@example.com"))
         at = _run_auth_wall({"uv_oauth_handled": True})
@@ -724,6 +792,7 @@ class TestOAuthResolution:
 
 class TestOAuthRefusalScreen:
     def test_back_to_sign_in_clears_refusal_and_shows_form_again(self, monkeypatch):
+        auth.register("admin@example.com", "password123")
         signed_out = {"called": False}
         monkeypatch.setattr(oauth, "sign_out", lambda: signed_out.__setitem__("called", True))
         at = _run_auth_wall({"uv_oauth_refused": {"email": "stranger@example.com", "label": "Google",
