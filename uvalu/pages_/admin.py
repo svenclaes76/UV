@@ -358,164 +358,171 @@ def _render_security() -> None:
     st.caption("Workspace-wide authentication policy — applies to every account, not just this one.")
     _shared = load_shared_settings()
 
-    # ── Password policy ────────────────────────────────────────────────────
-    with st.container(key="admin_sec_card_password", border=True):
-        _sec_row_header("Password policy")
-        with st.container(key="admin_sec_row_minlen"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Minimum password length", "Applies to every new password — invite "
-                              "acceptance, admin resets, and self-service changes.")
-            with _c2:
-                _min_len = st.slider("Minimum password length", 8, 20,
-                                     int(_shared.get("min_password_length", 12)),
-                                     key="admin_sec_min_len", label_visibility="collapsed")
-        with st.container(key="admin_sec_row_breach"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Block breached passwords", "Checked against Have I Been Pwned by hash "
-                              "prefix — the password never leaves this server.")
-            with _c2:
-                _block_breach = st.toggle("Block breached passwords",
-                                          value=bool(_shared.get("block_breached_passwords", True)),
-                                          key="admin_sec_block_breach", label_visibility="collapsed")
-
-        if (int(_min_len) != int(_shared.get("min_password_length", 12))
-                or bool(_block_breach) != bool(_shared.get("block_breached_passwords", True))):
-            _shared["min_password_length"] = int(_min_len)
-            _shared["block_breached_passwords"] = bool(_block_breach)
-            save_shared_settings(_shared)
-            st.rerun()
-
-    # ── Two-factor authentication ──────────────────────────────────────────
-    with st.container(key="admin_sec_card_mfa", border=True):
-        _sec_row_header("Two-factor authentication")
-        with st.container(key="admin_sec_row_require_mfa"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Require 2FA", "Who must enroll in an authenticator app before they can "
-                              "sign in with a password.")
-            with _c2:
-                _require_mfa = st.segmented_control(
-                    "Require 2FA", options=["Off", "Admins", "Everyone"],
-                    default=str(_shared.get("require_mfa", "Admins")), label_visibility="collapsed",
-                    key="admin_sec_require_mfa", width="stretch")
-        with st.container(key="admin_sec_row_grace"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Grace period", "How long a newly-required account can still sign in "
-                              "before enrolling. Not yet enforced — display only.")
-            with _c2:
-                _cur_grace = str(_shared.get("mfa_grace_days", "7 d"))
-                _grace = st.segmented_control(
-                    "Grace period", options=_MFA_GRACE_OPTS,
-                    default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 d",
-                    label_visibility="collapsed", key="admin_sec_grace", width="stretch")
-
-        if ((_require_mfa and _require_mfa != _shared.get("require_mfa", "Admins"))
-                or (_grace and _grace != _shared.get("mfa_grace_days", "7 d"))):
-            _shared["require_mfa"] = _require_mfa or _shared.get("require_mfa", "Admins")
-            _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 d")
-            save_shared_settings(_shared)
-            st.rerun()
-
-    # ── Rate limiting & sessions ────────────────────────────────────────────
-    with st.container(key="admin_sec_card_ratelimit", border=True):
-        _sec_row_header("Rate limiting &amp; sessions")
-        with st.container(key="admin_sec_row_attempts"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Attempts before lock", "Failed password attempts on one account before "
-                              "it locks.")
-            with _c2:
-                _attempts = st.slider("Attempts before lock", 3, 10,
-                                      int(_shared.get("login_attempts_before_lock", 5)),
-                                      key="admin_sec_attempts", label_visibility="collapsed")
-        with st.container(key="admin_sec_row_lockmin"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Lock duration", "How long an account stays locked once triggered.")
-            with _c2:
-                _lock_min = st.slider("Lock duration (minutes)", 5, 60,
-                                      int(_shared.get("lock_minutes", 15)), step=5,
-                                      key="admin_sec_lock_min", label_visibility="collapsed")
-        with st.container(key="admin_sec_row_session_ttl"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Session lifetime", "How long a signed-in session stays valid before "
-                              "requiring another sign-in.")
-            with _c2:
-                _cur_ttl = str(_shared.get("session_ttl", "24 h"))
-                _ttl = st.segmented_control(
-                    "Session lifetime", options=_SESSION_TTL_OPTS,
-                    default=_cur_ttl if _cur_ttl in _SESSION_TTL_OPTS else "24 h",
-                    label_visibility="collapsed", key="admin_sec_session_ttl", width="stretch")
-
-        if (int(_attempts) != int(_shared.get("login_attempts_before_lock", 5))
-                or int(_lock_min) != int(_shared.get("lock_minutes", 15))
-                or (_ttl and _ttl != _shared.get("session_ttl", "24 h"))):
-            _shared["login_attempts_before_lock"] = int(_attempts)
-            _shared["lock_minutes"] = int(_lock_min)
-            _shared["session_ttl"] = _ttl or _shared.get("session_ttl", "24 h")
-            save_shared_settings(_shared)
-            st.rerun()
-
-    # ── Identity providers ──────────────────────────────────────────────────
-    with st.container(key="admin_sec_card_providers", border=True):
-        _sec_row_header("Identity providers")
-        for _p in oauth.configured_providers():
-            with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
+    # Content column only, matching the design's own "Same shell as above.
+    # Content column only, shown here without the chrome" caption on its
+    # Admin → Security frame (Uvalu Auth.dc.html) — capped width so rows
+    # don't stretch edge-to-edge on a wide window, unlike Users/Data feeds/
+    # Backups (tables on those tabs legitimately want the full width, so
+    # the outer admin_root container is deliberately left untouched).
+    with st.container(key="admin_sec_root"):
+        # ── Password policy ────────────────────────────────────────────────────
+        with st.container(key="admin_sec_card_password", border=True):
+            _sec_row_header("Password policy")
+            with st.container(key="admin_sec_row_minlen"):
                 _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                 with _c1:
-                    _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
-                                  else "Not configured — add credentials to secrets.toml.")
+                    _sec_row_title("Minimum password length", "Applies to every new password — invite "
+                                  "acceptance, admin resets, and self-service changes.")
                 with _c2:
-                    _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
-                        else ("var(--line-2)", "var(--faint)")
-                    st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
-                               f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
-                               f'{"Configured" if _p["configured"] else "Not configured"}</span>',
-                               unsafe_allow_html=True)
+                    _min_len = st.slider("Minimum password length", 8, 20,
+                                         int(_shared.get("min_password_length", 12)),
+                                         key="admin_sec_min_len", label_visibility="collapsed")
+            with st.container(key="admin_sec_row_breach"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Block breached passwords", "Checked against Have I Been Pwned by hash "
+                                  "prefix — the password never leaves this server.")
+                with _c2:
+                    _block_breach = st.toggle("Block breached passwords",
+                                              value=bool(_shared.get("block_breached_passwords", True)),
+                                              key="admin_sec_block_breach", label_visibility="collapsed")
 
-        with st.container(key="admin_sec_row_autoprov"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
-                              "sign-in from an allowed domain below, instead of requiring an invite first.")
-            with _c2:
-                _auto_prov = st.toggle("Auto-provision new accounts",
-                                       value=bool(_shared.get("auto_provision_oauth", False)),
-                                       key="admin_sec_auto_prov", label_visibility="collapsed")
+            if (int(_min_len) != int(_shared.get("min_password_length", 12))
+                    or bool(_block_breach) != bool(_shared.get("block_breached_passwords", True))):
+                _shared["min_password_length"] = int(_min_len)
+                _shared["block_breached_passwords"] = bool(_block_breach)
+                save_shared_settings(_shared)
+                st.rerun()
 
-        with st.container(key="admin_sec_row_domains"):
-            _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
-            _domains_txt = st.text_input(
-                "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
-                value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
+        # ── Two-factor authentication ──────────────────────────────────────────
+        with st.container(key="admin_sec_card_mfa", border=True):
+            _sec_row_header("Two-factor authentication")
+            with st.container(key="admin_sec_row_require_mfa"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Require 2FA", "Who must enroll in an authenticator app before they can "
+                                  "sign in with a password.")
+                with _c2:
+                    _require_mfa = st.segmented_control(
+                        "Require 2FA", options=["Off", "Admins", "Everyone"],
+                        default=str(_shared.get("require_mfa", "Admins")), label_visibility="collapsed",
+                        key="admin_sec_require_mfa", width="stretch")
+            with st.container(key="admin_sec_row_grace"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Grace period", "How long a newly-required account can still sign in "
+                                  "before enrolling. Not yet enforced — display only.")
+                with _c2:
+                    _cur_grace = str(_shared.get("mfa_grace_days", "7 d"))
+                    _grace = st.segmented_control(
+                        "Grace period", options=_MFA_GRACE_OPTS,
+                        default=_cur_grace if _cur_grace in _MFA_GRACE_OPTS else "7 d",
+                        label_visibility="collapsed", key="admin_sec_grace", width="stretch")
 
-        _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
-        if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
-                or _new_domains != _shared.get("allowed_email_domains", [])):
-            _shared["auto_provision_oauth"] = bool(_auto_prov)
-            _shared["allowed_email_domains"] = _new_domains
-            save_shared_settings(_shared)
-            st.rerun()
+            if ((_require_mfa and _require_mfa != _shared.get("require_mfa", "Admins"))
+                    or (_grace and _grace != _shared.get("mfa_grace_days", "7 d"))):
+                _shared["require_mfa"] = _require_mfa or _shared.get("require_mfa", "Admins")
+                _shared["mfa_grace_days"] = _grace or _shared.get("mfa_grace_days", "7 d")
+                save_shared_settings(_shared)
+                st.rerun()
 
-        # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
-        # py_webauthn registration or login exists yet, so there's no real
-        # setting behind this toggle to persist — it's permanently off until
-        # that's built.
-        with st.container(key="admin_sec_row_passkeys"):
-            _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
-            with _c1:
-                _sec_row_title(
-                    'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
-                    'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
-                    'PHASE 3</span>',
-                    "Feature flag. Off until the custom component is verified on real devices.")
-            with _c2:
-                st.toggle("Passkeys", value=False, disabled=True, key="admin_sec_passkeys",
-                         label_visibility="collapsed")
+        # ── Rate limiting & sessions ────────────────────────────────────────────
+        with st.container(key="admin_sec_card_ratelimit", border=True):
+            _sec_row_header("Rate limiting &amp; sessions")
+            with st.container(key="admin_sec_row_attempts"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Attempts before lock", "Failed password attempts on one account before "
+                                  "it locks.")
+                with _c2:
+                    _attempts = st.slider("Attempts before lock", 3, 10,
+                                          int(_shared.get("login_attempts_before_lock", 5)),
+                                          key="admin_sec_attempts", label_visibility="collapsed")
+            with st.container(key="admin_sec_row_lockmin"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Lock duration", "How long an account stays locked once triggered.")
+                with _c2:
+                    _lock_min = st.slider("Lock duration (minutes)", 5, 60,
+                                          int(_shared.get("lock_minutes", 15)), step=5,
+                                          key="admin_sec_lock_min", label_visibility="collapsed")
+            with st.container(key="admin_sec_row_session_ttl"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Session lifetime", "How long a signed-in session stays valid before "
+                                  "requiring another sign-in.")
+                with _c2:
+                    _cur_ttl = str(_shared.get("session_ttl", "24 h"))
+                    _ttl = st.segmented_control(
+                        "Session lifetime", options=_SESSION_TTL_OPTS,
+                        default=_cur_ttl if _cur_ttl in _SESSION_TTL_OPTS else "24 h",
+                        label_visibility="collapsed", key="admin_sec_session_ttl", width="stretch")
+
+            if (int(_attempts) != int(_shared.get("login_attempts_before_lock", 5))
+                    or int(_lock_min) != int(_shared.get("lock_minutes", 15))
+                    or (_ttl and _ttl != _shared.get("session_ttl", "24 h"))):
+                _shared["login_attempts_before_lock"] = int(_attempts)
+                _shared["lock_minutes"] = int(_lock_min)
+                _shared["session_ttl"] = _ttl or _shared.get("session_ttl", "24 h")
+                save_shared_settings(_shared)
+                st.rerun()
+
+        # ── Identity providers ──────────────────────────────────────────────────
+        with st.container(key="admin_sec_card_providers", border=True):
+            _sec_row_header("Identity providers")
+            for _p in oauth.configured_providers():
+                with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
+                    _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                    with _c1:
+                        _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
+                                      else "Not configured — add credentials to secrets.toml.")
+                    with _c2:
+                        _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
+                            else ("var(--line-2)", "var(--faint)")
+                        st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
+                                   f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
+                                   f'{"Configured" if _p["configured"] else "Not configured"}</span>',
+                                   unsafe_allow_html=True)
+
+            with st.container(key="admin_sec_row_autoprov"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
+                                  "sign-in from an allowed domain below, instead of requiring an invite first.")
+                with _c2:
+                    _auto_prov = st.toggle("Auto-provision new accounts",
+                                           value=bool(_shared.get("auto_provision_oauth", False)),
+                                           key="admin_sec_auto_prov", label_visibility="collapsed")
+
+            with st.container(key="admin_sec_row_domains"):
+                _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
+                _domains_txt = st.text_input(
+                    "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
+                    value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
+
+            _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
+            if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
+                    or _new_domains != _shared.get("allowed_email_domains", [])):
+                _shared["auto_provision_oauth"] = bool(_auto_prov)
+                _shared["allowed_email_domains"] = _new_domains
+                save_shared_settings(_shared)
+                st.rerun()
+
+            # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
+            # py_webauthn registration or login exists yet, so there's no real
+            # setting behind this toggle to persist — it's permanently off until
+            # that's built.
+            with st.container(key="admin_sec_row_passkeys"):
+                _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
+                with _c1:
+                    _sec_row_title(
+                        'Passkeys<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
+                        'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
+                        'PHASE 3</span>',
+                        "Feature flag. Off until the custom component is verified on real devices.")
+                with _c2:
+                    st.toggle("Passkeys", value=False, disabled=True, key="admin_sec_passkeys",
+                             label_visibility="collapsed")
 
 
 def _render_feeds() -> None:
@@ -709,6 +716,14 @@ def _admin_shell_css(active: str) -> str:
 .block-container:has(.st-key-admin_root) {{
   padding: 0 !important; max-width: 100% !important;
 }}
+
+/* ── Security tab — centered, width-capped content column, matching the
+   design's own "Same shell as above. Content column only, shown here
+   without the chrome" caption on its Admin → Security frame (Uvalu
+   Auth.dc.html, `max-width:1000px`). Scoped to _render_security()'s own
+   wrapper only — Users/Data feeds/Backups keep the full-bleed width above
+   since their tables legitimately want the room. */
+.st-key-admin_sec_root {{ max-width: 1000px !important; margin: 0 auto !important; }}
 
 .st-key-admin_sidebar {{
   /* A tiny hairline border, per feedback (reversing the previous round's
@@ -1156,31 +1171,35 @@ def _admin_shell_css(active: str) -> str:
   color: var(--muted) !important;
 }}
 
-/* ── Center narrow controls (toggles, status badges) in their own column —
-   sliders and segmented controls already fill the full column width so
-   centering is a no-op for them, but a small toggle or a "Configured"/
+/* ── Right-align narrow controls (toggles, status badges) in their own
+   column — sliders and segmented controls already fill the full column
+   width so this is a no-op for them, but a small toggle or a "Configured"/
    "Not configured" badge just started at the column's left edge by default,
    confirmed live sitting flush against the left with 0px gap on one side
-   and well over half the column empty on the other. Listed by each row's
-   own key rather than a generic "column holds a small widget" selector, so
+   and well over half the column empty on the other. The design (Uvalu
+   Auth.dc.html's "Admin → Security" frame) puts each row's control flush
+   against the row's own right edge via `justify-content:space-between` —
+   not centered — so this pins it there instead. Listed by each row's own
+   key rather than a generic "column holds a small widget" selector, so
    this can't accidentally catch a future wide control added to one of
    these same rows.
-   Two false starts before this, both confirmed live: `display:flex;
-   justify-content:center` on the COLUMN itself had no effect (its one
-   direct child, a Streamlit-generated `stVerticalBlock`, already spans the
-   column's full width on its own, so centering *that* is a no-op — the
-   actual narrow element, a 32px stElementContainer, is nested another
-   level inside it); the same rule on that inner stVerticalBlock ALSO had
-   no effect, because it's a column-direction flex container by default —
-   `justify-content` there centers the (single, vertical) main axis, not
-   the horizontal one. `align-items` is the property that controls the
-   CROSS axis, which is horizontal for a column-direction flex — that's
-   the one that actually moves the toggle. */
+   Two false starts before landing on `align-items`, both confirmed live:
+   `display:flex;justify-content:center` on the COLUMN itself had no effect
+   (its one direct child, a Streamlit-generated `stVerticalBlock`, already
+   spans the column's full width on its own, so justify-content on *that* is
+   a no-op — the actual narrow element, a 32px stElementContainer, is nested
+   another level inside it); the same rule on that inner stVerticalBlock
+   ALSO had no effect, because it's a column-direction flex container by
+   default — `justify-content` there affects the (single, vertical) main
+   axis, not the horizontal one. `align-items` is the property that
+   controls the CROSS axis, which is horizontal for a column-direction
+   flex — that's the one that actually moves the toggle; `flex-end` moves
+   it to the right edge instead of centering it. */
 [class*="st-key-admin_sec_row_breach"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
 [class*="st-key-admin_sec_row_autoprov"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
 [class*="st-key-admin_sec_row_passkeys"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"],
 [class*="st-key-admin_sec_row_provider_"] [data-testid="stColumn"]:nth-child(2) [data-testid="stVerticalBlock"] {{
-  align-items: center !important;
+  align-items: flex-end !important;
 }}
 
 /* ── Feed toggle — recolor Streamlit's default switch to the design's

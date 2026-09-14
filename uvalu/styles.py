@@ -1049,6 +1049,15 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
+  /* ── Settings page — centered, width-capped column matching Uvalu.dc.html's
+     own Settings frame (`max-width:920px;margin:0 auto`). The app's global
+     block-container rule above is deliberately full-width for pages like
+     Screener/Dashboard that need table space; Settings has no tables and
+     without this override its rows stretched edge-to-edge on a wide window
+     (label pinned far left, control pinned far right, large dead gap between
+     them) instead of the design's tightly grouped card rows. */
+  .st-key-set_root { max-width: 920px !important; margin: 0 auto !important; }
+
   /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
      panel per section (uppercase header row, then flat hairline-divided
@@ -1086,19 +1095,43 @@ GLOBAL_CSS = """
   .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
     margin-top: 0 !important;
   }
-  /* Active sessions rows use a per-session dynamic key (set_row_session_<sid>)
-     so there's no single static key to except like set_row_theme above — every
-     row gets margin-top:0 instead, trading the tight hairline-list look (which
-     needs each row's gap cancelled against the one before it) for Streamlit's
-     natural ~16px sibling spacing, which reads fine without dividers between
-     rows of equal weight (no row here is visually "the header row" the way
-     Theme/Currency/Number format read as one unit at the top of Display). */
-  [class*="st-key-set_row_session_"] { margin-top: 0 !important; }
   .st-key-set_row_theme, .st-key-set_row_currency {
     border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-set_row_stoxx, .st-key-set_row_us {
     border-top: 0.5px solid var(--line-2) !important;
+  }
+  /* Security card rows — added after the border rules above were written, so
+     they never got a hairline between them (confirmed live: rows ran
+     together with no divider at all). Matches Uvalu Auth.dc.html frame 10's
+     per-row `border-bottom:0.5px solid var(--line-2)` — every row except the
+     last (Passkeys, which sits flush against the card's own bottom edge, no
+     trailing divider). Backup codes/Trusted devices only render when 2FA is
+     on, but Passkeys is always the true last row regardless, so this list is
+     safe either way. */
+  .st-key-set_row_password, .st-key-set_row_linked, .st-key-set_row_totp,
+  .st-key-set_row_backup_codes, .st-key-set_row_trusted_devices {
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* Active sessions rows — same missing-divider bug, same fix. A per-session
+     dynamic key (set_row_session_<sid>) needs the substring selector, unlike
+     Security's static per-row keys above. This used to deliberately skip
+     both the divider and the sibling-gap cancellation (relying on
+     Streamlit's own ~16px spacing instead) — reversed per direct feedback
+     that the rows need visible dividers, matching Auth.dc.html frame 10's
+     own per-session `border-bottom` (line 412). */
+  [class*="st-key-set_row_session_"] {
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* The generic margin-top:-16px rule above needs the same first-row
+     exception set_row_theme/set_row_password get (else it pulls the first
+     session row up into the "ACTIVE SESSIONS" header) — but there's no
+     single static key to except here. Every child of this card's list IS a
+     session row (nothing else mixed in), so :first-of-type correctly
+     resolves to whichever session happens to render first, without needing
+     to know its sid. */
+  [class*="st-key-set_row_session_"]:first-of-type {
+    margin-top: 0 !important;
   }
   /* Right-align every row's control (segmented control / toggle / select
      slider) instead of it sitting at the left edge of its own stretched
@@ -1133,8 +1166,18 @@ GLOBAL_CSS = """
      3px-gapped segments, the active one lifted with a panel background +
      shadow instead of Streamlit's default edge-to-edge bordered buttons. */
   [class*="st-key-set_row_"] [data-testid="stButtonGroup"] {
-    display: flex !important; gap: 3px !important;
+    display: flex !important; gap: 3px !important; flex-wrap: nowrap !important;
     background: var(--panel-2) !important; border-radius: 8px !important; padding: 3px !important;
+  }
+  /* The actual segment buttons live one level deeper than stButtonGroup
+     itself, in an unstyled/unkeyed inner wrapper div Streamlit generates
+     (confirmed live via its computed style) — that inner div, not
+     stButtonGroup, is what actually has `flex-wrap:wrap`, so the nowrap
+     above alone still let a 4-option row (Screening style, Price refresh
+     interval) wrap onto two lines despite stButtonGroup itself correctly
+     reporting nowrap. */
+  [class*="st-key-set_row_"] [data-testid="stButtonGroup"] > div {
+    flex-wrap: nowrap !important;
   }
   [class*="st-key-set_row_"] [data-testid^="stBaseButton-segmented_control"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
@@ -1154,26 +1197,18 @@ GLOBAL_CSS = """
      reading as cramped/overlapping rather than clean. Left at its natural
      gap (16px sibling gap + this container's own 6px top padding ≈ 22px). */
   .st-key-set_slider_grid { padding: 6px 20px 16px !important; }
-  /* Price refresh interval's select_slider — three fixes for the same
-     control, same as Screener's scr_score_slider/scr_mos_slider:
-     1. The generic "shrink control column to its own content width" rule
-        above assumes a self-sizing control (segmented-control track, toggle
-        switch); a BaseWeb slider has no intrinsic width of its own and just
-        collapses to a 16px sliver (thumb only, no track) under it — give it
-        back an explicit, usable track length.
-     2. Hide the native floating thumb-value bubble (rendered ABOVE the
-        track) and the min/max tick-label row (rendered BELOW it) — left
-        un-hidden, they add ~19px above/~11px below the track's own 40px
-        box, overflowing the row's content envelope on both edges. A custom
-        mono/mint value label above the track (uvalu/pages_/settings.py)
-        replaces what the native bubble showed. */
-  .st-key-set_row_refresh [data-baseweb="slider"] {
-    width: 200px !important; padding-bottom: 0 !important;
-  }
-  .st-key-set_row_refresh [data-testid="stSliderTickBar"],
-  .st-key-set_row_refresh [data-testid="stSliderThumbValue"] {
-    display: none !important;
-  }
+  /* Target allocation — added after this page's card grammar was written and
+     never wired into it (confirmed live: native st.text_area/st.number_input
+     labels + far-right help-icon tooltips instead of this page's own
+     _row_title() header, no side padding on the two-column body, an
+     unstyled default-width Save button). No exact mockup frame covers this
+     card (added after both design references), so this brings it in line
+     with the rest of the page's own row/card conventions instead of a
+     specific pixel spec. */
+  .st-key-set_targets_body { padding: 4px 20px 0 !important; }
+  .st-key-set_targets_hhi { padding: 14px 20px 4px !important; }
+  .st-key-set_targets_hhi [data-testid="stNumberInput"] { max-width: 180px !important; }
+  .st-key-set_targets_save { padding: 6px 20px 18px !important; }
   /* Import & Export — the whole two-column content block had NO horizontal
      padding at all (confirmed live: "Import portfolio" sat 1px from the
      card's own left edge, vs. every other row on this page having a 20px
@@ -1200,8 +1235,27 @@ GLOBAL_CSS = """
      above it (12px horizontal offset). Zero out top+left only — right/
      bottom still give the "200MB per file" caption and the dropzone's own
      box some breathing room, neither was reported as wrong. */
+  /* The dropzone also carries its own default native-theme background
+     (confirmed live: a lighter, mismatched box, not this app's var(--panel)/
+     var(--panel-2)) — same "native chrome leaks through" class of bug fixed
+     elsewhere in this app (e.g. the login screen's provider buttons,
+     uvalu/authgate.py). transparent lets the card's own panel show through
+     instead of painting a second, wrong-toned surface on top of it. */
   .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
     padding-top: 0 !important; padding-left: 0 !important;
+    background: transparent !important; border-color: var(--line) !important;
+  }
+  /* The dropzone section itself is the flex row holding the "Upload" button
+     and the "200MB per file · XLSX" caption as its two direct children (a
+     hidden <input>, a <span> wrapping the button, and a
+     stFileUploaderDropzoneInstructions <div> for the caption — confirmed
+     live via the actual DOM, not a <div> wrapper as first assumed) —
+     Streamlit's own default is align-items:flex-start, which top-aligns
+     them instead of centering, reading as the caption sitting a few px
+     above the button's own vertical center. align-items belongs on this
+     flex container itself, not on one of its children. */
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
+    align-items: center !important;
   }
   /* set_import_body/set_export_body's wrapper under-reports its real
      two-line title+caption content the same way the row columns above do
@@ -1401,6 +1455,14 @@ GLOBAL_CSS = """
   .uv-login-ring {
     position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
   }
+  /* Provider-button list (Continue with Google/Microsoft) — pin the gap
+     between entries to the design's 10px (Uvalu Auth.dc.html frame 01's
+     `gap:10px` flex column) instead of Streamlit's larger default
+     inter-element spacing. Substring selector: _render_provider_buttons()
+     is called with a different key_prefix per screen (login_provider,
+     login_locked_provider, invite_accept_provider), each producing its own
+     "..._list" keyed container. */
+  [class*="_provider_list"] { gap: 10px !important; }
   .st-key-uv_login_right div[data-testid="stTextInput"] label p {
     font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--faint) !important; font-weight: 400 !important;

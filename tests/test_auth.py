@@ -99,6 +99,15 @@ class TestRegister:
         assert "could not be read" in msg
 
 
+class TestNoUsersExist:
+    def test_true_for_a_fresh_store(self):
+        assert auth.no_users_exist()
+
+    def test_false_once_any_account_exists(self):
+        auth.register("someone@example.com", "password123")
+        assert not auth.no_users_exist()
+
+
 class TestBootstrapAdminFromEnv:
     def test_creates_and_promotes_admin_when_store_empty_and_both_vars_set(self, monkeypatch):
         monkeypatch.setenv("ADMIN_EMAIL", "boss@example.com")

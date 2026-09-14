@@ -11,8 +11,8 @@ from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_pa
                   backup_codes_remaining, complete_backup_code_login, complete_password_reset,
                   complete_totp_login, find_pending_invite_by_email, get_lockout,
                   get_pending_invite, get_pending_reset, get_user_status,
-                  is_session_active, login, oauth_login, trust_this_device,
-                  verify_token)
+                  is_session_active, login, no_users_exist, oauth_login, register,
+                  trust_this_device, verify_token)
 from settings import load_shared_settings
 from uvalu import logkit, oauth, shell
 from uvalu.runtime import theme_colors
@@ -250,20 +250,27 @@ def _render_provider_buttons(key_prefix: str) -> None:
     had: Streamlit's disabled-button border follows the REAL native theme
     (confirmed live: `rgb(34,51,78)`, `[theme.dark].borderColor`) rather than
     this app's `var(--line)`, the same "native chrome leaks through" class of
-    bug already fixed twice elsewhere (Admin's search/select boxes)."""
-    for _p in oauth.configured_providers():
-        if _p["configured"]:
-            if st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch"):
-                oauth.start_login(_p["id"])
-        else:
-            st.markdown(
-                f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
-                f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
-                f'border:0.5px dashed var(--line);color:var(--faint);">Continue with {_p["label"]}'
-                f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
-                f'background:var(--line-2);color:var(--faint);">NOT CONFIGURED</span></div>',
-                unsafe_allow_html=True,
-            )
+    bug already fixed twice elsewhere (Admin's search/select boxes).
+
+    Wrapped in its own keyed container so styles.py can pin the gap between
+    entries to the design's 10px (Uvalu Auth.dc.html frame 01's `gap:10px`
+    flex column) instead of Streamlit's larger default inter-element
+    spacing, which read as no deliberate separation between the two
+    buttons."""
+    with st.container(key=f"{key_prefix}_list"):
+        for _p in oauth.configured_providers():
+            if _p["configured"]:
+                if st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch"):
+                    oauth.start_login(_p["id"])
+            else:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
+                    f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
+                    f'border:0.5px dashed var(--line);color:var(--faint);">Continue with {_p["label"]}'
+                    f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
+                    f'background:var(--line-2);color:var(--faint);">NOT CONFIGURED</span></div>',
+                    unsafe_allow_html=True,
+                )
 
 
 def _render_oauth_refused(info: dict) -> None:
@@ -360,6 +367,50 @@ def _render_invite_acceptance(token: str) -> None:
             _render_provider_buttons("invite_accept_provider")
 
 
+def _render_first_admin_setup() -> None:
+    """Shown instead of the normal sign-in form when the user store is
+    completely empty (auth.no_users_exist()) — otherwise a fresh install
+    with no ADMIN_EMAIL/ADMIN_PASSWORD env vars (auth.bootstrap_admin_from_
+    env(), run once at app boot) has no way to create an account at all,
+    since the sign-in wall is invite-only and there's no admin yet to send
+    an invite. register() already promotes the first-ever account to Admin
+    (auth.py) — this only collects email + password and calls it directly.
+    Password-only: oauth_login() requires an existing invited account, so
+    provider-based first-admin creation isn't offered here."""
+    shell.apply_theme_script(theme_colors().effective_light)
+    with st.container(key="uv_login", horizontal=True, gap=None):
+        with st.container(key="uv_login_left"):
+            _render_brand_panel()
+        with st.container(key="uv_login_right"):
+            st.markdown(
+                '<div class="uv-login-heading">Create the first admin account</div>'
+                '<div class="uv-login-subhead">No accounts exist yet. This account gets full Admin '
+                'access — you can invite everyone else once you\'re signed in.</div>',
+                unsafe_allow_html=True,
+            )
+            _min_len = int(load_shared_settings().get("min_password_length", 12))
+            with st.form("first_admin_setup_form", border=False):
+                email = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
+                password = st.text_input("Password", type="password", placeholder="••••••••",
+                                         icon=":material/lock:",
+                                         help=f"At least {_min_len} characters.")
+                submitted = st.form_submit_button("Create admin account", width="stretch", type="primary")
+            if submitted:
+                ok, result = register(email, password)
+                if not ok:
+                    st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+                    _render_strength_caption(password)
+                else:
+                    # The store is no longer empty either way once register()
+                    # succeeds, so on the unlikely chance login() itself fails
+                    # right after, falling through to a rerun just lands on the
+                    # normal sign-in form instead of getting stuck here.
+                    _ok2, _result2 = login(email, password, user_agent=_user_agent())
+                    if _ok2:
+                        _start_session(_result2)
+                    st.rerun()
+
+
 def _render_forgot_password() -> None:
     """There's no self-service password reset — no outbound email exists, so
     the plan's own resolution for this open question is "ask an admin", who
@@ -442,6 +493,15 @@ def auth_wall() -> None:
         st.stop()
     if st.query_params.get("forgot"):
         _render_forgot_password()
+        st.stop()
+
+    # A genuinely empty user store has no session, invite or reset token that
+    # could ever be valid anyway — checked once per rerun (cheap: the same
+    # small local file read every other check here already does), so this
+    # naturally stops showing itself the moment bootstrap_admin_from_env() or
+    # this very screen creates the first account.
+    if no_users_exist():
+        _render_first_admin_setup()
         st.stop()
 
     # Re-verified on every rerun, not cached — a session_state-only "already
