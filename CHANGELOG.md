@@ -9,7 +9,23 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **First-admin setup screen** on the login wall (`auth.no_users_exist()`) — a fresh install with no `ADMIN_EMAIL`/`ADMIN_PASSWORD` configured now gets a working "Create the first admin account" form instead of a dead-end invite-only sign-in screen.
+- `docs/support-manual.md` — step-by-step admin/support procedures (creating accounts, handling lockouts, backups/restore/migration) to complement the existing feature and configuration references.
+
+### Fixed
+
+- Login screen: the Google/Microsoft provider buttons now sit with a deliberate 10px gap instead of Streamlit's default inter-element spacing.
+- Admin → Security: toggles and "Configured"/"Not configured" badges were centered in their column instead of flush right per the design; the whole section also rendered full-bleed instead of the design's centered column.
+- Settings page: rendered full-bleed instead of a centered ~920px column; Security/Active-sessions cards had no row dividers and stretched row-action buttons instead of content-width pills; the 4-option Screening style and Price refresh interval controls wrapped onto two lines inside the now-narrower column; Price refresh interval (converted from a drag slider to a segmented control) visibly resized per selected value; Target allocation used native widget labels/chrome inconsistent with the rest of the page; the Import/Export file-upload dropzone leaked a mismatched native background color instead of blending into the card.
+
+### Docs
+
+- Reorganized `docs/`: 5 completed implementation plans (self-labeled done, shipped per this file's own history) moved to `docs/archive/` with a README explaining what superseded each — `stock_valuation_improvement_plan.md`, `valuation_fv_coverage_plan.md`, `logging-implementation-plan.md`, `uvalu-auth-implementation-plan.md`, `valuation_audit_plan.md`.
+- Fixed every cross-reference to the moved files (across docs, this file, `CONTRIBUTING.md`, and code comments in `tools/`/`uvalu/`/`tests/`) and a wrong claim in `docs/design/README.md` that `uvalu-auth-implementation-plan.md` maps the Auth mockup's 16 frames to the real app — that section doesn't exist; it's the original pre-build proposal, which doesn't even match what shipped.
+- `docs/user-guide.md`'s "Registration and login" section still described open self-service signup, removed by the 1.8.0 auth overhaul — rewritten to describe the actual invite-only flow.
+- README's Documentation table only listed 6 of 14 docs; now lists every living doc plus a pointer to `docs/archive/`.
 
 ---
 
