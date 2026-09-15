@@ -112,15 +112,15 @@ illustrative default. At that pace, expect roughly one meaningful shipped improv
 sprint's one every 1-2 days.
 
 ### Legal structure
-Given "minimum investment, low risk," the recommended default is to **not incorporate yet**. Belgium has a
-lightweight status for exactly this (self-employed as a secondary occupation — *bijberoep zelfstandige*) that
-covers occasional/small income without the overhead v1 assumed (Uvalu BV, Brussels HQ, €10K legal setup budget).
-Incorporate only if a real trigger shows up — e.g., recurring paid revenue that's better held at arm's length
-from personal liability, or a partner/investor who requires it. Until then: no company, no BV, no yearly
-corporate filing burden.
+**Confirmed: staying unincorporated for now.** Given "minimum investment, low risk," Uvalu operates as
+self-employed on the side (Belgium's lightweight status for exactly this — secondary occupation,
+*bijberoep zelfstandige*), not as the v1 plan's Uvalu BV (Brussels HQ, €10K legal setup budget). No company,
+no BV, no yearly corporate filing burden — none of that overhead until a real trigger shows up: recurring
+paid revenue that's better held at arm's length from personal liability, or a partner/investor who requires
+it.
 
-*(This is a default, not a legal opinion — worth 30 minutes with a Belgian accountant once there's real
-revenue, not before.)*
+*(Worth 30 minutes with a Belgian accountant once there's real revenue, to confirm the *bijberoep* filing is
+still the right box to tick — not a reason to wait before starting.)*
 
 ### Tools
 Unchanged from v1 where they're already free/cheap: GitHub (code, issues), the existing self-hosted VPS.
@@ -162,6 +162,9 @@ Everything already shipped stays — it's built, tested, and useful:
 ---
 
 ## 5. Who It's For
+
+**Confirmed current state**: today, the user base is literally just you — no existing testers or wider
+audience to account for. Everything below starts from that honest baseline.
 
 - **Primary**: you. The tool's job is to make your own European value-investing decisions better and faster.
 - **Secondary (optional, invite-only)**: a small circle — friends, ex-colleagues, people from investing
