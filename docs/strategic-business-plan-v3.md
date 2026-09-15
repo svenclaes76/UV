@@ -295,6 +295,7 @@ In order:
 ## Related Documents
 - [v2 strategic plan (current, default mode)](strategic-business-plan-v2.md) — solo, free-time, zero-pressure;
   this is where you stay unless/until Phase 0's demand signal shows up.
+- [2026-2027 Roadmap](roadmap-2026-2027.md) — the dated, concrete execution plan for Phase 0/1 of this document.
 - [v1 strategic plan (superseded, but source for market/GTM detail)](strategic-business-plan.md)
 - [Stock Valuation Algorithm](stock_valuation_algorithm.md)
 - [Portfolio Risk Assessment Algorithm](portfolio_risk_assessment_algorithm.md)

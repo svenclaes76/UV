@@ -305,6 +305,8 @@ default, this can be paused, slowed, sped up, or shelved at any point without ow
   plan replaces as the active strategy.
 - [v3 strategic plan (full-time escalation path)](strategic-business-plan-v3.md) — switch to this deliberately
   if demand ever justifies going full-time; not active by default.
+- [2026-2027 Roadmap](roadmap-2026-2027.md) — concrete, dated objectives that work within this plan's
+  constraints while building toward v3's Phase 0.
 - [Stock Valuation Algorithm](stock_valuation_algorithm.md)
 - [Portfolio Risk Assessment Algorithm](portfolio_risk_assessment_algorithm.md)
 - [Architecture Overview](architecture.md)
