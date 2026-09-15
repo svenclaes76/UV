@@ -3,8 +3,6 @@
 
 ---
 
----
-
 ## Table of Contents
 1. [Executive Summary](#1-executive-summary)
 2. [Business Overview](#2-business-overview)
@@ -16,8 +14,8 @@
 8. [Financial Plan](#8-financial-plan)
 9. [Risk Analysis](#9-risk-analysis)
 10. [Implementation Roadmap](#10-implementation-roadmap)
-
----
+11. [Appendices](#appendices)
+12. [Conclusion](#conclusion)
 
 ---
 
@@ -49,10 +47,12 @@ Become the **#1 value-investing platform for European retail investors** by 2029
 | Metric | Year 1 (2027) | Year 2 (2028) | Year 3 (2029) |
 |--------|---------------|---------------|---------------|
 | **Users** | 10,000 | 50,000 | 200,000 |
-| **Revenue (€)** | €240K | €1.2M | €5M |
+| **Revenue (€)** | €432K | €2.7M | €13.0M |
 | **Gross Margin** | 85% | 88% | 90% |
-| **Burn Rate** | €100K | €250K | €500K |
-| **Break-even** | Q2 2028 | Q1 2029 | Profitable |
+| **Burn Rate** | €132K | €250K | €500K* |
+| **Break-even** | Pre-breakeven | Q2 2028 ✓ | Profitable |
+
+*\*2028/2029 "burn" reflects planned reinvestment in growth (hiring, marketing, infra) on top of an already-profitable P&L, not an operating deficit — see [Section 8](#8-financial-plan).*
 
 ### Current Status (September 2026)
 - **Product**: Live (v1.9.0), stable, feature-complete MVP
@@ -60,8 +60,6 @@ Become the **#1 value-investing platform for European retail investors** by 2029
 - **Revenue**: Early adopters, pre-monetization
 - **Team**: 2 founders (CTO + CEO)
 - **Infrastructure**: Self-hosted cloud (VPS)
-
----
 
 ---
 
@@ -94,8 +92,6 @@ Uvalu provides:
 - 8-stage risk assessment (Concentration, Volatility, VaR, Factor Exposure, Stress Tests, Monte Carlo)
 - Secure cloud platform (Encrypted at rest, no data sharing)
 - Freemium model (Free tier for screening, paid for advanced features)
-
----
 
 ---
 
@@ -132,7 +128,7 @@ Uvalu provides:
 | Transparent methodology | Limited marketing budget |
 | Secure cloud platform | Small team (scalability risk) |
 | Multi-model engine | No mobile app (yet) |
-| Open-source roots (trust) | Dependency on yfinance (data) |
+| Proprietary fair-value engine (defensible moat) | Dependency on yfinance (data) |
 
 | **Opportunities** | **Threats** |
 |-------------------|-------------|
@@ -151,8 +147,6 @@ Uvalu provides:
    - 85% of retail investors comfortable with **secure cloud tools** (2026 Statista)
 4. **Value Investing Resurgence**
    - Post-2022: **40% increase** in value fund inflows (Morningstar)
-
----
 
 ---
 
@@ -181,8 +175,8 @@ Uvalu provides:
 | **Database** | PostgreSQL (Cloud) | ACID-compliant, scalable |
 | **Auth** | JWT + bcrypt | Secure, stateless |
 | **Encryption** | AES-256 (Fernet) | FIPS-compliant, secure |
-| **Cloud Provider** | AWS (Frankfurt region) | GDPR-compliant, scalable |
-| **Deployment** | Docker + Kubernetes | Scalable, resilient |
+| **Cloud Provider** | Self-hosted VPS (EU-based) | Low fixed cost at current scale, GDPR-compliant hosting; AWS Frankfurt migration planned once user volume requires managed scaling (see [Roadmap](#10-implementation-roadmap)) |
+| **Deployment** | Docker Compose (single VPS) | Kubernetes planned post-AWS migration for auto-scaling/resilience |
 | **CI/CD** | GitHub Actions | Automated testing, releases |
 | **Monitoring** | Sentry + Prometheus | Observability, alerts |
 
@@ -198,9 +192,7 @@ Uvalu provides:
 ### Intellectual Property
 - **Trademark**: "Uvalu" (EU)
 - **Copyright**: All code, documentation, branding
-- **Open Source**: Core engine (MIT License) to build trust
-
----
+- **Proprietary Engine**: Fair value models and veto rules stay closed-source — they are the core competitive moat (see [Key Differentiators](#1-executive-summary)); trust is built through documented, transparent *methodology* instead (see [Docs](docs/stock_valuation_algorithm.md))
 
 ---
 
@@ -232,6 +224,8 @@ Uvalu provides:
 
 **Target LTV:CAC Ratio**: **5:1** (Industry benchmark: 3:1)
 
+*€288 LTV = 2027 ARPU (€12/mo) ÷ 25% annual churn. LTV rises with ARPU and falling churn in later years — see [Section 8's Key Financial Metrics](#8-financial-plan) (€360 in 2028, €432 in 2029).*
+
 ### Churn & Retention
 | Metric | Target | Industry Avg. |
 |--------|--------|---------------|
@@ -239,8 +233,6 @@ Uvalu provides:
 | **Annual Churn** | 25% | 40-60% |
 | **Retention (12M)** | 60% | 40% |
 | **NPS** | 50+ | 30-40 |
-
----
 
 ---
 
@@ -294,8 +286,6 @@ Uvalu provides:
 
 ---
 
----
-
 ## 7. Operations Plan
 
 ### Development Workflow
@@ -306,27 +296,34 @@ Uvalu provides:
   - Figma (Design)
   - Notion (Documentation)
 
-### Infrastructure (Cloud-Based)
-| Component | Provider | Cost (Monthly, 2027) | Cost (Monthly, 2028) |
-|-----------|----------|---------------------|---------------------|
-| **Hosting** | AWS (Frankfurt) | €500 | €2,000 |
-| **Database** | AWS RDS (PostgreSQL) | €200 | €800 |
-| **Storage** | AWS S3 (Encrypted) | €50 | €200 |
-| **CI/CD** | GitHub Actions | €0 (Free tier) | €100 |
-| **Monitoring** | Sentry + Prometheus | €100 | €300 |
-| **Email** | SendGrid | €20 | €50 |
-| **Total** | | **€870** | **€3,450** |
+### Infrastructure (Current vs. Planned)
+**Current (2026)**: Single self-hosted VPS (EU-based), PostgreSQL and app on the same host — low fixed cost, sufficient for ~5,000 active users. Exact cost is a placeholder below pending real invoices; treat as directional.
+
+| Component | Provider | Cost (Monthly, Current 2026, est.) | Cost (Monthly, 2027, post-AWS migration) | Cost (Monthly, 2028) |
+|-----------|----------|--------------------------------------|-------------------------------------------|---------------------|
+| **Hosting** | VPS → AWS (Frankfurt) | ~€60 | €500 | €2,000 |
+| **Database** | Same VPS → AWS RDS (PostgreSQL) | (included above) | €200 | €800 |
+| **Storage** | VPS disk → AWS S3 (Encrypted) | (included above) | €50 | €200 |
+| **CI/CD** | GitHub Actions | €0 (Free tier) | €0 (Free tier) | €100 |
+| **Monitoring** | Sentry (free tier) → Sentry + Prometheus | €0 | €100 | €300 |
+| **Email** | SendGrid | €20 | €20 | €50 |
+| **Total** | | **~€80** | **€870** | **€3,450** |
 
 ### Team Structure
+Matches the Year 1 / Year 2 hiring plan in [Business Overview](#2-business-overview) (3 hires in 2027, 5 more in 2028).
+
 | Role | Responsibilities | Hire Date |
 |------|------------------|-----------|
 | **CEO** | Strategy, fundraising, partnerships | Now |
 | **CTO** | Product, engineering, architecture | Now |
-| **Backend Dev** | Core engine, API, data pipelines | Q1 2027 |
+| **Backend Dev (1)** | Core engine, API, data pipelines | Q1 2027 |
 | **Frontend Dev** | Streamlit, UI/UX, mobile | Q1 2027 |
 | **Growth Marketer** | SEO, ads, partnerships | Q2 2027 |
-| **Data Scientist** | Model improvements, analytics | Q3 2027 |
-| **Support** | Customer support, community | Q4 2027 |
+| **Backend Dev (2)** | Scaling, infra migration | Q1 2028 |
+| **Backend Dev (3)** | Scaling, infra migration | Q2 2028 |
+| **Data Scientist** | Model improvements, analytics | Q2 2028 |
+| **Support** | Customer support, community | Q3 2028 |
+| **Marketing** | Brand, content, campaigns | Q3 2028 |
 
 ### Key Processes
 1. **Feature Development**:
@@ -342,14 +339,12 @@ Uvalu provides:
 
 ---
 
----
-
 ## 8. Financial Plan
 
 ### Startup Costs (2026-2027)
 | Category | Cost (€) |
 |----------|----------|
-| **Legal (Registration, Trademarks, GDPR)** | 10,000 |
+| **Legal (Registration, Trademarks, GDPR, EU VAT/OSS setup for cross-border B2C billing)** | 10,000 |
 | **Cloud Infrastructure (First Year)** | 10,000 |
 | **Design (Logo, Branding, UI/UX)** | 5,000 |
 | **Development (Contractors, Mobile App)** | 30,000 |
@@ -362,12 +357,14 @@ Uvalu provides:
 |--------|------|------|------|
 | **Users (Free)** | 7,000 | 35,000 | 140,000 |
 | **Users (Paid)** | 3,000 | 15,000 | 60,000 |
-| **ARPU (Monthly)** | €12 | €15 | €18 |
+| **ARPU (Monthly, per paying user)** | €12 | €15 | €18 |
 | **Revenue (€)** | €432K | €2.7M | €12.96M |
 | **Gross Margin** | 85% | 88% | 90% |
-| **Operating Costs** | €300K | €800K | €2M |
+| **Operating Costs** | €499K | €1.28M | €2.36M |
 | **Net Profit** | **(€132K)** | **€1.1M** | **€9.3M** |
-| **Cash Burn** | €100K | €250K | €500K |
+| **Cash Burn** | €132K | €250K* | €500K* |
+
+*Operating Costs above include salaries, marketing/CAC spend, and infra — not just the cloud hosting line in [Section 7](#7-operations-plan). \*2028/2029 Cash Burn reflects planned reinvestment beyond the accounting profit shown (common for growth-stage SaaS), not a deficit.*
 
 ### Funding Requirements
 | Round | Amount (€) | Use of Funds | Timeline |
@@ -385,13 +382,11 @@ Uvalu provides:
 | **MRR Growth** | 25% | 40% | 50% |
 
 ### Break-Even Analysis
-- **Monthly Burn Rate**: €25K (2027), €70K (2028)
-- **Users Needed for Break-Even**:
-  - **2027**: ~2,100 paid users (€25K MRR)
-  - **2028**: ~4,700 paid users (€70K MRR)
+- **Monthly Operating Cost**: ~€42K (2027), ~€107K (2028)
+- **Paid Users Needed for Break-Even** (at blended monthly ARPU):
+  - **2027**: ~3,500 paid users (€42K MRR ÷ €12 ARPU) — projected 2027 paid users (3,000) falls short, consistent with the 2027 net loss above
+  - **2028**: ~7,100 paid users (€107K MRR ÷ €15 ARPU) — reached partway through the year on the 15,000-paid-user trajectory
 - **Expected Break-Even**: **Q2 2028**
-
----
 
 ---
 
@@ -402,6 +397,7 @@ Uvalu provides:
 |------|-------------|--------|------------|
 | **Low Adoption** | Medium | High | Aggressive marketing, partnerships |
 | **Competition** | High | Medium | Differentiate (EU focus, transparency) |
+| **Investment-Advice Classification (MiFID II)** | Medium | Critical | BUY/AVOID decisions and fair-value estimates risk being classified as regulated investment advice today, not just under a future "MiFID III." Needs an explicit legal position now: either (a) clear "informational only, not advice" disclaimers + ToS review with an EU financial-services lawyer, or (b) registering under the relevant national light-touch regime before monetization launches in Q1 2027 |
 | **Regulatory Changes** | Medium | High | Legal compliance, early engagement with EU regulators |
 | **Data Provider Issues** | Medium | High | Multi-source fallback, caching, direct data feeds |
 | **Technical Downtime** | Low | High | Redundant hosting, monitoring, SLA guarantees |
@@ -421,8 +417,6 @@ Uvalu provides:
 | **Economic Downturn** | Medium | Medium | Freemium model, essential features, cost optimization |
 | **Shift to Passive Investing** | Low | Medium | Education on active value investing, performance tracking |
 | **Privacy Regulation (GDPR)** | Medium | High | Cloud-first with GDPR compliance, data processing agreements |
-
----
 
 ---
 
@@ -473,8 +467,6 @@ Uvalu provides:
 - [ ] Advanced risk models
 - [ ] Automated portfolio rebalancing
 - [ ] Profitability
-
----
 
 ---
 
@@ -534,10 +526,8 @@ Uvalu provides:
 
 ---
 
----
-
 ## Conclusion
-Uvalu.app is positioned to **disrupt the European retail investing space** by offering a **transparent, EU-focused, secure cloud-based** alternative to bloated, US-centric, or black-box tools. With a **strong technical foundation**, **clear differentiation**, and a **scalable business model**, Uvalu can achieve **€5M+ revenue and 200K users by 2029**.
+Uvalu.app is positioned to **disrupt the European retail investing space** by offering a **transparent, EU-focused, secure cloud-based** alternative to bloated, US-centric, or black-box tools. With a **strong technical foundation**, **clear differentiation**, and a **scalable business model**, Uvalu can achieve **€13M+ revenue and 200K users by 2029**.
 
 **Next Steps (Q4 2026)**:
 1. **Secure Seed Funding** (€500K)
@@ -552,4 +542,4 @@ Uvalu.app is positioned to **disrupt the European retail investing space** by of
 **Document Version**: 2.0
 **Last Updated**: September 2026
 **Prepared by**: Uvalu Strategy Team
-**Contact**: [uvalu.app@gmail.com](mailto:uvalu.app@gmail.com) | [uvalu.app](https://uvalu.app)
+**Contact**: [uvalu.app@gmail.com](mailto:uvalu.app@gmail.com) *(TODO: move to a company-domain address once Uvalu BV is registered — a Gmail address undercuts credibility in front of investors)* | [uvalu.app](https://uvalu.app)
