@@ -22,6 +22,10 @@ the actual constraints:
 Every number in this document is a working assumption, not a commitment — adjust freely as reality tells you
 more (especially the hours/week figure in [Section 3](#3-the-operating-model), which only you know).
 
+**This is the default mode, not a ceiling.** If demand ever shows up unprompted (Section 7's milestone — someone
+outside your invite circle asks to pay), [strategic-business-plan-v3.md](strategic-business-plan-v3.md) is the
+escalation path for going full-time. Stay here unless and until that evidence actually appears.
+
 ---
 
 ## Table of Contents
@@ -299,6 +303,8 @@ default, this can be paused, slowed, sped up, or shelved at any point without ow
 ## Related Documents
 - [v1 strategic plan (superseded)](strategic-business-plan.md) — the earlier 2-founder/VC-scale version this
   plan replaces as the active strategy.
+- [v3 strategic plan (full-time escalation path)](strategic-business-plan-v3.md) — switch to this deliberately
+  if demand ever justifies going full-time; not active by default.
 - [Stock Valuation Algorithm](stock_valuation_algorithm.md)
 - [Portfolio Risk Assessment Algorithm](portfolio_risk_assessment_algorithm.md)
 - [Architecture Overview](architecture.md)
