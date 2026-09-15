@@ -1,6 +1,10 @@
 # Strategic Business Plan: Uvalu.app
 *Find value before the market does.*
 
+> **Superseded**: this 2-founder/VC-scale plan has been replaced by
+> [strategic-business-plan-v2.md](strategic-business-plan-v2.md) — a solo, bootstrapped, low-risk version
+> that reflects how the project is actually being run. Kept here for reference.
+
 ---
 
 ## Table of Contents
