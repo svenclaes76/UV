@@ -591,8 +591,18 @@ def render() -> None:
                                            value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
                 _c3, _c4 = st.columns(2)
                 with _c3:
-                    _date = st.date_input("Date", value=_row["date"].date() if pd.notna(_row["date"]) else None,
-                                          format="DD/MM/YYYY", max_value=_dt.date.today(), key="dlg_ed_date")
+                    _row_date = _row["date"].date() if pd.notna(_row["date"]) else None
+                    # A pre-existing record dated in the future (entered
+                    # before dates were capped at today, or imported) must
+                    # stay editable — Streamlit raises if the current value
+                    # falls outside min/max, so the cap can't be a flat
+                    # `today` here the way the Add-dividend dialog's can.
+                    # Extending it to the row's own date keeps the field
+                    # usable without silently blessing the past bug of
+                    # letting a *new* date go further into the future.
+                    _max_date = max(_dt.date.today(), _row_date) if _row_date else _dt.date.today()
+                    _date = st.date_input("Date", value=_row_date, format="DD/MM/YYYY",
+                                          max_value=_max_date, key="dlg_ed_date")
                 with _c4:
                     _tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
                                                 step=0.5, value=float(_row.get("tax_rate") or 0.0),

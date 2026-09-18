@@ -367,6 +367,22 @@ class TestEditDividendDialog:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert portfolio.load_div_hist().empty
 
+    def test_editing_a_future_dated_record_does_not_crash(self, isolated_data, monkeypatch):
+        """A record dated ahead of today (entered before dates were capped,
+        or imported) must stay editable — st.date_input raises if its
+        current `value` falls outside `min_value`/`max_value`, so the
+        dialog's max_value can't be a flat `today` when the row's own date
+        is already later than that."""
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5,
+             "date": "2099-01-15", "shares": 10},
+        ]))
+        at = _run(monkeypatch, section="dividends")
+        edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
+        edit_btn.click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+
 
 # ── Drawer edit handoff (_pf_edit_ticker) ─────────────────────────────────
 
