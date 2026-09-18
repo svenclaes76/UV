@@ -33,6 +33,17 @@ content as the design project's `uploads/uvalu-brand-guidelines.md`.
   local copy, so this directory keeps tracking the live design rather than
   drifting into its own fork.
 
+## Design System artifact
+
+A [Claude Design System artifact](https://claude.ai/artifact/DL2qE8DNyMZ6R7Exacv5wQ) built
+from the files in this directory plus `docs/uvalu-brand-guidelines.md` — tokens (colour,
+type, spacing, radius, shadow, border), and live component previews for the main app,
+Admin portal and auth flow. It's derived from these files, not a second source of truth:
+if the mockups or brand guidelines change, re-derive the affected tokens/components there
+rather than editing it independently. Private to the Claude account that created it; not
+checked into the repo since its value (live previews, the interactive index) only works on
+claude.ai.
+
 ## Screenshots
 
 The design project also has PNG screenshots of each frame under
