@@ -826,6 +826,18 @@ GLOBAL_CSS = """
   [data-testid="stHorizontalBlock"]:has([class*="st-key-pf_card_"]) {
     align-items: stretch !important; gap: 18px !important;
   }
+  /* Overview's Closed positions + Dividends preview row is the one
+     exception — it should NOT stretch to a shared height. Same reasoning as
+     Dashboard's own bottom row (db_card_ rule above, ~line 272): Dividends
+     usually has fewer rows than the wider Closed-positions table beside it,
+     and stretching it to match left dead space under the shorter list
+     (confirmed live). More specific than the blanket rule above (same
+     `!important` weight, but this selector is more specific — the `:has()`
+     argument itself carries the extra attribute selector), so it wins for
+     just this row without touching every other pf_card_ pairing. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-pf_card_"]):has([class*="st-key-pf_card_div_ov"]) {
+    align-items: flex-start !important;
+  }
   [data-testid="stLayoutWrapper"]:has(> [class*="st-key-pf_card_"]) {
     flex: 1 1 auto !important;
   }

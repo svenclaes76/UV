@@ -13,6 +13,23 @@ _Nothing yet._
 
 ---
 
+## [1.10.0] — 2026-09-18
+
+### Added
+
+- **Dividend tax/currency/reinvestment tracking**: dividend records now carry native currency (auto-detected from the ticker's exchange, EUR converted for display via `marketdata.fx_to_eur_frame`), a per-exchange withholding-tax default (Settings → Dividend withholding, 0% until set) applied per record and editable, and an optional DRIP/reinvestment flag that folds the reinvested shares/cash into the position's cost basis instead of counting them as cash received. The full Dividends page now shows Gross/Tax/Net/Date columns and a CSV export.
+- Settings: wired up the previously dead `alert_dividend_ex_date` toggle as an in-app "· soon" badge on Dashboard holdings going ex-dividend within 7 days.
+- `screener._next_expected_ex_div`: forecasts the next ex-dividend date and payment frequency from the full payment history (`marketdata.dividends`), feeding Dashboard's "Upcoming dividends" card instead of yfinance's own `exDividendDate` field, which is normally the *last* ex-div date rather than a forecast and left the card mostly empty.
+
+### Fixed
+
+- Dashboard's "Dividends received"/"Total return" KPIs and Portfolio's dividend totals could include dividends dated in the future — a record entered ahead of its payment date now only counts once its date has passed (`portfolio._sync_portfolio_dividends`, the Portfolio Overview preview, and Dashboard's own aggregate all date-filter at the source now).
+- Dashboard's lifetime dividends figure only summed open positions, silently dropping dividends earned on since-sold holdings; now matches Portfolio's own definition (open + sold).
+- Portfolio Overview: the Dividends-received preview card stretched to match Closed Positions' height, leaving dead space under a shorter dividend list — CSS carve-out, same fix already applied to Dashboard's own equivalent row.
+- Editing a dividend record dated after today (pre-existing future-dated entries, e.g. from before dates were capped) crashed the whole page — `st.date_input`'s bound now extends to the record's own date when needed.
+
+---
+
 ## [1.9.0] — 2026-09-14
 
 ### Added

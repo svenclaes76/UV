@@ -201,17 +201,21 @@ class TestAddClosedTrade:
 
 # ── dividends ─────────────────────────────────────────────────────────────
 
+_PAST = "2026-01-15"
+_FUTURE = "2099-01-15"
+
+
 class TestDividendSync:
     def test_add_dividend_updates_portfolio_totals(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
-        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
         assert portfolio.load_div_hist().iloc[0]["amount"] == 10.0
 
     def test_multiple_dividends_for_same_ticker_are_summed(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
-        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0})
-        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 15.0})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 15.0, "date": _PAST})
         assert portfolio.load_portfolio().iloc[0]["dividends"] == 25.0
 
     def test_ticker_without_dividend_records_keeps_existing_value(self):
@@ -219,20 +223,107 @@ class TestDividendSync:
             {"ticker": "AAA.BR", "dividends": 0.0},
             {"ticker": "BBB.BR", "dividends": 7.0},
         ]))
-        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         loaded = portfolio.load_portfolio().set_index("ticker")
         assert loaded.loc["BBB.BR", "dividends"] == 7.0
 
     def test_sync_is_noop_when_no_portfolio(self):
-        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         assert portfolio.load_portfolio() is None
         assert portfolio.load_div_hist().iloc[0]["amount"] == 10.0
 
     def test_update_div_hist_persists_and_syncs(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
-        portfolio.update_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 12.0}]))
+        portfolio.update_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 12.0, "date": _PAST}]))
         assert portfolio.load_div_hist().iloc[0]["amount"] == 12.0
         assert portfolio.load_portfolio().iloc[0]["dividends"] == 12.0
+
+    def test_future_dated_dividend_excluded_from_received_total(self):
+        """A dividend recorded ahead of its payment date shouldn't count as
+        "received" yet — the bug behind Dashboard's dividends KPI showing
+        future dividends."""
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 99.0, "date": _FUTURE})
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
+
+    def test_reinvested_dividend_excluded_from_received_total(self):
+        """DRIP cash never left the position (it's reflected in the larger
+        share count instead via apply_drip_reinvestment), so it shouldn't
+        also count as cash received."""
+        portfolio.save_portfolio(pd.DataFrame([
+            {"ticker": "AAA.BR", "shares": 10.0, "purchase_value": 1000.0, "dividends": 0.0},
+        ]))
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 5.0, "date": _PAST,
+                                "reinvested": True, "reinvested_shares": 0.2})
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
+
+
+class TestDripReinvestment:
+    def test_folds_shares_and_cash_into_open_position(self):
+        portfolio.save_portfolio(pd.DataFrame([
+            {"ticker": "AAA.BR", "shares": 10.0, "purchase_value": 1000.0, "dividends": 0.0},
+        ]))
+        portfolio.apply_drip_reinvestment("AAA.BR", 0.5, 50.0)
+        row = portfolio.load_portfolio().iloc[0]
+        assert row["shares"] == 10.5
+        assert row["purchase_value"] == 1050.0
+
+    def test_noop_for_unknown_ticker(self):
+        portfolio.save_portfolio(pd.DataFrame([
+            {"ticker": "AAA.BR", "shares": 10.0, "purchase_value": 1000.0, "dividends": 0.0},
+        ]))
+        portfolio.apply_drip_reinvestment("ZZZ.BR", 1.0, 100.0)
+        row = portfolio.load_portfolio().iloc[0]
+        assert row["shares"] == 10.0
+
+    def test_add_dividend_with_reinvested_flag_applies_drip(self):
+        portfolio.save_portfolio(pd.DataFrame([
+            {"ticker": "AAA.BR", "shares": 10.0, "purchase_value": 1000.0, "dividends": 0.0},
+        ]))
+        portfolio.add_dividend({"ticker": "AAA.BR", "amount": 20.0, "date": _PAST,
+                                "reinvested": True, "reinvested_shares": 0.4})
+        row = portfolio.load_portfolio().iloc[0]
+        assert row["shares"] == 10.4
+        assert row["purchase_value"] == 1020.0
+
+
+class TestCurrencyHelpers:
+    def test_currency_for_ticker(self):
+        assert portfolio.currency_for_ticker("NESN.SW") == "CHF"
+        assert portfolio.currency_for_ticker("ALV.DE") == "EUR"
+        assert portfolio.currency_for_ticker("UNKNOWN") == "EUR"
+
+    def test_exchange_key_for_ticker(self):
+        assert portfolio.exchange_key_for_ticker("NESN.SW") == "swiss"
+        assert portfolio.exchange_key_for_ticker("ALV.DE") == "frankfurt"
+        assert portfolio.exchange_key_for_ticker("UNKNOWN") is None
+
+    def test_dividends_in_eur_converts_native_currency(self, monkeypatch):
+        import marketdata
+        fx = pd.DataFrame({"CHF": [0.95, 0.96]},
+                          index=pd.to_datetime(["2026-01-01", "2026-01-31"]))
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda currencies: fx)
+        div_df = pd.DataFrame([
+            {"ticker": "NESN.SW", "amount": 100.0, "tax_amount": 10.0,
+             "currency": "CHF", "date": "2026-01-15"},
+            {"ticker": "ALV.DE", "amount": 50.0, "tax_amount": 5.0,
+             "currency": "EUR", "date": "2026-01-15"},
+        ])
+        out = portfolio.dividends_in_eur(div_df)
+        assert out.loc[0, "amount_eur"] == pytest.approx(100.0 * 0.95, rel=0.01)
+        assert out.loc[0, "net_amount_eur"] == pytest.approx(90.0 * 0.95, rel=0.01)
+        assert out.loc[1, "amount_eur"] == 50.0
+        assert out.loc[1, "net_amount_eur"] == 45.0
+
+    def test_dividends_in_eur_handles_missing_optional_columns(self):
+        """Legacy records predating tax_rate/tax_amount/currency/reinvested
+        shouldn't crash — every new field back-fills to a safe default."""
+        div_df = pd.DataFrame([{"ticker": "AAA.BR", "amount": 10.0, "date": _PAST}])
+        out = portfolio.dividends_in_eur(div_df)
+        assert out.loc[0, "amount_eur"] == 10.0
+        assert out.loc[0, "net_amount_eur"] == 10.0
 
 
 # ── cash ──────────────────────────────────────────────────────────────────

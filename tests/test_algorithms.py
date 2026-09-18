@@ -28,6 +28,7 @@ from screener import (
     _total_expected_return,
     _dividend_sustainability_flag,
     _dividend_stats,
+    _next_expected_ex_div,
     _statement_row,
     _statement_history,
     _dgr_estimate,
@@ -1073,6 +1074,49 @@ class TestDividendStats:
             raise RuntimeError("offline")
         monkeypatch.setattr(screener.marketdata, "dividends", _boom)
         assert _dividend_stats("X")["true_dgr"] is None
+
+
+class TestNextExpectedExDiv:
+    """screener._next_expected_ex_div — forecasts the next ex-div date +
+    payment frequency from the same marketdata.dividends() payment history
+    _dividend_stats reads, instead of trusting yfinance's own exDividendDate
+    field (usually the *last* ex-div date, not a forecast)."""
+
+    def test_too_little_history_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: pd.Series(dtype=float))
+        assert _next_expected_ex_div("X") == {"nextExDividendDate": None, "dividendFrequency": None}
+
+    def test_quarterly_payer_projects_forward_from_last_payment(self, monkeypatch):
+        today = pd.Timestamp.now().normalize()
+        # Four quarterly payments, most recent 40 days ago — next one due in
+        # roughly 90-40=50 days, comfortably in the future already.
+        idx = [today - pd.Timedelta(days=d) for d in (310, 220, 130, 40)]
+        series = pd.Series([1.0] * 4, index=pd.DatetimeIndex(sorted(idx)))
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        out = _next_expected_ex_div("X")
+        assert out["dividendFrequency"] == "Quarterly"
+        next_date = pd.Timestamp(dt.datetime.strptime(out["nextExDividendDate"], "%d/%m/%Y"))
+        assert next_date > today
+
+    def test_projects_past_a_stale_last_payment_into_the_future(self, monkeypatch):
+        """An annual payer whose last recorded payment was over a year ago
+        (a real yfinance-cache-staleness case) should still forecast a
+        future date, not just echo last_payment + one gap if that's still
+        in the past."""
+        today = pd.Timestamp.now().normalize()
+        idx = [today - pd.Timedelta(days=d) for d in (1100, 735, 400)]
+        series = pd.Series([2.0] * 3, index=pd.DatetimeIndex(sorted(idx)))
+        monkeypatch.setattr(screener.marketdata, "dividends", lambda t: series)
+        out = _next_expected_ex_div("X")
+        assert out["dividendFrequency"] == "Annual"
+        next_date = pd.Timestamp(dt.datetime.strptime(out["nextExDividendDate"], "%d/%m/%Y"))
+        assert next_date > today
+
+    def test_fetch_failure_returns_empty(self, monkeypatch):
+        def _boom(_t):
+            raise RuntimeError("offline")
+        monkeypatch.setattr(screener.marketdata, "dividends", _boom)
+        assert _next_expected_ex_div("X") == {"nextExDividendDate": None, "dividendFrequency": None}
 
 
 class TestStatementHistory:

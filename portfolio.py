@@ -186,18 +186,27 @@ def add_closed_trade(row: dict) -> None:
 
 
 def add_dividend(row: dict) -> None:
-    """Append a dividend record and update portfolio totals."""
+    """Append a dividend record and update portfolio totals. If the record
+    is marked reinvested (DRIP), also folds the reinvested shares/cash into
+    the matching open position — see apply_drip_reinvestment()."""
     df = load_div_hist()
     new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
     save_div_hist(df)
     _sync_portfolio_dividends(df)
+    if row.get("reinvested") and pd.notna(pd.to_numeric(row.get("reinvested_shares"), errors="coerce")):
+        apply_drip_reinvestment(str(row.get("ticker") or ""),
+                                float(row["reinvested_shares"]), float(row.get("amount") or 0))
     logkit.data_mutation(actor=logkit.user_id(), action="dividend.add",
                          entity_type="ticker", entity_id=str(row.get("ticker") or ""))
 
 
 def update_div_hist(df: pd.DataFrame) -> None:
-    """Persist updated dividend history and sync portfolio totals."""
+    """Persist updated dividend history and sync portfolio totals. Does NOT
+    retroactively re-apply DRIP math for edited records — reinvestment is
+    folded into the position once, at add_dividend() time; editing a past
+    record's amount/shares afterwards only affects the history display and
+    the (non-reinvested) cash totals it feeds."""
     save_div_hist(df)
     _sync_portfolio_dividends(df)
     logkit.data_mutation(actor=logkit.user_id(), action="dividend.bulk_update",
@@ -205,14 +214,123 @@ def update_div_hist(df: pd.DataFrame) -> None:
 
 
 def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
-    """Recompute portfolio.dividends from div_hist totals per ticker."""
+    """Recompute portfolio.dividends (cash received, open positions only)
+    from div_hist totals per ticker.
+
+    Two filters that weren't here before: dates in the future are excluded
+    (a dividend recorded ahead of its payment date shouldn't count as
+    "received" yet), and reinvested (DRIP) records are excluded (that cash
+    never left the position — it's already reflected in the position's
+    larger share count instead, via apply_drip_reinvestment())."""
     pf = load_portfolio()
     if pf is None:
         return
+    div_df = div_df.copy()
     div_df["amount"] = pd.to_numeric(div_df["amount"], errors="coerce").fillna(0)
-    totals = div_df.groupby("ticker")["amount"].sum()
+    div_dates = pd.to_datetime(div_df.get("date"), errors="coerce")
+    if "reinvested" in div_df.columns:
+        reinvested = div_df["reinvested"].fillna(False).astype(bool)
+    else:
+        reinvested = pd.Series(False, index=div_df.index)
+    received = div_df[(div_dates <= pd.Timestamp.now()) & (~reinvested)]
+    totals = received.groupby("ticker")["amount"].sum()
     pf["dividends"] = pf["ticker"].map(totals).fillna(pf["dividends"].fillna(0))
     save_portfolio(pf)
+
+
+def apply_drip_reinvestment(ticker: str, shares_added: float, cash_reinvested: float) -> None:
+    """Fold a DRIP (dividend reinvestment) into the matching open position:
+    shares grow by `shares_added`, and `cash_reinvested` is added to the
+    position's cost basis — the same accounting as any other additional
+    purchase, so purchase_price (= purchase_value / shares) stays correctly
+    blended. A no-op if the position isn't open (e.g. already sold)."""
+    if not ticker or shares_added <= 0:
+        return
+    pf = load_portfolio()
+    if pf is None:
+        return
+    mask = pf["ticker"] == ticker
+    if not mask.any():
+        return
+    idx = pf[mask].index[0]
+    pf.at[idx, "shares"] = float(_num_or(pf.at[idx, "shares"], 0)) + shares_added
+    pf.at[idx, "purchase_value"] = float(_num_or(pf.at[idx, "purchase_value"], 0)) + cash_reinvested
+    save_portfolio(pf)
+    logkit.data_mutation(actor=logkit.user_id(), action="position.drip_reinvest",
+                         entity_type="ticker", entity_id=ticker, shares_added=shares_added)
+
+
+def _num_or(value, default):
+    """pd.to_numeric-coerced value, or `default` if missing/unparseable/NaN
+    (NaN is truthy in Python, so a bare `value or default` wouldn't catch
+    it) — same helper uvalu/dialogs.py keeps its own copy of."""
+    v = pd.to_numeric(value, errors="coerce")
+    return v if pd.notna(v) else default
+
+
+# Ticker-suffix -> (native currency, settings.py exchange key), for
+# defaulting a dividend record's currency and its withholding-tax lookup.
+# Same six exchanges as settings.ALL_EXCHANGES / uvalu/pages_/portfolio.py's
+# _TICKER_SUFFIX_EXCHANGE; every listed exchange quotes in EUR except Swiss.
+_EXCHANGE_SUFFIX = {
+    ".BR": ("EUR", "brussels"), ".AS": ("EUR", "amsterdam"), ".PA": ("EUR", "paris"),
+    ".MI": ("EUR", "milan"),    ".DE": ("EUR", "frankfurt"), ".SW": ("CHF", "swiss"),
+}
+
+
+def currency_for_ticker(ticker: str) -> str:
+    for suffix, (ccy, _key) in _EXCHANGE_SUFFIX.items():
+        if str(ticker).endswith(suffix):
+            return ccy
+    return "EUR"
+
+
+def exchange_key_for_ticker(ticker: str) -> str | None:
+    for suffix, (_ccy, key) in _EXCHANGE_SUFFIX.items():
+        if str(ticker).endswith(suffix):
+            return key
+    return None
+
+
+def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
+    """div_hist rows with `amount_eur`/`tax_amount_eur`/`net_amount_eur`
+    columns added — gross/tax/net converted from each row's native
+    `currency` to EUR at its payment `date`, via marketdata.fx_to_eur_frame
+    (the same historical-FX helper risk.py already uses to EUR-normalise
+    price history). EUR rows convert at 1.0; a currency with no fetchable
+    FX history falls back to its native amount unconverted."""
+    import marketdata
+
+    out = div_df.copy()
+    if "tax_amount" not in out.columns:
+        out["tax_amount"] = 0.0
+    if "currency" not in out.columns:
+        out["currency"] = "EUR"
+    out["amount"]     = pd.to_numeric(out["amount"], errors="coerce").fillna(0)
+    out["tax_amount"] = pd.to_numeric(out["tax_amount"], errors="coerce").fillna(0)
+    out["currency"]   = out["currency"].fillna("EUR").astype(str).str.upper()
+    out["net_amount"] = out["amount"] - out["tax_amount"]
+    dates = pd.to_datetime(out["date"], errors="coerce")
+
+    foreign = sorted({c for c in out["currency"].unique() if c and c != "EUR"})
+    fx = marketdata.fx_to_eur_frame(foreign) if foreign else pd.DataFrame()
+
+    def _rate(ccy: str, dt) -> float:
+        if ccy == "EUR" or fx.empty or ccy not in fx.columns or pd.isna(dt):
+            return 1.0
+        s = fx[ccy].reindex(fx.index.union([dt])).sort_index().ffill().bfill()
+        r = s.get(dt)
+        return float(r) if pd.notna(r) else 1.0
+
+    rates = [
+        _rate(ccy, dt) if ccy != "EUR" else 1.0
+        for ccy, dt in zip(out["currency"], dates)
+    ]
+    out["_fx_rate"]        = rates
+    out["amount_eur"]      = out["amount"] * out["_fx_rate"]
+    out["tax_amount_eur"]  = out["tax_amount"] * out["_fx_rate"]
+    out["net_amount_eur"]  = out["net_amount"] * out["_fx_rate"]
+    return out.drop(columns=["_fx_rate"])
 
 
 def save_cash(df: pd.DataFrame) -> None:

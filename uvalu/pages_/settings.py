@@ -41,7 +41,7 @@ from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
-                      _SCORE_STYLES)
+                      _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
@@ -718,6 +718,46 @@ def render() -> None:
 
             if int(_new_refresh) != _cur_refresh:
                 _s["refresh_interval_s"] = int(_new_refresh)
+                save_settings(_s, _email)
+                st.rerun()
+
+            # Unlike the module docstring's removed "Alerts" toggles (never
+            # wired to any delivery mechanism — no email/push exists here),
+            # this one IS wired: Dashboard's Upcoming Dividends card
+            # (uvalu/pages_/dashboard.py) shows a "· soon" badge next to any
+            # holding going ex-dividend within 7 days when this is on. It's
+            # an in-app badge on a page the user already visits, not a new
+            # delivery channel, so the earlier "not wired" reasoning doesn't
+            # apply to this one.
+            _alert_ex_div = _toggle_row(
+                "alert_ex_div", "disp_alert_ex_div", "Ex-dividend alerts",
+                "Flag holdings going ex-dividend within 7 days on the Dashboard.",
+                bool(_s.get("alert_dividend_ex_date", False)))
+            if _alert_ex_div != bool(_s.get("alert_dividend_ex_date", False)):
+                _s["alert_dividend_ex_date"] = bool(_alert_ex_div)
+                save_settings(_s, _email)
+                st.rerun()
+
+        # ── Dividend withholding (per-user — depends on tax residency/treaty) ────────
+        with st.container(key="set_card_dividend_tax", border=True):
+            _row_header("Dividend withholding")
+            _row_desc("Default withholding tax % applied when you record a dividend on each "
+                     "exchange — always editable per record. Depends on your own tax residency "
+                     "and treaty, which this app has no way to know, so every rate starts at 0% "
+                     "until you set it.")
+            _wh = dict(_s.get("dividend_withholding") or {})
+            _wh_new: dict[str, float] = {}
+            with st.container(key="set_dividend_wh_grid"):
+                for _i in range(0, len(ALL_EXCHANGES), 3):
+                    _wh_cols = st.columns(3, gap="large")
+                    for _col, _ex in zip(_wh_cols, ALL_EXCHANGES[_i:_i + 3]):
+                        with _col:
+                            _wh_new[_ex] = st.number_input(
+                                EXCHANGE_LABELS.get(_ex, _ex.title()), min_value=0.0, max_value=100.0,
+                                step=0.5, value=float(_wh.get(_ex, 0.0)), format="%.1f",
+                                key=f"disp_wh_{_ex}")
+            if _wh_new != {k: float(_wh.get(k, 0.0)) for k in ALL_EXCHANGES}:
+                _s["dividend_withholding"] = _wh_new
                 save_settings(_s, _email)
                 st.rerun()
 
