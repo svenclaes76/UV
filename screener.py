@@ -658,6 +658,59 @@ def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
         return empty
 
 
+_NEXT_DIV_LOOKBACK = 8    # up to ~2 years of quarterly payments
+
+
+def _next_expected_ex_div(ticker: str) -> dict:
+    """Forecast the next ex-dividend date and payment frequency from the
+    full per-payment history (marketdata.dividends) — Dashboard's "Upcoming
+    dividends" card used to filter yfinance's own `exDividendDate` field
+    `>= today`, but that field is normally the *last* ex-div date Yahoo
+    recorded, not a forecast, so the filter mostly came up empty. This
+    derives the typical gap between recent payments and projects forward
+    from the most recent one (repeatedly, in case that payment was itself
+    already a while ago) instead.
+
+    Returns {"nextExDividendDate": "DD/MM/YYYY" | None, "dividendFrequency":
+    str | None} — both None for a non-payer, too little history to derive a
+    reliable cadence, or on fetch failure (isolated try/except, same pattern
+    as _dividend_stats above).
+    """
+    empty = {"nextExDividendDate": None, "dividendFrequency": None}
+    try:
+        divs = marketdata.dividends(ticker)
+        if divs is None or len(divs) < 2:
+            return empty
+        recent = divs.iloc[-_NEXT_DIV_LOOKBACK:]
+        gap_days = recent.index.to_series().diff().dropna().dt.days
+        gap_days = gap_days[gap_days > 0]
+        if gap_days.empty:
+            return empty
+        median_gap = float(gap_days.median())
+
+        if median_gap <= 45:
+            freq = "Monthly"
+        elif median_gap <= 135:
+            freq = "Quarterly"
+        elif median_gap <= 225:
+            freq = "Semi-annual"
+        else:
+            freq = "Annual"
+
+        today = pd.Timestamp.now().normalize()
+        next_date = recent.index[-1]
+        # The last payment may already be older than one full cadence —
+        # project forward until the forecast is actually in the future.
+        guard = 0
+        while next_date < today and guard < 12:
+            next_date += pd.Timedelta(days=median_gap)
+            guard += 1
+
+        return {"nextExDividendDate": next_date.strftime("%d/%m/%Y"), "dividendFrequency": freq}
+    except Exception:
+        return empty
+
+
 def _fetch_one(ticker: str, stock: dict) -> dict:
     tkr   = yf.Ticker(ticker)
     info  = tkr.info
@@ -752,6 +805,12 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     # and the dividend scores; the rest feed the risk engine's income-stability
     # and sustainability checks.
     row.update(_dividend_stats(ticker))
+
+    # Forecast next ex-div date + payment frequency from the same payment
+    # history — feeds Dashboard's "Upcoming dividends" card (uvalu/pages_/
+    # dashboard.py), which otherwise has to rely on the raw exDividendDate
+    # field above (usually the *last* ex-div date, not a forecast).
+    row.update(_next_expected_ex_div(ticker))
 
     # Derived: FCF yield
     fcf  = row.get("freeCashflow")
@@ -1918,7 +1977,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     all_fields = [
         *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
-        "exDividendDate", "dividendDate", "sector", "fcfHistory",
+        "exDividendDate", "dividendDate", "nextExDividendDate", "dividendFrequency",
+        "sector", "fcfHistory",
         "true_dgr", "dividend_growth_streak", "dividend_payment_years",
         "dividend_last_cut_year",
         *_STATEMENT_HISTORY_KEYS,

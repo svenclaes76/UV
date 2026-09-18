@@ -178,20 +178,45 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
 
 @st.dialog("Add dividend", width="small")
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
+    import datetime as _dt
+
+    from portfolio import currency_for_ticker, exchange_key_for_ticker
+    from settings import get_dividend_withholding
+    from uvalu.runtime import current_user
+
     enter_dialog()
     _dialog_width_css(380)
     _c1, _c2 = st.columns(2)
     with _c1:
         ticker_raw = st.text_input("Ticker", placeholder="ALV.DE", key="dlg_dv_ticker").strip().upper()
+    _ccy = currency_for_ticker(ticker_raw) if ticker_raw else "EUR"
     with _c2:
-        amount = st.number_input("Amount (€)", min_value=0.0, step=0.01, value=0.0,
+        amount = st.number_input(f"Amount ({_ccy})", min_value=0.0, step=0.01, value=0.0,
                                  format="%.2f", key="dlg_dv_amount")
 
     _match = pf[pf["ticker"] == ticker_raw] if ticker_raw and "ticker" in pf.columns else pf.iloc[0:0]
     _default_name = _match.iloc[0]["name"] if not _match.empty else ""
     name_raw = st.text_input("Company name", value=_default_name, placeholder="Allianz",
                              key="dlg_dv_name").strip()
-    div_date = st.date_input("Date", format="DD/MM/YYYY", key="dlg_dv_date")
+
+    _c3, _c4 = st.columns(2)
+    with _c3:
+        div_date = st.date_input("Date", format="DD/MM/YYYY", max_value=_dt.date.today(),
+                                 key="dlg_dv_date")
+    with _c4:
+        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw),
+                                                 current_user().email)
+        tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
+                                   step=0.5, value=_default_tax, key="dlg_dv_tax")
+
+    reinvested = st.checkbox("Reinvested (DRIP) — no cash received", key="dlg_dv_reinvested")
+    reinvested_shares = 0.0
+    if reinvested:
+        reinvested_shares = st.number_input(
+            "Shares purchased by the reinvestment", min_value=0.0, step=0.0001,
+            value=0.0, format="%.4f", key="dlg_dv_reinvested_shares",
+            help="From your broker's DRIP contract note — the exact fractional "
+                "share count purchased, not estimated from a historical price.")
 
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -205,15 +230,23 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     if not ticker_raw or amount <= 0:
         st.error("Enter a ticker and an amount.")
         return
+    if reinvested and reinvested_shares <= 0:
+        st.error("Enter the number of shares the reinvestment purchased.")
+        return
     _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
     _shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     add_dividend({
-        "name":          name_raw or ticker_raw,
-        "google_ticker": _google_ticker,
-        "ticker":        ticker_raw,
-        "shares":        _shares,
-        "amount":        round(amount, 2),
-        "date":          pd.Timestamp(div_date).isoformat(),
+        "name":              name_raw or ticker_raw,
+        "google_ticker":     _google_ticker,
+        "ticker":            ticker_raw,
+        "shares":            _shares,
+        "amount":            round(amount, 2),
+        "currency":          _ccy,
+        "tax_rate":          round(tax_rate, 2),
+        "tax_amount":        round(amount * tax_rate / 100, 2),
+        "date":              pd.Timestamp(div_date).isoformat(),
+        "reinvested":        bool(reinvested),
+        "reinvested_shares": round(reinvested_shares, 4) if reinvested else None,
     })
     st.rerun()
 

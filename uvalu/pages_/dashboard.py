@@ -5,9 +5,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from portfolio import portfolio_exists, load_portfolio, load_value_history, load_sold, ensure_value_history_fresh
+from portfolio import (portfolio_exists, load_portfolio, load_value_history, load_sold,
+                       ensure_value_history_fresh, load_div_hist, dividends_in_eur)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
-from settings import load_shared_settings
+from settings import load_shared_settings, load_settings
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
@@ -90,8 +91,34 @@ def render() -> None:
     _db_current   = _db_pf["current_value"].sum()
     _db_gain      = _db_current - _db_invested
     _db_gain_pct  = _safe_pct(_db_gain, _db_invested)
-    _db_divs      = _db_pf["dividends"].sum()
-    _db_total_ret = _db_gain + _db_divs
+
+    # Dividends actually received — filtered to date <= today (a dividend
+    # logged ahead of its payment date shouldn't count as "received" yet)
+    # and excluding DRIP/reinvested records (that cash never left the
+    # position, so counting it here would double-count it against the
+    # position's own already-larger market value). EUR-converted per record
+    # via dividends_in_eur() (marketdata.fx_to_eur_frame) since a Swiss
+    # holding pays in CHF, not EUR. Two totals: "open" (this page's own
+    # holdings, feeds Total return alongside the open-positions-only
+    # unrealised gain above) and "lifetime" (open + sold positions, matches
+    # what the Portfolio page's own Dividends-received total already means —
+    # previously this KPI only summed open positions and silently dropped
+    # dividends earned on since-sold holdings).
+    _db_div_hist_all = load_div_hist()
+    if _db_div_hist_all is not None and not _db_div_hist_all.empty:
+        _db_div_eur = dividends_in_eur(_db_div_hist_all)
+        _db_div_dates = pd.to_datetime(_db_div_eur.get("date"), errors="coerce")
+        if "reinvested" in _db_div_eur.columns:
+            _db_div_reinv = _db_div_eur["reinvested"].fillna(False).astype(bool)
+        else:
+            _db_div_reinv = pd.Series(False, index=_db_div_eur.index)
+        _db_div_received = _db_div_eur[(_db_div_dates <= pd.Timestamp.now()) & (~_db_div_reinv)]
+        _db_divs = _db_div_received["amount_eur"].sum()
+        _db_divs_open = _db_div_received[
+            _db_div_received["ticker"].isin(set(_db_tickers))]["amount_eur"].sum()
+    else:
+        _db_divs, _db_divs_open = 0.0, 0.0
+    _db_total_ret = _db_gain + _db_divs_open
     _db_ret_pct   = _safe_pct(_db_total_ret, _db_invested)
 
     # Scored rows for just this portfolio's holdings, via the dedicated
@@ -520,9 +547,21 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
             st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
         elif not _db_scr.empty:
             _db_div_scr = _db_scr.copy()
-            _db_div_scr["exDividendDate"] = pd.to_datetime(
-                _db_div_scr.get("exDividendDate"), errors="coerce", dayfirst=True)
+            # Prefer the forecast screener._next_expected_ex_div derives from
+            # the full payment history (screener.py's nextExDividendDate,
+            # wired in via _fetch_one) over yfinance's own raw exDividendDate
+            # field — that field is usually the *last* ex-div date rather
+            # than a forecast, so filtering it `>= today` mostly came up
+            # empty. Falls back to the raw field when there's no usable
+            # payment history yet to forecast from.
+            for _col in ("nextExDividendDate", "exDividendDate"):
+                if _col not in _db_div_scr.columns:
+                    _db_div_scr[_col] = None
+            _db_next_ex = pd.to_datetime(_db_div_scr["nextExDividendDate"], errors="coerce", dayfirst=True)
+            _db_raw_ex  = pd.to_datetime(_db_div_scr["exDividendDate"], errors="coerce", dayfirst=True)
+            _db_div_scr["exDividendDate"] = _db_next_ex.fillna(_db_raw_ex)
             _today = pd.Timestamp.today().normalize()
+            _db_alert_ex_div = bool(load_settings(current_user().email).get("alert_dividend_ex_date"))
             if _db_div_scr["exDividendDate"].notna().any():
                 _db_upcoming = (
                     _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
@@ -541,11 +580,16 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                         _amount = float(_dr["_shares"]) * float(_dr["_rate"])
                         _yld = _dr.get("dividendYield")
                         _yld_str = f"{float(_yld)*100:.2f}%" if pd.notna(_yld) else "—"
+                        _days_out = (_dr["exDividendDate"] - _today).days
+                        _soon_badge = (
+                            ' <span style="color:var(--mint);font-weight:500;">· soon</span>'
+                            if _db_alert_ex_div and _days_out <= 7 else ""
+                        )
                         st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
     <div style="font-size:12.5px;">{_dr['Name']}</div>
-    <div style="font-size:11px;color:var(--faint);">{_dr['exDividendDate'].strftime('%d-%m-%Y')} · {_yld_str} yield</div>
+    <div style="font-size:11px;color:var(--faint);">{_dr['exDividendDate'].strftime('%d-%m-%Y')} · {_yld_str} yield{_soon_badge}</div>
   </div>
   <span style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">€{_amount:,.0f}</span>
 </div>""", unsafe_allow_html=True)

@@ -1270,12 +1270,26 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
 
 
 def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amount: float | None,
-                           show_edit: bool = False, edit_disabled: bool = False) -> dict:
+                           show_edit: bool = False, edit_disabled: bool = False,
+                           show_breakdown: bool = False, tax: float | None = None,
+                           net: float | None = None, reinvested: bool = False) -> dict:
     """One dividend-payment row — flat list item, never opens the drawer;
     `show_edit` adds a trailing edit-pencil button (the full Dividends
-    received page only, not the Overview preview). Returns {"edit": bool}."""
+    received page only, not the Overview preview). `show_breakdown` swaps
+    the compact Position+date/Amount shape for separate Date/Gross/Tax/Net
+    columns (full page only) — all EUR-converted figures, the caller passes
+    `amount`/`tax`/`net` already through portfolio.dividends_in_eur().
+    Returns {"edit": bool}."""
     _css_key = key.replace(".", "-")
-    _widths = [6, 1.3] + ([0.4] if show_edit else [])
+
+    def _money(v: float | None) -> str:
+        return f"€{v:,.2f}" if v is not None and pd.notna(v) else "—"
+
+    if show_breakdown:
+        _widths = [3.4, 1.1, 1, 0.9, 1] + ([0.4] if show_edit else [])
+    else:
+        _widths = [6, 1.3] + ([0.4] if show_edit else [])
+
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
@@ -1283,17 +1297,39 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        with _cols[0]:
-            st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
-                       f"overflow:hidden;text-overflow:ellipsis;'>{name}</div><div style='font-size:10.5px;"
-                       f"color:var(--faint);font-family:var(--uv-mono);'>{ticker} · {date}</div></div>",
-                       unsafe_allow_html=True)
-        with _cols[1]:
-            _amount_str = f"€{amount:,.2f}" if amount is not None and pd.notna(amount) else "—"
-            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                       f"font-weight:500;color:var(--mint);'>{_amount_str}</div>", unsafe_allow_html=True)
-        if show_edit:
+        if show_breakdown:
+            with _cols[0]:
+                _drip = ' <span style="color:var(--faint);">· DRIP</span>' if reinvested else ""
+                st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
+                           f"overflow:hidden;text-overflow:ellipsis;'>{name}{_drip}</div><div style='font-size:10.5px;"
+                           f"color:var(--faint);font-family:var(--uv-mono);'>{ticker}</div></div>",
+                           unsafe_allow_html=True)
+            with _cols[1]:
+                st.markdown(f"<div style='font-size:12px;color:var(--muted);'>{date}</div>",
+                           unsafe_allow_html=True)
             with _cols[2]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>"
+                           f"{_money(amount)}</div>", unsafe_allow_html=True)
+            with _cols[3]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                           f"color:var(--down-txt);'>{_money(-tax) if tax else '—'}</div>", unsafe_allow_html=True)
+            with _cols[4]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                           f"font-weight:500;color:var(--mint);'>{_money(net)}</div>", unsafe_allow_html=True)
+            _edit_col = 5
+        else:
+            with _cols[0]:
+                st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
+                           f"overflow:hidden;text-overflow:ellipsis;'>{name}</div><div style='font-size:10.5px;"
+                           f"color:var(--faint);font-family:var(--uv-mono);'>{ticker} · {date}</div></div>",
+                           unsafe_allow_html=True)
+            with _cols[1]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                           f"font-weight:500;color:var(--mint);'>{_money(amount)}</div>", unsafe_allow_html=True)
+            _edit_col = 2
+
+        if show_edit:
+            with _cols[_edit_col]:
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit dividend",
                                           disabled=edit_disabled)
         else:

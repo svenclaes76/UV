@@ -96,6 +96,13 @@ _USER_DEFAULTS: dict = {
     "alert_avoid_signal":    False,
     "alert_dividend_ex_date": False,
     "alert_price_target":    False,
+    # Per-exchange dividend withholding tax %, applied as the default tax_rate
+    # when a dividend is recorded against a ticker on that exchange (still
+    # editable per record). Every exchange starts at 0% — actual withholding
+    # depends on the user's own tax residency/treaty, which this app has no
+    # way to know, so it must never guess a number and silently apply it.
+    # Keyed by settings.py:19 ALL_EXCHANGES, read/written on the Settings page.
+    "dividend_withholding": {ex: 0.0 for ex in ALL_EXCHANGES},
 }
 
 
@@ -172,6 +179,19 @@ def load_settings(email: str = "") -> dict:
             "user settings unreadable — falling back to defaults", exc_info=True,
             extra={"event": "storage.read_failed", "file": path.name})
         return dict(_USER_DEFAULTS)
+
+
+def get_dividend_withholding(exchange_key: str | None, email: str = "") -> float:
+    """Default withholding % for a dividend on this exchange, from the
+    user's own Settings -> Dividend withholding table (0% if unset/unknown
+    exchange)."""
+    if not exchange_key:
+        return 0.0
+    rates = load_settings(email).get("dividend_withholding", {})
+    try:
+        return float(rates.get(exchange_key, 0.0))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def save_settings(s: dict, email: str = "") -> None:

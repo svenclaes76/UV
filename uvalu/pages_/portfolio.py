@@ -16,7 +16,9 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
-                       record_value_snapshot, ensure_value_history_fresh)
+                       record_value_snapshot, ensure_value_history_fresh,
+                       dividends_in_eur, exchange_key_for_ticker)
+from settings import get_dividend_withholding
 from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
@@ -332,6 +334,13 @@ def render() -> None:
                     if _ov_div is not None and not _ov_div.empty:
                         _ov_div = _ov_div.copy()
                         _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
+                        # "Received" — a dividend dated ahead of its payment
+                        # date hasn't happened yet, so it doesn't belong in
+                        # this list (same fix as the Dashboard KPI/Portfolio
+                        # totals, applied here too since this list carries
+                        # the same "received" framing in its own title).
+                        _ov_div = _ov_div[_ov_div["date"] <= pd.Timestamp.now()]
+                    if _ov_div is not None and not _ov_div.empty:
                         _ov_div["_date_str"] = _ov_div["date"].dt.strftime("%d %b %Y")
                         _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
                         with st.container(key="pf_col_header_div_ov"):
@@ -553,25 +562,41 @@ def render() -> None:
             div_hist["date"]   = pd.to_datetime(div_hist["date"], errors="coerce")
             div_hist["_date_str"] = div_hist["date"].dt.strftime("%d %b %Y")
             div_hist["shares"] = pd.to_numeric(div_hist.get("shares"), errors="coerce").fillna(0).astype(int)
+            div_hist["reinvested"] = (
+                div_hist["reinvested"].fillna(False).astype(bool)
+                if "reinvested" in div_hist.columns else False
+            )
 
             @st.dialog("Edit dividend", width="small")
             def _dlg_edit_dividend(orig_idx: int) -> None:
+                import datetime as _dt
+
                 enter_dialog()
                 _row = div_hist.loc[orig_idx]
                 _dialog_width_css(380)
                 st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
                            f'Edit {_row["ticker"]}</div>', unsafe_allow_html=True)
                 st.caption(_row["name"])
+                if bool(_row.get("reinvested")):
+                    st.caption("Reinvested (DRIP) — the purchased shares were already added to "
+                              "this position and aren't re-applied by editing this record.")
+                _ccy = str(_row.get("currency") or "EUR")
                 _c1, _c2 = st.columns(2)
                 with _c1:
                     _shares = st.number_input("Shares", min_value=1, step=1,
                                               value=max(1, int(_row["shares"])), key="dlg_ed_shares")
                 with _c2:
                     _dps0 = (_row["amount"] / _row["shares"]) if _row["shares"] else 0.0
-                    _dps = st.number_input("Div/share (€)", min_value=0.0, step=0.0001,
+                    _dps = st.number_input(f"Div/share ({_ccy})", min_value=0.0, step=0.0001,
                                            value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
-                _date = st.date_input("Date", value=_row["date"].date() if pd.notna(_row["date"]) else None,
-                                      format="DD/MM/YYYY", key="dlg_ed_date")
+                _c3, _c4 = st.columns(2)
+                with _c3:
+                    _date = st.date_input("Date", value=_row["date"].date() if pd.notna(_row["date"]) else None,
+                                          format="DD/MM/YYYY", max_value=_dt.date.today(), key="dlg_ed_date")
+                with _c4:
+                    _tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
+                                                step=0.5, value=float(_row.get("tax_rate") or 0.0),
+                                                key="dlg_ed_tax")
 
                 _b1, _b2 = st.columns(2)
                 with _b1:
@@ -585,8 +610,11 @@ def render() -> None:
                 if _do_save:
                     _dh = load_div_hist()
                     _new_shares = max(1, int(_shares))
+                    _new_amount = round(_dps * _new_shares, 2)
                     _dh.at[orig_idx, "shares"] = _new_shares
-                    _dh.at[orig_idx, "amount"] = round(_dps * _new_shares, 2)
+                    _dh.at[orig_idx, "amount"] = _new_amount
+                    _dh.at[orig_idx, "tax_rate"] = round(_tax_rate, 2)
+                    _dh.at[orig_idx, "tax_amount"] = round(_new_amount * _tax_rate / 100, 2)
                     if _date is not None:
                         _dh.at[orig_idx, "date"] = pd.Timestamp(_date).isoformat()
                     update_div_hist(_dh)
@@ -598,16 +626,29 @@ def render() -> None:
                     update_div_hist(_dh)
                     st.rerun()
 
-            div_sorted = div_hist.sort_values("date", ascending=False)
+            div_sorted = dividends_in_eur(div_hist).sort_values("date", ascending=False)
+            with st.container(key="pf_page_title_dividends_export", horizontal=True,
+                              horizontal_alignment="right"):
+                _div_csv = div_sorted[["name", "ticker", "_date_str", "currency", "amount",
+                                       "tax_amount", "net_amount"]].rename(columns={
+                    "name": "Company", "ticker": "Ticker", "_date_str": "Date", "currency": "Currency",
+                    "amount": "Gross (native)", "tax_amount": "Tax (native)", "net_amount": "Net (native)",
+                }).to_csv(index=False)
+                st.download_button("Export CSV", data=_div_csv, file_name="uvalu_dividends.csv",
+                                   mime="text/csv", key="div_export", icon=":material/download:")
             with st.container(key="pf_card_div_full", border=True):
                 with st.container(key="pf_col_header_div_full"):
-                    _col_header([6, 1.3, 0.4], ["Position", "Dividend", ""], [False, True, False])
+                    _col_header([3.4, 1.1, 1, 0.9, 1, 0.4],
+                               ["Position", "Date", "Gross", "Tax", "Net", ""],
+                               [False, False, True, True, True, False])
                 _edit_target = None
                 for _idx, _drow in div_sorted.iterrows():
                     _res = portfolio_dividend_row(
                         key=f"pf_div_row_{_idx}", name=_drow.get("name", "—"),
                         ticker=_drow.get("ticker", ""), date=_drow["_date_str"] or "—",
-                        amount=_drow.get("amount"), show_edit=True, edit_disabled=_is_viewer,
+                        amount=_drow.get("amount_eur"), tax=_drow.get("tax_amount_eur"),
+                        net=_drow.get("net_amount_eur"), reinvested=bool(_drow.get("reinvested")),
+                        show_edit=True, edit_disabled=_is_viewer, show_breakdown=True,
                     )
                     if _res["edit"]:
                         _edit_target = _idx
