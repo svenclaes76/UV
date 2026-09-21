@@ -8,6 +8,7 @@ interaction as previously unreliable in one specific case (a nested
 Save/Cancel button clicks directly to see whether that holds here too,
 rather than assuming either way.
 """
+import datetime as dt
 import pandas as pd
 import pytest
 import yfinance as yf
@@ -257,7 +258,11 @@ add_dividend_dialog(pf)
     def test_nan_shares_does_not_crash_on_save(self):
         # Same NaN-truthy bug as sell_position_dialog's shares lookup --
         # int(pd.to_numeric(...) or 0) raises ValueError on a NaN shares
-        # field instead of falling back to 0.
+        # field instead of falling back to 0. The dialog's shares-held
+        # default comes from this same NaN lookup, so just rendering the
+        # dialog (the at.run() below) is the real regression guard; the
+        # save itself needs an explicit shares value since gross is now
+        # derived from per-share x shares rather than entered as one total.
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": float("nan"), "dividends": 0.0,
         }]))
@@ -271,11 +276,13 @@ add_dividend_dialog(pf)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
-        at.number_input(key="dlg_dv_amount").set_value(15.0)
+        at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
+        at.number_input(key="dlg_dv_ps").set_value(1.5)
+        at.number_input(key="dlg_dv_shares").set_value(10)
         save = [b for b in at.button if b.label == "Save"][0]
         save.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert portfolio.load_div_hist().iloc[0]["shares"] == 0
+        assert portfolio.load_div_hist().iloc[0]["shares"] == 10
 
     def test_save_without_amount_shows_error(self):
         at = self._run()
@@ -283,12 +290,14 @@ add_dividend_dialog(pf)
         save = [b for b in at.button if b.label == "Save"][0]
         save.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert "Enter a ticker and an amount" in "".join(e.value for e in at.error)
+        assert "Enter a ticker, shares held and a gross amount per share" in "".join(e.value for e in at.error)
 
     def test_save_with_valid_data_records_dividend(self):
         at = self._run()
         at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
-        at.number_input(key="dlg_dv_amount").set_value(15.0)
+        at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
+        at.number_input(key="dlg_dv_ps").set_value(1.5)
+        at.number_input(key="dlg_dv_shares").set_value(10)
         save = [b for b in at.button if b.label == "Save"][0]
         save.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]

@@ -95,6 +95,12 @@ _USER_DEFAULTS: dict = {
     "alert_buy_signal":      False,
     "alert_avoid_signal":    False,
     "alert_dividend_ex_date": False,
+    # Only badge an approaching ex-date for a holding at least this big a
+    # slice of the portfolio — an ex-div reminder for a 0.3%-weight position
+    # is noise. 0 disables the size gate (every held ex-date badges).
+    "alert_dividend_size_threshold_pct": 0.0,
+    "alert_dividend_cut":     False,   # badge when a holding's dividend was just cut/suspended
+    "alert_dividend_increase": False,  # badge when a holding's dividend was just raised
     "alert_price_target":    False,
     # Per-exchange dividend withholding tax %, applied as the default tax_rate
     # when a dividend is recorded against a ticker on that exchange (still

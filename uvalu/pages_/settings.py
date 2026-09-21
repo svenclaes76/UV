@@ -15,11 +15,16 @@ borrows its visual chrome:
   is EUR-only, one decimal format) instead of the mockup's 4/2 demo options.
 - Screening sliders keep the app's real ranges/units (e.g. Max debt/equity
   is 50-1000%) instead of the mockup's demo 1-3× scale.
-- The mockup's "Alerts & data" card (4 notification toggles + Price refresh
-  interval) is now just "Data" with Price refresh interval only — the
-  notification toggles were removed per request (they were never wired to
-  any real delivery mechanism — no email/push exists in this app — so the
-  toggles didn't do anything besides store an unused preference).
+- The mockup's "Alerts & data" card (4 generic notification toggles + Price
+  refresh interval) became just "Data" with Price refresh interval only —
+  the original 4 toggles were removed per request (never wired to any real
+  delivery mechanism — no email/push exists in this app — so they didn't do
+  anything besides store an unused preference). This card has since grown
+  its own real, in-app-badge-wired alert toggles instead (ex-dividend
+  approaching, with an optional position-size gate; dividend cut/suspension;
+  dividend increase — all surfaced as Dashboard "Upcoming dividends" badges,
+  never a new delivery channel), so "Data" now means Price refresh interval
+  + these dividend alerts, not a return to the removed generic toggles.
 - Import/Export (per-user portfolio ops) isn't in the mockup at all but is
   a real, useful feature, so it stays; the mockup's Table density-adjacent
   settings were removed per a separate request.
@@ -735,6 +740,39 @@ def render() -> None:
                 bool(_s.get("alert_dividend_ex_date", False)))
             if _alert_ex_div != bool(_s.get("alert_dividend_ex_date", False)):
                 _s["alert_dividend_ex_date"] = bool(_alert_ex_div)
+                save_settings(_s, _email)
+                st.rerun()
+
+            if _alert_ex_div:
+                _cur_thr = float(_s.get("alert_dividend_size_threshold_pct", 0.0))
+                _new_thr = _threshold_slider(
+                    "disp_alert_dividend_size", "Only above this position weight", 0.0, 15.0, 0.5,
+                    _cur_thr, lambda v: (f"{v:.1f}%" if v > 0 else "any size"),
+                    "0% flags every held ex-date; raise it to only badge your larger positions.")
+                if _new_thr != _cur_thr:
+                    _s["alert_dividend_size_threshold_pct"] = float(_new_thr)
+                    save_settings(_s, _email)
+                    st.rerun()
+
+            # Both wired the same way as Ex-dividend alerts above (an in-app
+            # Dashboard badge, not a new delivery channel) — cut/suspension
+            # from screener.dividend_last_cut_year, increase from the
+            # symmetric dividend_last_increase_year (WP-DIV5).
+            _alert_cut = _toggle_row(
+                "alert_div_cut", "disp_alert_div_cut", "Dividend cut / suspension alerts",
+                "Flag a holding on the Dashboard when its dividend was just cut or suspended.",
+                bool(_s.get("alert_dividend_cut", False)))
+            if _alert_cut != bool(_s.get("alert_dividend_cut", False)):
+                _s["alert_dividend_cut"] = bool(_alert_cut)
+                save_settings(_s, _email)
+                st.rerun()
+
+            _alert_increase = _toggle_row(
+                "alert_div_increase", "disp_alert_div_increase", "Dividend increase alerts",
+                "Flag a holding on the Dashboard when its dividend was just raised.",
+                bool(_s.get("alert_dividend_increase", False)))
+            if _alert_increase != bool(_s.get("alert_dividend_increase", False)):
+                _s["alert_dividend_increase"] = bool(_alert_increase)
                 save_settings(_s, _email)
                 st.rerun()
 

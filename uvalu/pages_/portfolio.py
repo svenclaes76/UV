@@ -17,15 +17,18 @@ import streamlit as st
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, update_positions, update_div_hist,
                        record_value_snapshot, ensure_value_history_fresh,
-                       dividends_in_eur, exchange_key_for_ticker)
+                       dividends_in_eur, dividend_income_summary,
+                       import_dividends_from_market_data,
+                       exchange_key_for_ticker, load_dividend_meta, set_dividend_meta)
 from settings import get_dividend_withholding
 from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
-                           add_closed_trade_dialog, _dialog_width_css)
+                           add_closed_trade_dialog, _dialog_width_css,
+                           _dividend_tax_breakdown, DIV_TYPE_OPTIONS, DIV_FREQUENCY_OPTIONS)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
-                              portfolio_closed_row, portfolio_dividend_row, refresh_top_bar_html,
-                              skeleton_kpi_card_html, skeleton_rows)
+                              portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
+                              refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -137,6 +140,19 @@ def render() -> None:
     _cost = pf["purchase_value"].replace(0, float("nan"))
     pf["price_gain_pct"] = (pf["price_gain"] / _cost * 100).round(2)
 
+    # ── Dividend income (WP-DIV4): trailing-12m net/gross/regular-gross per
+    # ticker, net of foreign withholding AND the Belgian 30% layer — feeds
+    # the Income 12m / Yield / YoC net columns below and every dividends-
+    # page figure. Computed once here (not per-section) since both the
+    # Overview preview and the full Open-positions page need it.
+    _div_hist_all = load_div_hist()
+    _div_summary = dividend_income_summary(_div_hist_all, months=12)
+
+    def _div_row_for(ticker: str) -> dict:
+        if ticker in _div_summary.index:
+            return _div_summary.loc[ticker].to_dict()
+        return {"gross_eur": 0.0, "net_eur": 0.0, "regular_gross_eur": 0.0}
+
     # ── Summary cards (Overview only) ──────────────────────────────────────────
     total_invested  = pf["purchase_value"].sum()
     total_current   = pf["current_value"].sum()
@@ -199,12 +215,10 @@ def render() -> None:
         else:
             _realised_pl, _realised_count = 0.0, 0
 
-        _ov_div_all = load_div_hist()
-        if _ov_div_all is not None and not _ov_div_all.empty:
-            _div_dates = pd.to_datetime(_ov_div_all["date"], errors="coerce")
-            _cutoff = pd.Timestamp.now() - pd.Timedelta(days=365)
-            _div_12m = pd.to_numeric(
-                _ov_div_all.loc[_div_dates >= _cutoff, "amount"], errors="coerce").sum()
+        if not _div_summary.empty:
+            # Net of foreign withholding and the Belgian 30% roerende
+            # voorheffing (WP-DIV3) — the "real" income figure, not gross.
+            _div_12m = _div_summary["net_eur"].sum()
         else:
             # No dividend-history file uploaded — fall back to dividends already
             # recorded against current holdings rather than showing zero.
@@ -245,17 +259,19 @@ def render() -> None:
                 if st.button("", key="ov_open_expand", icon=":material/open_in_full:", help="Open full page"):
                     _goto("open")
             with st.container(key="pf_col_header_open_ov"):
-                _col_header([200, 68, 88, 88, 108, 118, 132, 96],
+                _col_header([200, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96],
                            ["Position", "Shares", "Avg cost", "Price", "Cost basis",
-                            "Market value", "Unrealised P&L", "Weight"],
-                           [False, True, True, True, True, True, True, False])
+                            "Market value", "Unrealised P&L", "Income 12m", "Yield", "YoC net", "Weight"],
+                           [False, True, True, True, True, True, True, True, True, True, False])
             if _pf_fetch_running:
-                skeleton_rows([200, 68, 88, 88, 108, 118, 132, 96], n=min(len(pf), 5),
+                skeleton_rows([200, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96], n=min(len(pf), 5),
                              key_prefix="uv_skel_row_pf_open")
             else:
                 _ov_view_target = None
                 _ov_open = pf.sort_values("current_value", ascending=False).head(5)
                 for _idx, _prow in _ov_open.iterrows():
+                    _dr = _div_row_for(_prow["ticker"])
+                    _cost_val = _prow["purchase_value"] if pd.notna(_prow["purchase_value"]) and _prow["purchase_value"] else None
                     _res = portfolio_open_row(
                         key=f"pf_open_row_ov_{_idx}_{_prow['ticker']}", ticker=_prow["ticker"],
                         exchange=_exchange_label(_prow["ticker"]), name=_prow["name"],
@@ -263,6 +279,10 @@ def render() -> None:
                         cost_basis=_prow["purchase_value"], value=_prow["current_value"],
                         gain=_prow["price_gain"], gain_pct=_prow["price_gain_pct"],
                         weight_pct=(_prow["current_value"] / total_current * 100) if total_current else 0,
+                        income_12m=_dr["net_eur"], income_12m_gross=_dr["gross_eur"],
+                        ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
+                        if _prow["current_value"] else None,
+                        yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
                         show_edit=False,
                     )
                     if _res["view"]:
@@ -332,7 +352,7 @@ def render() -> None:
                 else:
                     _ov_div = load_div_hist()
                     if _ov_div is not None and not _ov_div.empty:
-                        _ov_div = _ov_div.copy()
+                        _ov_div = dividends_in_eur(_ov_div)
                         _ov_div["date"] = pd.to_datetime(_ov_div["date"], errors="coerce")
                         # "Received" — a dividend dated ahead of its payment
                         # date hasn't happened yet, so it doesn't belong in
@@ -344,12 +364,12 @@ def render() -> None:
                         _ov_div["_date_str"] = _ov_div["date"].dt.strftime("%d %b %Y")
                         _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
                         with st.container(key="pf_col_header_div_ov"):
-                            _col_header([6, 1.3], ["Position", "Dividend"], [False, True])
+                            _col_header([6, 1.3], ["Position", "Net dividend"], [False, True])
                         for _didx, _drow in _ov_div.iterrows():
                             portfolio_dividend_row(
                                 key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
                                 ticker=_drow.get("ticker", ""), date=_drow["_date_str"] or "—",
-                                amount=pd.to_numeric(_drow.get("amount"), errors="coerce"), show_edit=False,
+                                amount=_drow.get("net_after_be_amount_eur"), show_edit=False,
                             )
                     else:
                         st.caption("No dividends received yet.")
@@ -422,14 +442,16 @@ def render() -> None:
 
         with st.container(key="pf_card_open_full", border=True):
             with st.container(key="pf_col_header_open_full"):
-                _col_header([240, 68, 88, 88, 108, 118, 132, 96, 32],
+                _col_header([240, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96, 32],
                            ["Position", "Shares", "Avg cost", "Price", "Cost basis",
-                            "Market value", "Unrealised P&L", "Weight", ""],
-                           [False, True, True, True, True, True, True, False, False])
+                            "Market value", "Unrealised P&L", "Income 12m", "Yield", "YoC net", "Weight", ""],
+                           [False, True, True, True, True, True, True, True, True, True, False, False])
             _view_target = None
             _edit_target = None
             _open_sorted = pf.sort_values("name", key=lambda s: s.str.lower())
             for _idx, _prow in _open_sorted.iterrows():
+                _dr = _div_row_for(_prow["ticker"])
+                _cost_val = _prow["purchase_value"] if pd.notna(_prow["purchase_value"]) and _prow["purchase_value"] else None
                 _res = portfolio_open_row(
                     key=f"pf_open_row_{_idx}_{_prow['ticker']}", ticker=_prow["ticker"],
                     exchange=_exchange_label(_prow["ticker"]), name=_prow["name"],
@@ -437,6 +459,10 @@ def render() -> None:
                     cost_basis=_prow["purchase_value"], value=_prow["current_value"],
                     gain=_prow["price_gain"], gain_pct=_prow["price_gain_pct"],
                     weight_pct=(_prow["current_value"] / total_current * 100) if total_current else 0,
+                    income_12m=_dr["net_eur"], income_12m_gross=_dr["gross_eur"],
+                    ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
+                    if _prow["current_value"] else None,
+                    yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
                     show_edit=True, edit_disabled=_is_viewer,
                 )
                 if _res["view"]:
@@ -548,14 +574,27 @@ def render() -> None:
             _goto("overview")
         with st.container(key="pf_page_title_dividends", horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Dividends received</div>',
-                       unsafe_allow_html=True)
-            if st.button("Add dividend", key="btn_add_div", type="primary", icon=":material/add:", disabled=_is_viewer,
-                        help="Viewer role is read-only" if _is_viewer else None):
-                add_dividend_dialog(pf)
+            with st.container(width="content"):
+                st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Dividend log</div>',
+                           unsafe_allow_html=True)
+                st.caption("Per-holding dividend events. Auto-fetched from the market data source where "
+                          "dividend history is exposed; manual entry fills the gaps.")
+            with st.container(horizontal=True, gap="small", width="content"):
+                if st.button("Import from market data", key="btn_import_div", icon=":material/sync:",
+                            disabled=_is_viewer, help="Viewer role is read-only" if _is_viewer else
+                            "Pull missing dividend events for your held tickers from market data"):
+                    _n_imported = import_dividends_from_market_data(pf, _user.email)
+                    if _n_imported:
+                        st.toast(f"Imported {_n_imported} dividend event(s) from market data.", icon=":material/sync:")
+                    else:
+                        st.toast("No new dividend events found.", icon=":material/info:")
+                    st.rerun()
+                if st.button("Add dividend", key="btn_add_div", type="primary", icon=":material/add:", disabled=_is_viewer,
+                            help="Viewer role is read-only" if _is_viewer else None):
+                    add_dividend_dialog(pf)
         div_hist = load_div_hist()
         if div_hist is None or div_hist.empty:
-            st.info("Re-upload your Excel file to load full dividend history.")
+            st.info("No dividend events yet. Add one, or use Import from market data for your held tickers.")
         else:
             div_hist = div_hist.copy().reset_index(drop=True)
             div_hist["amount"] = pd.to_numeric(div_hist["amount"], errors="coerce")
@@ -566,6 +605,7 @@ def render() -> None:
                 div_hist["reinvested"].fillna(False).astype(bool)
                 if "reinvested" in div_hist.columns else False
             )
+            _div_meta_all = load_dividend_meta()
 
             @st.dialog("Edit dividend", width="small")
             def _dlg_edit_dividend(orig_idx: int) -> None:
@@ -573,7 +613,7 @@ def render() -> None:
 
                 enter_dialog()
                 _row = div_hist.loc[orig_idx]
-                _dialog_width_css(380)
+                _dialog_width_css(420)
                 st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
                            f'Edit {_row["ticker"]}</div>', unsafe_allow_html=True)
                 st.caption(_row["name"])
@@ -581,32 +621,68 @@ def render() -> None:
                     st.caption("Reinvested (DRIP) — the purchased shares were already added to "
                               "this position and aren't re-applied by editing this record.")
                 _ccy = str(_row.get("currency") or "EUR")
-                _c1, _c2 = st.columns(2)
+
+                def _parse_date(v):
+                    d = pd.to_datetime(v, errors="coerce")
+                    return d.date() if pd.notna(d) else None
+
+                _row_pay = _row["date"].date() if pd.notna(_row["date"]) else None
+                _max_date = max(_dt.date.today(), _row_pay) if _row_pay else _dt.date.today()
+
+                _c1, _c2, _c3, _c4 = st.columns(4)
                 with _c1:
-                    _shares = st.number_input("Shares", min_value=1, step=1,
-                                              value=max(1, int(_row["shares"])), key="dlg_ed_shares")
+                    _decl = st.date_input("Declaration date", value=_parse_date(_row.get("declaration_date")),
+                                          format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_decl")
                 with _c2:
-                    _dps0 = (_row["amount"] / _row["shares"]) if _row["shares"] else 0.0
-                    _dps = st.number_input(f"Div/share ({_ccy})", min_value=0.0, step=0.0001,
-                                           value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
-                _c3, _c4 = st.columns(2)
+                    _ex = st.date_input("Ex-dividend date *", value=_parse_date(_row.get("ex_date")),
+                                        format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_ex")
                 with _c3:
-                    _row_date = _row["date"].date() if pd.notna(_row["date"]) else None
-                    # A pre-existing record dated in the future (entered
-                    # before dates were capped at today, or imported) must
-                    # stay editable — Streamlit raises if the current value
-                    # falls outside min/max, so the cap can't be a flat
-                    # `today` here the way the Add-dividend dialog's can.
-                    # Extending it to the row's own date keeps the field
-                    # usable without silently blessing the past bug of
-                    # letting a *new* date go further into the future.
-                    _max_date = max(_dt.date.today(), _row_date) if _row_date else _dt.date.today()
-                    _date = st.date_input("Date", value=_row_date, format="DD/MM/YYYY",
-                                          max_value=_max_date, key="dlg_ed_date")
+                    _rec = st.date_input("Record date", value=_parse_date(_row.get("record_date")),
+                                         format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_rec")
                 with _c4:
-                    _tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
+                    _date = st.date_input("Payment date *", value=_row_pay, format="DD/MM/YYYY",
+                                          max_value=_max_date, key="dlg_ed_date")
+
+                _c5, _c6, _c7 = st.columns(3)
+                with _c5:
+                    _shares = st.number_input("Shares", min_value=0, step=1,
+                                              value=max(0, int(_row["shares"])), key="dlg_ed_shares")
+                with _c6:
+                    _dps0 = float(_row.get("amount_per_share") or 0) or (
+                        (_row["amount"] / _row["shares"]) if _row["shares"] else 0.0)
+                    _dps = st.number_input(f"Gross / share ({_ccy})", min_value=0.0, step=0.0001,
+                                           value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
+                with _c7:
+                    _tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
                                                 step=0.5, value=float(_row.get("tax_rate") or 0.0),
                                                 key="dlg_ed_tax")
+
+                _c8, _c9 = st.columns(2)
+                _type0 = _row.get("div_type") or "Cash"
+                with _c8:
+                    _type = st.selectbox("Type", options=DIV_TYPE_OPTIONS,
+                                         index=DIV_TYPE_OPTIONS.index(_type0) if _type0 in DIV_TYPE_OPTIONS else 0,
+                                         key="dlg_ed_type")
+                with _c9:
+                    _freq0 = (_div_meta_all.get(str(_row["ticker"]), {}) or {}).get("frequency") or "Quarterly"
+                    _freq = st.selectbox("Frequency (per holding)", options=DIV_FREQUENCY_OPTIONS,
+                                         index=DIV_FREQUENCY_OPTIONS.index(_freq0)
+                                         if _freq0 in DIV_FREQUENCY_OPTIONS else 1, key="dlg_ed_freq")
+
+                _gross = round(_dps * _shares, 2)
+                _fwh, _be, _net = _dividend_tax_breakdown(_gross, _tax_rate, _type)
+                st.markdown(
+                    f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--uv-panel-2,#F5F7FA);">'
+                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
+                    f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{_gross:,.2f}</span></div>'
+                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+                    f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{_fwh:,.2f}</span></div>'
+                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+                    f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{_be:,.2f}</span></div>'
+                    f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
+                    f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
+                    f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{_net:,.2f}</span></div>'
+                    f'</div>', unsafe_allow_html=True)
 
                 _b1, _b2 = st.columns(2)
                 with _b1:
@@ -618,16 +694,25 @@ def render() -> None:
                     _do_delete = st.button("Delete dividend", key="dlg_ed_delete", width="stretch")
 
                 if _do_save:
+                    if _ex is None:
+                        st.error("Ex-dividend date is required.")
+                        return
+                    if _date is None:
+                        st.error("Payment date is required.")
+                        return
                     _dh = load_div_hist()
-                    _new_shares = max(1, int(_shares))
-                    _new_amount = round(_dps * _new_shares, 2)
-                    _dh.at[orig_idx, "shares"] = _new_shares
-                    _dh.at[orig_idx, "amount"] = _new_amount
+                    _dh.at[orig_idx, "shares"] = int(_shares)
+                    _dh.at[orig_idx, "amount"] = _gross
+                    _dh.at[orig_idx, "amount_per_share"] = round(_dps, 4)
                     _dh.at[orig_idx, "tax_rate"] = round(_tax_rate, 2)
-                    _dh.at[orig_idx, "tax_amount"] = round(_new_amount * _tax_rate / 100, 2)
-                    if _date is not None:
-                        _dh.at[orig_idx, "date"] = pd.Timestamp(_date).isoformat()
+                    _dh.at[orig_idx, "tax_amount"] = _fwh
+                    _dh.at[orig_idx, "div_type"] = _type
+                    _dh.at[orig_idx, "declaration_date"] = pd.Timestamp(_decl).isoformat() if _decl else None
+                    _dh.at[orig_idx, "ex_date"] = pd.Timestamp(_ex).isoformat()
+                    _dh.at[orig_idx, "record_date"] = pd.Timestamp(_rec).isoformat() if _rec else None
+                    _dh.at[orig_idx, "date"] = pd.Timestamp(_date).isoformat()
                     update_div_hist(_dh)
+                    set_dividend_meta(str(_row["ticker"]), frequency=_freq)
                     st.rerun()
                 if _do_delete:
                     _dh = load_div_hist()
@@ -636,34 +721,169 @@ def render() -> None:
                     update_div_hist(_dh)
                     st.rerun()
 
-            div_sorted = dividends_in_eur(div_hist).sort_values("date", ascending=False)
+            div_eur = dividends_in_eur(div_hist)
+            div_eur["_date_str"] = div_hist["_date_str"]
+            # NaT.strftime() is NaN, not None -- and NaN is truthy in Python,
+            # so a later `x or "-"` fallback at the call site wouldn't catch
+            # it (rendered literal "nan" text instead of a dash). Blank out
+            # missing dates here instead, before any such fallback runs.
+            _blank_or_str = lambda s: pd.to_datetime(s, errors="coerce").dt.strftime("%d %b %Y").fillna("—")
+            div_eur["_ex_str"] = _blank_or_str(div_eur["ex_date"])
+            div_eur["_decl_str"] = _blank_or_str(div_eur["declaration_date"])
+            div_eur["_rec_str"] = _blank_or_str(div_eur["record_date"])
+
+            # ── Summary tiles ──────────────────────────────────────────────────
+            _tile_summary = dividend_income_summary(div_hist, months=12)
+            _tile_gross = _tile_summary["gross_eur"].sum() if not _tile_summary.empty else 0.0
+            _tile_fwh   = _tile_summary["foreign_tax_eur"].sum() if not _tile_summary.empty else 0.0
+            _tile_be    = _tile_summary["be_tax_eur"].sum() if not _tile_summary.empty else 0.0
+            _tile_net   = _tile_summary["net_eur"].sum() if not _tile_summary.empty else 0.0
+            _tile_dates = pd.to_datetime(div_eur["date"], errors="coerce")
+            _tile_now = pd.Timestamp.now()
+            _tile_n_events = int(((_tile_dates <= _tile_now)
+                                 & (_tile_dates > _tile_now - pd.DateOffset(months=12))).sum())
+            _tile_n_holdings = _tile_summary.shape[0] if not _tile_summary.empty else 0
+            with st.container(key="pf_div_tiles"):
+                _t1, _t2, _t3, _t4, _t5 = st.columns(5)
+                with _t1:
+                    _kpi_card("Gross income · 12m", f"€{_tile_gross:,.0f}",
+                             sub=f"{_tile_n_events} events · {_tile_n_holdings} holdings", icon="coin")
+                with _t2:
+                    _kpi_card("Withholding · 12m", f"−€{(_tile_fwh + _tile_be):,.0f}",
+                             sub=f"€{_tile_fwh:,.0f} foreign · €{_tile_be:,.0f} BE 30%", icon="coin")
+                with _t3:
+                    _kpi_card("Net income · 12m", f"€{_tile_net:,.0f}", sub="after all withholding", icon="coin")
+                with _t4:
+                    _kpi_card("Net yield", f"{_safe_pct(_tile_net, total_current):.2f}%", sub="on market value", icon="trend")
+                with _t5:
+                    _kpi_card("Net yield-on-cost", f"{_safe_pct(_tile_net, total_invested):.2f}%",
+                             sub="weighted, remaining cost basis", icon="trend")
+
+            div_sorted = div_eur.sort_values("date", ascending=False)
             with st.container(key="pf_page_title_dividends_export", horizontal=True,
                               horizontal_alignment="right"):
-                _div_csv = div_sorted[["name", "ticker", "_date_str", "currency", "amount",
-                                       "tax_amount", "net_amount"]].rename(columns={
-                    "name": "Company", "ticker": "Ticker", "_date_str": "Date", "currency": "Currency",
-                    "amount": "Gross (native)", "tax_amount": "Tax (native)", "net_amount": "Net (native)",
+                _div_csv = div_sorted[["name", "ticker", "declaration_date", "ex_date", "record_date",
+                                       "_date_str", "div_type", "currency", "amount", "tax_amount",
+                                       "be_tax_amount", "net_after_be_amount", "source", "reinvested"]].rename(columns={
+                    "name": "Company", "ticker": "Ticker", "declaration_date": "Declaration date",
+                    "ex_date": "Ex-dividend date", "record_date": "Record date", "_date_str": "Payment date",
+                    "div_type": "Type", "currency": "Currency", "amount": "Gross (native)",
+                    "tax_amount": "Foreign WH (native)", "be_tax_amount": "Belgian RV 30% (native)",
+                    "net_after_be_amount": "Net (native)", "source": "Source", "reinvested": "DRIP",
                 }).to_csv(index=False)
-                st.download_button("Export CSV", data=_div_csv, file_name="uvalu_dividends.csv",
+                st.download_button("Export log", data=_div_csv, file_name="uvalu_dividend_log.csv",
                                    mime="text/csv", key="div_export", icon=":material/download:")
             with st.container(key="pf_card_div_full", border=True):
                 with st.container(key="pf_col_header_div_full"):
-                    _col_header([3.4, 1.1, 1, 0.9, 1, 0.4],
-                               ["Position", "Date", "Gross", "Tax", "Net", ""],
-                               [False, False, True, True, True, False])
+                    _col_header([168, 88, 88, 78, 70, 62, 88, 92, 80, 92, 62, 56, 30],
+                               ["Position", "Ex-date", "Pay date", "Type", "Per share", "Shares",
+                                "Gross", "Foreign WH", "BE 30%", "Net", "Source", "DRIP", ""],
+                               [False, False, False, False, True, True, True, True, True, True, False, False, False])
                 _edit_target = None
                 for _idx, _drow in div_sorted.iterrows():
-                    _res = portfolio_dividend_row(
-                        key=f"pf_div_row_{_idx}", name=_drow.get("name", "—"),
-                        ticker=_drow.get("ticker", ""), date=_drow["_date_str"] or "—",
-                        amount=_drow.get("amount_eur"), tax=_drow.get("tax_amount_eur"),
-                        net=_drow.get("net_amount_eur"), reinvested=bool(_drow.get("reinvested")),
-                        show_edit=True, edit_disabled=_is_viewer, show_breakdown=True,
+                    _meta = _div_meta_all.get(str(_drow["ticker"]), {}) or {}
+                    _needs_confirm = (
+                        _drow.get("source") == "auto"
+                        and pd.notna(_drow.get("date")) and pd.notna(_drow.get("ex_date"))
+                        and pd.Timestamp(_drow["date"]).normalize() == pd.Timestamp(_drow["ex_date"]).normalize()
+                    )
+                    _res = dividend_log_row(
+                        key=f"pf_div_row_{_idx}", ticker=_drow.get("ticker", ""),
+                        exchange=_exchange_label(_drow.get("ticker", "")), name=_drow.get("name", "—"),
+                        frequency=_meta.get("frequency"), ex_date=_drow.get("_ex_str") or "—",
+                        declaration_date=_drow.get("_decl_str") or "—", pay_date=_drow.get("_date_str") or "—",
+                        record_date=_drow.get("_rec_str") or "—", div_type=_drow.get("div_type") or "Cash",
+                        per_share=_drow.get("amount_per_share"), shares=_drow.get("shares"),
+                        gross=_drow.get("amount_eur"), foreign_wh=_drow.get("tax_amount_eur"),
+                        wh_note=(f"{exchange_key_for_ticker(_drow.get('ticker', '')) or '—'} "
+                                f"{_drow.get('tax_rate'):.1f}%"
+                                if pd.notna(_drow.get("tax_rate")) and _drow.get("tax_rate") else "no treaty WH"),
+                        be_wh=_drow.get("be_tax_amount_eur"), net=_drow.get("net_after_be_amount_eur"),
+                        source=_drow.get("source") or "manual", drip=bool(_drow.get("reinvested")),
+                        needs_confirm=_needs_confirm, edit_disabled=_is_viewer,
                     )
                     if _res["edit"]:
                         _edit_target = _idx
                 if _edit_target is not None:
                     _dlg_edit_dividend(_edit_target)
+
+            # ── Annual tax summary + withholding by domicile ─────────────────────
+            _yc1, _yc2 = st.columns([1.6, 1], gap="large")
+            with _yc1, st.container(key="pf_card_tax_years", border=True):
+                with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
+                                  horizontal_alignment="distribute"):
+                    with st.container(width="content"):
+                        st.markdown('<div style="font-size:15px;font-weight:500;">Annual dividend income summary</div>',
+                                   unsafe_allow_html=True)
+                        st.caption("Net and gross reported separately, for your own tax filing.")
+                    _years_df = div_eur.assign(_year=pd.to_datetime(div_eur["date"], errors="coerce").dt.year)
+                    _year_summary = _years_df.dropna(subset=["_year"]).groupby("_year").agg(
+                        events=("ticker", "count"), gross=("amount_eur", "sum"),
+                        fwh=("tax_amount_eur", "sum"), be=("be_tax_amount_eur", "sum"),
+                        net=("net_after_be_amount_eur", "sum")).sort_index(ascending=False)
+                    _summary_csv = _year_summary.reset_index().rename(columns={
+                        "_year": "Year", "events": "Events", "gross": "Gross (EUR)",
+                        "fwh": "Foreign WH (EUR)", "be": "Belgian RV 30% (EUR)", "net": "Net (EUR)",
+                    }).to_csv(index=False)
+                    st.download_button("Export summary", data=_summary_csv, file_name="uvalu_dividend_tax_summary.csv",
+                                       mime="text/csv", key="div_summary_export", icon=":material/download:")
+                if _year_summary.empty:
+                    st.caption("No dividend history to summarise yet.")
+                else:
+                    with st.container(key="pf_col_header_tax_years"):
+                        _col_header([96, 200, 120, 120, 120, 120],
+                                   ["Year", "", "Gross", "Foreign WH", "BE 30%", "Net"],
+                                   [False, False, True, True, True, True])
+                    _this_year = pd.Timestamp.now().year
+                    for _year, _yrow in _year_summary.iterrows():
+                        _yc = st.columns([96, 200, 120, 120, 120, 120], vertical_alignment="center")
+                        with _yc[0]:
+                            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13.5px;"
+                                       f"font-weight:500;'>{int(_year)}</span>", unsafe_allow_html=True)
+                        with _yc[1]:
+                            _partial = "year to date" if int(_year) == _this_year else "full year"
+                            st.markdown(f"<span style='font-size:11.5px;color:var(--faint);'>"
+                                       f"{int(_yrow['events'])} events · {_partial}</span>", unsafe_allow_html=True)
+                        with _yc[2]:
+                            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;'>"
+                                       f"€{_yrow['gross']:,.2f}</span>", unsafe_allow_html=True)
+                        with _yc[3]:
+                            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
+                                       f"−€{_yrow['fwh']:,.2f}</span>", unsafe_allow_html=True)
+                        with _yc[4]:
+                            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
+                                       f"−€{_yrow['be']:,.2f}</span>", unsafe_allow_html=True)
+                        with _yc[5]:
+                            st.markdown(f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
+                                       f"color:var(--uv-mint,#1DD6A4);'>€{_yrow['net']:,.2f}</span>", unsafe_allow_html=True)
+            with _yc2, st.container(key="pf_card_tax_dom", border=True):
+                st.markdown('<div style="font-size:15px;font-weight:500;">Withholding by domicile</div>',
+                           unsafe_allow_html=True)
+                _dom_df = div_eur.assign(_dom=div_eur["ticker"].map(
+                    lambda t: (exchange_key_for_ticker(t) or "—")))
+                _dom_summary = _dom_df.groupby("_dom").agg(
+                    gross=("amount_eur", "sum"), fwh=("tax_amount_eur", "sum"),
+                    rate=("tax_rate", "max")).sort_values("gross", ascending=False)
+                if _dom_summary.empty:
+                    st.caption("No dividend history yet.")
+                else:
+                    for _dom, _drow2 in _dom_summary.iterrows():
+                        _rate = _drow2["rate"] if pd.notna(_drow2["rate"]) else 0.0
+                        st.markdown(
+                            f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0;'
+                            f'border-bottom:0.5px solid var(--line-2);">'
+                            f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:80px;">'
+                            f'{_dom}</span>'
+                            f'<span style="font-size:11.5px;color:var(--faint);flex:1;">treaty rate '
+                            f'{_rate:.1f}%</span>'
+                            f'<span style="font-family:var(--uv-mono);font-size:12px;color:var(--muted);">'
+                            f'€{_drow2["gross"]:,.0f}</span>'
+                            f'<span style="font-family:var(--uv-mono);font-size:12.5px;width:78px;text-align:right;">'
+                            f'−€{_drow2["fwh"]:,.0f}</span></div>',
+                            unsafe_allow_html=True,
+                        )
+                st.caption("Belgian roerende voorheffing of 30% applies after foreign withholding on every "
+                          "position. Treaty rates are applied where the domicile is known.")
 
     # Dispatch at most one detail dialog per render
     if _pf_dlg_pending:

@@ -125,7 +125,7 @@ def test_closed_positions_full_page_with_data(isolated_data, monkeypatch):
 def test_dividends_full_page_empty(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, section="dividends")
-    assert "Re-upload your Excel file" in "".join(i.value for i in at.info)
+    assert "No dividend events yet" in "".join(i.value for i in at.info)
 
 
 def test_dividends_full_page_with_data(isolated_data, monkeypatch):

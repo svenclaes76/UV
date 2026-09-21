@@ -21,6 +21,22 @@ SECTOR_OPTIONS = [
     "Consumer Defensive", "Energy", "Industrials", "Utilities", "Basic Materials",
 ]
 
+DIV_TYPE_OPTIONS = ["Cash", "Stock", "Special"]
+DIV_FREQUENCY_OPTIONS = ["Monthly", "Quarterly", "Semi-annual", "Annual", "Irregular"]
+
+
+def _dividend_tax_breakdown(gross: float, foreign_wh_pct: float, div_type: str) -> tuple[float, float, float]:
+    """(foreign_wh_amount, be_amount, net) for a gross dividend — mirrors
+    portfolio.dividends_in_eur()'s per-row math exactly (foreign % first,
+    then Belgium's fixed 30% roerende voorheffing on the remainder), so the
+    dialog's live preview always matches what gets stored/read back. Stock
+    (scrip) dividends carry no cash withholding."""
+    from portfolio import BE_WITHHOLDING_RATE
+
+    fwh = round(gross * (foreign_wh_pct or 0) / 100, 2)
+    be = 0.0 if div_type == "Stock" else round(max(0.0, gross - fwh) * BE_WITHHOLDING_RATE, 2)
+    return fwh, be, round(gross - fwh - be, 2)
+
 
 def _dialog_width_css(px: int) -> None:
     """Clamp this dialog to Uvalu.dc.html's exact modal width — Streamlit's
@@ -180,36 +196,82 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     import datetime as _dt
 
-    from portfolio import currency_for_ticker, exchange_key_for_ticker
+    from portfolio import (currency_for_ticker, exchange_key_for_ticker,
+                           load_dividend_meta, set_dividend_meta)
     from settings import get_dividend_withholding
     from uvalu.runtime import current_user
 
     enter_dialog()
-    _dialog_width_css(380)
+    _dialog_width_css(420)
     _c1, _c2 = st.columns(2)
     with _c1:
         ticker_raw = st.text_input("Ticker", placeholder="ALV.DE", key="dlg_dv_ticker").strip().upper()
     _ccy = currency_for_ticker(ticker_raw) if ticker_raw else "EUR"
-    with _c2:
-        amount = st.number_input(f"Amount ({_ccy})", min_value=0.0, step=0.01, value=0.0,
-                                 format="%.2f", key="dlg_dv_amount")
-
     _match = pf[pf["ticker"] == ticker_raw] if ticker_raw and "ticker" in pf.columns else pf.iloc[0:0]
     _default_name = _match.iloc[0]["name"] if not _match.empty else ""
-    name_raw = st.text_input("Company name", value=_default_name, placeholder="Allianz",
-                             key="dlg_dv_name").strip()
+    with _c2:
+        name_raw = st.text_input("Company name", value=_default_name, placeholder="Allianz",
+                                 key="dlg_dv_name").strip()
 
-    _c3, _c4 = st.columns(2)
+    _meta = load_dividend_meta().get(ticker_raw, {}) if ticker_raw else {}
+
+    _c3, _c4, _c5, _c6 = st.columns(4)
     with _c3:
-        div_date = st.date_input("Date", format="DD/MM/YYYY", max_value=_dt.date.today(),
-                                 key="dlg_dv_date")
+        decl_date = st.date_input("Declaration date (optional)", value=None, format="DD/MM/YYYY",
+                                  max_value=_dt.date.today() + _dt.timedelta(days=365), key="dlg_dv_decl")
     with _c4:
-        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw),
-                                                 current_user().email)
-        tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
+        ex_date = st.date_input("Ex-dividend date *", value=None, format="DD/MM/YYYY",
+                                max_value=_dt.date.today() + _dt.timedelta(days=365), key="dlg_dv_ex")
+    with _c5:
+        rec_date = st.date_input("Record date (optional)", value=None, format="DD/MM/YYYY",
+                                 max_value=_dt.date.today() + _dt.timedelta(days=365), key="dlg_dv_rec")
+    with _c6:
+        pay_date = st.date_input("Payment date *", format="DD/MM/YYYY", max_value=_dt.date.today(),
+                                 key="dlg_dv_pay")
+
+    _c7, _c8, _c9 = st.columns(3)
+    with _c7:
+        dps = st.number_input(f"Gross / share ({_ccy})", min_value=0.0, step=0.0001, value=0.0,
+                              format="%.4f", key="dlg_dv_ps")
+    with _c8:
+        _shares0 = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
+        shares = st.number_input("Shares held", min_value=0, step=1, value=_shares0, key="dlg_dv_shares")
+    with _c9:
+        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw), current_user().email)
+        tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
                                    step=0.5, value=_default_tax, key="dlg_dv_tax")
 
-    reinvested = st.checkbox("Reinvested (DRIP) — no cash received", key="dlg_dv_reinvested")
+    _c10, _c11 = st.columns(2)
+    with _c10:
+        div_type = st.selectbox("Type", options=DIV_TYPE_OPTIONS, key="dlg_dv_type")
+    with _c11:
+        _freq0 = _meta.get("frequency") or "Quarterly"
+        frequency = st.selectbox("Frequency (per holding)", options=DIV_FREQUENCY_OPTIONS,
+                                 index=DIV_FREQUENCY_OPTIONS.index(_freq0)
+                                 if _freq0 in DIV_FREQUENCY_OPTIONS else 1, key="dlg_dv_freq")
+
+    if div_type == "Special":
+        st.caption("Flagged as special / one-off. Excluded from growth-streak and yield calculations.")
+
+    gross = round(dps * shares, 2)
+    fwh, be, net = _dividend_tax_breakdown(gross, tax_rate, div_type)
+    st.markdown(
+        f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--uv-panel-2,#F5F7FA);">'
+        f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
+        f'margin-bottom:6px;">Calculated</div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
+        f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{gross:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{fwh:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{be:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
+        f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
+        f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{net:,.2f}</span></div>'
+        f'</div>', unsafe_allow_html=True)
+
+    reinvested = st.checkbox("Reinvested (DRIP) — no cash received",
+                             value=bool(_meta.get("drip_default")), key="dlg_dv_reinvested")
     reinvested_shares = 0.0
     if reinvested:
         reinvested_shares = st.number_input(
@@ -227,27 +289,39 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
 
     if not _do_save:
         return
-    if not ticker_raw or amount <= 0:
-        st.error("Enter a ticker and an amount.")
+    if not ticker_raw or gross <= 0:
+        st.error("Enter a ticker, shares held and a gross amount per share.")
+        return
+    if ex_date is None:
+        st.error("Ex-dividend date is required.")
+        return
+    if pay_date is None:
+        st.error("Payment date is required.")
         return
     if reinvested and reinvested_shares <= 0:
         st.error("Enter the number of shares the reinvestment purchased.")
         return
     _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
-    _shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     add_dividend({
         "name":              name_raw or ticker_raw,
         "google_ticker":     _google_ticker,
         "ticker":            ticker_raw,
-        "shares":            _shares,
-        "amount":            round(amount, 2),
+        "shares":            int(shares),
+        "amount":            gross,
+        "amount_per_share":  round(dps, 4),
         "currency":          _ccy,
         "tax_rate":          round(tax_rate, 2),
-        "tax_amount":        round(amount * tax_rate / 100, 2),
-        "date":              pd.Timestamp(div_date).isoformat(),
+        "tax_amount":        fwh,
+        "div_type":          div_type,
+        "source":            "manual",
+        "declaration_date":  pd.Timestamp(decl_date).isoformat() if decl_date else None,
+        "ex_date":           pd.Timestamp(ex_date).isoformat(),
+        "record_date":       pd.Timestamp(rec_date).isoformat() if rec_date else None,
+        "date":              pd.Timestamp(pay_date).isoformat(),
         "reinvested":        bool(reinvested),
         "reinvested_shares": round(reinvested_shares, 4) if reinvested else None,
     })
+    set_dividend_meta(ticker_raw, frequency=frequency, drip_default=bool(reinvested))
     st.rerun()
 
 

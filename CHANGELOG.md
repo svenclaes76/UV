@@ -9,7 +9,10 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Dividend Management v2**: a fuller dividend-event schema (declaration/ex/record/payment dates, gross per-share, Cash/Stock/Special type, auto-vs-manual source) with migration for pre-1.10.0 records; a new Belgian 30% *roerende voorheffing* tax layer (`portfolio.BE_WITHHOLDING_RATE`), applied automatically on top of any foreign withholding for every Cash/Special dividend; position-level yield-on-cost, trailing-12m yield and income (net + gross) columns on the Open positions table; a per-holding dividend profile (frequency override, DRIP default) at `dividend_meta.json`; a "Dividend & income" panel on the Full Analysis page (TTM/forward yield, net YoC, growth streak, 1/3/5yr CAGR, payout ratio EPS/FCF, withholding breakdown, cut/increase detection, payment history, DRIP toggle); "Import from market data" to pull missing dividend events for held tickers from `marketdata.dividends()` (ex-date + amount only — payment date defaults to the ex-date and is flagged for confirmation rather than guessed); an annual dividend income tax summary and a withholding-by-domicile breakdown with CSV export, alongside the existing event-log export; and three new Dashboard alert toggles (dividend cut/suspension, dividend increase, a position-size gate on the existing ex-dividend alert).
+- `screener._dividend_stats`: now also returns `dgr_1y`/`dgr_3y`/`dgr_5y` (windowed dividend CAGR) and `dividend_last_increase_year` (symmetric to the existing `dividend_last_cut_year`), feeding the new Analysis page dividend panel.
 
 ---
 

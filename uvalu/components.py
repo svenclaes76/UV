@@ -1145,18 +1145,30 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                        shares: int, avg_cost: float | None, price: float | None,
                        cost_basis: float | None, value: float | None,
                        gain: float | None, gain_pct: float | None, weight_pct: float | None,
-                       show_edit: bool = False, edit_disabled: bool = False) -> dict:
+                       show_edit: bool = False, edit_disabled: bool = False,
+                       income_12m: float | None = None, income_12m_gross: float | None = None,
+                       ttm_yield_pct: float | None = None, yoc_pct: float | None = None) -> dict:
     """One open-position row — the whole row opens the detail drawer on
     click (matching the mockup's `h.onClick`); `show_edit=True` (the full
     Open positions page, not the Overview preview) adds a trailing
     edit-pencil button that opens a per-row edit dialog instead.
+
+    `income_12m`/`income_12m_gross`/`ttm_yield_pct`/`yoc_pct` (WP-DIV4) add
+    three columns — Income 12m (net, gross beneath), Yield, YoC net —
+    matching Uvalu Dividend Management.dc.html's holdings-table spec.
+    Passing None for all four (the default) renders the pre-dividend-v2
+    7/8-column layout unchanged.
 
     Returns {"view": bool, "edit": bool} — `edit` is always False when
     show_edit=False.
     """
     _css_key = key.replace(".", "-")
     _name_w = 240 if show_edit else 200
-    _widths = [_name_w, 68, 88, 88, 108, 118, 132, 96] + ([32] if show_edit else [])
+    _show_income = income_12m is not None or ttm_yield_pct is not None or yoc_pct is not None
+    _widths = [_name_w, 68, 88, 88, 108, 118, 132]
+    if _show_income:
+        _widths += [96, 60, 70]
+    _widths += [96] + ([32] if show_edit else [])
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
@@ -1198,7 +1210,26 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
                        f"font-weight:500;color:{_gc};'>{_gain_str}<div style='font-size:10.5px;font-weight:400;'>"
                        f"{_pct_str}</div></div>", unsafe_allow_html=True)
-        with _cols[7]:
+        _next = 7
+        if _show_income:
+            with _cols[7]:
+                _inc_str = f"€{income_12m:,.0f}" if income_12m is not None and pd.notna(income_12m) else "—"
+                _inc_gross_str = (f"{income_12m_gross:,.0f} gr" if income_12m_gross is not None
+                                  and pd.notna(income_12m_gross) else "")
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>"
+                           f"{_inc_str}<div style='font-size:10px;color:var(--faint);'>{_inc_gross_str}</div></div>",
+                           unsafe_allow_html=True)
+            with _cols[8]:
+                _yld_str = f"{ttm_yield_pct:.1f}%" if ttm_yield_pct is not None and pd.notna(ttm_yield_pct) else "—"
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                           f"color:var(--muted);'>{_yld_str}</div>", unsafe_allow_html=True)
+            with _cols[9]:
+                _yoc_str = f"{yoc_pct:.1f}%" if yoc_pct is not None and pd.notna(yoc_pct) else "—"
+                _yoc_color = "var(--uv-mint)" if yoc_pct is not None and pd.notna(yoc_pct) and yoc_pct >= 4 else "inherit"
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
+                           f"font-weight:500;color:{_yoc_color};'>{_yoc_str}</div>", unsafe_allow_html=True)
+            _next = 10
+        with _cols[_next]:
             _w = max(0.0, min(100.0, float(weight_pct) * 3.2)) if weight_pct is not None and pd.notna(weight_pct) else 0.0
             _weight_str = f"{weight_pct:.1f}%" if weight_pct is not None and pd.notna(weight_pct) else "—"
             st.markdown(f"<div style='display:flex;align-items:center;gap:8px;'>"
@@ -1207,7 +1238,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                        f"<span style='font-family:var(--uv-mono);font-size:11px;color:var(--muted);width:34px;"
                        f"text-align:right;'>{_weight_str}</span></div>", unsafe_allow_html=True)
         if show_edit:
-            with _cols[8]:
+            with _cols[_next + 1]:
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit position",
                                           disabled=edit_disabled)
         else:
@@ -1334,6 +1365,93 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                                           disabled=edit_disabled)
         else:
             _edit_clicked = False
+    return {"edit": _edit_clicked}
+
+
+def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str, frequency: str | None,
+                     ex_date: str, declaration_date: str, pay_date: str, record_date: str,
+                     div_type: str, per_share: float | None, shares: int | None,
+                     gross: float | None, foreign_wh: float | None, wh_note: str,
+                     be_wh: float | None, net: float | None, source: str, drip: bool,
+                     needs_confirm: bool = False, edit_disabled: bool = False) -> dict:
+    """One row of the full Dividend log (Portfolio -> Dividends full page) —
+    matches Uvalu Dividend Management.dc.html's 13-column spec (Position /
+    Ex-date / Pay date / Type / Per share / Shares / Gross / Foreign WH /
+    BE 30% / Net / Source / DRIP / edit). Always shows the edit pencil —
+    unlike the other row renderers this has no `show_edit` toggle since it's
+    only ever used on the full page, never a preview list.
+    Returns {"edit": bool}."""
+    _css_key = key.replace(".", "-")
+
+    def _money(v: float | None) -> str:
+        return f"€{v:,.2f}" if v is not None and pd.notna(v) else "—"
+
+    _widths = [168, 88, 88, 78, 70, 62, 88, 92, 80, 92, 62, 56, 30]
+    with st.container(key=key):
+        with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
+            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                       f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
+                       unsafe_allow_html=True)
+        _cols = st.columns(_widths, vertical_alignment="center")
+        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+                     if exchange and pd.notna(exchange) else "")
+        with _cols[0]:
+            st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:7px;'>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
+                       f"overflow:hidden;text-overflow:ellipsis;'>{name} · {frequency or '—'}</div></div>",
+                       unsafe_allow_html=True)
+        with _cols[1]:
+            st.markdown(f"<div style='font-size:11.5px;font-family:var(--uv-mono);'>{ex_date or '—'}</div>"
+                       f"<div style='font-size:9.5px;color:var(--faint);margin-top:2px;'>decl {declaration_date or '—'}</div>",
+                       unsafe_allow_html=True)
+        with _cols[2]:
+            _confirm = (' <span style="color:#C98A3A;">· confirm</span>' if needs_confirm else "")
+            st.markdown(f"<div style='font-size:11.5px;font-family:var(--uv-mono);'>{pay_date or '—'}{_confirm}</div>"
+                       f"<div style='font-size:9.5px;color:var(--faint);margin-top:2px;'>rec {record_date or '—'}</div>",
+                       unsafe_allow_html=True)
+        with _cols[3]:
+            _type_style = ("background:#FDF0E8;color:#854F0B;" if div_type == "Special" else
+                          "color:var(--muted);border:0.5px solid var(--line);")
+            st.markdown(f"<span style='font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;"
+                       f"border-radius:5px;{_type_style}'>{div_type}</span>", unsafe_allow_html=True)
+        with _cols[4]:
+            _ps_str = f"€{per_share:,.2f}" if per_share is not None and pd.notna(per_share) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_ps_str}</div>", unsafe_allow_html=True)
+        with _cols[5]:
+            _sh_str = f"{int(shares):,}" if shares is not None and pd.notna(shares) else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_sh_str}</div>", unsafe_allow_html=True)
+        with _cols[6]:
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>"
+                       f"{_money(gross)}</div>", unsafe_allow_html=True)
+        with _cols[7]:
+            _fwh_str = f"−{_money(foreign_wh)}" if foreign_wh else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_fwh_str}</div><div style='text-align:right;font-size:9.5px;"
+                       f"color:var(--faint);'>{wh_note or ''}</div>", unsafe_allow_html=True)
+        with _cols[8]:
+            _be_str = f"−{_money(be_wh)}" if be_wh else "—"
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                       f"color:var(--muted);'>{_be_str}</div>", unsafe_allow_html=True)
+        with _cols[9]:
+            st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
+                       f"font-weight:500;color:var(--uv-mint,#1DD6A4);'>{_money(net)}</div>", unsafe_allow_html=True)
+        with _cols[10]:
+            _src_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
+                         if source == "auto" else "border:0.5px solid var(--line);color:var(--muted);")
+            _src_label = "Auto" if source == "auto" else "Manual"
+            st.markdown(f"<span style='font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;"
+                       f"border-radius:5px;{_src_style}'>{_src_label}</span>", unsafe_allow_html=True)
+        with _cols[11]:
+            _drip_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
+                          if drip else "color:var(--faint);")
+            st.markdown(f"<span style='font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;"
+                       f"border-radius:5px;{_drip_style}'>{'DRIP' if drip else 'Cash'}</span>", unsafe_allow_html=True)
+        with _cols[12]:
+            _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help="Edit dividend",
+                                      disabled=edit_disabled)
     return {"edit": _edit_clicked}
 
 

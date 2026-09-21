@@ -78,8 +78,54 @@ def save_sold(df: pd.DataFrame) -> None:       _save(df, _user_dir() / "sold.jso
 def save_div_hist(df: pd.DataFrame) -> None:   _save(df, _user_dir() / "dividends_history.json")
 def load_portfolio() -> pd.DataFrame | None:   return _load(_user_dir() / "portfolio.json")
 def load_sold() -> pd.DataFrame | None:        return _load(_user_dir() / "sold.json")
-def load_div_hist() -> pd.DataFrame | None:    return _load(_user_dir() / "dividends_history.json")
 def portfolio_exists() -> bool:                return (_user_dir() / "portfolio.json").exists()
+
+
+# Dividend-event fields added for the fuller Dividend Management surface
+# (declaration/ex/record dates, per-share gross, special/one-off type,
+# auto-vs-manual source). Records saved before this shipped only have the
+# original `date` (payment date), `amount` (gross total), `shares`,
+# `tax_rate`/`tax_amount` — every new field defaults so old rows never crash
+# code that reads them. `ex_date` is nominally "required" going forward (the
+# Add-dividend dialog enforces it), but a pre-existing record without one
+# falls back to its payment date rather than being left blank.
+_DIV_HIST_DEFAULTS: dict = {
+    "declaration_date": None,
+    "ex_date":          None,
+    "record_date":      None,
+    "amount_per_share": None,
+    "div_type":         "Cash",   # "Cash" | "Stock" | "Special"
+    "source":           "manual",  # "manual" | "auto" (fetched from market data, WP-DIV8)
+}
+
+
+def _migrate_div_hist(df: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Backfill the new dividend-event columns onto rows saved by an older
+    version of this app — see _DIV_HIST_DEFAULTS. Never mutates values a
+    record already has."""
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+    for col, default in _DIV_HIST_DEFAULTS.items():
+        if col not in df.columns:
+            df[col] = default
+    if "date" not in df.columns:
+        df["date"] = None
+    _ex_blank = df["ex_date"].isna() | (df["ex_date"].astype(str).str.strip().isin(["", "None", "NaT"]))
+    df.loc[_ex_blank, "ex_date"] = df.loc[_ex_blank, "date"]
+    if "shares" in df.columns and "amount" in df.columns:
+        _aps = pd.to_numeric(df["amount_per_share"], errors="coerce")
+        _shares = pd.to_numeric(df["shares"], errors="coerce")
+        _amount = pd.to_numeric(df["amount"], errors="coerce")
+        _derive = _aps.isna() & _shares.notna() & (_shares > 0) & _amount.notna()
+        df.loc[_derive, "amount_per_share"] = (_amount[_derive] / _shares[_derive]).round(4)
+    df["div_type"] = df["div_type"].fillna("Cash").replace("", "Cash")
+    df["source"]   = df["source"].fillna("manual").replace("", "manual")
+    return df
+
+
+def load_div_hist() -> pd.DataFrame | None:
+    return _migrate_div_hist(_load(_user_dir() / "dividends_history.json"))
 
 
 # ── CRUD helpers ──────────────────────────────────────────────────────────────
@@ -214,26 +260,32 @@ def update_div_hist(df: pd.DataFrame) -> None:
 
 
 def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
-    """Recompute portfolio.dividends (cash received, open positions only)
-    from div_hist totals per ticker.
+    """Recompute portfolio.dividends (net cash received, open positions
+    only) from div_hist totals per ticker.
 
-    Two filters that weren't here before: dates in the future are excluded
-    (a dividend recorded ahead of its payment date shouldn't count as
-    "received" yet), and reinvested (DRIP) records are excluded (that cash
-    never left the position — it's already reflected in the position's
-    larger share count instead, via apply_drip_reinvestment())."""
+    Uses dividends_in_eur()'s net_after_be_amount_eur — EUR-converted and
+    net of both foreign withholding and the Belgian 30% roerende
+    voorheffing (WP-DIV3) — rather than the raw native-currency `amount`
+    this used to sum directly; that previously mixed non-EUR gross amounts
+    (e.g. a Swiss CHF dividend) straight into `purchase_value`, which is
+    always EUR.
+
+    Two filters: dates in the future are excluded (a dividend recorded
+    ahead of its payment date shouldn't count as "received" yet), and
+    reinvested (DRIP) records are excluded (that cash never left the
+    position — it's already reflected in the position's larger share count
+    instead, via apply_drip_reinvestment())."""
     pf = load_portfolio()
     if pf is None:
         return
-    div_df = div_df.copy()
-    div_df["amount"] = pd.to_numeric(div_df["amount"], errors="coerce").fillna(0)
-    div_dates = pd.to_datetime(div_df.get("date"), errors="coerce")
-    if "reinvested" in div_df.columns:
-        reinvested = div_df["reinvested"].fillna(False).astype(bool)
+    eur = dividends_in_eur(div_df)
+    div_dates = pd.to_datetime(eur.get("date"), errors="coerce")
+    if "reinvested" in eur.columns:
+        reinvested = eur["reinvested"].fillna(False).astype(bool)
     else:
-        reinvested = pd.Series(False, index=div_df.index)
-    received = div_df[(div_dates <= pd.Timestamp.now()) & (~reinvested)]
-    totals = received.groupby("ticker")["amount"].sum()
+        reinvested = pd.Series(False, index=eur.index)
+    received = eur[(div_dates <= pd.Timestamp.now()) & (~reinvested)]
+    totals = received.groupby("ticker")["net_after_be_amount_eur"].sum()
     pf["dividends"] = pf["ticker"].map(totals).fillna(pf["dividends"].fillna(0))
     save_portfolio(pf)
 
@@ -292,9 +344,22 @@ def exchange_key_for_ticker(ticker: str) -> str | None:
     return None
 
 
+# Belgian "roerende voorheffing" — a fixed statutory rate on investment
+# income, not a guess about a foreign treaty rate (unlike the per-exchange
+# `dividend_withholding` table in settings.py, which stays 0%-by-default
+# because the app has no way to know a user's actual treaty rate). Applied
+# after any foreign withholding already deducted, on every Cash/Special
+# dividend — not on Stock (scrip) dividends, where no cash changes hands to
+# withhold from.
+BE_WITHHOLDING_RATE = 0.30
+
+
 def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     """div_hist rows with `amount_eur`/`tax_amount_eur`/`net_amount_eur`
-    columns added — gross/tax/net converted from each row's native
+    (foreign-withholding-only net, kept for backward compat) plus
+    `be_tax_amount(_eur)` and `net_after_be_amount(_eur)` (net of foreign
+    withholding AND the Belgian 30% layer — the figure that should drive
+    yield-on-cost/income reporting) — all converted from each row's native
     `currency` to EUR at its payment `date`, via marketdata.fx_to_eur_frame
     (the same historical-FX helper risk.py already uses to EUR-normalise
     price history). EUR rows convert at 1.0; a currency with no fetchable
@@ -304,12 +369,25 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     out = div_df.copy()
     if "tax_amount" not in out.columns:
         out["tax_amount"] = 0.0
+    if "tax_rate" not in out.columns:
+        out["tax_rate"] = 0.0
     if "currency" not in out.columns:
         out["currency"] = "EUR"
+    if "div_type" not in out.columns:
+        out["div_type"] = "Cash"
     out["amount"]     = pd.to_numeric(out["amount"], errors="coerce").fillna(0)
     out["tax_amount"] = pd.to_numeric(out["tax_amount"], errors="coerce").fillna(0)
+    out["tax_rate"]   = pd.to_numeric(out["tax_rate"], errors="coerce").fillna(0)
     out["currency"]   = out["currency"].fillna("EUR").astype(str).str.upper()
+    out["div_type"]   = out["div_type"].fillna("Cash").replace("", "Cash")
     out["net_amount"] = out["amount"] - out["tax_amount"]
+    _be_eligible = out["div_type"] != "Stock"
+    out["be_tax_amount"] = 0.0
+    out.loc[_be_eligible, "be_tax_amount"] = (
+        (out.loc[_be_eligible, "amount"] - out.loc[_be_eligible, "tax_amount"]).clip(lower=0)
+        * BE_WITHHOLDING_RATE
+    ).round(2)
+    out["net_after_be_amount"] = out["amount"] - out["tax_amount"] - out["be_tax_amount"]
     dates = pd.to_datetime(out["date"], errors="coerce")
 
     foreign = sorted({c for c in out["currency"].unique() if c and c != "EUR"})
@@ -326,11 +404,112 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
         _rate(ccy, dt) if ccy != "EUR" else 1.0
         for ccy, dt in zip(out["currency"], dates)
     ]
-    out["_fx_rate"]        = rates
-    out["amount_eur"]      = out["amount"] * out["_fx_rate"]
-    out["tax_amount_eur"]  = out["tax_amount"] * out["_fx_rate"]
-    out["net_amount_eur"]  = out["net_amount"] * out["_fx_rate"]
+    out["_fx_rate"]              = rates
+    out["amount_eur"]            = out["amount"] * out["_fx_rate"]
+    out["tax_amount_eur"]        = out["tax_amount"] * out["_fx_rate"]
+    out["net_amount_eur"]        = out["net_amount"] * out["_fx_rate"]
+    out["be_tax_amount_eur"]     = out["be_tax_amount"] * out["_fx_rate"]
+    out["net_after_be_amount_eur"] = out["net_after_be_amount"] * out["_fx_rate"]
     return out.drop(columns=["_fx_rate"])
+
+
+def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> int:
+    """Pull each held ticker's per-share dividend-payment history from
+    market data (marketdata.dividends — yfinance) and insert any ex-dates
+    missing from the user's own ledger, marked source="auto".
+
+    yfinance's dividend feed exposes ex-date + per-share amount only, never
+    an actual payment date — so the payment `date` field is defaulted to
+    the ex-date rather than guessed at a settlement lag, matching this
+    app's existing "never guess a number and silently apply it" stance
+    (see settings.py's dividend_withholding comment, same principle applied
+    to dates instead of a tax rate). uvalu/pages_/portfolio.py's dividend
+    log flags these rows "confirm" until the user edits the payment date.
+
+    Returns the number of rows imported."""
+    import marketdata
+    from settings import get_dividend_withholding
+
+    existing = load_div_hist()
+    _existing_ex: set[tuple[str, "pd.Timestamp"]] = set()
+    if existing is not None and not existing.empty:
+        _ex_dates = pd.to_datetime(existing["ex_date"], errors="coerce").dt.normalize()
+        _existing_ex = set(zip(existing["ticker"].astype(str), _ex_dates))
+
+    new_rows: list[dict] = []
+    for _, prow in pf.iterrows():
+        ticker = str(prow.get("ticker") or "").strip()
+        shares = _num_or(prow.get("shares"), 0)
+        if not ticker or shares <= 0:
+            continue
+        try:
+            divs = marketdata.dividends(ticker)
+        except Exception:
+            continue
+        if divs is None or divs.empty:
+            continue
+        tax_rate = get_dividend_withholding(exchange_key_for_ticker(ticker), email)
+        currency = currency_for_ticker(ticker)
+        for ex_ts, ps in divs.items():
+            ex_norm = pd.Timestamp(ex_ts).normalize()
+            if (ticker, ex_norm) in _existing_ex:
+                continue
+            ps = float(ps)
+            if ps <= 0:
+                continue
+            gross = round(ps * float(shares), 2)
+            new_rows.append({
+                "name": prow.get("name", ticker), "google_ticker": prow.get("google_ticker", ""),
+                "ticker": ticker, "shares": int(shares), "amount": gross,
+                "amount_per_share": round(ps, 4), "currency": currency,
+                "tax_rate": round(tax_rate, 2), "tax_amount": round(gross * tax_rate / 100, 2),
+                "div_type": "Cash", "source": "auto",
+                "declaration_date": None, "ex_date": pd.Timestamp(ex_ts).isoformat(),
+                "record_date": None, "date": pd.Timestamp(ex_ts).isoformat(),
+                "reinvested": False, "reinvested_shares": None,
+            })
+            _existing_ex.add((ticker, ex_norm))
+
+    if not new_rows:
+        return 0
+    new_df = pd.DataFrame(new_rows)
+    df = pd.concat([existing, new_df], ignore_index=True) if existing is not None and not existing.empty else new_df
+    save_div_hist(df)
+    _sync_portfolio_dividends(df)
+    logkit.data_mutation(actor=logkit.user_id(), action="dividend.import_auto",
+                         entity_type="ticker", rows=len(new_rows))
+    return len(new_rows)
+
+
+def dividend_income_summary(div_df: "pd.DataFrame | None", *, months: int = 12) -> "pd.DataFrame":
+    """Per-ticker trailing-`months` dividend income, from dividends_in_eur()
+    output, for events already paid (payment date in [now-months, now]).
+
+    Columns: gross_eur, foreign_tax_eur, be_tax_eur, net_eur (net of both
+    foreign withholding and the Belgian 30% layer — the figure yield-on-cost
+    and income roll-ups should read), and regular_gross_eur (gross excluding
+    Special/one-off events — the basis trailing yield uses, so a special
+    dividend doesn't distort it). Empty (zero rows, same columns) for no
+    history or nothing in the window."""
+    _cols = ["gross_eur", "foreign_tax_eur", "be_tax_eur", "net_eur", "regular_gross_eur"]
+    if div_df is None or div_df.empty:
+        return pd.DataFrame(columns=_cols)
+    out = dividends_in_eur(div_df)
+    dates = pd.to_datetime(out["date"], errors="coerce")
+    now = pd.Timestamp.now()
+    cutoff = now - pd.DateOffset(months=months)
+    win = out[(dates <= now) & (dates > cutoff)].copy()
+    if win.empty:
+        return pd.DataFrame(columns=_cols)
+    win["_regular_gross"] = win["amount_eur"].where(win["div_type"] != "Special", 0.0)
+    g = win.groupby("ticker").agg(
+        gross_eur=("amount_eur", "sum"),
+        foreign_tax_eur=("tax_amount_eur", "sum"),
+        be_tax_eur=("be_tax_amount_eur", "sum"),
+        net_eur=("net_after_be_amount_eur", "sum"),
+        regular_gross_eur=("_regular_gross", "sum"),
+    )
+    return g
 
 
 def save_cash(df: pd.DataFrame) -> None:
@@ -341,6 +520,44 @@ def save_cash(df: pd.DataFrame) -> None:
 
 
 def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json")
+
+
+# ── Per-holding dividend profile ─────────────────────────────────────────────
+# Small ticker-keyed store for the two things that are properties of a
+# *holding*, not of any one dividend event: the payment frequency (only
+# overridden here once a user sets it explicitly — otherwise callers fall
+# back to screener._next_expected_ex_div's market-data-derived guess, so
+# this file never "assumes" a frequency the requirements doc asked not to)
+# and the DRIP default (pre-fills the Add-dividend dialog's reinvested
+# checkbox for that ticker; the checkbox itself still decides each event).
+# Shape: {ticker: {"frequency": str | None, "drip_default": bool}}.
+
+def save_dividend_meta(meta: dict) -> None:
+    _prev = load_dividend_meta()
+    _save_user_json("dividend_meta.json", meta)
+    _changed = sorted(t for t in set(meta) | set(_prev) if meta.get(t) != _prev.get(t))
+    if _changed:
+        logkit.data_mutation(actor=logkit.user_id(), action="dividend_meta.update",
+                             entity_type="ticker", tickers=_changed)
+
+
+def load_dividend_meta() -> dict:
+    m = _load_user_json("dividend_meta.json", {})
+    return m if isinstance(m, dict) else {}
+
+
+def set_dividend_meta(ticker: str, *, frequency: str | None = None, drip_default: bool | None = None) -> None:
+    """Upsert one ticker's entry, leaving unspecified fields as they were."""
+    if not ticker:
+        return
+    meta = load_dividend_meta()
+    entry = dict(meta.get(ticker) or {})
+    if frequency is not None:
+        entry["frequency"] = frequency or None
+    if drip_default is not None:
+        entry["drip_default"] = bool(drip_default)
+    meta[ticker] = entry
+    save_dividend_meta(meta)
 
 
 # ── Value history ─────────────────────────────────────────────────────────────
