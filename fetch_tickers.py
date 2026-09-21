@@ -42,13 +42,19 @@ HEADERS = {
 
 
 PAGE_SIZE = 500
+MAX_PAGES = 50   # hard safety cap — well above any real exchange's page count (Frankfurt, the largest, is 22)
 
 
 def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                               fallback_fn) -> list[dict]:
     """
     Fetch all pages of a stockanalysis.com exchange list.
-    Stops when a page returns fewer than PAGE_SIZE rows.
+    Stops when a page adds no symbols not already seen (primary signal — a page
+    short of PAGE_SIZE always qualifies, but some listings sit right at/above
+    PAGE_SIZE while the site's ?page= param is a no-op past the real last page
+    and just re-serves the same rows forever; SIX Swiss Exchange does exactly
+    this at 512 rows, which used to spin the loop indefinitely). MAX_PAGES is
+    a hard backstop in case a listing somehow keeps producing "new" rows.
     Falls back to `fallback_fn()` on any error.
     """
     _endpoint = f"stockanalysis.{label.lower()}"
@@ -69,15 +75,17 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
                 if "Symbol" not in df.columns or "Company Name" not in df.columns:
                     raise ValueError(f"Unexpected columns: {list(df.columns)}")
 
+                new_symbols = 0
                 for _, row in df.iterrows():
                     symbol = str(row["Symbol"]).strip()
                     name   = str(row["Company Name"]).strip()
                     if not symbol or symbol == "nan" or symbol in seen:
                         continue
                     seen.add(symbol)
+                    new_symbols += 1
                     stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
 
-                if len(df) < PAGE_SIZE:
+                if len(df) < PAGE_SIZE or new_symbols == 0 or page >= MAX_PAGES:
                     break
                 page += 1
 
