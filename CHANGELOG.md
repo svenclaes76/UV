@@ -9,10 +9,18 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+---
+
+## [1.11.0] — 2026-09-23
+
 ### Added
 
 - **Dividend Management v2**: a fuller dividend-event schema (declaration/ex/record/payment dates, gross per-share, Cash/Stock/Special type, auto-vs-manual source) with migration for pre-1.10.0 records — the Add/Edit dividend dialogs ask only ex-date + payment date, shares, per-share amount, foreign withholding and type; a new Belgian 30% *roerende voorheffing* tax layer (`portfolio.BE_WITHHOLDING_RATE`), applied automatically on top of any foreign withholding for every Cash/Special dividend; position-level yield-on-cost, trailing-12m yield and income (net + gross) columns on the Open positions table; a per-holding dividend profile (frequency override, dismissed auto-imported events) at `dividend_meta.json`; a "Dividend & income" panel on the Full Analysis page (TTM/forward yield, net YoC, growth streak, 1/3/5yr CAGR, payout ratio EPS/FCF, withholding breakdown, cut/increase detection, payment history); automatic once-per-session import of missing dividend events for held tickers from `marketdata.dividends()` — only ex-dates on which shares were held, skipping events already logged and never re-adding a deleted one (ex-date + amount only — the payment date defaults to the ex-date and is shown in amber until confirmed); a redesigned Dividend log (summary tiles, one-grid event table, Export) and an annual dividend income summary with CSV export; and three new Dashboard alert toggles (dividend cut/suspension, dividend increase, a position-size gate on the existing ex-dividend alert). All Add/Edit portfolio dialogs now share one layout (subtitle, Ticker | Company name first — locked when editing — then fields, then Delete | Cancel | Save).
 - `screener._dividend_stats`: now also returns `dgr_1y`/`dgr_3y`/`dgr_5y` (windowed dividend CAGR) and `dividend_last_increase_year` (symmetric to the existing `dividend_last_cut_year`), feeding the new Analysis page dividend panel.
+
+### Fixed
+
+- Add/Edit/Close portfolio dialogs showed ~100px of empty space on the right: since Streamlit 1.60 the visible dialog box is the parent of `[role="dialog"]`, so the 420px width clamp now sizes that box instead of only the inner content.
 
 ---
 
