@@ -305,6 +305,11 @@ add_dividend_dialog(pf)
         assert div_hist.iloc[0]["ticker"] == "AAA.BR"
         assert div_hist.iloc[0]["amount"] == 15.0
 
+    def test_identity_row_is_first_and_editable(self):
+        at = self._run()
+        assert [w.key for w in at.text_input][:2] == ["dlg_dv_ticker", "dlg_dv_name"]
+        assert not any(w.disabled for w in at.text_input)
+
     def test_only_ex_and_payment_dates_no_frequency(self):
         at = self._run()
         keys = {w.key for w in at.date_input}

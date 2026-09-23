@@ -24,7 +24,8 @@ from settings import get_dividend_withholding
 from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
-                           add_closed_trade_dialog, _dialog_width_css,
+                           add_closed_trade_dialog, _dialog_width_css, _num_or,
+                           dialog_frame, identity_row, dialog_actions,
                            _dividend_tax_breakdown, DIV_TYPE_OPTIONS)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
@@ -391,10 +392,9 @@ def render() -> None:
         def _dlg_edit_open_position(orig_idx: int) -> None:
             enter_dialog()
             _row = pf.loc[orig_idx]
-            _dialog_width_css(380)
-            st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
-                       f'Edit {_row["ticker"]}</div>', unsafe_allow_html=True)
-            st.caption(_row["name"])
+            dialog_frame("Update this position's shares, invested amount or buy date.")
+            identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
+                         key_prefix=f"dlg_eop_id_{orig_idx}", locked=True)
             _c1, _c2 = st.columns(2)
             with _c1:
                 _shares = st.number_input("Shares", min_value=1, step=1,
@@ -407,14 +407,7 @@ def render() -> None:
             _date = st.date_input("Buy date", value=_date0.date() if pd.notna(_date0) else None,
                                   format="DD/MM/YYYY", key="dlg_eop_date")
 
-            _b1, _b2 = st.columns(2)
-            with _b1:
-                if st.button("Cancel", key="dlg_eop_cancel", width="stretch"):
-                    st.rerun()
-            with _b2:
-                _do_save = st.button("Save", key="dlg_eop_save", width="stretch", type="primary")
-            with st.container(key="uv_danger_btn"):
-                _do_delete = st.button("Delete position", key="dlg_eop_delete", width="stretch")
+            _do_save, _do_delete = dialog_actions("dlg_eop", delete=True)
 
             if _do_save:
                 pf.at[orig_idx, "shares"] = max(1, int(_shares))
@@ -510,10 +503,9 @@ def render() -> None:
             def _dlg_edit_closed_position(orig_idx: int) -> None:
                 enter_dialog()
                 _row = sold.loc[orig_idx]
-                _dialog_width_css(380)
-                st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
-                           f'Edit {_row["ticker"]}</div>', unsafe_allow_html=True)
-                st.caption(_row["name"])
+                dialog_frame("Update this closed trade's shares, proceeds or sell date.")
+                identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
+                             key_prefix=f"dlg_ecp_id_{orig_idx}", locked=True)
                 _c1, _c2 = st.columns(2)
                 with _c1:
                     _shares = st.number_input("Shares", min_value=1, step=1,
@@ -526,14 +518,7 @@ def render() -> None:
                 _date = st.date_input("Sell date", value=_date0.date() if pd.notna(_date0) else None,
                                       format="DD/MM/YYYY", key="dlg_ecp_date")
 
-                _b1, _b2 = st.columns(2)
-                with _b1:
-                    if st.button("Cancel", key="dlg_ecp_cancel", width="stretch"):
-                        st.rerun()
-                with _b2:
-                    _do_save = st.button("Save", key="dlg_ecp_save", width="stretch", type="primary")
-                with st.container(key="uv_danger_btn"):
-                    _do_delete = st.button("Delete trade", key="dlg_ecp_delete", width="stretch")
+                _do_save, _do_delete = dialog_actions("dlg_ecp", delete=True)
 
                 if _do_save:
                     _sold_fresh = load_sold()
@@ -642,12 +627,9 @@ def render() -> None:
 
                 enter_dialog()
                 _row = div_hist.loc[orig_idx]
-                _dialog_width_css(420)
-                # The dialog chrome already says "Edit dividend" — the body
-                # heading just identifies the holding.
-                st.markdown(f'<div style="font-size:15px;font-weight:500;font-family:var(--uv-mono);">'
-                           f'{_row["ticker"]}</div><div style="font-size:12.5px;color:var(--muted);'
-                           f'margin-top:2px;">{_row["name"]}</div>', unsafe_allow_html=True)
+                dialog_frame("Update this dividend's dates, amounts or type.")
+                identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
+                             key_prefix=f"dlg_ed_id_{orig_idx}", locked=True)
                 if bool(_row.get("reinvested")):
                     st.caption("Reinvested (DRIP) — the purchased shares were already added to "
                               "this position and aren't re-applied by editing this record.")
@@ -678,15 +660,16 @@ def render() -> None:
                 _c5, _c6, _c7 = st.columns(3)
                 with _c5:
                     _shares = st.number_input("Shares held", min_value=0, step=1,
-                                              value=max(0, int(_row["shares"])), key="dlg_ed_shares")
+                                              value=max(0, int(_num_or(_row["shares"], 0))), key="dlg_ed_shares")
                 with _c6:
-                    _dps0 = float(_row.get("amount_per_share") or 0) or (
-                        (_row["amount"] / _row["shares"]) if _row["shares"] else 0.0)
+                    _sh0 = float(_num_or(_row["shares"], 0))
+                    _dps0 = float(_num_or(_row.get("amount_per_share"), 0.0)) or (
+                        float(_num_or(_row["amount"], 0.0)) / _sh0 if _sh0 else 0.0)
                     _dps = st.number_input(f"Per share ({_ccy})", min_value=0.0, step=0.0001,
                                            value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
                 with _c7:
                     _tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
-                                                step=0.5, value=float(_row.get("tax_rate") or 0.0),
+                                                step=0.5, value=float(_num_or(_row.get("tax_rate"), 0.0)),
                                                 key="dlg_ed_tax")
 
                 _type0 = _row.get("div_type") or "Cash"
@@ -709,14 +692,7 @@ def render() -> None:
                     f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{_net:,.2f}</span></div>'
                     f'</div>', unsafe_allow_html=True)
 
-                _b1, _b2 = st.columns(2)
-                with _b1:
-                    if st.button("Cancel", key="dlg_ed_cancel", width="stretch"):
-                        st.rerun()
-                with _b2:
-                    _do_save = st.button("Save", key="dlg_ed_save", width="stretch", type="primary")
-                with st.container(key="uv_danger_btn"):
-                    _do_delete = st.button("Delete dividend", key="dlg_ed_delete", width="stretch")
+                _do_save, _do_delete = dialog_actions("dlg_ed", delete=True)
 
                 if _do_save:
                     if _ex is None:

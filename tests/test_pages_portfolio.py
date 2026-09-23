@@ -265,6 +265,8 @@ class TestEditOpenPositionDialog:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.number_input(key="dlg_eop_shares").value == 10
         assert at.number_input(key="dlg_eop_invested").value == 1000.0
+        tick = at.text_input(key="dlg_eop_id_0_ticker")
+        assert tick.value == "AAA.BR" and tick.disabled
 
     def test_save_updates_position(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -298,7 +300,7 @@ class TestEditOpenPositionDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete position"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -348,7 +350,7 @@ class TestEditClosedPositionDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete trade"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -395,6 +397,25 @@ class TestEditDividendDialog:
         # Missing currency (NaN) must not leak into the label as "(nan)".
         assert at.number_input(key="dlg_ed_dps").label == "Per share (EUR)"
 
+    def test_identity_row_is_first_and_locked(self, isolated_data, monkeypatch):
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        tick = at.text_input(key="dlg_ed_id_0_ticker")
+        name = at.text_input(key="dlg_ed_id_0_name")
+        assert (tick.value, name.value) == ("AAA.BR", "Alpha Corp")
+        assert tick.disabled and name.disabled
+        assert [b.label for b in at.button if b.key and b.key.startswith("dlg_ed_")] == ["Delete", "Cancel", "Save"]
+
+    def test_missing_withholding_rate_is_zero_not_nan(self, isolated_data, monkeypatch):
+        # _seed()'s record has no tax_rate at all (NaN after load): the field
+        # must show 0 and the preview must never render "nan".
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert at.number_input(key="dlg_ed_tax").value == 0.0
+        assert "nan" not in "".join(m.value for m in at.markdown)
+
     def test_save_keeps_existing_declaration_and_record_dates(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
         portfolio.save_div_hist(pd.DataFrame([
@@ -421,7 +442,7 @@ class TestEditDividendDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete dividend"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]

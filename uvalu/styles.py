@@ -1574,11 +1574,19 @@ GLOBAL_CSS = """
   /* ── Destructive/confirm action button (Close "Confirm close", Delete, ...) ──
      Matches Uvalu.dc.html's red-filled confirm buttons on irreversible
      actions — wrap the button in st.container(key="uv_danger_btn"). */
-  .st-key-uv_danger_btn button[kind="primary"] {
+  [class*="st-key-uv_danger_btn"] button[kind="primary"] {
     background: var(--down-txt) !important; border-color: var(--down-txt) !important;
     color: var(--navy) !important;
   }
-  .st-key-uv_danger_btn button[kind="primary"]:hover { opacity: 0.88; }
+  [class*="st-key-uv_danger_btn"] button[kind="primary"]:hover { opacity: 0.88; }
+  /* Secondary "Delete" in Add/Edit dialog action rows (dialogs.dialog_actions)
+     — the mockup's outline button with red text, red border + tint on hover. */
+  [class*="st-key-uv_danger_btn"] button[kind="secondary"] {
+    color: var(--down-txt) !important; border-color: var(--line) !important;
+  }
+  [class*="st-key-uv_danger_btn"] button[kind="secondary"]:hover {
+    border-color: var(--down-txt) !important; background: var(--down-bg) !important;
+  }
 
   /* ── Dashboard "Refresh" / Screener "Reset filters" buttons — matches
      Uvalu.dc.html's outline pill (border:0.5px solid var(--line);
