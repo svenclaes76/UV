@@ -34,6 +34,9 @@ def _run(monkeypatch, section=None) -> AppTest:
     # exactly the kind of cross-test leak isolated_data exists to prevent —
     # stub the whole call out, like tests/test_pages_dashboard.py does.
     monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
+    # The Dividend log auto-imports from market data (yfinance) once per
+    # session — stub it so no test hits the network.
+    monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
 
     # setdefault, not a plain assignment: this line re-executes on EVERY
     # script rerun (it's part of the persistent script text), so a plain
@@ -136,6 +139,35 @@ def test_dividends_full_page_with_data(isolated_data, monkeypatch):
     at = _run(monkeypatch, section="dividends")
     html = "".join(m.value for m in at.markdown)
     assert "Alpha Corp" in html
+
+
+def test_dividend_log_layout_matches_design(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    portfolio.set_dividend_meta("AAA.BR", frequency="Annual")
+    portfolio.save_div_hist(pd.DataFrame([
+        {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5, "date": "2024-03-01", "shares": 10,
+         "declaration_date": "2024-01-10", "record_date": "2024-02-28"},
+    ]))
+    at = _run(monkeypatch, section="dividends")
+    labels = [b.label for b in at.button]
+    assert "Import from market data" not in labels
+    exports = [b for b in at.get("download_button") if b.proto.label == "Export"]
+    assert len(exports) == 2  # header (log) + annual summary card
+    html = "".join(m.value for m in at.markdown)
+    assert "decl " not in html and "rec " not in html
+    assert "Alpha Corp · Annual" not in html
+    assert "Withholding by domicile" not in html
+    assert "Annual dividend income summary" in html
+
+
+def test_dividends_page_auto_imports_once_per_session(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls = []
+    at = _run(monkeypatch, section="dividends")
+    monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data",
+                        lambda *a, **k: calls.append(1) or 0)
+    at.run()
+    assert calls == []  # already ran on the first render of this session
 
 
 def test_migrates_legacy_portfolio_missing_account_and_purchase_price(isolated_data, monkeypatch):

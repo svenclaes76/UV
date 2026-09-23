@@ -75,7 +75,7 @@ def _load(path: Path) -> pd.DataFrame | None:
 
 def save_portfolio(df: pd.DataFrame) -> None:  _save(df, _user_dir() / "portfolio.json")
 def save_sold(df: pd.DataFrame) -> None:       _save(df, _user_dir() / "sold.json")
-def save_div_hist(df: pd.DataFrame) -> None:   _save(df, _user_dir() / "dividends_history.json")
+def save_div_hist(df: pd.DataFrame) -> None:   _save(_normalize_div_dates(df), _user_dir() / "dividends_history.json")
 def load_portfolio() -> pd.DataFrame | None:   return _load(_user_dir() / "portfolio.json")
 def load_sold() -> pd.DataFrame | None:        return _load(_user_dir() / "sold.json")
 def portfolio_exists() -> bool:                return (_user_dir() / "portfolio.json").exists()
@@ -99,6 +99,29 @@ _DIV_HIST_DEFAULTS: dict = {
 }
 
 
+_DIV_DATE_COLS = ("date", "declaration_date", "ex_date", "record_date")
+
+
+def _normalize_div_dates(df: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Rewrite every dividend date column to one ISO spelling.
+
+    Records written by different code paths carry different spellings
+    ("2024-05-30T00:00:00.000", "2025-06-02T00:00:00", "2024-03-01"). A plain
+    pd.to_datetime() on such a mixed column infers ONE format from the first
+    value and coerces every differently-spelled date to NaT — auto-imported
+    rows rendered with blank ex/pay dates and dropped out of the yearly
+    summary and the portfolio's received-dividend totals. Applied on load,
+    on save and before _sync_portfolio_dividends()."""
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+    for col in _DIV_DATE_COLS:
+        if col in df.columns:
+            parsed = pd.to_datetime(df[col], errors="coerce", format="ISO8601")
+            df[col] = parsed.dt.strftime("%Y-%m-%dT%H:%M:%S").astype(object).where(parsed.notna(), None)
+    return df
+
+
 def _migrate_div_hist(df: pd.DataFrame | None) -> pd.DataFrame | None:
     """Backfill the new dividend-event columns onto rows saved by an older
     version of this app — see _DIV_HIST_DEFAULTS. Never mutates values a
@@ -111,6 +134,7 @@ def _migrate_div_hist(df: pd.DataFrame | None) -> pd.DataFrame | None:
             df[col] = default
     if "date" not in df.columns:
         df["date"] = None
+    df = _normalize_div_dates(df)
     _ex_blank = df["ex_date"].isna() | (df["ex_date"].astype(str).str.strip().isin(["", "None", "NaT"]))
     df.loc[_ex_blank, "ex_date"] = df.loc[_ex_blank, "date"]
     if "shares" in df.columns and "amount" in df.columns:
@@ -278,7 +302,7 @@ def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
     pf = load_portfolio()
     if pf is None:
         return
-    eur = dividends_in_eur(div_df)
+    eur = dividends_in_eur(_normalize_div_dates(div_df))
     div_dates = pd.to_datetime(eur.get("date"), errors="coerce")
     if "reinvested" in eur.columns:
         reinvested = eur["reinvested"].fillna(False).astype(bool)
@@ -413,10 +437,48 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     return out.drop(columns=["_fx_rate"])
 
 
+# An auto-imported ex-date this close to an existing record's ex-date or
+# payment date for the same ticker is treated as that same event. Manual
+# records often carry ex_date == payment date (_migrate_div_hist backfills a
+# blank ex_date from the payment date), so an exact ex-date match alone would
+# re-add every manually logged dividend as a second "auto" row.
+_AUTO_IMPORT_MATCH_DAYS = 25
+
+
+def _shares_held_on(lots: list[tuple["pd.Timestamp | None", float]], when: "pd.Timestamp") -> float:
+    """Shares held on `when` across a ticker's open lots — a lot counts from
+    its date_in onward; a lot with no usable date_in counts throughout
+    (legacy rows), rather than silently dropping its shares."""
+    return sum(sh for d_in, sh in lots if d_in is None or d_in <= when)
+
+
+def dismiss_auto_dividend(ticker: str, ex_date) -> None:
+    """Remember that the user deleted an auto-imported event, so the next
+    automatic import doesn't quietly put it straight back."""
+    ex = pd.to_datetime(ex_date, errors="coerce")
+    if not ticker or pd.isna(ex):
+        return
+    meta = load_dividend_meta()
+    entry = dict(meta.get(ticker) or {})
+    dismissed = set(entry.get("dismissed_auto_ex") or [])
+    dismissed.add(ex.normalize().date().isoformat())
+    entry["dismissed_auto_ex"] = sorted(dismissed)
+    meta[ticker] = entry
+    save_dividend_meta(meta)
+
+
 def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> int:
     """Pull each held ticker's per-share dividend-payment history from
-    market data (marketdata.dividends — yfinance) and insert any ex-dates
+    market data (marketdata.dividends — yfinance) and insert any events
     missing from the user's own ledger, marked source="auto".
+
+    Runs automatically (once per session, uvalu/pages_/portfolio.py's
+    Dividend log), so it only adds what is safe to add unattended:
+    - only ex-dates on which the user actually held shares, sized to the
+      shares held on that ex-date (summed across lots by date_in);
+    - never an event within _AUTO_IMPORT_MATCH_DAYS of an existing record
+      for the same ticker (see that constant);
+    - never an event the user already deleted (dismiss_auto_dividend).
 
     yfinance's dividend feed exposes ex-date + per-share amount only, never
     an actual payment date — so the payment `date` field is defaulted to
@@ -431,35 +493,52 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
     from settings import get_dividend_withholding
 
     existing = load_div_hist()
-    _existing_ex: set[tuple[str, "pd.Timestamp"]] = set()
+    _existing: dict[str, list["pd.Timestamp"]] = {}
     if existing is not None and not existing.empty:
-        _ex_dates = pd.to_datetime(existing["ex_date"], errors="coerce").dt.normalize()
-        _existing_ex = set(zip(existing["ticker"].astype(str), _ex_dates))
+        for _t, _ex, _pay in zip(existing["ticker"].astype(str),
+                                 pd.to_datetime(existing["ex_date"], errors="coerce"),
+                                 pd.to_datetime(existing["date"], errors="coerce")):
+            _existing.setdefault(_t, []).extend(d.normalize() for d in (_ex, _pay) if pd.notna(d))
+    meta = load_dividend_meta()
+    window = pd.Timedelta(days=_AUTO_IMPORT_MATCH_DAYS)
 
-    new_rows: list[dict] = []
+    lots: dict[str, list[tuple["pd.Timestamp | None", float]]] = {}
+    names: dict[str, tuple] = {}
     for _, prow in pf.iterrows():
         ticker = str(prow.get("ticker") or "").strip()
         shares = _num_or(prow.get("shares"), 0)
         if not ticker or shares <= 0:
             continue
+        d_in = pd.to_datetime(prow.get("date_in"), errors="coerce")
+        lots.setdefault(ticker, []).append((d_in.normalize() if pd.notna(d_in) else None, float(shares)))
+        names.setdefault(ticker, (prow.get("name", ticker), prow.get("google_ticker", "")))
+
+    new_rows: list[dict] = []
+    for ticker, t_lots in lots.items():
         try:
             divs = marketdata.dividends(ticker)
         except Exception:
             continue
         if divs is None or divs.empty:
             continue
+        dismissed = set((meta.get(ticker) or {}).get("dismissed_auto_ex") or [])
+        known = _existing.setdefault(ticker, [])
         tax_rate = get_dividend_withholding(exchange_key_for_ticker(ticker), email)
         currency = currency_for_ticker(ticker)
+        name, google_ticker = names[ticker]
         for ex_ts, ps in divs.items():
             ex_norm = pd.Timestamp(ex_ts).normalize()
-            if (ticker, ex_norm) in _existing_ex:
+            if ex_norm.date().isoformat() in dismissed:
+                continue
+            if any(abs(ex_norm - k) <= window for k in known):
                 continue
             ps = float(ps)
-            if ps <= 0:
+            shares = _shares_held_on(t_lots, ex_norm)
+            if ps <= 0 or shares <= 0:
                 continue
-            gross = round(ps * float(shares), 2)
+            gross = round(ps * shares, 2)
             new_rows.append({
-                "name": prow.get("name", ticker), "google_ticker": prow.get("google_ticker", ""),
+                "name": name, "google_ticker": google_ticker,
                 "ticker": ticker, "shares": int(shares), "amount": gross,
                 "amount_per_share": round(ps, 4), "currency": currency,
                 "tax_rate": round(tax_rate, 2), "tax_amount": round(gross * tax_rate / 100, 2),
@@ -468,7 +547,7 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
                 "record_date": None, "date": pd.Timestamp(ex_ts).isoformat(),
                 "reinvested": False, "reinvested_shares": None,
             })
-            _existing_ex.add((ticker, ex_norm))
+            known.append(ex_norm)
 
     if not new_rows:
         return 0
