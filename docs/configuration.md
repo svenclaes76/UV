@@ -144,7 +144,7 @@ All paths are relative to the project root and are created automatically on firs
 | `data/portfolio/{hash}/portfolio.json` | Open positions (encrypted) |
 | `data/portfolio/{hash}/sold.json` | Realised positions (encrypted) |
 | `data/portfolio/{hash}/dividends_history.json` | Dividend payment history — declaration/ex/record/payment dates, gross per-share, type, source (encrypted) |
-| `data/portfolio/{hash}/dividend_meta.json` | Per-holding dividend profile — frequency override, DRIP default (encrypted) |
+| `data/portfolio/{hash}/dividend_meta.json` | Per-holding dividend profile — frequency override, dismissed auto-imported events (encrypted) |
 | `data/portfolio/{hash}/watchlist.json` | Saved tickers (encrypted) |
 | `data/portfolio/{hash}/value_history.json` | Daily portfolio value snapshots (encrypted) |
 | `data/settings/shared.json` | Admin (shared) settings |

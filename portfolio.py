@@ -602,14 +602,14 @@ def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json
 
 
 # ── Per-holding dividend profile ─────────────────────────────────────────────
-# Small ticker-keyed store for the two things that are properties of a
-# *holding*, not of any one dividend event: the payment frequency (only
-# overridden here once a user sets it explicitly — otherwise callers fall
-# back to screener._next_expected_ex_div's market-data-derived guess, so
-# this file never "assumes" a frequency the requirements doc asked not to)
-# and the DRIP default (pre-fills the Add-dividend dialog's reinvested
-# checkbox for that ticker; the checkbox itself still decides each event).
-# Shape: {ticker: {"frequency": str | None, "drip_default": bool}}.
+# Small ticker-keyed store for properties of a *holding*, not of any one
+# dividend event: the payment frequency (an explicit override — otherwise
+# callers fall back to screener._next_expected_ex_div's market-data-derived
+# guess, so this file never "assumes" a frequency the requirements doc asked
+# not to) and `dismissed_auto_ex` (see dismiss_auto_dividend). Files written
+# before Sep 2026 may still carry an unused "drip_default" key — the DRIP
+# checkbox/toggle it fed were removed — which is harmless and left in place.
+# Shape: {ticker: {"frequency": str | None, "dismissed_auto_ex": [iso date]}}.
 
 def save_dividend_meta(meta: dict) -> None:
     _prev = load_dividend_meta()
@@ -625,7 +625,7 @@ def load_dividend_meta() -> dict:
     return m if isinstance(m, dict) else {}
 
 
-def set_dividend_meta(ticker: str, *, frequency: str | None = None, drip_default: bool | None = None) -> None:
+def set_dividend_meta(ticker: str, *, frequency: str | None = None) -> None:
     """Upsert one ticker's entry, leaving unspecified fields as they were."""
     if not ticker:
         return
@@ -633,8 +633,6 @@ def set_dividend_meta(ticker: str, *, frequency: str | None = None, drip_default
     entry = dict(meta.get(ticker) or {})
     if frequency is not None:
         entry["frequency"] = frequency or None
-    if drip_default is not None:
-        entry["drip_default"] = bool(drip_default)
     meta[ticker] = entry
     save_dividend_meta(meta)
 

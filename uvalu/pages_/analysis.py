@@ -8,7 +8,7 @@ import streamlit as st
 
 from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
                        dividend_income_summary, exchange_key_for_ticker,
-                       load_dividend_meta, set_dividend_meta)
+                       load_dividend_meta)
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
                       sector_for, decision_reason)
 from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
@@ -497,19 +497,6 @@ def render() -> None:
                     st.markdown(_bar_html + '</div>' + _label_html + '</div>', unsafe_allow_html=True)
                 else:
                     st.caption("No dividend events recorded yet for this holding.")
-
-                st.container(height=8, border=False, key="an_div_gap")
-                with st.container(key="an_div_drip_row", horizontal=True, vertical_alignment="center"):
-                    with st.container(width="stretch"):
-                        st.markdown('<div style="font-size:12.5px;font-weight:500;">Reinvest by default (DRIP)</div>'
-                                   '<div style="font-size:11.5px;color:var(--muted);margin-top:2px;">Pre-fills the '
-                                   'Add-dividend dialog\'s reinvested checkbox for this holding.</div>',
-                                   unsafe_allow_html=True)
-                    _drip_on = st.toggle("Reinvest by default", value=bool(_dm_meta.get("drip_default")),
-                                        key="an_div_drip", label_visibility="collapsed")
-                if _drip_on != bool(_dm_meta.get("drip_default")):
-                    set_dividend_meta(ticker, drip_default=_drip_on)
-                    st.rerun()
 
     # ── Value thesis (derived from real computed fields only) ────────────────
     _thesis_card = st.container(key="an_card_thesis", border=True)
