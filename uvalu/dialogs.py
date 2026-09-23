@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-from portfolio import add_position, sell_position, add_dividend, add_closed_trade
+from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
 from uvalu.ui import enter_dialog
 
 SECTOR_OPTIONS = [
@@ -158,6 +158,28 @@ def _lookup_ticker(sym: str) -> tuple[str, float] | None:
         return None
 
 
+# ── Cash after trade (Cash Management v1) ────────────────────────────────────
+# Buy/Sell show the balance a trade leaves behind, next to its Fees field
+# (Uvalu Cash Management.dc.html's ap/sell modals). Trades are never blocked
+# by the balance (user decision D3): a shortfall shows as an automatic top-up
+# line instead of the mockup's red "blocked" state.
+
+def cash_after_html(kind: str, gross: float, fee: float) -> str:
+    import cash
+    try:
+        p = cash.preview_trade(kind, max(float(gross or 0.0), 0.0), max(float(fee or 0.0), 0.0))
+    except Exception:
+        return ""
+    base = "EUR"
+    top = (f'<div style="font-size:10.5px;color:var(--amber-txt);margin-top:3px;white-space:nowrap;">'
+           f'+{cash.money(p["topup"], base)} auto top-up from outside cash</div>') if p["topup"] > 0 else ""
+    return (f'<div style="padding:4px 0 2px;">'
+            f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);">'
+            f'Cash after trade</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:13.5px;margin-top:5px;color:var(--text);">'
+            f'{cash.money(p["after"], base)}</div>{top}</div>')
+
+
 @st.dialog("Add position", width="small")
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
     enter_dialog()
@@ -178,6 +200,14 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
                                 value=round(preset_price, 2), format="%.2f", key="dlg_ap_price")
     pur_date = pd.Timestamp.now()
 
+    _c6, _c7 = st.columns(2, vertical_alignment="bottom")
+    with _c6:
+        fee = st.number_input("Fees (opt.)", min_value=0.0, step=0.01, value=0.0,
+                              format="%.2f", key="dlg_ap_fee")
+    with _c7:
+        _gross_preview = total_cost if total_cost > 0 else round(price * shares, 2)
+        st.markdown(cash_after_html("Buy", _gross_preview, fee), unsafe_allow_html=True)
+
     _do_save, _ = dialog_actions("dlg_ap")
 
     if not _do_save:
@@ -194,7 +224,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     if _total <= 0 or shares <= 0:
         st.error("Enter shares and either a total cost or a price per share.")
         return
-    add_position({
+    record_buy({
         "name":           name_raw or _yf_name,
         "google_ticker":  "",
         "ticker":         ticker_raw,
@@ -205,7 +235,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
         "dividends":      0.0,
         "date_in":        pd.Timestamp(pur_date).isoformat(),
         "account":        "",
-    })
+    }, fee=fee)
     st.rerun()
 
 
@@ -244,11 +274,17 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                                 format="%.2f", key="dlg_sell_price")
     sell_date = pd.Timestamp.now()
 
-    _do_save, _ = dialog_actions("dlg_sell", save_label="Confirm close", danger_save=True)
+    _c3, _c4 = st.columns(2, vertical_alignment="bottom")
+    with _c3:
+        fee = st.number_input("Fees (opt.)", min_value=0.0, step=0.01, value=0.0,
+                              format="%.2f", key="dlg_sell_fee")
+    with _c4:
+        st.markdown(cash_after_html("Sell", round(shares * price, 2), fee), unsafe_allow_html=True)
+
+    _do_save, _ = dialog_actions("dlg_sell", save_label="Confirm sale", danger_save=True)
 
     if _do_save and shares > 0 and price > 0:
-        sell_position(ticker=ticker, shares=shares, proceeds=round(shares * price, 2),
-                      sell_date=pd.Timestamp(sell_date).isoformat())
+        record_sell(ticker, shares, price, fee, pd.Timestamp(sell_date).isoformat())
         st.rerun()
 
 
@@ -386,4 +422,214 @@ def add_closed_trade_dialog() -> None:
         "date_out":          _closed_iso,
         "annual_return_pct": float("nan"),
     })
+    st.rerun()
+
+
+# ── Add cash transaction (Cash Management v1) ────────────────────────────────
+# Uvalu Cash Management.dc.html's "Add cash transaction" modal: a five-way type
+# switch, Date / Amount / Currency with an ECB-rate panel (auto → "Enter
+# manually"; manual or frankfurter outage → amber panel with a flagged rate),
+# the Adjustment variant (corrected balance), an optional note and the
+# "Calculated · EUR base" preview. Trades and dividends never come through
+# here — they post automatically.
+
+CASH_DIALOG_WIDTH = 500
+CASH_TX_TYPES = ["Deposit", "Withdrawal", "Fee", "Interest", "Adjustment"]
+CASH_OUTAGE_TEXT = ("frankfurter.dev is unreachable or has no rate for this date. "
+                    "Enter the rate manually; the entry will be flagged.")
+
+
+def _cash_dialog_css() -> None:
+    st.markdown(
+        '<style>'
+        '.st-key-uv_cash_fx_manual { border:0.5px solid #C98A3A !important; background:rgba(201,138,58,0.08) !important;'
+        ' border-radius:8px !important; padding:11px 12px !important; }'
+        '.st-key-uv_cash_fx_auto { border:0.5px solid var(--line) !important; border-radius:8px !important;'
+        ' padding:6px 12px !important; }'
+        '.st-key-uv_cash_fx_auto button p, .st-key-uv_cash_fx_manual button p { color:var(--teal) !important;'
+        ' font-size:11.5px !important; white-space:nowrap !important; }'
+        '</style>', unsafe_allow_html=True)
+
+
+def _cash_error_html(msg: str) -> str:
+    return (f'<div style="font-size:12px;color:var(--down-txt);margin-top:6px;line-height:1.5;">'
+            f'{msg}</div>')
+
+
+def _cash_calc_html(cur: float, calc_label: str, calc: float | None,
+                    after: float | None, blocked: bool, base: str) -> str:
+    import cash
+    _calc = "—" if calc is None else cash.signed_money(calc, base)
+    if after is None:
+        _after, _color = "—", "var(--text)"
+    elif blocked:
+        _after, _color = f"{cash.money(after, base)} · blocked", "var(--down-txt)"
+    else:
+        _after, _color = cash.money(after, base), "var(--text)"
+    row = ('<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">'
+           '<span style="font-size:12px;color:var(--muted);">{l}</span>'
+           '<span style="font-family:var(--uv-mono);font-size:12.5px;">{v}</span></div>')
+    return (f'<div style="margin-top:6px;padding:12px 14px;border-radius:10px;background:var(--panel-2);">'
+            f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
+            f'margin-bottom:9px;">Calculated · {base} base</div>'
+            + row.format(l="Current balance", v=cash.money(cur, base))
+            + row.format(l=calc_label, v=_calc)
+            + f'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0 0;'
+              f'margin-top:6px;border-top:0.5px solid var(--line-2);"><span style="font-size:12.5px;'
+              f'font-weight:500;">Balance after</span><span style="font-family:var(--uv-mono);font-size:14px;'
+              f'font-weight:500;color:{_color};">{_after}</span></div></div>')
+
+
+def _set_cash_manual(value: bool) -> None:
+    st.session_state["_dlg_cash_manual"] = value
+
+
+@st.dialog("Add cash transaction", width="small")
+def cash_transaction_dialog(preset_type: str = "Deposit") -> None:
+    import datetime as _dt
+
+    import cash
+    import fx
+    from portfolio import base_currency
+    from uvalu.runtime import current_user
+
+    enter_dialog()
+    _dialog_width_css(CASH_DIALOG_WIDTH)
+    _cash_dialog_css()
+    st.caption("Trades and dividend payments post automatically. Use this for everything else.")
+    if current_user().is_viewer:
+        st.caption("Viewer role is read-only.")
+        return
+
+    base = base_currency()
+    _default = preset_type if preset_type in CASH_TX_TYPES else "Deposit"
+    _type = st.segmented_control("Type", options=CASH_TX_TYPES, default=_default,
+                                 key="dlg_cash_type", width="stretch") or _default
+    is_adj = _type == "Adjustment"
+    entries = cash.load_ledger()
+    today = _dt.date.today()
+
+    rate: float = 1.0
+    manual_rate: float | None = None
+    manual = False
+    ccy = base
+    amount = None
+    target = None
+    if not is_adj:
+        _c1, _c2, _c3 = st.columns([1.15, 1, 0.8])
+        with _c1:
+            d = st.date_input("Date", value=today, max_value=today, format="DD/MM/YYYY", key="dlg_cash_date")
+        with _c2:
+            amount = st.number_input("Amount", min_value=0.0, step=0.01, value=None, format="%.2f",
+                                     placeholder="2500.00", key="dlg_cash_amt")
+        with _c3:
+            _opts = fx.supported_currencies()
+            if base not in _opts:
+                _opts = [base] + _opts
+            ccy = st.selectbox("Currency", options=_opts, index=_opts.index(base), key="dlg_cash_ccy")
+        d = d or today
+        # Changing currency or date drops back to the automatic ECB rate.
+        _basis = f"{ccy}|{d.isoformat()}"
+        if st.session_state.get("_dlg_cash_basis") != _basis:
+            st.session_state["_dlg_cash_basis"] = _basis
+            st.session_state["_dlg_cash_manual"] = False
+            st.session_state.pop("dlg_cash_rate", None)
+        if ccy != base:
+            try:
+                quote = fx.get_rate(ccy, base, d)
+            except fx.FxUnavailable:
+                quote = None
+            outage = quote is None
+            manual = outage or bool(st.session_state.get("_dlg_cash_manual"))
+            if not manual:
+                with st.container(key="uv_cash_fx_auto", horizontal=True, vertical_alignment="center",
+                                  horizontal_alignment="distribute"):
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:10px;">'
+                        f'<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);flex:none;"></span>'
+                        f'<div><div style="font-family:var(--uv-mono);font-size:12.5px;">'
+                        f'1 {ccy} = {cash.money(quote.rate, base, 4)}</div>'
+                        f'<div style="font-size:10.5px;color:var(--faint);margin-top:2px;">ECB reference rate for '
+                        f'{cash.fmt_date(quote.rate_date.isoformat())} · frankfurter.dev</div></div></div>',
+                        unsafe_allow_html=True, width="content")
+                    st.button("Enter manually", key="dlg_cash_use_manual", type="tertiary",
+                              on_click=_set_cash_manual, args=(True,))
+                rate = quote.rate
+            else:
+                with st.container(key="uv_cash_fx_manual"):
+                    if outage:
+                        st.markdown(f'<div style="font-size:11.5px;color:#C98A3A;line-height:1.5;">'
+                                    f'{CASH_OUTAGE_TEXT}</div>', unsafe_allow_html=True)
+                    _m1, _m2, _m3, _m4 = st.columns([0.8, 1.1, 0.9, 1.1], vertical_alignment="center")
+                    with _m1:
+                        st.markdown(f'<span style="font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'
+                                    f'white-space:nowrap;">1 {ccy} = €</span>', unsafe_allow_html=True)
+                    with _m2:
+                        manual_rate = st.number_input(
+                            "Rate", min_value=0.0, step=0.0001, format="%.4f", label_visibility="collapsed",
+                            value=(round(quote.rate, 4) if quote else None), placeholder="0.8540",
+                            key="dlg_cash_rate")
+                    with _m3:
+                        st.markdown('<span style="font-size:9.5px;font-family:var(--uv-mono);padding:2px 7px;'
+                                    'border-radius:5px;background:var(--amber-bg);color:var(--amber-txt);'
+                                    'white-space:nowrap;">Manual rate</span>', unsafe_allow_html=True)
+                    with _m4:
+                        if not outage:
+                            st.button("Use ECB rate", key="dlg_cash_use_auto", type="tertiary",
+                                      on_click=_set_cash_manual, args=(False,))
+                rate = manual_rate or 0.0
+    else:
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            d = st.date_input("Date", value=today, max_value=today, format="DD/MM/YYYY", key="dlg_cash_date")
+        with _c2:
+            target = st.number_input(f"Corrected balance · {base}", min_value=0.0, step=0.01, value=None,
+                                     format="%.2f", placeholder="36500.00", key="dlg_cash_target")
+        d = d or today
+        _before = cash.balance_before(entries, d)
+        st.caption(f"{'Current balance' if d >= today else 'Balance on that date'} "
+                   f"{cash.money(_before, base)}. Saved as a separate correction entry; "
+                   f"earlier entries stay unchanged.")
+
+    note = st.text_input("Note · optional", key="dlg_cash_note",
+                         placeholder="Reconciled to broker statement" if is_adj else "e.g. Transfer from savings")
+
+    # ── Calculated preview ───────────────────────────────────────────────────
+    cur = cash.balance(entries)
+    blocked = False
+    if is_adj:
+        calc = None if target is None else round(target - cash.balance_before(entries, d), 2)
+        after = None if calc is None else round(cur + calc, 2)
+        st.markdown(_cash_calc_html(cur, "Correction", calc, after, False, base), unsafe_allow_html=True)
+    else:
+        sign = -1 if _type in ("Withdrawal", "Fee") else 1
+        calc = round(sign * amount * rate, 2) if amount and rate and rate > 0 else None
+        after = None if calc is None else round(cur + calc, 2)
+        if calc is not None and sign < 0:
+            probe = {"id": "probe", "seq": 10 ** 12, "date": d.isoformat(), "type": _type, "amount_base": calc}
+            blocked = cash.min_balance_after(entries, probe) < -0.004
+        st.markdown(_cash_calc_html(cur, f"Amount in {base}" if ccy != base else "Amount",
+                                    calc, after, blocked, base), unsafe_allow_html=True)
+
+    _label = "Log correction" if is_adj else f"Add {_type.lower()}"
+    _do_save, _ = dialog_actions("dlg_cash", save_label=_label)
+    if not _do_save:
+        return
+    try:
+        if is_adj:
+            if target is None:
+                raise cash.CashError("Enter the corrected balance.")
+            cash.post_adjustment(d, target, note or "")
+        else:
+            if ccy != base and manual and not (manual_rate and manual_rate > 0):
+                raise cash.CashError(f"Enter the FX rate to convert {ccy} to {base}.")
+            cash.post_manual(_type, d, amount or 0.0, ccy, note=note or "",
+                             manual_rate=manual_rate if manual else None)
+    except cash.CashError as exc:
+        st.markdown(_cash_error_html(str(exc)), unsafe_allow_html=True)
+        return
+    except fx.FxUnavailable:
+        st.session_state["_dlg_cash_manual"] = True
+        st.markdown(_cash_error_html(CASH_OUTAGE_TEXT), unsafe_allow_html=True)
+        return
     st.rerun()

@@ -35,6 +35,11 @@ from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
 from uvalu.ui import price_autorefresh, consumed_tick, enter_dialog, poll_while_fetching
+from uvalu.pages_ import cash as _cash_ui
+
+# Full-page sections reachable by deep link (?section=cash), e.g. the Risk
+# page's "View cash activity" and the Dashboard Cash tile.
+_SECTIONS = ("overview", "open", "closed", "dividends", "cash")
 
 # Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
 # row components render a compact mono exchange chip next to the ticker.
@@ -107,6 +112,20 @@ def render() -> None:
 
     _user = current_user()
     _is_viewer = _user.is_viewer
+
+    _qs_section = st.query_params.get("section")
+    if _qs_section in _SECTIONS:
+        st.session_state["port_section"] = _qs_section
+        del st.query_params["section"]
+    _section = st.session_state.get("port_section", "overview")
+
+    def _goto(section: str) -> None:
+        st.session_state["port_section"] = section
+        st.rerun()
+
+    # Cash Management v1: post any dividends that came due (or whose FX rate
+    # was unavailable earlier) into the cash ledger — once per session.
+    _cash_ui.reconcile_once(_user.email, _is_viewer)
     price_autorefresh("portfolio_refresh")
     # A timed price refresh (see uvalu/ui.py) is not a real (re)visit — it
     # shouldn't drag the value-history backfill + daily-snapshot write along
@@ -124,11 +143,16 @@ def render() -> None:
             st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
 
     if pf.empty:
-        # ── Empty portfolio — show Add button only ────────────────────────────
+        # ── Empty portfolio — Add button + the cash strip (cash can be
+        # deposited before the first buy) ──────────────────────────────────────
+        if _section == "cash":
+            _cash_ui.render_page(invested_value=0.0, is_viewer=_is_viewer, on_back=lambda: _goto("overview"))
+            st.stop()
         if st.button("Add", key="btn_add_pos_empty", icon=":material/add:", disabled=_is_viewer,
                     help="Viewer role is read-only" if _is_viewer else None):
             add_position_dialog()
         st.info("Your portfolio is empty. Click Add to record your first position.")
+        _cash_ui.render_strip(invested_value=0.0, is_viewer=_is_viewer, on_open=lambda: _goto("cash"))
         st.stop()
 
     # ── Fetch live prices ─────────────────────────────────────────────────────
@@ -179,12 +203,6 @@ def render() -> None:
         if _now - st.session_state.get("_pf_snapshot_ts", 0.0) >= 600:
             record_value_snapshot(total_invested, total_current)
             st.session_state["_pf_snapshot_ts"] = _now
-
-    _section = st.session_state.get("port_section", "overview")
-
-    def _goto(section: str) -> None:
-        st.session_state["port_section"] = section
-        st.rerun()
 
     # ── Overview — heading + 5-card KPI strip + open/closed/dividends previews ──
     if _section == "overview":
@@ -252,6 +270,10 @@ def render() -> None:
                     _kpi_card("Realised P&L", f"€{_realised_pl:,.0f}", sub=f"{_realised_count} closed trades", icon="trend")
                 with _o5:
                     _kpi_card("Dividends (12m)", f"€{_div_12m:,.0f}", sub="income received", icon="coin")
+
+        # ── Cash strip (Cash Management v1) ───────────────────────────────────
+        _cash_ui.render_strip(invested_value=total_current, is_viewer=_is_viewer,
+                              on_open=lambda: _goto("cash"))
 
         # ── Open positions preview (top 5 by market value) ────────────────────
         with st.container(key="pf_card_open_ov", border=True):
@@ -406,6 +428,7 @@ def render() -> None:
             _date0 = pd.to_datetime(_row["date_in"], format="mixed", dayfirst=False, errors="coerce")
             _date = st.date_input("Buy date", value=_date0.date() if pd.notna(_date0) else None,
                                   format="DD/MM/YYYY", key="dlg_eop_date")
+            st.caption("No cash posting on edit — the original buy's cash entry stays as recorded.")
 
             _do_save, _do_delete = dialog_actions("dlg_eop", delete=True)
 
@@ -833,6 +856,11 @@ def render() -> None:
                                 f'€{_yrow["net"]:,.2f}</div></div>'
                             )
                         st.markdown(_rows_html, unsafe_allow_html=True)
+
+    # ── Full page: Cash activity (Cash Management v1) ─────────────────────────
+    if _section == "cash":
+        _cash_ui.render_page(invested_value=total_current, is_viewer=_is_viewer,
+                             on_back=lambda: _goto("overview"))
 
     # Dispatch at most one detail dialog per render
     if _pf_dlg_pending:

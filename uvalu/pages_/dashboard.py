@@ -168,11 +168,21 @@ def render() -> None:
     # Holdings rows/column header), so the row was reporting itself 16px
     # shorter than the cards actually are, leaving the *next* section
     # rendered flush against the overflow instead of with a proper gap.
+    # Cash Management v1 (Uvalu Cash Management.dc.html): Current value includes
+    # the cash balance, and a Cash tile sits next to it. Cash never enters the
+    # risk model — the tile says so.
+    from uvalu.pages_.cash import dashboard_cash_tile_values
+    _db_cash = dashboard_cash_tile_values(_db_current)
     with st.container(key="db_kpi_row"):
-        _k1, _k2, _k3, _k4 = st.columns(4)
+        _k1, _kc, _k2, _k3, _k4 = st.columns(5)
         with _k1:
-            _kpi_card("Current value", f"€{_db_current:,.0f}",
-                     f"{_db_gain_pct:+.1f}%", _db_gain >= 0, f"€{_db_gain:+,.0f} unrealised", icon="wallet")
+            _kpi_card("Current value", f"€{_db_current + _db_cash['balance']:,.0f}",
+                     f"{_db_gain_pct:+.1f}%", _db_gain >= 0,
+                     (f"incl. €{_db_cash['balance']:,.0f} cash" if _db_cash["count"]
+                      else f"€{_db_gain:+,.0f} unrealised"), icon="wallet")
+        with _kc:
+            _kpi_card("Cash", f"€{_db_cash['balance']:,.0f}", f"{_db_cash['cash_pct']:.1f}%", True,
+                     "of total value · not in risk", icon="cash", delta_style=_db_cash["chip_style"])
         with _k2:
             _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
                      f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")

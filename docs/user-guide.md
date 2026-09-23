@@ -122,6 +122,33 @@ automatic back-fill of missing trading days.
 Realised trades — Invested, Proceeds, Price Gain, Dividends, Price Gain %,
 and annualised Annual Return % (CAGR). **Edit** to correct or delete rows.
 
+### Cash
+
+The **Cash balance** strip on the Portfolio overview shows your cash, the
+invested-vs-cash split and the total portfolio value (holdings + cash), with
+**Deposit** / **Withdraw** buttons. The ⤢ icon opens **Cash activity**: five
+summary tiles and the full ledger, filterable by Deposits & withdrawals,
+Trades, Income or Fees & adjustments, with **Export CSV** (full history).
+
+- **Automatic entries** — every Buy and Sell posts its cash (value ± fees;
+  both dialogs have a *Fees* field and show the cash left after the trade),
+  and every received dividend is posted net of withholding. Nothing is
+  entered twice. A buy never waits for cash: if the balance can't cover it,
+  an automatic *top-up* deposit linked to that trade is posted first, so the
+  balance ends at €0.00.
+- **Add transaction** — Deposit, Withdrawal, Fee, Interest or Adjustment, in
+  any currency. Non-EUR amounts are converted at the ECB reference rate for
+  the transaction date (via frankfurter.dev) and the rate is stored with the
+  entry; if no rate is available, enter it manually (the entry is flagged
+  *manual*). A withdrawal or fee that would take the balance below zero is
+  blocked.
+- **Adjustment** — sets the balance to a corrected figure (e.g. to match your
+  broker statement, or to record an opening balance). It is saved as its own
+  entry; earlier entries never change.
+- Cash counts toward total portfolio value and the Dashboard's *Current
+  value* / *Cash* tiles, but **not** toward any risk metric.
+- Viewers can see and export the ledger but can't add entries.
+
 ### Dividends
 
 Cards: Total received, Current holdings, Expected 12 months, Portfolio

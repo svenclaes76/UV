@@ -128,6 +128,42 @@ def _render_skeleton() -> None:
         st.markdown(skeleton_risk_holdings_html(5), unsafe_allow_html=True)
 
 
+def _render_cash_banner(pf) -> None:
+    """Cash Management v1: cash counts toward total value but is excluded
+    from every risk metric (HHI, VaR, CVaR, factor exposure, Monte Carlo) —
+    say so, with a link to the ledger. Shown once the portfolio has cash
+    entries; the risk engine itself is untouched."""
+    import cash
+    from uvalu import nav
+    from uvalu.pages_.cash import dashboard_cash_tile_values
+
+    try:
+        import uvalu.data as _uv_data
+        _live = _uv_data._fetch_prices_cached(tuple(pf["ticker"].dropna().astype(str).tolist()))
+        _px = pf["ticker"].map(lambda t: (_live.get(t) or {}).get("price"))
+        _mv = pd.to_numeric(pf["shares"], errors="coerce") * pd.to_numeric(_px, errors="coerce")
+        _invested = float(_mv.fillna(pd.to_numeric(pf["purchase_value"], errors="coerce")).fillna(0).sum())
+    except Exception:
+        _invested = float(pd.to_numeric(pf.get("purchase_value"), errors="coerce").fillna(0).sum())
+    s = dashboard_cash_tile_values(_invested)
+    if not s["count"]:
+        return
+    with st.container(key="risk_cash_banner", horizontal=True, vertical_alignment="center",
+                      horizontal_alignment="distribute", border=True):
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:12px;">'
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" '
+            'stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 '
+            '0 0 -18 0"/><path d="M12 8h.01M11 12h1v4h1"/></svg>'
+            f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">Risk metrics cover the invested '
+            f'portion only ({cash.money(s["invested"], s["base"], 0)}). Cash of {cash.money(s["balance"], s["base"], 0)}, '
+            f'{s["cash_pct"]:.1f}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and '
+            f'Monte Carlo.</span></div>', unsafe_allow_html=True, width="stretch")
+        if st.button("View cash activity", key="risk_view_cash", type="tertiary"):
+            st.session_state["port_section"] = "cash"
+            st.switch_page(nav.pages["portfolio"])
+
+
 def render() -> None:
     pf = load_portfolio()
     if pf is None or pf.empty:
@@ -141,6 +177,7 @@ def render() -> None:
     st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
                unsafe_allow_html=True)
     st.caption("Factor exposures, concentration and per-holding risk contribution across the portfolio.")
+    _render_cash_banner(pf)
 
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")

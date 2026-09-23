@@ -139,11 +139,13 @@ KPI_ICONS = {
     "trend":  '<path d="M3 17l6 -6l4 4l8 -8"/><path d="M14 7l7 0l0 7"/>',
     "coin":   '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1 -1.8 -1"/><path d="M12 6v2m0 8v2"/>',
     "target": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/>',
+    "cash":   '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>',
 }
 
 
 def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True,
-            sub: str = "", icon: str = "wallet") -> None:
+            sub: str = "", icon: str = "wallet", value_color: str = "var(--text)",
+            delta_style: str | None = None) -> None:
     """One headline-number card: icon+label, a large mono value, and an
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
@@ -156,7 +158,10 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     # "") resets CommonMark's HTML-block parsing context, and the *next*
     # line's leading spaces then get read as an indented code block instead
     # of continued HTML, rendering the sub-caption as literal escaped text.
-    _delta_html = chip_html(delta_text, positive) if delta_text else ""
+    if delta_text and delta_style is not None:
+        _delta_html = f'<span style="{delta_style}">{delta_text}</span>'
+    else:
+        _delta_html = chip_html(delta_text, positive) if delta_text else ""
     _delta_row = f'{_delta_html}<span style="font-size:11px;color:var(--faint);">{sub}</span>'
     # min-height on the delta row — the chip (padding:2px 7px around 11.5px
     # text, ~22px tall) is taller than the plain sub-caption span alone, so
@@ -167,7 +172,7 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
     {_icon_svg}{label}</div>
-  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:var(--text);">{value}</div>
+  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:{value_color};">{value}</div>
   <div style="margin-top:9px;min-height:22px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
 
@@ -1502,3 +1507,117 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
            f'<div style="height:6px;border-radius:3px;width:{_bar_pct:.1f}%;background:{flag_color if flag else "var(--teal)"};"></div></div>'
            f'<span style="font-family:var(--uv-mono);font-size:12px;width:44px;text-align:right;">{contrib_pct:.1f}%</span></div>'
            f'<div style="font-size:11px;font-weight:500;color:{flag_color};">{flag}</div></div>')
+
+
+# ── Cash Management v1 ───────────────────────────────────────────────────────
+# Uvalu Cash Management.dc.html: the Portfolio cash strip (balance + invested-
+# vs-cash split bar) and the Cash activity ledger table. Colours map the
+# mockup's hex chips onto theme tokens (--amber-* for Fee / manual FX).
+
+MINT_CHIP_STYLE = ("display:inline-flex;font-family:var(--uv-mono);font-size:11.5px;font-weight:500;"
+                   "padding:2px 7px;border-radius:5px;background:var(--soft);color:var(--mint);")
+
+_CASH_CHIP = ("display:inline-flex;align-items:center;font-size:9.5px;font-family:var(--uv-mono);"
+              "padding:2px 7px;border-radius:5px;white-space:nowrap;")
+_CASH_TYPE_STYLE = {
+    "Deposit":    "background:var(--up-bg);color:var(--up-txt);",
+    "Withdrawal": "background:var(--down-bg);color:var(--down-txt);",
+    "Buy":        "color:var(--muted);border:0.5px solid var(--line);",
+    "Sell":       "color:var(--text);border:0.5px solid var(--teal);",
+    "Dividend":   "background:var(--soft);color:var(--mint);",
+    "Interest":   "background:var(--soft);color:var(--mint);",
+    "Fee":        "background:var(--amber-bg);color:var(--amber-txt);",
+    "Adjustment": "color:var(--muted);border:0.5px dashed var(--faint);",
+}
+CASH_LEDGER_GRID = "96px 104px minmax(0,1fr) 132px 78px 118px 118px 60px"
+
+
+def cash_type_chip_html(type_: str) -> str:
+    return f'<span style="{_CASH_CHIP}{_CASH_TYPE_STYLE.get(type_, "")}">{type_}</span>'
+
+
+def cash_balance_block_html(balance_text: str, last_text: str) -> str:
+    return (f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;letter-spacing:-0.02em;'
+            f'line-height:1;">{balance_text}</div>'
+            f'<div style="font-size:11px;color:var(--faint);margin-top:8px;white-space:nowrap;">{last_text}</div>')
+
+
+def cash_alloc_html(invested_pct: float, cash_pct: float, total_text: str) -> str:
+    """Invested / Cash legend, 8px split bar, total-value caption."""
+    inv = max(0.0, min(100.0, invested_pct))
+    return (
+        '<div style="min-width:0;">'
+        '<div style="display:flex;justify-content:space-between;gap:12px;font-size:11.5px;margin-bottom:8px;">'
+        '<span style="display:flex;align-items:center;gap:7px;color:var(--muted);"><span style="width:8px;height:8px;'
+        'border-radius:2px;background:var(--teal);"></span>Invested <span style="font-family:var(--uv-mono);'
+        f'color:var(--text);">{invested_pct:.1f}%</span></span>'
+        '<span style="display:flex;align-items:center;gap:7px;color:var(--muted);"><span style="width:8px;height:8px;'
+        'border-radius:2px;background:var(--mint);"></span>Cash <span style="font-family:var(--uv-mono);'
+        f'color:var(--text);">{cash_pct:.1f}%</span></span></div>'
+        '<div style="height:8px;border-radius:4px;background:var(--panel-2);display:flex;overflow:hidden;gap:2px;">'
+        f'<div style="height:100%;background:var(--teal);width:{inv:.2f}%;"></div>'
+        '<div style="height:100%;background:var(--mint);flex:1;"></div></div>'
+        f'<div style="font-size:11px;color:var(--faint);margin-top:8px;">Total portfolio value {total_text} · '
+        'risk metrics use the invested portion only</div></div>')
+
+
+def _cash_ledger_row_html(r: dict, base: str) -> str:
+    import html as _html
+
+    import cash as _cash
+
+    is_adj = r["type"] == "Adjustment"
+    if is_adj:
+        orig = "set to " + _cash.money(float(r.get("target_balance") or 0.0), base)
+    else:
+        amt = float(r.get("amount") or 0.0)
+        orig = ("+" if amt >= 0 else "−") + (r.get("currency") or base) + " " + f"{abs(amt):,.2f}"
+    src = r.get("fx_source") or "base"
+    if (r.get("currency") or base) == base or is_adj:
+        fx_val, fx_note, fx_color = "—", "base", "var(--faint)"
+    else:
+        fx_val = f"{float(r.get('fx_rate') or 0):.4f}"
+        fx_note = "manual" if src == "manual" else "ECB"
+        fx_color = "var(--amber-txt)" if src == "manual" else "var(--faint)"
+    ref = r.get("ref_label") or ""
+    if r.get("topup"):
+        ref = (ref + " · top-up") if ref else "top-up"
+    ref_html = (f'<div style="font-size:10.5px;color:var(--faint);font-family:var(--uv-mono);margin-top:2px;'
+                f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_html.escape(ref)}</div>'
+                if ref else "")
+    base_amt = float(r["base"])
+    base_color = "var(--up-txt)" if base_amt >= 0 else "var(--text)"
+    base_txt = ("+" if base_amt >= 0 else "−") + _cash.money(abs(base_amt), base)
+    auto = bool(r.get("auto"))
+    src_style = ("background:var(--soft);color:var(--mint);" if auto
+                 else "color:var(--muted);border:0.5px solid var(--line);")
+    note = _html.escape(str(r.get("note") or "—"))
+    return (
+        f'<div class="uv-cash-row" style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;'
+        f'align-items:center;padding:11px 20px;border-bottom:0.5px solid var(--line-2);">'
+        f'<div style="font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;">{_cash.fmt_date(r["date"])}</div>'
+        f'<div>{cash_type_chip_html(r["type"])}</div>'
+        f'<div style="min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;'
+        f'text-overflow:ellipsis;" title="{note}">{note}</div>{ref_html}</div>'
+        f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);'
+        f'white-space:nowrap;">{orig}</div>'
+        f'<div style="text-align:right;"><div style="font-family:var(--uv-mono);font-size:12px;color:var(--muted);">'
+        f'{fx_val}</div><div style="font-size:9.5px;margin-top:2px;color:{fx_color};">{fx_note}</div></div>'
+        f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;font-weight:500;'
+        f'color:{base_color};white-space:nowrap;">{base_txt}</div>'
+        f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;white-space:nowrap;">'
+        f'{_cash.money(float(r["bal"]), base)}</div>'
+        f'<div><span style="{_CASH_CHIP}{src_style}">{"Auto" if auto else "Manual"}</span></div></div>')
+
+
+def cash_ledger_table_html(rows: list[dict], base: str = "EUR") -> str:
+    """Column header + one grid row per ledger entry, in the order given
+    (the page passes newest first). `rows` are cash.replay() rows."""
+    head = (f'<div style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;padding:10px 20px;'
+            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);'
+            f'border-bottom:0.5px solid var(--line-2);">'
+            f'<div>Date</div><div>Type</div><div>Description</div><div style="text-align:right;">Original</div>'
+            f'<div style="text-align:right;">FX rate</div><div style="text-align:right;">Amount · {base}</div>'
+            f'<div style="text-align:right;">Balance</div><div>Source</div></div>')
+    body = "".join(_cash_ledger_row_html(r, base) for r in rows)
+    return '<div style="overflow-x:auto;"><div style="min-width:920px;">' + head + body + '</div></div>'

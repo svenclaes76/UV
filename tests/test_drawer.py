@@ -153,7 +153,7 @@ class TestDispatchPendingDrawerAction:
         at = AppTest.from_function(_script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert any(b.label == "Confirm close" for b in at.button)
+        assert any(b.label == "Confirm sale" for b in at.button)
 
     def test_sell_action_noop_when_portfolio_empty(self):
         def _script():

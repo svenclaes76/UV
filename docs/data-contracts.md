@@ -296,3 +296,32 @@ between screens at some point (see the `dq/*` history); the tests in
   holding's own volatility and `r.quant.corr_matrix`. It falls back to
   `weight × |beta|` (with a visible caption) only when there isn't enough
   correlated return history.
+
+## Cash and FX
+
+- **One FX source.** Every currency conversion goes through `fx.py`
+  (frankfurter.dev — ECB reference rates): the cash ledger's per-entry rate
+  (`fx.get_rate`), the dividend EUR restatement (`portfolio.dividends_in_eur`)
+  and the risk engine's EUR restatement of price history
+  (`marketdata.fx_to_eur_frame` → `fx.rates_frame`). Both functions read the
+  same cache, so **invariant:** a dividend's EUR amount in the cash ledger
+  equals its net EUR amount on the Dividends page.
+- **Cash ledger (`cash.json`).** Each entry stores its original amount and
+  currency, the rate applied and `fx_source` (`base` / `ecb` / `manual`), and
+  `amount_base`, all fixed at post time. The balance is `cash.replay()`'s
+  running sum in (date, seq) order; an `Adjustment` stores a target balance
+  and its effect is `target − running balance before it`.
+- **Never negative.** Withdrawals and fees are rejected if the running balance
+  would drop below zero at any point from their date onward (until the next
+  adjustment). Buys/sells are never rejected: a shortfall posts a linked
+  automatic top-up `Deposit` (`topup=True`, same `ref_id` as the trade) ordered
+  before the trade.
+- **Dividend mirroring.** `cash.reconcile_dividend_postings()` keeps exactly one
+  `Dividend` entry per received dividend (pay date ≤ today, not DRIP, not
+  `Stock`), linked by `div_id` and net of foreign withholding and the Belgian
+  30% layer. It runs after every dividend add/edit/delete/import and once per
+  session. A dividend whose rate is unavailable is retried later, never
+  posted at a guessed rate.
+- **Cash is not risk.** The Dashboard's *Current value* and the Portfolio
+  strip's total include cash; `risk.assess_portfolio` never sees it (the Risk
+  page banner says so).

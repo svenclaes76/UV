@@ -9,6 +9,30 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+Planned as **1.12.0** (MINOR — new capability, no manual migration step).
+
+### Added
+
+- **Cash Management v1** (design: `docs/design/Uvalu Cash Management.dc.html`, plan: `docs/cash-management-implementation-plan.md`). One cash balance per portfolio, derived from an append-only ledger in the encrypted `cash.json` and retained indefinitely:
+  - **Portfolio → Cash balance strip**: balance, invested-vs-cash split bar, total portfolio value, Deposit / Withdraw.
+  - **Cash activity page** (Portfolio → strip ⤢, or `/portfolio?section=cash`): five tiles (balance, net deposits, trade flow, income, fees & corrections), a filterable ledger (original amount + currency, FX rate with ECB / manual flag, amount in EUR, running balance, Auto / Manual source) and a full-history **CSV export** (any role).
+  - **Add cash transaction** dialog: Deposit / Withdrawal / Fee / Interest / Adjustment, any currency, converted at the ECB rate for the transaction date (manual, flagged rate when frankfurter.dev has none). An adjustment sets the balance as its own correction entry; history is never overwritten. Withdrawals and fees that would take the balance below zero at any point in its history are blocked.
+  - **Auto-posting**: Buy / Sell post their cash (value ± fees — both dialogs gained a *Fees* field and a *Cash after trade* preview) and every received dividend is mirrored into the ledger (net of all withholding; updated or removed when the dividend is edited or deleted; DRIP, Stock and future-dated dividends excluded). **A buy is never blocked by the balance**: a shortfall posts a linked automatic top-up deposit first, so the balance lands at €0.00.
+  - **Dashboard**: *Current value* now includes cash, and a new *Cash* tile shows the balance and its share of total value.
+  - **Risk page**: a banner states that risk metrics cover the invested portion only — cash is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo — with a link to the cash activity.
+  - `portfolio_meta.json`: a fixed EUR base currency and never-reused TRD- / DIV- / C- reference counters. Backups now include `cash.json`, `portfolio_meta.json` and `dividend_meta.json`.
+- `fx.py`: frankfurter.dev (ECB reference rates) client with a permanent incremental disk cache (`.cache/fx_frankfurter.json`).
+
+### Changed
+
+- **FX now comes from one source — frankfurter.dev / ECB reference rates** — instead of yfinance `XXXEUR=X` pairs, for the dividend EUR conversion (`portfolio.dividends_in_eur`) and the risk engine's EUR restatement of price history (`risk._to_eur`, via the `marketdata.fx_to_eur_frame` shim). EUR dividend totals and risk metrics for non-EUR holdings (e.g. CHF) may shift slightly.
+- Sell dialog: the confirm button is now "Confirm sale".
+
+### Fixed
+
+- Selling part of a position removed the whole position (every lot) and booked its full cost basis. `portfolio.sell_position()` now sells FIFO across lots, keeps the unsold shares open with a pro-rata cost basis, and books only the sold shares' cost.
+- Light theme had no amber tokens (`--amber-bg` / `--amber-txt` fell back to the dark values).
+
 ---
 
 ## [1.11.1] — 2026-09-23

@@ -211,7 +211,7 @@ sell_position_dialog(pf, "AAA.BR")
         # `if pf is not None and not pf.empty:` mirrors the guard the real
         # call site uses (uvalu/drawer.py's dispatch_pending_drawer_action)
         # before invoking this dialog. Without it, AppTest's st.rerun()
-        # (fired by "Confirm close" itself) re-executes this whole script,
+        # (fired by "Confirm sale" itself) re-executes this whole script,
         # reloading a NOW-empty portfolio and unconditionally reopening the
         # dialog against it — and portfolio.py's JSON round-trip turns a
         # truly-empty DataFrame column-less, so `pf["ticker"]` KeyErrors.
@@ -228,7 +228,7 @@ if pf is not None and not pf.empty:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
 
-        confirm = [b for b in at.button if b.label == "Confirm close"][0]
+        confirm = [b for b in at.button if b.label == "Confirm sale"][0]
         confirm.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert portfolio.load_portfolio().empty

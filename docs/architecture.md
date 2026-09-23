@@ -23,7 +23,9 @@ UV/
 │   # ── Root modules (UI-agnostic logic + persistence) ──
 ├── auth.py                     # Authentication (register/invite, login, JWT verify, 3-tier roles + status)
 ├── portfolio.py                # Per-user portfolio persistence and CRUD (encrypted JSON); targets + risk snapshot
-├── marketdata.py               # Single yfinance wrapper: disk-cached daily price history, dividends, FX-to-EUR
+├── cash.py                     # Cash ledger (Cash Management v1): replay/balance, posting rules, dividend mirroring, CSV
+├── fx.py                       # frankfurter.dev (ECB) FX client — the app's single FX source, disk-cached
+├── marketdata.py               # Single yfinance wrapper: disk-cached daily price history, dividends; FX shim → fx.py
 ├── screener.py                 # Fundamentals fetch + valuation/scoring pipeline (configurable thresholds) + disk cache
 ├── scoring.py                  # Shared 0–10 fundamental scorers used by both screener.py and risk.py
 ├── prices.py                   # Live batch price fetching via yfinance
@@ -52,7 +54,8 @@ UV/
 │       ├── dashboard.py        # Dashboard page render()
 │       ├── screener.py         # Screener page render() (unified ranked list + filter bar)
 │       ├── watchlist.py        # Watchlist page render()
-│       ├── portfolio.py        # Portfolio page render() (overview + Open/Closed/Dividends drill-downs)
+│       ├── portfolio.py        # Portfolio page render() (overview + Open/Closed/Dividends/Cash drill-downs)
+│       ├── cash.py             # Portfolio cash strip + Cash activity page (not a nav page; routed by portfolio.py)
 │       ├── risk.py             # Risk page render() (always-visible score section + 5 detail tabs)
 │       ├── analysis.py         # Stock deep-dive page render() (reached from the drawer)
 │       ├── settings.py         # Settings page render() (Display / Screening & veto rules / Alerts & data)
@@ -213,7 +216,8 @@ Encrypted JSON persistence for all per-user portfolio data.
 
 - `set_user(email)` — derive the user's data directory from `SHA256(email)`.
 - `load_portfolio()` / `save_portfolio()`, `add_position()`, `update_positions()` — open positions.
-- `sell_position()` — move a position to `sold.json`, compute annualised return.
+- `sell_position()` — sell all or part of a position (FIFO across lots) into `sold.json`, compute annualised return. `record_buy()` / `record_sell()` wrap add/sell for the live Buy/Sell dialogs and post the trade's cash via `cash.post_trade()` (rolling the position write back if the cash write fails); the plain helpers stay cash-neutral for imports and edits.
+- `base_currency()`, `next_id()` — `portfolio_meta.json`: the fixed EUR base currency and never-reused `TRD-`/`DIV-`/`C-` reference counters; `ensure_div_ids()` backfills dividend ids.
 - `add_dividend()`, `update_div_hist()`, `load_div_hist()` — dividend records.
 - `load_value_history()`, `record_value_snapshot()`, `backfill_value_history()` — daily value snapshots for the time-series chart (backfill uses yfinance price history + benchmark rebasing).
 - `parse_excel()`, `load_watchlist()`, `save_watchlist()`, `load_manual_tickers()`, `save_manual_tickers()`.
@@ -228,7 +232,15 @@ Notable exports used by the data layer: `run_screener_from_df`, `fetch_fundament
 
 #### `marketdata.py`
 
-The single yfinance wrapper for time-series data, so `screener.py`, `prices.py` and `risk.py` don't each hold their own fetch/retry conventions. `price_history(tickers, period)` serves adjusted daily closes from a per-ticker CSV cache under `.cache/history/`, refetching only each ticker's missing tail; `dividends(ticker)` does the same for the payment history (`.cache/dividends/`, weekly refresh); `fx_to_eur_frame(currencies)` returns daily EUR-per-unit rates (FX pairs ride the same price-history cache). Retries Yahoo 429s / dropped connections with exponential backoff.
+The single yfinance wrapper for time-series data, so `screener.py`, `prices.py` and `risk.py` don't each hold their own fetch/retry conventions. `price_history(tickers, period)` serves adjusted daily closes from a per-ticker CSV cache under `.cache/history/`, refetching only each ticker's missing tail; `dividends(ticker)` does the same for the payment history (`.cache/dividends/`, weekly refresh); `fx_to_eur_frame(currencies)` returns daily EUR-per-unit rates — a thin shim over `fx.rates_frame`, since frankfurter.dev (ECB reference rates) is the app's single FX source.
+
+#### `fx.py`
+
+frankfurter.dev client — ECB reference rates, the only FX source in the app. `get_rate(ccy, base, on)` → `FxQuote(rate, rate_date, source)` (weekends/holidays resolve to the previous fixing; raises `FxUnavailable` so callers can fall back to a manual rate); `rates_frame(currencies, start, end)` → a daily EUR-per-unit frame for the dividend and risk EUR restatements; `supported_currencies()`. Both share one permanent incremental cache (`.cache/fx_frankfurter.json`; the trailing few days re-checked at most hourly), so the ledger's stored rate and the Dividends page convert the same day at the same rate.
+
+#### `cash.py`
+
+The Cash Management v1 ledger (encrypted `cash.json`, kept indefinitely). `replay()` gives the running balance in (date, seq) order; `post_manual()` / `post_adjustment()` / `post_trade()` apply the posting rules (whole-timeline negative check for withdrawals/fees; trades never blocked — a shortfall posts a linked automatic top-up deposit); `reconcile_dividend_postings()` mirrors received dividends (runs after every dividend mutation and once per session); `summary()`, `filter_rows()`, `export_csv()` feed the UI. No Streamlit import. Retries Yahoo 429s / dropped connections with exponential backoff.
 
 #### `scoring.py`
 

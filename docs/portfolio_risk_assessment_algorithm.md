@@ -6,7 +6,7 @@ Implemented in [`risk.py`](../risk.py); `assess_portfolio(pf_df, cache, income_p
 
 ### Implementation notes (what the engine actually does now)
 
-- **Everything is EUR.** `risk._to_eur` restates each holding's native-currency close series in EUR (per-ticker `Currency` from the fundamentals cache, FX from `marketdata.fx_to_eur_frame`) *before* any metric is computed, so `port_rets` is never a currency blend.
+- **Everything is EUR.** `risk._to_eur` restates each holding's native-currency close series in EUR (per-ticker `Currency` from the fundamentals cache, FX: ECB reference rates from frankfurter.dev via `fx.py`, reached through `marketdata.fx_to_eur_frame`) *before* any metric is computed, so `port_rets` is never a currency blend.
 - **Betas are regressed**, not taken from yfinance. `risk._resolve_betas` runs an OLS of each holding's own EUR daily returns on `BENCHMARK_TICKER` (`^STOXX50E`, euro-denominated) over the trailing window (≥ 60 aligned obs); falls back to the cached yfinance `beta`, then 1.0. `PositionRisk.beta_source` records which. `QuantMetrics.portfolio_beta_regression` adds the direct OLS of `port_rets` on the benchmark as a cross-check.
 - **10-year fetch, 5-year quant.** `assess_portfolio` fetches a 10y window; Stages 1/3/4 run on the trailing-5y slice, Stage 6 gets the full series (for crisis-window replay).
 - **Factor set:** Developed 5-factor + momentum first, US Fama-French as an automatic fallback; parsed frames are disk-cached weekly with a stale-copy fallback when the network is down (`risk._factor_data`).
@@ -417,3 +417,8 @@ The per-user target allocation is edited under **Settings → Target allocation*
 | Full composite risk score | Quarterly |
 | Hard trigger checks | Continuous / real-time alerts |
 | Full rebalancing review | Semi-annually or after major market events |
+
+> **Cash is out of scope.** The portfolio's cash balance (Cash Management v1,
+> `cash.py`) is deliberately excluded from every stage here — HHI, VaR/CVaR,
+> factor exposure, stress tests and Monte Carlo run on the invested positions
+> only. The Risk page states this in a banner above the report.

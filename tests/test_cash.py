@@ -400,3 +400,27 @@ class TestSummaryAndExport:
         assert cash.money(-12.4) == "−€12.40"
         assert cash.signed_money(5) == "+€5.00"
         assert cash.money(1234.5, "CHF", 0) == "CHF 1,234"
+
+
+# ── retention ────────────────────────────────────────────────────────────────
+
+def test_log_retention_never_touches_the_cash_ledger(tmp_path):
+    """The ledger is kept indefinitely — it lives in the user data dir, which
+    the 1-month log retention sweep never looks at."""
+    import os
+    import time
+
+    from uvalu.logkit import retention
+
+    cash.post_manual("Deposit", D, 10)
+    ledger = portfolio.user_data_dir() / "cash.json"
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    old_log = logs / "uvalu.log.1"
+    old_log.write_text("x")
+    old = time.time() - 400 * 86400
+    for f in (old_log, ledger):
+        os.utime(f, (old, old))
+    removed = retention.sweep({"retention_days": 31, "file": {"path": "logs/uvalu.log"}}, log_dir=tmp_path)
+    assert removed == 1 and not old_log.exists()
+    assert ledger.exists() and cash.balance() == 10.0

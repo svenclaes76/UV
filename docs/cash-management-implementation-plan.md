@@ -2,7 +2,7 @@
 
 Sources:
 - Requirements: *Uvalu — Cash Management Requirements (v1)*, Sep 21 2026.
-- Design: Claude Design project "Uvalu", file `Uvalu Cash Management.dc.html` (+ `support.js` runtime). This file is **not yet in `docs/design/`**. WP-CM0 imports it.
+- Design: Claude Design project "Uvalu", file `Uvalu Cash Management.dc.html` (+ `support.js` runtime). Imported into `docs/design/` in WP-CM0.
 
 Target release: **v1.12.0** (MINOR: new capability, no manual migration step. See CONTRIBUTING.md §"Versioning and releases").
 Branch: `feature/cash-management-v1` off `master` (`3a52bf4`).
@@ -59,7 +59,7 @@ Branch: `feature/cash-management-v1` off `master` (`3a52bf4`).
 - **D8 · Negative-balance handling covers the whole timeline.** Manual debits (Withdrawal, Fee) are **blocked** if the running balance goes below 0 at **any** point from their date onward, not only at the final balance. Adjustments reset the running balance, so the check stops at the next adjustment.
   - For trades (D3), the same timeline scan sizes the top-up: `top-up = −min(running balance from the trade date onward, after the trade)` when that minimum is negative. A backdated buy is therefore always fully funded, including against later withdrawals.
   - Dividend edits and deletes are not blocked. If the history goes negative that way, the Cash page shows a warning banner.
-- **D9 · Dashboard KPI strip.** Follows the design: Current value (incl. cash) · **Cash** · Total return · Fwd income / yr · Avg fair-value upside. The "Dividends received" tile is removed from the Dashboard. It stays on the Portfolio page as "Dividends (12m)".
+- **D9 · Dashboard KPI strip.** Follows the design: Current value (incl. cash) · **Cash** · Total return · Fwd income / yr · Avg fair-value upside. *(As built: the Dashboard had only four tiles, and "Dividends received" was merely the fallback shown when forward income is unknown, so nothing was removed. The Cash tile was added as the second of five.)*
 
 ---
 
@@ -192,6 +192,7 @@ uvalu/pages_/risk.py       EDIT  "risk covers invested portion only" banner
 - `reconcile_dividend_postings(div_df)`: implements D4. Uses the net after all withholding (`net_after_be_amount` in native currency) × frankfurter rate at the pay date. If frankfurter is down, it retries on the next reconcile run and posts nothing in the meantime. It does **not** post using a guessed rate.
 - `summary(entries, invested_value) -> dict`: the five tiles (balance, net deposits, trade flow, income, fees & corrections excluding the opening balance, plus the number of corrections), cash %, invested %, total value, last-entry text.
 - `export_csv(entries) -> bytes`: see WP-CM9.
+- **As built:** `preview_trade()` (what a trade does to cash, including any top-up) feeds the Buy/Sell dialogs, and `remove_ref()` rolls back a trade's entries.
 - Tests (`tests/test_cash.py`):
   - replay ordering and ties;
   - adjustment target semantics, including a backdated entry absorbed by a later adjustment;
@@ -307,7 +308,7 @@ Matches design lines 263–332. Width **500 px** (`_dialog_width_css(500)`).
 
 - `cash.export_csv()` writes columns in the spec's order and names:
   `date,type,amount,currency,fx_rate,amount_base,note,reference,running_balance` (header suffix `_eur` when base = EUR, as in the design: `amount_eur`, `running_balance_eur`).
-- ISO dates, full history, oldest first, `QUOTE_MINIMAL`, UTF-8 with BOM (Excel-friendly, like the other Uvalu exports). An adjustment's `amount` is blank; its `amount_base` holds the delta.
+- ISO dates, full history, oldest first, `QUOTE_MINIMAL`, UTF-8 **without** a BOM (as built — matches every other Uvalu CSV export, which are plain `to_csv()` strings). An adjustment's `amount` is blank; its `amount_base` holds the delta. As built there is one extra trailing column, `fx_source` (`base` / `ecb` / `manual`), so a manually entered rate stays flagged in the export as well.
 - File name `uvalu-cash-activity-EUR.csv`. Uses `st.download_button` (all roles).
 - Test: column order, running balance matches `replay`, quoting of commas and quotes in notes.
 
