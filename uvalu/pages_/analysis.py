@@ -6,10 +6,13 @@ import yfinance as yf
 import plotly.graph_objects as go
 import streamlit as st
 
-from portfolio import load_portfolio, load_manual_tickers
+from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
+                       dividend_income_summary, exchange_key_for_ticker,
+                       load_dividend_meta)
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
                       sector_for, decision_reason)
-from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
+from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
+                      ALL_EXCHANGES, get_dividend_withholding)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
@@ -18,7 +21,7 @@ from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               sub_score_bar_html, quality_score_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html)
 from uvalu.formatting import fmt_eur as _fmt_eur
-from uvalu.runtime import theme_colors
+from uvalu.runtime import theme_colors, current_user
 from uvalu.ui import _CHART_CONFIG
 
 _EXCHANGE_LABELS = {
@@ -374,6 +377,126 @@ def render() -> None:
                 f'</div>',
                 unsafe_allow_html=True,
             )
+
+    # ── Dividend & income (WP-DIV5) ───────────────────────────────────────────
+    _dy_fwd = row.get("dividendYield")
+    _dps_trailing = row.get("trailingAnnualDividendRate")
+    _dps_annual = _dps_trailing if pd.notna(_dps_trailing) and _dps_trailing else row.get("dividendRate")
+    _div_hist_all = load_div_hist()
+    _has_div_history = (_div_hist_all is not None and not _div_hist_all.empty
+                        and "ticker" in _div_hist_all.columns and (_div_hist_all["ticker"] == ticker).any())
+    if (pd.notna(_dy_fwd) and _dy_fwd and _dy_fwd > 0) or _has_div_history:
+        with st.container(key="an_card_dividend", border=True):
+            _dm_meta = load_dividend_meta().get(ticker, {}) or {}
+            _dh_title, _dh_src = st.columns([2.2, 1], vertical_alignment="center")
+            with _dh_title:
+                _row_freq = row.get("dividendFrequency")
+                _freq_label = _dm_meta.get("frequency") or (_row_freq if pd.notna(_row_freq) else None) or "—"
+                _dps_label = f"€{_dps_annual:.2f} / share" if pd.notna(_dps_annual) and _dps_annual else "—"
+                st.markdown(f'<div style="display:flex;align-items:center;gap:10px;">'
+                           f'<span style="font-size:15px;font-weight:500;">Dividend &amp; income</span>'
+                           f'<span style="font-size:11.5px;color:var(--muted);">{_freq_label} · {_dps_label}</span></div>',
+                           unsafe_allow_html=True)
+            with _dh_src:
+                _src_auto = bool(_has_div_history and (_div_hist_all.loc[_div_hist_all["ticker"] == ticker]
+                                 .sort_values("date").iloc[-1].get("source") == "auto"))
+                _src_label = "Auto-fetched" if _src_auto else ("Manual entry" if _has_div_history else "Market data")
+                _src_style = ("background:var(--uv-soft,rgba(29,214,164,.08));color:var(--uv-mint,#1DD6A4);"
+                             if _src_auto or not _has_div_history else "border:0.5px solid var(--line);color:var(--muted);")
+                st.markdown(f'<div style="text-align:right;"><span style="font-size:9.5px;font-family:var(--uv-mono);'
+                           f'padding:2px 6px;border-radius:5px;{_src_style}">{_src_label}</span></div>',
+                           unsafe_allow_html=True)
+
+            _bt = None
+            if _held_row is not None:
+                _div_summary = dividend_income_summary(_div_hist_all, months=12)
+                _tkr = _held_row.get("ticker")
+                if _tkr in _div_summary.index:
+                    _bt = _div_summary.loc[_tkr]
+            _price_val = row.get("Price")
+            _ttm_yield = (_bt["regular_gross_eur"] / (_held_row["shares"] * _price_val) * 100
+                         if _bt is not None and _held_row is not None and pd.notna(_price_val) and _price_val
+                         and _held_row["shares"] else None)
+            _cost_val = (_held_row.get("purchase_value") if _held_row is not None else None)
+            _yoc = (_bt["net_eur"] / _cost_val * 100
+                   if _bt is not None and _cost_val is not None and pd.notna(_cost_val) and _cost_val else None)
+
+            _dcol1, _dcol2 = st.columns([1.35, 1], gap="large")
+            with _dcol1:
+                def _stat(label: str, value: str, color: str = "inherit") -> str:
+                    return (f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+                           f'letter-spacing:0.05em;">{label}</div><div style="font-family:var(--uv-mono);'
+                           f'font-size:19px;font-weight:500;margin-top:5px;color:{color};">{value}</div></div>')
+                st.markdown(
+                    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
+                    + _stat("Yield · TTM", f"{_ttm_yield:.2f}%" if _ttm_yield is not None else "—")
+                    + _stat("Yield · forward", f"{_dy_fwd*100:.2f}%" if pd.notna(_dy_fwd) and _dy_fwd else "—")
+                    + _stat("Yield-on-cost · net", f"{_yoc:.2f}%" if _yoc is not None else "—", "var(--uv-mint,#1DD6A4)")
+                    + _stat("Increase streak", f"{int(row.get('dividend_growth_streak') or 0)} yrs")
+                    + '</div>', unsafe_allow_html=True)
+                _payout_eps = row.get("payoutRatio")
+                _payout_fcf = row.get("cashPayoutRatio")
+                _wh_pct = get_dividend_withholding(exchange_key_for_ticker(ticker), current_user().email)
+                _wh_label = f"{exchange_key_for_ticker(ticker) or '—'} {_wh_pct:.1f}% + BE 30%" if _wh_pct else "BE 30% only"
+                _grid_rows = [
+                    ("Income 12m · net", f"€{_bt['net_eur']:,.2f}" if _bt is not None else "—"),
+                    ("Income 12m · gross", f"€{_bt['gross_eur']:,.2f}" if _bt is not None else "—"),
+                    ("Payout ratio · EPS", f"{_payout_eps*100:.0f}%" if pd.notna(_payout_eps) else "—"),
+                    ("Payout ratio · FCF/share", f"{_payout_fcf*100:.0f}%" if pd.notna(_payout_fcf) else "—"),
+                    ("Growth · 1yr", f"{row.get('dgr_1y')*100:+.1f}%" if pd.notna(row.get("dgr_1y")) else "—"),
+                    ("Growth · 3yr / 5yr CAGR",
+                     f"{row.get('dgr_3y')*100:+.1f}% / {row.get('dgr_5y')*100:+.1f}%"
+                     if pd.notna(row.get("dgr_3y")) and pd.notna(row.get("dgr_5y")) else "—"),
+                    ("Withholding", _wh_label),
+                    ("Feeds DDM inputs", "automatic"),
+                ]
+                _rg1, _rg2 = st.columns(2)
+                for _i, (_glabel, _gval) in enumerate(_grid_rows):
+                    with (_rg1 if _i % 2 == 0 else _rg2):
+                        _gcolor = "var(--uv-mint,#1DD6A4)" if _glabel == "Feeds DDM inputs" else "inherit"
+                        st.markdown(
+                            f'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;'
+                            f'border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">'
+                            f'{_glabel}</span><span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;'
+                            f'color:{_gcolor};">{_gval}</span></div>', unsafe_allow_html=True)
+
+                _cut_year = row.get("dividend_last_cut_year")
+                if pd.notna(_cut_year) and _cut_year:
+                    st.markdown(
+                        f'<div style="margin-top:14px;padding:11px 13px;border-radius:8px;background:var(--down-bg,#FCEAEA);">'
+                        f'<div style="font-size:12.5px;font-weight:500;color:var(--down-txt,#A32D2D);">Dividend cut detected</div>'
+                        f'<div style="font-size:12px;color:var(--muted);margin-top:2px;">Annual dividend per share fell '
+                        f'in {int(_cut_year)} versus the prior year.</div></div>', unsafe_allow_html=True)
+                _incr_year = row.get("dividend_last_increase_year")
+                if pd.notna(_incr_year) and _incr_year and not (pd.notna(_cut_year) and _cut_year):
+                    st.caption(f"Dividend increase detected in {int(_incr_year)}.")
+
+            with _dcol2:
+                st.markdown('<div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+                           'letter-spacing:0.05em;margin-bottom:10px;">Payment history · per share</div>',
+                           unsafe_allow_html=True)
+                if _has_div_history:
+                    _bars = (_div_hist_all[_div_hist_all["ticker"] == ticker]
+                            .assign(_d=pd.to_datetime(_div_hist_all["date"], errors="coerce"))
+                            .sort_values("_d").tail(6))
+                    _mx = max(float(pd.to_numeric(_bars["amount_per_share"], errors="coerce").max() or 0), 0.01)
+                    _bar_html = '<div style="display:flex;align-items:flex-end;gap:8px;height:96px;">'
+                    _label_html = '<div style="display:flex;gap:8px;margin-top:6px;">'
+                    for _, _brow in _bars.iterrows():
+                        _ps = float(pd.to_numeric(_brow.get("amount_per_share"), errors="coerce") or 0)
+                        _h = max(6, round(_ps / _mx * 74))
+                        _color = "#C98A3A" if _brow.get("div_type") == "Special" else "var(--uv-teal,#1A8C6E)"
+                        _lbl = _brow["_d"].strftime("%b %y") if pd.notna(_brow["_d"]) else "—"
+                        _bar_html += (f'<div style="width:44px;flex:none;display:flex;flex-direction:column;'
+                                     f'align-items:center;justify-content:flex-end;gap:5px;">'
+                                     f'<span style="font-family:var(--uv-mono);font-size:9.5px;color:var(--muted);">'
+                                     f'€{_ps:.2f}</span><div style="width:100%;border-radius:4px 4px 0 0;'
+                                     f'background:{_color};height:{_h}px;"></div></div>')
+                        _label_html += (f'<span style="width:44px;flex:none;text-align:center;font-family:var(--uv-mono);'
+                                       f'font-size:9px;color:var(--faint);">{_lbl}</span>')
+                    st.markdown(_bar_html + '</div>' + _label_html + '</div>', unsafe_allow_html=True)
+                else:
+                    st.caption("No dividend events recorded yet for this holding.")
 
     # ── Value thesis (derived from real computed fields only) ────────────────
     _thesis_card = st.container(key="an_card_thesis", border=True)

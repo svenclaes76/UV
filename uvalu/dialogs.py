@@ -21,24 +21,117 @@ SECTOR_OPTIONS = [
     "Consumer Defensive", "Energy", "Industrials", "Utilities", "Basic Materials",
 ]
 
+DIV_TYPE_OPTIONS = ["Cash", "Stock", "Special"]
 
-def _dialog_width_css(px: int) -> None:
-    """Clamp this dialog to Uvalu.dc.html's exact modal width — Streamlit's
-    `width="small"` preset (550px) is the closest built-in option but still
-    wider than the mockup's compact 420px/380px cards. Only ever present in
+
+def _dividend_tax_breakdown(gross: float, foreign_wh_pct: float, div_type: str) -> tuple[float, float, float]:
+    """(foreign_wh_amount, be_amount, net) for a gross dividend — mirrors
+    portfolio.dividends_in_eur()'s per-row math exactly (foreign % first,
+    then Belgium's fixed 30% roerende voorheffing on the remainder), so the
+    dialog's live preview always matches what gets stored/read back. Stock
+    (scrip) dividends carry no cash withholding."""
+    from portfolio import BE_WITHHOLDING_RATE
+
+    fwh = round(gross * (foreign_wh_pct or 0) / 100, 2)
+    be = 0.0 if div_type == "Stock" else round(max(0.0, gross - fwh) * BE_WITHHOLDING_RATE, 2)
+    return fwh, be, round(gross - fwh - be, 2)
+
+
+def dividend_tax_preview(gross: float, fwh: float, be: float, net: float) -> None:
+    """The Gross -> Foreign WH -> BE 30% -> Net "Calculated" box shared by the
+    Add and Edit dividend dialogs (Uvalu Dividend Management.dc.html), so
+    both render it identically."""
+    st.markdown(
+        f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
+        f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
+        f'margin-bottom:6px;">Calculated</div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
+        f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{gross:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{fwh:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{be:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
+        f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
+        f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{net:,.2f}</span></div>'
+        f'</div>', unsafe_allow_html=True)
+
+
+DIALOG_WIDTH = 420  # Uvalu.dc.html's Add position / closed-trade modal width
+
+
+def _dialog_width_css(px: int = DIALOG_WIDTH) -> None:
+    """Clamp this dialog to Uvalu.dc.html's modal width. Only ever present in
     the DOM while this specific dialog is open (only one dialog can be open
     at a time), so it can't leak into any other dialog's sizing.
 
-    Reuses the exact `[data-testid="stDialog"] [role="dialog"]` selector
-    uvalu/styles.py's global CSS already clamps every dialog to 550px with —
-    same specificity, but injected later (inside this dialog's own render,
-    after that app-level stylesheet), so it wins the tie on source order
-    without needing `!important`-vs-`!important` selector one-upmanship."""
+    Since Streamlit 1.60 the visible box (background, radius, shadow) is the
+    PARENT of `[role="dialog"]`, sized by the `width="small"` preset (500px).
+    Clamping only `[role="dialog"]` — what this used to do — left the content
+    420px wide against the box's left edge with ~100px of dead space on the
+    right (live-measured). So size the box itself and let the inner section
+    fill it. Also hides number-input -/+ steppers, which only rendered in
+    some dialogs (wide-enough columns), unlike the mockup's plain fields."""
     st.markdown(
-        f'<style>[data-testid="stDialog"] [role="dialog"] {{ max-width: {px}px !important; '
-        f'width: {px}px !important; }}</style>',
+        f'<style>[data-testid="stDialog"] div:has(> [role="dialog"]) {{ width: {px}px !important; '
+        f'max-width: calc(100vw - 32px) !important; }}'
+        f'[data-testid="stDialog"] [role="dialog"] {{ width: 100% !important; max-width: 100% !important; }}'
+        f'[data-testid="stDialog"] [data-testid="stNumberInputStepDown"],'
+        f'[data-testid="stDialog"] [data-testid="stNumberInputStepUp"] {{ display: none !important; }}'
+        f'</style>',
         unsafe_allow_html=True,
     )
+
+
+# ── Shared Add/Edit dialog layout ─────────────────────────────────────────────
+# Every Add/Edit dialog follows Uvalu.dc.html's modal structure: title (the
+# st.dialog chrome) → one-line subtitle → Ticker + Company name row → fields →
+# one action row. These helpers keep that identical across dialogs.
+
+def dialog_frame(subtitle: str) -> None:
+    """Width clamp + the one-line muted subtitle under the dialog title.
+    Keep `subtitle` to ~48 characters: at the 420px width a longer one wraps
+    to a second line and makes that dialog taller than its Add/Edit sibling
+    (the Add dividend subtitle did — 22px taller than Edit, live-measured)."""
+    _dialog_width_css()
+    st.caption(subtitle)
+
+
+def identity_row(*, ticker: str = "", name: str = "", key_prefix: str, locked: bool = False,
+                 ticker_placeholder: str = "", name_placeholder: str = "") -> tuple[str, str]:
+    """Ticker + Company name, always first and at the same 1 : 1.4 split as
+    the mockup's dividend modal. `locked` (Edit dialogs) shows the same
+    fields read-only — changing an existing record's ticker would make it a
+    different holding. Returns (TICKER, name) stripped."""
+    _c1, _c2 = st.columns([1, 1.4])
+    with _c1:
+        t = st.text_input("Ticker", value=ticker, placeholder=ticker_placeholder,
+                          key=f"{key_prefix}_ticker", disabled=locked)
+    with _c2:
+        n = st.text_input("Company name", value=name, placeholder=name_placeholder,
+                          key=f"{key_prefix}_name", disabled=locked)
+    return (t or "").strip().upper(), (n or "").strip()
+
+
+def dialog_actions(key_prefix: str, *, save_label: str = "Save", delete: bool = False,
+                   danger_save: bool = False) -> tuple[bool, bool]:
+    """One action row: [Delete] (Edit dialogs, compact red outline, left) |
+    Cancel | Save. Cancel closes the dialog. Returns (save, delete)."""
+    _cols = st.columns([0.8, 1, 1] if delete else [1, 1])
+    _do_delete = False
+    if delete:
+        with _cols[0], st.container(key=f"uv_danger_btn_{key_prefix}"):
+            _do_delete = st.button("Delete", key=f"{key_prefix}_delete", width="stretch")
+    with _cols[-2]:
+        if st.button("Cancel", key=f"{key_prefix}_cancel", width="stretch"):
+            st.rerun()
+    with _cols[-1]:
+        if danger_save:
+            with st.container(key=f"uv_danger_btn_{key_prefix}_save"):
+                _do_save = st.button(save_label, key=f"{key_prefix}_save", width="stretch", type="primary")
+        else:
+            _do_save = st.button(save_label, key=f"{key_prefix}_save", width="stretch", type="primary")
+    return _do_save, _do_delete
 
 
 def _num_or(value, default):
@@ -68,15 +161,9 @@ def _lookup_ticker(sym: str) -> tuple[str, float] | None:
 @st.dialog("Add position", width="small")
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
     enter_dialog()
-    _dialog_width_css(420)
-    st.caption("Enter the ticker and either a total cost or a price per share — whichever you have on hand.")
-    _c1, _c2 = st.columns(2)
-    with _c1:
-        ticker_raw = st.text_input("Ticker", value=preset_ticker, placeholder="TTE.PA",
-                                   key="dlg_ap_ticker").strip().upper()
-    with _c2:
-        name_raw = st.text_input("Company name", value=preset_name, placeholder="TotalEnergies",
-                                 key="dlg_ap_name").strip()
+    dialog_frame("Enter a total cost or a price per share.")
+    ticker_raw, name_raw = identity_row(ticker=preset_ticker, name=preset_name, key_prefix="dlg_ap",
+                                        ticker_placeholder="TTE.PA", name_placeholder="TotalEnergies")
 
     # No date field — Uvalu.dc.html's ap state has no date input at all, so the
     # purchase is recorded as of today rather than asking for a backdated one.
@@ -91,12 +178,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
                                 value=round(preset_price, 2), format="%.2f", key="dlg_ap_price")
     pur_date = pd.Timestamp.now()
 
-    _b1, _b2 = st.columns(2)
-    with _b1:
-        if st.button("Cancel", key="dlg_ap_cancel", width="stretch"):
-            st.rerun()
-    with _b2:
-        _do_save = st.button("Save", key="dlg_ap_save", width="stretch", type="primary")
+    _do_save, _ = dialog_actions("dlg_ap")
 
     if not _do_save:
         return
@@ -131,19 +213,19 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
     enter_dialog()
-    _dialog_width_css(380)
+    dialog_frame("Sell all or part of this position.")
     if ticker is None:
         _sorted = pf.sort_values("name", key=lambda s: s.str.lower())
         _opts   = _sorted["ticker"].tolist()
         _labels = {r["ticker"]: f"{r['name']}  ({r['ticker']})" for _, r in _sorted.iterrows()}
         ticker = st.selectbox("Company", options=_opts, format_func=lambda t: _labels.get(t, t),
                               key="dlg_sell_ticker")
+        _match = pf[pf["ticker"] == ticker]
     else:
-        st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
-                    f'Close {ticker}</div>', unsafe_allow_html=True)
-        st.caption("Close all or part of this position. Realised P&L is recorded on the Portfolio page.")
+        _match = pf[pf["ticker"] == ticker]
+        identity_row(ticker=ticker, name=str(_match.iloc[0]["name"]) if not _match.empty else "",
+                     key_prefix="dlg_sell_id", locked=True)
 
-    _match = pf[pf["ticker"] == ticker]
     _held_shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     if preset_price is not None:
         _live_price = float(preset_price)
@@ -162,13 +244,7 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                                 format="%.2f", key="dlg_sell_price")
     sell_date = pd.Timestamp.now()
 
-    _b1, _b2 = st.columns(2)
-    with _b1:
-        if st.button("Cancel", key="dlg_sell_cancel", width="stretch"):
-            st.rerun()
-    with _b2:
-        with st.container(key="uv_danger_btn"):
-            _do_save = st.button("Confirm close", key="dlg_sell_save", width="stretch", type="primary")
+    _do_save, _ = dialog_actions("dlg_sell", save_label="Confirm close", danger_save=True)
 
     if _do_save and shares > 0 and price > 0:
         sell_position(ticker=ticker, shares=shares, proceeds=round(shares * price, 2),
@@ -185,68 +261,84 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     from uvalu.runtime import current_user
 
     enter_dialog()
-    _dialog_width_css(380)
-    _c1, _c2 = st.columns(2)
-    with _c1:
-        ticker_raw = st.text_input("Ticker", placeholder="ALV.DE", key="dlg_dv_ticker").strip().upper()
-    _ccy = currency_for_ticker(ticker_raw) if ticker_raw else "EUR"
-    with _c2:
-        amount = st.number_input(f"Amount ({_ccy})", min_value=0.0, step=0.01, value=0.0,
-                                 format="%.2f", key="dlg_dv_amount")
-
-    _match = pf[pf["ticker"] == ticker_raw] if ticker_raw and "ticker" in pf.columns else pf.iloc[0:0]
+    dialog_frame("Record a dividend payment for a holding.")
+    # The company name defaults from the held position once the ticker is
+    # known, so read the ticker's current value before drawing the row.
+    _t0 = str(st.session_state.get("dlg_dv_ticker") or "").strip().upper()
+    _match = pf[pf["ticker"] == _t0] if _t0 and "ticker" in pf.columns else pf.iloc[0:0]
     _default_name = _match.iloc[0]["name"] if not _match.empty else ""
-    name_raw = st.text_input("Company name", value=_default_name, placeholder="Allianz",
-                             key="dlg_dv_name").strip()
+    ticker_raw, name_raw = identity_row(name=_default_name, key_prefix="dlg_dv",
+                                        ticker_placeholder="ALV.DE", name_placeholder="Allianz")
+    _ccy = currency_for_ticker(ticker_raw) if ticker_raw else "EUR"
 
+
+    # Declaration/record dates and per-holding frequency were dropped from
+    # this dialog (and the Edit dialog / CSV export) per user review: only
+    # the ex-date and payment date are asked for, in one readable row.
     _c3, _c4 = st.columns(2)
     with _c3:
-        div_date = st.date_input("Date", format="DD/MM/YYYY", max_value=_dt.date.today(),
-                                 key="dlg_dv_date")
+        ex_date = st.date_input("Ex-dividend date *", value=None, format="DD/MM/YYYY",
+                                max_value=_dt.date.today() + _dt.timedelta(days=365), key="dlg_dv_ex")
     with _c4:
-        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw),
-                                                 current_user().email)
-        tax_rate = st.number_input("Withholding tax (%)", min_value=0.0, max_value=100.0,
+        pay_date = st.date_input("Payment date *", format="DD/MM/YYYY", max_value=_dt.date.today(),
+                                 key="dlg_dv_pay")
+
+    _c5, _c6, _c7 = st.columns(3)
+    with _c5:
+        _shares0 = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
+        shares = st.number_input("Shares held", min_value=0, step=1, value=_shares0, key="dlg_dv_shares")
+    with _c6:
+        dps = st.number_input(f"Per share ({_ccy})", min_value=0.0, step=0.0001, value=0.0,
+                              format="%.4f", key="dlg_dv_ps")
+    with _c7:
+        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw), current_user().email)
+        tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
                                    step=0.5, value=_default_tax, key="dlg_dv_tax")
 
-    reinvested = st.checkbox("Reinvested (DRIP) — no cash received", key="dlg_dv_reinvested")
-    reinvested_shares = 0.0
-    if reinvested:
-        reinvested_shares = st.number_input(
-            "Shares purchased by the reinvestment", min_value=0.0, step=0.0001,
-            value=0.0, format="%.4f", key="dlg_dv_reinvested_shares",
-            help="From your broker's DRIP contract note — the exact fractional "
-                "share count purchased, not estimated from a historical price.")
+    div_type = st.selectbox("Type", options=DIV_TYPE_OPTIONS, key="dlg_dv_type")
 
-    _b1, _b2 = st.columns(2)
-    with _b1:
-        if st.button("Cancel", key="dlg_dv_cancel", width="stretch"):
-            st.rerun()
-    with _b2:
-        _do_save = st.button("Save", key="dlg_dv_save", width="stretch", type="primary")
+    if div_type == "Special":
+        st.caption("Flagged as special / one-off. Excluded from growth-streak and yield calculations.")
+
+    gross = round(dps * shares, 2)
+    fwh, be, net = _dividend_tax_breakdown(gross, tax_rate, div_type)
+    dividend_tax_preview(gross, fwh, be, net)
+
+    _do_save, _ = dialog_actions("dlg_dv")
 
     if not _do_save:
         return
-    if not ticker_raw or amount <= 0:
-        st.error("Enter a ticker and an amount.")
+    if not ticker_raw or gross <= 0:
+        st.error("Enter a ticker, shares held and a gross amount per share.")
         return
-    if reinvested and reinvested_shares <= 0:
-        st.error("Enter the number of shares the reinvestment purchased.")
+    if ex_date is None:
+        st.error("Ex-dividend date is required.")
+        return
+    if pay_date is None:
+        st.error("Payment date is required.")
         return
     _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
-    _shares = int(_num_or(_match.iloc[0]["shares"], 0)) if not _match.empty else 0
     add_dividend({
         "name":              name_raw or ticker_raw,
         "google_ticker":     _google_ticker,
         "ticker":            ticker_raw,
-        "shares":            _shares,
-        "amount":            round(amount, 2),
+        "shares":            int(shares),
+        "amount":            gross,
+        "amount_per_share":  round(dps, 4),
         "currency":          _ccy,
         "tax_rate":          round(tax_rate, 2),
-        "tax_amount":        round(amount * tax_rate / 100, 2),
-        "date":              pd.Timestamp(div_date).isoformat(),
-        "reinvested":        bool(reinvested),
-        "reinvested_shares": round(reinvested_shares, 4) if reinvested else None,
+        "tax_amount":        fwh,
+        "div_type":          div_type,
+        "source":            "manual",
+        "declaration_date":  None,
+        "ex_date":           pd.Timestamp(ex_date).isoformat(),
+        "record_date":       None,
+        "date":              pd.Timestamp(pay_date).isoformat(),
+        # The DRIP checkbox was removed from this dialog (user review, Sep
+        # 2026): new records are always cash. Existing DRIP records keep
+        # their flag.
+        "reinvested":        False,
+        "reinvested_shares": None,
     })
     st.rerun()
 
@@ -254,14 +346,10 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
 @st.dialog("Add closed trade", width="small")
 def add_closed_trade_dialog() -> None:
     enter_dialog()
-    _dialog_width_css(420)
-    st.caption("Record a trade that was opened and closed outside this app's normal Add/Close flow.")
-    _c1, _c2 = st.columns(2)
-    with _c1:
-        ticker_raw = st.text_input("Ticker", placeholder="SAP.DE", key="dlg_ct_ticker").strip().upper()
-    with _c2:
-        sector = st.selectbox("Sector", options=SECTOR_OPTIONS, key="dlg_ct_sector")
-    name_raw = st.text_input("Company name", placeholder="SAP", key="dlg_ct_name").strip()
+    dialog_frame("Record a trade opened and closed elsewhere.")
+    ticker_raw, name_raw = identity_row(key_prefix="dlg_ct", ticker_placeholder="SAP.DE",
+                                        name_placeholder="SAP")
+    sector = st.selectbox("Sector", options=SECTOR_OPTIONS, key="dlg_ct_sector")
 
     _c3, _c4, _c5 = st.columns(3)
     with _c3:
@@ -274,12 +362,7 @@ def add_closed_trade_dialog() -> None:
                                      format="%.2f", key="dlg_ct_sell")
     closed_date = st.date_input("Closed date", format="DD/MM/YYYY", key="dlg_ct_closed")
 
-    _b1, _b2 = st.columns(2)
-    with _b1:
-        if st.button("Cancel", key="dlg_ct_cancel", width="stretch"):
-            st.rerun()
-    with _b2:
-        _do_save = st.button("Save", key="dlg_ct_save", width="stretch", type="primary")
+    _do_save, _ = dialog_actions("dlg_ct")
 
     if not _do_save:
         return

@@ -598,6 +598,20 @@ def _statement_history(tkr: "yf.Ticker") -> dict:
 _DIV_WINDOW_YEARS  = 6
 _DIV_MIN_YEARS     = 2       # need at least this many complete years for a true DGR
 _DIV_CUT_TOLERANCE = 0.99    # a year counts as a cut only below 99% of the prior year
+_DIV_RAISE_TOLERANCE = 1.01  # a year counts as a raise only above 101% of the prior year
+
+
+def _cagr_n(vals: list[float], n: int) -> float | None:
+    """CAGR from vals[-(n+1)] to vals[-1] — i.e. over the most recent `n`
+    complete years — or None without at least n+1 data points or a
+    non-positive base year (a 0/negative DPS n years back makes the ratio
+    meaningless, same guard true_dgr already applies to its own window)."""
+    if len(vals) < n + 1:
+        return None
+    base = vals[-(n + 1)]
+    if base <= 0:
+        return None
+    return (vals[-1] / base) ** (1.0 / n) - 1.0
 
 
 def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
@@ -606,16 +620,23 @@ def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
     Returns keys, all None/0 for a non-payer or on fetch failure:
       true_dgr                — CAGR of annual DPS across the complete years in
                                 the window (>= _DIV_MIN_YEARS, first year > 0)
+      dgr_1y / dgr_3y / dgr_5y — CAGR over exactly the most recent 1/3/5
+                                complete years (None without enough history),
+                                for the per-holding growth panel (WP-DIV5)
       dividend_growth_streak  — trailing consecutive complete years of
                                 non-decreasing annual DPS
       dividend_payment_years  — count of complete years with a payment in-window
       dividend_last_cut_year  — most recent complete year whose annual DPS fell
                                 below _DIV_CUT_TOLERANCE x the prior year, else None
+      dividend_last_increase_year — most recent complete year whose annual DPS
+                                rose above _DIV_RAISE_TOLERANCE x the prior
+                                year, else None
     Isolated try/except like _fcf_history so a failure here never trips the
     whole-ticker retry/backoff.
     """
-    empty = {"true_dgr": None, "dividend_growth_streak": 0,
-             "dividend_payment_years": 0, "dividend_last_cut_year": None}
+    empty = {"true_dgr": None, "dgr_1y": None, "dgr_3y": None, "dgr_5y": None,
+             "dividend_growth_streak": 0, "dividend_payment_years": 0,
+             "dividend_last_cut_year": None, "dividend_last_increase_year": None}
     try:
         divs = marketdata.dividends(ticker)
         if divs is None or divs.empty:
@@ -644,15 +665,22 @@ def _dividend_stats(ticker: str, *, now_year: int | None = None) -> dict:
                 break
 
         last_cut_year = None
+        last_increase_year = None
         for i in range(1, len(vals)):
             if vals[i] < vals[i - 1] * _DIV_CUT_TOLERANCE:
                 last_cut_year = int(years[i])
+            if vals[i] > vals[i - 1] * _DIV_RAISE_TOLERANCE:
+                last_increase_year = int(years[i])
 
         return {
             "true_dgr": round(true_dgr, 4) if true_dgr is not None else None,
+            "dgr_1y": round(v, 4) if (v := _cagr_n(vals, 1)) is not None else None,
+            "dgr_3y": round(v, 4) if (v := _cagr_n(vals, 3)) is not None else None,
+            "dgr_5y": round(v, 4) if (v := _cagr_n(vals, 5)) is not None else None,
             "dividend_growth_streak": streak,
             "dividend_payment_years": len(vals),
             "dividend_last_cut_year": last_cut_year,
+            "dividend_last_increase_year": last_increase_year,
         }
     except Exception:
         return empty
@@ -1979,8 +2007,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "fcfYield", "cashPayoutRatio", "dividendCoverage",
         "exDividendDate", "dividendDate", "nextExDividendDate", "dividendFrequency",
         "sector", "fcfHistory",
-        "true_dgr", "dividend_growth_streak", "dividend_payment_years",
-        "dividend_last_cut_year",
+        "true_dgr", "dgr_1y", "dgr_3y", "dgr_5y",
+        "dividend_growth_streak", "dividend_payment_years",
+        "dividend_last_cut_year", "dividend_last_increase_year",
         *_STATEMENT_HISTORY_KEYS,
     ]
     # dict.fromkeys dedupes: VALUATION/RISK/QUALITY/MOMENTUM field lists overlap

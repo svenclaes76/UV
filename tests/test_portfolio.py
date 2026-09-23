@@ -209,14 +209,16 @@ class TestDividendSync:
     def test_add_dividend_updates_portfolio_totals(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
-        assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
+        # Net of the Belgian 30% roerende voorheffing (WP-DIV3) — no
+        # foreign withholding recorded here, so net = 10.0 * (1 - 0.30).
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == pytest.approx(7.0)
         assert portfolio.load_div_hist().iloc[0]["amount"] == 10.0
 
     def test_multiple_dividends_for_same_ticker_are_summed(self):
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 15.0, "date": _PAST})
-        assert portfolio.load_portfolio().iloc[0]["dividends"] == 25.0
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == pytest.approx(25.0 * 0.7)
 
     def test_ticker_without_dividend_records_keeps_existing_value(self):
         portfolio.save_portfolio(pd.DataFrame([
@@ -236,7 +238,7 @@ class TestDividendSync:
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
         portfolio.update_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 12.0, "date": _PAST}]))
         assert portfolio.load_div_hist().iloc[0]["amount"] == 12.0
-        assert portfolio.load_portfolio().iloc[0]["dividends"] == 12.0
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == pytest.approx(12.0 * 0.7)
 
     def test_future_dated_dividend_excluded_from_received_total(self):
         """A dividend recorded ahead of its payment date shouldn't count as
@@ -245,7 +247,7 @@ class TestDividendSync:
         portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "dividends": 0.0}]))
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 99.0, "date": _FUTURE})
-        assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == pytest.approx(10.0 * 0.7)
 
     def test_reinvested_dividend_excluded_from_received_total(self):
         """DRIP cash never left the position (it's reflected in the larger
@@ -257,7 +259,7 @@ class TestDividendSync:
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 10.0, "date": _PAST})
         portfolio.add_dividend({"ticker": "AAA.BR", "amount": 5.0, "date": _PAST,
                                 "reinvested": True, "reinvested_shares": 0.2})
-        assert portfolio.load_portfolio().iloc[0]["dividends"] == 10.0
+        assert portfolio.load_portfolio().iloc[0]["dividends"] == pytest.approx(10.0 * 0.7)
 
 
 class TestDripReinvestment:
@@ -635,3 +637,63 @@ class TestPortfolioLogging:
         assert job_ok and job_ok[0].rows_written == 2
         # correlation id propagated from this thread into the spawned worker
         assert job_ok[0].correlation_id == cid
+
+
+# ── import_dividends_from_market_data (runs automatically on the Dividend log) ──
+
+class TestImportDividendsFromMarketData:
+    @pytest.fixture(autouse=True)
+    def _feed(self, monkeypatch):
+        import marketdata
+        import settings
+        self.feed = pd.Series({pd.Timestamp("2023-06-01"): 1.0,
+                               pd.Timestamp("2024-06-01"): 1.5,
+                               pd.Timestamp("2025-06-01"): 2.0}, name="amount")
+        monkeypatch.setattr(marketdata, "dividends", lambda t: self.feed)
+        monkeypatch.setattr(settings, "get_dividend_withholding", lambda *a, **k: 0.0)
+
+    def _pf(self, lots):
+        return pd.DataFrame([{"ticker": "AAA.BR", "name": "Alpha Corp", "google_ticker": "EBR:AAA",
+                              "shares": sh, "date_in": d_in} for d_in, sh in lots])
+
+    def test_skips_ex_dates_before_the_position_was_bought(self):
+        assert portfolio.import_dividends_from_market_data(self._pf([("2024-01-01", 10)])) == 2
+        got = portfolio.load_div_hist()
+        assert set(pd.to_datetime(got["ex_date"]).dt.year) == {2024, 2025}
+        assert (got["source"] == "auto").all()
+
+    def test_sizes_each_event_to_shares_held_on_its_ex_date(self):
+        portfolio.import_dividends_from_market_data(self._pf([("2023-01-01", 10), ("2025-01-01", 5)]))
+        got = portfolio.load_div_hist().assign(_y=lambda d: pd.to_datetime(d["ex_date"]).dt.year).set_index("_y")
+        assert got.loc[2023, "shares"] == 10 and got.loc[2025, "shares"] == 15
+        assert got.loc[2025, "amount"] == 30.0
+
+    def test_does_not_duplicate_a_manually_logged_event(self):
+        # Manual record: ex_date blank -> backfilled from the payment date,
+        # a few days after the market-data ex-date.
+        portfolio.save_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 20.0,
+                                               "date": "2025-06-04", "shares": 10}]))
+        assert portfolio.import_dividends_from_market_data(self._pf([("2025-01-01", 10)])) == 0
+
+    def test_never_reimports_a_dismissed_event(self):
+        portfolio.dismiss_auto_dividend("AAA.BR", "2025-06-01T00:00:00")
+        assert portfolio.import_dividends_from_market_data(self._pf([("2025-01-01", 10)])) == 0
+
+    def test_second_run_is_a_noop(self):
+        pf = self._pf([("2023-01-01", 10)])
+        assert portfolio.import_dividends_from_market_data(pf) == 3
+        assert portfolio.import_dividends_from_market_data(pf) == 0
+
+    def test_mixed_iso_spellings_all_parse_after_load(self):
+        # Older records were saved as "...T00:00:00.000", auto-imported ones as
+        # "...T00:00:00" — a single pd.to_datetime() on the mixed column used
+        # to turn the minority spelling into NaT (blank dates in the log).
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 20.0, "shares": 10,
+             "date": "2024-05-30T00:00:00.000", "ex_date": "2024-05-30T00:00:00.000"},
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 15.0, "shares": 10,
+             "date": "2025-06-02T00:00:00", "ex_date": "2025-06-02T00:00:00", "source": "auto"},
+        ]))
+        got = portfolio.load_div_hist()
+        assert pd.to_datetime(got["date"], errors="coerce").notna().all()
+        assert pd.to_datetime(got["ex_date"], errors="coerce").notna().all()

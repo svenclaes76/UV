@@ -932,6 +932,10 @@ GLOBAL_CSS = """
      the true bottom of the cards instead of leaving the normal 16px gap.
      Wrap the row in this key and float its wrapper's height to match. */
   .st-key-pf_kpi_row { min-height: 116px !important; }
+  /* Same bug on the Dividend log's summary tiles: wrapper 99px vs 115px
+     real cards, so the log table sat flush against them (0px gap vs the
+     overview's 16px — both live-measured). */
+  .st-key-pf_div_tiles { min-height: 116px !important; }
 
   /* Row lists — hairline-divided flat rows, no per-row border/shadow (the
      panel above provides that once). :not() exclusions follow the exact
@@ -950,13 +954,33 @@ GLOBAL_CSS = """
     margin-top: -16px !important;
     min-height: 67px !important;
   }
-  [class*="st-key-pf_div_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
-    /* Dividend rows are a 2-line name+ticker/date cell — measured live at
-       48px real content height (11px padding + 37px text block), 2px taller
-       than the previous 46px floor, which let the date's descenders clip
-       against the row divider. 52px gives clean headroom on both sides. */
+  [class*="st-key-pf_div_row_ov_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
+    /* Overview dividend preview rows are a 2-line name+ticker/date cell —
+       measured live at 48px real content height (11px padding + 37px text
+       block), 2px taller than the previous 46px floor, which let the date's
+       descenders clip against the row divider. 52px gives clean headroom on
+       both sides. Scoped to the preview (`_ov_`) only: the full Dividend log
+       rows are the taller 2-line grid and keep the shared 67px / 12px-20px
+       row treatment above, same as open/closed position rows. */
     min-height: 52px !important; padding: 11px 20px !important;
   }
+  /* Full Dividend log rows/header: each is one multi-line HTML grid in a
+     single st.markdown. Streamlit's stMarkdownContainer carries a -1rem
+     margin-bottom, so its column reported 25px for a 41px grid and the
+     edit-pencil column centred against the wrong height (pencil 8px high —
+     confirmed live). Zero it so the pencil, grid and row share one centre. */
+  [class*="st-key-pf_div_row_"]:not([class*="_ov_"]) [data-testid="stMarkdownContainer"],
+  .st-key-pf_col_header_div_full [data-testid="stMarkdownContainer"],
+  /* Same -1rem margin on the summary card: it under-reported the year table's
+     height so overflow:hidden clipped the last year row by 15px, and pulled
+     the title block off the Export button's centre line (both live-measured). */
+  .st-key-pf_card_tax_years [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
+  /* Annual dividend income summary — the card itself is padding:0 (pf_card_
+     rule above), so its title bar carries the mockup's 18px/20px inset; the
+     year table below brings its own 20px side padding per grid row. */
+  .st-key-pf_tax_years_title { padding: 18px 20px 0 !important; }
   /* Only open-position rows are clickable (matches the mockup: only
      `h.onClick` exists — `s.`/`d.` rows have none). */
   [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]) {
@@ -1550,11 +1574,19 @@ GLOBAL_CSS = """
   /* ── Destructive/confirm action button (Close "Confirm close", Delete, ...) ──
      Matches Uvalu.dc.html's red-filled confirm buttons on irreversible
      actions — wrap the button in st.container(key="uv_danger_btn"). */
-  .st-key-uv_danger_btn button[kind="primary"] {
+  [class*="st-key-uv_danger_btn"] button[kind="primary"] {
     background: var(--down-txt) !important; border-color: var(--down-txt) !important;
     color: var(--navy) !important;
   }
-  .st-key-uv_danger_btn button[kind="primary"]:hover { opacity: 0.88; }
+  [class*="st-key-uv_danger_btn"] button[kind="primary"]:hover { opacity: 0.88; }
+  /* Secondary "Delete" in Add/Edit dialog action rows (dialogs.dialog_actions)
+     — the mockup's outline button with red text, red border + tint on hover. */
+  [class*="st-key-uv_danger_btn"] button[kind="secondary"] {
+    color: var(--down-txt) !important; border-color: var(--line) !important;
+  }
+  [class*="st-key-uv_danger_btn"] button[kind="secondary"]:hover {
+    border-color: var(--down-txt) !important; background: var(--down-bg) !important;
+  }
 
   /* ── Dashboard "Refresh" / Screener "Reset filters" buttons — matches
      Uvalu.dc.html's outline pill (border:0.5px solid var(--line);

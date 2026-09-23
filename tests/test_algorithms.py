@@ -1034,8 +1034,9 @@ class TestDividendStats:
     def test_non_payer(self, monkeypatch):
         monkeypatch.setattr(screener.marketdata, "dividends", lambda t: pd.Series(dtype=float))
         s = _dividend_stats("X", now_year=2026)
-        assert s == {"true_dgr": None, "dividend_growth_streak": 0,
-                     "dividend_payment_years": 0, "dividend_last_cut_year": None}
+        assert s == {"true_dgr": None, "dgr_1y": None, "dgr_3y": None, "dgr_5y": None,
+                     "dividend_growth_streak": 0, "dividend_payment_years": 0,
+                     "dividend_last_cut_year": None, "dividend_last_increase_year": None}
 
     def test_steady_grower(self, monkeypatch):
         series = self._annual_series({2020: 1.0, 2021: 1.1, 2022: 1.21,
@@ -1046,6 +1047,12 @@ class TestDividendStats:
         assert s["dividend_payment_years"] == 6
         assert s["dividend_growth_streak"] == 5
         assert s["dividend_last_cut_year"] is None
+        # 1/3/5yr windowed CAGR (WP-DIV5) — every year here is a flat 10%
+        # step, so every window's CAGR should also land on ~10%.
+        assert s["dgr_1y"] == pytest.approx(0.10, abs=1e-3)
+        assert s["dgr_3y"] == pytest.approx(0.10, abs=1e-3)
+        assert s["dgr_5y"] == pytest.approx(0.10, abs=1e-3)
+        assert s["dividend_last_increase_year"] == 2025
 
     def test_detects_a_cut_and_resets_streak(self, monkeypatch):
         series = self._annual_series({2020: 1.0, 2021: 1.1, 2022: 0.7,
@@ -1055,6 +1062,7 @@ class TestDividendStats:
         assert s["dividend_last_cut_year"] == 2022
         assert s["dividend_growth_streak"] == 2                    # 2023,2024 up
         assert s["true_dgr"] == pytest.approx((0.9 / 1.0) ** (1 / 4) - 1, abs=1e-4)
+        assert s["dividend_last_increase_year"] == 2024             # most recent up year
 
     def test_drops_incomplete_current_year(self, monkeypatch):
         series = self._annual_series({2023: 1.0, 2024: 1.2, 2025: 1.4, 2026: 0.3})

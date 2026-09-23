@@ -34,6 +34,9 @@ def _run(monkeypatch, section=None) -> AppTest:
     # exactly the kind of cross-test leak isolated_data exists to prevent —
     # stub the whole call out, like tests/test_pages_dashboard.py does.
     monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
+    # The Dividend log auto-imports from market data (yfinance) once per
+    # session — stub it so no test hits the network.
+    monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
 
     # setdefault, not a plain assignment: this line re-executes on EVERY
     # script rerun (it's part of the persistent script text), so a plain
@@ -125,7 +128,7 @@ def test_closed_positions_full_page_with_data(isolated_data, monkeypatch):
 def test_dividends_full_page_empty(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, section="dividends")
-    assert "Re-upload your Excel file" in "".join(i.value for i in at.info)
+    assert "No dividend events yet" in "".join(i.value for i in at.info)
 
 
 def test_dividends_full_page_with_data(isolated_data, monkeypatch):
@@ -136,6 +139,35 @@ def test_dividends_full_page_with_data(isolated_data, monkeypatch):
     at = _run(monkeypatch, section="dividends")
     html = "".join(m.value for m in at.markdown)
     assert "Alpha Corp" in html
+
+
+def test_dividend_log_layout_matches_design(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    portfolio.set_dividend_meta("AAA.BR", frequency="Annual")
+    portfolio.save_div_hist(pd.DataFrame([
+        {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5, "date": "2024-03-01", "shares": 10,
+         "declaration_date": "2024-01-10", "record_date": "2024-02-28"},
+    ]))
+    at = _run(monkeypatch, section="dividends")
+    labels = [b.label for b in at.button]
+    assert "Import from market data" not in labels
+    exports = [b for b in at.get("download_button") if b.proto.label == "Export"]
+    assert len(exports) == 2  # header (log) + annual summary card
+    html = "".join(m.value for m in at.markdown)
+    assert "decl " not in html and "rec " not in html
+    assert "Alpha Corp · Annual" not in html
+    assert "Withholding by domicile" not in html
+    assert "Annual dividend income summary" in html
+
+
+def test_dividends_page_auto_imports_once_per_session(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    calls = []
+    at = _run(monkeypatch, section="dividends")
+    monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data",
+                        lambda *a, **k: calls.append(1) or 0)
+    at.run()
+    assert calls == []  # already ran on the first render of this session
 
 
 def test_migrates_legacy_portfolio_missing_account_and_purchase_price(isolated_data, monkeypatch):
@@ -233,6 +265,8 @@ class TestEditOpenPositionDialog:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.number_input(key="dlg_eop_shares").value == 10
         assert at.number_input(key="dlg_eop_invested").value == 1000.0
+        tick = at.text_input(key="dlg_eop_id_0_ticker")
+        assert tick.value == "AAA.BR" and tick.disabled
 
     def test_save_updates_position(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -266,7 +300,7 @@ class TestEditOpenPositionDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete position"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -316,7 +350,7 @@ class TestEditClosedPositionDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete trade"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -353,6 +387,53 @@ class TestEditDividendDialog:
         div_hist = portfolio.load_div_hist().iloc[0]
         assert div_hist["amount"] == 20.0  # 10 shares * 2.0/share
 
+    def test_dialog_has_no_declaration_record_or_frequency_fields(self, isolated_data, monkeypatch):
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert {w.key for w in at.date_input} == {"dlg_ed_ex", "dlg_ed_date"}
+        assert not [s for s in at.selectbox if s.key == "dlg_ed_freq"]
+        # Missing currency (NaN) must not leak into the label as "(nan)".
+        assert at.number_input(key="dlg_ed_dps").label == "Per share (EUR)"
+
+    def test_identity_row_is_first_and_locked(self, isolated_data, monkeypatch):
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        tick = at.text_input(key="dlg_ed_id_0_ticker")
+        name = at.text_input(key="dlg_ed_id_0_name")
+        assert (tick.value, name.value) == ("AAA.BR", "Alpha Corp")
+        assert tick.disabled and name.disabled
+        assert [b.label for b in at.button if b.key and b.key.startswith("dlg_ed_")] == ["Delete", "Cancel", "Save"]
+
+    def test_missing_withholding_rate_is_zero_not_nan(self, isolated_data, monkeypatch):
+        # _seed()'s record has no tax_rate at all (NaN after load): the field
+        # must show 0 and the preview must never render "nan".
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert at.number_input(key="dlg_ed_tax").value == 0.0
+        assert "nan" not in "".join(m.value for m in at.markdown)
+
+    def test_save_keeps_existing_declaration_and_record_dates(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5, "date": "2024-03-01", "shares": 10,
+             "declaration_date": "2024-01-10", "record_date": "2024-02-28"},
+        ]))
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        at.number_input(key="dlg_ed_dps").set_value(2.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        row = portfolio.load_div_hist().iloc[0]
+        assert row["amount"] == 20.0
+        assert str(row["declaration_date"]).startswith("2024-01-10")
+        assert str(row["record_date"]).startswith("2024-02-28")
+
     def test_delete_removes_dividend(self, isolated_data, monkeypatch):
         self._seed()
         at = _run(monkeypatch, section="dividends")
@@ -361,7 +442,7 @@ class TestEditDividendDialog:
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete dividend"][0]
+        delete_btn = [b for b in at.button if b.label == "Delete"][0]
         delete_btn.click()
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
