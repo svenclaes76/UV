@@ -802,8 +802,11 @@ def render() -> None:
                         st.caption("No dividend history to summarise yet.")
                     else:
                         _this_year = pd.Timestamp.now().year
-                        _grid = ("minmax(0,110px) minmax(0,1fr) minmax(0,150px) minmax(0,150px) "
-                                 "minmax(0,150px) minmax(0,150px)")
+                        # All-proportional tracks, like the mockup. The old fixed 150px
+                        # figure columns left the events column `minmax(0,1fr)` = ~0px on
+                        # a narrower card, and its nowrap text spilled over Gross.
+                        _grid = ("minmax(0,0.7fr) minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) "
+                                 "minmax(0,1fr) minmax(0,1fr)")
                         _num = "text-align:right;font-family:var(--uv-mono);"
                         _rows_html = (
                             f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
@@ -820,7 +823,8 @@ def render() -> None:
                                 f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
                                 f'padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
                                 f'<div style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{int(_year)}</div>'
-                                f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;">'
+                                f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;'
+                                f'overflow:hidden;text-overflow:ellipsis;">'
                                 f'{int(_yrow["events"])} events · {_partial}</div>'
                                 f'<div style="{_num}font-size:12.5px;">€{_yrow["gross"]:,.2f}</div>'
                                 f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["fwh"])}</div>'
