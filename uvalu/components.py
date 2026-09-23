@@ -1417,7 +1417,13 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
     _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:5px;white-space:nowrap;"
     _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
-    _confirm = (' <span style="color:#C98A3A;">· confirm</span>' if needs_confirm else "")
+    # Unconfirmed pay date (auto-imported: market data has no payment date,
+    # so it defaults to the ex-date) — amber + tooltip rather than extra
+    # "· confirm" text, which overflowed the Pay date track onto Type.
+    _pay_attr = ("style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;color:#C98A3A;' "
+                 "title='Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date.'"
+                 if needs_confirm else
+                 "style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'")
     _type_style = ("background:#FDF0E8;color:#854F0B;" if div_type == "Special" else
                   "color:var(--muted);border:0.5px solid var(--line);")
     _ps_str = f"€{per_share:,.2f}" if per_share is not None and pd.notna(per_share) else "—"
@@ -1436,7 +1442,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
         f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>"
         f"<div style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'>{ex_date or '—'}</div>"
-        f"<div style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'>{pay_date or '—'}{_confirm}</div>"
+        f"<div {_pay_attr}>{pay_date or '—'}</div>"
         f"<div><span style='{_pill}{_type_style}'>{div_type}</span></div>"
         f"<div style='{_num}'>{_ps_str}</div>"
         f"<div style='{_num}'>{_sh_str}</div>"

@@ -385,6 +385,34 @@ class TestEditDividendDialog:
         div_hist = portfolio.load_div_hist().iloc[0]
         assert div_hist["amount"] == 20.0  # 10 shares * 2.0/share
 
+    def test_dialog_has_no_declaration_record_or_frequency_fields(self, isolated_data, monkeypatch):
+        self._seed()
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert {w.key for w in at.date_input} == {"dlg_ed_ex", "dlg_ed_date"}
+        assert not [s for s in at.selectbox if s.key == "dlg_ed_freq"]
+        # Missing currency (NaN) must not leak into the label as "(nan)".
+        assert at.number_input(key="dlg_ed_dps").label == "Per share (EUR)"
+
+    def test_save_keeps_existing_declaration_and_record_dates(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5, "date": "2024-03-01", "shares": 10,
+             "declaration_date": "2024-01-10", "record_date": "2024-02-28"},
+        ]))
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        at.number_input(key="dlg_ed_dps").set_value(2.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        row = portfolio.load_div_hist().iloc[0]
+        assert row["amount"] == 20.0
+        assert str(row["declaration_date"]).startswith("2024-01-10")
+        assert str(row["record_date"]).startswith("2024-02-28")
+
     def test_delete_removes_dividend(self, isolated_data, monkeypatch):
         self._seed()
         at = _run(monkeypatch, section="dividends")

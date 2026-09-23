@@ -932,6 +932,10 @@ GLOBAL_CSS = """
      the true bottom of the cards instead of leaving the normal 16px gap.
      Wrap the row in this key and float its wrapper's height to match. */
   .st-key-pf_kpi_row { min-height: 116px !important; }
+  /* Same bug on the Dividend log's summary tiles: wrapper 99px vs 115px
+     real cards, so the log table sat flush against them (0px gap vs the
+     overview's 16px — both live-measured). */
+  .st-key-pf_div_tiles { min-height: 116px !important; }
 
   /* Row lists — hairline-divided flat rows, no per-row border/shadow (the
      panel above provides that once). :not() exclusions follow the exact

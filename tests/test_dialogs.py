@@ -305,6 +305,12 @@ add_dividend_dialog(pf)
         assert div_hist.iloc[0]["ticker"] == "AAA.BR"
         assert div_hist.iloc[0]["amount"] == 15.0
 
+    def test_only_ex_and_payment_dates_no_frequency(self):
+        at = self._run()
+        keys = {w.key for w in at.date_input}
+        assert keys == {"dlg_dv_ex", "dlg_dv_pay"}
+        assert not [s for s in at.selectbox if s.key == "dlg_dv_freq"]
+
 
 # ── add_closed_trade_dialog ────────────────────────────────────────────────
 

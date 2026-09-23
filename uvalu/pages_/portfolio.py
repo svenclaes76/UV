@@ -19,13 +19,13 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        record_value_snapshot, ensure_value_history_fresh,
                        dividends_in_eur, dividend_income_summary,
                        import_dividends_from_market_data, dismiss_auto_dividend,
-                       exchange_key_for_ticker, load_dividend_meta, set_dividend_meta)
+                       exchange_key_for_ticker, currency_for_ticker)
 from settings import get_dividend_withholding
 from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css,
-                           _dividend_tax_breakdown, DIV_TYPE_OPTIONS, DIV_FREQUENCY_OPTIONS)
+                           _dividend_tax_breakdown, DIV_TYPE_OPTIONS)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
@@ -608,11 +608,11 @@ def render() -> None:
             div_eur["_ex_str"] = (pd.to_datetime(div_eur["ex_date"], errors="coerce")
                                   .dt.strftime("%d %b %Y").fillna("—"))
             div_sorted = div_eur.sort_values("date", ascending=False)
-            _div_csv = div_sorted[["name", "ticker", "declaration_date", "ex_date", "record_date",
-                                   "_date_str", "div_type", "currency", "amount", "tax_amount",
-                                   "be_tax_amount", "net_after_be_amount", "source", "reinvested"]].rename(columns={
-                "name": "Company", "ticker": "Ticker", "declaration_date": "Declaration date",
-                "ex_date": "Ex-dividend date", "record_date": "Record date", "_date_str": "Payment date",
+            _div_csv = div_sorted[["name", "ticker", "_ex_str", "_date_str", "div_type", "currency",
+                                   "amount", "tax_amount", "be_tax_amount", "net_after_be_amount",
+                                   "source", "reinvested"]].rename(columns={
+                "name": "Company", "ticker": "Ticker",
+                "_ex_str": "Ex-dividend date", "_date_str": "Payment date",
                 "div_type": "Type", "currency": "Currency", "amount": "Gross (native)",
                 "tax_amount": "Foreign WH (native)", "be_tax_amount": "Belgian RV 30% (native)",
                 "net_after_be_amount": "Net (native)", "source": "Source", "reinvested": "DRIP",
@@ -636,8 +636,6 @@ def render() -> None:
             st.info("No dividend events yet. Add one with Add dividend — events for your held tickers are "
                     "also fetched from market data where available.")
         else:
-            _div_meta_all = load_dividend_meta()
-
             @st.dialog("Edit dividend", width="small")
             def _dlg_edit_dividend(orig_idx: int) -> None:
                 import datetime as _dt
@@ -645,13 +643,19 @@ def render() -> None:
                 enter_dialog()
                 _row = div_hist.loc[orig_idx]
                 _dialog_width_css(420)
-                st.markdown(f'<div style="font-size:17px;font-weight:500;letter-spacing:-0.02em;">'
-                           f'Edit {_row["ticker"]}</div>', unsafe_allow_html=True)
-                st.caption(_row["name"])
+                # The dialog chrome already says "Edit dividend" — the body
+                # heading just identifies the holding.
+                st.markdown(f'<div style="font-size:15px;font-weight:500;font-family:var(--uv-mono);">'
+                           f'{_row["ticker"]}</div><div style="font-size:12.5px;color:var(--muted);'
+                           f'margin-top:2px;">{_row["name"]}</div>', unsafe_allow_html=True)
                 if bool(_row.get("reinvested")):
                     st.caption("Reinvested (DRIP) — the purchased shares were already added to "
                               "this position and aren't re-applied by editing this record.")
-                _ccy = str(_row.get("currency") or "EUR")
+                # A missing currency comes back as NaN (truthy), which used to
+                # render the label as "Gross / share (nan)".
+                _ccy = _row.get("currency")
+                if not isinstance(_ccy, str) or not _ccy.strip():
+                    _ccy = currency_for_ticker(str(_row["ticker"])) or "EUR"
 
                 def _parse_date(v):
                     d = pd.to_datetime(v, errors="coerce")
@@ -660,50 +664,40 @@ def render() -> None:
                 _row_pay = _row["date"].date() if pd.notna(_row["date"]) else None
                 _max_date = max(_dt.date.today(), _row_pay) if _row_pay else _dt.date.today()
 
-                _c1, _c2, _c3, _c4 = st.columns(4)
+                # Same fields/order as add_dividend_dialog — declaration/record
+                # dates and frequency were dropped from both. Saving leaves any
+                # declaration/record date a record already carries untouched.
+                _c1, _c2 = st.columns(2)
                 with _c1:
-                    _decl = st.date_input("Declaration date", value=_parse_date(_row.get("declaration_date")),
-                                          format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_decl")
-                with _c2:
                     _ex = st.date_input("Ex-dividend date *", value=_parse_date(_row.get("ex_date")),
                                         format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_ex")
-                with _c3:
-                    _rec = st.date_input("Record date", value=_parse_date(_row.get("record_date")),
-                                         format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_rec")
-                with _c4:
+                with _c2:
                     _date = st.date_input("Payment date *", value=_row_pay, format="DD/MM/YYYY",
                                           max_value=_max_date, key="dlg_ed_date")
 
                 _c5, _c6, _c7 = st.columns(3)
                 with _c5:
-                    _shares = st.number_input("Shares", min_value=0, step=1,
+                    _shares = st.number_input("Shares held", min_value=0, step=1,
                                               value=max(0, int(_row["shares"])), key="dlg_ed_shares")
                 with _c6:
                     _dps0 = float(_row.get("amount_per_share") or 0) or (
                         (_row["amount"] / _row["shares"]) if _row["shares"] else 0.0)
-                    _dps = st.number_input(f"Gross / share ({_ccy})", min_value=0.0, step=0.0001,
+                    _dps = st.number_input(f"Per share ({_ccy})", min_value=0.0, step=0.0001,
                                            value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
                 with _c7:
                     _tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
                                                 step=0.5, value=float(_row.get("tax_rate") or 0.0),
                                                 key="dlg_ed_tax")
 
-                _c8, _c9 = st.columns(2)
                 _type0 = _row.get("div_type") or "Cash"
-                with _c8:
-                    _type = st.selectbox("Type", options=DIV_TYPE_OPTIONS,
-                                         index=DIV_TYPE_OPTIONS.index(_type0) if _type0 in DIV_TYPE_OPTIONS else 0,
-                                         key="dlg_ed_type")
-                with _c9:
-                    _freq0 = (_div_meta_all.get(str(_row["ticker"]), {}) or {}).get("frequency") or "Quarterly"
-                    _freq = st.selectbox("Frequency (per holding)", options=DIV_FREQUENCY_OPTIONS,
-                                         index=DIV_FREQUENCY_OPTIONS.index(_freq0)
-                                         if _freq0 in DIV_FREQUENCY_OPTIONS else 1, key="dlg_ed_freq")
+                _type = st.selectbox("Type", options=DIV_TYPE_OPTIONS,
+                                     index=DIV_TYPE_OPTIONS.index(_type0) if _type0 in DIV_TYPE_OPTIONS else 0,
+                                     key="dlg_ed_type")
 
                 _gross = round(_dps * _shares, 2)
                 _fwh, _be, _net = _dividend_tax_breakdown(_gross, _tax_rate, _type)
                 st.markdown(
-                    f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--uv-panel-2,#F5F7FA);">'
+                    f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
                     f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
                     f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{_gross:,.2f}</span></div>'
                     f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
@@ -738,12 +732,9 @@ def render() -> None:
                     _dh.at[orig_idx, "tax_rate"] = round(_tax_rate, 2)
                     _dh.at[orig_idx, "tax_amount"] = _fwh
                     _dh.at[orig_idx, "div_type"] = _type
-                    _dh.at[orig_idx, "declaration_date"] = pd.Timestamp(_decl).isoformat() if _decl else None
                     _dh.at[orig_idx, "ex_date"] = pd.Timestamp(_ex).isoformat()
-                    _dh.at[orig_idx, "record_date"] = pd.Timestamp(_rec).isoformat() if _rec else None
                     _dh.at[orig_idx, "date"] = pd.Timestamp(_date).isoformat()
                     update_div_hist(_dh)
-                    set_dividend_meta(str(_row["ticker"]), frequency=_freq)
                     st.rerun()
                 if _do_delete:
                     _dh = load_div_hist()
@@ -828,47 +819,51 @@ def render() -> None:
                 # cells — a bare "−€0.00" reads like a real deduction.
                 return f"−€{v:,.2f}" if pd.notna(v) and round(float(v), 2) != 0 else "—"
 
-            with st.container(key="pf_card_tax_years", border=True):
-                with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
-                                  horizontal_alignment="distribute"):
-                    st.markdown('<div style="font-size:15px;font-weight:500;">Annual dividend income summary</div>'
-                               '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
-                               'Net and gross reported separately, for your own tax filing.</div>',
-                               unsafe_allow_html=True, width="content")
-                    st.download_button("Export", data=_summary_csv, file_name="uvalu_dividend_tax_summary.csv",
-                                       mime="text/csv", key="div_summary_export", icon=":material/download:",
-                                       disabled=_year_summary.empty)
-                if _year_summary.empty:
-                    st.caption("No dividend history to summarise yet.")
-                else:
-                    _this_year = pd.Timestamp.now().year
-                    _grid = ("minmax(0,110px) minmax(0,1fr) minmax(0,150px) minmax(0,150px) "
-                             "minmax(0,150px) minmax(0,150px)")
-                    _num = "text-align:right;font-family:var(--uv-mono);"
-                    _rows_html = (
-                        f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
-                        f'padding:10px 20px;border-top:0.5px solid var(--line-2);'
-                        f'border-bottom:0.5px solid var(--line-2);font-size:10px;letter-spacing:0.06em;'
-                        f'text-transform:uppercase;color:var(--faint);">'
-                        f'<div>Year</div><div></div><div style="text-align:right;">Gross</div>'
-                        f'<div style="text-align:right;">Foreign WH</div><div style="text-align:right;">BE 30%</div>'
-                        f'<div style="text-align:right;">Net</div></div>'
-                    )
-                    for _year, _yrow in _year_summary.iterrows():
-                        _partial = "year to date" if int(_year) == _this_year else "full year"
-                        _rows_html += (
+            # Design width: the summary takes the left of a 1.6 : 1 split; the
+            # right-hand column is intentionally empty, reserved for future cards.
+            _yc1, _yc2 = st.columns([1.6, 1], gap="large")
+            with _yc1:
+                with st.container(key="pf_card_tax_years", border=True):
+                    with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
+                                      horizontal_alignment="distribute"):
+                        st.markdown('<div style="font-size:15px;font-weight:500;">Annual dividend income summary</div>'
+                                   '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
+                                   'Net and gross reported separately, for your own tax filing.</div>',
+                                   unsafe_allow_html=True, width="content")
+                        st.download_button("Export", data=_summary_csv, file_name="uvalu_dividend_tax_summary.csv",
+                                           mime="text/csv", key="div_summary_export", icon=":material/download:",
+                                           disabled=_year_summary.empty)
+                    if _year_summary.empty:
+                        st.caption("No dividend history to summarise yet.")
+                    else:
+                        _this_year = pd.Timestamp.now().year
+                        _grid = ("minmax(0,110px) minmax(0,1fr) minmax(0,150px) minmax(0,150px) "
+                                 "minmax(0,150px) minmax(0,150px)")
+                        _num = "text-align:right;font-family:var(--uv-mono);"
+                        _rows_html = (
                             f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
-                            f'padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
-                            f'<div style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{int(_year)}</div>'
-                            f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;">'
-                            f'{int(_yrow["events"])} events · {_partial}</div>'
-                            f'<div style="{_num}font-size:12.5px;">€{_yrow["gross"]:,.2f}</div>'
-                            f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["fwh"])}</div>'
-                            f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["be"])}</div>'
-                            f'<div style="{_num}font-size:13px;font-weight:500;color:var(--uv-mint,#1DD6A4);">'
-                            f'€{_yrow["net"]:,.2f}</div></div>'
+                            f'padding:10px 20px;border-top:0.5px solid var(--line-2);'
+                            f'border-bottom:0.5px solid var(--line-2);font-size:10px;letter-spacing:0.06em;'
+                            f'text-transform:uppercase;color:var(--faint);">'
+                            f'<div>Year</div><div></div><div style="text-align:right;">Gross</div>'
+                            f'<div style="text-align:right;">Foreign WH</div><div style="text-align:right;">BE 30%</div>'
+                            f'<div style="text-align:right;">Net</div></div>'
                         )
-                    st.markdown(_rows_html, unsafe_allow_html=True)
+                        for _year, _yrow in _year_summary.iterrows():
+                            _partial = "year to date" if int(_year) == _this_year else "full year"
+                            _rows_html += (
+                                f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
+                                f'padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
+                                f'<div style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{int(_year)}</div>'
+                                f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;">'
+                                f'{int(_yrow["events"])} events · {_partial}</div>'
+                                f'<div style="{_num}font-size:12.5px;">€{_yrow["gross"]:,.2f}</div>'
+                                f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["fwh"])}</div>'
+                                f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["be"])}</div>'
+                                f'<div style="{_num}font-size:13px;font-weight:500;color:var(--uv-mint,#1DD6A4);">'
+                                f'€{_yrow["net"]:,.2f}</div></div>'
+                            )
+                        st.markdown(_rows_html, unsafe_allow_html=True)
 
     # Dispatch at most one detail dialog per render
     if _pf_dlg_pending:
