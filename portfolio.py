@@ -198,47 +198,174 @@ def _annual_return_pct(purchase_value: float, proceeds: float, dividends: float,
         return None
 
 
-def sell_position(ticker: str, shares: int, proceeds: float, sell_date: str) -> None:
-    """Move a position from portfolio to sold, persist both files."""
+def sell_position(ticker: str, shares: float, proceeds: float, sell_date: str, *,
+                  fee: float = 0.0, trade_id: str | None = None) -> dict | None:
+    """Sell `shares` of `ticker`: move the sold part into sold.json and keep
+    any remainder open. Returns the sold record (None when nothing was sold).
+
+    Lots (a ticker bought several times has one portfolio row per buy) are
+    consumed oldest `date_in` first (FIFO); a partly-sold lot keeps its
+    remaining shares with its purchase_value/dividends reduced pro-rata, so
+    purchase_price stays the same. The sold record carries only the sold
+    shares' cost basis. Rows without a usable share count (legacy/imported
+    records) — or selling at least everything held — close every lot, the
+    behaviour this function always had; it used to do that even for a
+    partial sale, which silently dropped the unsold shares."""
     pf = load_portfolio()
     if pf is None:
-        return
+        return None
     mask = pf["ticker"] == ticker
     if not mask.any():
-        return
-    row = pf[mask].iloc[0].copy()
-    # `... or 0` doesn't catch NaN (bool(nan) is True in Python), so a
-    # missing/NaN field here would silently persist NaN into the sold
-    # record instead of falling back to 0 — use pd.notna instead.
-    _pv = row.get("purchase_value")
-    _dv = row.get("dividends")
-    purchase_value = float(_pv) if pd.notna(_pv) else 0.0
-    dividends      = float(_dv) if pd.notna(_dv) else 0.0
+        return None
+    lots = pf[mask].copy()
+    lots["_d_in"] = pd.to_datetime(lots.get("date_in"), errors="coerce")
+    lots = lots.sort_values("_d_in", na_position="first", kind="stable")
+    lot_shares = (pd.to_numeric(lots["shares"], errors="coerce") if "shares" in lots.columns
+                  else pd.Series(float("nan"), index=lots.index))
+    held = float(lot_shares.fillna(0).sum())
+    full_close = held <= 0 or lot_shares.isna().any() or float(shares) >= held - 1e-9
+
+    purchase_value = 0.0
+    dividends = 0.0
+    sold_shares = 0.0
+    first_date_in = None
+    drop_idx: list = []
+    remaining = float(shares)
+    for idx, lot in lots.iterrows():
+        # `... or 0` doesn't catch NaN (bool(nan) is True in Python), so a
+        # missing/NaN field would silently persist NaN into the sold record
+        # instead of falling back to 0 — hence _num_or.
+        pv = float(_num_or(lot.get("purchase_value"), 0.0))
+        dv = float(_num_or(lot.get("dividends"), 0.0))
+        lot_sh = float(_num_or(lot.get("shares"), 0.0))
+        if full_close:
+            take_frac, take_sh = 1.0, lot_sh
+        else:
+            if remaining <= 1e-9:
+                break
+            take_sh = min(lot_sh, remaining)
+            take_frac = take_sh / lot_sh if lot_sh > 0 else 1.0
+            remaining -= take_sh
+        purchase_value += pv * take_frac
+        dividends += dv * take_frac
+        sold_shares += take_sh
+        if first_date_in is None:
+            first_date_in = lot.get("date_in", "")
+        if take_frac >= 1.0 - 1e-12:
+            drop_idx.append(idx)
+        else:
+            pf.at[idx, "shares"] = round(lot_sh - take_sh, 6)
+            pf.at[idx, "purchase_value"] = round(pv * (1 - take_frac), 2)
+            if "dividends" in pf.columns:
+                pf.at[idx, "dividends"] = round(dv * (1 - take_frac), 2)
+
+    purchase_value = round(purchase_value, 2)
+    dividends = round(dividends, 2)
     annual_return_pct = _annual_return_pct(purchase_value, proceeds, dividends,
-                                           row.get("date_in", ""), sell_date)
-    # Build sold record
+                                           first_date_in or "", sell_date)
+    first_row = lots.iloc[0]
     sold_row = {
-        "name":              row.get("name", ""),
-        "google_ticker":     row.get("google_ticker", ""),
+        "name":              first_row.get("name", ""),
+        "google_ticker":     first_row.get("google_ticker", ""),
         "ticker":            ticker,
-        "shares":            shares,
+        "shares":            shares if full_close and held <= 0 else (
+                                 int(sold_shares) if float(sold_shares).is_integer() else round(sold_shares, 6)),
         "purchase_value":    purchase_value,
         "sale_value":        round(proceeds, 2),
         "dividends":         dividends,
-        "date_in":           row.get("date_in", ""),
+        "date_in":           first_date_in or "",
         "date_out":          sell_date,
         "annual_return_pct": annual_return_pct,
     }
+    if fee:
+        sold_row["fee"] = round(float(fee), 2)
+    if trade_id:
+        sold_row["trade_id"] = trade_id
     sold_df = load_sold()
     new_row = pd.DataFrame([sold_row])
     sold_df = pd.concat([sold_df, new_row], ignore_index=True) if sold_df is not None else new_row
     save_sold(sold_df)
-    # Remove from portfolio
-    pf = pf[~mask].reset_index(drop=True)
+    pf = pf.drop(index=drop_idx).reset_index(drop=True)
     save_portfolio(pf)
     logkit.data_mutation(actor=logkit.user_id(), action="position.sell",
                          entity_type="ticker", entity_id=ticker,
-                         shares=shares, sell_date=sell_date)
+                         shares=sold_row["shares"], partial=not full_close, sell_date=sell_date)
+    return sold_row
+
+
+# ── Cash-posting trade wrappers (Cash Management v1) ─────────────────────────
+# The live Buy/Sell dialogs go through these; add_position()/sell_position()
+# stay cash-neutral for Excel import, position edits and closed-trade entry
+# (plan D6). A trade is never blocked by the cash balance — cash.post_trade
+# covers any shortfall with a linked automatic top-up (D3). The position write
+# and the cash write are two files, so a failed cash write rolls the position
+# change back.
+
+def record_buy(row: dict, fee: float = 0.0) -> list[dict]:
+    """Add an open position and post its cash (−(cost + fee)). Returns the
+    posted ledger entries (a top-up Deposit first when cash was short)."""
+    import cash
+    row = dict(row)
+    trade_id = next_id("trade")
+    row["trade_id"] = trade_id
+    row["fee"] = round(float(fee or 0.0), 2)
+    add_position(row)
+    try:
+        return cash.post_trade("Buy", trade_id=trade_id, ticker=str(row.get("ticker") or ""),
+                               shares=float(_num_or(row.get("shares"), 0)),
+                               gross=float(_num_or(row.get("purchase_value"), 0.0)),
+                               fee=float(fee or 0.0), on=row.get("date_in"))
+    except Exception:
+        pf = load_portfolio()
+        if pf is not None and "trade_id" in pf.columns:
+            save_portfolio(pf[pf["trade_id"] != trade_id].reset_index(drop=True))
+        cash.remove_ref("trade", trade_id)
+        raise
+
+
+def record_sell(ticker: str, shares: float, price: float, fee: float, sell_date: str) -> dict | None:
+    """Sell (all or part of) a position and post its cash (+(proceeds − fee)).
+    Returns the sold record, or None when nothing was sold."""
+    import cash
+    pf_before, sold_before = load_portfolio(), load_sold()
+    trade_id = next_id("trade")
+    proceeds = round(float(shares) * float(price), 2)
+    sold = sell_position(ticker, shares, proceeds, sell_date, fee=fee, trade_id=trade_id)
+    if sold is None:
+        return None
+    sold_shares = float(_num_or(sold.get("shares"), shares))
+    gross = round(sold_shares * float(price), 2)
+    if abs(gross - proceeds) > 0.004:
+        # Fewer shares were held than requested — book the actual proceeds.
+        _sd = load_sold()
+        _sd.loc[_sd["trade_id"] == trade_id, "sale_value"] = gross
+        save_sold(_sd)
+        sold["sale_value"] = gross
+    try:
+        cash.post_trade("Sell", trade_id=trade_id, ticker=ticker, shares=sold_shares,
+                        gross=gross, fee=float(fee or 0.0), on=sell_date)
+    except Exception:
+        if pf_before is not None:
+            save_portfolio(pf_before)
+        if sold_before is not None:
+            save_sold(sold_before)
+        else:
+            (_user_dir() / "sold.json").unlink(missing_ok=True)
+        cash.remove_ref("trade", trade_id)
+        raise
+    return sold
+
+
+def _reconcile_cash_dividends() -> None:
+    """Mirror the dividend log into the cash ledger. Never lets a cash
+    problem break saving a dividend — it's retried on the next page load."""
+    try:
+        import cash
+        cash.reconcile_dividend_postings()
+    except Exception:
+        logkit.get_logger("uvalu.portfolio").warning(
+            "cash reconcile after dividend change failed", exc_info=True,
+            extra={"event": "cash.reconcile_failed"})
 
 
 def add_closed_trade(row: dict) -> None:
@@ -269,6 +396,7 @@ def add_dividend(row: dict) -> None:
                                 float(row["reinvested_shares"]), float(row.get("amount") or 0))
     logkit.data_mutation(actor=logkit.user_id(), action="dividend.add",
                          entity_type="ticker", entity_id=str(row.get("ticker") or ""))
+    _reconcile_cash_dividends()
 
 
 def update_div_hist(df: pd.DataFrame) -> None:
@@ -281,6 +409,7 @@ def update_div_hist(df: pd.DataFrame) -> None:
     _sync_portfolio_dividends(df)
     logkit.data_mutation(actor=logkit.user_id(), action="dividend.bulk_update",
                          entity_type="ticker", rows=(0 if df is None else len(df)))
+    _reconcile_cash_dividends()
 
 
 def _sync_portfolio_dividends(div_df: "pd.DataFrame") -> None:
@@ -384,11 +513,13 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     `be_tax_amount(_eur)` and `net_after_be_amount(_eur)` (net of foreign
     withholding AND the Belgian 30% layer — the figure that should drive
     yield-on-cost/income reporting) — all converted from each row's native
-    `currency` to EUR at its payment `date`, via marketdata.fx_to_eur_frame
-    (the same historical-FX helper risk.py already uses to EUR-normalise
-    price history). EUR rows convert at 1.0; a currency with no fetchable
-    FX history falls back to its native amount unconverted."""
-    import marketdata
+    `currency` to EUR at its payment `date`, via fx.rates_frame —
+    frankfurter.dev's ECB reference rates, the app's single FX source (the
+    same series risk.py uses to EUR-normalise price history, and the same
+    rate cash.py stores on the matching auto-posted ledger entry). EUR rows
+    convert at 1.0; a currency with no fetchable FX history falls back to its
+    native amount unconverted."""
+    import fx as _fx
 
     out = div_df.copy()
     if "tax_amount" not in out.columns:
@@ -415,7 +546,8 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     dates = pd.to_datetime(out["date"], errors="coerce")
 
     foreign = sorted({c for c in out["currency"].unique() if c and c != "EUR"})
-    fx = marketdata.fx_to_eur_frame(foreign) if foreign else pd.DataFrame()
+    _start = dates.min() if dates.notna().any() else None
+    fx = _fx.rates_frame(foreign, start=_start) if foreign else pd.DataFrame()
 
     def _rate(ccy: str, dt) -> float:
         if ccy == "EUR" or fx.empty or ccy not in fx.columns or pd.isna(dt):
@@ -557,6 +689,7 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
     _sync_portfolio_dividends(df)
     logkit.data_mutation(actor=logkit.user_id(), action="dividend.import_auto",
                          entity_type="ticker", rows=len(new_rows))
+    _reconcile_cash_dividends()
     return len(new_rows)
 
 
@@ -599,6 +732,81 @@ def save_cash(df: pd.DataFrame) -> None:
 
 
 def load_cash() -> pd.DataFrame | None:    return _load(_user_dir() / "cash.json")
+
+
+# ── Portfolio meta: base currency + id counters ───────────────────────────────
+# One small per-user file. `base_currency` is fixed the first time it is read
+# (Cash Management v1: "set at creation, cannot be changed afterward") — EUR,
+# since every valuation path in the app is EUR; cash.py reads it through
+# base_currency() rather than hard-coding "EUR". The id counters give trades,
+# dividends and cash entries stable, never-reused references (TRD-0001,
+# DIV-0001, C-000001) that survive deletes.
+
+_META_FILE = "portfolio_meta.json"
+_meta_lock = threading.RLock()
+DEFAULT_BASE_CURRENCY = "EUR"
+
+
+def load_portfolio_meta() -> dict:
+    m = _load_user_json(_META_FILE, {})
+    return m if isinstance(m, dict) else {}
+
+
+def _save_portfolio_meta(meta: dict) -> None:
+    _save_user_json(_META_FILE, meta)
+
+
+def base_currency() -> str:
+    """The portfolio's base currency; persisted on first use and never changed."""
+    with _meta_lock:
+        meta = load_portfolio_meta()
+        if not meta.get("base_currency"):
+            import datetime
+            meta["base_currency"] = DEFAULT_BASE_CURRENCY
+            meta.setdefault("created_at", datetime.datetime.now().isoformat(timespec="seconds"))
+            _save_portfolio_meta(meta)
+        return str(meta["base_currency"]).upper()
+
+
+def next_id(kind: str) -> str:
+    """Next stable id for `kind` ("trade" | "dividend" | "cash")."""
+    prefix, width = {"trade": ("TRD", 4), "dividend": ("DIV", 4), "cash": ("C", 6)}[kind]
+    with _meta_lock:
+        meta = load_portfolio_meta()
+        key = f"{kind}_seq"
+        n = int(meta.get(key) or 0) + 1
+        meta[key] = n
+        _save_portfolio_meta(meta)
+    return f"{prefix}-{n:0{width}d}"
+
+
+def reserve_ids(kind: str, count: int) -> list[str]:
+    """`count` consecutive ids in one meta write (bulk backfill)."""
+    if count <= 0:
+        return []
+    prefix, width = {"trade": ("TRD", 4), "dividend": ("DIV", 4), "cash": ("C", 6)}[kind]
+    with _meta_lock:
+        meta = load_portfolio_meta()
+        key = f"{kind}_seq"
+        start = int(meta.get(key) or 0)
+        meta[key] = start + count
+        _save_portfolio_meta(meta)
+    return [f"{prefix}-{start + i + 1:0{width}d}" for i in range(count)]
+
+
+def ensure_div_ids(df: "pd.DataFrame | None") -> tuple["pd.DataFrame | None", bool]:
+    """Give every dividend record without one a stable `div_id`. Returns
+    (frame, changed); the caller persists when changed."""
+    if df is None or df.empty:
+        return df, False
+    df = df.copy()
+    if "div_id" not in df.columns:
+        df["div_id"] = None
+    blank = df["div_id"].isna() | df["div_id"].astype(str).str.strip().isin(["", "None", "nan"])
+    if not blank.any():
+        return df, False
+    df.loc[blank, "div_id"] = reserve_ids("dividend", int(blank.sum()))
+    return df, True
 
 
 # ── Per-holding dividend profile ─────────────────────────────────────────────

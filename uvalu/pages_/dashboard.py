@@ -98,7 +98,7 @@ def render() -> None:
     # and excluding DRIP/reinvested records (that cash never left the
     # position, so counting it here would double-count it against the
     # position's own already-larger market value). EUR-converted per record
-    # via dividends_in_eur() (marketdata.fx_to_eur_frame) since a Swiss
+    # via dividends_in_eur() (fx.py — ECB rates via frankfurter) since a Swiss
     # holding pays in CHF, not EUR. Two totals: "open" (this page's own
     # holdings, feeds Total return alongside the open-positions-only
     # unrealised gain above) and "lifetime" (open + sold positions, matches

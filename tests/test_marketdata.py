@@ -230,34 +230,38 @@ class TestDownloadCloses:
 # ── fx_to_eur_frame ─────────────────────────────────────────────────────────
 
 class TestFxToEurFrame:
+    """fx_to_eur_frame is now a shim over fx.rates_frame (frankfurter / ECB —
+    the app's single FX source); yfinance XXXEUR=X pairs are no longer used."""
+
     def test_all_eur_or_blank_returns_empty_without_fetching(self, monkeypatch):
+        import fx
         monkeypatch.setattr(marketdata, "price_history", _boom)
+        monkeypatch.setattr(fx, "rates_frame", _boom)
         assert marketdata.fx_to_eur_frame(["EUR", "eur", "", None]).empty
 
-    def test_fetches_foreign_pairs_and_labels_columns_by_code(self, monkeypatch):
+    def test_delegates_foreign_codes_to_fx(self, monkeypatch):
+        import fx
         idx = pd.bdate_range("2024-01-01", periods=4)
-        data = {
-            "USDEUR=X": pd.Series([0.90, 0.91, 0.92, 0.93], index=idx),
-            "CHFEUR=X": pd.Series([1.04, 1.05, 1.06, 1.07], index=idx),
-        }
+        seen = {}
 
-        def fake_ph(pairs, period="5y"):
-            assert set(pairs) == {"USDEUR=X", "CHFEUR=X"}
-            return pd.DataFrame({p: data[p] for p in pairs})
+        def fake_rates(codes, start=None, end=None, base="EUR"):
+            seen["codes"], seen["start"] = list(codes), start
+            return pd.DataFrame({"USD": [0.90] * 4, "CHF": [1.04] * 4}, index=idx)
 
-        monkeypatch.setattr(marketdata, "price_history", fake_ph)
-        fx = marketdata.fx_to_eur_frame(["USD", "CHF", "EUR"])
-        assert set(fx.columns) == {"USD", "CHF"}
-        assert fx["USD"].iloc[0] == 0.90
+        monkeypatch.setattr(marketdata, "price_history", _boom)
+        monkeypatch.setattr(fx, "rates_frame", fake_rates)
+        out = marketdata.fx_to_eur_frame(["USD", "CHF", "EUR"], period="1y")
+        assert seen["codes"] == ["CHF", "USD"]
+        assert seen["start"] == marketdata._period_start("1y")
+        assert set(out.columns) == {"USD", "CHF"}
 
-    def test_pair_with_no_history_is_omitted(self, monkeypatch):
-        idx = pd.bdate_range("2024-01-01", periods=3)
-        monkeypatch.setattr(
-            marketdata, "price_history",
-            lambda pairs, period="5y": pd.DataFrame({"USDEUR=X": pd.Series([0.9] * 3, index=idx)}),
-        )
-        fx = marketdata.fx_to_eur_frame(["USD", "GBP"])
-        assert list(fx.columns) == ["USD"]
+    def test_currency_with_no_rates_is_omitted(self, monkeypatch):
+        import fx
+        monkeypatch.setattr(fx, "_http_get", lambda path, params=None: (
+            {"rates": {"2024-01-02": {"EUR": 0.9}}} if params and params.get("base") == "USD"
+            else (_ for _ in ()).throw(fx.FxUnavailable("404"))))
+        out = marketdata.fx_to_eur_frame(["USD", "GBP"], period="5y")
+        assert list(out.columns) == ["USD"]
 
 
 # ── dividends ───────────────────────────────────────────────────────────────

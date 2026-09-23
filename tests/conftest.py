@@ -60,6 +60,25 @@ def _logkit_isolated(tmp_path):
     _lk_setup._reset_for_tests()
 
 
+@pytest.fixture(autouse=True)
+def _fx_isolated(tmp_path, monkeypatch):
+    """Never call the real frankfurter.dev API and never touch the developer's
+    real .cache/fx_frankfurter.json: every test gets an empty FX cache in
+    tmp_path and an HTTP seam that behaves like an outage. Tests that need
+    rates stub ``fx._http_get`` (see tests/test_fx.py) or ``fx.rates_frame``
+    / ``fx.get_rate`` directly."""
+    import fx
+
+    def _offline(path, params=None):
+        raise fx.FxUnavailable("network disabled in tests")
+
+    monkeypatch.setattr(fx, "_CACHE_FILE", tmp_path / "fx_cache.json")
+    monkeypatch.setattr(fx, "_http_get", _offline)
+    fx._reset_for_tests()
+    yield
+    fx._reset_for_tests()
+
+
 @pytest.fixture
 def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
