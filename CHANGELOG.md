@@ -11,6 +11,14 @@ Version numbers follow the scheme in
 
 ---
 
+## [1.11.1] — 2026-09-23
+
+### Fixed
+
+- Annual dividend income summary: on a narrower card the "N events · year to date" label overlapped the Gross figures (fixed 150px figure columns squeezed the label column to ~0px). All columns are now proportional, and the label truncates with an ellipsis instead of overflowing.
+
+---
+
 ## [1.11.0] — 2026-09-23
 
 ### Added
