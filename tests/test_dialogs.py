@@ -310,6 +310,16 @@ add_dividend_dialog(pf)
         assert [w.key for w in at.text_input][:2] == ["dlg_dv_ticker", "dlg_dv_name"]
         assert not any(w.disabled for w in at.text_input)
 
+    def test_no_drip_checkbox_and_records_are_cash(self):
+        at = self._run()
+        assert not at.checkbox
+        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
+        at.number_input(key="dlg_dv_ps").set_value(1.5)
+        at.number_input(key="dlg_dv_shares").set_value(10)
+        [b for b in at.button if b.label == "Save"][0].click().run()
+        assert not bool(portfolio.load_div_hist().iloc[0]["reinvested"])
+
     def test_only_ex_and_payment_dates_no_frequency(self):
         at = self._run()
         keys = {w.key for w in at.date_input}

@@ -25,7 +25,7 @@ from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
                            add_closed_trade_dialog, _dialog_width_css, _num_or,
-                           dialog_frame, identity_row, dialog_actions,
+                           dialog_frame, identity_row, dialog_actions, dividend_tax_preview,
                            _dividend_tax_breakdown, DIV_TYPE_OPTIONS)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
@@ -392,7 +392,7 @@ def render() -> None:
         def _dlg_edit_open_position(orig_idx: int) -> None:
             enter_dialog()
             _row = pf.loc[orig_idx]
-            dialog_frame("Update this position's shares, invested amount or buy date.")
+            dialog_frame("Update shares, invested amount or buy date.")
             identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
                          key_prefix=f"dlg_eop_id_{orig_idx}", locked=True)
             _c1, _c2 = st.columns(2)
@@ -503,7 +503,7 @@ def render() -> None:
             def _dlg_edit_closed_position(orig_idx: int) -> None:
                 enter_dialog()
                 _row = sold.loc[orig_idx]
-                dialog_frame("Update this closed trade's shares, proceeds or sell date.")
+                dialog_frame("Update shares, proceeds or sell date.")
                 identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
                              key_prefix=f"dlg_ecp_id_{orig_idx}", locked=True)
                 _c1, _c2 = st.columns(2)
@@ -679,18 +679,7 @@ def render() -> None:
 
                 _gross = round(_dps * _shares, 2)
                 _fwh, _be, _net = _dividend_tax_breakdown(_gross, _tax_rate, _type)
-                st.markdown(
-                    f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
-                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
-                    f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{_gross:,.2f}</span></div>'
-                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
-                    f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{_fwh:,.2f}</span></div>'
-                    f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
-                    f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{_be:,.2f}</span></div>'
-                    f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
-                    f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
-                    f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{_net:,.2f}</span></div>'
-                    f'</div>', unsafe_allow_html=True)
+                dividend_tax_preview(_gross, _fwh, _be, _net)
 
                 _do_save, _do_delete = dialog_actions("dlg_ed", delete=True)
 

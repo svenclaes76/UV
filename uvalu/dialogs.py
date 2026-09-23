@@ -37,6 +37,26 @@ def _dividend_tax_breakdown(gross: float, foreign_wh_pct: float, div_type: str) 
     return fwh, be, round(gross - fwh - be, 2)
 
 
+def dividend_tax_preview(gross: float, fwh: float, be: float, net: float) -> None:
+    """The Gross -> Foreign WH -> BE 30% -> Net "Calculated" box shared by the
+    Add and Edit dividend dialogs (Uvalu Dividend Management.dc.html), so
+    both render it identically."""
+    st.markdown(
+        f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
+        f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
+        f'margin-bottom:6px;">Calculated</div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
+        f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{gross:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{fwh:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
+        f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{be:,.2f}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
+        f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
+        f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{net:,.2f}</span></div>'
+        f'</div>', unsafe_allow_html=True)
+
+
 DIALOG_WIDTH = 420  # Uvalu.dc.html's Add position / closed-trade modal width
 
 
@@ -69,7 +89,10 @@ def _dialog_width_css(px: int = DIALOG_WIDTH) -> None:
 # one action row. These helpers keep that identical across dialogs.
 
 def dialog_frame(subtitle: str) -> None:
-    """Width clamp + the one-line muted subtitle under the dialog title."""
+    """Width clamp + the one-line muted subtitle under the dialog title.
+    Keep `subtitle` to ~48 characters: at the 420px width a longer one wraps
+    to a second line and makes that dialog taller than its Add/Edit sibling
+    (the Add dividend subtitle did — 22px taller than Edit, live-measured)."""
     _dialog_width_css()
     st.caption(subtitle)
 
@@ -138,7 +161,7 @@ def _lookup_ticker(sym: str) -> tuple[str, float] | None:
 @st.dialog("Add position", width="small")
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
     enter_dialog()
-    dialog_frame("Enter the ticker and either a total cost or a price per share — whichever you have on hand.")
+    dialog_frame("Enter a total cost or a price per share.")
     ticker_raw, name_raw = identity_row(ticker=preset_ticker, name=preset_name, key_prefix="dlg_ap",
                                         ticker_placeholder="TTE.PA", name_placeholder="TotalEnergies")
 
@@ -190,7 +213,7 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
     enter_dialog()
-    dialog_frame("Close all or part of this position. Realised P&L is recorded on the Portfolio page.")
+    dialog_frame("Sell all or part of this position.")
     if ticker is None:
         _sorted = pf.sort_values("name", key=lambda s: s.str.lower())
         _opts   = _sorted["ticker"].tolist()
@@ -233,13 +256,12 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     import datetime as _dt
 
-    from portfolio import (currency_for_ticker, exchange_key_for_ticker,
-                           load_dividend_meta, set_dividend_meta)
+    from portfolio import currency_for_ticker, exchange_key_for_ticker
     from settings import get_dividend_withholding
     from uvalu.runtime import current_user
 
     enter_dialog()
-    dialog_frame("Record a dividend payment. Gross is the per-share amount × shares held.")
+    dialog_frame("Record a dividend payment for a holding.")
     # The company name defaults from the held position once the ticker is
     # known, so read the ticker's current value before drawing the row.
     _t0 = str(st.session_state.get("dlg_dv_ticker") or "").strip().upper()
@@ -249,7 +271,6 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
                                         ticker_placeholder="ALV.DE", name_placeholder="Allianz")
     _ccy = currency_for_ticker(ticker_raw) if ticker_raw else "EUR"
 
-    _meta = load_dividend_meta().get(ticker_raw, {}) if ticker_raw else {}
 
     # Declaration/record dates and per-holding frequency were dropped from
     # this dialog (and the Edit dialog / CSV export) per user review: only
@@ -281,30 +302,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
 
     gross = round(dps * shares, 2)
     fwh, be, net = _dividend_tax_breakdown(gross, tax_rate, div_type)
-    st.markdown(
-        f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
-        f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
-        f'margin-bottom:6px;">Calculated</div>'
-        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;">'
-        f'<span style="color:var(--muted);">Gross</span><span style="font-family:var(--uv-mono);">€{gross:,.2f}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
-        f'<span>Foreign withholding</span><span style="font-family:var(--uv-mono);">−€{fwh:,.2f}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;color:var(--muted);">'
-        f'<span>Belgian RV 30%</span><span style="font-family:var(--uv-mono);">−€{be:,.2f}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;padding:6px 0 0;margin-top:4px;'
-        f'border-top:0.5px solid var(--line-2);font-size:12.5px;font-weight:500;">'
-        f'<span>Net received</span><span style="font-family:var(--uv-mono);color:var(--uv-mint,#1DD6A4);">€{net:,.2f}</span></div>'
-        f'</div>', unsafe_allow_html=True)
-
-    reinvested = st.checkbox("Reinvested (DRIP) — no cash received",
-                             value=bool(_meta.get("drip_default")), key="dlg_dv_reinvested")
-    reinvested_shares = 0.0
-    if reinvested:
-        reinvested_shares = st.number_input(
-            "Shares purchased by the reinvestment", min_value=0.0, step=0.0001,
-            value=0.0, format="%.4f", key="dlg_dv_reinvested_shares",
-            help="From your broker's DRIP contract note — the exact fractional "
-                "share count purchased, not estimated from a historical price.")
+    dividend_tax_preview(gross, fwh, be, net)
 
     _do_save, _ = dialog_actions("dlg_dv")
 
@@ -318,9 +316,6 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         return
     if pay_date is None:
         st.error("Payment date is required.")
-        return
-    if reinvested and reinvested_shares <= 0:
-        st.error("Enter the number of shares the reinvestment purchased.")
         return
     _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
     add_dividend({
@@ -339,17 +334,19 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         "ex_date":           pd.Timestamp(ex_date).isoformat(),
         "record_date":       None,
         "date":              pd.Timestamp(pay_date).isoformat(),
-        "reinvested":        bool(reinvested),
-        "reinvested_shares": round(reinvested_shares, 4) if reinvested else None,
+        # The DRIP checkbox was removed from this dialog (user review, Sep
+        # 2026): new records are always cash. Existing DRIP records keep
+        # their flag.
+        "reinvested":        False,
+        "reinvested_shares": None,
     })
-    set_dividend_meta(ticker_raw, drip_default=bool(reinvested))
     st.rerun()
 
 
 @st.dialog("Add closed trade", width="small")
 def add_closed_trade_dialog() -> None:
     enter_dialog()
-    dialog_frame("Record a trade that was opened and closed outside this app's normal Add/Close flow.")
+    dialog_frame("Record a trade opened and closed elsewhere.")
     ticker_raw, name_raw = identity_row(key_prefix="dlg_ct", ticker_placeholder="SAP.DE",
                                         name_placeholder="SAP")
     sector = st.selectbox("Sector", options=SECTOR_OPTIONS, key="dlg_ct_sector")
