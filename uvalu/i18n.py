@@ -684,6 +684,11 @@ def _rebuild_msg(msgid, plural, n, context, kw):
     return Msg(msgid, plural=plural, n=n, context=context, **kw)
 
 
+def english():
+    """Context manager: _() and fmt_* render en / en-GB inside it."""
+    return _english()
+
+
 def lazy_(msgid: str, **kw) -> Msg:
     """Deferred _(): English now, translated by tr() at display."""
     return Msg(msgid, **kw)
@@ -698,7 +703,8 @@ def lazy_pgettext(context: str, msgid: str, **kw) -> Msg:
 
 
 class _english:
-    """Temporarily render in en / en-GB (Msg's stored English text)."""
+    """Temporarily render in en / en-GB (Msg's stored English text, and
+    text stored in data files such as cash-ledger notes)."""
     _local = threading.local()
 
     def __enter__(self):

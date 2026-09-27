@@ -236,3 +236,45 @@ def num_input(label: str, value: float | None, *, key: str, decimals: int = 2,
 def num_input_invalid(key: str) -> bool:
     """True while num_input(key=…) holds text that isn't a number."""
     return bool(st.session_state.get(f"{key}__invalid"))
+
+
+# ── CSV exports (spec F-11) ──────────────────────────────────────────────────
+
+def csv_machine(frame) -> bytes:
+    """Dot decimal, ISO dates, ',' delimiter — stable for scripts."""
+    import pandas as pd
+    out = frame.copy()
+    for c in out.columns:
+        if pd.api.types.is_datetime64_any_dtype(out[c]):
+            out[c] = out[c].dt.strftime("%Y-%m-%d")
+    return out.to_csv(index=False).encode("utf-8")
+
+
+def csv_spreadsheet(frame) -> bytes:
+    """Region format for Excel: the region's decimal mark, ';' as delimiter
+    when the decimal mark is a comma, dates in the user's date format. No
+    thousands separators, so Excel reads every figure as a number. Starts
+    with a UTF-8 BOM so Excel detects the encoding."""
+    import pandas as pd
+    sym = i18n.current().locale.number_symbols["latn"]
+    decimal = sym["decimal"]
+    sep = ";" if decimal == "," else ","
+    out = frame.copy()
+    for c in out.columns:
+        if pd.api.types.is_datetime64_any_dtype(out[c]):
+            out[c] = out[c].map(lambda v: "" if pd.isna(v) else fmt_date(v))
+    return out.to_csv(index=False, sep=sep, decimal=decimal).encode("utf-8-sig")
+
+
+def export_menu(label: str, *, frame, file_name: str, key: str, disabled: bool = False,
+                machine_csv: bytes | None = None) -> None:
+    """An Export button offering both CSV flavours (F-11). ``machine_csv``
+    overrides the machine export when the caller already builds one."""
+    with st.popover(label, icon=":material/download:", disabled=disabled):
+        stem = file_name.rsplit(".", 1)[0]
+        st.download_button(_("Spreadsheet format (for Excel)"), data=csv_spreadsheet(frame),
+                           file_name=f"{stem}_excel.csv", mime="text/csv", key=f"{key}_xl",
+                           width="stretch")
+        st.download_button(_("Machine format (for scripts)"),
+                           data=machine_csv if machine_csv is not None else csv_machine(frame),
+                           file_name=file_name, mime="text/csv", key=key, width="stretch")

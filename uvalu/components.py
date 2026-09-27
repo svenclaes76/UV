@@ -1286,7 +1286,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
                        f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
                        f"<div style='font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap;"
-                       f"overflow:hidden;text-overflow:ellipsis;'>{h_('{name} · closed {date}', name=name, date=fmt_date(closed_date))}</div></div>",
+                       f"overflow:hidden;text-overflow:ellipsis;'>{h_('{name} · closed {date}', name=name, date=fmt_date(closed_date, skeleton='yMMM'))}</div></div>",
                        unsafe_allow_html=True)
         with _cols[1]:
             _shares_str = fmt_int(int(shares)) if shares is not None and pd.notna(shares) else "—"
@@ -1457,8 +1457,8 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
         f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
         f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>"
-        f"<div style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'>{fmt_date(ex_date) if ex_date else '—'}</div>"
-        f"<div {_pay_attr}>{fmt_date(pay_date) if pay_date else '—'}</div>"
+        f"<div style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'>{fmt_date(ex_date)}</div>"
+        f"<div {_pay_attr}>{fmt_date(pay_date)}</div>"
         f"<div><span style='{_pill}{_type_style}'>{_html_attr(tr(div_type)) if div_type else ''}</span></div>"
         f"<div style='{_num}'>{_ps_str}</div>"
         f"<div style='{_num}'>{_sh_str}</div>"
@@ -1607,7 +1607,7 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
     auto = bool(r.get("auto"))
     src_style = ("background:var(--soft);color:var(--mint);" if auto
                  else "color:var(--muted);border:0.5px solid var(--line);")
-    note = _html.escape(str(r.get("note") or "—"))
+    note = _html.escape(_cash.note_text(r) or "—")
     return (
         f'<div class="uv-cash-row" style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;'
         f'align-items:center;">'

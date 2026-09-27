@@ -100,7 +100,8 @@ class TestCashPage:
         assert html.index("TRD-0001 · AAA.BR") < html.index("To savings")
         assert "top-up" in html and "manual" in html and "set to €1,000.00" in html
         assert "5 of 5 entries" in html
-        assert any(b.label == "Export" for b in at.get("download_button"))
+        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
+        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
         assert any(b.key == "btn_add_cash" and not b.disabled for b in at.button)
         # one pencil per row: manual entries edit, automatic ones open the linked view
         pencils = {b.key: b.help for b in at.button if b.key and b.key.startswith("pf_cash_row_")}
@@ -122,7 +123,8 @@ class TestCashPage:
         at = _run_portfolio(monkeypatch, section="cash", role="Viewer")
         assert all(b.disabled for b in at.button if b.key == "btn_add_cash" or
                    (b.key or "").startswith("pf_cash_row_"))
-        assert any(b.label == "Export" for b in at.get("download_button"))
+        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
+        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
 
     def test_empty_ledger_message(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())

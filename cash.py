@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import math
 import threading
 from datetime import date, datetime
@@ -47,23 +48,26 @@ import pandas as pd
 import fx
 import portfolio
 from uvalu import logkit
+from uvalu.i18n import N_, Fmt, _, english, tr
 
-TYPES = ("Deposit", "Withdrawal", "Buy", "Sell", "Dividend", "Fee", "Interest", "Adjustment")
+TYPES = (N_("Deposit"), N_("Withdrawal"), N_("Buy"), N_("Sell"), N_("Dividend"), N_("Fee"),
+         N_("Interest"), N_("Adjustment"))
 MANUAL_TYPES = ("Deposit", "Withdrawal", "Fee", "Interest", "Adjustment")
 _SIGN = {"Deposit": 1, "Withdrawal": -1, "Buy": -1, "Sell": 1,
          "Dividend": 1, "Fee": -1, "Interest": 1}
 
+# Keys are the (English) filter ids; the UI shows them through tr().
 FILTER_GROUPS: dict[str, tuple[str, ...] | None] = {
-    "All": None,
-    "Deposits & withdrawals": ("Deposit", "Withdrawal"),
-    "Trades": ("Buy", "Sell"),
-    "Income": ("Dividend", "Interest"),
-    "Fees & adjustments": ("Fee", "Adjustment"),
+    N_("All"): None,
+    N_("Deposits & withdrawals"): ("Deposit", "Withdrawal"),
+    N_("Trades"): ("Buy", "Sell"),
+    N_("Income"): ("Dividend", "Interest"),
+    N_("Fees & adjustments"): ("Fee", "Adjustment"),
 }
 
 _FIELDS = ("id", "seq", "date", "type", "amount", "currency", "fx_rate", "fx_source",
            "fx_date", "amount_base", "target_balance", "delta_at_entry", "opening",
-           "note", "ref_kind", "ref_id", "ref_label", "auto", "topup", "created_at")
+           "note", "note_i18n", "ref_kind", "ref_id", "ref_label", "auto", "topup", "created_at")
 
 _lock = threading.RLock()
 
@@ -84,6 +88,49 @@ def money(v: float, ccy: str = "EUR", dp: int = 2) -> str:
 
 def signed_money(v: float, ccy: str = "EUR", dp: int = 2) -> str:
     return ("+" if v >= 0 else "") + money(v, ccy, dp)
+
+
+def _render_note_arg(v):
+    """A stored note argument → a value for _(): plain values pass through,
+    [kind, value, opts] becomes a region-formatted number/money, and
+    ["type_lower", "Cash", {}] a translated, lower-cased type name."""
+    if isinstance(v, (list, tuple)) and len(v) == 3 and isinstance(v[2], dict):
+        kind, value, opts = v
+        if kind == "type_lower":
+            word = tr(value)
+            return word if _is_de() else word.lower()
+        return Fmt(kind, value, **opts)
+    return v
+
+
+def _is_de() -> bool:
+    from uvalu.i18n import current
+    return current().lang == "de"   # German keeps nouns capitalised
+
+
+def auto_note(parts: list) -> tuple[str, str]:
+    """(English note, note_i18n JSON) for an automatic ledger note built
+    from (msgid, args) parts joined by spaces. The English text is what's
+    stored in ``note`` (and exported); note_text() re-renders the parts in
+    the viewer's language and region."""
+    with english():
+        text = " ".join(_(mid, **{k: _render_note_arg(v) for k, v in args.items()}) for mid, args in parts)
+    return text, json.dumps([{"id": mid, "args": args} for mid, args in parts])
+
+
+def note_text(entry: dict) -> str:
+    """A ledger entry's description in the viewer's language: automatic
+    notes from their note_i18n parts, anything else (typed notes, entries
+    written before note_i18n existed) through tr()."""
+    raw = entry.get("note_i18n")
+    if raw:
+        try:
+            parts = json.loads(raw)
+            return " ".join(_(p["id"], **{k: _render_note_arg(v) for k, v in (p.get("args") or {}).items()})
+                            for p in parts)
+        except Exception:
+            pass
+    return tr(entry.get("note") or "")
 
 
 def fmt_date(iso: str | None) -> str:
@@ -112,7 +159,7 @@ def _to_date(on) -> date:
         return on
     ts = pd.to_datetime(on, errors="coerce")
     if pd.isna(ts):
-        raise CashError("Enter a date, e.g. 07 Jul 2026.")
+        raise CashError(_("Enter a date, e.g. 07 Jul 2026."))
     return ts.date()
 
 
@@ -137,7 +184,7 @@ def _migrate(records: list[dict]) -> tuple[list[dict], bool]:
         total += amt * rate
     kept = [r for r in records if r.get("type")]
     opening = _new_entry("Adjustment", date.today(), None, base, 1.0, "base", None,
-                         "Opening balance · migrated from earlier cash records",
+                         N_("Opening balance · migrated from earlier cash records"),
                          target_balance=round(max(total, 0.0), 2), opening=True)
     return [opening] + kept, True
 
@@ -256,15 +303,15 @@ def resolve_rate(currency: str, on: date, manual_rate: float | None = None) -> t
         return 1.0, "base", None
     if manual_rate is not None:
         if not (manual_rate > 0):
-            raise CashError(f"Enter the FX rate to convert {currency} to {base}.")
+            raise CashError(_("Enter the FX rate to convert {currency} to {base}.", currency=currency, base=base))
         return float(manual_rate), "manual", None
     q = fx.get_rate(currency, base, on)
     return q.rate, "ecb", q.rate_date.isoformat()
 
 
 def blocked_message(low: float, base: str = "EUR") -> str:
-    return (f"Blocked: this would take the cash balance to {money(low, base)}. "
-            "Balance cannot go negative.")
+    return _("Blocked: this would take the cash balance to {amount}. Balance cannot go negative.",
+             amount=money(low, base))
 
 
 def post_manual(type_: str, on, amount: float, currency: str | None = None, *,
@@ -278,7 +325,7 @@ def post_manual(type_: str, on, amount: float, currency: str | None = None, *,
     except (TypeError, ValueError):
         amount = 0.0
     if not (amount > 0) or math.isinf(amount):
-        raise CashError("Enter an amount greater than zero.")
+        raise CashError(_("Enter an amount greater than zero."))
     base = portfolio.base_currency()
     currency = (currency or base).upper()
     rate, src, fx_date = resolve_rate(currency, d, manual_rate)
@@ -307,18 +354,18 @@ def post_adjustment(on, target_balance: float, note: str = "") -> dict:
     try:
         target = float(target_balance)
     except (TypeError, ValueError):
-        raise CashError("Enter the corrected balance.")
+        raise CashError(_("Enter the corrected balance."))
     if math.isnan(target) or math.isinf(target):
-        raise CashError("Enter the corrected balance.")
+        raise CashError(_("Enter the corrected balance."))
     if target < 0:
-        raise CashError("Balance cannot go negative.")
+        raise CashError(_("Balance cannot go negative."))
     base = portfolio.base_currency()
     with _lock:
         entries = load_ledger()
         is_opening = not entries
         delta = round(target - balance_before(entries, d), 2)
         cand = _new_entry("Adjustment", d, None, base, 1.0, "base", None,
-                          note.strip() or ("Opening balance" if is_opening else "Manual balance correction"),
+                          note.strip() or (N_("Opening balance") if is_opening else N_("Manual balance correction")),
                           target_balance=round(target, 2), delta_at_entry=delta, opening=is_opening)
         entries.append(cand)
         save_ledger(entries)
@@ -360,10 +407,12 @@ def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: f
     base = portfolio.base_currency()
     amt = trade_amount(kind, gross, fee)
     price = gross / shares if shares else gross
-    verb = "Bought" if kind == "Buy" else "Sold"
-    note = f"{verb} {shares:g} {ticker} × {money(price, base)}"
+    parts = [(N_("Bought {shares} {ticker} × {price}") if kind == "Buy" else N_("Sold {shares} {ticker} × {price}"),
+              {"shares": ("num", float(shares), {"decimals": 4, "min_decimals": 0}), "ticker": ticker,
+               "price": ("money", float(price), {"currency": base})})]
     if fee:
-        note += f" · fee {money(float(fee), base)}"
+        parts.append((N_("· fee {amount}"), {"amount": ("money", float(fee), {"currency": base})}))
+    note, note_i18n = auto_note(parts)
     label = f"{trade_id} · {ticker}"
     with _lock:
         entries = load_ledger()
@@ -372,12 +421,13 @@ def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: f
         topup = round(max(0.0, -min_balance_after(entries, probe)), 2)
         posted: list[dict] = []
         if topup > 0:
-            posted.append(_new_entry("Deposit", d, topup, base, 1.0, "base", None,
-                                     f"Auto top-up to fund {label}",
+            _tnote, _tnote_i18n = auto_note([(N_("Auto top-up to fund {label}"), {"label": label})])
+            posted.append(_new_entry("Deposit", d, topup, base, 1.0, "base", None, _tnote,
                                      ref_kind="trade", ref_id=trade_id, ref_label=label,
-                                     auto=True, topup=True))
+                                     auto=True, topup=True, note_i18n=_tnote_i18n))
         posted.append(_new_entry(kind, d, amt, base, 1.0, "base", None, note,
-                                 ref_kind="trade", ref_id=trade_id, ref_label=label, auto=True))
+                                 ref_kind="trade", ref_id=trade_id, ref_label=label, auto=True,
+                                 note_i18n=note_i18n))
         entries.extend(posted)
         save_ledger(entries)
     logkit.data_mutation(actor=logkit.user_id(), action="cash.post_trade", entity_type="cash",
@@ -464,9 +514,9 @@ def update_manual(entry_id: str, on, amount: float | None = None, currency: str 
         entries = load_ledger()
         old = get_entry(entry_id, entries)
         if old is None:
-            raise CashError("This entry no longer exists.")
+            raise CashError(_("This entry no longer exists."))
         if not is_editable(old):
-            raise CashError("Automatic entries change with their trade or dividend.")
+            raise CashError(_("Automatic entries change with their trade or dividend."))
         t = old["type"]
         new = dict(old)
         new["date"] = d.isoformat()
@@ -474,23 +524,23 @@ def update_manual(entry_id: str, on, amount: float | None = None, currency: str 
             try:
                 target = float(target_balance)
             except (TypeError, ValueError):
-                raise CashError("Enter the corrected balance.")
+                raise CashError(_("Enter the corrected balance."))
             if math.isnan(target) or math.isinf(target):
-                raise CashError("Enter the corrected balance.")
+                raise CashError(_("Enter the corrected balance."))
             if target < 0:
                 raise CashError("Balance cannot go negative.")
             others = [e for e in entries if e.get("id") != entry_id]
             new["target_balance"] = round(target, 2)
             new["delta_at_entry"] = round(target - balance_before(others, d), 2)
-            new["note"] = note.strip() or ("Opening balance" if old.get("opening")
-                                           else "Manual balance correction")
+            new["note"] = note.strip() or (N_("Opening balance") if old.get("opening")
+                                           else N_("Manual balance correction"))
         else:
             try:
                 amount = float(amount)
             except (TypeError, ValueError):
                 amount = 0.0
             if not (amount > 0) or math.isinf(amount):
-                raise CashError("Enter an amount greater than zero.")
+                raise CashError(_("Enter an amount greater than zero."))
             currency = (currency or base).upper()
             same_basis = old.get("date") == d.isoformat() and (old.get("currency") or base) == currency
             if currency == base:
@@ -636,11 +686,13 @@ def reconcile_dividend_postings(div_df: "pd.DataFrame | None" = None) -> int:
                 continue
             ticker = str(row.get("ticker") or "")
             ccy = str(_clean(row.get("currency")) or portfolio.currency_for_ticker(ticker) or base).upper()
-            kind = "special" if str(row.get("div_type")) == "Special" else "cash"
+            kind = "Special" if str(row.get("div_type")) == "Special" else "Cash"
             name = str(_clean(row.get("name")) or ticker)
+            _note, _note_i18n = auto_note([(N_("{name} · {kind} dividend, net of tax"),
+                                            {"name": name, "kind": ("type_lower", kind, {})})])
             wanted[str(row["div_id"])] = {
                 "date": pay.date(), "amount": net, "currency": ccy,
-                "note": f"{name} · {kind} dividend, net of tax",
+                "note": _note, "note_i18n": _note_i18n,
                 "label": f"{row['div_id']} · {ticker}",
             }
 
@@ -667,8 +719,10 @@ def reconcile_dividend_postings(div_df: "pd.DataFrame | None" = None) -> int:
                 e = {**e, "date": w["date"].isoformat(), "currency": w["currency"],
                      "fx_rate": round(rate, 6), "fx_source": src, "fx_date": fx_date}
                 changes += 1
-            if e.get("amount") != w["amount"] or e.get("note") != w["note"] or e.get("ref_label") != w["label"]:
-                e = {**e, "amount": w["amount"], "note": w["note"], "ref_label": w["label"]}
+            if (e.get("amount") != w["amount"] or e.get("note") != w["note"] or e.get("ref_label") != w["label"]
+                    or e.get("note_i18n") != w["note_i18n"]):
+                e = {**e, "amount": w["amount"], "note": w["note"], "note_i18n": w["note_i18n"],
+                     "ref_label": w["label"]}
                 changes += 1
             e["amount_base"] = round(float(e["amount"]) * float(e.get("fx_rate") or 1.0), 2)
             out.append(e)
@@ -681,7 +735,7 @@ def reconcile_dividend_postings(div_df: "pd.DataFrame | None" = None) -> int:
                 continue
             out.append(_new_entry("Dividend", w["date"], w["amount"], w["currency"], rate, src, fx_date,
                                   w["note"], ref_kind="dividend", ref_id=div_id,
-                                  ref_label=w["label"], auto=True))
+                                  ref_label=w["label"], auto=True, note_i18n=w["note_i18n"]))
             changes += 1
         if changes:
             save_ledger(out)
@@ -726,6 +780,23 @@ def summary(entries: list[dict], invested_value: float) -> dict:
 def filter_rows(rows: list[dict], group: str) -> list[dict]:
     types = FILTER_GROUPS.get(group)
     return rows if not types else [r for r in rows if r["type"] in types]
+
+
+def export_frame(entries: list[dict] | None = None) -> pd.DataFrame:
+    """The export_csv() rows as typed columns (dates as datetimes, amounts as
+    floats) for the region-formatted spreadsheet export (i18n spec F-11)."""
+    entries = load_ledger() if entries is None else entries
+    base = portfolio.base_currency().lower()
+    rows = []
+    for r in replay(entries):
+        amt = None if r["type"] == "Adjustment" or r.get("amount") is None else round(float(r["amount"]), 2)
+        rows.append({"date": pd.to_datetime(r["date"], errors="coerce"), "type": r["type"], "amount": amt,
+                     "currency": r.get("currency") or "", "fx_rate": float(r.get("fx_rate") or 1.0),
+                     f"amount_{base}": round(float(r["base"]), 2), "note": r.get("note") or "",
+                     "reference": r.get("ref_label") or "",
+                     f"running_balance_{base}": round(float(r["bal"]), 2), "fx_source": r.get("fx_source") or ""})
+    return pd.DataFrame(rows, columns=["date", "type", "amount", "currency", "fx_rate", f"amount_{base}",
+                                       "note", "reference", f"running_balance_{base}", "fx_source"])
 
 
 def export_csv(entries: list[dict] | None = None) -> bytes:
