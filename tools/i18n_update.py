@@ -33,6 +33,7 @@ POT = LOCALES / "messages.pot"
 
 KEYWORDS = {
     "_": None,
+    "h_": None,
     "N_": None,
     "ngettext": (1, 2),
     "pgettext": ((1, "c"), 2),

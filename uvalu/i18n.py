@@ -25,6 +25,7 @@ from __future__ import annotations
 import copy
 import datetime as _dt
 import gettext as _gettext
+import html as _html
 import io
 import json
 import math
@@ -553,6 +554,24 @@ def _(msgid: str, **kw) -> str:
     return _format(s or msgid, msgid, _render_kw(kw))
 
 
+def h_(msgid: str, **kw) -> str:
+    """_() for HTML strings: escapes the translated text (so '&' or '<' in a
+    translation can't break markup) but not the placeholder values, which
+    callers may pass as ready-made markup such as a <span>."""
+    lang = current().lang
+    s = _lookup(msgid, lang) if lang != "en" or _catalog("en").messages else None
+    text = s or msgid
+    if _pseudo_enabled():
+        text = _pseudo(text)
+    text = _html.escape(text, quote=False)
+    if not kw:
+        return text
+    try:
+        return text.format(**_render_kw(kw))
+    except (KeyError, IndexError, ValueError):
+        return _html.escape(msgid, quote=False).format(**_render_kw(kw))
+
+
 def pgettext(context: str, msgid: str, **kw) -> str:
     """Translate ``msgid`` in a message context ("button", "style",
     "date_format") — for one English word that needs two translations."""
@@ -1047,3 +1066,63 @@ def inject_lang_attr() -> None:
 }})();
 </script>
 """, height=1)
+
+
+# ── Display currency (spec F-03, F-04) ───────────────────────────────────────
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _display_rate(ccy: str, on_iso: str):
+    """(EUR per 1 ccy, fixing date) from fx.py's ECB source, or None."""
+    import fx
+    try:
+        q = fx.get_rate(ccy, base="EUR", on=_dt.date.fromisoformat(on_iso))
+    except Exception:
+        return None
+    return (q.rate, q.rate_date.isoformat()) if q.rate else None
+
+
+def display_rate() -> tuple[float, str] | None:
+    """EUR→display-currency quote for today, None when the display currency
+    is EUR or no rate is available (totals then stay in EUR)."""
+    ccy = current().currency
+    if ccy == "EUR":
+        return None
+    return _display_rate(ccy, _dt.date.today().isoformat())
+
+
+def to_display(value_eur):
+    """(value, currency, converted) for a EUR portfolio total."""
+    q = display_rate()
+    if q is None or _is_missing(value_eur):
+        return value_eur, "EUR", False
+    return value_eur / q[0], current().currency, True
+
+
+def fmt_total(value_eur, decimals: int = 0, *, signed: bool = False) -> str:
+    """A portfolio total/aggregate (computed in EUR) in the display currency,
+    '≈'-marked when converted (F-03, F-04)."""
+    v, ccy, converted = to_display(value_eur)
+    return fmt_money(v, ccy, decimals, signed=signed, approx=converted)
+
+
+def conversion_note() -> str | None:
+    """'Converted at 0.9312 on 26/09/2026' for the ≈ amounts, if any."""
+    q = display_rate()
+    if q is None:
+        return None
+    rate, day = q
+    return _("Converted at {rate} on {date}",
+             rate=f"1 {current().currency} = {fmt_num(rate, 4)} EUR", date=fmt_date(day))
+
+
+def plotly_money_axis(currency: str | None = None, decimals: int = 0) -> dict:
+    """Plotly axis settings putting the currency symbol where the region puts
+    it ('€1,234' vs '1.234 €'); combine with localize_fig() separators."""
+    loc = current().locale
+    ccy = currency or current().currency
+    sym = _bnum.get_currency_symbol(ccy, locale=loc)
+    pat = loc.currency_formats["standard"].pattern.split(";")[0]
+    fmt = f",.{decimals}f"
+    if pat.strip().startswith("¤"):
+        return {"tickprefix": sym + (" " if "¤ " in pat else ""), "ticksuffix": "", "tickformat": fmt}
+    return {"tickprefix": "", "ticksuffix": (" " if " ¤" in pat else "") + sym, "tickformat": fmt}

@@ -11,8 +11,9 @@ borrows its visual chrome:
   each one compares its new widget value against the persisted one and only
   writes + reruns when it actually changed, so dragging a slider without
   releasing on a new value doesn't spam disk writes.
-- Display currency/Number format stay disabled single-option controls (app
-  is EUR-only, one decimal format) instead of the mockup's 4/2 demo options.
+- Display currency and number format live in the Language & region card
+  (uvalu/locale_ui.py, docs/i18n-spec.md §7) instead of the mockup's two
+  demo segmented controls under Display.
 - Screening sliders keep the app's real ranges/units (e.g. Max debt/equity
   is 50-1000%) instead of the mockup's demo 1-3× scale.
 - The mockup's "Alerts & data" card (4 generic notification toggles + Price
@@ -47,7 +48,7 @@ from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
-from uvalu import nav as nav_registry, oauth
+from uvalu import locale_ui, nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
 from uvalu.shell import _display_name, _initials, _password_strength, set_theme_script
@@ -390,6 +391,12 @@ def render() -> None:
                    unsafe_allow_html=True)
         st.caption("Display preferences and screening thresholds. Changes apply immediately.")
 
+        # ── Language & region (docs/i18n-spec.md §7) ────────────────────────────────
+        # First card, so the language picker is two clicks away from any page
+        # (avatar → Settings) for someone who picked a language they can't read
+        # (S-06).
+        locale_ui.render_card(_email)
+
         # ── Security ─────────────────────────────────────────────────────────────────
         _has_pw = has_password(_email)
         with st.container(key="set_card_security", border=True):
@@ -557,11 +564,6 @@ def render() -> None:
             if _theme_sel and _theme_sel != _cur_theme:
                 set_theme_script(_theme_sel)
 
-            _seg_row("currency", "set_currency_seg", "Display currency",
-                     "Reporting currency for values and P&amp;L.", ["EUR"], "EUR", disabled=True)
-
-            _seg_row("numfmt", "set_numfmt_seg", "Number format",
-                     "Decimal and thousands separators.", ["1,234.56"], "1,234.56", disabled=True)
 
         # ── Screening & veto rules ───────────────────────────────────────────────────
         # Admin-only: these are shared, all-user settings (settings.py's own
