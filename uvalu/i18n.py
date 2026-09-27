@@ -633,7 +633,8 @@ class Fmt:
 
     def render(self) -> str:
         fn = {"num": fmt_num, "pct": fmt_pct, "money": fmt_money,
-              "compact": fmt_compact, "date": fmt_date}[self.kind]
+              "compact": fmt_compact, "date": fmt_date,
+              "tr": lambda v, **_o: tr(v)}[self.kind]
         return fn(self.value, **self.opts)
 
     def __reduce__(self):

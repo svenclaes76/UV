@@ -2951,7 +2951,8 @@ class TestStage8Drift:
         profiles, conc, quant, income, stress = self._inputs(hhi=0.18)
         r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
                               prior_snapshot={"hhi": 0.10, "date": "2026-01-01"})
-        assert any("drifted +0.080 since 2026-01-01" in i.message and i.mode == "drift"
+        # The prior date renders in the user's date format (en-GB short by default).
+        assert any("drifted +0.080 since 01/01/2026" in i.message and i.mode == "drift"
                    for i in r.items)
 
     def test_sharpe_two_consecutive_reviews(self):

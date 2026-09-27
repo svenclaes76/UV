@@ -1,5 +1,6 @@
-"""Language & region UI — the Settings card, the sign-in language switcher
-and a region-aware number input (docs/i18n-spec.md §7, T-04).
+"""Language & region UI — the Settings card, the sign-in language switcher,
+CSV export menus and a region-aware number field (docs/i18n-spec.md §7,
+F-10, F-11, T-04).
 
 Every control applies instantly (S-02): it saves the profile key, which
 settings.save_settings() audit-logs with old and new values (S-07), and the
