@@ -1,6 +1,6 @@
 # Uvalu translations (draft for review)
 
-This folder has 955 user-facing texts from the Uvalu code, translated into Dutch, French, German, Italian and Spanish. There is also an English file for reviewing the English wording. The form of address is informal throughout (je / tu / du / tu / tú), as the spec requires.
+This folder has 981 user-facing texts from the Uvalu code, translated into Dutch, French, German, Italian and Spanish. There is also an English file for reviewing the English wording. The form of address is informal throughout (je / tu / du / tu / tú), as the spec requires.
 
 Every entry is marked **unreviewed** (fuzzy) until you approve it. Anything you haven't approved shows in English, so nothing unreviewed ever reaches users.
 
@@ -54,17 +54,20 @@ In Poedit, the context panel (or in the file itself) shows three things for ever
 - **Signal badges** BUY / MONITOR / AVOID / VETO / Strong Buy (spec L-03), tickers, company names, exchange names such as "Euronext Brussels", provider names, browser and OS names.
 - **CSS, JavaScript, file names and internal keys.**
 
-## Things to know before wiring this into the code
+## How the code uses these files
 
-The code doesn't call a translation function yet, so each English text here is a proposal for the string the code will pass to `_()`. A few were adjusted to make translation possible:
+The code now wraps every user-facing text: `_()` for plain text, `ngettext()` for plurals, `pgettext()` for the entries with a message context, and `N_()` for texts defined once and translated where they're shown (sector names, dividend frequency, "At Risk", risk labels). Everything goes through `uvalu/i18n.py`; see `docs/i18n-spec.md` §9.
 
-- **Sentences built from pieces were merged**, e.g. the watchlist's "Ticker **{ticker}** not found…" and the invite text "Invited by {inviter} as {role}…". The context note says *merge into one string* where this applies.
-- **Hand-made plurals became real plurals**, e.g. `code{s}` → "{count} unused code remaining." / "{count} unused codes remaining." Use `ngettext()` for these.
-- **Placeholders got readable names**, e.g. `{amount}`, `{ticker}`, `{date}`, so translators know what goes there.
-- **HTML entities were normalised**: `&amp;` is written as `&`. Escape after translating.
-- **Values from market data** (sector names, dividend frequency, "At Risk") need translating at display time, not where they are stored.
-- **Two sentences insert other translated words**: the value thesis (`{best}` / `{worst}` are sub-score names) and the risk-rating change (`{previous}` → `{rating}`). Pass the translated, lowercase names.
+- **Only reviewed entries are used.** The app reads the compiled `.mo` files, which leave out anything still marked *Needs work*, so an unreviewed draft shows in English (and `locales/en` corrections, once approved, replace the English source text).
+- **Previewing drafts:** start the app with `UVALU_I18N_DRAFTS=1` to see the unreviewed translations, e.g. for a screenshot pass in German. `UVALU_I18N_PSEUDO=1` shows every text as longer pseudo-text, to spot hard-coded English and clipped labels. Both are ignored when `UVALU_ENV=production`.
+- **Try a language without changing your settings:** add `?lang=de` to the URL (session only, never saved).
+- **Texts the spec plans but the app doesn't show yet** (legal links, disclaimers, the first-run tour) are kept in `uvalu/i18n_planned.py`, so they stay here for review.
 
-## Coverage
+## After changing texts in the code
 
-The texts were found by scanning the code automatically and then checked by hand. Once the code uses `_()` and `ngettext()`, run `pybabel extract` and `pybabel update`. That is the definitive list: it merges any text the scan missed and marks proposals that don't match the final code.
+1. `python tools/i18n_update.py` — extracts the texts from the code into `messages.pot` and merges them into every `.po` file. It keeps every translation, every *Needs work* flag and the Context notes, marks changed texts as needing work (with the old translation as a starting point) and lists what's new or gone. `--check` only reports (CI uses it).
+2. Draft the new entries (fuzzy), then review them in Poedit.
+3. `python tools/i18n_compile.py` — checks placeholders and markup and builds the `.mo` files. Release CI adds `--strict`.
+4. `python tools/i18n_review_csv.py` — rebuilds `review.csv`.
+
+The first run after wiring (Sep 2026) added 42 entries — texts the scan had missed and texts whose wording differs from the proposal (e.g. **Add trade** instead of *Add closed trade*, the new cash-dialog notes) — and moved 16 proposals that no longer match the code to the obsolete section at the end of each file (`#~`). The Excel backup keeps English sheet names: exports beyond number formatting are out of scope in v1 (spec §1).

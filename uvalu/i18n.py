@@ -217,8 +217,9 @@ def _default_ctx() -> Ctx:
 def current() -> Ctx:
     """The context activate() resolved for this run, or the config defaults
     (en / en-GB while a Msg renders its stored English text)."""
-    if _english.active():
-        return _english_ctx()
+    pinned = _using.pinned()
+    if pinned is not None:
+        return pinned
     if not _in_script_run():
         return _default_ctx()
     try:
@@ -666,7 +667,7 @@ class Msg(str):
     __slots__ = ("msgid", "plural", "n", "context", "kw")
 
     def __new__(cls, msgid: str, *, plural: str | None = None, n=None, context: str | None = None, **kw):
-        with _english():
+        with _using(None):
             english = cls._render(msgid, plural, n, context, kw)
         obj = super().__new__(cls, english)
         obj.msgid, obj.plural, obj.n, obj.context, obj.kw = msgid, plural, n, context, kw
@@ -693,7 +694,7 @@ def _rebuild_msg(msgid, plural, n, context, kw):
 
 def english():
     """Context manager: _() and fmt_* render en / en-GB inside it."""
-    return _english()
+    return _using(None)
 
 
 def lazy_(msgid: str, **kw) -> Msg:
@@ -709,20 +710,46 @@ def lazy_pgettext(context: str, msgid: str, **kw) -> Msg:
     return Msg(msgid, context=context, **kw)
 
 
-class _english:
-    """Temporarily render in en / en-GB (Msg's stored English text, and
-    text stored in data files such as cash-ledger notes)."""
+class _using:
+    """Pin the language/region for the calling thread (a stack, so nested
+    uses restore correctly). english() pins en / en-GB for Msg's stored
+    English text and for text written to data files (ledger notes)."""
     _local = threading.local()
 
+    def __init__(self, ctx: "Ctx | None" = None):
+        self.ctx = ctx
+
     def __enter__(self):
-        self._local.depth = getattr(self._local, "depth", 0) + 1
+        stack = getattr(self._local, "stack", None)
+        if stack is None:
+            stack = self._local.stack = []
+        stack.append(self.ctx or _english_ctx())
+        return self
 
     def __exit__(self, *exc):
-        self._local.depth -= 1
+        self._local.stack.pop()
 
     @classmethod
-    def active(cls) -> bool:
-        return getattr(cls._local, "depth", 0) > 0
+    def pinned(cls) -> "Ctx | None":
+        stack = getattr(cls._local, "stack", None)
+        return stack[-1] if stack else None
+
+
+def using(ctx: Ctx):
+    """Context manager: render in ``ctx``'s language and region."""
+    return _using(ctx)
+
+
+def frozen(fn):
+    """``fn`` bound to the language/region active now — for widget
+    format_funcs, which Streamlit (and AppTest) may call outside the script
+    run that created the widget."""
+    ctx = current()
+
+    def call(*args, **kwargs):
+        with _using(ctx):
+            return fn(*args, **kwargs)
+    return call
 
 
 @lru_cache(maxsize=1)
@@ -1028,7 +1055,8 @@ def localize_fig(fig, *, date_axis: str | None = "x"):
     if date_axis:
         full = d3_date_format()
         stops = [dict(dtickrange=[None, "M1"], value=full),
-                 dict(dtickrange=["M1", "M12"], value=d3_month_format()),
+                 # inclusive ranges: stop at M11 so yearly ticks (M12) show just the year
+                 dict(dtickrange=["M1", "M11"], value=d3_month_format()),
                  dict(dtickrange=["M12", None], value="%Y")]
         fig.update_layout(**{f"{date_axis}axis": {"tickformatstops": stops, "hoverformat": full}})
     return fig

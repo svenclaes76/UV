@@ -19,7 +19,7 @@ from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
-from uvalu.i18n import N_, _, fmt_num, h_, ngettext, pgettext, tr
+from uvalu.i18n import N_, _, fmt_num, frozen, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import export_menu
 
 _PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
@@ -136,7 +136,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
             with st.container(key="pf_cash_filter_row", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
                 group = st.pills(_("Filter"), options=list(cash.FILTER_GROUPS.keys()), default="All",
-                                 format_func=tr, selection_mode="single", key="cash_filter",
+                                 format_func=frozen(tr), selection_mode="single", key="cash_filter",
                                  label_visibility="collapsed") or "All"
                 rows = cash.filter_rows(rows_all, group)
                 st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'

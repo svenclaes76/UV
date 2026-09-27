@@ -124,7 +124,7 @@ def _render_skeleton() -> None:
             _rh_labels = tuple(h_(label) for label in _RH_LABELS)
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
-                f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
+                f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
             st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
@@ -393,7 +393,7 @@ def render() -> None:
             _rh_labels = tuple(h_(label) for label in _RH_LABELS)
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
-                f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
+                f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
             st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)

@@ -14,7 +14,7 @@ from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.i18n import (N_, _, conversion_note, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
+from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
@@ -221,7 +221,7 @@ def render() -> None:
             _title_col, _range_col = st.columns([2, 2], vertical_alignment="top")
             with _range_col, st.container(horizontal_alignment="right"):
                 _range_sel = st.segmented_control(_("Range"), options=list(_RANGES.keys()), default="All",
-                                                  format_func=lambda k: _("All") if k == "All" else k,
+                                                  format_func=frozen(lambda k: _("All") if k == "All" else k),
                                                   key="db_range", label_visibility="collapsed")
             _days = _RANGES.get(_range_sel or "All")
             _vh_view = _db_vh
@@ -457,7 +457,7 @@ def render() -> None:
                 _hh_labels = (h_("Position"), h_("Signal"), h_("Fair-value ladder"), h_("MoS %"), h_("Weight"),
                               h_("Value"), h_("P&L"))
                 _hh_cells = "".join(
-                    f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
+                    f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)

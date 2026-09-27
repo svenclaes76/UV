@@ -47,8 +47,10 @@ def _on_change(email: str, key: str) -> None:
 
 
 def _sync_widgets(ctx: i18n.Ctx, profile: dict) -> None:
-    """Seed each widget from the resolved context the first time (and after
-    a reset), so a detected default shows as the current choice."""
+    """Seed each widget from the resolved context. A setting the user hasn't
+    chosen (profile value None) is re-seeded every run, so a derived default
+    — the display currency or week start following the region — updates
+    when what it follows changes; a chosen one is seeded once."""
     seeds = {
         "language": ctx.lang,
         "region": profile.get("region") or ctx.region,
@@ -58,7 +60,7 @@ def _sync_widgets(ctx: i18n.Ctx, profile: dict) -> None:
         "week_start": ctx.week_start,
     }
     for key, wkey in _KEYS.items():
-        if wkey not in st.session_state:
+        if wkey not in st.session_state or profile.get(key) is None:
             st.session_state[wkey] = seeds[key]
 
 
@@ -133,9 +135,9 @@ def render_card(email: str) -> None:
                 same = i18n.REGION_SAME_AS_LANGUAGE
                 st.selectbox(
                     _("Region format"), options=[same, *regions],
-                    format_func=lambda r: (f"{_('Same as language')} — "
-                                           f"{i18n.region_name(cfg.default_region_for(ctx.lang))}"
-                                           if r == same else i18n.region_name(r)),
+                    format_func=i18n.frozen(lambda r: (f"{_('Same as language')} — "
+                                                       f"{i18n.region_name(cfg.default_region_for(ctx.lang))}"
+                                                       if r == same else i18n.region_name(r))),
                     key=_KEYS["region"], label_visibility="collapsed",
                     on_change=_on_change, args=(email, "region"))
 
@@ -151,7 +153,7 @@ def render_card(email: str) -> None:
                 names = {"short": pgettext("date_format", "Short"),
                          "medium": pgettext("date_format", "Medium"), "iso": "ISO"}
                 st.radio(_("Date format"), options=list(i18n.DATE_FORMATS),
-                         format_func=lambda f: f"{names[f]} ({fmt_date(_SAMPLE_DATE, f)})",
+                         format_func=i18n.frozen(lambda f: f"{names[f]} ({fmt_date(_SAMPLE_DATE, f)})"),
                          key=_KEYS["date_format"], label_visibility="collapsed",
                          on_change=_on_change, args=(email, "date_format"))
 
@@ -168,7 +170,7 @@ def render_card(email: str) -> None:
                 days = ctx.locale.days["format"]["wide"]
                 day_names = {"monday": days[0], "sunday": days[6]}
                 st.radio(_("First day of week"), options=list(i18n.WEEK_STARTS),
-                         format_func=lambda d: day_names[d][:1].upper() + day_names[d][1:],
+                         format_func=i18n.frozen(lambda d: day_names[d][:1].upper() + day_names[d][1:]),
                          key=_KEYS["week_start"], label_visibility="collapsed", horizontal=True,
                          on_change=_on_change, args=(email, "week_start"))
 

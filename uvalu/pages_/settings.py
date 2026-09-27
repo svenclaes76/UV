@@ -50,7 +50,7 @@ from settings import (load_shared_settings, save_shared_settings, load_settings,
                       _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
 from uvalu.dialogs import _dialog
-from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
+from uvalu.i18n import N_, _, fmt_date, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
@@ -573,7 +573,7 @@ def render() -> None:
             _cur_theme = "Light" if _light else "Dark"
             _theme_sel = _seg_row("theme", "set_theme_seg", h_("Theme"),
                                   h_("Deep-navy dark or surface-white light."), [N_("Dark"), N_("Light")], _cur_theme,
-                                  format_func=_)
+                                  format_func=frozen(_))
             if _theme_sel and _theme_sel != _cur_theme:
                 set_theme_script(_theme_sel)
 
@@ -625,7 +625,7 @@ def render() -> None:
                 "screen_style", "scr_style", h_("Screening style"),
                 h_("Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."),
                 _style_opts, _cur_style.capitalize(), disabled=not _is_admin, ratio=(2, 2),
-                format_func=_style_label)
+                format_func=frozen(_style_label))
 
             _stoxx = _toggle_row("stoxx", "scr_stoxx", h_("Benchmark — Euro Stoxx 50"),
                                  h_("Overlay on the portfolio value chart."),
@@ -731,7 +731,7 @@ def render() -> None:
                 "refresh", "disp_refresh_interval", h_("Price refresh interval"),
                 h_("How often quotes update during market hours."),
                 _refresh_opts, _cur_refresh if _cur_refresh in _refresh_opts else 60, ratio=(2, 2),
-                format_func=_refresh_fmt) or _cur_refresh
+                format_func=frozen(_refresh_fmt)) or _cur_refresh
 
             if int(_new_refresh) != _cur_refresh:
                 _s["refresh_interval_s"] = int(_new_refresh)

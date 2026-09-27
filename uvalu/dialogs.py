@@ -30,7 +30,7 @@ import streamlit as st
 import yfinance as yf
 
 from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
-from uvalu.i18n import N_, _, date_input_format, fmt_int, fmt_money, fmt_num, fmt_pct, ngettext, tr
+from uvalu.i18n import N_, _, date_input_format, frozen, fmt_int, fmt_money, fmt_num, fmt_pct, ngettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.ui import enter_dialog
 
@@ -603,7 +603,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         tax_rate = _nz(number_field(_("Foreign WH (%)"), min_value=0.0, max_value=100.0,
                                     step=0.5, value=_default_tax, key="dlg_dv_tax"), 0.0)
 
-    div_type = st.selectbox(_("Type"), options=DIV_TYPE_OPTIONS, format_func=tr, key="dlg_dv_type")
+    div_type = st.selectbox(_("Type"), options=DIV_TYPE_OPTIONS, format_func=frozen(tr), key="dlg_dv_type")
 
     if div_type == "Special":
         st.caption(_("Flagged as special / one-off. Excluded from growth-streak and yield calculations."))
@@ -696,7 +696,7 @@ def edit_dividend_dialog(div_id: str) -> None:
                                      value=float(_num_or(row.get("tax_rate"), 0.0)), key="dlg_ed_tax"), 0.0)
 
     _type0 = row.get("div_type") if isinstance(row.get("div_type"), str) else "Cash"
-    _type = st.selectbox(_("Type"), options=DIV_TYPE_OPTIONS, format_func=tr,
+    _type = st.selectbox(_("Type"), options=DIV_TYPE_OPTIONS, format_func=frozen(tr),
                          index=DIV_TYPE_OPTIONS.index(_type0) if _type0 in DIV_TYPE_OPTIONS else 0,
                          key="dlg_ed_type")
 
@@ -764,7 +764,7 @@ def _trade_fields(key: str, *, date0, sector0: str | None, shares0: int, buy0: f
     with _c1:
         d = st.date_input(_("Sell date *"), value=date0, max_value=max_date, format=date_input_format(), key=f"{key}_date")
     with _c2:
-        sector = st.selectbox(_("Sector"), options=SECTOR_OPTIONS, placeholder="—", format_func=tr,
+        sector = st.selectbox(_("Sector"), options=SECTOR_OPTIONS, placeholder="—", format_func=frozen(tr),
                               index=SECTOR_OPTIONS.index(sector0) if sector0 in SECTOR_OPTIONS else None,
                               key=f"{key}_sector")
     _c3, _c4, _c5 = st.columns(3)
@@ -1022,7 +1022,7 @@ def _cash_form(entry: dict | None, preset_type: str = "Deposit", *, readonly: bo
             st.selectbox(_("Type"), options=[_label], key="dlg_cash_type", disabled=True)
         else:
             _type = st.selectbox(_("Type *"), options=CASH_TX_TYPES, index=CASH_TX_TYPES.index(_type),
-                                 format_func=tr, key="dlg_cash_type")
+                                 format_func=frozen(tr), key="dlg_cash_type")
             is_adj = _type == "Adjustment"
     with _i2:
         _opts = fx.supported_currencies()

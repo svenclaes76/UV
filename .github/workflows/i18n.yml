@@ -1,0 +1,33 @@
+# Translation checks (docs/i18n-spec.md T-06, W-04).
+# Every push and PR: placeholders/markup valid, .mo files compile, the code and
+# locales/messages.pot agree, and the i18n tests pass. Release tags (v*) also
+# run the strict gate, which fails while any translation is still unreviewed
+# (fuzzy) — nothing unreviewed ships.
+name: i18n
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  catalogs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+      - name: Placeholders, markup and .mo compile
+        run: python tools/i18n_compile.py
+      - name: Code and messages.pot in sync
+        run: python tools/i18n_update.py --check
+      - name: i18n tests
+        run: python -m pytest -q tests/test_i18n.py tests/test_i18n_ui.py tests/test_i18n_guards.py
+      - name: Release gate — every translation reviewed
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python tools/i18n_compile.py --strict

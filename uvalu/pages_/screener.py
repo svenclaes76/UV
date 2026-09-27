@@ -16,7 +16,7 @@ from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
 from uvalu.drawer import open_drawer
 from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows)
-from uvalu.i18n import N_, _, fmt_pct, h_, search_match, sort_key, tr
+from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -228,11 +228,11 @@ def render() -> None:
                                    default=["BUY"], key="scr_signal", label_visibility="collapsed")
             with st.container(key="scr_select_sector"):
                 _filter_label(h_("Sector"))
-                _sector_sel = st.selectbox(_("Sector"), options=[_ALL_SECTORS] + _sector_vals, format_func=tr,
+                _sector_sel = st.selectbox(_("Sector"), options=[_ALL_SECTORS] + _sector_vals, format_func=frozen(tr),
                                            key="scr_sector", label_visibility="collapsed")
             with st.container(key="scr_select_market"):
                 _filter_label(h_("Market"))
-                _market_sel = st.selectbox(_("Market"), options=[_ALL_MARKETS] + _market_vals, format_func=tr,
+                _market_sel = st.selectbox(_("Market"), options=[_ALL_MARKETS] + _market_vals, format_func=frozen(tr),
                                            key="scr_market", label_visibility="collapsed")
             with st.container(key="scr_score_slider"):
                 # Read the pre-widget session_state value so the inline mono

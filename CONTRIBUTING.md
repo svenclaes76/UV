@@ -71,6 +71,17 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
 ---
 
+## Translations (i18n)
+
+All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator notes: `locales/README.md`):
+
+- Wrap user-facing text: `_("…")`, `ngettext(singular, plural, n)`, `pgettext(context, "…")`; use `h_("…")` inside HTML strings (escapes the translation, not the placeholder values). Pass values as named placeholders, already formatted: `_("Last changed {date}.", date=fmt_date(d))` — never build sentences from pieces.
+- Format numbers, money, percentages and dates with `fmt_num` / `fmt_money` / `fmt_total` / `fmt_pct` / `fmt_date` (region format, never the language). Parse typed numbers with `parse_num`, or use `locale_ui.number_field()`.
+- Values that are data (sector names, statuses, labels used as keys) stay English; mark them with `N_()` and show them with `tr()`. Text built outside a request (background jobs, caches) uses `lazy_()`.
+- Widget options that are translated must keep stable values (`format_func=frozen(tr)`), so filters survive a language switch.
+- Never use `_` as a throwaway variable in a function that calls `_()` (`tests/test_i18n_guards.py` checks this).
+- After changing UI text run `python tools/i18n_update.py` and draft the new entries (fuzzy); CI runs `tools/i18n_compile.py` and `tools/i18n_update.py --check`, and release tags run `tools/i18n_compile.py --strict`.
+
 ## Branching and PRs
 
 - Branch from `master`: `git checkout -b feature/<short-description>`
