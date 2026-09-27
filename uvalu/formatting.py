@@ -1,10 +1,10 @@
 """Pure value formatters shared across pages."""
-import pandas as pd
+from uvalu.i18n import fmt_money
 
 
 def fmt_eur(v) -> str:
-    """Format a value as a Euro price, or '—' if missing."""
-    return f"€{v:.2f}" if pd.notna(v) else "—"
+    """Format a value as a Euro price in the region format, or '—' if missing."""
+    return fmt_money(v, "EUR")
 
 
 def safe_pct(numerator: float, denominator: float) -> float:

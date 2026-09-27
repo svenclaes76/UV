@@ -14,6 +14,8 @@ from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_mos)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
+from uvalu.i18n import (N_, _, conversion_note, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
+                        localize_fig, ngettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
@@ -37,20 +39,19 @@ def render() -> None:
     _c_axis, _c_grid, _c_invested = _C.axis, _C.grid, _C.invested
 
     if not portfolio_exists():
-        _, _es_col, _ = st.columns([1, 1.1, 1])
+        _es_col = st.columns([1, 1.1, 1])[1]
         with _es_col:
             st.container(height=48, border=False)
-            st.subheader("No portfolio yet")
-            st.caption("Browse the screener to identify stocks worth buying, "
-                       "or import an existing Excel portfolio in Settings.")
+            st.subheader(_("No portfolio yet"))
+            st.caption(_("Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings."))
             with st.container(horizontal=True, gap="small"):
-                st.page_link(_pg_screener, label="Open screener")
-                st.page_link(_pg_settings, label="Import portfolio")
+                st.page_link(_pg_screener, label=_("Open screener"))
+                st.page_link(_pg_settings, label=_("Import portfolio"))
         st.stop()
 
     _db_pf = load_portfolio()
     if _db_pf is None or _db_pf.empty:
-        st.info("Your portfolio is empty.")
+        st.info(_("Your portfolio is empty."))
         st.stop()
 
     # Refresh live prices on the shared portfolio cadence (see uvalu/ui.py) —
@@ -150,13 +151,14 @@ def render() -> None:
     _n_exch = len({t.split(".")[-1] for t in _db_tickers if "." in t})
     with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
         with st.container(width="content"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Portfolio overview</div>',
+            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio overview")}</div>',
                        unsafe_allow_html=True)
-            st.caption(f"{len(_db_pf)} positions across {_n_exch} European "
-                      f"{'exchange' if _n_exch == 1 else 'exchanges'} · "
-                      "valued against a six-model fair-value estimate.")
+            st.caption(ngettext(
+                "{positions} across {count} European exchange · valued against a six-model fair-value estimate.",
+                "{positions} across {count} European exchanges · valued against a six-model fair-value estimate.",
+                _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))))
         with st.container(key="db_refresh_btn", width="content"):
-            if st.button("Refresh", key="db_refresh", icon=":material/refresh:", type="tertiary"):
+            if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
                 st.cache_data.clear()
                 st.rerun()
 
@@ -176,30 +178,32 @@ def render() -> None:
     with st.container(key="db_kpi_row"):
         _k1, _kc, _k2, _k3, _k4 = st.columns(5)
         with _k1:
-            _kpi_card("Current value", f"€{_db_current + _db_cash['balance']:,.0f}",
-                     f"{_db_gain_pct:+.1f}%", _db_gain >= 0,
-                     (f"incl. €{_db_cash['balance']:,.0f} cash" if _db_cash["count"]
-                      else f"€{_db_gain:+,.0f} unrealised"), icon="wallet")
+            _kpi_card(h_("Current value"), fmt_total(_db_current + _db_cash['balance']),
+                     fmt_pct(_db_gain_pct, signed=True), _db_gain >= 0,
+                     (h_("incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
+                      else h_("{amount} unrealised", amount=fmt_total(_db_gain, signed=True))), icon="wallet")
         with _kc:
-            _kpi_card("Cash", f"€{_db_cash['balance']:,.0f}", f"{_db_cash['cash_pct']:.1f}%", True,
-                     "of total value · not in risk", icon="cash", delta_style=_db_cash["chip_style"])
+            _kpi_card(h_("Cash"), fmt_total(_db_cash['balance']), fmt_pct(_db_cash['cash_pct']), True,
+                     h_("of total value · not in risk"), icon="cash", delta_style=_db_cash["chip_style"])
         with _k2:
-            _kpi_card("Total return", f"€{_db_total_ret:,.0f}",
-                     f"{_db_ret_pct:+.1f}%", _db_total_ret >= 0, "incl. dividends", icon="trend")
+            _kpi_card(h_("Total return"), fmt_total(_db_total_ret),
+                     fmt_pct(_db_ret_pct, signed=True), _db_total_ret >= 0, h_("incl. dividends"), icon="trend")
         with _k3:
             if _db_fwd_income is not None:
                 _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
-                _kpi_card("Fwd income / yr", f"€{_db_fwd_income:,.0f}",
-                         f"{_db_blended_yield:.1f}%", True, "blended yield", icon="coin")
+                _kpi_card(h_("Fwd income / yr"), fmt_total(_db_fwd_income),
+                         fmt_pct(_db_blended_yield), True, h_("blended yield"), icon="coin")
             else:
-                _kpi_card("Dividends received", f"€{_db_divs:,.0f}", "", True, "", icon="coin")
+                _kpi_card(h_("Dividends received"), fmt_total(_db_divs), "", True, "", icon="coin")
         with _k4:
             if _db_avg_mos is None and _db_fetch_running:
                 st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
             else:
-                _kpi_card("Avg margin of safety",
-                         f"{_db_avg_mos:+.1f}%" if _db_avg_mos is not None else "—",
-                         "", (_db_avg_mos or 0) >= 0, "vs six-model fair value", icon="target")
+                _kpi_card(h_("Avg margin of safety"), fmt_pct(_db_avg_mos, signed=True),
+                         "", (_db_avg_mos or 0) >= 0, h_("vs six-model fair value"), icon="target")
+    _conv_note = conversion_note()
+    if _conv_note:
+        st.caption(_conv_note)
 
     st.container(height=4, border=False, key="db_gap_1")
 
@@ -216,7 +220,8 @@ def render() -> None:
 
             _title_col, _range_col = st.columns([2, 2], vertical_alignment="top")
             with _range_col, st.container(horizontal_alignment="right"):
-                _range_sel = st.segmented_control("Range", options=list(_RANGES.keys()), default="All",
+                _range_sel = st.segmented_control(_("Range"), options=list(_RANGES.keys()), default="All",
+                                                  format_func=lambda k: _("All") if k == "All" else k,
                                                   key="db_range", label_visibility="collapsed")
             _days = _RANGES.get(_range_sel or "All")
             _vh_view = _db_vh
@@ -227,13 +232,14 @@ def render() -> None:
             _db_last_val   = float(_vh_view["value"].iloc[-1])
             _db_first_val  = float(_vh_view["value"].iloc[0])
             _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
+            _range_txt = _("All") if (_range_sel or "All") == "All" else _range_sel
             with _title_col:
                 st.markdown(f"""
-<div style="font-size:15px;font-weight:500;">Portfolio value over time</div>
+<div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
 <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-  <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">€{_db_last_val:,.0f}</span>
-  {_chip_html(f"{_db_range_pct:+.1f}%", _db_range_pct >= 0)}
-  <span style="font-size:11px;color:var(--faint);">{_range_sel or "All"}</span>
+  <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
+  {_chip_html(fmt_pct(_db_range_pct, signed=True), _db_range_pct >= 0)}
+  <span style="font-size:11px;color:var(--faint);">{_range_txt}</span>
 </div>""", unsafe_allow_html=True)
 
             _db_has_spx   = "benchmark_spx"   in _vh_view.columns and _vh_view["benchmark_spx"].notna().any()
@@ -247,31 +253,35 @@ def render() -> None:
             _db_show_spx   = "S&P 500" in _db_bench_sel
             _db_show_stoxx = "Euro Stoxx 50" in _db_bench_sel
 
+            # Chart values are EUR; shown in the display currency at today's
+            # rate when that isn't EUR (same ≈ note as the KPI tiles).
+            _fx_f, _fx_ccy, _fx_conv = to_display(1.0)
             _db_vfig = go.Figure()
             _db_vfig.add_trace(go.Scatter(
-                x=_vh_view["date"], y=_vh_view["value"], mode="lines", name="Portfolio value",
+                x=_vh_view["date"], y=_vh_view["value"] * _fx_f, mode="lines", name=_("Portfolio value"),
                 line=dict(color="#1DD6A4", width=2), fill="tozeroy", fillcolor="rgba(29,214,164,0.07)"))
             _db_vfig.add_trace(go.Scatter(
-                x=_vh_view["date"], y=_vh_view["invested"], mode="lines", name="Amount invested",
+                x=_vh_view["date"], y=_vh_view["invested"] * _fx_f, mode="lines", name=_("Amount invested"),
                 line=dict(color=_c_invested, width=1.5, dash="dot")))
             if _db_has_spx:
                 _db_vfig.add_trace(go.Scatter(
-                    x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_spx"], errors="coerce"),
-                    mode="lines", name="S&P 500 (same invested)", line=dict(color="#5B8FA8", width=1.5, dash="dash"),
+                    x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_spx"], errors="coerce") * _fx_f,
+                    mode="lines", name=_("S&P 500 (same invested)"), line=dict(color="#5B8FA8", width=1.5, dash="dash"),
                     visible=True if _db_show_spx else "legendonly"))
             if _db_has_stoxx:
                 _db_vfig.add_trace(go.Scatter(
-                    x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_stoxx"], errors="coerce"),
-                    mode="lines", name="Euro Stoxx 50 (same invested)", line=dict(color="#8BA888", width=1.5, dash="dash"),
+                    x=_vh_view["date"], y=pd.to_numeric(_vh_view["benchmark_stoxx"], errors="coerce") * _fx_f,
+                    mode="lines", name=_("Euro Stoxx 50 (same invested)"), line=dict(color="#8BA888", width=1.5, dash="dash"),
                     visible=True if _db_show_stoxx else "legendonly"))
             _db_vfig.update_layout(
                 margin=dict(l=0, r=0, t=16, b=0),
                 showlegend=False,
-                yaxis=dict(tickprefix="€", tickformat=",.0f", tickfont=dict(color=_c_axis), gridcolor=_c_grid),
+                yaxis=dict(**plotly_money_axis(_fx_ccy), tickfont=dict(color=_c_axis), gridcolor=_c_grid),
                 xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
                 hovermode="x unified", font=dict(color=_c_axis),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             )
+            localize_fig(_db_vfig)
             st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
 
             # ── Unified legend bar — swatches for the two always-on series,
@@ -282,38 +292,38 @@ def render() -> None:
             with st.container(key="db_chart_legend_row", horizontal=True,
                               vertical_alignment="center", horizontal_alignment="distribute"):
                 with st.container(width="content"):
-                    st.markdown("""
+                    st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;">
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
-    <span style="width:14px;height:2px;background:var(--mint);border-radius:2px;display:inline-block;"></span>Portfolio value</div>
+    <span style="width:14px;height:2px;background:var(--mint);border-radius:2px;display:inline-block;"></span>{h_("Portfolio value")}</div>
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
-    <span style="width:14px;height:0;border-top:1.4px dashed var(--axis);display:inline-block;"></span>Amount invested</div>
+    <span style="width:14px;height:0;border-top:1.4px dashed var(--axis);display:inline-block;"></span>{h_("Amount invested")}</div>
 </div>""", unsafe_allow_html=True)
                 if _db_bench_opts:
                     with st.container(width="content"):
-                        st.pills("Benchmarks", options=_db_bench_opts, selection_mode="multi",
+                        st.pills(_("Benchmarks"), options=_db_bench_opts, selection_mode="multi",
                                 default=_db_bench_default, key="db_bench_pills",
                                 label_visibility="collapsed")
         elif ensure_value_history_fresh(_db_pf, load_sold(), current_user().email):
             # Backfill is running in the background (kicked off from here or
             # from Portfolio, whichever the user visited first) — paint the
             # chart's shape immediately and poll until it fills in on its own.
-            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
                        unsafe_allow_html=True)
             st.markdown(skeleton_chart_html(), unsafe_allow_html=True)
             _auto_rerun(5, "dashboard_value_history_backfill")
         else:
-            st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Portfolio value over time</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
                        unsafe_allow_html=True)
-            st.caption("No history yet — it will appear after your first portfolio snapshot.")
+            st.caption(_("No history yet — it will appear after your first portfolio snapshot."))
 
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
         with _cvh_col:
-            st.markdown('<div style="font-size:15px;font-weight:500;">Conviction &amp; risk</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Conviction & risk")}</div>',
                        unsafe_allow_html=True)
         with _cvh_link_col:
-            if st.button("Full analysis →", key="db_conv_full_analysis", type="tertiary", width="stretch"):
+            if st.button(_("Full analysis →"), key="db_conv_full_analysis", type="tertiary", width="stretch"):
                 st.switch_page(nav.pages["risk"])
         _conv_score = None
         if not _db_scr.empty and "Value Score" in _db_scr.columns:
@@ -354,10 +364,10 @@ def render() -> None:
                     # Low/Moderate/Elevated/High/Critical word as the Risk
                     # page's gauge for one score — the old 3-way re-bucket
                     # here collapsed Elevated/High/Critical into one word.
-                    _risk_label = _db_report.composite.label.replace(" risk", "")
-                    _beta_str = f"{_db_report.quant.portfolio_beta:.2f}"
-                    _vol_str  = f"{_db_report.quant.volatility_annual*100:.1f}%" if _db_report.quant.volatility_annual else "—"
-                    _dd_str   = f"{_db_report.quant.mdd_1y*100:.1f}%" if _db_report.quant.mdd_1y else "—"
+                    _risk_label = tr(_db_report.composite.label.replace(" risk", ""))
+                    _beta_str = fmt_num(_db_report.quant.portfolio_beta, 2)
+                    _vol_str  = fmt_pct(_db_report.quant.volatility_annual, fraction=True) if _db_report.quant.volatility_annual else "—"
+                    _dd_str   = fmt_pct(_db_report.quant.mdd_1y, fraction=True) if _db_report.quant.mdd_1y else "—"
             except Exception:
                 pass
 
@@ -377,25 +387,29 @@ def render() -> None:
                 # 70/40), and the label is always mint-colored regardless of
                 # tier — the spec hardcodes `color:var(--mint)` unconditionally,
                 # not a tier-dependent color.
-                _conv_label = ("High conviction" if _conv_score >= 75 else
-                              "Constructive" if _conv_score >= 55 else "Cautious")
+                _conv_label = (h_("High conviction") if _conv_score >= 75 else
+                              h_("Constructive") if _conv_score >= 55 else h_("Cautious"))
+                _conv_text = h_("Weighted mean signal score across scored holdings.")
+                if _n_veto:
+                    _conv_text += " " + ngettext("{count} position under hard veto.",
+                                                 "{count} positions under hard veto.", _n_veto)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
     {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-      <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{_conv_score:.0f}</span>
+      <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{fmt_num(_conv_score, 0)}</span>
       <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
     </div>
   </div>
   <div>
-    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">Composite conviction</div>
+    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Composite conviction")}</div>
     <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{_conv_label}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">Weighted mean signal score across scored holdings.{f" {_n_veto} position(s) under hard veto." if _n_veto else ""}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                st.caption("Not enough scored holdings for a conviction score.")
+                st.caption(_("Not enough scored holdings for a conviction score."))
 
             if _risk_score is not None:
                 # Shared renderer (uvalu/components.risk_score_meter_html) — same
@@ -410,8 +424,8 @@ def render() -> None:
                     + "</div>", unsafe_allow_html=True)
 
                 with st.container(key="db_conv_metrics"):
-                    _dd_metric_defs = [("Beta", _beta_str, None), ("Volatility", _vol_str, None),
-                                       ("Max drawdown", _dd_str, "var(--down-txt)")]
+                    _dd_metric_defs = [(h_("Beta"), _beta_str, None), (h_("Volatility"), _vol_str, None),
+                                       (h_("Max drawdown"), _dd_str, "var(--down-txt)")]
                     _dd_cells = "".join(
                         f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
                         f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
@@ -427,10 +441,9 @@ def render() -> None:
         with st.container(key="db_holdings_header", horizontal=True,
                           vertical_alignment="center", horizontal_alignment="distribute"):
             with st.container(width="content"):
-                st.markdown("""
-<div style="font-size:15px;font-weight:500;">Holdings · price vs fair value</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">Each track runs from €0 to the
-six-model fair-value estimate. Gap to the marker is your remaining margin of safety.</div>""",
+                st.markdown(f"""
+<div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from €0 to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.")}</div>""",
                            unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()
@@ -441,7 +454,8 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = ("Position", "Signal", "Fair-value ladder", "MoS %", "Weight", "Value", "P&amp;L")
+                _hh_labels = (h_("Position"), h_("Signal"), h_("Fair-value ladder"), h_("MoS %"), h_("Weight"),
+                              h_("Value"), h_("P&L"))
                 _hh_cells = "".join(
                     f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
@@ -501,7 +515,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):
-                        if st.button("View details", key=f"db_holdbtn_{_hidx}"):
+                        if st.button(_("View details"), key=f"db_holdbtn_{_hidx}"):
                             _drawer_target = _hidx
 
             if _drawer_target is not None:
@@ -516,7 +530,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
             poll_while_fetching("dashboard_portfolio_fetch", lane="portfolio")
             st.markdown(skeleton_holdings_table_html(), unsafe_allow_html=True)
         else:
-            st.caption("No screener data available for your holdings.")
+            st.caption(_("No screener data available for your holdings."))
 
     st.container(height=4, border=False, key="db_gap_3")
 
@@ -524,7 +538,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
     _al_col, _div_col, _mv_col = st.columns(3, gap="large")
 
     with _al_col, st.container(key="db_card_sector", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Sector allocation</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Sector allocation")}</div>',
                    unsafe_allow_html=True)
         if _db_fetch_running:
             # Without real sector data yet, every holding would fall back to
@@ -539,7 +553,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
             _db_al = (
                 _db_pf.dropna(subset=["current_value"])
                   .assign(sector=_db_pf["ticker"].map(
-                      lambda t: sector_for(t, _db_sector_map.get(t)) or "Unknown"))
+                      lambda t: sector_for(t, _db_sector_map.get(t)) or N_("Unknown")))
                   .groupby("sector")["current_value"].sum()
                   .sort_values(ascending=False)
             )
@@ -548,12 +562,13 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
     with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
         with _dh_title_col:
-            st.markdown('<div style="font-size:15px;font-weight:500;">Upcoming dividends</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Upcoming dividends")}</div>',
                        unsafe_allow_html=True)
         with _dh_total_col:
             if _db_fwd_income is not None:
                 st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
-                           f'color:var(--mint);">€{_db_fwd_income:,.0f} / yr</div>', unsafe_allow_html=True)
+                           f'color:var(--mint);">{h_("{amount} / yr", amount=fmt_total(_db_fwd_income))}</div>',
+                           unsafe_allow_html=True)
         if _db_fetch_running:
             st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
         elif not _db_scr.empty:
@@ -596,46 +611,46 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
                         _rate=pd.to_numeric(_db_upcoming.get("dividendRate"), errors="coerce").fillna(0),
                         _weight=_db_upcoming["Ticker"].map(_db_weight_map).fillna(0),
                     )
-                    for _, _dr in _db_upcoming.iterrows():
+                    for _dr_idx, _dr in _db_upcoming.iterrows():
                         _gross = float(_dr["_shares"]) * float(_dr["_rate"])
                         _wh_pct = get_dividend_withholding(exchange_key_for_ticker(_dr["Ticker"]), current_user().email)
                         _fwh = _gross * _wh_pct / 100
                         _net = round(_gross - _fwh - max(0.0, _gross - _fwh) * BE_WITHHOLDING_RATE, 2)
                         _yld = _dr.get("dividendYield")
-                        _yld_str = f"{float(_yld)*100:.2f}%" if pd.notna(_yld) else "—"
+                        _yld_str = fmt_pct(float(_yld), 2, fraction=True) if pd.notna(_yld) else "—"
                         _days_out = (_dr["exDividendDate"] - _today).days
                         _soon_badge = (
-                            ' <span style="color:var(--mint);font-weight:500;">· soon</span>'
+                            f' <span style="color:var(--mint);font-weight:500;">{h_("· soon")}</span>'
                             if _db_alert_ex_div and _days_out <= 7
                             and (_db_size_threshold <= 0 or _dr["_weight"] >= _db_size_threshold) else ""
                         )
                         _cut_year = _dr.get("dividend_last_cut_year")
                         _incr_year = _dr.get("dividend_last_increase_year")
-                        _cut_badge = (' <span style="color:var(--down-txt,#A32D2D);font-weight:500;">· cut</span>'
+                        _cut_badge = (f' <span style="color:var(--down-txt,#A32D2D);font-weight:500;">{h_("· cut")}</span>'
                                      if _db_alert_cut and pd.notna(_cut_year) and _cut_year else "")
-                        _incr_badge = (' <span style="color:var(--mint);font-weight:500;">· raised</span>'
+                        _incr_badge = (f' <span style="color:var(--mint);font-weight:500;">{h_("· raised")}</span>'
                                       if _db_alert_increase and not _cut_badge
                                       and pd.notna(_incr_year) and _incr_year else "")
                         st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
     <div style="font-size:12.5px;">{_dr['Name']}</div>
-    <div style="font-size:11px;color:var(--faint);">{_dr['exDividendDate'].strftime('%d-%m-%Y')} · {_yld_str} yield{_soon_badge}{_cut_badge}{_incr_badge}</div>
+    <div style="font-size:11px;color:var(--faint);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
   </div>
   <div style="text-align:right;">
-    <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">€{_net:,.0f}</div>
-    <div style="font-family:var(--uv-mono);font-size:10px;color:var(--faint);">€{_gross:,.0f} gross</div>
+    <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">{fmt_money(_net, "EUR", 0)}</div>
+    <div style="font-family:var(--uv-mono);font-size:10px;color:var(--faint);">{h_("{amount} gross", amount=fmt_money(_gross, "EUR", 0))}</div>
   </div>
 </div>""", unsafe_allow_html=True)
                 else:
-                    st.caption("No upcoming ex-dividend dates in the next 30 days.")
+                    st.caption(_("No upcoming ex-dividend dates in the next 30 days."))
             else:
-                st.caption("Ex-dividend dates not yet in cache — click Refresh in the screener.")
+                st.caption(_("Ex-dividend dates not yet in cache — click Refresh in the screener."))
         else:
-            st.caption("No screener data available for your holdings.")
+            st.caption(_("No screener data available for your holdings."))
 
     with _mv_col, st.container(key="db_card_movers", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:8px;">Top movers today</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Top movers today")}</div>',
                    unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")
@@ -644,7 +659,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
         _db_top = _db_mv.sort_values("_abs", ascending=False).head(6).sort_values("day_change_pct", ascending=False)
         if not _db_top.empty:
             _mv_max = float(_db_top["_abs"].max()) or 1.0
-            for _, _mr in _db_top.iterrows():
+            for _mr_idx, _mr in _db_top.iterrows():
                 _pos = _mr["day_change_pct"] >= 0
                 _color = "var(--up-txt)" if _pos else "var(--down-txt)"
                 _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
@@ -655,7 +670,7 @@ six-model fair-value estimate. Gap to the marker is your remaining margin of saf
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>
-  <span style="width:64px;text-align:right;flex:none;">{_chip_html(f"{_mr['day_change_pct']:+.2f}%", _pos)}</span>
+  <span style="width:64px;text-align:right;flex:none;">{_chip_html(fmt_pct(_mr['day_change_pct'], 2, signed=True), _pos)}</span>
 </div>""", unsafe_allow_html=True)
         else:
-            st.caption("No daily price data available.")
+            st.caption(_("No daily price data available."))

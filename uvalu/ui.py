@@ -13,6 +13,7 @@ import streamlit as st
 from portfolio import set_user
 from settings import load_settings
 from uvalu import logkit
+from uvalu.i18n import _, fmt_compact, fmt_pct, fmt_total, h_, localize_fig, to_display, tr
 from uvalu.market_hours import is_market_hours
 from uvalu.runtime import current_user, theme_colors
 
@@ -277,6 +278,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         return
     # Reverse so highest value is at top in natural Plotly order (avoids autorange="reversed" artifact)
     _labels, _vals = zip(*reversed(_pairs))
+    _labels = tuple(tr(label) for label in _labels)
     fig = go.Figure(go.Bar(
         x=list(_vals),
         y=list(_labels),
@@ -296,6 +298,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_ax_color),
     )
+    localize_fig(fig, date_axis=None)
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
 
@@ -307,13 +310,13 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
     _clean = series[series.index.map(lambda k: pd.notna(k) and str(k).strip().lower() not in _bad)]
     _clean = _clean[_clean > 0]
     if _clean.empty:
-        st.info("No data available for this breakdown.")
+        st.info(_("No data available for this breakdown."))
         return
-    _labels = [str(k) for k in _clean.index]
+    _labels = [tr(str(k)) for k in _clean.index]
     _vals   = _clean.values.tolist()
     _total  = sum(_vals)
     _pcts   = [v / _total * 100 for v in _vals]
-    _text   = [f"{p:.1f}%" if p >= 4 else "" for p in _pcts]
+    _text   = [fmt_pct(p) if p >= 4 else "" for p in _pcts]
     _n      = len(_labels)
     _colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_n)]
     # Confine the pie to the left half of the plotting area so it sits close
@@ -330,14 +333,17 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         textinfo="text",
         textposition="inside",
         insidetextorientation="horizontal",
-        hovertemplate="%{label}: €%{value:,.0f} (%{percent})<extra></extra>",
+        customdata=[fmt_total(v) for v in _vals],
+        hovertemplate="%{label}: %{customdata} (%{percent})<extra></extra>",
         marker=dict(
             colors=_colors,
             line=dict(color=_c_surface, width=2),
         ),
         textfont=dict(color=_c_text, size=12),
     ))
-    _total_short = f"€{_total/1000:,.1f}k" if _total >= 10_000 else f"€{_total:,.0f}"
+    _tv, _tccy, _tconv = to_display(_total)
+    _total_short = (("≈\u00a0" if _tconv else "") + fmt_compact(_tv, currency=_tccy)
+                    if _total >= 10_000 else fmt_total(_total))
     fig.update_layout(
         margin=dict(l=10, r=10, t=36 if title else 10, b=10),
         title=dict(text=title or ""),
@@ -357,7 +363,7 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         # rather than the full plot's center, since the pie no longer spans
         # the whole width.
         annotations=[
-            dict(text=f"TOTAL<br><b>{_total_short}</b>", x=_pie_cx, y=0.5, showarrow=False,
+            dict(text=f"{h_('TOTAL')}<br><b>{_total_short}</b>", x=_pie_cx, y=0.5, showarrow=False,
                 xanchor="center", yanchor="middle",
                 font=dict(size=12, color=_c_text), align="center"),
         ],
@@ -365,6 +371,7 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_c_text),
     )
+    localize_fig(fig, date_axis=None)
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
 
 

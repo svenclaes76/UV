@@ -399,7 +399,8 @@ class TestSummaryAndExport:
     def test_money_format(self):
         assert cash.money(-12.4) == "−€12.40"
         assert cash.signed_money(5) == "+€5.00"
-        assert cash.money(1234.5, "CHF", 0) == "CHF 1,234"
+        # Region format (en-GB default): CLDR writes no space after "CHF".
+        assert cash.money(1234.5, "CHF", 0) == "CHF1,234"
 
 
 # ── retention ────────────────────────────────────────────────────────────────

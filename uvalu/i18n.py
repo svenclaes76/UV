@@ -759,6 +759,18 @@ def fmt_num(value, decimals: int = 2, *, min_decimals: int | None = None, signed
     return _signed(out, value, loc, signed)
 
 
+_SYM_TO_CODE = {"€": "EUR", "$": "USD", "US$": "USD", "£": "GBP", "CHF": "CHF", "Fr.": "CHF",
+                "kr": "SEK", "¥": "JPY"}
+
+
+def ccy_code(currency: str | None) -> str:
+    """'€' / 'EUR' / 'CHF ' → ISO code (callers that still pass a symbol)."""
+    c = (currency or "EUR").strip()
+    if c in _SYM_TO_CODE:
+        return _SYM_TO_CODE[c]
+    return c.upper() if len(c) == 3 and c.isalpha() else "EUR"
+
+
 def fmt_int(value, *, signed: bool = False, locale: str | None = None) -> str:
     return fmt_num(value, 0, signed=signed, locale=locale)
 
@@ -941,14 +953,7 @@ _CLDR_TO_D3 = (("yyyy", "%Y"), ("yy", "%y"), ("y", "%Y"), ("MM", "%m"), ("M", "%
                ("dd", "%d"), ("d", "%-d"))
 
 
-def d3_date_format(style: str | None = None, locale: str | None = None) -> str:
-    """The user's date style as a d3 format for Plotly ticks and hovers
-    (F-08). 'medium' uses the short numeric pattern: Plotly only ships
-    English month names."""
-    style = style or current().date_format
-    if style == "iso":
-        return "%Y-%m-%d"
-    pat = _loc(locale).date_formats["short"].pattern
+def _cldr_to_d3(pat: str) -> str:
     out, i = "", 0
     while i < len(pat):
         for cldr, d3 in _CLDR_TO_D3:
@@ -963,14 +968,35 @@ def d3_date_format(style: str | None = None, locale: str | None = None) -> str:
     return out
 
 
+def d3_date_format(style: str | None = None, locale: str | None = None) -> str:
+    """The user's date style as a d3 format for Plotly ticks and hovers
+    (F-08). 'medium' uses the short numeric pattern: Plotly only ships
+    English month names."""
+    style = style or current().date_format
+    if style == "iso":
+        return "%Y-%m-%d"
+    return _cldr_to_d3(_loc(locale).date_formats["short"].pattern)
+
+
+def d3_month_format(locale: str | None = None) -> str:
+    """Numeric month + year in the region's order ('09/2026', '09.2026')."""
+    if current().date_format == "iso":
+        return "%Y-%m"
+    skel = _loc(locale).datetime_skeletons.get("yMM")
+    return _cldr_to_d3(skel.pattern) if skel is not None else "%m/%Y"
+
+
 def localize_fig(fig, *, date_axis: str | None = "x"):
-    """Apply region separators (and numeric date ticks on ``date_axis``) to a
+    """Apply region separators, and on ``date_axis`` zoom-dependent numeric
+    date ticks (year → month/year → full date) plus a full-date hover, to a
     Plotly figure. Returns the figure for chaining."""
     fig.update_layout(separators=plotly_separators())
     if date_axis:
-        axis = {f"{date_axis}axis": {"tickformat": d3_date_format(),
-                                     "hoverformat": d3_date_format()}}
-        fig.update_layout(**axis)
+        full = d3_date_format()
+        stops = [dict(dtickrange=[None, "M1"], value=full),
+                 dict(dtickrange=["M1", "M12"], value=d3_month_format()),
+                 dict(dtickrange=["M12", None], value="%Y")]
+        fig.update_layout(**{f"{date_axis}axis": {"tickformatstops": stops, "hoverformat": full}})
     return fig
 
 

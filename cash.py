@@ -74,14 +74,12 @@ class CashError(ValueError):
 
 # ── Formatting helpers (shared with the UI) ──────────────────────────────────
 
-_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£"}
-
-
 def money(v: float, ccy: str = "EUR", dp: int = 2) -> str:
-    """€1,234.56 / −€12.40 — the design's money format (minus sign U+2212)."""
-    sym = _SYMBOLS.get(ccy, ccy + " ")
+    """€1,234.56 / −€12.40 in the region format — keeps the design's U+2212
+    minus sign in front of the locale's own currency pattern."""
+    from uvalu.i18n import fmt_money
     sign = "−" if v < 0 else ""
-    return f"{sign}{sym}{abs(v):,.{dp}f}"
+    return sign + fmt_money(abs(v), ccy, dp)
 
 
 def signed_money(v: float, ccy: str = "EUR", dp: int = 2) -> str:
@@ -89,11 +87,10 @@ def signed_money(v: float, ccy: str = "EUR", dp: int = 2) -> str:
 
 
 def fmt_date(iso: str | None) -> str:
-    """'2026-07-01' → '01 Jul 2026'."""
-    try:
-        return pd.Timestamp(iso).strftime("%d %b %Y")
-    except Exception:
-        return str(iso or "")
+    """'2026-07-01' → the user's date format in their region (i18n spec F-07)."""
+    from uvalu.i18n import MISSING, fmt_date as _fmt_date
+    out = _fmt_date(iso)
+    return str(iso or "") if out == MISSING else out
 
 
 # ── Storage ──────────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ next run's i18n.activate() picks the new value up for the whole app.
 from __future__ import annotations
 
 import datetime as _dt
+import html
 
 import streamlit as st
 
@@ -24,6 +25,12 @@ _KEYS = {  # profile key → widget key
     "week_start": "set_i18n_week_start",
 }
 _SAMPLE_DATE = _dt.date(2026, 9, 27)
+# Globe next to "Language" in every language (S-06), so someone who picked a
+# language they can't read still finds the way back.
+GLOBE_SVG = ('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+             'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" '
+             'style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="9"/>'
+             '<path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>')
 
 
 def _save(email: str, key: str, value) -> None:
@@ -57,7 +64,7 @@ def _sync_widgets(ctx: i18n.Ctx, profile: dict) -> None:
 def _row(title: str, desc: str | None = None):
     from uvalu.pages_.settings import _row_title   # shared row styling
     with st.container():
-        c1, c2 = st.columns([3, 2], vertical_alignment="center")
+        c1, c2 = st.columns([5, 4], vertical_alignment="center")
         with c1:
             _row_title(title, desc or "")
         return c2
@@ -109,7 +116,7 @@ def render_card(email: str) -> None:
         _row_header(_("Language & region"))
 
         with st.container(key="set_row_i18n_language"):
-            with _row(f":material/language: {_('Language')}"):
+            with _row(f"{GLOBE_SVG}{html.escape(_('Language'))}"):
                 st.selectbox(
                     _("Language"), options=list(cfg.enabled_languages),
                     format_func=lambda code: i18n.language_name(code),   # each in its own language
