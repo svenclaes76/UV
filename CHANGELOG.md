@@ -9,7 +9,11 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
-Planned as **1.12.0** (MINOR — new capability, no manual migration step).
+---
+
+## [1.12.0] — 2026-09-27
+
+MINOR — new capability, no manual migration step (record ids and the cash ledger are created automatically).
 
 ### Added
 
