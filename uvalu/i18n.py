@@ -597,6 +597,12 @@ def ngettext(singular: str, plural: str, n, **kw) -> str:
     return _format(s or fallback, fallback, _render_kw(kw))
 
 
+def lowercase_noun(word: str) -> str:
+    """A translated word used mid-sentence: lower-cased, except in German,
+    which capitalises nouns."""
+    return word if current().lang == "de" else word.lower()
+
+
 def N_(msgid: str) -> str:
     """Mark a string for extraction without translating it now (constants
     defined at import time); translate it with tr() / _() at display."""

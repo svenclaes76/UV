@@ -97,15 +97,10 @@ def _render_note_arg(v):
     if isinstance(v, (list, tuple)) and len(v) == 3 and isinstance(v[2], dict):
         kind, value, opts = v
         if kind == "type_lower":
-            word = tr(value)
-            return word if _is_de() else word.lower()
+            from uvalu.i18n import lowercase_noun
+            return lowercase_noun(tr(value))
         return Fmt(kind, value, **opts)
     return v
-
-
-def _is_de() -> bool:
-    from uvalu.i18n import current
-    return current().lang == "de"   # German keeps nouns capitalised
 
 
 def auto_note(parts: list) -> tuple[str, str]:
