@@ -967,7 +967,8 @@ GLOBAL_CSS = """
      divider/padding/position treatment too. */
   [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]),
   [class*="st-key-pf_closed_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]),
-  [class*="st-key-pf_div_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
+  [class*="st-key-pf_div_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_cash_row_"]:not([class*="_edit"]):not([class*="uv_hidden_util"]) {
     position: relative !important; padding: 12px 20px !important;
     border-bottom: 0.5px solid var(--line-2) !important;
     border-radius: 0 !important; background: transparent !important;
@@ -990,6 +991,8 @@ GLOBAL_CSS = """
      edit-pencil column centred against the wrong height (pencil 8px high —
      confirmed live). Zero it so the pencil, grid and row share one centre. */
   [class*="st-key-pf_div_row_"]:not([class*="_ov_"]) [data-testid="stMarkdownContainer"],
+  [class*="st-key-pf_cash_row_"] [data-testid="stMarkdownContainer"],
+  .st-key-pf_col_header_cash_full [data-testid="stMarkdownContainer"],
   .st-key-pf_col_header_div_full [data-testid="stMarkdownContainer"],
   /* Same -1rem margin on the summary card: it under-reported the year table's
      height so overflow:hidden clipped the last year row by 15px, and pulled
@@ -1026,20 +1029,23 @@ GLOBAL_CSS = """
      the same centering/sizing for visual consistency. */
   [class*="st-key-pf_open_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]),
   [class*="st-key-pf_closed_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]),
-  [class*="st-key-pf_div_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]) {
+  [class*="st-key-pf_div_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]),
+  [class*="st-key-pf_cash_row_"] [class*="_edit"]:not([class*="uv_hidden_util"]) {
     display: flex !important; align-items: center !important; justify-content: center !important;
     height: 100% !important; position: relative !important; z-index: 2;
   }
   [class*="st-key-pf_open_row_"] [class*="_edit"] button,
   [class*="st-key-pf_closed_row_"] [class*="_edit"] button,
-  [class*="st-key-pf_div_row_"] [class*="_edit"] button {
+  [class*="st-key-pf_div_row_"] [class*="_edit"] button,
+  [class*="st-key-pf_cash_row_"] [class*="_edit"] button {
     min-height: 26px !important; width: 26px !important; padding: 0 !important;
     border-radius: 7px !important; background: transparent !important; border: none !important;
     text-decoration: none !important;
   }
   [class*="st-key-pf_open_row_"] [class*="_edit"] button:hover,
   [class*="st-key-pf_closed_row_"] [class*="_edit"] button:hover,
-  [class*="st-key-pf_div_row_"] [class*="_edit"] button:hover {
+  [class*="st-key-pf_div_row_"] [class*="_edit"] button:hover,
+  [class*="st-key-pf_cash_row_"] [class*="_edit"] button:hover {
     background: var(--line-2) !important;
   }
 

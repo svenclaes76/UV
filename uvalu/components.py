@@ -1529,7 +1529,12 @@ _CASH_TYPE_STYLE = {
     "Fee":        "background:var(--amber-bg);color:var(--amber-txt);",
     "Adjustment": "color:var(--muted);border:0.5px dashed var(--faint);",
 }
-CASH_LEDGER_GRID = "96px 104px minmax(0,1fr) 132px 78px 118px 118px 60px"
+# fr tracks (like DIVIDEND_LOG_GRID_COLS) — each row is its own grid now, so
+# fixed px tracks could no longer share one horizontally-scrolling wrapper.
+CASH_LEDGER_GRID = ("minmax(0,96fr) minmax(0,100fr) minmax(0,250fr) minmax(0,124fr) minmax(0,74fr) "
+                    "minmax(0,112fr) minmax(0,112fr) minmax(0,56fr)")
+# Row = [grid, edit pencil]; the header uses the same split (dividend log).
+CASH_LEDGER_COL_SPLIT = [1, 0.028]
 
 
 def cash_type_chip_html(type_: str) -> str:
@@ -1594,7 +1599,7 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
     note = _html.escape(str(r.get("note") or "—"))
     return (
         f'<div class="uv-cash-row" style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;'
-        f'align-items:center;padding:11px 20px;border-bottom:0.5px solid var(--line-2);">'
+        f'align-items:center;">'
         f'<div style="font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;">{_cash.fmt_date(r["date"])}</div>'
         f'<div>{cash_type_chip_html(r["type"])}</div>'
         f'<div style="min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;'
@@ -1610,14 +1615,30 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
         f'<div><span style="{_CASH_CHIP}{src_style}">{"Auto" if auto else "Manual"}</span></div></div>')
 
 
-def cash_ledger_table_html(rows: list[dict], base: str = "EUR") -> str:
-    """Column header + one grid row per ledger entry, in the order given
-    (the page passes newest first). `rows` are cash.replay() rows."""
-    head = (f'<div style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;padding:10px 20px;'
-            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);'
-            f'border-bottom:0.5px solid var(--line-2);">'
+def cash_ledger_header_html(base: str = "EUR") -> str:
+    """Column labels for the Cash activity ledger, on CASH_LEDGER_GRID."""
+    return (f'<div style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;align-items:center;'
+            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);white-space:nowrap;">'
             f'<div>Date</div><div>Type</div><div>Description</div><div style="text-align:right;">Original</div>'
             f'<div style="text-align:right;">FX rate</div><div style="text-align:right;">Amount · {base}</div>'
             f'<div style="text-align:right;">Balance</div><div>Source</div></div>')
-    body = "".join(_cash_ledger_row_html(r, base) for r in rows)
-    return '<div style="overflow-x:auto;"><div style="min-width:920px;">' + head + body + '</div></div>'
+
+
+def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
+                    edit_disabled: bool = False) -> bool:
+    """One ledger row (a cash.replay() row) + trailing pencil — same
+    [grid, pencil] split as dividend_log_row. `editable` (manual entries)
+    opens the Edit dialog; automatic entries open the read-only linked-entry
+    view instead, hence the different tooltip. Returns True when clicked."""
+    _css_key = key.replace(".", "-")
+    with st.container(key=key):
+        with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
+            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                        f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
+                        unsafe_allow_html=True)
+        _cols = st.columns(CASH_LEDGER_COL_SPLIT, vertical_alignment="center", gap="small")
+        with _cols[0]:
+            st.markdown(_cash_ledger_row_html(row, base), unsafe_allow_html=True)
+        with _cols[1]:
+            return st.button("✎", key=f"{key}_edit", type="tertiary", disabled=edit_disabled,
+                             help="Edit entry" if editable else "View linked entry")

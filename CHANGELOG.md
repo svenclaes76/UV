@@ -21,16 +21,30 @@ Planned as **1.12.0** (MINOR — new capability, no manual migration step).
   - **Dashboard**: *Current value* now includes cash, and a new *Cash* tile shows the balance and its share of total value.
   - **Risk page**: a banner states that risk metrics cover the invested portion only — cash is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo — with a link to the cash activity.
   - `portfolio_meta.json`: a fixed EUR base currency and never-reused TRD- / DIV- / C- reference counters. Backups now include `cash.json`, `portfolio_meta.json` and `dividend_meta.json`.
+- **Edit and delete cash entries**: every Cash activity row has a ✎. Manual entries open an *Edit cash transaction* dialog (same form as Add, type locked; amount-only edits keep the stored FX rate) with Delete; automatic entries (trades, top-ups, dividends) open a read-only *Cash entry* view with a button to the source record. Edits and deletes that would take the balance below zero are refused. The ledger shows 50 rows at a time with *Show more*.
+- **Edit position / Edit trade ↔ cash**: an *Also update the linked cash entry* checkbox re-posts the trade's cash (top-up recomputed), and deleting offers *Also remove its cash entries* — both only while the cash entry still matches the record (not for partly-sold lots).
+- **Delete confirmation** in every Edit dialog (positions, closed trades, dividends, cash): Delete → *Keep* / *Delete permanently*.
+- **Sell shares…** in the Edit position dialog opens Close position for that holding.
+- Optional **Buy date** / **Sell date** (default today) in Add position and Close position, so backdated trades post their cash on the right date.
 - `fx.py`: frankfurter.dev (ECB reference rates) client with a permanent incremental disk cache (`.cache/fx_frankfurter.json`).
 
 ### Changed
 
 - **FX now comes from one source — frankfurter.dev / ECB reference rates** — instead of yfinance `XXXEUR=X` pairs, for the dividend EUR conversion (`portfolio.dividends_in_eur`) and the risk engine's EUR restatement of price history (`risk._to_eur`, via the `marketdata.fx_to_eur_frame` shim). EUR dividend totals and risk metrics for non-EUR holdings (e.g. CHF) may shift slightly.
 - Sell dialog: the confirm button is now "Confirm sale".
+- **Leaving Portfolio and coming back lands on the Overview**, not on whichever sub-page (Open / Closed / Dividends / Cash) was open. Links that target a sub-page (Risk's *View cash activity*, the drawer's *Edit*) still go there.
+- **Dialogs aligned**: every Portfolio dialog is 420px wide with a one-line subtitle, `*` on required fields and `(opt.)` on optional ones, `st.error` validation messages, one shared *Calculated* box (dividend tax, cash balance, cash after trade) and a *Save* button (Close position keeps *Confirm sale*). The cash dialog's type switch became a *Type* dropdown. The Edit dialogs moved from `pages_/portfolio.py` into `uvalu/dialogs.py`, and every dialog shows a read-only notice for the Viewer role.
+- Edit position uses the same labels as Add (*Total cost (€)*, *Fees (opt.)*); Edit trade has the same fields as Add closed trade (sector, shares, buy price, sell price).
+- Add dividend suggests your held tickers (any other symbol is still accepted) and rejects an ex-date after the payment date (also in Edit). Add closed trade validates the ticker like Add position.
+- Page headers: *Add position*, *Add closed trade* (was *Close*, which read like selling a holding), *Add dividend*, *Add transaction*; every export button is *Export*. Open and Closed positions got a subtitle; empty states use the same info box. On the Cash page the Viewer role now sees the Deposit / Withdraw / Add transaction buttons disabled (like the other pages) instead of hidden.
 
 ### Fixed
 
 - Selling part of a position removed the whole position (every lot) and booked its full cost basis. `portfolio.sell_position()` now sells FIFO across lots, keeps the unsold shares open with a pro-rata cost basis, and books only the sold shares' cost.
+- **Edit trade** changed the share count but kept the old cost basis, silently changing the buy price and the realised P&L. Cost basis and proceeds are now both recomputed from shares × price.
+- **Edit position** saved the page's whole render-time table — including live-price columns — back to `portfolio.json`, which could also overwrite a change made in the meantime. Edits now reload the file and change one record, and stray live-price columns are cleaned up.
+- Edit dialogs addressed records by row index, which could hit the wrong row if the file changed while the dialog was open. Positions and closed trades now carry a stable `trade_id` (backfilled), dividends their `div_id`.
+- Deleting a position or closed trade left its cash entries (and any top-up) in the ledger; the delete now offers to remove them.
 - Light theme had no amber tokens (`--amber-bg` / `--amber-txt` fell back to the dark values).
 
 ---

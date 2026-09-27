@@ -78,6 +78,16 @@ def mark_dialog_open() -> None:
     st.session_state["_uv_dialog_open_ts"] = time.time()
 
 
+def dialog_just_opened() -> bool:
+    """True on the run that opens a dialog. A dialog body only runs in a
+    full-app run when the page code calls it (the click that opens it);
+    every interaction inside it afterwards is a fragment rerun."""
+    from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
+
+    ctx = get_script_run_ctx()
+    return not (ctx is not None and ctx.fragment_ids_this_run)
+
+
 def enter_dialog() -> None:
     """Call as the very first line of every ``@st.dialog`` body.
 
@@ -95,6 +105,13 @@ def enter_dialog() -> None:
        ``st.session_state``, which is correct across fragment reruns.
     """
     mark_dialog_open()
+    if dialog_just_opened():
+        # Transient per-dialog state (delete confirmation, the cash dialog's
+        # manual-rate toggle) lives under "_uvdlg_" keys. Drop it whenever a
+        # dialog opens, so closing one mid-confirmation with × doesn't bring
+        # the next dialog up in that state.
+        for _k in [k for k in st.session_state.keys() if str(k).startswith("_uvdlg_")]:
+            del st.session_state[_k]
     _email = current_user().email
     set_user(_email)
     # A dialog body runs as a fragment; a fragment rerun never re-executes

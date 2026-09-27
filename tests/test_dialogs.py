@@ -275,7 +275,7 @@ add_dividend_dialog(pf)
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.selectbox(key="dlg_dv_ticker").set_value("AAA.BR")
         at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
         at.number_input(key="dlg_dv_ps").set_value(1.5)
         at.number_input(key="dlg_dv_shares").set_value(10)
@@ -286,7 +286,7 @@ add_dividend_dialog(pf)
 
     def test_save_without_amount_shows_error(self):
         at = self._run()
-        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.selectbox(key="dlg_dv_ticker").set_value("AAA.BR")
         save = [b for b in at.button if b.label == "Save"][0]
         save.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -294,7 +294,7 @@ add_dividend_dialog(pf)
 
     def test_save_with_valid_data_records_dividend(self):
         at = self._run()
-        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.selectbox(key="dlg_dv_ticker").set_value("AAA.BR")
         at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
         at.number_input(key="dlg_dv_ps").set_value(1.5)
         at.number_input(key="dlg_dv_shares").set_value(10)
@@ -307,13 +307,27 @@ add_dividend_dialog(pf)
 
     def test_identity_row_is_first_and_editable(self):
         at = self._run()
-        assert [w.key for w in at.text_input][:2] == ["dlg_dv_ticker", "dlg_dv_name"]
-        assert not any(w.disabled for w in at.text_input)
+        tick = at.selectbox(key="dlg_dv_ticker")
+        # Suggests the held tickers but accepts any other symbol too.
+        assert tick.options == ["AAA.BR"] and tick.proto.accept_new_options
+        assert at.selectbox[0].key == "dlg_dv_ticker" and at.text_input[0].key == "dlg_dv_name"
+        assert not tick.disabled and not any(w.disabled for w in at.text_input)
+
+    def test_ex_date_after_payment_date_is_rejected(self):
+        at = self._run()
+        at.selectbox(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
+        at.date_input(key="dlg_dv_pay").set_value(dt.date.today() - dt.timedelta(days=3))
+        at.number_input(key="dlg_dv_ps").set_value(1.5)
+        at.number_input(key="dlg_dv_shares").set_value(10)
+        [b for b in at.button if b.label == "Save"][0].click().run()
+        assert "on or before the payment date" in "".join(e.value for e in at.error)
+        assert portfolio.load_div_hist() is None or portfolio.load_div_hist().empty
 
     def test_no_drip_checkbox_and_records_are_cash(self):
         at = self._run()
         assert not at.checkbox
-        at.text_input(key="dlg_dv_ticker").set_value("AAA.BR")
+        at.selectbox(key="dlg_dv_ticker").set_value("AAA.BR")
         at.date_input(key="dlg_dv_ex").set_value(dt.date.today())
         at.number_input(key="dlg_dv_ps").set_value(1.5)
         at.number_input(key="dlg_dv_shares").set_value(10)
@@ -348,7 +362,18 @@ add_closed_trade_dialog()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "Enter a ticker, shares" in "".join(e.value for e in at.error)
 
-    def test_save_with_valid_data_records_closed_trade(self):
+    def test_unknown_ticker_is_rejected(self, monkeypatch):
+        monkeypatch.setattr(dialogs, "_lookup_ticker", lambda sym: None)
+        at = self._run()
+        at.text_input(key="dlg_ct_ticker").set_value("NOPE.XX")
+        at.number_input(key="dlg_ct_buy").set_value(100.0)
+        at.number_input(key="dlg_ct_sell").set_value(120.0)
+        [b for b in at.button if b.label == "Save"][0].click().run()
+        assert "not found" in "".join(e.value for e in at.error)
+        assert portfolio.load_sold() is None
+
+    def test_save_with_valid_data_records_closed_trade(self, monkeypatch):
+        monkeypatch.setattr(dialogs, "_lookup_ticker", lambda sym: ("SAP SE", 150.0))
         at = self._run()
         at.text_input(key="dlg_ct_ticker").set_value("SAP.DE")
         at.number_input(key="dlg_ct_shares").set_value(5)

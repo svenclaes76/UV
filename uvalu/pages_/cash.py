@@ -7,18 +7,21 @@ routes its Open / Closed / Dividends full pages. The ledger itself lives in
 cash.py; this module only draws it.
 
 Roles (plan D1): Owner/Editor = any non-Viewer on their own portfolio; the
-Viewer role sees everything and can export, but the add/deposit/withdraw
-controls are hidden.
+Viewer role sees everything and can export; the add / deposit / withdraw /
+edit controls are shown disabled ("Viewer role is read-only"), the same as
+on the Open / Closed / Dividends pages.
 """
 import streamlit as st
 
 import cash
 from portfolio import base_currency
 from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html,
-                              cash_ledger_table_html, MINT_CHIP_STYLE)
-from uvalu.dialogs import cash_transaction_dialog
+                              cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
+                              MINT_CHIP_STYLE)
+from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog, linked_cash_dialog
 
-_PAGE_ROWS = 200   # rows drawn before "Show all" — the ledger is kept forever
+_PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
+_VIEWER_HELP = "Viewer role is read-only"
 
 
 def reconcile_once(email: str, is_viewer: bool) -> None:
@@ -56,8 +59,7 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
             if st.button("", key="ov_cash_expand", icon=":material/open_in_full:", help="Open full page"):
                 on_open()
         with st.container(key="pf_cash_strip_body"):
-            _cols = st.columns([1.1, 3.4, 1.1] if not is_viewer else [1.1, 4.5],
-                               vertical_alignment="center", gap="large")
+            _cols = st.columns([1.1, 3.4, 1.1], vertical_alignment="center", gap="large")
             _c1, _c2 = _cols[0], _cols[1]
             with _c1:
                 st.markdown(cash_balance_block_html(cash.money(s["balance"], base), _last_text(s)),
@@ -65,13 +67,13 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
             with _c2:
                 st.markdown(cash_alloc_html(s["invested_pct"], s["cash_pct"], cash.money(s["total"], base, 0)),
                             unsafe_allow_html=True)
-            if not is_viewer:
-                with _cols[2]:
-                    with st.container(horizontal=True, gap="small", horizontal_alignment="right"):
-                        if st.button("Deposit", key="ov_cash_deposit"):
-                            cash_transaction_dialog("Deposit")
-                        if st.button("Withdraw", key="ov_cash_withdraw"):
-                            cash_transaction_dialog("Withdrawal")
+            _help = _VIEWER_HELP if is_viewer else None
+            with _cols[2]:
+                with st.container(horizontal=True, gap="small", horizontal_alignment="right"):
+                    if st.button("Deposit", key="ov_cash_deposit", disabled=is_viewer, help=_help):
+                        cash_transaction_dialog("Deposit")
+                    if st.button("Withdraw", key="ov_cash_withdraw", disabled=is_viewer, help=_help):
+                        cash_transaction_dialog("Withdrawal")
 
 
 def _signed0(v: float, base: str) -> str:
@@ -94,17 +96,12 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
             st.caption(f"Every movement in this portfolio's cash, converted to {base}. "
                        "The balance is the running sum of the ledger.")
         with st.container(horizontal=True, gap="small", width="content", vertical_alignment="center"):
-            if is_viewer:
-                st.markdown('<span style="font-size:11px;font-family:var(--uv-mono);padding:4px 9px;'
-                            'border-radius:6px;border:0.5px solid var(--line);color:var(--muted);'
-                            'white-space:nowrap;">Viewer · read-only</span>', unsafe_allow_html=True,
-                            width="content")
-            st.download_button("Export CSV", data=cash.export_csv(entries),
+            st.download_button("Export", data=cash.export_csv(entries),
                                file_name=f"uvalu-cash-activity-{base}.csv", mime="text/csv",
                                key="cash_export", icon=":material/download:", disabled=not entries)
-            if not is_viewer:
-                if st.button("Add transaction", key="btn_add_cash", type="primary", icon=":material/add:"):
-                    cash_transaction_dialog("Deposit")
+            if st.button("Add transaction", key="btn_add_cash", type="primary", icon=":material/add:",
+                         disabled=is_viewer, help=_VIEWER_HELP if is_viewer else None):
+                cash_transaction_dialog("Deposit")
 
     with st.container(key="pf_cash_tiles"):
         _t = st.columns(5)
@@ -127,29 +124,45 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                    "was edited or deleted. Record a deposit or an adjustment on that date to correct it.",
                    icon=":material/warning:")
 
-    with st.container(key="pf_card_cash_full", border=True):
-        rows_all = list(reversed(cash.replay(entries)))
-        with st.container(key="pf_cash_filter_row", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            group = st.pills("Filter", options=list(cash.FILTER_GROUPS.keys()), default="All",
-                             selection_mode="single", key="cash_filter", label_visibility="collapsed") or "All"
-            rows = cash.filter_rows(rows_all, group)
-            st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'
-                        f'white-space:nowrap;">{len(rows)} of {len(rows_all)} entries</span>',
-                        unsafe_allow_html=True, width="content")
-        if not rows_all:
-            st.caption("No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. "
-                       "Buys never wait for cash: a shortfall is covered by an automatic top-up deposit.")
-        elif not rows:
-            st.caption("No entries of this type.")
-        else:
-            show_all = st.session_state.get("_cash_show_all", False)
-            shown = rows if show_all else rows[:_PAGE_ROWS]
-            st.markdown(cash_ledger_table_html(shown, base), unsafe_allow_html=True)
-            if len(rows) > len(shown):
-                if st.button(f"Show all {len(rows)} entries", key="cash_show_all", type="tertiary"):
-                    st.session_state["_cash_show_all"] = True
-                    st.rerun()
+    rows_all = list(reversed(cash.replay(entries)))
+    if not rows_all:
+        st.info("No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. "
+                "Buys never wait for cash: a shortfall is covered by an automatic top-up deposit.")
+    else:
+        with st.container(key="pf_card_cash_full", border=True):
+            with st.container(key="pf_cash_filter_row", horizontal=True, vertical_alignment="center",
+                              horizontal_alignment="distribute"):
+                group = st.pills("Filter", options=list(cash.FILTER_GROUPS.keys()), default="All",
+                                 selection_mode="single", key="cash_filter",
+                                 label_visibility="collapsed") or "All"
+                rows = cash.filter_rows(rows_all, group)
+                st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'
+                            f'white-space:nowrap;">{len(rows)} of {len(rows_all)} entries</span>',
+                            unsafe_allow_html=True, width="content")
+            if not rows:
+                st.caption("No entries of this type.")
+            else:
+                with st.container(key="pf_col_header_cash_full"):
+                    _hc = st.columns(CASH_LEDGER_COL_SPLIT, vertical_alignment="center", gap="small")
+                    with _hc[0]:
+                        st.markdown(cash_ledger_header_html(base), unsafe_allow_html=True)
+                n_shown = int(st.session_state.get("_cash_rows_shown", _PAGE_ROWS))
+                _target = None
+                for r in rows[:n_shown]:
+                    if cash_ledger_row(key=f"pf_cash_row_{r['id']}", row=r, base=base,
+                                       editable=cash.is_editable(r), edit_disabled=is_viewer):
+                        _target = r
+                if len(rows) > n_shown:
+                    _more = min(_PAGE_ROWS, len(rows) - n_shown)
+                    if st.button(f"Show {_more} more · {len(rows) - n_shown} not shown", key="cash_show_more",
+                                 type="tertiary"):
+                        st.session_state["_cash_rows_shown"] = n_shown + _PAGE_ROWS
+                        st.rerun()
+                if _target is not None:
+                    if cash.is_editable(_target):
+                        edit_cash_dialog(_target["id"])
+                    else:
+                        linked_cash_dialog(_target["id"])
 
     st.caption(f"Entries can be made in any currency and are converted to {base} at the ECB reference rate for "
                "the transaction date (frankfurter.dev), stored with the entry. When no rate is available the "

@@ -15,18 +15,15 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
-                       save_sold, update_positions, update_div_hist,
-                       record_value_snapshot, ensure_value_history_fresh,
+                       save_sold, record_value_snapshot, ensure_value_history_fresh,
                        dividends_in_eur, dividend_income_summary,
-                       import_dividends_from_market_data, dismiss_auto_dividend,
-                       exchange_key_for_ticker, currency_for_ticker)
-from settings import get_dividend_withholding
+                       import_dividends_from_market_data, exchange_key_for_ticker,
+                       ensure_trade_ids, ensure_div_ids, save_div_hist,
+                       strip_derived_columns, DERIVED_POSITION_COLS)
 from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
-from uvalu.dialogs import (add_position_dialog, add_dividend_dialog,
-                           add_closed_trade_dialog, _dialog_width_css, _num_or,
-                           dialog_frame, identity_row, dialog_actions, dividend_tax_preview,
-                           _dividend_tax_breakdown, DIV_TYPE_OPTIONS)
+from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
+                           edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
 from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
@@ -34,12 +31,14 @@ from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
-from uvalu.ui import price_autorefresh, consumed_tick, enter_dialog, poll_while_fetching
+from uvalu.ui import price_autorefresh, consumed_tick, poll_while_fetching
 from uvalu.pages_ import cash as _cash_ui
 
 # Full-page sections reachable by deep link (?section=cash), e.g. the Risk
 # page's "View cash activity" and the Dashboard Cash tile.
 _SECTIONS = ("overview", "open", "closed", "dividends", "cash")
+_VIEWER_HELP = "Viewer role is read-only"
+
 
 # Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
 # row components render a compact mono exchange chip next to the ticker.
@@ -90,11 +89,21 @@ def render() -> None:
                 pd.to_numeric(pf["shares"],         errors="coerce")
             ).round(4)
             _dirty = True
-        if _dirty:
+        # Derived live-price columns that the old Edit position dialog saved
+        # into the file along with the edit.
+        if any(c in pf.columns for c in DERIVED_POSITION_COLS):
+            pf = strip_derived_columns(pf)
+            _dirty = True
+        # Stable ids, so the Edit dialogs address a record by id, not by row.
+        pf, _ids_added = ensure_trade_ids(pf)
+        if _dirty or _ids_added:
             save_portfolio(pf)
 
         # ── Drop rows with no valid ticker ────────────────────────────────────
         pf = pf[pf["ticker"].notna() & (pf["ticker"].astype(str).str.strip() != "")].reset_index(drop=True)
+    _sold_ids, _sold_changed = ensure_trade_ids(load_sold())
+    if _sold_changed:
+        save_sold(_sold_ids)
 
     # ── Screener data + Add-position dialog (always needed, even for empty portfolio) ──
     # Scored rows for held + sold tickers via the portfolio's own fetch lane
@@ -113,6 +122,15 @@ def render() -> None:
     _user = current_user()
     _is_viewer = _user.is_viewer
 
+    # Arriving from another page lands on the Overview, so the user starts
+    # from the whole picture instead of whichever sub-page they left from —
+    # unless something sent them to a specific one: another page that sets
+    # port_section together with "_pf_section_handoff" (Risk's "View cash
+    # activity", the drawer's Edit), or a ?section= deep link.
+    _handoff = st.session_state.pop("_pf_section_handoff", False)
+    if (st.session_state.get("_uv_render_page") != "portfolio" and not _handoff
+            and "_pf_edit_ticker" not in st.session_state):
+        st.session_state["port_section"] = "overview"
     _qs_section = st.query_params.get("section")
     if _qs_section in _SECTIONS:
         st.session_state["port_section"] = _qs_section
@@ -148,10 +166,10 @@ def render() -> None:
         if _section == "cash":
             _cash_ui.render_page(invested_value=0.0, is_viewer=_is_viewer, on_back=lambda: _goto("overview"))
             st.stop()
-        if st.button("Add", key="btn_add_pos_empty", icon=":material/add:", disabled=_is_viewer,
-                    help="Viewer role is read-only" if _is_viewer else None):
+        if st.button("Add position", key="btn_add_pos_empty", icon=":material/add:", disabled=_is_viewer,
+                    help=_VIEWER_HELP if _is_viewer else None):
             add_position_dialog()
-        st.info("Your portfolio is empty. Click Add to record your first position.")
+        st.info("Your portfolio is empty. Click Add position to record your first position.")
         _cash_ui.render_strip(invested_value=0.0, is_viewer=_is_viewer, on_open=lambda: _goto("cash"))
         st.stop()
 
@@ -218,10 +236,10 @@ def render() -> None:
                     "Invested": pf["purchase_value"], "Current value": pf["current_value"],
                     "Price gain": pf["price_gain"],
                 }).to_csv(index=False)
-                st.download_button("Export CSV", data=_ov_csv, file_name="uvalu_portfolio.csv",
+                st.download_button("Export", data=_ov_csv, file_name="uvalu_portfolio.csv",
                                    mime="text/csv", key="ov_export", icon=":material/download:")
-                if st.button("Add", key="ov_buy", type="primary", icon=":material/add:", disabled=_is_viewer,
-                            help="Viewer role is read-only" if _is_viewer else None):
+                if st.button("Add position", key="ov_buy", type="primary", icon=":material/add:",
+                             disabled=_is_viewer, help=_VIEWER_HELP if _is_viewer else None):
                     add_position_dialog()
 
         # Realised P&L and a real trailing-12m dividend figure — matches
@@ -404,58 +422,29 @@ def render() -> None:
             _goto("overview")
         with st.container(key="pf_page_title_open", horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Open positions</div>',
-                       unsafe_allow_html=True)
-            if st.button("Add", key="btn_add_pos", type="primary", icon=":material/add:", disabled=_is_viewer,
-                        help="Viewer role is read-only" if _is_viewer else None):
+            with st.container(width="content"):
+                st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Open positions</div>',
+                           unsafe_allow_html=True)
+                st.caption("Every holding at cost and at today's price. Click a row for its detail; "
+                           "the pencil edits or sells it.")
+            if st.button("Add position", key="btn_add_pos", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_VIEWER_HELP if _is_viewer else None):
                 add_position_dialog()
 
-        @st.dialog("Edit position", width="small")
-        def _dlg_edit_open_position(orig_idx: int) -> None:
-            enter_dialog()
-            _row = pf.loc[orig_idx]
-            dialog_frame("Update shares, invested amount or buy date.")
-            identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
-                         key_prefix=f"dlg_eop_id_{orig_idx}", locked=True)
-            _c1, _c2 = st.columns(2)
-            with _c1:
-                _shares = st.number_input("Shares", min_value=1, step=1,
-                                          value=max(1, int(_row["shares"])), key="dlg_eop_shares")
-            with _c2:
-                _invested = st.number_input("Invested (€)", min_value=0.01, step=0.01,
-                                            value=round(float(_row["purchase_value"]), 2),
-                                            format="%.2f", key="dlg_eop_invested")
-            _date0 = pd.to_datetime(_row["date_in"], format="mixed", dayfirst=False, errors="coerce")
-            _date = st.date_input("Buy date", value=_date0.date() if pd.notna(_date0) else None,
-                                  format="DD/MM/YYYY", key="dlg_eop_date")
-            st.caption("No cash posting on edit — the original buy's cash entry stays as recorded.")
-
-            _do_save, _do_delete = dialog_actions("dlg_eop", delete=True)
-
-            if _do_save:
-                pf.at[orig_idx, "shares"] = max(1, int(_shares))
-                pf.at[orig_idx, "purchase_price"] = round(_invested / max(1, int(_shares)), 4)
-                pf.at[orig_idx, "purchase_value"] = round(_invested, 2)
-                if _date is not None:
-                    pf.at[orig_idx, "date_in"] = pd.Timestamp(_date).isoformat()
-                update_positions(pf)
-                st.rerun()
-            if _do_delete:
-                pf.drop(index=orig_idx, inplace=True)
-                pf.reset_index(drop=True, inplace=True)
-                update_positions(pf)
-                st.rerun()
+        def _live_price_for(trade_id) -> float | None:
+            _m = pf[pf["trade_id"].astype(str) == str(trade_id)]
+            _p = _m.iloc[0]["live_price"] if not _m.empty else None
+            return float(_p) if _p is not None and pd.notna(_p) else None
 
         # The drawer's "Edit" button (uvalu/drawer.py's _go_portfolio_edit)
-        # can't call this dialog directly — it's defined inside this page's
-        # own render() closure, and the drawer needs a full page navigation
-        # first anyway. It stashes the ticker here instead; resolve it to
-        # this run's row index and open the dialog ourselves.
+        # navigates here first and stashes the ticker; open that holding's
+        # (first lot's) Edit dialog.
         _pending_edit_ticker = st.session_state.pop("_pf_edit_ticker", None)
         if _pending_edit_ticker is not None:
             _edit_match = pf[pf["ticker"] == _pending_edit_ticker]
             if not _edit_match.empty:
-                _dlg_edit_open_position(_edit_match.index[0])
+                _tid = _edit_match.iloc[0]["trade_id"]
+                edit_position_dialog(str(_tid), live_price=_live_price_for(_tid))
 
         with st.container(key="pf_card_open_full", border=True):
             with st.container(key="pf_col_header_open_full"):
@@ -485,9 +474,9 @@ def render() -> None:
                 if _res["view"]:
                     _view_target = _prow["ticker"]
                 if _res["edit"]:
-                    _edit_target = _idx
+                    _edit_target = str(_prow["trade_id"])
             if _edit_target is not None:
-                _dlg_edit_open_position(_edit_target)
+                edit_position_dialog(_edit_target, live_price=_live_price_for(_edit_target))
             if _view_target is not None:
                 _r = _all_scr_df[_all_scr_df["Ticker"] == _view_target]
                 if not _r.empty:
@@ -499,15 +488,21 @@ def render() -> None:
             _goto("overview")
         with st.container(key="pf_page_title_closed", horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Closed positions '
-                       '<span style="color:var(--faint);font-weight:400;">· realised</span></div>',
-                       unsafe_allow_html=True)
-            if st.button("Close", key="btn_add_closed", type="primary", icon=":material/add:", disabled=_is_viewer,
-                        help="Viewer role is read-only" if _is_viewer else None):
+            with st.container(width="content"):
+                st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Closed positions '
+                           '<span style="color:var(--faint);font-weight:400;">· realised</span></div>',
+                           unsafe_allow_html=True)
+                st.caption("Realised results of sold positions. To sell a holding, use Sell shares in its "
+                           "Edit dialog on Open positions.")
+            # Records a trade opened and closed outside this app (no cash
+            # posting) — it used to be labelled "Close", which read like
+            # selling one of the holdings.
+            if st.button("Add closed trade", key="btn_add_closed", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_VIEWER_HELP if _is_viewer else None):
                 add_closed_trade_dialog()
         sold = load_sold()
         if sold is None or sold.empty:
-            st.info("No sold positions found in your portfolio file.")
+            st.info("No closed positions yet. Sell a holding, or record an earlier trade with Add closed trade.")
         else:
             sold = sold.reset_index(drop=True)
             _pv = pd.to_numeric(sold["purchase_value"], errors="coerce")
@@ -521,42 +516,6 @@ def render() -> None:
             sold_sorted = sold.assign(
                 _sort_date=pd.to_datetime(sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
             ).sort_values("_sort_date", ascending=False)
-
-            @st.dialog("Edit trade", width="small")
-            def _dlg_edit_closed_position(orig_idx: int) -> None:
-                enter_dialog()
-                _row = sold.loc[orig_idx]
-                dialog_frame("Update shares, proceeds or sell date.")
-                identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
-                             key_prefix=f"dlg_ecp_id_{orig_idx}", locked=True)
-                _c1, _c2 = st.columns(2)
-                with _c1:
-                    _shares = st.number_input("Shares", min_value=1, step=1,
-                                              value=max(1, int(_row["shares"])), key="dlg_ecp_shares")
-                with _c2:
-                    _proceeds = st.number_input("Proceeds (€)", min_value=0.0, step=0.01,
-                                                value=round(float(_row["sale_value"]), 2),
-                                                format="%.2f", key="dlg_ecp_proceeds")
-                _date0 = pd.to_datetime(_row["date_out"], format="mixed", dayfirst=False, errors="coerce")
-                _date = st.date_input("Sell date", value=_date0.date() if pd.notna(_date0) else None,
-                                      format="DD/MM/YYYY", key="dlg_ecp_date")
-
-                _do_save, _do_delete = dialog_actions("dlg_ecp", delete=True)
-
-                if _do_save:
-                    _sold_fresh = load_sold()
-                    _sold_fresh.at[orig_idx, "shares"] = max(1, int(_shares))
-                    _sold_fresh.at[orig_idx, "sale_value"] = round(_proceeds, 2)
-                    if _date is not None:
-                        _sold_fresh.at[orig_idx, "date_out"] = pd.Timestamp(_date).isoformat()
-                    save_sold(_sold_fresh)
-                    st.rerun()
-                if _do_delete:
-                    _sold_fresh = load_sold()
-                    _sold_fresh.drop(index=orig_idx, inplace=True)
-                    _sold_fresh.reset_index(drop=True, inplace=True)
-                    save_sold(_sold_fresh)
-                    st.rerun()
 
             with st.container(key="pf_card_closed_full", border=True):
                 with st.container(key="pf_col_header_closed_full"):
@@ -573,9 +532,9 @@ def render() -> None:
                         show_edit=True, edit_disabled=_is_viewer,
                     )
                     if _res["edit"]:
-                        _edit_target = _idx
+                        _edit_target = str(_srow["trade_id"])
                 if _edit_target is not None:
-                    _dlg_edit_closed_position(_edit_target)
+                    edit_closed_trade_dialog(_edit_target)
 
     # ── Full page: Dividends ───────────────────────────────────────────────────
     if _section == "dividends":
@@ -594,7 +553,9 @@ def render() -> None:
             if _n_imported:
                 st.toast(f"Imported {_n_imported} dividend event(s) from market data.", icon=":material/sync:")
 
-        div_hist = load_div_hist()
+        div_hist, _div_ids_added = ensure_div_ids(load_div_hist())
+        if _div_ids_added:
+            save_div_hist(div_hist)
         _has_divs = div_hist is not None and not div_hist.empty
         _div_csv = ""
         if _has_divs:
@@ -637,102 +598,13 @@ def render() -> None:
                 st.download_button("Export", data=_div_csv, file_name="uvalu_dividend_log.csv",
                                    mime="text/csv", key="div_export", icon=":material/download:",
                                    disabled=not _has_divs)
-                if st.button("Add dividend", key="btn_add_div", type="primary", icon=":material/add:", disabled=_is_viewer,
-                            help="Viewer role is read-only" if _is_viewer else None):
+                if st.button("Add dividend", key="btn_add_div", type="primary", icon=":material/add:",
+                             disabled=_is_viewer, help=_VIEWER_HELP if _is_viewer else None):
                     add_dividend_dialog(pf)
         if not _has_divs:
             st.info("No dividend events yet. Add one with Add dividend — events for your held tickers are "
                     "also fetched from market data where available.")
         else:
-            @st.dialog("Edit dividend", width="small")
-            def _dlg_edit_dividend(orig_idx: int) -> None:
-                import datetime as _dt
-
-                enter_dialog()
-                _row = div_hist.loc[orig_idx]
-                dialog_frame("Update this dividend's dates, amounts or type.")
-                identity_row(ticker=str(_row["ticker"]), name=str(_row["name"]),
-                             key_prefix=f"dlg_ed_id_{orig_idx}", locked=True)
-                if bool(_row.get("reinvested")):
-                    st.caption("Reinvested (DRIP) — the purchased shares were already added to "
-                              "this position and aren't re-applied by editing this record.")
-                # A missing currency comes back as NaN (truthy), which used to
-                # render the label as "Gross / share (nan)".
-                _ccy = _row.get("currency")
-                if not isinstance(_ccy, str) or not _ccy.strip():
-                    _ccy = currency_for_ticker(str(_row["ticker"])) or "EUR"
-
-                def _parse_date(v):
-                    d = pd.to_datetime(v, errors="coerce")
-                    return d.date() if pd.notna(d) else None
-
-                _row_pay = _row["date"].date() if pd.notna(_row["date"]) else None
-                _max_date = max(_dt.date.today(), _row_pay) if _row_pay else _dt.date.today()
-
-                # Same fields/order as add_dividend_dialog — declaration/record
-                # dates and frequency were dropped from both. Saving leaves any
-                # declaration/record date a record already carries untouched.
-                _c1, _c2 = st.columns(2)
-                with _c1:
-                    _ex = st.date_input("Ex-dividend date *", value=_parse_date(_row.get("ex_date")),
-                                        format="DD/MM/YYYY", max_value=_max_date, key="dlg_ed_ex")
-                with _c2:
-                    _date = st.date_input("Payment date *", value=_row_pay, format="DD/MM/YYYY",
-                                          max_value=_max_date, key="dlg_ed_date")
-
-                _c5, _c6, _c7 = st.columns(3)
-                with _c5:
-                    _shares = st.number_input("Shares held", min_value=0, step=1,
-                                              value=max(0, int(_num_or(_row["shares"], 0))), key="dlg_ed_shares")
-                with _c6:
-                    _sh0 = float(_num_or(_row["shares"], 0))
-                    _dps0 = float(_num_or(_row.get("amount_per_share"), 0.0)) or (
-                        float(_num_or(_row["amount"], 0.0)) / _sh0 if _sh0 else 0.0)
-                    _dps = st.number_input(f"Per share ({_ccy})", min_value=0.0, step=0.0001,
-                                           value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps")
-                with _c7:
-                    _tax_rate = st.number_input("Foreign WH (%)", min_value=0.0, max_value=100.0,
-                                                step=0.5, value=float(_num_or(_row.get("tax_rate"), 0.0)),
-                                                key="dlg_ed_tax")
-
-                _type0 = _row.get("div_type") or "Cash"
-                _type = st.selectbox("Type", options=DIV_TYPE_OPTIONS,
-                                     index=DIV_TYPE_OPTIONS.index(_type0) if _type0 in DIV_TYPE_OPTIONS else 0,
-                                     key="dlg_ed_type")
-
-                _gross = round(_dps * _shares, 2)
-                _fwh, _be, _net = _dividend_tax_breakdown(_gross, _tax_rate, _type)
-                dividend_tax_preview(_gross, _fwh, _be, _net)
-
-                _do_save, _do_delete = dialog_actions("dlg_ed", delete=True)
-
-                if _do_save:
-                    if _ex is None:
-                        st.error("Ex-dividend date is required.")
-                        return
-                    if _date is None:
-                        st.error("Payment date is required.")
-                        return
-                    _dh = load_div_hist()
-                    _dh.at[orig_idx, "shares"] = int(_shares)
-                    _dh.at[orig_idx, "amount"] = _gross
-                    _dh.at[orig_idx, "amount_per_share"] = round(_dps, 4)
-                    _dh.at[orig_idx, "tax_rate"] = round(_tax_rate, 2)
-                    _dh.at[orig_idx, "tax_amount"] = _fwh
-                    _dh.at[orig_idx, "div_type"] = _type
-                    _dh.at[orig_idx, "ex_date"] = pd.Timestamp(_ex).isoformat()
-                    _dh.at[orig_idx, "date"] = pd.Timestamp(_date).isoformat()
-                    update_div_hist(_dh)
-                    st.rerun()
-                if _do_delete:
-                    _dh = load_div_hist()
-                    if _dh.at[orig_idx, "source"] == "auto":
-                        dismiss_auto_dividend(str(_dh.at[orig_idx, "ticker"]), _dh.at[orig_idx, "ex_date"])
-                    _dh.drop(index=orig_idx, inplace=True)
-                    _dh.reset_index(drop=True, inplace=True)
-                    update_div_hist(_dh)
-                    st.rerun()
-
             # ── Summary tiles ──────────────────────────────────────────────────
             _tile_summary = dividend_income_summary(div_hist, months=12)
             _tile_gross = _tile_summary["gross_eur"].sum() if not _tile_summary.empty else 0.0
@@ -787,9 +659,9 @@ def render() -> None:
                         needs_confirm=_needs_confirm, edit_disabled=_is_viewer,
                     )
                     if _res["edit"]:
-                        _edit_target = _idx
+                        _edit_target = str(_drow["div_id"])
                 if _edit_target is not None:
-                    _dlg_edit_dividend(_edit_target)
+                    edit_dividend_dialog(_edit_target)
 
             # ── Annual dividend income summary ───────────────────────────────
             _years_df = div_eur.assign(_year=pd.to_datetime(div_eur["date"], errors="coerce").dt.year)

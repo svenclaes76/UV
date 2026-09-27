@@ -316,6 +316,22 @@ between screens at some point (see the `dq/*` history); the tests in
   adjustment). Buys/sells are never rejected: a shortfall posts a linked
   automatic top-up `Deposit` (`topup=True`, same `ref_id` as the trade) ordered
   before the trade.
+- **Editing.** Manual entries (Deposit / Withdrawal / Fee / Interest /
+  Adjustment) are edited or deleted in place (`cash.update_manual` /
+  `cash.delete_entry`; id kept, audit-logged as `cash.edit` / `cash.delete`).
+  Amount-only edits keep the stored rate; a new date or currency fetches a
+  fresh ECB rate. An edit or delete is refused if it takes the lowest running
+  balance below zero (or lower, when history is already negative). Automatic
+  entries (trades, top-ups, dividends) are only changed through their source:
+  the position / closed-trade Edit dialogs can re-post (`cash.repost_trade`,
+  top-up recomputed, never blocked) or remove (`cash.remove_ref(check=True)`)
+  a trade's entries, offered only while the entry still matches the record
+  (`cash.trade_in_sync` — not for partly-sold lots or earlier cash-less edits).
+- **Record ids.** Every position and closed trade carries a `trade_id` and
+  every dividend a `div_id` (backfilled on the Portfolio page); all Edit
+  dialogs address records by these ids, never by row index. Positions files
+  hold stored columns only — `live_price` / `current_value` / `price_gain*`
+  are derived at render time and stripped if found on disk.
 - **Dividend mirroring.** `cash.reconcile_dividend_postings()` keeps exactly one
   `Dividend` entry per received dividend (pay date ≤ today, not DRIP, not
   `Stock`), linked by `div_id` and net of foreign withholding and the Belgian

@@ -13,7 +13,7 @@ import cash
 import fx
 import portfolio
 from uvalu.pages_ import portfolio as portfolio_page
-from tests.conftest import make_portfolio_df, fake_portfolio_scored, USER_SETUP_SRC
+from tests.conftest import make_portfolio_df, fake_portfolio_scored, USER_SETUP_SRC, portfolio_page_src
 
 D = date(2026, 3, 2)
 
@@ -24,15 +24,7 @@ def _run_portfolio(monkeypatch, section=None, role="Analyst") -> AppTest:
         t: {"price": 110.0} for t in tickers})
     monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
     monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
-    section_line = (f'st.session_state.setdefault("port_section", {section!r})' if section else "")
-    at = AppTest.from_string(USER_SETUP_SRC + f"""
-import streamlit as st
-st.session_state["user_email"] = "test@example.com"
-st.session_state["user_role"] = {role!r}
-{section_line}
-from uvalu.pages_ import portfolio as portfolio_page
-portfolio_page.render()
-""", default_timeout=60)
+    at = AppTest.from_string(portfolio_page_src(section, role), default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     return at
@@ -61,11 +53,11 @@ class TestCashStrip:
         at = _run_portfolio(monkeypatch)
         assert "No entries yet · buys top up automatically" in _html(at)
 
-    def test_viewer_has_no_deposit_withdraw(self, isolated_data, monkeypatch):
+    def test_viewer_sees_deposit_withdraw_disabled(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
         at = _run_portfolio(monkeypatch, role="Viewer")
-        keys = {b.key for b in at.button}
-        assert "ov_cash_deposit" not in keys and "ov_cash_withdraw" not in keys
+        btns = [b for b in at.button if b.key in ("ov_cash_deposit", "ov_cash_withdraw")]
+        assert len(btns) == 2 and all(b.disabled for b in btns)
 
     def test_expand_opens_cash_page(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -108,8 +100,12 @@ class TestCashPage:
         assert html.index("TRD-0001 · AAA.BR") < html.index("To savings")
         assert "top-up" in html and "manual" in html and "set to €1,000.00" in html
         assert "5 of 5 entries" in html
-        assert any(b.label == "Export CSV" for b in at.get("download_button"))
-        assert any(b.key == "btn_add_cash" for b in at.button)
+        assert any(b.label == "Export" for b in at.get("download_button"))
+        assert any(b.key == "btn_add_cash" and not b.disabled for b in at.button)
+        # one pencil per row: manual entries edit, automatic ones open the linked view
+        pencils = {b.key: b.help for b in at.button if b.key and b.key.startswith("pf_cash_row_")}
+        assert len(pencils) == 5
+        assert sorted(pencils.values()).count("View linked entry") == 2   # buy + its top-up
 
     def test_filter_pills(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -124,14 +120,14 @@ class TestCashPage:
         portfolio.save_portfolio(make_portfolio_df())
         self._seed()
         at = _run_portfolio(monkeypatch, section="cash", role="Viewer")
-        assert "Viewer · read-only" in _html(at)
-        assert not any(b.key == "btn_add_cash" for b in at.button)
-        assert any(b.label == "Export CSV" for b in at.get("download_button"))
+        assert all(b.disabled for b in at.button if b.key == "btn_add_cash" or
+                   (b.key or "").startswith("pf_cash_row_"))
+        assert any(b.label == "Export" for b in at.get("download_button"))
 
     def test_empty_ledger_message(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
         at = _run_portfolio(monkeypatch, section="cash")
-        assert any("No cash entries yet" in c.value for c in at.caption)
+        assert any("No cash entries yet" in i.value for i in at.info)
 
     def test_deep_link_query_param(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -177,7 +173,7 @@ class TestCashDialog:
         at.text_input(key="dlg_cash_note").set_value("Monthly savings plan")
         at.run()
         assert "+€2,500.00" in _html(at)
-        _save(at, "Add deposit")
+        _save(at, "Save")
         e = cash.load_ledger()[0]
         assert (e["type"], e["amount"], e["note"]) == ("Deposit", 2500.0, "Monthly savings plan")
 
@@ -187,8 +183,8 @@ class TestCashDialog:
         at.number_input(key="dlg_cash_amt").set_value(150.0)
         at.run()
         assert "· blocked" in _html(at)
-        _save(at, "Add withdrawal")
-        assert "Balance cannot go negative" in _html(at)
+        _save(at, "Save")
+        assert any("Balance cannot go negative" in x.value for x in at.error)
         assert len(cash.load_ledger()) == 1
 
     def test_foreign_currency_uses_ecb_rate(self, isolated_data, monkeypatch):
@@ -199,7 +195,7 @@ class TestCashDialog:
         at.run()
         html = _html(at)
         assert "1 USD = €0.8500" in html and "frankfurter.dev" in html and "+€850.00" in html
-        _save(at, "Add deposit")
+        _save(at, "Save")
         e = cash.load_ledger()[0]
         assert (e["currency"], e["fx_rate"], e["fx_source"], e["amount_base"]) == ("USD", 0.85, "ecb", 850.0)
 
@@ -209,10 +205,10 @@ class TestCashDialog:
         at.number_input(key="dlg_cash_amt").set_value(100.0)
         at.run()
         assert "frankfurter.dev is unreachable" in _html(at)
-        _save(at, "Add deposit")
-        assert "Enter the FX rate to convert GBP to EUR." in _html(at)
+        _save(at, "Save")
+        assert any("Enter the FX rate to convert GBP to EUR." in x.value for x in at.error)
         at.number_input(key="dlg_cash_rate").set_value(1.16)
-        _save(at, "Add deposit")
+        _save(at, "Save")
         e = cash.load_ledger()[0]
         assert (e["fx_source"], e["amount_base"]) == ("manual", 116.0)
 
@@ -222,12 +218,103 @@ class TestCashDialog:
         at.number_input(key="dlg_cash_target").set_value(987.6)
         at.run()
         assert "−€12.40" in _html(at)
-        _save(at, "Log correction")
+        _save(at, "Save")
         assert cash.balance() == 987.6
 
     def test_viewer_cannot_post(self, isolated_data):
         at = _run_dialog(role="Viewer")
-        assert not [b for b in at.button if b.label == "Add deposit"]
+        assert not [b for b in at.button if b.label == "Save"]
+        assert any("Viewer role is read-only" in c.value for c in at.caption)
+
+
+# ── Edit cash transaction / linked entry dialogs ─────────────────────────────
+
+def _run_edit(entry_id: str) -> AppTest:
+    at = AppTest.from_string(USER_SETUP_SRC + f"""
+import streamlit as st
+st.session_state["user_role"] = "Analyst"
+from uvalu.dialogs import edit_cash_dialog
+edit_cash_dialog({entry_id!r})
+""", default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+class TestEditCashDialog:
+    def test_prefilled_and_saves_in_place(self, isolated_data):
+        e = cash.post_manual("Deposit", D, 500, note="Savings")
+        at = _run_edit(e["id"])
+        assert at.number_input(key="dlg_cash_amt").value == 500.0
+        assert at.text_input(key="dlg_cash_note").value == "Savings"
+        assert at.selectbox(key="dlg_cash_type").disabled
+        at.number_input(key="dlg_cash_amt").set_value(750.0)
+        at.run()
+        assert "+€250.00" in _html(at)          # the change
+        _save(at, "Save")
+        led = cash.load_ledger()
+        assert len(led) == 1 and led[0]["id"] == e["id"] and led[0]["amount_base"] == 750.0
+
+    def test_lowering_a_deposit_below_spent_cash_is_blocked(self, isolated_data):
+        e = cash.post_manual("Deposit", D, 500)
+        cash.post_manual("Withdrawal", "2026-03-05", 400)
+        at = _run_edit(e["id"])
+        at.number_input(key="dlg_cash_amt").set_value(300.0)
+        at.run()
+        assert "· blocked" in _html(at)
+        _save(at, "Save")
+        assert any("Balance cannot go negative" in x.value for x in at.error)
+        assert cash.balance() == 100.0
+
+    def test_foreign_entry_keeps_its_stored_rate(self, isolated_data):
+        e = cash.post_manual("Deposit", D, 100, "USD", manual_rate=0.9)
+        at = _run_edit(e["id"])
+        assert at.number_input(key="dlg_cash_rate").value == 0.9      # manual panel, prefilled
+        at.number_input(key="dlg_cash_amt").set_value(200.0)
+        _save(at, "Save")
+        led = cash.load_ledger()[0]
+        assert (led["fx_rate"], led["fx_source"], led["amount_base"]) == (0.9, "manual", 180.0)
+
+    def test_delete_asks_for_confirmation(self, isolated_data, dialog_fragment_runs):
+        cash.post_manual("Deposit", D, 500)
+        e = cash.post_manual("Interest", "2026-03-04", 3)
+        at = _run_edit(e["id"])
+        _save(at, "Delete")
+        at.run()                                  # the dialog's fragment rerun (no-op under AppTest)
+        assert "Balance after: €500.00" in _html(at)
+        _save(at, "Delete permanently")
+        assert [x["type"] for x in cash.load_ledger()] == ["Deposit"]
+
+    def test_automatic_entries_are_refused(self, isolated_data):
+        posted = cash.post_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=1, gross=10, on=D)
+        at = _run_edit(posted[-1]["id"])
+        assert any("Automatic entries" in x.value for x in at.error)
+
+
+class TestLinkedCashDialog:
+    def test_shows_source_and_jumps_there(self, isolated_data):
+        posted = cash.post_trade("Sell", trade_id="TRD-0009", ticker="AAA.BR", shares=2, gross=50, on=D)
+        at = AppTest.from_string(USER_SETUP_SRC + f"""
+from uvalu.dialogs import linked_cash_dialog
+linked_cash_dialog({posted[-1]["id"]!r})
+""", default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = _html(at)
+        assert "TRD-0009 · AAA.BR" in html and "+€50.00" in html
+        _save(at, "Open closed positions")
+        assert at.session_state["port_section"] == "closed"
+
+
+def test_ledger_shows_50_rows_then_more(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    for i in range(60):
+        cash.post_manual("Deposit", D, 1 + i)
+    at = _run_portfolio(monkeypatch, section="cash")
+    rows = [b for b in at.button if (b.key or "").startswith("pf_cash_row_")]
+    assert len(rows) == 50
+    [b for b in at.button if b.key == "cash_show_more"][0].click().run()
+    assert len([b for b in at.button if (b.key or "").startswith("pf_cash_row_")]) == 60
 
 
 # ── Buy / Sell dialogs ───────────────────────────────────────────────────────
@@ -247,7 +334,7 @@ add_position_dialog(preset_ticker="AAA.BR")
         at.number_input(key="dlg_ap_fee").set_value(9.9)
         at.run()
         html = _html(at)
-        assert "Cash after trade" in html and "+€109.90 auto top-up" in html
+        assert "Cash after trade" in html and "Auto top-up from outside cash" in html and "+€109.90" in html
         _save(at, "Save")
         led = cash.replay(cash.load_ledger())
         assert [r["type"] for r in led] == ["Deposit", "Deposit", "Buy"]

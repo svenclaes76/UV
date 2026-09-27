@@ -156,6 +156,9 @@ def load_div_hist() -> pd.DataFrame | None:
 
 def add_position(row: dict) -> None:
     """Append a new open position and persist."""
+    row = dict(row)
+    if not row.get("trade_id"):
+        row["trade_id"] = next_id("trade")
     df = load_portfolio()
     new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
@@ -356,6 +359,161 @@ def record_sell(ticker: str, shares: float, price: float, fee: float, sell_date:
     return sold
 
 
+# ── Edit / delete by id (Portfolio page dialogs) ─────────────────────────────
+# Each reloads the file, addresses the record by its stable id, and writes
+# only stored columns — the page's render frame carries live-price columns
+# that used to be saved into portfolio.json by the Edit position dialog.
+# Cash follows only when the dialog asks for it (sync_cash / remove_cash):
+# the cash change goes first, so a refused one (balance rule) leaves the
+# position untouched.
+
+DERIVED_POSITION_COLS = ("live_price", "current_value", "price_gain", "price_gain_pct")
+
+
+def strip_derived_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.drop(columns=[c for c in DERIVED_POSITION_COLS if c in df.columns])
+
+
+def _row_for(df: "pd.DataFrame | None", id_col: str, rec_id: str):
+    if df is None or df.empty or id_col not in df.columns:
+        return None
+    hit = df.index[df[id_col].astype(str) == str(rec_id)]
+    return hit[0] if len(hit) else None
+
+
+def get_position(trade_id: str) -> dict | None:
+    pf = load_portfolio()
+    i = _row_for(pf, "trade_id", trade_id)
+    return None if i is None else pf.loc[i].to_dict()
+
+
+def get_closed_trade(trade_id: str) -> dict | None:
+    sd = load_sold()
+    i = _row_for(sd, "trade_id", trade_id)
+    return None if i is None else sd.loc[i].to_dict()
+
+
+def get_dividend(div_id: str) -> dict | None:
+    dh = load_div_hist()
+    i = _row_for(dh, "div_id", div_id)
+    return None if i is None else dh.loc[i].to_dict()
+
+
+def update_position(trade_id: str, *, shares: int, invested: float, date_in=None,
+                    fee: float | None = None, sync_cash: bool = False) -> None:
+    """`fee` only matters with `sync_cash` — it is part of the buy's cash
+    entry, not of the position's cost basis."""
+    import cash
+    pf = load_portfolio()
+    i = _row_for(pf, "trade_id", trade_id)
+    if i is None:
+        raise ValueError("This position no longer exists.")
+    shares = max(1, int(shares))
+    if sync_cash:
+        fee = float(_num_or(pf.loc[i].get("fee") if "fee" in pf.columns else None, 0.0)) if fee is None else float(fee)
+        cash.repost_trade("Buy", trade_id=str(trade_id), ticker=str(pf.at[i, "ticker"]), shares=shares,
+                          gross=round(float(invested), 2), fee=fee,
+                          on=date_in if date_in is not None else pf.at[i, "date_in"])
+        if "fee" not in pf.columns:
+            pf["fee"] = 0.0
+        pf.at[i, "fee"] = round(fee, 2)
+    pf.at[i, "shares"] = shares
+    pf.at[i, "purchase_price"] = round(float(invested) / shares, 4)
+    pf.at[i, "purchase_value"] = round(float(invested), 2)
+    if date_in is not None:
+        pf.at[i, "date_in"] = pd.Timestamp(date_in).isoformat()
+    save_portfolio(strip_derived_columns(pf))
+    logkit.data_mutation(actor=logkit.user_id(), action="position.edit", entity_type="ticker",
+                         entity_id=str(pf.at[i, "ticker"]), trade_id=str(trade_id), cash=sync_cash)
+
+
+def delete_position(trade_id: str, *, remove_cash: bool = False) -> None:
+    import cash
+    pf = load_portfolio()
+    i = _row_for(pf, "trade_id", trade_id)
+    if i is None:
+        return
+    if remove_cash:
+        cash.remove_ref("trade", str(trade_id), check=True)
+    ticker = str(pf.at[i, "ticker"])
+    save_portfolio(strip_derived_columns(pf.drop(index=i).reset_index(drop=True)))
+    logkit.data_mutation(actor=logkit.user_id(), action="position.delete", entity_type="ticker",
+                         entity_id=ticker, trade_id=str(trade_id), cash=remove_cash)
+
+
+def update_closed_trade(trade_id: str, *, shares: int, buy_price: float, sell_price: float,
+                        date_out=None, sector: str | None = None, sync_cash: bool = False) -> None:
+    """Shares, buy and sell price per share — the same fields as Add closed
+    trade. Cost basis and proceeds are both recomputed from them, so changing
+    the share count no longer leaves the old cost basis in place (which
+    silently changed the buy price and the realised P&L)."""
+    import cash
+    sd = load_sold()
+    i = _row_for(sd, "trade_id", trade_id)
+    if i is None:
+        raise ValueError("This trade no longer exists.")
+    shares = max(1, int(shares))
+    proceeds = round(float(sell_price) * shares, 2)
+    if sync_cash:
+        cash.repost_trade("Sell", trade_id=str(trade_id), ticker=str(sd.at[i, "ticker"]), shares=shares,
+                          gross=proceeds, fee=float(_num_or(sd.loc[i].get("fee") if "fee" in sd.columns else None, 0.0)),
+                          on=date_out if date_out is not None else sd.at[i, "date_out"])
+    sd.at[i, "shares"] = shares
+    sd.at[i, "purchase_value"] = round(float(buy_price) * shares, 2)
+    sd.at[i, "sale_value"] = proceeds
+    if date_out is not None:
+        sd.at[i, "date_out"] = pd.Timestamp(date_out).isoformat()
+    if sector:
+        if "sector" not in sd.columns:
+            sd["sector"] = None
+        sd.at[i, "sector"] = sector
+    ar = _annual_return_pct(float(sd.at[i, "purchase_value"]), proceeds,
+                            float(_num_or(sd.loc[i].get("dividends") if "dividends" in sd.columns else None, 0.0)),
+                            str(sd.loc[i].get("date_in") or ""), str(sd.at[i, "date_out"]))
+    sd.at[i, "annual_return_pct"] = float("nan") if ar is None else ar
+    save_sold(sd)
+    logkit.data_mutation(actor=logkit.user_id(), action="trade.edit_closed", entity_type="ticker",
+                         entity_id=str(sd.at[i, "ticker"]), trade_id=str(trade_id), cash=sync_cash)
+
+
+def delete_closed_trade(trade_id: str, *, remove_cash: bool = False) -> None:
+    import cash
+    sd = load_sold()
+    i = _row_for(sd, "trade_id", trade_id)
+    if i is None:
+        return
+    if remove_cash:
+        cash.remove_ref("trade", str(trade_id), check=True)
+    ticker = str(sd.at[i, "ticker"])
+    save_sold(sd.drop(index=i).reset_index(drop=True))
+    logkit.data_mutation(actor=logkit.user_id(), action="trade.delete_closed", entity_type="ticker",
+                         entity_id=ticker, trade_id=str(trade_id), cash=remove_cash)
+
+
+def update_dividend(div_id: str, fields: dict) -> None:
+    dh = load_div_hist()
+    i = _row_for(dh, "div_id", div_id)
+    if i is None:
+        raise ValueError("This dividend no longer exists.")
+    for k, v in fields.items():
+        if k not in dh.columns:
+            dh[k] = None
+        dh.at[i, k] = v
+    update_div_hist(dh)
+
+
+def delete_dividend(div_id: str) -> None:
+    """Delete one dividend record; an auto-imported one is also remembered as
+    dismissed, so the next import doesn't put it straight back."""
+    dh = load_div_hist()
+    i = _row_for(dh, "div_id", div_id)
+    if i is None:
+        return
+    if "source" in dh.columns and dh.at[i, "source"] == "auto":
+        dismiss_auto_dividend(str(dh.at[i, "ticker"]), dh.at[i, "ex_date"])
+    update_div_hist(dh.drop(index=i).reset_index(drop=True))
+
+
 def _reconcile_cash_dividends() -> None:
     """Mirror the dividend log into the cash ledger. Never lets a cash
     problem break saving a dividend — it's retried on the next page load."""
@@ -374,6 +532,9 @@ def add_closed_trade(row: dict) -> None:
     as an open position here. Matches Uvalu.dc.html's "Add/Edit closed trade"
     modal, which has no counterpart in sell_position() (that always moves an
     *existing* open position into sold.json)."""
+    row = dict(row)
+    if not row.get("trade_id"):
+        row["trade_id"] = next_id("trade")
     df = load_sold()
     new_row = pd.DataFrame([row])
     df = pd.concat([df, new_row], ignore_index=True) if df is not None else new_row
@@ -792,6 +953,25 @@ def reserve_ids(kind: str, count: int) -> list[str]:
         meta[key] = start + count
         _save_portfolio_meta(meta)
     return [f"{prefix}-{start + i + 1:0{width}d}" for i in range(count)]
+
+
+def ensure_trade_ids(df: "pd.DataFrame | None") -> tuple["pd.DataFrame | None", bool]:
+    """Give every position / closed-trade row without one a stable
+    `trade_id` (rows from Excel import, legacy files and "Add closed trade"),
+    so the edit dialogs address a record by id instead of by its row index —
+    which silently pointed at a different row once the file changed between
+    render and save. A backfilled id never matches a cash entry, so it never
+    links to one. Returns (frame, changed); the caller persists when changed."""
+    if df is None or df.empty:
+        return df, False
+    df = df.copy()
+    if "trade_id" not in df.columns:
+        df["trade_id"] = None
+    blank = df["trade_id"].isna() | df["trade_id"].astype(str).str.strip().isin(["", "None", "nan"])
+    if not blank.any():
+        return df, False
+    df.loc[blank, "trade_id"] = reserve_ids("trade", int(blank.sum()))
+    return df, True
 
 
 def ensure_div_ids(df: "pd.DataFrame | None") -> tuple["pd.DataFrame | None", bool]:

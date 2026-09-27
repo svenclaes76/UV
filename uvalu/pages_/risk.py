@@ -161,6 +161,7 @@ def _render_cash_banner(pf) -> None:
             f'Monte Carlo.</span></div>', unsafe_allow_html=True, width="stretch")
         if st.button("View cash activity", key="risk_view_cash", type="tertiary"):
             st.session_state["port_section"] = "cash"
+            st.session_state["_pf_section_handoff"] = True   # land here, not on the Overview
             st.switch_page(nav.pages["portfolio"])
 
 

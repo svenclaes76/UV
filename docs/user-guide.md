@@ -128,7 +128,8 @@ The **Cash balance** strip on the Portfolio overview shows your cash, the
 invested-vs-cash split and the total portfolio value (holdings + cash), with
 **Deposit** / **Withdraw** buttons. The ⤢ icon opens **Cash activity**: five
 summary tiles and the full ledger, filterable by Deposits & withdrawals,
-Trades, Income or Fees & adjustments, with **Export CSV** (full history).
+Trades, Income or Fees & adjustments, with **Export** (full history). The
+ledger shows 50 entries at a time (**Show more** for the rest).
 
 - **Automatic entries** — every Buy and Sell posts its cash (value ± fees;
   both dialogs have a *Fees* field and show the cash left after the trade),
@@ -145,9 +146,15 @@ Trades, Income or Fees & adjustments, with **Export CSV** (full history).
 - **Adjustment** — sets the balance to a corrected figure (e.g. to match your
   broker statement, or to record an opening balance). It is saved as its own
   entry; earlier entries never change.
+- **Edit or delete** — the ✎ on a manual entry opens it for editing (its type
+  stays the same; changing only the amount keeps the stored FX rate). Delete
+  asks for confirmation and shows the balance afterwards. Changes that would
+  take the balance below zero are refused. The ✎ on an automatic entry shows
+  where it came from, with a button to that trade or dividend — edit it there.
 - Cash counts toward total portfolio value and the Dashboard's *Current
   value* / *Cash* tiles, but **not** toward any risk metric.
-- Viewers can see and export the ledger but can't add entries.
+- Viewers can see and export the ledger; the add / edit buttons are shown
+  disabled.
 
 ### Dividends
 

@@ -388,16 +388,189 @@ def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: f
     return posted
 
 
-def remove_ref(ref_kind: str, ref_id: str) -> int:
-    """Delete every entry linked to one trade/dividend (used to roll back a
-    trade whose position write failed). Returns the number removed."""
+def remove_ref(ref_kind: str, ref_id: str, *, check: bool = False) -> int:
+    """Delete every entry linked to one trade/dividend. Used to roll back a
+    trade whose position write failed (``check=False``) and, with
+    ``check=True``, when the user deletes a position or closed trade together
+    with its cash — then refused (CashError) if it would take the running
+    balance lower below zero. Returns the number removed."""
     with _lock:
         entries = load_ledger()
         kept = [e for e in entries if not (e.get("ref_kind") == ref_kind and e.get("ref_id") == ref_id)]
         n = len(entries) - len(kept)
         if n:
+            if check:
+                _check_not_worse(entries, kept)
             save_ledger(kept)
     return n
+
+
+# ── Editing (manual entries) and trade links ─────────────────────────────────
+# Manual entries (Deposit / Withdrawal / Fee / Interest / Adjustment) can be
+# edited and deleted in place — the entry keeps its id, and the change is
+# audit-logged. Auto entries (trades, top-ups, dividends) mirror another
+# record and are changed only through it: the position / closed-trade dialogs
+# (re-post or remove the linked trade entries) or the dividend log
+# (reconcile_dividend_postings).
+
+def get_entry(entry_id: str, entries: list[dict] | None = None) -> dict | None:
+    entries = load_ledger() if entries is None else entries
+    return next((e for e in entries if e.get("id") == entry_id), None)
+
+
+def is_editable(e: dict | None) -> bool:
+    return bool(e) and not e.get("auto") and not e.get("ref_kind") and e.get("type") in MANUAL_TYPES
+
+
+def _check_not_worse(before: list[dict], after: list[dict]) -> None:
+    """Edits and deletes follow the same rule as a new manual debit: the
+    balance may not go below zero. A ledger that already dips below zero
+    (a dividend was edited) may still be edited as long as the change doesn't
+    make its lowest point any lower."""
+    low_after = min((r["bal"] for r in replay(after)), default=0.0)
+    if low_after >= -0.004:
+        return
+    low_before = min((r["bal"] for r in replay(before)), default=0.0)
+    if low_after < low_before - 0.004:
+        raise CashError(blocked_message(low_after, portfolio.base_currency()))
+
+
+def preview_change(entry_id: str | None, replacement: dict | None,
+                   entries: list[dict] | None = None) -> dict:
+    """Balance after replacing (``replacement``) or deleting (None) an entry,
+    for the Edit dialog's preview. Keys: ``after`` (current balance once the
+    change is applied) and ``blocked`` (it would break the no-negative rule)."""
+    entries = load_ledger() if entries is None else entries
+    after_entries = [e for e in entries if e.get("id") != entry_id]
+    if replacement is not None:
+        after_entries.append(replacement)
+    try:
+        _check_not_worse(entries, after_entries)
+        blocked = False
+    except CashError:
+        blocked = True
+    return {"after": balance(after_entries), "blocked": blocked}
+
+
+def update_manual(entry_id: str, on, amount: float | None = None, currency: str | None = None, *,
+                  note: str = "", manual_rate: float | None = None, refresh_rate: bool = False,
+                  target_balance: float | None = None) -> dict:
+    """Edit a manual entry in place (its type never changes). FX: a manual
+    rate wins; otherwise the stored rate is kept while date and currency are
+    unchanged (amount-only edit, same as dividend mirroring), and a fresh ECB
+    rate is fetched when either changes or ``refresh_rate`` is set. Raises
+    CashError for auto entries and when the change would push the balance
+    below zero (fx.FxUnavailable when a fresh rate is needed but missing)."""
+    d = _to_date(on)
+    base = portfolio.base_currency()
+    with _lock:
+        entries = load_ledger()
+        old = get_entry(entry_id, entries)
+        if old is None:
+            raise CashError("This entry no longer exists.")
+        if not is_editable(old):
+            raise CashError("Automatic entries change with their trade or dividend.")
+        t = old["type"]
+        new = dict(old)
+        new["date"] = d.isoformat()
+        if t == "Adjustment":
+            try:
+                target = float(target_balance)
+            except (TypeError, ValueError):
+                raise CashError("Enter the corrected balance.")
+            if math.isnan(target) or math.isinf(target):
+                raise CashError("Enter the corrected balance.")
+            if target < 0:
+                raise CashError("Balance cannot go negative.")
+            others = [e for e in entries if e.get("id") != entry_id]
+            new["target_balance"] = round(target, 2)
+            new["delta_at_entry"] = round(target - balance_before(others, d), 2)
+            new["note"] = note.strip() or ("Opening balance" if old.get("opening")
+                                           else "Manual balance correction")
+        else:
+            try:
+                amount = float(amount)
+            except (TypeError, ValueError):
+                amount = 0.0
+            if not (amount > 0) or math.isinf(amount):
+                raise CashError("Enter an amount greater than zero.")
+            currency = (currency or base).upper()
+            same_basis = old.get("date") == d.isoformat() and (old.get("currency") or base) == currency
+            if currency == base:
+                rate, src, fx_date = 1.0, "base", None
+            elif manual_rate is not None:
+                rate, src, fx_date = resolve_rate(currency, d, manual_rate)
+            elif same_basis and not refresh_rate and old.get("fx_rate"):
+                rate, src, fx_date = float(old["fx_rate"]), old.get("fx_source") or "ecb", old.get("fx_date")
+            else:
+                rate, src, fx_date = resolve_rate(currency, d)
+            signed = _SIGN[t] * amount
+            new.update({"amount": round(signed, 2), "currency": currency, "fx_rate": round(float(rate), 6),
+                        "fx_source": src, "fx_date": fx_date, "amount_base": round(signed * rate, 2),
+                        "note": note.strip() or t})
+        after = [new if e.get("id") == entry_id else e for e in entries]
+        _check_not_worse(entries, after)
+        save_ledger(after)
+    logkit.data_mutation(actor=logkit.user_id(), action="cash.edit", entity_type="cash",
+                         entity_id=entry_id, type=t)
+    return new
+
+
+def delete_entry(entry_id: str) -> None:
+    """Delete a manual entry. The opening flag is never handed to another
+    entry — the ledger simply starts at the next one."""
+    with _lock:
+        entries = load_ledger()
+        old = get_entry(entry_id, entries)
+        if old is None:
+            return
+        if not is_editable(old):
+            raise CashError("Automatic entries change with their trade or dividend.")
+        after = [e for e in entries if e.get("id") != entry_id]
+        _check_not_worse(entries, after)
+        save_ledger(after)
+    logkit.data_mutation(actor=logkit.user_id(), action="cash.delete", entity_type="cash",
+                         entity_id=entry_id, type=old.get("type"), opening=bool(old.get("opening")))
+
+
+def trade_entries(trade_id: str | None, entries: list[dict] | None = None) -> list[dict]:
+    """The ledger entries (trade + any top-up) linked to one trade id."""
+    if not trade_id:
+        return []
+    entries = load_ledger() if entries is None else entries
+    return [e for e in entries if e.get("ref_kind") == "trade" and e.get("ref_id") == str(trade_id)]
+
+
+def trade_in_sync(kind: str, trade_id: str | None, gross: float, fee: float = 0.0,
+                  entries: list[dict] | None = None) -> bool:
+    """True when ``trade_id`` has a posted ``kind`` entry whose amount still
+    equals this record's gross/fee — i.e. the position or closed trade is the
+    single, unchanged trade the entry was posted for (not a partly-sold lot or
+    an earlier edit made without the cash). Only then may the dialogs offer
+    to update or remove the cash along with it."""
+    main = [e for e in trade_entries(trade_id, entries) if e.get("type") == kind]
+    if len(main) != 1:
+        return False
+    return abs(float(main[0].get("amount") or 0.0) - trade_amount(kind, gross, fee)) < 0.011
+
+
+def repost_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: float,
+                 fee: float = 0.0, on=None) -> list[dict]:
+    """Replace a trade's linked entries with freshly posted ones (the edit
+    path of the position / closed-trade dialogs). Like any trade it is never
+    blocked by the balance (D3): the top-up is recomputed, so a shortfall the
+    new amounts create is covered by an automatic deposit. The old entries
+    are restored if posting fails."""
+    with _lock:
+        before = load_ledger()
+        kept = [e for e in before if not (e.get("ref_kind") == "trade" and e.get("ref_id") == trade_id)]
+        save_ledger(kept)
+        try:
+            return post_trade(kind, trade_id=trade_id, ticker=ticker, shares=shares,
+                              gross=gross, fee=fee, on=on)
+        except Exception:
+            save_ledger(before)
+            raise
 
 
 # ── Dividend mirroring ───────────────────────────────────────────────────────

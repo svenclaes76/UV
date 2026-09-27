@@ -424,3 +424,145 @@ def test_log_retention_never_touches_the_cash_ledger(tmp_path):
     removed = retention.sweep({"retention_days": 31, "file": {"path": "logs/uvalu.log"}}, log_dir=tmp_path)
     assert removed == 1 and not old_log.exists()
     assert ledger.exists() and cash.balance() == 10.0
+
+
+# ── Editing manual entries / trade links (Sep 2026) ──────────────────────────
+
+class TestEditManual:
+    def test_amount_only_keeps_the_stored_rate(self, ecb):
+        e = cash.post_manual("Deposit", D, 100, "USD")                  # 0.85 ECB
+        ecb["USD"] = 0.99                                               # a later revision
+        out = cash.update_manual(e["id"], D, 200, "USD", note="more")
+        assert (out["id"], out["fx_rate"], out["fx_source"], out["amount_base"]) == (e["id"], 0.85, "ecb", 170.0)
+        assert cash.load_ledger()[0]["note"] == "more"
+
+    def test_date_or_currency_change_fetches_a_fresh_rate(self, ecb):
+        e = cash.post_manual("Deposit", D, 100, "USD")
+        out = cash.update_manual(e["id"], D, 100, "CHF")
+        assert (out["fx_rate"], out["amount_base"]) == (1.07, 107.0)
+
+    def test_manual_rate_wins_and_is_flagged(self, ecb):
+        e = cash.post_manual("Deposit", D, 100, "USD")
+        out = cash.update_manual(e["id"], D, 100, "USD", manual_rate=0.8)
+        assert (out["fx_source"], out["amount_base"]) == ("manual", 80.0)
+
+    def test_type_and_sign_are_kept(self):
+        cash.post_manual("Deposit", D, 100)
+        w = cash.post_manual("Fee", D, 10)
+        out = cash.update_manual(w["id"], D, 15)
+        assert (out["type"], out["amount_base"]) == ("Fee", -15.0)
+        assert cash.balance() == 85.0
+
+    def test_edit_that_would_go_negative_is_refused(self):
+        d = cash.post_manual("Deposit", D, 500)
+        cash.post_manual("Withdrawal", D + timedelta(days=3), 400)
+        with pytest.raises(cash.CashError, match="negative"):
+            cash.update_manual(d["id"], D, 300)
+        assert cash.balance() == 100.0
+
+    def test_already_negative_ledger_can_still_be_improved(self):
+        # A dividend delete can leave history below zero; a fix must not be refused.
+        cash.post_manual("Deposit", D, 100)
+        led = cash.load_ledger()
+        led.append({**led[0], "id": "C-999999", "seq": 999999, "type": "Withdrawal",
+                    "amount": -150.0, "amount_base": -150.0, "date": (D + timedelta(days=1)).isoformat()})
+        cash.save_ledger(led)
+        first = cash.load_ledger()[0]
+        cash.update_manual(first["id"], D, 120)              # still negative, but less so
+        assert cash.balance() == -30.0
+        with pytest.raises(cash.CashError):
+            cash.update_manual(first["id"], D, 110)           # worse than before → refused
+
+    def test_adjustment_edit_recomputes_its_delta(self):
+        cash.post_manual("Deposit", D, 1000)
+        a = cash.post_adjustment(D + timedelta(days=1), 900)
+        out = cash.update_manual(a["id"], D + timedelta(days=1), target_balance=950)
+        assert out["delta_at_entry"] == -50.0 and cash.balance() == 950.0
+
+    def test_auto_entries_are_refused(self):
+        posted = cash.post_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=1, gross=10, on=D)
+        with pytest.raises(cash.CashError, match="Automatic"):
+            cash.update_manual(posted[-1]["id"], D, 5)
+        with pytest.raises(cash.CashError, match="Automatic"):
+            cash.delete_entry(posted[-1]["id"])
+
+
+class TestDeleteEntry:
+    def test_delete_and_opening_flag_is_not_moved(self):
+        o = cash.post_adjustment(D, 500)
+        cash.post_manual("Deposit", D + timedelta(days=1), 100)
+        cash.delete_entry(o["id"])
+        led = cash.load_ledger()
+        assert len(led) == 1 and not led[0]["opening"] and cash.balance() == 100.0
+
+    def test_delete_that_would_go_negative_is_refused(self):
+        d = cash.post_manual("Deposit", D, 500)
+        cash.post_manual("Withdrawal", D + timedelta(days=1), 400)
+        with pytest.raises(cash.CashError):
+            cash.delete_entry(d["id"])
+        assert len(cash.load_ledger()) == 2
+
+    def test_preview_change(self):
+        d = cash.post_manual("Deposit", D, 500)
+        cash.post_manual("Withdrawal", D + timedelta(days=1), 400)
+        assert cash.preview_change(d["id"], None) == {"after": -400.0, "blocked": True}
+
+
+class TestTradeLinks:
+    def test_in_sync_until_amounts_differ(self):
+        cash.post_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=10, gross=1000, fee=5, on=D)
+        assert cash.trade_in_sync("Buy", "TRD-0001", 1000, 5)
+        assert not cash.trade_in_sync("Buy", "TRD-0001", 600, 5)       # partly sold lot
+        assert not cash.trade_in_sync("Buy", "TRD-0404", 1000, 5)      # no entry
+
+    def test_repost_recomputes_the_top_up(self):
+        cash.post_manual("Deposit", D, 500)
+        cash.post_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=10, gross=400, on=D)
+        cash.repost_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=10, gross=700, on=D)
+        linked = cash.trade_entries("TRD-0001")
+        assert sorted(e["type"] for e in linked) == ["Buy", "Deposit"]     # top-up of 200
+        assert cash.balance() == 0.0
+
+    def test_repost_follows_the_trade_rule_never_blocked(self):
+        # Like any trade (D3): a lower sale that later withdrawals relied on
+        # gets an automatic top-up instead of being refused.
+        cash.post_trade("Sell", trade_id="TRD-0002", ticker="AAA.BR", shares=1, gross=300, on=D)
+        cash.post_manual("Withdrawal", D + timedelta(days=1), 250)
+        cash.repost_trade("Sell", trade_id="TRD-0002", ticker="AAA.BR", shares=1, gross=100, on=D)
+        topups = [e for e in cash.trade_entries("TRD-0002") if e.get("topup")]
+        assert len(topups) == 1 and topups[0]["amount"] == 150.0
+        assert cash.balance() == 0.0
+
+    def test_remove_ref_with_check(self):
+        cash.post_trade("Sell", trade_id="TRD-0003", ticker="AAA.BR", shares=1, gross=300, on=D)
+        cash.post_manual("Withdrawal", D + timedelta(days=1), 250)
+        with pytest.raises(cash.CashError):
+            cash.remove_ref("trade", "TRD-0003", check=True)
+        assert cash.remove_ref("trade", "TRD-0003") == 1              # rollback path: unchecked
+
+
+class TestEditByIdWrappers:
+    def test_update_closed_trade_rescales_cost_basis(self):
+        portfolio.add_closed_trade({"ticker": "AAA.BR", "name": "A", "shares": 5, "purchase_value": 500.0,
+                                    "sale_value": 600.0, "date_in": "2023-01-01", "date_out": "2023-06-01"})
+        tid = portfolio.load_sold().iloc[0]["trade_id"]
+        portfolio.update_closed_trade(tid, shares=8, buy_price=100.0, sell_price=120.0)
+        row = portfolio.load_sold().iloc[0]
+        assert (row["shares"], row["purchase_value"], row["sale_value"]) == (8, 800.0, 960.0)
+
+    def test_update_position_by_id_ignores_row_order(self):
+        portfolio.add_position({"ticker": "AAA.BR", "name": "A", "shares": 1, "purchase_value": 10.0})
+        portfolio.add_position({"ticker": "BBB.BR", "name": "B", "shares": 2, "purchase_value": 20.0})
+        tid_b = portfolio.load_portfolio().iloc[1]["trade_id"]
+        portfolio.delete_position(portfolio.load_portfolio().iloc[0]["trade_id"])   # rows shift
+        portfolio.update_position(tid_b, shares=3, invested=33.0)
+        pf = portfolio.load_portfolio()
+        assert list(pf["ticker"]) == ["BBB.BR"] and pf.iloc[0]["purchase_value"] == 33.0
+
+    def test_delete_position_with_cash(self):
+        cash.post_manual("Deposit", D, 1000)
+        portfolio.record_buy({"ticker": "AAA.BR", "name": "A", "shares": 1, "purchase_value": 1500.0,
+                              "date_in": D.isoformat()})
+        assert cash.balance() == 0.0                                    # top-up covered 500
+        portfolio.delete_position(portfolio.load_portfolio().iloc[0]["trade_id"], remove_cash=True)
+        assert cash.balance() == 1000.0 and portfolio.load_portfolio().empty
