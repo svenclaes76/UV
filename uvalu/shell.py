@@ -4,10 +4,13 @@ Replaces the old st.sidebar navigation (see app.py) with the mockup's dark
 top bar. Call render_topbar(nav) once per run, after st.navigation(...) is
 built but before nav.run() so the bar renders above the page body.
 """
+import html
+
 import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
+from uvalu.i18n import N_, _, fmt_time, tr
 from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
 
@@ -27,22 +30,23 @@ def _price_indicator() -> tuple[str, str]:
     except Exception:
         status = {}
     as_of = status.get("as_of")
-    _t = as_of.strftime("%H:%M") if as_of is not None else market_now().strftime("%H:%M")
+    _t = fmt_time(as_of if as_of is not None else market_now())
 
     if not _open:
-        return f"Market closed · {_t}", "#8A8A8A"
+        return _("Market closed · {time}", time=_t), "#8A8A8A"
     if status.get("stale"):
-        return f"Feed stale · {_t}", "#C98A3A"
+        return _("Feed stale · {time}", time=_t), "#C98A3A"
     if status.get("delayed"):
-        return f"Delayed {status['delayed']}/{status.get('total', 0)} · {_t}", "#C98A3A"
-    return f"Live · {_t}", "#1DD6A4"
+        return _("Delayed {delayed}/{total} · {time}", delayed=status["delayed"],
+                 total=status.get("total", 0), time=_t), "#C98A3A"
+    return _("Live · {time}", time=_t), "#1DD6A4"
 
 _NAV_ITEMS = (
-    ("dashboard", "Dashboard"),
-    ("screener",  "Screener"),
-    ("watchlist", "Watchlist"),
-    ("portfolio", "Portfolio"),
-    ("risk",      "Risk"),
+    ("dashboard", N_("Dashboard")),
+    ("screener",  N_("Screener")),
+    ("watchlist", N_("Watchlist")),
+    ("portfolio", N_("Portfolio")),
+    ("risk",      N_("Risk")),
 )
 
 
@@ -83,10 +87,10 @@ def _password_strength(password: str) -> tuple[str, str]:
         any(not c.isalnum() for c in password),
     ])
     if len(password) < 12 or variety <= 1:
-        return "Weak", "down"
+        return _("Weak"), "down"
     if len(password) < 16 or variety <= 2:
-        return "Fair", "amber"
-    return "Strong", "up"
+        return _("Fair"), "amber"
+    return _("Strong"), "up"
 
 
 def apply_theme_script(light: bool) -> None:
@@ -294,7 +298,7 @@ def render_topbar(nav) -> None:
                 '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
                 'uval<span style="color:var(--teal)">u</span></span>'
                 '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
-                'color:var(--faint);">value engine</span></div>',
+                f'color:var(--faint);">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -303,7 +307,7 @@ def render_topbar(nav) -> None:
                 for key, label in _NAV_ITEMS:
                     page = nav_registry.pages.get(key)
                     if page is not None:
-                        st.page_link(page, label=label)
+                        st.page_link(page, label=tr(label))
 
         with col_right:
             with st.container(horizontal=True, gap="small", horizontal_alignment="right",
@@ -331,28 +335,28 @@ def render_topbar(nav) -> None:
                 with st.container(key="uv_theme_toggle"):
                     _toggle_icon = ":material/dark_mode:" if _light else ":material/light_mode:"
                     if st.button("", icon=_toggle_icon, key="uv_theme_toggle_btn",
-                                 help="Switch to dark theme" if _light else "Switch to light theme"):
+                                 help=_("Switch to dark theme") if _light else _("Switch to light theme")):
                         set_theme_script("Dark" if _light else "Light")
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
                         st.markdown(f"**{_display_name(user.email)}**")
                         st.caption(user.email)
-                        st.caption(user.role.capitalize())
+                        st.caption(tr(user.role.capitalize()))
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
                             _settings_page = nav_registry.pages.get("settings")
                             _help_page = nav_registry.pages.get("help")
                             _admin_page = nav_registry.pages.get("admin")
                             if _settings_page is not None:
-                                st.page_link(_settings_page, label="Settings")
+                                st.page_link(_settings_page, label=_("Settings"))
                             if _help_page is not None:
-                                st.page_link(_help_page, label="Help & docs")
+                                st.page_link(_help_page, label=_("Help & docs"))
                             if user.is_admin and _admin_page is not None:
-                                st.page_link(_admin_page, label="Admin portal")
+                                st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()
                         st.markdown(
                             '<a href="/?logout=1" target="_self" '
-                            'style="color:var(--down-txt);font-size:12.5px;">Sign out</a>',
+                            f'style="color:var(--down-txt);font-size:12.5px;">{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )

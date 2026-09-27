@@ -22,7 +22,8 @@ import streamlit as st
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
-from uvalu import authgate, nav, shell, styles
+from uvalu import authgate, i18n, nav, shell, styles
+from uvalu.i18n import _
 from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
 from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portfolio,
@@ -40,6 +41,13 @@ st.set_page_config(
 )
 styles.inject()
 
+# A broken i18n config stops the app with a message naming the key (spec C-02).
+try:
+    i18n.config()
+except i18n.I18nConfigError as _cfg_err:
+    st.error(str(_cfg_err))
+    st.stop()
+
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
 authgate.recover_session_from_cookie()
 authgate.handle_logout()
@@ -53,7 +61,16 @@ _email = current_user().email
 set_user(_email)
 logkit.bind(email=_email)
 
+# Interface language + region format for this run (docs/i18n-spec.md §6). Runs
+# before the sign-in wall so the login screen is translated too.
+i18n.activate(_email)
+i18n.inject_lang_attr()
+
 authgate.auth_wall()
+
+_notice = i18n.pop_notice()
+if _notice:
+    st.toast(_notice)
 
 # Warm the portfolio's own fundamentals + price caches once per session, right
 # after sign-in — so the first Dashboard/Portfolio/Risk paint isn't cold and
@@ -80,14 +97,14 @@ with st.container(key="uv_hidden_util_jwt"):
 """, height=1)
 
 # ── Navigation ────────────────────────────────────────────────────────────────
-_pg_dashboard = st.Page(_page_dashboard.render, title="Dashboard", icon=":material/dashboard:", default=True)
-_pg_portfolio = st.Page(_page_portfolio.render, title="Portfolio", icon=":material/business_center:", url_path="portfolio")
-_pg_risk      = st.Page(_page_risk.render,      title="Risk",      icon=":material/monitoring:",      url_path="risk")
-_pg_screener  = st.Page(_page_screener.render,  title="Screener",  icon=":material/search:",          url_path="screener")
-_pg_watchlist = st.Page(_page_watchlist.render, title="Watchlist", icon=":material/star:",             url_path="watchlist")
-_pg_analysis  = st.Page(_page_analysis.render,  title="Analysis",  icon=":material/query_stats:",     url_path="analysis")
-_pg_settings  = st.Page(_page_settings.render,  title="Settings",  icon=":material/settings:",        url_path="settings")
-_pg_help      = st.Page(_page_help.render,      title="Help",      icon=":material/help:",            url_path="help")
+_pg_dashboard = st.Page(_page_dashboard.render, title=_("Dashboard"), icon=":material/dashboard:", default=True)
+_pg_portfolio = st.Page(_page_portfolio.render, title=_("Portfolio"), icon=":material/business_center:", url_path="portfolio")
+_pg_risk      = st.Page(_page_risk.render,      title=_("Risk"),      icon=":material/monitoring:",      url_path="risk")
+_pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":material/search:",          url_path="screener")
+_pg_watchlist = st.Page(_page_watchlist.render, title=_("Watchlist"), icon=":material/star:",             url_path="watchlist")
+_pg_analysis  = st.Page(_page_analysis.render,  title=_("Analysis"),  icon=":material/query_stats:",     url_path="analysis")
+_pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":material/settings:",        url_path="settings")
+_pg_help      = st.Page(_page_help.render,      title=_("Help"),      icon=":material/help:",            url_path="help")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
 
 # Populate the shared registry so page modules can link to one another.

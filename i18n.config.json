@@ -1,0 +1,15 @@
+{
+  "i18n": {
+    "default_language": "en",
+    "enabled_languages": ["en", "nl", "fr", "de", "it", "es"],
+    "default_region": "en-GB",
+    "enabled_regions": ["en-GB", "en-IE", "en-US", "nl-BE", "nl-NL", "fr-BE", "fr-FR", "fr-LU", "fr-CH",
+                        "de-DE", "de-BE", "de-AT", "de-LU", "de-CH", "it-IT", "it-CH", "es-ES"],
+    "default_display_currency": "EUR",
+    "display_currency_by_region": { "de-CH": "CHF", "fr-CH": "CHF", "it-CH": "CHF" },
+    "enabled_display_currencies": ["EUR", "USD", "GBP", "CHF"],
+    "default_time_zone": "Europe/Brussels",
+    "allow_url_lang_param": true,
+    "log_missing_translations": true
+  }
+}
