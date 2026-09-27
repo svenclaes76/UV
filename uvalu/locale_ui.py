@@ -212,32 +212,6 @@ def render_login_switcher() -> None:
                      label_visibility="collapsed", on_change=_changed)
 
 
-def num_input(label: str, value: float | None, *, key: str, decimals: int = 2,
-              help: str | None = None, placeholder: str | None = None,
-              label_visibility: str = "visible", disabled: bool = False) -> float | None:
-    """A text input read with the region's separators (T-04, F-10):
-    '1.234,5' is 1234.5 in nl-BE. Shows the parsed value back and rejects
-    input it can't read instead of guessing. Returns the number, None when
-    empty, or the last valid value while the input is invalid."""
-    if key not in st.session_state:
-        st.session_state[key] = "" if value is None else fmt_num(value, decimals, min_decimals=0)
-    raw = st.text_input(label, key=key, help=help, placeholder=placeholder or i18n.number_example(),
-                        label_visibility=label_visibility, disabled=disabled)
-    try:
-        parsed = i18n.parse_num(raw)
-    except i18n.NumberParseError as e:
-        st.error(e.message)
-        st.session_state[f"{key}__invalid"] = True
-        return None
-    st.session_state[f"{key}__invalid"] = False
-    return parsed
-
-
-def num_input_invalid(key: str) -> bool:
-    """True while num_input(key=…) holds text that isn't a number."""
-    return bool(st.session_state.get(f"{key}__invalid"))
-
-
 # ── CSV exports (spec F-11) ──────────────────────────────────────────────────
 
 def csv_machine(frame) -> bytes:
@@ -278,3 +252,63 @@ def export_menu(label: str, *, frame, file_name: str, key: str, disabled: bool =
         st.download_button(_("Machine format (for scripts)"),
                            data=machine_csv if machine_csv is not None else csv_machine(frame),
                            file_name=file_name, mime="text/csv", key=key, width="stretch")
+
+
+# ── Number fields (spec T-04, F-10) ──────────────────────────────────────────
+
+def comma_decimal_region() -> bool:
+    return i18n.current().locale.number_symbols["latn"]["decimal"] != "."
+
+
+def number_field(label: str, *, key: str, value=None, min_value=None, max_value=None, step=None,
+                 format: str | None = None, help: str | None = None, placeholder: str | None = None,
+                 disabled: bool = False, label_visibility: str = "visible"):
+    """st.number_input where the region writes a dot decimal (the native
+    widget only accepts '.'); a text input read with parse_num() where it
+    writes a comma (T-04). The text variant shows the parsed value back and
+    rejects what it can't read or what falls outside min/max (F-10),
+    returning None until the input is valid. Integer fields (int step/value)
+    return an int."""
+    if not comma_decimal_region():
+        return st.number_input(label, value=value, min_value=min_value, max_value=max_value, step=step,
+                               format=format, help=help, placeholder=placeholder, disabled=disabled,
+                               label_visibility=label_visibility, key=key)
+    is_int = isinstance(step, int) or (step is None and isinstance(value, int))
+    decimals = 0 if is_int else _decimals_from(format, step)
+    tkey = f"{key}__txt"
+    if tkey not in st.session_state:
+        st.session_state[tkey] = "" if value is None else fmt_num(value, decimals, min_decimals=0, grouping=False)
+    raw = st.text_input(label, key=tkey, help=help, disabled=disabled, label_visibility=label_visibility,
+                        placeholder=placeholder or i18n.number_example())
+    try:
+        parsed = i18n.parse_num(raw)
+    except i18n.NumberParseError as e:
+        st.caption(f":red[{e.message}]")
+        return None
+    if parsed is None:
+        return None
+    if is_int:
+        if parsed != int(parsed):
+            st.caption(f":red[{i18n.NumberParseError(raw, fmt_num(1234, 0)).message}]")
+            return None
+        parsed = int(parsed)
+    if min_value is not None and parsed < min_value:
+        st.caption(f":red[{_('Must be at least {min}.', min=fmt_num(min_value, decimals, min_decimals=0))}]")
+        return None
+    if max_value is not None and parsed > max_value:
+        st.caption(f":red[{_('Must be at most {max}.', max=fmt_num(max_value, decimals, min_decimals=0))}]")
+        return None
+    if raw.strip() != fmt_num(parsed, decimals, min_decimals=0):
+        st.caption(f"= {fmt_num(parsed, decimals, min_decimals=0)}")   # F-10: parsed value shown back
+    return parsed
+
+
+def _decimals_from(format: str | None, step) -> int:
+    import re
+    m = re.search(r"%\.(\d+)f", format or "")
+    if m:
+        return int(m.group(1))
+    if isinstance(step, float) and step > 0:
+        s = f"{step:.10f}".rstrip("0")
+        return len(s.split(".")[1]) if "." in s else 0
+    return 2

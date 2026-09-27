@@ -943,6 +943,23 @@ def parse_num(text, *, locale: str | None = None) -> float | None:
     return -out if neg else out
 
 
+def date_input_format(locale: str | None = None) -> str:
+    """The region's day/month/year order and separator in the form
+    st.date_input accepts ('DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'DD.MM.YYYY', …)."""
+    if current().date_format == "iso":
+        return "YYYY-MM-DD"
+    pat = _loc(locale).date_formats["short"].pattern
+    order = "".join(ch for ch in pat if ch in "dMy")
+    seq = []
+    for ch in order:
+        if ch not in seq:
+            seq.append(ch)
+    sep = next((ch for ch in pat if ch in "/-."), "/")
+    parts = {"d": "DD", "M": "MM", "y": "YYYY"}
+    fmt = sep.join(parts[c] for c in seq) if len(seq) == 3 else "DD/MM/YYYY"
+    return fmt if fmt.replace(sep, "/") in ("DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD") else "DD/MM/YYYY"
+
+
 def number_example(locale: str | None = None) -> str:
     return fmt_num(1234.56, 2, locale=locale)
 
