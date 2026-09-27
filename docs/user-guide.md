@@ -149,8 +149,8 @@ ledger shows 50 entries at a time (**Show more** for the rest).
 - **Edit or delete** — the ✎ on a manual entry opens it for editing (its type
   stays the same; changing only the amount keeps the stored FX rate). Delete
   asks for confirmation and shows the balance afterwards. Changes that would
-  take the balance below zero are refused. The ✎ on an automatic entry shows
-  where it came from, with a button to that trade or dividend — edit it there.
+  take the balance below zero are refused. The ✎ on an automatic entry opens the
+  same form read-only, with a button to that trade or dividend — edit it there.
 - Cash counts toward total portfolio value and the Dashboard's *Current
   value* / *Cash* tiles, but **not** toward any risk metric.
 - Viewers can see and export the ledger; the add / edit buttons are shown

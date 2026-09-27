@@ -18,7 +18,7 @@ from portfolio import base_currency
 from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html,
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
-from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog, linked_cash_dialog
+from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
 
 _PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
 _VIEWER_HELP = "Viewer role is read-only"
@@ -159,10 +159,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                         st.session_state["_cash_rows_shown"] = n_shown + _PAGE_ROWS
                         st.rerun()
                 if _target is not None:
-                    if cash.is_editable(_target):
-                        edit_cash_dialog(_target["id"])
-                    else:
-                        linked_cash_dialog(_target["id"])
+                    edit_cash_dialog(_target["id"])
 
     st.caption(f"Entries can be made in any currency and are converted to {base} at the ECB reference rate for "
                "the transaction date (frankfurter.dev), stored with the entry. When no rate is available the "

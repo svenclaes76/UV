@@ -496,13 +496,13 @@ def render() -> None:
                            "Edit dialog on Open positions.")
             # Records a trade opened and closed outside this app (no cash
             # posting) — it used to be labelled "Close", which read like
-            # selling one of the holdings.
-            if st.button("Add closed trade", key="btn_add_closed", type="primary", icon=":material/add:",
+            # selling one of the holdings; the dialog is "Add trade".
+            if st.button("Add trade", key="btn_add_closed", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_VIEWER_HELP if _is_viewer else None):
                 add_closed_trade_dialog()
         sold = load_sold()
         if sold is None or sold.empty:
-            st.info("No closed positions yet. Sell a holding, or record an earlier trade with Add closed trade.")
+            st.info("No closed positions yet. Sell a holding, or record an earlier trade with Add trade.")
         else:
             sold = sold.reset_index(drop=True)
             _pv = pd.to_numeric(sold["purchase_value"], errors="coerce")

@@ -554,6 +554,17 @@ def trade_in_sync(kind: str, trade_id: str | None, gross: float, fee: float = 0.
     return abs(float(main[0].get("amount") or 0.0) - trade_amount(kind, gross, fee)) < 0.011
 
 
+def preview_repost(kind: str, trade_id: str, *, gross: float, fee: float = 0.0, on=None) -> dict:
+    """What repost_trade() would do, without writing — for the Edit
+    position / Edit trade Cash box. Keys: change (balance after − now),
+    topup (the recomputed top-up), after."""
+    entries = load_ledger()
+    now = balance(entries)
+    kept = [e for e in entries if not (e.get("ref_kind") == "trade" and e.get("ref_id") == trade_id)]
+    p = preview_trade(kind, gross, fee, on=on, entries=kept)
+    return {"change": round(p["after"] - now, 2), "topup": p["topup"], "after": p["after"]}
+
+
 def repost_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: float,
                  fee: float = 0.0, on=None) -> list[dict]:
     """Replace a trade's linked entries with freshly posted ones (the edit

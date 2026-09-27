@@ -700,3 +700,55 @@ class TestEditPositionCash:
         assert not [c for c in at.checkbox if c.key == "dlg_eop_sync"]
         assert any("keeps this buy as recorded" in c.value for c in at.caption)
 
+
+
+class TestAlignedDialogs:
+    def test_trade_dialog_shows_result_box(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR", "name": "Beta Corp", "shares": 5,
+                                           "purchase_value": 500.0, "sale_value": 600.0,
+                                           "date_in": "2023-01-01", "date_out": "2023-06-01"}]))
+        at = _run(monkeypatch, section="closed")
+        assert any(b.label == "Add trade" for b in at.button)
+        [b for b in at.button if b.key == "pf_closed_row_0_BBB.BR_edit"][0].click().run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Realised P&amp;L" in html or "Realised P&L" in html
+        assert "+€100.00 · +20.0%" in html
+
+    def test_edit_position_price_per_share_sets_total(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        key = "pf_open_row_0_AAA.BR_edit"
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == key][0].click().run()
+        assert at.number_input(key="dlg_eop_price").value == 100.0
+        assert "no cash change" in "".join(m.value for m in at.markdown)
+        [b for b in at.button if b.key == key][0].click()
+        at.number_input(key="dlg_eop_price").set_value(120.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert portfolio.load_portfolio().iloc[0]["purchase_value"] == 1200.0
+
+    def test_edit_position_cash_box_previews_the_repost(self, isolated_data, monkeypatch):
+        import cash
+        cash.post_manual("Deposit", "2023-01-01", 5000)
+        portfolio.record_buy({"ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10, "purchase_price": 100.0,
+                              "purchase_value": 1000.0, "dividends": 0.0, "date_in": "2023-01-02",
+                              "account": ""})
+        key = "pf_open_row_0_AAA.BR_edit"
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == key][0].click().run()
+        [b for b in at.button if b.key == key][0].click()
+        at.number_input(key="dlg_eop_invested").set_value(1200.0)
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "−€200.00" in html and "€3,800.00" in html
+
+    def test_edit_dividend_cash_link_line(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 10.0, "date": "2024-03-01", "shares": 10,
+             "ex_date": "2024-02-20", "currency": "EUR"}]))
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == "pf_div_row_0_edit"][0].click().run()
+        assert any("Cash entry follows automatically (net EUR 7.00)" in c.value for c in at.caption)

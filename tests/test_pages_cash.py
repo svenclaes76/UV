@@ -285,25 +285,35 @@ class TestEditCashDialog:
         _save(at, "Delete permanently")
         assert [x["type"] for x in cash.load_ledger()] == ["Deposit"]
 
-    def test_automatic_entries_are_refused(self, isolated_data):
-        posted = cash.post_trade("Buy", trade_id="TRD-0001", ticker="AAA.BR", shares=1, gross=10, on=D)
-        at = _run_edit(posted[-1]["id"])
-        assert any("Automatic entries" in x.value for x in at.error)
+    def test_type_and_currency_are_locked(self, isolated_data):
+        e = cash.post_manual("Deposit", D, 100, "USD", manual_rate=0.9)
+        at = _run_edit(e["id"])
+        assert at.selectbox(key="dlg_cash_type").disabled and at.selectbox(key="dlg_cash_ccy").disabled
+        assert not at.date_input(key="dlg_cash_date").disabled
 
 
-class TestLinkedCashDialog:
+class TestAutomaticEntryReadOnly:
+    """An automatic entry's pencil opens the same Edit cash transaction form,
+    every field locked, with a jump to its source instead of Delete / Save."""
+
     def test_shows_source_and_jumps_there(self, isolated_data):
         posted = cash.post_trade("Sell", trade_id="TRD-0009", ticker="AAA.BR", shares=2, gross=50, on=D)
-        at = AppTest.from_string(USER_SETUP_SRC + f"""
-from uvalu.dialogs import linked_cash_dialog
-linked_cash_dialog({posted[-1]["id"]!r})
-""", default_timeout=60)
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
-        html = _html(at)
-        assert "TRD-0009 · AAA.BR" in html and "+€50.00" in html
+        at = _run_edit(posted[-1]["id"])
+        assert all(w.disabled for w in [*at.selectbox, *at.date_input, *at.number_input, *at.text_input])
+        assert any("Posted automatically from TRD-0009 · AAA.BR" in c.value for c in at.caption)
+        assert "+€50.00" in _html(at)
+        labels = [b.label for b in at.button]
+        assert "Save" not in labels and "Delete" not in labels
         _save(at, "Open closed positions")
         assert at.session_state["port_section"] == "closed"
+
+    def test_dividend_entry_points_to_the_dividend_log(self, isolated_data):
+        led = cash.load_ledger()
+        e = cash._new_entry("Dividend", D, 40.0, "EUR", 1.0, "base", None, "Alpha · cash dividend",
+                            ref_kind="dividend", ref_id="DIV-0001", ref_label="DIV-0001 · AAA.BR", auto=True)
+        cash.save_ledger(led + [e])
+        at = _run_edit(e["id"])
+        assert any(b.label == "Open dividend log" for b in at.button)
 
 
 def test_ledger_shows_50_rows_then_more(isolated_data, monkeypatch):
