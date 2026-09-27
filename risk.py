@@ -344,7 +344,9 @@ def _to_eur(closes: pd.DataFrame, cache: dict) -> pd.DataFrame:
 
     Without this the portfolio return series is a blend of currencies — a
     USD-quoted holding's daily "return" silently carries the day's USD/EUR
-    move, distorting volatility, VaR and cross-holding correlations. A ticker
+    move, distorting volatility, VaR and cross-holding correlations. Rates are
+    ECB reference fixings from frankfurter.dev (fx.py, via the
+    marketdata.fx_to_eur_frame shim) — the app's single FX source. A ticker
     whose currency is missing, already EUR, or has no FX history is left as-is
     (better than dropping it from the risk picture entirely).
     """

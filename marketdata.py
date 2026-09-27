@@ -12,7 +12,8 @@ The retry/backoff for Yahoo's 429s and dropped connections mirrors
 single batch call.
 
 Everything returned here is in each ticker's native quote currency — FX
-normalisation to EUR is a separate concern (see the risk-engine plan, WS-2).
+normalisation to EUR is a separate concern: ``fx.py`` (frankfurter.dev / ECB),
+reached through the ``fx_to_eur_frame`` shim below.
 """
 
 from __future__ import annotations
@@ -234,26 +235,18 @@ def fx_to_eur_frame(currencies, period: str = "5y") -> pd.DataFrame:
     """Daily "EUR per 1 unit" rate for each currency, as a DataFrame
     (DatetimeIndex × ISO currency code).
 
-    FX pairs are ordinary yfinance tickers — ``USDEUR=X`` quotes EUR per 1
-    USD — so they ride the same per-ticker CSV cache as equity history.
-    EUR is skipped (the caller uses 1.0); a currency with no fetchable
-    history is simply absent from the frame, and the caller then leaves
-    those positions in native terms.
+    Thin shim over ``fx.rates_frame`` — frankfurter.dev (ECB reference rates)
+    is the app's single FX source (Cash Management v1, D5); this used to fetch
+    yfinance ``XXXEUR=X`` pairs. EUR is skipped (the caller uses 1.0); a
+    currency with no fetchable rates is simply absent from the frame, and the
+    caller then leaves those amounts in native terms.
     """
     codes = sorted({(c or "").strip().upper() for c in currencies if (c or "").strip()})
     foreign = [c for c in codes if c != "EUR"]
     if not foreign:
         return pd.DataFrame()
-
-    pairs = {c: f"{c}EUR=X" for c in foreign}
-    hist  = price_history(list(pairs.values()), period=period)
-    cols: dict[str, pd.Series] = {}
-    for code, pair in pairs.items():
-        if pair in hist.columns:
-            s = hist[pair].dropna()
-            if not s.empty:
-                cols[code] = s
-    return pd.DataFrame(cols).sort_index() if cols else pd.DataFrame()
+    import fx
+    return fx.rates_frame(foreign, start=_period_start(period))
 
 
 def dividends(ticker: str) -> pd.Series:

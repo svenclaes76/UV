@@ -1,11 +1,9 @@
 """AppTest coverage for uvalu/pages_/portfolio.py.
 
-The three inline per-row edit dialogs here (_dlg_edit_open_position/
-_dlg_edit_closed_position/_dlg_edit_dividend) are nested closures defined
-INSIDE render() itself, not importable module-level functions like
-uvalu/dialogs.py's — and each is only invoked via a one-shot trigger (a
-specific row's edit-pencil button being clicked on THAT run, or a popped
-session_state ticket). Per tests/test_pages_admin.py's finding, such
+The per-row Edit dialogs (uvalu/dialogs.py's edit_position_dialog /
+edit_closed_trade_dialog / edit_dividend_dialog) are each only invoked via a
+one-shot trigger (a specific row's edit-pencil button being clicked on THAT
+run, or a popped session_state ticket). Per tests/test_pages_admin.py's finding, such
 one-shot-gated dialogs do NOT persist across separate AppTest.run() calls
 the way unconditionally-invoked ones do — so testing a full open-dialog
 Save/Delete flow means RE-CLICKING the same triggering row's edit button
@@ -18,7 +16,8 @@ from streamlit.testing.v1 import AppTest
 
 import portfolio
 from uvalu.pages_ import portfolio as portfolio_page
-from tests.conftest import (make_portfolio_df, fake_portfolio_scored, USER_SETUP_SRC)
+from tests.conftest import (make_portfolio_df, fake_portfolio_scored, USER_SETUP_SRC,
+                            portfolio_page_src)
 
 
 def _run(monkeypatch, section=None) -> AppTest:
@@ -38,20 +37,7 @@ def _run(monkeypatch, section=None) -> AppTest:
     # session — stub it so no test hits the network.
     monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
 
-    # setdefault, not a plain assignment: this line re-executes on EVERY
-    # script rerun (it's part of the persistent script text), so a plain
-    # `st.session_state["port_section"] = ...` would silently clobber any
-    # in-app navigation (e.g. a "Back to Positions" button click setting it
-    # to "overview") back to this initial value on the very next run.
-    section_line = (f'st.session_state.setdefault("port_section", {section!r})' if section else "")
-    script_src = USER_SETUP_SRC + f"""
-import streamlit as st
-st.session_state["user_email"] = "test@example.com"
-st.session_state["user_role"] = "Analyst"
-{section_line}
-from uvalu.pages_ import portfolio as portfolio_page
-portfolio_page.render()
-"""
+    script_src = portfolio_page_src(section)
     at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
@@ -110,7 +96,7 @@ def test_open_positions_full_page(isolated_data, monkeypatch):
 def test_closed_positions_full_page_empty(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
     at = _run(monkeypatch, section="closed")
-    assert "No sold positions found" in "".join(i.value for i in at.info)
+    assert "No closed positions yet" in "".join(i.value for i in at.info)
 
 
 def test_closed_positions_full_page_with_data(isolated_data, monkeypatch):
@@ -247,9 +233,32 @@ portfolio_page.render()
     at = AppTest.from_string(script_src, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    add_buttons = [b for b in at.button if b.label == "Add"]
+    add_buttons = [b for b in at.button if b.label == "Add position"]
     assert add_buttons
     assert all(b.disabled for b in add_buttons)
+
+
+def _redraw(at, edit_key: str) -> None:
+    """The dialog's own fragment rerun (showing the new state at once) is a
+    no-op under AppTest (dialog_fragment_runs) — one more run shows it."""
+    [b for b in at.button if b.key == edit_key][0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+
+def _confirm_delete(at, edit_key: str) -> None:
+    """Delete → confirmation → Delete permanently, re-clicking the row's
+    pencil each run to keep the one-shot dialog open (module docstring)."""
+    [b for b in at.button if b.key == edit_key][0].click()
+    [b for b in at.button if b.label == "Delete"][0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    _redraw(at, edit_key)
+    assert any(b.label == "Delete permanently" for b in at.button)
+    [b for b in at.button if b.key == edit_key][0].click()
+    [b for b in at.button if b.label == "Delete permanently"][0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
 
 
 # ── Edit open position dialog ────────────────────────────────────────────
@@ -265,7 +274,7 @@ class TestEditOpenPositionDialog:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.number_input(key="dlg_eop_shares").value == 10
         assert at.number_input(key="dlg_eop_invested").value == 1000.0
-        tick = at.text_input(key="dlg_eop_id_0_ticker")
+        tick = at.text_input(key="dlg_eop_id_ticker")
         assert tick.value == "AAA.BR" and tick.disabled
 
     def test_save_updates_position(self, isolated_data, monkeypatch):
@@ -292,18 +301,13 @@ class TestEditOpenPositionDialog:
         assert updated["purchase_value"] == 2500.0
         assert updated["purchase_price"] == 125.0
 
-    def test_delete_removes_position(self, isolated_data, monkeypatch):
+    def test_delete_removes_position(self, isolated_data, monkeypatch, dialog_fragment_runs):
         portfolio.save_portfolio(make_portfolio_df())
         at = _run(monkeypatch, section="open")
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click().run()
 
-        edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
-        edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete"][0]
-        delete_btn.click()
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
+        _confirm_delete(at, self._EDIT_KEY)
         assert portfolio.load_portfolio().empty
 
 
@@ -327,12 +331,13 @@ class TestEditClosedPositionDialog:
         edit_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.number_input(key="dlg_ecp_shares").value == 5
-        assert at.number_input(key="dlg_ecp_proceeds").value == 600.0
+        assert at.number_input(key="dlg_ecp_buy").value == 100.0
+        assert at.number_input(key="dlg_ecp_sell").value == 120.0
 
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click()
         at.number_input(key="dlg_ecp_shares").set_value(8)
-        at.number_input(key="dlg_ecp_proceeds").set_value(750.0)
+        at.number_input(key="dlg_ecp_sell").set_value(125.0)
         save_btn = [b for b in at.button if b.label == "Save"][0]
         save_btn.click()
         at.run()
@@ -340,20 +345,34 @@ class TestEditClosedPositionDialog:
 
         sold = portfolio.load_sold().iloc[0]
         assert sold["shares"] == 8
-        assert sold["sale_value"] == 750.0
+        assert sold["sale_value"] == 1000.0
+        # The cost basis follows the share count (it used to stay at 5
+        # shares' worth, which silently raised the buy price and the P&L).
+        assert sold["purchase_value"] == 800.0
 
-    def test_delete_removes_sold_record(self, isolated_data, monkeypatch):
+    def test_untouched_save_keeps_exact_totals(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_sold(pd.DataFrame([{
+            "ticker": "BBB.BR", "name": "Beta Corp", "shares": 3,
+            "purchase_value": 100.0, "sale_value": 200.0,
+            "date_in": "2023-01-01", "date_out": "2023-06-01",
+        }]))
+        at = _run(monkeypatch, section="closed")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        sold = portfolio.load_sold().iloc[0]
+        assert (sold["purchase_value"], sold["sale_value"]) == (100.0, 200.0)
+
+    def test_delete_removes_sold_record(self, isolated_data, monkeypatch, dialog_fragment_runs):
         self._seed()
         at = _run(monkeypatch, section="closed")
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click().run()
 
-        edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
-        edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete"][0]
-        delete_btn.click()
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
+        _confirm_delete(at, self._EDIT_KEY)
         assert portfolio.load_sold().empty
 
 
@@ -395,14 +414,14 @@ class TestEditDividendDialog:
         assert {w.key for w in at.date_input} == {"dlg_ed_ex", "dlg_ed_date"}
         assert not [s for s in at.selectbox if s.key == "dlg_ed_freq"]
         # Missing currency (NaN) must not leak into the label as "(nan)".
-        assert at.number_input(key="dlg_ed_dps").label == "Per share (EUR)"
+        assert at.number_input(key="dlg_ed_dps").label == "Per share (EUR) *"
 
     def test_identity_row_is_first_and_locked(self, isolated_data, monkeypatch):
         self._seed()
         at = _run(monkeypatch, section="dividends")
         [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
-        tick = at.text_input(key="dlg_ed_id_0_ticker")
-        name = at.text_input(key="dlg_ed_id_0_name")
+        tick = at.text_input(key="dlg_ed_id_ticker")
+        name = at.text_input(key="dlg_ed_id_name")
         assert (tick.value, name.value) == ("AAA.BR", "Alpha Corp")
         assert tick.disabled and name.disabled
         assert [b.label for b in at.button if b.key and b.key.startswith("dlg_ed_")] == ["Delete", "Cancel", "Save"]
@@ -434,18 +453,13 @@ class TestEditDividendDialog:
         assert str(row["declaration_date"]).startswith("2024-01-10")
         assert str(row["record_date"]).startswith("2024-02-28")
 
-    def test_delete_removes_dividend(self, isolated_data, monkeypatch):
+    def test_delete_removes_dividend(self, isolated_data, monkeypatch, dialog_fragment_runs):
         self._seed()
         at = _run(monkeypatch, section="dividends")
         edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
         edit_btn.click().run()
 
-        edit_btn = [b for b in at.button if b.key == self._EDIT_KEY][0]
-        edit_btn.click()
-        delete_btn = [b for b in at.button if b.label == "Delete"][0]
-        delete_btn.click()
-        at.run()
-        assert not at.exception, [str(e.value) for e in at.exception]
+        _confirm_delete(at, self._EDIT_KEY)
         assert portfolio.load_div_hist().empty
 
     def test_editing_a_future_dated_record_does_not_crash(self, isolated_data, monkeypatch):
@@ -537,3 +551,204 @@ portfolio_page.render()
         at.run()                       # immediate re-render, inside the 10-min guard
         assert not at.exception, [str(e.value) for e in at.exception]
         assert len(snap) == 1          # throttled — not called again
+
+
+# ── Section reset on arrival ──────────────────────────────────────────────
+
+class TestSectionResetOnArrival:
+    """Arriving at Portfolio from another page lands on the Overview, not on
+    whichever sub-page the user left from; hand-offs and in-page reruns keep
+    the sub-page."""
+
+    def _at(self, monkeypatch, prelude: str) -> AppTest:
+        monkeypatch.setattr(portfolio_page, "_load_portfolio_scored", fake_portfolio_scored())
+        monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda t: {x: {"price": 110.0} for x in t})
+        monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
+        monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
+        at = AppTest.from_string(USER_SETUP_SRC + f"""
+import streamlit as st
+st.session_state["user_role"] = "Analyst"
+{prelude}
+from uvalu.pages_ import portfolio as portfolio_page
+try:
+    portfolio_page.render()
+finally:
+    st.session_state["_uv_render_page"] = "portfolio"
+""", default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        return at
+
+    def test_coming_back_from_another_page_shows_overview(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        at = self._at(monkeypatch, 'st.session_state.setdefault("port_section", "cash")\n'
+                                   'st.session_state["_uv_render_page"] = "screener"')
+        assert at.session_state["port_section"] == "overview"
+
+    def test_rerun_within_portfolio_keeps_the_sub_page(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        at = self._at(monkeypatch, 'st.session_state.setdefault("port_section", "cash")\n'
+                                   'st.session_state.setdefault("_uv_render_page", "portfolio")')
+        assert at.session_state["port_section"] == "cash"
+        at.run()
+        assert at.session_state["port_section"] == "cash"
+
+    def test_hand_off_from_another_page_is_honoured_once(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        at = self._at(monkeypatch, 'if "port_section" not in st.session_state:\n'
+                                   '    st.session_state["port_section"] = "cash"\n'
+                                   '    st.session_state["_pf_section_handoff"] = True\n'
+                                   '    st.session_state["_uv_render_page"] = "risk"')
+        assert at.session_state["port_section"] == "cash"
+        assert "_pf_section_handoff" not in at.session_state
+
+
+# ── Id migration + no derived columns on disk ─────────────────────────────
+
+def test_render_backfills_trade_ids_and_strips_live_columns(isolated_data, monkeypatch):
+    df = make_portfolio_df()
+    df["live_price"] = 99.0          # written by the pre-fix Edit position dialog
+    df["current_value"] = 990.0
+    portfolio.save_portfolio(df)
+    portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR", "name": "Beta", "shares": 1,
+                                       "purchase_value": 1.0, "sale_value": 2.0,
+                                       "date_in": "2023-01-01", "date_out": "2023-02-01"}]))
+    _run(monkeypatch)
+    pf = portfolio.load_portfolio()
+    assert "live_price" not in pf.columns and "current_value" not in pf.columns
+    assert str(pf.iloc[0]["trade_id"]).startswith("TRD-")
+    assert str(portfolio.load_sold().iloc[0]["trade_id"]).startswith("TRD-")
+
+
+# ── Edit position ↔ linked cash entry ─────────────────────────────────────
+
+class TestEditPositionCash:
+    _EDIT_KEY = "pf_open_row_0_AAA.BR_edit"
+
+    def _buy(self):
+        import cash
+        cash.post_manual("Deposit", "2023-01-01", 5000)
+        portfolio.record_buy({"ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
+                              "purchase_price": 100.0, "purchase_value": 1000.0, "dividends": 0.0,
+                              "date_in": "2023-01-02", "account": ""}, fee=5.0)
+
+    def test_save_can_repost_the_buy(self, isolated_data, monkeypatch):
+        import cash
+        self._buy()
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert at.checkbox(key="dlg_eop_sync").value is True
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        at.number_input(key="dlg_eop_invested").set_value(1200.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert portfolio.load_portfolio().iloc[0]["purchase_value"] == 1200.0
+        assert cash.balance() == 5000 - 1205
+
+    def test_save_without_sync_leaves_cash(self, isolated_data, monkeypatch):
+        import cash
+        self._buy()
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        at.checkbox(key="dlg_eop_sync").uncheck()
+        at.number_input(key="dlg_eop_invested").set_value(1200.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert cash.balance() == 5000 - 1005
+
+    def test_delete_can_remove_its_cash(self, isolated_data, monkeypatch, dialog_fragment_runs):
+        import cash
+        self._buy()
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        [b for b in at.button if b.label == "Delete"][0].click()
+        at.run()
+        _redraw(at, self._EDIT_KEY)
+        assert at.checkbox(key="dlg_eop_rm_cash").value is True
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        [b for b in at.button if b.label == "Delete permanently"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert portfolio.load_portfolio().empty
+        assert cash.balance() == 5000
+
+    def test_keep_cancels_the_confirmation(self, isolated_data, monkeypatch, dialog_fragment_runs):
+        self._buy()
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        [b for b in at.button if b.label == "Delete"][0].click()
+        at.run()
+        _redraw(at, self._EDIT_KEY)
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click()
+        [b for b in at.button if b.label == "Keep"][0].click()
+        at.run()
+        _redraw(at, self._EDIT_KEY)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert len(portfolio.load_portfolio()) == 1
+        assert any(b.label == "Delete" for b in at.button)
+
+    def test_partly_sold_lot_offers_no_cash_sync(self, isolated_data, monkeypatch):
+        self._buy()
+        portfolio.record_sell("AAA.BR", 4, 110.0, 0.0, "2023-06-01")
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == self._EDIT_KEY][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not [c for c in at.checkbox if c.key == "dlg_eop_sync"]
+        assert any("keeps this buy as recorded" in c.value for c in at.caption)
+
+
+
+class TestAlignedDialogs:
+    def test_trade_dialog_shows_result_box(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR", "name": "Beta Corp", "shares": 5,
+                                           "purchase_value": 500.0, "sale_value": 600.0,
+                                           "date_in": "2023-01-01", "date_out": "2023-06-01"}]))
+        at = _run(monkeypatch, section="closed")
+        assert any(b.label == "Add trade" for b in at.button)
+        [b for b in at.button if b.key == "pf_closed_row_0_BBB.BR_edit"][0].click().run()
+        html = "".join(m.value for m in at.markdown)
+        assert "Realised P&amp;L" in html or "Realised P&L" in html
+        assert "+€100.00 · +20.0%" in html
+
+    def test_edit_position_price_per_share_sets_total(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        key = "pf_open_row_0_AAA.BR_edit"
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == key][0].click().run()
+        assert at.number_input(key="dlg_eop_price").value == 100.0
+        assert "no cash change" in "".join(m.value for m in at.markdown)
+        [b for b in at.button if b.key == key][0].click()
+        at.number_input(key="dlg_eop_price").set_value(120.0)
+        [b for b in at.button if b.label == "Save"][0].click()
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert portfolio.load_portfolio().iloc[0]["purchase_value"] == 1200.0
+
+    def test_edit_position_cash_box_previews_the_repost(self, isolated_data, monkeypatch):
+        import cash
+        cash.post_manual("Deposit", "2023-01-01", 5000)
+        portfolio.record_buy({"ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10, "purchase_price": 100.0,
+                              "purchase_value": 1000.0, "dividends": 0.0, "date_in": "2023-01-02",
+                              "account": ""})
+        key = "pf_open_row_0_AAA.BR_edit"
+        at = _run(monkeypatch, section="open")
+        [b for b in at.button if b.key == key][0].click().run()
+        [b for b in at.button if b.key == key][0].click()
+        at.number_input(key="dlg_eop_invested").set_value(1200.0)
+        at.run()
+        html = "".join(m.value for m in at.markdown)
+        assert "−€200.00" in html and "€3,800.00" in html
+
+    def test_edit_dividend_cash_link_line(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        portfolio.save_div_hist(pd.DataFrame([
+            {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 10.0, "date": "2024-03-01", "shares": 10,
+             "ex_date": "2024-02-20", "currency": "EUR"}]))
+        at = _run(monkeypatch, section="dividends")
+        [b for b in at.button if b.key == "pf_div_row_0_edit"][0].click().run()
+        assert any("Cash entry follows automatically (net EUR 7.00)" in c.value for c in at.caption)

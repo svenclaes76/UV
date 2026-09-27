@@ -23,9 +23,9 @@ Verified by grepping every public symbol in each root module against `app.py` + 
 
 `admin.py`'s Users table now has a "Send password reset" row action (`auth.admin_request_password_reset()`), added as part of the auth overhaul's M4 milestone (admin-assisted password recovery, `feature/auth-overhaul-m1`). Kept here struck through rather than deleted so the audit trail (this doc was the source of the gap) stays visible.
 
-### 3. Cash balances — fully invisible feature
+### 3. ~~Cash balances — fully invisible feature~~ — resolved
 
-`portfolio.save_cash()` / `load_cash()` (`portfolio.py:184-185`) have no UI anywhere (no display, no add/edit form) and aren't even in `backup.py`'s `_PORTFOLIO_FILENAMES` (`backup.py:32`), so cash data — if anyone starts using it — wouldn't survive a backup/restore cycle either.
+Cash Management v1 (`cash.py`, `uvalu/pages_/cash.py`) gave `cash.json` a ledger schema, UI (Portfolio cash strip, Cash activity page, Add cash transaction dialog), trade/dividend auto-posting and CSV export, and `backup.py` now bundles `cash.json` (plus `portfolio_meta.json` and `dividend_meta.json`). Kept struck through for the audit trail.
 
 ### 4. Backup restore only works from history, not an arbitrary file
 

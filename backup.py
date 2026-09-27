@@ -39,7 +39,12 @@ _ZIP_DATA_PREFIX = "data/"
 _ZIP_SETTINGS_KEY        = "data/settings.json"
 _ZIP_SHARED_SETTINGS_KEY = "data/shared_settings.json"
 
-_PORTFOLIO_FILENAMES = ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json")
+# cash.json (Cash Management v1 ledger — retained indefinitely), its
+# portfolio_meta.json (fixed base currency + never-reused id counters) and
+# dividend_meta.json (dismissed auto-imports / frequency overrides) are user
+# data like the rest and must survive a backup/restore cycle.
+_PORTFOLIO_FILENAMES = ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json",
+                        "cash.json", "portfolio_meta.json", "dividend_meta.json")
 
 # ── Backup history (Admin portal) ─────────────────────────────────────────────
 # A real, growing history of on-demand backups — every entry is a genuine

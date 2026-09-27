@@ -52,6 +52,21 @@ class TestExportZip:
         assert "data/portfolio.json" in names
         assert "data/sold.json" not in names
 
+    def test_includes_cash_ledger_and_portfolio_meta(self):
+        import cash
+        cash.post_manual("Deposit", "2026-03-02", 100)
+        names = _zip_names(backup.export_zip(EMAIL))
+        assert {"data/cash.json", "data/portfolio_meta.json"} <= names
+
+    def test_cash_ledger_round_trips_through_backup(self):
+        import cash
+        cash.post_manual("Deposit", "2026-03-02", 250)
+        zip_bytes = backup.export_zip(EMAIL)
+        (portfolio.user_data_dir(EMAIL) / "cash.json").unlink()
+        assert cash.balance() == 0.0
+        restored = backup.import_zip(zip_bytes, EMAIL)
+        assert "cash.json" in restored and cash.balance() == 250.0
+
     def test_no_data_produces_empty_but_valid_zip(self):
         names = _zip_names(backup.export_zip(EMAIL))
         assert names == set()

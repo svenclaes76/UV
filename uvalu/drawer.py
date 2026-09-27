@@ -131,6 +131,7 @@ def _go_portfolio_edit(ticker: str) -> None:
     @st.dialog (confirmed live — this contradicts an earlier, stale
     finding from before a Streamlit version bump)."""
     st.session_state["port_section"] = "open"
+    st.session_state["_pf_section_handoff"] = True   # land here, not on the Overview
     st.session_state["_pf_edit_ticker"] = ticker
     _page = nav_registry.pages.get("portfolio")
     if _page is not None:

@@ -43,6 +43,43 @@ USER_SETUP_SRC = (
 )
 
 
+def portfolio_page_src(section: str | None = None, role: str = "Analyst") -> str:
+    """AppTest script for the Portfolio page. Mirrors what app.py does around
+    a page run that matters here: arriving at Portfolio from another page
+    resets it to the Overview unless a hand-off asks for a sub-page, and
+    app.py records the rendered page in "_uv_render_page" after every run.
+    The first run lands on `section` through that hand-off; later runs are
+    in-page reruns (so in-app navigation sticks)."""
+    section_block = (f'if "port_section" not in st.session_state:\n'
+                     f'    st.session_state["port_section"] = {section!r}\n'
+                     f'    st.session_state["_pf_section_handoff"] = True\n' if section else "")
+    return USER_SETUP_SRC + f"""
+import streamlit as st
+st.session_state["user_email"] = {TEST_EMAIL!r}
+st.session_state["user_role"] = {role!r}
+{section_block}
+from uvalu.pages_ import portfolio as portfolio_page
+try:
+    portfolio_page.render()
+finally:
+    st.session_state["_uv_render_page"] = "portfolio"
+"""
+
+
+@pytest.fixture
+def dialog_fragment_runs(monkeypatch):
+    """AppTest has no fragment reruns — every .run() is a full run, which to
+    uvalu.ui.dialog_just_opened() looks like a dialog opening (it then drops
+    the dialog's transient "_uvdlg_" state, e.g. a pending delete
+    confirmation). Make runs behave like interactions inside an already-open
+    dialog instead: state is kept, and the dialog's own fragment rerun
+    becomes a no-op (the next .run() shows the new state)."""
+    import uvalu.dialogs
+    import uvalu.ui
+    monkeypatch.setattr(uvalu.ui, "dialog_just_opened", lambda: False)
+    monkeypatch.setattr(uvalu.dialogs, "_rerun_dialog", lambda: None)
+
+
 @pytest.fixture(autouse=True)
 def _logkit_isolated(tmp_path):
     """Route uvalu/logkit into synchronous, file-less mode for every test and
@@ -58,6 +95,25 @@ def _logkit_isolated(tmp_path):
     _lk_setup.init_logging(synchronous=True, log_dir=tmp_path)
     yield
     _lk_setup._reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def _fx_isolated(tmp_path, monkeypatch):
+    """Never call the real frankfurter.dev API and never touch the developer's
+    real .cache/fx_frankfurter.json: every test gets an empty FX cache in
+    tmp_path and an HTTP seam that behaves like an outage. Tests that need
+    rates stub ``fx._http_get`` (see tests/test_fx.py) or ``fx.rates_frame``
+    / ``fx.get_rate`` directly."""
+    import fx
+
+    def _offline(path, params=None):
+        raise fx.FxUnavailable("network disabled in tests")
+
+    monkeypatch.setattr(fx, "_CACHE_FILE", tmp_path / "fx_cache.json")
+    monkeypatch.setattr(fx, "_http_get", _offline)
+    fx._reset_for_tests()
+    yield
+    fx._reset_for_tests()
 
 
 @pytest.fixture

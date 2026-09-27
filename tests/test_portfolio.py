@@ -303,10 +303,10 @@ class TestCurrencyHelpers:
         assert portfolio.exchange_key_for_ticker("UNKNOWN") is None
 
     def test_dividends_in_eur_converts_native_currency(self, monkeypatch):
-        import marketdata
+        import fx as fx_mod
         fx = pd.DataFrame({"CHF": [0.95, 0.96]},
                           index=pd.to_datetime(["2026-01-01", "2026-01-31"]))
-        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda currencies: fx)
+        monkeypatch.setattr(fx_mod, "rates_frame", lambda currencies, start=None, end=None, base="EUR": fx)
         div_df = pd.DataFrame([
             {"ticker": "NESN.SW", "amount": 100.0, "tax_amount": 10.0,
              "currency": "CHF", "date": "2026-01-15"},
