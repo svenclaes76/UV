@@ -43,13 +43,13 @@ SECTOR_OPTIONS = [
 DIV_TYPE_OPTIONS = [N_("Cash"), N_("Stock"), N_("Special")]
 
 
-def _dialog(title: str):
+def _dialog(title: str, width: str = "small"):
     """st.dialog with its title translated when the dialog opens (the
     decorator argument is otherwise fixed at import time, in English)."""
     def deco(fn):
         @functools.wraps(fn)
         def call(*args, **kwargs):
-            return st.dialog(_(title), width="small")(fn)(*args, **kwargs)
+            return st.dialog(_(title), width=width)(fn)(*args, **kwargs)
         return call
     return deco
 

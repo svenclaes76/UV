@@ -20,6 +20,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from crypto import read_encrypted, write_encrypted  # noqa: E402
 from uvalu import logkit  # noqa: E402
+from uvalu.i18n import _  # noqa: E402
 
 _BASE_DIR  = Path(__file__).parent / "data" / "portfolio"
 _CACHE_DIR = Path(__file__).parent / ".cache"
@@ -407,7 +408,7 @@ def update_position(trade_id: str, *, shares: int, invested: float, date_in=None
     pf = load_portfolio()
     i = _row_for(pf, "trade_id", trade_id)
     if i is None:
-        raise ValueError("This position no longer exists.")
+        raise ValueError(_("This position no longer exists."))
     shares = max(1, int(shares))
     if sync_cash:
         fee = float(_num_or(pf.loc[i].get("fee") if "fee" in pf.columns else None, 0.0)) if fee is None else float(fee)
@@ -451,7 +452,7 @@ def update_closed_trade(trade_id: str, *, shares: int, buy_price: float, sell_pr
     sd = load_sold()
     i = _row_for(sd, "trade_id", trade_id)
     if i is None:
-        raise ValueError("This trade no longer exists.")
+        raise ValueError(_("This trade no longer exists."))
     shares = max(1, int(shares))
     proceeds = round(float(sell_price) * shares, 2)
     if sync_cash:
@@ -494,7 +495,7 @@ def update_dividend(div_id: str, fields: dict) -> None:
     dh = load_div_hist()
     i = _row_for(dh, "div_id", div_id)
     if i is None:
-        raise ValueError("This dividend no longer exists.")
+        raise ValueError(_("This dividend no longer exists."))
     for k, v in fields.items():
         if k not in dh.columns:
             dh[k] = None

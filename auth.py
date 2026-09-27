@@ -36,6 +36,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from crypto import read_encrypted, write_encrypted  # noqa: E402
 from settings import load_shared_settings  # noqa: E402
 from uvalu import logkit  # noqa: E402
+from uvalu.i18n import N_, _, ngettext  # noqa: E402
 
 USERS_FILE  = Path(__file__).parent / ".cache" / "users.json"
 _JWT_SECRET = os.environ.get("AUTH_SECRET") or secrets.token_hex(32)
@@ -53,7 +54,7 @@ TOTP_REQUIRED = "TOTP_REQUIRED"
 # (settings.py's "session_ttl" shared setting) -> hours, for _issue_session().
 _SESSION_TTL_HOURS = {"8 h": 8, "24 h": 24, "7 d": 24 * 7}
 
-ROLES = ("Admin", "Analyst", "Viewer")
+ROLES = (N_("Admin"), N_("Analyst"), N_("Viewer"))   # English keys; shown via tr()
 STATUSES = ("Active", "Invited", "Suspended")
 
 # Legacy accounts predate the 3-tier role model — normalized transparently
@@ -124,9 +125,9 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     """
     email = email.strip().lower()
     if not email or "@" not in email:
-        return False, "Enter a valid email address."
+        return False, _("Enter a valid email address.")
     if len(password) < 8:
-        return False, "Password must be at least 8 characters."
+        return False, _("Password must be at least {min_len} characters.", min_len=8)
     if role not in ROLES:
         return False, f"Unknown role '{role}'."
 
@@ -134,10 +135,9 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     if _store_broken(users):
         logkit.get_logger("uvalu.auth").critical(
             "user store unreadable", extra={"event": "auth.store.unreadable", "op": "register"})
-        return False, ("The user store could not be read (wrong encryption key or a "
-                       "corrupted file). Registration is disabled until this is fixed.")
+        return False, _("The user store could not be read (wrong encryption key or a corrupted file). Registration is disabled until this is fixed.")
     if email in users:
-        return False, "An account with this email already exists."
+        return False, _("An account with this email already exists.")
 
     # Bootstrap: first user becomes Admin
     bootstrap_admin = not users
@@ -157,7 +157,7 @@ def register(email: str, password: str, role: str = "Analyst") -> tuple[bool, st
     logkit.data_mutation(actor=logkit.user_id(), action="user.create", entity_type="user",
                          entity_id=logkit.user_hash(email), role=effective_role,
                          bootstrap_admin=bootstrap_admin)
-    return True, "Account created. You can now log in."
+    return True, _("Account created. You can now log in.")
 
 
 def no_users_exist() -> bool:
@@ -314,8 +314,8 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
     email = invite["email"]
     if oauth_email.strip().lower() != email:
-        return False, (f"This invite was sent to {email}. Sign in with a matching account, "
-                       f"or ask your admin to invite {oauth_email}.")
+        return False, _("This invite was sent to {email}. Sign in with a matching account, or ask your admin to invite {provider_email}.",
+                        email=email, provider_email=oauth_email)
     users = _load_users()
     user = users[email]
     now = datetime.now(timezone.utc)
@@ -465,13 +465,12 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
     if _store_broken(users):
         logkit.get_logger("uvalu.auth").critical(
             "user store unreadable", extra={"event": "auth.store.unreadable", "op": "login"})
-        return False, ("The user store could not be read (wrong encryption key or a "
-                       "corrupted file). Contact your administrator.")
+        return False, _("The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator.")
     user = users.get(email)
     if not user:
         logkit.auth_event("login.failed", outcome="failed", reason="unknown_user",
                           user_id=logkit.user_hash(email))
-        return False, "Invalid email or password."
+        return False, _("Invalid email or password.")
 
     max_attempts, lock_minutes = _rate_limit_settings()
     now = datetime.now(timezone.utc)
@@ -486,8 +485,8 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
             remaining_min = max(1, -(-int((locked_dt - now).total_seconds()) // 60))  # ceil
             logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
                               user_id=logkit.user_hash(email))
-            return False, (f"This account is temporarily locked. Try again in "
-                           f"{remaining_min} minute{'s' if remaining_min != 1 else ''}.")
+            return False, ngettext("This account is temporarily locked. Try again in {count} minute.",
+                                   "This account is temporarily locked. Try again in {count} minutes.", remaining_min)
         # Lock has expired — clear it before evaluating this attempt.
         user["locked_until"] = None
         user["failed_attempts"] = 0
@@ -507,15 +506,16 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
             _save_users(users)
             logkit.auth_event("login.failed", outcome="locked", reason="bad_password",
                               user_id=logkit.user_hash(email))
-            return False, (f"Invalid email or password. Too many failed attempts — "
-                           f"this account is now locked for {lock_minutes} minutes.")
+            return False, _("Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes.",
+                            minutes=lock_minutes)
         users[email] = user
         _save_users(users)
         logkit.auth_event("login.failed", outcome="failed", reason="bad_password",
                           user_id=logkit.user_hash(email))
-        return False, (f"Invalid email or password. {remaining_attempts} attempt"
-                       f"{'s' if remaining_attempts != 1 else ''} remain before this "
-                       f"account is locked for {lock_minutes} minutes.")
+        return False, ngettext(
+            "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes.",
+            "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes.",
+            remaining_attempts, minutes=lock_minutes)
     if user.get("status") == "Suspended":
         logkit.auth_event("login.failed", outcome="failed", reason="suspended",
                           user_id=logkit.user_hash(email))
@@ -614,18 +614,18 @@ def revoke_session(email: str, sid: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     found = False
     for s in users[email].get("sessions", []):
         if s["sid"] == sid:
             s["revoked"] = True
             found = True
     if not found:
-        return False, "Session not found."
+        return False, _("Session not found.")
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_session",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Signed out of that session."
+    return True, _("Signed out of that session.")
 
 
 def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
@@ -634,7 +634,7 @@ def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     _n = 0
     for s in users[email].get("sessions", []):
         if s["sid"] != keep_sid and not s.get("revoked", False):
@@ -643,7 +643,7 @@ def revoke_other_sessions(email: str, keep_sid: str | None) -> tuple[bool, str]:
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_other_sessions",
                          entity_type="user", entity_id=logkit.user_hash(email), count=_n)
-    return True, f"Signed out of {_n} other session{'s' if _n != 1 else ''}."
+    return True, ngettext("Signed out of {count} other session.", "Signed out of {count} other sessions.", _n)
 
 
 # ── Two-factor authentication (TOTP) ─────────────────────────────────────────
@@ -692,16 +692,16 @@ def confirm_totp_enrollment(email: str, code: str) -> tuple[bool, str, list[str]
     users = _load_users()
     user = users.get(email)
     if not user or not user.get("totp_secret"):
-        return False, "Start enrollment again — no pending setup found.", None
+        return False, _("Start enrollment again — no pending setup found."), None
     if not pyotp.totp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
-        return False, "That code didn't match. Try again.", None
+        return False, _("That code didn't match. Try again."), None
     plain_codes, hashed_codes = _fresh_backup_codes()
     user["totp_enabled"]  = True
     user["backup_codes"]  = hashed_codes
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.totp_enabled",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Two-factor authentication enabled.", plain_codes
+    return True, _("Two-factor authentication enabled."), plain_codes
 
 
 def disable_totp(email: str) -> tuple[bool, str]:
@@ -710,7 +710,7 @@ def disable_totp(email: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     users[email]["totp_enabled"]    = False
     users[email]["totp_secret"]     = None
     users[email]["backup_codes"]    = []
@@ -718,7 +718,7 @@ def disable_totp(email: str) -> tuple[bool, str]:
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.totp_disabled",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Two-factor authentication turned off."
+    return True, _("Two-factor authentication turned off.")
 
 
 def admin_reset_totp(email: str) -> tuple[bool, str]:
@@ -765,11 +765,11 @@ def complete_totp_login(email: str, code: str, user_agent: str = "") -> tuple[bo
     users = _load_users()
     user = users.get(email)
     if not user or not user.get("totp_enabled"):
-        return False, "Two-factor authentication isn't enabled for this account."
+        return False, _("Two-factor authentication isn't enabled for this account.")
     if not pyotp.totp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
         logkit.auth_event("login.failed", outcome="failed", reason="bad_totp_code",
                           user_id=logkit.user_hash(email))
-        return False, "That code didn't match. Try again."
+        return False, _("That code didn't match. Try again.")
     token = _issue_session(users, email, user, user_agent)
     logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                       role=user.get("role", "Analyst"), method="totp")
@@ -783,7 +783,7 @@ def complete_backup_code_login(email: str, code: str, user_agent: str = "") -> t
     users = _load_users()
     user = users.get(email)
     if not user or not user.get("totp_enabled"):
-        return False, "Two-factor authentication isn't enabled for this account."
+        return False, _("Two-factor authentication isn't enabled for this account.")
     code = code.strip().lower()
     for i, hashed in enumerate(user.get("backup_codes", [])):
         if bcrypt.checkpw(code.encode(), hashed.encode()):
@@ -794,7 +794,7 @@ def complete_backup_code_login(email: str, code: str, user_agent: str = "") -> t
             return True, token
     logkit.auth_event("login.failed", outcome="failed", reason="bad_backup_code",
                       user_id=logkit.user_hash(email))
-    return False, "That code didn't match. Try again."
+    return False, _("That code didn't match. Try again.")
 
 
 def two_factor_status(email: str) -> str:
@@ -868,12 +868,12 @@ def revoke_trusted_devices(email: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     users[email]["trusted_devices"] = []
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.revoke_trusted_devices",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "All trusted devices revoked."
+    return True, _("All trusted devices revoked.")
 
 
 # ── Password policy ───────────────────────────────────────────────────────────
@@ -915,12 +915,11 @@ def validate_new_password(password: str) -> tuple[bool, str | None]:
     dev-only/admin-only paths predating this policy."""
     min_len = int(load_shared_settings().get("min_password_length", 12))
     if len(password) < min_len:
-        return False, f"Password must be at least {min_len} characters."
+        return False, _("Password must be at least {min_len} characters.", min_len=min_len)
     if load_shared_settings().get("block_breached_passwords", True):
         count = check_password_breached(password)
         if count:
-            return False, ("This password has appeared in known data breaches. "
-                           "Choose a different one.")
+            return False, _("This password has appeared in known data breaches. Choose a different one.")
     return True, None
 
 
@@ -951,20 +950,20 @@ def link_identity(email: str, issuer: str, subject: str, oauth_email: str = "") 
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     owner = _find_identity_owner(users, issuer, subject)
     if owner and owner != email:
-        return False, "This identity is already linked to a different account."
+        return False, _("This identity is already linked to a different account.")
     identities = users[email].get("linked_identities", [])
     if any(i.get("issuer") == issuer for i in identities):
-        return False, "This provider is already linked to your account."
+        return False, _("This provider is already linked to your account.")
     identities.append({"issuer": issuer, "subject": subject, "email_at_link": oauth_email,
                        "linked_at": datetime.now(timezone.utc).isoformat()})
     users[email]["linked_identities"] = identities
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.link_identity",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Provider connected."
+    return True, _("Provider connected.")
 
 
 def unlink_identity(email: str, issuer: str) -> tuple[bool, str]:
@@ -974,19 +973,19 @@ def unlink_identity(email: str, issuer: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     user = users[email]
     identities = user.get("linked_identities", [])
     remaining = [i for i in identities if i.get("issuer") != issuer]
     if len(remaining) == len(identities):
-        return False, "That provider isn't linked to your account."
+        return False, _("That provider isn't linked to your account.")
     if not remaining and not user.get("password_hash"):
-        return False, "Can't disconnect your only sign-in method — set a password first."
+        return False, _("Can't disconnect your only sign-in method — set a password first.")
     users[email]["linked_identities"] = remaining
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.unlink_identity",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Provider disconnected."
+    return True, _("Provider disconnected.")
 
 
 def set_password(email: str, new_password: str) -> tuple[bool, str]:
@@ -1000,15 +999,15 @@ def set_password(email: str, new_password: str) -> tuple[bool, str]:
         return False, _err
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     if users[email].get("password_hash"):
-        return False, "This account already has a password — use Change instead."
+        return False, _("This account already has a password — use Change instead.")
     users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
     users[email]["password_changed_at"] = datetime.now(timezone.utc).isoformat()
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.set_password",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Password set."
+    return True, _("Password set.")
 
 
 def oauth_login(issuer: str, subject: str, email: str, user_agent: str = "") -> tuple[bool, str]:
@@ -1187,18 +1186,18 @@ def change_password(email: str, current_password: str, new_password: str) -> tup
         return False, _err
     users = _load_users()
     if email not in users:
-        return False, "User not found."
+        return False, _("User not found.")
     _hash = users[email].get("password_hash")
     if not _hash or not bcrypt.checkpw(current_password.encode(), _hash.encode()):
         logkit.auth_event("password.change_failed", outcome="failed", reason="bad_current_password",
                           user_id=logkit.user_hash(email))
-        return False, "Current password is incorrect."
+        return False, _("Current password is incorrect.")
     users[email]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
     users[email]["password_changed_at"] = datetime.now(timezone.utc).isoformat()
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.change_password",
                          entity_type="user", entity_id=logkit.user_hash(email))
-    return True, "Password changed."
+    return True, _("Password changed.")
 
 
 def reset_password(email: str, new_password: str) -> tuple[bool, str]:

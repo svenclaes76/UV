@@ -44,21 +44,22 @@ def _bust_cache() -> None:
 
 
 def _cache_age_str() -> str:
+    from uvalu.i18n import _, fmt_num
     cache = _load_cache()
     if not cache:
-        return "No cache yet"
+        return _("No cache yet")
     timestamps = [
         datetime.fromisoformat(v["fetched_at"])
         for v in cache.values()
         if v.get("fetched_at")
     ]
     if not timestamps:
-        return "No cache yet"
+        return _("No cache yet")
     oldest = min(timestamps)
     age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
     if age_min < 60:
-        return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
-    return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
+        return _("Cache age: {age} min (TTL {ttl}h)", age=fmt_num(age_min, 0), ttl=CACHE_TTL_HOURS)
+    return _("Cache age: {age} h (TTL {ttl}h)", age=fmt_num(age_min / 60, 1), ttl=CACHE_TTL_HOURS)
 
 
 _CACHE_VERSION_BUCKET_S = 30   # coarsen the mtime token — see _mtime_bucket

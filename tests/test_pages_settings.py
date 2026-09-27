@@ -122,7 +122,8 @@ def test_changing_refresh_interval_persists(isolated_data, monkeypatch):
     # A segmented control, not a select_slider — see uvalu/pages_/settings.py's
     # "Data" card comment (fixed width regardless of the selected option).
     at = _run(monkeypatch)
-    at.segmented_control(key="disp_refresh_interval").set_value("5 min")
+    # Options are the interval in seconds; "5 min" is only its (translated) label.
+    at.segmented_control(key="disp_refresh_interval").set_value(300)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert settings.load_settings(TEST_EMAIL)["refresh_interval_s"] == 300
