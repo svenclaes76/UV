@@ -34,6 +34,7 @@ import yfinance as yf
 
 import marketdata
 from uvalu import logkit
+from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
     _financial_health_score, _earnings_quality_score, _dividend_sustainability_flag,
@@ -246,7 +247,9 @@ MIN_UNIVERSE_SIZE = 20
 # The flat D/E hard veto can't tell healthy sector leverage from financial distress, so
 # these sectors are exempt from it — other vetoes (negative FCF, at-risk dividend +
 # low coverage) still apply.
-LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
+# Sector names are market-data values: they stay English here and are shown
+# through uvalu.i18n.tr(). N_() only marks them for translation.
+LEVERAGE_EXEMPT_SECTORS = {N_("Financial Services"), N_("Real Estate"), N_("Utilities")}
 
 # FV-8: sectors whose value is driven by the balance sheet, not an income
 # statement, so the earnings-anchored models (Graham √(EPS·BVPS), a Greenwald
@@ -271,10 +274,10 @@ _PE_SKIP_SECTORS         = {"Real Estate"}   # + revaluation-distorted P/E; bank
 # provider's own `sector` is missing. Extend as gaps surface — these are stable
 # GICS-style classifications, not judgement calls.
 SECTOR_OVERRIDES = {
-    "RET.BR":   "Real Estate",            # Retail Estates NV — Belgian retail REIT
-    "SYENS.BR": "Basic Materials",        # Syensqo SA/NV — specialty chemicals
-    "MELE.BR":  "Technology",             # Melexis NV — automotive semiconductors
-    "PROX.BR":  "Communication Services", # Proximus PLC — telecom
+    "RET.BR":   N_("Real Estate"),            # Retail Estates NV — Belgian retail REIT
+    "SYENS.BR": N_("Basic Materials"),        # Syensqo SA/NV — specialty chemicals
+    "MELE.BR":  N_("Technology"),             # Melexis NV — automotive semiconductors
+    "PROX.BR":  N_("Communication Services"), # Proximus PLC — telecom
 }
 
 
@@ -717,13 +720,13 @@ def _next_expected_ex_div(ticker: str) -> dict:
         median_gap = float(gap_days.median())
 
         if median_gap <= 45:
-            freq = "Monthly"
+            freq = N_("Monthly")
         elif median_gap <= 135:
-            freq = "Quarterly"
+            freq = N_("Quarterly")
         elif median_gap <= 225:
-            freq = "Semi-annual"
+            freq = N_("Semi-annual")
         else:
-            freq = "Annual"
+            freq = N_("Annual")
 
         today = pd.Timestamp.now().normalize()
         next_date = recent.index[-1]
@@ -1664,28 +1667,37 @@ def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY
     score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
     mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
     thin  = bool(row.get("fv_basis_thin"))
-    _score_txt = "—" if score is None else f"{score:.0f}"
+    from uvalu.i18n import _, fmt_num, fmt_pct
+    _score_txt = "—" if score is None else fmt_num(score, 0)
+    _thr = fmt_num(buy_threshold, 0)
+
+    def _pct(v):
+        return fmt_pct(v, 0, fraction=True, signed=True)
 
     if bool(row.get("veto")):
-        return "Hard veto active — excluded from BUY scoring regardless of composite score."
+        return _("Hard veto active — excluded from BUY scoring regardless of composite score.")
 
     if dec == "Strong Buy":
-        _mos_clause = f" and margin of safety {mos:+.0%} ≥ {min_mos:+.0%}" if mos is not None else ""
-        return f"Composite score {_score_txt} ≥ {buy_threshold:.0f}{_mos_clause} — both BUY conditions met."
+        if mos is not None:
+            return _("Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — both BUY conditions met.",
+                     score=_score_txt, threshold=_thr, mos=_pct(mos), min_mos=_pct(min_mos))
+        return _("Composite score {score} ≥ {threshold} — both BUY conditions met.", score=_score_txt, threshold=_thr)
 
     gates = []
     if score is None or score < buy_threshold:
-        gates.append(f"composite score {_score_txt} is below the {buy_threshold:.0f} BUY threshold")
+        gates.append(_("composite score {score} is below the {threshold} BUY threshold",
+                       score=_score_txt, threshold=_thr))
     if mos is None:
-        gates.append("no computable fair value, so the margin of safety can't be confirmed")
+        gates.append(_("no computable fair value, so the margin of safety can't be confirmed"))
     elif mos < min_mos:
-        gates.append(f"margin of safety {mos:+.0%} is below the {min_mos:+.0%} minimum")
+        gates.append(_("margin of safety {mos} is below the {min_mos} minimum", mos=_pct(mos), min_mos=_pct(min_mos)))
     if thin:
-        gates.append("the fair value rests on too few independent models to confirm a BUY")
+        gates.append(_("the fair value rests on too few independent models to confirm a BUY"))
 
     if dec == "Avoid":
-        return f"Composite score {_score_txt} is below the {SCORE_AVOID:.0f} Avoid floor."
-    return ("Not a BUY: " + "; ".join(gates) + ".") if gates else "Sits in the Monitor band."
+        return _("Composite score {score} is below the {floor} Avoid floor.", score=_score_txt,
+                 floor=fmt_num(SCORE_AVOID, 0))
+    return _("Not a BUY: {reasons}.", reasons="; ".join(gates)) if gates else _("Sits in the Monitor band.")
 
 
 def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:
@@ -1968,23 +1980,24 @@ def _trend_veto(row: pd.Series) -> list[str]:
     if len(rev) >= _TREND_MIN_YEARS:
         run = _declining_run(rev)
         if run >= _TREND_DECLINE_RUN:
-            reasons.append(f"revenue fell {run + 1} straight years")
+            reasons.append(lazy_("revenue fell {years} straight years", years=run + 1))
 
     ebit = _clean_history(row, "ebitHistory")
     if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
-        reasons.append(f"operating income negative {_TREND_MIN_YEARS} years running")
+        reasons.append(lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS))
 
     ret = _clean_history(row, "retainedEarningsHistory")
     if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
             and _declining_run(ret) >= _TREND_DECLINE_RUN):
-        reasons.append("retained earnings negative and still eroding")
+        reasons.append(lazy_("retained earnings negative and still eroding"))
 
     last_cut = _get_num(row, "dividend_last_cut_year")
     coverage = _get_num(row, "dividendCoverage")
     if (last_cut is not None and coverage is not None
             and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
             and coverage < _DIV_CUT_VETO_COVERAGE):
-        reasons.append(f"dividend cut in {int(last_cut)} with only {coverage:.2f}× cover")
+        reasons.append(lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
+                             coverage=Fmt("num", coverage, decimals=2)))
 
     return reasons
 

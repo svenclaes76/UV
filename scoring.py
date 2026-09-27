@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from uvalu.i18n import N_
 
 _DIV_RECENT_CUT_YEARS = 3   # a DPS cut this recent still flags the payer
 
@@ -147,5 +148,5 @@ def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> s
        (cpr      and cpr      > 0.80) or \
        (coverage and coverage < 1.20) or \
        recent_cut:
-        return "At Risk"
+        return N_("At Risk")   # a data flag; shown through uvalu.i18n.tr()
     return "OK"

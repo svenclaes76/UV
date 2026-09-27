@@ -750,7 +750,9 @@ def _apply(pattern, value, loc: Locale, decimals: int, min_decimals: int | None,
 
 
 def _signed(text: str, value, loc: Locale, signed: bool) -> str:
-    if signed and value > 0:
+    """Prefix the locale's plus sign for signed values ≥ 0 (as Python's
+    "{:+}" did, so zero reads "+0%")."""
+    if signed and value >= 0:
         return _bnum.get_plus_sign_symbol(loc) + text
     return text
 
@@ -762,6 +764,7 @@ def fmt_num(value, decimals: int = 2, *, min_decimals: int | None = None, signed
     if _is_missing(value):
         return MISSING
     loc = _loc(locale)
+    value = 0.0 if value == 0 else value   # no "-0"
     out = _apply(loc.decimal_formats[None], value, loc, decimals, min_decimals, grouping=grouping)
     return _signed(out, value, loc, signed)
 
@@ -804,6 +807,7 @@ def fmt_pct(value, decimals: int = 1, *, signed: bool = False, fraction: bool = 
         return MISSING
     loc = _loc(locale)
     frac = float(value) if fraction else float(value) / 100
+    frac = 0.0 if frac == 0 else frac
     out = _apply(loc.percent_formats[None], frac, loc, decimals, min_decimals)
     return _signed(out, frac, loc, signed)
 
