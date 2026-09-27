@@ -121,8 +121,11 @@ def note_text(entry: dict) -> str:
     if raw:
         try:
             parts = json.loads(raw)
-            return " ".join(_(p["id"], **{k: _render_note_arg(v) for k, v in (p.get("args") or {}).items()})
-                            for p in parts)
+            out = []
+            for part in parts:
+                msgid = part["id"]   # a stored msgid, not a literal to extract
+                out.append(_(msgid, **{k: _render_note_arg(v) for k, v in (part.get("args") or {}).items()}))
+            return " ".join(out)
         except Exception:
             pass
     return tr(entry.get("note") or "")
