@@ -7,9 +7,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 20:11+0000\n"
-"PO-Revision-Date: 2026-09-27 22:09+0200\n"
-"Last-Translator: \n"
+"POT-Creation-Date: 2026-09-27 12:59+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nl\n"
 "Language-Team: nl <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
@@ -20,6 +20,7 @@ msgstr ""
 
 #. Context: Main navigation › page name in the top bar and browser tab
 #: app.py:100 uvalu/shell.py:45
+#, fuzzy
 msgid "Dashboard"
 msgstr "Dashboard"
 
@@ -810,7 +811,7 @@ msgstr "Recessie (winst −20 à 30%)"
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1186
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid "25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed"
 msgstr ""
 "WPA −25% bij cyclische en −10% bij defensieve aandelen; lagere "
@@ -824,7 +825,7 @@ msgstr "Sectorcrash −40% ({sector})"
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1197
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "40% drawdown applied to {sector} sector"
 msgstr "Daling van 40% toegepast op de sector {sector}"
 
@@ -895,7 +896,7 @@ msgstr "Verschuif naar aandelen met lage bèta / defensieve aandelen"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1445
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance"
 msgstr "VaR 99% op 1 dag = {amount} ({pct}): hoger dan de verliestolerantie van 3%"
 
@@ -1016,7 +1017,7 @@ msgstr "Bouw de overwogen sector af; vul de ondergewogen sectoren aan"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1525
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "{sector} sector at {weight} — exceeds 30% guideline"
 msgstr "Sector {sector} op {weight}: boven de richtlijn van 30%"
 
@@ -1367,7 +1368,7 @@ msgstr "Een back-upcode gebruiken"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:258
-#: uvalu/locale_ui.py:191 uvalu/pages_/settings.py:233
+#: uvalu/locale_ui.py:189 uvalu/pages_/settings.py:233
 #: uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:310
 #: uvalu/pages_/settings.py:351
 #, fuzzy
@@ -1819,7 +1820,7 @@ msgstr "GEEN DATA"
 #. Context: Veto reason shown after 'Hard veto triggered/active'. Lowercase,
 #. joined with other reasons.
 #: uvalu/components.py:83
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "debt/equity of {ratio}% exceeds the {limit}% limit"
 msgstr "schuld/eigen vermogen van {ratio}% overschrijdt de limiet van {limit}%"
 
@@ -1995,7 +1996,7 @@ msgstr ""
 
 #. Context: Fair-value bars › footnote
 #: uvalu/components.py:295
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr ""
 "De samengestelde waarde past een correctie van −10% voor optimisme toe op"
@@ -2316,7 +2317,7 @@ msgid "top-up"
 msgstr "aanvulling"
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:84
+#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:82
 #, fuzzy
 msgid "Date"
 msgstr "Datum"
@@ -2627,7 +2628,7 @@ msgstr "Vul het aantal aandelen in, en een totale kost of een prijs per aandeel.
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
 #: uvalu/dialogs.py:404 uvalu/dialogs.py:408 uvalu/dialogs.py:1146
-#: uvalu/locale_ui.py:83
+#: uvalu/locale_ui.py:81
 #, fuzzy
 msgid "Change"
 msgstr "Wijziging"
@@ -3307,7 +3308,7 @@ msgstr "Sluiten"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:199 uvalu/locale_ui.py:81 uvalu/pages_/analysis.py:187
+#: uvalu/drawer.py:199 uvalu/locale_ui.py:79 uvalu/pages_/analysis.py:187
 #: uvalu/pages_/analysis.py:203 uvalu/pages_/portfolio.py:310
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/screener.py:49
 #: uvalu/pages_/watchlist.py:31
@@ -3459,8 +3460,6 @@ msgstr "Bewerken"
 #. not 'close this panel'
 #. Stock preview › button that closes (sells) the position you hold — not
 #. "close this panel".
-#. Stock preview › button that closes (sells) the position you hold — not
-#. "close this panel".
 #: uvalu/drawer.py:316
 #, fuzzy
 msgctxt "position"
@@ -3475,21 +3474,21 @@ msgstr "Toevoegen"
 
 #. Context: Planned (spec, not in code yet) › One-time notice (C-01). Both
 #. placeholders are language names in the active language.
-#: uvalu/i18n.py:403
+#: uvalu/i18n.py:402
 #, fuzzy, python-brace-format
 msgid "{language} is no longer available. Current language: {fallback}."
 msgstr "{language} is niet meer beschikbaar. Huidige taal: {fallback}."
 
 #. Context: Planned (spec, not in code yet) › Validation error (F-10).
 #. {example} is a formatted sample number.
-#: uvalu/i18n.py:942
+#: uvalu/i18n.py:915
 #, fuzzy, python-brace-format
 msgid "Couldn't read this number. Use the format {example}."
 msgstr "Dit getal kon niet worden gelezen. Gebruik het formaat {example}."
 
 #. Context: Planned (spec, not in code yet) › Tooltip on converted amounts
 #. (F-04)
-#: uvalu/i18n.py:1202
+#: uvalu/i18n.py:1174
 #, fuzzy, python-brace-format
 msgid "Converted at {rate} on {date}"
 msgstr "Omgerekend tegen {rate} op {date}"
@@ -3587,14 +3586,14 @@ msgstr "Laatst bijgewerkt: {datetime}"
 
 # | msgid "Portfolio value"
 #. Context: Settings › Language & region preview: a sample portfolio total
-#: uvalu/locale_ui.py:82
+#: uvalu/locale_ui.py:80
 #, fuzzy
 msgid "Total value"
 msgstr "Totale waarde"
 
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
-#: uvalu/locale_ui.py:85 uvalu/pages_/dashboard.py:457
+#: uvalu/locale_ui.py:83 uvalu/pages_/dashboard.py:457
 #: uvalu/pages_/screener.py:46 uvalu/pages_/screener.py:226
 #: uvalu/pages_/screener.py:227 uvalu/pages_/watchlist.py:31
 #, fuzzy
@@ -3602,44 +3601,44 @@ msgid "Signal"
 msgstr "Signaal"
 
 #. Context: Planned (spec, not in code yet) › Heading of the live preview panel
-#: uvalu/locale_ui.py:94
+#: uvalu/locale_ui.py:92
 #, fuzzy
 msgid "Preview"
 msgstr "Voorbeeld"
 
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:119
+#: uvalu/locale_ui.py:117
 #, fuzzy
 msgid "Language & region"
 msgstr "Taal en regio"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:122 uvalu/locale_ui.py:124 uvalu/locale_ui.py:213
+#: uvalu/locale_ui.py:120 uvalu/locale_ui.py:122 uvalu/locale_ui.py:211
 #, fuzzy
 msgid "Language"
 msgstr "Taal"
 
 #. Context: Planned (spec, not in code yet) › Settings label. Controls number,
 #. currency and date formatting.
-#: uvalu/locale_ui.py:130 uvalu/locale_ui.py:137
+#: uvalu/locale_ui.py:128 uvalu/locale_ui.py:135
 #, fuzzy
 msgid "Region format"
 msgstr "Regionale notatie"
 
 #. Context: Planned (spec, not in code yet) › Region format option
-#: uvalu/locale_ui.py:138
+#: uvalu/locale_ui.py:136
 #, fuzzy
 msgid "Same as language"
 msgstr "Zelfde als taal"
 
 #. Context: Settings › Display › row title
-#: uvalu/locale_ui.py:145 uvalu/locale_ui.py:147
+#: uvalu/locale_ui.py:143 uvalu/locale_ui.py:145
 #, fuzzy
 msgid "Display currency"
 msgstr "Weergavevaluta"
 
 #. Context: Planned (spec, not in code yet) › Help text under Display currency
-#: uvalu/locale_ui.py:146
+#: uvalu/locale_ui.py:144
 #, fuzzy
 msgid ""
 "Applies to portfolio totals. Individual prices stay in the currency they "
@@ -3649,77 +3648,77 @@ msgstr ""
 "handelsvaluta."
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:152 uvalu/locale_ui.py:155
+#: uvalu/locale_ui.py:150 uvalu/locale_ui.py:153
 #, fuzzy
 msgid "Date format"
 msgstr "Datumnotatie"
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:153
+#: uvalu/locale_ui.py:151
 #, fuzzy
 msgctxt "date_format"
 msgid "Short"
 msgstr "Kort"
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:154
+#: uvalu/locale_ui.py:152
 #, fuzzy
 msgctxt "date_format"
 msgid "Medium"
 msgstr "Middel"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:161 uvalu/locale_ui.py:165
+#: uvalu/locale_ui.py:159 uvalu/locale_ui.py:163
 #, fuzzy
 msgid "Time zone"
 msgstr "Tijdzone"
 
 #. Context: Planned (spec, not in code yet) › Settings label. Day names
 #. themselves come from Babel, not from this file.
-#: uvalu/locale_ui.py:169 uvalu/locale_ui.py:172
+#: uvalu/locale_ui.py:167 uvalu/locale_ui.py:170
 #, fuzzy
 msgid "First day of week"
 msgstr "Eerste dag van de week"
 
 #. Context: Planned (spec, not in code yet) › Toast
-#: uvalu/locale_ui.py:181
+#: uvalu/locale_ui.py:179
 #, fuzzy
 msgid "Settings saved"
 msgstr "Instellingen opgeslagen"
 
 #. Context: Planned (spec, not in code yet) › Confirmation dialog
-#: uvalu/locale_ui.py:184
+#: uvalu/locale_ui.py:182
 #, fuzzy
 msgid "Reset all language and region settings to their defaults?"
 msgstr "Alle taal- en regio-instellingen terugzetten naar de standaardwaarden?"
 
 #. Context: Planned (spec, not in code yet) › Button
-#: uvalu/locale_ui.py:187 uvalu/locale_ui.py:194
+#: uvalu/locale_ui.py:185 uvalu/locale_ui.py:192
 #, fuzzy
 msgid "Reset to defaults"
 msgstr "Standaardinstellingen herstellen"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:252
+#: uvalu/locale_ui.py:250
 #, fuzzy
 msgid "Spreadsheet format (for Excel)"
 msgstr "Spreadsheetformaat (voor Excel)"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:255
+#: uvalu/locale_ui.py:253
 #, fuzzy
 msgid "Machine format (for scripts)"
 msgstr "Machineformaat (voor scripts)"
 
 # | msgid "Password must be at least {min_len} characters."
 #. Context: Number field › validation error; {min} is a formatted number
-#: uvalu/locale_ui.py:299
+#: uvalu/locale_ui.py:297
 #, fuzzy, python-brace-format
 msgid "Must be at least {min}."
 msgstr "Moet minstens {min} zijn."
 
 #. Context: Number field › validation error; {max} is a formatted number
-#: uvalu/locale_ui.py:302
+#: uvalu/locale_ui.py:300
 #, fuzzy, python-brace-format
 msgid "Must be at most {max}."
 msgstr "Mag hoogstens {max} zijn."
@@ -4165,7 +4164,7 @@ msgstr "{exchange} {rate}% + RV 30%"
 #. Context: Analysis page › withholding value when there is no foreign
 #. withholding, only 30% Belgian withholding tax
 #: uvalu/pages_/analysis.py:446
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid "BE 30% only"
 msgstr "Alleen RV 30%"
 
@@ -4377,7 +4376,7 @@ msgstr "Transactie toevoegen"
 
 #. Context: Cash activity › small text on the Cash balance card
 #: uvalu/pages_/cash.py:112
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "{pct}% of total portfolio value"
 msgstr "{pct}% van de totale waarde"
 
@@ -5587,7 +5586,7 @@ msgstr "Concentratie"
 
 #. Context: Risk page › note above the metrics when you hold cash
 #: uvalu/pages_/risk.py:162
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid ""
 "Risk metrics cover the invested portion only ({invested}). Cash of "
 "{cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor "
@@ -5744,19 +5743,19 @@ msgstr "Grootste individuele positie"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:358
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "{ticker} at {weight} exceeds the 15% single-name limit"
 msgstr "{ticker} op {weight} overschrijdt de limiet van 15% per positie"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:361
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "{sector} at {weight} exceeds the 30% sector limit"
 msgstr "{sector} op {weight} overschrijdt de sectorlimiet van 30%"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:364
-#, fuzzy, python-brace-format, python-format
+#, fuzzy, no-python-format, python-brace-format, python-format
 msgid "{country} at {weight} exceeds the 60% country limit"
 msgstr "{country} op {weight} overschrijdt de landenlimiet van 60%"
 
@@ -5769,7 +5768,7 @@ msgstr "{names} blijft/blijven onder een hard veto"
 
 #. Context: Risk page › concentration all-clear message
 #: uvalu/pages_/risk.py:371
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid ""
 "All positions sit within the 15% single-name, 30% sector, and 60% country"
 " limits."
@@ -6509,7 +6508,7 @@ msgstr "Sectordoelen"
 
 #. Context: Settings › Sector targets description
 #: uvalu/pages_/settings.py:677
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr "Leeg = geen sectordoelen; dan geldt de richtlijn van 30%."
 
@@ -6623,7 +6622,7 @@ msgstr "elke grootte"
 
 #. Context: Settings › Data › slider description
 #: uvalu/pages_/settings.py:763
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid "0% flags every held ex-date; raise it to only badge your larger positions."
 msgstr ""
 "Bij 0% wordt elke ex-datum van je posities gemarkeerd; verhoog het om "
@@ -6665,7 +6664,7 @@ msgstr "Bronheffing op dividenden"
 
 #. Context: Settings › Dividend withholding description
 #: uvalu/pages_/settings.py:794
-#, fuzzy, python-format
+#, fuzzy, no-python-format, python-format
 msgid ""
 "Default withholding tax % applied when you record a dividend on each "
 "exchange — always editable per record. Depends on your own tax residency "

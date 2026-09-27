@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 20:11+0000\n"
+"POT-Creation-Date: 2026-09-27 12:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1148,7 +1148,7 @@ msgstr ""
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:258
-#: uvalu/locale_ui.py:191 uvalu/pages_/settings.py:233
+#: uvalu/locale_ui.py:189 uvalu/pages_/settings.py:233
 #: uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:310
 #: uvalu/pages_/settings.py:351
 msgid "Cancel"
@@ -1944,7 +1944,7 @@ msgid "top-up"
 msgstr ""
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:84
+#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:82
 msgid "Date"
 msgstr ""
 
@@ -2209,7 +2209,7 @@ msgstr ""
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
 #: uvalu/dialogs.py:404 uvalu/dialogs.py:408 uvalu/dialogs.py:1146
-#: uvalu/locale_ui.py:83
+#: uvalu/locale_ui.py:81
 msgid "Change"
 msgstr ""
 
@@ -2777,7 +2777,7 @@ msgstr ""
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:199 uvalu/locale_ui.py:81 uvalu/pages_/analysis.py:187
+#: uvalu/drawer.py:199 uvalu/locale_ui.py:79 uvalu/pages_/analysis.py:187
 #: uvalu/pages_/analysis.py:203 uvalu/pages_/portfolio.py:310
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/screener.py:49
 #: uvalu/pages_/watchlist.py:31
@@ -2906,8 +2906,6 @@ msgstr ""
 #. not 'close this panel'
 #. Stock preview › button that closes (sells) the position you hold — not
 #. "close this panel".
-#. Stock preview › button that closes (sells) the position you hold — not
-#. "close this panel".
 #: uvalu/drawer.py:316
 msgctxt "position"
 msgid "Close"
@@ -2920,21 +2918,21 @@ msgstr ""
 
 #. Context: Planned (spec, not in code yet) › One-time notice (C-01). Both
 #. placeholders are language names in the active language.
-#: uvalu/i18n.py:403
+#: uvalu/i18n.py:402
 #, python-brace-format
 msgid "{language} is no longer available. Current language: {fallback}."
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Validation error (F-10).
 #. {example} is a formatted sample number.
-#: uvalu/i18n.py:942
+#: uvalu/i18n.py:915
 #, python-brace-format
 msgid "Couldn't read this number. Use the format {example}."
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Tooltip on converted amounts
 #. (F-04)
-#: uvalu/i18n.py:1202
+#: uvalu/i18n.py:1174
 #, python-brace-format
 msgid "Converted at {rate} on {date}"
 msgstr ""
@@ -3016,117 +3014,117 @@ msgid "Last updated: {datetime}"
 msgstr ""
 
 #. Context: Settings › Language & region preview: a sample portfolio total
-#: uvalu/locale_ui.py:82
+#: uvalu/locale_ui.py:80
 msgid "Total value"
 msgstr ""
 
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
-#: uvalu/locale_ui.py:85 uvalu/pages_/dashboard.py:457
+#: uvalu/locale_ui.py:83 uvalu/pages_/dashboard.py:457
 #: uvalu/pages_/screener.py:46 uvalu/pages_/screener.py:226
 #: uvalu/pages_/screener.py:227 uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Heading of the live preview panel
-#: uvalu/locale_ui.py:94
+#: uvalu/locale_ui.py:92
 msgid "Preview"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:119
+#: uvalu/locale_ui.py:117
 msgid "Language & region"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:122 uvalu/locale_ui.py:124 uvalu/locale_ui.py:213
+#: uvalu/locale_ui.py:120 uvalu/locale_ui.py:122 uvalu/locale_ui.py:211
 msgid "Language"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings label. Controls number,
 #. currency and date formatting.
-#: uvalu/locale_ui.py:130 uvalu/locale_ui.py:137
+#: uvalu/locale_ui.py:128 uvalu/locale_ui.py:135
 msgid "Region format"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Region format option
-#: uvalu/locale_ui.py:138
+#: uvalu/locale_ui.py:136
 msgid "Same as language"
 msgstr ""
 
 #. Context: Settings › Display › row title
-#: uvalu/locale_ui.py:145 uvalu/locale_ui.py:147
+#: uvalu/locale_ui.py:143 uvalu/locale_ui.py:145
 msgid "Display currency"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Help text under Display currency
-#: uvalu/locale_ui.py:146
+#: uvalu/locale_ui.py:144
 msgid ""
 "Applies to portfolio totals. Individual prices stay in the currency they "
 "trade in."
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:152 uvalu/locale_ui.py:155
+#: uvalu/locale_ui.py:150 uvalu/locale_ui.py:153
 msgid "Date format"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:153
+#: uvalu/locale_ui.py:151
 msgctxt "date_format"
 msgid "Short"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:154
+#: uvalu/locale_ui.py:152
 msgctxt "date_format"
 msgid "Medium"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:161 uvalu/locale_ui.py:165
+#: uvalu/locale_ui.py:159 uvalu/locale_ui.py:163
 msgid "Time zone"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Settings label. Day names
 #. themselves come from Babel, not from this file.
-#: uvalu/locale_ui.py:169 uvalu/locale_ui.py:172
+#: uvalu/locale_ui.py:167 uvalu/locale_ui.py:170
 msgid "First day of week"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Toast
-#: uvalu/locale_ui.py:181
+#: uvalu/locale_ui.py:179
 msgid "Settings saved"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Confirmation dialog
-#: uvalu/locale_ui.py:184
+#: uvalu/locale_ui.py:182
 msgid "Reset all language and region settings to their defaults?"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Button
-#: uvalu/locale_ui.py:187 uvalu/locale_ui.py:194
+#: uvalu/locale_ui.py:185 uvalu/locale_ui.py:192
 msgid "Reset to defaults"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:252
+#: uvalu/locale_ui.py:250
 msgid "Spreadsheet format (for Excel)"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:255
+#: uvalu/locale_ui.py:253
 msgid "Machine format (for scripts)"
 msgstr ""
 
 #. Context: Number field › validation error; {min} is a formatted number
-#: uvalu/locale_ui.py:299
+#: uvalu/locale_ui.py:297
 #, python-brace-format
 msgid "Must be at least {min}."
 msgstr ""
 
 #. Context: Number field › validation error; {max} is a formatted number
-#: uvalu/locale_ui.py:302
+#: uvalu/locale_ui.py:300
 #, python-brace-format
 msgid "Must be at most {max}."
 msgstr ""
