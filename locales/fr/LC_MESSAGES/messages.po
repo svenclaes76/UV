@@ -7,9 +7,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 12:59+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"POT-Creation-Date: 2026-09-27 20:11+0000\n"
+"PO-Revision-Date: 2026-09-27 22:01+0200\n"
+"Last-Translator: \n"
 "Language: fr\n"
 "Language-Team: fr <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
@@ -20,7 +20,6 @@ msgstr ""
 
 #. Context: Main navigation › page name in the top bar and browser tab
 #: app.py:100 uvalu/shell.py:45
-#, fuzzy
 msgid "Dashboard"
 msgstr "Tableau de bord"
 
@@ -809,7 +808,7 @@ msgstr "Récession (bénéfices en baisse de 20 à 30 %)"
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1186
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid "25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed"
 msgstr ""
 "BPA −25 % pour les cycliques, −10 % pour les défensives ; multiples de "
@@ -823,7 +822,7 @@ msgstr "Krach sectoriel −40 % ({sector})"
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1197
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "40% drawdown applied to {sector} sector"
 msgstr "Baisse de 40 % appliquée au secteur {sector}"
 
@@ -892,7 +891,7 @@ msgstr "Basculer vers des titres à faible bêta / défensifs"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1445
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance"
 msgstr ""
 "VaR 99 % à 1 jour = {amount} ({pct}) : au-delà de la tolérance de perte "
@@ -1015,7 +1014,7 @@ msgstr "Alléger le secteur surpondéré ; renforcer les sous-pondérés"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1525
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "{sector} sector at {weight} — exceeds 30% guideline"
 msgstr "Secteur {sector} à {weight} : au-delà de la règle des 30 %"
 
@@ -1374,7 +1373,7 @@ msgstr "Utiliser un code de secours"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:258
-#: uvalu/locale_ui.py:189 uvalu/pages_/settings.py:233
+#: uvalu/locale_ui.py:191 uvalu/pages_/settings.py:233
 #: uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:310
 #: uvalu/pages_/settings.py:351
 #, fuzzy
@@ -1832,7 +1831,7 @@ msgstr "AUCUNE DONNÉE"
 #. Context: Veto reason shown after 'Hard veto triggered/active'. Lowercase,
 #. joined with other reasons.
 #: uvalu/components.py:83
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "debt/equity of {ratio}% exceeds the {limit}% limit"
 msgstr ""
 "un ratio dette/capitaux propres de {ratio} % dépasse la limite de {limit}"
@@ -2010,7 +2009,7 @@ msgstr ""
 
 #. Context: Fair-value bars › footnote
 #: uvalu/components.py:295
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr ""
 "La valeur composite applique une décote d'optimisme de −10 % à l'objectif"
@@ -2331,7 +2330,7 @@ msgid "top-up"
 msgstr "renflouement"
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:82
+#: uvalu/components.py:1633 uvalu/dialogs.py:1045 uvalu/locale_ui.py:84
 #, fuzzy
 msgid "Date"
 msgstr "Date"
@@ -2640,7 +2639,7 @@ msgstr "Saisis le nombre d'actions et un coût total ou un prix par action."
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
 #: uvalu/dialogs.py:404 uvalu/dialogs.py:408 uvalu/dialogs.py:1146
-#: uvalu/locale_ui.py:81
+#: uvalu/locale_ui.py:83
 #, fuzzy
 msgid "Change"
 msgstr "Modification"
@@ -3334,7 +3333,7 @@ msgstr "Fermer"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:199 uvalu/locale_ui.py:79 uvalu/pages_/analysis.py:187
+#: uvalu/drawer.py:199 uvalu/locale_ui.py:81 uvalu/pages_/analysis.py:187
 #: uvalu/pages_/analysis.py:203 uvalu/pages_/portfolio.py:310
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/screener.py:49
 #: uvalu/pages_/watchlist.py:31
@@ -3486,6 +3485,8 @@ msgstr "Modifier"
 #. not 'close this panel'
 #. Stock preview › button that closes (sells) the position you hold — not
 #. "close this panel".
+#. Stock preview › button that closes (sells) the position you hold — not
+#. "close this panel".
 #: uvalu/drawer.py:316
 #, fuzzy
 msgctxt "position"
@@ -3500,21 +3501,21 @@ msgstr "Ajouter"
 
 #. Context: Planned (spec, not in code yet) › One-time notice (C-01). Both
 #. placeholders are language names in the active language.
-#: uvalu/i18n.py:402
+#: uvalu/i18n.py:403
 #, fuzzy, python-brace-format
 msgid "{language} is no longer available. Current language: {fallback}."
 msgstr "{language} n'est plus disponible. Langue actuelle : {fallback}."
 
 #. Context: Planned (spec, not in code yet) › Validation error (F-10).
 #. {example} is a formatted sample number.
-#: uvalu/i18n.py:915
+#: uvalu/i18n.py:942
 #, fuzzy, python-brace-format
 msgid "Couldn't read this number. Use the format {example}."
 msgstr "Impossible de lire ce nombre. Utilise le format {example}."
 
 #. Context: Planned (spec, not in code yet) › Tooltip on converted amounts
 #. (F-04)
-#: uvalu/i18n.py:1174
+#: uvalu/i18n.py:1202
 #, fuzzy, python-brace-format
 msgid "Converted at {rate} on {date}"
 msgstr "Converti au taux de {rate} le {date}"
@@ -3611,14 +3612,14 @@ msgstr "Dernière mise à jour : {datetime}"
 
 # | msgid "Portfolio value"
 #. Context: Settings › Language & region preview: a sample portfolio total
-#: uvalu/locale_ui.py:80
+#: uvalu/locale_ui.py:82
 #, fuzzy
 msgid "Total value"
 msgstr "Valeur totale"
 
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
-#: uvalu/locale_ui.py:83 uvalu/pages_/dashboard.py:457
+#: uvalu/locale_ui.py:85 uvalu/pages_/dashboard.py:457
 #: uvalu/pages_/screener.py:46 uvalu/pages_/screener.py:226
 #: uvalu/pages_/screener.py:227 uvalu/pages_/watchlist.py:31
 #, fuzzy
@@ -3626,44 +3627,44 @@ msgid "Signal"
 msgstr "Signal"
 
 #. Context: Planned (spec, not in code yet) › Heading of the live preview panel
-#: uvalu/locale_ui.py:92
+#: uvalu/locale_ui.py:94
 #, fuzzy
 msgid "Preview"
 msgstr "Aperçu"
 
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:117
+#: uvalu/locale_ui.py:119
 #, fuzzy
 msgid "Language & region"
 msgstr "Langue et région"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:120 uvalu/locale_ui.py:122 uvalu/locale_ui.py:211
+#: uvalu/locale_ui.py:122 uvalu/locale_ui.py:124 uvalu/locale_ui.py:213
 #, fuzzy
 msgid "Language"
 msgstr "Langue"
 
 #. Context: Planned (spec, not in code yet) › Settings label. Controls number,
 #. currency and date formatting.
-#: uvalu/locale_ui.py:128 uvalu/locale_ui.py:135
+#: uvalu/locale_ui.py:130 uvalu/locale_ui.py:137
 #, fuzzy
 msgid "Region format"
 msgstr "Format régional"
 
 #. Context: Planned (spec, not in code yet) › Region format option
-#: uvalu/locale_ui.py:136
+#: uvalu/locale_ui.py:138
 #, fuzzy
 msgid "Same as language"
 msgstr "Identique à la langue"
 
 #. Context: Settings › Display › row title
-#: uvalu/locale_ui.py:143 uvalu/locale_ui.py:145
+#: uvalu/locale_ui.py:145 uvalu/locale_ui.py:147
 #, fuzzy
 msgid "Display currency"
 msgstr "Devise d'affichage"
 
 #. Context: Planned (spec, not in code yet) › Help text under Display currency
-#: uvalu/locale_ui.py:144
+#: uvalu/locale_ui.py:146
 #, fuzzy
 msgid ""
 "Applies to portfolio totals. Individual prices stay in the currency they "
@@ -3673,77 +3674,77 @@ msgstr ""
 " leur devise de cotation."
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:150 uvalu/locale_ui.py:153
+#: uvalu/locale_ui.py:152 uvalu/locale_ui.py:155
 #, fuzzy
 msgid "Date format"
 msgstr "Format de date"
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:151
+#: uvalu/locale_ui.py:153
 #, fuzzy
 msgctxt "date_format"
 msgid "Short"
 msgstr "Court"
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:152
+#: uvalu/locale_ui.py:154
 #, fuzzy
 msgctxt "date_format"
 msgid "Medium"
 msgstr "Moyen"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:159 uvalu/locale_ui.py:163
+#: uvalu/locale_ui.py:161 uvalu/locale_ui.py:165
 #, fuzzy
 msgid "Time zone"
 msgstr "Fuseau horaire"
 
 #. Context: Planned (spec, not in code yet) › Settings label. Day names
 #. themselves come from Babel, not from this file.
-#: uvalu/locale_ui.py:167 uvalu/locale_ui.py:170
+#: uvalu/locale_ui.py:169 uvalu/locale_ui.py:172
 #, fuzzy
 msgid "First day of week"
 msgstr "Premier jour de la semaine"
 
 #. Context: Planned (spec, not in code yet) › Toast
-#: uvalu/locale_ui.py:179
+#: uvalu/locale_ui.py:181
 #, fuzzy
 msgid "Settings saved"
 msgstr "Paramètres enregistrés"
 
 #. Context: Planned (spec, not in code yet) › Confirmation dialog
-#: uvalu/locale_ui.py:182
+#: uvalu/locale_ui.py:184
 #, fuzzy
 msgid "Reset all language and region settings to their defaults?"
 msgstr "Rétablir tous les paramètres de langue et de région par défaut ?"
 
 #. Context: Planned (spec, not in code yet) › Button
-#: uvalu/locale_ui.py:185 uvalu/locale_ui.py:192
+#: uvalu/locale_ui.py:187 uvalu/locale_ui.py:194
 #, fuzzy
 msgid "Reset to defaults"
 msgstr "Rétablir les paramètres par défaut"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:250
+#: uvalu/locale_ui.py:252
 #, fuzzy
 msgid "Spreadsheet format (for Excel)"
 msgstr "Format tableur (pour Excel)"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:253
+#: uvalu/locale_ui.py:255
 #, fuzzy
 msgid "Machine format (for scripts)"
 msgstr "Format machine (pour scripts)"
 
 # | msgid "Password must be at least {min_len} characters."
 #. Context: Number field › validation error; {min} is a formatted number
-#: uvalu/locale_ui.py:297
+#: uvalu/locale_ui.py:299
 #, fuzzy, python-brace-format
 msgid "Must be at least {min}."
 msgstr "Doit être d'au moins {min}."
 
 #. Context: Number field › validation error; {max} is a formatted number
-#: uvalu/locale_ui.py:300
+#: uvalu/locale_ui.py:302
 #, fuzzy, python-brace-format
 msgid "Must be at most {max}."
 msgstr "Doit être d'au plus {max}."
@@ -4189,7 +4190,7 @@ msgstr "{exchange} {rate} % + Pr.M. 30 %"
 #. Context: Analysis page › withholding value when there is no foreign
 #. withholding, only 30% Belgian withholding tax
 #: uvalu/pages_/analysis.py:446
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid "BE 30% only"
 msgstr "Pr.M. 30 % uniquement"
 
@@ -4401,7 +4402,7 @@ msgstr "Ajouter une opération"
 
 #. Context: Cash activity › small text on the Cash balance card
 #: uvalu/pages_/cash.py:112
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "{pct}% of total portfolio value"
 msgstr "{pct} % de la valeur totale"
 
@@ -5617,7 +5618,7 @@ msgstr "Concentration"
 
 #. Context: Risk page › note above the metrics when you hold cash
 #: uvalu/pages_/risk.py:162
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid ""
 "Risk metrics cover the invested portion only ({invested}). Cash of "
 "{cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor "
@@ -5775,19 +5776,19 @@ msgstr "Première ligne"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:358
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "{ticker} at {weight} exceeds the 15% single-name limit"
 msgstr "{ticker} à {weight} dépasse la limite de 15 % par ligne"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:361
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "{sector} at {weight} exceeds the 30% sector limit"
 msgstr "{sector} à {weight} dépasse la limite sectorielle de 30 %"
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:364
-#, fuzzy, no-python-format, python-brace-format, python-format
+#, fuzzy, python-brace-format, python-format
 msgid "{country} at {weight} exceeds the 60% country limit"
 msgstr "{country} à {weight} dépasse la limite de 60 % par pays"
 
@@ -5800,7 +5801,7 @@ msgstr "{names} reste(nt) sous veto strict"
 
 #. Context: Risk page › concentration all-clear message
 #: uvalu/pages_/risk.py:371
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid ""
 "All positions sit within the 15% single-name, 30% sector, and 60% country"
 " limits."
@@ -6545,7 +6546,7 @@ msgstr "Cibles par secteur"
 
 #. Context: Settings › Sector targets description
 #: uvalu/pages_/settings.py:677
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr "Vide = aucune cible par secteur ; la règle des 30 % s'applique."
 
@@ -6661,7 +6662,7 @@ msgstr "toute taille"
 
 #. Context: Settings › Data › slider description
 #: uvalu/pages_/settings.py:763
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid "0% flags every held ex-date; raise it to only badge your larger positions."
 msgstr ""
 "À 0 %, chaque date de détachement est signalée ; augmente-le pour ne "
@@ -6705,7 +6706,7 @@ msgstr "Retenue à la source sur les dividendes"
 
 #. Context: Settings › Dividend withholding description
 #: uvalu/pages_/settings.py:794
-#, fuzzy, no-python-format, python-format
+#, fuzzy, python-format
 msgid ""
 "Default withholding tax % applied when you record a dividend on each "
 "exchange — always editable per record. Depends on your own tax residency "
