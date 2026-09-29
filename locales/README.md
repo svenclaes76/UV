@@ -60,3 +60,12 @@ The code wraps every user-facing text: `_()` for plain text, `ngettext()` for pl
 2. Give each new entry a context note — a `# Translators:` comment above the call in the code, or a `Context:` note in `messages.pot` — and run step 1 again. Then draft the new entries (fuzzy) and review them in Poedit before the next release.
 3. `python tools/i18n_compile.py` — checks placeholders and markup and builds the `.mo` files. Release CI adds `--strict`.
 4. `python tools/i18n_review_csv.py` — rebuilds `review.csv`.
+5. `python tools/i18n_update.py --since master` — a Markdown summary (new/removed texts, unreviewed entries per language) to paste into the PR description.
+
+## Merge conflicts
+
+Don't resolve conflicts in this folder by hand, and don't pick one side: that drops the other branch's drafts and reviews. Resolve the code conflicts first, then run `python tools/i18n_merge.py`. It merges every `.po` and `.pot` entry three-way against the common ancestor, reruns steps 1, 3 and 4, and stages `locales/`.
+
+- Added or changed on one side only → that side's version, with its reviewed/unreviewed state.
+- Changed differently on both sides → your branch's translation, marked *Needs work*, with the other version in a `# merge: other branch had: …` comment. Pick one in Poedit and approve it.
+- `.mo` files and `review.csv` are always rebuilt, never merged (`.gitattributes`).

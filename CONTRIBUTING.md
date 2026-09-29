@@ -81,12 +81,14 @@ All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator 
 - Widget options that are translated must keep stable values (`format_func=frozen(tr)`), so filters survive a language switch.
 - Never use `_` as a throwaway variable in a function that calls `_()` (`tests/test_i18n_guards.py` checks this).
 - After changing UI text run `python tools/i18n_update.py` and draft the new entries (fuzzy); CI runs `tools/i18n_compile.py` and `tools/i18n_update.py --check`, and release tags run `tools/i18n_compile.py --strict`.
+- **Merge conflicts in `locales/`:** never resolve them by hand or with "ours"/"theirs" — either side drops the other branch's drafts and reviews. Resolve the code conflicts, then run `python tools/i18n_merge.py`: it merges each entry three-way, rebuilds the catalogs and stages `locales/`. An entry both branches changed differently comes out unreviewed with the other version in a `# merge:` comment. Run it after a clean merge that touched `locales/` on both sides too, so the `.mo` files match.
 
 ## Branching and PRs
 
 - Branch from `master`: `git checkout -b feature/<short-description>`
 - Keep PRs focused — one feature or fix per PR
 - Update `CHANGELOG.md` under `[Unreleased]` for any user-visible change
+- Fill in the PR template; its *Translations* section is the output of `python tools/i18n_update.py --since master` (new/removed texts, unreviewed entries per language), so the review backlog before a release stays visible
 - No force-pushes to `master`
 
 ---

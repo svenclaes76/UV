@@ -234,7 +234,8 @@ The stack is gettext for strings and Babel (CLDR) for formatting, both wrapped i
 | `locales/<lang>/LC_MESSAGES/messages.po` | Translations per language, including `en`. Compiled to `.mo` by `tools/i18n_compile.py`; the `.mo` files are committed. |
 | `locales/messages.pot` | The template extracted from code by `tools/i18n_update.py`, with a hand-written `Context:` note per entry. |
 | `locales/glossary.csv` | The financial glossary (section 8). |
-| `tools/i18n_update.py` | Extracts texts into `messages.pot` and merges them into every `.po` file, keeping Context notes and fuzzy flags. `--check` only reports (CI). |
+| `tools/i18n_update.py` | Extracts texts into `messages.pot` and merges them into every `.po` file, keeping Context notes and fuzzy flags. `--check` only reports (CI); `--since <ref>` prints the PR summary. |
+| `tools/i18n_merge.py` | Resolves translation-file conflicts after a git merge (three-way per entry) and rebuilds the catalogs. |
 | `tools/i18n_review_csv.py` | Rebuilds `locales/review.csv`, all languages side by side for review in Excel. |
 | `tools/i18n_compile.py` | Checks placeholders and markup, and compiles `.mo` files. `--strict` fails while any entry is unreviewed. |
 | User profile store | Holds `language`, `region`, `display_currency`, `date_format`, `time_zone` and `week_start`. |
@@ -262,6 +263,7 @@ English is written first. The other five languages live as plain `.po` files in 
 4. **Review.** Sven reviews every language in Poedit (free) or a text editor, and clears the fuzzy flag on each approved string.
 5. **Compile.** `python tools/i18n_compile.py` checks and compiles (T-06), and `python tools/i18n_review_csv.py` rebuilds `review.csv`. Before tagging a release, run `python tools/i18n_compile.py --strict` locally (see the release checklist in `CONTRIBUTING.md`); release CI repeats it, so it fails if a fuzzy string remains. Don't use `pybabel compile`: it reports false errors on texts containing `%`.
 6. **Visual check.** Each screen gets a screenshot pass in the longest language (de) and one comma-decimal locale.
+7. **Merge.** Conflicts in `locales/` are resolved with `python tools/i18n_merge.py` (three-way per entry; entries both branches changed come out fuzzy), never by taking one side. Each PR description carries the output of `python tools/i18n_update.py --since master`.
 
 | ID | Requirement | Priority |
 | --- | --- | --- |

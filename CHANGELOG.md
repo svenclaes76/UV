@@ -20,7 +20,7 @@ MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter a
 - **Comma-decimal input**: money and quantity fields accept `1.234,56` in regions that use a decimal comma, and date pickers follow the region's day/month order.
 - **CSV export in two formats**: *Spreadsheet format (for Excel)* (region decimal mark, `;` in comma-decimal regions, your date format) and *Machine format (for scripts)* (the previous output).
 - Screener: names and signals sort by the language's alphabet, and search ignores accents, case and punctuation.
-- Translation workflow: catalogs in `locales/` (see `locales/README.md`), `tools/i18n_update.py`, `tools/i18n_compile.py`, `tools/i18n_review_csv.py`, and an `i18n` CI workflow that blocks a release tag while any translation is unreviewed. Configuration in `i18n.config.json`.
+- Translation workflow: catalogs in `locales/` (see `locales/README.md`), `tools/i18n_update.py` (with `--since <ref>` for the PR summary), `tools/i18n_compile.py`, `tools/i18n_review_csv.py`, `tools/i18n_merge.py` (three-way merge of translation files after a git merge), a pull request template, and an `i18n` CI workflow that blocks a release tag while any translation is unreviewed. Configuration in `i18n.config.json`.
 
 ### Changed
 

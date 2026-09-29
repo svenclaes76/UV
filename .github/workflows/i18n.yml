@@ -27,7 +27,7 @@ jobs:
       - name: Code and messages.pot in sync
         run: python tools/i18n_update.py --check
       - name: i18n tests
-        run: python -m pytest -q tests/test_i18n.py tests/test_i18n_ui.py tests/test_i18n_guards.py
+        run: python -m pytest -q tests/test_i18n.py tests/test_i18n_ui.py tests/test_i18n_guards.py tests/test_i18n_merge.py
       - name: Release gate — every translation reviewed
         if: startsWith(github.ref, 'refs/tags/v')
         run: python tools/i18n_compile.py --strict

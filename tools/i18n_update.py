@@ -4,6 +4,8 @@ Usage:
     python tools/i18n_update.py              # extract → messages.pot, update each .po, report changes
     python tools/i18n_update.py --check      # report only, write nothing (CI: fails if the .pot is stale)
     python tools/i18n_update.py --fix-flags  # only repair %-format flags in the existing files
+    python tools/i18n_update.py --since master  # Markdown summary for a PR: texts added/removed
+                                                # since that ref, unreviewed entries per language
 
 Equivalent to `pybabel extract` + `pybabel update` with Uvalu's keywords and
 exclusions, plus two things the plain commands don't do:
@@ -25,6 +27,7 @@ point. Nothing here ever clears a fuzzy flag.
 from __future__ import annotations
 
 import io
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -178,11 +181,40 @@ def fix_flags() -> int:
     return 0
 
 
+def since(ref: str) -> int:
+    """Print a Markdown summary of messages.pot against `ref`, for a PR description."""
+    if subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref], cwd=ROOT, capture_output=True).returncode:
+        print(f"unknown ref: {ref}")
+        return 1
+    proc = subprocess.run(["git", "show", f"{ref}:locales/messages.pot"], cwd=ROOT, capture_output=True)
+    old_keys = {_key(m) for m in read_po(io.BytesIO(proc.stdout)) if m.id} if proc.returncode == 0 else set()
+    new_keys = {_key(m) for m in _read(POT) if m.id}
+    added = sorted(new_keys - old_keys, key=lambda k: (k[0] or "", k[1]))
+    removed = sorted(old_keys - new_keys, key=lambda k: (k[0] or "", k[1]))
+    unreviewed = {}
+    for po_path in sorted(LOCALES.glob("*/LC_MESSAGES/messages.po")):
+        n = sum(1 for m in _read(po_path) if m.id and m.fuzzy)
+        if n:
+            unreviewed[po_path.parts[-3]] = n
+    per_lang = ", ".join(f"{lang} {n}" for lang, n in unreviewed.items())
+    print(f"**{len(added)} new, {len(removed)} removed** since `{ref}` · "
+          + (f"**{sum(unreviewed.values())} unreviewed** ({per_lang})" if unreviewed else "all reviewed"))
+    lines = [f"- {sign} `{mid}`" + (f" _({ctx})_" if ctx else "")
+             for sign, keys in (("+", added), ("−", removed)) for ctx, mid in keys]
+    print("\n".join(lines[:30]))
+    if len(lines) > 30:
+        print(f"- … and {len(lines) - 30} more")
+    return 0
+
+
 if __name__ == "__main__":
     # Before 3.12 the tokenizer hides calls inside f-strings from Babel, so
     # every _()/h_() in an f-string would be dropped as obsolete.
     if sys.version_info < (3, 12):
         sys.exit("tools/i18n_update.py needs Python 3.12+ (f-string extraction).")
+    if "--since" in sys.argv:
+        i = sys.argv.index("--since")
+        sys.exit(since(sys.argv[i + 1] if i + 1 < len(sys.argv) else "master"))
     if "--fix-flags" in sys.argv:
         sys.exit(fix_flags())
     sys.exit(main("--check" in sys.argv))
