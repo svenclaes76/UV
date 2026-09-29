@@ -4,6 +4,8 @@ matching the Uvalu.dc.html mockup. Full replacement of the
 former per-exchange-tabs + column-groups layout (Watchlist moved to its own
 page in Phase 1; column-group customization is covered by the Analysis page
 now, same call the abandoned redesign-v2 branch made for this exact page)."""
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -222,6 +224,15 @@ def render() -> None:
     def _filter_label(text: str) -> None:
         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                    f'color:var(--faint);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
+
+    # Sector/Market selects are fixed-width (styles.py, 140px); widen each to
+    # its translated "All …" label (~7.2px per 13.5px glyph + padding and
+    # arrow) so "Todos los sectores" isn't cut off.
+    _sel_css = "".join(
+        f".st-key-scr_select_{name} {{ width: {max(140, math.ceil(len(tr(label)) * 7.2 + 54))}px !important; }}"
+        for name, label in (("sector", _ALL_SECTORS), ("market", _ALL_MARKETS)))
+    with st.container(key="uv_hidden_util_scr_select_css"):
+        st.markdown(f"<style>{_sel_css}</style>", unsafe_allow_html=True)
 
     with st.container(key="scr_filter_panel", border=True):
         # Each filter sits at its own natural content width with a fixed
