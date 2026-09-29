@@ -121,6 +121,41 @@ def _html_attr(text: str) -> str:
     return _html_mod.escape(text, quote=True)
 
 
+# ── Column widths that fit their header ─────────────────────────────────────
+# Column headers are 10px uppercase with 0.06em tracking; translations run up
+# to ~35% longer than English (spec L-07), so a fixed design width that fits
+# "PRICE" can't fit "GEM. AANKOOPPRIJS". fit_widths() widens a column to its
+# header's estimated width; header and rows pass the same list to st.columns
+# so they stay aligned.
+_HEADER_CHAR_PX = 7.3   # average glyph advance at 10px uppercase + tracking
+_HEADER_PAD_PX = 14     # breathing room between neighbouring headers
+
+
+def header_width_px(label: str) -> float:
+    return len(label or "") * _HEADER_CHAR_PX + _HEADER_PAD_PX
+
+
+def fit_widths(widths: list, labels: list, *, px_per_unit: float = 1.0) -> list:
+    """``widths`` with each column raised to fit its (already translated)
+    header label. ``px_per_unit`` converts relative st.columns weights to px
+    (1.0 when the weights are the design's px widths)."""
+    out = list(widths)
+    for i, label in enumerate(labels):
+        if i < len(out) and label:
+            out[i] = max(out[i], round(header_width_px(label) / px_per_unit, 3))
+    return out
+
+
+def header_cell_html(label: str, *, right: bool = False) -> str:
+    """One 10px uppercase column label; ellipsis + tooltip when even the
+    fitted column is narrower than the text (a narrow window)."""
+    import html as _html_mod
+    t = _html_mod.escape(label or "")
+    align = "text-align:right;" if right else ""
+    return (f'<div title="{t}" style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--faint);{align}">{t}</div>')
+
+
 # ── Delta chip ───────────────────────────────────────────────────────────────
 # Matches Uvalu.dc.html's shared _chip(up) helper — a colored pill (not plain
 # text) for any up/down delta: KPI card deltas, the value-chart's range
@@ -548,7 +583,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
-             action_disabled: bool = False) -> dict:
+             action_disabled: bool = False, widths: list | None = None) -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -600,7 +635,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             with st.container(key=f"uv_hidden_util_{_css_key}_action"):
                 st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
                            unsafe_allow_html=True)
-        _widths = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+        _widths = widths or [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
@@ -1163,7 +1198,8 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                        gain: float | None, gain_pct: float | None, weight_pct: float | None,
                        show_edit: bool = False, edit_disabled: bool = False,
                        income_12m: float | None = None, income_12m_gross: float | None = None,
-                       ttm_yield_pct: float | None = None, yoc_pct: float | None = None) -> dict:
+                       ttm_yield_pct: float | None = None, yoc_pct: float | None = None,
+                       widths: list | None = None) -> dict:
     """One open-position row — the whole row opens the detail drawer on
     click (matching the mockup's `h.onClick`); `show_edit=True` (the full
     Open positions page, not the Overview preview) adds a trailing
@@ -1185,6 +1221,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
     if _show_income:
         _widths += [96, 60, 70]
     _widths += [96] + ([32] if show_edit else [])
+    _widths = widths or _widths   # the page's header-fitted widths (fit_widths)
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
@@ -1266,13 +1303,13 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
 def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: str, closed_date: str,
                          shares: int, buy: float | None, sell: float | None,
                          pl: float | None, pl_pct: float | None, show_edit: bool = False,
-                         edit_disabled: bool = False) -> dict:
+                         edit_disabled: bool = False, widths: list | None = None) -> dict:
     """One closed-position row — never opens the drawer (the mockup's `s.`
     rows have no onClick, unlike the open-position `h.onClick`); `show_edit`
     adds a trailing edit-pencil button (the full Closed positions page only,
     not the Overview preview). Returns {"edit": bool}."""
     _css_key = key.replace(".", "-")
-    _widths = ([400] if show_edit else [300]) + [56, 74, 74, 110] + ([32] if show_edit else [])
+    _widths = widths or (([400] if show_edit else [300]) + [56, 74, 74, 110] + ([32] if show_edit else []))
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):

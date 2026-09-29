@@ -9,7 +9,6 @@ bulk st.data_editor dialogs; the column-groups "View" dialog and the
 Performance/Value history/Breakdown chart tabs are dropped entirely — this
 page is now a close 1:1 visual match of the mockup, nothing extra.
 """
-import html
 import time
 
 import pandas as pd
@@ -25,7 +24,7 @@ from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
                            edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
-from uvalu.components import (kpi_card as _kpi_card, portfolio_open_row,
+from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
@@ -58,21 +57,43 @@ def _exchange_label(ticker: str) -> str:
     return "—"
 
 
+# Table columns: (label, design width in px, right-aligned). The design widths
+# fit the English labels; _layout() widens a column when its translated label
+# is longer (e.g. "GEM. AANKOOPPRIJS"), and the header, the rows and the
+# loading skeleton all use that one list, so they stay aligned.
+_OPEN_COLUMNS = [
+    (N_("Position"), 200, False), (N_("Shares"), 68, True), (N_("Avg cost"), 88, True),
+    (N_("Price"), 88, True), (N_("Cost basis"), 108, True), (N_("Market value"), 118, True),
+    (N_("Unrealised P&L"), 132, True), (N_("Income 12m"), 96, True), (N_("Yield"), 60, True),
+    (N_("YoC net"), 70, True), (N_("Weight"), 96, False),
+]
+_CLOSED_COLUMNS = [
+    (N_("Position"), 300, False), (N_("Shares"), 56, True), (N_("Buy"), 74, True),
+    (N_("Sell"), 74, True), (N_("Realised P&L"), 110, True),
+]
+
+
+def _layout(columns: list, *, name_w: int | None = None, edit: bool = False) -> tuple[list, list, list]:
+    """(widths, translated labels, rights) for a table; ``edit`` adds the
+    trailing 32px pencil column."""
+    labels = [_(label) for label, _w, _r in columns]
+    widths = [w for _l, w, _r in columns]
+    rights = [r for _l, _w, r in columns]
+    if name_w:
+        widths[0] = name_w
+    if edit:
+        labels, widths, rights = labels + [""], widths + [32], rights + [False]
+    return fit_widths(widths, labels), labels, rights
+
+
 def _col_header(widths: list, labels: list[str], rights: list[bool]) -> None:
     """One row of 10px uppercase faint column labels, matching Uvalu.dc.html's
-    column-header spec — right-aligned for numeric columns, left for text."""
+    column-header spec — right-aligned for numeric columns, left for text.
+    Labels are already translated; single-line with an ellipsis if the
+    window is narrower than the fitted widths."""
     for _c, _lbl, _right in zip(st.columns(widths, vertical_alignment="center"), labels, rights):
         with _c:
-            _align = "text-align:right;" if _right else ""
-            # white-space:nowrap — narrower columns (e.g. Closed positions'
-            # 56px Shares column) are tight enough that "SHARES" at 10px
-            # uppercase/letter-spacing wraps to two lines without this,
-            # doubling that one column's own content height and throwing
-            # off the whole header row's vertical centering (confirmed
-            # live: Shares rendered 32px tall vs every sibling's 16px).
-            _txt = html.escape(_(_lbl)) if _lbl else ""
-            st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                       f'white-space:nowrap;color:var(--faint);{_align}">{_txt}</div>', unsafe_allow_html=True)
+            st.markdown(header_cell_html(_lbl, right=_right), unsafe_allow_html=True)
 
 
 def render() -> None:
@@ -305,13 +326,11 @@ def render() -> None:
                 st.markdown(_("Open positions"))
                 if st.button("", key="ov_open_expand", icon=":material/open_in_full:", help=_("Open full page")):
                     _goto("open")
+            _ov_open_w, _ov_open_l, _ov_open_r = _layout(_OPEN_COLUMNS)
             with st.container(key="pf_col_header_open_ov"):
-                _col_header([200, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96],
-                           [N_("Position"), N_("Shares"), N_("Avg cost"), N_("Price"), N_("Cost basis"),
-                            N_("Market value"), N_("Unrealised P&L"), N_("Income 12m"), N_("Yield"), N_("YoC net"), N_("Weight")],
-                           [False, True, True, True, True, True, True, True, True, True, False])
+                _col_header(_ov_open_w, _ov_open_l, _ov_open_r)
             if _pf_fetch_running:
-                skeleton_rows([200, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96], n=min(len(pf), 5),
+                skeleton_rows(_ov_open_w, n=min(len(pf), 5),
                              key_prefix="uv_skel_row_pf_open")
             else:
                 _ov_view_target = None
@@ -330,7 +349,7 @@ def render() -> None:
                         ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
                         if _prow["current_value"] else None,
                         yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
-                        show_edit=False,
+                        show_edit=False, widths=_ov_open_w,
                     )
                     if _res["view"]:
                         _ov_view_target = _prow["ticker"]
@@ -352,12 +371,11 @@ def render() -> None:
                                unsafe_allow_html=True)
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("closed")
+                _ov_closed_w, _ov_closed_l, _ov_closed_r = _layout(_CLOSED_COLUMNS)
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_closed_ov"):
-                        _col_header([300, 56, 74, 74, 110],
-                                   [N_("Position"), N_("Shares"), N_("Buy"), N_("Sell"), N_("Realised P&L")],
-                                   [False, True, True, True, True])
-                    skeleton_rows([300, 56, 74, 74, 110], n=3, key_prefix="uv_skel_row_pf_closed")
+                        _col_header(_ov_closed_w, _ov_closed_l, _ov_closed_r)
+                    skeleton_rows(_ov_closed_w, n=3, key_prefix="uv_skel_row_pf_closed")
                 else:
                     _ov_sold = load_sold()
                     if _ov_sold is not None and not _ov_sold.empty:
@@ -372,16 +390,14 @@ def render() -> None:
                             _ov_sold["date_out"], format="mixed", dayfirst=False, errors="coerce")
                         _ov_sold = _ov_sold.sort_values("date_out", ascending=False).head(5)
                         with st.container(key="pf_col_header_closed_ov"):
-                            _col_header([300, 56, 74, 74, 110],
-                                       [N_("Position"), N_("Shares"), N_("Buy"), N_("Sell"), N_("Realised P&L")],
-                                       [False, True, True, True, True])
+                            _col_header(_ov_closed_w, _ov_closed_l, _ov_closed_r)
                         for _sidx, _srow in _ov_sold.iterrows():
                             portfolio_closed_row(
                                 key=f"pf_closed_row_ov_{_sidx}_{_srow['ticker']}", ticker=_srow["ticker"],
                                 exchange=_exchange_label(_srow["ticker"]), name=_srow["name"],
                                 closed_date=_srow["_closed_dt"], shares=_srow["shares"],
                                 buy=_srow["_buy"], sell=_srow["_sell"], pl=_srow["_gain"], pl_pct=_srow["_gain_pct"],
-                                show_edit=False,
+                                show_edit=False, widths=_ov_closed_w,
                             )
                     else:
                         st.caption(_("No closed positions yet."))
@@ -394,7 +410,7 @@ def render() -> None:
                         _goto("dividends")
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
-                        _col_header([6, 1.3], [N_("Position"), N_("Dividend")], [False, True])
+                        _col_header([6, 1.3], [_("Position"), _("Dividend")], [False, True])
                     skeleton_rows([6, 1.3], n=3, key_prefix="uv_skel_row_pf_div")
                 else:
                     _ov_div = load_div_hist()
@@ -410,7 +426,7 @@ def render() -> None:
                     if _ov_div is not None and not _ov_div.empty:
                         _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
                         with st.container(key="pf_col_header_div_ov"):
-                            _col_header([6, 1.3], [N_("Position"), N_("Net dividend")], [False, True])
+                            _col_header([6, 1.3], [_("Position"), _("Net dividend")], [False, True])
                         for _didx, _drow in _ov_div.iterrows():
                             portfolio_dividend_row(
                                 key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
@@ -450,11 +466,9 @@ def render() -> None:
                 edit_position_dialog(str(_tid), live_price=_live_price_for(_tid))
 
         with st.container(key="pf_card_open_full", border=True):
+            _open_w, _open_l, _open_r = _layout(_OPEN_COLUMNS, name_w=240, edit=True)
             with st.container(key="pf_col_header_open_full"):
-                _col_header([240, 68, 88, 88, 108, 118, 132, 96, 60, 70, 96, 32],
-                           [N_("Position"), N_("Shares"), N_("Avg cost"), N_("Price"), N_("Cost basis"),
-                            N_("Market value"), N_("Unrealised P&L"), N_("Income 12m"), N_("Yield"), N_("YoC net"), N_("Weight"), ""],
-                           [False, True, True, True, True, True, True, True, True, True, False, False])
+                _col_header(_open_w, _open_l, _open_r)
             _view_target = None
             _edit_target = None
             _open_sorted = sort_df(pf, "name")
@@ -472,7 +486,7 @@ def render() -> None:
                     ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
                     if _prow["current_value"] else None,
                     yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
-                    show_edit=True, edit_disabled=_is_viewer,
+                    show_edit=True, edit_disabled=_is_viewer, widths=_open_w,
                 )
                 if _res["view"]:
                     _view_target = _prow["ticker"]
@@ -520,10 +534,9 @@ def render() -> None:
             ).sort_values("_sort_date", ascending=False)
 
             with st.container(key="pf_card_closed_full", border=True):
+                _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, name_w=400, edit=True)
                 with st.container(key="pf_col_header_closed_full"):
-                    _col_header([400, 56, 74, 74, 110, 32],
-                               [N_("Position"), N_("Shares"), N_("Buy"), N_("Sell"), N_("Realised P&L"), ""],
-                               [False, True, True, True, True, False])
+                    _col_header(_closed_w, _closed_l, _closed_r)
                 _edit_target = None
                 for _idx, _srow in sold_sorted.iterrows():
                     _res = portfolio_closed_row(
@@ -531,7 +544,7 @@ def render() -> None:
                         exchange=_exchange_label(_srow["ticker"]), name=_srow["name"],
                         closed_date=_srow["_closed_dt"], shares=_srow["shares"],
                         buy=_srow["_buy"], sell=_srow["_sell"], pl=_srow["_gain"], pl_pct=_srow["_gain_pct"],
-                        show_edit=True, edit_disabled=_is_viewer,
+                        show_edit=True, edit_disabled=_is_viewer, widths=_closed_w,
                     )
                     if _res["edit"]:
                         _edit_target = str(_srow["trade_id"])

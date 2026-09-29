@@ -14,7 +14,7 @@ from screener import get_fetch_progress
 from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
-from uvalu.components import (signal_badge_for_decision, stock_row, empty_results_html,
+from uvalu.components import (fit_widths, header_cell_html, signal_badge_for_decision, stock_row, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows)
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
@@ -50,6 +50,18 @@ _SORT_COLUMNS = [
     ("pe",     "P/E",                  "trailingPE"),
     ("dy",     N_("Yield"),            "dividendYield"),
 ]
+
+
+# st.columns weights → px at the design width (~1,060px table / 9.6 units),
+# for fitting translated headers (components.fit_widths).
+_PX_PER_UNIT = 110
+
+
+def _fitted_widths() -> list:
+    """_HH_WIDTHS with each column widened to fit its translated header
+    (sort arrow included), shared by header, rows and skeleton."""
+    labels = ["", *(tr(label) + " ↓" for _k, label, _c in _SORT_COLUMNS)]
+    return fit_widths(_HH_WIDTHS, labels, px_per_unit=_PX_PER_UNIT)
 
 
 def _sort_by(key: str) -> None:
@@ -101,6 +113,7 @@ def _scr_header_css(active_key: str) -> str:
 [class*="st-key-scr_sort_"] button p {{
   font-size: 10px !important; letter-spacing: 0.06em !important;
   text-transform: uppercase !important; font-weight: inherit !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
 }}
 [class*="st-key-scr_sort_"] button:hover {{ color: var(--text) !important; }}
 .st-key-scr_sort_{active_key} button {{ color: var(--text) !important; font-weight: 500 !important; }}
@@ -187,15 +200,15 @@ def render() -> None:
         with st.container(key="scr_filter_panel", border=True):
             st.markdown(skeleton_filter_bar_html(), unsafe_allow_html=True)
         with st.container(key="scr_table_card", border=True):
+            _widths = _fitted_widths()
             with st.container(key="scr_col_header"):
                 for _hh, _label in zip(
-                    st.columns(_HH_WIDTHS, vertical_alignment="center"),
+                    st.columns(_widths, vertical_alignment="center"),
                     ("", *(label for _k, label, _c in _SORT_COLUMNS)),
                 ):
                     with _hh:
-                        st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                                   f'color:var(--faint);">{tr(_label)}</div>', unsafe_allow_html=True)
-            skeleton_rows(_HH_WIDTHS, n=6, name_col=1, key_prefix="uv_skel_row_scr")
+                        st.markdown(header_cell_html(tr(_label)), unsafe_allow_html=True)
+            skeleton_rows(_widths, n=6, name_col=1, key_prefix="uv_skel_row_scr")
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
@@ -329,9 +342,10 @@ def render() -> None:
     # (the whole ticker/name cell is the click target now, see stock_row).
     _hh_slots = ("", "name", "signal", "score", "mos", "price", "pe", "dy")
 
+    _widths = _fitted_widths()
     with st.container(key="scr_table_card", border=True):
         with st.container(key="scr_col_header"):
-            _hh_cols = st.columns(_HH_WIDTHS, vertical_alignment="center")
+            _hh_cols = st.columns(_widths, vertical_alignment="center")
             for _hh, _slot in zip(_hh_cols, _hh_slots):
                 if _slot in _sortable:
                     _label = _sortable[_slot][0]
@@ -353,7 +367,7 @@ def render() -> None:
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=_in_wl,
                 action_help=_("Remove from watchlist") if _in_wl else _("Add to watchlist"),
-                action_disabled=_is_viewer,
+                action_disabled=_is_viewer, widths=_widths,
             )
             if _result["action"]:
                 if _in_wl:

@@ -12,7 +12,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import stock_row, empty_results_html, skeleton_rows
+from uvalu.components import fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
@@ -34,19 +34,24 @@ _HH_LABELS = ("", N_("Position"), N_("Signal"), N_("Composite score"), N_("Margi
 # data cells in stock_row); Position/Signal/Composite score stay left-aligned
 # like their left-anchored cells.
 _HH_RIGHT = {"Margin of safety", "Price", "P/E", "Yield"}
+_PX_PER_UNIT = 110   # st.columns weights → px at the design width, for fit_widths
+
+
+def _fitted_widths() -> list:
+    """_HH_WIDTHS widened to fit the translated headers (header, rows and
+    skeleton share it, so they stay aligned)."""
+    return fit_widths(_HH_WIDTHS, [tr(label) if label else "" for label in _HH_LABELS],
+                      px_per_unit=_PX_PER_UNIT)
 
 
 def _col_header() -> None:
     """The real column-header row — shared by the loaded results table and
     the loading skeleton (labels are static text, no reason to shimmer
     them)."""
-    for _hh, _label in zip(st.columns(_HH_WIDTHS, vertical_alignment="center"), _HH_LABELS):
+    for _hh, _label in zip(st.columns(_fitted_widths(), vertical_alignment="center"), _HH_LABELS):
         if _label:
-            _align = "right" if _label in _HH_RIGHT else "left"
             with _hh:
-                st.markdown(f'<div style="text-align:{_align};font-size:10px;letter-spacing:0.06em;'
-                           f'text-transform:uppercase;color:var(--faint);">{tr(_label)}</div>',
-                           unsafe_allow_html=True)
+                st.markdown(header_cell_html(tr(_label), right=_label in _HH_RIGHT), unsafe_allow_html=True)
 
 
 def _not_found_html(sym: str) -> str:
@@ -158,7 +163,7 @@ def render() -> None:
                        unsafe_allow_html=True)
             with st.container(key="wl_col_header"):
                 _col_header()
-            skeleton_rows(_HH_WIDTHS, n=min(len(watchlist), 6), name_col=1, key_prefix="uv_skel_row_wl")
+            skeleton_rows(_fitted_widths(), n=min(len(watchlist), 6), name_col=1, key_prefix="uv_skel_row_wl")
         return
 
     with st.container(key="wl_table_card", border=True):
@@ -176,7 +181,7 @@ def render() -> None:
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=True, action_help=_("Remove from watchlist"),
-                action_disabled=_is_viewer,
+                action_disabled=_is_viewer, widths=_fitted_widths(),
             )
             if _result["action"]:
                 save_watchlist(watchlist - {_ticker})

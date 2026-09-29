@@ -225,10 +225,27 @@ def _in(lang, fn, *a, region=None, **k):
         i18n.current = orig
 
 
-def test_reviewed_only_by_default_so_drafts_show_english(monkeypatch):
+def test_compiled_catalog_serves_reviewed_translations(monkeypatch):
+    """Without the drafts switch the app reads only the compiled .mo files,
+    which hold the reviewed (non-fuzzy) entries."""
     monkeypatch.delenv("UVALU_I18N_DRAFTS", raising=False)
     i18n._load_catalog.clear()
-    assert _in("nl", i18n._, "Portfolio") == "Portfolio"
+    assert _in("nl", i18n._, "Portfolio") == "Portefeuille"
+
+
+def test_unreviewed_entries_are_left_out_of_the_compiled_catalog(tmp_path):
+    """W-04: a fuzzy entry never reaches the .mo (shows in English)."""
+    import io
+    from babel.messages.catalog import Catalog
+    from babel.messages.mofile import write_mo
+    cat = Catalog(locale="nl")
+    cat.add("Reviewed", "Nagekeken")
+    cat.add("Draft", "Ontwerp", flags=["fuzzy"])
+    buf = io.BytesIO()
+    write_mo(buf, cat, use_fuzzy=False)
+    import gettext
+    t = gettext.GNUTranslations(io.BytesIO(buf.getvalue()))
+    assert t.gettext("Reviewed") == "Nagekeken" and t.gettext("Draft") == "Draft"
 
 
 def test_translation_plurals_and_context(drafts):

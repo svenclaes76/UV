@@ -50,6 +50,19 @@ _NAV_ITEMS = (
 )
 
 
+# Top-bar column widths (px at the design width). The nav column is sized to
+# its translated links — 12.5px text + icon + padding per link — so longer
+# labels ("Portefeuille", "Beobachtungsliste") take room from the gap on the
+# right instead of running into the status pill.
+_LOGO_PX, _RIGHT_PX = 190, 330
+_NAV_CHAR_PX, _NAV_LINK_PX = 7.0, 52
+
+
+def _topbar_widths(labels: list[str]) -> list[float]:
+    nav_px = sum(len(label) * _NAV_CHAR_PX + _NAV_LINK_PX for label in labels)
+    return [_LOGO_PX, max(nav_px, 420), _RIGHT_PX]
+
+
 def _initials(email: str) -> str:
     local = (email or "").split("@")[0]
     parts = [p for p in local.replace(".", " ").replace("_", " ").replace("-", " ").split(" ") if p]
@@ -290,7 +303,8 @@ def render_topbar(nav) -> None:
         st.markdown(f"<style>{_topbar_css(active_path)}</style>", unsafe_allow_html=True)
 
     with st.container(key="uv_topbar"):
-        col_logo, col_nav, col_right = st.columns([0.16, 0.5, 0.34], vertical_alignment="center")
+        _nav_labels = [tr(label) for _key, label in _NAV_ITEMS]
+        col_logo, col_nav, col_right = st.columns(_topbar_widths(_nav_labels), vertical_alignment="center")
 
         with col_logo:
             st.markdown(
@@ -324,11 +338,11 @@ def render_topbar(nav) -> None:
                 # closed" would read as "still updating" when it isn't.
                 _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
                 st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:7px;font-size:11px;'
-                    f'color:var(--faint);font-family:var(--uv-mono);">'
-                    f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};'
+                    f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
+                    f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
+                    f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
-                    f'{_pi_text}</div>',
+                    f'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span></div>',
                     unsafe_allow_html=True,
                 )
 
