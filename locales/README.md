@@ -1,8 +1,8 @@
-# Uvalu translations (draft for review)
+# Uvalu translations
 
-This folder has 981 user-facing texts from the Uvalu code, translated into Dutch, French, German, Italian and Spanish. There is also an English file for reviewing the English wording. The form of address is informal throughout (je / tu / du / tu / tú), as the spec requires.
+This folder has every user-facing text from the Uvalu code, translated into Dutch, French, German, Italian and Spanish. There is also an English file for correcting the English wording. The form of address is informal throughout (je / tu / du / tu / tú), as the spec requires.
 
-Every entry is marked **unreviewed** (fuzzy) until you approve it. Anything you haven't approved shows in English, so nothing unreviewed ever reaches users.
+New and changed texts arrive as **unreviewed** (fuzzy) drafts. Anything not yet approved shows in English, and a release can't be tagged while any entry is unreviewed, so nothing unreviewed ever reaches users. See *After changing texts in the code* below for the loop every feature goes through.
 
 ## Files
 
@@ -34,18 +34,9 @@ In Poedit, the context panel (or in the file itself) shows three things for ever
 
 ## What is included
 
-| Group | Entries (a few are shared between groups) |
-| --- | --- |
-| Sign-in, navigation, top bar | 91 |
-| Stock preview panel, Analysis page, market names | 93 |
-| Dashboard, Help page | 103 |
-| Portfolio, Cash activity, shared tables | 151 |
-| Dialogs (positions, trades, dividends, cash), sector names | 137 |
-| Settings, Watchlist, Screener | 149 |
-| Risk page, rebalancing advice, signal explanations, user-facing errors | 200 |
-| Planned texts from the spec (Language & region settings, legal links, first-run tour) | 32 |
+All sign-in, navigation, page, dialog, Settings, Help, Risk and Screener texts, signal explanations, rebalancing advice and user-facing errors, plus the planned texts from the spec (legal links, first-run tour) kept in `uvalu/i18n_planned.py`. `python tools/i18n_update.py --check` prints the current number of entries.
 
-17 entries have singular/plural forms, and 8 use a message context (`msgctxt`) because the same English word needs two translations, e.g. **Deposit** as a noun (*Storting*) and as a button (*Storten*).
+Some entries have singular/plural forms, and a few use a message context (`msgctxt`) because the same English word needs two translations, e.g. **Deposit** as a noun (*Storting*) and as a button (*Storten*).
 
 ## Deliberately left out
 
@@ -56,7 +47,7 @@ In Poedit, the context panel (or in the file itself) shows three things for ever
 
 ## How the code uses these files
 
-The code now wraps every user-facing text: `_()` for plain text, `ngettext()` for plurals, `pgettext()` for the entries with a message context, and `N_()` for texts defined once and translated where they're shown (sector names, dividend frequency, "At Risk", risk labels). Everything goes through `uvalu/i18n.py`; see `docs/i18n-spec.md` §9.
+The code wraps every user-facing text: `_()` for plain text, `ngettext()` for plurals, `pgettext()` for the entries with a message context, and `N_()` for texts defined once and translated where they're shown (sector names, dividend frequency, "At Risk", risk labels). Everything goes through `uvalu/i18n.py`; see `docs/i18n-spec.md` §9.
 
 - **Only reviewed entries are used.** The app reads the compiled `.mo` files, which leave out anything still marked *Needs work*, so an unreviewed draft shows in English (and `locales/en` corrections, once approved, replace the English source text).
 - **Previewing drafts:** start the app with `UVALU_I18N_DRAFTS=1` to see the unreviewed translations, e.g. for a screenshot pass in German. `UVALU_I18N_PSEUDO=1` shows every text as longer pseudo-text, to spot hard-coded English and clipped labels. Both are ignored when `UVALU_ENV=production`.
@@ -65,9 +56,9 @@ The code now wraps every user-facing text: `_()` for plain text, `ngettext()` fo
 
 ## After changing texts in the code
 
+Run these on Python 3.12 or newer; older versions can't see `_()` calls inside f-strings.
+
 1. `python tools/i18n_update.py` — extracts the texts from the code into `messages.pot` and merges them into every `.po` file. It keeps every translation, every *Needs work* flag and the Context notes, marks changed texts as needing work (with the old translation as a starting point) and lists what's new or gone. `--check` only reports (CI uses it).
-2. Draft the new entries (fuzzy), then review them in Poedit.
+2. Give each new entry a context note — a `# Translators:` comment above the call in the code, or a `Context:` note in `messages.pot` — and run step 1 again. Then draft the new entries (fuzzy) and review them in Poedit before the next release.
 3. `python tools/i18n_compile.py` — checks placeholders and markup and builds the `.mo` files. Release CI adds `--strict`.
 4. `python tools/i18n_review_csv.py` — rebuilds `review.csv`.
-
-The first run after wiring (Sep 2026) added 42 entries — texts the scan had missed and texts whose wording differs from the proposal (e.g. **Add trade** instead of *Add closed trade*, the new cash-dialog notes) — and moved 16 proposals that no longer match the code to the obsolete section at the end of each file (`#~`). The Excel backup keeps English sheet names: exports beyond number formatting are out of scope in v1 (spec §1).

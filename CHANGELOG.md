@@ -9,6 +9,27 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+MINOR — new capability, no manual migration step (language and region settings default to detection; nothing stored changes shape).
+
+### Added
+
+- **Six languages: English, Dutch, French, German, Italian and Spanish** (spec: `docs/i18n-spec.md`). Every screen, dialog, sign-in and 2FA screen, error message, risk and rebalancing text and signal explanation is translated, with the informal form of address and a fixed financial glossary (`locales/glossary.csv`). Signal badges (BUY / MONITOR / AVOID / VETO / Strong Buy), tickers, company and exchange names stay as they are. The admin portal and logs stay English.
+- **Settings › Language & region** (first card): language, region format (17 regions, e.g. nl-BE, fr-CH, de-AT), display currency (EUR / USD / GBP / CHF; CHF by default for Swiss regions), date format, time zone and first day of the week, with a live preview and a reset. Settings follow you to other devices.
+- **Language switcher on the sign-in screen**; the choice carries into your profile. `?lang=de` tries a language for the session without saving it.
+- **Region-aware numbers, money, percentages and dates** everywhere, including charts (separators and date ticks) and tables. Totals can be shown in the display currency, marked ≈.
+- **Comma-decimal input**: money and quantity fields accept `1.234,56` in regions that use a decimal comma, and date pickers follow the region's day/month order.
+- **CSV export in two formats**: *Spreadsheet format (for Excel)* (region decimal mark, `;` in comma-decimal regions, your date format) and *Machine format (for scripts)* (the previous output).
+- Screener: names and signals sort by the language's alphabet, and search ignores accents, case and punctuation.
+- Translation workflow: catalogs in `locales/` (see `locales/README.md`), `tools/i18n_update.py`, `tools/i18n_compile.py`, `tools/i18n_review_csv.py`, and an `i18n` CI workflow that blocks a release tag while any translation is unreviewed. Configuration in `i18n.config.json`.
+
+### Changed
+
+- **Dates follow your date format** (default Short, e.g. 01/07/2026 instead of 01 Jul 2026), signed amounts put the sign before the symbol (+€1,234), and CHF amounts use the standard CLDR form (CHF1,234), also in English.
+- Table columns, the top bar and the Screener filters size themselves to the translated labels; headers stay on one line with an ellipsis and tooltip.
+- Settings › Display: the disabled *Display currency* and *Number format* placeholders are gone, replaced by the Language & region card.
+- Automatic cash-ledger notes are stored with a language-neutral copy (`note_i18n`) next to the English `note`, so they show in the viewer's language; older entries keep working.
+- New pinned dependencies: `babel` 2.18.0 (CLDR data, pinned so formats don't change silently) and `pyuca` 1.2.
+
 ---
 
 ## [1.12.0] — 2026-09-27
