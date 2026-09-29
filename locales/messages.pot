@@ -677,7 +677,7 @@ msgstr ""
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1186
-#, python-format
+#, no-python-format
 msgid "25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed"
 msgstr ""
 
@@ -689,7 +689,7 @@ msgstr ""
 
 #. Context: Risk page › stress scenario description
 #: risk.py:1197
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "40% drawdown applied to {sector} sector"
 msgstr ""
 
@@ -749,7 +749,7 @@ msgstr ""
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1445
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance"
 msgstr ""
 
@@ -850,7 +850,7 @@ msgstr ""
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1525
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "{sector} sector at {weight} — exceeds 30% guideline"
 msgstr ""
 
@@ -1526,7 +1526,7 @@ msgstr ""
 #. Context: Veto reason shown after 'Hard veto triggered/active'. Lowercase,
 #. joined with other reasons.
 #: uvalu/components.py:83
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "debt/equity of {ratio}% exceeds the {limit}% limit"
 msgstr ""
 
@@ -1675,7 +1675,7 @@ msgstr ""
 
 #. Context: Fair-value bars › footnote
 #: uvalu/components.py:295
-#, python-format
+#, no-python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr ""
 
@@ -3514,7 +3514,7 @@ msgstr ""
 #. Context: Analysis page › withholding value when there is no foreign
 #. withholding, only 30% Belgian withholding tax
 #: uvalu/pages_/analysis.py:446
-#, python-format
+#, no-python-format
 msgid "BE 30% only"
 msgstr ""
 
@@ -3696,7 +3696,7 @@ msgstr ""
 
 #. Context: Cash activity › small text on the Cash balance card
 #: uvalu/pages_/cash.py:112
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "{pct}% of total portfolio value"
 msgstr ""
 
@@ -4677,7 +4677,7 @@ msgstr ""
 
 #. Context: Risk page › note above the metrics when you hold cash
 #: uvalu/pages_/risk.py:162
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid ""
 "Risk metrics cover the invested portion only ({invested}). Cash of "
 "{cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor "
@@ -4808,19 +4808,19 @@ msgstr ""
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:358
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "{ticker} at {weight} exceeds the 15% single-name limit"
 msgstr ""
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:361
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "{sector} at {weight} exceeds the 30% sector limit"
 msgstr ""
 
 #. Context: Risk page › concentration warning
 #: uvalu/pages_/risk.py:364
-#, python-brace-format, python-format
+#, python-brace-format, no-python-format
 msgid "{country} at {weight} exceeds the 60% country limit"
 msgstr ""
 
@@ -4833,7 +4833,7 @@ msgstr ""
 
 #. Context: Risk page › concentration all-clear message
 #: uvalu/pages_/risk.py:371
-#, python-format
+#, no-python-format
 msgid ""
 "All positions sit within the 15% single-name, 30% sector, and 60% country"
 " limits."
@@ -5433,7 +5433,7 @@ msgstr ""
 
 #. Context: Settings › Sector targets description
 #: uvalu/pages_/settings.py:677
-#, python-format
+#, no-python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr ""
 
@@ -5524,7 +5524,7 @@ msgstr ""
 
 #. Context: Settings › Data › slider description
 #: uvalu/pages_/settings.py:763
-#, python-format
+#, no-python-format
 msgid "0% flags every held ex-date; raise it to only badge your larger positions."
 msgstr ""
 
@@ -5557,7 +5557,7 @@ msgstr ""
 
 #. Context: Settings › Dividend withholding description
 #: uvalu/pages_/settings.py:794
-#, python-format
+#, no-python-format
 msgid ""
 "Default withholding tax % applied when you record a dividend on each "
 "exchange — always editable per record. Depends on your own tax residency "

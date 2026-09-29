@@ -1,8 +1,9 @@
 """Extract UI strings from the code and merge them into every .po file.
 
 Usage:
-    python tools/i18n_update.py            # extract → messages.pot, update each .po, report changes
-    python tools/i18n_update.py --check    # report only, write nothing (CI: fails if the .pot is stale)
+    python tools/i18n_update.py              # extract → messages.pot, update each .po, report changes
+    python tools/i18n_update.py --check      # report only, write nothing (CI: fails if the .pot is stale)
+    python tools/i18n_update.py --fix-flags  # only repair %-format flags in the existing files
 
 Equivalent to `pybabel extract` + `pybabel update` with Uvalu's keywords and
 exclusions, plus two things the plain commands don't do:
@@ -11,6 +12,11 @@ exclusions, plus two things the plain commands don't do:
   for every msgid that still exists — `pybabel extract` would drop them, since
   they aren't in the code.
 * New and changed msgids are listed, so they can be drafted and reviewed.
+
+* Texts containing "%" are flagged ``no-python-format``. Babel adds
+  ``python-format`` to any text with a "%" on its own, and Poedit then
+  rejects translations like "25% bij" as bad %-directives — Uvalu only uses
+  {name} placeholders, never %-formatting.
 
 Existing translations and their fuzzy (unreviewed) status are preserved;
 Babel marks a changed msgid fuzzy and keeps its old translation as a starting
@@ -96,7 +102,43 @@ def _read(path: Path, locale=None) -> Catalog:
         return read_po(fh, locale=locale)
 
 
+def _normalize_format_flags(catalog: Catalog) -> None:
+    """Drop Babel's automatic python-format flag; mark %-texts no-python-format."""
+    for m in catalog:
+        if not m.id:
+            continue
+        m.flags.discard("python-format")
+        text = m.id if isinstance(m.id, str) else " ".join(m.id)
+        if "%" in text:
+            m.flags.add("no-python-format")
+
+
+def fix_flags_text(path: Path) -> int:
+    """Line-level repair of a .po/.pot file: every standalone ``python-format``
+    flag becomes ``no-python-format``. Only "#," lines change, so Poedit's
+    own formatting and every translation stay as they are."""
+    raw = path.read_bytes().decode("utf-8")
+    newline = "\r\n" if "\r\n" in raw else "\n"   # keep the file's own line endings
+    lines = raw.split(newline)
+    changed = 0
+    for i, line in enumerate(lines):
+        if not line.startswith("#,"):
+            continue
+        flags = [f.strip() for f in line[2:].split(",") if f.strip()]
+        if "python-format" not in flags:
+            continue
+        new = [f for f in flags if f != "python-format"]
+        if "no-python-format" not in new:
+            new.append("no-python-format")
+        lines[i] = "#, " + ", ".join(new)
+        changed += 1
+    if changed:
+        path.write_bytes(newline.join(lines).encode("utf-8"))
+    return changed
+
+
 def _write(path: Path, catalog: Catalog) -> None:
+    _normalize_format_flags(catalog)
     buf = io.BytesIO()
     write_po(buf, catalog, width=76, sort_output=False, include_previous=True)
     path.write_bytes(buf.getvalue())
@@ -130,5 +172,13 @@ def main(check: bool) -> int:
     return 0
 
 
+def fix_flags() -> int:
+    for path in [POT, *sorted(LOCALES.glob("*/LC_MESSAGES/messages.po"))]:
+        print(f"{path.relative_to(ROOT)}: {fix_flags_text(path)} flag lines fixed")
+    return 0
+
+
 if __name__ == "__main__":
+    if "--fix-flags" in sys.argv:
+        sys.exit(fix_flags())
     sys.exit(main("--check" in sys.argv))
