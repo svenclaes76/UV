@@ -9,7 +9,7 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
-MINOR — new capability, no manual migration step (language and region settings default to detection; nothing stored changes shape).
+MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter and recreate the virtualenv before pulling; nothing else needs migrating (language and region settings default to detection; nothing stored changes shape).
 
 ### Added
 
@@ -28,6 +28,7 @@ MINOR — new capability, no manual migration step (language and region settings
 - Table columns, the top bar and the Screener filters size themselves to the translated labels; headers stay on one line with an ellipsis and tooltip.
 - Settings › Display: the disabled *Display currency* and *Number format* placeholders are gone, replaced by the Language & region card.
 - Automatic cash-ledger notes are stored with a language-neutral copy (`note_i18n`) next to the English `note`, so they show in the viewer's language; older entries keep working.
+- **Minimum Python raised to 3.12** (`pyproject.toml`, README, CONTRIBUTING). On 3.11 Babel can't extract `_()` calls inside f-strings, so the translation catalogs would silently lose entries; `tools/i18n_update.py` now refuses to run on older versions.
 - New pinned dependencies: `babel` 2.18.0 (CLDR data, pinned so formats don't change silently) and `pyuca` 1.2.
 
 ---

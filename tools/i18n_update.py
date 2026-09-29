@@ -179,6 +179,10 @@ def fix_flags() -> int:
 
 
 if __name__ == "__main__":
+    # Before 3.12 the tokenizer hides calls inside f-strings from Babel, so
+    # every _()/h_() in an f-string would be dropped as obsolete.
+    if sys.version_info < (3, 12):
+        sys.exit("tools/i18n_update.py needs Python 3.12+ (f-string extraction).")
     if "--fix-flags" in sys.argv:
         sys.exit(fix_flags())
     sys.exit(main("--check" in sys.argv))

@@ -256,7 +256,7 @@ The stack is gettext for strings and Babel (CLDR) for formatting, both wrapped i
 
 English is written first. The other five languages live as plain `.po` files in the repo, with no paid platform. Claude drafts the translations and Sven reviews them. The extract → translate → review → compile loop runs before every release.
 
-1. **Extract and update.** `python tools/i18n_update.py` extracts the texts into `messages.pot`, merges them into each `.po` file, marks changed ones as fuzzy and lists what is new or gone. Don't use `pybabel extract` / `pybabel update` directly: they drop the hand-written `Context:` notes and mis-flag texts containing `%`. Run it on Python 3.12 or newer: older versions can't extract calls inside f-strings.
+1. **Extract and update.** `python tools/i18n_update.py` extracts the texts into `messages.pot`, merges them into each `.po` file, marks changed ones as fuzzy and lists what is new or gone. Don't use `pybabel extract` / `pybabel update` directly: they drop the hand-written `Context:` notes and mis-flag texts containing `%`.
 2. **Context.** Give each new entry a context note (screen › element: meaning): either a `# Translators:` comment on the line above the call in the code, or a `Context:` note added to `messages.pot` by hand. Then run `tools/i18n_update.py` again to carry it into the `.po` files.
 3. **Translate.** Claude drafts the new and fuzzy strings, using `glossary.csv`, the informal form of address (G-04) and the translator comments.
 4. **Review.** Sven reviews every language in Poedit (free) or a text editor, and clears the fuzzy flag on each approved string.

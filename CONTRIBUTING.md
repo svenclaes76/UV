@@ -2,7 +2,7 @@
 
 ## Dev environment setup
 
-**Requirements:** Python 3.11+, [uv](https://github.com/astral-sh/uv)
+**Requirements:** Python 3.12+, [uv](https://github.com/astral-sh/uv)
 
 ```bash
 git clone <repo-url>
@@ -58,7 +58,7 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
 ## Conventions
 
-- **Python version:** 3.11+
+- **Python version:** 3.12+
 - **Formatter:** none enforced — match the style of the surrounding code
 - **No type annotations** required but welcome on new public functions
 - **No comments** unless the reason is non-obvious (a hidden constraint, a workaround, a subtle invariant)
@@ -81,7 +81,6 @@ All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator 
 - Widget options that are translated must keep stable values (`format_func=frozen(tr)`), so filters survive a language switch.
 - Never use `_` as a throwaway variable in a function that calls `_()` (`tests/test_i18n_guards.py` checks this).
 - After changing UI text run `python tools/i18n_update.py` and draft the new entries (fuzzy); CI runs `tools/i18n_compile.py` and `tools/i18n_update.py --check`, and release tags run `tools/i18n_compile.py --strict`.
-- Run the i18n tools on **Python 3.12+**. On 3.11 Babel can't see `_()` / `h_()` calls inside f-strings, so `tools/i18n_update.py` misses them and would move those entries to the obsolete section.
 
 ## Branching and PRs
 

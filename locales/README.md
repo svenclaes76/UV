@@ -56,8 +56,6 @@ The code wraps every user-facing text: `_()` for plain text, `ngettext()` for pl
 
 ## After changing texts in the code
 
-Run these on Python 3.12 or newer; older versions can't see `_()` calls inside f-strings.
-
 1. `python tools/i18n_update.py` — extracts the texts from the code into `messages.pot` and merges them into every `.po` file. It keeps every translation, every *Needs work* flag and the Context notes, marks changed texts as needing work (with the old translation as a starting point) and lists what's new or gone. `--check` only reports (CI uses it).
 2. Give each new entry a context note — a `# Translators:` comment above the call in the code, or a `Context:` note in `messages.pot` — and run step 1 again. Then draft the new entries (fuzzy) and review them in Poedit before the next release.
 3. `python tools/i18n_compile.py` — checks placeholders and markup and builds the `.mo` files. Release CI adds `--strict`.

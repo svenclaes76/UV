@@ -18,7 +18,7 @@ A Streamlit web app for European stock analysis and personal portfolio managemen
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.12+
 - [uv](https://github.com/astral-sh/uv) package manager (recommended) or pip
 
 ---
