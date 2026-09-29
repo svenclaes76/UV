@@ -81,6 +81,7 @@ All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator 
 - Widget options that are translated must keep stable values (`format_func=frozen(tr)`), so filters survive a language switch.
 - Never use `_` as a throwaway variable in a function that calls `_()` (`tests/test_i18n_guards.py` checks this).
 - After changing UI text run `python tools/i18n_update.py` and draft the new entries (fuzzy); CI runs `tools/i18n_compile.py` and `tools/i18n_update.py --check`, and release tags run `tools/i18n_compile.py --strict`.
+- Run the i18n tools on **Python 3.12+**. On 3.11 Babel can't see `_()` / `h_()` calls inside f-strings, so `tools/i18n_update.py` misses them and would move those entries to the obsolete section.
 
 ## Branching and PRs
 
@@ -138,14 +139,19 @@ Never retag or renumber a release that's already tagged and pushed.
 All steps on the feature branch first, so the merge commit that gets the tag
 already carries the right version:
 
-1. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
+1. Translations: every entry reviewed in all languages. Run
+   `python tools/i18n_update.py --check && python tools/i18n_compile.py --strict`
+   — both must pass. Release CI runs the same strict gate on the tag, but by then
+   the tag is public and can't be redone (see above), so catch it here. Commit
+   the rebuilt `.mo` files if they changed.
+2. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
    add a fresh empty `## [Unreleased]` above it.
-2. `pyproject.toml`: `version = "x.y.z"`.
-3. Commit: `chore(release): x.y.z`.
-4. `git checkout master && git merge --no-ff <branch>`.
-5. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
+3. `pyproject.toml`: `version = "x.y.z"`.
+4. Commit: `chore(release): x.y.z`.
+5. `git checkout master && git merge --no-ff <branch>`.
+6. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
    the branch (local + remote).
-6. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
+7. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
    full-changelog compare link.
 
 ---

@@ -229,9 +229,13 @@ The stack is gettext for strings and Babel (CLDR) for formatting, both wrapped i
 | Component | Responsibility |
 | --- | --- |
 | `uvalu/i18n.py` | Resolves the active language and region from `st.session_state`. Exposes `_()`, `ngettext()`, `pgettext()`, `fmt_num()`, `fmt_money()`, `fmt_pct()`, `fmt_date()`, `fmt_compact()` and `parse_num()`. |
-| `locales/<lang>/LC_MESSAGES/messages.po` | Translations per language, including `en`. They are compiled to `.mo` at build time. |
-| `locales/messages.pot` | The template extracted from code with `pybabel extract`. |
+| `uvalu/locale_ui.py` | The Language & region settings card, the sign-in language switcher, locale-aware number input (`number_field()`) and CSV export in machine or spreadsheet format. |
+| `uvalu/i18n_planned.py` | Texts the spec plans but the app doesn't show yet, kept here so they stay extractable and reviewable. |
+| `locales/<lang>/LC_MESSAGES/messages.po` | Translations per language, including `en`. Compiled to `.mo` by `tools/i18n_compile.py`; the `.mo` files are committed. |
+| `locales/messages.pot` | The template extracted from code by `tools/i18n_update.py`, with a hand-written `Context:` note per entry. |
 | `locales/glossary.csv` | The financial glossary (section 8). |
+| `tools/i18n_update.py` | Extracts texts into `messages.pot` and merges them into every `.po` file, keeping Context notes and fuzzy flags. `--check` only reports (CI). |
+| `tools/i18n_review_csv.py` | Rebuilds `locales/review.csv`, all languages side by side for review in Excel. |
 | `tools/i18n_compile.py` | Checks placeholders and markup, and compiles `.mo` files. `--strict` fails while any entry is unreviewed. |
 | User profile store | Holds `language`, `region`, `display_currency`, `date_format`, `time_zone` and `week_start`. |
 | Config file | Holds the `i18n:` block (section 7.3). |
@@ -252,11 +256,11 @@ The stack is gettext for strings and Babel (CLDR) for formatting, both wrapped i
 
 English is written first. The other five languages live as plain `.po` files in the repo, with no paid platform. Claude drafts the translations and Sven reviews them. The extract → translate → review → compile loop runs before every release.
 
-1. **Extract.** `pybabel extract` updates `messages.pot` from the code.
-2. **Update.** `pybabel update` merges new strings into each `.po` file and marks changed ones as fuzzy.
+1. **Extract and update.** `python tools/i18n_update.py` extracts the texts into `messages.pot`, merges them into each `.po` file, marks changed ones as fuzzy and lists what is new or gone. Don't use `pybabel extract` / `pybabel update` directly: they drop the hand-written `Context:` notes and mis-flag texts containing `%`. Run it on Python 3.12 or newer: older versions can't extract calls inside f-strings.
+2. **Context.** Give each new entry a context note (screen › element: meaning): either a `# Translators:` comment on the line above the call in the code, or a `Context:` note added to `messages.pot` by hand. Then run `tools/i18n_update.py` again to carry it into the `.po` files.
 3. **Translate.** Claude drafts the new and fuzzy strings, using `glossary.csv`, the informal form of address (G-04) and the translator comments.
 4. **Review.** Sven reviews every language in Poedit (free) or a text editor, and clears the fuzzy flag on each approved string.
-5. **Compile.** `python tools/i18n_compile.py` checks and compiles (T-06). Release CI uses `--strict`, so it fails if a fuzzy string remains. Don't use `pybabel compile`: it reports false errors on texts containing `%`.
+5. **Compile.** `python tools/i18n_compile.py` checks and compiles (T-06), and `python tools/i18n_review_csv.py` rebuilds `review.csv`. Before tagging a release, run `python tools/i18n_compile.py --strict` locally (see the release checklist in `CONTRIBUTING.md`); release CI repeats it, so it fails if a fuzzy string remains. Don't use `pybabel compile`: it reports false errors on texts containing `%`.
 6. **Visual check.** Each screen gets a screenshot pass in the longest language (de) and one comma-decimal locale.
 
 | ID | Requirement | Priority |
@@ -331,9 +335,10 @@ All open questions were decided on 27 September 2026. There are no open items le
 
 ## 15. Repo notes
 
-How this spec maps onto the current code (branch `feature/i18n-locales`):
+How this spec maps onto the code:
 
-- UI code lives in `app.py`, `uvalu/` (shell, drawer, dialogs, components, ui, authgate) and `uvalu/pages_/`. Engine modules (`screener.py`, `risk.py`, `cash.py`, `auth.py`) also produce user-facing texts such as signal explanations, rebalancing advice and error messages.
-- `locales/` holds 955 drafted entries. Each has a context note and a `file:line` source reference. The code does not yet call `_()`; the msgids are proposals for the strings the code will pass once wrapped. See `locales/README.md` for merged sentences, plurals, message contexts (`button`, `style`, `date_format`) and values translated at display time.
-- 32 entries are marked "Planned (spec, not in code yet)": the Language & region settings, legal links, the first-run tour and a few formatting messages.
+- UI code lives in `app.py`, `uvalu/` (shell, drawer, dialogs, components, ui, authgate, locale_ui) and `uvalu/pages_/`. Engine modules (`screener.py`, `risk.py`, `cash.py`, `auth.py`) also produce user-facing texts such as signal explanations, rebalancing advice and error messages; texts built outside a request use `lazy_()`.
+- All user-facing text is wrapped: `_()`, `ngettext()`, `pgettext()`, `h_()` inside HTML, and `N_()` + `tr()` for data values translated at display time. `tests/test_i18n_guards.py` guards against shadowing `_`. See `locales/README.md` for merged sentences, plurals, message contexts (`button`, `style`, `date_format`) and the draft/pseudo preview switches.
+- Every entry in `locales/messages.pot` has a context note and a `file:line` source reference. The exact entry count changes with every feature; `tools/i18n_update.py` reports it.
+- Texts the spec plans but the app doesn't show yet (Language & region extras, legal links, the first-run tour) live in `uvalu/i18n_planned.py` so they stay in the catalogs.
 - Excluded from translation: `uvalu/pages_/admin.py`, admin-only messages in `auth.py`, `uvalu/logkit/`, CSS/JS, and technical errors from `fx.py`, `marketdata.py` and `prices.py`.
