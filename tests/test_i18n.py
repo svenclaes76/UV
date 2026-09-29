@@ -65,6 +65,27 @@ def test_format_snapshots_per_region():
     assert actual == expected
 
 
+@pytest.mark.parametrize("region, plain, eur", [
+    ("en-GB", "12.8K", "€12.8K"),
+    ("nl-BE", "12,8K", f"€{NBSP}12,8K"),
+    ("fr-FR", f"12,8{NBSP}k", f"12,8{NBSP}k{NBSP}€"),
+    ("es-ES", f"12,8{NBSP}mil", f"12,8{NBSP}mil{NBSP}€"),
+    # CLDR has no short form for German/Italian thousands: full grouped amount,
+    # never Babel's raw "12752,2".
+    ("de-DE", "12.752", f"12.752{NBSP}€"),
+    ("de-CH", "12’752", f"EUR{NBSP}12’752"),
+    ("it-IT", "12.752", f"12.752{NBSP}€"),
+])
+def test_compact_thousands(region, plain, eur):
+    assert i18n.fmt_compact(12752.2, locale=region) == plain
+    assert i18n.fmt_compact(12752.2, currency="EUR", locale=region) == eur
+
+
+def test_lowercase_noun_keeps_german_capitals():
+    assert _in("de", i18n.lowercase_noun, "Dividende") == "Dividende"
+    assert _in("nl", i18n.lowercase_noun, "Dividend") == "dividend"
+
+
 @pytest.mark.parametrize("region, number, money, date", [
     ("en-GB", "1,234.56", "€1,234.56", "27/09/2026"),
     ("nl-BE", "1.234,56", f"€{NBSP}1.234,56", "27/09/2026"),

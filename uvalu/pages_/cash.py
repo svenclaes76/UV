@@ -19,7 +19,7 @@ from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
-from uvalu.i18n import N_, _, fmt_num, frozen, h_, ngettext, pgettext, tr
+from uvalu.i18n import N_, _, fmt_num, frozen, h_, lowercase_noun, ngettext, pgettext, tr
 from uvalu.locale_ui import export_menu
 
 _PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
@@ -46,7 +46,7 @@ def _last_text(s: dict) -> str:
     if not s["count"]:
         return _("No entries yet · buys top up automatically")
     return _("Last entry {date} · {type}", date=cash.fmt_date(s['last_date']),
-             type=tr(str(s['last_type'])).lower())
+             type=lowercase_noun(tr(str(s['last_type']))))
 
 
 def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:

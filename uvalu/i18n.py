@@ -853,6 +853,11 @@ def fmt_compact(value, *, currency: str | None = None, decimals: int = 1,
     loc = _loc(locale)
     if abs(value) < 1000:
         return fmt_money(value, currency, 0, locale=locale) if currency else fmt_num(value, 0, locale=locale)
+    # CLDR has no short form for some magnitudes (German and Italian
+    # thousands): Babel then prints the raw number ("12752,2"), so show the
+    # full grouped amount instead.
+    if not any(ch.isalpha() for ch in _bnum.format_compact_decimal(value, locale=loc, fraction_digits=decimals)):
+        return fmt_money(value, currency, 0, locale=locale) if currency else fmt_num(value, 0, locale=locale)
     if currency:
         return _bnum.format_compact_currency(value, currency, locale=loc, fraction_digits=decimals)
     return _bnum.format_compact_decimal(value, locale=loc, fraction_digits=decimals)

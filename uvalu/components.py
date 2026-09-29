@@ -1664,7 +1664,8 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
         orig = ("+" if amt >= 0 else "−") + (r.get("currency") or base) + " " + fmt_num(abs(amt), 2)
     src = r.get("fx_source") or "base"
     if (r.get("currency") or base) == base or is_adj:
-        fx_val, fx_note, fx_color = "—", "base", "var(--faint)"
+        # Translators: Cash activity › FX rate column note for an entry already in the base currency (no conversion).
+        fx_val, fx_note, fx_color = "—", h_("base"), "var(--faint)"
     else:
         fx_val = fmt_num(float(r.get('fx_rate') or 0), 4)
         fx_note = h_("manual") if src == "manual" else h_("ECB")

@@ -30,7 +30,7 @@ import streamlit as st
 import yfinance as yf
 
 from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
-from uvalu.i18n import N_, _, date_input_format, frozen, fmt_int, fmt_money, fmt_num, fmt_pct, ngettext, tr
+from uvalu.i18n import N_, _, date_input_format, frozen, fmt_int, fmt_money, fmt_num, fmt_pct, lowercase_noun, ngettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.ui import enter_dialog
 
@@ -1160,7 +1160,7 @@ def _cash_form(entry: dict | None, preset_type: str = "Deposit", *, readonly: bo
         _del = cash.preview_change(entry["id"], None, entries)
         _effect = next((r["base"] for r in cash.replay(entries) if r["id"] == entry["id"]), 0.0)
         _confirm = _("Delete this {type} of {amount}? Balance after: {balance}.",
-                     type=tr(_type).lower(),
+                     type=lowercase_noun(tr(_type)),
                      amount=cash.signed_money(float(_effect), base), balance=cash.money(_del['after'], base))
         if entry.get("opening"):
             _confirm += " " + _("It is the opening balance; the ledger will start from the next entry.")
