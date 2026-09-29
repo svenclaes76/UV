@@ -408,10 +408,14 @@ def render() -> None:
                     st.markdown(_("Dividends received"))
                     if st.button("", key="ov_div_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("dividends")
+                # ~61px per weight unit in this half-width card; the amount
+                # column widens for longer labels ("NETTODIVIDENDE").
+                _div_l = [_("Position"), _("Net dividend")]
+                _div_w = fit_widths([6, 1.3], _div_l, px_per_unit=61)
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
-                        _col_header([6, 1.3], [_("Position"), _("Dividend")], [False, True])
-                    skeleton_rows([6, 1.3], n=3, key_prefix="uv_skel_row_pf_div")
+                        _col_header(_div_w, _div_l, [False, True])
+                    skeleton_rows(_div_w, n=3, key_prefix="uv_skel_row_pf_div")
                 else:
                     _ov_div = load_div_hist()
                     if _ov_div is not None and not _ov_div.empty:
@@ -426,12 +430,13 @@ def render() -> None:
                     if _ov_div is not None and not _ov_div.empty:
                         _ov_div = _ov_div.sort_values("date", ascending=False).head(5)
                         with st.container(key="pf_col_header_div_ov"):
-                            _col_header([6, 1.3], [_("Position"), _("Net dividend")], [False, True])
+                            _col_header(_div_w, _div_l, [False, True])
                         for _didx, _drow in _ov_div.iterrows():
                             portfolio_dividend_row(
                                 key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
                                 ticker=_drow.get("ticker", ""), date=_drow["date"],
                                 amount=_drow.get("net_after_be_amount_eur"), show_edit=False,
+                                widths=_div_w,
                             )
                     else:
                         st.caption(_("No dividends received yet."))

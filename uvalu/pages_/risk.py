@@ -9,7 +9,7 @@ from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               risk_score_meter_html, risk_holding_row_html,
-                              RISK_HOLDINGS_GRID_COLS, refresh_top_bar_html,
+                              RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
 from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, h_, tr
@@ -31,6 +31,12 @@ _FACTOR_NOTES = {
 }
 
 _RH_LABELS = (N_("Position"), N_("Weight"), N_("Beta"), N_("Vol"), N_("Contribution to risk"), N_("Flag"))
+
+
+def _rh_grid() -> str:
+    """RISK_HOLDINGS_GRID_COLS with the fixed tracks widened to the
+    translated labels; header, rows and skeleton share it."""
+    return fit_grid_cols(RISK_HOLDINGS_GRID_COLS, [tr(label) for label in _RH_LABELS])
 
 
 def _position_vol(p) -> float:
@@ -125,10 +131,10 @@ def _render_skeleton() -> None:
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
                 f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
-            st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+            st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
-        st.markdown(skeleton_risk_holdings_html(5), unsafe_allow_html=True)
+        st.markdown(skeleton_risk_holdings_html(5, grid_cols=_rh_grid()), unsafe_allow_html=True)
 
 
 def _render_cash_banner(pf) -> None:
@@ -394,7 +400,7 @@ def render() -> None:
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
                 f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
-            st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+            st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
 
@@ -430,7 +436,7 @@ def render() -> None:
                     weight_pct=p.weight * 100, beta=p.beta,
                     vol_pct=p.vol_annual * 100 if p.vol_annual is not None else None,
                     contrib_pct=_contrib_pct, contrib_bar_pct=_contrib_pct / _max_pct * 100,
-                    flag=_flag, flag_color=_flag_color,
+                    flag=_flag, flag_color=_flag_color, grid_cols=_rh_grid(),
                 ), unsafe_allow_html=True)
                 if st.button(_("View"), key=f"risk_hold_{_idx}_{p.ticker}_view"):
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]

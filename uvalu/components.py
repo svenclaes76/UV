@@ -5,6 +5,10 @@ These render raw HTML via st.markdown(unsafe_allow_html=True) against the
 uv-badge/brand-token CSS in uvalu/styles.py. Used by uvalu/drawer.py and
 uvalu/pages_/analysis.py (the stock-detail drawer + deep-dive page).
 """
+import math
+import re
+import unicodedata
+
 import pandas as pd
 import streamlit as st
 
@@ -127,12 +131,26 @@ def _html_attr(text: str) -> str:
 # "PRICE" can't fit "GEM. AANKOOPPRIJS". fit_widths() widens a column to its
 # header's estimated width; header and rows pass the same list to st.columns
 # so they stay aligned.
-_HEADER_CHAR_PX = 7.3   # average glyph advance at 10px uppercase + tracking
-_HEADER_PAD_PX = 14     # breathing room between neighbouring headers
+# Glyph advances (px) at 10px uppercase + 0.06em tracking, measured in the
+# browser; accented capitals use their base letter, anything else _HEADER_CHAR_PX.
+_HEADER_GLYPH_PX = {
+    **dict.fromkeys("0123456789", 6.0),
+    "A": 7.1, "B": 6.3, "C": 6.6, "D": 7.6, "E": 5.7, "F": 5.5, "G": 7.5, "H": 7.7, "I": 3.3,
+    "J": 3.8, "K": 6.4, "L": 5.3, "M": 9.6, "N": 8.1, "O": 8.1, "P": 6.2, "Q": 8.1, "R": 6.6,
+    "S": 5.9, "T": 6.0, "U": 7.5, "V": 6.8, "W": 9.9, "X": 6.5, "Y": 6.1, "Z": 6.3,
+    " ": 3.3, ".": 2.8, ",": 2.8, ":": 2.8, "'": 2.9, "/": 4.5, "-": 4.6, "(": 3.6, ")": 3.6,
+    "&": 8.6, "%": 8.8,
+}
+_HEADER_CHAR_PX = 7.0
+_HEADER_PAD_PX = 4      # breathing room between neighbouring headers
 
 
 def header_width_px(label: str) -> float:
-    return len(label or "") * _HEADER_CHAR_PX + _HEADER_PAD_PX
+    """Estimated rendered width of a column header, with a 3% margin for
+    columns that end up a little narrower than their design px."""
+    text = unicodedata.normalize("NFKD", (label or "").upper())
+    text_px = sum(_HEADER_GLYPH_PX.get(ch, _HEADER_CHAR_PX) for ch in text if not unicodedata.combining(ch))
+    return text_px * 1.03 + _HEADER_PAD_PX
 
 
 def fit_widths(widths: list, labels: list, *, px_per_unit: float = 1.0) -> list:
@@ -144,6 +162,18 @@ def fit_widths(widths: list, labels: list, *, px_per_unit: float = 1.0) -> list:
         if i < len(out) and label:
             out[i] = max(out[i], round(header_width_px(label) / px_per_unit, 3))
     return out
+
+
+def fit_grid_cols(template: str, labels: list) -> str:
+    """A CSS grid-template-columns string with each fixed ``px`` track raised
+    to fit its (already translated) header label; ``fr`` tracks absorb the
+    difference."""
+    tracks = template.split()
+    for i, label in enumerate(labels):
+        if i < len(tracks) and label and tracks[i].endswith("px"):
+            need = math.ceil(header_width_px(label))
+            tracks[i] = f"{max(float(tracks[i][:-2]), need):g}px"
+    return " ".join(tracks)
 
 
 def header_cell_html(label: str, *, right: bool = False) -> str:
@@ -194,7 +224,7 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
     card (e.g. a count with nothing to compare it against)."""
-    _icon_svg = (f'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    _icon_svg = (f'<svg width="13" height="13" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                 f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
                 f'</svg>')
     # `_delta_row` is built as a single-line string (not split across f-string
@@ -206,7 +236,12 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
         _delta_html = f'<span style="{delta_style}">{delta_text}</span>'
     else:
         _delta_html = chip_html(delta_text, positive) if delta_text else ""
-    _delta_row = f'{_delta_html}<span style="font-size:11px;color:var(--faint);">{sub}</span>'
+    # Label and sub-caption stay on one line (ellipsis + tooltip) so every
+    # tile keeps the same shape whatever the language's text length.
+    _sub_title = re.sub(r"<[^>]+>", "", sub).replace('"', "&quot;")
+    _delta_row = (f'<span style="flex:none;display:inline-flex;">{_delta_html}</span>' if _delta_html else "") + (
+        f'<span title="{_sub_title}" style="font-size:11px;color:var(--faint);min-width:0;white-space:nowrap;'
+        f'overflow:hidden;text-overflow:ellipsis;">{sub}</span>')
     # min-height on the delta row — the chip (padding:2px 7px around 11.5px
     # text, ~22px tall) is taller than the plain sub-caption span alone, so
     # a value-only card with no delta_text (e.g. "Avg fair value upside")
@@ -215,7 +250,7 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
-    {_icon_svg}{label}</div>
+    {_icon_svg}<span title="{re.sub(r"<[^>]+>", "", label).replace('"', "&quot;")}" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</span></div>
   <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:{value_color};">{value}</div>
   <div style="margin-top:9px;min-height:22px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
@@ -493,7 +528,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, total_gain: float | None,
                       price_stale: bool = False, data_thin: bool = False,
-                      currency: str = "€") -> str:
+                      currency: str = "€", grid_cols: str | None = None) -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, margin-of-safety/weight/value, and a
     P&L cell — matching Uvalu.dc.html's row spec column-for-column.
@@ -545,7 +580,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     # column layout, align-items, or display:contents overrides anywhere in
     # the wrapper chain — the row height itself, not just centering, was
     # wrong. Collapsing to one line fixed it outright.
-    return (f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+    return (f'<div style="display:grid;grid-template-columns:{grid_cols or HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
            f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
@@ -765,14 +800,14 @@ def skeleton_kpi_card_html() -> str:
     )
 
 
-def skeleton_holdings_row_html() -> str:
+def skeleton_holdings_row_html(grid_cols: str | None = None) -> str:
     """One shimmering placeholder row matching holdings_row_html()'s grid
     (HOLDINGS_GRID_COLS column-for-column) — for the Dashboard Holdings table
     while the PORTFOLIO_FETCH lane hasn't scored any rows yet. Pair with
     uvalu.ui.poll_while_fetching(lane="portfolio") so the skeleton resolves
     into real rows on its own."""
     return (
-        f'<div style="display:grid;grid-template-columns:{HOLDINGS_GRID_COLS};gap:14px;align-items:center;'
+        f'<div style="display:grid;grid-template-columns:{grid_cols or HOLDINGS_GRID_COLS};gap:14px;align-items:center;'
         'padding:13px 20px;border-bottom:0.5px solid var(--line-2);min-height:60px;">'
         '<div><div class="uv-skel-bar" style="width:76px;height:11px;margin:0;"></div>'
         '<div class="uv-skel-bar" style="width:130px;height:9px;margin:8px 0 0;"></div></div>'
@@ -785,11 +820,11 @@ def skeleton_holdings_row_html() -> str:
     )
 
 
-def skeleton_holdings_table_html(n_rows: int = 3) -> str:
+def skeleton_holdings_table_html(n_rows: int = 3, grid_cols: str | None = None) -> str:
     """`n_rows` stacked skeleton_holdings_row_html() rows — matches the
     Dashboard Holdings panel's real row list exactly so the panel's shape
     appears before the first row is scored."""
-    return "".join(skeleton_holdings_row_html() for _ in range(max(1, n_rows)))
+    return "".join(skeleton_holdings_row_html(grid_cols) for _ in range(max(1, n_rows)))
 
 
 def skeleton_chart_html(height: int = 160) -> str:
@@ -898,7 +933,7 @@ def skeleton_factor_rows_html(n: int = 6) -> str:
     return _row * max(1, n)
 
 
-def skeleton_risk_holding_row_html() -> str:
+def skeleton_risk_holding_row_html(grid_cols: str | None = None) -> str:
     """One shimmering placeholder row matching risk_holding_row_html()'s
     grid (RISK_HOLDINGS_GRID_COLS column-for-column) — for the Risk page's
     holdings-contribution table while load_portfolio_risk() is still
@@ -913,7 +948,7 @@ def skeleton_risk_holding_row_html() -> str:
     per-row Streamlit container here to hang per-row CSS off of, the way
     skeleton_holdings_row_html() (Dashboard) does it the same inline way."""
     return (
-        f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+        f'<div style="display:grid;grid-template-columns:{grid_cols or RISK_HOLDINGS_GRID_COLS};gap:14px;'
         'align-items:center;padding:13px 20px;border-bottom:0.5px solid var(--line-2);">'
         '<div><div class="uv-skel-bar" style="width:60px;height:11px;margin:0;"></div>'
         '<div class="uv-skel-bar" style="width:140px;height:9px;margin:8px 0 0;"></div></div>'
@@ -926,9 +961,9 @@ def skeleton_risk_holding_row_html() -> str:
     )
 
 
-def skeleton_risk_holdings_html(n_rows: int = 5) -> str:
+def skeleton_risk_holdings_html(n_rows: int = 5, grid_cols: str | None = None) -> str:
     """`n_rows` stacked skeleton_risk_holding_row_html() rows."""
-    return "".join(skeleton_risk_holding_row_html() for _ in range(max(1, n_rows)))
+    return "".join(skeleton_risk_holding_row_html(grid_cols) for _ in range(max(1, n_rows)))
 
 
 def skeleton_text_html(widths: tuple = (100, 92, 96, 60)) -> str:
@@ -1356,7 +1391,8 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
 def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amount: float | None,
                            show_edit: bool = False, edit_disabled: bool = False,
                            show_breakdown: bool = False, tax: float | None = None,
-                           net: float | None = None, reinvested: bool = False) -> dict:
+                           net: float | None = None, reinvested: bool = False,
+                           widths: list | None = None) -> dict:
     """One dividend-payment row — flat list item, never opens the drawer;
     `show_edit` adds a trailing edit-pencil button (the full Dividends
     received page only, not the Overview preview). `show_breakdown` swaps
@@ -1373,6 +1409,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
         _widths = [3.4, 1.1, 1, 0.9, 1] + ([0.4] if show_edit else [])
     else:
         _widths = [6, 1.3] + ([0.4] if show_edit else [])
+    _widths = widths or _widths
 
     with st.container(key=key):
         if show_edit:
@@ -1531,7 +1568,7 @@ RISK_HOLDINGS_GRID_COLS = "210px 78px 68px 68px 1fr 120px"
 def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
                           weight_pct: float, beta: float | None, vol_pct: float | None,
                           contrib_pct: float, contrib_bar_pct: float,
-                          flag: str, flag_color: str) -> str:
+                          flag: str, flag_color: str, grid_cols: str | None = None) -> str:
     """Inner grid markup for one Risk-page "contribution by holding" row —
     matches Uvalu.dc.html's riskVM.holdings row spec (Position/Weight/Beta/
     Vol/Contribution-bar/Flag). Embed inside an outer st.markdown() call,
@@ -1542,7 +1579,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     _beta_str = fmt_num(beta, 2)
     _vol_str = fmt_pct(vol_pct, 0)
     _bar_pct = max(0.0, min(100.0, contrib_bar_pct))
-    return (f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
+    return (f'<div style="display:grid;grid-template-columns:{grid_cols or RISK_HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
            f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{_exch_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'

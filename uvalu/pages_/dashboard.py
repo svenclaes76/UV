@@ -19,7 +19,7 @@ from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
-                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID,
+                              holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
                               skeleton_chart_html, skeleton_gauge_card_html,
                               skeleton_metrics_grid_html, skeleton_text_html,
@@ -451,6 +451,10 @@ def render() -> None:
         # skeleton below (never just the header floating over a blank body,
         # never rows with no header) — only the genuine "nothing here" case
         # (fetch finished, still no data) drops it entirely.
+        # Fixed-px tracks widened to the translated labels (the ladder's 1fr
+        # track gives up the room); header, rows and skeleton share it.
+        _hold_grid = fit_grid_cols(_HOLD_GRID, [_("Position"), _("Signal"), "", _("MoS %"), _("Weight"),
+                                                _("Value"), _("P&L")])
         if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
@@ -458,7 +462,7 @@ def render() -> None:
                               h_("Value"), h_("P&L"))
                 _hh_cells = "".join(
                     f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
-                st.markdown(f'<div style="display:grid;grid-template-columns:{_HOLD_GRID};gap:14px;'
+                st.markdown(f'<div style="display:grid;grid-template-columns:{_hold_grid};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
 
@@ -511,7 +515,7 @@ def render() -> None:
                         price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, total_gain=_hr.get("price_gain"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
-                        data_thin=bool(_dt) if pd.notna(_dt) else False,
+                        data_thin=bool(_dt) if pd.notna(_dt) else False, grid_cols=_hold_grid,
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):
@@ -528,7 +532,7 @@ def render() -> None:
             # as Screener's loading_skeleton_html (uvalu/pages_/screener.py),
             # shaped like this table's own grid instead of a generic bar list.
             poll_while_fetching("dashboard_portfolio_fetch", lane="portfolio")
-            st.markdown(skeleton_holdings_table_html(), unsafe_allow_html=True)
+            st.markdown(skeleton_holdings_table_html(grid_cols=_hold_grid), unsafe_allow_html=True)
         else:
             st.caption(_("No screener data available for your holdings."))
 

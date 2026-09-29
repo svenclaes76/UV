@@ -356,3 +356,44 @@ def test_styler_keeps_numbers_sortable():
 def test_language_names_are_in_their_own_language():
     assert [i18n.language_name(code) for code in ("en", "nl", "fr", "de", "it", "es")] == \
            ["English", "Nederlands", "Français", "Deutsch", "Italiano", "Español"]
+
+
+# ── Column widths fit translated headers ─────────────────────────────────────
+
+def _table_widths():
+    from uvalu.components import HOLDINGS_GRID_COLS, fit_grid_cols
+    from uvalu.pages_ import portfolio, risk, screener, watchlist
+    return {
+        "open": portfolio._layout(portfolio._OPEN_COLUMNS)[0],
+        "closed": portfolio._layout(portfolio._CLOSED_COLUMNS)[0],
+        "watchlist": watchlist._fitted_widths(),
+        "risk": risk._rh_grid(),
+        "holdings": fit_grid_cols(HOLDINGS_GRID_COLS, [i18n._(label) for label in
+                                  ("Position", "Signal", "", "MoS %", "Weight", "Value", "P&L")]),
+    }
+
+
+def test_english_tables_keep_their_design_widths():
+    from uvalu.components import HOLDINGS_GRID_COLS, RISK_HOLDINGS_GRID_COLS
+    from uvalu.pages_ import portfolio, watchlist
+    w = _in("en", _table_widths)
+    assert w["open"] == [px for _l, px, _r in portfolio._OPEN_COLUMNS]
+    assert w["closed"] == [px for _l, px, _r in portfolio._CLOSED_COLUMNS]
+    assert w["watchlist"] == watchlist._HH_WIDTHS
+    assert w["risk"] == RISK_HOLDINGS_GRID_COLS
+    assert w["holdings"] == HOLDINGS_GRID_COLS
+
+
+@pytest.mark.parametrize("lang", ["nl", "fr", "de", "it", "es"])
+def test_translated_tables_only_ever_widen(lang):
+    en, tr_ = _in("en", _table_widths), _in(lang, _table_widths)
+    for key in ("open", "closed", "watchlist"):
+        assert all(t >= e for t, e in zip(tr_[key], en[key])), key
+
+
+def test_header_width_estimate_matches_measured_text():
+    from uvalu.components import header_width_px
+    # measured in the browser at 10px uppercase + 0.06em tracking
+    for label, measured in [("Gewichtung", 69.7), ("Nettodividende", 88.9),
+                            ("Niet-gerealiseerde W/V", 130.1), ("Marge de sécurité", 103.3)]:
+        assert measured <= header_width_px(label) <= measured * 1.12

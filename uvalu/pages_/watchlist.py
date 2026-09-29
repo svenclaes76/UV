@@ -92,7 +92,12 @@ def render() -> None:
             # lines at a narrower window, confirmed by the report); 0.7
             # gives enough headroom to stay single-line at typical widths,
             # with company name trimmed slightly (4 → 3.8) to compensate.
-            _c1, _c2, _c3 = st.columns([1.5, 3.8, 0.7], vertical_alignment="bottom")
+            # The button column also grows with a longer translated label
+            # ("Ticker hinzufügen"): ~7px per 14px glyph + icon/padding, at
+            # ~215px per weight unit.
+            _add_label = _("Add ticker")
+            _btn_w = max(0.7, round((len(_add_label) * 7.0 + 52) / 215, 3))
+            _c1, _c2, _c3 = st.columns([1.5, 3.8, _btn_w], vertical_alignment="bottom")
             with _c1:
                 st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);margin-bottom:7px;">{h_("Ticker")}</div>', unsafe_allow_html=True)
@@ -104,7 +109,7 @@ def render() -> None:
                 _new_name = st.text_input(_("Company name (optional)"), placeholder="TotalEnergies",
                                           label_visibility="collapsed")
             with _c3:
-                _submitted = st.form_submit_button(_("Add ticker"), icon=":material/add:", type="primary",
+                _submitted = st.form_submit_button(_add_label, icon=":material/add:", type="primary",
                                                     disabled=_is_viewer,
                                                     help=_("Viewer role is read-only") if _is_viewer else None)
 
