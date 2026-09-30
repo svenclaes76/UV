@@ -36,6 +36,10 @@ def _fake_authenticated_session(monkeypatch) -> None:
                         lambda tok: ("smoke-test@example.invalid", "Admin", "smoke-test-sid"))
     monkeypatch.setattr(authgate, "get_user_status", lambda email: ("Admin", "Active"))
     monkeypatch.setattr(authgate, "is_session_active", lambda email, sid: True)
+    # A checkout with no user store (fresh clone, CI) would otherwise get the
+    # first-admin setup screen, whose st.stop() ends the run before anything
+    # past auth_wall() — e.g. the legacy ?page= redirect — ever executes.
+    monkeypatch.setattr(authgate, "no_users_exist", lambda: False)
 
 
 def test_login_wall_renders_without_exceptions():
