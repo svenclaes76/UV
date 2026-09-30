@@ -615,6 +615,31 @@ def test_queue_handler_blocks_warnings_until_space_frees_up():
     assert Q.get_nowait().levelno == logging.ERROR
 
 
+def test_listener_stop_on_full_queue_flushes_everything_and_joins():
+    # Regression: the stock QueueListener sentinel is put_nowait, so stop() on a
+    # full bounded queue raised queue.Full and left the tail records unwritten.
+    import queue as q
+
+    class _Slow(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.seen = []
+
+        def emit(self, record):
+            time.sleep(0.02)
+            self.seen.append(record.getMessage())
+
+    Q = q.Queue(maxsize=3)
+    sink = _Slow()
+    listener = _setup._RecordQueueListener(Q, sink)
+    listener.start()
+    for i in range(6):
+        Q.put(_record(f"m{i}", level=logging.ERROR))            # leaves the queue full
+    listener.stop()                                             # must not raise queue.Full
+    assert listener._thread is None                             # joined
+    assert sink.seen == [f"m{i}" for i in range(6)]
+
+
 def test_report_drops_emits_one_summary_then_resets(caplog):
     caplog.set_level(logging.DEBUG, logger="uvalu")
     _setup._reset_drop_stats()
