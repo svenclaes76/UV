@@ -171,7 +171,7 @@ def init_logging(*, synchronous: "bool | None" = None,
             for f in _filters.all_filters():
                 qh.addFilter(f)
             root.addHandler(qh)
-            _listener = logging.handlers.QueueListener(q, *sinks, respect_handler_level=True)
+            _listener = _RecordQueueListener(q, *sinks, respect_handler_level=True)
             _listener.start()
             atexit.register(_shutdown)
 
@@ -392,6 +392,20 @@ class _RecordQueueHandler(logging.handlers.QueueHandler):
             self.queue.put_nowait(record)
         except queue.Full:
             _note_drop(record.name)
+
+
+class _RecordQueueListener(logging.handlers.QueueListener):
+    """QueueListener whose stop sentinel waits for a free slot.
+
+    The stock ``enqueue_sentinel`` uses ``put_nowait``: on a full bounded queue
+    it raises ``queue.Full``, ``stop()`` returns without joining, and the
+    records still queued (typically the last — often the most severe — ones)
+    are written late or never. The listener is draining the queue, so a slot
+    frees up almost immediately; the wait is capped in case it is wedged.
+    """
+
+    def enqueue_sentinel(self) -> None:
+        self.queue.put(self._sentinel, block=True, timeout=_WARNING_PUT_TIMEOUT_S)
 
 
 class _Tee(logging.Handler):
