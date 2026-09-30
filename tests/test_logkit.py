@@ -672,6 +672,37 @@ def test_async_flood_never_loses_a_warning_or_deadlocks(tmp_path):
     assert len(parsed) == 525 - dropped                            # only INFO dropped, none duped
 
 
+def test_async_flood_with_slow_sink_flushes_every_error_on_shutdown(tmp_path, monkeypatch):
+    # Deterministic version of the flood test above, end to end: a slow file
+    # sink guarantees the bounded queue is still full at _shutdown(). Before
+    # _RecordQueueListener, stop() raised queue.Full, never joined, and the
+    # last ERRORs were missing from the file when it was read (3-4 of 25).
+    import logging.handlers
+    orig_emit = logging.handlers.RotatingFileHandler.emit
+
+    def slow_emit(self, record):
+        time.sleep(0.005)
+        orig_emit(self, record)
+
+    monkeypatch.setattr(logging.handlers.RotatingFileHandler, "emit", slow_emit)
+    cfgp = _async_config(tmp_path, queue_capacity=5, max_bytes=2_000_000, backup_count=2)
+    _setup._reset_for_tests()
+    try:
+        _setup.init_logging(synchronous=False, config_path=cfgp, log_dir=tmp_path)
+        log = logkit.get_logger("uvalu.flood")
+        for i in range(500):
+            log.info("noise %d", i)
+        for i in range(25):
+            log.error("real problem %d", i, extra={"event": "boom"})
+        _setup._shutdown()
+    finally:
+        _setup._reset_for_tests()
+    parsed = [json.loads(x) for x in
+              (tmp_path / "logs" / "uvalu.log").read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert [p["message"] for p in parsed if p["level"] == "ERROR"] == \
+        [f"real problem {i}" for i in range(25)]                   # all, in order
+
+
 def test_rotating_file_handler_caps_total_on_disk(tmp_path):
     cfgp = _async_config(tmp_path, max_bytes=4096, backup_count=3)
     _setup._reset_for_tests()
