@@ -418,3 +418,54 @@ def test_header_width_estimate_matches_measured_text():
     for label, measured in [("Gewichtung", 69.7), ("Nettodividende", 88.9),
                             ("Niet-gerealiseerde W/V", 130.1), ("Marge de sécurité", 103.3)]:
         assert measured <= header_width_px(label) <= measured * 1.12
+
+
+# ── Dialogs and drawer keep their shape in every language ───────────────────
+
+_FIELD_ROWS = [
+    (2, ("Buy date *", "Fees (opt.)")),
+    (3, ("Shares *", "Total cost (€) *", "Price / share (opt.)")),
+    (2, ("Sell date *", "Fees (opt.)")),
+    (2, ("Shares to sell *", "Sell price *")),
+    (2, ("Ex-dividend date *", "Payment date *")),
+    (3, ("Shares held *", "Per share ({currency}) *", "Foreign WH (%)")),
+    (2, ("Sell date *", "Sector")),
+    (3, ("Shares *", "Buy price *", "Sell price *")),
+]
+
+
+def _row_lines(spec, msgids):
+    from uvalu.dialogs import label_lines
+    return label_lines(spec, [i18n._(m, currency="EUR") if "{currency}" in m else i18n._(m) for m in msgids])
+
+
+def test_english_dialog_rows_need_no_label_slot():
+    assert all(_in("en", _row_lines, spec, msgids) == 1 for spec, msgids in _FIELD_ROWS)
+
+
+@pytest.mark.parametrize("lang", ["nl", "fr", "de", "it", "es"])
+def test_translated_dialog_labels_fit_a_three_line_slot(lang):
+    assert all(_in(lang, _row_lines, spec, msgids) <= 3 for spec, msgids in _FIELD_ROWS)
+
+
+def test_german_amount_row_gets_a_label_slot():
+    # "Preis / Aktie (optional)" is ~137px in a 113px column (live-measured)
+    assert _in("de", _row_lines, 3, ("Shares *", "Total cost (€) *", "Price / share (opt.)")) == 2
+
+
+def test_button_rows_keep_english_proportions_and_fit_long_labels():
+    from uvalu.dialogs import _button_cols, _col_px
+    from uvalu.components import text_width_px
+    assert _button_cols([1, 1], ["Cancel", "Save"]) == _col_px([1, 1])
+    assert _button_cols([0.8, 1, 1], ["Delete", "Cancel", "Save"]) == _col_px([0.8, 1, 1])
+    cols = _button_cols([1, 1], ["Abbrechen", "Dividendenprotokoll öffnen"])
+    assert cols[1] >= text_width_px("Dividendenprotokoll öffnen") + 24
+    assert abs(sum(cols) - sum(_col_px([1, 1]))) < 0.01
+
+
+def test_drawer_stays_at_design_width_in_english_and_widens_for_german():
+    from uvalu.drawer import _DRAWER_CHROME_PX, _DRAWER_PX, _hero_row_px
+    en = [("Price", "€12.24"), ("Fair value", "€23.55"), ("Margin of safety", "+48.0%"), ("Total return", "+113.7%")]
+    de = [("Kurs", "12,24 €"), ("Fairer Wert", "23,55 €"), ("Sicherheitsmarge", "+48,0 %"), ("Gesamtrendite", "+113,7 %")]
+    assert _hero_row_px(en) + _DRAWER_CHROME_PX <= _DRAWER_PX
+    assert 470 <= _hero_row_px(de) <= 480   # live-measured 473px

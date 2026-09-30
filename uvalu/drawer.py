@@ -13,6 +13,9 @@ watchlist management surface), price/fair-value/MoS hero tiles, a veto
 banner, the six-model fair-value ladder, a Position & metrics list that
 varies by held/not-held state, and a primary "View full analysis" action.
 """
+import html as _html
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +26,7 @@ from uvalu import nav as nav_registry
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
-                              veto_reason_str, is_hard_veto)
+                              veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
 from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, pgettext, tr
@@ -86,6 +89,29 @@ def _fv(row, field, fmt=None):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return "—"
     return fmt(v) if fmt else str(v)
+
+
+_DRAWER_PX = 520          # see _DRAWER_CSS
+_DRAWER_MAX_PX = 640
+_DRAWER_CHROME_PX = 58    # drawer padding around the hero row
+
+
+def _hero_row_px(cells: list[tuple[str, str]]) -> float:
+    """Width the hero row needs: each tile fits its one-line label (10px
+    uppercase, 0.02em tracking) and its value (21px mono, ~12.3px a glyph),
+    plus 20px padding + border, with 8px gaps."""
+    tiles = [max((header_width_px(label) - 4) / 1.03 - 0.4 * len(label), 12.3 * len(value)) + 21
+             for label, value in cells]
+    return sum(tiles) + 8 * (len(tiles) - 1)
+
+
+def _drawer_width_css(cells: list[tuple[str, str]]) -> None:
+    """Widen the drawer (never narrow it) when a translated label or a
+    region-formatted value ("+113,7 %") would push the hero row past it."""
+    need = math.ceil(_hero_row_px(cells) + _DRAWER_CHROME_PX)
+    if need > _DRAWER_PX:
+        st.markdown(f'<style>[data-testid="stDialog"] [role="dialog"] {{ width: {min(need, _DRAWER_MAX_PX)}px '
+                    f'!important; }}</style>', unsafe_allow_html=True)
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -193,22 +219,19 @@ def open_drawer(row: "pd.Series") -> None:
     # "Total return" still fits at this padding/font-size.
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
+    _cells = [
+        (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--mint)"),
+        (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
+        (_("Total return"), _fv(row, "TER %", lambda v: fmt_pct(v, signed=True)), _ter_color),
+    ]
+    _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
-        f'<div style="display:flex;gap:8px;margin-top:16px;">'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">{h_("Price")}</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;">'
-        f'{_fmt_eur(float(_price)) if pd.notna(_price) else "—"}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">{h_("Fair value")}</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:var(--mint);">{_fv(row, "fair_value", _fmt_eur)}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">{h_("Margin of safety")}</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_mos_color};">{_fv(row, "MoS %", lambda v: fmt_pct(v, signed=True))}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">{h_("Total return")}</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_ter_color};">{_fv(row, "TER %", lambda v: fmt_pct(v, signed=True))}</div></div>'
-        f'</div>', unsafe_allow_html=True)
+        '<div style="display:flex;gap:8px;margin-top:16px;">'
+        + "".join(f'<div style="{_tile}"><div style="{_label}">{_html.escape(label)}</div>'
+                  f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;'
+                  f'color:{color};">{value}</div></div>' for label, value, color in _cells)
+        + '</div>', unsafe_allow_html=True)
 
     if is_hard_veto(row.get("veto")):
         st.markdown(

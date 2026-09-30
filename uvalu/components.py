@@ -153,6 +153,27 @@ def header_width_px(label: str) -> float:
     return text_px * 1.03 + _HEADER_PAD_PX
 
 
+# Same idea for 14px body text (widget labels, buttons): glyph advances of the
+# app's system-ui font, measured in the browser (Segoe UI).
+_TEXT14_GLYPH_PX = {
+    **dict.fromkeys("0123456789€", 7.55),
+    "a": 7.12, "b": 8.23, "c": 6.47, "d": 8.24, "e": 7.32, "f": 4.38, "g": 8.24, "h": 7.92, "i": 3.39,
+    "j": 3.39, "k": 6.96, "l": 3.39, "m": 12.06, "n": 7.92, "o": 8.2, "p": 8.23, "q": 8.24, "r": 4.87,
+    "s": 5.94, "t": 4.74, "u": 7.92, "v": 6.71, "w": 10.12, "x": 6.43, "y": 6.77, "z": 6.33,
+    "A": 9.03, "B": 8.03, "C": 8.31, "D": 9.82, "E": 7.08, "F": 6.84, "G": 9.6, "H": 9.94, "I": 3.73,
+    "J": 4.48, "K": 8.12, "L": 6.59, "M": 12.57, "N": 10.47, "O": 10.55, "P": 7.84, "Q": 10.55, "R": 8.37,
+    "S": 7.44, "T": 7.59, "U": 9.62, "V": 8.7, "W": 13.08, "X": 8.26, "Y": 7.74, "Z": 7.98,
+    " ": 3.84, ".": 3.04, ",": 3.04, ":": 3.04, ";": 3.04, "'": 3.22, "/": 5.46, "-": 5.6, "(": 4.22,
+    ")": 4.22, "*": 5.84, "?": 6.28, "!": 3.98, "&": 11.2, "%": 11.46,
+}
+
+
+def text_width_px(text: str) -> float:
+    """Estimated rendered width of 14px body text (a widget label, a button)."""
+    text = unicodedata.normalize("NFKD", text or "")
+    return sum(_TEXT14_GLYPH_PX.get(ch, 7.5) for ch in text if not unicodedata.combining(ch))
+
+
 def fit_widths(widths: list, labels: list, *, px_per_unit: float = 1.0) -> list:
     """``widths`` with each column raised to fit its (already translated)
     header label. ``px_per_unit`` converts relative st.columns weights to px

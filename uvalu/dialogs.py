@@ -24,12 +24,14 @@ directly" flow.
 import datetime as _dt
 import functools
 import html as _html
+import math
 
 import pandas as pd
 import streamlit as st
 import yfinance as yf
 
 from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
+from uvalu.components import text_width_px
 from uvalu.i18n import N_, _, date_input_format, frozen, fmt_int, fmt_money, fmt_num, fmt_pct, lowercase_noun, ngettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.ui import enter_dialog
@@ -136,11 +138,68 @@ def _dialog_width_css(px: int = DIALOG_WIDTH) -> None:
             f'[data-testid="stDialog"] [role="dialog"] > h2 {{ padding-bottom: 0 !important; }}'
             f'[data-testid="stDialog"] [role="dialog"] > h2 + div {{ padding-top: 6px !important; }}'
             f'[data-testid="stDialog"] [class*="st-key-uv_dlg_actions_"] {{ margin-top: 6px !important; }}'
+            f'[data-testid="stDialog"] [class*="st-key-uv_lblslot2_"] [data-testid="stWidgetLabel"] {{'
+            f' display: flex !important; align-items: flex-end !important; min-height: 44.8px !important; }}'
+            f'[data-testid="stDialog"] [class*="st-key-uv_lblslot3_"] [data-testid="stWidgetLabel"] {{'
+            f' display: flex !important; align-items: flex-end !important; min-height: 67.2px !important; }}'
+            f'[data-testid="stDialog"] [class*="st-key-uv_lblslot"] [data-testid="stWidgetLabel"] p {{'
+            f' text-wrap: balance; }}'
             f'[data-testid="stDialog"] [data-testid="stNumberInputStepDown"],'
             f'[data-testid="stDialog"] [data-testid="stNumberInputStepUp"] {{ display: none !important; }}'
             f'</style>',
             unsafe_allow_html=True,
         )
+
+
+# ── Rows that fit translated labels ──────────────────────────────────────────
+# The 420px dialog leaves ~372px of content: 113px per field in a row of 3.
+# English labels fit on one line; longer translations ("Preis / Aktie
+# (optional)") wrap, which pushed that field's input below its neighbours.
+
+_CONTENT_PX = DIALOG_WIDTH - 48
+_COL_GAP_PX = 16
+_BUTTON_PAD_PX = 40
+
+
+def _col_px(spec) -> list[float]:
+    weights = [1] * spec if isinstance(spec, int) else list(spec)
+    avail = _CONTENT_PX - _COL_GAP_PX * (len(weights) - 1)
+    return [avail * w / sum(weights) for w in weights]
+
+
+def label_lines(spec, labels: list) -> int:
+    """Lines the longest-wrapping label in a field row takes (1 = all fit)."""
+    lines = 1
+    for label, px in zip(labels, _col_px(spec)):
+        w = text_width_px(label) if label else 0
+        if w > px:
+            lines = max(lines, math.ceil(w / px))
+    return lines
+
+
+def field_cols(spec, labels: list, *, key: str):
+    """st.columns for a row of form fields. When a label won't fit on one
+    line in its column, every label in the row gets the same 2- or 3-line
+    slot with the text at the bottom, so the inputs still line up."""
+    lines = label_lines(spec, labels)
+    if lines == 1:
+        return st.columns(spec)
+    with st.container(key=f"uv_lblslot{min(lines, 3)}_{key}"):
+        return st.columns(spec)
+
+
+def _button_cols(spec, labels: list) -> list[float]:
+    """Column widths (px) for a row of buttons: a button whose label needs
+    more than its share gets that width, the others split what is left, so
+    no button wraps onto a second line."""
+    base = _col_px(spec)
+    need = [text_width_px(label) + _BUTTON_PAD_PX for label in labels]
+    wide = [n > b for n, b in zip(need, base)]
+    if not any(wide):
+        return base
+    rest = sum(base) - sum(n for n, w in zip(need, wide) if w)
+    rest_weight = sum(b for b, w in zip(base, wide) if not w) or 1
+    return [n if w else max(b * rest / rest_weight, 1) for n, b, w in zip(need, base, wide)]
 
 
 # ── Shared Add/Edit dialog layout ─────────────────────────────────────────────
@@ -186,8 +245,9 @@ def identity_row(*, ticker: str = "", name: str = "", key_prefix: str, locked: b
     different holding. `ticker_options` turns Ticker into a selectbox that
     suggests those tickers but still accepts any other (Add dividend
     suggests the held ones). Returns (TICKER, name) stripped."""
-    _c1, _c2 = st.columns([1, 1.4])
     _t_label = _("Ticker") if locked else _("Ticker *")
+    _n_label = _("Company name") if locked else _("Company name (opt.)")
+    _c1, _c2 = field_cols([1, 1.4], [_t_label, _n_label], key=f"{key_prefix}_identity")
     with _c1:
         if ticker_options is not None and not locked:
             t = st.selectbox(_t_label, options=ticker_options, index=None, placeholder=ticker_placeholder,
@@ -196,7 +256,7 @@ def identity_row(*, ticker: str = "", name: str = "", key_prefix: str, locked: b
             t = st.text_input(_t_label, value=ticker, placeholder=ticker_placeholder,
                               key=f"{key_prefix}_ticker", disabled=locked)
     with _c2:
-        n = st.text_input(_("Company name") if locked else _("Company name (opt.)"), value=name,
+        n = st.text_input(_n_label, value=name,
                           placeholder=name_placeholder, key=f"{key_prefix}_name", disabled=locked)
     return (t or "").strip().upper(), (n or "").strip()
 
@@ -237,7 +297,7 @@ def dialog_actions(key_prefix: str, *, save_label: str | None = None, delete: bo
             f'<div style="padding:10px 12px;border-radius:8px;background:var(--down-bg);color:var(--down-txt);'
             f'font-size:12.5px;line-height:1.5;">{_html.escape(_q)}</div>', unsafe_allow_html=True)
         with st.container(key=f"uv_dlg_actions_{key_prefix}_confirm"):
-            _k1, _k2 = st.columns(2)
+            _k1, _k2 = st.columns(_button_cols(2, [_("Keep"), _("Delete permanently")]))
             with _k1:
                 if st.button(_("Keep"), key=f"{key_prefix}_keep", width="stretch"):
                     st.session_state.pop(_ck, None)
@@ -248,7 +308,8 @@ def dialog_actions(key_prefix: str, *, save_label: str | None = None, delete: bo
         return False, _confirmed
 
     with st.container(key=f"uv_dlg_actions_{key_prefix}"):
-        _cols = st.columns([0.8, 1, 1] if delete else [1, 1])
+        _labels = ([_("Delete")] if delete else []) + [_("Cancel"), save_label]
+        _cols = st.columns(_button_cols([0.8, 1, 1] if delete else [1, 1], _labels))
         if delete:
             with _cols[0], st.container(key=f"uv_danger_btn_{key_prefix}"):
                 if st.button(_("Delete"), key=f"{key_prefix}_delete", width="stretch"):
@@ -342,21 +403,23 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     # Buy date defaults to today; a backdated buy posts its cash on that
     # date, so the ledger's running balance stays in date order.
     _today = _dt.date.today()
-    _c1, _c2 = st.columns(2)
+    _l1 = [_("Buy date *"), _("Fees (opt.)")]
+    _c1, _c2 = field_cols(2, _l1, key="dlg_ap_dates")
     with _c1:
-        pur_date = st.date_input(_("Buy date *"), value=_today, max_value=_today, format=date_input_format(),
+        pur_date = st.date_input(_l1[0], value=_today, max_value=_today, format=date_input_format(),
                                  key="dlg_ap_date") or _today
     with _c2:
-        fee = _nz(number_field(_("Fees (opt.)"), min_value=0.0, step=0.01, value=0.0,
+        fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=0.0,
                                format="%.2f", key="dlg_ap_fee"), 0.0)
-    _c3, _c4, _c5 = st.columns(3)
+    _l2 = [_("Shares *"), _("Total cost (€) *"), _("Price / share (opt.)")]
+    _c3, _c4, _c5 = field_cols(3, _l2, key="dlg_ap_amounts")
     with _c3:
-        shares = _nz(number_field(_("Shares *"), min_value=1, step=1, value=1, key="dlg_ap_shares"))
+        shares = _nz(number_field(_l2[0], min_value=1, step=1, value=1, key="dlg_ap_shares"))
     with _c4:
-        total_cost = _nz(number_field(_("Total cost (€) *"), min_value=0.0, step=0.01, value=0.0,
+        total_cost = _nz(number_field(_l2[1], min_value=0.0, step=0.01, value=0.0,
                                       format="%.2f", key="dlg_ap_cost"), 0.0)
     with _c5:
-        price = _nz(number_field(_("Price / share (opt.)"), min_value=0.0, step=0.01,
+        price = _nz(number_field(_l2[2], min_value=0.0, step=0.01,
                                  value=round(preset_price, 2), format="%.2f", key="dlg_ap_price"), 0.0)
     _gross_preview = total_cost if total_cost > 0 else round(price * shares, 2)
     st.markdown(cash_after_html("Buy", _gross_preview, fee, on=pur_date), unsafe_allow_html=True)
@@ -430,24 +493,26 @@ def edit_position_dialog(trade_id: str, live_price: float | None = None) -> None
     _sh0 = max(1, int(_num_or(row.get("shares"), 1)))
     _linked = cash.trade_in_sync("Buy", trade_id, _pv0, _fee0)
 
-    _c1, _c2 = st.columns(2)
+    _l1 = [_("Buy date *"), _("Fees (opt.)")]
+    _c1, _c2 = field_cols(2, _l1, key="dlg_eop_dates")
     with _c1:
         _d0 = _to_date(row.get("date_in"))
-        _date = st.date_input(_("Buy date *"), value=_d0, max_value=max(_dt.date.today(), _d0 or _dt.date.today()),
+        _date = st.date_input(_l1[0], value=_d0, max_value=max(_dt.date.today(), _d0 or _dt.date.today()),
                               format=date_input_format(), key="dlg_eop_date")
     with _c2:
-        _fee = _nz(number_field(_("Fees (opt.)"), min_value=0.0, step=0.01, value=_fee0, format="%.2f",
+        _fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=_fee0, format="%.2f",
                                 key="dlg_eop_fee", disabled=not _linked,
                                 help=None if _linked else _("Fees only affect the linked cash entry.")), 0.0)
-    _c3, _c4, _c5 = st.columns(3)
+    _l2 = [_("Shares *"), _("Total cost (€) *"), _("Price / share (opt.)")]
+    _c3, _c4, _c5 = field_cols(3, _l2, key="dlg_eop_amounts")
     with _c3:
-        _shares = _nz(number_field(_("Shares *"), min_value=1, step=1, value=_sh0, key="dlg_eop_shares"), _sh0)
+        _shares = _nz(number_field(_l2[0], min_value=1, step=1, value=_sh0, key="dlg_eop_shares"), _sh0)
     with _c4:
-        _invested = _nz(number_field(_("Total cost (€) *"), min_value=0.01, step=0.01, value=max(_pv0, 0.01),
+        _invested = _nz(number_field(_l2[1], min_value=0.01, step=0.01, value=max(_pv0, 0.01),
                                      format="%.2f", key="dlg_eop_invested"), 0.0)
     with _c5:
         _price0 = round(_pv0 / _sh0, 2)
-        _price = _nz(number_field(_("Price / share (opt.)"), min_value=0.0, step=0.01, value=_price0,
+        _price = _nz(number_field(_l2[2], min_value=0.0, step=0.01, value=_price0,
                                   format="%.2f", key="dlg_eop_price"), _price0)
     # Same two ways in as Add position: a changed price per share sets the
     # total cost (price × shares); otherwise Total cost is used as entered.
@@ -521,19 +586,21 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
             if not _match.empty else 0.0
 
     _today = _dt.date.today()
-    _c1, _c2 = st.columns(2)
+    _l1 = [_("Sell date *"), _("Fees (opt.)")]
+    _c1, _c2 = field_cols(2, _l1, key="dlg_sell_dates")
     with _c1:
-        sell_date = st.date_input(_("Sell date *"), value=_today, max_value=_today, format=date_input_format(),
+        sell_date = st.date_input(_l1[0], value=_today, max_value=_today, format=date_input_format(),
                                   key="dlg_sell_date") or _today
     with _c2:
-        fee = _nz(number_field(_("Fees (opt.)"), min_value=0.0, step=0.01, value=0.0,
+        fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=0.0,
                                format="%.2f", key="dlg_sell_fee"), 0.0)
-    _c3, _c4 = st.columns(2)
+    _l2 = [_("Shares to sell *"), _("Sell price *")]
+    _c3, _c4 = field_cols(2, _l2, key="dlg_sell_amounts")
     with _c3:
-        shares = _nz(number_field(_("Shares to sell *"), min_value=1, max_value=max(_held_shares, 1),
+        shares = _nz(number_field(_l2[0], min_value=1, max_value=max(_held_shares, 1),
                                   value=max(_held_shares, 1), step=1, key="dlg_sell_shares"))
     with _c4:
-        price = _nz(number_field(_("Sell price *"), min_value=0.0, step=0.01, value=round(_live_price, 2),
+        price = _nz(number_field(_l2[1], min_value=0.0, step=0.01, value=round(_live_price, 2),
                                  format="%.2f", key="dlg_sell_price"), 0.0)
     st.markdown(cash_after_html("Sell", round(shares * price, 2), fee, on=sell_date), unsafe_allow_html=True)
 
@@ -583,24 +650,26 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     # Declaration/record dates and per-holding frequency were dropped from
     # this dialog (and the Edit dialog / CSV export) per user review: only
     # the ex-date and payment date are asked for, in one readable row.
-    _c3, _c4 = st.columns(2)
+    _l1 = [_("Ex-dividend date *"), _("Payment date *")]
+    _c3, _c4 = field_cols(2, _l1, key="dlg_dv_dates")
     with _c3:
-        ex_date = st.date_input(_("Ex-dividend date *"), value=None, format=date_input_format(),
+        ex_date = st.date_input(_l1[0], value=None, format=date_input_format(),
                                 max_value=_dt.date.today() + _dt.timedelta(days=365), key="dlg_dv_ex")
     with _c4:
-        pay_date = st.date_input(_("Payment date *"), format=date_input_format(), max_value=_dt.date.today(),
+        pay_date = st.date_input(_l1[1], format=date_input_format(), max_value=_dt.date.today(),
                                  key="dlg_dv_pay")
 
-    _c5, _c6, _c7 = st.columns(3)
+    _l2 = [_("Shares held *"), _("Per share ({currency}) *", currency=_ccy), _("Foreign WH (%)")]
+    _c5, _c6, _c7 = field_cols(3, _l2, key="dlg_dv_amounts")
     with _c5:
         _shares0 = int(_num_or(_match["shares"].sum(), 0)) if not _match.empty else 0
-        shares = _nz(number_field(_("Shares held *"), min_value=0, step=1, value=_shares0, key="dlg_dv_shares"))
+        shares = _nz(number_field(_l2[0], min_value=0, step=1, value=_shares0, key="dlg_dv_shares"))
     with _c6:
-        dps = _nz(number_field(_("Per share ({currency}) *", currency=_ccy), min_value=0.0, step=0.0001, value=0.0,
+        dps = _nz(number_field(_l2[1], min_value=0.0, step=0.0001, value=0.0,
                                format="%.4f", key="dlg_dv_ps"), 0.0)
     with _c7:
         _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw), current_user().email)
-        tax_rate = _nz(number_field(_("Foreign WH (%)"), min_value=0.0, max_value=100.0,
+        tax_rate = _nz(number_field(_l2[2], min_value=0.0, max_value=100.0,
                                     step=0.5, value=_default_tax, key="dlg_dv_tax"), 0.0)
 
     div_type = st.selectbox(_("Type"), options=DIV_TYPE_OPTIONS, format_func=frozen(tr), key="dlg_dv_type")
@@ -673,26 +742,28 @@ def edit_dividend_dialog(div_id: str) -> None:
 
     # Same fields/order as add_dividend_dialog. Saving leaves any
     # declaration/record date a record already carries untouched.
-    _c1, _c2 = st.columns(2)
+    _l1 = [_("Ex-dividend date *"), _("Payment date *")]
+    _c1, _c2 = field_cols(2, _l1, key="dlg_ed_dates")
     with _c1:
-        _ex = st.date_input(_("Ex-dividend date *"), value=_to_date(row.get("ex_date")), format=date_input_format(),
+        _ex = st.date_input(_l1[0], value=_to_date(row.get("ex_date")), format=date_input_format(),
                             max_value=_max_date, key="dlg_ed_ex")
     with _c2:
-        _date = st.date_input(_("Payment date *"), value=_row_pay, format=date_input_format(),
+        _date = st.date_input(_l1[1], value=_row_pay, format=date_input_format(),
                               max_value=_max_date, key="dlg_ed_date")
 
-    _c5, _c6, _c7 = st.columns(3)
+    _l2 = [_("Shares held *"), _("Per share ({currency}) *", currency=_ccy), _("Foreign WH (%)")]
+    _c5, _c6, _c7 = field_cols(3, _l2, key="dlg_ed_amounts")
     _sh0 = float(_num_or(row.get("shares"), 0))
     with _c5:
-        _shares = _nz(number_field(_("Shares held *"), min_value=0, step=1, value=max(0, int(_sh0)),
+        _shares = _nz(number_field(_l2[0], min_value=0, step=1, value=max(0, int(_sh0)),
                                    key="dlg_ed_shares"))
     with _c6:
         _dps0 = float(_num_or(row.get("amount_per_share"), 0.0)) or (
             float(_num_or(row.get("amount"), 0.0)) / _sh0 if _sh0 else 0.0)
-        _dps = _nz(number_field(_("Per share ({currency}) *", currency=_ccy), min_value=0.0, step=0.0001,
+        _dps = _nz(number_field(_l2[1], min_value=0.0, step=0.0001,
                                 value=round(float(_dps0), 4), format="%.4f", key="dlg_ed_dps"), 0.0)
     with _c7:
-        _tax_rate = _nz(number_field(_("Foreign WH (%)"), min_value=0.0, max_value=100.0, step=0.5,
+        _tax_rate = _nz(number_field(_l2[2], min_value=0.0, max_value=100.0, step=0.5,
                                      value=float(_num_or(row.get("tax_rate"), 0.0)), key="dlg_ed_tax"), 0.0)
 
     _type0 = row.get("div_type") if isinstance(row.get("div_type"), str) else "Cash"
@@ -760,21 +831,23 @@ def trade_result_preview(shares: float, buy: float, sell: float) -> None:
 
 def _trade_fields(key: str, *, date0, sector0: str | None, shares0: int, buy0: float, sell0: float,
                   max_date) -> tuple:
-    _c1, _c2 = st.columns(2)
+    _l1 = [_("Sell date *"), _("Sector")]
+    _c1, _c2 = field_cols(2, _l1, key=f"{key}_dates")
     with _c1:
-        d = st.date_input(_("Sell date *"), value=date0, max_value=max_date, format=date_input_format(), key=f"{key}_date")
+        d = st.date_input(_l1[0], value=date0, max_value=max_date, format=date_input_format(), key=f"{key}_date")
     with _c2:
-        sector = st.selectbox(_("Sector"), options=SECTOR_OPTIONS, placeholder="—", format_func=frozen(tr),
+        sector = st.selectbox(_l1[1], options=SECTOR_OPTIONS, placeholder="—", format_func=frozen(tr),
                               index=SECTOR_OPTIONS.index(sector0) if sector0 in SECTOR_OPTIONS else None,
                               key=f"{key}_sector")
-    _c3, _c4, _c5 = st.columns(3)
+    _l2 = [_("Shares *"), _("Buy price *"), _("Sell price *")]
+    _c3, _c4, _c5 = field_cols(3, _l2, key=f"{key}_amounts")
     with _c3:
-        shares = _nz(number_field(_("Shares *"), min_value=1, step=1, value=shares0, key=f"{key}_shares"))
+        shares = _nz(number_field(_l2[0], min_value=1, step=1, value=shares0, key=f"{key}_shares"))
     with _c4:
-        buy = _nz(number_field(_("Buy price *"), min_value=0.0, step=0.01, value=buy0, format="%.2f",
+        buy = _nz(number_field(_l2[1], min_value=0.0, step=0.01, value=buy0, format="%.2f",
                                key=f"{key}_buy"), 0.0)
     with _c5:
-        sell = _nz(number_field(_("Sell price *"), min_value=0.0, step=0.01, value=sell0, format="%.2f",
+        sell = _nz(number_field(_l2[2], min_value=0.0, step=0.01, value=sell0, format="%.2f",
                                 key=f"{key}_sell"), 0.0)
     trade_result_preview(shares, buy, sell)
     return d, sector, shares, buy, sell
@@ -1040,7 +1113,9 @@ def _cash_form(entry: dict | None, preset_type: str = "Deposit", *, readonly: bo
     # ── Date | Amount ────────────────────────────────────────────────────────
     rate, manual, manual_rate = 1.0, False, None
     amount, target = 0.0, None
-    _c1, _c2 = st.columns(2)
+    _amt_label = (_("Corrected balance ({currency}) *", currency=base) if is_adj
+                  else _("Amount") if readonly else _("Amount *"))
+    _c1, _c2 = field_cols(2, [_("Date") if readonly else _("Date *"), _amt_label], key="dlg_cash_row")
     with _c1:
         d = st.date_input(_("Date") if readonly else _("Date *"), value=d0, max_value=_max_d, format=date_input_format(),
                           key="dlg_cash_date", disabled=readonly) or d0
