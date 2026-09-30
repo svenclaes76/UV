@@ -49,7 +49,7 @@ from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
-from uvalu.dialogs import _dialog
+from uvalu.dialogs import _dialog, _dialog_width_css
 from uvalu.i18n import N_, _, fmt_date, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
@@ -219,8 +219,15 @@ def _strength_caption(password: str) -> None:
                f'{h_("Password strength: {strength}", strength=label)}</div>', unsafe_allow_html=True)
 
 
+# The security dialogs' form content is ~550px wide; the visible box is the
+# PARENT of [role="dialog"] (Streamlit >= 1.60) and would otherwise stretch
+# to nearly the window width — same clamp the Portfolio dialogs use.
+_SETTINGS_DIALOG_WIDTH = 550
+
+
 @_dialog(N_("Change password"), width="large")
 def _dlg_change_password(email: str):
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
     _min_len = int(load_shared_settings().get("min_password_length", 12))
     _current = st.text_input(_("Current password"), type="password", key="set_pw_current")
     _new = st.text_input(_("New password"), type="password", key="set_pw_new",
@@ -252,6 +259,7 @@ def _dlg_set_password(email: str):
     """For a provider-only account (no current password to prove) — add one
     so you can still sign in when your provider is unavailable, mockup
     frame 11's "Password / NOT SET / Set a password" row."""
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
     st.caption(_("Add a password so you can sign in when your provider is unavailable."))
     _min_len = int(load_shared_settings().get("min_password_length", 12))
     _new = st.text_input(_("New password"), type="password", key="set_pw2_new",
@@ -286,6 +294,7 @@ def _qr_png_bytes(uri: str) -> bytes:
 
 @_dialog(N_("Set up two-factor authentication"), width="large")
 def _dlg_totp_enroll(email: str):
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
     # Cache the secret/URI in session_state so re-running this dialog on
     # every widget interaction (the code text_input, the confirm button)
     # doesn't regenerate a NEW secret each time — begin_totp_enrollment()
@@ -330,6 +339,7 @@ def _dlg_totp_enroll(email: str):
 def _dlg_backup_codes_shown():
     """Shown once right after enrolling (or regenerating) — the plaintext
     codes are never retrievable again after this dialog closes."""
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
     codes = st.session_state.get("totp_new_backup_codes") or []
     st.warning(_("Save these somewhere safe. Each code can be used once if you lose access to your authenticator app. They won't be shown again."),
                icon=":material/warning:")
@@ -344,6 +354,7 @@ def _dlg_backup_codes_shown():
 
 @_dialog(N_("Regenerate backup codes"), width="large")
 def _dlg_regenerate_backup_codes(email: str):
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
     st.warning(_("This invalidates every existing backup code — only the new ones will work."),
                icon=":material/warning:")
     _b1, _b2 = st.columns(2)
