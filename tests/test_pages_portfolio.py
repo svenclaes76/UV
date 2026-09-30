@@ -224,6 +224,9 @@ def test_viewer_role_disables_add_buttons(isolated_data, monkeypatch):
     monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
         t: {"price": 110.0} for t in tickers
     })
+    # Same network stubs as _run() — see there.
+    monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
+    monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
     script_src = USER_SETUP_SRC + """
 import streamlit as st
 st.session_state["user_email"] = "test@example.com"
@@ -489,6 +492,10 @@ class TestDrawerEditHandoff:
         monkeypatch.setattr(portfolio_page, "_fetch_prices_cached", lambda tickers: {
             t: {"price": 110.0} for t in tickers
         })
+        # Same network stubs as _run() — without them this test spawned a real
+        # yf.download() backfill thread and a dividend auto-import.
+        monkeypatch.setattr(portfolio_page, "ensure_value_history_fresh", lambda *a: False)
+        monkeypatch.setattr(portfolio_page, "import_dividends_from_market_data", lambda *a, **k: 0)
         script_src = USER_SETUP_SRC + """
 import streamlit as st
 st.session_state["user_email"] = "test@example.com"
