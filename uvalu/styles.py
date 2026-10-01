@@ -511,6 +511,19 @@ GLOBAL_CSS = """
     background: var(--panel-2) !important; border-color: var(--line) !important;
     border-radius: 8px !important; font-size: 12.5px !important;
   }
+  /* An open select's option list is as wide as its box, so the 140px
+     Sector filter clipped long names in every language ("Communication S…",
+     nl "Defensieve consumptiegoeder…"). The list is portalled to <body>,
+     so this can't be scoped to the screener; it only widens the open list
+     of selects narrower than 260px (the longest sector name, nl, renders at
+     ~220px). The virtualised rows carry inline widths copied from the box
+     and aren't re-measured, hence the second rule. */
+  [data-testid="stSelectboxVirtualDropdown"] {
+    width: max(var(--trigger-width), 260px) !important;
+  }
+  [data-testid="stSelectboxVirtualDropdown"] [role="presentation"] {
+    width: 100% !important;
+  }
   /* Min score / min margin-of-safety sliders — the current value is shown
      inline next to the label (custom markdown row, see screener.py) instead
      of Streamlit's floating drag-thumb bubble; the native min/max tick
