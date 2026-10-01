@@ -396,3 +396,19 @@ def test_risk_banner_only_with_cash(isolated_data, monkeypatch):
     assert "Risk metrics cover the invested portion only (€1,100)" in html
     assert "Cash of €900, 45.0% of total value" in html
     assert any(b.key == "risk_view_cash" for b in at.button)
+
+
+def test_risk_banner_uses_the_display_currency(isolated_data, monkeypatch):
+    """Like the Dashboard's Cash tile: in CHF (≈, converted) for a Swiss
+    region, not the ledger's EUR base."""
+    from tests.test_pages_risk import _run as run_risk
+    from uvalu import i18n
+    portfolio.save_portfolio(make_portfolio_df())          # €1,100 invested
+    cash.post_manual("Deposit", D, 1000)
+    monkeypatch.setattr(i18n, "display_rate", lambda: (1.1, "2026-03-02"))   # EUR per CHF
+    at = run_risk(monkeypatch)
+    at.session_state[i18n._SS_CTX] = i18n.Ctx("en", "de-CH", "CHF", "short", "Europe/Zurich", "monday")
+    at.run()
+    html = _html(at)
+    assert "invested portion only (≈\u00a0CHF\u00a01’000)" in html
+    assert "Cash of ≈\u00a0CHF\u00a0909" in html

@@ -12,7 +12,7 @@ from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
-from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, h_, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
@@ -142,7 +142,6 @@ def _render_cash_banner(pf) -> None:
     from every risk metric (HHI, VaR, CVaR, factor exposure, Monte Carlo) —
     say so, with a link to the ledger. Shown once the portfolio has cash
     entries; the risk engine itself is untouched."""
-    import cash
     from uvalu import nav
     from uvalu.pages_.cash import dashboard_cash_tile_values
 
@@ -165,7 +164,7 @@ def _render_cash_banner(pf) -> None:
             'stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 '
             '0 0 -18 0"/><path d="M12 8h.01M11 12h1v4h1"/></svg>'
             f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">'
-            f'{h_("Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo.", invested=cash.money(s["invested"], s["base"], 0), cash=cash.money(s["balance"], s["base"], 0), pct=fmt_num(s["cash_pct"], 1))}'
+            f'{h_("Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo.", invested=fmt_total(s["invested"]), cash=fmt_total(s["balance"]), pct=fmt_num(s["cash_pct"], 1))}'
             f'</span></div>', unsafe_allow_html=True, width="stretch")
         if st.button(_("View cash activity"), key="risk_view_cash", type="tertiary"):
             st.session_state["port_section"] = "cash"
