@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-01 16:34+0000\n"
-"PO-Revision-Date: 2026-10-01 17:48+0200\n"
+"PO-Revision-Date: 2026-10-01 22:19+0200\n"
 "Last-Translator: \n"
 "Language-Team: fr <LL@li.org>\n"
 "Language: fr\n"
@@ -5031,8 +5031,7 @@ msgstr "{country} à {weight} dépasse la limite de 60 % par pays"
 #. Context: Risk page › concentration alert. {names} is a comma-separated list of
 #. company names; the singular/plural form follows how many companies are listed.
 #: uvalu/pages_/risk.py:375
-#, fuzzy, python-brace-format
-#| msgid "{names} remain(s) under a hard veto"
+#, python-brace-format
 msgid "{names} remains under a hard veto"
 msgid_plural "{names} remain under a hard veto"
 msgstr[0] "{names} reste sous veto strict"
