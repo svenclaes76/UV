@@ -36,6 +36,7 @@ MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter a
 
 - Dashboard, Portfolio, Risk and the stock preview ranked a holding only against your other holdings (since v1.2.0), so its fair value, score and signal could differ from the Screener and Analysis page for the same stock (book value €25 vs €10 for one REIT; a Strong Buy shown as Monitor). Holdings are now scored against the scored universe's medians and ranks.
 - Screener: the open Sector filter list clipped long sector names ("Communication S…"), in English too. Open select lists are now at least 260px wide.
+- Analysis: the dividend hard-veto check showed "Dividend coverage adequate ✓" next to an "At Risk" flag. It now reads "Dividend covered by earnings" with the cover as its note, and a dividend that is flagged but not vetoed gets an amber "!" with the reason (e.g. "1.57× · at risk: FCF payout 270%").
 
 ---
 
