@@ -9,6 +9,7 @@
     "display_currency_by_region": { "de-CH": "CHF", "fr-CH": "CHF", "it-CH": "CHF" },
     "enabled_display_currencies": ["EUR", "USD", "GBP", "CHF"],
     "default_time_zone": "Europe/Brussels",
+    "time_zone_by_region": { "de-CH": "Europe/Zurich", "fr-CH": "Europe/Zurich", "it-CH": "Europe/Zurich" },
     "allow_url_lang_param": true,
     "log_missing_translations": true
   }

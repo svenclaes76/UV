@@ -217,6 +217,14 @@ def test_region_looks_past_a_bare_first_language_tag():
     assert _resolve(tags=["pt-BR", "zh-Hant-TW"])[0].region == "en-GB"   # unsupported: language default
 
 
+def test_time_zone_follows_region_until_chosen():
+    assert _resolve({"region": "de-CH"})[0].time_zone == "Europe/Zurich"
+    assert _resolve(tags=["fr-CH"])[0].time_zone == "Europe/Zurich"        # detected region too
+    assert _resolve({"region": "de-DE"})[0].time_zone == "Europe/Brussels"  # no mapping: the default
+    assert _resolve({"region": "de-CH", "time_zone": "Asia/Tokyo"})[0].time_zone == "Asia/Tokyo"
+    assert _resolve({"region": "it-CH", "time_zone": "Not/AZone"})[0].time_zone == "Europe/Zurich"
+
+
 def test_display_currency_follows_region_until_chosen():
     assert _resolve({"region": "de-CH"})[0].currency == "CHF"
     assert _resolve({"region": "fr-BE"})[0].currency == "EUR"
@@ -255,6 +263,8 @@ def test_shipped_config_is_valid():
     ({"enabled_display_currencies": ["EUR", "ZZZ"]}, "enabled_display_currencies"),
     ({"display_currency_by_region": {"de-CH": "JPY"}}, "display_currency_by_region"),
     ({"default_time_zone": "Mars/Base"}, "default_time_zone"),
+    ({"time_zone_by_region": {"de-CH": "Mars/Base"}}, "time_zone_by_region"),
+    ({"time_zone_by_region": {"pt-BR": "America/Sao_Paulo"}}, "time_zone_by_region"),
     ({"allow_url_lang_param": "yes"}, "allow_url_lang_param"),
     ({"surprise": 1}, "surprise"),
 ])

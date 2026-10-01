@@ -75,6 +75,8 @@ class I18nConfig:
         default_factory=lambda: {"de-CH": "CHF", "fr-CH": "CHF", "it-CH": "CHF"})
     enabled_display_currencies: tuple[str, ...] = ("EUR", "USD", "GBP", "CHF")
     default_time_zone: str = "Europe/Brussels"
+    time_zone_by_region: dict = field(
+        default_factory=lambda: {"de-CH": "Europe/Zurich", "fr-CH": "Europe/Zurich", "it-CH": "Europe/Zurich"})
     allow_url_lang_param: bool = True
     log_missing_translations: bool = True
 
@@ -89,6 +91,9 @@ class I18nConfig:
 
     def currency_for(self, region: str) -> str:
         return self.display_currency_by_region.get(region, self.default_display_currency)
+
+    def time_zone_for(self, region: str) -> str:
+        return self.time_zone_by_region.get(region, self.default_time_zone)
 
 
 def _require(cond: bool, key: str, problem: str) -> None:
@@ -148,6 +153,14 @@ def validate_config(raw: dict) -> I18nConfig:
         ZoneInfo(str(vals["default_time_zone"]))
     except (ZoneInfoNotFoundError, ValueError):
         _require(False, "default_time_zone", f"'{vals['default_time_zone']}' is not an IANA time zone")
+    tz_by_region = vals["time_zone_by_region"]
+    _require(isinstance(tz_by_region, dict), "time_zone_by_region", "must be an object")
+    for r, tz in tz_by_region.items():
+        _require(r in regions, "time_zone_by_region", f"has region '{r}' that is not in enabled_regions")
+        try:
+            ZoneInfo(str(tz))
+        except (ZoneInfoNotFoundError, ValueError):
+            _require(False, "time_zone_by_region", f"maps '{r}' to '{tz}', which is not an IANA time zone")
     for k in ("allow_url_lang_param", "log_missing_translations"):
         _require(isinstance(vals[k], bool), k, "must be true or false")
 
@@ -158,6 +171,7 @@ def validate_config(raw: dict) -> I18nConfig:
         display_currency_by_region=dict(by_region),
         enabled_display_currencies=tuple(currencies),
         default_time_zone=str(vals["default_time_zone"]),
+        time_zone_by_region={r: str(tz) for r, tz in tz_by_region.items()},
         allow_url_lang_param=vals["allow_url_lang_param"],
         log_missing_translations=vals["log_missing_translations"],
     )
@@ -211,7 +225,7 @@ def _locale(tag: str) -> Locale:
 def _default_ctx() -> Ctx:
     cfg = config()
     return Ctx(cfg.default_language, cfg.default_region, cfg.currency_for(cfg.default_region),
-               "short", cfg.default_time_zone, _week_start_for(cfg.default_region))
+               "short", cfg.time_zone_for(cfg.default_region), _week_start_for(cfg.default_region))
 
 
 def current() -> Ctx:
@@ -340,11 +354,11 @@ def resolve(profile: dict | None, *, session_lang: str | None, browser_tags: lis
     date_format = profile.get("date_format")
     if date_format not in DATE_FORMATS:
         date_format = "short"
-    tz = profile.get("time_zone") or cfg.default_time_zone
+    tz = profile.get("time_zone") or cfg.time_zone_for(region)
     try:
         ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError):
-        tz = cfg.default_time_zone
+        tz = cfg.time_zone_for(region)
     week = profile.get("week_start")
     if week not in WEEK_STARTS:
         week = _week_start_for(region)

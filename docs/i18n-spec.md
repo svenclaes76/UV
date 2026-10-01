@@ -106,7 +106,7 @@ The region format setting controls all formatting. The interface language never 
 | F-09 | The number of decimals is set per value type rather than per locale: prices 2 (or instrument precision), percentages 1–2, ratios 2, share quantities up to 4. | Must |
 | F-10 | Number inputs are parsed using the region format, so 1.234 means 1234 in nl-BE and 1.234 in en-GB. The parsed value is shown back before saving, and input that fails to parse is rejected with a message rather than guessed. | Must |
 | F-11 | CSV exports offer two options: locale format (for Excel in that region, with `;` delimiter in comma-decimal locales) or machine format (dot decimal, ISO dates, `,` delimiter). | Should |
-| F-12 | Times display in the user's time zone, with Europe/Brussels as the default. Market close times keep the exchange's own time zone with a label. | Should |
+| F-12 | Times display in the user's time zone. Until the user chooses one it follows the region (`time_zone_by_region`, Europe/Zurich for the Swiss regions) and otherwise defaults to Europe/Brussels. Market close times keep the exchange's own time zone with a label. | Should |
 | F-13 | Text columns (company names, sectors, countries) sort by the rules of the active language, so accented names like Électricité or Ørsted sit with E and O rather than at the end. Use a Unicode collation library such as `pyuca`, not plain string sorting. | Must |
 | F-14 | Search in the Screener and elsewhere ignores accents and case: "societe" finds "Société Générale" and "loreal" finds "L'Oréal". Punctuation such as apostrophes and hyphens is ignored when matching. | Must |
 
@@ -148,7 +148,7 @@ Settings gets a dedicated **Language & region** page with six user-level setting
 | Region format | Dropdown, grouped by language | Locales from section 2, such as "België (Nederlands) — 1.234,56" | Language's default region | An option "Same as language" is at the top. |
 | Display currency | Dropdown | EUR, USD, GBP, CHF | CHF for de-CH, fr-CH and it-CH; EUR for all other regions | Applies to portfolio totals only (F-03). The default follows the region until the user picks a currency explicitly. |
 | Date format | Radio | Short (27/09/2026), Medium (27 sep 2026), ISO (2026-09-27) | Short | Examples render in the selected region. |
-| Time zone | Searchable dropdown | IANA zones | Europe/Brussels | Used for timestamps and "last updated". |
+| Time zone | Searchable dropdown | IANA zones | The region's time zone (Europe/Zurich for Swiss regions), else Europe/Brussels | Used for timestamps and "last updated". |
 | First day of week | Radio | Monday, Sunday | From region (Monday for EU) | Used for date pickers and calendar views. |
 
 ### 7.2 Behaviour
@@ -181,6 +181,10 @@ i18n:
     it-CH: CHF
   enabled_display_currencies: [EUR, USD, GBP, CHF]
   default_time_zone: Europe/Brussels
+  time_zone_by_region:
+    de-CH: Europe/Zurich
+    fr-CH: Europe/Zurich
+    it-CH: Europe/Zurich
   allow_url_lang_param: true
   log_missing_translations: true
 ```
