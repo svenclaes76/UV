@@ -90,26 +90,37 @@ def test_single_bad_fcf_year_passes_the_positive_fcf_check(isolated_data, monkey
     assert "Hard veto active" not in html
 
 
-def test_dividend_flag_alone_does_not_fail_the_veto_check_when_coverage_is_fine(isolated_data, monkeypatch):
+def test_dividend_flag_alone_warns_but_does_not_fail_the_veto_check(isolated_data, monkeypatch):
     # Div Flag == "At Risk" AND coverage < 1.0x is a single combined
     # sub-condition in the real _hard_veto formula (see components.py's
-    # veto_reason_str) -- flagged-but-adequately-covered must still show
-    # as PASSING here, not a red X for a factor that isn't actually
-    # contributing to a veto in this state.
-    df = make_scored_df([make_scored_row(**{"Div Flag": "At Risk"}, dividendCoverage=1.5, veto=False)])
+    # veto_reason_str) -- flagged-but-covered must not show a red X for a
+    # factor that isn't contributing to a veto, nor a plain green tick next
+    # to "At Risk": an amber "!" with the reason (here: FCF payout 120%).
+    df = make_scored_df([make_scored_row(**{"Div Flag": "At Risk"}, dividendCoverage=1.5,
+                                         cashPayoutRatio=1.2, dividendRate=1.0, veto=False)])
     at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
-    _rows = [m.value for m in at.markdown if "Dividend coverage adequate" in m.value]
+    _rows = [m.value for m in at.markdown if "Dividend covered by earnings" in m.value]
     assert len(_rows) == 1
-    assert "✓" in _rows[0]
-    assert "✕" not in _rows[0]
+    assert ">!<" in _rows[0]
+    assert "✓" not in _rows[0] and "✕" not in _rows[0]
+    assert "1.50× · at risk: FCF payout 120%" in _rows[0]
+
+
+def test_dividend_check_passes_cleanly_when_not_flagged(isolated_data, monkeypatch):
+    df = make_scored_df([make_scored_row(**{"Div Flag": "OK"}, dividendCoverage=2.0, veto=False)])
+    at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
+    _rows = [m.value for m in at.markdown if "Dividend covered by earnings" in m.value]
+    assert len(_rows) == 1
+    assert "✓" in _rows[0] and "at risk" not in _rows[0]
 
 
 def test_dividend_check_fails_only_when_both_flag_and_coverage_are_bad(isolated_data, monkeypatch):
     df = make_scored_df([make_scored_row(**{"Div Flag": "At Risk"}, dividendCoverage=0.5, veto=False)])
     at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
-    _rows = [m.value for m in at.markdown if "Dividend coverage adequate" in m.value]
+    _rows = [m.value for m in at.markdown if "Dividend covered by earnings" in m.value]
     assert len(_rows) == 1
     assert "✕" in _rows[0]
+    assert "at risk: cover under 1.2×" in _rows[0]
 
 
 def test_trend_check_passes_with_no_multi_year_history(isolated_data, monkeypatch):

@@ -9,6 +9,7 @@ import streamlit as st
 from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
                        dividend_income_summary, exchange_key_for_ticker,
                        load_dividend_meta)
+from scoring import DIV_COVERAGE_MIN, dividend_risk_reasons
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
                       sector_for, decision_reason)
 from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
@@ -344,7 +345,20 @@ def render() -> None:
         # show a misleading red ✕ under "Hard-veto checks" for a factor that
         # isn't actually contributing to a veto in that state.
         _div_veto = div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0
-        _div_note = f"{tr(div_flag) if div_flag else '—'} · {_fv(row, 'dividendCoverage', lambda v: fmt_num(v, 2) + '×')}"
+        _div_note = _fv(row, "dividendCoverage", lambda v: fmt_num(v, 2) + "×")
+        # Flagged "At Risk" but not vetoed (still covered by earnings): an
+        # amber warning with the reason, not a green ✓ next to "At Risk".
+        _div_warn = div_flag == "At Risk" and not _div_veto
+        if div_flag == "At Risk":
+            _reason_text = {
+                "payout": lambda: _("payout {pct}", pct=fmt_pct(row.get("payoutRatio"), 0, fraction=True)),
+                "cash_payout": lambda: _("FCF payout {pct}", pct=fmt_pct(row.get("cashPayoutRatio"), 0, fraction=True)),
+                "coverage": lambda: _("cover under {ratio}", ratio=fmt_num(DIV_COVERAGE_MIN, 1) + "×"),
+                "recent_cut": lambda: _("cut in {year}", year=str(int(row.get("dividend_last_cut_year")))),
+            }
+            _reasons = [_reason_text[r]() for r in dividend_risk_reasons(row, max_payout=get_veto_thresholds()[1])]
+            if _reasons:
+                _div_note = _("{coverage} · at risk: {reasons}", coverage=_div_note, reasons=", ".join(_reasons))
         # Multi-year deterioration checks re-use screener._trend_veto directly —
         # same anti-drift reason as the D/E and FCF rows above. It returns the
         # list of tripped reasons; empty means the row passes.
@@ -360,14 +374,17 @@ def render() -> None:
             (h_("Positive free cash flow"), not _fcf_hard_veto(row),
              _fv(row, "fcfYield", lambda v: _("{value}% yield", value=fmt_num(v * 100, 1)))
              if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
-            (h_("Dividend coverage adequate"), not _div_veto, _div_note),
+            (h_("Dividend covered by earnings"), "warn" if _div_warn else not _div_veto, _div_note),
             (h_("No adverse multi-year trend"), not _trend_reasons, _trend_note),
             (h_("Confirmed trading volume"), not _no_trade, _fv(row, "averageVolume", fmt_int)),
         ]
         for check_label, passed, note in _checks:
-            icon = "✓" if passed else "✕"
-            bg = "var(--up-bg)" if passed else "var(--down-bg)"
-            color = "var(--up-txt)" if passed else "var(--down-txt)"
+            if passed == "warn":   # passes the veto, but flagged — see the dividend row
+                icon, bg, color = "!", "var(--amber-bg)", "var(--amber-txt)"
+            else:
+                icon = "✓" if passed else "✕"
+                bg = "var(--up-bg)" if passed else "var(--down-bg)"
+                color = "var(--up-txt)" if passed else "var(--down-txt)"
             st.markdown(
                 f'<div style="display:flex;align-items:center;gap:11px;padding:9px 0;'
                 f'border-bottom:0.5px solid var(--line-2);">'
