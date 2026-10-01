@@ -65,6 +65,20 @@ def test_format_snapshots_per_region():
     assert actual == expected
 
 
+@pytest.mark.parametrize("region", ["de-CH", "it-CH"])
+def test_swiss_negative_money_puts_the_minus_where_the_plus_goes(region):
+    """CLDR's "¤-#" read "CHF-4’390" next to a signed "+CHF 155.72"."""
+    neg = i18n.fmt_money(-4390, "CHF", 0, locale=region)
+    pos = i18n.fmt_money(4390, "CHF", 0, signed=True, locale=region)
+    assert neg == f"-CHF{NBSP}4’390"
+    assert neg[1:] == pos[1:]
+
+
+def test_money_never_shows_minus_zero():
+    assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "€0.00"
+    assert i18n.fmt_money(-0.0, "CHF", locale="de-CH") == f"CHF{NBSP}0.00"
+
+
 @pytest.mark.parametrize("region, plain, eur", [
     ("en-GB", "12.8K", "€12.8K"),
     ("nl-BE", "12,8K", f"€{NBSP}12,8K"),

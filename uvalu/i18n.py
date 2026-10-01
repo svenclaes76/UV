@@ -818,6 +818,13 @@ def fmt_int(value, *, signed: bool = False, locale: str | None = None) -> str:
     return fmt_num(value, 0, signed=signed, locale=locale)
 
 
+def _glued_minus(pattern) -> bool:
+    """True when the negative pattern puts the minus straight after the
+    currency symbol with no space ("¤-#", de-CH/it-CH)."""
+    pos, neg = pattern.prefix
+    return neg != pos and neg.endswith("-") and neg[:-1].rstrip() == neg[:-1] and "¤" in neg
+
+
 def fmt_money(value, currency: str | None = None, decimals: int = 2, *, signed: bool = False,
               approx: bool = False, locale: str | None = None) -> str:
     """Locale currency: symbol position/spacing from CLDR (spec F-02).
@@ -827,7 +834,14 @@ def fmt_money(value, currency: str | None = None, decimals: int = 2, *, signed: 
         return MISSING
     loc = _loc(locale)
     ccy = currency or current().currency
-    out = _apply(loc.currency_formats["standard"], value, loc, decimals, None, currency=ccy)
+    value = 0.0 if value == 0 else value   # no "-0.00"
+    pattern = loc.currency_formats["standard"]
+    if value < 0 and _glued_minus(pattern):
+        # de-CH / it-CH: CLDR's "¤-#,##0.00" reads "CHF-4’390" next to a signed
+        # "+EUR 155.72". Put the minus where the plus goes: "-CHF 4’390".
+        out = _bnum.get_minus_sign_symbol(loc) + _apply(pattern, -value, loc, decimals, None, currency=ccy)
+    else:
+        out = _apply(pattern, value, loc, decimals, None, currency=ccy)
     out = _signed(out, value, loc, signed)
     return f"≈ {out}" if approx else out
 
