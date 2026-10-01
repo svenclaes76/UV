@@ -306,6 +306,33 @@ def test_code_and_template_are_in_sync():
     assert mod.main(check=True) == 0
 
 
+def test_update_keeps_poedit_wrapping_of_unchanged_entries():
+    """i18n_update.py rewrote hundreds of unchanged lines after every Poedit
+    save because Babel wraps differently: unchanged entries keep their text,
+    only moved source references and real changes come through."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("i18n_update", Path(__file__).parents[1] / "tools" / "i18n_update.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    header = 'msgid ""\nmsgstr ""\n"Language: nl\\n"\n"Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n'
+    poedit = (header + '"X-Generator: Poedit 3.9\\n"\n\n'
+              '#. Context: a note\n#: a.py:1 b.py:2\n#: c.py:3\nmsgid ""\n"Long text that Poedit wraps "\n'
+              '"here."\nmsgstr "Lange tekst."\n\n'
+              '#: a.py:5\nmsgid "Old"\nmsgstr "Oud"\n')
+    babel = (header.replace('"Language: nl\\n"\n', '') + '"Language: nl\\n"\n\n'
+             '#. Context: a note\n#: a.py:1 b.py:2 c.py:3\nmsgid "Long text that Poedit wraps here."\n'
+             'msgstr "Lange tekst."\n\n'
+             '#: a.py:9\nmsgid "Old"\nmsgstr "Oud"\n\n'
+             '#: d.py:1\nmsgid "New"\nmsgstr ""\n')
+    out = mod._preserve_layout(poedit, babel)
+    assert out.startswith(poedit.split("\n\n")[0])          # header: Poedit's order and X-Generator kept
+    assert '"Long text that Poedit wraps "\n"here."' in out     # unchanged entry: Poedit's wrapping kept
+    assert "#: a.py:1 b.py:2\n#: c.py:3" in out                # same references: their lines kept too
+    assert '#: a.py:9\nmsgid "Old"' in out                      # moved reference comes through
+    assert 'msgid "New"' in out                                  # new entry added
+    assert mod._preserve_layout(out, babel) == out               # a second run changes nothing
+
+
 # ── Deferred messages ────────────────────────────────────────────────────────
 
 def test_msg_is_english_text_that_retranslates_and_pickles(drafts):

@@ -20,6 +20,9 @@ exclusions, plus two things the plain commands don't do:
   rejects translations like "25% bij" as bad %-directives — Uvalu only uses
   {name} placeholders, never %-formatting.
 
+* Entries that didn't change keep their existing line wrapping (Poedit's),
+  so a run after a Poedit save only touches what really changed.
+
 Existing translations and their fuzzy (unreviewed) status are preserved;
 Babel marks a changed msgid fuzzy and keeps its old translation as a starting
 point. Nothing here ever clears a fuzzy flag.
@@ -34,7 +37,7 @@ from pathlib import Path
 
 from babel.messages.catalog import Catalog
 from babel.messages.extract import extract_from_dir
-from babel.messages.pofile import read_po, write_po
+from babel.messages.pofile import normalize, read_po, unescape, write_po
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCALES = ROOT / "locales"
@@ -140,11 +143,154 @@ def fix_flags_text(path: Path) -> int:
     return changed
 
 
+# Poedit saves through GNU msgcat, whose layout equals `msgcat --width=83`
+# (checked against Poedit 3.9 files). Babel's wrapper differs in details (it
+# breaks only at spaces and puts the space at the start of the next line), so
+# _write also keeps the existing text of every unchanged entry, see
+# _preserve_layout.
+PO_WIDTH = 83
+
+
+def _block_key(block: str) -> tuple:
+    """What an entry says, independent of how it is wrapped: flags, comments
+    and the concatenated contents of every msg* keyword. Source references
+    are left out; _preserve_layout swaps those in separately."""
+    flags, auto, other = set(), [], []
+    strings: dict[str, str] = {}
+    cur = None
+    for line in block.split("\n"):
+        prefix = ""
+        if line.startswith(("#|", "#~")):
+            prefix, line = line[:2], line[2:].lstrip()
+        if line.startswith("#,"):
+            flags |= {prefix + f.strip() for f in line[2:].split(",") if f.strip()}
+        elif line.startswith("#."):
+            auto.append(line[2:].strip())
+        elif line.startswith("#:"):
+            continue
+        elif line.startswith("#"):
+            other.append(prefix + line)
+        elif line.startswith('"') and cur is not None:
+            strings[cur] += line[1:-1]
+        elif line:
+            kw, _sep, rest = line.partition(" ")
+            cur = prefix + kw
+            strings[cur] = rest.strip()[1:-1]
+    return (frozenset(flags), " ".join(auto), tuple(other), tuple(sorted(strings.items())))
+
+
+def _refs(block: str) -> list[str]:
+    return [ln for ln in block.split("\n") if ln.startswith("#:")]
+
+
+def _with_refs(old: str, new: str) -> str:
+    """The old entry text with the new entry's "#:" source-reference lines."""
+    if [t for r in _refs(old) for t in r[2:].split()] == [t for r in _refs(new) for t in r[2:].split()]:
+        return old
+    lines = old.split("\n")
+    at = next((i for i, ln in enumerate(lines) if ln.startswith("#:")), None)
+    kept = [ln for ln in lines if not ln.startswith("#:")]
+    if at is None:   # no refs before: they go after the comments, before the flags/msg lines
+        at = next(i for i, ln in enumerate(kept) if not (ln.startswith(("#.", "# ")) or ln == "#"))
+    return "\n".join(kept[:at] + _refs(new) + kept[at:])
+
+
+def _header_fields(block: str) -> list[tuple[str, str]]:
+    lines = [ln[1:-1] for ln in block.split("\n") if ln.startswith('"')]
+    fields = []
+    for raw in "".join(lines).split("\\n"):
+        key, sep, value = raw.partition(":")
+        if sep:
+            fields.append((key.strip(), value.strip()))
+    return fields
+
+
+def _merge_header(old: str, new: str) -> str:
+    """The old header block (Poedit's field order, X-Generator, comments) with
+    any field value Babel changed brought in; new fields go at the end."""
+    new_fields = dict(_header_fields(new))
+    old_fields = dict(_header_fields(old))
+    if all(old_fields.get(k) == v for k, v in new_fields.items()):
+        return old
+    out, seen = [], set()
+    for line in old.split("\n"):
+        if line.startswith('"'):
+            key = line[1:].partition(":")[0].strip()
+            if key in new_fields and key not in seen:
+                seen.add(key)
+                line = f'"{key}: {new_fields[key]}\\n"'
+        out.append(line)
+    out += [f'"{k}: {v}\\n"' for k, v in new_fields.items() if k not in old_fields]
+    return "\n".join(out)
+
+
+def _preserve_layout(old_text: str, new_text: str) -> str:
+    """Babel's output, but every entry that is unchanged apart from line
+    wrapping keeps its existing text. Poedit (and hand edits) wrap
+    differently from Babel; without this each run after a Poedit save
+    rewrote hundreds of unchanged lines."""
+    old_blocks = old_text.replace("\r\n", "\n").strip("\n").split("\n\n")
+    new_blocks = new_text.replace("\r\n", "\n").strip("\n").split("\n\n")
+    by_key = {}
+    for b in old_blocks[1:]:
+        by_key.setdefault(_block_key(b), b)
+    out = [_merge_header(old_blocks[0], new_blocks[0])]
+    for b in new_blocks[1:]:
+        old = by_key.get(_block_key(b))
+        out.append(b if old is None else _with_refs(old, b))
+    return "\n\n".join(out) + "\n"
+
+
+def _previous_lines(previous_id) -> list[str]:
+    """'#| msgid …' lines in gettext's layout. Babel's own include_previous
+    runs the quoted text through its comment wrapper, which breaks a long
+    msgid mid-string ('#| msgid "" "Each track …')."""
+    ids = previous_id if isinstance(previous_id, (list, tuple)) else [previous_id]
+    out = []
+    for kw, text in zip(("msgid", "msgid_plural"), ids):
+        for i, ln in enumerate(normalize(text, width=PO_WIDTH).split("\n")):
+            out.append(f"#| {kw} {ln}" if i == 0 else f"#| {ln}")
+    return out
+
+
+def _add_previous(text: str, previous: dict) -> str:
+    """Insert each fuzzy entry's previous msgid before its msgctxt/msgid line."""
+    if not previous:
+        return text
+    blocks = text.split("\n\n")
+    for n, block in enumerate(blocks):
+        lines = block.split("\n")
+        at = next((i for i, ln in enumerate(lines) if ln.startswith(("msgctxt ", "msgid "))), None)
+        if at is None:
+            continue
+        strings, cur = {}, None
+        for ln in lines[at:]:
+            if ln.startswith('"') and cur:
+                strings[cur] += ln[1:-1]
+            elif ln.startswith(("msgctxt ", "msgid ")):
+                cur, _sep, rest = ln.partition(" ")
+                strings[cur] = rest[1:-1]
+            else:
+                cur = None
+        key = (unescape(f'"{strings["msgctxt"]}"') if "msgctxt" in strings else None,
+               unescape(f'"{strings.get("msgid", "")}"'))
+        if key in previous:
+            blocks[n] = "\n".join(lines[:at] + _previous_lines(previous[key]) + lines[at:])
+    return "\n\n".join(blocks)
+
+
 def _write(path: Path, catalog: Catalog) -> None:
     _normalize_format_flags(catalog)
+    previous = {_key(m): m.previous_id for m in catalog if m.id and m.previous_id}
     buf = io.BytesIO()
-    write_po(buf, catalog, width=76, sort_output=False, include_previous=True)
-    path.write_bytes(buf.getvalue())
+    write_po(buf, catalog, width=PO_WIDTH, sort_output=False, include_previous=False)
+    text = _add_previous(buf.getvalue().decode("utf-8"), previous)
+    if path.exists():
+        raw = path.read_bytes().decode("utf-8")
+        text = _preserve_layout(raw, text)
+        if "\r\n" in raw:   # keep the file's own line endings (Poedit on Windows writes CRLF)
+            text = text.replace("\n", "\r\n")
+    path.write_bytes(text.encode("utf-8"))
 
 
 def main(check: bool) -> int:
@@ -165,6 +311,8 @@ def main(check: bool) -> int:
     if check:
         return 1 if (added or removed) else 0
 
+    if not (added or removed):
+        new.creation_date = old.creation_date   # same msgids: don't touch 7 headers for a timestamp
     _write(POT, new)
     for po_path in sorted(LOCALES.glob("*/LC_MESSAGES/messages.po")):
         lang = po_path.parts[-3]
