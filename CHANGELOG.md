@@ -9,6 +9,8 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-10-02
+
 MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter and recreate the virtualenv before pulling; nothing else needs migrating (language and region settings default to detection; nothing stored changes shape).
 
 ### Added
