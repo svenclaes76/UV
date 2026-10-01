@@ -380,8 +380,15 @@ def six_model_ladder_caption(row) -> "str | None":
     substitution and the analyst-target haircut so the printed rows reconcile
     with the composite. `None` when neither applies."""
     parts = []
-    if _is_live(row.get("pb_fair_value")) or _is_live(row.get("fcf_fair_value")):
+    # Name only the fallbacks the ladder actually shows (a live value that
+    # found no dark Graham/P/E/EPV slot isn't on screen to explain).
+    shown = {lbl for lbl, _v in six_model_ladder_rows(row)} & {"Book value", "FCF value"}
+    if shown == {"Book value", "FCF value"}:
         parts.append(_("“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {"Book value"}:
+        parts.append(_("“Book value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {"FCF value"}:
+        parts.append(_("“FCF value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
     if _is_live(row.get("targetMeanPrice")):
         parts.append(_("The composite applies a −10% optimism haircut to the Analyst Target shown."))
     return " ".join(parts) if parts else None

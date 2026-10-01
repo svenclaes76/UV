@@ -231,6 +231,20 @@ def test_six_model_ladder_caption_flags_fallback_and_haircut():
     assert "Book value" in cap and "haircut" in cap
 
 
+def test_six_model_ladder_caption_names_only_the_fallbacks_shown():
+    from uvalu.components import six_model_ladder_caption
+    # Book value only (the CPINV.BR case): no mention of an FCF value row.
+    cap = six_model_ladder_caption({"pb_fair_value": 8.0})
+    assert cap.startswith("“Book value” stands in") and "FCF" not in cap
+    cap = six_model_ladder_caption({"fcf_fair_value": 9.0})
+    assert cap.startswith("“FCF value” stands in") and "Book value" not in cap
+    assert six_model_ladder_caption({"pb_fair_value": 8.0, "fcf_fair_value": 9.0}).startswith(
+        "“Book value” / “FCF value” stand in")
+    # A live fallback with no dark Graham/P/E/EPV slot isn't on the ladder: no note.
+    assert six_model_ladder_caption({"pb_fair_value": 8.0, "graham_number": 10.0,
+                                     "pe_fair_value": 11.0, "epv": 12.0}) is None
+
+
 def test_fair_value_ladder_shows_reason_and_basis_line():
     def _script():
         from uvalu.components import fair_value_ladder
