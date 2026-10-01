@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-09-30 19:50+0000\n"
-"PO-Revision-Date: 2026-09-30 20:52+0200\n"
+"PO-Revision-Date: 2026-10-01 17:47+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -93,8 +93,7 @@ msgid ""
 "Registration is disabled until this is fixed."
 msgstr ""
 "Impossibile leggere l'archivio utenti (chiave di cifratura errata o file "
-"danneggiato). La registrazione è disattivata finché il problema non viene "
-"risolto."
+"danneggiato). La registrazione è disattivata finché il problema non viene risolto."
 
 #. Context: Sign-up › error
 #: auth.py:140
@@ -373,8 +372,7 @@ msgstr "Inserisci il tasso di cambio per convertire {currency} in {base}."
 #: cash.py:311
 #, python-brace-format
 msgid ""
-"Blocked: this would take the cash balance to {amount}. Balance cannot go "
-"negative."
+"Blocked: this would take the cash balance to {amount}. Balance cannot go negative."
 msgstr ""
 "Bloccato: il saldo di liquidità arriverebbe a {amount}. Il saldo non può essere "
 "negativo."
@@ -665,8 +663,7 @@ msgstr "Dati sovrapposti insufficienti dopo l'allineamento"
 #: risk.py:1015
 #, python-brace-format
 msgid "High {factor} loading ({value}) — concentrated factor bet"
-msgstr ""
-"Esposizione {factor} elevata ({value}): scommessa concentrata su un fattore"
+msgstr "Esposizione {factor} elevata ({value}): scommessa concentrata su un fattore"
 
 #. Context: Risk page › factor warning
 #: risk.py:1031
@@ -768,8 +765,7 @@ msgstr "Ridurre a ≤15%; reinvestire nei sottopesi"
 #: risk.py:1437
 #, python-brace-format
 msgid "Portfolio beta {beta} exceeds 1.5 — amplified drawdown risk"
-msgstr ""
-"Beta del portafoglio {beta} superiore a 1,5: rischio di drawdown amplificato"
+msgstr "Beta del portafoglio {beta} superiore a 1,5: rischio di drawdown amplificato"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1439
@@ -780,22 +776,19 @@ msgstr "Ruotare verso titoli a basso beta / difensivi"
 #: risk.py:1445
 #, no-python-format, python-brace-format
 msgid "1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance"
-msgstr ""
-"VaR 99% a 1 giorno = {amount} ({pct}): oltre la tolleranza di perdita del 3%"
+msgstr "VaR 99% a 1 giorno = {amount} ({pct}): oltre la tolleranza di perdita del 3%"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1448
 msgid "Reduce high-beta/volatile positions to lower tail risk"
-msgstr ""
-"Ridurre le posizioni ad alto beta/volatili per abbassare il rischio di coda"
+msgstr "Ridurre le posizioni ad alto beta/volatili per abbassare il rischio di coda"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1453
 #, python-brace-format
 msgid "{pct} of portfolio income comes from dividend-at-risk positions"
 msgstr ""
-"Il {pct} del reddito del portafoglio proviene da posizioni con dividendo a "
-"rischio"
+"Il {pct} del reddito del portafoglio proviene da posizioni con dividendo a rischio"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1455
@@ -812,8 +805,7 @@ msgstr ""
 #. Context: Risk page › rebalancing action
 #: risk.py:1463
 msgid "Add defensive/uncorrelated assets to cushion tail risk"
-msgstr ""
-"Aggiungere attività difensive/non correlate per attenuare il rischio di coda"
+msgstr "Aggiungere attività difensive/non correlate per attenuare il rischio di coda"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1468
@@ -894,8 +886,7 @@ msgstr "Settore {sector} al {weight}: oltre la soglia guida del 30%"
 #. Context: Risk page › rebalancing action
 #: risk.py:1527
 msgid "Reduce largest sector; add exposure to lagging sectors"
-msgstr ""
-"Ridurre il settore principale; aumentare l'esposizione ai settori in ritardo"
+msgstr "Ridurre il settore principale; aumentare l'esposizione ai settori in ritardo"
 
 #. Context: Risk page › rebalancing issue (with per-name targets)
 #: risk.py:1538
@@ -913,11 +904,10 @@ msgstr "Ridurre o incrementare verso il peso obiettivo"
 #: risk.py:1546
 #, no-python-format, python-brace-format
 msgid ""
-"Weighted portfolio DGR {dgr} may trail inflation (~2.5%) — real income erosion "
-"risk"
+"Weighted portfolio DGR {dgr} may trail inflation (~2.5%) — real income erosion risk"
 msgstr ""
-"La crescita ponderata dei dividendi del portafoglio ({dgr}) potrebbe restare "
-"sotto l'inflazione (~2,5%): rischio di erosione del reddito reale"
+"La crescita ponderata dei dividendi del portafoglio ({dgr}) potrebbe restare sotto "
+"l'inflazione (~2,5%): rischio di erosione del reddito reale"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1548
@@ -931,8 +921,8 @@ msgid ""
 "Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at "
 "{date})"
 msgstr ""
-"Sharpe {sharpe} sotto 1,0 per la seconda revisione consecutiva (era {previous} "
-"il {date})"
+"Sharpe {sharpe} sotto 1,0 per la seconda revisione consecutiva (era {previous} il "
+"{date})"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1557 risk.py:1562
@@ -974,19 +964,18 @@ msgstr "Monitorare da vicino; ridurre se i fondamentali peggiorano ancora"
 #: risk.py:1584
 #, python-brace-format
 msgid ""
-"{ticker}: ~{days} trading days to exit at {participation} of average volume — "
-"thin for this position size"
+"{ticker}: ~{days} trading days to exit at {participation} of average volume — thin "
+"for this position size"
 msgstr ""
-"{ticker}: ~{days} giorni di borsa per uscire al {participation} del volume "
-"medio, poco liquido per questa dimensione"
+"{ticker}: ~{days} giorni di borsa per uscire al {participation} del volume medio, "
+"poco liquido per questa dimensione"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1587
-msgid ""
-"Size the position to what you can exit in a few days, or accept the exit risk"
+msgid "Size the position to what you can exit in a few days, or accept the exit risk"
 msgstr ""
-"Dimensionare la posizione in modo da poter uscire in pochi giorni, o accettare "
-"il rischio di uscita"
+"Dimensionare la posizione in modo da poter uscire in pochi giorni, o accettare il "
+"rischio di uscita"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1592
@@ -1083,8 +1072,7 @@ msgstr ""
 #, python-brace-format
 msgid "Composite score {score} ≥ {threshold} — both BUY conditions met."
 msgstr ""
-"Punteggio composito {score} ≥ {threshold}: entrambe le condizioni BUY "
-"soddisfatte."
+"Punteggio composito {score} ≥ {threshold}: entrambe le condizioni BUY soddisfatte."
 
 #. Context: Signal explanation reason (lowercase, joined into 'Not a BUY: …')
 #: screener.py:1688
@@ -1175,8 +1163,7 @@ msgstr "Inserisci il codice di autenticazione"
 #. Context: Two-factor sign-in step › text under the heading
 #: uvalu/authgate.py:129
 msgid "Open your authenticator app and enter the 6-digit code for Uvalu."
-msgstr ""
-"Apri la tua app di autenticazione e inserisci il codice a 6 cifre per Uvalu."
+msgstr "Apri la tua app di autenticazione e inserisci il codice a 6 cifre per Uvalu."
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
@@ -1316,8 +1303,7 @@ msgstr "Questo account è stato sospeso"
 #. {provider} = Google / Microsoft Entra ID.
 #: uvalu/authgate.py:282
 #, python-brace-format
-msgid ""
-"Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
+msgid "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
 msgstr ""
 "L'accesso tramite {provider} è riuscito, ma l'account Uvalu associato è sospeso."
 
@@ -1334,8 +1320,8 @@ msgstr "Nessun account Uvalu per questa identità {provider}"
 #: uvalu/authgate.py:286
 #, python-brace-format
 msgid ""
-"Uvalu is invite-only. {email} is not a member of this workspace, so no account "
-"was created."
+"Uvalu is invite-only. {email} is not a member of this workspace, so no account was "
+"created."
 msgstr ""
 "Uvalu è solo su invito. {email} non è membro di questo spazio di lavoro, quindi "
 "non è stato creato alcun account."
@@ -1346,8 +1332,8 @@ msgid ""
 "If you were invited on a different address, sign in with that one — or ask an "
 "admin to invite this address."
 msgstr ""
-"Se sei stato invitato su un altro indirizzo, accedi con quello, oppure chiedi a "
-"un amministratore di invitare questo indirizzo."
+"Se sei stato invitato su un altro indirizzo, accedi con quello, oppure chiedi a un "
+"amministratore di invitare questo indirizzo."
 
 #. Context: Sign-in screens › button that returns to the normal sign-in form
 #: uvalu/authgate.py:297 uvalu/authgate.py:434
@@ -1362,8 +1348,7 @@ msgstr "Link di invito non valido"
 
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
 #: uvalu/authgate.py:315
-msgid ""
-"This invite link is invalid or has expired. Ask your admin to send a new one."
+msgid "This invite link is invalid or has expired. Ask your admin to send a new one."
 msgstr ""
 "Questo link di invito non è valido o è scaduto. Chiedine uno nuovo al tuo "
 "amministratore."
@@ -1380,8 +1365,8 @@ msgstr "un amministratore"
 #: uvalu/authgate.py:321
 #, python-brace-format
 msgid ""
-"Invited by {inviter} as {role}. Pick a password, or use a connected provider — "
-"you can add another method later."
+"Invited by {inviter} as {role}. Pick a password, or use a connected provider — you "
+"can add another method later."
 msgstr ""
 "Invitato da {inviter} come {role}. Scegli una password o usa un provider "
 "collegato: potrai aggiungere un altro metodo in seguito."
@@ -1452,8 +1437,8 @@ msgstr "Password dimenticata?"
 #. Context: Sign-in screen › text in the 'Forgot your password?' box
 #: uvalu/authgate.py:431
 msgid ""
-"Uvalu has no automated password reset — ask an admin to send you a one-time "
-"reset link from the Admin portal."
+"Uvalu has no automated password reset — ask an admin to send you a one-time reset "
+"link from the Admin portal."
 msgstr ""
 "Uvalu non prevede il ripristino automatico della password: chiedi a un "
 "amministratore di inviarti un link monouso dal portale di amministrazione."
@@ -1466,8 +1451,7 @@ msgstr "Link di ripristino non valido"
 
 #. Context: Password reset screen › text under 'Reset link invalid'
 #: uvalu/authgate.py:450
-msgid ""
-"This reset link is invalid or has expired. Ask your admin to send a new one."
+msgid "This reset link is invalid or has expired. Ask your admin to send a new one."
 msgstr ""
 "Questo link di ripristino non è valido o è scaduto. Chiedine uno nuovo al tuo "
 "amministratore."
@@ -1523,8 +1507,8 @@ msgstr "Accesso temporaneamente bloccato"
 #. Context: Sign-in screen › text under the lockout heading
 #: uvalu/authgate.py:610
 msgid ""
-"Too many failed attempts on this account. Uvalu will accept a new attempt when "
-"the timer expires."
+"Too many failed attempts on this account. Uvalu will accept a new attempt when the "
+"timer expires."
 msgstr ""
 "Troppi tentativi non riusciti su questo account. Uvalu accetterà un nuovo "
 "tentativo allo scadere del timer."
@@ -1741,8 +1725,8 @@ msgstr "nessuna copertura degli analisti"
 #. model names.
 #: uvalu/components.py:384
 msgid ""
-"“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) "
-"couldn’t be computed."
+"“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t "
+"be computed."
 msgstr ""
 "«Valore contabile» / «Valore FCF» sostituiscono un modello principale (Graham, P/"
 "E, EPV) che non è stato possibile calcolare."
@@ -1776,11 +1760,11 @@ msgstr "base · {count} modelli su 6"
 #. Context: Holdings row › tooltip on the 'fv pending' chip
 #: uvalu/components.py:498
 msgid ""
-"Fair value pending: this holding's fundamentals record came back incomplete and "
-"is being refetched"
+"Fair value pending: this holding's fundamentals record came back incomplete and is "
+"being refetched"
 msgstr ""
-"Valore equo in attesa: i dati fondamentali di questa posizione erano incompleti "
-"e vengono recuperati di nuovo"
+"Valore equo in attesa: i dati fondamentali di questa posizione erano incompleti e "
+"vengono recuperati di nuovo"
 
 #. Context: Stock rows › shown when the fair value is still being calculated
 #. ('fv' = fair value)
@@ -1879,7 +1863,7 @@ msgstr "Modifica posizione"
 #. only (e.g. 'Aug 2026'), so use the wording for a month, not a day ('in', not
 #. 'on').
 #: uvalu/components.py:1382
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{name} · closed {date}"
 msgstr "{name} · chiusura: {date}"
 
@@ -1967,8 +1951,7 @@ msgstr "Fonte"
 #. Context: Dividend log › tooltip on an amber (unconfirmed) payment date
 #: uvalu/components.py:1535
 msgid ""
-"Payment date not confirmed. Defaulted to the ex-date; edit to set the actual "
-"date."
+"Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date."
 msgstr ""
 "Data di pagamento non confermata. Impostata sulla data di stacco; modificala per "
 "indicare la data effettiva."
@@ -2489,9 +2472,9 @@ msgid ""
 "Reinvested (DRIP): no cash entry. The purchased shares were already added to the "
 "position and aren't re-applied by editing this record."
 msgstr ""
-"Reinvestito (DRIP): nessuna registrazione di liquidità. Le azioni acquistate "
-"sono già state aggiunte alla posizione e non vengono riapplicate se modifichi "
-"questo record."
+"Reinvestito (DRIP): nessuna registrazione di liquidità. Le azioni acquistate sono "
+"già state aggiunte alla posizione e non vengono riapplicate se modifichi questo "
+"record."
 
 #. Context: Edit dividend dialog › note for a dividend paid in shares
 #: uvalu/dialogs.py:783
@@ -2600,8 +2583,7 @@ msgstr "Registra di nuovo la vendita ({trade_id}) con nuovo ricavo e data."
 #: uvalu/dialogs.py:937
 msgid "No cash change — the ledger keeps this trade as recorded."
 msgstr ""
-"Nessuna variazione di liquidità: il registro mantiene l'operazione come "
-"registrata."
+"Nessuna variazione di liquidità: il registro mantiene l'operazione come registrata."
 
 #. Context: Edit trade dialog › delete confirmation
 #: uvalu/dialogs.py:940
@@ -2752,8 +2734,8 @@ msgid ""
 "Balance on that date {amount}. Saved as a separate correction entry; earlier "
 "entries stay unchanged."
 msgstr ""
-"Saldo a quella data {amount}. Salvato come registrazione di rettifica separata; "
-"le registrazioni precedenti restano invariate."
+"Saldo a quella data {amount}. Salvato come registrazione di rettifica separata; le "
+"registrazioni precedenti restano invariate."
 
 # | msgid "Rate stored with this entry · ECB {date}"
 #. Context: Cash entry view › exchange-rate note
@@ -2936,8 +2918,7 @@ msgstr "Valore equo da sei modelli"
 
 #. Context: Stock preview › small note under the fair-value bars
 #: uvalu/drawer.py:268
-msgid ""
-"⚑ Composite capped at the models' median — one model ran far above the rest."
+msgid "⚑ Composite capped at the models' median — one model ran far above the rest."
 msgstr ""
 "⚑ Valore composito limitato alla mediana dei modelli: un modello era molto più "
 "alto degli altri."
@@ -3190,8 +3171,7 @@ msgstr "Valuta di visualizzazione"
 #. Context: Planned (spec, not in code yet) › Help text under Display currency
 #: uvalu/locale_ui.py:146
 msgid ""
-"Applies to portfolio totals. Individual prices stay in the currency they trade "
-"in."
+"Applies to portfolio totals. Individual prices stay in the currency they trade in."
 msgstr ""
 "Si applica ai totali del portafoglio. I singoli prezzi restano nella valuta di "
 "negoziazione."
@@ -3753,8 +3733,8 @@ msgstr ""
 #: uvalu/pages_/analysis.py:525
 #, python-brace-format
 msgid ""
-"Scores highest on {best} ({best_score}/100) and weakest on {worst} "
-"({worst_score}/100)."
+"Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/"
+"100)."
 msgstr ""
 "Punteggio più alto in {best} ({best_score}/100) e più basso in {worst} "
 "({worst_score}/100)."
@@ -3820,8 +3800,8 @@ msgid ""
 "Every movement in this portfolio's cash, converted to {currency}. The balance is "
 "the running sum of the ledger."
 msgstr ""
-"Ogni movimento della liquidità di questo portafoglio, convertito in {currency}. "
-"Il saldo è la somma progressiva del registro."
+"Ogni movimento della liquidità di questo portafoglio, convertito in {currency}. Il "
+"saldo è la somma progressiva del registro."
 
 #. Context: Portfolio and Cash activity › download button (CSV/Excel)
 #: uvalu/pages_/cash.py:102 uvalu/pages_/portfolio.py:264
@@ -3882,19 +3862,18 @@ msgstr[1] "escluso saldo iniziale · {count} rettifiche"
 #: uvalu/pages_/cash.py:128
 msgid ""
 "The running balance dips below zero somewhere in this ledger — usually after a "
-"dividend was edited or deleted. Record a deposit or an adjustment on that date "
-"to correct it."
+"dividend was edited or deleted. Record a deposit or an adjustment on that date to "
+"correct it."
 msgstr ""
-"Il saldo progressivo scende sotto zero in un punto del registro, di solito dopo "
-"la modifica o l'eliminazione di un dividendo. Registra un deposito o una "
-"rettifica in quella data per correggerlo."
+"Il saldo progressivo scende sotto zero in un punto del registro, di solito dopo la "
+"modifica o l'eliminazione di un dividendo. Registra un deposito o una rettifica in "
+"quella data per correggerlo."
 
 #. Context: Cash activity › empty state
 #: uvalu/pages_/cash.py:133
 msgid ""
-"No cash entries yet. Record a deposit, or an Adjustment to set an opening "
-"balance. Buys never wait for cash: a shortfall is covered by an automatic top-up "
-"deposit."
+"No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. "
+"Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."
 msgstr ""
 "Nessuna registrazione di liquidità. Registra un deposito o una Rettifica per "
 "impostare un saldo iniziale. Gli acquisti non aspettano mai la liquidità: un "
@@ -3927,17 +3906,17 @@ msgstr "Mostra altre {more} · {hidden} non visualizzate"
 #, python-brace-format
 msgid ""
 "Entries can be made in any currency and are converted to {currency} at the ECB "
-"reference rate for the transaction date (frankfurter.dev), stored with the "
-"entry. When no rate is available the rate is entered manually and flagged. Buy/"
-"sell trades and received dividend payments post automatically; a buy the balance "
-"can't cover adds a linked top-up deposit so the balance never goes below zero."
+"reference rate for the transaction date (frankfurter.dev), stored with the entry. "
+"When no rate is available the rate is entered manually and flagged. Buy/sell "
+"trades and received dividend payments post automatically; a buy the balance can't "
+"cover adds a linked top-up deposit so the balance never goes below zero."
 msgstr ""
 "Le registrazioni possono essere in qualsiasi valuta e vengono convertite in "
 "{currency} al tasso di riferimento BCE della data dell'operazione "
-"(frankfurter.dev), salvato con la registrazione. Se il tasso non è disponibile, "
-"si inserisce a mano e viene segnalato. Acquisti, vendite e dividendi ricevuti "
-"vengono registrati automaticamente; un acquisto non coperto dal saldo aggiunge "
-"un deposito di ricarica collegato, così il saldo non scende mai sotto zero."
+"(frankfurter.dev), salvato con la registrazione. Se il tasso non è disponibile, si "
+"inserisce a mano e viene segnalato. Acquisti, vendite e dividendi ricevuti vengono "
+"registrati automaticamente; un acquisto non coperto dal saldo aggiunge un deposito "
+"di ricarica collegato, così il saldo non scende mai sotto zero."
 
 #. Context: Dashboard › heading of the empty state for a new user
 #: uvalu/pages_/dashboard.py:45
@@ -4075,7 +4054,6 @@ msgstr "Periodo"
 #. Context: Dashboard › portfolio value chart range button: last month. Keep it
 #. this short (number + one-letter unit), like '1M' in English.
 #: uvalu/pages_/dashboard.py:224
-#, fuzzy
 msgctxt "chart_range"
 msgid "1M"
 msgstr "1M"
@@ -4083,7 +4061,6 @@ msgstr "1M"
 #. Context: Dashboard › portfolio value chart range button: last 3 months. Same
 #. short style as '1M'.
 #: uvalu/pages_/dashboard.py:225
-#, fuzzy
 msgctxt "chart_range"
 msgid "3M"
 msgstr "3M"
@@ -4091,7 +4068,6 @@ msgstr "3M"
 #. Context: Dashboard › portfolio value chart range button: last year. Use your
 #. language's one-letter abbreviation for 'year' (e.g. 1J, 1A).
 #: uvalu/pages_/dashboard.py:226
-#, fuzzy
 msgctxt "chart_range"
 msgid "1Y"
 msgstr "1A"
@@ -4132,8 +4108,7 @@ msgstr "Benchmark"
 #. Context: Dashboard › empty state of the value chart
 #: uvalu/pages_/dashboard.py:321
 msgid "No history yet — it will appear after your first portfolio snapshot."
-msgstr ""
-"Nessuno storico per ora: comparirà dopo la prima istantanea del portafoglio."
+msgstr "Nessuno storico per ora: comparirà dopo la prima istantanea del portafoglio."
 
 #. Context: Dashboard › card heading
 #: uvalu/pages_/dashboard.py:326
@@ -4215,13 +4190,12 @@ msgstr "Posizioni · prezzo vs valore equo"
 #. to the stock's fair value; no currency on purpose, rows can be in different
 #. currencies.
 #: uvalu/pages_/dashboard.py:449
-#, fuzzy
 msgid ""
-"Each track runs from zero to the six-model fair-value estimate. Gap to the "
-"marker is your remaining margin of safety."
+"Each track runs from zero to the six-model fair-value estimate. Gap to the marker "
+"is your remaining margin of safety."
 msgstr ""
-"Ogni barra va da zero alla stima del valore equo dei sei modelli. La distanza "
-"dal segno è il tuo margine di sicurezza residuo."
+"Ogni barra va da zero alla stima del valore equo dei sei modelli. La distanza dal "
+"segno è il tuo margine di sicurezza residuo."
 
 #. Context: Dashboard › holdings table column: margin of safety in percent
 #. (short)
@@ -4338,14 +4312,14 @@ msgid ""
 "target — both conditions together, set in Settings → Screening & veto rules."
 msgstr ""
 "Il punteggio composito supera la soglia BUY e il margine di sicurezza raggiunge "
-"l'obiettivo: entrambe le condizioni insieme, impostate in Impostazioni → Regole "
-"di screening e veto."
+"l'obiettivo: entrambe le condizioni insieme, impostate in Impostazioni → Regole di "
+"screening e veto."
 
 #. Context: Help › signal legend: meaning of the MONITOR badge
 #: uvalu/pages_/help.py:50
 msgid ""
-"Composite score is decent but the margin of safety hasn't cleared the target "
-"yet, or the score itself sits below the BUY threshold — worth watching."
+"Composite score is decent but the margin of safety hasn't cleared the target yet, "
+"or the score itself sits below the BUY threshold — worth watching."
 msgstr ""
 "Il punteggio composito è discreto ma il margine di sicurezza non ha ancora "
 "raggiunto l'obiettivo, oppure il punteggio è sotto la soglia BUY: da tenere "
@@ -4362,8 +4336,8 @@ msgid ""
 "A hard-veto rule tripped (see below) — excluded from BUY scoring no matter what "
 "the composite score would otherwise be."
 msgstr ""
-"È scattata una regola di veto rigido (vedi sotto): escluso dai BUY, qualunque "
-"sia il punteggio composito."
+"È scattata una regola di veto rigido (vedi sotto): escluso dai BUY, qualunque sia "
+"il punteggio composito."
 
 #. Context: Help › signal legend: meaning of the NO DATA badge
 #: uvalu/pages_/help.py:55
@@ -4373,8 +4347,8 @@ msgid ""
 "veto."
 msgstr ""
 "Nessuna riga valutata nello screener per questa posizione: la fonte dei dati "
-"fondamentali non ha restituito nulla (o nessun prezzo), quindi non ci sono "
-"valore equo, punteggio o segnale. Non è un veto."
+"fondamentali non ha restituito nulla (o nessun prezzo), quindi non ci sono valore "
+"equo, punteggio o segnale. Non è un veto."
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
@@ -4384,8 +4358,8 @@ msgid ""
 "Needs positive trailing earnings and book value per share."
 msgstr ""
 "√(22,5 × EPS × valore contabile per azione): la classica formula di valore di "
-"Benjamin Graham. Richiede utili degli ultimi 12 mesi e valore contabile per "
-"azione positivi."
+"Benjamin Graham. Richiede utili degli ultimi 12 mesi e valore contabile per azione "
+"positivi."
 
 #. Context: Help › valuation model name: fair value from a fair P/E multiple
 #: uvalu/pages_/help.py:63
@@ -4408,8 +4382,8 @@ msgid ""
 "Normalised earnings capitalised at the cost of capital, deliberately ignoring "
 "speculative growth."
 msgstr ""
-"Utili normalizzati capitalizzati al costo del capitale, ignorando "
-"deliberatamente la crescita speculativa."
+"Utili normalizzati capitalizzati al costo del capitale, ignorando deliberatamente "
+"la crescita speculativa."
 
 #. Context: Help › valuation model name: one-stage dividend discount model
 #: uvalu/pages_/help.py:66
@@ -4419,8 +4393,8 @@ msgstr "DDM — 1 fase"
 #. Context: Help › explanation of the one-stage DDM
 #: uvalu/pages_/help.py:66
 msgid ""
-"Gordon growth model: next year's expected dividend discounted at (cost of equity "
-"− perpetual growth rate). Only applies to dividend payers."
+"Gordon growth model: next year's expected dividend discounted at (cost of equity − "
+"perpetual growth rate). Only applies to dividend payers."
 msgstr ""
 "Modello di crescita di Gordon: il dividendo atteso del prossimo anno, scontato a "
 "(costo del capitale proprio − tasso di crescita perpetua). Solo per chi paga "
@@ -4434,8 +4408,8 @@ msgstr "DDM — 2 fasi"
 #. Context: Help › explanation of the two-stage DDM
 #: uvalu/pages_/help.py:68
 msgid ""
-"A higher-growth phase followed by a stable terminal-growth phase, each "
-"discounted back separately. Also dividend-payer only."
+"A higher-growth phase followed by a stable terminal-growth phase, each discounted "
+"back separately. Also dividend-payer only."
 msgstr ""
 "Una fase di crescita più alta seguita da una fase di crescita terminale stabile, "
 "ciascuna scontata separatamente. Anche questo solo per chi paga dividendi."
@@ -4454,8 +4428,8 @@ msgstr "Target price medio a 12 mesi degli analisti, fonte Yahoo Finance."
 #: uvalu/pages_/help.py:74
 #, no-python-format
 msgid ""
-"Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening "
-"& veto rules (default 500%)."
+"Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & "
+"veto rules (default 500%)."
 msgstr ""
 "Il rapporto debito / patrimonio netto supera la soglia Debito/patrimonio max "
 "impostata in Impostazioni → Regole di screening e veto (predefinito 500%)."
@@ -4469,13 +4443,13 @@ msgstr "Il flusso di cassa libero (ultimi dodici mesi) è negativo."
 #. 'and'. 'At risk' must match the translated dividend flag.
 #: uvalu/pages_/help.py:77
 msgid ""
-"The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or "
-"coverage breach) <em>and</em> dividend coverage is below 1.0× — both conditions "
-"together, not either alone."
+"The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage "
+"breach) <em>and</em> dividend coverage is below 1.0× — both conditions together, "
+"not either alone."
 msgstr ""
-"Il dividendo è segnalato \"A rischio\" (payout ratio, payout di cassa o "
-"copertura insufficiente) <em>e</em> la copertura del dividendo è inferiore a "
-"1,0×: entrambe le condizioni insieme, non una sola."
+"Il dividendo è segnalato \"A rischio\" (payout ratio, payout di cassa o copertura "
+"insufficiente) <em>e</em> la copertura del dividendo è inferiore a 1,0×: entrambe "
+"le condizioni insieme, non una sola."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:82
@@ -4515,8 +4489,8 @@ msgstr "Ogni quanto si aggiornano i prezzi?"
 #. Context: Help › FAQ answer
 #: uvalu/pages_/help.py:90
 msgid ""
-"Quotes refresh on the interval set in Settings → Data during market hours "
-"(default every 15 minutes). Fundamentals update daily after each exchange close."
+"Quotes refresh on the interval set in Settings → Data during market hours (default "
+"every 15 minutes). Fundamentals update daily after each exchange close."
 msgstr ""
 "Durante l'orario di mercato le quotazioni si aggiornano all'intervallo impostato "
 "in Impostazioni → Dati (predefinito ogni 15 minuti). I dati fondamentali si "
@@ -4612,16 +4586,16 @@ msgstr "YoC netto"
 #: uvalu/pages_/portfolio.py:197
 msgid "Your portfolio is empty. Click Add position to record your first position."
 msgstr ""
-"Il tuo portafoglio è vuoto. Fai clic su Aggiungi posizione per registrare la "
-"prima posizione."
+"Il tuo portafoglio è vuoto. Fai clic su Aggiungi posizione per registrare la prima "
+"posizione."
 
 #. Context: Portfolio › caption under the page title
 #: uvalu/pages_/portfolio.py:256
 msgid ""
 "Cost basis, market value and realised results across open and closed positions."
 msgstr ""
-"Costo di carico, valore di mercato e risultati realizzati delle posizioni aperte "
-"e chiuse."
+"Costo di carico, valore di mercato e risultati realizzati delle posizioni aperte e "
+"chiuse."
 
 #. Context: Portfolio › small text on the Invested card
 #: uvalu/pages_/portfolio.py:305
@@ -4688,21 +4662,21 @@ msgstr "Nessun dividendo ricevuto per ora."
 #. Context: Portfolio › Open positions full page caption
 #: uvalu/pages_/portfolio.py:453
 msgid ""
-"Every holding at cost and at today's price. Click a row for its detail; the "
-"pencil edits or sells it."
+"Every holding at cost and at today's price. Click a row for its detail; the pencil "
+"edits or sells it."
 msgstr ""
-"Ogni posizione al costo e al prezzo di oggi. Fai clic su una riga per i "
-"dettagli; la matita serve a modificarla o venderla."
+"Ogni posizione al costo e al prezzo di oggi. Fai clic su una riga per i dettagli; "
+"la matita serve a modificarla o venderla."
 
 #. Context: Portfolio › Closed positions full page caption. Button names must
 #. match their translations.
 #: uvalu/pages_/portfolio.py:517
 msgid ""
-"Realised results of sold positions. To sell a holding, use Sell shares in its "
-"Edit dialog on Open positions."
+"Realised results of sold positions. To sell a holding, use Sell shares in its Edit "
+"dialog on Open positions."
 msgstr ""
-"Risultati realizzati delle posizioni vendute. Per vendere una posizione usa "
-"Vendi azioni nella finestra di modifica in Posizioni aperte."
+"Risultati realizzati delle posizioni vendute. Per vendere una posizione usa Vendi "
+"azioni nella finestra di modifica in Posizioni aperte."
 
 # | msgid "" "No closed positions yet. Sell a holding, or record an earlier
 # | trade with " "Add closed trade."
@@ -4710,8 +4684,7 @@ msgstr ""
 #. must match the button label.
 #: uvalu/pages_/portfolio.py:526
 msgid ""
-"No closed positions yet. Sell a holding, or record an earlier trade with Add "
-"trade."
+"No closed positions yet. Sell a holding, or record an earlier trade with Add trade."
 msgstr ""
 "Ancora nessuna posizione chiusa. Vendi una posizione o registra un'operazione "
 "precedente con Aggiungi operazione."
@@ -4751,8 +4724,8 @@ msgid ""
 "are also fetched from market data where available."
 msgstr ""
 "Nessun dividendo per ora. Aggiungine uno con Aggiungi dividendo; quando "
-"disponibili, i dividendi delle tue posizioni vengono recuperati anche dai dati "
-"di mercato."
+"disponibili, i dividendi delle tue posizioni vengono recuperati anche dai dati di "
+"mercato."
 
 #. Context: Portfolio › Dividend log KPI card label
 #: uvalu/pages_/portfolio.py:634
@@ -4833,8 +4806,7 @@ msgstr "Riepilogo annuale dei dividendi"
 #. Context: Portfolio › caption next to the annual summary heading
 #: uvalu/pages_/portfolio.py:706
 msgid "Net and gross reported separately, for your own tax filing."
-msgstr ""
-"Netto e lordo indicati separatamente, per la tua dichiarazione dei redditi."
+msgstr "Netto e lordo indicati separatamente, per la tua dichiarazione dei redditi."
 
 #. Context: Portfolio › annual summary empty state
 #: uvalu/pages_/portfolio.py:711
@@ -4920,9 +4892,8 @@ msgstr "Concentrazione"
 #: uvalu/pages_/risk.py:168
 #, no-python-format, python-brace-format
 msgid ""
-"Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}"
-"% of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte "
-"Carlo."
+"Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% "
+"of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo."
 msgstr ""
 "Le metriche di rischio riguardano solo la parte investita ({invested}). La "
 "liquidità di {cash}, pari al {pct}% del valore totale, è esclusa da HHI, VaR, "
@@ -5088,8 +5059,8 @@ msgstr "{names} resta/restano sotto veto rigido"
 msgid ""
 "All positions sit within the 15% single-name, 30% sector, and 60% country limits."
 msgstr ""
-"Tutte le posizioni rientrano nei limiti del 15% per titolo, 30% per settore e "
-"60% per paese."
+"Tutte le posizioni rientrano nei limiti del 15% per titolo, 30% per settore e 60% "
+"per paese."
 
 #. Context: Risk page › flag value: stock is under a hard veto
 #: uvalu/pages_/risk.py:426
@@ -5099,13 +5070,12 @@ msgstr "Veto"
 #. Context: Risk page › caption under the contribution table
 #: uvalu/pages_/risk.py:447
 msgid ""
-"Percent contribution to portfolio variance — each holding's weight × its "
-"marginal contribution, from its own volatility and its correlation to the rest "
-"of the book."
+"Percent contribution to portfolio variance — each holding's weight × its marginal "
+"contribution, from its own volatility and its correlation to the rest of the book."
 msgstr ""
-"Contributo percentuale alla varianza del portafoglio: il peso di ogni posizione "
-"× il suo contributo marginale, in base alla sua volatilità e alla correlazione "
-"con il resto del portafoglio."
+"Contributo percentuale alla varianza del portafoglio: il peso di ogni posizione × "
+"il suo contributo marginale, in base alla sua volatilità e alla correlazione con "
+"il resto del portafoglio."
 
 #. Context: Risk page › caption variant when data is short
 #: uvalu/pages_/risk.py:449
@@ -5113,8 +5083,8 @@ msgid ""
 "Weight × |beta| — not enough correlated return history this run for the full "
 "variance decomposition."
 msgstr ""
-"Peso × |beta|: storico dei rendimenti correlati insufficiente per la "
-"scomposizione completa della varianza."
+"Peso × |beta|: storico dei rendimenti correlati insufficiente per la scomposizione "
+"completa della varianza."
 
 #. Context: Screener › first option of the Sector filter
 #: uvalu/pages_/screener.py:31
@@ -5190,11 +5160,11 @@ msgstr ""
 #: uvalu/pages_/screener.py:319
 #, python-brace-format
 msgid ""
-"Small universe ({count} stocks) — composite scores are percentile ranks within "
-"it, so \"Strong Buy\" carries less weight here."
+"Small universe ({count} stocks) — composite scores are percentile ranks within it, "
+"so \"Strong Buy\" carries less weight here."
 msgstr ""
-"Universo ridotto ({count} titoli): i punteggi compositi sono ranghi percentili "
-"al suo interno, quindi \"Strong Buy\" pesa meno qui."
+"Universo ridotto ({count} titoli): i punteggi compositi sono ranghi percentili al "
+"suo interno, quindi \"Strong Buy\" pesa meno qui."
 
 #. Context: Screener › button
 #: uvalu/pages_/screener.py:324
@@ -5282,11 +5252,11 @@ msgstr "Password attuale"
 #. must match its translation.
 #: uvalu/pages_/settings.py:252
 msgid ""
-"Other devices stay signed in — use “Sign out everywhere else” below if you want "
-"to end those sessions too."
+"Other devices stay signed in — use “Sign out everywhere else” below if you want to "
+"end those sessions too."
 msgstr ""
-"Gli altri dispositivi restano connessi: usa «Esci da tutti gli altri "
-"dispositivi» qui sotto per chiudere anche quelle sessioni."
+"Gli altri dispositivi restano connessi: usa «Esci da tutti gli altri dispositivi» "
+"qui sotto per chiudere anche quelle sessioni."
 
 #. Context: Settings › dialog title (account without a password)
 #: uvalu/pages_/settings.py:257 uvalu/pages_/settings.py:442
@@ -5297,8 +5267,7 @@ msgstr "Imposta una password"
 #: uvalu/pages_/settings.py:263
 msgid "Add a password so you can sign in when your provider is unavailable."
 msgstr ""
-"Aggiungi una password per poter accedere quando il tuo provider non è "
-"disponibile."
+"Aggiungi una password per poter accedere quando il tuo provider non è disponibile."
 
 #. Context: Settings › Set a password dialog › save button
 #: uvalu/pages_/settings.py:275
@@ -5318,8 +5287,8 @@ msgstr "Impossibile avviare la configurazione. Riprova."
 #. Context: Settings › 2FA setup › step 1 instruction
 #: uvalu/pages_/settings.py:309
 msgid ""
-"Step 1 of 2 — scan this QR code with your authenticator app (Google "
-"Authenticator, 1Password, Authy, etc.)."
+"Step 1 of 2 — scan this QR code with your authenticator app (Google Authenticator, "
+"1Password, Authy, etc.)."
 msgstr ""
 "Passaggio 1 di 2: scansiona questo codice QR con la tua app di autenticazione "
 "(Google Authenticator, 1Password, Authy ecc.)."
@@ -5413,8 +5382,7 @@ msgstr "NON IMPOSTATA"
 #. set
 #: uvalu/pages_/settings.py:436
 msgid "Add one so you can sign in when your provider is unavailable."
-msgstr ""
-"Aggiungine una per poter accedere quando il tuo provider non è disponibile."
+msgstr "Aggiungine una per poter accedere quando il tuo provider non è disponibile."
 
 #. Context: Settings › Security › button to change the password (verb). Context
 #. 'button' separates it from the noun 'Change'.
@@ -5612,8 +5580,8 @@ msgstr "Regole di screening e veto"
 #. match the translated navigation.
 #: uvalu/pages_/settings.py:604
 msgid ""
-"These drive every BUY/MONITOR/AVOID decision across the app — Screener, "
-"Watchlist, Dashboard, Portfolio and Analysis all read the same values."
+"These drive every BUY/MONITOR/AVOID decision across the app — Screener, Watchlist, "
+"Dashboard, Portfolio and Analysis all read the same values."
 msgstr ""
 "Determinano ogni decisione BUY/MONITOR/AVOID nell'app: Screener, Watchlist, "
 "Dashboard, Portafoglio e Analisi usano gli stessi valori."
@@ -5633,8 +5601,8 @@ msgstr "Debito / patrimonio max"
 #: uvalu/pages_/settings.py:613
 msgid "Hard veto above this leverage (Financials, Real Estate, Utilities exempt)."
 msgstr ""
-"Veto rigido oltre questa leva (esenti servizi finanziari, immobiliare e servizi "
-"di pubblica utilità)."
+"Veto rigido oltre questa leva (esenti servizi finanziari, immobiliare e servizi di "
+"pubblica utilità)."
 
 #. Context: Settings › slider label
 #: uvalu/pages_/settings.py:617
@@ -5772,8 +5740,7 @@ msgstr "Tetto di concentrazione (HHI)"
 
 #. Context: Settings › HHI description. Use the local decimal separator.
 #: uvalu/pages_/settings.py:705
-msgid ""
-"Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands."
+msgid "Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands."
 msgstr ""
 "Segnala quando l'HHI del portafoglio supera questo valore. 0 = fasce predefinite "
 "0,10 / 0,18."
@@ -5838,8 +5805,7 @@ msgstr "Avvisi di taglio / sospensione del dividendo"
 
 #. Context: Settings › Data › toggle description
 #: uvalu/pages_/settings.py:786
-msgid ""
-"Flag a holding on the Dashboard when its dividend was just cut or suspended."
+msgid "Flag a holding on the Dashboard when its dividend was just cut or suspended."
 msgstr ""
 "Segnala una posizione nella dashboard quando il suo dividendo è appena stato "
 "tagliato o sospeso."
@@ -5960,8 +5926,8 @@ msgid ""
 "Track tickers you don't hold yet. Add from the screener with the star, or type a "
 "symbol directly below."
 msgstr ""
-"Segui i ticker che non possiedi ancora. Aggiungili dallo screener con la stella "
-"o digita un simbolo qui sotto."
+"Segui i ticker che non possiedi ancora. Aggiungili dallo screener con la stella o "
+"digita un simbolo qui sotto."
 
 #. Context: Watchlist › submit button
 #: uvalu/pages_/watchlist.py:98
@@ -5977,15 +5943,14 @@ msgstr "Nome della società (facoltativo)"
 #: uvalu/pages_/watchlist.py:143
 msgid "Your watchlist is empty. Star a ticker in the screener or add one above."
 msgstr ""
-"La tua watchlist è vuota. Metti una stella a un ticker nello screener o "
-"aggiungine uno qui sopra."
+"La tua watchlist è vuota. Metti una stella a un ticker nello screener o aggiungine "
+"uno qui sopra."
 
 #. Context: Watchlist › loading caption
 #: uvalu/pages_/watchlist.py:154
 #, python-brace-format
 msgid ""
-"Fetching data for your {count} watchlisted ticker… {done}/{total} companies "
-"scored."
+"Fetching data for your {count} watchlisted ticker… {done}/{total} companies scored."
 msgid_plural ""
 "Fetching data for your {count} watchlisted tickers… {done}/{total} companies "
 "scored."
@@ -6002,8 +5967,8 @@ msgid ""
 "No screener data yet for your watchlisted ticker — it will appear after the next "
 "screener refresh."
 msgid_plural ""
-"No screener data yet for your watchlisted tickers — they'll appear after the "
-"next screener refresh."
+"No screener data yet for your watchlisted tickers — they'll appear after the next "
+"screener refresh."
 msgstr[0] ""
 "Nessun dato dello screener per il tuo ticker in watchlist: comparirà dopo il "
 "prossimo aggiornamento."
