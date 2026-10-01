@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-01 21:31+0000\n"
-"PO-Revision-Date: 2026-10-01 23:10+0200\n"
+"PO-Revision-Date: 2026-10-01 23:41+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
 "Language: nl\n"
@@ -110,17 +110,17 @@ msgstr "Account aangemaakt. Je kunt je nu aanmelden."
 #: auth.py:317
 #, python-brace-format
 msgid ""
-"This invite was sent to {email}. Sign in with a matching account, or ask your "
-"admin to invite {provider_email}."
+"This invite was sent to {email}. Sign in with a matching account, or ask your admin to "
+"invite {provider_email}."
 msgstr ""
-"Deze uitnodiging werd naar {email} gestuurd. Meld je aan met een overeenkomend "
-"account of vraag je beheerder om {provider_email} uit te nodigen."
+"Deze uitnodiging werd naar {email} gestuurd. Meld je aan met een overeenkomend account "
+"of vraag je beheerder om {provider_email} uit te nodigen."
 
 #. Context: Sign-in › error
 #: auth.py:468
 msgid ""
-"The user store could not be read (wrong encryption key or a corrupted file). "
-"Contact your administrator."
+"The user store could not be read (wrong encryption key or a corrupted file). Contact "
+"your administrator."
 msgstr ""
 "De gebruikersgegevens konden niet worden gelezen (verkeerde encryptiesleutel of "
 "beschadigd bestand). Neem contact op met je beheerder."
@@ -144,8 +144,8 @@ msgstr[1] ""
 #: auth.py:509
 #, python-brace-format
 msgid ""
-"Invalid email or password. Too many failed attempts — this account is now locked "
-"for {minutes} minutes."
+"Invalid email or password. Too many failed attempts — this account is now locked for "
+"{minutes} minutes."
 msgstr ""
 "Ongeldig e-mailadres of wachtwoord. Te veel mislukte pogingen: dit account is nu "
 "{minutes} minuten geblokkeerd."
@@ -154,22 +154,22 @@ msgstr ""
 #: auth.py:516
 #, python-brace-format
 msgid ""
-"Invalid email or password. {count} attempt remains before this account is locked "
-"for {minutes} minutes."
+"Invalid email or password. {count} attempt remains before this account is locked for "
+"{minutes} minutes."
 msgid_plural ""
-"Invalid email or password. {count} attempts remain before this account is locked "
-"for {minutes} minutes."
+"Invalid email or password. {count} attempts remain before this account is locked for "
+"{minutes} minutes."
 msgstr[0] ""
-"Ongeldig e-mailadres of wachtwoord. Nog {count} poging voordat dit account "
-"{minutes} minuten wordt geblokkeerd."
+"Ongeldig e-mailadres of wachtwoord. Nog {count} poging voordat dit account {minutes} "
+"minuten wordt geblokkeerd."
 msgstr[1] ""
-"Ongeldig e-mailadres of wachtwoord. Nog {count} pogingen voordat dit account "
-"{minutes} minuten wordt geblokkeerd."
+"Ongeldig e-mailadres of wachtwoord. Nog {count} pogingen voordat dit account {minutes} "
+"minuten wordt geblokkeerd."
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:617 auth.py:637 auth.py:713 auth.py:871 auth.py:953 auth.py:976
-#: auth.py:1002 auth.py:1189
+#: auth.py:617 auth.py:637 auth.py:713 auth.py:871 auth.py:953 auth.py:976 auth.py:1002
+#: auth.py:1189
 msgid "User not found."
 msgstr "Gebruiker niet gevonden."
 
@@ -249,8 +249,7 @@ msgstr "Die provider is niet gekoppeld aan je account."
 #. Context: Settings › Linked accounts › error
 #: auth.py:983
 msgid "Can't disconnect your only sign-in method — set a password first."
-msgstr ""
-"Je kunt je enige aanmeldmethode niet ontkoppelen: stel eerst een wachtwoord in."
+msgstr "Je kunt je enige aanmeldmethode niet ontkoppelen: stel eerst een wachtwoord in."
 
 #. Context: Settings › Linked accounts › confirmation
 #: auth.py:988
@@ -373,8 +372,8 @@ msgstr "Vul de wisselkoers in om {currency} om te rekenen naar {base}."
 msgid ""
 "Blocked: this would take the cash balance to {amount}. Balance cannot go negative."
 msgstr ""
-"Geblokkeerd: hierdoor zou het cashsaldo {amount} worden. Het saldo kan niet "
-"negatief zijn."
+"Geblokkeerd: hierdoor zou het cashsaldo {amount} worden. Het saldo kan niet negatief "
+"zijn."
 
 #. Context: Cash dialog › validation error
 #: cash.py:326 cash.py:541
@@ -576,8 +575,8 @@ msgid "Undervalued"
 msgstr "Ondergewaardeerd"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:528 risk.py:683 risk.py:690 uvalu/pages_/risk.py:271
-#: uvalu/pages_/risk.py:273 uvalu/pages_/risk.py:275 uvalu/pages_/risk.py:276
+#: risk.py:528 risk.py:683 risk.py:690 uvalu/pages_/risk.py:271 uvalu/pages_/risk.py:273
+#: uvalu/pages_/risk.py:275 uvalu/pages_/risk.py:276
 msgid "N/A"
 msgstr "n.v.t."
 
@@ -716,8 +715,7 @@ msgstr "Kredietcrisis"
 #. Context: Risk page › stress scenario description
 #: risk.py:1215
 msgid "Leveraged positions repriced — high D/E stocks penalised"
-msgstr ""
-"Posities met veel schuld herwaardeerd: aandelen met hoge schuldgraad bestraft"
+msgstr "Posities met veel schuld herwaardeerd: aandelen met hoge schuldgraad bestraft"
 
 #. Context: Risk page › stress scenario name
 #: risk.py:1224
@@ -773,8 +771,7 @@ msgstr "VaR 99% op 1 dag = {amount} ({pct}): hoger dan de verliestolerantie van 
 #. Context: Risk page › rebalancing action
 #: risk.py:1448
 msgid "Reduce high-beta/volatile positions to lower tail risk"
-msgstr ""
-"Verminder posities met hoge bèta/volatiliteit om het staartrisico te verlagen"
+msgstr "Verminder posities met hoge bèta/volatiliteit om het staartrisico te verlagen"
 
 #. Context: Risk page › rebalancing issue
 #: risk.py:1453
@@ -863,8 +860,7 @@ msgstr "Herbalanceer richting de laatst herbekeken verdeling"
 #, python-brace-format
 msgid "{sector} at {actual} vs {target} target — {drift} drift exceeds {limit}"
 msgstr ""
-"{sector} op {actual} t.o.v. doel {target}: afwijking van {drift} overschrijdt "
-"{limit}"
+"{sector} op {actual} t.o.v. doel {target}: afwijking van {drift} overschrijdt {limit}"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1521
@@ -913,10 +909,8 @@ msgstr "Geef de voorkeur aan betalers met een sterkere historiek van dividendgro
 #: risk.py:1554
 #, python-brace-format
 msgid ""
-"Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at "
-"{date})"
-msgstr ""
-"Sharpe {sharpe} voor de tweede keer op rij onder 1,0 (was {previous} op {date})"
+"Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at {date})"
+msgstr "Sharpe {sharpe} voor de tweede keer op rij onder 1,0 (was {previous} op {date})"
 
 #. Context: Risk page › rebalancing action
 #: risk.py:1557 risk.py:1562
@@ -956,8 +950,8 @@ msgstr "Nauw opvolgen; afbouwen als de fundamentals verder verzwakken"
 #: risk.py:1584
 #, python-brace-format
 msgid ""
-"{ticker}: ~{days} trading days to exit at {participation} of average volume — thin "
-"for this position size"
+"{ticker}: ~{days} trading days to exit at {participation} of average volume — thin for "
+"this position size"
 msgstr ""
 "{ticker}: ~{days} handelsdagen nodig om uit te stappen aan {participation} van het "
 "gemiddelde volume: weinig liquiditeit voor deze positiegrootte"
@@ -1052,11 +1046,11 @@ msgstr "Hard veto actief: uitgesloten van BUY, ongeacht de totaalscore."
 #: screener.py:1683
 #, python-brace-format
 msgid ""
-"Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — "
-"both BUY conditions met."
+"Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — both "
+"BUY conditions met."
 msgstr ""
-"Totaalscore {score} ≥ {threshold} en veiligheidsmarge {mos} ≥ {min_mos}: aan beide "
-"BUY-voorwaarden voldaan."
+"Totaalscore {score} ≥ {threshold} en veiligheidsmarge {mos} ≥ {min_mos}: aan beide BUY-"
+"voorwaarden voldaan."
 
 #. Context: Signal explanation: BUY, without a margin-of-safety clause
 #: screener.py:1685
@@ -1074,8 +1068,7 @@ msgstr "totaalscore {score} ligt onder de BUY-drempel van {threshold}"
 #: screener.py:1692
 msgid "no computable fair value, so the margin of safety can't be confirmed"
 msgstr ""
-"geen berekenbare intrinsieke waarde, dus de veiligheidsmarge kan niet worden "
-"bevestigd"
+"geen berekenbare intrinsieke waarde, dus de veiligheidsmarge kan niet worden bevestigd"
 
 #. Context: Signal explanation reason (lowercase)
 #: screener.py:1694
@@ -1134,11 +1127,11 @@ msgstr "dividend verlaagd in {year} met slechts {coverage}× dekking"
 #. Context: First-run screen › text under the heading
 #: uvalu/authgate.py:31
 msgid ""
-"No accounts exist yet. This account gets full Admin access — you can invite "
-"everyone else once you're signed in."
+"No accounts exist yet. This account gets full Admin access — you can invite everyone "
+"else once you're signed in."
 msgstr ""
-"Er bestaan nog geen accounts. Dit account krijgt volledige beheerdersrechten; "
-"zodra je bent aangemeld, kun je alle anderen uitnodigen."
+"Er bestaan nog geen accounts. Dit account krijgt volledige beheerdersrechten; zodra je "
+"bent aangemeld, kun je alle anderen uitnodigen."
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
@@ -1180,10 +1173,9 @@ msgid "Use a backup code"
 msgstr "Een back-upcode gebruiken"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:311
-#: uvalu/dialogs.py:319 uvalu/locale_ui.py:190 uvalu/pages_/settings.py:240
-#: uvalu/pages_/settings.py:272 uvalu/pages_/settings.py:319
-#: uvalu/pages_/settings.py:362
+#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:311 uvalu/dialogs.py:319
+#: uvalu/locale_ui.py:190 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:272
+#: uvalu/pages_/settings.py:319 uvalu/pages_/settings.py:362
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -1295,8 +1287,7 @@ msgstr "Dit account is geschorst"
 #: uvalu/authgate.py:282
 #, python-brace-format
 msgid "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
-msgstr ""
-"Aanmelden via {provider} is gelukt, maar het Uvalu-account ervan is geschorst."
+msgstr "Aanmelden via {provider} is gelukt, maar het Uvalu-account ervan is geschorst."
 
 #. Context: Sign-in screen › heading when a single sign-on email has no Uvalu
 #. account
@@ -1314,14 +1305,14 @@ msgid ""
 "Uvalu is invite-only. {email} is not a member of this workspace, so no account was "
 "created."
 msgstr ""
-"Uvalu werkt alleen op uitnodiging. {email} is geen lid van deze werkruimte, dus er "
-"is geen account aangemaakt."
+"Uvalu werkt alleen op uitnodiging. {email} is geen lid van deze werkruimte, dus er is "
+"geen account aangemaakt."
 
 #. Context: Sign-in screen › follow-up hint under the 'no account' message
 #: uvalu/authgate.py:294
 msgid ""
-"If you were invited on a different address, sign in with that one — or ask an "
-"admin to invite this address."
+"If you were invited on a different address, sign in with that one — or ask an admin to "
+"invite this address."
 msgstr ""
 "Werd je op een ander adres uitgenodigd? Meld je dan daarmee aan, of vraag een "
 "beheerder om dit adres uit te nodigen."
@@ -1340,8 +1331,7 @@ msgstr "Uitnodigingslink ongeldig"
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
 #: uvalu/authgate.py:315
 msgid "This invite link is invalid or has expired. Ask your admin to send a new one."
-msgstr ""
-"Deze uitnodigingslink is ongeldig of verlopen. Vraag je beheerder om een nieuwe."
+msgstr "Deze uitnodigingslink is ongeldig of verlopen. Vraag je beheerder om een nieuwe."
 
 #. Context: Fills {inviter} in 'Invited by {inviter} as …' when the inviter is
 #. unknown
@@ -1355,11 +1345,11 @@ msgstr "een beheerder"
 #: uvalu/authgate.py:321
 #, python-brace-format
 msgid ""
-"Invited by {inviter} as {role}. Pick a password, or use a connected provider — you "
-"can add another method later."
+"Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can "
+"add another method later."
 msgstr ""
-"Uitgenodigd door {inviter} als {role}. Kies een wachtwoord of gebruik een "
-"gekoppelde provider; je kunt later nog een methode toevoegen."
+"Uitgenodigd door {inviter} als {role}. Kies een wachtwoord of gebruik een gekoppelde "
+"provider; je kunt later nog een methode toevoegen."
 
 #. Context: Invite acceptance screen › heading
 #: uvalu/authgate.py:324
@@ -1427,8 +1417,8 @@ msgstr "Wachtwoord vergeten?"
 #. Context: Sign-in screen › text in the 'Forgot your password?' box
 #: uvalu/authgate.py:431
 msgid ""
-"Uvalu has no automated password reset — ask an admin to send you a one-time reset "
-"link from the Admin portal."
+"Uvalu has no automated password reset — ask an admin to send you a one-time reset link "
+"from the Admin portal."
 msgstr ""
 "Uvalu heeft geen automatische wachtwoordreset. Vraag een beheerder om je via het "
 "beheerportaal een eenmalige resetlink te sturen."
@@ -1498,8 +1488,8 @@ msgid ""
 "Too many failed attempts on this account. Uvalu will accept a new attempt when the "
 "timer expires."
 msgstr ""
-"Te veel mislukte pogingen op dit account. Uvalu aanvaardt een nieuwe poging zodra "
-"de timer afloopt."
+"Te veel mislukte pogingen op dit account. Uvalu aanvaardt een nieuwe poging zodra de "
+"timer afloopt."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
@@ -1525,8 +1515,8 @@ msgstr "Aanmelden"
 #: uvalu/authgate.py:632
 msgid "The lock applies to password sign-in only. Providers are unaffected."
 msgstr ""
-"De blokkering geldt alleen voor aanmelden met wachtwoord. Aanmelden via een "
-"provider werkt nog."
+"De blokkering geldt alleen voor aanmelden met wachtwoord. Aanmelden via een provider "
+"werkt nog."
 
 #. Context: Sign-in lockout screen › button to try another email address
 #: uvalu/authgate.py:635
@@ -1714,47 +1704,36 @@ msgstr "geen analistendekking"
 #. model names.
 #: uvalu/components.py:387
 msgid ""
-"“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t "
-"be computed."
+"“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t be "
+"computed."
 msgstr ""
-"‘Boekwaarde’ en ‘VKS-waarde’ vervangen een kernmodel (Graham, K/W, EPV) dat niet "
-"kon worden berekend."
+"‘Boekwaarde’ en ‘VKS-waarde’ vervangen een kernmodel (Graham, K/W, EPV) dat niet kon "
+"worden berekend."
 
 #. Context: Stock preview / Analysis › note under the six-model fair-value bars when
 #. only the book-value fallback replaces a model that couldn't be computed. Same
 #. wording as the two-model note, singular.
 #: uvalu/components.py:389
-#, fuzzy
-#| msgid ""
-#| "“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) "
-#| "couldn’t be computed."
 msgid ""
-"“Book value” stands in where a core model (Graham, P/E, EPV) couldn’t be "
-"computed."
+"“Book value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."
 msgstr ""
-"‘Boekwaarde’ vervangt een kernmodel (Graham, K/W, EPV) dat niet kon worden "
-"berekend."
+"‘Boekwaarde’ vervangt een kernmodel (Graham, K/W, EPV) dat niet kon worden berekend."
 
 #. Context: Stock preview / Analysis › note under the six-model fair-value bars when
 #. only the free-cash-flow fallback replaces a model that couldn't be computed. Same
 #. wording as the two-model note, singular.
 #: uvalu/components.py:391
-#, fuzzy
-#| msgid ""
-#| "“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) "
-#| "couldn’t be computed."
 msgid "“FCF value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."
 msgstr ""
-"‘VKS-waarde’ vervangt een kernmodel (Graham, K/W, EPV) dat niet kon worden "
-"berekend."
+"‘VKS-waarde’ vervangt een kernmodel (Graham, K/W, EPV) dat niet kon worden berekend."
 
 #. Context: Fair-value bars › footnote
 #: uvalu/components.py:393
 #, no-python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr ""
-"De samengestelde waarde past een correctie van −10% voor optimisme toe op het "
-"getoonde koersdoel van analisten."
+"De samengestelde waarde past een correctie van −10% voor optimisme toe op het getoonde "
+"koersdoel van analisten."
 
 #. Context: Fair-value bars › empty state
 #: uvalu/components.py:426 uvalu/components.py:433
@@ -1780,8 +1759,8 @@ msgid ""
 "Fair value pending: this holding's fundamentals record came back incomplete and is "
 "being refetched"
 msgstr ""
-"Intrinsieke waarde volgt: de fundamentele gegevens van deze positie waren "
-"onvolledig en worden opnieuw opgehaald"
+"Intrinsieke waarde volgt: de fundamentele gegevens van deze positie waren onvolledig "
+"en worden opnieuw opgehaald"
 
 #. Context: Stock rows › shown when the fair value is still being calculated
 #. ('fv' = fair value)
@@ -1898,10 +1877,10 @@ msgstr "Dividend bewerken"
 
 #. Context: Table column header: the stock (name and ticker). Used on
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
-#: uvalu/components.py:1504 uvalu/pages_/dashboard.py:459
-#: uvalu/pages_/dashboard.py:464 uvalu/pages_/portfolio.py:65
-#: uvalu/pages_/portfolio.py:71 uvalu/pages_/portfolio.py:413 uvalu/pages_/risk.py:34
-#: uvalu/pages_/screener.py:47 uvalu/pages_/watchlist.py:31
+#: uvalu/components.py:1504 uvalu/pages_/dashboard.py:459 uvalu/pages_/dashboard.py:464
+#: uvalu/pages_/portfolio.py:65 uvalu/pages_/portfolio.py:71
+#: uvalu/pages_/portfolio.py:413 uvalu/pages_/risk.py:34 uvalu/pages_/screener.py:47
+#: uvalu/pages_/watchlist.py:31
 msgid "Position"
 msgstr "Positie"
 
@@ -2208,8 +2187,8 @@ msgstr "Verwijderen"
 
 #. Context: Trade and cash dialogs › preview row: cash balance before this
 #. action
-#: uvalu/dialogs.py:381 uvalu/dialogs.py:466 uvalu/dialogs.py:471
-#: uvalu/dialogs.py:1220 uvalu/dialogs.py:1224
+#: uvalu/dialogs.py:381 uvalu/dialogs.py:466 uvalu/dialogs.py:471 uvalu/dialogs.py:1220
+#: uvalu/dialogs.py:1224
 msgid "Current balance"
 msgstr "Huidig saldo"
 
@@ -2288,8 +2267,7 @@ msgstr "Vul een tickersymbool in."
 #: uvalu/dialogs.py:436 uvalu/dialogs.py:878 uvalu/pages_/watchlist.py:58
 #, python-brace-format
 msgid "Ticker **{ticker}** not found. Check the symbol and try again."
-msgstr ""
-"Ticker **{ticker}** niet gevonden. Controleer het symbool en probeer opnieuw."
+msgstr "Ticker **{ticker}** niet gevonden. Controleer het symbool en probeer opnieuw."
 
 #. Context: Add position dialog › validation error
 #: uvalu/dialogs.py:441
@@ -2297,8 +2275,7 @@ msgid "Enter shares and either a total cost or a price per share."
 msgstr "Vul het aantal aandelen in, en een totale kost of een prijs per aandeel."
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
-#: uvalu/dialogs.py:467 uvalu/dialogs.py:471 uvalu/dialogs.py:1221
-#: uvalu/locale_ui.py:83
+#: uvalu/dialogs.py:467 uvalu/dialogs.py:471 uvalu/dialogs.py:1221 uvalu/locale_ui.py:83
 msgid "Change"
 msgstr "Wijziging"
 
@@ -2309,8 +2286,7 @@ msgid "no cash change"
 msgstr "geen cashwijziging"
 
 #. Context: Cash dialog › preview total: balance after this entry
-#: uvalu/dialogs.py:468 uvalu/dialogs.py:474 uvalu/dialogs.py:1186
-#: uvalu/dialogs.py:1232
+#: uvalu/dialogs.py:468 uvalu/dialogs.py:474 uvalu/dialogs.py:1186 uvalu/dialogs.py:1232
 msgid "Balance after"
 msgstr "Saldo erna"
 
@@ -2457,11 +2433,9 @@ msgstr "Buitenl. bronheffing (%)"
 
 #. Context: Dividend dialogs › caption when type = Special
 #: uvalu/dialogs.py:678
-msgid ""
-"Flagged as special / one-off. Excluded from growth-streak and yield calculations."
+msgid "Flagged as special / one-off. Excluded from growth-streak and yield calculations."
 msgstr ""
-"Gemarkeerd als uitzonderlijk / eenmalig. Telt niet mee voor groeireeks en "
-"rendement."
+"Gemarkeerd als uitzonderlijk / eenmalig. Telt niet mee voor groeireeks en rendement."
 
 #. Context: Add dividend dialog › validation error
 #: uvalu/dialogs.py:689
@@ -2504,8 +2478,7 @@ msgstr "De cashboeking volgt automatisch (netto {currency} {amount})."
 #: uvalu/dialogs.py:793
 #, python-brace-format
 msgid ""
-"Delete this {ticker} dividend? It came from market data and won't be imported "
-"again."
+"Delete this {ticker} dividend? It came from market data and won't be imported again."
 msgstr ""
 "Dit dividend van {ticker} verwijderen? Het kwam uit marktgegevens en wordt niet "
 "opnieuw geïmporteerd."
@@ -2605,8 +2578,8 @@ msgstr "Vul zowel een aankoop- als een verkoopprijs in."
 #. Context: Cash dialog › warning when the exchange-rate service fails
 #: uvalu/dialogs.py:974
 msgid ""
-"frankfurter.dev is unreachable or has no rate for this date. Enter the rate "
-"manually; the entry will be flagged."
+"frankfurter.dev is unreachable or has no rate for this date. Enter the rate manually; "
+"the entry will be flagged."
 msgstr ""
 "frankfurter.dev is onbereikbaar of heeft geen koers voor deze datum. Vul de koers "
 "handmatig in; de boeking wordt gemarkeerd."
@@ -2716,18 +2689,18 @@ msgstr "Saldo volgens broker"
 #: uvalu/dialogs.py:1134
 #, python-brace-format
 msgid ""
-"Current balance {amount}. Saved as a separate correction entry; earlier entries "
-"stay unchanged."
+"Current balance {amount}. Saved as a separate correction entry; earlier entries stay "
+"unchanged."
 msgstr ""
-"Huidig saldo {amount}. Wordt opgeslagen als aparte correctieboeking; eerdere "
-"boekingen blijven ongewijzigd."
+"Huidig saldo {amount}. Wordt opgeslagen als aparte correctieboeking; eerdere boekingen "
+"blijven ongewijzigd."
 
 #. Context: Cash dialog (Adjustment) › caption variant for a past date
 #: uvalu/dialogs.py:1136
 #, python-brace-format
 msgid ""
-"Balance on that date {amount}. Saved as a separate correction entry; earlier "
-"entries stay unchanged."
+"Balance on that date {amount}. Saved as a separate correction entry; earlier entries "
+"stay unchanged."
 msgstr ""
 "Saldo op die datum {amount}. Wordt opgeslagen als aparte correctieboeking; eerdere "
 "boekingen blijven ongewijzigd."
@@ -2874,16 +2847,15 @@ msgstr "Sluiten"
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
 #: uvalu/drawer.py:223 uvalu/locale_ui.py:81 uvalu/pages_/analysis.py:188
-#: uvalu/pages_/analysis.py:204 uvalu/pages_/portfolio.py:66
-#: uvalu/pages_/screener.py:51 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/analysis.py:204 uvalu/pages_/portfolio.py:66 uvalu/pages_/screener.py:51
+#: uvalu/pages_/watchlist.py:31
 msgid "Price"
 msgstr "Koers"
 
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
 #: uvalu/drawer.py:225 uvalu/pages_/analysis.py:154 uvalu/pages_/analysis.py:230
-#: uvalu/pages_/analysis.py:530 uvalu/pages_/screener.py:50
-#: uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/analysis.py:530 uvalu/pages_/screener.py:50 uvalu/pages_/watchlist.py:31
 msgid "Margin of safety"
 msgstr "Veiligheidsmarge"
 
@@ -3037,11 +3009,11 @@ msgstr "Omgerekend tegen {rate} op {date}"
 #. line against English.
 #: uvalu/i18n_planned.py:11
 msgid ""
-"Uvalu provides information, not investment advice. Valuations are estimates and "
-"can be wrong. Always do your own research."
+"Uvalu provides information, not investment advice. Valuations are estimates and can be "
+"wrong. Always do your own research."
 msgstr ""
-"Uvalu geeft informatie, geen beleggingsadvies. Waarderingen zijn schattingen en "
-"kunnen fout zijn. Doe altijd je eigen onderzoek."
+"Uvalu geeft informatie, geen beleggingsadvies. Waarderingen zijn schattingen en kunnen "
+"fout zijn. Doe altijd je eigen onderzoek."
 
 #. Context: Planned (spec, not in code yet) › Disclaimer. Uses the standard
 #. local wording where one exists.
@@ -3064,8 +3036,7 @@ msgstr "Gebruiksvoorwaarden"
 #: uvalu/i18n_planned.py:16
 #, python-brace-format
 msgid "By creating an account, you agree to the {terms} and the {privacy}."
-msgstr ""
-"Door een account aan te maken, ga je akkoord met de {terms} en het {privacy}."
+msgstr "Door een account aan te maken, ga je akkoord met de {terms} en het {privacy}."
 
 #. Context: Planned (spec, not in code yet) › Tour title. Gender-neutral
 #. wording where the language needs it.
@@ -3120,8 +3091,8 @@ msgstr "Totale waarde"
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
 #: uvalu/locale_ui.py:85 uvalu/pages_/dashboard.py:459 uvalu/pages_/dashboard.py:464
-#: uvalu/pages_/screener.py:48 uvalu/pages_/screener.py:267
-#: uvalu/pages_/screener.py:268 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:48 uvalu/pages_/screener.py:267 uvalu/pages_/screener.py:268
+#: uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr "Signaal"
 
@@ -3446,8 +3417,8 @@ msgstr "Momentum"
 #. the drawer note)
 #: uvalu/pages_/analysis.py:260
 msgid ""
-"⚑ Composite capped at the models' median — one model ran far above the rest and "
-"the others don't corroborate it."
+"⚑ Composite capped at the models' median — one model ran far above the rest and the "
+"others don't corroborate it."
 msgstr ""
 "⚑ Samengestelde waarde begrensd op de mediaan van de modellen: één model lag veel "
 "hoger dan de rest en de andere bevestigen dat niet."
@@ -3714,8 +3685,7 @@ msgstr "Dividendverlaging vastgesteld"
 #, python-brace-format
 msgid "Annual dividend per share fell in {year} versus the prior year."
 msgstr ""
-"Het jaarlijkse dividend per aandeel daalde in {year} ten opzichte van het jaar "
-"ervoor."
+"Het jaarlijkse dividend per aandeel daalde in {year} ten opzichte van het jaar ervoor."
 
 #. Context: Analysis page › note when the dividend was raised
 #: uvalu/pages_/analysis.py:497
@@ -3744,8 +3714,8 @@ msgstr "Waardethese"
 #: uvalu/pages_/analysis.py:534
 #, python-brace-format
 msgid ""
-"{name} trades at {price} against a composite fair value of {fair_value} ({mos} "
-"margin of safety)."
+"{name} trades at {price} against a composite fair value of {fair_value} ({mos} margin "
+"of safety)."
 msgstr ""
 "{name} noteert op {price} tegenover een samengestelde intrinsieke waarde van "
 "{fair_value} ({mos} veiligheidsmarge)."
@@ -3756,11 +3726,10 @@ msgstr ""
 #: uvalu/pages_/analysis.py:542
 #, python-brace-format
 msgid ""
-"Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/"
-"100)."
+"Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100)."
 msgstr ""
-"Scoort het hoogst op {best} ({best_score}/100) en het zwakst op {worst} "
-"({worst_score}/100)."
+"Scoort het hoogst op {best} ({best_score}/100) en het zwakst op {worst} ({worst_score}/"
+"100)."
 
 #. Context: Portfolio › Cash card › shown under the balance when the ledger is
 #. empty
@@ -3787,8 +3756,8 @@ msgid "{currency} base"
 msgstr "basis {currency}"
 
 #. Context: Portfolio › tooltip on the expand icon of a card
-#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:327
-#: uvalu/pages_/portfolio.py:372 uvalu/pages_/portfolio.py:409
+#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:327 uvalu/pages_/portfolio.py:372
+#: uvalu/pages_/portfolio.py:409
 msgid "Open full page"
 msgstr "Volledige pagina openen"
 
@@ -3806,8 +3775,8 @@ msgstr "Opnemen"
 
 #. Context: Portfolio full pages and Cash activity › back button to the
 #. Portfolio overview
-#: uvalu/pages_/cash.py:92 uvalu/pages_/portfolio.py:446
-#: uvalu/pages_/portfolio.py:509 uvalu/pages_/portfolio.py:561
+#: uvalu/pages_/cash.py:92 uvalu/pages_/portfolio.py:446 uvalu/pages_/portfolio.py:509
+#: uvalu/pages_/portfolio.py:561
 msgid "← Back to Positions"
 msgstr "← Terug naar posities"
 
@@ -3820,15 +3789,15 @@ msgstr "Cashbewegingen"
 #: uvalu/pages_/cash.py:99
 #, python-brace-format
 msgid ""
-"Every movement in this portfolio's cash, converted to {currency}. The balance is "
-"the running sum of the ledger."
+"Every movement in this portfolio's cash, converted to {currency}. The balance is the "
+"running sum of the ledger."
 msgstr ""
-"Elke beweging van het cashsaldo van deze portefeuille, omgerekend naar {currency}. "
-"Het saldo is de lopende som van het kasboek."
+"Elke beweging van het cashsaldo van deze portefeuille, omgerekend naar {currency}. Het "
+"saldo is de lopende som van het kasboek."
 
 #. Context: Portfolio and Cash activity › download button (CSV/Excel)
-#: uvalu/pages_/cash.py:102 uvalu/pages_/portfolio.py:264
-#: uvalu/pages_/portfolio.py:612 uvalu/pages_/portfolio.py:708
+#: uvalu/pages_/cash.py:102 uvalu/pages_/portfolio.py:264 uvalu/pages_/portfolio.py:612
+#: uvalu/pages_/portfolio.py:708
 msgid "Export"
 msgstr "Exporteren"
 
@@ -3889,8 +3858,8 @@ msgid ""
 "correct it."
 msgstr ""
 "Het lopende saldo zakt ergens in dit kasboek onder nul, meestal nadat een dividend "
-"werd bewerkt of verwijderd. Registreer op die datum een storting of een aanpassing "
-"om dat recht te zetten."
+"werd bewerkt of verwijderd. Registreer op die datum een storting of een aanpassing om "
+"dat recht te zetten."
 
 #. Context: Cash activity › empty state
 #: uvalu/pages_/cash.py:133
@@ -3898,9 +3867,9 @@ msgid ""
 "No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. "
 "Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."
 msgstr ""
-"Nog geen cashboekingen. Registreer een storting, of een Aanpassing om een "
-"beginsaldo in te stellen. Aankopen wachten nooit op cash: een tekort wordt gedekt "
-"door een automatische aanvullende storting."
+"Nog geen cashboekingen. Registreer een storting, of een Aanpassing om een beginsaldo "
+"in te stellen. Aankopen wachten nooit op cash: een tekort wordt gedekt door een "
+"automatische aanvullende storting."
 
 #. Context: Cash activity › label of the transaction-type filter
 #: uvalu/pages_/cash.py:138
@@ -3929,17 +3898,17 @@ msgstr "Toon er {more} meer · {hidden} niet getoond"
 #, python-brace-format
 msgid ""
 "Entries can be made in any currency and are converted to {currency} at the ECB "
-"reference rate for the transaction date (frankfurter.dev), stored with the entry. "
-"When no rate is available the rate is entered manually and flagged. Buy/sell "
-"trades and received dividend payments post automatically; a buy the balance can't "
-"cover adds a linked top-up deposit so the balance never goes below zero."
+"reference rate for the transaction date (frankfurter.dev), stored with the entry. When "
+"no rate is available the rate is entered manually and flagged. Buy/sell trades and "
+"received dividend payments post automatically; a buy the balance can't cover adds a "
+"linked top-up deposit so the balance never goes below zero."
 msgstr ""
-"Boekingen kunnen in elke munt worden ingevoerd en worden omgerekend naar "
-"{currency} tegen de ECB-referentiekoers van de transactiedatum (frankfurter.dev), "
-"die bij de boeking wordt bewaard. Is er geen koers beschikbaar, dan wordt die "
-"handmatig ingevoerd en gemarkeerd. Aan- en verkopen en ontvangen dividenden worden "
-"automatisch geboekt; een aankoop die het saldo niet kan dekken, voegt een "
-"gekoppelde aanvullende storting toe, zodat het saldo nooit onder nul gaat."
+"Boekingen kunnen in elke munt worden ingevoerd en worden omgerekend naar {currency} "
+"tegen de ECB-referentiekoers van de transactiedatum (frankfurter.dev), die bij de "
+"boeking wordt bewaard. Is er geen koers beschikbaar, dan wordt die handmatig ingevoerd "
+"en gemarkeerd. Aan- en verkopen en ontvangen dividenden worden automatisch geboekt; "
+"een aankoop die het saldo niet kan dekken, voegt een gekoppelde aanvullende storting "
+"toe, zodat het saldo nooit onder nul gaat."
 
 #. Context: Dashboard › heading of the empty state for a new user
 #: uvalu/pages_/dashboard.py:45
@@ -3952,8 +3921,8 @@ msgid ""
 "Browse the screener to identify stocks worth buying, or import an existing Excel "
 "portfolio in Settings."
 msgstr ""
-"Blader door de screener om aandelen te vinden die het kopen waard zijn, of "
-"importeer een bestaande Excel-portefeuille via Instellingen."
+"Blader door de screener om aandelen te vinden die het kopen waard zijn, of importeer "
+"een bestaande Excel-portefeuille via Instellingen."
 
 #. Context: Dashboard › empty state link to the Screener page
 #: uvalu/pages_/dashboard.py:48
@@ -3982,11 +3951,11 @@ msgstr "Overzicht portefeuille"
 #: uvalu/pages_/dashboard.py:157
 #, python-brace-format
 msgid ""
-"{positions} across {count} European exchange · valued against a six-model fair-"
-"value estimate."
+"{positions} across {count} European exchange · valued against a six-model fair-value "
+"estimate."
 msgid_plural ""
-"{positions} across {count} European exchanges · valued against a six-model fair-"
-"value estimate."
+"{positions} across {count} European exchanges · valued against a six-model fair-value "
+"estimate."
 msgstr[0] ""
 "{positions} op {count} Europese beurs · gewaardeerd tegen een schatting van de "
 "intrinsieke waarde volgens zes modellen."
@@ -4212,11 +4181,11 @@ msgstr "Posities · koers t.o.v. intrinsieke waarde"
 #. currencies.
 #: uvalu/pages_/dashboard.py:449
 msgid ""
-"Each track runs from zero to the six-model fair-value estimate. Gap to the marker "
-"is your remaining margin of safety."
+"Each track runs from zero to the six-model fair-value estimate. Gap to the marker is "
+"your remaining margin of safety."
 msgstr ""
-"Elke balk loopt van nul tot de geschatte intrinsieke waarde volgens zes modellen. "
-"De afstand tot de markering is je resterende veiligheidsmarge."
+"Elke balk loopt van nul tot de geschatte intrinsieke waarde volgens zes modellen. De "
+"afstand tot de markering is je resterende veiligheidsmarge."
 
 #. Context: Dashboard › holdings table column: margin of safety in percent
 #. (short)
@@ -4329,8 +4298,8 @@ msgstr "Geen dagkoersen beschikbaar."
 #. name must match its translation.
 #: uvalu/pages_/help.py:48
 msgid ""
-"Composite score clears the BUY threshold and the margin of safety clears its "
-"target — both conditions together, set in Settings → Screening & veto rules."
+"Composite score clears the BUY threshold and the margin of safety clears its target — "
+"both conditions together, set in Settings → Screening & veto rules."
 msgstr ""
 "De totaalscore haalt de BUY-drempel en de veiligheidsmarge haalt haar doel: beide "
 "voorwaarden samen, in te stellen via Instellingen → Screening- en vetoregels."
@@ -4338,11 +4307,11 @@ msgstr ""
 #. Context: Help › signal legend: meaning of the MONITOR badge
 #: uvalu/pages_/help.py:50
 msgid ""
-"Composite score is decent but the margin of safety hasn't cleared the target yet, "
-"or the score itself sits below the BUY threshold — worth watching."
+"Composite score is decent but the margin of safety hasn't cleared the target yet, or "
+"the score itself sits below the BUY threshold — worth watching."
 msgstr ""
-"De totaalscore is behoorlijk, maar de veiligheidsmarge haalt het doel nog niet, of "
-"de score zelf ligt onder de BUY-drempel: het volgen waard."
+"De totaalscore is behoorlijk, maar de veiligheidsmarge haalt het doel nog niet, of de "
+"score zelf ligt onder de BUY-drempel: het volgen waard."
 
 #. Context: Help › signal legend: meaning of the AVOID badge
 #: uvalu/pages_/help.py:52
@@ -4352,29 +4321,28 @@ msgstr "De totaalscore ligt ruim onder de BUY-drempel."
 #. Context: Help › signal legend: meaning of the VETO badge
 #: uvalu/pages_/help.py:53
 msgid ""
-"A hard-veto rule tripped (see below) — excluded from BUY scoring no matter what "
-"the composite score would otherwise be."
+"A hard-veto rule tripped (see below) — excluded from BUY scoring no matter what the "
+"composite score would otherwise be."
 msgstr ""
-"Er is een regel voor hard veto geactiveerd (zie hieronder): uitgesloten van BUY, "
-"wat de totaalscore ook is."
+"Er is een regel voor hard veto geactiveerd (zie hieronder): uitgesloten van BUY, wat "
+"de totaalscore ook is."
 
 #. Context: Help › signal legend: meaning of the NO DATA badge
 #: uvalu/pages_/help.py:55
 msgid ""
-"No scored screener row for this holding — the fundamentals feed returned nothing "
-"(or no price) for it, so there is no fair value, score or signal to show. Not a "
-"veto."
+"No scored screener row for this holding — the fundamentals feed returned nothing (or "
+"no price) for it, so there is no fair value, score or signal to show. Not a veto."
 msgstr ""
 "Geen gescoorde screenerregel voor deze positie: de bron met fundamentele gegevens "
-"leverde niets (of geen koers), dus er is geen intrinsieke waarde, score of "
-"signaal. Dit is geen veto."
+"leverde niets (of geen koers), dus er is geen intrinsieke waarde, score of signaal. "
+"Dit is geen veto."
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
 #: uvalu/pages_/help.py:61
 msgid ""
-"√(22.5 × EPS × book value per share) — Benjamin Graham's classic value formula. "
-"Needs positive trailing earnings and book value per share."
+"√(22.5 × EPS × book value per share) — Benjamin Graham's classic value formula. Needs "
+"positive trailing earnings and book value per share."
 msgstr ""
 "√(22,5 × WPA × boekwaarde per aandeel): de klassieke waardeformule van Benjamin "
 "Graham. Vereist een positieve winst over de voorbije 12 maanden en een positieve "
@@ -4401,8 +4369,8 @@ msgid ""
 "Normalised earnings capitalised at the cost of capital, deliberately ignoring "
 "speculative growth."
 msgstr ""
-"Genormaliseerde winst, gekapitaliseerd tegen de kapitaalkost, zonder bewust "
-"rekening te houden met speculatieve groei."
+"Genormaliseerde winst, gekapitaliseerd tegen de kapitaalkost, zonder bewust rekening "
+"te houden met speculatieve groei."
 
 #. Context: Help › valuation model name: one-stage dividend discount model
 #: uvalu/pages_/help.py:66
@@ -4415,8 +4383,8 @@ msgid ""
 "Gordon growth model: next year's expected dividend discounted at (cost of equity − "
 "perpetual growth rate). Only applies to dividend payers."
 msgstr ""
-"Gordon-groeimodel: het verwachte dividend van volgend jaar, verdisconteerd tegen "
-"(kost van eigen vermogen − eeuwigdurende groei). Alleen voor dividendbetalers."
+"Gordon-groeimodel: het verwachte dividend van volgend jaar, verdisconteerd tegen (kost "
+"van eigen vermogen − eeuwigdurende groei). Alleen voor dividendbetalers."
 
 #. Context: Help › valuation model name: two-stage dividend discount model
 #: uvalu/pages_/help.py:68
@@ -4426,11 +4394,11 @@ msgstr "DDM — 2 fasen"
 #. Context: Help › explanation of the two-stage DDM
 #: uvalu/pages_/help.py:68
 msgid ""
-"A higher-growth phase followed by a stable terminal-growth phase, each discounted "
-"back separately. Also dividend-payer only."
+"A higher-growth phase followed by a stable terminal-growth phase, each discounted back "
+"separately. Also dividend-payer only."
 msgstr ""
-"Een fase met hogere groei gevolgd door een stabiele eindgroeifase, elk "
-"afzonderlijk verdisconteerd. Ook alleen voor dividendbetalers."
+"Een fase met hogere groei gevolgd door een stabiele eindgroeifase, elk afzonderlijk "
+"verdisconteerd. Ook alleen voor dividendbetalers."
 
 #. Context: Help › valuation model name: analysts' price target
 #: uvalu/pages_/help.py:70
@@ -4440,15 +4408,14 @@ msgstr "Koersdoel analisten"
 #. Context: Help › explanation of the analyst target model
 #: uvalu/pages_/help.py:70
 msgid "Mean 12-month analyst price target, sourced from Yahoo Finance."
-msgstr ""
-"Gemiddeld koersdoel van analisten op 12 maanden, afkomstig van Yahoo Finance."
+msgstr "Gemiddeld koersdoel van analisten op 12 maanden, afkomstig van Yahoo Finance."
 
 #. Context: Help › hard-veto rule 1
 #: uvalu/pages_/help.py:74
 #, no-python-format
 msgid ""
-"Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & "
-"veto rules (default 500%)."
+"Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & veto "
+"rules (default 500%)."
 msgstr ""
 "Schuld / eigen vermogen overschrijdt de drempel Max. schuld / eigen vermogen in "
 "Instellingen → Screening- en vetoregels (standaard 500%)."
@@ -4463,12 +4430,12 @@ msgstr "De vrije kasstroom (voorbije twaalf maanden) is negatief."
 #: uvalu/pages_/help.py:77
 msgid ""
 "The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage "
-"breach) <em>and</em> dividend coverage is below 1.0× — both conditions together, "
-"not either alone."
+"breach) <em>and</em> dividend coverage is below 1.0× — both conditions together, not "
+"either alone."
 msgstr ""
-"Het dividend is gemarkeerd als \"Risico\" (uitkeringsratio, cash-uitkeringsratio "
-"of te lage dekking) <em>en</em> de dividenddekking ligt onder 1,0×: beide "
-"voorwaarden samen, niet één van beide."
+"Het dividend is gemarkeerd als \"Risico\" (uitkeringsratio, cash-uitkeringsratio of te "
+"lage dekking) <em>en</em> de dividenddekking ligt onder 1,0×: beide voorwaarden samen, "
+"niet één van beide."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:82
@@ -4479,12 +4446,12 @@ msgstr "Hoe wordt de samengestelde intrinsieke waarde berekend?"
 #: uvalu/pages_/help.py:83
 msgid ""
 "Each holding is valued by all six models. Outliers are trimmed and the remainder "
-"averaged into a single composite fair value. Margin of safety is the discount of "
-"the current price to that figure."
+"averaged into a single composite fair value. Margin of safety is the discount of the "
+"current price to that figure."
 msgstr ""
-"Elke positie wordt door alle zes modellen gewaardeerd. Uitschieters worden "
-"weggelaten en de rest wordt uitgemiddeld tot één samengestelde intrinsieke waarde. "
-"De veiligheidsmarge is de korting van de huidige koers op dat bedrag."
+"Elke positie wordt door alle zes modellen gewaardeerd. Uitschieters worden weggelaten "
+"en de rest wordt uitgemiddeld tot één samengestelde intrinsieke waarde. De "
+"veiligheidsmarge is de korting van de huidige koers op dat bedrag."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:86
@@ -4494,11 +4461,11 @@ msgstr "Wat betekent de overtuigingsscore?"
 #. Context: Help › FAQ answer
 #: uvalu/pages_/help.py:87
 msgid ""
-"A 0–100 weighted mean of the signal scores across your scored holdings, weighted "
-"by position size. Vetoed names are excluded from the average."
+"A 0–100 weighted mean of the signal scores across your scored holdings, weighted by "
+"position size. Vetoed names are excluded from the average."
 msgstr ""
-"Een gewogen gemiddelde van 0 tot 100 van de signaalscores van je gescoorde "
-"posities, gewogen naar positiegrootte. Aandelen met een veto tellen niet mee."
+"Een gewogen gemiddelde van 0 tot 100 van de signaalscores van je gescoorde posities, "
+"gewogen naar positiegrootte. Aandelen met een veto tellen niet mee."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:89
@@ -4511,9 +4478,9 @@ msgid ""
 "Quotes refresh on the interval set in Settings → Data during market hours (default "
 "every 15 minutes). Fundamentals update daily after each exchange close."
 msgstr ""
-"Tijdens de beursuren worden de koersen vernieuwd volgens het interval in "
-"Instellingen → Gegevens (standaard elke 15 minuten). Fundamentele gegevens worden "
-"dagelijks bijgewerkt na de sluiting van elke beurs."
+"Tijdens de beursuren worden de koersen vernieuwd volgens het interval in Instellingen "
+"→ Gegevens (standaard elke 15 minuten). Fundamentele gegevens worden dagelijks "
+"bijgewerkt na de sluiting van elke beurs."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:92
@@ -4523,12 +4490,12 @@ msgstr "Waarom wordt een positie niet gescoord?"
 #. Context: Help › FAQ answer
 #: uvalu/pages_/help.py:93
 msgid ""
-"It has breached a hard-veto rule. It still appears in your portfolio and "
-"valuations, but is left out of the conviction score until the flag clears."
+"It has breached a hard-veto rule. It still appears in your portfolio and valuations, "
+"but is left out of the conviction score until the flag clears."
 msgstr ""
-"Ze voldoet niet aan een regel voor hard veto. Ze blijft zichtbaar in je "
-"portefeuille en waarderingen, maar telt niet mee in de overtuigingsscore zolang de "
-"markering actief is."
+"Ze voldoet niet aan een regel voor hard veto. Ze blijft zichtbaar in je portefeuille "
+"en waarderingen, maar telt niet mee in de overtuigingsscore zolang de markering actief "
+"is."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:95
@@ -4588,8 +4555,7 @@ msgid "Income 12m"
 msgstr "Inkomen 12m"
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:67 uvalu/pages_/screener.py:53
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/pages_/portfolio.py:67 uvalu/pages_/screener.py:53 uvalu/pages_/watchlist.py:32
 msgid "Yield"
 msgstr "Rendement"
 
@@ -4604,16 +4570,13 @@ msgstr "YoC netto"
 #: uvalu/pages_/portfolio.py:197
 msgid "Your portfolio is empty. Click Add position to record your first position."
 msgstr ""
-"Je portefeuille is leeg. Klik op Positie toevoegen om je eerste positie te "
-"registreren."
+"Je portefeuille is leeg. Klik op Positie toevoegen om je eerste positie te registreren."
 
 #. Context: Portfolio › caption under the page title
 #: uvalu/pages_/portfolio.py:256
-msgid ""
-"Cost basis, market value and realised results across open and closed positions."
+msgid "Cost basis, market value and realised results across open and closed positions."
 msgstr ""
-"Aankoopwaarde, marktwaarde en gerealiseerde resultaten van open en gesloten "
-"posities."
+"Aankoopwaarde, marktwaarde en gerealiseerde resultaten van open en gesloten posities."
 
 #. Context: Portfolio › small text on the Invested card
 #: uvalu/pages_/portfolio.py:305
@@ -4683,8 +4646,8 @@ msgid ""
 "Every holding at cost and at today's price. Click a row for its detail; the pencil "
 "edits or sells it."
 msgstr ""
-"Elke positie tegen aankoopprijs en tegen de koers van vandaag. Klik op een rij "
-"voor details; met het potlood kun je ze bewerken of verkopen."
+"Elke positie tegen aankoopprijs en tegen de koers van vandaag. Klik op een rij voor "
+"details; met het potlood kun je ze bewerken of verkopen."
 
 #. Context: Portfolio › Closed positions full page caption. Button names must
 #. match their translations.
@@ -4693,8 +4656,8 @@ msgid ""
 "Realised results of sold positions. To sell a holding, use Sell shares in its Edit "
 "dialog on Open positions."
 msgstr ""
-"Gerealiseerde resultaten van verkochte posities. Om een positie te verkopen "
-"gebruik je Aandelen verkopen in het bewerkvenster bij Open posities."
+"Gerealiseerde resultaten van verkochte posities. Om een positie te verkopen gebruik je "
+"Aandelen verkopen in het bewerkvenster bij Open posities."
 
 #. Context: Portfolio › Closed positions full page empty state. 'Add trade'
 #. must match the button label.
@@ -4702,8 +4665,8 @@ msgstr ""
 msgid ""
 "No closed positions yet. Sell a holding, or record an earlier trade with Add trade."
 msgstr ""
-"Nog geen gesloten posities. Verkoop een positie of registreer een eerdere "
-"transactie met Transactie toevoegen."
+"Nog geen gesloten posities. Verkoop een positie of registreer een eerdere transactie "
+"met Transactie toevoegen."
 
 #. Context: Portfolio › Dividend log › loading message
 #: uvalu/pages_/portfolio.py:571
@@ -4727,8 +4690,8 @@ msgstr "Dividendlogboek"
 #. Context: Portfolio › Dividend log caption
 #: uvalu/pages_/portfolio.py:610
 msgid ""
-"Per-holding dividend events. Auto-fetched from the market data source where "
-"dividend history is exposed; manual entry fills the gaps."
+"Per-holding dividend events. Auto-fetched from the market data source where dividend "
+"history is exposed; manual entry fills the gaps."
 msgstr ""
 "Dividenden per positie. Automatisch opgehaald bij de marktgegevensbron waar de "
 "dividendhistoriek beschikbaar is; handmatige invoer vult de gaten aan."
@@ -4736,11 +4699,11 @@ msgstr ""
 #. Context: Portfolio › Dividend log empty state
 #: uvalu/pages_/portfolio.py:618
 msgid ""
-"No dividend events yet. Add one with Add dividend — events for your held tickers "
-"are also fetched from market data where available."
+"No dividend events yet. Add one with Add dividend — events for your held tickers are "
+"also fetched from market data where available."
 msgstr ""
-"Nog geen dividenden. Voeg er een toe met Dividend toevoegen; voor je posities "
-"worden dividenden ook uit marktgegevens opgehaald waar beschikbaar."
+"Nog geen dividenden. Voeg er een toe met Dividend toevoegen; voor je posities worden "
+"dividenden ook uit marktgegevens opgehaald waar beschikbaar."
 
 #. Context: Portfolio › Dividend log KPI card label
 #: uvalu/pages_/portfolio.py:634
@@ -4907,11 +4870,11 @@ msgstr "Concentratie"
 #: uvalu/pages_/risk.py:168
 #, no-python-format, python-brace-format
 msgid ""
-"Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% "
-"of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo."
+"Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% of "
+"total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo."
 msgstr ""
-"De risicomaatstaven gelden alleen voor het geïnvesteerde deel ({invested}). Cash "
-"van {cash}, {pct}% van de totale waarde, telt niet mee voor HHI, VaR, CVaR, "
+"De risicomaatstaven gelden alleen voor het geïnvesteerde deel ({invested}). Cash van "
+"{cash}, {pct}% van de totale waarde, telt niet mee voor HHI, VaR, CVaR, "
 "factorblootstelling en Monte Carlo."
 
 #. Context: Risk page › button to open the Cash activity page
@@ -4922,8 +4885,7 @@ msgstr "Cashbewegingen bekijken"
 #. Context: Risk page › shown when there are no positions
 #: uvalu/pages_/risk.py:179
 msgid "No portfolio loaded. Add positions in the Portfolio tab first."
-msgstr ""
-"Geen portefeuille geladen. Voeg eerst posities toe in het tabblad Portefeuille."
+msgstr "Geen portefeuille geladen. Voeg eerst posities toe in het tabblad Portefeuille."
 
 #. Context: Risk page › title
 #: uvalu/pages_/risk.py:186
@@ -4933,8 +4895,7 @@ msgstr "Risicobeoordeling"
 #. Context: Risk page › caption under the title
 #: uvalu/pages_/risk.py:188
 msgid ""
-"Factor exposures, concentration and per-holding risk contribution across the "
-"portfolio."
+"Factor exposures, concentration and per-holding risk contribution across the portfolio."
 msgstr ""
 "Factorblootstelling, concentratie en risicobijdrage per positie over de hele "
 "portefeuille."
@@ -4947,8 +4908,7 @@ msgstr "Risicobeoordeling mislukt: {error}"
 
 #. Context: Risk page › text next to the composite risk gauge
 #: uvalu/pages_/risk.py:251
-msgid ""
-"Blended score across six risk factors, weighted by exposure and hard-veto flags."
+msgid "Blended score across six risk factors, weighted by exposure and hard-veto flags."
 msgstr ""
 "Gemengde score over zes risicofactoren, gewogen naar blootstelling en harde veto's."
 
@@ -5009,10 +4969,8 @@ msgstr "uit cache: bron onbereikbaar"
 #. Developed 5-factor + momentum set · as of …' or empty.
 #: uvalu/pages_/risk.py:322
 #, python-brace-format
-msgid ""
-"Fama-French factor loadings{details}. |loading| > 1.5 = concentrated factor bet."
-msgstr ""
-"Fama-French-factorladingen{details}. |lading| > 1,5 = geconcentreerde factorgok."
+msgid "Fama-French factor loadings{details}. |loading| > 1.5 = concentrated factor bet."
+msgstr "Fama-French-factorladingen{details}. |lading| > 1,5 = geconcentreerde factorgok."
 
 #. Context: Risk page › shown instead of the factor bars
 #: uvalu/pages_/risk.py:325
@@ -5070,11 +5028,10 @@ msgstr[1] "{names} blijven onder een hard veto"
 #. Context: Risk page › concentration all-clear message
 #: uvalu/pages_/risk.py:379
 #, no-python-format
-msgid ""
-"All positions sit within the 15% single-name, 30% sector, and 60% country limits."
+msgid "All positions sit within the 15% single-name, 30% sector, and 60% country limits."
 msgstr ""
-"Alle posities blijven binnen de limieten van 15% per positie, 30% per sector en "
-"60% per land."
+"Alle posities blijven binnen de limieten van 15% per positie, 30% per sector en 60% "
+"per land."
 
 #. Context: Risk page › flag value: stock is under a hard veto
 #: uvalu/pages_/risk.py:428
@@ -5094,8 +5051,8 @@ msgstr ""
 #. Context: Risk page › caption variant when data is short
 #: uvalu/pages_/risk.py:451
 msgid ""
-"Weight × |beta| — not enough correlated return history this run for the full "
-"variance decomposition."
+"Weight × |beta| — not enough correlated return history this run for the full variance "
+"decomposition."
 msgstr ""
 "Gewicht × |bèta|: deze keer onvoldoende gecorreleerde rendementshistoriek voor de "
 "volledige variantie-opsplitsing."
@@ -5119,8 +5076,8 @@ msgstr "Waardescreener"
 #: uvalu/pages_/screener.py:208
 #, python-brace-format
 msgid ""
-"Loading the screening universe… {done}/{total} companies scored — results appear "
-"here as they land."
+"Loading the screening universe… {done}/{total} companies scored — results appear here "
+"as they land."
 msgstr ""
 "Het screeningsuniversum wordt geladen… {done}/{total} bedrijven gescoord; de "
 "resultaten verschijnen hier zodra ze binnenkomen."
@@ -5131,8 +5088,8 @@ msgid ""
 "Loading the screening universe — results appear as soon as the background fetch "
 "returns."
 msgstr ""
-"Het screeningsuniversum wordt geladen; de resultaten verschijnen zodra het ophalen "
-"op de achtergrond klaar is."
+"Het screeningsuniversum wordt geladen; de resultaten verschijnen zodra het ophalen op "
+"de achtergrond klaar is."
 
 #. Context: Screener › filter label
 #: uvalu/pages_/screener.py:261 uvalu/pages_/screener.py:263
@@ -5163,8 +5120,8 @@ msgstr "Min. veiligheidsmarge"
 #: uvalu/pages_/screener.py:333
 #, python-brace-format
 msgid ""
-"**{shown}** of {total} European stocks pass your filters · ranked by composite "
-"signal score."
+"**{shown}** of {total} European stocks pass your filters · ranked by composite signal "
+"score."
 msgstr ""
 "**{shown}** van {total} Europese aandelen voldoen aan je filters · gerangschikt op "
 "totale signaalscore."
@@ -5174,11 +5131,11 @@ msgstr ""
 #: uvalu/pages_/screener.py:336
 #, python-brace-format
 msgid ""
-"Small universe ({count} stocks) — composite scores are percentile ranks within it, "
-"so \"Strong Buy\" carries less weight here."
+"Small universe ({count} stocks) — composite scores are percentile ranks within it, so "
+"\"Strong Buy\" carries less weight here."
 msgstr ""
-"Klein universum ({count} aandelen): totaalscores zijn percentielrangen daarbinnen, "
-"dus \"Strong Buy\" weegt hier minder zwaar."
+"Klein universum ({count} aandelen): totaalscores zijn percentielrangen daarbinnen, dus "
+"\"Strong Buy\" weegt hier minder zwaar."
 
 #. Context: Screener › button
 #: uvalu/pages_/screener.py:341
@@ -5188,8 +5145,7 @@ msgstr "Filters wissen"
 #. Context: Screener › empty results message
 #: uvalu/pages_/screener.py:350
 msgid ""
-"No stocks match these filters. Try loosening the score or margin-of-safety "
-"threshold."
+"No stocks match these filters. Try loosening the score or margin-of-safety threshold."
 msgstr ""
 "Geen aandelen voldoen aan deze filters. Verlaag de drempel voor score of "
 "veiligheidsmarge."
@@ -5266,11 +5222,11 @@ msgstr "Huidig wachtwoord"
 #. must match its translation.
 #: uvalu/pages_/settings.py:252
 msgid ""
-"Other devices stay signed in — use “Sign out everywhere else” below if you want to "
-"end those sessions too."
+"Other devices stay signed in — use “Sign out everywhere else” below if you want to end "
+"those sessions too."
 msgstr ""
-"Andere apparaten blijven aangemeld. Gebruik hieronder ‘Overal elders afmelden’ als "
-"je ook die sessies wilt beëindigen."
+"Andere apparaten blijven aangemeld. Gebruik hieronder ‘Overal elders afmelden’ als je "
+"ook die sessies wilt beëindigen."
 
 #. Context: Settings › dialog title (account without a password)
 #: uvalu/pages_/settings.py:257 uvalu/pages_/settings.py:442
@@ -5281,8 +5237,8 @@ msgstr "Een wachtwoord instellen"
 #: uvalu/pages_/settings.py:263
 msgid "Add a password so you can sign in when your provider is unavailable."
 msgstr ""
-"Voeg een wachtwoord toe, zodat je je kunt aanmelden als je provider niet "
-"beschikbaar is."
+"Voeg een wachtwoord toe, zodat je je kunt aanmelden als je provider niet beschikbaar "
+"is."
 
 #. Context: Settings › Set a password dialog › save button
 #: uvalu/pages_/settings.py:275
@@ -5334,8 +5290,8 @@ msgid ""
 "Save these somewhere safe. Each code can be used once if you lose access to your "
 "authenticator app. They won't be shown again."
 msgstr ""
-"Bewaar deze op een veilige plek. Elke code kan één keer worden gebruikt als je "
-"geen toegang meer hebt tot je authenticator-app. Ze worden niet opnieuw getoond."
+"Bewaar deze op een veilige plek. Elke code kan één keer worden gebruikt als je geen "
+"toegang meer hebt tot je authenticator-app. Ze worden niet opnieuw getoond."
 
 #. Context: Settings › backup codes dialog › confirmation checkbox
 #: uvalu/pages_/settings.py:347
@@ -5366,8 +5322,7 @@ msgstr "Opnieuw genereren"
 #. Context: Settings › caption under the page title
 #: uvalu/pages_/settings.py:412
 msgid "Display preferences and screening thresholds. Changes apply immediately."
-msgstr ""
-"Weergavevoorkeuren en screeningdrempels. Wijzigingen worden meteen toegepast."
+msgstr "Weergavevoorkeuren en screeningdrempels. Wijzigingen worden meteen toegepast."
 
 #. Context: Settings › section heading
 #: uvalu/pages_/settings.py:423
@@ -5395,8 +5350,7 @@ msgstr "NIET INGESTELD"
 #. set
 #: uvalu/pages_/settings.py:436
 msgid "Add one so you can sign in when your provider is unavailable."
-msgstr ""
-"Voeg er een toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
+msgstr "Voeg er een toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
 
 #. Context: Settings › Security › button to change the password (verb). Context
 #. 'button' separates it from the noun 'Change'.
@@ -5656,8 +5610,8 @@ msgstr "Screeningstijl"
 #. options below.
 #: uvalu/pages_/settings.py:637
 msgid ""
-"Which signals lead the composite score — Value tilts to margin of safety & "
-"quality, Growth to momentum, Income to dividends."
+"Which signals lead the composite score — Value tilts to margin of safety & quality, "
+"Growth to momentum, Income to dividends."
 msgstr ""
 "Welke signalen de totaalscore sturen: Waarde legt de nadruk op veiligheidsmarge en "
 "kwaliteit, Groei op momentum, Inkomen op dividenden."
@@ -5690,12 +5644,12 @@ msgstr "Doelverdeling"
 #. Context: Settings › Target allocation description
 #: uvalu/pages_/settings.py:682
 msgid ""
-"Your personal reference weights. When any are set, the Risk page's rebalancing "
-"signals switch from absolute thresholds to drift-vs-target."
+"Your personal reference weights. When any are set, the Risk page's rebalancing signals "
+"switch from absolute thresholds to drift-vs-target."
 msgstr ""
 "Je persoonlijke referentiegewichten. Zodra er één is ingesteld, schakelen de "
-"herbalanceringssignalen op de Risico-pagina over van absolute drempels naar "
-"afwijking t.o.v. het doel."
+"herbalanceringssignalen op de Risico-pagina over van absolute drempels naar afwijking "
+"t.o.v. het doel."
 
 #. Context: Settings › Target allocation › row title and field label
 #: uvalu/pages_/settings.py:687 uvalu/pages_/settings.py:690
@@ -5819,8 +5773,7 @@ msgstr "Meldingen dividendverlaging / -stopzetting"
 #: uvalu/pages_/settings.py:786
 msgid "Flag a holding on the Dashboard when its dividend was just cut or suspended."
 msgstr ""
-"Markeer een positie op het dashboard als het dividend net werd verlaagd of "
-"stopgezet."
+"Markeer een positie op het dashboard als het dividend net werd verlaagd of stopgezet."
 
 #. Context: Settings › Data › toggle title
 #: uvalu/pages_/settings.py:794
@@ -5841,14 +5794,14 @@ msgstr "Bronheffing op dividenden"
 #: uvalu/pages_/settings.py:805
 #, no-python-format
 msgid ""
-"Default withholding tax % applied when you record a dividend on each exchange — "
-"always editable per record. Depends on your own tax residency and treaty, which "
-"this app has no way to know, so every rate starts at 0% until you set it."
+"Default withholding tax % applied when you record a dividend on each exchange — always "
+"editable per record. Depends on your own tax residency and treaty, which this app has "
+"no way to know, so every rate starts at 0% until you set it."
 msgstr ""
-"Standaardpercentage bronheffing dat wordt toegepast wanneer je een dividend per "
-"beurs registreert; per record altijd aan te passen. Het hangt af van je eigen "
-"fiscale woonplaats en belastingverdrag, die de app niet kan kennen, dus elk tarief "
-"begint op 0% tot je het instelt."
+"Standaardpercentage bronheffing dat wordt toegepast wanneer je een dividend per beurs "
+"registreert; per record altijd aan te passen. Het hangt af van je eigen fiscale "
+"woonplaats en belastingverdrag, die de app niet kan kennen, dus elk tarief begint op "
+"0% tot je het instelt."
 
 #. Context: Settings › section heading
 #: uvalu/pages_/settings.py:825
@@ -5858,11 +5811,11 @@ msgstr "Importeren en exporteren"
 #. Context: Settings › Import portfolio description
 #: uvalu/pages_/settings.py:832
 msgid ""
-"Upload an Excel file to import positions, sold history and dividends. This "
-"replaces all existing portfolio data for this account."
+"Upload an Excel file to import positions, sold history and dividends. This replaces "
+"all existing portfolio data for this account."
 msgstr ""
-"Upload een Excel-bestand om posities, verkoophistoriek en dividenden te "
-"importeren. Dit vervangt alle bestaande portefeuillegegevens van dit account."
+"Upload een Excel-bestand om posities, verkoophistoriek en dividenden te importeren. "
+"Dit vervangt alle bestaande portefeuillegegevens van dit account."
 
 #. Context: Settings › file upload label
 #: uvalu/pages_/settings.py:833
@@ -5877,11 +5830,11 @@ msgstr "Excel wordt verwerkt…"
 #. Context: Settings › import error. Keep the exchange codes as they are.
 #: uvalu/pages_/settings.py:840
 msgid ""
-"No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file "
-"matches the expected format."
+"No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches "
+"the expected format."
 msgstr ""
-"Geen open EBR:/AMS:/EPA:/BIT:/ETR:/SWX:-posities gevonden. Controleer of je "
-"bestand het verwachte formaat heeft."
+"Geen open EBR:/AMS:/EPA:/BIT:/ETR:/SWX:-posities gevonden. Controleer of je bestand "
+"het verwachte formaat heeft."
 
 #. Context: Settings › success message after import
 #: uvalu/pages_/settings.py:849
@@ -5904,11 +5857,11 @@ msgstr "Excel-export"
 #. Context: Settings › Excel export description
 #: uvalu/pages_/settings.py:859
 msgid ""
-"Human-readable workbook with positions, dividends, sold history and watchlist. "
-"Useful for inspection or migration."
+"Human-readable workbook with positions, dividends, sold history and watchlist. Useful "
+"for inspection or migration."
 msgstr ""
-"Leesbare werkmap met posities, dividenden, verkoophistoriek en volglijst. Handig "
-"om na te kijken of te migreren."
+"Leesbare werkmap met posities, dividenden, verkoophistoriek en volglijst. Handig om na "
+"te kijken of te migreren."
 
 #. Context: Settings › download button (keep the file name)
 #: uvalu/pages_/settings.py:863
@@ -5918,11 +5871,11 @@ msgstr "backup.xlsx downloaden"
 #. Context: Settings › export notice
 #: uvalu/pages_/settings.py:869
 msgid ""
-"Your portfolio is empty. Add positions in the Portfolio section first, then come "
-"back to export."
+"Your portfolio is empty. Add positions in the Portfolio section first, then come back "
+"to export."
 msgstr ""
-"Je portefeuille is leeg. Voeg eerst posities toe in Portefeuille en kom dan terug "
-"om te exporteren."
+"Je portefeuille is leeg. Voeg eerst posities toe in Portefeuille en kom dan terug om "
+"te exporteren."
 
 #. Context: Settings › export error; {error} is technical (stays English)
 #: uvalu/pages_/settings.py:871
@@ -5936,8 +5889,8 @@ msgid ""
 "Track tickers you don't hold yet. Add from the screener with the star, or type a "
 "symbol directly below."
 msgstr ""
-"Volg tickers die je nog niet bezit. Voeg ze toe vanuit de screener met de ster, of "
-"typ hieronder rechtstreeks een symbool."
+"Volg tickers die je nog niet bezit. Voeg ze toe vanuit de screener met de ster, of typ "
+"hieronder rechtstreeks een symbool."
 
 #. Context: Watchlist › submit button
 #: uvalu/pages_/watchlist.py:98
@@ -5953,8 +5906,8 @@ msgstr "Bedrijfsnaam (optioneel)"
 #: uvalu/pages_/watchlist.py:143
 msgid "Your watchlist is empty. Star a ticker in the screener or add one above."
 msgstr ""
-"Je volglijst is leeg. Geef een ticker een ster in de screener of voeg er hierboven "
-"een toe."
+"Je volglijst is leeg. Geef een ticker een ster in de screener of voeg er hierboven een "
+"toe."
 
 #. Context: Watchlist › loading caption
 #: uvalu/pages_/watchlist.py:154
@@ -5962,8 +5915,7 @@ msgstr ""
 msgid ""
 "Fetching data for your {count} watchlisted ticker… {done}/{total} companies scored."
 msgid_plural ""
-"Fetching data for your {count} watchlisted tickers… {done}/{total} companies "
-"scored."
+"Fetching data for your {count} watchlisted tickers… {done}/{total} companies scored."
 msgstr[0] ""
 "Gegevens ophalen voor je {count} ticker op de volglijst… {done}/{total} bedrijven "
 "gescoord."
