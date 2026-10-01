@@ -116,6 +116,19 @@ def _fx_isolated(tmp_path, monkeypatch):
     fx._reset_for_tests()
 
 
+@pytest.fixture(autouse=True)
+def _universe_reference_isolated(monkeypatch):
+    """The portfolio lane asks uvalu.store for the scored universe's
+    ScoreReference, which starts a background universe build (ticker-list
+    scrapes over the network). Tests get no reference — holdings are scored
+    among themselves, as before — unless they stub ``_universe_ref_args``."""
+    import uvalu.data as _uv_data
+    monkeypatch.setattr(_uv_data, "_universe_ref_args", lambda: (None, 0))
+    _uv_data._UNIVERSE_REFS.clear()
+    yield
+    _uv_data._UNIVERSE_REFS.clear()
+
+
 @pytest.fixture
 def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")

@@ -148,7 +148,7 @@ The **Dividend score** (separate from dividend risk, feeds Stage 5 directly) com
 ---
 ## Stage 5 — Composite Score
 Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into a **0–100 sub-score** (`screener._blend_ranks`, higher = better for all five), a blend of two views of the same value:
-- **Cross-sectional percentile rank** (`screener._pct_rank`) — the stock's standing *within the current screened universe*. NaN rows get a neutral 50.
+- **Cross-sectional percentile rank** (`screener._pct_rank`) — the stock's standing *within the current screened universe*: every enabled exchange together, plus portfolio holdings on disabled exchanges. Holdings scored by the portfolio lane are ranked against that same universe through its `ScoreReference` (sector medians too), so a stock gets the same score on every screen; only before the first universe build are they ranked among themselves. NaN rows get a neutral 50.
 - **Absolute band** (`screener._abs_band`) — the same value mapped through a fixed piecewise-linear scale, independent of the universe:
   - MoS: `≤ 0 → 0`, `10% → 40`, `25% → 70`, `≥ 50% → 100` (`_BAND_MOS`).
   - Quality / Momentum / Dividend: the raw 0–10 score × 10 (`_BAND_0_10`).

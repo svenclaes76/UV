@@ -3003,3 +3003,64 @@ class TestPrices:
         assert _day_change(95.0, 100.0) == pytest.approx(-5.0)
         assert _day_change(None, 100.0) is None
         assert _day_change(100.0, None) is None
+
+
+class TestScoreReference:
+    """Holdings scored on their own must match the same rows inside the
+    universe pass when given the universe's ScoreReference — otherwise the
+    portfolio screens rank a stock among the user's ~20 holdings while the
+    Screener ranks it among the market (book value €25 vs €10 for one REIT)."""
+
+    @staticmethod
+    def _universe(n=60, seed=7):
+        rng = np.random.default_rng(seed)
+        sectors = ["Real Estate", "Technology", "Industrials", "Utilities"]
+        rows = []
+        for i in range(n):
+            price = float(rng.uniform(5, 200))
+            rows.append({
+                "Name": f"Co {i}", "Ticker": f"T{i:02d}.BR", "Price": price,
+                "sector": sectors[i % len(sectors)],
+                "trailingEps": price / float(rng.uniform(6, 30)), "trailingPE": float(rng.uniform(6, 30)),
+                "bookValue": price / float(rng.uniform(0.5, 4)), "priceToBook": float(rng.uniform(0.5, 4)),
+                "targetMeanPrice": price * float(rng.uniform(0.8, 1.5)),
+                "beta": float(rng.uniform(0.3, 1.8)), "returnOnEquity": float(rng.uniform(-0.05, 0.3)),
+                "returnOnAssets": float(rng.uniform(0, 0.15)), "operatingMargins": float(rng.uniform(0, 0.4)),
+                "freeCashflow": float(rng.uniform(1e7, 1e9)), "netIncome": float(rng.uniform(1e7, 1e9)),
+                "debtToEquity": float(rng.uniform(10, 200)), "currentRatio": float(rng.uniform(0.8, 3)),
+                "averageVolume": float(rng.uniform(1e4, 1e6)), "earningsGrowth": float(rng.uniform(-0.2, 0.3)),
+                "revenueGrowth": float(rng.uniform(-0.1, 0.2)), "recommendationMean": float(rng.uniform(1, 4)),
+                "dividendYield": float(rng.uniform(0, 0.08)),
+            })
+        return pd.DataFrame(rows)
+
+    def test_subset_with_reference_matches_the_universe_pass(self):
+        uni_df = self._universe()
+        out = {}
+        uni = compute_scores(uni_df.copy(), reference_out=out)
+        held = ["T03.BR", "T07.BR", "T12.BR", "T21.BR", "T40.BR"]
+        cols = ["fair_value", "pb_fair_value", "pe_fair_value", "Value Score",
+                "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend", "Decision"]
+        sub = compute_scores(uni_df[uni_df["Ticker"].isin(held)].copy(), reference=out["ref"])
+        expected = uni.set_index("Ticker").loc[held, cols]
+        got = sub.set_index("Ticker").loc[held, cols]
+        pd.testing.assert_frame_equal(got, expected)
+        assert not sub["small_universe"].any()          # judged by the reference's size
+
+    def test_subset_alone_is_ranked_among_itself(self):
+        """The old behaviour, kept when no reference exists (cold start)."""
+        uni_df = self._universe()
+        uni = compute_scores(uni_df.copy())
+        held = ["T03.BR", "T07.BR", "T12.BR", "T21.BR", "T40.BR"]
+        alone = compute_scores(uni_df[uni_df["Ticker"].isin(held)].copy())
+        assert not np.allclose(alone.set_index("Ticker").loc[held, "Value Score"],
+                               uni.set_index("Ticker").loc[held, "Value Score"])
+        assert alone["small_universe"].all()
+
+    def test_reference_rank_matches_pandas_rank_and_inserts_new_values(self):
+        values = pd.Series([1.0, 2.0, 2.0, 3.0, 4.0])
+        dist = np.sort(values.to_numpy())
+        pd.testing.assert_series_equal(screener._pct_rank(values, dist=dist), screener._pct_rank(values))
+        # A value the universe doesn't hold ranks as if added: 2.5 → 4th of 6.
+        assert screener._pct_rank(pd.Series([2.5]), dist=dist).iloc[0] == pytest.approx(4 / 6 * 100)
+        assert screener._pct_rank(pd.Series([np.nan]), dist=dist).iloc[0] == 50.0

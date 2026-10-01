@@ -30,9 +30,11 @@ MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter a
 - Automatic cash-ledger notes are stored with a language-neutral copy (`note_i18n`) next to the English `note`, so they show in the viewer's language; older entries keep working.
 - **Minimum Python raised to 3.12** (`pyproject.toml`, README, CONTRIBUTING). On 3.11 Babel can't extract `_()` calls inside f-strings, so the translation catalogs would silently lose entries; `tools/i18n_update.py` now refuses to run on older versions.
 - New pinned dependencies: `babel` 2.18.0 (CLDR data, pinned so formats don't change silently) and `pyuca` 1.2.
+- **Scores and signals now use one peer group: all enabled exchanges together.** Sector P/E and P/B medians (behind the P/E and book-value fair values) and the composite score's percentile ranks were taken per exchange on the Screener, Watchlist and Analysis page. Scores, fair values and some BUY/MONITOR signals move.
 
 ### Fixed
 
+- Dashboard, Portfolio, Risk and the stock preview ranked a holding only against your other holdings (since v1.2.0), so its fair value, score and signal could differ from the Screener and Analysis page for the same stock (book value €25 vs €10 for one REIT; a Strong Buy shown as Monitor). Holdings are now scored against the scored universe's medians and ranks.
 - Screener: the open Sector filter list clipped long sector names ("Communication S…"), in English too. Open select lists are now at least 260px wide.
 
 ---
