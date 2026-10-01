@@ -243,6 +243,14 @@ def _topbar_css(active_path: str) -> str:
   background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;
 }}
 div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !important; }}
+/* Below ~1200px the nav links and the market-status text no longer fit side
+   by side (they overlapped at 1024px): drop the status text (the dot keeps
+   it as a tooltip) and the nav icons, tighten the link padding. */
+@media (max-width: 1200px) {{
+  .uv-pi-text {{ display: none !important; }}
+  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{ display: none !important; }}
+  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{ padding: 7px 9px !important; }}
+}}
 .st-key-uv_theme_toggle button {{
   border-radius: 8px !important; background: var(--navy) !important;
   color: var(--mint) !important; border: 0.5px solid var(--line) !important;
@@ -342,7 +350,7 @@ def render_topbar(nav) -> None:
                     f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
-                    f'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span></div>',
+                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span></div>',
                     unsafe_allow_html=True,
                 )
 

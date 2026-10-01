@@ -1657,7 +1657,7 @@ def cash_type_chip_html(type_: str) -> str:
 def cash_balance_block_html(balance_text: str, last_text: str) -> str:
     return (f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;letter-spacing:-0.02em;'
             f'line-height:1;">{balance_text}</div>'
-            f'<div style="font-size:11px;color:var(--faint);margin-top:8px;white-space:nowrap;">{last_text}</div>')
+            f'<div style="font-size:11px;color:var(--faint);margin-top:8px;">{last_text}</div>')
 
 
 def cash_alloc_html(invested_pct: float, cash_pct: float, total_text: str) -> str:

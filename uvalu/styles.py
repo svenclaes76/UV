@@ -297,6 +297,12 @@ GLOBAL_CSS = """
     justify-content: flex-end !important;
   }
   .st-key-db_conv_full_analysis button:hover { color: var(--mint) !important; }
+  /* One line in every language ("Vollständige Analyse →"): the link's
+     column sizes to the link, the title takes the rest. */
+  [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"] > .st-key-db_conv_full_analysis) {
+    flex: 0 0 auto !important; width: auto !important;
+  }
+  .st-key-db_conv_full_analysis button p { white-space: nowrap !important; }
   /* Beta/Volatility/Max-drawdown row pinned to the card's bottom edge —
      matches the mockup's `margin-top:auto` on this section (Uvalu.dc.html
      ~line 407), which keeps it flush with the card's bottom even when the
@@ -674,7 +680,16 @@ GLOBAL_CSS = """
      what actually lets flex-end push it to the right. */
   .st-key-wl_add_form_wrap [data-testid="stColumn"]:has([data-testid="stFormSubmitButton"]) {
     display: flex !important; justify-content: flex-end !important;
+    /* The button's column sizes to the button (one line, any language or
+       window width); Ticker and Company name share the rest. */
+    flex: 0 0 auto !important; width: auto !important;
   }
+  .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button p { white-space: nowrap !important; }
+  /* ...and the two fields keep their 1.5 : 3.8 split of what is left (with
+     their percentage flex-basis they pushed the button onto its own row
+     below ~1100px). */
+  .st-key-wl_add_form_wrap [data-testid="stColumn"]:nth-child(1) { flex: 1.5 1 0% !important; min-width: 0 !important; }
+  .st-key-wl_add_form_wrap [data-testid="stColumn"]:nth-child(2) { flex: 3.8 1 0% !important; min-width: 0 !important; }
   .st-key-wl_add_form_wrap [data-testid="stColumn"]:has([data-testid="stFormSubmitButton"]) > div {
     flex: none !important; width: auto !important;
   }

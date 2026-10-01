@@ -92,12 +92,11 @@ def render() -> None:
             # lines at a narrower window, confirmed by the report); 0.7
             # gives enough headroom to stay single-line at typical widths,
             # with company name trimmed slightly (4 → 3.8) to compensate.
-            # The button column also grows with a longer translated label
-            # ("Ticker hinzufügen"): ~7px per 14px glyph + icon/padding, at
-            # ~215px per weight unit.
+            # The button's column then sizes to the button itself (styles.py),
+            # so a longer label ("Ticker hinzufügen") or a narrower window
+            # never wraps it.
             _add_label = _("Add ticker")
-            _btn_w = max(0.7, round((len(_add_label) * 7.0 + 52) / 215, 3))
-            _c1, _c2, _c3 = st.columns([1.5, 3.8, _btn_w], vertical_alignment="bottom")
+            _c1, _c2, _c3 = st.columns([1.5, 3.8, 0.7], vertical_alignment="bottom")
             with _c1:
                 st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);margin-bottom:7px;">{h_("Ticker")}</div>', unsafe_allow_html=True)
