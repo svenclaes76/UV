@@ -83,7 +83,7 @@ def test_dataless_holding_reads_nodata_not_veto_and_no_phantom_vetoes(isolated_d
 
     at_r = _run_risk(monkeypatch, risk_cache=_SHARED_CACHE, portfolio_scored=only_aaa)
     r_html = "".join(m.value for m in at_r.markdown)
-    assert "remain(s) under a hard veto" not in r_html
+    assert "under a hard veto" not in r_html
 
 
 def test_missing_sector_never_renders_as_nan_and_labels_agree(isolated_data, monkeypatch):

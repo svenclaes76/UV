@@ -1,4 +1,5 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
+import html
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -12,7 +13,7 @@ from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
-from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, ngettext, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
@@ -371,7 +372,9 @@ def render() -> None:
         _veto_tickers = [t for t in pf["ticker"] if bool(_veto_lookup.get(t, False))]
         _veto_names = pf[pf["ticker"].isin(_veto_tickers)]["name"].tolist()
         if _veto_names:
-            _flags.append(h_("{names} remain(s) under a hard veto", names=", ".join(_veto_names)))
+            _flags.append(html.escape(ngettext("{names} remains under a hard veto",
+                                               "{names} remain under a hard veto",
+                                               len(_veto_names), names=", ".join(_veto_names)), quote=False))
         _alert_msg = (" · ".join(_flags) + ".") if _flags else \
             h_("All positions sit within the 15% single-name, 30% sector, and 60% country limits.")
         # Same navy alert-box + warning-triangle icon as Analysis's hard-veto

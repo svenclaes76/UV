@@ -193,8 +193,18 @@ def test_vetoed_holding_shows_veto_flag(isolated_data, monkeypatch):
     # Held ticker → its scored row comes from the portfolio lane now.
     at = _run(monkeypatch, portfolio_scored=make_scored_df([make_scored_row(veto=True)]))
     html = "".join(m.value for m in at.markdown)
-    assert "remain(s) under a hard veto" in html
+    assert "remains under a hard veto" in html     # one vetoed holding: singular
     assert ">Veto<" in html
+
+
+def test_two_vetoed_holdings_use_the_plural(isolated_data, monkeypatch):
+    base = make_portfolio_df().iloc[0].to_dict()
+    portfolio.save_portfolio(make_portfolio_df([base, {**base, "ticker": "BBB.BR", "name": "Beta NV",
+                                                       "google_ticker": "EBR:BBB"}]))
+    at = _run(monkeypatch, portfolio_scored=make_scored_df([
+        make_scored_row(veto=True), make_scored_row(Ticker="BBB.BR", Name="Beta NV", veto=True)]))
+    html = "".join(m.value for m in at.markdown)
+    assert "Alpha Corp, Beta NV remain under a hard veto" in html
 
 
 def test_critical_risk_position_shows_flag(isolated_data, monkeypatch):
