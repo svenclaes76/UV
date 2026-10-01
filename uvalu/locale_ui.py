@@ -183,12 +183,16 @@ def render_card(email: str) -> None:
                 st.markdown(f'<div style="padding:4px 20px;font-size:12.5px;">'
                             f'{_("Reset all language and region settings to their defaults?")}</div>',
                             unsafe_allow_html=True)
-                c1, c2, _c3 = st.columns([1, 1, 3])
-                if c1.button(_("Reset to defaults"), key="set_i18n_reset_yes", type="primary"):
+                # Content-width buttons: fixed st.columns slots wrapped the
+                # German "Auf Standard zurücksetzen" onto two lines.
+                with st.container(horizontal=True, gap="small"):
+                    yes = st.button(_("Reset to defaults"), key="set_i18n_reset_yes", type="primary")
+                    no = st.button(_("Cancel"), key="set_i18n_reset_no")
+                if yes:
                     st.session_state["set_i18n_confirm_reset"] = False
                     _reset(email)
                     st.rerun()
-                if c2.button(_("Cancel"), key="set_i18n_reset_no"):
+                if no:
                     st.session_state["set_i18n_confirm_reset"] = False
                     st.rerun()
             elif st.button(_("Reset to defaults"), key="set_i18n_reset", type="tertiary"):

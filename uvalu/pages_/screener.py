@@ -17,7 +17,7 @@ from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
 from uvalu.components import (fit_widths, header_cell_html, signal_badge_for_decision, stock_row, empty_results_html,
-                              refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows)
+                              refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
@@ -140,6 +140,21 @@ def _scr_header_css(active_key: str) -> str:
 """
 
 
+_SEARCH_PX = 184           # styles.py .st-key-scr_search_wrap
+_SEARCH_CHROME_PX = 31     # 14px left + 8px right padding, border, a little slack
+
+
+def _search_width_css(placeholder: str) -> None:
+    """Widen the search box (never narrow it) when the translated placeholder
+    would clip (German "Ticker oder Unternehmen …"); the input text is 13px,
+    text_width_px() measures 14px."""
+    need = math.ceil(text_width_px(placeholder) * 13 / 14 + _SEARCH_CHROME_PX)
+    if need > _SEARCH_PX:
+        with st.container(key="uv_hidden_util_scr_search_width"):   # takes no space in the filter bar
+            st.markdown(f"<style>.st-key-scr_search_wrap {{ width: {need}px !important; }}</style>",
+                        unsafe_allow_html=True)
+
+
 def render() -> None:
     _is_viewer = current_user().is_viewer
     _settings = load_shared_settings()
@@ -244,8 +259,10 @@ def render() -> None:
         with st.container(key="scr_filter_row", horizontal=True, vertical_alignment="center"):
             with st.container(key="scr_search_wrap"):
                 _filter_label(h_("Search"))
-                _search = st.text_input(_("Search"), placeholder=_("Ticker or company…"),
+                _placeholder = _("Ticker or company…")
+                _search = st.text_input(_("Search"), placeholder=_placeholder,
                                         key="scr_search", label_visibility="collapsed")
+                _search_width_css(_placeholder)
             with st.container(key="scr_signal_pills"):
                 _filter_label(h_("Signal"))
                 _signal = st.pills(_("Signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
