@@ -15,7 +15,7 @@ from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
-                        localize_fig, ngettext, plotly_money_axis, to_display, tr)
+                        localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
 from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
@@ -221,7 +221,10 @@ def render() -> None:
             _title_col, _range_col = st.columns([2, 2], vertical_alignment="top")
             with _range_col, st.container(horizontal_alignment="right"):
                 _range_sel = st.segmented_control(_("Range"), options=list(_RANGES.keys()), default="All",
-                                                  format_func=frozen(lambda k: _("All") if k == "All" else k),
+                                                  format_func=frozen(lambda k: {"1M": pgettext("chart_range", "1M"),
+                                                                  "3M": pgettext("chart_range", "3M"),
+                                                                  "1Y": pgettext("chart_range", "1Y"),
+                                                                  "All": _("All")}[k]),
                                                   key="db_range", label_visibility="collapsed")
             _days = _RANGES.get(_range_sel or "All")
             _vh_view = _db_vh
@@ -443,7 +446,7 @@ def render() -> None:
             with st.container(width="content"):
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from €0 to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.")}</div>""",
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.")}</div>""",
                            unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()

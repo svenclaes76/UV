@@ -1206,6 +1206,13 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"] {
     flex: none !important; width: auto !important;
   }
+  /* The auto-width wrappers above shrink a selectbox to 212px, which clipped
+     the region format's sample number ("Schweiz (Deutsch) — 1’234.5…").
+     A fixed width (a percentage would resolve against the shrink-wrapped
+     parent) that still fits the column on narrow screens. */
+  [class*="st-key-set_row_i18n_"] [data-testid="stSelectbox"] {
+    width: min(300px, 42vw) !important;
+  }
   /* The title+desc column's generated wrapper reports a shorter height than
      the two-line raw-HTML block it actually holds — same "Streamlit
      under-reports a raw-HTML block's real height" bug documented for the
