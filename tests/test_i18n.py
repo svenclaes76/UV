@@ -203,6 +203,20 @@ def test_region_resolution():
     assert _resolve({"region": "de-CH"})[0].region == "de-CH"
 
 
+def test_region_looks_past_a_bare_first_language_tag():
+    """Browsers often send the bare language first ("nl, nl-BE")."""
+    assert _resolve(tags=["nl", "nl-NL"])[0].region == "nl-NL"
+    assert _resolve(tags=["de", "de-CH", "en"])[0].region == "de-CH"
+    assert _resolve(tags=["en-US", "nl-NL", "nl"])[0].region == "en-US"     # language en: its own region
+    # Chosen language first: a Dutch profile with an English-first browser.
+    assert _resolve({"language": "nl"}, tags=["en-GB", "nl-NL"])[0].region == "nl-NL"
+    # Same country in the chosen language (fr-CH), before another language's region.
+    assert _resolve({"language": "fr"}, tags=["de-CH", "de"])[0].region == "fr-CH"
+    # Nothing in the chosen language: any supported browser region still beats the default.
+    assert _resolve({"language": "it"}, tags=["fr-BE"])[0].region == "fr-BE"
+    assert _resolve(tags=["pt-BR", "zh-Hant-TW"])[0].region == "en-GB"   # unsupported: language default
+
+
 def test_display_currency_follows_region_until_chosen():
     assert _resolve({"region": "de-CH"})[0].currency == "CHF"
     assert _resolve({"region": "fr-BE"})[0].currency == "EUR"

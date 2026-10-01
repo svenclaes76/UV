@@ -124,7 +124,7 @@ An explicit user choice always wins. Detection only sets the first-visit default
 **Region format, first match wins:**
 
 1. The saved user profile setting.
-2. The full browser locale if it is supported (fr-BE maps to fr-BE, de-AT to de-AT).
+2. A full browser locale if one is supported (fr-BE maps to fr-BE, de-AT to de-AT). Every tag in the browser's list counts, not just the first (browsers often send "nl, nl-BE"): first a supported tag in the chosen language, then the chosen language in a country the browser lists (French with de-CH gives fr-CH), then any supported tag.
 3. The default region of the chosen language (section 2).
 
 **Fallback rules**

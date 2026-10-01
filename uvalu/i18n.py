@@ -281,6 +281,23 @@ def _canonical_region(tag: str) -> str | None:
     return cand if cand in config().enabled_regions else None
 
 
+def _browser_region(tags: list[str], lang: str) -> str | None:
+    """Spec §6 region step 2, over every Accept-Language tag (browsers often
+    send the bare language first: "nl, nl-BE"). Best first: a supported tag
+    in the chosen language; then that language in a country the browser
+    lists (fr + de-CH → fr-CH); then any supported tag."""
+    canon = [r for r in (_canonical_region(t) for t in tags if "-" in t) if r]
+    same_lang = [r for r in canon if r.split("-")[0] == lang]
+    if same_lang:
+        return same_lang[0]
+    for t in tags:
+        _lang, _sep, terr = t.partition("-")
+        cand = _canonical_region(f"{lang}-{terr}") if terr else None
+        if cand:
+            return cand
+    return canon[0] if canon else None
+
+
 def resolve(profile: dict | None, *, session_lang: str | None, browser_tags: list[str]) -> tuple[Ctx, str | None]:
     """Pure resolution (spec §6) → (ctx, disabled_language_or_None).
 
@@ -314,7 +331,7 @@ def resolve(profile: dict | None, *, session_lang: str | None, browser_tags: lis
     elif p_region in cfg.enabled_regions:
         region = p_region
     if region is None and browser_tags:
-        region = _canonical_region(browser_tags[0])
+        region = _browser_region(browser_tags, lang)
     region = region or cfg.default_region_for(lang)
 
     currency = profile.get("display_currency")
