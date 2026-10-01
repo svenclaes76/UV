@@ -358,6 +358,24 @@ def test_update_keeps_poedit_wrapping_of_unchanged_entries():
     assert mod._preserve_layout(out, babel) == out               # a second run changes nothing
 
 
+def test_update_keeps_the_previous_msgid_of_unreviewed_entries(tmp_path):
+    """Babel's reader drops "#| msgid" (and files it as a "# |" translator
+    comment); the old English must survive every run until review."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("i18n_update", Path(__file__).parents[1] / "tools" / "i18n_update.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    po = tmp_path / "messages.po"
+    po.write_text('msgid ""\nmsgstr ""\n"Language: nl\\n"\n\n'
+                  '#, fuzzy\n#| msgid "{n} remain(s)"\nmsgid "{n} remains"\nmsgid_plural "{n} remain"\n'
+                  'msgstr[0] "{n} blijft"\nmsgstr[1] "{n} blijven"\n', encoding="utf-8")
+    for _ in range(2):
+        mod._write(po, mod._read(po, locale="nl"))
+    text = po.read_text(encoding="utf-8")
+    assert '#| msgid "{n} remain(s)"\nmsgid "{n} remains"' in text
+    assert "# |" not in text
+
+
 # ── Deferred messages ────────────────────────────────────────────────────────
 
 def test_msg_is_english_text_that_retranslates_and_pickles(drafts):

@@ -230,6 +230,9 @@ def _preserve_layout(old_text: str, new_text: str) -> str:
     differently from Babel; without this each run after a Poedit save
     rewrote hundreds of unchanged lines."""
     old_blocks = old_text.replace("\r\n", "\n").strip("\n").split("\n\n")
+    # "# | msgid …" lines are Babel's mangled previous-msgid comments from
+    # earlier runs (see _write); compare and reuse entries without them.
+    old_blocks = ["\n".join(ln for ln in b.split("\n") if not ln.startswith("# |")) for b in old_blocks]
     new_blocks = new_text.replace("\r\n", "\n").strip("\n").split("\n\n")
     by_key = {}
     for b in old_blocks[1:]:
@@ -253,6 +256,31 @@ def _previous_lines(previous_id) -> list[str]:
     return out
 
 
+def _strings(lines: list[str], prefix: str = "") -> dict[str, str]:
+    """{keyword: unescaped text} of an entry's msgctxt/msgid/msgid_plural
+    lines; prefix "#| " reads the previous-msgid comment instead."""
+    out, cur = {}, None
+    for ln in lines:
+        if prefix:
+            if not ln.startswith(prefix):
+                cur = None
+                continue
+            ln = ln[len(prefix):]
+        if ln.startswith('"') and cur:
+            out[cur] += ln[1:-1]
+        elif ln.startswith(("msgctxt ", "msgid ", "msgid_plural ")):
+            cur, _sep, rest = ln.partition(" ")
+            out[cur] = rest[1:-1]
+        else:
+            cur = None
+    return {k: unescape(f'"{v}"') for k, v in out.items()}
+
+
+def _entry_key(lines: list[str]) -> tuple:
+    s = _strings([ln for ln in lines if not ln.startswith("#")])
+    return (s.get("msgctxt"), s.get("msgid", ""))
+
+
 def _add_previous(text: str, previous: dict) -> str:
     """Insert each fuzzy entry's previous msgid before its msgctxt/msgid line."""
     if not previous:
@@ -261,27 +289,36 @@ def _add_previous(text: str, previous: dict) -> str:
     for n, block in enumerate(blocks):
         lines = block.split("\n")
         at = next((i for i, ln in enumerate(lines) if ln.startswith(("msgctxt ", "msgid "))), None)
-        if at is None:
-            continue
-        strings, cur = {}, None
-        for ln in lines[at:]:
-            if ln.startswith('"') and cur:
-                strings[cur] += ln[1:-1]
-            elif ln.startswith(("msgctxt ", "msgid ")):
-                cur, _sep, rest = ln.partition(" ")
-                strings[cur] = rest[1:-1]
-            else:
-                cur = None
-        key = (unescape(f'"{strings["msgctxt"]}"') if "msgctxt" in strings else None,
-               unescape(f'"{strings.get("msgid", "")}"'))
-        if key in previous:
-            blocks[n] = "\n".join(lines[:at] + _previous_lines(previous[key]) + lines[at:])
+        if at is not None and _entry_key(lines) in previous:
+            blocks[n] = "\n".join(lines[:at] + _previous_lines(previous[_entry_key(lines)]) + lines[at:])
     return "\n\n".join(blocks)
+
+
+def _read_previous(path: Path) -> dict:
+    """{(msgctxt, msgid): [previous msgid(, plural)]} from a file's "#| msgid"
+    lines — Babel's reader ignores them."""
+    out = {}
+    for block in path.read_bytes().decode("utf-8").replace("\r\n", "\n").split("\n\n"):
+        lines = block.split("\n")
+        prev = _strings(lines, prefix="#| ")
+        if "msgid" in prev:
+            out[_entry_key(lines)] = [prev["msgid"]] + ([prev["msgid_plural"]] if "msgid_plural" in prev else [])
+    return out
 
 
 def _write(path: Path, catalog: Catalog) -> None:
     _normalize_format_flags(catalog)
+    for m in catalog:   # Babel's reader files "#| msgid" lines under translator comments
+        m.user_comments = [c for c in m.user_comments if not c.lstrip().startswith("|")]
     previous = {_key(m): m.previous_id for m in catalog if m.id and m.previous_id}
+    if path.exists():
+        # Babel's reader drops "#| msgid" lines and its update() sets them only
+        # on the run where a msgid changes: keep the old English (Poedit shows
+        # it as a diff) for every entry that is still unreviewed.
+        on_file = _read_previous(path)
+        for m in catalog:
+            if m.id and m.fuzzy and _key(m) not in previous and _key(m) in on_file:
+                previous[_key(m)] = on_file[_key(m)]
     buf = io.BytesIO()
     write_po(buf, catalog, width=PO_WIDTH, sort_output=False, include_previous=False)
     text = _add_previous(buf.getvalue().decode("utf-8"), previous)
