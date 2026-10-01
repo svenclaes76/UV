@@ -74,6 +74,17 @@ def test_swiss_negative_money_puts_the_minus_where_the_plus_goes(region):
     assert neg[1:] == pos[1:]
 
 
+@pytest.mark.parametrize("region, sep", [("de-DE", NBSP), ("de-CH", ""), ("en-GB", ""), ("es-ES", NBSP)])
+def test_percent_in_text_follows_the_region(region, sep):
+    """German translations write "30 %"; de-CH formats percentages as "30%".
+    Literal percentages and "{pct}%" templates follow the region, like fmt_pct."""
+    ctx = i18n.with_(i18n._default_ctx(), lang="de", region=region)
+    with i18n._using(ctx):
+        assert i18n.fmt_pct(10.8).endswith(f"{sep}%")
+        assert i18n._percent_spacing("Nur BE 30 % und {pct}%") == f"Nur BE 30{sep}% und {{pct}}{sep}%"
+        assert i18n._percent_spacing("die 15-%-Grenze") == "die 15-%-Grenze"   # compounds untouched
+
+
 def test_money_never_shows_minus_zero():
     assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "€0.00"
     assert i18n.fmt_money(-0.0, "CHF", locale="de-CH") == f"CHF{NBSP}0.00"

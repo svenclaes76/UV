@@ -528,7 +528,30 @@ def _pseudo(s: str) -> str:
     return f"[{body} {'~' * max(1, len(s) // 3)}]"
 
 
+_PCT_IN_TEXT = re.compile(r"(?<=[\d}])[   ]?%")
+
+
+@lru_cache(maxsize=64)
+def _percent_sep(region: str) -> str | None:
+    """What the region's CLDR percent format puts between number and "%":
+    '' (en, de-CH, it), NBSP (de-DE, es), narrow NBSP (fr); None when the
+    sign isn't a suffix."""
+    suffix = _locale(region).percent_formats[None].suffix[0]
+    return suffix[:-1] if suffix.endswith("%") else None
+
+
+def _percent_spacing(text: str) -> str:
+    """Make "30 %" / "{pct}%" in a translated text follow the region's percent
+    format, so literal percentages match fmt_pct() values on the same screen
+    (German translations write "30 %", which de-CH formats as "30%")."""
+    if "%" not in text:
+        return text
+    sep = _percent_sep(current().region)
+    return text if sep is None else _PCT_IN_TEXT.sub(sep + "%", text)
+
+
 def _format(text: str, fallback: str, kw: dict) -> str:
+    text, fallback = _percent_spacing(text), _percent_spacing(fallback)
     if _pseudo_enabled():
         text = _pseudo(text)
     if not kw:
@@ -561,7 +584,7 @@ def h_(msgid: str, **kw) -> str:
     callers may pass as ready-made markup such as a <span>."""
     lang = current().lang
     s = _lookup(msgid, lang) if lang != "en" or _catalog("en").messages else None
-    text = s or msgid
+    text = _percent_spacing(s or msgid)
     if _pseudo_enabled():
         text = _pseudo(text)
     text = _html.escape(text, quote=False)
@@ -570,7 +593,7 @@ def h_(msgid: str, **kw) -> str:
     try:
         return text.format(**_render_kw(kw))
     except (KeyError, IndexError, ValueError):
-        return _html.escape(msgid, quote=False).format(**_render_kw(kw))
+        return _html.escape(_percent_spacing(msgid), quote=False).format(**_render_kw(kw))
 
 
 def pgettext(context: str, msgid: str, **kw) -> str:
@@ -624,7 +647,8 @@ def tr(value) -> str:
             return value
         lang = current().lang
         s = _lookup(value, lang, quiet=True)
-        return _pseudo(s or value) if _pseudo_enabled() else (s or value)
+        s = _percent_spacing(s) if s else value   # unknown data values pass through untouched
+        return _pseudo(s) if _pseudo_enabled() else s
     return str(value)
 
 

@@ -30,6 +30,8 @@ In Poedit, the context panel (or in the file itself) shows three things for ever
 3. Turn off **Needs work** to approve the entry. Save.
 4. Run `python tools/i18n_compile.py` to check placeholders and build the `.mo` files. Add `--strict` in release CI, so the build fails while anything is still unreviewed.
 
+Percentages: write them the way your language usually does ("30 %" or "30%"). The space before "%" is set at display time to match the region's number format (de-DE "30 %", de-CH "30%"), so text and computed values agree on screen.
+
 `pybabel compile` reports false errors on texts containing `%` (such as "BE 30% only"), because Babel mistakes them for %-formatting. Use `tools/i18n_compile.py` instead; Poedit is not affected.
 
 ## What is included
