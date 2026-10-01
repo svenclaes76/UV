@@ -9,6 +9,7 @@ import streamlit as st
 from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
                        dividend_income_summary, exchange_key_for_ticker,
                        load_dividend_meta)
+from scoring import DIV_COVERAGE_MIN, dividend_risk_reasons
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
                       sector_for, decision_reason)
 from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
@@ -21,12 +22,14 @@ from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               sub_score_bar_html, quality_score_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html)
 from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
+                        lowercase_noun, ngettext, plotly_money_axis, tr)
 from uvalu.runtime import theme_colors, current_user
 from uvalu.ui import _CHART_CONFIG
 
 _EXCHANGE_LABELS = {
-    "brussels": "Brussels", "amsterdam": "Amsterdam", "paris": "Paris",
-    "milan": "Milan", "frankfurt": "Frankfurt", "swiss": "Swiss",
+    "brussels": N_("Brussels"), "amsterdam": N_("Amsterdam"), "paris": N_("Paris"),
+    "milan": N_("Milan"), "frankfurt": N_("Frankfurt"), "swiss": N_("Swiss"),
 }
 
 
@@ -61,12 +64,11 @@ def render() -> None:
     ticker = st.session_state.get("_analysis_ticker")
 
     _dash_page = nav_registry.pages.get("dashboard")
-    if _dash_page is not None and st.button("← Back to dashboard", key="an_back", type="tertiary"):
+    if _dash_page is not None and st.button(_("← Back to dashboard"), key="an_back", type="tertiary"):
         st.switch_page(_dash_page)
 
     if not ticker:
-        st.info("No stock selected. Open a stock from any table (Dashboard, Screener, "
-                "Watchlist, Portfolio, Risk) to view its full analysis here.")
+        st.info(_("No stock selected. Open a stock from any table (Dashboard, Screener, Watchlist, Portfolio, Risk) to view its full analysis here."))
         return
 
     _settings = load_shared_settings()
@@ -75,14 +77,14 @@ def render() -> None:
     _dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds(), get_score_weights())
-    *_exch_dfs, _extra_df = _dfs
+    _exch_dfs, _extra_df = list(_dfs[:-1]), _dfs[-1]
     all_df = pd.concat([
         d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
         for k, d in zip(ALL_EXCHANGES, _exch_dfs)
     ] + [_extra_df], ignore_index=True)
     _match = all_df[all_df["Ticker"] == ticker]
     if _match.empty:
-        st.warning(f"No data found for **{ticker}**.")
+        st.warning(_("No data found for **{ticker}**.", ticker=ticker))
         return
     row = _match.iloc[0]
     _sector = sector_for(ticker, row.get("sector"))
@@ -91,11 +93,11 @@ def render() -> None:
     kind, label = signal_badge_for_decision(row.get("Decision"), veto=row.get("veto"))
     _score = row.get("Value Score")
     if pd.notna(_score) and _score >= 70:
-        _score_rating, _score_color = "Strong", "var(--up-txt, #0F6E56)"
+        _score_rating, _score_color = h_("Strong"), "var(--up-txt, #0F6E56)"
     elif pd.notna(_score) and _score >= 40:
-        _score_rating, _score_color = "Moderate", "#C98A3A"
+        _score_rating, _score_color = h_("Moderate"), "#C98A3A"
     elif pd.notna(_score):
-        _score_rating, _score_color = "Weak", "var(--down-txt, #A32D2D)"
+        _score_rating, _score_color = h_("Weak"), "var(--down-txt, #A32D2D)"
     else:
         _score_rating, _score_color = None, None
     _score_rating_html = (f'<div style="font-size:12px;color:{_score_color};">{_score_rating}</div>'
@@ -109,15 +111,15 @@ def render() -> None:
             f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
             f'{signal_badge_html(kind, label)}</div>'
             f'<div style="text-align:right;">'
-            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">Composite score</div>'
+            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{h_("Composite score")}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
-            f'{f"{_score:.0f}" if pd.notna(_score) else "—"}</div></div></div>'
+            f'{fmt_num(_score, 0)}</div></div></div>'
             # Row 2: company/sector/exchange caption (left) on the same line
             # as the score rating (right), matching row 1's baseline pairing.
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
-            f'{row.get("Name", "—")} · {_sector or "—"} · {_fv(row, "Exchange")}</div>'
+            f'{row.get("Name", "—")} · {tr(_sector) if _sector else "—"} · {_fv(row, "Exchange", tr)}</div>'
             f'{_score_rating_html}</div>',
             unsafe_allow_html=True,
         )
@@ -129,7 +131,8 @@ def render() -> None:
         _m = _pf[_pf["ticker"] == ticker]
         if not _m.empty:
             _held_row = _m.iloc[0]
-    _held_str = (f"{_held_row.get('shares', 0):.0f} shares" if _held_row is not None else "Not held")
+    _held_str = (ngettext("{count} share", "{count} shares", int(_held_row.get('shares', 0) or 0))
+                 if _held_row is not None else h_("Not held"))
 
     _mos_val = row.get("MoS %")
     _mos_color = ("var(--up-txt, #0F6E56)" if pd.notna(_mos_val) and _mos_val >= 0
@@ -146,10 +149,10 @@ def render() -> None:
     with st.container(key="an_hero_row"):
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
-            + _hero_card("Current price", _fv(row, "Price", _fmt_eur))
-            + _hero_card("Composite fair value", _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
-            + _hero_card("Margin of safety", _fv(row, "MoS %", lambda v: f"{v:+.1f}%"), color=_mos_color)
-            + _hero_card("Your position", _held_str)
+            + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_eur))
+            + _hero_card(h_("Composite fair value"), _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
+            + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), color=_mos_color)
+            + _hero_card(h_("Your position"), _held_str)
             + '</div>',
             unsafe_allow_html=True,
         )
@@ -162,7 +165,7 @@ def render() -> None:
             f'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
             f'1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">Hard veto active</div>'
+            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">{h_("Hard veto active")}</div>'
             f'<div style="font-size:12.5px;color:rgba(245,247,250,0.72);margin-top:3px;line-height:1.5;">'
             f'{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True,
@@ -170,22 +173,22 @@ def render() -> None:
     else:
         # Why this Decision — which gate keeps it out of BUY, or why Avoid vs
         # Monitor (WP-DQ9). Vetoed names already get the banner above.
-        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        _min_mos, _buy_thr = get_veto_thresholds()[2:4]
         st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
     with st.container(key="an_card_chart", border=True):
         with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
-            st.markdown('<div style="font-size:15px;font-weight:500;">Price vs composite fair value · 1Y</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Price vs composite fair value · 1Y")}</div>',
                        unsafe_allow_html=True)
             with st.container(horizontal=True, gap="small", width="content"):
                 st.markdown('<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
                            'color:var(--muted);"><span style="width:12px;height:2px;background:#1DD6A4;'
-                           'display:inline-block;"></span>Price</span>', unsafe_allow_html=True)
+                           f'display:inline-block;"></span>{h_("Price")}</span>', unsafe_allow_html=True)
                 st.markdown(f'<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
                            f'color:var(--muted);"><span style="width:12px;height:0;border-top:1.5px dashed '
-                           f'{_C.axis};display:inline-block;"></span>Fair value</span>', unsafe_allow_html=True)
+                           f'{_C.axis};display:inline-block;"></span>{h_("Fair value")}</span>', unsafe_allow_html=True)
         # A placeholder so the skeleton (shown only on a genuine cache miss —
         # see _fetch_price_history_1y) is replaced by the real chart in place
         # rather than both stacking on the page.
@@ -198,21 +201,22 @@ def render() -> None:
             _hist.index = pd.to_datetime(_hist.index).tz_localize(None)
             _fig = go.Figure()
             _fig.add_trace(go.Scatter(
-                x=_hist.index, y=_hist["Close"], mode="lines", name="Price",
+                x=_hist.index, y=_hist["Close"], mode="lines", name=_("Price"),
                 line=dict(color="#1DD6A4", width=2),
                 fill="tozeroy", fillcolor="rgba(29,214,164,0.07)",
             ))
             _fv_val = row.get("fair_value")
             if pd.notna(_fv_val):
                 _fig.add_hline(y=float(_fv_val), line=dict(color=_C.axis, width=1.5, dash="dash"),
-                              annotation_text=f"Fair value {_fmt_eur(float(_fv_val))}",
+                              annotation_text=_("Fair value {amount}", amount=_fmt_eur(float(_fv_val))),
                               annotation_font=dict(color=_C.axis, size=11))
             _fig.update_layout(
                 margin=dict(l=0, r=0, t=8, b=0), hovermode="x unified",
-                yaxis=dict(tickprefix="€", tickfont=dict(color=_C.axis), gridcolor=_C.grid),
+                yaxis=dict(**plotly_money_axis("EUR", decimals=0), tickfont=dict(color=_C.axis), gridcolor=_C.grid),
                 xaxis=dict(showgrid=False, tickfont=dict(color=_C.axis)),
                 font=dict(color=_C.axis), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             )
+            localize_fig(_fig)
             _chart_slot.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
         else:
             _chart_slot.empty()
@@ -220,21 +224,21 @@ def render() -> None:
     # ── Sub-scores | six-model fair value ─────────────────────────────────────
     _col1, _col2 = st.columns([1, 1.25])
     with _col1, st.container(key="an_card_subscores", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Signal sub-scores</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Signal sub-scores")}</div>',
                    unsafe_allow_html=True)
-        st.caption("Weighted components of the composite score.")
-        for label_, field in [("Margin of safety", "Sub MoS"), ("Risk (inverted)", "Sub Risk"),
-                              ("Quality", "Sub Quality"), ("Momentum", "Sub Momentum"),
-                              ("Dividend", "Sub Dividend")]:
+        st.caption(_("Weighted components of the composite score."))
+        for label_, field in [(h_("Margin of safety"), "Sub MoS"), (h_("Risk (inverted)"), "Sub Risk"),
+                              (h_("Quality"), "Sub Quality"), (h_("Momentum"), "Sub Momentum"),
+                              (h_("Dividend"), "Sub Dividend")]:
             v = row.get(field)
             if pd.notna(v):
                 # These sub-scores are all higher-is-better, the opposite sense
                 # of sub_score_bar_html's risk-scale default — pass the
                 # matching quality scale explicitly.
-                _bar_color, _ = quality_score_color(float(v))
+                _bar_color = quality_score_color(float(v))[0]
                 st.markdown(sub_score_bar_html(label_, float(v), color=_bar_color), unsafe_allow_html=True)
     with _col2, st.container(key="an_card_sixmodel", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:12px;">Six-model fair value</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Six-model fair value")}</div>',
                    unsafe_allow_html=True)
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
@@ -253,14 +257,12 @@ def render() -> None:
             if _cap:
                 st.caption(_cap)
             if bool(row.get("fair_value_clamped")):
-                st.caption(
-                    "⚑ Composite capped at the models' median — one model ran far "
-                    "above the rest and the others don't corroborate it.")
+                st.caption(_("⚑ Composite capped at the models' median — one model ran far above the rest and the others don't corroborate it."))
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
     _col3, _col4 = st.columns([1.25, 1])
     with _col3, st.container(key="an_card_financials", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:6px;">Financials &amp; valuation</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Financials & valuation")}</div>',
                    unsafe_allow_html=True)
         _de_val = row.get("debtToEquity")
         # Matches Uvalu.dc.html's 9-field set (EPS/P-E·fairP-E/ROE/Debt-equity/
@@ -273,24 +275,24 @@ def render() -> None:
         # column) matches the mockup's 5-then-4 layout exactly.
         _pe_val = row.get("trailingPE")
         _fin_fields = [
-            ("EPS (ttm)",             _fv(row, "trailingEps", lambda v: f"€{v:.2f}"), None),
-            ("P/E · fair P/E",        f"{_pe_val:.1f}× · 15.0×" if pd.notna(_pe_val) else "—", None),
-            ("Return on equity",      _fv(row, "returnOnEquity", lambda v: f"{v*100:.1f}%"),
+            (h_("EPS (ttm)"),         _fv(row, "trailingEps", lambda v: fmt_money(v, "EUR")), None),
+            (h_("P/E · fair P/E"),    f"{fmt_num(_pe_val, 1)}× · {fmt_num(15.0, 1)}×" if pd.notna(_pe_val) else "—", None),
+            (h_("Return on equity"),  _fv(row, "returnOnEquity", lambda v: fmt_pct(v, fraction=True)),
              "up" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") > 0.15
              else "down" if pd.notna(row.get("returnOnEquity")) and row.get("returnOnEquity") < 0 else None),
-            ("Debt / equity",         _fv(row, "debtToEquity", lambda v: f"{v:.1f}"),
+            (h_("Debt / equity"),     _fv(row, "debtToEquity", lambda v: fmt_num(v, 1)),
              "down" if pd.notna(_de_val) and _de_val > 150 else None),
-            ("Free cash-flow yield",  _fv(row, "fcfYield", lambda v: f"{v*100:.1f}%"),
+            (h_("Free cash-flow yield"), _fv(row, "fcfYield", lambda v: fmt_pct(v, fraction=True)),
              "up" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") > 0.03
              else "down" if pd.notna(row.get("fcfYield")) and row.get("fcfYield") <= 0 else None),
-            ("Operating margin",      _fv(row, "operatingMargins", lambda v: f"{v*100:.1f}%"),
+            (h_("Operating margin"),  _fv(row, "operatingMargins", lambda v: fmt_pct(v, fraction=True)),
              "up" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") > 0.15
              else "down" if pd.notna(row.get("operatingMargins")) and row.get("operatingMargins") < 0 else None),
-            ("Net margin",            _fv(row, "profitMargins", lambda v: f"{v*100:.1f}%"),
+            (h_("Net margin"),        _fv(row, "profitMargins", lambda v: fmt_pct(v, fraction=True)),
              "up" if pd.notna(row.get("profitMargins")) and row.get("profitMargins") > 0.10
              else "down" if pd.notna(row.get("profitMargins")) and row.get("profitMargins") < 0 else None),
-            ("Dividend yield",        _fv(row, "dividendYield", lambda v: f"{v*100:.2f}%"), None),
-            ("Payout ratio",          _fv(row, "payoutRatio", lambda v: f"{v*100:.1f}%"),
+            (h_("Dividend yield"),    _fv(row, "dividendYield", lambda v: fmt_pct(v, 2, fraction=True)), None),
+            (h_("Payout ratio"),      _fv(row, "payoutRatio", lambda v: fmt_pct(v, fraction=True)),
              "down" if pd.notna(row.get("payoutRatio")) and row.get("payoutRatio") > 0.80 else None),
         ]
         _warn_colors = {"up": "var(--up-txt, #0F6E56)", "down": "var(--down-txt, #A32D2D)"}
@@ -305,9 +307,9 @@ def render() -> None:
                     f'color:{_fcolor};">{_fval}</span></div>',
                     unsafe_allow_html=True)
     with _col4, st.container(key="an_card_vetochecks", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:12px;">Hard-veto checks</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Hard-veto checks")}</div>',
                    unsafe_allow_html=True)
-        _max_de_thr, _, _, _ = get_veto_thresholds()
+        _max_de_thr = get_veto_thresholds()[0]
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
         sector = _sector
         div_flag = row.get("Div Flag"); coverage = row.get("dividendCoverage")
@@ -333,9 +335,9 @@ def render() -> None:
         # treat as failing. See uvalu/components.py's veto_reason_str(),
         # which mirrors the same real formula for the veto banner text.
         _de_exempt = sector in LEVERAGE_EXEMPT_SECTORS
-        _de_note = _fv(row, "debtToEquity", lambda v: f"{v/100:.2f}×")
+        _de_note = _fv(row, "debtToEquity", lambda v: f"{fmt_num(v / 100, 2)}×")
         if _de_exempt and pd.notna(de) and de > _max_de_thr:
-            _de_note = f"{_de_note} (sector-exempt)"
+            _de_note = _("{value} (sector-exempt)", value=_de_note)
         # Dividend is a single AND-combined sub-condition in the real formula
         # (Div Flag == "At Risk" AND coverage < 1.0×), not two independent
         # checks — matches components.py's veto_reason_str() exactly, so a
@@ -343,29 +345,46 @@ def render() -> None:
         # show a misleading red ✕ under "Hard-veto checks" for a factor that
         # isn't actually contributing to a veto in that state.
         _div_veto = div_flag == "At Risk" and pd.notna(coverage) and coverage < 1.0
-        _div_note = f"{div_flag if div_flag else '—'} · {_fv(row, 'dividendCoverage', lambda v: f'{v:.2f}×')}"
+        _div_note = _fv(row, "dividendCoverage", lambda v: fmt_num(v, 2) + "×")
+        # Flagged "At Risk" but not vetoed (still covered by earnings): an
+        # amber warning with the reason, not a green ✓ next to "At Risk".
+        _div_warn = div_flag == "At Risk" and not _div_veto
+        if div_flag == "At Risk":
+            _reason_text = {
+                "payout": lambda: _("payout {pct}", pct=fmt_pct(row.get("payoutRatio"), 0, fraction=True)),
+                "cash_payout": lambda: _("FCF payout {pct}", pct=fmt_pct(row.get("cashPayoutRatio"), 0, fraction=True)),
+                "coverage": lambda: _("cover under {ratio}", ratio=fmt_num(DIV_COVERAGE_MIN, 1) + "×"),
+                "recent_cut": lambda: _("cut in {year}", year=str(int(row.get("dividend_last_cut_year")))),
+            }
+            _reasons = [_reason_text[r]() for r in dividend_risk_reasons(row, max_payout=get_veto_thresholds()[1])]
+            if _reasons:
+                _div_note = _("{coverage} · at risk: {reasons}", coverage=_div_note, reasons=", ".join(_reasons))
         # Multi-year deterioration checks re-use screener._trend_veto directly —
         # same anti-drift reason as the D/E and FCF rows above. It returns the
         # list of tripped reasons; empty means the row passes.
         _trend_reasons = _trend_veto(row)
-        _trend_note = _trend_reasons[0] if _trend_reasons else "—"
+        _trend_note = tr(_trend_reasons[0]) if _trend_reasons else "—"
         # Zero-volume check re-uses the same `== 0` (not `.fillna(0)`) test as
         # compute_scores's `_hard_veto` — a confirmed zero fails, a missing
         # field passes (unreported volume isn't evidence of no trading).
         _no_trade = pd.notna(volume) and volume == 0
         _checks = [
-            (f"Debt / equity below {_max_de_thr/100:.1f}×",
+            (h_("Debt / equity below {limit}×", limit=fmt_num(_max_de_thr / 100, 1)),
              not (pd.notna(de) and de > _max_de_thr) or _de_exempt, _de_note),
-            ("Positive free cash flow", not _fcf_hard_veto(row),
-             _fv(row, "fcfYield", lambda v: f"{v*100:.1f}% yield") if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
-            ("Dividend coverage adequate", not _div_veto, _div_note),
-            ("No adverse multi-year trend", not _trend_reasons, _trend_note),
-            ("Confirmed trading volume", not _no_trade, _fv(row, "averageVolume", lambda v: f"{v:,.0f}")),
+            (h_("Positive free cash flow"), not _fcf_hard_veto(row),
+             _fv(row, "fcfYield", lambda v: _("{value}% yield", value=fmt_num(v * 100, 1)))
+             if pd.notna(fcf_y) else _fv(row, "freeCashflow", _fmt_eur)),
+            (h_("Dividend covered by earnings"), "warn" if _div_warn else not _div_veto, _div_note),
+            (h_("No adverse multi-year trend"), not _trend_reasons, _trend_note),
+            (h_("Confirmed trading volume"), not _no_trade, _fv(row, "averageVolume", fmt_int)),
         ]
         for check_label, passed, note in _checks:
-            icon = "✓" if passed else "✕"
-            bg = "var(--up-bg)" if passed else "var(--down-bg)"
-            color = "var(--up-txt)" if passed else "var(--down-txt)"
+            if passed == "warn":   # passes the veto, but flagged — see the dividend row
+                icon, bg, color = "!", "var(--amber-bg)", "var(--amber-txt)"
+            else:
+                icon = "✓" if passed else "✕"
+                bg = "var(--up-bg)" if passed else "var(--down-bg)"
+                color = "var(--up-txt)" if passed else "var(--down-txt)"
             st.markdown(
                 f'<div style="display:flex;align-items:center;gap:11px;padding:9px 0;'
                 f'border-bottom:0.5px solid var(--line-2);">'
@@ -391,16 +410,18 @@ def render() -> None:
             _dh_title, _dh_src = st.columns([2.2, 1], vertical_alignment="center")
             with _dh_title:
                 _row_freq = row.get("dividendFrequency")
-                _freq_label = _dm_meta.get("frequency") or (_row_freq if pd.notna(_row_freq) else None) or "—"
-                _dps_label = f"€{_dps_annual:.2f} / share" if pd.notna(_dps_annual) and _dps_annual else "—"
+                _freq_label = _dm_meta.get("frequency") or (_row_freq if pd.notna(_row_freq) else None)
+                _freq_label = tr(_freq_label) if _freq_label else "—"
+                _dps_label = (h_("{amount} / share", amount=fmt_money(_dps_annual, "EUR"))
+                              if pd.notna(_dps_annual) and _dps_annual else "—")
                 st.markdown(f'<div style="display:flex;align-items:center;gap:10px;">'
-                           f'<span style="font-size:15px;font-weight:500;">Dividend &amp; income</span>'
+                           f'<span style="font-size:15px;font-weight:500;">{h_("Dividend & income")}</span>'
                            f'<span style="font-size:11.5px;color:var(--muted);">{_freq_label} · {_dps_label}</span></div>',
                            unsafe_allow_html=True)
             with _dh_src:
                 _src_auto = bool(_has_div_history and (_div_hist_all.loc[_div_hist_all["ticker"] == ticker]
                                  .sort_values("date").iloc[-1].get("source") == "auto"))
-                _src_label = "Auto-fetched" if _src_auto else ("Manual entry" if _has_div_history else "Market data")
+                _src_label = h_("Auto-fetched") if _src_auto else (h_("Manual entry") if _has_div_history else h_("Market data"))
                 _src_style = ("background:var(--uv-soft,rgba(29,214,164,.08));color:var(--uv-mint,#1DD6A4);"
                              if _src_auto or not _has_div_history else "border:0.5px solid var(--line);color:var(--muted);")
                 st.markdown(f'<div style="text-align:right;"><span style="font-size:9.5px;font-family:var(--uv-mono);'
@@ -429,31 +450,34 @@ def render() -> None:
                            f'font-size:19px;font-weight:500;margin-top:5px;color:{color};">{value}</div></div>')
                 st.markdown(
                     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
-                    + _stat("Yield · TTM", f"{_ttm_yield:.2f}%" if _ttm_yield is not None else "—")
-                    + _stat("Yield · forward", f"{_dy_fwd*100:.2f}%" if pd.notna(_dy_fwd) and _dy_fwd else "—")
-                    + _stat("Yield-on-cost · net", f"{_yoc:.2f}%" if _yoc is not None else "—", "var(--uv-mint,#1DD6A4)")
-                    + _stat("Increase streak", f"{int(row.get('dividend_growth_streak') or 0)} yrs")
+                    + _stat(h_("Yield · TTM"), fmt_pct(_ttm_yield, 2) if _ttm_yield is not None else "—")
+                    + _stat(h_("Yield · forward"), fmt_pct(_dy_fwd, 2, fraction=True) if pd.notna(_dy_fwd) and _dy_fwd else "—")
+                    + _stat(h_("Yield-on-cost · net"), fmt_pct(_yoc, 2) if _yoc is not None else "—", "var(--uv-mint,#1DD6A4)")
+                    + _stat(h_("Increase streak"), ngettext("{count} yr", "{count} yrs",
+                                                           int(row.get('dividend_growth_streak') or 0)))
                     + '</div>', unsafe_allow_html=True)
                 _payout_eps = row.get("payoutRatio")
                 _payout_fcf = row.get("cashPayoutRatio")
                 _wh_pct = get_dividend_withholding(exchange_key_for_ticker(ticker), current_user().email)
-                _wh_label = f"{exchange_key_for_ticker(ticker) or '—'} {_wh_pct:.1f}% + BE 30%" if _wh_pct else "BE 30% only"
+                _wh_label = (h_("{exchange} {rate}% + BE 30%", exchange=exchange_key_for_ticker(ticker) or '—',
+                                rate=fmt_num(_wh_pct, 1)) if _wh_pct else h_("BE 30% only"))
+                _ddm_label = h_("Feeds DDM inputs")
                 _grid_rows = [
-                    ("Income 12m · net", f"€{_bt['net_eur']:,.2f}" if _bt is not None else "—"),
-                    ("Income 12m · gross", f"€{_bt['gross_eur']:,.2f}" if _bt is not None else "—"),
-                    ("Payout ratio · EPS", f"{_payout_eps*100:.0f}%" if pd.notna(_payout_eps) else "—"),
-                    ("Payout ratio · FCF/share", f"{_payout_fcf*100:.0f}%" if pd.notna(_payout_fcf) else "—"),
-                    ("Growth · 1yr", f"{row.get('dgr_1y')*100:+.1f}%" if pd.notna(row.get("dgr_1y")) else "—"),
-                    ("Growth · 3yr / 5yr CAGR",
-                     f"{row.get('dgr_3y')*100:+.1f}% / {row.get('dgr_5y')*100:+.1f}%"
+                    (h_("Income 12m · net"), fmt_money(_bt['net_eur'], "EUR") if _bt is not None else "—"),
+                    (h_("Income 12m · gross"), fmt_money(_bt['gross_eur'], "EUR") if _bt is not None else "—"),
+                    (h_("Payout ratio · EPS"), fmt_pct(_payout_eps, 0, fraction=True) if pd.notna(_payout_eps) else "—"),
+                    (h_("Payout ratio · FCF/share"), fmt_pct(_payout_fcf, 0, fraction=True) if pd.notna(_payout_fcf) else "—"),
+                    (h_("Growth · 1yr"), fmt_pct(row.get('dgr_1y'), fraction=True, signed=True) if pd.notna(row.get("dgr_1y")) else "—"),
+                    (h_("Growth · 3yr / 5yr CAGR"),
+                     f"{fmt_pct(row.get('dgr_3y'), fraction=True, signed=True)} / {fmt_pct(row.get('dgr_5y'), fraction=True, signed=True)}"
                      if pd.notna(row.get("dgr_3y")) and pd.notna(row.get("dgr_5y")) else "—"),
-                    ("Withholding", _wh_label),
-                    ("Feeds DDM inputs", "automatic"),
+                    (h_("Withholding"), _wh_label),
+                    (_ddm_label, h_("automatic")),
                 ]
                 _rg1, _rg2 = st.columns(2)
                 for _i, (_glabel, _gval) in enumerate(_grid_rows):
                     with (_rg1 if _i % 2 == 0 else _rg2):
-                        _gcolor = "var(--uv-mint,#1DD6A4)" if _glabel == "Feeds DDM inputs" else "inherit"
+                        _gcolor = "var(--uv-mint,#1DD6A4)" if _glabel == _ddm_label else "inherit"
                         st.markdown(
                             f'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;'
                             f'border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">'
@@ -464,16 +488,17 @@ def render() -> None:
                 if pd.notna(_cut_year) and _cut_year:
                     st.markdown(
                         f'<div style="margin-top:14px;padding:11px 13px;border-radius:8px;background:var(--down-bg,#FCEAEA);">'
-                        f'<div style="font-size:12.5px;font-weight:500;color:var(--down-txt,#A32D2D);">Dividend cut detected</div>'
-                        f'<div style="font-size:12px;color:var(--muted);margin-top:2px;">Annual dividend per share fell '
-                        f'in {int(_cut_year)} versus the prior year.</div></div>', unsafe_allow_html=True)
+                        f'<div style="font-size:12.5px;font-weight:500;color:var(--down-txt,#A32D2D);">{h_("Dividend cut detected")}</div>'
+                        f'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'
+                        f'{h_("Annual dividend per share fell in {year} versus the prior year.", year=str(int(_cut_year)))}</div></div>',
+                        unsafe_allow_html=True)
                 _incr_year = row.get("dividend_last_increase_year")
                 if pd.notna(_incr_year) and _incr_year and not (pd.notna(_cut_year) and _cut_year):
-                    st.caption(f"Dividend increase detected in {int(_incr_year)}.")
+                    st.caption(_("Dividend increase detected in {year}.", year=str(int(_incr_year))))
 
             with _dcol2:
                 st.markdown('<div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
-                           'letter-spacing:0.05em;margin-bottom:10px;">Payment history · per share</div>',
+                           f'letter-spacing:0.05em;margin-bottom:10px;">{h_("Payment history · per share")}</div>',
                            unsafe_allow_html=True)
                 if _has_div_history:
                     _bars = (_div_hist_all[_div_hist_all["ticker"] == ticker]
@@ -482,37 +507,39 @@ def render() -> None:
                     _mx = max(float(pd.to_numeric(_bars["amount_per_share"], errors="coerce").max() or 0), 0.01)
                     _bar_html = '<div style="display:flex;align-items:flex-end;gap:8px;height:96px;">'
                     _label_html = '<div style="display:flex;gap:8px;margin-top:6px;">'
-                    for _, _brow in _bars.iterrows():
+                    for _bidx, _brow in _bars.iterrows():
                         _ps = float(pd.to_numeric(_brow.get("amount_per_share"), errors="coerce") or 0)
                         _h = max(6, round(_ps / _mx * 74))
                         _color = "#C98A3A" if _brow.get("div_type") == "Special" else "var(--uv-teal,#1A8C6E)"
-                        _lbl = _brow["_d"].strftime("%b %y") if pd.notna(_brow["_d"]) else "—"
+                        _lbl = fmt_date(_brow["_d"], skeleton="yyMMM") if pd.notna(_brow["_d"]) else "—"
                         _bar_html += (f'<div style="width:44px;flex:none;display:flex;flex-direction:column;'
                                      f'align-items:center;justify-content:flex-end;gap:5px;">'
                                      f'<span style="font-family:var(--uv-mono);font-size:9.5px;color:var(--muted);">'
-                                     f'€{_ps:.2f}</span><div style="width:100%;border-radius:4px 4px 0 0;'
+                                     f'{fmt_money(_ps, "EUR")}</span><div style="width:100%;border-radius:4px 4px 0 0;'
                                      f'background:{_color};height:{_h}px;"></div></div>')
                         _label_html += (f'<span style="width:44px;flex:none;text-align:center;font-family:var(--uv-mono);'
                                        f'font-size:9px;color:var(--faint);">{_lbl}</span>')
                     st.markdown(_bar_html + '</div>' + _label_html + '</div>', unsafe_allow_html=True)
                 else:
-                    st.caption("No dividend events recorded yet for this holding.")
+                    st.caption(_("No dividend events recorded yet for this holding."))
 
     # ── Value thesis (derived from real computed fields only) ────────────────
     _thesis_card = st.container(key="an_card_thesis", border=True)
-    _thesis_card.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:10px;">Value thesis</div>',
+    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Value thesis")}</div>',
                           unsafe_allow_html=True)
-    _sub_fields = {"Margin of safety": row.get("Sub MoS"), "Risk": row.get("Sub Risk"),
-                  "Quality": row.get("Sub Quality"), "Momentum": row.get("Sub Momentum"),
-                  "Dividend": row.get("Sub Dividend")}
+    _sub_fields = {N_("Margin of safety"): row.get("Sub MoS"), N_("Risk"): row.get("Sub Risk"),
+                  N_("Quality"): row.get("Sub Quality"), N_("Momentum"): row.get("Sub Momentum"),
+                  N_("Dividend"): row.get("Sub Dividend")}
     _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
-    _thesis = [f"{row.get('Name', ticker)} trades at {_fv(row, 'Price', _fmt_eur)} against a "
-              f"composite fair value of {_fv(row, 'fair_value', _fmt_eur)} "
-              f"({_fv(row, 'MoS %', lambda v: f'{v:+.1f}%')} margin of safety)."]
+    _thesis = [_("{name} trades at {price} against a composite fair value of {fair_value} ({mos} margin of safety).",
+                 name=row.get('Name', ticker), price=_fv(row, 'Price', _fmt_eur),
+                 fair_value=_fv(row, 'fair_value', _fmt_eur),
+                 mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]
     if _valid_subs:
         _best = max(_valid_subs, key=_valid_subs.get)
         _worst = min(_valid_subs, key=_valid_subs.get)
         if _best != _worst:
-            _thesis.append(f"Scores highest on {_best.lower()} ({_valid_subs[_best]:.0f}/100) "
-                           f"and weakest on {_worst.lower()} ({_valid_subs[_worst]:.0f}/100).")
+            _thesis.append(_("Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100).",
+                             best=lowercase_noun(tr(_best)), best_score=fmt_num(_valid_subs[_best], 0),
+                             worst=lowercase_noun(tr(_worst)), worst_score=fmt_num(_valid_subs[_worst], 0)))
     _thesis_card.caption(" ".join(_thesis))

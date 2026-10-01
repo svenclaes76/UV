@@ -109,6 +109,14 @@ _USER_DEFAULTS: dict = {
     # way to know, so it must never guess a number and silently apply it.
     # Keyed by settings.py:19 ALL_EXCHANGES, read/written on the Settings page.
     "dividend_withholding": {ex: 0.0 for ex in ALL_EXCHANGES},
+    # Language & region (docs/i18n-spec.md §7.1), resolved by uvalu/i18n.py.
+    # None = not chosen yet, so the detected / config default applies.
+    "language": None,          # "en" | "nl" | "fr" | "de" | "it" | "es"
+    "region": None,            # "nl-BE", … or "same" (= the language's default region)
+    "display_currency": None,  # "EUR" | "USD" | "GBP" | "CHF"; None follows the region
+    "date_format": None,       # "short" | "medium" | "iso"
+    "time_zone": None,         # IANA zone; None = config default (Europe/Brussels)
+    "week_start": None,        # "monday" | "sunday"; None follows the region
 }
 
 

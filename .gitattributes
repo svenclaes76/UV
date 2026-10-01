@@ -1,0 +1,4 @@
+# Translation build outputs are never text-merged: after a merge,
+# tools/i18n_merge.py rebuilds them from the merged .po files.
+locales/**/*.mo binary
+locales/review.csv merge=binary

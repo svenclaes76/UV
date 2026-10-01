@@ -1,4 +1,5 @@
 """Portfolio risk page — composite score, concentration, VaR, factors, stress."""
+import html
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -9,25 +10,34 @@ from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               risk_score_meter_html, risk_holding_row_html,
-                              RISK_HOLDINGS_GRID_COLS, refresh_top_bar_html,
+                              RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
+from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, ngettext, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
 _TICKER_SUFFIX_EXCHANGE = {
-    ".BR": "Brussels", ".AS": "Amsterdam", ".PA": "Paris",
-    ".MI": "Milan", ".DE": "Frankfurt", ".SW": "Swiss",
+    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
+    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
 }
 
 _FACTOR_NOTES = {
-    "Mkt-RF": "Market sensitivity",
-    "SMB":    "Small vs large cap tilt",
-    "HML":    "Value vs growth tilt",
-    "RMW":    "Profitability tilt",
-    "CMA":    "Investment conservatism tilt",
-    "WML":    "Momentum tilt",
+    "Mkt-RF": N_("Market sensitivity"),
+    "SMB":    N_("Small vs large cap tilt"),
+    "HML":    N_("Value vs growth tilt"),
+    "RMW":    N_("Profitability tilt"),
+    "CMA":    N_("Investment conservatism tilt"),
+    "WML":    N_("Momentum tilt"),
 }
+
+_RH_LABELS = (N_("Position"), N_("Weight"), N_("Beta"), N_("Vol"), N_("Contribution to risk"), N_("Flag"))
+
+
+def _rh_grid() -> str:
+    """RISK_HOLDINGS_GRID_COLS with the fixed tracks widened to the
+    translated labels; header, rows and skeleton share it."""
+    return fit_grid_cols(RISK_HOLDINGS_GRID_COLS, [tr(label) for label in _RH_LABELS])
 
 
 def _position_vol(p) -> float:
@@ -89,10 +99,10 @@ def _loading_tier(abs_val: float) -> tuple[str, str]:
     "concentrated factor bet"; Low/Moderate splits the remaining range at
     half that, since the real data only ever documented the one cutoff."""
     if abs_val <= 0.75:
-        return "Low", "var(--uv-mint)"
+        return _("Low"), "var(--uv-mint)"
     if abs_val <= 1.5:
-        return "Moderate", "#C98A3A"
-    return "Elevated", "var(--down-txt)"
+        return _("Moderate"), "#C98A3A"
+    return _("Elevated"), "var(--down-txt)"
 
 
 def _render_skeleton() -> None:
@@ -108,24 +118,24 @@ def _render_skeleton() -> None:
 
     _factor_col, _conc_col = st.columns([1.35, 1])
     with _factor_col, st.container(key="risk_card_factors", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Risk factor breakdown</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
                    unsafe_allow_html=True)
         st.markdown(skeleton_factor_rows_html(6), unsafe_allow_html=True)
     with _conc_col, st.container(key="risk_card_conc", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Concentration</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
                    unsafe_allow_html=True)
         st.markdown(skeleton_factor_rows_html(3), unsafe_allow_html=True)
 
     with st.container(key="risk_card_holdings", border=True):
         with st.container(key="risk_col_header"):
-            _rh_labels = ("Position", "Weight", "Beta", "Vol", "Contribution to risk", "Flag")
+            _rh_labels = tuple(h_(label) for label in _RH_LABELS)
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
-                f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
-            st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+                f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
+            st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
-        st.markdown(skeleton_risk_holdings_html(5), unsafe_allow_html=True)
+        st.markdown(skeleton_risk_holdings_html(5, grid_cols=_rh_grid()), unsafe_allow_html=True)
 
 
 def _render_cash_banner(pf) -> None:
@@ -133,7 +143,6 @@ def _render_cash_banner(pf) -> None:
     from every risk metric (HHI, VaR, CVaR, factor exposure, Monte Carlo) —
     say so, with a link to the ledger. Shown once the portfolio has cash
     entries; the risk engine itself is untouched."""
-    import cash
     from uvalu import nav
     from uvalu.pages_.cash import dashboard_cash_tile_values
 
@@ -155,11 +164,10 @@ def _render_cash_banner(pf) -> None:
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" '
             'stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 '
             '0 0 -18 0"/><path d="M12 8h.01M11 12h1v4h1"/></svg>'
-            f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">Risk metrics cover the invested '
-            f'portion only ({cash.money(s["invested"], s["base"], 0)}). Cash of {cash.money(s["balance"], s["base"], 0)}, '
-            f'{s["cash_pct"]:.1f}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and '
-            f'Monte Carlo.</span></div>', unsafe_allow_html=True, width="stretch")
-        if st.button("View cash activity", key="risk_view_cash", type="tertiary"):
+            f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">'
+            f'{h_("Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo.", invested=fmt_total(s["invested"]), cash=fmt_total(s["balance"]), pct=fmt_num(s["cash_pct"], 1))}'
+            f'</span></div>', unsafe_allow_html=True, width="stretch")
+        if st.button(_("View cash activity"), key="risk_view_cash", type="tertiary"):
             st.session_state["port_section"] = "cash"
             st.session_state["_pf_section_handoff"] = True   # land here, not on the Overview
             st.switch_page(nav.pages["portfolio"])
@@ -168,16 +176,16 @@ def _render_cash_banner(pf) -> None:
 def render() -> None:
     pf = load_portfolio()
     if pf is None or pf.empty:
-        st.info("No portfolio loaded. Add positions in the Portfolio tab first.")
+        st.info(_("No portfolio loaded. Add positions in the Portfolio tab first."))
         st.stop()
 
     # Title first, before anything that might still be computing — it
     # doesn't depend on the risk report, so there's no reason for it to wait
     # behind load_portfolio_risk() the way it used to (that call used to gate
     # the ENTIRE page, this heading included).
-    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Risk assessment</div>',
+    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Risk assessment")}</div>',
                unsafe_allow_html=True)
-    st.caption("Factor exposures, concentration and per-holding risk contribution across the portfolio.")
+    st.caption(_("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
     _render_cash_banner(pf)
 
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
@@ -200,7 +208,7 @@ def render() -> None:
     try:
         _bundle = load_portfolio_risk(pf)
     except Exception as _risk_err:
-        st.error(f"Risk assessment failed: {_risk_err}")
+        st.error(_("Risk assessment failed: {error}", error=tr(_risk_err.args[0]) if _risk_err.args else str(_risk_err)))
         st.stop()
 
     if _bundle is None:
@@ -235,13 +243,13 @@ def render() -> None:
 <div style="position:relative;width:132px;height:132px;">
   {radial_gauge_svg(r.composite.score, _ring_color, size=132)}
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-    <span style="font-family:var(--uv-mono);font-size:34px;font-weight:500;line-height:1;">{r.composite.score:.0f}</span>
+    <span style="font-family:var(--uv-mono);font-size:34px;font-weight:500;line-height:1;">{fmt_num(r.composite.score, 0)}</span>
     <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
   </div>
 </div>
-<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{r.composite.label}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">Blended score across six risk factors, weighted by exposure and hard-veto flags.</div>
-<div style="width:100%;margin-top:16px;">{risk_score_meter_html(r.composite.score, r.composite.label, dark=_dark, heading=None)}</div>
+<div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{tr(r.composite.label)}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">{h_("Blended score across six risk factors, weighted by exposure and hard-veto flags.")}</div>
+<div style="width:100%;margin-top:16px;">{risk_score_meter_html(r.composite.score, tr(r.composite.label), dark=_dark, heading=None)}</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
         # Plain grid cells (no st.metric()) — st.metric() is styled app-wide
@@ -249,22 +257,25 @@ def render() -> None:
         # doesn't match the mockup's unboxed 3x2 stat grid here.
         # Show the direct-regression beta alongside the weighted-sum one when
         # they diverge enough to be worth a second look.
-        _beta_sub = r.quant.beta_label
+        _beta_sub = tr(r.quant.beta_label)
         _pbr = r.quant.portfolio_beta_regression
         if _pbr is not None and abs(_pbr - r.quant.portfolio_beta) >= 0.15:
-            _beta_sub = f"{r.quant.beta_label} · regression {_pbr:.2f}"
+            _beta_sub = _("{label} · regression {value}", label=tr(r.quant.beta_label), value=fmt_num(_pbr, 2))
 
         # 4th field is the quant band word whose tone (risk.band_tone) colours
         # the sub-label on the same low/moderate/high scale as the composite
         # gauge — so "High" volatility reads red, not flat grey. "" leaves the
         # sub-label neutral (descriptive text, or a scale band_tone doesn't map).
         _metric_defs = [
-            ("BETA", f"{r.quant.portfolio_beta:.2f}", _beta_sub, r.quant.beta_label),
-            ("VOLATILITY", f"{r.quant.volatility_annual:.1%}" if r.quant.volatility_annual else "N/A", r.quant.volatility_label, r.quant.volatility_label),
-            ("MAX DRAWDOWN (1Y)", f"{r.quant.mdd_1y:.1%}" if r.quant.mdd_1y else "N/A", r.quant.mdd_label, r.quant.mdd_label),
-            ("SHARPE", f"{r.quant.sharpe:.2f}" if r.quant.sharpe else "N/A", r.quant.ratio_label, r.quant.ratio_label),
-            ("VAR 95% (1D)", f"{r.quant.var_95_1d_pct:.1%}" if r.quant.var_95_1d_pct else "N/A", "Max expected 1-day loss", ""),
-            ("SECTOR HHI", f"{r.concentration.sector_hhi:.2f}", r.concentration.sector_hhi_label, ""),
+            (h_("Beta"), fmt_num(r.quant.portfolio_beta, 2), _beta_sub, r.quant.beta_label),
+            (h_("Volatility"), fmt_pct(r.quant.volatility_annual, fraction=True) if r.quant.volatility_annual else _("N/A"),
+             tr(r.quant.volatility_label), r.quant.volatility_label),
+            (h_("Max drawdown (1Y)"), fmt_pct(r.quant.mdd_1y, fraction=True) if r.quant.mdd_1y else _("N/A"),
+             tr(r.quant.mdd_label), r.quant.mdd_label),
+            (h_("Sharpe"), fmt_num(r.quant.sharpe, 2) if r.quant.sharpe else _("N/A"), tr(r.quant.ratio_label), r.quant.ratio_label),
+            (h_("VaR 95% (1D)"), fmt_pct(r.quant.var_95_1d_pct, fraction=True) if r.quant.var_95_1d_pct else _("N/A"),
+             h_("Max expected 1-day loss"), ""),
+            (h_("Sector HHI"), fmt_num(r.concentration.sector_hhi, 2), tr(r.concentration.sector_hhi_label), ""),
         ]
         _cells = "".join(
             f'<div style="padding:18px 20px;">'
@@ -285,7 +296,7 @@ def render() -> None:
     _factor_col, _conc_col = st.columns([1.35, 1])
 
     with _factor_col, st.container(key="risk_card_factors", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Risk factor breakdown</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
                    unsafe_allow_html=True)
         if r.factor.available and r.factor.loadings:
             for _fname, _fval in r.factor.loadings.items():
@@ -294,26 +305,27 @@ def render() -> None:
                     f'<div style="margin-bottom:15px;">'
                     f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">'
                     f'<span style="font-size:12.5px;font-weight:500;">{_fname}</span>'
-                    f'<span style="font-size:11px;font-weight:500;color:{_fcolor};font-family:var(--uv-mono);">{_rate} · {_fval:+.2f}</span></div>'
+                    f'<span style="font-size:11px;font-weight:500;color:{_fcolor};font-family:var(--uv-mono);">{_rate} · {fmt_num(_fval, 2, signed=True)}</span></div>'
                     f'<div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;">'
                     f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:7px;border-radius:4px;background:{_fcolor};"></div></div>'
-                    f'<div style="font-size:11px;color:var(--faint);margin-top:6px;">{_FACTOR_NOTES.get(_fname, "")}</div></div>',
+                    f'<div style="font-size:11px;color:var(--faint);margin-top:6px;">{tr(_FACTOR_NOTES.get(_fname, ""))}</div></div>',
                     unsafe_allow_html=True,
                 )
             _prov = []
             if r.factor.factor_set:
-                _prov.append(f"{r.factor.factor_set.title()} 5-factor + momentum set")
+                _prov.append(_("{name} 5-factor + momentum set", name=r.factor.factor_set.title()))
             if r.factor.as_of:
-                _prov.append(f"as of {r.factor.as_of}")
+                _prov.append(_("as of {date}", date=fmt_date(r.factor.as_of)))
             if r.factor.stale:
-                _prov.append("cached — source unreachable")
+                _prov.append(_("cached — source unreachable"))
             _prov_txt = (" · " + " · ".join(_prov)) if _prov else ""
-            st.caption(f"Fama-French factor loadings{_prov_txt}. |loading| > 1.5 = concentrated factor bet.")
+            st.caption(_("Fama-French factor loadings{details}. |loading| > 1.5 = concentrated factor bet.",
+                         details=_prov_txt))
         else:
-            st.caption("Factor analysis unavailable. " + (r.factor.flags[0] if r.factor.flags else ""))
+            st.caption(_("Factor analysis unavailable.") + " " + (tr(r.factor.flags[0]) if r.factor.flags else ""))
 
     with _conc_col, st.container(key="risk_card_conc", border=True):
-        st.markdown('<div style="font-size:15px;font-weight:500;margin-bottom:16px;">Concentration</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
                    unsafe_allow_html=True)
         c = r.concentration
         # Matches Uvalu.dc.html's 3-row set (Top 3 positions/Largest sector/
@@ -325,11 +337,12 @@ def render() -> None:
         # collapses missing/NaN sector metadata to "Unknown" upstream, WP-DQ3);
         # pd.notna() stays as belt-and-braces for the empty-portfolio None.
         _has_sector = pd.notna(c.largest_sector)
-        _sector_label = f"Largest sector — {c.largest_sector}" if _has_sector else "Largest sector"
+        _sector_label = (h_("Largest sector — {sector}", sector=tr(c.largest_sector)) if _has_sector
+                         else h_("Largest sector"))
         for _label, _val, _limit in [
-            ("Top 3 positions", c.top3_weight, 0.35),
+            (h_("Top 3 positions"), c.top3_weight, 0.35),
             (_sector_label,     c.sector_weights.get(c.largest_sector, 0.0) if _has_sector else 0.0, 0.30),
-            ("Largest single name", c.top1_weight, 0.15),
+            (h_("Largest single name"), c.top1_weight, 0.15),
         ]:
             # Only the bar is status-colored (red once over its limit) — the
             # value text itself stays plain, matching the mockup's `c.value`
@@ -340,7 +353,7 @@ def render() -> None:
                 f'<div style="margin-bottom:16px;">'
                 f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">'
                 f'<span style="font-size:12.5px;color:var(--muted);">{_label}</span>'
-                f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{_val:.1%}</span></div>'
+                f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{fmt_pct(_val, fraction=True)}</span></div>'
                 f'<div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;">'
                 f'<div style="width:{min(100, _val/_limit*100):.0f}%;height:7px;border-radius:4px;background:{_bar_color};"></div></div></div>',
                 unsafe_allow_html=True,
@@ -348,17 +361,22 @@ def render() -> None:
 
         _flags = []
         if c.top1_flag:
-            _flags.append(f"{c.top1_ticker} at {c.top1_weight:.0%} exceeds the 15% single-name limit")
+            _flags.append(h_("{ticker} at {weight} exceeds the 15% single-name limit",
+                             ticker=c.top1_ticker, weight=fmt_pct(c.top1_weight, 0, fraction=True)))
         if c.sector_flag and _has_sector:
-            _flags.append(f"{c.largest_sector} at {c.sector_weights.get(c.largest_sector, 0):.0%} exceeds the 30% sector limit")
+            _flags.append(h_("{sector} at {weight} exceeds the 30% sector limit", sector=tr(c.largest_sector),
+                             weight=fmt_pct(c.sector_weights.get(c.largest_sector, 0), 0, fraction=True)))
         if c.geo_flag and c.largest_geo:
-            _flags.append(f"{c.largest_geo} at {c.geo_weights.get(c.largest_geo, 0):.0%} exceeds the 60% country limit")
+            _flags.append(h_("{country} at {weight} exceeds the 60% country limit", country=tr(c.largest_geo),
+                             weight=fmt_pct(c.geo_weights.get(c.largest_geo, 0), 0, fraction=True)))
         _veto_tickers = [t for t in pf["ticker"] if bool(_veto_lookup.get(t, False))]
         _veto_names = pf[pf["ticker"].isin(_veto_tickers)]["name"].tolist()
         if _veto_names:
-            _flags.append(f"{', '.join(_veto_names)} remain(s) under a hard veto")
+            _flags.append(html.escape(ngettext("{names} remains under a hard veto",
+                                               "{names} remain under a hard veto",
+                                               len(_veto_names), names=", ".join(_veto_names)), quote=False))
         _alert_msg = (" · ".join(_flags) + ".") if _flags else \
-            "All positions sit within the 15% single-name, 30% sector, and 60% country limits."
+            h_("All positions sit within the 15% single-name, 30% sector, and 60% country limits.")
         # Same navy alert-box + warning-triangle icon as Analysis's hard-veto
         # box (analysis.py) — matches Uvalu.dc.html's Risk-screen concentration
         # alert exactly (16px icon here vs. Analysis's 18px, per that page's
@@ -380,18 +398,18 @@ def render() -> None:
     # an invisible trailing button, not st.columns per cell). ─────────────
     with st.container(key="risk_card_holdings", border=True):
         with st.container(key="risk_col_header"):
-            _rh_labels = ("Position", "Weight", "Beta", "Vol", "Contribution to risk", "Flag")
+            _rh_labels = tuple(h_(label) for label in _RH_LABELS)
             _rh_align = ("left", "right", "right", "right", "left", "left")
             _rh_cells = "".join(
-                f'<div style="text-align:{_a};">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
-            st.markdown(f'<div style="display:grid;grid-template-columns:{RISK_HOLDINGS_GRID_COLS};gap:14px;'
+                f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
+            st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
                        f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
 
         _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
         _contrib_rows = []
         for p, _raw in zip(r.position_profiles, _contribs):
-            _exch = next((v for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
+            _exch = next((tr(v) for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
             _contrib_rows.append({"p": p, "exch": _exch, "raw": float(_raw)})
         _total_raw = sum(row["raw"] for row in _contrib_rows) or 1.0
         _max_pct = max((row["raw"] / _total_raw * 100 for row in _contrib_rows), default=1.0) or 1.0
@@ -407,11 +425,11 @@ def render() -> None:
             # rating, which is only surfaced here for High/Critical — Low/
             # Medium render blank, matching the mockup's mostly-empty column.
             if bool(_veto_lookup.get(p.ticker, False)):
-                _flag, _flag_color = "Veto", "var(--down-txt)"
+                _flag, _flag_color = N_("Veto"), "var(--down-txt)"
             elif p.rating == "Critical":
-                _flag, _flag_color = "Critical", "var(--down-txt)"
+                _flag, _flag_color = N_("Critical"), "var(--down-txt)"
             elif p.rating == "High":
-                _flag, _flag_color = "High risk", "#C98A3A"
+                _flag, _flag_color = N_("High risk"), "#C98A3A"
             else:
                 _flag, _flag_color = "", "var(--faint)"
             with st.container(key=f"risk_hold_{_idx}_{p.ticker}"):
@@ -420,20 +438,17 @@ def render() -> None:
                     weight_pct=p.weight * 100, beta=p.beta,
                     vol_pct=p.vol_annual * 100 if p.vol_annual is not None else None,
                     contrib_pct=_contrib_pct, contrib_bar_pct=_contrib_pct / _max_pct * 100,
-                    flag=_flag, flag_color=_flag_color,
+                    flag=_flag, flag_color=_flag_color, grid_cols=_rh_grid(),
                 ), unsafe_allow_html=True)
-                if st.button("View", key=f"risk_hold_{_idx}_{p.ticker}_view"):
+                if st.button(_("View"), key=f"risk_hold_{_idx}_{p.ticker}_view"):
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]
                     if not _sel_row.empty:
                         _risk_dlg_pending.append((_sel_row.iloc[0],))
 
         st.caption(
-            "Percent contribution to portfolio variance — each holding's weight × its "
-            "marginal contribution, from its own volatility and its correlation to the "
-            "rest of the book."
+            _("Percent contribution to portfolio variance — each holding's weight × its marginal contribution, from its own volatility and its correlation to the rest of the book.")
             if _contrib_method == "variance" else
-            "Weight × |beta| — not enough correlated return history this run for the "
-            "full variance decomposition."
+            _("Weight × |beta| — not enough correlated return history this run for the full variance decomposition.")
         )
 
     # Dispatch at most one detail dialog per render

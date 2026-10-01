@@ -1,0 +1,29 @@
+en,nl,fr,de,it,es,rule
+Fair value,Intrinsieke waarde,Juste valeur,Fairer Wert,Valore equo,Valor razonable,translate
+Composite fair value,Samengestelde intrinsieke waarde,Juste valeur composite,Kombinierter fairer Wert,Valore equo composito,Valor razonable compuesto,translate
+Margin of safety,Veiligheidsmarge,Marge de sécurité,Sicherheitsmarge,Margine di sicurezza,Margen de seguridad,translate
+MoS % (column),Marge %,Marge %,Marge %,Margine %,Margen %,short column header
+Composite score,Totaalscore,Score composite,Gesamtscore,Punteggio composito,Puntuación compuesta,translate
+Hard veto,Hard veto,Veto strict,Hartes Veto,Veto rigido,Veto estricto,translate
+Portfolio,Portefeuille,Portefeuille,Portfolio,Portafoglio,Cartera,translate
+Position (holding),Positie,Position,Position,Posizione,Posición,a holding - not a place
+Shares (count),Aantal,Actions,Stück,Azioni,Acciones,column header
+Watchlist,Volglijst,Liste de suivi,Watchlist,Watchlist,Lista de seguimiento,translate
+Dashboard,Dashboard,Tableau de bord,Dashboard,Dashboard,Panel,translate
+Screener,Screener,Screener,Screener,Screener,Screener,keep English
+Unrealised P&L,Niet-gerealiseerde W/V,P/V latente,Unrealisierter G/V,P/L non realizzato,G/P no realizada,short form
+Realised P&L,Gerealiseerde W/V,P/V réalisée,Realisierter G/V,P/L realizzato,G/P realizada,short form
+Cost basis,Aankoopwaarde,Prix de revient,Einstandswert,Costo di carico,Coste de adquisición,translate
+Dividend,Dividend,Dividende,Dividende,Dividendo,Dividendo,translate
+Ex-dividend date,Ex-dividenddatum,Date de détachement,Ex-Tag,Data di stacco,Fecha ex-dividendo,translate
+Withholding tax,Bronheffing,Retenue à la source,Quellensteuer,Ritenuta alla fonte,Retención en origen,translate
+BE 30% (Belgian withholding),RV 30%,Pr.M. 30 %,BE 30 %,BE 30%,BE 30 %,nl/fr use the Belgian term
+Yield,Rendement,Rendement,Rendite,Rendimento,Rentabilidad,translate
+YoC (yield on cost),YoC,YoC,YoC,YoC,YoC,keep abbreviation
+Cash (money),Cash,Liquidités,Barmittel,Liquidità,Efectivo,translate
+Deposit (noun) / Deposit (button),Storting / Storten,Dépôt / Déposer,Einzahlung / Einzahlen,Deposito / Deposita,Ingreso / Ingresar,button has msgctxt 'button'
+Withdrawal,Opname,Retrait,Auszahlung,Prelievo,Retirada,translate
+Top-up (automatic deposit),Aanvulling,Renflouement,Aufstockung,Ricarica,Recarga,translate
+BUY / MONITOR / AVOID / VETO / Strong Buy,(same),(same),(same),(same),(same),keep English (L-03)
+DCF / EPV / DDM / VaR / CVaR / HHI / Graham Number / Sharpe,(same),(same),(same),(same),(same),keep English (L-08)
+you (form of address),je,tu,du,tu,tú,informal everywhere (G-04)

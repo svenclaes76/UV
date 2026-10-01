@@ -19,9 +19,11 @@ from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
+from uvalu.i18n import N_, _, fmt_num, frozen, h_, lowercase_noun, ngettext, pgettext, tr
+from uvalu.locale_ui import export_menu
 
 _PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
-_VIEWER_HELP = "Viewer role is read-only"
+_VIEWER_HELP = N_("Viewer role is read-only")
 
 
 def reconcile_once(email: str, is_viewer: bool) -> None:
@@ -42,8 +44,9 @@ def reconcile_once(email: str, is_viewer: bool) -> None:
 
 def _last_text(s: dict) -> str:
     if not s["count"]:
-        return "No entries yet · buys top up automatically"
-    return f"Last entry {cash.fmt_date(s['last_date'])} · {str(s['last_type']).lower()}"
+        return _("No entries yet · buys top up automatically")
+    return _("Last entry {date} · {type}", date=cash.fmt_date(s['last_date']),
+             type=lowercase_noun(tr(str(s['last_type']))))
 
 
 def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
@@ -53,10 +56,10 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
     with st.container(key="pf_card_cash_ov", border=True):
         with st.container(key="pf_panel_title_cash_ov", horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute"):
-            st.markdown('Cash balance <span style="font-family:var(--uv-mono);font-size:9.5px;font-weight:400;'
+            st.markdown(f'{h_("Cash balance")} <span style="font-family:var(--uv-mono);font-size:9.5px;font-weight:400;'
                         'padding:1px 6px;border-radius:4px;border:0.5px solid var(--line);color:var(--muted);'
-                        f'margin-left:6px;">{base} base</span>', unsafe_allow_html=True)
-            if st.button("", key="ov_cash_expand", icon=":material/open_in_full:", help="Open full page"):
+                        f'margin-left:6px;">{h_("{currency} base", currency=base)}</span>', unsafe_allow_html=True)
+            if st.button("", key="ov_cash_expand", icon=":material/open_in_full:", help=_("Open full page")):
                 on_open()
         with st.container(key="pf_cash_strip_body"):
             _cols = st.columns([1.1, 3.4, 1.1], vertical_alignment="center", gap="large")
@@ -67,12 +70,12 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
             with _c2:
                 st.markdown(cash_alloc_html(s["invested_pct"], s["cash_pct"], cash.money(s["total"], base, 0)),
                             unsafe_allow_html=True)
-            _help = _VIEWER_HELP if is_viewer else None
+            _help = _(_VIEWER_HELP) if is_viewer else None
             with _cols[2]:
                 with st.container(horizontal=True, gap="small", horizontal_alignment="right"):
-                    if st.button("Deposit", key="ov_cash_deposit", disabled=is_viewer, help=_help):
+                    if st.button(pgettext("button", "Deposit"), key="ov_cash_deposit", disabled=is_viewer, help=_help):
                         cash_transaction_dialog("Deposit")
-                    if st.button("Withdraw", key="ov_cash_withdraw", disabled=is_viewer, help=_help):
+                    if st.button(_("Withdraw"), key="ov_cash_withdraw", disabled=is_viewer, help=_help):
                         cash_transaction_dialog("Withdrawal")
 
 
@@ -86,61 +89,61 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
     entries = cash.load_ledger()
     s = cash.summary(entries, invested_value)
 
-    if st.button("← Back to Positions", key="back_cash", type="tertiary"):
+    if st.button(_("← Back to Positions"), key="back_cash", type="tertiary"):
         on_back()
     with st.container(key="pf_page_title_cash", horizontal=True, vertical_alignment="center",
                       horizontal_alignment="distribute"):
         with st.container(width="content"):
-            st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Cash activity</div>',
+            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Cash activity")}</div>',
                         unsafe_allow_html=True)
-            st.caption(f"Every movement in this portfolio's cash, converted to {base}. "
-                       "The balance is the running sum of the ledger.")
+            st.caption(_("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
+                         currency=base))
         with st.container(horizontal=True, gap="small", width="content", vertical_alignment="center"):
-            st.download_button("Export", data=cash.export_csv(entries),
-                               file_name=f"uvalu-cash-activity-{base}.csv", mime="text/csv",
-                               key="cash_export", icon=":material/download:", disabled=not entries)
-            if st.button("Add transaction", key="btn_add_cash", type="primary", icon=":material/add:",
-                         disabled=is_viewer, help=_VIEWER_HELP if is_viewer else None):
+            export_menu(_("Export"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
+                        file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
+            if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
+                         disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
                 cash_transaction_dialog("Deposit")
 
     with st.container(key="pf_cash_tiles"):
         _t = st.columns(5)
         with _t[0]:
-            kpi_card("Cash balance", cash.money(s["balance"], base, 0),
-                     sub=f"{s['cash_pct']:.1f}% of total portfolio value", icon="cash")
+            kpi_card(h_("Cash balance"), cash.money(s["balance"], base, 0),
+                     sub=h_("{pct}% of total portfolio value", pct=fmt_num(s['cash_pct'], 1)),
+                     icon="cash")
         with _t[1]:
-            kpi_card("Net deposits", _signed0(s["net_deposits"], base), sub="deposits − withdrawals", icon="wallet")
+            kpi_card(h_("Net deposits"), _signed0(s["net_deposits"], base), sub=h_("deposits − withdrawals"), icon="wallet")
         with _t[2]:
-            kpi_card("Trade flow", _signed0(s["trade_flow"], base), sub="sells − buys, incl. fees", icon="trend")
+            kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend")
         with _t[3]:
-            kpi_card("Income", _signed0(s["income"], base), sub="net dividends + interest", icon="coin",
+            kpi_card(h_("Income"), _signed0(s["income"], base), sub=h_("net dividends + interest"), icon="coin",
                      value_color="var(--mint)")
         with _t[4]:
-            kpi_card("Fees & corrections", _signed0(s["fees_corrections"], base),
-                     sub=f"excl. opening balance · {s['corrections']} corrections", icon="target")
+            kpi_card(h_("Fees & corrections"), _signed0(s["fees_corrections"], base),
+                     sub=ngettext("excl. opening balance · {count} correction",
+                                  "excl. opening balance · {count} corrections", s['corrections']),
+                     icon="target")
 
     if s["negative"]:
-        st.warning("The running balance dips below zero somewhere in this ledger — usually after a dividend "
-                   "was edited or deleted. Record a deposit or an adjustment on that date to correct it.",
+        st.warning(_("The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."),
                    icon=":material/warning:")
 
     rows_all = list(reversed(cash.replay(entries)))
     if not rows_all:
-        st.info("No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. "
-                "Buys never wait for cash: a shortfall is covered by an automatic top-up deposit.")
+        st.info(_("No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."))
     else:
         with st.container(key="pf_card_cash_full", border=True):
             with st.container(key="pf_cash_filter_row", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
-                group = st.pills("Filter", options=list(cash.FILTER_GROUPS.keys()), default="All",
-                                 selection_mode="single", key="cash_filter",
+                group = st.pills(_("Filter"), options=list(cash.FILTER_GROUPS.keys()), default="All",
+                                 format_func=frozen(tr), selection_mode="single", key="cash_filter",
                                  label_visibility="collapsed") or "All"
                 rows = cash.filter_rows(rows_all, group)
                 st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'
-                            f'white-space:nowrap;">{len(rows)} of {len(rows_all)} entries</span>',
+                            f'white-space:nowrap;">{h_("{shown} of {total} entries", shown=len(rows), total=len(rows_all))}</span>',
                             unsafe_allow_html=True, width="content")
             if not rows:
-                st.caption("No entries of this type.")
+                st.caption(_("No entries of this type."))
             else:
                 with st.container(key="pf_col_header_cash_full"):
                     _hc = st.columns(CASH_LEDGER_COL_SPLIT, vertical_alignment="center", gap="small")
@@ -154,18 +157,16 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                         _target = r
                 if len(rows) > n_shown:
                     _more = min(_PAGE_ROWS, len(rows) - n_shown)
-                    if st.button(f"Show {_more} more · {len(rows) - n_shown} not shown", key="cash_show_more",
+                    if st.button(_("Show {more} more · {hidden} not shown", more=_more, hidden=len(rows) - n_shown),
+                                 key="cash_show_more",
                                  type="tertiary"):
                         st.session_state["_cash_rows_shown"] = n_shown + _PAGE_ROWS
                         st.rerun()
                 if _target is not None:
                     edit_cash_dialog(_target["id"])
 
-    st.caption(f"Entries can be made in any currency and are converted to {base} at the ECB reference rate for "
-               "the transaction date (frankfurter.dev), stored with the entry. When no rate is available the "
-               "rate is entered manually and flagged. Buy/sell trades and received dividend payments post "
-               "automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never "
-               "goes below zero.")
+    st.caption(_("Entries can be made in any currency and are converted to {currency} at the ECB reference rate for the transaction date (frankfurter.dev), stored with the entry. When no rate is available the rate is entered manually and flagged. Buy/sell trades and received dividend payments post automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never goes below zero.",
+                 currency=base))
 
 
 def dashboard_cash_tile_values(invested_value: float) -> dict:

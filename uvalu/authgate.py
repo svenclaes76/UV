@@ -3,6 +3,7 @@
 These run at module scope in the app's boot sequence. Each step is a function so
 ``app.py`` can invoke them in order while keeping the logic out of its body.
 """
+import html
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
@@ -14,7 +15,8 @@ from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_pa
                   is_session_active, login, no_users_exist, oauth_login, register,
                   trust_this_device, verify_token)
 from settings import load_shared_settings
-from uvalu import logkit, oauth, shell
+from uvalu import locale_ui, logkit, oauth, shell
+from uvalu.i18n import N_, _, h_, tr
 from uvalu.runtime import theme_colors
 from uvalu.shell import _display_name, _password_strength
 
@@ -23,6 +25,11 @@ from uvalu.shell import _display_name, _password_strength
 # password step instead of leaving a half-authenticated session hanging
 # around, per the impact doc's own recommendation.
 _TOTP_PENDING_TTL_MIN = 5
+
+# Marked with N_() and translated at the use site with h_(): their
+# apostrophes don't fit inside the single-quoted f-strings that show them.
+_FIRST_ADMIN_TEXT = N_("No accounts exist yet. This account gets full Admin access — you can invite everyone else once you're signed in.")
+_PW_MISMATCH_TEXT = N_("New password and confirmation don't match.")
 
 
 def recover_session_from_cookie() -> None:
@@ -118,15 +125,14 @@ def _sync_trusted_device_cookie(device_id: str) -> None:
 
 def _render_totp_challenge(pending: dict) -> None:
     st.markdown(
-        '<div class="uv-login-heading">Enter your authenticator code</div>'
-        '<div class="uv-login-subhead">Open your authenticator app and enter the 6-digit code '
-        'for Uvalu.</div>',
+        f'<div class="uv-login-heading">{h_("Enter your authenticator code")}</div>'
+        f'<div class="uv-login-subhead">{h_("Open your authenticator app and enter the 6-digit code for Uvalu.")}</div>',
         unsafe_allow_html=True,
     )
     with st.form("totp_challenge_form", border=False):
-        code = st.text_input("Code", placeholder="000000", icon=":material/pin:")
-        remember = st.toggle("Remember this device for 30 days", key="totp_remember_device")
-        submitted = st.form_submit_button("Verify", width="stretch", type="primary")
+        code = st.text_input(_("Code"), placeholder="000000", icon=":material/pin:")
+        remember = st.toggle(_("Remember this device for 30 days"), key="totp_remember_device")
+        submitted = st.form_submit_button(_("Verify"), width="stretch", type="primary")
     if submitted:
         ok, result = complete_totp_login(pending["email"], code, user_agent=_user_agent())
         if ok:
@@ -141,38 +147,36 @@ def _render_totp_challenge(pending: dict) -> None:
 
     _b1, _b2 = st.columns(2)
     with _b1:
-        if st.button("Use a backup code", key="totp_use_backup", width="stretch"):
+        if st.button(_("Use a backup code"), key="totp_use_backup", width="stretch"):
             st.session_state["uv_totp_pending"]["mode"] = "backup"
             st.rerun()
     with _b2:
-        if st.button("Cancel", key="totp_cancel", width="stretch"):
+        if st.button(_("Cancel"), key="totp_cancel", width="stretch"):
             st.session_state.pop("uv_totp_pending", None)
             st.rerun()
 
 
 def _render_backup_code_challenge(pending: dict) -> None:
     st.markdown(
-        '<div class="uv-login-heading">Enter a backup code</div>'
-        '<div class="uv-login-subhead">Use one of the one-time backup codes you saved when you '
-        'set up two-factor authentication.</div>',
+        f'<div class="uv-login-heading">{h_("Enter a backup code")}</div>'
+        f'<div class="uv-login-subhead">{h_("Use one of the one-time backup codes you saved when you set up two-factor authentication.")}</div>',
         unsafe_allow_html=True,
     )
     if backup_codes_remaining(pending["email"]) == 0:
         st.markdown(
             '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
             'padding:14px 16px;margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
-            'No backup codes left on this account. Ask an admin to reset your two-factor '
-            'authentication so you can re-enroll.</div>',
+            f'{h_("No backup codes left on this account. Ask an admin to reset your two-factor authentication so you can re-enroll.")}</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Cancel", key="backup_dead_end_cancel", width="stretch"):
+        if st.button(_("Cancel"), key="backup_dead_end_cancel", width="stretch"):
             st.session_state.pop("uv_totp_pending", None)
             st.rerun()
         return
 
     with st.form("backup_code_challenge_form", border=False):
-        code = st.text_input("Backup code", placeholder="xxxx-xxxx", icon=":material/key:")
-        submitted = st.form_submit_button("Verify", width="stretch", type="primary")
+        code = st.text_input(_("Backup code"), placeholder="xxxx-xxxx", icon=":material/key:")
+        submitted = st.form_submit_button(_("Verify"), width="stretch", type="primary")
     if submitted:
         ok, result = complete_backup_code_login(pending["email"], code, user_agent=_user_agent())
         if ok:
@@ -182,7 +186,7 @@ def _render_backup_code_challenge(pending: dict) -> None:
         else:
             st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
 
-    if st.button("Back to the authenticator code", key="backup_back_to_totp", width="stretch"):
+    if st.button(_("Back to the authenticator code"), key="backup_back_to_totp", width="stretch"):
         st.session_state["uv_totp_pending"]["mode"] = "totp"
         st.rerun()
 
@@ -203,7 +207,7 @@ def _render_strength_caption(password: str) -> None:
     if not label:
         return
     st.markdown(f'<div style="font-size:12px;margin-top:8px;color:var(--{tone}-txt);">'
-               f'Password strength: {label}</div>', unsafe_allow_html=True)
+               f'{h_("Password strength: {strength}", strength=label)}</div>', unsafe_allow_html=True)
 
 
 def _start_session(token: str) -> None:
@@ -216,22 +220,21 @@ def _start_session(token: str) -> None:
 
 
 def _render_brand_panel() -> None:
-    st.markdown("""
+    st.markdown(f"""
     <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
       <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
-      <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
+      <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">{h_("value engine")}</span>
     </div>
     <div style="position:relative;z-index:2;">
-      <div class="uv-login-headline">Find value before the market does.</div>
-      <div class="uv-login-copy">A six-model fair-value engine across 6 European exchanges —
-        margin of safety, conviction scoring and hard-veto discipline in one workspace.</div>
+      <div class="uv-login-headline">{h_("Find value before the market does.")}</div>
+      <div class="uv-login-copy">{h_("A six-model fair-value engine across 6 European exchanges — margin of safety, conviction scoring and hard-veto discipline in one workspace.")}</div>
       <div class="uv-login-stats">
-        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">valuation models</div></div>
-        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">EU exchanges</div></div>
-        <div><div class="uv-login-stat-val">24/7</div><div class="uv-login-stat-lbl">signal monitoring</div></div>
+        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">{h_("valuation models")}</div></div>
+        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">{h_("EU exchanges")}</div></div>
+        <div><div class="uv-login-stat-val">24/7</div><div class="uv-login-stat-lbl">{h_("signal monitoring")}</div></div>
       </div>
     </div>
-    <div class="uv-login-foot">© 2026 Uvalu · Not investment advice.</div>
+    <div class="uv-login-foot">{h_("© 2026 Uvalu · Not investment advice.")}</div>
     <div class="uv-login-ring" style="right:-120px;bottom:-120px;width:420px;height:420px;"></div>
     <div class="uv-login-ring" style="right:-40px;bottom:-40px;width:260px;height:260px;"></div>
     """, unsafe_allow_html=True)
@@ -260,38 +263,38 @@ def _render_provider_buttons(key_prefix: str) -> None:
     with st.container(key=f"{key_prefix}_list"):
         for _p in oauth.configured_providers():
             if _p["configured"]:
-                if st.button(f"Continue with {_p['label']}", key=f"{key_prefix}_{_p['id']}", width="stretch"):
+                if st.button(_("Continue with {provider}", provider=_p["label"]), key=f"{key_prefix}_{_p['id']}", width="stretch"):
                     oauth.start_login(_p["id"])
             else:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
                     f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
-                    f'border:0.5px dashed var(--line);color:var(--faint);">Continue with {_p["label"]}'
+                    f'border:0.5px dashed var(--line);color:var(--faint);">{h_("Continue with {provider}", provider=_p["label"])}'
                     f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
-                    f'background:var(--line-2);color:var(--faint);">NOT CONFIGURED</span></div>',
+                    f'background:var(--line-2);color:var(--faint);">{h_("NOT CONFIGURED")}</span></div>',
                     unsafe_allow_html=True,
                 )
 
 
 def _render_oauth_refused(info: dict) -> None:
     if info.get("reason") == "suspended":
-        _heading = "This account has been suspended"
-        _body = f"Sign-in via {info['label']} succeeded, but the Uvalu account for it is suspended."
+        _heading = h_("This account has been suspended")
+        _body = h_("Sign-in via {provider} succeeded, but the Uvalu account for it is suspended.",
+                   provider=info["label"])
     else:
-        _heading = f"No Uvalu account for this {info['label']} identity"
-        _body = (f"Uvalu is invite-only. <span style=\"font-family:var(--uv-mono);font-size:12.5px;"
-                f"color:var(--text);\">{info['email']}</span> is not a member of this workspace, "
-                f"so no account was created.")
+        _heading = h_("No Uvalu account for this {provider} identity", provider=info["label"])
+        _body = h_("Uvalu is invite-only. {email} is not a member of this workspace, so no account was created.",
+                   email=f"<span style=\"font-family:var(--uv-mono);font-size:12.5px;"
+                         f"color:var(--text);\">{info['email']}</span>")
     st.markdown(
         f'<div class="uv-login-heading">{_heading}</div>'
         f'<div class="uv-login-subhead">{_body}</div>'
         '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
         'padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
-        'If you were invited on a different address, sign in with that one — or ask an admin '
-        'to invite this address.</div>',
+        f'{h_("If you were invited on a different address, sign in with that one — or ask an admin to invite this address.")}</div>',
         unsafe_allow_html=True,
     )
-    if st.button("Back to sign in", key="oauth_refused_back", width="stretch"):
+    if st.button(_("Back to sign in"), key="oauth_refused_back", width="stretch"):
         oauth.sign_out()
         st.session_state.pop("uv_oauth_refused", None)
         st.session_state.pop("uv_oauth_handled", None)
@@ -305,41 +308,41 @@ def _render_invite_acceptance(token: str) -> None:
         with st.container(key="uv_login_left"):
             _render_brand_panel()
         with st.container(key="uv_login_right"):
+            locale_ui.render_login_switcher()
             if not invite:
                 st.markdown(
-                    '<div class="uv-login-heading">Invite link invalid</div>'
-                    '<div class="uv-login-subhead">This invite link is invalid or has expired. '
-                    'Ask your admin to send a new one.</div>',
+                    f'<div class="uv-login-heading">{h_("Invite link invalid")}</div>'
+                    f'<div class="uv-login-subhead">{h_("This invite link is invalid or has expired. Ask your admin to send a new one.")}</div>',
                     unsafe_allow_html=True,
                 )
                 return
 
-            _inviter = _display_name(invite["invited_by"]) if invite["invited_by"] else "an admin"
+            _inviter = _display_name(invite["invited_by"]) if invite["invited_by"] else _("an admin")
+            _invited = h_("Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can add another method later.",
+                          inviter=_inviter, role=f'<span style="color:var(--text);">{tr(invite["role"])}</span>')
             st.markdown(
-                '<div class="uv-login-heading">Create your account</div>'
-                f'<div class="uv-login-subhead">Invited by {_inviter} as '
-                f'<span style="color:var(--text);">{invite["role"]}</span>. Pick a password, or use a '
-                'connected provider — you can add another method later.</div>',
+                f'<div class="uv-login-heading">{h_("Create your account")}</div>'
+                f'<div class="uv-login-subhead">{_invited}</div>',
                 unsafe_allow_html=True,
             )
             st.markdown(
                 '<div style="margin-top:22px;">'
                 '<div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                'color:var(--faint);margin-bottom:8px;">Email</div>'
+                f'color:var(--faint);margin-bottom:8px;">{h_("Email")}</div>'
                 '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:9px;'
                 'padding:11px 13px;font-size:14px;color:var(--muted);display:flex;align-items:center;'
                 'justify-content:space-between;">'
                 f'<span style="font-family:var(--uv-mono);font-size:13px;">{invite["email"]}</span>'
                 '<span style="font-size:10px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;'
-                'background:var(--line-2);color:var(--faint);">FIXED BY INVITE</span></div></div>',
+                f'background:var(--line-2);color:var(--faint);">{h_("FIXED BY INVITE")}</span></div></div>',
                 unsafe_allow_html=True,
             )
             _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("invite_accept_form", border=False):
-                password = st.text_input("Password", type="password", placeholder="••••••••",
+                password = st.text_input(_("Password"), type="password", placeholder="••••••••",
                                          icon=":material/lock:",
-                                         help=f"At least {_min_len} characters.")
-                submitted = st.form_submit_button("Create account", width="stretch", type="primary")
+                                         help=_("At least {min_len} characters.", min_len=_min_len))
+                submitted = st.form_submit_button(_("Create account"), width="stretch", type="primary")
             if submitted:
                 ok, result = accept_invite_with_password(token, password, user_agent=_user_agent())
                 if ok:
@@ -353,7 +356,7 @@ def _render_invite_acceptance(token: str) -> None:
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                '<span style="font-size:11px;color:var(--faint);">or</span>'
+                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                 unsafe_allow_html=True,
             )
@@ -382,19 +385,19 @@ def _render_first_admin_setup() -> None:
         with st.container(key="uv_login_left"):
             _render_brand_panel()
         with st.container(key="uv_login_right"):
+            locale_ui.render_login_switcher()
             st.markdown(
-                '<div class="uv-login-heading">Create the first admin account</div>'
-                '<div class="uv-login-subhead">No accounts exist yet. This account gets full Admin '
-                'access — you can invite everyone else once you\'re signed in.</div>',
+                f'<div class="uv-login-heading">{h_("Create the first admin account")}</div>'
+                f'<div class="uv-login-subhead">{h_(_FIRST_ADMIN_TEXT)}</div>',
                 unsafe_allow_html=True,
             )
             _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("first_admin_setup_form", border=False):
-                email = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
-                password = st.text_input("Password", type="password", placeholder="••••••••",
+                email = st.text_input(_("Email"), placeholder=_("you@company.com"), icon=":material/mail:")
+                password = st.text_input(_("Password"), type="password", placeholder="••••••••",
                                          icon=":material/lock:",
-                                         help=f"At least {_min_len} characters.")
-                submitted = st.form_submit_button("Create admin account", width="stretch", type="primary")
+                                         help=_("At least {min_len} characters.", min_len=_min_len))
+                submitted = st.form_submit_button(_("Create admin account"), width="stretch", type="primary")
             if submitted:
                 ok, result = register(email, password)
                 if not ok:
@@ -422,13 +425,13 @@ def _render_forgot_password() -> None:
         with st.container(key="uv_login_left"):
             _render_brand_panel()
         with st.container(key="uv_login_right"):
+            locale_ui.render_login_switcher()
             st.markdown(
-                '<div class="uv-login-heading">Forgot your password?</div>'
-                '<div class="uv-login-subhead">Uvalu has no automated password reset — ask an admin '
-                'to send you a one-time reset link from the Admin portal.</div>',
+                f'<div class="uv-login-heading">{h_("Forgot your password?")}</div>'
+                f'<div class="uv-login-subhead">{h_("Uvalu has no automated password reset — ask an admin to send you a one-time reset link from the Admin portal.")}</div>',
                 unsafe_allow_html=True,
             )
-            if st.button("Back to sign in", key="forgot_back", width="stretch"):
+            if st.button(_("Back to sign in"), key="forgot_back", width="stretch"):
                 st.query_params.clear()
                 st.rerun()
 
@@ -440,32 +443,33 @@ def _render_password_reset(token: str) -> None:
         with st.container(key="uv_login_left"):
             _render_brand_panel()
         with st.container(key="uv_login_right"):
+            locale_ui.render_login_switcher()
             if not pending:
                 st.markdown(
-                    '<div class="uv-login-heading">Reset link invalid</div>'
-                    '<div class="uv-login-subhead">This reset link is invalid or has expired. '
-                    'Ask your admin to send a new one.</div>',
+                    f'<div class="uv-login-heading">{h_("Reset link invalid")}</div>'
+                    f'<div class="uv-login-subhead">{h_("This reset link is invalid or has expired. Ask your admin to send a new one.")}</div>',
                     unsafe_allow_html=True,
                 )
                 return
 
+            _resetting = h_("Resetting the password for {email}",
+                            email=f'<span style="color:var(--text);">{pending["email"]}</span>')
             st.markdown(
-                '<div class="uv-login-heading">Choose a new password</div>'
-                f'<div class="uv-login-subhead">Resetting the password for '
-                f'<span style="color:var(--text);">{pending["email"]}</span>.</div>',
+                f'<div class="uv-login-heading">{h_("Choose a new password")}</div>'
+                f'<div class="uv-login-subhead">{_resetting}.</div>',
                 unsafe_allow_html=True,
             )
             _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("password_reset_form", border=False):
-                password = st.text_input("New password", type="password", placeholder="••••••••",
+                password = st.text_input(_("New password"), type="password", placeholder="••••••••",
                                          icon=":material/lock:",
-                                         help=f"At least {_min_len} characters.")
-                confirm = st.text_input("Confirm new password", type="password", placeholder="••••••••",
+                                         help=_("At least {min_len} characters.", min_len=_min_len))
+                confirm = st.text_input(_("Confirm new password"), type="password", placeholder="••••••••",
                                         icon=":material/lock:")
-                submitted = st.form_submit_button("Reset password", width="stretch", type="primary")
+                submitted = st.form_submit_button(_("Reset password"), width="stretch", type="primary")
             if submitted:
                 if password != confirm:
-                    st.markdown('<div class="uv-login-err">New password and confirmation don\'t match.</div>',
+                    st.markdown(f'<div class="uv-login-err">{h_(_PW_MISMATCH_TEXT)}</div>',
                                unsafe_allow_html=True)
                     _render_strength_caption(password)
                 else:
@@ -517,19 +521,19 @@ def auth_wall() -> None:
     token = st.session_state.get("jwt_token")
     _revoked_msg = None
     if token:
-        email, _, sid = verify_token(token)
+        email, _role, sid = verify_token(token)
         if email and not is_session_active(email, sid):
-            _revoked_msg = "You were signed out of this session."
+            _revoked_msg = _("You were signed out of this session.")
             logkit.auth_event("session.revoked", outcome="revoked", reason="session_signed_out",
                               user_id=logkit.user_hash(email))
         elif email:
             _status = get_user_status(email)
             if _status is None:
-                _revoked_msg = "Your account no longer exists. Please contact your admin."
+                _revoked_msg = _("Your account no longer exists. Please contact your admin.")
                 logkit.auth_event("session.revoked", outcome="revoked", reason="account_deleted",
                                   user_id=logkit.user_hash(email))
             elif _status[1] == "Suspended":
-                _revoked_msg = "This account has been suspended."
+                _revoked_msg = _("This account has been suspended.")
                 logkit.auth_event("session.revoked", outcome="revoked", reason="suspended",
                                   user_id=logkit.user_hash(email))
             else:
@@ -580,6 +584,7 @@ def auth_wall() -> None:
             _render_brand_panel()
 
         with st.container(key="uv_login_right"):
+            locale_ui.render_login_switcher()
             if st.session_state.get("uv_oauth_refused"):
                 _render_oauth_refused(st.session_state["uv_oauth_refused"])
                 st.stop()
@@ -601,48 +606,47 @@ def auth_wall() -> None:
             if _lock_expiry:
                 _mins_left = max(1, -(-int((_lock_expiry - datetime.now(timezone.utc)).total_seconds()) // 60))
                 st.markdown(
-                    '<div class="uv-login-heading">Sign in temporarily locked</div>'
-                    '<div class="uv-login-subhead">Too many failed attempts on this account. '
-                    'Uvalu will accept a new attempt when the timer expires.</div>'
+                    f'<div class="uv-login-heading">{h_("Sign in temporarily locked")}</div>'
+                    f'<div class="uv-login-subhead">{h_("Too many failed attempts on this account. Uvalu will accept a new attempt when the timer expires.")}</div>'
                     '<div class="uv-lock-card">'
                       '<div class="uv-lock-icon">'
                         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                         'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
                         '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg></div>'
-                     f'<div><div class="uv-lock-timer">{_mins_left} min</div>'
-                      '<div class="uv-lock-caption">until the next attempt</div></div>'
+                     f'<div><div class="uv-lock-timer">{h_("{minutes} min", minutes=_mins_left)}</div>'
+                     f'<div class="uv-lock-caption">{h_("until the next attempt")}</div></div>'
                     '</div>'
-                    '<div class="uv-login-btn-disabled">Sign in</div>',
+                    f'<div class="uv-login-btn-disabled">{h_("Sign in")}</div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(
                     '<div style="display:flex;align-items:center;gap:12px;margin:18px 0;">'
                     '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                    '<span style="font-size:11px;color:var(--faint);">or</span>'
+                    f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
                     '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                     unsafe_allow_html=True,
                 )
                 _render_provider_buttons("login_locked_provider")
                 st.markdown(
                     '<div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;'
-                    'line-height:1.5;">The lock applies to password sign-in only. Providers are unaffected.</div>',
+                    f'line-height:1.5;">{h_("The lock applies to password sign-in only. Providers are unaffected.")}</div>',
                     unsafe_allow_html=True,
                 )
-                if st.button("Not you? Use a different account", key="login_switch_account",
+                if st.button(_("Not you? Use a different account"), key="login_switch_account",
                              width="stretch"):
                     st.session_state.pop("uv_login_attempted_email", None)
                     st.rerun()
                 st.stop()
 
             st.markdown(
-                '<div class="uv-login-heading">Sign in</div>'
-                '<div class="uv-login-subhead">Welcome back. Enter your credentials to continue.</div>',
+                f'<div class="uv-login-heading">{h_("Sign in")}</div>'
+                f'<div class="uv-login-subhead">{h_("Welcome back. Enter your credentials to continue.")}</div>',
                 unsafe_allow_html=True,
             )
             if _revoked_msg:
                 st.markdown(f'<div class="uv-login-err">{_revoked_msg}</div>', unsafe_allow_html=True)
             with st.form("login_form", border=False):
-                email = st.text_input("Email", placeholder="you@company.com", icon=":material/mail:")
+                email = st.text_input(_("Email"), placeholder=_("you@company.com"), icon=":material/mail:")
                 # Custom label row (native label hidden below) so "Forgot?" can sit
                 # inline with "Password" — matches Uvalu.dc.html's layout. It's
                 # plain styled text, not a link: this app has no password-reset
@@ -652,17 +656,17 @@ def auth_wall() -> None:
                     '<div style="display:flex;align-items:baseline;justify-content:space-between;'
                     'margin-top:4px;">'
                     '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                    'color:var(--faint);">Password</span>'
+                    f'color:var(--faint);">{h_("Password")}</span>'
                     '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--teal);'
-                    'text-decoration:none;">Forgot?</a></div>',
+                    f'text-decoration:none;">{h_("Forgot?")}</a></div>',
                     unsafe_allow_html=True,
                 )
-                password = st.text_input("Password", type="password", placeholder="••••••••",
+                password = st.text_input(_("Password"), type="password", placeholder="••••••••",
                                          icon=":material/lock:", label_visibility="collapsed")
-                _submitted = st.form_submit_button("Sign in", width="stretch", type="primary")
+                _submitted = st.form_submit_button(_("Sign in"), width="stretch", type="primary")
             if _submitted:
                 if not email.strip() or not password.strip():
-                    st.markdown('<div class="uv-login-err">Enter your email and password to continue.</div>',
+                    st.markdown(f'<div class="uv-login-err">{h_("Enter your email and password to continue.")}</div>',
                                unsafe_allow_html=True)
                 else:
                     ok, result = login(email, password, user_agent=_user_agent(),
@@ -699,7 +703,7 @@ def auth_wall() -> None:
                         # different, mutually-exclusive branch of auth_wall().
                         st.markdown(
                             '<style>.st-key-uv_login_right div[data-testid="stTextInput"]'
-                            ':has(input[aria-label="Password"]) > div '
+                            f':has(input[aria-label="{html.escape(_("Password"))}"]) > div '
                             '{ border-color: var(--down-txt) !important; }</style>',
                             unsafe_allow_html=True,
                         )
@@ -707,7 +711,7 @@ def auth_wall() -> None:
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                '<span style="font-size:11px;color:var(--faint);">or</span>'
+                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                 unsafe_allow_html=True,
             )
@@ -717,7 +721,7 @@ def auth_wall() -> None:
             # a dead link.
             st.markdown(
                 '<div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">'
-                'New to Uvalu? <span style="color:var(--teal);">Ask your admin for an invite</span></div>',
+                f'{h_("New to Uvalu?")} <span style="color:var(--teal);">{h_("Ask your admin for an invite")}</span></div>',
                 unsafe_allow_html=True,
             )
 

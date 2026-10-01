@@ -363,7 +363,7 @@ class TestLoadAllScreenerData:
         assert at.text[1].value == "True"
         assert at.text[2].value == "True"
 
-    def test_extra_portfolio_tickers_scored_separately(self, monkeypatch):
+    def test_extra_portfolio_tickers_come_back_separately(self, monkeypatch):
         extra_row = dict(_FUND_ROW, Name="Beta Corp", Ticker="BBB.BR")
         self._patch_fetchers(
             monkeypatch,
@@ -405,6 +405,51 @@ class TestLoadAllScreenerData:
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "True"
+
+    def test_universe_is_scored_once_and_its_reference_kept(self, monkeypatch):
+        """One peer group for every enabled exchange plus the extras, and its
+        ScoreReference stored under the store key for the portfolio lane."""
+        extra_row = dict(_FUND_ROW, Name="Beta Corp", Ticker="BBB.BR")
+        self._patch_fetchers(
+            monkeypatch,
+            [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"}],
+            pd.DataFrame([_FUND_ROW, extra_row]),
+        )
+        calls = []
+        real = data_module.run_screener_from_df
+        monkeypatch.setattr(data_module, "run_screener_from_df",
+                            lambda df, **kw: calls.append(sorted(df["Ticker"])) or real(df, **kw))
+        data_module._build_all_screener_data(("brussels",), ("BBB.BR",), ("Beta Corp",))
+        assert calls == [["AAA.BR", "BBB.BR"]]
+        key = (("brussels",), ("BBB.BR",), ("Beta Corp",), (500.0, 0.90, 0.0, 70.0),
+               (0.30, 0.18, 0.22, 0.15, 0.15))
+        ref = data_module.universe_reference_for(key)
+        assert ref is not None and ref.size == 2
+
+
+class TestPortfolioLaneReference:
+    def test_holdings_are_scored_against_the_universe_reference(self, monkeypatch):
+        sentinel = object()
+        seen = {}
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait",
+                            lambda stocks, **kw: pd.DataFrame([_FUND_ROW]))
+        monkeypatch.setattr(data_module, "backfill_thin_rows_from_screener_lane", lambda f: f)
+        monkeypatch.setattr(data_module, "universe_reference_for", lambda key: sentinel)
+        monkeypatch.setattr(data_module, "run_screener_from_df",
+                            lambda df, **kw: seen.update(kw) or df)
+        data_module._load_portfolio_screener_data.__wrapped__(
+            "v1", ("AAA.BR",), ("Alpha Corp",), ref_key=("k",), ref_version=3)
+        assert seen["reference"] is sentinel
+
+    def test_without_a_reference_holdings_are_scored_alone(self, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait",
+                            lambda stocks, **kw: pd.DataFrame([_FUND_ROW]))
+        monkeypatch.setattr(data_module, "backfill_thin_rows_from_screener_lane", lambda f: f)
+        monkeypatch.setattr(data_module, "run_screener_from_df",
+                            lambda df, **kw: seen.update(kw) or df)
+        data_module._load_portfolio_screener_data.__wrapped__("v1", ("AAA.BR",), ("Alpha Corp",))
+        assert seen["reference"] is None
 
 
 # ── screener_refresh_signature / _price_refresh_signature (WP-6) ──────────

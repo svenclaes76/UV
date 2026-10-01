@@ -100,7 +100,8 @@ class TestCashPage:
         assert html.index("TRD-0001 · AAA.BR") < html.index("To savings")
         assert "top-up" in html and "manual" in html and "set to €1,000.00" in html
         assert "5 of 5 entries" in html
-        assert any(b.label == "Export" for b in at.get("download_button"))
+        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
+        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
         assert any(b.key == "btn_add_cash" and not b.disabled for b in at.button)
         # one pencil per row: manual entries edit, automatic ones open the linked view
         pencils = {b.key: b.help for b in at.button if b.key and b.key.startswith("pf_cash_row_")}
@@ -122,7 +123,8 @@ class TestCashPage:
         at = _run_portfolio(monkeypatch, section="cash", role="Viewer")
         assert all(b.disabled for b in at.button if b.key == "btn_add_cash" or
                    (b.key or "").startswith("pf_cash_row_"))
-        assert any(b.label == "Export" for b in at.get("download_button"))
+        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
+        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
 
     def test_empty_ledger_message(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -394,3 +396,19 @@ def test_risk_banner_only_with_cash(isolated_data, monkeypatch):
     assert "Risk metrics cover the invested portion only (€1,100)" in html
     assert "Cash of €900, 45.0% of total value" in html
     assert any(b.key == "risk_view_cash" for b in at.button)
+
+
+def test_risk_banner_uses_the_display_currency(isolated_data, monkeypatch):
+    """Like the Dashboard's Cash tile: in CHF (≈, converted) for a Swiss
+    region, not the ledger's EUR base."""
+    from tests.test_pages_risk import _run as run_risk
+    from uvalu import i18n
+    portfolio.save_portfolio(make_portfolio_df())          # €1,100 invested
+    cash.post_manual("Deposit", D, 1000)
+    monkeypatch.setattr(i18n, "display_rate", lambda: (1.1, "2026-03-02"))   # EUR per CHF
+    at = run_risk(monkeypatch)
+    at.session_state[i18n._SS_CTX] = i18n.Ctx("en", "de-CH", "CHF", "short", "Europe/Zurich", "monday")
+    at.run()
+    html = _html(at)
+    assert "invested portion only (≈\u00a0CHF\u00a01’000)" in html
+    assert "Cash of ≈\u00a0CHF\u00a0909" in html

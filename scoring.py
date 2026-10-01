@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from uvalu.i18n import N_
 
 _DIV_RECENT_CUT_YEARS = 3   # a DPS cut this recent still flags the payer
 
@@ -134,18 +135,33 @@ def _dividend_sustainability_flag(row: pd.Series, max_payout: float = 0.90) -> s
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     if not div_rate or div_rate <= 0:
         return ""  # non-payer, no flag
+    if dividend_risk_reasons(row, max_payout=max_payout):
+        return N_("At Risk")   # a data flag; shown through uvalu.i18n.tr()
+    return "OK"
 
+
+DIV_CASH_PAYOUT_MAX = 0.80   # FCF payout above this flags the dividend
+DIV_COVERAGE_MIN    = 1.20   # earnings cover below this flags the dividend
+
+
+def dividend_risk_reasons(row: pd.Series, max_payout: float = 0.90) -> list[str]:
+    """Which of _dividend_sustainability_flag's triggers fire, in check order:
+    "payout", "cash_payout", "coverage", "recent_cut". The Analysis page shows
+    them next to the hard-veto check, so an "At Risk" flag on a dividend that
+    is still covered by earnings explains itself."""
     payout   = row.get("payoutRatio")
     cpr      = row.get("cashPayoutRatio")
     coverage = row.get("dividendCoverage")
-
     last_cut = row.get("dividend_last_cut_year")
     recent_cut = (last_cut is not None and not pd.isna(last_cut)
                   and last_cut >= datetime.now(timezone.utc).year - _DIV_RECENT_CUT_YEARS)
-
-    if (payout   and payout   > max_payout) or \
-       (cpr      and cpr      > 0.80) or \
-       (coverage and coverage < 1.20) or \
-       recent_cut:
-        return "At Risk"
-    return "OK"
+    reasons = []
+    if payout and payout > max_payout:
+        reasons.append("payout")
+    if cpr and cpr > DIV_CASH_PAYOUT_MAX:
+        reasons.append("cash_payout")
+    if coverage and coverage < DIV_COVERAGE_MIN:
+        reasons.append("coverage")
+    if recent_cut:
+        reasons.append("recent_cut")
+    return reasons

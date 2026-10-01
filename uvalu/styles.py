@@ -511,6 +511,19 @@ GLOBAL_CSS = """
     background: var(--panel-2) !important; border-color: var(--line) !important;
     border-radius: 8px !important; font-size: 12.5px !important;
   }
+  /* An open select's option list is as wide as its box, so the 140px
+     Sector filter clipped long names in every language ("Communication S…",
+     nl "Defensieve consumptiegoeder…"). The list is portalled to <body>,
+     so this can't be scoped to the screener; it only widens the open list
+     of selects narrower than 260px (the longest sector name, nl, renders at
+     ~220px). The virtualised rows carry inline widths copied from the box
+     and aren't re-measured, hence the second rule. */
+  [data-testid="stSelectboxVirtualDropdown"] {
+    width: max(var(--trigger-width), 260px) !important;
+  }
+  [data-testid="stSelectboxVirtualDropdown"] [role="presentation"] {
+    width: 100% !important;
+  }
   /* Min score / min margin-of-safety sliders — the current value is shown
      inline next to the label (custom markdown row, see screener.py) instead
      of Streamlit's floating drag-thumb bubble; the native min/max tick
@@ -1205,6 +1218,13 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child [data-testid="stLayoutWrapper"],
   [class*="st-key-set_row_"] [data-testid="stColumn"]:last-child > [data-testid="stVerticalBlock"] {
     flex: none !important; width: auto !important;
+  }
+  /* The auto-width wrappers above shrink a selectbox to 212px, which clipped
+     the region format's sample number ("Schweiz (Deutsch) — 1’234.5…").
+     A fixed width (a percentage would resolve against the shrink-wrapped
+     parent) that still fits the column on narrow screens. */
+  [class*="st-key-set_row_i18n_"] [data-testid="stSelectbox"] {
+    width: min(300px, 42vw) !important;
   }
   /* The title+desc column's generated wrapper reports a shorter height than
      the two-line raw-HTML block it actually holds — same "Streamlit

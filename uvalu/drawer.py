@@ -13,6 +13,9 @@ watchlist management surface), price/fair-value/MoS hero tiles, a veto
 banner, the six-model fair-value ladder, a Position & metrics list that
 varies by held/not-held state, and a primary "View full analysis" action.
 """
+import html as _html
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -23,9 +26,10 @@ from uvalu import nav as nav_registry
 from uvalu.components import (signal_badge_for_decision, signal_badge_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
-                              veto_reason_str, is_hard_veto)
-from uvalu.dialogs import add_position_dialog, sell_position_dialog
+                              veto_reason_str, is_hard_veto, header_width_px)
+from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, pgettext, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
 
@@ -87,6 +91,29 @@ def _fv(row, field, fmt=None):
     return fmt(v) if fmt else str(v)
 
 
+_DRAWER_PX = 520          # see _DRAWER_CSS
+_DRAWER_MAX_PX = 640
+_DRAWER_CHROME_PX = 58    # drawer padding around the hero row
+
+
+def _hero_row_px(cells: list[tuple[str, str]]) -> float:
+    """Width the hero row needs: each tile fits its one-line label (10px
+    uppercase, 0.02em tracking) and its value (21px mono, ~12.3px a glyph),
+    plus 20px padding + border, with 8px gaps."""
+    tiles = [max((header_width_px(label) - 4) / 1.03 - 0.4 * len(label), 12.3 * len(value)) + 21
+             for label, value in cells]
+    return sum(tiles) + 8 * (len(tiles) - 1)
+
+
+def _drawer_width_css(cells: list[tuple[str, str]]) -> None:
+    """Widen the drawer (never narrow it) when a translated label or a
+    region-formatted value ("+113,7 %") would push the hero row past it."""
+    need = math.ceil(_hero_row_px(cells) + _DRAWER_CHROME_PX)
+    if need > _DRAWER_PX:
+        st.markdown(f'<style>[data-testid="stDialog"] [role="dialog"] {{ width: {min(need, _DRAWER_MAX_PX)}px '
+                    f'!important; }}</style>', unsafe_allow_html=True)
+
+
 def _safe_float(v, default: float = 0.0) -> float:
     """0.0 for None/NaN — plain `v or default` is wrong here since a NaN
     float is truthy in Python and would pass straight through unchanged."""
@@ -138,7 +165,7 @@ def _go_portfolio_edit(ticker: str) -> None:
         st.switch_page(_page)
 
 
-@st.dialog("Stock preview", width="small")
+@_dialog(N_("Stock preview"))
 def open_drawer(row: "pd.Series") -> None:
     enter_dialog()
     st.markdown(f"<style>{_DRAWER_CSS}</style>", unsafe_allow_html=True)
@@ -162,7 +189,7 @@ def open_drawer(row: "pd.Series") -> None:
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
                        f'{ticker}</span>', unsafe_allow_html=True)
             st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
-        if st.button("✕", key="drw_close", type="tertiary", help="Close"):
+        if st.button("✕", key="drw_close", type="tertiary", help=_("Close")):
             # @st.dialog bodies rerun as their own fragment — a plain widget
             # click alone just re-renders this same function unchanged, it
             # doesn't close the dialog. st.rerun() breaks out to a full-script
@@ -171,7 +198,7 @@ def open_drawer(row: "pd.Series") -> None:
             # watchlist-star handler used to force-close-then-reopen.
             st.rerun()
     st.markdown(f'<div style="padding-bottom:16px;border-bottom:0.5px solid var(--line);">'
-               f'<span style="font-size:13px;color:var(--muted);">{row.get("Name", "—")} · {_fv(row, "sector")}</span></div>',
+               f'<span style="font-size:13px;color:var(--muted);">{row.get("Name", "—")} · {_fv(row, "sector", tr)}</span></div>',
                unsafe_allow_html=True)
 
     # ── Hero: price / fair value / MoS — three bordered panel-2 tiles,
@@ -192,36 +219,33 @@ def open_drawer(row: "pd.Series") -> None:
     # "Total return" still fits at this padding/font-size.
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
+    _cells = [
+        (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--mint)"),
+        (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
+        (_("Total return"), _fv(row, "TER %", lambda v: fmt_pct(v, signed=True)), _ter_color),
+    ]
+    _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
-        f'<div style="display:flex;gap:8px;margin-top:16px;">'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">Price</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;">'
-        f'{_fmt_eur(float(_price)) if pd.notna(_price) else "—"}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">Fair value</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:var(--mint);">{_fv(row, "fair_value", _fmt_eur)}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">Margin of safety</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_mos_color};">{_fv(row, "MoS %", lambda v: f"{v:+.1f}%")}</div></div>'
-        f'<div style="{_tile}">'
-        f'<div style="{_label}">Total return</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;color:{_ter_color};">{_fv(row, "TER %", lambda v: f"{v:+.1f}%")}</div></div>'
-        f'</div>', unsafe_allow_html=True)
+        '<div style="display:flex;gap:8px;margin-top:16px;">'
+        + "".join(f'<div style="{_tile}"><div style="{_label}">{_html.escape(label)}</div>'
+                  f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;'
+                  f'color:{color};">{value}</div></div>' for label, value, color in _cells)
+        + '</div>', unsafe_allow_html=True)
 
     if is_hard_veto(row.get("veto")):
         st.markdown(
             f'<div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">Hard veto triggered</div>'
+            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Hard veto triggered")}</div>'
             f'<div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True)
     else:
-        _, _, _min_mos, _buy_thr = get_veto_thresholds()
+        _min_mos, _buy_thr = get_veto_thresholds()[2:4]
         st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
-    _section_header("Six-model fair value")
+    _section_header(h_("Six-model fair value"))
     if pd.notna(_price):
         fair_value_ladder(
             price=float(_price),
@@ -241,13 +265,12 @@ def open_drawer(row: "pd.Series") -> None:
         if _cap:
             st.caption(_cap)
         if bool(row.get("fair_value_clamped")):
-            st.caption("⚑ Composite capped at the models' median — one model ran "
-                       "far above the rest.")
+            st.caption(_("⚑ Composite capped at the models' median — one model ran far above the rest."))
 
     # ── Position & metrics — matches Uvalu.dc.html's rowsD builder exactly:
     # 4 always-shown fields, then either 3 held-position fields or a single
     # "not held" status row. ─────────────────────────────────────────────────
-    _section_header("Position & metrics")
+    _section_header(h_("Position & metrics"))
     _pf = load_portfolio()
     _held_row = None
     if _pf is not None and not _pf.empty and "ticker" in _pf.columns:
@@ -258,17 +281,17 @@ def open_drawer(row: "pd.Series") -> None:
 
     _veto = is_hard_veto(row.get("veto"))
     _score = row.get("Value Score")
-    _score_str = "excluded" if _veto else _fv(row, "Value Score", lambda v: f"{v:.0f} / 100")
+    _score_str = _("excluded") if _veto else _fv(row, "Value Score", lambda v: _("{score} / 100", score=fmt_num(v, 0)))
     _score_color = "var(--down-txt)" if _veto else ("var(--mint)" if pd.notna(_score) else "inherit")
     _pe = row.get("trailingPE")
-    _pe_str = f"{_pe:.1f}× · 15.0×" if pd.notna(_pe) else "—"
-    _dy_str = _fv(row, "dividendYield", lambda v: f"{v*100:.1f}%")
+    _pe_str = f"{fmt_num(_pe, 1)}× · {fmt_num(15.0, 1)}×" if pd.notna(_pe) else "—"
+    _dy_str = _fv(row, "dividendYield", lambda v: fmt_pct(v, fraction=True))
 
     _rows = [
-        ("Composite score", _score_str, _score_color),
-        ("P/E · fair P/E", _pe_str, "inherit"),
-        ("Dividend yield", _dy_str, "inherit"),
-        ("Exchange", _fv(row, "Exchange"), "inherit"),
+        (h_("Composite score"), _score_str, _score_color),
+        (h_("P/E · fair P/E"), _pe_str, "inherit"),
+        (h_("Dividend yield"), _dy_str, "inherit"),
+        (h_("Exchange"), _fv(row, "Exchange", tr), "inherit"),
     ]
     if _held:
         _shares = _safe_float(_held_row.get("shares"))
@@ -284,14 +307,14 @@ def open_drawer(row: "pd.Series") -> None:
         _pnl = _position_value - _purchase_value
         _pnl_pct = (_pnl / _purchase_value * 100) if _purchase_value else 0.0
         _rows += [
-            ("Shares held", f"{_shares:,.0f}", "inherit"),
-            ("Position value", f"€{_position_value:,.0f}", "inherit"),
-            ("Unrealised P&L", f"{'+' if _pnl >= 0 else '-'}€{abs(_pnl):,.0f} ({_pnl_pct:+.1f}%)",
+            (h_("Shares held"), fmt_int(_shares), "inherit"),
+            (h_("Position value"), fmt_money(_position_value, "EUR", 0), "inherit"),
+            (h_("Unrealised P&L"), f"{fmt_money(_pnl, 'EUR', 0, signed=True)} ({fmt_pct(_pnl_pct, signed=True)})",
              "var(--up-txt)" if _pnl >= 0 else "var(--down-txt)"),
         ]
     else:
-        _status = "Not held · watchlist" if ticker in load_watchlist() else "Not held"
-        _rows.append(("Portfolio status", _status, "var(--muted)"))
+        _status = h_("Not held · watchlist") if ticker in load_watchlist() else h_("Not held")
+        _rows.append((h_("Portfolio status"), _status, "var(--muted)"))
 
     st.markdown("".join(
         f'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--line-2);">'
@@ -302,17 +325,19 @@ def open_drawer(row: "pd.Series") -> None:
     st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     _is_viewer = current_user().is_viewer
-    _vhelp = "Viewer role is read-only" if _is_viewer else None
+    _vhelp = _("Viewer role is read-only") if _is_viewer else None
     if _held:
         _act1, _act2, _act3 = st.columns([2, 1, 1])
         with _act1:
-            if st.button("View full analysis", key="drw_analysis", width="stretch", type="primary"):
+            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
                 _go_analysis(ticker)
         with _act2:
-            if st.button("Edit", key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button(_("Edit"), key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
                 _go_portfolio_edit(ticker)
         with _act3:
-            if st.button("Close", key="drw_sell", width="stretch", disabled=_is_viewer, help=_vhelp):
+            # Translators: Stock preview › button that closes (sells) the position you hold — not "close this panel".
+            if st.button(pgettext("position", "Close"), key="drw_sell", width="stretch",
+                         disabled=_is_viewer, help=_vhelp):
                 # Streamlit forbids nesting one @st.dialog inside another —
                 # sell_position_dialog can't be called directly from here.
                 # Stash the request and st.rerun() to close this dialog first;
@@ -324,10 +349,10 @@ def open_drawer(row: "pd.Series") -> None:
     else:
         _act1, _act2 = st.columns([2, 1])
         with _act1:
-            if st.button("View full analysis", key="drw_analysis", width="stretch", type="primary"):
+            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
                 _go_analysis(ticker)
         with _act2:
-            if st.button("Add", key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button(_("Add"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,
                                                    "name": str(row.get("Name", "")),
                                                    "price": _safe_float(_price)}

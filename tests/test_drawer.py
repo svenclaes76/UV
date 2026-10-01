@@ -206,7 +206,7 @@ class TestOpenDrawer:
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
         assert "Shares held" in html
-        assert "Unrealised P&L" in html
+        assert "Unrealised P&amp;L" in html  # label is HTML-escaped (renders as "P&L")
         assert any(b.label == "Edit" for b in at.button)
         assert any(b.label == "Close" for b in at.button)
 

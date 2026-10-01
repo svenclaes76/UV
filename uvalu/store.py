@@ -115,21 +115,39 @@ def get_scored_universe(enabled, extra_tickers=(), extra_names=(),
     ``_build_all_screener_data`` returns; its DataFrames are copied so a caller
     may mutate them freely.
     """
+    key, tok, builder = _key_token_builder(enabled, extra_tickers, extra_names, thresholds,
+                                           score_weights, token)
+    frame, version, is_stale = _STORE.get(key, tok, builder)
+    return tuple(d.copy() for d in frame), version, is_stale
+
+
+def universe_reference(enabled, extra_tickers=(), extra_names=(),
+                       thresholds=(500.0, 0.90, 0.0, 70.0),
+                       score_weights=(0.30, 0.18, 0.22, 0.15, 0.15),
+                       *, token: "str | None" = None) -> tuple:
+    """``(ScoreReference | None, version)`` of the scored universe for these
+    arguments: the sector medians and rank distributions the portfolio lane
+    scores its holdings against, so they match the Screener. Like
+    get_scored_universe it starts a background build when one is due, but
+    copies no frames (the Dashboard calls it on every render). None until the
+    first build finishes."""
+    key, tok, builder = _key_token_builder(enabled, extra_tickers, extra_names, thresholds,
+                                           score_weights, token)
+    _frame, version, _is_stale = _STORE.get(key, tok, builder)
+    from uvalu.data import universe_reference_for
+    return universe_reference_for(key), version
+
+
+def _key_token_builder(enabled, extra_tickers, extra_names, thresholds, score_weights, token):
     from uvalu.data import _cache_version, _build_all_screener_data
-    enabled       = tuple(enabled)
-    extra_tickers = tuple(extra_tickers)
-    extra_names   = tuple(extra_names)
-    thresholds    = tuple(thresholds)
-    score_weights = tuple(score_weights)
-    key = (enabled, extra_tickers, extra_names, thresholds, score_weights)
+    key = (tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
+           tuple(score_weights))
     tok = token if token is not None else _cache_version()
 
     def _builder():
-        return _build_all_screener_data(enabled, extra_tickers, extra_names,
-                                        thresholds, score_weights)
+        return _build_all_screener_data(*key)
 
-    frame, version, is_stale = _STORE.get(key, tok, _builder)
-    return tuple(d.copy() for d in frame), version, is_stale
+    return key, tok, _builder
 
 
 def universe_recomputing() -> bool:

@@ -2,7 +2,7 @@
 
 ## Dev environment setup
 
-**Requirements:** Python 3.11+, [uv](https://github.com/astral-sh/uv)
+**Requirements:** Python 3.12+, [uv](https://github.com/astral-sh/uv)
 
 ```bash
 git clone <repo-url>
@@ -58,7 +58,7 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
 ## Conventions
 
-- **Python version:** 3.11+
+- **Python version:** 3.12+
 - **Formatter:** none enforced — match the style of the surrounding code
 - **No type annotations** required but welcome on new public functions
 - **No comments** unless the reason is non-obvious (a hidden constraint, a workaround, a subtle invariant)
@@ -71,11 +71,24 @@ See [docs/architecture.md](docs/architecture.md) for a full breakdown.
 
 ---
 
+## Translations (i18n)
+
+All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator notes: `locales/README.md`):
+
+- Wrap user-facing text: `_("…")`, `ngettext(singular, plural, n)`, `pgettext(context, "…")`; use `h_("…")` inside HTML strings (escapes the translation, not the placeholder values). Pass values as named placeholders, already formatted: `_("Last changed {date}.", date=fmt_date(d))` — never build sentences from pieces.
+- Format numbers, money, percentages and dates with `fmt_num` / `fmt_money` / `fmt_total` / `fmt_pct` / `fmt_date` (region format, never the language). Parse typed numbers with `parse_num`, or use `locale_ui.number_field()`.
+- Values that are data (sector names, statuses, labels used as keys) stay English; mark them with `N_()` and show them with `tr()`. Text built outside a request (background jobs, caches) uses `lazy_()`.
+- Widget options that are translated must keep stable values (`format_func=frozen(tr)`), so filters survive a language switch.
+- Never use `_` as a throwaway variable in a function that calls `_()` (`tests/test_i18n_guards.py` checks this).
+- After changing UI text run `python tools/i18n_update.py` and draft the new entries (fuzzy); CI runs `tools/i18n_compile.py` and `tools/i18n_update.py --check`, and release tags run `tools/i18n_compile.py --strict`.
+- **Merge conflicts in `locales/`:** never resolve them by hand or with "ours"/"theirs" — either side drops the other branch's drafts and reviews. Resolve the code conflicts, then run `python tools/i18n_merge.py`: it merges each entry three-way, rebuilds the catalogs and stages `locales/`. An entry both branches changed differently comes out unreviewed with the other version in a `# merge:` comment. Run it after a clean merge that touched `locales/` on both sides too, so the `.mo` files match.
+
 ## Branching and PRs
 
 - Branch from `master`: `git checkout -b feature/<short-description>`
 - Keep PRs focused — one feature or fix per PR
 - Update `CHANGELOG.md` under `[Unreleased]` for any user-visible change
+- Fill in the PR template; its *Translations* section is the output of `python tools/i18n_update.py --since master` (new/removed texts, unreviewed entries per language), so the review backlog before a release stays visible
 - No force-pushes to `master`
 
 ---
@@ -127,14 +140,19 @@ Never retag or renumber a release that's already tagged and pushed.
 All steps on the feature branch first, so the merge commit that gets the tag
 already carries the right version:
 
-1. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
+1. Translations: every entry reviewed in all languages. Run
+   `python tools/i18n_update.py --check && python tools/i18n_compile.py --strict`
+   — both must pass. Release CI runs the same strict gate on the tag, but by then
+   the tag is public and can't be redone (see above), so catch it here. Commit
+   the rebuilt `.mo` files if they changed.
+2. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
    add a fresh empty `## [Unreleased]` above it.
-2. `pyproject.toml`: `version = "x.y.z"`.
-3. Commit: `chore(release): x.y.z`.
-4. `git checkout master && git merge --no-ff <branch>`.
-5. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
+3. `pyproject.toml`: `version = "x.y.z"`.
+4. Commit: `chore(release): x.y.z`.
+5. `git checkout master && git merge --no-ff <branch>`.
+6. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
    the branch (local + remote).
-6. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
+7. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
    full-changelog compare link.
 
 ---

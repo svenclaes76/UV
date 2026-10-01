@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 import marketdata
+from uvalu.i18n import N_, Fmt, lazy_
 from screener import (
     RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
     EQUITY_RISK_PREMIUM,     # ...and the ERP, for the Monte-Carlo drift assumption
@@ -91,12 +92,14 @@ SCORE_HIGH     = 85
 # `tone` keys `uvalu.components._RISK_TONE_COLORS`. The green→amber break is
 # SCORE_LOW (25) and amber→red is SCORE_ELEVATED (70): red is reserved for
 # "immediate action" scores, matching the wording of the actions themselves.
+# Labels and actions stay English (they are compared and stored); pages show
+# them through uvalu.i18n.tr().
 RISK_BANDS: list[tuple[float, str, str, str]] = [
-    (SCORE_LOW,      "Low risk",      "Hold — monitor quarterly",                              "low"),
-    (SCORE_MODERATE, "Moderate risk", "Review annually; consider minor rebalancing",           "moderate"),
-    (SCORE_ELEVATED, "Elevated risk", "Active monitoring; targeted rebalancing",               "elevated"),
-    (SCORE_HIGH,     "High risk",     "Immediate rebalancing required",                        "high"),
-    (100.0,          "Critical risk", "Defensive repositioning — reduce exposure immediately", "critical"),
+    (SCORE_LOW,      N_("Low risk"),      N_("Hold — monitor quarterly"),                              "low"),
+    (SCORE_MODERATE, N_("Moderate risk"), N_("Review annually; consider minor rebalancing"),           "moderate"),
+    (SCORE_ELEVATED, N_("Elevated risk"), N_("Active monitoring; targeted rebalancing"),               "elevated"),
+    (SCORE_HIGH,     N_("High risk"),     N_("Immediate rebalancing required"),                        "high"),
+    (100.0,          N_("Critical risk"), N_("Defensive repositioning — reduce exposure immediately"), "critical"),
 ]
 
 
@@ -130,10 +133,10 @@ def band_tone(label: str) -> str:
 # when port_rets covers a window, that scenario's portfolio_drawdown is the
 # basket's real peak-to-trough over it rather than beta × benchmark.
 HISTORICAL_SCENARIOS = [
-    ("Dot-com crash",        "2000–2002",    -0.49, "2000-03-10", "2002-10-09"),
-    ("Financial crisis",     "2007–2009",    -0.57, "2007-10-09", "2009-03-09"),
-    ("COVID crash",          "Feb–Mar 2020", -0.34, "2020-02-19", "2020-03-23"),
-    ("2022 rate hike cycle", "Jan–Oct 2022", -0.25, "2022-01-03", "2022-10-12"),
+    (N_("Dot-com crash"),        "2000–2002",        -0.49, "2000-03-10", "2002-10-09"),
+    (N_("Financial crisis"),     "2007–2009",        -0.57, "2007-10-09", "2009-03-09"),
+    (N_("COVID crash"),          N_("Feb–Mar 2020"), -0.34, "2020-02-19", "2020-03-23"),
+    (N_("2022 rate hike cycle"), N_("Jan–Oct 2022"), -0.25, "2022-01-03", "2022-10-12"),
 ]
 
 CYCLICAL_SECTORS = {
@@ -462,10 +465,10 @@ def _position_rating(weight: float, beta: float | None, mos: float | None,
     if fin_health < 3:    pts += 2
     elif fin_health < 5:  pts += 1
     if earn_quality < 3:  pts += 1
-    if pts >= 5:  return "Critical"
-    if pts >= 3:  return "High"
-    if pts >= 1:  return "Medium"
-    return "Low"
+    if pts >= 5:  return N_("Critical")
+    if pts >= 3:  return N_("High")
+    if pts >= 1:  return N_("Medium")
+    return N_("Low")
 
 
 def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
@@ -518,11 +521,11 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         fv    = _safe(row.get("fair_value"))
         if price and fv and fv > 0:
             mos = (fv - price) / fv
-            val_flag = ("Overvalued" if mos < -0.05 else
-                        "Fairly Valued" if mos < 0.10 else "Undervalued")
+            val_flag = (N_("Overvalued") if mos < -0.05 else
+                        N_("Fairly Valued") if mos < 0.10 else N_("Undervalued"))
         else:
             mos      = None
-            val_flag = "N/A"
+            val_flag = N_("N/A")
 
         fh     = _financial_health_score(fd_ser)
         eq     = _earnings_quality_score(fd_ser)
@@ -562,9 +565,9 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
 # ── Stage 2 — Concentration & diversification ─────────────────────────────────
 
 def _hhi_label(hhi: float) -> str:
-    if hhi < 0.10:  return "Well diversified"
-    if hhi < 0.18:  return "Moderately concentrated"
-    return "Highly concentrated"
+    if hhi < 0.10:  return N_("Well diversified")
+    if hhi < 0.18:  return N_("Moderately concentrated")
+    return N_("Highly concentrated")
 
 
 def _category_label(v: object) -> str:
@@ -574,8 +577,8 @@ def _category_label(v: object) -> str:
     recurring gotcha noted across this codebase). Empty strings collapse to
     "Unknown" too."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
-        return "Unknown"
-    return str(v).strip() or "Unknown"
+        return N_("Unknown")
+    return str(v).strip() or N_("Unknown")
 
 
 def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> ConcentrationMetrics:
@@ -667,27 +670,27 @@ def _stage2_concentration(pf: pd.DataFrame, total_value: float) -> Concentration
 # ── Stage 3 — Portfolio-level quantitative metrics ────────────────────────────
 
 def _beta_label(b: float) -> str:
-    if b < 0.8:  return "Defensive"
-    if b < 1.2:  return "Market-like"
-    return "Aggressive"
+    if b < 0.8:  return N_("Defensive")
+    if b < 1.2:  return N_("Market-like")
+    return N_("Aggressive")
 
 def _vol_label(v: float) -> str:
-    if v < 0.10:  return "Low"
-    if v < 0.20:  return "Moderate"
-    return "High"
+    if v < 0.10:  return N_("Low")
+    if v < 0.20:  return N_("Moderate")
+    return N_("High")
 
 def _mdd_label(mdd: float | None) -> str:
-    if mdd is None:  return "N/A"
+    if mdd is None:  return N_("N/A")
     v = abs(mdd)
-    if v < 0.10:  return "Low"
-    if v < 0.25:  return "Moderate"
-    return "High"
+    if v < 0.10:  return N_("Low")
+    if v < 0.25:  return N_("Moderate")
+    return N_("High")
 
 def _sharpe_label(sharpe: float | None) -> str:
-    if sharpe is None:  return "N/A"
-    if sharpe > 1.5:    return "Strong"
-    if sharpe > 1.0:    return "Acceptable"
-    return "Suboptimal"
+    if sharpe is None:  return N_("N/A")
+    if sharpe > 1.5:    return N_("Strong")
+    if sharpe > 1.0:    return N_("Acceptable")
+    return N_("Suboptimal")
 
 
 def _sortino_label(sortino: float | None) -> str:
@@ -968,12 +971,12 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
                               alpha_annualised=None, flags=[])
 
     if port_rets is None or len(port_rets) < 60:
-        _unavail.flags = ["Insufficient price history for factor analysis (need ≥60 days)"]
+        _unavail.flags = [lazy_("Insufficient price history for factor analysis (need ≥60 days)")]
         return _unavail
 
     ff_df, ff_meta = _factor_data("5f")
     if ff_df is None:
-        _unavail.flags = [f"Fama-French data unavailable: {ff_meta.get('error', 'no data')}"]
+        _unavail.flags = [lazy_("Fama-French data unavailable: {error}", error=str(ff_meta.get('error', 'no data')))]
         return _unavail
     ff = ff_df.loc[port_rets.index[0]:port_rets.index[-1]]
 
@@ -988,14 +991,14 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
 
     merged = ff.join(port_rets.rename("port"), how="inner").dropna()
     if len(merged) < 30:
-        _unavail.flags = ["Insufficient overlapping data after alignment"]
+        _unavail.flags = [lazy_("Insufficient overlapping data after alignment")]
         return _unavail
 
     factor_cols = [c for c in merged.columns if c not in ("RF", "port")]
     Y = (merged["port"] - merged["RF"]).values
     X = np.column_stack([np.ones(len(Y)), merged[factor_cols].values])
 
-    coeffs, _, _, _ = np.linalg.lstsq(X, Y, rcond=None)
+    coeffs = np.linalg.lstsq(X, Y, rcond=None)[0]
     alpha  = float(coeffs[0])
     betas_ = coeffs[1:]
 
@@ -1009,7 +1012,8 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
     flags: list[str] = []
     for name, b in loadings.items():
         if abs(b) > 1.5:
-            flags.append(f"High {name} loading ({b:+.2f}) — concentrated factor bet")
+            flags.append(lazy_("High {factor} loading ({value}) — concentrated factor bet",
+                               factor=name, value=Fmt("num", b, decimals=2, signed=True)))
 
     # Each factor's share of *return variance* (doc: ">60% of return variance
     # explained by one factor"), not just of the summed loadings — Var(β·X) =
@@ -1024,12 +1028,13 @@ def _stage4_factor(port_rets: pd.Series | None) -> FactorExposure:
         dom_share = factor_var_contrib[dom_idx] / var_y
         if dom_share > 0.60 and r2 > 0.40:
             dom_name = factor_cols[dom_idx]
-            flags.append(f"{dom_name} explains >{dom_share:.0%} of return variance")
+            flags.append(lazy_("{factor} explains >{share} of return variance",
+                               factor=dom_name, share=Fmt("pct", float(dom_share), decimals=0, fraction=True)))
 
     n_overlap = len(merged)
     if ff_meta.get("stale"):
-        flags.append(f"Factor data is a cached copy ({ff_meta.get('set')} set, "
-                     f"as of {ff_meta.get('as_of')}) — source unreachable")
+        flags.append(lazy_("Factor data is a cached copy ({set} set, as of {date}) — source unreachable",
+                           set=str(ff_meta.get('set')), date=Fmt("date", ff_meta.get('as_of'))))
 
     return FactorExposure(
         available=True,
@@ -1164,21 +1169,21 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
             rate_impacts.append(w * dur * (-0.12))
     rate_impact = float(sum(rate_impacts)) if rate_impacts else -0.10
     factor_scenarios.append({
-        "name": "Rate rise +200 bps",
-        "description": "High P/E stocks repriced via discount rate expansion (duration proxy)",
+        "name": lazy_("Rate rise +200 bps"),
+        "description": lazy_("High P/E stocks repriced via discount rate expansion (duration proxy)"),
         "estimated_portfolio_impact": round(rate_impact, 4),
         "estimated_loss_eur": round(abs(rate_impact) * total_value, 2),
     })
 
     # Recession — cyclical sectors cut 25%, defensives 10%
     rec_impact = 0.0
-    for _, row in pf.iterrows():
+    for _idx, row in pf.iterrows():
         sec = str(row.get("sector") or "")
         w   = _safe(row.get("current_value"), 0.0) / total_value if total_value > 0 else 0.0
         rec_impact += w * (-0.25 if sec in CYCLICAL_SECTORS else -0.10)
     factor_scenarios.append({
-        "name": "Recession (earnings cut 20–30%)",
-        "description": "25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed",
+        "name": lazy_("Recession (earnings cut 20–30%)"),
+        "description": lazy_("25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed"),
         "estimated_portfolio_impact": round(rec_impact, 4),
         "estimated_loss_eur": round(abs(rec_impact) * total_value, 2),
     })
@@ -1187,15 +1192,18 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
     sec_w      = concentration.sector_weights.get(concentration.largest_sector or "", 0.0)
     sec_impact = sec_w * (-0.40)
     factor_scenarios.append({
-        "name": f"Sector crash −40% ({concentration.largest_sector or 'N/A'})",
-        "description": f"40% drawdown applied to {concentration.largest_sector or 'largest'} sector",
+        "name": lazy_("Sector crash −40% ({sector})",
+                      sector=Fmt("tr", concentration.largest_sector or "N/A")),
+        "description": lazy_("40% drawdown applied to {sector} sector",
+                             sector=(Fmt("tr", concentration.largest_sector) if concentration.largest_sector
+                                     else lazy_("largest"))),
         "estimated_portfolio_impact": round(sec_impact, 4),
         "estimated_loss_eur": round(abs(sec_impact) * total_value, 2),
     })
 
     # Credit crunch — penalise high-leverage positions
     credit_impact = 0.0
-    for _, row in pf.iterrows():
+    for _idx, row in pf.iterrows():
         t  = row["ticker"]
         de = _safe(cache.get(t, {}).get("debtToEquity"))
         w  = _safe(row.get("current_value"), 0.0) / total_value if total_value > 0 else 0.0
@@ -1203,8 +1211,8 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
             de_ratio = de / 100.0   # yfinance stores as ×100
             credit_impact += w * (-min(de_ratio * 0.05, 0.30))
     factor_scenarios.append({
-        "name": "Credit crunch",
-        "description": "Leveraged positions repriced — high D/E stocks penalised",
+        "name": lazy_("Credit crunch"),
+        "description": lazy_("Leveraged positions repriced — high D/E stocks penalised"),
         "estimated_portfolio_impact": round(credit_impact, 4),
         "estimated_loss_eur": round(abs(credit_impact) * total_value, 2),
     })
@@ -1213,11 +1221,12 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
     income_col   = pf["expected_annual"].fillna(0) if "expected_annual" in pf.columns else pd.Series(0.0, index=pf.index)
     total_income = float(income_col.sum())
     factor_scenarios.append({
-        "name": "Dividend freeze",
-        "description": "All dividend payments suspended",
+        "name": lazy_("Dividend freeze"),
+        "description": lazy_("All dividend payments suspended"),
         "estimated_portfolio_impact": 0.0,
         "estimated_loss_eur": round(total_income, 2),
-        "note": f"Annual income impact: €{total_income:,.0f}",
+        "note": lazy_("Annual income impact: {amount}",
+                      amount=Fmt("money", total_income, decimals=0, currency="EUR")),
     })
 
     # 6c. Monte Carlo — block-bootstrap the portfolio's own daily returns
@@ -1411,50 +1420,57 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
     prior_snapshot = prior_snapshot or {}
     sector_targets = targets.get("sectors") or {}
     ticker_targets = targets.get("tickers") or {}
-    prior_since    = prior_snapshot.get("date") or prior_snapshot.get("as_of") or "last snapshot"
+    _prior_date    = prior_snapshot.get("date") or prior_snapshot.get("as_of")
+    prior_since    = Fmt("date", _prior_date) if _prior_date else lazy_("last snapshot")
     items: list[RebalanceItem] = []
 
     # Hard triggers
     for p in profiles:
         if p.weight > 0.20:
             items.append(RebalanceItem("hard", p.ticker,
-                f"{p.ticker}: position weight {p.weight:.1%} exceeds 20% hard limit",
-                "Trim to ≤15%; redeploy to underweights"))
+                lazy_("{ticker}: position weight {weight} exceeds 20% hard limit",
+                      ticker=p.ticker, weight=Fmt("pct", p.weight, fraction=True)),
+                lazy_("Trim to ≤15%; redeploy to underweights")))
 
     if quant.portfolio_beta > 1.5:
         items.append(RebalanceItem("hard", "Portfolio",
-            f"Portfolio beta {quant.portfolio_beta:.2f} exceeds 1.5 — amplified drawdown risk",
-            "Rotate into low-beta / defensive stocks"))
+            lazy_("Portfolio beta {beta} exceeds 1.5 — amplified drawdown risk",
+                  beta=Fmt("num", quant.portfolio_beta, decimals=2)),
+            lazy_("Rotate into low-beta / defensive stocks")))
 
     if quant.var_99_1d_eur is not None and total_value > 0:
         var_pct = quant.var_99_1d_eur / total_value
         if var_pct > 0.03:
             items.append(RebalanceItem("hard", "Portfolio",
-                f"1-day 99% VaR = €{quant.var_99_1d_eur:,.0f} ({var_pct:.1%}) — exceeds 3% loss tolerance",
-                "Reduce high-beta/volatile positions to lower tail risk"))
+                lazy_("1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance",
+                      amount=Fmt("money", quant.var_99_1d_eur, decimals=0, currency="EUR"),
+                      pct=Fmt("pct", var_pct, fraction=True)),
+                lazy_("Reduce high-beta/volatile positions to lower tail risk")))
 
     if income.flagged_income_pct > 0.40:
         flagged_str = ", ".join(income.flagged_payers[:5])
         items.append(RebalanceItem("hard", flagged_str,
-            f"{income.flagged_income_pct:.0%} of portfolio income comes from dividend-at-risk positions",
-            "Diversify income across more dividend payers"))
+            lazy_("{pct} of portfolio income comes from dividend-at-risk positions",
+                  pct=Fmt("pct", income.flagged_income_pct, decimals=0, fraction=True)),
+            lazy_("Diversify income across more dividend payers")))
 
     worst_dd = min((r.portfolio_drawdown for r in stress.historical
                    if r.portfolio_drawdown is not None), default=0.0)
     if worst_dd < -0.40:
         items.append(RebalanceItem("hard", "Portfolio",
-            f"Worst-case historical scenario implies {worst_dd:.0%} portfolio drawdown",
-            "Add defensive/uncorrelated assets to cushion tail risk"))
+            lazy_("Worst-case historical scenario implies {drawdown} portfolio drawdown",
+                  drawdown=Fmt("pct", worst_dd, decimals=0, fraction=True)),
+            lazy_("Add defensive/uncorrelated assets to cushion tail risk")))
 
     for p in profiles:
         if p.veto:
             items.append(RebalanceItem("hard", p.ticker,
-                f"{p.ticker}: breaches a hard veto rule in the stock valuation algorithm",
-                "Review fundamentals; consider reducing or exiting"))
+                lazy_("{ticker}: breaches a hard veto rule in the stock valuation algorithm", ticker=p.ticker),
+                lazy_("Review fundamentals; consider reducing or exiting")))
         elif p.rating == "Critical":
             items.append(RebalanceItem("hard", p.ticker,
-                f"{p.ticker}: Critical risk rating — review immediately",
-                "Review fundamentals; consider reducing or exiting"))
+                lazy_("{ticker}: Critical risk rating — review immediately", ticker=p.ticker),
+                lazy_("Review fundamentals; consider reducing or exiting")))
 
     # ── Soft triggers ───────────────────────────────────────────────────────
     # Concentration (HHI): a target ceiling wins over the absolute bands; a
@@ -1463,24 +1479,28 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
     if hhi_max is not None:
         if concentration.hhi > hhi_max:
             items.append(RebalanceItem("soft", "Portfolio",
-                f"HHI {concentration.hhi:.3f} exceeds the {hhi_max:.3f} target ceiling",
-                "Add uncorrelated positions or sectors to reduce concentration",
+                lazy_("HHI {hhi} exceeds the {ceiling} target ceiling",
+                      hhi=Fmt("num", concentration.hhi, decimals=3), ceiling=Fmt("num", hhi_max, decimals=3)),
+                lazy_("Add uncorrelated positions or sectors to reduce concentration"),
                 mode="drift"))
     elif concentration.hhi > 0.18:
         items.append(RebalanceItem("soft", "Portfolio",
-            f"HHI {concentration.hhi:.3f} — highly concentrated, above the 0.18 threshold",
-            "Add uncorrelated positions or sectors to reduce concentration"))
+            lazy_("HHI {hhi} — highly concentrated, above the 0.18 threshold",
+                  hhi=Fmt("num", concentration.hhi, decimals=3)),
+            lazy_("Add uncorrelated positions or sectors to reduce concentration")))
     elif concentration.hhi > 0.10:
         items.append(RebalanceItem("soft", "Portfolio",
-            f"HHI {concentration.hhi:.3f} — moderately concentrated, monitor drift",
-            "Monitor concentration drift; avoid adding to largest positions"))
+            lazy_("HHI {hhi} — moderately concentrated, monitor drift",
+                  hhi=Fmt("num", concentration.hhi, decimals=3)),
+            lazy_("Monitor concentration drift; avoid adding to largest positions")))
 
     prior_hhi = _safe(prior_snapshot.get("hhi"))
     if prior_hhi is not None and concentration.hhi - prior_hhi > _DRIFT_PP:
         items.append(RebalanceItem("soft", "Portfolio",
-            f"HHI drifted +{concentration.hhi - prior_hhi:.3f} since {prior_since} "
-            f"(now {concentration.hhi:.3f})",
-            "Rebalance toward the last-reviewed allocation", mode="drift"))
+            lazy_("HHI drifted +{change} since {date} (now {hhi})",
+                  change=Fmt("num", concentration.hhi - prior_hhi, decimals=3), date=prior_since,
+                  hhi=Fmt("num", concentration.hhi, decimals=3)),
+            lazy_("Rebalance toward the last-reviewed allocation"), mode="drift"))
 
     # Sector: drift vs target when a target allocation exists, else the
     # absolute >30% guideline on the largest sector.
@@ -1493,14 +1513,18 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             drift  = actual - tgt
             if abs(drift) >= _DRIFT_PP:
                 items.append(RebalanceItem("soft", sec,
-                    f"{sec} at {actual:.0%} vs {tgt:.0%} target — {drift:+.0%} drift "
-                    f"exceeds {_DRIFT_PP:.0%}",
-                    "Reduce the overweight sector; top up the underweights", mode="drift"))
+                    lazy_("{sector} at {actual} vs {target} target — {drift} drift exceeds {limit}",
+                          sector=Fmt("tr", sec), actual=Fmt("pct", actual, decimals=0, fraction=True),
+                          target=Fmt("pct", tgt, decimals=0, fraction=True),
+                          drift=Fmt("pct", drift, decimals=0, fraction=True, signed=True),
+                          limit=Fmt("pct", _DRIFT_PP, decimals=0, fraction=True)),
+                    lazy_("Reduce the overweight sector; top up the underweights"), mode="drift"))
     elif concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
         items.append(RebalanceItem("soft", concentration.largest_sector,
-            f"{concentration.largest_sector} sector at {w:.0%} — exceeds 30% guideline",
-            "Reduce largest sector; add exposure to lagging sectors"))
+            lazy_("{sector} sector at {weight} — exceeds 30% guideline",
+                  sector=Fmt("tr", concentration.largest_sector), weight=Fmt("pct", w, decimals=0, fraction=True)),
+            lazy_("Reduce largest sector; add exposure to lagging sectors")))
 
     # Per-name drift vs target (complements the hard >20% cap).
     if ticker_targets:
@@ -1511,25 +1535,31 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             drift = p.weight - tgt
             if abs(drift) >= _DRIFT_PP:
                 items.append(RebalanceItem("soft", p.ticker,
-                    f"{p.ticker} at {p.weight:.0%} vs {tgt:.0%} target — {drift:+.0%} drift",
-                    "Trim or top up toward the target weight", mode="drift"))
+                    lazy_("{ticker} at {weight} vs {target} target — {drift} drift", ticker=p.ticker,
+                          weight=Fmt("pct", p.weight, decimals=0, fraction=True),
+                          target=Fmt("pct", tgt, decimals=0, fraction=True),
+                          drift=Fmt("pct", drift, decimals=0, fraction=True, signed=True)),
+                    lazy_("Trim or top up toward the target weight"), mode="drift"))
 
     if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
         items.append(RebalanceItem("soft", "Portfolio",
-            f"Weighted portfolio DGR {income.weighted_dgr:.1%} may trail inflation (~2.5%) — real income erosion risk",
-            "Favor payers with stronger dividend growth track records"))
+            lazy_("Weighted portfolio DGR {dgr} may trail inflation (~2.5%) — real income erosion risk",
+                  dgr=Fmt("pct", income.weighted_dgr, fraction=True)),
+            lazy_("Favor payers with stronger dividend growth track records")))
 
     prior_sharpe = _safe(prior_snapshot.get("sharpe"))
     if quant.sharpe is not None and quant.sharpe < 1.0:
         if prior_sharpe is not None and prior_sharpe < 1.0:
             items.append(RebalanceItem("soft", "Portfolio",
-                f"Sharpe {quant.sharpe:.2f} below 1.0 for a second consecutive review "
-                f"(was {prior_sharpe:.2f} at {prior_since})",
-                "Reassess risk/return mix; trim volatile underperformers", mode="drift"))
+                lazy_("Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at {date})",
+                      sharpe=Fmt("num", quant.sharpe, decimals=2), previous=Fmt("num", prior_sharpe, decimals=2),
+                      date=prior_since),
+                lazy_("Reassess risk/return mix; trim volatile underperformers"), mode="drift"))
         else:
             items.append(RebalanceItem("soft", "Portfolio",
-                f"Sharpe ratio {quant.sharpe:.2f} below 1.0 — risk-adjusted return suboptimal",
-                "Reassess risk/return mix; trim volatile underperformers"))
+                lazy_("Sharpe ratio {sharpe} below 1.0 — risk-adjusted return suboptimal",
+                      sharpe=Fmt("num", quant.sharpe, decimals=2)),
+                lazy_("Reassess risk/return mix; trim volatile underperformers")))
 
     # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
     prior_ratings = prior_snapshot.get("ratings") or {}
@@ -1538,27 +1568,29 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
         if (was in _RATING_RANK and p.rating in ("High", "Critical")
                 and _RATING_RANK[p.rating] > _RATING_RANK[was]):
             items.append(RebalanceItem("soft", p.ticker,
-                f"{p.ticker}: risk rating {was} → {p.rating} since {prior_since}",
-                "Review what changed; reduce if the deterioration holds", mode="transition"))
+                lazy_("{ticker}: risk rating {previous} → {rating} since {date}", ticker=p.ticker,
+                      previous=Fmt("tr", was), rating=Fmt("tr", p.rating), date=prior_since),
+                lazy_("Review what changed; reduce if the deterioration holds"), mode="transition"))
 
     for p in profiles:
         if p.rating == "High":
             items.append(RebalanceItem("soft", p.ticker,
-                f"{p.ticker}: High risk rating — monitor closely",
-                "Monitor closely; reduce if fundamentals weaken further"))
+                lazy_("{ticker}: High risk rating — monitor closely", ticker=p.ticker),
+                lazy_("Monitor closely; reduce if fundamentals weaken further")))
 
     for p in profiles:
         if p.liquidity_flag and p.days_to_liquidate is not None:
             items.append(RebalanceItem("soft", p.ticker,
-                f"{p.ticker}: ~{p.days_to_liquidate:.0f} trading days to exit at "
-                f"{_LIQ_PARTICIPATION:.0%} of average volume — thin for this position size",
-                "Size the position to what you can exit in a few days, or accept the exit risk"))
+                lazy_("{ticker}: ~{days} trading days to exit at {participation} of average volume — thin for this position size",
+                      ticker=p.ticker, days=Fmt("num", p.days_to_liquidate, decimals=0),
+                      participation=Fmt("pct", _LIQ_PARTICIPATION, decimals=0, fraction=True)),
+                lazy_("Size the position to what you can exit in a few days, or accept the exit risk")))
 
     if quant.high_corr_pairs:
-        pairs_str = ", ".join(f"{a}/{b}" for a, b, _ in quant.high_corr_pairs[:3])
+        pairs_str = ", ".join(f"{a}/{b}" for a, b, _corr in quant.high_corr_pairs[:3])
         items.append(RebalanceItem("soft", pairs_str,
-            f"High correlation pairs (>0.80): {pairs_str} — limited diversification benefit",
-            "Replace one position per pair with uncorrelated exposure"))
+            lazy_("High correlation pairs (>0.80): {pairs} — limited diversification benefit", pairs=pairs_str),
+            lazy_("Replace one position per pair with uncorrelated exposure")))
 
     return RebalanceSignals(
         items=items,
@@ -1617,7 +1649,7 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                        / rating-transition triggers.
     """
     if pf_df is None or pf_df.empty:
-        raise ValueError("Portfolio is empty — nothing to assess")
+        raise ValueError(lazy_("Portfolio is empty — nothing to assess"))
 
     pf = pf_df.copy()
 

@@ -61,7 +61,8 @@ def label_for_issuer(issuer: str) -> str:
     for needle, label in _ISSUER_LABELS:
         if needle in (issuer or ""):
             return label
-    return "your identity provider"
+    from uvalu.i18n import _
+    return _("your identity provider")
 
 
 def start_login(provider_id: str) -> None:

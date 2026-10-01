@@ -28,61 +28,72 @@ this app has no support channel to send anyone to, so a decorative button
 that does nothing was rejected in favour of leaving it out entirely, same
 call as the previous pass on this page.
 """
+import html
+
 import streamlit as st
 
 from uvalu import nav as nav_registry
 from uvalu.components import signal_badge_html
+from uvalu.i18n import N_, _, h_, tr
 
+
+def _t(text: str) -> str:
+    """Translate a Help text for HTML: escaped, keeping the <em> emphasis the
+    msgids carry (the compile check requires translations to keep it)."""
+    return (html.escape(tr(text), quote=False)
+            .replace("&lt;em&gt;", "<em>").replace("&lt;/em&gt;", "</em>"))
+
+# English msgids (plain text, "&" not "&amp;"); rendered through _t().
 _SIGNAL_LEGEND = [
-    ("buy", "BUY", "Composite score clears the BUY threshold and the margin of safety clears its "
-                  "target — both conditions together, set in Settings → Screening &amp; veto rules."),
-    ("monitor", "MONITOR", "Composite score is decent but the margin of safety hasn't cleared the "
-                          "target yet, or the score itself sits below the BUY threshold — worth watching."),
-    ("avoid", "AVOID", "Composite score falls well below the BUY threshold."),
-    ("veto", "VETO", "A hard-veto rule tripped (see below) — excluded from BUY scoring no matter "
-                     "what the composite score would otherwise be."),
-    ("neutral", "NO DATA", "No scored screener row for this holding — the fundamentals feed "
-                           "returned nothing (or no price) for it, so there is no fair value, "
-                           "score or signal to show. Not a veto."),
+    ("buy", "BUY", N_("Composite score clears the BUY threshold and the margin of safety clears its "
+                     "target — both conditions together, set in Settings → Screening & veto rules.")),
+    ("monitor", "MONITOR", N_("Composite score is decent but the margin of safety hasn't cleared the "
+                             "target yet, or the score itself sits below the BUY threshold — worth watching.")),
+    ("avoid", "AVOID", N_("Composite score falls well below the BUY threshold.")),
+    ("veto", "VETO", N_("A hard-veto rule tripped (see below) — excluded from BUY scoring no matter "
+                        "what the composite score would otherwise be.")),
+    ("neutral", N_("NO DATA"), N_("No scored screener row for this holding — the fundamentals feed "
+                                  "returned nothing (or no price) for it, so there is no fair value, "
+                                  "score or signal to show. Not a veto.")),
 ]
 
 _MODELS = [
-    ("Graham Number", "√(22.5 × EPS × book value per share) — Benjamin Graham's classic value "
-                      "formula. Needs positive trailing earnings and book value per share."),
-    ("PE Fair Value", "Trailing EPS × a sector-typical fair P/E multiple."),
-    ("EPV (Earnings Power Value)", "Normalised earnings capitalised at the cost of capital, "
-                                   "deliberately ignoring speculative growth."),
-    ("DDM — 1-stage", "Gordon growth model: next year's expected dividend discounted at "
-                      "(cost of equity − perpetual growth rate). Only applies to dividend payers."),
-    ("DDM — 2-stage", "A higher-growth phase followed by a stable terminal-growth phase, each "
-                      "discounted back separately. Also dividend-payer only."),
-    ("Analyst target", "Mean 12-month analyst price target, sourced from Yahoo Finance."),
+    (N_("Graham Number"), N_("√(22.5 × EPS × book value per share) — Benjamin Graham's classic value "
+                             "formula. Needs positive trailing earnings and book value per share.")),
+    (N_("PE Fair Value"), N_("Trailing EPS × a sector-typical fair P/E multiple.")),
+    (N_("EPV (Earnings Power Value)"), N_("Normalised earnings capitalised at the cost of capital, "
+                                          "deliberately ignoring speculative growth.")),
+    (N_("DDM — 1-stage"), N_("Gordon growth model: next year's expected dividend discounted at "
+                             "(cost of equity − perpetual growth rate). Only applies to dividend payers.")),
+    (N_("DDM — 2-stage"), N_("A higher-growth phase followed by a stable terminal-growth phase, each "
+                             "discounted back separately. Also dividend-payer only.")),
+    (N_("Analyst target"), N_("Mean 12-month analyst price target, sourced from Yahoo Finance.")),
 ]
 
 _VETO_RULES = [
-    "Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening &amp; veto "
-    "rules (default 500%).",
-    "Free cash flow (trailing twelve months) is negative.",
-    "The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage breach) "
-    "<em>and</em> dividend coverage is below 1.0× — both conditions together, not either alone.",
+    N_("Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & veto "
+       "rules (default 500%)."),
+    N_("Free cash flow (trailing twelve months) is negative."),
+    N_("The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage breach) "
+       "<em>and</em> dividend coverage is below 1.0× — both conditions together, not either alone."),
 ]
 
 _FAQ = [
-    ("How is the composite fair value calculated?",
-     "Each holding is valued by all six models. Outliers are trimmed and the remainder averaged "
-     "into a single composite fair value. Margin of safety is the discount of the current price "
-     "to that figure."),
-    ("What does the conviction score mean?",
-     "A 0–100 weighted mean of the signal scores across your scored holdings, weighted by "
-     "position size. Vetoed names are excluded from the average."),
-    ("How often do prices update?",
-     "Quotes refresh on the interval set in Settings → Data during market hours (default every "
-     "15 minutes). Fundamentals update daily after each exchange close."),
-    ("Why is a holding excluded from scoring?",
-     "It has breached a hard-veto rule. It still appears in your portfolio and valuations, but "
-     "is left out of the conviction score until the flag clears."),
-    ("Which exchanges are covered?",
-     "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."),
+    (N_("How is the composite fair value calculated?"),
+     N_("Each holding is valued by all six models. Outliers are trimmed and the remainder averaged "
+        "into a single composite fair value. Margin of safety is the discount of the current price "
+        "to that figure.")),
+    (N_("What does the conviction score mean?"),
+     N_("A 0–100 weighted mean of the signal scores across your scored holdings, weighted by "
+        "position size. Vetoed names are excluded from the average.")),
+    (N_("How often do prices update?"),
+     N_("Quotes refresh on the interval set in Settings → Data during market hours (default every "
+        "15 minutes). Fundamentals update daily after each exchange close.")),
+    (N_("Why is a holding excluded from scoring?"),
+     N_("It has breached a hard-veto rule. It still appears in your portfolio and valuations, but "
+        "is left out of the conviction score until the flag clears.")),
+    (N_("Which exchanges are covered?"),
+     N_("Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana.")),
 ]
 
 _HEADER_HTML = ('<div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
@@ -96,40 +107,40 @@ _VETO_X_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stro
 def _signal_row_html(kind: str, label: str, desc: str) -> str:
     return ('<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;'
            'border-bottom:0.5px solid var(--line-2);">'
-           f'<div style="width:74px;flex:none;padding-top:1px;">{signal_badge_html(kind, label)}</div>'
-           f'<div style="font-size:13px;color:var(--muted);line-height:1.55;">{desc}</div></div>')
+           f'<div style="width:74px;flex:none;padding-top:1px;">{signal_badge_html(kind, _t(label))}</div>'
+           f'<div style="font-size:13px;color:var(--muted);line-height:1.55;">{_t(desc)}</div></div>')
 
 
 def _model_cell_html(name: str, desc: str) -> str:
     return ('<div style="padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
-           f'<div style="font-size:13px;font-weight:500;margin-bottom:5px;">{name}</div>'
-           f'<div style="font-size:12px;color:var(--muted);line-height:1.55;">{desc}</div></div>')
+           f'<div style="font-size:13px;font-weight:500;margin-bottom:5px;">{_t(name)}</div>'
+           f'<div style="font-size:12px;color:var(--muted);line-height:1.55;">{_t(desc)}</div></div>')
 
 
 def _veto_row_html(rule: str) -> str:
     return ('<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;'
            f'border-bottom:0.5px solid var(--line-2);">{_VETO_X_SVG}'
-           f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">{rule}</span></div>')
+           f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">{_t(rule)}</span></div>')
 
 
 def _faq_row_html(question: str, answer: str) -> str:
     return ('<div style="padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
-           f'<div style="font-size:13px;font-weight:500;margin-bottom:6px;">{question}</div>'
-           f'<div style="font-size:12.5px;color:var(--muted);line-height:1.6;">{answer}</div></div>')
+           f'<div style="font-size:13px;font-weight:500;margin-bottom:6px;">{_t(question)}</div>'
+           f'<div style="font-size:12.5px;color:var(--muted);line-height:1.6;">{_t(answer)}</div></div>')
 
 
 def render() -> None:
     _dash_page = nav_registry.pages.get("dashboard")
-    if _dash_page is not None and st.button("← Back", key="help_back", type="tertiary"):
+    if _dash_page is not None and st.button(_("← Back"), key="help_back", type="tertiary"):
         st.switch_page(_dash_page)
 
-    st.markdown('<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">Help &amp; docs</div>',
+    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Help & docs")}</div>',
                unsafe_allow_html=True)
-    st.caption("How Uvalu scores value, builds fair value and applies veto discipline.")
+    st.caption(_("How Uvalu scores value, builds fair value and applies veto discipline."))
 
     # ── Signal legend ─────────────────────────────────────────────────────────
     with st.container(key="help_card_signals", border=True):
-        st.markdown(_HEADER_HTML.format(label="Signal legend")
+        st.markdown(_HEADER_HTML.format(label=h_("Signal legend"))
                    + '<div style="padding-bottom:6px;">'
                    + "".join(_signal_row_html(kind, label, desc) for kind, label, desc in _SIGNAL_LEGEND)
                    + "</div>",
@@ -137,7 +148,7 @@ def render() -> None:
 
     # ── The six fair-value models ─────────────────────────────────────────────
     with st.container(key="help_card_models", border=True):
-        st.markdown(_HEADER_HTML.format(label="The six fair-value models")
+        st.markdown(_HEADER_HTML.format(label=h_("The six fair-value models"))
                    + '<div style="display:grid;grid-template-columns:1fr 1fr;padding-bottom:6px;">'
                    + "".join(_model_cell_html(name, desc) for name, desc in _MODELS)
                    + "</div>",
@@ -149,13 +160,13 @@ def render() -> None:
     # balloon to match its taller neighbour.
     _veto_col, _faq_col = st.columns([1, 1.3], gap="medium")
     with _veto_col, st.container(key="help_card_vetoes", border=True):
-        st.markdown(_HEADER_HTML.format(label="Hard-veto rules")
+        st.markdown(_HEADER_HTML.format(label=h_("Hard-veto rules"))
                    + '<div style="padding:8px 20px 14px;">'
                    + "".join(_veto_row_html(rule) for rule in _VETO_RULES)
                    + "</div>",
                    unsafe_allow_html=True)
     with _faq_col, st.container(key="help_card_faqs", border=True):
-        st.markdown(_HEADER_HTML.format(label="Frequently asked")
+        st.markdown(_HEADER_HTML.format(label=h_("Frequently asked"))
                    + '<div style="padding-bottom:6px;">'
                    + "".join(_faq_row_html(q, a) for q, a in _FAQ)
                    + "</div>",

@@ -44,21 +44,22 @@ def _bust_cache() -> None:
 
 
 def _cache_age_str() -> str:
+    from uvalu.i18n import _, fmt_num
     cache = _load_cache()
     if not cache:
-        return "No cache yet"
+        return _("No cache yet")
     timestamps = [
         datetime.fromisoformat(v["fetched_at"])
         for v in cache.values()
         if v.get("fetched_at")
     ]
     if not timestamps:
-        return "No cache yet"
+        return _("No cache yet")
     oldest = min(timestamps)
     age_min = (datetime.now(timezone.utc) - oldest).total_seconds() / 60
     if age_min < 60:
-        return f"Cache age: {age_min:.0f} min  (TTL {CACHE_TTL_HOURS}h)"
-    return f"Cache age: {age_min/60:.1f} h  (TTL {CACHE_TTL_HOURS}h)"
+        return _("Cache age: {age} min (TTL {ttl}h)", age=fmt_num(age_min, 0), ttl=CACHE_TTL_HOURS)
+    return _("Cache age: {age} h (TTL {ttl}h)", age=fmt_num(age_min / 60, 1), ttl=CACHE_TTL_HOURS)
 
 
 _CACHE_VERSION_BUCKET_S = 30   # coarsen the mtime token — see _mtime_bucket
@@ -207,29 +208,41 @@ def _build_all_screener_data(enabled: tuple,
     if all_fund.empty:
         return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
 
-    def _exchange_df(stock_list):
+    # One scoring pass over every enabled exchange plus the extra portfolio
+    # tickers: the sector medians and percentile ranks are taken across the
+    # whole enabled universe (one European peer group), not per exchange. Its
+    # ScoreReference is kept so the portfolio lane can score holdings against
+    # the same peers (universe_reference_for).
+    _ref_out: dict = {}
+    scored = run_screener_from_df(all_fund[all_fund["Ticker"].isin({s["ticker"] for s in all_stocks})],
+                                  max_debt_equity=_max_de, max_payout=_max_payout,
+                                  min_mos=_min_mos, buy_threshold=_buy_threshold,
+                                  weights=score_weights, reference_out=_ref_out)
+    if _ref_out.get("ref") is not None:
+        _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
+                        tuple(score_weights))] = _ref_out["ref"]
+
+    def _subset(stock_list):
+        if scored.empty or "Ticker" not in scored.columns:
+            return empty
         tickers = {s["ticker"] for s in stock_list}
-        return run_screener_from_df(all_fund[all_fund["Ticker"].isin(tickers)],
-                                    max_debt_equity=_max_de, max_payout=_max_payout,
-                                    min_mos=_min_mos, buy_threshold=_buy_threshold,
-                                    weights=score_weights)
+        return scored[scored["Ticker"].isin(tickers)].reset_index(drop=True)
 
     exchange_dfs = tuple(
-        _exchange_df(stock_lists[key]) if key in stock_lists else empty
+        _subset(stock_lists[key]) if key in stock_lists else empty
         for key in ALL_EXCHANGES
     )
-
-    # Scored df for the extra portfolio tickers
-    if _extra_stocks:
-        _extra_tset = {s["ticker"] for s in _extra_stocks}
-        _extra_df   = run_screener_from_df(all_fund[all_fund["Ticker"].isin(_extra_tset)],
-                                           max_debt_equity=_max_de, max_payout=_max_payout,
-                                           min_mos=_min_mos, buy_threshold=_buy_threshold,
-                                           weights=score_weights)
-    else:
-        _extra_df = empty
-
+    _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
     return exchange_dfs + (_extra_df,)
+
+
+# ScoreReference of the last scored universe per get_scored_universe key
+# (enabled, extra_tickers, extra_names, thresholds, score_weights).
+_UNIVERSE_REFS: dict = {}
+
+
+def universe_reference_for(key: tuple):
+    return _UNIVERSE_REFS.get(key)
 
 
 def _load_all_screener_data(cache_version: str, enabled: tuple,
@@ -285,7 +298,9 @@ def _price_refresh_signature() -> tuple:
 @st.cache_data(show_spinner=False)
 def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: tuple,
                                   thresholds: tuple = (500.0, 0.90, 0.0, 70.0),
-                                  score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15)) -> pd.DataFrame:  # noqa: ARG001
+                                  score_weights: tuple = (0.30, 0.18, 0.22, 0.15, 0.15),
+                                  ref_key: "tuple | None" = None,
+                                  ref_version: int = 0) -> pd.DataFrame:  # noqa: ARG001
     """Scored screener rows for the portfolio's *own* tickers (held + sold),
     fetched through the dedicated PORTFOLIO_FETCH lane — its own background
     thread, cache file and priority queue — so they never wait behind the
@@ -295,6 +310,12 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     set, the veto thresholds and the screening-style weight vector. Deliberately
     NOT keyed on enabled_exchanges, so toggling an exchange in Settings leaves
     this untouched.
+
+    ``ref_key`` / ``ref_version``: the scored universe whose ScoreReference the
+    holdings are scored against (sector medians, percentile ranks), so their
+    fair values, scores and signals match the Screener and Analysis page.
+    ``ref_version`` is only a cache key. Without a reference (cold start, the
+    universe not built yet) they are scored among themselves, as before.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     stocks = [{"ticker": t, "name": n, "isin": ""} for t, n in zip(tickers, names)]
@@ -309,7 +330,23 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     fund = backfill_thin_rows_from_screener_lane(fund)
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
-                                weights=score_weights)
+                                weights=score_weights,
+                                reference=universe_reference_for(ref_key) if ref_key else None)
+
+
+def _universe_ref_args() -> tuple:
+    """(ref_key, version) of the scored universe the Screener/Analysis/Watchlist
+    pages show — same arguments they pass to _load_all_screener_data, so this
+    shares their stored build (and starts it when none is running)."""
+    from portfolio import load_manual_tickers
+    from settings import load_shared_settings
+    from uvalu.store import universe_reference
+    enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+    manual = load_manual_tickers()
+    args = (enabled, tuple(manual.keys()), tuple(manual.values()),
+            tuple(get_veto_thresholds()), tuple(get_score_weights()))
+    ref, version = universe_reference(*args, token=_cache_version())
+    return (args, version) if ref is not None else (None, 0)
 
 
 def _load_portfolio_scored(held: "pd.DataFrame | None",
@@ -340,9 +377,15 @@ def _load_portfolio_scored(held: "pd.DataFrame | None",
                 seen[_t] = str(_n)
     if not seen:
         return pd.DataFrame(columns=["Ticker"])
+    try:
+        _ref_key, _ref_version = _universe_ref_args()
+    except Exception:   # no reference is never a reason to fail the portfolio screens
+        logkit.get_logger("uvalu.data").warning("universe reference unavailable", exc_info=True,
+                                                extra={"event": "score.reference_failed"})
+        _ref_key, _ref_version = None, 0
     return _load_portfolio_screener_data(
         _portfolio_cache_version(), tuple(seen), tuple(seen.values()),
-        get_veto_thresholds(), get_score_weights(),
+        get_veto_thresholds(), get_score_weights(), _ref_key, _ref_version,
     )
 
 

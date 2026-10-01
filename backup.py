@@ -130,7 +130,8 @@ def export_excel() -> bytes:
         bool(wl)
     )
     if not has_data:
-        raise ValueError("No portfolio data found to export.")
+        from uvalu.i18n import _
+        raise ValueError(_("No portfolio data found to export."))
 
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:

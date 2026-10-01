@@ -20,6 +20,7 @@ import random
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -34,6 +35,7 @@ import yfinance as yf
 
 import marketdata
 from uvalu import logkit
+from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
     _financial_health_score, _earnings_quality_score, _dividend_sustainability_flag,
@@ -246,7 +248,9 @@ MIN_UNIVERSE_SIZE = 20
 # The flat D/E hard veto can't tell healthy sector leverage from financial distress, so
 # these sectors are exempt from it — other vetoes (negative FCF, at-risk dividend +
 # low coverage) still apply.
-LEVERAGE_EXEMPT_SECTORS = {"Financial Services", "Real Estate", "Utilities"}
+# Sector names are market-data values: they stay English here and are shown
+# through uvalu.i18n.tr(). N_() only marks them for translation.
+LEVERAGE_EXEMPT_SECTORS = {N_("Financial Services"), N_("Real Estate"), N_("Utilities")}
 
 # FV-8: sectors whose value is driven by the balance sheet, not an income
 # statement, so the earnings-anchored models (Graham √(EPS·BVPS), a Greenwald
@@ -271,10 +275,10 @@ _PE_SKIP_SECTORS         = {"Real Estate"}   # + revaluation-distorted P/E; bank
 # provider's own `sector` is missing. Extend as gaps surface — these are stable
 # GICS-style classifications, not judgement calls.
 SECTOR_OVERRIDES = {
-    "RET.BR":   "Real Estate",            # Retail Estates NV — Belgian retail REIT
-    "SYENS.BR": "Basic Materials",        # Syensqo SA/NV — specialty chemicals
-    "MELE.BR":  "Technology",             # Melexis NV — automotive semiconductors
-    "PROX.BR":  "Communication Services", # Proximus PLC — telecom
+    "RET.BR":   N_("Real Estate"),            # Retail Estates NV — Belgian retail REIT
+    "SYENS.BR": N_("Basic Materials"),        # Syensqo SA/NV — specialty chemicals
+    "MELE.BR":  N_("Technology"),             # Melexis NV — automotive semiconductors
+    "PROX.BR":  N_("Communication Services"), # Proximus PLC — telecom
 }
 
 
@@ -717,13 +721,13 @@ def _next_expected_ex_div(ticker: str) -> dict:
         median_gap = float(gap_days.median())
 
         if median_gap <= 45:
-            freq = "Monthly"
+            freq = N_("Monthly")
         elif median_gap <= 135:
-            freq = "Quarterly"
+            freq = N_("Quarterly")
         elif median_gap <= 225:
-            freq = "Semi-annual"
+            freq = N_("Semi-annual")
         else:
-            freq = "Annual"
+            freq = N_("Annual")
 
         today = pd.Timestamp.now().normalize()
         next_date = recent.index[-1]
@@ -1664,28 +1668,37 @@ def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY
     score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
     mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
     thin  = bool(row.get("fv_basis_thin"))
-    _score_txt = "—" if score is None else f"{score:.0f}"
+    from uvalu.i18n import _, fmt_num, fmt_pct
+    _score_txt = "—" if score is None else fmt_num(score, 0)
+    _thr = fmt_num(buy_threshold, 0)
+
+    def _pct(v):
+        return fmt_pct(v, 0, fraction=True, signed=True)
 
     if bool(row.get("veto")):
-        return "Hard veto active — excluded from BUY scoring regardless of composite score."
+        return _("Hard veto active — excluded from BUY scoring regardless of composite score.")
 
     if dec == "Strong Buy":
-        _mos_clause = f" and margin of safety {mos:+.0%} ≥ {min_mos:+.0%}" if mos is not None else ""
-        return f"Composite score {_score_txt} ≥ {buy_threshold:.0f}{_mos_clause} — both BUY conditions met."
+        if mos is not None:
+            return _("Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — both BUY conditions met.",
+                     score=_score_txt, threshold=_thr, mos=_pct(mos), min_mos=_pct(min_mos))
+        return _("Composite score {score} ≥ {threshold} — both BUY conditions met.", score=_score_txt, threshold=_thr)
 
     gates = []
     if score is None or score < buy_threshold:
-        gates.append(f"composite score {_score_txt} is below the {buy_threshold:.0f} BUY threshold")
+        gates.append(_("composite score {score} is below the {threshold} BUY threshold",
+                       score=_score_txt, threshold=_thr))
     if mos is None:
-        gates.append("no computable fair value, so the margin of safety can't be confirmed")
+        gates.append(_("no computable fair value, so the margin of safety can't be confirmed"))
     elif mos < min_mos:
-        gates.append(f"margin of safety {mos:+.0%} is below the {min_mos:+.0%} minimum")
+        gates.append(_("margin of safety {mos} is below the {min_mos} minimum", mos=_pct(mos), min_mos=_pct(min_mos)))
     if thin:
-        gates.append("the fair value rests on too few independent models to confirm a BUY")
+        gates.append(_("the fair value rests on too few independent models to confirm a BUY"))
 
     if dec == "Avoid":
-        return f"Composite score {_score_txt} is below the {SCORE_AVOID:.0f} Avoid floor."
-    return ("Not a BUY: " + "; ".join(gates) + ".") if gates else "Sits in the Monitor band."
+        return _("Composite score {score} is below the {floor} Avoid floor.", score=_score_txt,
+                 floor=fmt_num(SCORE_AVOID, 0))
+    return _("Not a BUY: {reasons}.", reasons="; ".join(gates)) if gates else _("Sits in the Monitor band.")
 
 
 def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:
@@ -1876,9 +1889,39 @@ def _dividend_score_raw(row: pd.Series) -> float:
 
 # ── Stage 5: Composite score ──────────────────────────────────────────────────
 
-def _pct_rank(series: pd.Series, ascending=True) -> pd.Series:
-    """Percentile rank 0–100. NaN rows receive 50 (neutral)."""
-    ranked = series.rank(pct=True, na_option="keep") * 100
+@dataclass(frozen=True)
+class ScoreReference:
+    """The peer-relative inputs of one scored universe: the sector P/E and P/B
+    medians behind the fair-value models and, per composite dimension, the
+    sorted raw values the percentile ranks are taken against.
+
+    A small frame (the portfolio lane's ~20 holdings) scored with the
+    universe's reference gets the same fair values, sub-scores and signals as
+    the same rows inside the universe pass; scored on its own it would be
+    ranked against the user's holdings instead (WP-3 regression, Oct 2026)."""
+    sector_pe: dict
+    sector_pb: dict
+    dists: dict          # {"mos" | "risk" | "quality" | "momentum" | "dividend": sorted np.ndarray}
+    size: int
+
+
+def _pct_rank(series: pd.Series, ascending=True, dist: "np.ndarray | None" = None) -> pd.Series:
+    """Percentile rank 0–100. NaN rows receive 50 (neutral).
+
+    With ``dist`` (a reference universe's sorted values) each value is ranked
+    against that universe instead of against ``series`` itself — the same
+    average-rank percentile ``Series.rank(pct=True)`` gives a value that is
+    part of the universe; a value the universe doesn't hold is ranked as if
+    added to it."""
+    if dist is None or not len(dist):
+        ranked = series.rank(pct=True, na_option="keep") * 100
+    else:
+        v = pd.to_numeric(series, errors="coerce").to_numpy(dtype=float)
+        lo = np.searchsorted(dist, v, side="left")
+        eq = np.searchsorted(dist, v, side="right") - lo
+        n = len(dist)
+        pct = np.where(eq > 0, (lo + (eq + 1) / 2) / n, (lo + 1) / (n + 1))
+        ranked = pd.Series(np.where(np.isnan(v), np.nan, pct * 100), index=series.index)
     if not ascending:
         ranked = 100 - ranked
     return ranked.fillna(50.0)
@@ -1900,10 +1943,12 @@ def _abs_band(value, points: list) -> float:
     return float(points[-1][1])
 
 
-def _blend_ranks(series: pd.Series, band: list, ascending: bool = True) -> pd.Series:
+def _blend_ranks(series: pd.Series, band: list, ascending: bool = True,
+                 dist: "np.ndarray | None" = None) -> pd.Series:
     """BLEND_PCT × cross-sectional percentile rank + (1 − BLEND_PCT) × absolute
-    band — the composite sub-score for one dimension (0–100, higher = better)."""
-    pct = _pct_rank(series, ascending=ascending)
+    band — the composite sub-score for one dimension (0–100, higher = better).
+    ``dist``: rank against a reference universe (see ScoreReference)."""
+    pct = _pct_rank(series, ascending=ascending, dist=dist)
     absolute = series.apply(lambda v: _abs_band(v, band))
     return BLEND_PCT * pct + (1.0 - BLEND_PCT) * absolute
 
@@ -1968,23 +2013,24 @@ def _trend_veto(row: pd.Series) -> list[str]:
     if len(rev) >= _TREND_MIN_YEARS:
         run = _declining_run(rev)
         if run >= _TREND_DECLINE_RUN:
-            reasons.append(f"revenue fell {run + 1} straight years")
+            reasons.append(lazy_("revenue fell {years} straight years", years=run + 1))
 
     ebit = _clean_history(row, "ebitHistory")
     if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
-        reasons.append(f"operating income negative {_TREND_MIN_YEARS} years running")
+        reasons.append(lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS))
 
     ret = _clean_history(row, "retainedEarningsHistory")
     if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
             and _declining_run(ret) >= _TREND_DECLINE_RUN):
-        reasons.append("retained earnings negative and still eroding")
+        reasons.append(lazy_("retained earnings negative and still eroding"))
 
     last_cut = _get_num(row, "dividend_last_cut_year")
     coverage = _get_num(row, "dividendCoverage")
     if (last_cut is not None and coverage is not None
             and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
             and coverage < _DIV_CUT_VETO_COVERAGE):
-        reasons.append(f"dividend cut in {int(last_cut)} with only {coverage:.2f}× cover")
+        reasons.append(lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
+                             coverage=Fmt("num", coverage, decimals=2)))
 
     return reasons
 
@@ -1992,7 +2038,13 @@ def _trend_veto(row: pd.Series) -> list[str]:
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    max_payout: float = 0.90, min_mos: float = 0.0,
                    buy_threshold: float = SCORE_STRONG_BUY,
-                   weights: "tuple | None" = None) -> pd.DataFrame:
+                   weights: "tuple | None" = None,
+                   reference: "ScoreReference | None" = None,
+                   reference_out: "dict | None" = None) -> pd.DataFrame:
+    # ``reference``: score `df` against another universe's sector medians and
+    # rank distributions instead of its own (the portfolio lane passes the
+    # scored universe's). ``reference_out``: a dict that receives this pass's
+    # own ScoreReference under "ref", for later callers to score against.
     # Composite sub-score weights (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM,
     # W_DIVIDEND). None → the module defaults ("balanced"); the Settings
     # screening-style picker passes a re-lensed vector via
@@ -2042,8 +2094,11 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # UI never disagree about a ticker's sector (review).
     if "Ticker" in df.columns:
         df["sector"] = [sector_for(t, s) for t, s in zip(df["Ticker"], df["sector"])]
-    sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
-    sector_pb = _sector_pb_medians(df)   # ...and P/B, for the FV-3 fallback
+    if reference is not None:
+        sector_pe, sector_pb = reference.sector_pe, reference.sector_pb
+    else:
+        sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
+        sector_pb = _sector_pb_medians(df)   # ...and P/B, for the FV-3 fallback
     fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe,
                                                     sector_pb=sector_pb),
                        axis=1, result_type="expand")
@@ -2101,11 +2156,21 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     ) | no_trade_veto
 
     # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
-    mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True)
-    risk_rank     = _blend_ranks(df["_risk_raw"],        _BAND_RISK, ascending=False)  # lower raw = safer
-    quality_rank  = _blend_ranks(df["_quality_raw"],     _BAND_0_10, ascending=True)
-    momentum_rank = _blend_ranks(df["_momentum_raw"],    _BAND_0_10, ascending=True)
-    dividend_rank = _blend_ranks(df["_dividend_raw"],    _BAND_0_10, ascending=True)
+    _raw_cols = {"mos": "margin_of_safety", "risk": "_risk_raw", "quality": "_quality_raw",
+                 "momentum": "_momentum_raw", "dividend": "_dividend_raw"}
+    _dists = (reference.dists if reference is not None else
+              {k: np.sort(pd.to_numeric(df[c], errors="coerce").dropna().to_numpy(dtype=float))
+               for k, c in _raw_cols.items()})
+    if reference_out is not None:
+        reference_out["ref"] = ScoreReference(sector_pe=dict(sector_pe), sector_pb=dict(sector_pb),
+                                              dists=_dists, size=len(df))
+    _ref_dist = (lambda k: _dists[k]) if reference is not None else (lambda k: None)
+    mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True,  dist=_ref_dist("mos"))
+    risk_rank     = _blend_ranks(df["_risk_raw"],        _BAND_RISK, ascending=False,  # lower raw = safer
+                                 dist=_ref_dist("risk"))
+    quality_rank  = _blend_ranks(df["_quality_raw"],     _BAND_0_10, ascending=True,  dist=_ref_dist("quality"))
+    momentum_rank = _blend_ranks(df["_momentum_raw"],    _BAND_0_10, ascending=True,  dist=_ref_dist("momentum"))
+    dividend_rank = _blend_ranks(df["_dividend_raw"],    _BAND_0_10, ascending=True,  dist=_ref_dist("dividend"))
 
     score = (
         w_mos       * mos_rank
@@ -2132,7 +2197,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # above to be statistically meaningful (see MIN_UNIVERSE_SIZE) — callers (e.g. the
     # Screener page) can surface this as a caveat rather than letting a "Strong Buy"
     # from a tiny universe look as confident as one from a large, competitive one.
-    df["small_universe"] = len(df) < MIN_UNIVERSE_SIZE
+    df["small_universe"] = (reference.size if reference is not None else len(df)) < MIN_UNIVERSE_SIZE
 
     # ── Stage 6: decision ────────────────────────────────────────────────────
     # A BUY requires both the composite score AND the margin of safety to
@@ -2185,17 +2250,23 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
 def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          max_payout: float = 0.90, min_mos: float = 0.0,
                          buy_threshold: float = SCORE_STRONG_BUY,
-                         weights: "tuple | None" = None) -> pd.DataFrame:
-    """Score and clean a DataFrame that was already fetched (avoids re-fetching)."""
+                         weights: "tuple | None" = None,
+                         reference: "ScoreReference | None" = None,
+                         reference_out: "dict | None" = None) -> pd.DataFrame:
+    """Score and clean a DataFrame that was already fetched (avoids re-fetching).
+    ``reference`` / ``reference_out``: see compute_scores."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
-                            buy_threshold=buy_threshold, weights=weights)
+                            buy_threshold=buy_threshold, weights=weights,
+                            reference=reference, reference_out=reference_out)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      max_payout: float = 0.90, min_mos: float = 0.0,
                      buy_threshold: float = SCORE_STRONG_BUY,
-                     weights: "tuple | None" = None) -> pd.DataFrame:
+                     weights: "tuple | None" = None,
+                     reference: "ScoreReference | None" = None,
+                     reference_out: "dict | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -2209,4 +2280,5 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _log.debug("computing valuation scores for %d rows", len(df),
                extra={"event": "score.compute", "rows": len(df)})
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
-                          min_mos=min_mos, buy_threshold=buy_threshold, weights=weights)
+                          min_mos=min_mos, buy_threshold=buy_threshold, weights=weights,
+                          reference=reference, reference_out=reference_out)
