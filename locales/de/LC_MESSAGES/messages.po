@@ -982,8 +982,8 @@ msgstr "Je Paar eine Position durch unkorreliertes Exposure ersetzen"
 msgid "Portfolio is empty — nothing to assess"
 msgstr "Portfolio ist leer – nichts zu bewerten"
 
-#. Context: Dividend flag value (dividend safety): shown on the Analysis page
-#. hard-veto checks
+#. Context: Dividend sustainability flag value: a state (the dividend is at risk),
+#. not the noun 'risk'.
 #: scoring.py:139
 msgid "At Risk"
 msgstr "Gefährdet"

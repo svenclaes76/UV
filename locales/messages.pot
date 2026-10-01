@@ -956,8 +956,8 @@ msgstr ""
 msgid "Portfolio is empty — nothing to assess"
 msgstr ""
 
-#. Context: Dividend flag value (dividend safety): shown on the Analysis page
-#. hard-veto checks
+#. Context: Dividend sustainability flag value: a state (the dividend is at risk),
+#. not the noun 'risk'.
 #: scoring.py:139
 msgid "At Risk"
 msgstr ""
