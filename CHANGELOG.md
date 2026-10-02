@@ -9,6 +9,16 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-10-02
+
+### Fixed
+
+- Narrower windows (checked at 1280 and 1024px in all six languages):
+  - Top bar: below 1200px the navigation links ran into the market-status text (at 1024px, in English too). The status text now hides there — the coloured dot keeps it as a tooltip — and the navigation icons hide.
+  - Watchlist: the *Add ticker* button wrapped onto two lines at 1280px in German and Italian. The button's column now sizes to the button, so the form stays on one row down to 1024px.
+  - Dashboard: *Full analysis →* wrapped in German; it stays on one line.
+  - Portfolio: the cash card's "Last entry … · dividend" line spilled out of its column (Italian at 1280px, English at 1024px); it now wraps.
+
 ## [2.0.0] — 2026-10-02
 
 MAJOR — **Python 3.12+ is now required** (was 3.11). Upgrade the interpreter and recreate the virtualenv before pulling; nothing else needs migrating (language and region settings default to detection; nothing stored changes shape).
