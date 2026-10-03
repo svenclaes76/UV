@@ -10,6 +10,7 @@ This review covers the scoring and risk algorithms: `screener.py`, `risk.py`, `s
 | `risk_compliant.py` | Copy of `risk.py`. The computations are identical; only the output wording and structure change. |
 | `signal_history.py` | New: an append-only log of signal changes (REC-7, REC-11). |
 | `tests/test_compliance_algorithms.py` | 35 tests. They prove the copies compute the same numbers as the originals and pin each requirement below. |
+| `docs/legal/*_compliant.md` | Compliant versions of the two algorithm specs (§5). |
 
 `scoring.py` and `portfolio_enrichment.py` need no changes: they compute descriptive sub-scores and flags only.
 
@@ -70,7 +71,34 @@ These are not algorithm changes, but the copies only take effect once they are d
 8. **Methodology page (REC-5)**: render from `methodology(*get_veto_thresholds(), weights=get_score_weights())`. Add the `REF_*` risk reference levels from `risk_compliant.py`.
 9. **`DATA_SOURCE`**: still says Yahoo Finance and "unlicensed for commercial use". Replace it with the licensed provider and its required attribution once DATA-2 is signed.
 
-## 5. Open points for counsel
+## 5. Algorithm specifications
+
+The two specs in `docs/` describe the original algorithms and are **unchanged**. Their compliant counterparts describe the copies:
+
+| Original spec | Compliant copy |
+| --- | --- |
+| `docs/stock_valuation_algorithm.md` | [`stock_valuation_algorithm_compliant.md`](stock_valuation_algorithm_compliant.md) |
+| `docs/portfolio_risk_assessment_algorithm.md` | [`portfolio_risk_assessment_algorithm_compliant.md`](portfolio_risk_assessment_algorithm_compliant.md) |
+
+Each copy keeps the original's technical content, applies every change in §1, and ends with a "Changes from the original spec" table. The issues found in the specs themselves, beyond those that mirror the code:
+
+| Spec | Issue in the original | Req. | Change in the copy |
+| --- | --- | --- | --- |
+| Stock | Purpose given as "identifying undervalued stocks and deciding whether they are worth buying" | DIS-5, DIS-6 | Model fair value plus a descriptive signal; stated as general information, not a recommendation |
+| Stock | Thresholds called "user-adjustable sliders", although the card is shared and admin-only | PER-2 | Stated as shared model settings, the same for every user |
+| Stock | Peer universe documented as including "portfolio holdings on disabled exchanges", and holdings "ranked among themselves" before the first build | PER-1, PER-2 | Public universe only; no ranked signal without a public reference |
+| Stock | No data source, licensing, presentation, methodology, horizon, history or reproducibility rules | DATA-1/6, REC-3 to REC-11, BDG-2/3 | New sections: data source and licensing; what every signal is shown with; methodology; update frequency, history and reproducibility |
+| Stock | No standing rules that keep future changes non-personal | PER-1 to PER-7, PER-9 | New "Design rules" section, to check before each release |
+| Risk | Purpose "managing … actionable rebalancing signals"; overview ends in "Action: Rebalance / Monitor / Hold" | PER-4 | Describes, never prescribes; ends in observations and disclosures |
+| Risk | VaR defined as "the maximum expected loss" | DIS-3 | An estimate that real losses can exceed |
+| Risk | Instructions inside metric tables: "assess recovery time", "review stock selection" | PER-4 | Removed |
+| Risk | "Income mandate" / "for income portfolios" frames the user's objective | PER-3 | `weighting`, a model setting chosen by the user |
+| Risk | "Rebalancing Actions" table and "act immediately" triggers | PER-4, PER-5 | Replaced by risk observations with `level`, `basis` and reference levels |
+| Risk | "Monitoring Cadence" reads as a schedule the user should follow ("Full rebalancing review: semi-annually") | PER-4 | Replaced by what the app recomputes and when |
+
+When the copies are wired in, the compliant specs replace the originals in `docs/`. Until then, both sets are kept so that each spec matches the code it describes.
+
+## 6. Open points for counsel
 
 - Whether the remaining "Undervalued" label, and a fair value shown with a user-adjustable model, still count as Uvalu's own "opinion" under MAR (§4 of the requirements).
 - Whether position risk ratings (High/Critical) computed from the user's own position weights stay on the descriptive side of PER-4. The copy reports them without any action.
