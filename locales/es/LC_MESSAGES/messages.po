@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-01 21:31+0000\n"
+"POT-Creation-Date: 2026-10-03 17:52+0000\n"
 "PO-Revision-Date: 2026-10-01 23:42+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
@@ -51,7 +51,7 @@ msgid "Analysis"
 msgstr "Análisis"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:106 uvalu/pages_/settings.py:410 uvalu/shell.py:366
+#: app.py:106 uvalu/pages_/settings.py:410 uvalu/shell.py:374
 msgid "Settings"
 msgstr "Ajustes"
 
@@ -461,7 +461,7 @@ msgid "This dividend no longer exists."
 msgstr "Este dividendo ya no existe."
 
 #. Context: Risk page › overall risk band name
-#: risk.py:98
+#: risk.py:98 risk_compliant.py:123
 msgid "Low risk"
 msgstr "Riesgo bajo"
 
@@ -471,7 +471,7 @@ msgid "Hold — monitor quarterly"
 msgstr "Mantener: revisar cada trimestre"
 
 #. Context: Risk page › overall risk band name
-#: risk.py:99
+#: risk.py:99 risk_compliant.py:125
 msgid "Moderate risk"
 msgstr "Riesgo moderado"
 
@@ -481,7 +481,7 @@ msgid "Review annually; consider minor rebalancing"
 msgstr "Revisar cada año; considerar un ligero reequilibrio"
 
 #. Context: Risk page › overall risk band name
-#: risk.py:100
+#: risk.py:100 risk_compliant.py:127
 msgid "Elevated risk"
 msgstr "Riesgo elevado"
 
@@ -491,7 +491,7 @@ msgid "Active monitoring; targeted rebalancing"
 msgstr "Seguimiento activo; reequilibrio selectivo"
 
 #. Context: Risk page › flag value; also the High risk band name
-#: risk.py:101 uvalu/pages_/risk.py:432
+#: risk.py:101 risk_compliant.py:129 uvalu/pages_/risk.py:432
 msgid "High risk"
 msgstr "Riesgo alto"
 
@@ -501,7 +501,7 @@ msgid "Immediate rebalancing required"
 msgstr "Reequilibrio inmediato necesario"
 
 #. Context: Risk page › overall risk band name
-#: risk.py:102
+#: risk.py:102 risk_compliant.py:131
 msgid "Critical risk"
 msgstr "Riesgo crítico"
 
@@ -511,53 +511,55 @@ msgid "Defensive repositioning — reduce exposure immediately"
 msgstr "Reposicionamiento defensivo: reducir la exposición de inmediato"
 
 #. Context: Risk page › historical stress scenario name (2000–2002)
-#: risk.py:136
+#: risk.py:136 risk_compliant.py:182
 msgid "Dot-com crash"
 msgstr "Crisis de las puntocom"
 
 #. Context: Risk page › historical stress scenario name (2007–2009)
-#: risk.py:137
+#: risk.py:137 risk_compliant.py:183
 msgid "Financial crisis"
 msgstr "Crisis financiera"
 
 #. Context: Risk page › historical stress scenario name (Feb–Mar 2020)
-#: risk.py:138
+#: risk.py:138 risk_compliant.py:184
 msgid "COVID crash"
 msgstr "Desplome por la COVID"
 
 #. Context: Risk page › stress scenario period
-#: risk.py:138
+#: risk.py:138 risk_compliant.py:184
 msgid "Feb–Mar 2020"
 msgstr "feb.–mar. 2020"
 
 #. Context: Risk page › historical stress scenario name
-#: risk.py:139
+#: risk.py:139 risk_compliant.py:185
 msgid "2022 rate hike cycle"
 msgstr "Ciclo de subidas de tipos de 2022"
 
 #. Context: Risk page › stress scenario period
-#: risk.py:139
+#: risk.py:139 risk_compliant.py:185
 msgid "Jan–Oct 2022"
 msgstr "ene.–oct. 2022"
 
 #. Context: Position risk rating; also the Risk table flag
-#: risk.py:468 uvalu/pages_/risk.py:430
+#: risk.py:468 risk_compliant.py:516 uvalu/pages_/risk.py:430
 msgid "Critical"
 msgstr "Crítico"
 
 #. Context: Level label: volatility, drawdown, position rating
-#: risk.py:469 risk.py:680 risk.py:687
+#: risk.py:469 risk.py:680 risk.py:687 risk_compliant.py:517 risk_compliant.py:733
+#: risk_compliant.py:740
 msgid "High"
 msgstr "Alto"
 
 #. Context: Position risk rating (Low / Medium / High / Critical)
-#: risk.py:470
+#: risk.py:470 risk_compliant.py:518
 msgid "Medium"
 msgstr "Medio"
 
 #. Context: Level label: factor loading, volatility, drawdown, position rating
 #. (Low / Moderate / High)
-#: risk.py:471 risk.py:678 risk.py:685 uvalu/pages_/risk.py:102
+#: risk.py:471 risk.py:678 risk.py:685 risk_compliant.py:519 risk_compliant.py:731
+#: risk_compliant.py:738 uvalu/pages_/risk.py:102
 msgid "Low"
 msgstr "Bajo"
 
@@ -572,106 +574,109 @@ msgid "Fairly Valued"
 msgstr "Valorado correctamente"
 
 #. Context: Fair-value legend (components) and valuation label on the Risk page
-#: risk.py:525 uvalu/components.py:1052
+#: risk.py:525 screener_compliant.py:287 uvalu/components.py:1052
 msgid "Undervalued"
 msgstr "Infravalorado"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:528 risk.py:683 risk.py:690 uvalu/pages_/risk.py:271 uvalu/pages_/risk.py:273
+#: risk.py:528 risk.py:683 risk.py:690 risk_compliant.py:581 risk_compliant.py:736
+#: risk_compliant.py:743 uvalu/pages_/risk.py:271 uvalu/pages_/risk.py:273
 #: uvalu/pages_/risk.py:275 uvalu/pages_/risk.py:276
 msgid "N/A"
 msgstr "N/D"
 
 #. Context: Risk page › HHI concentration label
-#: risk.py:568
+#: risk.py:568 risk_compliant.py:621
 msgid "Well diversified"
 msgstr "Bien diversificada"
 
 #. Context: Risk page › HHI concentration label
-#: risk.py:569
+#: risk.py:569 risk_compliant.py:622
 msgid "Moderately concentrated"
 msgstr "Moderadamente concentrada"
 
 #. Context: Risk page › HHI concentration label
-#: risk.py:570
+#: risk.py:570 risk_compliant.py:623
 msgid "Highly concentrated"
 msgstr "Muy concentrada"
 
 #. Context: Fallback name when a stock's sector or country is not known (sector
 #. chart, risk concentration)
-#: risk.py:580 risk.py:581 uvalu/pages_/dashboard.py:563
+#: risk.py:580 risk.py:581 risk_compliant.py:633 risk_compliant.py:634
+#: uvalu/pages_/dashboard.py:563
 msgid "Unknown"
 msgstr "Desconocido"
 
 #. Context: Risk page › beta label: beta below 0.8
-#: risk.py:673
+#: risk.py:673 risk_compliant.py:726
 msgid "Defensive"
 msgstr "Defensiva"
 
 #. Context: Risk page › beta label: beta around 1
-#: risk.py:674
+#: risk.py:674 risk_compliant.py:727
 msgid "Market-like"
 msgstr "Similar al mercado"
 
 #. Context: Risk page › beta label: beta above 1.2
-#: risk.py:675
+#: risk.py:675 risk_compliant.py:728
 msgid "Aggressive"
 msgstr "Agresiva"
 
 #. Context: Analysis page › score rating label (Strong / Moderate / Weak). Also
 #. a risk level on the Risk page.
-#: risk.py:679 risk.py:686 uvalu/pages_/analysis.py:98 uvalu/pages_/risk.py:104
+#: risk.py:679 risk.py:686 risk_compliant.py:732 risk_compliant.py:739
+#: uvalu/pages_/analysis.py:98 uvalu/pages_/risk.py:104
 msgid "Moderate"
 msgstr "Moderado"
 
 #. Context: Password strength level. Also the 'Strong' score label on the
 #. Analysis page and a Sharpe ratio rating on the Risk page.
-#: risk.py:691 uvalu/pages_/analysis.py:96 uvalu/shell.py:106
+#: risk.py:691 risk_compliant.py:744 uvalu/pages_/analysis.py:96 uvalu/shell.py:106
 msgid "Strong"
 msgstr "Fuerte"
 
 #. Context: Risk page › Sharpe/Sortino ratio label
-#: risk.py:692
+#: risk.py:692 risk_compliant.py:745
 msgid "Acceptable"
 msgstr "Aceptable"
 
 #. Context: Risk page › Sharpe/Sortino ratio label
-#: risk.py:693
+#: risk.py:693 risk_compliant.py:746
 msgid "Suboptimal"
 msgstr "Mejorable"
 
 #. Context: Risk page › factor analysis message
-#: risk.py:974
+#: risk.py:974 risk_compliant.py:1027
 msgid "Insufficient price history for factor analysis (need ≥60 days)"
 msgstr ""
 "Historial de precios insuficiente para el análisis de factores (se necesitan al menos "
 "60 días)"
 
 #. Context: Risk page › factor analysis message; {error} is technical
-#: risk.py:979
+#: risk.py:979 risk_compliant.py:1032
 #, python-brace-format
 msgid "Fama-French data unavailable: {error}"
 msgstr "Datos Fama-French no disponibles: {error}"
 
 #. Context: Risk page › factor analysis message
-#: risk.py:994
+#: risk.py:994 risk_compliant.py:1047
 msgid "Insufficient overlapping data after alignment"
 msgstr "Datos coincidentes insuficientes tras la alineación"
 
 #. Context: Risk page › factor warning, e.g. 'High HML loading (+1.72)'
-#: risk.py:1015
+#: risk.py:1015 risk_compliant.py:1068
 #, python-brace-format
 msgid "High {factor} loading ({value}) — concentrated factor bet"
 msgstr "Carga {factor} alta ({value}): apuesta concentrada en un factor"
 
 #. Context: Risk page › factor warning
-#: risk.py:1031
+#: risk.py:1031 risk_compliant.py:1084
 #, python-brace-format
 msgid "{factor} explains >{share} of return variance"
 msgstr "{factor} explica >{share} de la varianza de la rentabilidad"
 
 #. Context: Risk page › factor warning
-#: risk.py:1036
+#: risk.py:1036 risk_compliant.py:1089
 #, python-brace-format
 msgid "Factor data is a cached copy ({set} set, as of {date}) — source unreachable"
 msgstr ""
@@ -679,72 +684,72 @@ msgstr ""
 "disponible"
 
 #. Context: Risk page › hypothetical stress scenario name
-#: risk.py:1172
+#: risk.py:1172 risk_compliant.py:1225
 msgid "Rate rise +200 bps"
 msgstr "Subida de tipos +200 pb"
 
 #. Context: Risk page › stress scenario description
-#: risk.py:1173
+#: risk.py:1173 risk_compliant.py:1226
 msgid "High P/E stocks repriced via discount rate expansion (duration proxy)"
 msgstr ""
 "Acciones con PER alto revalorizadas por el aumento de la tasa de descuento "
 "(aproximación de duración)"
 
 #. Context: Risk page › stress scenario name
-#: risk.py:1185
+#: risk.py:1185 risk_compliant.py:1238
 #, no-python-format
 msgid "Recession (earnings cut 20–30%)"
 msgstr "Recesión (beneficios −20–30 %)"
 
 #. Context: Risk page › stress scenario description
-#: risk.py:1186
+#: risk.py:1186 risk_compliant.py:1239
 #, no-python-format
 msgid "25% EPS hit in cyclicals, 10% in defensives; P/E multiples compressed"
 msgstr "BPA −25 % en cíclicas y −10 % en defensivas; múltiplos PER comprimidos"
 
 #. Context: Risk page › stress scenario name with your largest sector
-#: risk.py:1195
+#: risk.py:1195 risk_compliant.py:1248
 #, no-python-format, python-brace-format
 msgid "Sector crash −40% ({sector})"
 msgstr "Desplome sectorial −40 % ({sector})"
 
 #. Context: Risk page › stress scenario description
-#: risk.py:1197
+#: risk.py:1197 risk_compliant.py:1250
 #, no-python-format, python-brace-format
 msgid "40% drawdown applied to {sector} sector"
 msgstr "Caída del 40 % aplicada al sector {sector}"
 
 #. Context: Risk page › stress scenario name
-#: risk.py:1214
+#: risk.py:1214 risk_compliant.py:1267
 msgid "Credit crunch"
 msgstr "Restricción del crédito"
 
 #. Context: Risk page › stress scenario description
-#: risk.py:1215
+#: risk.py:1215 risk_compliant.py:1268
 msgid "Leveraged positions repriced — high D/E stocks penalised"
 msgstr ""
 "Posiciones apalancadas revalorizadas: se penalizan las acciones con alta deuda/"
 "patrimonio"
 
 #. Context: Risk page › stress scenario name
-#: risk.py:1224
+#: risk.py:1224 risk_compliant.py:1277
 msgid "Dividend freeze"
 msgstr "Congelación de dividendos"
 
 #. Context: Risk page › stress scenario description
-#: risk.py:1225
+#: risk.py:1225 risk_compliant.py:1278
 msgid "All dividend payments suspended"
 msgstr "Todos los pagos de dividendos suspendidos"
 
 #. Context: Risk page › stress scenario result for Dividend freeze
-#: risk.py:1228
+#: risk.py:1228 risk_compliant.py:1281
 #, python-brace-format
 msgid "Annual income impact: {amount}"
 msgstr "Impacto en los ingresos anuales: {amount}"
 
 #. Context: Risk page › fallback for 'since {date}' when the previous review
 #. date is unknown
-#: risk.py:1424
+#: risk.py:1424 risk_compliant.py:1502
 msgid "last snapshot"
 msgstr "última instantánea"
 
@@ -986,9 +991,216 @@ msgid "Replace one position per pair with uncorrelated exposure"
 msgstr "Sustituir una posición de cada par por una exposición no correlacionada"
 
 #. Context: Risk page › error when the portfolio has no positions
-#: risk.py:1652
+#: risk.py:1652 risk_compliant.py:1717
 msgid "Portfolio is empty — nothing to assess"
 msgstr "La cartera está vacía: no hay nada que evaluar"
+
+#: risk_compliant.py:124
+msgid "Composite risk score 0–25: the lowest band of the model's scale."
+msgstr ""
+
+#: risk_compliant.py:126
+msgid "Composite risk score 25–50: below the scale's midpoint."
+msgstr ""
+
+#: risk_compliant.py:128
+msgid "Composite risk score 50–70: above the scale's midpoint."
+msgstr ""
+
+#: risk_compliant.py:130
+msgid "Composite risk score 70–85: the upper band of the model's scale."
+msgstr ""
+
+#: risk_compliant.py:132
+msgid "Composite risk score above 85: the highest band of the model's scale."
+msgstr ""
+
+#: risk_compliant.py:147
+msgid ""
+"VaR, CVaR, Monte Carlo and stress-test figures are statistical estimates based "
+"on historical data and model assumptions. Real losses can exceed them."
+msgstr ""
+
+#: risk_compliant.py:149
+msgid ""
+"Historical scenarios replay past market moves; future crises can be larger, "
+"longer or different in kind."
+msgstr ""
+
+#: risk_compliant.py:151
+msgid ""
+"The composite risk score and its bands describe this portfolio's figures on the "
+"model's scale. They are not a personal risk assessment and do not say what you "
+"should do."
+msgstr ""
+
+#: risk_compliant.py:154
+msgid "Factor data: Kenneth R. French Data Library (Tuck School of Business, Dartmouth)."
+msgstr ""
+
+#: risk_compliant.py:577
+#, fuzzy
+#| msgid "vs six-model fair value"
+msgid "Above model fair value"
+msgstr "vs valor razonable de seis modelos"
+
+#: risk_compliant.py:578
+#, fuzzy
+#| msgid "Six-model fair value"
+msgid "Near model fair value"
+msgstr "Valor razonable según seis modelos"
+
+#: risk_compliant.py:578
+#, fuzzy
+#| msgid "Six-model fair value"
+msgid "Below model fair value"
+msgstr "Valor razonable según seis modelos"
+
+#: risk_compliant.py:1512
+#, python-brace-format
+msgid ""
+"{ticker} is {weight} of the portfolio, above the model's {ref} single-position "
+"reference level"
+msgstr ""
+
+#: risk_compliant.py:1518
+#, python-brace-format
+msgid ""
+"Portfolio beta is {beta}, above {ref}: historically the portfolio moved more "
+"than the market in both directions"
+msgstr ""
+
+#: risk_compliant.py:1525
+#, no-python-format, python-brace-format
+msgid ""
+"Estimated 1-day 99% VaR is {amount} ({pct}), above the model's {ref} reference "
+"level"
+msgstr ""
+
+#: risk_compliant.py:1533
+#, fuzzy, python-brace-format
+#| msgid "{pct} of portfolio income comes from dividend-at-risk positions"
+msgid ""
+"{pct} of estimated portfolio income comes from positions whose dividend is "
+"flagged at risk"
+msgstr ""
+"El {pct} de los ingresos de la cartera procede de posiciones con dividendo en "
+"riesgo"
+
+#: risk_compliant.py:1540
+#, fuzzy, python-brace-format
+#| msgid "Worst-case historical scenario implies {drawdown} portfolio drawdown"
+msgid ""
+"The worst historical scenario replay gives an estimated {drawdown} portfolio "
+"drawdown"
+msgstr "El peor escenario histórico implica una caída de la cartera del {drawdown}"
+
+#: risk_compliant.py:1546
+#, python-brace-format
+msgid ""
+"{ticker}: position risk rating Critical (from its weight, beta, valuation gap, "
+"financial health and earnings quality)"
+msgstr ""
+
+#: risk_compliant.py:1556
+#, fuzzy, python-brace-format
+#| msgid "HHI {hhi} exceeds the {ceiling} target ceiling"
+msgid "HHI {hhi} is above the {ceiling} ceiling you set"
+msgstr "HHI {hhi} supera el límite objetivo de {ceiling}"
+
+#: risk_compliant.py:1561
+#, fuzzy, python-brace-format
+#| msgid "HHI {hhi} — highly concentrated, above the 0.18 threshold"
+msgid "HHI {hhi}: highly concentrated on the model's scale (above {ref})"
+msgstr "HHI {hhi}: muy concentrada, por encima del umbral de 0,18"
+
+#: risk_compliant.py:1565
+#, fuzzy, python-brace-format
+#| msgid "HHI {hhi} — moderately concentrated, monitor drift"
+msgid "HHI {hhi}: moderately concentrated on the model's scale (above {ref})"
+msgstr "HHI {hhi}: moderadamente concentrada, vigilar la desviación"
+
+#: risk_compliant.py:1571
+#, fuzzy, python-brace-format
+#| msgid "HHI drifted +{change} since {date} (now {hhi})"
+msgid "HHI rose by {change} since {date} (now {hhi})"
+msgstr "El HHI ha subido +{change} desde {date} (ahora {hhi})"
+
+#: risk_compliant.py:1587
+#, python-brace-format
+msgid "{sector} is {actual} of the portfolio against your {target} target ({drift})"
+msgstr ""
+
+#: risk_compliant.py:1595
+#, no-python-format, python-brace-format
+msgid ""
+"{sector} is {weight} of the portfolio, above the model's 30% sector reference "
+"level"
+msgstr ""
+
+#: risk_compliant.py:1607
+#, fuzzy, python-brace-format
+#| msgid "{ticker} at {weight} vs {target} target — {drift} drift"
+msgid "{ticker} is {weight} of the portfolio against your {target} target ({drift})"
+msgstr "{ticker} en {weight} frente al objetivo de {target}: desviación de {drift}"
+
+#: risk_compliant.py:1615
+#, python-brace-format
+msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation reference"
+msgstr ""
+
+#: risk_compliant.py:1623
+#, fuzzy, python-brace-format
+#| msgid ""
+#| "Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at "
+#| "{date})"
+msgid ""
+"Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was "
+"{previous} at {date})"
+msgstr ""
+"Sharpe {sharpe} por debajo de 1,0 por segunda revisión seguida (era {previous} "
+"el {date})"
+
+#: risk_compliant.py:1629
+#, fuzzy, python-brace-format
+#| msgid "Sharpe ratio {sharpe} below 1.0 — risk-adjusted return suboptimal"
+msgid ""
+"Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was"
+" modest"
+msgstr ""
+"Ratio de Sharpe {sharpe} por debajo de 1,0: rentabilidad ajustada al riesgo "
+"mejorable"
+
+#: risk_compliant.py:1639
+#, fuzzy, python-brace-format
+#| msgid "{ticker}: risk rating {previous} → {rating} since {date}"
+msgid "{ticker}: position risk rating changed from {previous} to {rating} since {date}"
+msgstr "{ticker}: calificación de riesgo {previous} → {rating} desde {date}"
+
+#: risk_compliant.py:1646
+#, fuzzy, python-brace-format
+#| msgid "{ticker}: High risk rating — monitor closely"
+msgid "{ticker}: position risk rating High"
+msgstr "{ticker}: calificación de riesgo alta, vigilar de cerca"
+
+#: risk_compliant.py:1651
+#, fuzzy, python-brace-format
+#| msgid ""
+#| "{ticker}: ~{days} trading days to exit at {participation} of average volume — "
+#| "thin for this position size"
+msgid ""
+"{ticker}: the full position equals about {days} trading days at {participation} "
+"of average daily volume"
+msgstr ""
+"{ticker}: ~{days} días hábiles para salir al {participation} del volumen medio, "
+"poca liquidez para este tamaño de posición"
+
+#: risk_compliant.py:1658
+#, python-brace-format
+msgid ""
+"Highly correlated pairs (above 0.80): {pairs}. Their prices have tended to move "
+"together"
+msgstr ""
 
 #. Context: Dividend sustainability flag value: a state (the dividend is at risk),
 #. not the noun 'risk'.
@@ -997,33 +1209,33 @@ msgid "At Risk"
 msgstr "En riesgo"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 uvalu/dialogs.py:41
+#: screener.py:253 screener_compliant.py:330 uvalu/dialogs.py:41
 msgid "Financial Services"
 msgstr "Servicios financieros"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 screener.py:278
+#: screener.py:253 screener.py:278 screener_compliant.py:330 screener_compliant.py:355
 msgid "Real Estate"
 msgstr "Inmobiliario"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 uvalu/dialogs.py:42
+#: screener.py:253 screener_compliant.py:330 uvalu/dialogs.py:42
 msgid "Utilities"
 msgstr "Servicios públicos"
 
 #. Context: Sector name (from market data)
-#: screener.py:279 uvalu/dialogs.py:42
+#: screener.py:279 screener_compliant.py:356 uvalu/dialogs.py:42
 msgid "Basic Materials"
 msgstr "Materiales básicos"
 
 #. Context: Sector name (from market data). Shown in the Sector dropdown,
 #. sector filter, allocation chart. Translate at display time.
-#: screener.py:280 uvalu/dialogs.py:41
+#: screener.py:280 screener_compliant.py:357 uvalu/dialogs.py:41
 msgid "Technology"
 msgstr "Tecnología"
 
 #. Context: Sector name (from market data)
-#: screener.py:281
+#: screener.py:281 screener_compliant.py:358
 msgid "Communication Services"
 msgstr "Servicios de comunicación"
 
@@ -1083,7 +1295,7 @@ msgstr ""
 "seguridad"
 
 #. Context: Signal explanation reason (lowercase)
-#: screener.py:1694
+#: screener.py:1694 screener_compliant.py:1033
 #, python-brace-format
 msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr "el margen de seguridad {mos} está por debajo del mínimo de {min_mos}"
@@ -1113,27 +1325,160 @@ msgid "Sits in the Monitor band."
 msgstr "Se sitúa en la franja Monitor."
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2016
+#: screener.py:2016 screener_compliant.py:1355
 #, python-brace-format
 msgid "revenue fell {years} straight years"
 msgstr "ingresos en descenso {years} años seguidos"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2020
+#: screener.py:2020 screener_compliant.py:1359
 #, python-brace-format
 msgid "operating income negative {years} years running"
 msgstr "resultado operativo negativo {years} años seguidos"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2025
+#: screener.py:2025 screener_compliant.py:1364
 msgid "retained earnings negative and still eroding"
 msgstr "reservas negativas y todavía en descenso"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2032
+#: screener.py:2032 screener_compliant.py:1371
 #, python-brace-format
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividendo recortado en {year} con una cobertura de solo {coverage}×"
+
+#: screener_compliant.py:288
+#, fuzzy
+#| msgid "Industrials"
+msgid "Neutral"
+msgstr "Industria"
+
+#: screener_compliant.py:289
+#, fuzzy
+#| msgid "Min score"
+msgid "Low score"
+msgstr "Puntuación mín."
+
+#: screener_compliant.py:290
+msgid "Fails quality screen"
+msgstr ""
+
+#: screener_compliant.py:291
+#, fuzzy
+#| msgid "Signal"
+msgid "No signal"
+msgstr "Señal"
+
+#: screener_compliant.py:295
+msgid ""
+"Model output based on public data and the settings shown. Not a recommendation "
+"tailored to you."
+msgstr ""
+
+#: screener_compliant.py:300
+msgid ""
+"The models value a business on its current fundamentals and assume a multi-year "
+"holding horizon; they say nothing about short-term price moves."
+msgstr ""
+
+#: screener_compliant.py:303
+msgid ""
+"Model signals can be wrong. They depend on third-party data that may be delayed "
+"or incorrect and on assumptions that may not hold. Investing involves risk, "
+"including loss of capital."
+msgstr ""
+
+#: screener_compliant.py:306
+#, no-python-format
+msgid ""
+"Fair values are sensitive to the discount rate, growth and sector multiples: "
+"with a 2% growth rate, raising the discount rate from 8% to 9% lowers a "
+"dividend-model fair value by about 14%."
+msgstr ""
+
+#: screener_compliant.py:310
+msgid ""
+"Composite model score at or above the upper threshold, the price at least the "
+"minimum margin below the model fair value, and the fair value backed by two or "
+"more independent models."
+msgstr ""
+
+#: screener_compliant.py:313
+msgid ""
+"Composite model score between the lower and upper thresholds, or above the upper"
+" threshold without a confirmed margin of safety."
+msgstr ""
+
+#: screener_compliant.py:315
+#, fuzzy
+#| msgid "Composite score falls well below the BUY threshold."
+msgid "Composite model score below the lower threshold."
+msgstr "La puntuación compuesta está muy por debajo del umbral de BUY."
+
+#: screener_compliant.py:316
+msgid ""
+"Fails at least one quality rule (debt, cash flow, dividend cover, multi-year "
+"decline or no trading volume); its composite score is set to 0."
+msgstr ""
+
+#: screener_compliant.py:319
+msgid "Not enough peer data to rank this stock yet."
+msgstr ""
+
+#: screener_compliant.py:1010
+msgid "No signal: the peer group needed to rank this stock is not available yet."
+msgstr ""
+
+#: screener_compliant.py:1013
+msgid "Fails the model's quality screen, so its composite score is set to 0."
+msgstr ""
+
+#: screener_compliant.py:1017
+#, python-brace-format
+msgid ""
+"Model score {score} is at or above {threshold}, and the price is {mos} below the"
+" model fair value (minimum {min_mos})."
+msgstr ""
+
+#: screener_compliant.py:1020
+#, fuzzy, python-brace-format
+#| msgid "composite score {score} is below the {threshold} BUY threshold"
+msgid "Model score {score} is at or above {threshold}."
+msgstr "la puntuación compuesta {score} está por debajo del umbral de BUY de {threshold}"
+
+#: screener_compliant.py:1023
+#, fuzzy, python-brace-format
+#| msgid "composite score {score} is below the {threshold} BUY threshold"
+msgid "Model score {score} is below the lower threshold of {floor}."
+msgstr "la puntuación compuesta {score} está por debajo del umbral de BUY de {threshold}"
+
+#: screener_compliant.py:1028
+#, fuzzy, python-brace-format
+#| msgid "composite score {score} is below the {threshold} BUY threshold"
+msgid "model score {score} is below the upper threshold of {threshold}"
+msgstr "la puntuación compuesta {score} está por debajo del umbral de BUY de {threshold}"
+
+#: screener_compliant.py:1031
+msgid "no model fair value could be computed"
+msgstr ""
+
+#: screener_compliant.py:1035
+#, fuzzy
+#| msgid "the fair value rests on too few independent models to confirm a BUY"
+msgid "the fair value rests on fewer than two independent models"
+msgstr ""
+"el valor razonable se basa en muy pocos modelos independientes para confirmar un"
+" BUY"
+
+#: screener_compliant.py:1036
+#, fuzzy, python-brace-format
+#| msgid "Not a BUY: {reasons}."
+msgid "Neutral: {reasons}."
+msgstr "No es BUY: {reasons}."
+
+#: screener_compliant.py:1037
+msgid "Model score is between the lower and upper thresholds."
+msgstr ""
 
 #. Context: First-run screen › text under the heading
 #: uvalu/authgate.py:31
@@ -1233,7 +1578,7 @@ msgstr "Seguridad de la contraseña: {strength}"
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:226 uvalu/shell.py:315
+#: uvalu/authgate.py:226 uvalu/shell.py:323
 msgid "value engine"
 msgstr "motor de valor"
 
@@ -1810,7 +2155,7 @@ msgstr "Cotización diferida — no es un precio intradía en tiempo real"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
 #: uvalu/components.py:707 uvalu/drawer.py:328 uvalu/pages_/cash.py:26
-#: uvalu/pages_/portfolio.py:42 uvalu/pages_/watchlist.py:114
+#: uvalu/pages_/portfolio.py:42 uvalu/pages_/watchlist.py:113
 msgid "Viewer role is read-only"
 msgstr "El rol Lector es de solo lectura"
 
@@ -2152,7 +2497,7 @@ msgid "Viewer role is read-only."
 msgstr "El rol Lector es de solo lectura."
 
 #. Context: Field label and column header: stock ticker symbol (e.g. ABI.BR)
-#: uvalu/dialogs.py:248 uvalu/pages_/watchlist.py:103 uvalu/pages_/watchlist.py:104
+#: uvalu/dialogs.py:248 uvalu/pages_/watchlist.py:102 uvalu/pages_/watchlist.py:103
 msgid "Ticker"
 msgstr "Ticker"
 
@@ -2276,7 +2621,7 @@ msgid "Price / share (opt.)"
 msgstr "Precio / acción (opcional)"
 
 #. Context: Error when the ticker field is empty (dialogs, Watchlist)
-#: uvalu/dialogs.py:432 uvalu/pages_/watchlist.py:119
+#: uvalu/dialogs.py:432 uvalu/pages_/watchlist.py:118
 msgid "Enter a ticker symbol."
 msgstr "Introduce un símbolo de ticker."
 
@@ -3269,30 +3614,30 @@ msgid "Fair"
 msgstr "Aceptable"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:352
+#: uvalu/shell.py:360
 msgid "Switch to dark theme"
 msgstr "Cambiar al tema oscuro"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:352
+#: uvalu/shell.py:360
 msgid "Switch to light theme"
 msgstr "Cambiar al tema claro"
 
 #. Context: User menu (top right) › link to the help page; also the Help page
 #. title
-#: uvalu/pages_/help.py:137 uvalu/shell.py:368
+#: uvalu/pages_/help.py:137 uvalu/shell.py:376
 msgid "Help & docs"
 msgstr "Ayuda y documentación"
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:370
+#: uvalu/shell.py:378
 msgid "Admin portal"
 msgstr "Portal de administración"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:374
+#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:382
 msgid "Sign out"
 msgstr "Cerrar sesión"
 
@@ -5178,7 +5523,7 @@ msgstr ""
 "margen de seguridad."
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:397 uvalu/pages_/watchlist.py:188
+#: uvalu/pages_/screener.py:397 uvalu/pages_/watchlist.py:187
 msgid "Remove from watchlist"
 msgstr "Quitar de la lista de seguimiento"
 
@@ -5928,19 +6273,19 @@ msgid "Add ticker"
 msgstr "Añadir ticker"
 
 #. Context: Watchlist › field label
-#: uvalu/pages_/watchlist.py:107 uvalu/pages_/watchlist.py:109
+#: uvalu/pages_/watchlist.py:106 uvalu/pages_/watchlist.py:108
 msgid "Company name (optional)"
 msgstr "Nombre de la empresa (opcional)"
 
 #. Context: Watchlist › empty state
-#: uvalu/pages_/watchlist.py:143
+#: uvalu/pages_/watchlist.py:142
 msgid "Your watchlist is empty. Star a ticker in the screener or add one above."
 msgstr ""
 "Tu lista de seguimiento está vacía. Marca un ticker con la estrella en el screener o "
 "añade uno arriba."
 
 #. Context: Watchlist › loading caption
-#: uvalu/pages_/watchlist.py:154
+#: uvalu/pages_/watchlist.py:153
 #, python-brace-format
 msgid ""
 "Fetching data for your {count} watchlisted ticker… {done}/{total} companies scored."
@@ -5954,7 +6299,7 @@ msgstr[1] ""
 "valoradas."
 
 #. Context: Watchlist › note when data isn't loaded yet
-#: uvalu/pages_/watchlist.py:158
+#: uvalu/pages_/watchlist.py:157
 msgid ""
 "No screener data yet for your watchlisted ticker — it will appear after the next "
 "screener refresh."
