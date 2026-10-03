@@ -1028,22 +1028,16 @@ msgid "Factor data: Kenneth R. French Data Library (Tuck School of Business, Dar
 msgstr ""
 
 #: risk_compliant.py:577
-#, fuzzy
-#| msgid "vs six-model fair value"
 msgid "Above model fair value"
-msgstr "t.o.v. intrinsieke waarde (zes modellen)"
+msgstr ""
 
 #: risk_compliant.py:578
-#, fuzzy
-#| msgid "Six-model fair value"
 msgid "Near model fair value"
-msgstr "Intrinsieke waarde volgens zes modellen"
+msgstr ""
 
 #: risk_compliant.py:578
-#, fuzzy
-#| msgid "Six-model fair value"
 msgid "Below model fair value"
-msgstr "Intrinsieke waarde volgens zes modellen"
+msgstr ""
 
 #: risk_compliant.py:1512
 #, python-brace-format
@@ -1067,24 +1061,18 @@ msgid ""
 msgstr ""
 
 #: risk_compliant.py:1533
-#, fuzzy, python-brace-format
-#| msgid "{pct} of portfolio income comes from dividend-at-risk positions"
+#, python-brace-format
 msgid ""
 "{pct} of estimated portfolio income comes from positions whose dividend is "
 "flagged at risk"
 msgstr ""
-"{pct} van het inkomen van de portefeuille komt uit posities met een "
-"risicodividend"
 
 #: risk_compliant.py:1540
-#, fuzzy, python-brace-format
-#| msgid "Worst-case historical scenario implies {drawdown} portfolio drawdown"
+#, python-brace-format
 msgid ""
 "The worst historical scenario replay gives an estimated {drawdown} portfolio "
 "drawdown"
 msgstr ""
-"Het slechtste historische scenario betekent een daling van {drawdown} voor de "
-"portefeuille"
 
 #: risk_compliant.py:1546
 #, python-brace-format
@@ -1094,28 +1082,24 @@ msgid ""
 msgstr ""
 
 #: risk_compliant.py:1556
-#, fuzzy, python-brace-format
-#| msgid "HHI {hhi} exceeds the {ceiling} target ceiling"
+#, python-brace-format
 msgid "HHI {hhi} is above the {ceiling} ceiling you set"
-msgstr "HHI {hhi} overschrijdt het doelplafond van {ceiling}"
+msgstr ""
 
 #: risk_compliant.py:1561
-#, fuzzy, python-brace-format
-#| msgid "HHI {hhi} — highly concentrated, above the 0.18 threshold"
+#, python-brace-format
 msgid "HHI {hhi}: highly concentrated on the model's scale (above {ref})"
-msgstr "HHI {hhi}: sterk geconcentreerd, boven de drempel van 0,18"
+msgstr ""
 
 #: risk_compliant.py:1565
-#, fuzzy, python-brace-format
-#| msgid "HHI {hhi} — moderately concentrated, monitor drift"
+#, python-brace-format
 msgid "HHI {hhi}: moderately concentrated on the model's scale (above {ref})"
-msgstr "HHI {hhi}: matig geconcentreerd, volg de afwijking op"
+msgstr ""
 
 #: risk_compliant.py:1571
-#, fuzzy, python-brace-format
-#| msgid "HHI drifted +{change} since {date} (now {hhi})"
+#, python-brace-format
 msgid "HHI rose by {change} since {date} (now {hhi})"
-msgstr "HHI steeg met +{change} sinds {date} (nu {hhi})"
+msgstr ""
 
 #: risk_compliant.py:1587
 #, python-brace-format
@@ -1130,10 +1114,9 @@ msgid ""
 msgstr ""
 
 #: risk_compliant.py:1607
-#, fuzzy, python-brace-format
-#| msgid "{ticker} at {weight} vs {target} target — {drift} drift"
+#, python-brace-format
 msgid "{ticker} is {weight} of the portfolio against your {target} target ({drift})"
-msgstr "{ticker} op {weight} t.o.v. doel {target}: afwijking van {drift}"
+msgstr ""
 
 #: risk_compliant.py:1615
 #, python-brace-format
@@ -1141,46 +1124,35 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr ""
 
 #: risk_compliant.py:1623
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at "
-#| "{date})"
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was "
 "{previous} at {date})"
-msgstr "Sharpe {sharpe} voor de tweede keer op rij onder 1,0 (was {previous} op {date})"
+msgstr ""
 
 #: risk_compliant.py:1629
-#, fuzzy, python-brace-format
-#| msgid "Sharpe ratio {sharpe} below 1.0 — risk-adjusted return suboptimal"
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was"
 " modest"
-msgstr "Sharpe-ratio {sharpe} onder 1,0: risicogecorrigeerd rendement suboptimaal"
+msgstr ""
 
 #: risk_compliant.py:1639
-#, fuzzy, python-brace-format
-#| msgid "{ticker}: risk rating {previous} → {rating} since {date}"
+#, python-brace-format
 msgid "{ticker}: position risk rating changed from {previous} to {rating} since {date}"
-msgstr "{ticker}: risicobeoordeling {previous} → {rating} sinds {date}"
+msgstr ""
 
 #: risk_compliant.py:1646
-#, fuzzy, python-brace-format
-#| msgid "{ticker}: High risk rating — monitor closely"
+#, python-brace-format
 msgid "{ticker}: position risk rating High"
-msgstr "{ticker}: hoge risicobeoordeling, nauw opvolgen"
+msgstr ""
 
 #: risk_compliant.py:1651
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "{ticker}: ~{days} trading days to exit at {participation} of average volume — "
-#| "thin for this position size"
+#, python-brace-format
 msgid ""
 "{ticker}: the full position equals about {days} trading days at {participation} "
 "of average daily volume"
 msgstr ""
-"{ticker}: ~{days} handelsdagen nodig om uit te stappen aan {participation} van "
-"het gemiddelde volume: weinig liquiditeit voor deze positiegrootte"
 
 #: risk_compliant.py:1658
 #, python-brace-format
@@ -1335,26 +1307,20 @@ msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividend verlaagd in {year} met slechts {coverage}× dekking"
 
 #: screener_compliant.py:288
-#, fuzzy
-#| msgid "Industrials"
 msgid "Neutral"
-msgstr "Industrie"
+msgstr ""
 
 #: screener_compliant.py:289
-#, fuzzy
-#| msgid "Min score"
 msgid "Low score"
-msgstr "Min. score"
+msgstr ""
 
 #: screener_compliant.py:290
 msgid "Fails quality screen"
 msgstr ""
 
 #: screener_compliant.py:291
-#, fuzzy
-#| msgid "Signal"
 msgid "No signal"
-msgstr "Signaal"
+msgstr ""
 
 #: screener_compliant.py:295
 msgid ""
@@ -1397,10 +1363,8 @@ msgid ""
 msgstr ""
 
 #: screener_compliant.py:315
-#, fuzzy
-#| msgid "Composite score falls well below the BUY threshold."
 msgid "Composite model score below the lower threshold."
-msgstr "De totaalscore ligt ruim onder de BUY-drempel."
+msgstr ""
 
 #: screener_compliant.py:316
 msgid ""
@@ -1428,40 +1392,32 @@ msgid ""
 msgstr ""
 
 #: screener_compliant.py:1020
-#, fuzzy, python-brace-format
-#| msgid "composite score {score} is below the {threshold} BUY threshold"
+#, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
-msgstr "totaalscore {score} ligt onder de BUY-drempel van {threshold}"
+msgstr ""
 
 #: screener_compliant.py:1023
-#, fuzzy, python-brace-format
-#| msgid "composite score {score} is below the {threshold} BUY threshold"
+#, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
-msgstr "totaalscore {score} ligt onder de BUY-drempel van {threshold}"
+msgstr ""
 
 #: screener_compliant.py:1028
-#, fuzzy, python-brace-format
-#| msgid "composite score {score} is below the {threshold} BUY threshold"
+#, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
-msgstr "totaalscore {score} ligt onder de BUY-drempel van {threshold}"
+msgstr ""
 
 #: screener_compliant.py:1031
 msgid "no model fair value could be computed"
 msgstr ""
 
 #: screener_compliant.py:1035
-#, fuzzy
-#| msgid "the fair value rests on too few independent models to confirm a BUY"
 msgid "the fair value rests on fewer than two independent models"
 msgstr ""
-"de intrinsieke waarde steunt op te weinig onafhankelijke modellen om een BUY te "
-"bevestigen"
 
 #: screener_compliant.py:1036
-#, fuzzy, python-brace-format
-#| msgid "Not a BUY: {reasons}."
+#, python-brace-format
 msgid "Neutral: {reasons}."
-msgstr "Geen BUY: {reasons}."
+msgstr ""
 
 #: screener_compliant.py:1037
 msgid "Model score is between the lower and upper thresholds."
@@ -3486,7 +3442,7 @@ msgstr "Datumnotatie"
 #: uvalu/locale_ui.py:153
 msgctxt "date_format"
 msgid "Short"
-msgstr "Kort"
+msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Date format option
 #: uvalu/locale_ui.py:154
@@ -4391,21 +4347,21 @@ msgstr "Periode"
 #: uvalu/pages_/dashboard.py:224
 msgctxt "chart_range"
 msgid "1M"
-msgstr "1M"
+msgstr ""
 
 #. Context: Dashboard › portfolio value chart range button: last 3 months. Same
 #. short style as '1M'.
 #: uvalu/pages_/dashboard.py:225
 msgctxt "chart_range"
 msgid "3M"
-msgstr "3M"
+msgstr ""
 
 #. Context: Dashboard › portfolio value chart range button: last year. Use your
 #. language's one-letter abbreviation for 'year' (e.g. 1J, 1A).
 #: uvalu/pages_/dashboard.py:226
 msgctxt "chart_range"
 msgid "1Y"
-msgstr "1J"
+msgstr ""
 
 #. Context: Dashboard › chart card heading
 #: uvalu/pages_/dashboard.py:241 uvalu/pages_/dashboard.py:314
@@ -5507,7 +5463,7 @@ msgstr "Aan volglijst toevoegen"
 #: uvalu/pages_/settings.py:162
 msgctxt "style"
 msgid "Balanced"
-msgstr "Evenwichtig"
+msgstr ""
 
 #. Context: Settings › Screening style option (message context 'style') (value
 #. investing). Also the Dashboard holdings column 'Value' (market value).
@@ -5520,7 +5476,7 @@ msgstr "Waarde"
 #: uvalu/pages_/settings.py:163
 msgctxt "style"
 msgid "Growth"
-msgstr "Groei"
+msgstr ""
 
 #. Context: Settings › Screening style option (message context 'style'); also
 #. the Cash activity 'Income' card
