@@ -469,6 +469,34 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    - G9 remainder left as is: KPI and table-header labels truncate with a tooltip on purpose, so tiles
      keep one shape in every language.
 7. **Per-screen polish.** The remaining D/SC/W/P/R/DR/A/AD/U rows.
+
+   **Status 4 Oct 2026: done, not committed.**
+   - Dashboard: D2 "{range} · incl. deposits", D3 "unrealised · incl. … cash", D4 donut full width with
+     % in the legend, D7 movers show the name (ticker as tooltip).
+   - Screener: SC1 filters top-aligned, sliders fixed-width and grouped; SC2 Reset only when filters
+     differ from the defaults; SC3 25 rows + "Show 25 more", sticky column header (card
+     `overflow:clip`); SC4 exchange label 10.5px muted.
+   - Watchlist: W3 sorted by composite score; W4 score banding on the rounded value; W5 P/E ≤ 0 (or
+     shown as 0,0) → "—".
+   - Portfolio: P3 cash card buttons side by side, same width; P4 "Show all N positions".
+   - Risk: R3 table title; R5 plain factor names with the code as a chip and a plain-words footnote;
+     R6 no plain "rating High" note when the transition note already says it (risk.py).
+   - Drawer: DR1 "Model fair values"; DR2 fair value neutral (also the Analysis hero); DR3 exchange
+     from the ticker suffix (`uvalu.formatting.exchange_label`, one shared map); DR4 spacing around
+     the record buttons.
+   - Analysis: A5 model summary under the price cards; A6 badge history date and badge on one line;
+     A7 no stray "— ·"; A8 last block of a card no longer sits on its edge.
+   - Admin: AD1 wider role column; AD2 last active via `fmt_datetime`, row cells centred; AD3 status
+     on one line.
+   - User menu: U1 plain email, role chip, Sign out as an icon menu item.
+
+   Not done:
+   - D1 (the stats footer is bottom-aligned on purpose, so the two cards share a row height).
+   - D6 yield basis (a data question, not styling).
+   - R2 (the DIS-3 warning stays its own box).
+   - R4 (country was left out of the Concentration bars on purpose; it shows as the flag banner).
+   - SC "FLAG" header (already aligned with its column).
+   - W1 (not reproduced).
 8. **Phone layout (G13), separate project.** Merge with the parked "tablet layout" backlog item.
 
 ---

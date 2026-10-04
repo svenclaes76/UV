@@ -33,6 +33,7 @@ _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
 # Filter chips: model signal codes, shown with their translated label (BDG-1).
 _SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen"]
+_PAGE_ROWS = 25   # results shown per "page" (visual review SC3)
 
 # Matches stock_row's own column widths exactly (star=0.5, name=3.0,
 # signal=1.0, score=1.5, mos=1.0, price=0.9, pe=0.8, dy=0.9) — shared between
@@ -258,7 +259,9 @@ def render() -> None:
         # stretched every filter to fill its slice of the row regardless of
         # how much room its content actually needed (a short "All sectors"
         # select ended up exactly as wide as the whole signal-chip group).
-        with st.container(key="scr_filter_row", horizontal=True, vertical_alignment="center"):
+        # Top-aligned: centring filters of different heights put their labels
+        # at different heights (Signal sat ~4px below Search and Sector).
+        with st.container(key="scr_filter_row", horizontal=True, vertical_alignment="top"):
             with st.container(key="scr_search_wrap"):
                 _filter_label(h_("Search"))
                 _placeholder = _("Ticker or company…")
@@ -283,24 +286,27 @@ def render() -> None:
                 _filter_label(h_("Market"))
                 _market_sel = st.selectbox(_("Market"), options=[_ALL_MARKETS] + _market_vals, format_func=frozen(tr),
                                            key="scr_market", label_visibility="collapsed")
-            with st.container(key="scr_score_slider"):
-                # Read the pre-widget session_state value so the inline mono
-                # readout (matching Uvalu.dc.html's `{{ scr.minScore }}`)
-                # reflects this rerun's value instead of lagging a step
-                # behind the slider.
-                st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                           f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
-                           f'<span>{h_("Min score")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
-                           f'{st.session_state.get("scr_min_score", 0)}</span></div>', unsafe_allow_html=True)
-                _min_score = st.slider(_("Min score"), 0, 90, 0, step=5, key="scr_min_score",
-                                       label_visibility="collapsed")
-            with st.container(key="scr_mos_slider"):
-                st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                           f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
-                           f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
-                           f'{fmt_pct(st.session_state.get("scr_min_mos", -20), 0)}</span></div>', unsafe_allow_html=True)
-                _min_mos = st.slider(_("Min margin of safety"), -20, 50, -20, step=5, key="scr_min_mos",
-                                     label_visibility="collapsed")
+            # Both sliders in one group: they wrap onto a second line together
+            # instead of one at a time.
+            with st.container(key="scr_slider_group", horizontal=True, vertical_alignment="top"):
+                with st.container(key="scr_score_slider"):
+                    # Read the pre-widget session_state value so the inline mono
+                    # readout (matching Uvalu.dc.html's `{{ scr.minScore }}`)
+                    # reflects this rerun's value instead of lagging a step
+                    # behind the slider.
+                    st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                               f'<span>{h_("Min score")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
+                               f'{st.session_state.get("scr_min_score", 0)}</span></div>', unsafe_allow_html=True)
+                    _min_score = st.slider(_("Min score"), 0, 90, 0, step=5, key="scr_min_score",
+                                           label_visibility="collapsed")
+                with st.container(key="scr_mos_slider"):
+                    st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                               f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
+                               f'{fmt_pct(st.session_state.get("scr_min_mos", -20), 0)}</span></div>', unsafe_allow_html=True)
+                    _min_mos = st.slider(_("Min margin of safety"), -20, 50, -20, step=5, key="scr_min_mos",
+                                         label_visibility="collapsed")
 
     # ── Apply filters ──────────────────────────────────────────────────────────
     _filtered = _valued_df.copy()
@@ -344,9 +350,14 @@ def render() -> None:
                     _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
                                             count=len(_all_df))
                 st.caption(_scr_caption)
+            # Only when something differs from the default filters.
+            _filters_dirty = (bool(_search) or set(_signal or []) != {"undervalued"}
+                              or _sector_sel != _ALL_SECTORS or _market_sel != _ALL_MARKETS
+                              or _min_score != 0 or _min_mos != -20)
             with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
                 with st.container(key="scr_reset_btn"):
-                    if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):
+                    if _filters_dirty and st.button(_("Reset filters"), key="scr_reset",
+                                                    icon=":material/refresh:", type="tertiary"):
                         for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
                                   "scr_min_score", "scr_min_mos"):
                             st.session_state.pop(_k, None)
@@ -395,8 +406,17 @@ def render() -> None:
                         st.button(tr(_label) + _arrow, key=f"scr_sort_{_slot}", type="tertiary",
                                  on_click=_sort_by, args=(_slot,))
 
+        # 25 rows at a time (the full list was ~125 rows, a 9 000px page);
+        # back to the first page whenever the filters or the sort change.
+        _page_sig = repr((_search, sorted(_signal or []), _sector_sel, _market_sel, _min_score, _min_mos,
+                          _sort_key, _sort_dir))
+        if st.session_state.get("scr_page_sig") != _page_sig:
+            st.session_state["scr_page_sig"] = _page_sig
+            st.session_state["scr_page_rows"] = _PAGE_ROWS
+        _shown = int(st.session_state.get("scr_page_rows", _PAGE_ROWS))
+
         _drawer_target = None
-        for _ridx, _row in _filtered.iterrows():
+        for _ridx, _row in _filtered.head(_shown).iterrows():
             _ticker = _row["Ticker"]
             _in_wl = _ticker in _watchlist
             _result = stock_row(
@@ -422,6 +442,14 @@ def render() -> None:
                 st.rerun()
             if _result["view"]:
                 _drawer_target = _ticker
+
+        if len(_filtered) > _shown:
+            with st.container(key="scr_more", horizontal_alignment="center"):
+                _next = min(_PAGE_ROWS, len(_filtered) - _shown)
+                if st.button(_("Show {count} more · {shown} of {total} shown", count=_next,
+                               shown=_shown, total=len(_filtered)), key="scr_more_btn", type="tertiary"):
+                    st.session_state["scr_page_rows"] = _shown + _PAGE_ROWS
+                    st.rerun()
 
     if _drawer_target is not None:
         _r = _filtered[_filtered["Ticker"] == _drawer_target]

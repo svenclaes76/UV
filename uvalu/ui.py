@@ -312,58 +312,50 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
     if _clean.empty:
         st.info(_("No data available for this breakdown."))
         return
-    _labels = [tr(str(k)) for k in _clean.index]
     _vals   = _clean.values.tolist()
     _total  = sum(_vals)
     _pcts   = [v / _total * 100 for v in _vals]
-    _text   = [fmt_pct(p) if p >= 4 else "" for p in _pcts]
+    # The share is in the legend ("Real Estate 32,2 %"), not printed on the
+    # slices: in a third-width card the slice labels overlapped each other
+    # and the pie was ~70px wide (visual review D4). Pie full width on top,
+    # legend underneath.
+    _labels = [f"{tr(str(k))}  {fmt_pct(p)}" for k, p in zip(_clean.index, _pcts)]
     _n      = len(_labels)
     _colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_n)]
-    # Confine the pie to the left half of the plotting area so it sits close
-    # to its legend instead of centering across the full card width (a wide
-    # card left the pie centered around x=0.5 with a large empty gap before
-    # the legend, which floats just outside the pie's own domain at x=0.58).
-    _pie_cx = 0.27
+    _pie_h, _row_h = 190, 19
     fig = go.Figure(go.Pie(
         labels=_labels,
         values=_vals,
-        hole=0.52,
-        domain=dict(x=[0, 0.54], y=[0, 1]),
-        text=_text,
-        textinfo="text",
-        textposition="inside",
-        insidetextorientation="horizontal",
+        hole=0.6,
+        sort=False,
+        textinfo="none",
         customdata=[fmt_total(v) for v in _vals],
-        hovertemplate="%{label}: %{customdata} (%{percent})<extra></extra>",
+        hovertemplate="%{label}: %{customdata}<extra></extra>",
         marker=dict(
             colors=_colors,
             line=dict(color=_c_surface, width=2),
         ),
-        textfont=dict(color=_c_text, size=12),
     ))
     _tv, _tccy, _tconv = to_display(_total)
-    _total_short = (("≈\u00a0" if _tconv else "") + fmt_compact(_tv, currency=_tccy)
+    _total_short = (("≈ " if _tconv else "") + fmt_compact(_tv, currency=_tccy)
                     if _total >= 10_000 else fmt_total(_total))
     fig.update_layout(
-        margin=dict(l=10, r=10, t=36 if title else 10, b=10),
+        margin=dict(l=4, r=4, t=36 if title else 4, b=_row_h * _n + 8),
         title=dict(text=title or ""),
-        height=max(240, 24 * _n + 60),
+        height=_pie_h + _row_h * _n + 12 + (32 if title else 0),
         showlegend=True,
         legend=dict(
             orientation="v",
-            x=0.58, xanchor="left",
-            y=0.5,  yanchor="middle",
-            font=dict(size=11, color=_c_text),
-            itemwidth=30,
-            tracegroupgap=2,
+            x=0, xanchor="left",
+            y=-0.04, yanchor="top",
+            font=dict(size=11.5, color=_c_text),
+            itemclick=False, itemdoubleclick=False,
+            tracegroupgap=0,
         ),
-        # Center overlay — "TOTAL / <value>" inside the donut hole, matching
-        # Uvalu.dc.html's compact donut. Paper coords track the pie's own
-        # domain center (x=0.27, the midpoint of the [0, 0.54] domain above)
-        # rather than the full plot's center, since the pie no longer spans
-        # the whole width.
+        # "TOTAL / <value>" in the donut hole, matching Uvalu.dc.html's
+        # compact donut.
         annotations=[
-            dict(text=f"{h_('TOTAL')}<br><b>{_total_short}</b>", x=_pie_cx, y=0.5, showarrow=False,
+            dict(text=f"{h_('TOTAL')}<br><b>{_total_short}</b>", x=0.5, y=0.5, showarrow=False,
                 xanchor="center", yanchor="middle",
                 font=dict(size=12, color=_c_text), align="center"),
         ],

@@ -189,7 +189,8 @@ def render() -> None:
         with _k1:
             _kpi_card(h_("Current value"), fmt_total(_db_current + _db_cash['balance']),
                      fmt_pct(_db_gain_pct, signed=True), _db_gain >= 0,
-                     (h_("incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
+                     # The chip is the unrealised result on the holdings: say so.
+                     (h_("unrealised · incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
                       else h_("{amount} unrealised", amount=fmt_total(_db_gain, signed=True))), icon="wallet")
         with _kc:
             _kpi_card(h_("Cash"), fmt_total(_db_cash['balance']), fmt_pct(_db_cash['cash_pct']), True,
@@ -244,7 +245,10 @@ def render() -> None:
             _db_last_val   = float(_vh_view["value"].iloc[-1])
             _db_first_val  = float(_vh_view["value"].iloc[0])
             _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
-            _range_txt = _("All") if (_range_sel or "All") == "All" else _range_sel
+            # The change in value over the range, deposits included — not a
+            # return (that's the Total return tile); say so next to the chip.
+            _range_txt = _("{range} · incl. deposits",
+                           range=_("All") if (_range_sel or "All") == "All" else _range_sel)
             with _title_col:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
@@ -696,8 +700,7 @@ def render() -> None:
                 _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
-  <span style="font-family:var(--uv-mono);color:var(--faint);width:64px;flex:none;white-space:nowrap;">{_mr['ticker']}</span>
-  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
+  <span title="{_html.escape(str(_mr['ticker']))}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>

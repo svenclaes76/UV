@@ -1,7 +1,7 @@
 """Pure value formatters shared across pages."""
 import re
 
-from uvalu.i18n import fmt_money
+from uvalu.i18n import N_, fmt_money, tr
 
 
 def fmt_eur(v) -> str:
@@ -12,6 +12,25 @@ def fmt_eur(v) -> str:
 def safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0
+
+
+# Ticker suffix → exchange, for rows that carry no "Exchange" field (the
+# portfolio lane, the risk table) — one map instead of a copy per page.
+TICKER_SUFFIX_EXCHANGE = {
+    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
+    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
+}
+
+
+def exchange_label(ticker, exchange=None) -> str:
+    """The row's own exchange name when it has one, else the one its ticker
+    suffix implies, translated; "—" when neither is known."""
+    if isinstance(exchange, str) and exchange.strip():
+        return tr(exchange)
+    for suffix, label in TICKER_SUFFIX_EXCHANGE.items():
+        if str(ticker or "").endswith(suffix):
+            return tr(label)
+    return "—"
 
 
 # Legal forms and acronyms that stay upper case when an ALL-CAPS name is

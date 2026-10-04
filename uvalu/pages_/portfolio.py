@@ -28,7 +28,7 @@ from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_car
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
-from uvalu.formatting import safe_pct as _safe_pct
+from uvalu.formatting import exchange_label, safe_pct as _safe_pct
 from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
 from uvalu.locale_ui import export_menu
 from uvalu.runtime import current_user
@@ -42,19 +42,9 @@ _SECTIONS = ("overview", "open", "closed", "dividends", "cash")
 _VIEWER_HELP = N_("Viewer role is read-only")
 
 
-# Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
-# row components render a compact mono exchange chip next to the ticker.
-_TICKER_SUFFIX_EXCHANGE = {
-    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
-    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
-}
-
-
 def _exchange_label(ticker: str) -> str:
-    for suffix, label in _TICKER_SUFFIX_EXCHANGE.items():
-        if str(ticker).endswith(suffix):
-            return tr(label)
-    return "—"
+    """Exchange chip next to the ticker (shared map, uvalu/formatting.py)."""
+    return exchange_label(ticker)
 
 
 # Table columns: (label, design width in px, right-aligned). The design widths
@@ -376,6 +366,12 @@ def render() -> None:
                     _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                     if not _r.empty:
                         _pf_dlg_pending.append((_r.iloc[0],))
+                # The ↗ icon alone hid that only the top 5 are listed.
+                if len(pf) > 5:
+                    with st.container(key="pf_open_ov_all"):
+                        if st.button(ngettext("Show all {count} position", "Show all {count} positions", len(pf)),
+                                     key="ov_open_show_all", type="tertiary"):
+                            _goto("open")
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:

@@ -23,7 +23,7 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html, empty_results_html)
-from uvalu.formatting import display_name, fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, exchange_label, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
                         lowercase_noun, ngettext, plotly_money_axis, tr)
 from uvalu.runtime import theme_colors, current_user
@@ -97,13 +97,14 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
                           score=fmt_num(rec.get("Value Score"), 0),
                           mos=fmt_pct(_mos, 0, fraction=True, signed=True) if _mos is not None else "—",
                           version=str(rec.get("model_version") or "—"))
+                # Date and badge(s) on one line, the inputs under the badge.
                 _rows.append(
-                    '<div style="display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;padding:10px 0;'
-                    'border-bottom:0.5px solid var(--line-2);">'
+                    '<div style="display:grid;grid-template-columns:92px minmax(0,1fr);column-gap:12px;row-gap:5px;'
+                    'align-items:center;padding:10px 0;border-bottom:0.5px solid var(--line-2);">'
                     f'<div style="font-family:var(--uv-mono);font-size:11.5px;color:var(--muted);">'
                     f'{html.escape(fmt_date(rec.get("signal_computed_at")))}</div>'
-                    f'<div>{_from}{model_signal_badge_html(code)}'
-                    f'<div style="font-size:12px;color:var(--muted);margin-top:6px;">{html.escape(_note)}</div></div></div>')
+                    f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">{_from}{model_signal_badge_html(code)}</div>'
+                    f'<div></div><div style="font-size:12px;color:var(--muted);">{html.escape(_note)}</div></div>')
                 _prev = code
             st.markdown("".join(reversed(_rows)), unsafe_allow_html=True)
         st.caption(_("Every badge change is logged with its inputs and model version."))
@@ -175,6 +176,31 @@ def _render_sources_and_producer(row, ticker: str) -> None:
                     'line-height:1.55;">' + "".join(f"<div>{html.escape(x)}</div>" for x in _lines)
                     + f'<a href="/legal?doc=conflicts" target="_self" style="color:var(--teal);text-decoration:none;">'
                     f'{html.escape(_("Conflicts of interest policy →"))}</a></div>', unsafe_allow_html=True)
+
+
+def _render_model_summary(row, ticker: str) -> None:
+    """The plain-language model summary (derived from real computed fields
+    only). Shown right under the price cards: it was the last card on the
+    page, though it is the best orientation text on it."""
+    _thesis_card = st.container(key="an_card_thesis", border=True)
+    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
+                          unsafe_allow_html=True)
+    _sub_fields = {N_("Margin of safety"): row.get("Sub MoS"), N_("Risk"): row.get("Sub Risk"),
+                  N_("Quality"): row.get("Sub Quality"), N_("Momentum"): row.get("Sub Momentum"),
+                  N_("Dividend"): row.get("Sub Dividend")}
+    _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
+    _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
+                 name=display_name(row.get('Name')) or ticker, price=_fv(row, 'Price', _fmt_eur),
+                 fair_value=_fv(row, 'fair_value', _fmt_eur),
+                 mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]
+    if _valid_subs:
+        _best = max(_valid_subs, key=_valid_subs.get)
+        _worst = min(_valid_subs, key=_valid_subs.get)
+        if _best != _worst:
+            _thesis.append(_("Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100).",
+                             best=lowercase_noun(tr(_best)), best_score=fmt_num(_valid_subs[_best], 0),
+                             worst=lowercase_noun(tr(_worst)), worst_score=fmt_num(_valid_subs[_worst], 0)))
+    _thesis_card.caption(" ".join(_thesis))
 
 
 def render() -> None:
@@ -254,7 +280,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
-            f'{html.escape(display_name(row.get("Name")) or "—")} · {tr(_sector) if _sector else "—"} · {_fv(row, "Exchange", tr)}</div>'
+            f'{html.escape(display_name(row.get("Name")) or "—")} · {tr(_sector) if _sector else "—"} · {exchange_label(ticker, row.get("Exchange"))}</div>'
             f'{_score_rating_html}</div>'
             f'{signal_provenance_html(row)}{founder_notice_html(row)}',
             unsafe_allow_html=True,
@@ -286,7 +312,7 @@ def render() -> None:
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
             + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_eur))
-            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
+            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur))
             + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), color=_mos_color)
             + _hero_card(h_("Your position"), _held_str)
             + '</div>',
@@ -311,6 +337,9 @@ def render() -> None:
         # quality screen already get the banner above.
         _min_mos, _buy_thr = get_veto_thresholds()[2:4]
         st.caption(signal_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
+
+    # ── Model summary (moved up from the bottom of the page) ─────────────────
+    _render_model_summary(row, ticker)
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
@@ -496,7 +525,10 @@ def render() -> None:
             }
             _reasons = [_reason_text[r]() for r in dividend_risk_reasons(row, max_payout=get_veto_thresholds()[1])]
             if _reasons:
-                _div_note = _("{coverage} · at risk: {reasons}", coverage=_div_note, reasons=", ".join(_reasons))
+                # Without a coverage figure there's nothing to put before the
+                # "·" (it read "— · at risk: payout 774%").
+                _div_note = (_("{coverage} · at risk: {reasons}", coverage=_div_note, reasons=", ".join(_reasons))
+                             if _div_note != "—" else _("at risk: {reasons}", reasons=", ".join(_reasons)))
         # Multi-year deterioration checks re-use screener._trend_veto directly —
         # same anti-drift reason as the D/E and FCF rows above. It returns the
         # list of tripped reasons; empty means the row passes.
@@ -666,23 +698,3 @@ def render() -> None:
     # ── Data sources | producer & conflicts (REC-1, REC-3, REC-8) ────────────
     _render_sources_and_producer(row, ticker)
 
-    # ── Model summary (derived from real computed fields only) ───────────────
-    _thesis_card = st.container(key="an_card_thesis", border=True)
-    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
-                          unsafe_allow_html=True)
-    _sub_fields = {N_("Margin of safety"): row.get("Sub MoS"), N_("Risk"): row.get("Sub Risk"),
-                  N_("Quality"): row.get("Sub Quality"), N_("Momentum"): row.get("Sub Momentum"),
-                  N_("Dividend"): row.get("Sub Dividend")}
-    _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
-    _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
-                 name=display_name(row.get('Name')) or ticker, price=_fv(row, 'Price', _fmt_eur),
-                 fair_value=_fv(row, 'fair_value', _fmt_eur),
-                 mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]
-    if _valid_subs:
-        _best = max(_valid_subs, key=_valid_subs.get)
-        _worst = min(_valid_subs, key=_valid_subs.get)
-        if _best != _worst:
-            _thesis.append(_("Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100).",
-                             best=lowercase_noun(tr(_best)), best_score=fmt_num(_valid_subs[_best], 0),
-                             worst=lowercase_noun(tr(_worst)), worst_score=fmt_num(_valid_subs[_worst], 0)))
-    _thesis_card.caption(" ".join(_thesis))

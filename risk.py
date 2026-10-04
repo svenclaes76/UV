@@ -1627,6 +1627,7 @@ def _stage8_observations(profiles: list[PositionRisk], concentration: Concentrat
 
     # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
     prior_ratings = prior_snapshot.get("ratings") or {}
+    upgraded: set[str] = set()
     for p in profiles:
         was = prior_ratings.get(p.ticker)
         if (was in _RATING_RANK and p.rating in ("High", "Critical")
@@ -1635,9 +1636,12 @@ def _stage8_observations(profiles: list[PositionRisk], concentration: Concentrat
                 lazy_("{ticker}: position risk rating changed from {previous} to {rating} since {date}",
                       ticker=p.ticker, previous=Fmt("tr", was), rating=Fmt("tr", p.rating), date=prior_since),
                 basis="since_snapshot", mode="transition")
+            upgraded.add(p.ticker)
 
+    # The plain "rating High" note, unless the transition above already says
+    # so for that holding (the Risk page listed both for one ticker).
     for p in profiles:
-        if p.rating == "High":
+        if p.rating == "High" and p.ticker not in upgraded:
             add("notice", p.ticker,
                 lazy_("{ticker}: position risk rating High", ticker=p.ticker))
 

@@ -13,14 +13,11 @@ from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
+from uvalu.formatting import exchange_label
 from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
-_TICKER_SUFFIX_EXCHANGE = {
-    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
-    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
-}
 
 _FACTOR_NOTES = {
     "Mkt-RF": N_("Market sensitivity"),
@@ -323,14 +320,18 @@ def render() -> None:
         if r.factor.available and r.factor.loadings:
             for _fname, _fval in r.factor.loadings.items():
                 _rate, _fcolor = _loading_tier(abs(_fval))
+                # Plain-language name first, the factor code as a small chip
+                # (the codes alone — Mkt-RF, SMB, HML — read as jargon).
+                _fnote = tr(_FACTOR_NOTES[_fname]) if _fname in _FACTOR_NOTES else _fname
                 st.markdown(
                     f'<div style="margin-bottom:15px;">'
-                    f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">'
-                    f'<span style="font-size:12.5px;font-weight:500;">{_fname}</span>'
-                    f'<span style="font-size:11px;font-weight:500;color:{_fcolor};font-family:var(--uv-mono);">{_rate} · {fmt_num(_fval, 2, signed=True)}</span></div>'
+                    f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px;">'
+                    f'<span style="font-size:12.5px;font-weight:500;">{html.escape(_fnote)}'
+                    f'<span style="font-family:var(--uv-mono);font-size:10px;font-weight:400;color:var(--faint);'
+                    f'border:0.5px solid var(--line);border-radius:4px;padding:0 5px;margin-left:8px;">{html.escape(_fname)}</span></span>'
+                    f'<span style="font-size:11px;font-weight:500;color:{_fcolor};font-family:var(--uv-mono);white-space:nowrap;">{_rate} · {fmt_num(_fval, 2, signed=True)}</span></div>'
                     f'<div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;">'
-                    f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:7px;border-radius:4px;background:{_fcolor};"></div></div>'
-                    f'<div style="font-size:11px;color:var(--faint);margin-top:6px;">{tr(_FACTOR_NOTES.get(_fname, ""))}</div></div>',
+                    f'<div style="width:{min(100, abs(_fval)/2.0*100):.0f}%;height:7px;border-radius:4px;background:{_fcolor};"></div></div></div>',
                     unsafe_allow_html=True,
                 )
             _prov = []
@@ -341,8 +342,8 @@ def render() -> None:
             if r.factor.stale:
                 _prov.append(_("cached — source unreachable"))
             _prov_txt = (" · " + " · ".join(_prov)) if _prov else ""
-            st.caption(_("Fama-French factor loadings{details}. |loading| > 1.5 = concentrated factor bet.",
-                         details=_prov_txt))
+            st.caption(_("Fama-French factor loadings{details}. A loading above 1.5 or below -1.5 means the "
+                         "portfolio leans heavily on that factor.", details=_prov_txt))
         else:
             st.caption(_("Factor analysis unavailable.") + " " + (tr(r.factor.flags[0]) if r.factor.flags else ""))
 
@@ -415,6 +416,10 @@ def render() -> None:
     # same convention as the Dashboard's db_hold_ rows (whole-row click via
     # an invisible trailing button, not st.columns per cell). ─────────────
     with st.container(key="risk_card_holdings", border=True):
+        # The table had no title; every other card on the page has one.
+        with st.container(key="risk_holdings_title"):
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Risk contribution by holding")}</div>',
+                        unsafe_allow_html=True)
         with st.container(key="risk_col_header"):
             _rh_labels = tuple(h_(label) for label in _RH_LABELS)
             _rh_align = ("left", "right", "right", "right", "left", "left")
@@ -427,7 +432,7 @@ def render() -> None:
         _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
         _contrib_rows = []
         for p, _raw in zip(r.position_profiles, _contribs):
-            _exch = next((tr(v) for suf, v in _TICKER_SUFFIX_EXCHANGE.items() if p.ticker.endswith(suf)), "—")
+            _exch = exchange_label(p.ticker)
             _contrib_rows.append({"p": p, "exch": _exch, "raw": float(_raw)})
         _total_raw = sum(row["raw"] for row in _contrib_rows) or 1.0
         _max_pct = max((row["raw"] / _total_raw * 100 for row in _contrib_rows), default=1.0) or 1.0

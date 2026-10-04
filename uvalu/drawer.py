@@ -28,7 +28,7 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
-from uvalu.formatting import display_name, fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, exchange_label, fmt_eur as _fmt_eur
 from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
@@ -219,7 +219,9 @@ def open_drawer(row: "pd.Series") -> None:
     _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
-        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--mint)"),
+        # Neutral: a fair value far below the price isn't good news; only the
+        # margin of safety beside it carries the colour.
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--text)"),
         (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
         (_("Implied return (est.)"), _fv(row, "Implied Return % (est.)", lambda v: fmt_pct(v, signed=True)), _ter_color),
     ]
@@ -243,7 +245,8 @@ def open_drawer(row: "pd.Series") -> None:
         _min_mos, _buy_thr = get_veto_thresholds()[2:4]
         st.caption(signal_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
-    _section_header(h_("Six-model fair value"))
+    # Not "Six-model": the list shows the models this stock has inputs for.
+    _section_header(h_("Model fair values"))
     if pd.notna(_price):
         fair_value_ladder(
             price=float(_price),
@@ -289,7 +292,7 @@ def open_drawer(row: "pd.Series") -> None:
         (h_("Composite score"), _score_str, _score_color),
         (h_("P/E · fair P/E"), _pe_str, "inherit"),
         (h_("Dividend yield"), _dy_str, "inherit"),
-        (h_("Exchange"), _fv(row, "Exchange", tr), "inherit"),
+        (h_("Exchange"), exchange_label(row.get("Ticker"), row.get("Exchange")), "inherit"),
     ]
     if _held:
         _shares = _safe_float(_held_row.get("shares"))
@@ -329,7 +332,7 @@ def open_drawer(row: "pd.Series") -> None:
     # next to the signal.
     from uvalu.compliance.disclosures import RECORDS_NOTE
     st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                f'color:var(--faint);margin:4px 0 2px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
+                f'color:var(--faint);margin:18px 0 8px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
                 unsafe_allow_html=True)
     if _held:
         _act1, _act2, _act3 = st.columns([1.6, 1.2, 1.2])
@@ -361,3 +364,5 @@ def open_drawer(row: "pd.Series") -> None:
                                                    "name": str(row.get("Name", "")),
                                                    "price": _safe_float(_market_price)}
                 st.rerun()
+    # Room under the buttons: they sat on the drawer's bottom edge.
+    st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)

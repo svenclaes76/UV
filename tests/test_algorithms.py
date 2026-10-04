@@ -2980,6 +2980,14 @@ class TestStage8Drift:
                               prior_snapshot={"ratings": {"AAA": "Medium"}, "date": "2026-01-01"})
         tr = [i for i in r.items if i.mode == "transition"]
         assert tr and "from Medium to High" in str(tr[0].message)
+        # ...and not a second, plain "rating High" note for the same holding.
+        assert not any(i.scope == "AAA" and i.mode == "absolute" and "rating High" in str(i.message)
+                       for i in r.items)
+
+    def test_plain_rating_high_note_without_a_transition(self):
+        profiles, conc, quant, income, stress = self._inputs(ratings=(("AAA", "High"),))
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
+        assert any(i.scope == "AAA" and "rating High" in str(i.message) for i in r.items)
 
     def test_snapshot_from_report_roundtrips_via_report(self):
         # snapshot_from_report pulls the exact fields _stage8_observations reads back

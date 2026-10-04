@@ -135,7 +135,13 @@ def render() -> None:
                            unsafe_allow_html=True)
 
     # ── Results list ─────────────────────────────────────────────────────────
-    wl_df = all_df[all_df["Ticker"].isin(watchlist)].reset_index(drop=True)
+    # Highest composite score first, like the Screener (rows came out grouped
+    # by exchange); unscored rows last.
+    wl_df = all_df[all_df["Ticker"].isin(watchlist)]
+    if "Value Score" in wl_df.columns:
+        wl_df = wl_df.assign(_sort=pd.to_numeric(wl_df["Value Score"], errors="coerce")).sort_values(
+            "_sort", ascending=False, na_position="last").drop(columns="_sort")
+    wl_df = wl_df.reset_index(drop=True)
     if not watchlist:
         with st.container(border=True):
             st.markdown(empty_results_html(

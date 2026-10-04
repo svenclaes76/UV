@@ -419,6 +419,11 @@ GLOBAL_CSS = """
     flex: 1 1 auto !important;
   }
   [class*="st-key-an_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  /* The last block in a card kept Streamlit's markdown margin-bottom:-16px,
+     so its text sat on the card's bottom edge (Data sources' flag line). */
+  [class*="st-key-an_card_"] [data-testid="stElementContainer"]:last-child [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
 
   /* Same class of bug as the Holdings-row/KPI-strip height underestimation
      above: Streamlit's own layout estimate for these two raw-HTML blocks
@@ -559,6 +564,13 @@ GLOBAL_CSS = """
      free to use the full (wider) column. */
   .st-key-scr_score_slider [data-baseweb="slider"],
   .st-key-scr_mos_slider [data-baseweb="slider"] { width: 150px !important; }
+  /* Streamlit's slider no longer carries data-baseweb="slider", so the rule
+     above stopped applying and Min score shrank to its 72px label. Fixed
+     container widths instead (same track length for both); the two sit in
+     one group (scr_slider_group) so they wrap together. */
+  .st-key-scr_score_slider { width: 170px !important; }
+  .st-key-scr_mos_slider { width: 190px !important; }
+  .st-key-scr_slider_group { gap: 32px !important; width: auto !important; flex: none !important; }
 
   /* The name column's stColumn wrapper reported only 28px tall live while
      its actual markdown content (ticker+exchange line, company-name line)
@@ -597,7 +609,9 @@ GLOBAL_CSS = """
   .st-key-scr_table_card {
     background: var(--panel) !important; border-color: var(--line) !important;
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
-    overflow: hidden !important; padding: 0 !important;
+    /* clip, not hidden: same rounded clipping, but no scroll container, so
+       the column header below can stick to the top of the page. */
+    overflow: clip !important; padding: 0 !important;
     /* No margin-top cancellation here, unlike scr_row_'s below. This used to
        carry a -16px pull for an observed 32px double gap against
        scr_filter_panel — but that gap's real cause was a phantom sibling
@@ -611,6 +625,12 @@ GLOBAL_CSS = """
   }
   .st-key-scr_col_header {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    background: var(--panel) !important;
+  }
+  /* Sticky column header while scrolling the results (visual review SC3) —
+     on its wrapper, whose parent is the whole table card. */
+  [data-testid="stLayoutWrapper"]:has(> .st-key-scr_col_header) {
+    position: sticky !important; top: 0 !important; z-index: 3 !important;
   }
   /* Each sort button's wrapper (.stButton, display:block by default) reported
      26px tall against the button's own real 16px content — not padding or
@@ -985,6 +1005,11 @@ GLOBAL_CSS = """
     margin-bottom: -16px !important;
   }
   .st-key-pf_card_cash_full [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  /* Overview cash card: Deposit/Withdraw side by side, same width. */
+  .st-key-pf_cash_btns { flex-wrap: nowrap !important; }
+  .st-key-pf_cash_btns button { min-width: 96px !important; justify-content: center !important; }
+  .st-key-pf_open_ov_all { padding: 4px 20px 10px !important; }
+  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--teal) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
   .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
   .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 10px !important; }
@@ -1119,6 +1144,12 @@ GLOBAL_CSS = """
   .st-key-risk_col_header {
     padding: 10px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
     min-height: 30px !important;
+  }
+  /* Title above the header row; the card has no padding of its own, and the
+     -16px cancels the sibling gap so the title and header read as one block. */
+  .st-key-risk_holdings_title { padding: 16px 20px 0 !important; }
+  .st-key-risk_holdings_title + * , [data-testid="stLayoutWrapper"]:has(> .st-key-risk_holdings_title) + [data-testid="stLayoutWrapper"] > .st-key-risk_col_header {
+    margin-top: -6px !important;
   }
   /* :not([class*="_view"]) matters here — unlike db_hold_'s button (keyed
      "db_holdbtn_<idx>", a name that never contains "db_hold_" as a
@@ -1777,6 +1808,11 @@ GLOBAL_CSS = """
     font-size: 12px !important; line-height: 1.5 !important; color: var(--muted) !important;
   }
   .st-key-risk_card_holdings [data-testid="stCaptionContainer"] { padding: 10px 20px 14px !important; }
+
+  /* ── Admin user rows: markdown cells carried margin-bottom:-16px, so the
+     row centring put them ~6px below the role select and badges. ───────── */
+  [class*="st-key-admin_user_row_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  [class*="st-key-admin_role_"] { min-width: 104px !important; }
 
   /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
   input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }

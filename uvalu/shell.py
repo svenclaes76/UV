@@ -371,9 +371,16 @@ def render_topbar(nav) -> None:
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
-                        st.markdown(f"**{_display_name(user.email)}**")
-                        st.caption(user.email)
-                        st.caption(tr(user.role.capitalize()))
+                        # Name, then the email as plain text (st.caption auto-linked it
+                        # as a mailto link) and the role as a chip.
+                        st.markdown(
+                            f'<div><div style="font-size:14px;font-weight:600;">{html.escape(_display_name(user.email))}</div>'
+                            f'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
+                            f'{html.escape(user.email).replace("@", "&#64;")}</div>'
+                            f'<span style="display:inline-block;margin-top:8px;font-size:10.5px;font-weight:500;'
+                            f'color:var(--muted);border:0.5px solid var(--line);border-radius:6px;padding:1px 8px;">'
+                            f'{html.escape(tr(user.role.capitalize()))}</span></div>',
+                            unsafe_allow_html=True)
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
                             _settings_page = nav_registry.pages.get("settings")
@@ -389,9 +396,16 @@ def render_topbar(nav) -> None:
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()
+                        # A menu item like the links above (icon + label), not a small
+                        # underlined link.
                         st.markdown(
-                            '<a href="/?logout=1" target="_self" '
-                            f'style="color:var(--down-txt);font-size:12.5px;">{html.escape(_("Sign out"))}</a>',
+                            '<a href="/?logout=1" target="_self" style="display:flex;align-items:center;gap:10px;'
+                            'color:var(--text);font-size:14px;text-decoration:none;padding:2px 0;">'
+                            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                            'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                            '<path d="M14 8v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/>'
+                            '<path d="M9 12h12l-3-3M18 15l3-3"/></svg>'
+                            f'{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )
 

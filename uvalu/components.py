@@ -820,7 +820,9 @@ def _score_bar_cell_html(score: float | None) -> str:
     number itself is only ever mint (>=75) or the default text color."""
     if score is None or pd.isna(score):
         return "—"
-    score = float(score)
+    # Banded on the shown (rounded) number: 74.6 printed "75" in plain text
+    # next to a real 75 in mint.
+    score = float(round(float(score)))
     bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
     text_color = "var(--uv-mint)" if score >= 75 else "var(--text, inherit)"
     pct = max(0.0, min(100.0, score))
@@ -910,7 +912,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             # (not "" or None) when it doesn't match one of the tracked
             # exchanges, and NaN is truthy in Python, so `if exchange` let
             # the literal string "nan" through (confirmed live: "BDC nan").
-            _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);"
+            _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);"
                          f"margin-left:8px;'>{exchange}</span>" if exchange and pd.notna(exchange) else "")
             # Two explicit block divs (matching holdings_row_html's proven
             # compact ticker/name layout), not a <br>-separated pair of
@@ -959,7 +961,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             # with no font-family, drifting from both the mockup's exact
             # size and its monospace figure column convention.
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
-                       f"{fmt_num(pe, 1)}</div>", unsafe_allow_html=True)
+                       f"{fmt_num(pe, 1) if pe is not None and pd.notna(pe) and pe >= 0.05 else '—'}</div>",
+                       unsafe_allow_html=True)   # P/E ≤ 0 (losses, missing EPS), or one that would read "0,0", means nothing
         _i += 1
         with _cols[_i]:
             # Matches r.dy — same fix as P/E above.
@@ -1497,7 +1500,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1586,7 +1589,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1741,7 +1744,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
 
     _num = "text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);"
     _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:5px;white-space:nowrap;"
-    _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
@@ -1811,7 +1814,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
     templated header for aligned column labels."""
     name = _name_html(name)
-    _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     _beta_str = fmt_num(beta, 2)
     _vol_str = fmt_pct(vol_pct, 0)
