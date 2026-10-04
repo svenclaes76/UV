@@ -28,7 +28,7 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
-from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
@@ -195,7 +195,7 @@ def open_drawer(row: "pd.Series") -> None:
             # watchlist-star handler used to force-close-then-reopen.
             st.rerun()
     st.markdown(f'<div style="padding-bottom:16px;border-bottom:0.5px solid var(--line);">'
-               f'<span style="font-size:13px;color:var(--muted);">{row.get("Name", "—")} · {_fv(row, "sector", tr)}</span>'
+               f'<span style="font-size:13px;color:var(--muted);">{_html.escape(display_name(row.get("Name")) or "—")} · {_fv(row, "sector", tr)}</span>'
                f'{signal_provenance_html(row)}{founder_notice_html(row)}</div>',
                unsafe_allow_html=True)
 

@@ -900,9 +900,11 @@ def fmt_money(value, currency: str | None = None, decimals: int = 2, *, signed: 
     ccy = currency or current().currency
     value = 0.0 if value == 0 else value   # no "-0.00"
     pattern = loc.currency_formats["standard"]
-    if value < 0 and _glued_minus(pattern):
-        # de-CH / it-CH: CLDR's "¤-#,##0.00" reads "CHF-4’390" next to a signed
-        # "+EUR 155.72". Put the minus where the plus goes: "-CHF 4’390".
+    if value < 0 and (_glued_minus(pattern) or "¤" in pattern.prefix[0]):
+        # The minus goes where the plus goes: in front of the symbol. de-CH /
+        # it-CH's CLDR "¤-#,##0.00" read "CHF-4’390", and nl-BE's "¤ -#,##0.00"
+        # put "€ -86,01" next to a signed "+€ 126,60" in the same P&L column.
+        # Symbol-after formats ("-1.234,56 €") already lead with the minus.
         out = _bnum.get_minus_sign_symbol(loc) + _apply(pattern, -value, loc, decimals, None, currency=ccy)
     else:
         out = _apply(pattern, value, loc, decimals, None, currency=ccy)

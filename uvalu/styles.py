@@ -17,6 +17,12 @@ GLOBAL_CSS = """
     --uv-mono:        "SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
   }
 
+  /* Bar tracks (fair-value ladders, score/sub-score bars, weights): the
+     light-surface #EEF1F5 above was used in dark theme too, which made the
+     empty part of every bar the brightest thing on the navy screen. Only the
+     fill carries colour; the track is a faint tint (visual review G3). */
+  html:not([data-theme="light"]) { --uv-track: rgba(245,247,250,0.10); }
+
   /* ── Design-mockup tokens (dark-navy top bar/shell + card surfaces) ────────
      Namespaced separately from the --uv-* set above so existing components
      keep working unchanged while new raw-HTML screens (top bar, Dashboard,
@@ -1759,6 +1765,18 @@ GLOBAL_CSS = """
   }
   /* Tighter dividers — color comes from the theme borderColor */
   [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
+
+  /* ── Captions inside cards: one footnote style (visual review G7) ──────────
+     st.caption inside a card rendered at near body size (the factor-loading
+     note, the risk-contribution note, the Analysis sub-score and assumptions
+     notes); footnotes are 12px muted everywhere. The risk-contribution card
+     has no padding of its own (rows pad themselves), so its note sat on the
+     card edge — given the rows' 20px inset. */
+  [class*="st-key-"][class*="_card_"] [data-testid="stCaptionContainer"],
+  [class*="st-key-"][class*="_card_"] [data-testid="stCaptionContainer"] p {
+    font-size: 12px !important; line-height: 1.5 !important; color: var(--muted) !important;
+  }
+  .st-key-risk_card_holdings [data-testid="stCaptionContainer"] { padding: 10px 20px 14px !important; }
 
   /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
   input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }

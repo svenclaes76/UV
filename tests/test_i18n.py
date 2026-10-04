@@ -578,3 +578,17 @@ def test_drawer_stays_at_design_width_in_english_and_widens_for_german():
     de = [("Kurs", "12,24 €"), ("Fairer Wert", "23,55 €"), ("Sicherheitsmarge", "+48,0 %"), ("Gesamtrendite", "+113,7 %")]
     assert _hero_row_px(en) + _DRAWER_CHROME_PX <= _DRAWER_PX
     assert 470 <= _hero_row_px(de) <= 480   # live-measured 473px
+
+
+@pytest.mark.parametrize("region", ["nl-BE", "nl-NL", "en-GB", "de-CH"])
+def test_negative_money_puts_the_minus_in_front_like_the_plus(region):
+    """A P&L column read "+€ 126,60" above "€ -86,01" (nl-BE): the minus now
+    goes where the plus goes, in front of the symbol (visual review G4)."""
+    neg = i18n.fmt_money(-86.01, "EUR", locale=region)
+    pos = i18n.fmt_money(86.01, "EUR", signed=True, locale=region)
+    assert neg[0] == "-" and pos[0] == "+"
+    assert neg[1:] == pos[1:]
+
+
+def test_negative_money_with_the_symbol_after_is_unchanged():
+    assert i18n.fmt_money(-86.01, "EUR", locale="fr-BE").startswith("-86,01")

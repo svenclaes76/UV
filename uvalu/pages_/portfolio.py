@@ -654,7 +654,7 @@ def render() -> None:
                              sub=(ngettext("{count} event", "{count} events", _tile_n_events) + " · "
                                   + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin")
                 with _t2:
-                    _kpi_card(h_("Withholding · 12m"), "−" + fmt_total(_tile_fwh + _tile_be),
+                    _kpi_card(h_("Withholding · 12m"), fmt_total(-(_tile_fwh + _tile_be)),
                              sub=h_("{foreign} foreign · {belgian} BE 30%",
                                     foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin")
                 with _t3:
@@ -710,8 +710,9 @@ def render() -> None:
 
             def _neg_eur(v: float) -> str:
                 # "—" for no withholding, same as the log's Foreign WH / BE 30%
-                # cells — a bare "−€0.00" reads like a real deduction.
-                return "−" + fmt_money(v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
+                # cells — a bare "-€0.00" reads like a real deduction. The sign
+                # comes from fmt_money, like every other negative amount.
+                return fmt_money(-v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
 
             # Design width: the summary takes the left of a 1.6 : 1 split; the
             # right-hand column is intentionally empty, reserved for future cards.

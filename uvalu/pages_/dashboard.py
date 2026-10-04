@@ -1,6 +1,8 @@
 """Dashboard page — portfolio overview matching the Uvalu.dc.html mockup:
 KPI strip, value chart + conviction/risk card, holdings fair-value ladder,
 sector allocation, upcoming dividends, top movers."""
+import html as _html
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -13,7 +15,7 @@ from settings import load_shared_settings, load_settings, get_dividend_withholdi
 from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
-from uvalu.formatting import safe_pct as _safe_pct
+from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
@@ -403,6 +405,12 @@ def render() -> None:
                 _conv_label = (h_("Upper range of the model scale") if _conv_score >= _upper else
                               h_("Middle range of the model scale") if _conv_score >= 40
                               else h_("Lower range of the model scale"))
+                # Ring in the band's colour (the Analysis header's bands: mint at
+                # or above the Undervalued threshold, amber in the middle, red
+                # below 40 like the Low score signal); the headline stays plain
+                # text — it states a position on the scale, not good news.
+                _conv_ring = ("#1DD6A4" if _conv_score >= _upper else
+                              "#C98A3A" if _conv_score >= 40 else "#A32D2D")
                 _conv_text = h_("Value-weighted mean of model scores across scored holdings. Describes the portfolio.")
                 if _n_veto:
                     _conv_text += " " + ngettext("{count} position fails a quality screen.",
@@ -410,7 +418,7 @@ def render() -> None:
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
-    {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
+    {radial_gauge_svg(_conv_score, _conv_ring, size=118)}
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
       <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{fmt_num(_conv_score, 0)}</span>
       <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
@@ -418,7 +426,7 @@ def render() -> None:
   </div>
   <div>
     <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
-    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{_conv_label}</div>
+    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--text);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
 </div>""", unsafe_allow_html=True)
@@ -657,7 +665,7 @@ def render() -> None:
                         st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
-    <div style="font-size:12.5px;">{_dr['Name']}</div>
+    <div style="font-size:12.5px;">{_html.escape(display_name(_dr['Name']))}</div>
     <div style="font-size:11px;color:var(--faint);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
   </div>
   <div style="text-align:right;">
@@ -689,7 +697,7 @@ def render() -> None:
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
   <span style="font-family:var(--uv-mono);color:var(--faint);width:64px;flex:none;white-space:nowrap;">{_mr['ticker']}</span>
-  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_mr['name']}</span>
+  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>

@@ -1,5 +1,7 @@
 """Tests for uvalu/formatting.py's pure value formatters."""
-from uvalu.formatting import fmt_eur, safe_pct
+import pytest
+
+from uvalu.formatting import display_name, fmt_eur, safe_pct
 
 
 class TestFmtEur:
@@ -17,3 +19,27 @@ class TestSafePct:
 
     def test_zero_denominator_returns_zero(self):
         assert safe_pct(25.0, 0) == 0
+
+
+# ── display_name (visual review G5) ─────────────────────────────────────────
+
+@pytest.mark.parametrize("raw, shown", [
+    ("MBB SE I", "MBB SE"),                          # trailing share-class letter
+    ("Deutsche Rohstoff AG N", "Deutsche Rohstoff AG"),
+    ("Cigna Group, The R", "The Cigna Group"),
+    ("INVESTOR AB CLASS B", "Investor AB Class B"),  # "Class B" is kept
+    ("CEOTRONICS AG I", "Ceotronics AG"),
+    ("MAUREL ET PROM", "Maurel et Prom"),
+    ("B&C SPEAKERS", "B&C Speakers"),
+    ("EOG RESOURCES INC. R", "EOG Resources Inc."),
+    ("LAURENT-PERRIER", "Laurent-Perrier"),
+    ("TUI AG N", "TUI AG"),
+    ("bpost NV/SA", "bpost NV/SA"),                  # mixed case: left as written
+    ("Montea Comm. VA", "Montea Comm. VA"),
+    ("1CF.MI", "1CF.MI"),                            # a ticker standing in for a name
+    ("CPINV.BR", "CPINV.BR"),
+    ("", ""),
+    (None, ""),
+])
+def test_display_name(raw, shown):
+    assert display_name(raw) == shown

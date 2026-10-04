@@ -366,11 +366,11 @@ def render() -> None:
             (_sector_label,     c.sector_weights.get(c.largest_sector, 0.0) if _has_sector else 0.0, 0.30),
             (h_("Largest single name"), c.top1_weight, 0.15),
         ]:
-            # Only the bar is status-colored (red once over its limit) — the
-            # value text itself stays plain, matching the mockup's `c.value`
-            # (no conditional color in the template, unlike the old version
-            # here which colored both).
-            _bar_color = "var(--down-txt)" if _val > _limit else "var(--teal)"
+            # Only the bar is status-colored (amber once over its reference
+            # level — red is kept for avoid/veto signals, brand guide §4) —
+            # the value text itself stays plain, matching the mockup's
+            # `c.value` (no conditional color in the template).
+            _bar_color = "var(--amber-txt)" if _val > _limit else "var(--teal)"
             st.markdown(
                 f'<div style="margin-bottom:16px;">'
                 f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">'
@@ -479,8 +479,11 @@ def render() -> None:
         if not _obs:
             st.caption(_("No figure is above a model reference level or away from a target you set."))
         else:
-            _level_style = {"high": ("var(--down-txt)", N_("Above reference")),
-                            "notice": ("#C98A3A", N_("Notice"))}
+            # Amber for a figure above a reference level, muted for a notice:
+            # these describe the portfolio, they are not avoid/veto signals,
+            # which are the only things in red (brand guide §4).
+            _level_style = {"high": ("var(--amber-txt)", N_("Above reference")),
+                            "notice": ("var(--muted)", N_("Notice"))}
             _rows_html = []
             for _o in _obs:
                 _color, _lvl = _level_style.get(_o.level, ("var(--muted)", N_("Notice")))
@@ -492,9 +495,11 @@ def render() -> None:
                     f'<span style="font-size:12.5px;color:var(--text);line-height:1.5;">{html.escape(tr(_o.message))}</span>'
                     f'<span style="font-size:11px;color:var(--faint);white-space:nowrap;">{_basis}</span></div>')
             st.markdown("".join(_rows_html), unsafe_allow_html=True)
+        # DIS-3's estimates sentence is already the warning at the top of this
+        # page; list the other disclosures here instead of repeating it.
         st.markdown('<div style="margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.6;">'
-                    + "<br>".join(html.escape(tr(_d)) for _d in r.disclosures) + "</div>",
-                    unsafe_allow_html=True)
+                    + "<br>".join(html.escape(tr(_d)) for _d in r.disclosures if _d != RISK_DISCLOSURES[0])
+                    + "</div>", unsafe_allow_html=True)
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:

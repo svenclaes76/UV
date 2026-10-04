@@ -39,7 +39,10 @@ analysis_page.render()
 
 def test_shows_info_when_no_ticker_selected(isolated_data, monkeypatch):
     at = _run(monkeypatch, ticker=None)
-    assert "No stock selected" in "".join(i.value for i in at.info)
+    # The app's own empty state (not st.info). Its "Open the screener" button
+    # needs the page registry, which this isolated script doesn't populate.
+    assert "No stock selected" in "".join(m.value for m in at.markdown)
+    assert not at.info
 
 
 def test_shows_warning_when_ticker_not_found(isolated_data, monkeypatch):

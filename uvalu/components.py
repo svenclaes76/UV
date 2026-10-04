@@ -15,7 +15,7 @@ import streamlit as st
 from risk import SCORE_LOW, SCORE_ELEVATED, risk_band
 from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
-from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
                         ngettext, pgettext, tr)
 
@@ -32,6 +32,13 @@ _SIGNAL_KIND = {
 }
 
 _TIP_LABELS = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
+
+
+def _name_html(name) -> str:
+    """A company name for row markup: tidied for display (display_name,
+    visual review G5) and HTML-escaped (names come from the data provider)."""
+    import html as _html_mod
+    return _html_mod.escape(display_name(name))
 
 
 def is_hard_veto(v: object) -> bool:
@@ -756,6 +763,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     fair value because the fundamentals record came back incomplete. Embed
     inside an outer st.markdown(unsafe_allow_html=True) call; pair with a
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
+    name = _name_html(name)
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
                    if sector and pd.notna(sector) else "")
@@ -863,6 +871,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     anywhere on the row (caller opens the drawer); `action` fires on the
     star (Screener: toggle watchlist membership; Watchlist: remove).
     """
+    name = _name_html(name)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
     # keys) — a raw dot in a CSS class selector is parsed as two chained
@@ -1472,6 +1481,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
     Returns {"view": bool, "edit": bool} — `edit` is always False when
     show_edit=False.
     """
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
     _name_w = 240 if show_edit else 200
     _show_income = income_12m is not None or ttm_yield_pct is not None or yoc_pct is not None
@@ -1566,6 +1576,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
     rows have no onClick, unlike the open-position `h.onClick`); `show_edit`
     adds a trailing edit-pencil button (the full Closed positions page only,
     not the Overview preview). Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
     _widths = widths or (([400] if show_edit else [300]) + [56, 74, 74, 110] + ([32] if show_edit else []))
     with st.container(key=key):
@@ -1623,6 +1634,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
     columns (full page only) — all EUR-converted figures, the caller passes
     `amount`/`tax`/`net` already through portfolio.dividends_in_eur().
     Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
 
     def _money(v: float | None) -> str:
@@ -1721,6 +1733,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
     this has no `show_edit` toggle since it's only ever used on the full
     page, never a preview list.
     Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
 
     def _money(v: float | None) -> str:
@@ -1741,8 +1754,8 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
                   "color:var(--muted);border:0.5px solid var(--line);")
     _ps_str = fmt_money(per_share, "EUR")
     _sh_str = fmt_int(int(shares)) if shares is not None and pd.notna(shares) else "—"
-    _fwh_str = f"−{_money(foreign_wh)}" if foreign_wh else "—"
-    _be_str = f"−{_money(be_wh)}" if be_wh else "—"
+    _fwh_str = _money(-foreign_wh) if foreign_wh else "—"
+    _be_str = _money(-be_wh) if be_wh else "—"
     _src_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
                  if source == "auto" else "border:0.5px solid var(--line);color:var(--muted);")
     _src_label = h_("Auto") if source == "auto" else h_("Manual")
@@ -1797,6 +1810,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     Vol/Contribution-bar/Flag). Embed inside an outer st.markdown() call,
     same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
     templated header for aligned column labels."""
+    name = _name_html(name)
     _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     _beta_str = fmt_num(beta, 2)

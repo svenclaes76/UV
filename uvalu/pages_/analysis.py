@@ -22,8 +22,8 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color,
-                              veto_reason_str, is_hard_veto, skeleton_chart_html)
-from uvalu.formatting import fmt_eur as _fmt_eur
+                              veto_reason_str, is_hard_veto, skeleton_chart_html, empty_results_html)
+from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
                         lowercase_noun, ngettext, plotly_money_axis, tr)
 from uvalu.runtime import theme_colors, current_user
@@ -180,12 +180,24 @@ def _render_sources_and_producer(row, ticker: str) -> None:
 def render() -> None:
     ticker = st.session_state.get("_analysis_ticker")
 
-    _dash_page = nav_registry.pages.get("dashboard")
-    if _dash_page is not None and st.button(_("← Back to dashboard"), key="an_back", type="tertiary"):
-        st.switch_page(_dash_page)
+    # Back to the page the stock was opened from (uvalu/nav.py), not always
+    # the Dashboard.
+    _back_page, _back_key = nav_registry.back_target("analysis")
+    if _back_page is not None and st.button(_("← Back to {page}", page=_back_page.title),
+                                            key="an_back", type="tertiary"):
+        st.switch_page(_back_page)
 
     if not ticker:
-        st.info(_("No stock selected. Open a stock from any table (Dashboard, Screener, Watchlist, Portfolio, Risk) to view its full analysis here."))
+        # The app's own empty state, not Streamlit's blue st.info banner.
+        with st.container(key="an_empty", border=True):
+            st.markdown(empty_results_html(
+                h_("No stock selected. Open a stock from any table (Dashboard, Screener, Watchlist, Portfolio, Risk) to view its full analysis here.")),
+                unsafe_allow_html=True)
+            _scr_page = nav_registry.pages.get("screener")
+            if _scr_page is not None:
+                with st.container(horizontal_alignment="center"):
+                    if st.button(_("Open the screener"), key="an_empty_screener", type="primary"):
+                        st.switch_page(_scr_page)
         return
 
     _settings = load_shared_settings()
@@ -242,7 +254,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
-            f'{row.get("Name", "—")} · {tr(_sector) if _sector else "—"} · {_fv(row, "Exchange", tr)}</div>'
+            f'{html.escape(display_name(row.get("Name")) or "—")} · {tr(_sector) if _sector else "—"} · {_fv(row, "Exchange", tr)}</div>'
             f'{_score_rating_html}</div>'
             f'{signal_provenance_html(row)}{founder_notice_html(row)}',
             unsafe_allow_html=True,
@@ -346,7 +358,9 @@ def render() -> None:
             _chart_slot.empty()
 
     # ── Sub-scores | six-model fair value ─────────────────────────────────────
-    _col1, _col2 = st.columns([1, 1.25])
+    # Every two-card row on this page splits 50/50 (it used to switch between
+    # 1:1.25, 1.25:1 and 1:1, so the gutter zig-zagged down the page).
+    _col1, _col2 = st.columns(2)
     with _col1, st.container(key="an_card_subscores", border=True):
         st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Signal sub-scores")}</div>',
                    unsafe_allow_html=True)
@@ -384,7 +398,7 @@ def render() -> None:
                 st.caption(_("⚑ Composite capped at the models' median — one model ran far above the rest and the others don't corroborate it."))
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
-    _col3, _col4 = st.columns([1.25, 1])
+    _col3, _col4 = st.columns(2)
     with _col3, st.container(key="an_card_financials", border=True):
         st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Financials & valuation")}</div>',
                    unsafe_allow_html=True)
@@ -661,7 +675,7 @@ def render() -> None:
                   N_("Dividend"): row.get("Sub Dividend")}
     _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
     _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
-                 name=row.get('Name', ticker), price=_fv(row, 'Price', _fmt_eur),
+                 name=display_name(row.get('Name')) or ticker, price=_fv(row, 'Price', _fmt_eur),
                  fair_value=_fv(row, 'fair_value', _fmt_eur),
                  mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]
     if _valid_subs:

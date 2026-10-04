@@ -12,7 +12,7 @@ import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
-from uvalu.i18n import N_, _, fmt_time, tr
+from uvalu.i18n import N_, _, fmt_time, pgettext, tr
 from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
 
@@ -248,8 +248,10 @@ div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !import
 /* Below ~1200px the nav links and the market-status text no longer fit side
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
+.uv-pi-short {{ display: none; }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
+  .uv-pi-short {{ display: inline !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{ display: none !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{ padding: 7px 9px !important; }}
 }}
@@ -347,12 +349,17 @@ def render_topbar(nav) -> None:
                 # — an animated dot next to "Delayed"/"Feed stale"/"Market
                 # closed" would read as "still updating" when it isn't.
                 _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
+                # One word for widths where the full text doesn't fit next to
+                # the nav (below 1200px the dot used to stand alone).
+                _pi_short = {"#8A8A8A": pgettext("market", "Closed"),
+                             "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
                 st.markdown(
                     f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
                     f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
-                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span></div>',
+                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
+                    f'<span class="uv-pi-short" style="white-space:nowrap;">{html.escape(_pi_short)}</span></div>',
                     unsafe_allow_html=True,
                 )
 

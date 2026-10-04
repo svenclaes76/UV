@@ -445,6 +445,29 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    log" link (no change-log page exists yet).
 6. **Design-system polish, ≈ 1 day.** G3–G7, G10–G12, G14–G18. Mostly CSS/helpers in `components.py`
    and `shell.py`.
+
+   **Status 4 Oct 2026: done, not committed.**
+   - G3: dark `--uv-track` tint.
+   - G4: the minus goes in front of the symbol in every symbol-first format (`-€ 86,01`); the
+     hand-written "−" prefixes now go through `fmt_money`.
+   - G5: `uvalu.formatting.display_name` applied in all row helpers, the Dashboard dividends and movers,
+     the drawer and Analysis; names are also HTML-escaped.
+   - G6: Analysis rows are 50/50. Equal heights on the Dashboard bottom row and the Portfolio
+     closed|dividends row were left off: both were turned off on earlier request, because they left
+     empty space under the shorter card.
+   - G7: one caption style inside cards; the risk-contribution note is inset.
+   - G10: concentration bars and "Above reference" are amber, "Notice" is muted. Sharpe/metric
+     sub-labels keep the risk scale's colours, since they share the gauge's single source of truth
+     (v1.5.1).
+   - G11: the Risk footnote no longer repeats DIS-3's sentence from the top warning. Analysis
+     "Producer & conflicts" is unchanged (REC-1 producer identity on the stock page).
+   - G12: Analysis back link via `nav.back_target`.
+   - G14, G16: done earlier.
+   - G15: Analysis empty state with an "Open the screener" button.
+   - G17: composite headline in text colour, ring coloured by band.
+   - G18: a one-word market status below 1200px.
+   - G9 remainder left as is: KPI and table-header labels truncate with a tooltip on purpose, so tiles
+     keep one shape in every language.
 7. **Per-screen polish.** The remaining D/SC/W/P/R/DR/A/AD/U rows.
 8. **Phone layout (G13), separate project.** Merge with the parked "tablet layout" backlog item.
 
