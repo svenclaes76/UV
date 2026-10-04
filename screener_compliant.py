@@ -18,10 +18,13 @@ Stage 6  — Model signal (descriptive, BDG-1): Undervalued | Neutral | Low scor
 What changed versus screener.py, by requirement ID:
   PER-1/2  Peer reference (sector medians, percentile ranks) is built from the
            public universe only (``peer_mask``); a user-selected set (holdings,
-           watchlist) scored without one gets no signal (``user_selected``).
+           watchlist) scored without one gets no signal (``user_selected``), and
+           its P/E and P/B fair values use the fixed fallback multiples, not
+           medians of the user's own holdings.
   BDG-1/3  Descriptive signal labels; veto is its own state, not folded into Avoid.
   REC-2    Model outputs carry ``is_estimate`` semantics in their names
-           ("Implied Return % (est.)"); ``signal_reason`` states the rule applied.
+           ("Implied Return % (est.)"); ``signal_reason`` states the rule applied,
+           including which quality rules failed (``veto_rules``).
   REC-3    ``data_source`` and ``data_flags`` (stale price, thin basis, derived
            EPS, clamped fair value, small peer group) on every row.
   REC-4    ``signal_computed_at`` and ``price_as_of`` on every row.
@@ -29,13 +32,16 @@ What changed versus screener.py, by requirement ID:
            so the methodology page cannot drift from the code.
   REC-10   ``signal_distribution()``.
   REC-11   ``model_version`` + ``model_settings_id`` per row; ``signal_records()``.
-  DATA-6   Analyst price targets and recommendation means are off by default.
+  REC-8    ``founder_holds`` flag + FOUNDER_HOLDS_NOTICE for any founder position.
+  DATA-6   Analyst price targets and recommendation means are off by default, and
+           dropped from the output (``strip_analyst_fields``).
 """
 
 import json
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -265,6 +271,14 @@ DATA_SOURCE = "Yahoo Finance (via yfinance), unlicensed for commercial use"
 # the remaining models) and momentum uses earnings + revenue growth only.
 ANALYST_INPUTS_ENABLED = False
 
+# The sell-side fields covered by that switch. With it off, compute_scores
+# drops them from its output so no table, drawer or export can show them, and
+# strip_analyst_fields() removes them from raw fundamentals rows. Stage 1
+# (screener.py) still fetches and caches them until the wiring step removes
+# them from its field lists (docs/legal/algorithm-compliance-review.md §4).
+ANALYST_FIELDS = ("targetMeanPrice", "targetHighPrice", "targetLowPrice",
+                  "numberOfAnalystOpinions", "recommendationMean")
+
 # REC-3: a price older than this is flagged as stale in `data_flags`.
 PRICE_STALE_HOURS = 72
 
@@ -318,6 +332,35 @@ SIGNAL_DEFINITIONS = {
                            "score is set to 0."),
     SIGNAL_PENDING:     N_("Not enough peer data to rank this stock yet."),
 }
+
+# REC-2 / BDG-3: which quality rule a "Fails quality screen" row tripped. The
+# code is stored in `veto_rules` and logged (REC-11); the label is shown.
+VETO_RULE_DEBT_EQUITY      = "debt_to_equity"
+VETO_RULE_NEGATIVE_FCF     = "negative_fcf"
+VETO_RULE_DIVIDEND_AT_RISK = "dividend_at_risk"
+VETO_RULE_REVENUE_DECLINE  = "revenue_decline"
+VETO_RULE_NEGATIVE_EBIT    = "negative_operating_income"
+VETO_RULE_RETAINED_EROSION = "retained_earnings_erosion"
+VETO_RULE_DIVIDEND_CUT     = "dividend_cut_thin_cover"
+VETO_RULE_NO_VOLUME        = "no_trading_volume"
+
+VETO_RULE_LABELS = {
+    VETO_RULE_DEBT_EQUITY:      N_("debt-to-equity above the maximum"),
+    VETO_RULE_NEGATIVE_FCF:     N_("negative free cash flow"),
+    VETO_RULE_DIVIDEND_AT_RISK: N_("dividend flagged at risk with earnings cover below 1.0"),
+    VETO_RULE_REVENUE_DECLINE:  N_("multi-year revenue decline"),
+    VETO_RULE_NEGATIVE_EBIT:    N_("operating income negative for several years"),
+    VETO_RULE_RETAINED_EROSION: N_("negative and eroding retained earnings"),
+    VETO_RULE_DIVIDEND_CUT:     N_("recent dividend cut with thin cover"),
+    VETO_RULE_NO_VOLUME:        N_("no trading volume"),
+}
+
+# REC-8 / MAR Delegated Regulation 2016/958 art. 5: shown on the stock page,
+# and with the badge, whenever the founder holds a position in the stock, at
+# any size. Positions come from FOUNDER_HOLDINGS_FILE (load_founder_holdings).
+FOUNDER_HOLDS_NOTICE = N_("Disclosure: the founder of Uvalu holds a position in this stock. "
+                          "Its signal is calculated exactly like every other stock's.")
+FOUNDER_HOLDINGS_FILE = Path(__file__).parent / "data" / "founder_holdings.json"
 
 # Sectors where high leverage is a normal feature of the business model (banks and
 # insurers hold customer deposits/float as liabilities, REITs debt-finance long-lived
@@ -1010,6 +1053,12 @@ def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
         return _("No signal: the peer group needed to rank this stock is not available yet.")
 
     if code == SIGNAL_FAILS:
+        rules = row.get("veto_rules")
+        names = [_(VETO_RULE_LABELS[r]) for r in (rules if isinstance(rules, list) else [])
+                 if r in VETO_RULE_LABELS]
+        if names:
+            return _("Fails the model's quality screen ({rules}), so its composite score is set to 0.",
+                     rules="; ".join(names))
         return _("Fails the model's quality screen, so its composite score is set to 0.")
 
     if code == SIGNAL_UNDERVALUED:
@@ -1337,6 +1386,41 @@ def _declining_run(vals: list[float]) -> int:
     return run
 
 
+def _trend_veto_rules(row: pd.Series) -> list[tuple[str, object]]:
+    """(rule code, reason text) for each *trend*-based hard veto a stock trips
+    (empty list = clean). The code is a stable VETO_RULE_* value (logged with
+    the signal, REC-11); the text carries the stock's own figures."""
+    rules: list[tuple[str, object]] = []
+
+    rev = _clean_history(row, "revenueHistory")
+    if len(rev) >= _TREND_MIN_YEARS:
+        run = _declining_run(rev)
+        if run >= _TREND_DECLINE_RUN:
+            rules.append((VETO_RULE_REVENUE_DECLINE,
+                          lazy_("revenue fell {years} straight years", years=run + 1)))
+
+    ebit = _clean_history(row, "ebitHistory")
+    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
+        rules.append((VETO_RULE_NEGATIVE_EBIT,
+                      lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS)))
+
+    ret = _clean_history(row, "retainedEarningsHistory")
+    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
+            and _declining_run(ret) >= _TREND_DECLINE_RUN):
+        rules.append((VETO_RULE_RETAINED_EROSION, lazy_("retained earnings negative and still eroding")))
+
+    last_cut = _get_num(row, "dividend_last_cut_year")
+    coverage = _get_num(row, "dividendCoverage")
+    if (last_cut is not None and coverage is not None
+            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
+            and coverage < _DIV_CUT_VETO_COVERAGE):
+        rules.append((VETO_RULE_DIVIDEND_CUT,
+                      lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
+                            coverage=Fmt("num", coverage, decimals=2))))
+
+    return rules
+
+
 def _trend_veto(row: pd.Series) -> list[str]:
     """Reasons a stock trips a *trend*-based hard veto (empty list = clean).
 
@@ -1346,32 +1430,7 @@ def _trend_veto(row: pd.Series) -> list[str]:
     both veto UIs (components.veto_reason_str, analysis.py's checks panel) read
     the exact same rule instead of re-deriving it.
     """
-    reasons: list[str] = []
-
-    rev = _clean_history(row, "revenueHistory")
-    if len(rev) >= _TREND_MIN_YEARS:
-        run = _declining_run(rev)
-        if run >= _TREND_DECLINE_RUN:
-            reasons.append(lazy_("revenue fell {years} straight years", years=run + 1))
-
-    ebit = _clean_history(row, "ebitHistory")
-    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
-        reasons.append(lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS))
-
-    ret = _clean_history(row, "retainedEarningsHistory")
-    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
-            and _declining_run(ret) >= _TREND_DECLINE_RUN):
-        reasons.append(lazy_("retained earnings negative and still eroding"))
-
-    last_cut = _get_num(row, "dividend_last_cut_year")
-    coverage = _get_num(row, "dividendCoverage")
-    if (last_cut is not None and coverage is not None
-            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
-            and coverage < _DIV_CUT_VETO_COVERAGE):
-        reasons.append(lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
-                             coverage=Fmt("num", coverage, decimals=2)))
-
-    return reasons
+    return [text for _code, text in _trend_veto_rules(row)]
 
 
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -1382,6 +1441,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    reference_out: "dict | None" = None,
                    peer_mask: "pd.Series | None" = None,
                    user_selected: bool = False,
+                   founder_holdings: "set | frozenset | None" = None,
                    computed_at: "datetime | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
@@ -1400,6 +1460,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # the public universe. Without a ``reference`` its rows are not ranked among
     # themselves (that would make the signal depend on the user's holdings);
     # they get signal_code "pending" instead. Fair values are still computed.
+    # ``founder_holdings``: tickers the founder holds a position in (REC-8;
+    # see load_founder_holdings). Sets only the `founder_holds` disclosure
+    # flag; it never touches a score or a signal.
     # ``computed_at``: timestamp stamped on every row (REC-4); defaults to now.
     # Composite sub-score weights (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM,
     # W_DIVIDEND). None → the module defaults ("balanced"); the Settings
@@ -1457,6 +1520,11 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _no_peer_basis = reference is None and (user_selected or not _peers.any())
     if reference is not None:
         sector_pe, sector_pb = reference.sector_pe, reference.sector_pb
+    elif _no_peer_basis:
+        # PER-1: no public peer group to take sector multiples from. Medians of
+        # a user-selected set would make the P/E and P/B fair values depend on
+        # what the user holds, so every sector uses the fixed fallback multiples.
+        sector_pe, sector_pb = {}, {}
     else:
         # universe-relative PE / P/B multiples, from the public peers only (PER-2)
         sector_pe = _sector_pe_medians(df[_peers])
@@ -1511,11 +1579,22 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
     fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
-    trend_veto    = df.apply(lambda r: bool(_trend_veto(r)), axis=1)
+    trend_rules   = df.apply(lambda r: [code for code, _t in _trend_veto_rules(r)], axis=1)
+    trend_veto    = trend_rules.map(bool)
     no_trade_veto = pd.to_numeric(df["averageVolume"], errors="coerce") == 0
-    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | trend_veto | (
-        (df["Div Flag"] == "At Risk") & (coverage < 1.0)
-    ) | no_trade_veto
+    de_veto       = (de > max_debt_equity) & ~leverage_exempt
+    div_veto      = (df["Div Flag"] == "At Risk") & (coverage < 1.0)
+    df["_hard_veto"] = de_veto | fcf_veto | trend_veto | div_veto | no_trade_veto
+    # REC-2 / BDG-3: the rules each vetoed row tripped, as stable codes, in
+    # the order of the methodology page's quality-screen list.
+    _static_rules = ((VETO_RULE_DEBT_EQUITY, de_veto), (VETO_RULE_NEGATIVE_FCF, fcf_veto),
+                     (VETO_RULE_DIVIDEND_AT_RISK, div_veto))
+    df["veto_rules"] = [
+        [code for code, hit in _static_rules if bool(hit.iloc[i])]
+        + list(trend_rules.iloc[i])
+        + ([VETO_RULE_NO_VOLUME] if bool(no_trade_veto.iloc[i]) else [])
+        for i in range(len(df))
+    ]
 
     # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
     _raw_cols = {"mos": "margin_of_safety", "risk": "_risk_raw", "quality": "_quality_raw",
@@ -1634,6 +1713,14 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         for t in _fetched
     ]
     df["data_source"]       = DATA_SOURCE
+    # Whether the row belongs to the shared public universe. Only these rows go
+    # into the shared signal history (signal_history.record_changes): a user's
+    # own tickers, or a user-selected pass without a peer mask, never do.
+    df["public_universe"] = (_peers & (peer_mask is not None or not user_selected)).astype(bool)
+    # REC-8: founder position disclosure, at any size (FOUNDER_HOLDS_NOTICE).
+    _founder = {str(t) for t in (founder_holdings or ())}
+    df["founder_holds"] = (df["Ticker"].astype(str).isin(_founder) if "Ticker" in df.columns
+                           else pd.Series(False, index=df.index))
     df["model_version"]     = MODEL_VERSION
     df["model_settings_id"] = model_settings_id(
         max_debt_equity=max_debt_equity, max_payout=max_payout, min_mos=min_mos,
@@ -1654,8 +1741,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
     ]
 
-    # Drop internal columns
+    # Drop internal columns, and the unlicensed analyst fields (DATA-6)
     df = df.drop(columns=[c for c in df.columns if c.startswith("_")])
+    df = strip_analyst_fields(df)
     df = df.sort_values("Value Score", ascending=False).reset_index(drop=True)
     df.index += 1
     return df
@@ -1669,15 +1757,17 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          reference: "ScoreReference | None" = None,
                          reference_out: "dict | None" = None,
                          peer_mask: "pd.Series | None" = None,
-                         user_selected: bool = False) -> pd.DataFrame:
+                         user_selected: bool = False,
+                         founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
-    ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected``: see
-    compute_scores."""
+    ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
+    ``founder_holdings``: see compute_scores."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
                             reference=reference, reference_out=reference_out,
-                            peer_mask=peer_mask, user_selected=user_selected)
+                            peer_mask=peer_mask, user_selected=user_selected,
+                            founder_holdings=founder_holdings)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -1687,7 +1777,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      reference: "ScoreReference | None" = None,
                      reference_out: "dict | None" = None,
                      peer_mask: "pd.Series | None" = None,
-                     user_selected: bool = False) -> pd.DataFrame:
+                     user_selected: bool = False,
+                     founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -1706,7 +1797,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
                           min_mos=min_mos, buy_threshold=buy_threshold, weights=weights,
                           reference=reference, reference_out=reference_out,
-                          peer_mask=peer_mask, user_selected=user_selected)
+                          peer_mask=peer_mask, user_selected=user_selected,
+                          founder_holdings=founder_holdings)
 
 
 # ── Legal-compliance helpers ──────────────────────────────────────────────────
@@ -1719,6 +1811,39 @@ def peer_mask_for(df: pd.DataFrame, public_tickers) -> pd.Series:
     if "Ticker" not in df.columns:
         return pd.Series(False, index=df.index)
     return df["Ticker"].isin(public)
+
+
+def strip_analyst_fields(data):
+    """DATA-6: `data` without the sell-side ANALYST_FIELDS while
+    ANALYST_INPUTS_ENABLED is off — a DataFrame (columns dropped), a single
+    fundamentals row (dict) or a {ticker: row} cache dict. Returned unchanged
+    when the switch is on. Never mutates its argument."""
+    if ANALYST_INPUTS_ENABLED or data is None:
+        return data
+    if isinstance(data, pd.DataFrame):
+        return data.drop(columns=[c for c in ANALYST_FIELDS if c in data.columns])
+    if isinstance(data, dict):
+        if data and all(isinstance(v, dict) for v in data.values()):   # {ticker: row}
+            return {k: strip_analyst_fields(v) for k, v in data.items()}
+        return {k: v for k, v in data.items() if k not in ANALYST_FIELDS}
+    return data
+
+
+def load_founder_holdings(path: Path = FOUNDER_HOLDINGS_FILE) -> frozenset:
+    """REC-8: the tickers the founder holds a position in, at any size, for the
+    `founder_holds` disclosure flag. The file is kept by hand and updated with
+    each personal trade in a covered stock (see the conflicts of interest
+    policy): {"updated": "YYYY-MM-DD", "tickers": ["ABI.BR", ...]}.
+
+    A missing file means "no positions". A file that exists but can't be read
+    raises: silently showing no disclosure would be a false statement."""
+    if not path.exists():
+        return frozenset()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    tickers = data.get("tickers") if isinstance(data, dict) else None
+    if not isinstance(tickers, list):
+        raise ValueError(f"{path}: expected {{\"tickers\": [...]}}")
+    return frozenset(str(t).strip() for t in tickers if str(t).strip())
 
 
 def model_settings_id(*, max_debt_equity: float, max_payout: float, min_mos: float,
@@ -1820,7 +1945,8 @@ SIGNAL_RECORD_FIELDS = (
     "margin_of_safety", "fv_model_count", "fv_basis_thin", "veto",
     "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend",
     "graham_number", "pe_fair_value", "epv", "ddm", "ddm_multistage",
-    "pb_fair_value", "fcf_fair_value", "data_flags",
+    "pb_fair_value", "fcf_fair_value", "data_flags", "veto_rules",
+    "public_universe", "founder_holds",
     "signal_computed_at", "model_version", "model_settings_id",
 )
 

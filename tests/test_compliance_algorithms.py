@@ -7,7 +7,7 @@ Two kinds of check:
     compute exactly what screener.py / risk.py compute, so the copies change
     what is said, not what is calculated;
   • requirement — each requirement ID the copies claim to meet (PER-1/2/4/5,
-    BDG-1/3, REC-3/4/5/7/10/11, DATA-6, DIS-3) is pinned by a test.
+    BDG-1/3, REC-2/3/4/5/7/8/9/10/11, DATA-6, DIS-3) is pinned by a test.
 
 All offline: synthetic frames, monkeypatched price history and factor data.
 """
@@ -25,6 +25,7 @@ import risk
 import risk_compliant
 import screener
 import screener_compliant as sc
+import settings_audit
 import signal_history
 
 
@@ -137,6 +138,29 @@ class TestDataLicensing:
         out = sc.compute_scores(_universe(5), computed_at=_NOW)
         assert all(r.get("analyst") == "not_licensed" for r in out["fv_dark_reasons"])
 
+    def test_analyst_columns_are_not_in_the_output(self):
+        out = sc.compute_scores(_universe(10), computed_at=_NOW)
+        assert not set(sc.ANALYST_FIELDS) & set(out.columns)
+        assert not set(sc.ANALYST_FIELDS) & set(sc.signal_records(out)[0])
+
+    def test_analyst_columns_kept_when_licensed(self, monkeypatch):
+        monkeypatch.setattr(sc, "ANALYST_INPUTS_ENABLED", True)
+        out = sc.compute_scores(_universe(10), computed_at=_NOW)
+        assert "targetMeanPrice" in out.columns
+
+    def test_strip_analyst_fields_on_rows_and_caches(self):
+        row = {"Ticker": "A.BR", "Price": 10.0, "targetMeanPrice": 12.0,
+               "recommendationMean": 2.0, "fv_dark_reasons": {"analyst": "not_licensed"}}
+        assert sc.strip_analyst_fields(row) == {"Ticker": "A.BR", "Price": 10.0,
+                                                "fv_dark_reasons": {"analyst": "not_licensed"}}
+        assert "targetMeanPrice" in row                       # not mutated
+        cache = {"A.BR": dict(row), "B.BR": {"Price": 5.0, "targetLowPrice": 4.0}}
+        stripped = sc.strip_analyst_fields(cache)
+        assert stripped["B.BR"] == {"Price": 5.0}
+        assert "targetMeanPrice" not in stripped["A.BR"]
+        df = sc.strip_analyst_fields(_universe(3))
+        assert not set(sc.ANALYST_FIELDS) & set(df.columns)
+
 
 class TestPeerIndependence:
     """PER-1 / PER-2: a stock's signal never depends on who is looking."""
@@ -182,6 +206,33 @@ class TestPeerIndependence:
         assert (rest["signal_code"] == sc.SIGNAL_PENDING).all()
         assert rest["Value Score"].isna().all()
         assert rest["fair_value"].notna().all()           # fair values are not rank-based
+
+    def test_user_selected_fair_values_ignore_the_other_holdings(self):
+        """PER-1: on the cold-start path, sector P/E and P/B medians of the
+        user's own holdings must not set anyone's fair value. Eight holdings
+        in one sector is enough for a sector median (MIN_SECTOR_SAMPLE)."""
+        holdings = _universe(8, prefix="H")
+        holdings["sector"] = "Technology"
+        other = holdings.copy()
+        other.loc[1:, "trailingPE"] *= 3.0       # the *other* holdings get pricier
+        other.loc[1:, "bookValue"] /= 3.0
+        a = sc.compute_scores(holdings.copy(), user_selected=True, computed_at=_NOW).set_index("Ticker")
+        b = sc.compute_scores(other.copy(), user_selected=True, computed_at=_NOW).set_index("Ticker")
+        for col in ("pe_fair_value", "pb_fair_value", "fair_value", "margin_of_safety"):
+            assert a.loc["H0.BR", col] == pytest.approx(b.loc["H0.BR", col], nan_ok=True), col
+        # ...whereas a public-universe pass does use the peers' medians
+        pa = sc.compute_scores(holdings.copy(), computed_at=_NOW).set_index("Ticker")
+        pb = sc.compute_scores(other.copy(), computed_at=_NOW).set_index("Ticker")
+        assert pa.loc["H0.BR", "fair_value"] != pytest.approx(pb.loc["H0.BR", "fair_value"])
+
+    def test_public_universe_flag(self):
+        public, combined = self._with_user_extras()
+        mask = sc.peer_mask_for(combined, public["Ticker"])
+        out = sc.compute_scores(combined, peer_mask=mask, computed_at=_NOW).set_index("Ticker")
+        assert out.loc[public["Ticker"], "public_universe"].all()
+        assert not out.loc[[t for t in out.index if t.startswith("U")], "public_universe"].any()
+        held = sc.compute_scores(_universe(8, prefix="H"), user_selected=True, computed_at=_NOW)
+        assert not held["public_universe"].any()
 
     def test_user_selected_set_with_reference_matches_the_universe(self):
         universe = _universe(30)
@@ -237,6 +288,51 @@ class TestProvenance:
         assert {"signal_code", "model_version", "model_settings_id", "fair_value"} <= set(recs[0])
 
 
+class TestQualityScreenRules:
+    """REC-2 / BDG-3: a failed screen names the rule it failed."""
+
+    def test_veto_rules_name_the_rule(self):
+        df = _universe(25)
+        df.loc[0, "debtToEquity"] = 5000.0
+        df.loc[1, "averageVolume"] = 0.0
+        df["revenueHistory"] = None
+        df["revenueHistory"] = df["revenueHistory"].astype(object)
+        df.at[2, "revenueHistory"] = [70.0, 80.0, 90.0, 100.0]
+        out = sc.compute_scores(df, computed_at=_NOW).set_index("Ticker")
+        assert out.loc["P0.BR", "veto_rules"][0] == sc.VETO_RULE_DEBT_EQUITY
+        assert sc.VETO_RULE_NO_VOLUME in out.loc["P1.BR", "veto_rules"]
+        assert sc.VETO_RULE_REVENUE_DECLINE in out.loc["P2.BR", "veto_rules"]
+        assert (out["veto_rules"].map(bool) == out["veto"]).all()
+        assert "debt-to-equity" in sc.signal_reason(out.loc["P0.BR"])
+
+    def test_every_rule_has_a_label(self):
+        codes = {v for k, v in vars(sc).items() if k.startswith("VETO_RULE_") and isinstance(v, str)}
+        assert codes == set(sc.VETO_RULE_LABELS)
+
+
+class TestFounderDisclosure:
+    """REC-8: any founder position is flagged, and only flagged."""
+
+    def test_flag_is_set_and_moves_nothing(self):
+        df = _universe(25)
+        a = sc.compute_scores(df.copy(), computed_at=_NOW).set_index("Ticker")
+        b = sc.compute_scores(df.copy(), founder_holdings={"P3.BR"}, computed_at=_NOW).set_index("Ticker")
+        assert b["founder_holds"].sum() == 1 and b.loc["P3.BR", "founder_holds"]
+        assert not a["founder_holds"].any()
+        for col in ("fair_value", "Value Score", "signal_code", "model_settings_id"):
+            pd.testing.assert_series_equal(a[col], b.loc[a.index, col])
+        assert "founder_holds" in sc.signal_records(b.reset_index())[0]
+
+    def test_load_founder_holdings(self, tmp_path):
+        path = tmp_path / "founder.json"
+        assert sc.load_founder_holdings(path) == frozenset()
+        path.write_text('{"updated": "2026-10-04", "tickers": ["ABI.BR", " KBC.BR "]}', encoding="utf-8")
+        assert sc.load_founder_holdings(path) == {"ABI.BR", "KBC.BR"}
+        path.write_text('{"tickers": "ABI.BR"}', encoding="utf-8")
+        with pytest.raises(ValueError):
+            sc.load_founder_holdings(path)
+
+
 class TestMethodologyAndDistribution:
     """REC-5 / REC-6 / REC-10."""
 
@@ -282,32 +378,96 @@ class TestWording:
 # Signal history (REC-7)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _rec(code="neutral", at=_NOW, **kw):
+    return {"Ticker": "A.BR", "signal_code": code, "signal_computed_at": at.isoformat(),
+            "public_universe": True, "model_version": "v1", "model_settings_id": "s1", **kw}
+
+
 class TestSignalHistory:
     def test_only_changes_are_logged_and_pending_never(self, tmp_path):
         path = tmp_path / "h.jsonl"
-        r = {"Ticker": "A.BR", "signal_code": "neutral", "signal_computed_at": _NOW.isoformat()}
-        assert signal_history.record_changes([r], path) == 1
-        assert signal_history.record_changes([r], path) == 0
-        assert signal_history.record_changes([{**r, "signal_code": "pending"}], path) == 0
-        assert signal_history.record_changes([{**r, "signal_code": "undervalued"}], path) == 1
-        assert [h["signal_code"] for h in signal_history.history_for("A.BR", path, now=_NOW)] == \
-            ["neutral", "undervalued"]
+        assert signal_history.record_changes([_rec()], path) == 1
+        assert signal_history.record_changes([_rec()], path) == 0
+        assert signal_history.record_changes([_rec("pending")], path) == 0
+        assert signal_history.record_changes([_rec("undervalued")], path) == 1
+        hist = signal_history.history_for("A.BR", path, now=_NOW)
+        assert [h["signal_code"] for h in hist] == ["neutral", "undervalued"]
+        assert [h["log_reason"] for h in hist] == ["first", "signal_change"]
+
+    def test_model_or_settings_change_is_logged_but_not_shown_as_a_badge_change(self, tmp_path):
+        path = tmp_path / "h.jsonl"
+        signal_history.record_changes([_rec()], path)
+        assert signal_history.record_changes([_rec(model_settings_id="s2")], path) == 1
+        assert signal_history.record_changes([_rec(model_settings_id="s2", model_version="v2")], path) == 1
+        assert len(signal_history.history_for("A.BR", path, now=_NOW)) == 1
+        full = signal_history.history_for("A.BR", path, now=_NOW, signal_changes_only=False)
+        assert [h["log_reason"] for h in full] == ["first", "model_change", "model_change"]
+
+    def test_user_rows_never_reach_the_shared_log(self, tmp_path):
+        path = tmp_path / "h.jsonl"
+        assert signal_history.record_changes([_rec(public_universe=False)], path) == 0
+        assert signal_history.record_changes([{k: v for k, v in _rec().items()
+                                                if k != "public_universe"}], path) == 0
+        assert not path.exists()
+
+    def test_end_to_end_with_a_masked_universe(self, tmp_path):
+        public = _universe(25)
+        combined = pd.concat([public, _universe(3, seed=7, prefix="U")], ignore_index=True)
+        out = sc.compute_scores(combined, peer_mask=sc.peer_mask_for(combined, public["Ticker"]),
+                                computed_at=_NOW)
+        path = tmp_path / "h.jsonl"
+        assert signal_history.record_changes(sc.signal_records(out), path) == 25
+        assert not any(t.startswith("U") for t in signal_history.last_signals(path))
 
     def test_history_window(self, tmp_path):
         path = tmp_path / "h.jsonl"
-        old = (_NOW - timedelta(days=400)).isoformat()
-        signal_history.record_changes([{"Ticker": "A.BR", "signal_code": "neutral",
-                                        "signal_computed_at": old}], path)
+        signal_history.record_changes([_rec(at=_NOW - timedelta(days=400))], path)
         assert signal_history.history_for("A.BR", path, now=_NOW) == []
         assert len(signal_history.history_for("A.BR", path, days=500, now=_NOW)) == 1
 
     def test_torn_line_does_not_hide_history(self, tmp_path):
         path = tmp_path / "h.jsonl"
-        signal_history.record_changes([{"Ticker": "A.BR", "signal_code": "neutral",
-                                        "signal_computed_at": _NOW.isoformat()}], path)
+        signal_history.record_changes([_rec()], path)
         with path.open("a", encoding="utf-8") as fh:
             fh.write('{"Ticker": "A.BR", "sig')
         assert signal_history.last_signals(path) == {"A.BR": "neutral"}
+
+    def test_daily_snapshot_once_per_day_public_only(self, tmp_path):
+        day = _NOW.date()
+        recs = [_rec(), _rec(Ticker="U.BR", public_universe=False)]
+        assert signal_history.write_daily_snapshot(recs, day=day, directory=tmp_path) is not None
+        assert signal_history.write_daily_snapshot([_rec("undervalued")], day=day, directory=tmp_path) is None
+        snap = signal_history.read_snapshot(day, directory=tmp_path)
+        assert [r["Ticker"] for r in snap] == ["A.BR"] and snap[0]["signal_code"] == "neutral"
+        assert signal_history.read_snapshot(day - timedelta(days=1), directory=tmp_path) == []
+
+
+class TestSettingsAudit:
+    """REC-9 / REC-11: evidence for the founder's trading blackout."""
+
+    def test_settings_diff_logs_one_event_per_changed_key(self, tmp_path):
+        path = tmp_path / "a.jsonl"
+        before = {"min_mos": 0.0, "buy_threshold": 70.0, "screen_style": "balanced"}
+        after = {**before, "min_mos": 10.0, "screen_style": "income"}
+        assert settings_audit.record_settings_change("admin@x", before, after, at=_NOW, path=path) == 2
+        assert settings_audit.record_settings_change("admin@x", after, after, path=path) == 0
+        ev = settings_audit.read_log(path, event=settings_audit.EVENT_SETTING)
+        assert {(e["key"], e["old"], e["new"]) for e in ev} == {("min_mos", 0.0, 10.0),
+                                                              ("screen_style", "balanced", "income")}
+        assert all(e["actor"] == "admin@x" and e["at"] == _NOW.isoformat(timespec="seconds") for e in ev)
+
+    def test_model_version_logged_on_change_only(self, tmp_path):
+        path = tmp_path / "a.jsonl"
+        assert settings_audit.record_model_version("v1", "s1", path=path)
+        assert not settings_audit.record_model_version("v1", "s1", path=path)
+        assert settings_audit.record_model_version("v1", "s2", path=path)
+        assert len(settings_audit.read_log(path, event=settings_audit.EVENT_MODEL_VERSION)) == 2
+
+    def test_planned_change(self, tmp_path):
+        path = tmp_path / "a.jsonl"
+        settings_audit.record_planned_change("admin@x", "raise min_mos to 10%", at=_NOW, path=path)
+        (ev,) = settings_audit.read_log(path)
+        assert ev["event"] == settings_audit.EVENT_PLANNED and ev["description"].startswith("raise")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

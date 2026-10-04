@@ -8,8 +8,9 @@ This review covers the scoring and risk algorithms: `screener.py`, `risk.py`, `s
 | --- | --- |
 | `screener_compliant.py` | Copy of `screener.py` stages 2–6 with the fixes below. Stage 1 (fetch/cache) is imported from `screener.py`, not copied, so there is still one fetcher and one cache. |
 | `risk_compliant.py` | Copy of `risk.py`. The computations are identical; only the output wording and structure change. |
-| `signal_history.py` | New: an append-only log of signal changes (REC-7, REC-11). |
-| `tests/test_compliance_algorithms.py` | 35 tests. They prove the copies compute the same numbers as the originals and pin each requirement below. |
+| `signal_history.py` | New: an append-only log of signal and model changes, plus a daily snapshot of every public signal (REC-7, REC-11). |
+| `settings_audit.py` | New: an append-only log of planned changes, shared-settings changes and model versions (REC-9, REC-11). |
+| `tests/test_compliance_algorithms.py` | 51 tests. They prove the copies compute the same numbers as the originals and pin each requirement below. |
 | `docs/legal/*_compliant.md` | Compliant versions of the two algorithm specs (§5). |
 
 `scoring.py` and `portfolio_enrichment.py` need no changes: they compute descriptive sub-scores and flags only.
@@ -39,6 +40,19 @@ Severity follows the requirements document: **MUST** items are launch blockers.
 | 17 | REC-10 | SHOULD | No distribution of signals across the coverage. | — | `signal_distribution(df)`. |
 | 18 | DIS-3 | MUST | The risk report carries no statement that VaR, CVaR, Monte Carlo and stress figures are estimates. | `risk.py:1736` | `RiskReport.disclosures` (`RISK_DISCLOSURES`), which also carries the Fama-French attribution. |
 | 19 | PER-3 | MUST | `income_portfolio` reweights the risk score by a user *objective*. It is hard-coded `False` today, but the name invites wiring it to a goal. | `risk.py:72, 1373`; `uvalu/data.py:539` | Becomes `weighting="standard" \| "income_weighted"`: a model setting (PER-8). Unknown values raise. |
+
+### Second review (Oct 4, 2026)
+
+A counsel-style review of the copies found six more gaps. All are fixed in the copies.
+
+| # | Req. | Level | Finding in the first copy | Fix |
+| --- | --- | --- | --- | --- |
+| 20 | PER-1 | MUST | On the cold-start path (`user_selected=True`, no reference), the sector P/E and P/B medians still came from the user's own holdings. With five or more holdings in one sector, the P/E and P/B fair values, and so the margin of safety, depended on what the user held. | No public peer basis: every sector uses the fixed fallback multiples. A test changes the other holdings and pins the fair value. |
+| 21 | DATA-6 | MUST | The switch kept analyst data out of the calculation, but the analyst columns still came through in the scored frame, so any table or Excel export could show them. | `compute_scores` drops `ANALYST_FIELDS` while the switch is off. `strip_analyst_fields()` does the same for raw rows and cache dicts. Stage 1 in `screener.py` still fetches the fields: see §4.10. |
+| 22 | REC-11 | SHOULD | The log held changes only. The fair value and MoS shown on a day without a badge change were lost, and a model or settings change that flipped no badge left no trace. User-added tickers would have gone into a log every user can read. | A record is also written when `model_version` or `model_settings_id` changes (`log_reason`). `write_daily_snapshot()` keeps every public signal with its inputs once a day. Only rows with `public_universe=True` are stored. |
+| 23 | REC-9 | MUST | The conflicts policy promises no trading from the decision on a model change until 2 trading days after it goes live, but nothing records when shared settings or the model changed. | `settings_audit.py`: `record_planned_change`, `record_settings_change` (who, key, old → new) and `record_model_version`. |
+| 24 | REC-8 | MUST | The founder holds covered shares. The policy disclosed positions only above 0.5% of share capital, the art. 6 threshold of Delegated Regulation 2016/958, which a private investor never reaches. Art. 5 asks for any interest that may impair objectivity. | `founder_holds` flag on every row (`founder_holdings=`, `load_founder_holdings()`) and `FOUNDER_HOLDS_NOTICE`. The flag moves no score. The conflicts policy §3 now discloses any position. **[Counsel]** to confirm. |
+| 25 | REC-2, BDG-3 | MUST | "Fails quality screen" did not say which rule failed. | `veto_rules` (stable codes, logged) and `VETO_RULE_LABELS`. `signal_reason` names the rules. |
 
 **Checked and compliant as is:** the vetoes are absolute rules on the stock's own data. The screener settings (`buy_threshold`, `min_mos`, D/E, payout, screening style) are **shared**, admin-only settings, so they meet PER-2. The per-user dividend withholding feeds only income display, never scores. The ex-dividend, cut and raise badges on the Dashboard report facts about the user's holdings, not signals. Drift checks against targets the user sets are allowed (PER-5); the copy keeps them and marks them `basis="user_target"`.
 
@@ -70,6 +84,13 @@ These are not algorithm changes, but the copies only take effect once they are d
 7. **Translations (INT-1)**: `tools/i18n_update.py` has added the new strings to `messages.pot` and every `.po` file, **untranslated**. The badge labels, tooltip, definitions and disclosures are legal texts, so a fluent reviewer must translate them for FR, DE, IT and ES (INT-4) before release.
 8. **Methodology page (REC-5)**: render from `methodology(*get_veto_thresholds(), weights=get_score_weights())`. Add the `REF_*` risk reference levels from `risk_compliant.py`.
 9. **`DATA_SOURCE`**: still says Yahoo Finance and "unlicensed for commercial use". Replace it with the licensed provider and its required attribution once DATA-2 is signed.
+10. **Analyst fields (DATA-6)**: remove `targetMeanPrice`, `targetHighPrice`, `targetLowPrice`, `numberOfAnalystOpinions` and `recommendationMean` from `screener.py`'s `VALUATION_FIELDS` / `MOMENTUM_FIELDS`. Clear them from both `.cache/*fundamentals.json` files, for example with `strip_analyst_fields()`.
+11. **Public-universe flag**: the universe build passes `peer_mask=`, so `public_universe` is True only for the enabled exchanges' tickers. The portfolio lane (`user_selected=True`) never writes to the signal history.
+12. **Signal log and snapshot**: after each universe build, call `signal_history.record_changes(recs)` and `signal_history.write_daily_snapshot(recs)` with `recs = signal_records(scored)`. Also call `settings_audit.record_model_version(MODEL_VERSION, settings_id)`.
+13. **Settings audit**: call `settings_audit.record_settings_change(admin_email, before, after)` from the shared-settings save in `settings.py`. Add an admin action for `record_planned_change`.
+14. **Founder disclosure**: pass `founder_holdings=load_founder_holdings()` in the universe build and the portfolio lane. Show `FOUNDER_HOLDS_NOTICE` next to the signal and on the stock page when `founder_holds` is True. Keep `data/founder_holdings.json` current within 2 business days of each trade.
+15. **Quality-screen reasons**: show `signal_reason(row)` in the badge tooltip or drawer. It now names the rules in `veto_rules`.
+16. **Translations**: the ten new strings (rule labels, founder notice, quality-screen reason) are in every `.po` file, untranslated (INT-1, INT-4).
 
 ## 5. Algorithm specifications
 
@@ -100,6 +121,7 @@ When the copies are wired in, the compliant specs replace the originals in `docs
 
 ## 6. Open points for counsel
 
-- Whether the remaining "Undervalued" label, and a fair value shown with a user-adjustable model, still count as Uvalu's own "opinion" under MAR (§4 of the requirements).
-- Whether position risk ratings (High/Critical) computed from the user's own position weights stay on the descriptive side of PER-4. The copy reports them without any action.
+- Whether the remaining "Undervalued" label is acceptable. The same reasoning that rules out "Overvalued" applies here: a stock 40% below its fair value with a score of 65 shows "Neutral". Options: enforce a minimum margin of about 10% in code, or score-based labels throughout (High / Mid / Low score). Users cannot change the model settings (founder, Oct 4 2026), so the fair values and signals are Uvalu's own opinion under MAR: art. 20 applies in full.
+- Disclosure of founder positions at any size (finding 24), instead of the 0.5% threshold.
+- Whether position risk ratings (High/Critical) computed from the user's own position weights stay on the descriptive side of PER-4. The copy reports them without any action. Risk observations are screen-only and never sent as alerts (founder, Oct 4 2026), which lowers the risk. Still to consider: remove the valuation gap from the rating, and use neutral band names.
 - Whether the Fama-French Data Library terms permit display in a paid service (DATA-6). Attribution is already in `RISK_DISCLOSURES`.

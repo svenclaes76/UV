@@ -161,7 +161,7 @@ Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into
 - **Cross-sectional percentile rank** (`screener._pct_rank`): the stock's standing *within the public peer universe*, meaning every enabled exchange together (a shared setting). NaN rows get a neutral 50. **The peer universe never depends on the user (PER-1, PER-2):**
   - Only rows marked by `peer_mask` (built with `peer_mask_for(df, public_tickers)` from the enabled exchanges' ticker lists) set the sector P/E and P/B medians and the rank distributions. Rows a user added (manual tickers, holdings on a disabled exchange) are scored *against* those peers without moving them. The original spec put "portfolio holdings on disabled exchanges", and in the code each user's manual tickers, into the universe itself, so one user's additions shifted everyone's scores.
   - Holdings and watchlists scored by the portfolio lane are ranked against the same public universe through its `ScoreReference`, so a stock gets the same score and signal on every screen and for every user.
-  - A user-selected set scored **without** a reference (`user_selected=True`, e.g. before the first universe build) is **not** ranked among itself, as the original spec allowed. Its rows get signal **No signal** (`pending`) and no composite score. Fair values (not rank-based) and quality-screen failures (absolute rules) are still shown.
+  - A user-selected set scored **without** a reference (`user_selected=True`, e.g. before the first universe build) is **not** ranked among itself, as the original spec allowed. Its rows get signal **No signal** (`pending`) and no composite score. Fair values and quality-screen failures (absolute rules) are still shown. The P/E and P/B fair values then use the fixed fallback multiples (`PE_MULTIPLE_FALLBACK`, `PB_MULTIPLE_FALLBACK`), never medians of the user's own holdings.
 - **Absolute band** (`screener._abs_band`) — the same value mapped through a fixed piecewise-linear scale, independent of the universe:
   - MoS: `≤ 0 → 0`, `10% → 40`, `25% → 70`, `≥ 50% → 100` (`_BAND_MOS`).
   - Quality / Momentum / Dividend: the raw 0–10 score × 10 (`_BAND_0_10`).
@@ -197,16 +197,19 @@ A signal is never shown on its own. The badge, or the row it sits in, carries:
 - the **model fair value**, the **margin of safety**, and the models behind it (`fv_model_count`);
 - **`signal_computed_at`** (UTC) and **`price_as_of`** (when the price used was fetched);
 - **`data_flags`**: `price_stale` (price older than `PRICE_STALE_HOURS` = 72 h), `price_missing_timestamp`, `fair_value_missing`, `fair_value_thin_basis`, `fair_value_clamped`, `eps_derived_from_pe`, `small_peer_group`;
-- **`data_source`**, plus any attribution the data licence requires.
+- **`data_source`**, plus any attribution the data licence requires;
+- when `founder_holds` is True, the disclosure `FOUNDER_HOLDS_NOTICE` (REC-8). Any position counts, whatever its size. The flag comes from `load_founder_holdings()` and never moves a score or signal.
 
-`signal_reason(row)` gives a one-line statement of the rule and figures behind the signal, e.g. *"Model score 74 is at or above 70, and the price is 18% below the model fair value (minimum 0%)."* It uses descriptive terms only: no "buy", "avoid", "advice" or second-person phrasing (DIS-6).
+`signal_reason(row)` gives a one-line statement of the rule and figures behind the signal, e.g. *"Model score 74 is at or above 70, and the price is 18% below the model fair value (minimum 0%)."* It uses descriptive terms only: no "buy", "avoid", "advice" or second-person phrasing (DIS-6). For **Fails quality screen** it names the rules that failed, from `veto_rules` (stable codes such as `debt_to_equity`, `negative_fcf`, `revenue_decline`; labels in `VETO_RULE_LABELS`).
 
 ### Methodology, horizon and risk warning (REC-5, REC-6)
 `methodology(**settings)` returns everything the public methodology page must show, read from the live constants and the active shared settings: every model and its base weight, the composite weights, the rank blend, the exact signal thresholds, every quality-screen rule, the signal definitions (`SIGNAL_DEFINITIONS`), the assumed horizon (`SIGNAL_HORIZON`: a multi-year view on current fundamentals, nothing about short-term price moves), the risk warning (`SIGNAL_RISK_WARNING`), the sensitivity note and the stale-price limit. Every badge links to that page.
 
 ### Update frequency, history and reproducibility (REC-7, REC-10, REC-11)
 - **Update frequency.** Fundamentals refresh about every 24 h (± 4 h jitter per ticker, `CACHE_TTL_HOURS` / `CACHE_TTL_JITTER`), and signals are recomputed whenever the cache changes. The methodology page states this.
-- **History.** After each universe build, `signal_history.record_changes(signal_records(scored))` appends one record per stock whose `signal_code` changed. Each stock page shows `history_for(ticker)`: every badge change of the last 12 months, kept for at least that long.
+- **History.** After each universe build, `signal_history.record_changes(signal_records(scored))` appends one record per stock whose `signal_code`, `model_version` or `model_settings_id` changed, tagged with `log_reason`. Each stock page shows `history_for(ticker)`: every badge change of the last 12 months, kept for at least that long. Only public-universe rows (`public_universe`) are logged, so a ticker a user added for themselves never appears in the shared history.
+- **Daily snapshot.** `signal_history.write_daily_snapshot()` stores every public signal with its inputs once a day. A past screen can then be reproduced even on days when no badge changed.
+- **Settings audit.** `settings_audit` logs each planned signal-moving change, each shared-settings change (who, old → new) and each new model version. This is the evidence for the founder's trading blackout (REC-9).
 - **Reproducibility.** Every row and log record carries `model_version` (`MODEL_VERSION`, bumped on any change that can move a fair value, score or signal) and `model_settings_id` (a hash of the shared thresholds, weights and the analyst switch), next to the inputs and model fair values. This makes any past signal reproducible on request.
 - **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Neutral), shown on the methodology page (REC-10).
 
@@ -279,4 +282,7 @@ These constrain any future change to this algorithm. Review them before each rel
 | Presentation | — | Tooltip, methodology link, fair value + MoS, timestamps, data flags and source with every signal | BDG-2/3, REC-3/4 |
 | Methodology | Thresholds only in this spec | `methodology()` generates the public page from the live constants: horizon, risk warning, sensitivity | REC-5, REC-6 |
 | History | — | Signal-change log, 12 months, visible per stock; distribution of signals | REC-7, REC-10 |
-| Reproducibility | — | `model_version` + `model_settings_id` per row and log record | REC-11 |
+| Reproducibility | — | `model_version` + `model_settings_id` per row and log record; daily snapshot; settings audit log | REC-9, REC-11 |
+| Analyst data | Fetched and passed through to every screen | Dropped from the output while unlicensed (`strip_analyst_fields`) | DATA-6 |
+| Quality screen | Veto reasons only in the UI | `veto_rules` per row, named in `signal_reason` and logged | REC-2, BDG-3 |
+| Conflicts | — | `founder_holds` + `FOUNDER_HOLDS_NOTICE`, any position size | REC-8 |

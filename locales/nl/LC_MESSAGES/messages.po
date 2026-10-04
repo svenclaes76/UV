@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-03 17:52+0000\n"
+"POT-Creation-Date: 2026-10-04 09:03+0000\n"
 "PO-Revision-Date: 2026-10-01 23:41+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -572,7 +572,7 @@ msgid "Fairly Valued"
 msgstr "Correct gewaardeerd"
 
 #. Context: Fair-value legend (components) and valuation label on the Risk page
-#: risk.py:525 screener_compliant.py:287 uvalu/components.py:1052
+#: risk.py:525 screener_compliant.py:301 uvalu/components.py:1052
 msgid "Undervalued"
 msgstr "Ondergewaardeerd"
 
@@ -1168,33 +1168,33 @@ msgid "At Risk"
 msgstr "Risicovol"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 screener_compliant.py:330 uvalu/dialogs.py:41
+#: screener.py:253 screener_compliant.py:373 uvalu/dialogs.py:41
 msgid "Financial Services"
 msgstr "Financiële diensten"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 screener.py:278 screener_compliant.py:330 screener_compliant.py:355
+#: screener.py:253 screener.py:278 screener_compliant.py:373 screener_compliant.py:398
 msgid "Real Estate"
 msgstr "Vastgoed"
 
 #. Context: Sector name (from market data)
-#: screener.py:253 screener_compliant.py:330 uvalu/dialogs.py:42
+#: screener.py:253 screener_compliant.py:373 uvalu/dialogs.py:42
 msgid "Utilities"
 msgstr "Nutsbedrijven"
 
 #. Context: Sector name (from market data)
-#: screener.py:279 screener_compliant.py:356 uvalu/dialogs.py:42
+#: screener.py:279 screener_compliant.py:399 uvalu/dialogs.py:42
 msgid "Basic Materials"
 msgstr "Basismaterialen"
 
 #. Context: Sector name (from market data). Shown in the Sector dropdown,
 #. sector filter, allocation chart. Translate at display time.
-#: screener.py:280 screener_compliant.py:357 uvalu/dialogs.py:41
+#: screener.py:280 screener_compliant.py:400 uvalu/dialogs.py:41
 msgid "Technology"
 msgstr "Technologie"
 
 #. Context: Sector name (from market data)
-#: screener.py:281 screener_compliant.py:358
+#: screener.py:281 screener_compliant.py:401
 msgid "Communication Services"
 msgstr "Communicatiediensten"
 
@@ -1253,7 +1253,7 @@ msgstr ""
 "geen berekenbare intrinsieke waarde, dus de veiligheidsmarge kan niet worden bevestigd"
 
 #. Context: Signal explanation reason (lowercase)
-#: screener.py:1694 screener_compliant.py:1033
+#: screener.py:1694 screener_compliant.py:1082
 #, python-brace-format
 msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr "veiligheidsmarge {mos} ligt onder het minimum van {min_mos}"
@@ -1284,64 +1284,64 @@ msgid "Sits in the Monitor band."
 msgstr "Valt in de Monitor-zone."
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2016 screener_compliant.py:1355
+#: screener.py:2016 screener_compliant.py:1400
 #, python-brace-format
 msgid "revenue fell {years} straight years"
 msgstr "omzet daalde {years} jaar op rij"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2020 screener_compliant.py:1359
+#: screener.py:2020 screener_compliant.py:1405
 #, python-brace-format
 msgid "operating income negative {years} years running"
 msgstr "bedrijfsresultaat {years} jaar op rij negatief"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2025 screener_compliant.py:1364
+#: screener.py:2025 screener_compliant.py:1410
 msgid "retained earnings negative and still eroding"
 msgstr "overgedragen winst negatief en nog steeds dalend"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2032 screener_compliant.py:1371
+#: screener.py:2032 screener_compliant.py:1418
 #, python-brace-format
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividend verlaagd in {year} met slechts {coverage}× dekking"
 
-#: screener_compliant.py:288
+#: screener_compliant.py:302
 msgid "Neutral"
 msgstr ""
 
-#: screener_compliant.py:289
+#: screener_compliant.py:303
 msgid "Low score"
 msgstr ""
 
-#: screener_compliant.py:290
+#: screener_compliant.py:304
 msgid "Fails quality screen"
 msgstr ""
 
-#: screener_compliant.py:291
+#: screener_compliant.py:305
 msgid "No signal"
 msgstr ""
 
-#: screener_compliant.py:295
+#: screener_compliant.py:309
 msgid ""
 "Model output based on public data and the settings shown. Not a recommendation "
 "tailored to you."
 msgstr ""
 
-#: screener_compliant.py:300
+#: screener_compliant.py:314
 msgid ""
 "The models value a business on its current fundamentals and assume a multi-year "
 "holding horizon; they say nothing about short-term price moves."
 msgstr ""
 
-#: screener_compliant.py:303
+#: screener_compliant.py:317
 msgid ""
 "Model signals can be wrong. They depend on third-party data that may be delayed "
 "or incorrect and on assumptions that may not hold. Investing involves risk, "
 "including loss of capital."
 msgstr ""
 
-#: screener_compliant.py:306
+#: screener_compliant.py:320
 #, no-python-format
 msgid ""
 "Fair values are sensitive to the discount rate, growth and sector multiples: "
@@ -1349,77 +1349,120 @@ msgid ""
 "dividend-model fair value by about 14%."
 msgstr ""
 
-#: screener_compliant.py:310
+#: screener_compliant.py:324
 msgid ""
 "Composite model score at or above the upper threshold, the price at least the "
 "minimum margin below the model fair value, and the fair value backed by two or "
 "more independent models."
 msgstr ""
 
-#: screener_compliant.py:313
+#: screener_compliant.py:327
 msgid ""
 "Composite model score between the lower and upper thresholds, or above the upper"
 " threshold without a confirmed margin of safety."
 msgstr ""
 
-#: screener_compliant.py:315
+#: screener_compliant.py:329
 msgid "Composite model score below the lower threshold."
 msgstr ""
 
-#: screener_compliant.py:316
+#: screener_compliant.py:330
 msgid ""
 "Fails at least one quality rule (debt, cash flow, dividend cover, multi-year "
 "decline or no trading volume); its composite score is set to 0."
 msgstr ""
 
-#: screener_compliant.py:319
+#: screener_compliant.py:333
 msgid "Not enough peer data to rank this stock yet."
 msgstr ""
 
-#: screener_compliant.py:1010
+#: screener_compliant.py:348
+msgid "debt-to-equity above the maximum"
+msgstr ""
+
+#: screener_compliant.py:349
+msgid "negative free cash flow"
+msgstr ""
+
+#: screener_compliant.py:350
+msgid "dividend flagged at risk with earnings cover below 1.0"
+msgstr ""
+
+#: screener_compliant.py:351
+msgid "multi-year revenue decline"
+msgstr ""
+
+#: screener_compliant.py:352
+msgid "operating income negative for several years"
+msgstr ""
+
+#: screener_compliant.py:353
+msgid "negative and eroding retained earnings"
+msgstr ""
+
+#: screener_compliant.py:354
+msgid "recent dividend cut with thin cover"
+msgstr ""
+
+#: screener_compliant.py:355
+msgid "no trading volume"
+msgstr ""
+
+#: screener_compliant.py:361
+msgid ""
+"Disclosure: the founder of Uvalu holds a position in this stock. Its signal is "
+"calculated exactly like every other stock's."
+msgstr ""
+
+#: screener_compliant.py:1053
 msgid "No signal: the peer group needed to rank this stock is not available yet."
 msgstr ""
 
-#: screener_compliant.py:1013
+#: screener_compliant.py:1060
+#, python-brace-format
+msgid "Fails the model's quality screen ({rules}), so its composite score is set to 0."
+msgstr ""
+
+#: screener_compliant.py:1062
 msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr ""
 
-#: screener_compliant.py:1017
+#: screener_compliant.py:1066
 #, python-brace-format
 msgid ""
 "Model score {score} is at or above {threshold}, and the price is {mos} below the"
 " model fair value (minimum {min_mos})."
 msgstr ""
 
-#: screener_compliant.py:1020
+#: screener_compliant.py:1069
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
 msgstr ""
 
-#: screener_compliant.py:1023
+#: screener_compliant.py:1072
 #, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
 msgstr ""
 
-#: screener_compliant.py:1028
+#: screener_compliant.py:1077
 #, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
 msgstr ""
 
-#: screener_compliant.py:1031
+#: screener_compliant.py:1080
 msgid "no model fair value could be computed"
 msgstr ""
 
-#: screener_compliant.py:1035
+#: screener_compliant.py:1084
 msgid "the fair value rests on fewer than two independent models"
 msgstr ""
 
-#: screener_compliant.py:1036
+#: screener_compliant.py:1085
 #, python-brace-format
 msgid "Neutral: {reasons}."
 msgstr ""
 
-#: screener_compliant.py:1037
+#: screener_compliant.py:1086
 msgid "Model score is between the lower and upper thresholds."
 msgstr ""
 

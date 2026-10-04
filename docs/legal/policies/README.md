@@ -31,7 +31,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 | Liability cap | Amount paid in the last 12 months, minimum EUR 100 |
 | Reference language | English |
 | Price change / terms change / termination notice | 30 days each (draft defaults) |
-| Own positions | Threshold disclosure: positions above 0.5% of an issuer's capital (draft option A) |
+| Own positions | Any position is disclosed on the stock page (changed Oct 4 2026: the founder holds covered shares) |
 | Marketing | Individual shares may be mentioned, always with a statement of whether the founder holds them |
 | Signal performance | Not published (draft option A) |
 | Minimum margin of safety for "Undervalued" | **10%** (code default is still 0%, see §4) |
@@ -97,11 +97,12 @@ These pages promise behaviour. Each item below must be true in the app before th
 - **End-of-day prices only:** remove or disable the intraday price auto-refresh (`price_autorefresh`), and show the price date next to every price.
 - Raise the shared `min_mos` default from 0% to 10% and bump `MODEL_VERSION`.
 - Wire the `*_compliant` modules in (checklist in `../algorithm-compliance-review.md` §4): signal history on the stock page (12 months), timestamps, data flags and model list next to every signal, no analyst-target display.
-- Show a holdings notice on a stock page when the founder holds more than 0.5% of the issuer's capital. Today the only content is "none", but the field must exist.
+- Show `FOUNDER_HOLDS_NOTICE` on the stock page and next to the signal of every share the founder holds, at any size: keep `data/founder_holdings.json` current within 2 business days of each trade, and pass `load_founder_holdings()` to the universe build.
+- Call `settings_audit.record_settings_change()` from the shared-settings save and `record_model_version()` after each universe build. Keep `data/settings_audit.jsonl` outside the 31-day log retention: it is the evidence for Conflicts §4. Add it, with the admin email as actor, to the Privacy notice's processing list.
 
 **Offline commitments (no code)**
 - Keep the personal trade register for covered shares (Conflicts §4).
-- No trading in affected shares from the decision on a model change until 2 trading days after it is live.
+- No trading in affected shares from the decision on a model change until 2 trading days after it is live. Record the decision with `settings_audit.record_planned_change()`, so the start of the blackout is on file. Raising `min_mos` counts.
 - Signed processing agreements (DPAs) with Hetzner, Brevo, Mollie and the accountant.
 - A written security-incident procedure (Privacy §6).
 

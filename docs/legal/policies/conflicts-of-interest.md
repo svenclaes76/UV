@@ -2,7 +2,7 @@
 Uvalu public legal page. Status: FINAL TEXT, pending counsel review and the [TBD] items listed in README.md.
 Requirement IDs: REC-1, REC-8, REC-9, PER-7 of "Uvalu — Legal Requirements for Launch".
 This page states commitments. Publish only what is actually done, and keep the trade register it mentions.
-Disclosure model chosen: threshold (option A of the draft).
+Disclosure model chosen: any position (changed Oct 4 2026 from the 0.5% threshold; the founder holds covered shares).
 -->
 
 # Conflicts of interest
@@ -27,7 +27,7 @@ Signals are calculated automatically, with the same formulas and thresholds for 
 
 Uvalu is run by its founder as a sole trader, so the founder's own investments are the only relevant positions. The founder invests privately in listed shares, which may include shares that Uvalu covers.
 
-We disclose on the stock page of the instrument concerned when the founder holds a net long or short position above 0.5% of the issuer's share capital. Below that threshold, positions may exist without a notice on the stock page.
+When the founder holds a position in a share that Uvalu covers, of any size, the stock page of that share says so, next to its signal. The notice is updated within 2 business days of each trade. A share without the notice is one the founder does not hold.
 
 ## 4. Rules we apply to our own trading
 
