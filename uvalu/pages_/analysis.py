@@ -11,12 +11,12 @@ from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
                        load_dividend_meta)
 from scoring import DIV_COVERAGE_MIN, dividend_risk_reasons
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
-                      sector_for, decision_reason)
+                      sector_for, signal_reason)
 from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
                       ALL_EXCHANGES, get_dividend_withholding)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import (signal_badge_for_decision, signal_badge_html,
+from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color,
@@ -90,7 +90,6 @@ def render() -> None:
     _sector = sector_for(ticker, row.get("sector"))
 
     # ── Header ────────────────────────────────────────────────────────────────
-    kind, label = signal_badge_for_decision(row.get("Decision"), veto=row.get("veto"))
     _score = row.get("Value Score")
     if pd.notna(_score) and _score >= 70:
         _score_rating, _score_color = h_("Strong"), "var(--up-txt, #0F6E56)"
@@ -109,7 +108,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">'
             f'<div style="display:flex;align-items:center;gap:12px;">'
             f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
-            f'{signal_badge_html(kind, label)}</div>'
+            f'{model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"))}</div>'
             f'<div style="text-align:right;">'
             f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{h_("Composite score")}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
@@ -120,7 +119,8 @@ def render() -> None:
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
             f'{row.get("Name", "—")} · {tr(_sector) if _sector else "—"} · {_fv(row, "Exchange", tr)}</div>'
-            f'{_score_rating_html}</div>',
+            f'{_score_rating_html}</div>'
+            f'{signal_provenance_html(row)}{founder_notice_html(row)}',
             unsafe_allow_html=True,
         )
 
@@ -165,16 +165,16 @@ def render() -> None:
             f'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
             f'1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">{h_("Hard veto active")}</div>'
+            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
             f'<div style="font-size:12.5px;color:rgba(245,247,250,0.72);margin-top:3px;line-height:1.5;">'
             f'{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True,
         )
     else:
-        # Why this Decision — which gate keeps it out of BUY, or why Avoid vs
-        # Monitor (WP-DQ9). Vetoed names already get the banner above.
+        # Which rule produced this signal (REC-2, WP-DQ9). Names failing the
+        # quality screen already get the banner above.
         _min_mos, _buy_thr = get_veto_thresholds()[2:4]
-        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
+        st.caption(signal_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
@@ -331,7 +331,7 @@ def render() -> None:
         # simplified versions — a flat `de > threshold` or `fcf < 0` check
         # disagreed with the real `_hard_veto` formula (missing the sector
         # exemption and the 3-consecutive-year FCF rule respectively),
-        # showing a red ✕ for checks the stock's actual Decision doesn't
+        # showing a red ✕ for checks the stock's actual signal doesn't
         # treat as failing. See uvalu/components.py's veto_reason_str(),
         # which mirrors the same real formula for the veto banner text.
         _de_exempt = sector in LEVERAGE_EXEMPT_SECTORS

@@ -194,7 +194,7 @@ class TestOpenDrawer:
         at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert "Hard veto triggered" in "".join(m.value for m in at.markdown)
+        assert "Fails quality screen" in "".join(m.value for m in at.markdown)
 
     def test_renders_held_state_with_position_metrics(self):
         portfolio.save_portfolio(pd.DataFrame([{
@@ -210,11 +210,11 @@ class TestOpenDrawer:
         assert any(b.label == "Edit" for b in at.button)
         assert any(b.label == "Close" for b in at.button)
 
-    def test_prefers_live_price_over_stale_screener_price(self):
-        # dashboard.py's holdings table merges a 60s-fresh live_price
-        # alongside the screener's own up-to-24h-cached Price -- the drawer
-        # must use the fresher one for the hero tile and Position value/P&L
-        # when it's present, not silently fall back to the stale figure.
+    def test_scored_price_beside_the_signal_live_price_for_the_position(self):
+        # B3: the hero Price tile shows the price the signal was computed
+        # from (with its time in the provenance line), so price, fair value
+        # and MoS reconcile with the badge. Position value / P&L use the
+        # 60s-fresh live_price dashboard.py merges in, matching that page.
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
             "purchase_value": 900.0, "purchase_price": 90.0,
@@ -229,8 +229,7 @@ open_drawer(row)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
-        assert "€150.00" in html   # hero Price tile, from live_price
-        assert "€100.00" not in html
+        assert "€100.00" in html   # hero Price tile: the scored price
         assert "€1,500" in html    # Position value = 10 shares * live_price
         assert "€1,000" not in html
 

@@ -117,11 +117,26 @@ def _fx_isolated(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _compliance_isolated(tmp_path, monkeypatch):
+    """Never write the real data/compliance/ logs (signal history, daily
+    snapshots, settings audit) and never read the real founder holdings:
+    every test gets its own empty compliance folder."""
+    import screener
+    from uvalu.compliance import settings_audit, signal_history
+    d = tmp_path / "compliance"
+    monkeypatch.setattr(signal_history, "HISTORY_FILE", d / "signal_history.jsonl")
+    monkeypatch.setattr(signal_history, "SNAPSHOT_DIR", d / "signal_snapshots")
+    monkeypatch.setattr(settings_audit, "AUDIT_FILE", d / "settings_audit.jsonl")
+    monkeypatch.setattr(screener, "FOUNDER_HOLDINGS_FILE", d / "founder_holdings.json")
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _universe_reference_isolated(monkeypatch):
     """The portfolio lane asks uvalu.store for the scored universe's
     ScoreReference, which starts a background universe build (ticker-list
-    scrapes over the network). Tests get no reference — holdings are scored
-    among themselves, as before — unless they stub ``_universe_ref_args``."""
+    scrapes over the network). Tests get no reference — holdings get "No
+    signal" (PER-1) — unless they stub ``_universe_ref_args``."""
     import uvalu.data as _uv_data
     monkeypatch.setattr(_uv_data, "_universe_ref_args", lambda: (None, 0))
     _uv_data._UNIVERSE_REFS.clear()
@@ -211,10 +226,11 @@ def settle_background_risk(at) -> None:
 
 _SCREENER_COLUMNS = dict(
     Ticker="AAA.BR", Name="Alpha Corp", sector="Technology", country="Belgium",
-    Exchange="Brussels", Price=100.0, Decision="Strong Buy", veto=False,
+    Exchange="Brussels", Price=100.0, signal_code="undervalued", Signal="Undervalued",
+    veto=False, veto_rules=[],
     **{"Value Score": 78.0, "MoS %": 18.5, "margin_of_safety": 0.185},
     fair_value=122.0, graham_number=118.0, pe_fair_value=125.0, epv=120.0,
-    ddm=115.0, ddm_multistage=124.0, targetMeanPrice=130.0,
+    ddm=115.0, ddm_multistage=124.0,
     trailingPE=14.2, dividendYield=0.032, dividendRate=3.2,
     exDividendDate="15-01-2025", trailingEps=6.5, bookValue=45.0,
     returnOnEquity=0.18, debtToEquity=80.0, fcfYield=0.05,
@@ -224,6 +240,10 @@ _SCREENER_COLUMNS = dict(
     **{"Sub MoS": 70.0, "Sub Risk": 65.0, "Sub Quality": 80.0,
        "Sub Momentum": 60.0, "Sub Dividend": 75.0},
     beta=1.05,
+    # Provenance (REC-3/4/11) and disclosure (REC-8) columns.
+    signal_computed_at="2026-10-04T08:00:00+00:00", price_as_of="2026-10-04T07:30:00+00:00",
+    data_source="Yahoo Finance", model_version="M1", model_settings_id="abc123def456",
+    data_flags=[], public_universe=True, founder_holds=False,
     # Multi-year statement histories (screener._statement_history). None here =
     # "column present, no history" — the same shape an older cache or a failed
     # statement fetch produces; consumers already guard with isinstance(x, list).

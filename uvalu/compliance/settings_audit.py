@@ -15,11 +15,10 @@ Events (``event`` field):
   "setting"        one shared setting changed: key, old, new
   "model_version"  a new MODEL_VERSION / settings id was first used to score
 
-The ``actor`` is the admin's account email: personal data, kept under
-legitimate interest (regulatory evidence) and listed in the privacy notice.
+The ``actor`` is the admin's pseudonymous user id (``logkit.user_id()``,
+sha256 of the email, the same id the application log and the user's data
+directory use). While the founder is the only admin, that is the founder.
 
-Part of the legal-compliance candidate set; not yet wired into the app
-(see docs/legal/algorithm-compliance-review.md §4).
 """
 
 import json
@@ -27,7 +26,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-AUDIT_FILE = Path(__file__).parent / "data" / "settings_audit.jsonl"
+AUDIT_FILE = Path(__file__).resolve().parents[2] / "data" / "compliance" / "settings_audit.jsonl"
 
 EVENT_PLANNED       = "planned"
 EVENT_SETTING       = "setting"
@@ -50,8 +49,9 @@ def _append(records: list[dict], path: Path) -> int:
     return len(records)
 
 
-def read_log(path: Path = AUDIT_FILE, *, event: "str | None" = None) -> list[dict]:
+def read_log(path: "Path | None" = None, *, event: "str | None" = None) -> list[dict]:
     """Every logged event, oldest first, optionally of one ``event`` type."""
+    path = path or AUDIT_FILE
     if not path.exists():
         return []
     out = []
@@ -70,20 +70,22 @@ def read_log(path: Path = AUDIT_FILE, *, event: "str | None" = None) -> list[dic
 
 
 def record_planned_change(actor: str, description: str, *, at: "datetime | None" = None,
-                          path: Path = AUDIT_FILE) -> None:
+                          path: "Path | None" = None) -> None:
     """Log that a change which may alter signals was decided — the start of
     the founder's trading blackout under the conflicts of interest policy."""
+    path = path or AUDIT_FILE
     with _lock:
         _append([{"at": _now(at), "event": EVENT_PLANNED, "actor": actor,
                   "description": description}], path)
 
 
 def record_settings_change(actor: str, before: dict, after: dict, *,
-                           at: "datetime | None" = None, path: Path = AUDIT_FILE) -> int:
+                           at: "datetime | None" = None, path: "Path | None" = None) -> int:
     """Log one "setting" event per shared setting whose value differs between
     `before` and `after` (keys present in either). Call it from the shared-
     settings save, with the settings as loaded and as saved. Returns the
     number of events written (0 when nothing changed)."""
+    path = path or AUDIT_FILE
     stamp = _now(at)
     recs = [{"at": stamp, "event": EVENT_SETTING, "actor": actor,
              "key": key, "old": before.get(key), "new": after.get(key)}
@@ -94,10 +96,11 @@ def record_settings_change(actor: str, before: dict, after: dict, *,
 
 
 def record_model_version(model_version: str, model_settings_id: str, *,
-                         at: "datetime | None" = None, path: Path = AUDIT_FILE) -> bool:
+                         at: "datetime | None" = None, path: "Path | None" = None) -> bool:
     """Log the model version and settings id a universe build scored with,
     when they differ from the last logged pair. Call it after each build;
     returns True when a new event was written."""
+    path = path or AUDIT_FILE
     with _lock:
         last = next(iter(reversed(read_log(path, event=EVENT_MODEL_VERSION))), None)
         if last and (last.get("model_version"), last.get("model_settings_id")) == \

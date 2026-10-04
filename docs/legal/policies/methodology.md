@@ -2,8 +2,8 @@
 Uvalu public legal page. Status: FINAL TEXT, pending counsel review and the [TBD] items listed in README.md.
 Rewritten from the implementation, not the original draft: the draft listed DCF and EV/EBITDA models (not implemented),
 "Near fair value"/"Overvalued" labels and a different composite.
-Source of truth: screener_compliant.methodology(), risk_compliant.REF_* / RISK_BANDS / RISK_DISCLOSURES,
-docs/legal/stock_valuation_algorithm_compliant.md, docs/legal/portfolio_risk_assessment_algorithm_compliant.md.
+Source of truth: screener.methodology(), risk.REF_* / RISK_BANDS / RISK_DISCLOSURES,
+docs/stock_valuation_algorithm.md, docs/portfolio_risk_assessment_algorithm.md.
 The in-app page must be rendered from methodology() so the numbers cannot drift; this file is the reference text.
 Update it in the same release as any model or threshold change.
 Counsel points: signal labels "Neutral"/"Low score" deviate from BDG-1 on purpose (see algorithm-compliance-review.md §2);

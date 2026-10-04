@@ -18,12 +18,11 @@ This plan takes Uvalu from today's state to a paid public launch that meets *Uva
 **Where we are**
 
 - Done:
-  - compliant copies of the scoring and risk algorithms (`screener_compliant.py`, `risk_compliant.py`);
-  - signal history, settings audit and founder disclosure modules, with 51 tests (not wired in);
+  - compliant scoring and risk algorithms, **swapped in place** of `screener.py` and `risk.py` and wired into the app (M1 step 1, Oct 4, 2026; status in [`algorithm-compliance-review.md`](algorithm-compliance-review.md) §4);
+  - signal history, settings audit and founder disclosure, in `uvalu/compliance/` and wired into the universe build and the shared-settings save;
   - final text of the six legal pages (pending counsel and `[TBD]` values).
 - Not started:
-  - the swap from the original algorithms to the compliant ones;
-  - any of the legal UI;
+  - most of the legal UI (M1 Track D); step 1 already put the new labels, the BDG-2 tooltip and the provenance line on the badges;
   - public sign-up with consent records;
   - billing (no payment code exists);
   - self-service data export and account deletion;

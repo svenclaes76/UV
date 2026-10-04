@@ -34,17 +34,19 @@ between screens at some point (see the `dq/*` history); the tests in
   `compute_scores` produces the `margin_of_safety` (fraction) and `MoS %`
   columns.
 - `compute_scores` computes MoS against the **fundamentals-cache `Price`**
-  snapshot. The portfolio screens render it next to a **live** price, so they
-  overlay **`uvalu.data.apply_live_mos(scored, live_prices)`**, which
-  recomputes `Price` / `live_price` / `MoS %` / `margin_of_safety` from the
-  batch `fair_value` and the live quote and sets **`price_stale`** (no live
-  quote, live >10% off the cached price, or an `eod`/`stale` source during
-  market hours).
-- `apply_live_mos` deliberately does **not** touch `fair_value`, the six
-  sub-models, `Value Score`, the `Sub *` ranks or `Decision` — those need the
-  whole scored universe and are not live figures.
-- **Invariant:** on any Holdings-ladder row the printed price, printed `fv` and
-  printed `%` reconcile: `pct ≈ (fv − price) / fv`.
+  snapshot, and stamps that price's time as `price_as_of`. A model signal is
+  always shown with the price and MoS it was computed from (REC-4, BDG-3;
+  decision B3 in `docs/legal/compliance-implementation-plan.md`).
+- The portfolio screens overlay **`uvalu.data.apply_live_prices(scored,
+  live_prices)`**, which adds `live_price` (for position value and P&L) and
+  **`price_stale`** (no live quote, live >10% off the scored price, or an
+  `eod`/`stale` source during market hours). It does **not** change `Price`,
+  `margin_of_safety`, `MoS %`, `fair_value`, `Value Score`, the `Sub *` ranks
+  or `signal_code`. (Until v2.1.0 its predecessor `apply_live_mos`
+  recomputed MoS on the live quote, so a badge could sit next to a margin of
+  safety it was never computed from.)
+- **Invariant:** on any Holdings-ladder row the printed price (the scored
+  `Price`), printed `fv` and printed `%` reconcile: `pct ≈ (fv − price) / fv`.
 
 ## Fair value
 
@@ -99,9 +101,9 @@ between screens at some point (see the `dq/*` history); the tests in
   `_fetch_and_store` re-fetches it on `CACHE_TTL_SHORT_HOURS` and
   `backfill_thin_rows_from_screener_lane` swaps in the screener lane's row when
   that one has *more* live models. `fv_basis_thin` also gates Stage 6: a thin
-  row cannot reach `Decision == "Strong Buy"` (it falls through to Monitor on
-  score instead) — a weakly-corroborated composite alone isn't a hard veto,
-  just not enough to confirm a BUY. This was the FV-5 "Composite-score
+  row cannot reach `signal_code == "undervalued"` (it falls through to
+  Neutral on score instead) — a weakly-corroborated composite alone isn't a
+  quality-screen failure, just not enough to confirm the valuation label. This was the FV-5 "Composite-score
   asterisk" deferred at ship time; the NAITR.AS incident (a lone book-value
   fallback off a corrupted price producing a spurious Strong Buy) is what
   prompted implementing it.
@@ -228,7 +230,7 @@ between screens at some point (see the `dq/*` history); the tests in
   guards and must be kept in step with them. A row that is not
   scorable produces a NaN `fair_value` / `MoS`, which the rank layer papers over
   with a neutral 50 (`_pct_rank` / `_abs_band`) — so such a row still gets a
-  `Decision`, usually `Monitor`.
+  `signal_code`, usually `neutral`.
 - **A thin fetch never sticks for a day.** `_fetch_one` recovers a missing
   `trailingEps` from `trailingPE` (`trailingEps_derived` flags it). If the row
   still isn't scorable but has a price, `_fetch_and_store` retries it, then
@@ -240,7 +242,7 @@ between screens at some point (see the `dq/*` history); the tests in
   lane's row for the same ticker when that one is scorable and no older. Both
   lanes run the identical scorer, so a held ticker never shows a fair value on
   the Screener page and a blank ladder on the Dashboard.
-- **UI.** `uvalu.data.apply_live_mos` adds **`data_thin`** (`~_row_is_scorable`
+- **UI.** `uvalu.data.apply_live_prices` adds **`data_thin`** (`~_row_is_scorable`
   per row). The Dashboard Holdings ladder renders "fv pending" for a
   `data_thin` row with no fair value, instead of the bare "—" a genuinely
   unvaluable business gets.
@@ -265,18 +267,25 @@ between screens at some point (see the `dq/*` history); the tests in
 
 ## Signal badge
 
-- `components.signal_badge_for_decision(decision, veto)` has **three** states:
-  - real hard veto (`components.is_hard_veto`, NaN-safe) → **VETO**;
-  - a scored `Strong Buy` / `Monitor` / `Avoid` → that;
-  - anything else (no `Decision` — the holding has no scored screener row) →
-    neutral **NO DATA**.
+- `components.signal_badge_for(signal_code, veto)` maps a row to a badge:
+  - real quality-screen failure (`components.is_hard_veto`, NaN-safe) →
+    **Fails quality screen**;
+  - a scored `undervalued` / `neutral` / `low_score` / `pending` → its label
+    from `screener.SIGNAL_LABELS` (Undervalued / Neutral / Low score /
+    No signal);
+  - anything else (no `signal_code` — the holding has no scored screener row)
+    → neutral **No data**.
+- Every model-signal badge is rendered with `components.model_signal_badge_html`,
+  which adds the BDG-2 tooltip, and sits next to `signal_provenance_html`
+  (computed time, price time, model version).
 - `bool(nan)` is `True` in Python, so every veto read goes through
   `is_hard_veto`, never a bare `bool(row.get("veto"))`.
 - **Invariant:** the hard-veto count is identical on the Dashboard Holdings
   badges, the Dashboard conviction card, and the Risk page.
-- `screener.decision_reason(row, *, buy_threshold, min_mos)` explains a row's
-  Decision in one line (why not BUY / why Avoid vs Monitor) — shown on the
-  Analysis page and the drawer for non-veto rows.
+- `screener.signal_reason(row, *, buy_threshold, min_mos)` states the rule
+  behind a row's signal in one line, in descriptive terms (REC-2) — shown on
+  the Analysis page and the drawer. For a failed screen it names the rules in
+  `veto_rules`.
 
 ## Portfolio risk report
 

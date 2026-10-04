@@ -27,7 +27,7 @@ _EXCHANGE_LABELS = {
 # the 7 shared data columns) — shared by the real column header, the real
 # rows (stock_row), and the loading skeleton's column-header/rows so all
 # three always stay pixel-aligned.
-_HH_WIDTHS = [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+_HH_WIDTHS = [0.5, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fails quality screen" (BDG-1)
 _HH_LABELS = ("", N_("Position"), N_("Signal"), N_("Composite score"), N_("Margin of safety"), N_("Price"),
               "P/E", N_("Yield"))
 # Upside/Price/P-E/Yield are right-aligned (matching their own right-aligned
@@ -181,7 +181,7 @@ def render() -> None:
                 key=f"wl_row_{_ridx}_{_ticker}",
                 ticker=_ticker, name=_row.get("Name", ""),
                 exchange=tr(_row.get("Exchange")) if pd.notna(_row.get("Exchange")) else None,
-                decision=str(_row.get("Decision", "")), veto=_row.get("veto"),
+                signal_code=str(_row.get("signal_code", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=True, action_help=_("Remove from watchlist"),

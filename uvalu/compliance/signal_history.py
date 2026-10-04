@@ -1,7 +1,7 @@
 """
 Signal history log — REC-7 / REC-11 of "Uvalu — Legal Requirements for Launch".
 
-Two stores, both fed by screener_compliant.signal_records():
+Two stores, both fed by screener.signal_records():
 
 * An append-only JSON-lines **change log** (HISTORY_FILE). A record is written
   when a ticker's signal_code differs from the last one logged, or when the
@@ -17,8 +17,6 @@ Only rows of the shared public universe are stored (``public_universe`` is
 True): a ticker one user added for themselves never lands in a log every user
 can read.
 
-Part of the legal-compliance candidate set (screener_compliant.py,
-risk_compliant.py); not yet wired into the app.
 """
 
 import gzip
@@ -27,13 +25,17 @@ import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-HISTORY_FILE = Path(__file__).parent / "data" / "signal_history.jsonl"
-SNAPSHOT_DIR = Path(__file__).parent / "data" / "signal_snapshots"
+COMPLIANCE_DIR = Path(__file__).resolve().parents[2] / "data" / "compliance"
+HISTORY_FILE = COMPLIANCE_DIR / "signal_history.jsonl"
+SNAPSHOT_DIR = COMPLIANCE_DIR / "signal_snapshots"
 
-# REC-7: changes stay visible to users for at least this long. Nothing here
-# deletes records or snapshots; prune only entries older than this, and only
-# deliberately.
-RETENTION_DAYS = 366
+# REC-7: a stock page shows the badge changes of the last 12 months
+# (DISPLAY_DAYS). Records and snapshots are kept for at least KEEP_DAYS
+# (24 months, decision D4). Nothing here deletes anything; prune only entries
+# older than KEEP_DAYS, and only deliberately.
+DISPLAY_DAYS = 366
+KEEP_DAYS = 731
+RETENTION_DAYS = DISPLAY_DAYS   # kept for existing callers
 
 # Why a change-log record was written.
 REASON_FIRST        = "first"           # first record for the ticker
@@ -70,8 +72,9 @@ def _last_records(path: Path) -> dict[str, dict]:
     return latest
 
 
-def last_signals(path: Path = HISTORY_FILE) -> dict[str, str]:
+def last_signals(path: "Path | None" = None) -> dict[str, str]:
     """{ticker: signal_code} of the newest logged record per ticker."""
+    path = path or HISTORY_FILE
     return {t: r.get("signal_code") for t, r in _last_records(path).items()}
 
 
@@ -86,11 +89,12 @@ def _log_reason(rec: dict, prev: "dict | None") -> "str | None":
     return None
 
 
-def record_changes(records: list[dict], path: Path = HISTORY_FILE) -> int:
+def record_changes(records: list[dict], path: "Path | None" = None) -> int:
     """Append each public record whose signal_code, model_version or
     model_settings_id changed since the ticker's last logged one (or that has
     none logged yet), tagged with ``log_reason``. "pending" is not a signal and
     is never logged; non-public rows are skipped. Returns the number written."""
+    path = path or HISTORY_FILE
     with _lock:
         prev = _last_records(path)
         new = []
@@ -109,12 +113,13 @@ def record_changes(records: list[dict], path: Path = HISTORY_FILE) -> int:
         return len(new)
 
 
-def history_for(ticker: str, path: Path = HISTORY_FILE, *,
-                days: int = RETENTION_DAYS, now: "datetime | None" = None,
+def history_for(ticker: str, path: "Path | None" = None, *,
+                days: int = DISPLAY_DAYS, now: "datetime | None" = None,
                 signal_changes_only: bool = True) -> list[dict]:
     """The logged records for one ticker within the last `days`, oldest
     first. By default only badge changes (what a stock page shows as its
     history); ``signal_changes_only=False`` adds the model/settings changes."""
+    path = path or HISTORY_FILE
     cutoff = (now or datetime.now(timezone.utc)) - timedelta(days=days)
     out = []
     for rec in _read(path):
@@ -138,10 +143,11 @@ def _snapshot_path(day: date, directory: Path) -> Path:
 
 
 def write_daily_snapshot(records: list[dict], *, day: "date | None" = None,
-                         directory: Path = SNAPSHOT_DIR) -> "Path | None":
+                         directory: "Path | None" = None) -> "Path | None":
     """REC-11: store every public signal record of `day` (default: today,
     UTC), once per day — the first universe build of the day wins, later
     calls return None. Returns the file written."""
+    directory = directory or SNAPSHOT_DIR
     day = day or datetime.now(timezone.utc).date()
     rows = [r for r in records if r.get("Ticker") and _is_public(r)]
     if not rows:
@@ -160,9 +166,10 @@ def write_daily_snapshot(records: list[dict], *, day: "date | None" = None,
 
 
 def read_snapshot(day: date, *, ticker: "str | None" = None,
-                  directory: Path = SNAPSHOT_DIR) -> list[dict]:
+                  directory: "Path | None" = None) -> list[dict]:
     """The records of one day's snapshot, optionally for a single ticker;
     [] when no snapshot was taken that day."""
+    directory = directory or SNAPSHOT_DIR
     path = _snapshot_path(day, directory)
     if not path.exists():
         return []

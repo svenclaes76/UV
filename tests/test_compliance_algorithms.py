@@ -1,20 +1,27 @@
 """
-Legal-compliance copies of the algorithms — screener_compliant.py,
-risk_compliant.py, signal_history.py (docs/legal/algorithm-compliance-review.md).
+Legal design rules of the scoring and risk algorithms (screener.py, risk.py,
+uvalu/compliance/) — docs/legal/algorithm-compliance-review.md.
 
 Two kinds of check:
-  • equivalence — with the compliance-only switches neutralised, the copies
-    compute exactly what screener.py / risk.py compute, so the copies change
-    what is said, not what is calculated;
-  • requirement — each requirement ID the copies claim to meet (PER-1/2/4/5,
+  • snapshot — the scored output of a fixed synthetic universe is frozen in
+    tests/snapshots/scored_universe.json, so a refactor can't move a fair
+    value, score or signal unnoticed. Regenerate deliberately (and bump
+    screener.MODEL_VERSION) with ``UVALU_UPDATE_SNAPSHOTS=1 pytest
+    tests/test_compliance_algorithms.py``. It replaced the equivalence tests
+    against the pre-v2.1.0 originals when the compliant versions were
+    swapped in;
+  • requirement — each requirement ID the algorithms claim to meet (PER-1/2/4/5,
     BDG-1/3, REC-2/3/4/5/7/8/9/10/11, DATA-6, DIS-3) is pinned by a test.
 
 All offline: synthetic frames, monkeypatched price history and factor data.
 """
 
 import inspect
+import json
+import os
 import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -22,18 +29,14 @@ import pytest
 
 import marketdata
 import risk
-import risk_compliant
-import screener
-import screener_compliant as sc
-import settings_audit
-import signal_history
+import screener as sc
+from uvalu.compliance import settings_audit, signal_history
 
 
 @pytest.fixture(autouse=True)
 def _isolate_factor_cache(tmp_path, monkeypatch):
-    for mod in (risk, risk_compliant):
-        monkeypatch.setattr(mod, "_FACTORS_DIR", tmp_path / "factors")
-        monkeypatch.setattr(mod, "_ff_cache", {})
+    monkeypatch.setattr(risk, "_FACTORS_DIR", tmp_path / "factors")
+    monkeypatch.setattr(risk, "_ff_cache", {})
 
 
 _NOW = datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc)
@@ -78,44 +81,66 @@ def _universe(n: int = 30, seed: int = 3, prefix: str = "P") -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-_DECISION_TO_CODE = {"Strong Buy": sc.SIGNAL_UNDERVALUED, "Monitor": sc.SIGNAL_NEUTRAL}
+SNAPSHOT = Path(__file__).parent / "snapshots" / "scored_universe.json"
+_SNAPSHOT_COLS = ("fair_value", "Value Score", "margin_of_safety", "Sub MoS", "Sub Risk",
+                  "Sub Quality", "Sub Momentum", "Sub Dividend", "Implied Return % (est.)",
+                  "signal_code", "veto")
 
 
-def _expected_code(row) -> str:
-    if row["veto"]:
-        return sc.SIGNAL_FAILS
-    return _DECISION_TO_CODE.get(row["Decision"], sc.SIGNAL_LOW_SCORE)
+def _jsonable(v):
+    if isinstance(v, (np.bool_, bool)):
+        return bool(v)
+    if isinstance(v, (np.integer, np.floating, float, int)):
+        f = float(v)
+        return None if np.isnan(f) else round(f, 6)
+    return v
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Screener copy — equivalence
-# ══════════════════════════════════════════════════════════════════════════════
-
-class TestScreenerEquivalence:
-    def test_same_numbers_and_mapped_signals_with_analyst_inputs_on(self, monkeypatch):
-        """With the DATA-6 switch on and no peer mask, the copy is screener.py
-        with renamed outputs: identical fair values and scores, and each
-        Decision maps one-to-one onto a signal_code."""
-        monkeypatch.setattr(sc, "ANALYST_INPUTS_ENABLED", True)
-        df = _universe()
-        orig = screener.compute_scores(df.copy()).set_index("Ticker")
-        copy = sc.compute_scores(df.copy(), computed_at=_NOW).set_index("Ticker")
-        for col in ("fair_value", "Value Score", "margin_of_safety", "Sub MoS", "Sub Risk"):
-            pd.testing.assert_series_equal(copy[col], orig.loc[copy.index, col], check_names=False)
-        expected = orig.loc[copy.index].apply(_expected_code, axis=1)
-        assert copy["signal_code"].tolist() == expected.tolist()
-        pd.testing.assert_series_equal(copy["Implied Return % (est.)"],
-                                       orig.loc[copy.index, "TER %"], check_names=False)
+class TestScoreSnapshot:
+    def test_scored_universe_matches_snapshot(self):
+        out = sc.compute_scores(_universe(30), computed_at=_NOW).set_index("Ticker").sort_index()
+        current = {"model_version": sc.MODEL_VERSION,
+                   "rows": {t: {c: _jsonable(out.loc[t, c]) for c in _SNAPSHOT_COLS} for t in out.index}}
+        if os.environ.get("UVALU_UPDATE_SNAPSHOTS") == "1" or not SNAPSHOT.exists():
+            SNAPSHOT.write_text(json.dumps(current, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        frozen = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        assert frozen["model_version"] == sc.MODEL_VERSION, \
+            "MODEL_VERSION changed: regenerate the snapshot (UVALU_UPDATE_SNAPSHOTS=1)"
+        for t, cols in frozen["rows"].items():
+            for c, v in cols.items():
+                got = current["rows"][t][c]
+                if isinstance(v, float):
+                    assert got == pytest.approx(v, abs=1e-6), (t, c)
+                else:
+                    assert got == v, (t, c)
+        assert set(current["rows"]) == set(frozen["rows"])
 
     def test_no_decision_column_and_descriptive_labels(self):
         out = sc.compute_scores(_universe(), computed_at=_NOW)
-        assert "Decision" not in out.columns
+        assert "Decision" not in out.columns and "TER %" not in out.columns
         assert set(out["Signal"]) <= set(sc.SIGNAL_LABELS.values())
         assert not {"Strong Buy", "Monitor", "Avoid"} & set(out["Signal"])
 
 
+class TestMinimumMarginOfSafety:
+    """Decision D1: Undervalued needs at least MIN_MOS_FLOOR whatever the setting."""
+
+    def test_floor_applies_to_signal_methodology_and_reason(self):
+        out = sc.compute_scores(_universe(30), min_mos=0.0, computed_at=_NOW)
+        und = out[out["signal_code"] == sc.SIGNAL_UNDERVALUED]
+        assert (und["margin_of_safety"] >= sc.MIN_MOS_FLOOR).all()
+        assert sc.methodology(min_mos=0.0)["thresholds"]["undervalued_min_margin_of_safety"] == sc.MIN_MOS_FLOOR
+        assert sc.methodology(min_mos=0.25)["thresholds"]["undervalued_min_margin_of_safety"] == 0.25
+        assert sc.effective_min_mos(None) == sc.MIN_MOS_FLOOR
+
+    def test_settings_id_uses_the_effective_floor(self):
+        a = sc.compute_scores(_universe(10), min_mos=0.0, computed_at=_NOW)
+        b = sc.compute_scores(_universe(10), min_mos=0.10, computed_at=_NOW)
+        assert a["model_settings_id"].iloc[0] == b["model_settings_id"].iloc[0]
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# Screener copy — requirements
+# Screener — requirements
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestDataLicensing:
@@ -172,12 +197,12 @@ class TestPeerIndependence:
         extras["returnOnEquity"] = 0.6  # ...and the quality ranks
         return public, pd.concat([public, extras], ignore_index=True)
 
-    def test_original_screener_lets_user_extras_move_public_scores(self):
-        """The finding: screener.py ranks every row it is given, so one user's
-        manual tickers change everyone else's scores."""
+    def test_without_a_mask_user_extras_would_move_public_scores(self):
+        """Why the mask exists: unmasked, every row is a peer, so one user's
+        manual tickers change everyone else's scores (the pre-v2.1.0 bug)."""
         public, combined = self._with_user_extras()
-        a = screener.compute_scores(public.copy()).set_index("Ticker")["Value Score"]
-        b = screener.compute_scores(combined.copy()).set_index("Ticker")["Value Score"]
+        a = sc.compute_scores(public.copy(), computed_at=_NOW).set_index("Ticker")["Value Score"]
+        b = sc.compute_scores(combined.copy(), computed_at=_NOW).set_index("Ticker")["Value Score"]
         assert not np.allclose(a, b.loc[a.index])
 
     def test_peer_mask_keeps_public_scores_fixed(self):
@@ -471,7 +496,7 @@ class TestSettingsAudit:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Risk copy
+# Risk
 # ══════════════════════════════════════════════════════════════════════════════
 
 _PRESCRIPTIVE = re.compile(
@@ -489,23 +514,19 @@ class TestRiskWording:
     """PER-4: describe, never prescribe."""
 
     def test_band_descriptions(self):
-        for _upper, label, description, _tone in risk_compliant.RISK_BANDS:
+        for _upper, label, description, _tone in risk.RISK_BANDS:
             assert not _PRESCRIPTIVE.search(description), description
 
     def test_every_stage8_message(self):
-        literals = [t for t in _string_literals(risk_compliant._stage8_observations)
+        literals = [t for t in _string_literals(risk._stage8_observations)
                     if "{" in t or " " in t]
         assert len(literals) > 15
         for text in literals:
             assert not _PRESCRIPTIVE.search(text), text
 
-    def test_original_stage8_does_prescribe(self):
-        """The finding this copy fixes, pinned so the contrast stays visible."""
-        assert any(_PRESCRIPTIVE.search(t) for t in _string_literals(risk._stage8_rebalance))
-
     def test_observation_has_no_action_field(self):
-        assert "action" not in risk_compliant.RiskObservation.__dataclass_fields__
-        assert "action" not in risk_compliant.CompositeScore.__dataclass_fields__
+        assert "action" not in risk.RiskObservation.__dataclass_fields__
+        assert "action" not in risk.CompositeScore.__dataclass_fields__
 
 
 def _patch_history(monkeypatch, tickers):
@@ -513,10 +534,9 @@ def _patch_history(monkeypatch, tickers):
     rng = np.random.default_rng(11)
     frame = pd.DataFrame({t: 100 * np.cumprod(1 + rng.normal(0, 0.015, len(idx))) for t in tickers},
                          index=idx)
-    for mod in (risk, risk_compliant):
-        monkeypatch.setattr(mod, "_fetch_history", lambda tks, period="5y", f=frame: f)
-        monkeypatch.setattr(mod, "_fetch_ff_csv",
-                            lambda url: (_ for _ in ()).throw(ConnectionError("offline")))
+    monkeypatch.setattr(risk, "_fetch_history", lambda tks, period="5y", f=frame: f)
+    monkeypatch.setattr(risk, "_fetch_ff_csv",
+                        lambda url: (_ for _ in ()).throw(ConnectionError("offline")))
     monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda *a, **k: pd.DataFrame())
 
 
@@ -531,34 +551,28 @@ def _portfolio():
 
 
 class TestRiskEquivalenceAndRules:
-    @pytest.mark.parametrize("weighting,income", [("standard", False), ("income_weighted", True)])
-    def test_same_numbers_as_risk_py(self, monkeypatch, weighting, income):
+    def test_weightings_move_only_the_composite(self, monkeypatch):
         pf, cache = _portfolio()
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
-        orig = risk.assess_portfolio(pf, cache, income)
-        copy = risk_compliant.assess_portfolio(pf, cache, weighting=weighting)
-        assert copy.composite.score == orig.composite.score
-        assert copy.composite.label == orig.composite.label
-        assert copy.composite.sub_scores == orig.composite.sub_scores
-        assert copy.quant.volatility_annual == orig.quant.volatility_annual
-        assert copy.concentration.hhi == orig.concentration.hhi
-        assert [p.rating for p in copy.position_profiles] == [p.rating for p in orig.position_profiles]
+        std = risk.assess_portfolio(pf, cache, weighting="standard")
+        inc = risk.assess_portfolio(pf, cache, weighting="income_weighted")
+        assert std.concentration.hhi == inc.concentration.hhi
+        assert [p.rating for p in std.position_profiles] == [p.rating for p in inc.position_profiles]
+        assert (std.composite.weighting, inc.composite.weighting) == ("standard", "income_weighted")
 
     def test_held_veto_is_not_turned_into_an_observation(self, monkeypatch):
-        """PER-5: risk.py pairs a held stock's veto with 'consider reducing or
-        exiting'; the copy does not observe the veto at all."""
+        """PER-5: the pre-v2.1.0 risk.py paired a held stock's veto with
+        'consider reducing or exiting'; no observation mentions the veto now."""
         pf, cache = _portfolio()
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
         vetoes = {t: True for t in pf["ticker"]}
-        orig = risk.assess_portfolio(pf, cache, False, vetoes)
-        copy = risk_compliant.assess_portfolio(pf, cache, veto_lookup=vetoes)
-        assert any("veto" in str(i.message) for i in orig.rebalance.items)
-        assert not any("veto" in str(i.message) for i in copy.observations.items)
+        rep = risk.assess_portfolio(pf, cache, veto_lookup=vetoes)
+        assert not any("veto" in str(i.message) for i in rep.observations.items)
 
     def test_user_targets_are_marked_as_user_basis(self, monkeypatch):
         pf, cache = _portfolio()
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
-        rep = risk_compliant.assess_portfolio(pf, cache, targets={"tickers": {"BIG.BR": 0.30},
+        rep = risk.assess_portfolio(pf, cache, targets={"tickers": {"BIG.BR": 0.30},
                                                                   "hhi_max": 0.20})
         user = [i for i in rep.observations.items if i.basis == "user_target"]
         assert {i.scope for i in user} >= {"BIG.BR", "Portfolio"}
@@ -566,16 +580,16 @@ class TestRiskEquivalenceAndRules:
     def test_disclosures_ship_with_the_report(self, monkeypatch):
         pf, cache = _portfolio()
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
-        rep = risk_compliant.assess_portfolio(pf, cache)
+        rep = risk.assess_portfolio(pf, cache)
         assert any("estimates" in str(d) for d in rep.disclosures)
 
     def test_unknown_weighting_is_rejected(self):
         pf, cache = _portfolio()
         with pytest.raises(ValueError):
-            risk_compliant.assess_portfolio(pf, cache, weighting="retirement")
+            risk.assess_portfolio(pf, cache, weighting="retirement")
 
     def test_position_flags_name_the_comparison(self, monkeypatch):
         pf, cache = _portfolio()
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
-        rep = risk_compliant.assess_portfolio(pf, cache)
+        rep = risk.assess_portfolio(pf, cache)
         assert {p.valuation_flag for p in rep.position_profiles} == {"Above model fair value"}

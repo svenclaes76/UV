@@ -20,10 +20,10 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_watchlist, load_portfolio
-from screener import decision_reason
+from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (signal_badge_for_decision, signal_badge_html,
+from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -171,24 +171,21 @@ def open_drawer(row: "pd.Series") -> None:
     st.markdown(f"<style>{_DRAWER_CSS}</style>", unsafe_allow_html=True)
 
     ticker = str(row.get("Ticker", ""))
-    kind, label = signal_badge_for_decision(row.get("Decision"), veto=row.get("veto"))
-
-    # Prefer a live price when the row has one — dashboard.py's holdings
-    # table merges in a 60s-fresh live_price alongside the screener's own
-    # Price (up to ~24h stale, from the fundamentals cache); other callers
-    # (screener.py, watchlist.py, portfolio.py) only ever have Price. Using
-    # the stale one when a fresher figure sits right there in the same row
-    # made this drawer show a different price — and therefore a different
-    # Position value / Unrealised P&L — than the page the user just clicked
-    # from was showing for the same holding.
+    # Two prices (B3). The hero tiles, fair-value ladder and margin of safety
+    # use the scored `Price`: the one the signal was computed from, with its
+    # time in the provenance line (REC-4, BDG-3). Position value, P&L and the
+    # sale preset use the live quote when the row has one (dashboard.py merges
+    # a 60s-fresh live_price in), so they match the page the user came from.
+    _price = row.get("Price")
     _live_price = row.get("live_price")
-    _price = _live_price if pd.notna(_live_price) else row.get("Price")
+    _market_price = _live_price if pd.notna(_live_price) else _price
 
     with st.container(horizontal=True, vertical_alignment="top", horizontal_alignment="distribute"):
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
                        f'{ticker}</span>', unsafe_allow_html=True)
-            st.markdown(signal_badge_html(kind, label), unsafe_allow_html=True)
+            st.markdown(model_signal_badge_html(row.get("signal_code"), veto=row.get("veto")),
+                        unsafe_allow_html=True)
         if st.button("✕", key="drw_close", type="tertiary", help=_("Close")):
             # @st.dialog bodies rerun as their own fragment — a plain widget
             # click alone just re-renders this same function unchanged, it
@@ -198,7 +195,8 @@ def open_drawer(row: "pd.Series") -> None:
             # watchlist-star handler used to force-close-then-reopen.
             st.rerun()
     st.markdown(f'<div style="padding-bottom:16px;border-bottom:0.5px solid var(--line);">'
-               f'<span style="font-size:13px;color:var(--muted);">{row.get("Name", "—")} · {_fv(row, "sector", tr)}</span></div>',
+               f'<span style="font-size:13px;color:var(--muted);">{row.get("Name", "—")} · {_fv(row, "sector", tr)}</span>'
+               f'{signal_provenance_html(row)}{founder_notice_html(row)}</div>',
                unsafe_allow_html=True)
 
     # ── Hero: price / fair value / MoS — three bordered panel-2 tiles,
@@ -207,7 +205,7 @@ def open_drawer(row: "pd.Series") -> None:
     # unambiguously as cards). ───────────────────────────────────────────────
     _mos = row.get("MoS %")
     _mos_color = ("var(--up-txt)" if pd.notna(_mos) and _mos >= 0 else "var(--down-txt)") if pd.notna(_mos) else "inherit"
-    _ter = row.get("TER %")
+    _ter = row.get("Implied Return % (est.)")
     _ter_color = ("var(--up-txt)" if pd.notna(_ter) and _ter >= 0 else "var(--down-txt)") if pd.notna(_ter) else "inherit"
     # Tighter side padding/gap/letter-spacing than a first pass at this (13px
     # 14px padding, 12px gap, 0.06em spacing) — "Margin of safety" wrapped to
@@ -223,7 +221,7 @@ def open_drawer(row: "pd.Series") -> None:
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
         (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--mint)"),
         (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
-        (_("Total return"), _fv(row, "TER %", lambda v: fmt_pct(v, signed=True)), _ter_color),
+        (_("Implied return (est.)"), _fv(row, "Implied Return % (est.)", lambda v: fmt_pct(v, signed=True)), _ter_color),
     ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
@@ -238,12 +236,12 @@ def open_drawer(row: "pd.Series") -> None:
             f'<div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Hard veto triggered")}</div>'
+            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
             f'<div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True)
     else:
         _min_mos, _buy_thr = get_veto_thresholds()[2:4]
-        st.caption(decision_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
+        st.caption(signal_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
     _section_header(h_("Six-model fair value"))
     if pd.notna(_price):
@@ -303,7 +301,7 @@ def open_drawer(row: "pd.Series") -> None:
         # flat (zero gain/loss) rather than letting _safe_float(NaN)'s 0.0
         # fabricate a fake "€0 value / -100% loss" -- matches dashboard.py's
         # holdings table, which falls back to purchase_value the same way.
-        _position_value = (_shares * float(_price)) if pd.notna(_price) else _purchase_value
+        _position_value = (_shares * float(_market_price)) if pd.notna(_market_price) else _purchase_value
         _pnl = _position_value - _purchase_value
         _pnl_pct = (_pnl / _purchase_value * 100) if _purchase_value else 0.0
         _rows += [
@@ -344,7 +342,7 @@ def open_drawer(row: "pd.Series") -> None:
                 # dispatch_pending_drawer_action() (called at each page's
                 # top level, outside any dialog) opens it on the next run.
                 st.session_state["_drw_action"] = {"kind": "sell", "ticker": ticker,
-                                                   "price": _safe_float(_price)}
+                                                   "price": _safe_float(_market_price)}
                 st.rerun()
     else:
         _act1, _act2 = st.columns([2, 1])
@@ -355,5 +353,5 @@ def open_drawer(row: "pd.Series") -> None:
             if st.button(_("Add"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,
                                                    "name": str(row.get("Name", "")),
-                                                   "price": _safe_float(_price)}
+                                                   "price": _safe_float(_market_price)}
                 st.rerun()

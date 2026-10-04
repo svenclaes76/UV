@@ -1695,9 +1695,9 @@ GLOBAL_CSS = """
   /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
   .uv-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 46px; height: 22px; padding: 0 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.02em; white-space: nowrap; line-height: 1;
+    min-width: 64px; height: 22px; padding: 0 9px; border-radius: 6px;
+    font-size: 10.5px; font-weight: 500;   /* mixed case: descriptive labels (BDG-1) */
+    letter-spacing: 0.03em; white-space: nowrap; line-height: 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
   .uv-badge-buy,     .uv-badge-ok      { background: var(--uv-pos-bg); color: var(--uv-pos-txt); }

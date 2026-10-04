@@ -21,10 +21,14 @@ from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, 
 
 # ── Signal badge ─────────────────────────────────────────────────────────────
 
-_DECISION_BADGE = {
-    "Strong Buy": ("buy", "BUY"),
-    "Monitor":    ("monitor", "MONITOR"),
-    "Avoid":      ("avoid", "AVOID"),
+# Model signal (screener.signal_code) → badge colour kind. Labels come from
+# screener.SIGNAL_LABELS, translated at render time (BDG-1).
+_SIGNAL_KIND = {
+    "undervalued":  "buy",
+    "neutral":      "monitor",
+    "low_score":    "avoid",
+    "fails_screen": "veto",
+    "pending":      "neutral",
 }
 
 _TIP_LABELS = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
@@ -43,20 +47,33 @@ def is_hard_veto(v: object) -> bool:
     return bool(v)
 
 
-def signal_badge_for_decision(decision: object, veto: object = False) -> tuple[str, str]:
-    """Map a screener Decision string (+ veto flag) to a (kind, label) badge pair.
+def signal_badge_for(signal_code: object, veto: object = False) -> tuple[str, str]:
+    """Map a screener ``signal_code`` (+ veto flag) to a (kind, label) badge
+    pair, the label translated.
 
-    Three distinct states, not two: a real hard veto → VETO; a scored
-    BUY/MONITOR/AVOID → that; anything else (no Decision — the row has no
-    scored screener data at all) → a neutral "NO DATA" badge, so a
-    fundamentals gap never masquerades as an AVOID or, via ``bool(nan)``, a
-    VETO."""
+    A real quality-screen failure → "Fails quality screen"; a scored state →
+    its label; anything else (no signal_code — the row has no scored screener
+    data at all) → a neutral "No data" badge, so a fundamentals gap never
+    masquerades as a low score or, via ``bool(nan)``, a failed screen."""
+    from screener import SIGNAL_FAILS, SIGNAL_LABELS
     if is_hard_veto(veto):
-        return "veto", "VETO"
-    decision = "" if decision is None or (isinstance(decision, float) and pd.isna(decision)) else str(decision)
-    if decision in _DECISION_BADGE:
-        return _DECISION_BADGE[decision]
-    return "neutral", _("NO DATA")
+        return "veto", tr(SIGNAL_LABELS[SIGNAL_FAILS])
+    code = "" if signal_code is None or (isinstance(signal_code, float) and pd.isna(signal_code)) else str(signal_code)
+    if code in _SIGNAL_KIND:
+        return _SIGNAL_KIND[code], tr(SIGNAL_LABELS[code])
+    return "neutral", _("No data")
+
+
+def signal_tooltip() -> str:
+    """BDG-2: the tooltip every model-signal badge carries."""
+    from screener import SIGNAL_TOOLTIP
+    return tr(SIGNAL_TOOLTIP) + " " + _("See Methodology for thresholds.")
+
+
+def model_signal_badge_html(signal_code: object, veto: object = False) -> str:
+    """A model-signal badge with its BDG-2 tooltip — use for every signal badge."""
+    kind, label = signal_badge_for(signal_code, veto=veto)
+    return signal_badge_html(kind, label, tooltip=signal_tooltip())
 
 
 def veto_reason_str(row: "pd.Series") -> str:
@@ -100,9 +117,37 @@ def veto_reason_str(row: "pd.Series") -> str:
     return "; ".join(reasons) if reasons else _("a hard-veto rule")
 
 
-def signal_badge_html(kind: str, label: str) -> str:
-    """Raw <span> markup for a signal badge — embed inside markdown/HTML contexts."""
-    return f'<span class="uv-badge uv-badge-{kind}">{label}</span>'
+def signal_provenance_html(row) -> str:
+    """REC-4 / DATA-3: when the signal was computed, the time of the price it
+    used (labelled delayed: the beta's quotes are not end-of-day closes), and
+    the model version. Shown under every signal badge that has a row behind it."""
+    import html as _html_mod
+    from uvalu.i18n import fmt_datetime
+    parts = [
+        _("Signal computed {when}", when=fmt_datetime(row.get("signal_computed_at"))),
+        _("price as of {when}, delayed", when=fmt_datetime(row.get("price_as_of"))),
+        _("model {version}", version=str(row.get("model_version") or "—")),
+    ]
+    return ('<div style="font-size:11px;color:var(--faint);font-family:var(--uv-mono);'
+            'margin-top:6px;line-height:1.5;">'
+            + " · ".join(_html_mod.escape(p) for p in parts) + "</div>")
+
+
+def founder_notice_html(row) -> str:
+    """REC-8: the founder-position disclosure, when the founder holds the stock."""
+    if not bool(row.get("founder_holds")) or pd.isna(row.get("founder_holds")):
+        return ""
+    import html as _html_mod
+    from screener import FOUNDER_HOLDS_NOTICE
+    return ('<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">'
+            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE)) + "</div>")
+
+
+def signal_badge_html(kind: str, label: str, tooltip: "str | None" = None) -> str:
+    """Raw <span> markup for a badge — embed inside markdown/HTML contexts.
+    For model signals use model_signal_badge_html (adds the BDG-2 tooltip)."""
+    title = f' title="{_html_attr(tooltip)}"' if tooltip else ""
+    return f'<span class="uv-badge uv-badge-{kind}"{title}>{label}</span>'
 
 
 def render_signal_tips(tips: list[tuple[str, str]]) -> None:
@@ -317,8 +362,12 @@ def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
         ["EPV",                   row.get("epv")],
         [N_("Dividend discount"), row.get("ddm")],
         [N_("DDM 2-stage"),       row.get("ddm_multistage")],
-        [N_("Analyst Target"),    row.get("targetMeanPrice")],
     ]
+    # DATA-6: the analyst target is licensed separately; it is only a model
+    # (and only shown) while screener.ANALYST_INPUTS_ENABLED is on.
+    from screener import ANALYST_INPUTS_ENABLED
+    if ANALYST_INPUTS_ENABLED:
+        rows.append([N_("Analyst Target"), row.get("targetMeanPrice")])
     fallbacks = [(N_("Book value"), row.get("pb_fair_value")),
                  (N_("FCF value"),  row.get("fcf_fair_value"))]
     for label, value in fallbacks:
@@ -548,11 +597,11 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 # align-items:center handles vertical centering natively. The one thing this
 # can't do is a native onClick, so the caller renders this in a wide column
 # next to a normal narrow st.button("→", ...) column for the drawer link.
-HOLDINGS_GRID_COLS = "210px 78px 1fr 82px 66px 108px 96px"
+HOLDINGS_GRID_COLS = "210px 140px 1fr 82px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
 
 
 def holdings_row_html(*, ticker: str, sector: str | None, name: str,
-                      decision: str, veto: bool,
+                      signal_code: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, total_gain: float | None,
                       price_stale: bool = False, data_thin: bool = False,
@@ -576,7 +625,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
                    if sector and pd.notna(sector) else "")
-    kind, label = signal_badge_for_decision(decision, veto=veto)
+    badge_html = model_signal_badge_html(signal_code, veto=veto)
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
@@ -613,7 +662,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
            f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
-           f'<div>{signal_badge_html(kind, label)}</div>'
+           f'<div>{badge_html}</div>'
            f'<div style="min-width:0;">{ladder_html}</div>'
            f'<div style="text-align:right;">{mos_html}</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{fmt_pct(weight * 100)}</div>'
@@ -642,7 +691,7 @@ def _score_bar_cell_html(score: float | None) -> str:
 </div>"""
 
 
-def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
+def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_code: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
@@ -734,8 +783,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
                        f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
-            _kind, _label = signal_badge_for_decision(decision, veto=veto)
-            st.markdown(signal_badge_html(_kind, _label), unsafe_allow_html=True)
+            st.markdown(model_signal_badge_html(signal_code, veto=veto), unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
             st.markdown(_score_bar_cell_html(score), unsafe_allow_html=True)

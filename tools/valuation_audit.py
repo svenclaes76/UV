@@ -66,17 +66,17 @@ SENTINELS = ["NAITR.AS", "SNBN.SW"]
 
 def _sentinel_naitr(row: pd.Series) -> str | None:
     """NAITR.AS: confirmed-zero-volume hard veto must hold (Avoid)."""
-    if bool(row.get("veto")) and str(row.get("Decision")) == "Avoid":
+    if bool(row.get("veto")) and str(row.get("signal_code")) == "fails_screen":
         return None
-    return f"expected veto=True, Decision='Avoid'; got veto={row.get('veto')!r}, Decision={row.get('Decision')!r}"
+    return f"expected veto=True, signal_code='fails_screen'; got veto={row.get('veto')!r}, signal_code={row.get('signal_code')!r}"
 
 
 def _sentinel_snb(row: pd.Series) -> str | None:
-    """SNBN.SW: PTB_SANITY_FLOOR must hold fair_value dark (no Strong Buy)."""
+    """SNBN.SW: PTB_SANITY_FLOOR must hold fair_value dark (no Undervalued signal)."""
     fv = row.get("fair_value")
-    if (fv is None or (isinstance(fv, float) and pd.isna(fv))) and str(row.get("Decision")) != "Strong Buy":
+    if (fv is None or (isinstance(fv, float) and pd.isna(fv))) and str(row.get("signal_code")) != "undervalued":
         return None
-    return f"expected fair_value NaN and Decision != 'Strong Buy'; got fair_value={fv!r}, Decision={row.get('Decision')!r}"
+    return f"expected fair_value NaN and signal_code != 'undervalued'; got fair_value={fv!r}, signal_code={row.get('signal_code')!r}"
 
 
 SENTINEL_ASSERTIONS = {
@@ -185,20 +185,20 @@ def check_shares_outstanding_sanity(df: pd.DataFrame) -> pd.Series:
 def check_zero_volume_vs_strong_buy(df: pd.DataFrame) -> pd.Series:
     """Regression sentinel in check form — should never fire post-fix. Doc §2.2."""
     vol = _num(df, "averageVolume")
-    return (vol == 0) & (_obj(df, "Decision") == "Strong Buy")
+    return (vol == 0) & (_obj(df, "signal_code") == "undervalued")
 
 
 def check_fv_basis_thin_vs_strong_buy(df: pd.DataFrame) -> pd.Series:
     """Regression sentinel in check form — should never fire post-fix. Doc §2.2."""
     thin = _obj(df, "fv_basis_thin").fillna(False).astype(bool)
-    return thin & (_obj(df, "Decision") == "Strong Buy")
+    return thin & (_obj(df, "signal_code") == "undervalued")
 
 
 def check_decision_veto_consistency(df: pd.DataFrame) -> pd.Series:
-    """veto == True must imply Decision == 'Avoid'. Pure code invariant,
+    """veto == True must imply signal_code == 'fails_screen'. Pure code invariant,
     no ticker-specific false-positive risk. Doc §2.2."""
     veto = _obj(df, "veto").fillna(False).astype(bool)
-    return veto & (_obj(df, "Decision") != "Avoid")
+    return veto & (_obj(df, "signal_code") != "fails_screen")
 
 
 def check_fair_value_price_ratio(df: pd.DataFrame) -> pd.Series:
@@ -241,11 +241,11 @@ CHECK_REGISTRY: list[Check] = [
     Check("shares_outstanding_sanity", BASIS_INTEGRITY, "calibrated", "§2.2",
           "sharesOutstanding is exactly 0."),
     Check("zero_volume_vs_strong_buy", SIGNAL_SAFETY, "shipped", "§2.2",
-          "Confirmed zero averageVolume co-occurring with Decision == 'Strong Buy'."),
+          "Confirmed zero averageVolume co-occurring with signal_code == 'undervalued'."),
     Check("fv_basis_thin_vs_strong_buy", SIGNAL_SAFETY, "shipped", "§2.2",
-          "fv_basis_thin co-occurring with Decision == 'Strong Buy'."),
+          "fv_basis_thin co-occurring with signal_code == 'undervalued'."),
     Check("decision_veto_consistency", SIGNAL_SAFETY, "calibrated", "§2.2",
-          "veto == True without Decision == 'Avoid'."),
+          "veto == True without signal_code == 'fails_screen'."),
     Check("fair_value_price_ratio", DISPLAY_CORRECTNESS, "calibrated", "§2.2",
           "fair_value many multiples of Price (bands: >20x/>50x/>200x)."),
     Check("dividend_yield_sanity", DISPLAY_CORRECTNESS, "calibrated", "§2.2",
@@ -300,7 +300,7 @@ def _severity_for(checks_failed: list[str], decision: str) -> str:
     if SIGNAL_SAFETY in families:
         return "critical"
     if BASIS_INTEGRITY in families:
-        return "critical" if decision == "Strong Buy" else "notable"
+        return "critical" if decision == "undervalued" else "notable"
     return "informational"
 
 
@@ -317,11 +317,11 @@ def _detail_for(check_name: str, row: pd.Series, outcome: CheckOutcome) -> str:
     if check_name == "shares_outstanding_sanity":
         return "sharesOutstanding == 0"
     if check_name == "zero_volume_vs_strong_buy":
-        return "averageVolume == 0 and Decision == 'Strong Buy'"
+        return "averageVolume == 0 and signal_code == 'undervalued'"
     if check_name == "fv_basis_thin_vs_strong_buy":
-        return "fv_basis_thin and Decision == 'Strong Buy'"
+        return "fv_basis_thin and signal_code == 'undervalued'"
     if check_name == "decision_veto_consistency":
-        return f"veto == True but Decision == {row.get('Decision')!r}"
+        return f"veto == True but signal_code == {row.get('signal_code')!r}"
     if check_name == "fair_value_price_ratio":
         price = row.get("Price"); fv = row.get("fair_value")
         ratio = (fv / price) if price else None
@@ -342,7 +342,7 @@ def aggregate_findings(df: pd.DataFrame, outcome: CheckOutcome) -> list[Finding]
     for idx in df.index[any_hit]:
         row = df.loc[idx]
         checks_failed = [name for name, hits in outcome.hits.items() if bool(hits.get(idx, False))]
-        decision = str(row.get("Decision"))
+        decision = str(row.get("signal_code"))
         severity = _severity_for(checks_failed, decision)
         details = {name: _detail_for(name, row, outcome) for name in checks_failed}
         findings.append(Finding(
@@ -366,7 +366,7 @@ def _explanation_for(row: pd.Series) -> list[str]:
     if isinstance(reasons, dict) and reasons:
         lines.append("fv_dark_reasons: " + ", ".join(f"{k}={v}" for k, v in reasons.items()))
     try:
-        lines.append("decision_reason: " + screener.decision_reason(row))
+        lines.append("signal_reason: " + screener.signal_reason(row))
     except Exception:
         pass
     if bool(row.get("veto")):

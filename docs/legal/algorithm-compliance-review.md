@@ -2,16 +2,18 @@
 
 Oct 3, 2026 · reviewed against *Uvalu — Legal Requirements for Launch* (Oct 2, 2026)
 
-This review covers the scoring and risk algorithms: `screener.py`, `risk.py`, `scoring.py` and `portfolio_enrichment.py`, plus the data-layer code that decides what they are given (`uvalu/data.py`). The original modules are **unchanged**. The fixes live in candidate copies that are not yet wired into the app:
+This review covers the scoring and risk algorithms: `screener.py`, `risk.py`, `scoring.py` and `portfolio_enrichment.py`, plus the data-layer code that decides what they are given (`uvalu/data.py`).
+
+> **Status (Oct 4, 2026).** The fixes were first built as candidate copies (`screener_compliant.py`, `risk_compliant.py`) next to the untouched originals. In M1 step 1 of [`compliance-implementation-plan.md`](compliance-implementation-plan.md) the copies **replaced** `screener.py` and `risk.py` in place, with no switch back to the old labels, and were wired into the app. The originals are in git history (tag `v2.0.1`). §4 gives the wiring status. Line references in §1 point at the pre-v2.1.0 originals.
 
 | File | What it is |
 | --- | --- |
-| `screener_compliant.py` | Copy of `screener.py` stages 2–6 with the fixes below. Stage 1 (fetch/cache) is imported from `screener.py`, not copied, so there is still one fetcher and one cache. |
-| `risk_compliant.py` | Copy of `risk.py`. The computations are identical; only the output wording and structure change. |
-| `signal_history.py` | New: an append-only log of signal and model changes, plus a daily snapshot of every public signal (REC-7, REC-11). |
-| `settings_audit.py` | New: an append-only log of planned changes, shared-settings changes and model versions (REC-9, REC-11). |
-| `tests/test_compliance_algorithms.py` | 51 tests. They prove the copies compute the same numbers as the originals and pin each requirement below. |
-| `docs/legal/*_compliant.md` | Compliant versions of the two algorithm specs (§5). |
+| `screener.py` | Scoring with every fix below. Decision D1 adds `MIN_MOS_FLOOR` (10%): "Undervalued" needs at least that margin of safety whatever the shared setting says. |
+| `risk.py` | The computations are unchanged; only the output wording and structure changed. |
+| `uvalu/compliance/signal_history.py` | Append-only log of signal and model changes, plus a daily snapshot of every public signal (REC-7, REC-11). Files under `data/compliance/`. |
+| `uvalu/compliance/settings_audit.py` | Append-only log of planned changes, shared-settings changes and model versions (REC-9, REC-11). |
+| `tests/test_compliance_algorithms.py` | Pins each requirement below, and freezes the scored output of a synthetic universe in `tests/snapshots/scored_universe.json` (it replaced the equivalence tests against the originals). |
+| `docs/stock_valuation_algorithm.md`, `docs/portfolio_risk_assessment_algorithm.md` | The compliant specs (§5), now in place of the originals. |
 
 `scoring.py` and `portfolio_enrichment.py` need no changes: they compute descriptive sub-scores and flags only.
 
@@ -73,7 +75,28 @@ With the defaults, fair values and scores *do* change in two ways. Dropping the 
 
 ## 4. Needed outside the algorithm files when wiring this in
 
-These are not algorithm changes, but the copies only take effect once they are done:
+**Wiring status after M1 step 1 (Oct 4, 2026):**
+
+| Step | Status |
+| --- | --- |
+| 1 `uvalu/data.py` | Done: peer mask in the universe build, `user_selected=True` in the portfolio lane, founder holdings passed in |
+| 2 UI | Partly: `signal_code` everywhere, labels and BDG-2 tooltip on every badge, computed/price time and model version under the badge (drawer, Analysis), analyst target gated. Open: methodology link from every badge, `data_flags` display, provenance line on list screens (M1 Track D) |
+| 3 Risk page / Dashboard | Open: observations, `composite.description`, `disclosures` (M1 Track D). The page never rendered the old rebalancing items |
+| 4 `apply_live_mos` | Done: replaced by `apply_live_prices`, which keeps the scored price and MoS (decision B3) |
+| 5 Alerts | Done: `alert_buy_signal` / `alert_avoid_signal` removed |
+| 6 Signal log | Done: written after each universe build. Open: `history_for(ticker)` on the stock page (M1 Track D) |
+| 7 Translations | Open: all new strings untranslated (INT-1, INT-4) |
+| 8 Methodology page | Partly: the Help page now generates badges and quality-screen rules from `screener.py`. Open: full Methodology & help page, `REF_*` levels (M1 Track D) |
+| 9 `DATA_SOURCE` | Beta: Yahoo Finance (decision B2); EODHD with M2 |
+| 10 Analyst fields | Done: not fetched while unlicensed; stripped from cached rows on load |
+| 11 Public-universe flag | Done |
+| 12 Signal log and snapshot | Done |
+| 13 Settings audit | Done in `settings.save_shared_settings`. Open: admin action for `record_planned_change` |
+| 14 Founder disclosure | Done in the drawer and on the Analysis page. Open: `data/compliance/founder_holdings.json` (yours to create) |
+| 15 Quality-screen reasons | Done |
+| 16 Translations | Open, see 7 |
+
+The original checklist:
 
 1. **`uvalu/data.py`**: build the peer mask from the enabled exchanges' ticker lists and pass `peer_mask=` in `_build_all_screener_data`. Pass `user_selected=True` in `_load_portfolio_screener_data`. Switch the imports to the `*_compliant` modules.
 2. **UI**: read `signal_code`/`Signal` instead of `Decision` (`components.py`, `drawer.py`, screener/watchlist/analysis/dashboard pages, the Excel export). Show `SIGNAL_TOOLTIP`, the methodology link, `signal_computed_at`, `price_as_of` and `data_flags` next to every badge (BDG-2/3, REC-4). Gate the "Analyst Target" field that `uvalu/components.py:320, 392` shows undiscounted on the same switch (DATA-6).
@@ -94,14 +117,12 @@ These are not algorithm changes, but the copies only take effect once they are d
 
 ## 5. Algorithm specifications
 
-The two specs in `docs/` describe the original algorithms and are **unchanged**. Their compliant counterparts describe the copies:
+The compliant specs first lived in `docs/legal/*_compliant.md`. Since v2.1.0 they replace the originals:
 
-| Original spec | Compliant copy |
-| --- | --- |
-| `docs/stock_valuation_algorithm.md` | [`stock_valuation_algorithm_compliant.md`](stock_valuation_algorithm_compliant.md) |
-| `docs/portfolio_risk_assessment_algorithm.md` | [`portfolio_risk_assessment_algorithm_compliant.md`](portfolio_risk_assessment_algorithm_compliant.md) |
+- [`docs/stock_valuation_algorithm.md`](../stock_valuation_algorithm.md)
+- [`docs/portfolio_risk_assessment_algorithm.md`](../portfolio_risk_assessment_algorithm.md)
 
-Each copy keeps the original's technical content, applies every change in §1, and ends with a "Changes from the original spec" table. The issues found in the specs themselves, beyond those that mirror the code:
+Each keeps the original's technical content, applies every change in §1, and ends with a "Changes from the original spec" table. The issues found in the specs themselves, beyond those that mirror the code:
 
 | Spec | Issue in the original | Req. | Change in the copy |
 | --- | --- | --- | --- |

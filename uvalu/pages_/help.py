@@ -8,19 +8,21 @@ st.container per row — sidesteps the sibling-gap/height-underestimation CSS
 dance documented for Settings/Analysis entirely, since nothing on this page
 needs an individual widget key.
 
-The six fair-value models list below stays the app's real model set (Graham
-Number/PE Fair Value/EPV/DDM 1-stage/DDM 2-stage/Analyst target, see
-screener.py's `_fair_value_models()`) rather than the mockup's generic
+The fair-value models list below stays the app's real model set (Graham
+Number/PE Fair Value/EPV/DDM 1-stage/DDM 2-stage plus the book-value and FCF
+fallbacks, see screener.py's `_fair_value_models()`; the analyst target is
+off while unlicensed, DATA-6) rather than the mockup's generic
 "Dividend discount"/"DCF" pair — this app has no DCF model at all, so
 documenting one would describe a feature that doesn't exist. Same reasoning
 for the hard-veto rules: grounded in the real `_hard_veto` formula in
 screener.py's compute_scores(), not the mockup's own demo bullets — the
 mockup includes a "Going-concern or audit red flags" item this app has no
 corresponding check for, so it's omitted rather than documented as if it
-were real. The signal legend's BUY/MONITOR text also deliberately doesn't
-hardcode the mockup's demo thresholds (75 / 55) since both are
-user-configurable in Settings → Screening & veto rules — stating a fixed
-number here would go stale the moment someone changes that slider.
+were real. The badge legend and the quality-screen list are generated from
+screener.py (SIGNAL_LABELS, SIGNAL_DEFINITIONS, VETO_RULE_LABELS), so this
+page — the methodology page every badge links to (REC-5) — can't drift from
+the rules the code applies. Full redesign as "Methodology & help": M1 Track D
+in docs/legal/compliance-implementation-plan.md.
 
 The mockup's closing "Still stuck? Contact support" banner is left out on
 explicit confirmation from Sven when re-applying this design (2026-07-23) —
@@ -33,7 +35,9 @@ import html
 import streamlit as st
 
 from uvalu import nav as nav_registry
-from uvalu.components import signal_badge_html
+from screener import (SIGNAL_DEFINITIONS, SIGNAL_LABELS, SIGNAL_HORIZON, SIGNAL_RISK_WARNING,
+                      SIGNAL_SENSITIVITY, VETO_RULE_LABELS)
+from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip
 from uvalu.i18n import N_, _, h_, tr
 
 
@@ -44,18 +48,10 @@ def _t(text: str) -> str:
             .replace("&lt;em&gt;", "<em>").replace("&lt;/em&gt;", "</em>"))
 
 # English msgids (plain text, "&" not "&amp;"); rendered through _t().
-_SIGNAL_LEGEND = [
-    ("buy", "BUY", N_("Composite score clears the BUY threshold and the margin of safety clears its "
-                     "target — both conditions together, set in Settings → Screening & veto rules.")),
-    ("monitor", "MONITOR", N_("Composite score is decent but the margin of safety hasn't cleared the "
-                             "target yet, or the score itself sits below the BUY threshold — worth watching.")),
-    ("avoid", "AVOID", N_("Composite score falls well below the BUY threshold.")),
-    ("veto", "VETO", N_("A hard-veto rule tripped (see below) — excluded from BUY scoring no matter "
-                        "what the composite score would otherwise be.")),
-    ("neutral", N_("NO DATA"), N_("No scored screener row for this holding — the fundamentals feed "
-                                  "returned nothing (or no price) for it, so there is no fair value, "
-                                  "score or signal to show. Not a veto.")),
-]
+def _signal_legend() -> list[tuple[str, str, str]]:
+    """(badge kind, label msgid, definition msgid) per model signal (REC-6)."""
+    return [(_SIGNAL_KIND[code], SIGNAL_LABELS[code], SIGNAL_DEFINITIONS[code]) for code in SIGNAL_LABELS]
+
 
 _MODELS = [
     (N_("Graham Number"), N_("√(22.5 × EPS × book value per share) — Benjamin Graham's classic value "
@@ -67,31 +63,29 @@ _MODELS = [
                              "(cost of equity − perpetual growth rate). Only applies to dividend payers.")),
     (N_("DDM — 2-stage"), N_("A higher-growth phase followed by a stable terminal-growth phase, each "
                              "discounted back separately. Also dividend-payer only.")),
-    (N_("Analyst target"), N_("Mean 12-month analyst price target, sourced from Yahoo Finance.")),
+    (N_("Book value and FCF fallbacks"), N_("Used only when Graham, P/E and EPV all fail (typically a "
+                                            "loss-maker): book value × a sector P/B multiple, and free cash "
+                                            "flow × a fixed multiple.")),
 ]
 
-_VETO_RULES = [
-    N_("Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & veto "
-       "rules (default 500%)."),
-    N_("Free cash flow (trailing twelve months) is negative."),
-    N_("The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage breach) "
-       "<em>and</em> dividend coverage is below 1.0× — both conditions together, not either alone."),
-]
+# The quality-screen rules come from screener.VETO_RULE_LABELS (see render()).
 
 _FAQ = [
     (N_("How is the composite fair value calculated?"),
      N_("Each holding is valued by all six models. Outliers are trimmed and the remainder averaged "
         "into a single composite fair value. Margin of safety is the discount of the current price "
         "to that figure.")),
-    (N_("What does the conviction score mean?"),
-     N_("A 0–100 weighted mean of the signal scores across your scored holdings, weighted by "
-        "position size. Vetoed names are excluded from the average.")),
+    (N_("What does the weighted composite score mean?"),
+     N_("A 0–100 value-weighted mean of the model scores across your scored holdings. It describes "
+        "the portfolio; it is not a recommendation. Holdings that fail a quality screen are left "
+        "out of the average.")),
     (N_("How often do prices update?"),
      N_("Quotes refresh on the interval set in Settings → Data during market hours (default every "
         "15 minutes). Fundamentals update daily after each exchange close.")),
-    (N_("Why is a holding excluded from scoring?"),
-     N_("It has breached a hard-veto rule. It still appears in your portfolio and valuations, but "
-        "is left out of the conviction score until the flag clears.")),
+    (N_("Why does a stock show “Fails quality screen”?"),
+     N_("It breaks one of the quality rules listed on this page; the explanation next to the badge "
+        "names which. Its composite score is set to 0. It still appears in your portfolio and "
+        "valuations.")),
     (N_("Which exchanges are covered?"),
      N_("Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana.")),
 ]
@@ -107,7 +101,8 @@ _VETO_X_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stro
 def _signal_row_html(kind: str, label: str, desc: str) -> str:
     return ('<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;'
            'border-bottom:0.5px solid var(--line-2);">'
-           f'<div style="width:74px;flex:none;padding-top:1px;">{signal_badge_html(kind, _t(label))}</div>'
+           f'<div style="width:150px;flex:none;padding-top:1px;">'
+           f'{signal_badge_html(kind, _t(label), tooltip=signal_tooltip())}</div>'
            f'<div style="font-size:13px;color:var(--muted);line-height:1.55;">{_t(desc)}</div></div>')
 
 
@@ -120,7 +115,7 @@ def _model_cell_html(name: str, desc: str) -> str:
 def _veto_row_html(rule: str) -> str:
     return ('<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;'
            f'border-bottom:0.5px solid var(--line-2);">{_VETO_X_SVG}'
-           f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">{_t(rule)}</span></div>')
+           f'<span style="font-size:12.5px;color:var(--muted);line-height:1.5;">{_t(rule)[:1].upper() + _t(rule)[1:]}</span></div>')
 
 
 def _faq_row_html(question: str, answer: str) -> str:
@@ -136,19 +131,23 @@ def render() -> None:
 
     st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Help & docs")}</div>',
                unsafe_allow_html=True)
-    st.caption(_("How Uvalu scores value, builds fair value and applies veto discipline."))
+    st.caption(_("How each model works, what the badges mean and how they are computed."))
 
-    # ── Signal legend ─────────────────────────────────────────────────────────
+    # ── Badges: meaning (REC-5 / REC-6) ───────────────────────────────────────
+    _notes = "".join(
+        f'<div style="font-size:12.5px;color:var(--muted);line-height:1.6;padding:4px 20px;">{_t(t)}</div>'
+        for t in (SIGNAL_HORIZON, SIGNAL_RISK_WARNING, SIGNAL_SENSITIVITY))
     with st.container(key="help_card_signals", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("Signal legend"))
+        st.markdown(_HEADER_HTML.format(label=h_("Badges · meaning"))
                    + '<div style="padding-bottom:6px;">'
-                   + "".join(_signal_row_html(kind, label, desc) for kind, label, desc in _SIGNAL_LEGEND)
-                   + "</div>",
+                   + "".join(_signal_row_html(kind, label, desc) for kind, label, desc in _signal_legend())
+                   + "</div>"
+                   + f'<div style="padding:10px 0 14px;">{_notes}</div>',
                    unsafe_allow_html=True)
 
     # ── The six fair-value models ─────────────────────────────────────────────
     with st.container(key="help_card_models", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("The six fair-value models"))
+        st.markdown(_HEADER_HTML.format(label=h_("The fair-value models"))
                    + '<div style="display:grid;grid-template-columns:1fr 1fr;padding-bottom:6px;">'
                    + "".join(_model_cell_html(name, desc) for name, desc in _MODELS)
                    + "</div>",
@@ -160,9 +159,9 @@ def render() -> None:
     # balloon to match its taller neighbour.
     _veto_col, _faq_col = st.columns([1, 1.3], gap="medium")
     with _veto_col, st.container(key="help_card_vetoes", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("Hard-veto rules"))
+        st.markdown(_HEADER_HTML.format(label=h_("Quality screens"))
                    + '<div style="padding:8px 20px 14px;">'
-                   + "".join(_veto_row_html(rule) for rule in _VETO_RULES)
+                   + "".join(_veto_row_html(rule) for rule in VETO_RULE_LABELS.values())
                    + "</div>",
                    unsafe_allow_html=True)
     with _faq_col, st.container(key="help_card_faqs", border=True):

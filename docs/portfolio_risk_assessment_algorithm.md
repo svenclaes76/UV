@@ -1,10 +1,10 @@
-# Portfolio Risk Assessment Algorithm (legal-compliance version)
+# Portfolio Risk Assessment Algorithm
 
 A systematic pipeline that **describes** the risk of a user's own stock portfolio, from individual position risk through to portfolio-level stress testing, a composite risk score and a list of risk observations. It describes and never prescribes (PER-4). It states what the figures show and which reference they were compared with, and never what the user should buy, sell, trim or rebalance.
 
-> **Status.** This is the legal-compliance copy of [`docs/portfolio_risk_assessment_algorithm.md`](../portfolio_risk_assessment_algorithm.md), aligned with *Uvalu — Legal Requirements for Launch* (Oct 2, 2026). It describes [`risk_compliant.py`](../../risk_compliant.py), the candidate replacement for `risk.py`, which is not yet wired into the app. All metrics, scores and thresholds are computed **exactly as in `risk.py`** (pinned by `tests/test_compliance_algorithms.py`); only the wording and the output structure change. See [§ Changes from the original spec](#changes-from-the-original-spec) and [`algorithm-compliance-review.md`](algorithm-compliance-review.md). Counsel review is pending.
+> **Status.** Since v2.1.0 this spec, and [`risk.py`](../risk.py) which it describes, follow *Uvalu — Legal Requirements for Launch* (Oct 2, 2026). All metrics, scores and thresholds are computed as before v2.1.0; only the wording and the output structure changed. See [§ Changes from the original spec](#changes-from-the-original-spec) (the pre-v2.1.0 spec is in git history) and [`legal/algorithm-compliance-review.md`](legal/algorithm-compliance-review.md). Counsel review is pending.
 
-Implemented in [`risk_compliant.py`](../../risk_compliant.py); `assess_portfolio(pf_df, cache, weighting, veto_lookup, targets, prior_snapshot) → RiskReport`. Build `pf_df` with [`portfolio_enrichment.enrich_for_risk()`](../../portfolio_enrichment.py). Time-series data (price history, dividends, FX, Fama-French factors) comes through [`marketdata.py`](../../marketdata.py), disk-cached under `.cache/{history,dividends,factors}/`.
+Implemented in [`risk.py`](../risk.py); `assess_portfolio(pf_df, cache, weighting, veto_lookup, targets, prior_snapshot) → RiskReport`. Build `pf_df` with [`portfolio_enrichment.enrich_for_risk()`](../portfolio_enrichment.py). Time-series data (price history, dividends, FX, Fama-French factors) comes through [`marketdata.py`](../marketdata.py), disk-cached under `.cache/{history,dividends,factors}/`.
 
 **Why portfolio data may be used here but not in signals.** This engine necessarily reads the user's holdings; describing them is its purpose, and PER-4 allows portfolio analytics that describe. What it must not do is turn that description into a personal recommendation: no actions, no "you should", and no combination of a stock signal with the fact that the user holds the stock (PER-5).
 
@@ -321,7 +321,7 @@ Each scenario carries an explicit window. When the held basket's own 10-year EUR
 
 Output per horizon: the p05 / p25 / p50 / p75 / p95 outcome distribution and the probability of loss.
 
-**Disclosure (DIS-3).** Historical replays, hypothetical shocks and Monte Carlo paths are statistical estimates based on historical data and assumptions (in particular the CAPM drift). Real losses can exceed them, and future crises can be larger, longer or different in kind. `RiskReport.disclosures` (`risk_compliant.RISK_DISCLOSURES`) carries this text, and the Risk page shows it next to the VaR, CVaR, stress and Monte Carlo figures, in the user's language.
+**Disclosure (DIS-3).** Historical replays, hypothetical shocks and Monte Carlo paths are statistical estimates based on historical data and assumptions (in particular the CAPM drift). Real losses can exceed them, and future crises can be larger, longer or different in kind. `RiskReport.disclosures` (`risk.RISK_DISCLOSURES`) carries this text, and the Risk page shows it next to the VaR, CVaR, stress and Monte Carlo figures, in the user's language.
 
 ---
 
@@ -354,7 +354,7 @@ Weights (`_W_DEFAULT` / `_W_INCOME`, selected by the `weighting` model setting: 
 
 ### Score Interpretation
 
-`risk_compliant.RISK_BANDS` is the single source of truth for the label, **description** and **UI colour** of a composite score. `risk_band()` → `uvalu.components.score_color` / `risk_score_meter_html` derive from it. The colour scale is three-tone: **green** for *Low*, **amber** (`#C98A3A`) for *Moderate* and *Elevated*, **red** (`#A32D2D`) for *High* and *Critical*. The green→amber break is at 25 and amber→red at 70. Colours mark position on the scale; they do not signal "act now".
+`risk.RISK_BANDS` is the single source of truth for the label, **description** and **UI colour** of a composite score. `risk_band()` → `uvalu.components.score_color` / `risk_score_meter_html` derive from it. The colour scale is three-tone: **green** for *Low*, **amber** (`#C98A3A`) for *Moderate* and *Elevated*, **red** (`#A32D2D`) for *High* and *Critical*. The green→amber break is at 25 and amber→red at 70. Colours mark position on the scale; they do not signal "act now".
 
 | Risk score | Rating | Colour | Description (shown with the gauge) |
 |---|---|---|---|
@@ -372,7 +372,7 @@ The Risk page's per-metric band labels (beta, volatility, max drawdown, Sharpe) 
 
 ## Stage 8 — Risk Observations
 
-`risk_compliant._stage8_observations(..., targets, prior_snapshot) → RiskObservations`. This replaces the original "Rebalancing Decision" (`_stage8_rebalance → RebalanceSignals`). It runs the **same checks with the same thresholds**, but each produces a `RiskObservation`, which states the figure and the reference it was compared with:
+`risk._stage8_observations(..., targets, prior_snapshot) → RiskObservations`. This replaces the original "Rebalancing Decision" (`_stage8_rebalance → RebalanceSignals`). It runs the **same checks with the same thresholds**, but each produces a `RiskObservation`, which states the figure and the reference it was compared with:
 
 | Field | Meaning |
 |---|---|

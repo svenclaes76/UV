@@ -1,9 +1,29 @@
 """
-Portfolio Risk Assessment — 8-stage algorithm.
-docs/portfolio_risk_assessment_algorithm.md
+Portfolio Risk Assessment — 8-stage algorithm (docs/portfolio_risk_assessment_algorithm.md).
+
+It describes the user's portfolio and never prescribes. Legal design rules, by
+requirement ID of "Uvalu — Legal Requirements for Launch" (see
+docs/legal/algorithm-compliance-review.md; changed in v2.1.0):
+  PER-4  Describe, never prescribe. The composite band carries a description,
+         not an action ("Immediate rebalancing required" is gone), and Stage 8
+         produces RiskObservations (what the figures show) instead of
+         RebalanceSignals with "Trim to ≤15%", "Rotate into…", "Replace one
+         position per pair…".
+  PER-5  The Stage 8 trigger that paired a held stock's screener veto with
+         "consider reducing or exiting" is removed: it combined a signal with
+         the user's own portfolio. Checks against targets the user set are kept
+         and marked basis="user_target".
+  PER-1  "Loss tolerance" / "hard limit" wording that implied a personal risk
+         tolerance is replaced by the model's reference levels.
+  PER-3  `income_portfolio` (a user objective) becomes `weighting`, a model
+         setting the user chooses on the Risk page, never derived from a
+         questionnaire.
+  DIS-3  RiskReport.disclosures: VaR, CVaR, Monte Carlo and stress results are
+         statistical estimates; real losses can exceed them.
+  REC-2  Per-position valuation flags are named after the comparison they make.
 
 Entry point:
-    report = assess_portfolio(pf_df, cache, income_portfolio=False)
+    report = assess_portfolio(pf_df, cache, weighting="standard")
 
 pf_df   — enriched portfolio DataFrame (columns: ticker, name, shares,
            purchase_value, current_value, live_price, sector, country,
@@ -69,7 +89,7 @@ _W_DEFAULT = {
     "fundamental":   0.15,
     "income":        0.05,
 }
-_W_INCOME = {   # elevated income risk weight for income portfolios
+_W_INCOME = {   # "income_weighted": elevated income-risk weight (a model setting, PER-3)
     "concentration": 0.20,
     "volatility":    0.15,
     "tail":          0.15,
@@ -84,32 +104,54 @@ SCORE_ELEVATED = 70
 SCORE_HIGH     = 85
 
 # Canonical composite-risk bands — the single source of truth for the 0-100
-# score's label, recommended action, and semantic colour tone. `_risk_label_action`
+# score's label, description, and semantic colour tone. `_risk_label_description`
 # and the UI colour mappers (`uvalu.components.score_color` /
-# `.risk_score_meter_html`) all derive from this table, so the Risk-page gauge,
-# the Dashboard risk bar, and docs/portfolio_risk_assessment_algorithm.md can't
-# drift apart again. Each row's first field is the band's inclusive upper bound;
-# `tone` keys `uvalu.components._RISK_TONE_COLORS`. The green→amber break is
-# SCORE_LOW (25) and amber→red is SCORE_ELEVATED (70): red is reserved for
-# "immediate action" scores, matching the wording of the actions themselves.
-# Labels and actions stay English (they are compared and stored); pages show
-# them through uvalu.i18n.tr().
+# `.risk_score_meter_html`) all derive from this table. Each row's first field
+# is the band's inclusive upper bound; `tone` keys
+# `uvalu.components._RISK_TONE_COLORS`. The green→amber break is SCORE_LOW (25)
+# and amber→red is SCORE_ELEVATED (70).
+# PER-4: the third field was once a recommended action ("Hold —
+# monitor quarterly" … "reduce exposure immediately"). It is now a description
+# of what the band measures; nothing tells the user what to do.
+# Labels and descriptions stay English (they are compared and stored); pages
+# show them through uvalu.i18n.tr().
 RISK_BANDS: list[tuple[float, str, str, str]] = [
-    (SCORE_LOW,      N_("Low risk"),      N_("Hold — monitor quarterly"),                              "low"),
-    (SCORE_MODERATE, N_("Moderate risk"), N_("Review annually; consider minor rebalancing"),           "moderate"),
-    (SCORE_ELEVATED, N_("Elevated risk"), N_("Active monitoring; targeted rebalancing"),               "elevated"),
-    (SCORE_HIGH,     N_("High risk"),     N_("Immediate rebalancing required"),                        "high"),
-    (100.0,          N_("Critical risk"), N_("Defensive repositioning — reduce exposure immediately"), "critical"),
+    (SCORE_LOW,      N_("Low risk"),
+     N_("Composite risk score 0–25: the lowest band of the model's scale."), "low"),
+    (SCORE_MODERATE, N_("Moderate risk"),
+     N_("Composite risk score 25–50: below the scale's midpoint."), "moderate"),
+    (SCORE_ELEVATED, N_("Elevated risk"),
+     N_("Composite risk score 50–70: above the scale's midpoint."), "elevated"),
+    (SCORE_HIGH,     N_("High risk"),
+     N_("Composite risk score 70–85: the upper band of the model's scale."), "high"),
+    (100.0,          N_("Critical risk"),
+     N_("Composite risk score above 85: the highest band of the model's scale."), "critical"),
 ]
 
 
 def risk_band(score: float) -> tuple[str, str, str]:
-    """(label, action, tone) for a 0-100 composite risk score, from `RISK_BANDS`."""
-    for upper, label, action, tone in RISK_BANDS:
+    """(label, description, tone) for a 0-100 composite risk score, from `RISK_BANDS`."""
+    for upper, label, description, tone in RISK_BANDS:
         if score <= upper:
-            return label, action, tone
-    _, label, action, tone = RISK_BANDS[-1]
-    return label, action, tone
+            return label, description, tone
+    _, label, description, tone = RISK_BANDS[-1]
+    return label, description, tone
+
+
+# DIS-3: shown with every risk report. Statistical estimates, not limits.
+RISK_DISCLOSURES: list[str] = [
+    N_("VaR, CVaR, Monte Carlo and stress-test figures are statistical estimates "
+       "based on historical data and model assumptions. Real losses can exceed them."),
+    N_("Historical scenarios replay past market moves; future crises can be larger, "
+       "longer or different in kind."),
+    N_("The composite risk score and its bands describe this portfolio's figures on "
+       "the model's scale. They are not a personal risk assessment and do not say "
+       "what you should do."),
+    N_("Factor data: Kenneth R. French Data Library (Tuck School of Business, Dartmouth)."),
+]
+
+# Stage 7 weighting presets, chosen by the user as a model setting (PER-3/PER-8).
+WEIGHTINGS = ("standard", "income_weighted")
 
 
 # The Stage-1/3 quant band words (`_beta_label` / `_vol_label` / `_mdd_label` /
@@ -156,7 +198,7 @@ class PositionRisk:
     var_95_1d_eur: float | None
     vol_annual: float | None        # annualised vol (fraction) — realised from the holding's own EUR series, or |beta| × market vol × √252 as a fallback
     mos: float | None               # margin of safety (fraction)
-    valuation_flag: str             # "Overvalued" | "Fairly Valued" | "Undervalued" | "N/A"
+    valuation_flag: str             # "Above model fair value" | "Near model fair value" | "Below model fair value" | "N/A"
     div_sustainability: str         # "OK" | "At Risk" | ""
     financial_health: float         # 0–10
     earnings_quality: float         # 0–10
@@ -282,25 +324,26 @@ class StressResults:
 class CompositeScore:
     score: float
     label: str      # "Low risk" | "Moderate risk" | etc.
-    action: str
+    description: str    # what the band means (PER-4: was `action`)
     sub_scores: dict[str, float]    # component name → 0–100
+    weighting: str = "standard"     # Stage 7 preset used (see WEIGHTINGS)
 
 
+# PER-4/PER-5: replaced RebalanceItem / RebalanceSignals in v2.1.0. An
+# observation states a figure and the reference it was compared with; there is
+# no `action` field, so no code path can attach advice to it.
 @dataclass
-class RebalanceItem:
-    severity: str           # "hard" | "soft"
-    ticker: str             # scope: a ticker, sector/pair name, or "Portfolio"
-    message: str            # trigger description shown in the UI
-    action: str | None      # recommended next step, bundled with its trigger
+class RiskObservation:
+    level: str              # "high" | "notice" (was "hard" | "soft")
+    scope: str              # a ticker, sector/pair name, or "Portfolio"
+    message: str            # the observation shown in the UI
+    basis: str              # "model_reference" | "user_target" | "since_snapshot"
     mode: str = "absolute"  # "absolute" (level check) | "drift" (vs target/prior) | "transition"
 
 
 @dataclass
-class RebalanceSignals:
-    items: list[RebalanceItem]
-    hard_triggers: list[str]    # derived from items — kept for backward-compat call sites
-    soft_triggers: list[str]    # derived from items — kept for backward-compat call sites
-    actions: list[dict]         # derived from items — keys: ticker, issue, action
+class RiskObservations:
+    items: list[RiskObservation]
 
 
 @dataclass
@@ -315,7 +358,8 @@ class RiskReport:
     income: IncomeRisk
     stress: StressResults
     composite: CompositeScore
-    rebalance: RebalanceSignals
+    observations: RiskObservations
+    disclosures: list[str]      # DIS-3 — render with the report
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -521,8 +565,13 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
         fv    = _safe(row.get("fair_value"))
         if price and fv and fv > 0:
             mos = (fv - price) / fv
-            val_flag = (N_("Overvalued") if mos < -0.05 else
-                        N_("Fairly Valued") if mos < 0.10 else N_("Undervalued"))
+            # Named after the comparison it makes (REC-2). "Undervalued"
+            # here (MoS ≥ 10%) would clash with the screener's model signal of
+            # the same name, which also needs a high composite score — the same
+            # stock could read "Undervalued" on one screen and "Neutral" on the
+            # other (REC-2).
+            val_flag = (N_("Above model fair value") if mos < -0.05 else
+                        N_("Near model fair value") if mos < 0.10 else N_("Below model fair value"))
         else:
             mos      = None
             val_flag = N_("N/A")
@@ -1362,15 +1411,15 @@ def _score_income(income: IncomeRisk) -> float:
     return _clamp(s, 0, 100)
 
 
-def _risk_label_action(score: float) -> tuple[str, str]:
-    label, action, _tone = risk_band(score)
-    return label, action
+def _risk_label_description(score: float) -> tuple[str, str]:
+    label, description, _tone = risk_band(score)
+    return label, description
 
 
 def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
                       q: QuantMetrics, f: FactorExposure, income: IncomeRisk,
-                      stress: StressResults, income_portfolio: bool) -> CompositeScore:
-    W  = dict(_W_INCOME if income_portfolio else _W_DEFAULT)
+                      stress: StressResults, weighting: str) -> CompositeScore:
+    W  = dict(_W_INCOME if weighting == "income_weighted" else _W_DEFAULT)
     sc = _score_concentration(c)
     sv = _score_volatility(q)
     st = _score_tail(q, stress)
@@ -1389,11 +1438,12 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
         W = {k: v / _tot for k, v in W.items()}
 
     score = sum(W[k] * comps[k] for k in W)
-    label, action = _risk_label_action(score)
+    label, description = _risk_label_description(score)
     return CompositeScore(
         score=round(score, 1),
         label=label,
-        action=action,
+        description=description,
+        weighting=weighting,
         sub_scores={
             "Concentration": round(sc, 1),
             "Volatility":    round(sv, 1),
@@ -1405,105 +1455,122 @@ def _stage7_composite(profiles: list[PositionRisk], c: ConcentrationMetrics,
     )
 
 
-# ── Stage 8 — Rebalancing signals ────────────────────────────────────────────
+# ── Stage 8 — Risk observations ──────────────────────────────────────────────
+# Replaced the former "Rebalancing signals" in v2.1.0 (PER-4, PER-5). Same checks
+# and thresholds, except:
+#   • every check states the figure and the reference it is compared with, and
+#     nothing more — no "trim", "rotate", "replace", "reduce or exit";
+#   • the model's own thresholds are called reference levels, not limits or
+#     the user's tolerance (PER-1: the app knows nothing about the user's
+#     tolerance);
+#   • the former "breaches a hard veto rule … consider reducing or exiting"
+#     trigger is dropped. It paired the screener's signal with the fact that
+#     the user holds the stock — the exact pattern PER-5 forbids. The veto
+#     stays visible on the stock's own badge, the same for every user.
+#   • checks against targets the user set themselves are kept (PER-5 allows
+#     alerts on user-set thresholds) and carry basis="user_target".
 
 _RATING_RANK = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
 _DRIFT_PP = 0.05   # 5 percentage-point drift-from-target / drift-since-snapshot threshold
 
+# Model reference levels, named so the methodology page can publish them.
+REF_POSITION_WEIGHT = 0.20
+REF_PORTFOLIO_BETA  = 1.5
+REF_VAR99_1D_PCT    = 0.03
+REF_FLAGGED_INCOME  = 0.40
+REF_WORST_SCENARIO  = -0.40
+REF_HHI_HIGH        = 0.18
+REF_HHI_MODERATE    = 0.10
+REF_DGR_INFLATION   = 0.025
+REF_SHARPE          = 1.0
 
-def _stage8_rebalance(profiles: list[PositionRisk], concentration: ConcentrationMetrics,
-                      quant: QuantMetrics, income: IncomeRisk,
-                      stress: StressResults, total_value: float, *,
-                      targets: dict | None = None,
-                      prior_snapshot: dict | None = None) -> RebalanceSignals:
+
+def _stage8_observations(profiles: list[PositionRisk], concentration: ConcentrationMetrics,
+                         quant: QuantMetrics, income: IncomeRisk,
+                         stress: StressResults, total_value: float, *,
+                         targets: dict | None = None,
+                         prior_snapshot: dict | None = None) -> RiskObservations:
     targets        = targets or {}
     prior_snapshot = prior_snapshot or {}
     sector_targets = targets.get("sectors") or {}
     ticker_targets = targets.get("tickers") or {}
     _prior_date    = prior_snapshot.get("date") or prior_snapshot.get("as_of")
     prior_since    = Fmt("date", _prior_date) if _prior_date else lazy_("last snapshot")
-    items: list[RebalanceItem] = []
+    items: list[RiskObservation] = []
 
-    # Hard triggers
+    def add(level, scope, message, basis="model_reference", mode="absolute"):
+        items.append(RiskObservation(level, scope, message, basis, mode))
+
+    # Level "high": figures above the model's upper reference levels
     for p in profiles:
-        if p.weight > 0.20:
-            items.append(RebalanceItem("hard", p.ticker,
-                lazy_("{ticker}: position weight {weight} exceeds 20% hard limit",
-                      ticker=p.ticker, weight=Fmt("pct", p.weight, fraction=True)),
-                lazy_("Trim to ≤15%; redeploy to underweights")))
+        if p.weight > REF_POSITION_WEIGHT:
+            add("high", p.ticker,
+                lazy_("{ticker} is {weight} of the portfolio, above the model's {ref} single-position reference level",
+                      ticker=p.ticker, weight=Fmt("pct", p.weight, fraction=True),
+                      ref=Fmt("pct", REF_POSITION_WEIGHT, decimals=0, fraction=True)))
 
-    if quant.portfolio_beta > 1.5:
-        items.append(RebalanceItem("hard", "Portfolio",
-            lazy_("Portfolio beta {beta} exceeds 1.5 — amplified drawdown risk",
-                  beta=Fmt("num", quant.portfolio_beta, decimals=2)),
-            lazy_("Rotate into low-beta / defensive stocks")))
+    if quant.portfolio_beta > REF_PORTFOLIO_BETA:
+        add("high", "Portfolio",
+            lazy_("Portfolio beta is {beta}, above {ref}: historically the portfolio moved more than the market in both directions",
+                  beta=Fmt("num", quant.portfolio_beta, decimals=2), ref=Fmt("num", REF_PORTFOLIO_BETA, decimals=1)))
 
     if quant.var_99_1d_eur is not None and total_value > 0:
         var_pct = quant.var_99_1d_eur / total_value
-        if var_pct > 0.03:
-            items.append(RebalanceItem("hard", "Portfolio",
-                lazy_("1-day 99% VaR = {amount} ({pct}) — exceeds 3% loss tolerance",
+        if var_pct > REF_VAR99_1D_PCT:
+            add("high", "Portfolio",
+                lazy_("Estimated 1-day 99% VaR is {amount} ({pct}), above the model's {ref} reference level",
                       amount=Fmt("money", quant.var_99_1d_eur, decimals=0, currency="EUR"),
-                      pct=Fmt("pct", var_pct, fraction=True)),
-                lazy_("Reduce high-beta/volatile positions to lower tail risk")))
+                      pct=Fmt("pct", var_pct, fraction=True),
+                      ref=Fmt("pct", REF_VAR99_1D_PCT, decimals=0, fraction=True)))
 
-    if income.flagged_income_pct > 0.40:
+    if income.flagged_income_pct > REF_FLAGGED_INCOME:
         flagged_str = ", ".join(income.flagged_payers[:5])
-        items.append(RebalanceItem("hard", flagged_str,
-            lazy_("{pct} of portfolio income comes from dividend-at-risk positions",
-                  pct=Fmt("pct", income.flagged_income_pct, decimals=0, fraction=True)),
-            lazy_("Diversify income across more dividend payers")))
+        add("high", flagged_str,
+            lazy_("{pct} of estimated portfolio income comes from positions whose dividend is flagged at risk",
+                  pct=Fmt("pct", income.flagged_income_pct, decimals=0, fraction=True)))
 
     worst_dd = min((r.portfolio_drawdown for r in stress.historical
                    if r.portfolio_drawdown is not None), default=0.0)
-    if worst_dd < -0.40:
-        items.append(RebalanceItem("hard", "Portfolio",
-            lazy_("Worst-case historical scenario implies {drawdown} portfolio drawdown",
-                  drawdown=Fmt("pct", worst_dd, decimals=0, fraction=True)),
-            lazy_("Add defensive/uncorrelated assets to cushion tail risk")))
+    if worst_dd < REF_WORST_SCENARIO:
+        add("high", "Portfolio",
+            lazy_("The worst historical scenario replay gives an estimated {drawdown} portfolio drawdown",
+                  drawdown=Fmt("pct", worst_dd, decimals=0, fraction=True)))
 
     for p in profiles:
-        if p.veto:
-            items.append(RebalanceItem("hard", p.ticker,
-                lazy_("{ticker}: breaches a hard veto rule in the stock valuation algorithm", ticker=p.ticker),
-                lazy_("Review fundamentals; consider reducing or exiting")))
-        elif p.rating == "Critical":
-            items.append(RebalanceItem("hard", p.ticker,
-                lazy_("{ticker}: Critical risk rating — review immediately", ticker=p.ticker),
-                lazy_("Review fundamentals; consider reducing or exiting")))
+        if p.rating == "Critical":
+            add("high", p.ticker,
+                lazy_("{ticker}: position risk rating Critical (from its weight, beta, valuation gap, "
+                      "financial health and earnings quality)", ticker=p.ticker))
 
-    # ── Soft triggers ───────────────────────────────────────────────────────
-    # Concentration (HHI): a target ceiling wins over the absolute bands; a
-    # prior snapshot adds a "drifted since" check on top.
+    # ── Level "notice" ──────────────────────────────────────────────────────
+    # Concentration (HHI): a user-set ceiling wins over the model's reference
+    # bands; a prior snapshot adds a "changed since" check on top.
     hhi_max = _safe(targets.get("hhi_max"))
     if hhi_max is not None:
         if concentration.hhi > hhi_max:
-            items.append(RebalanceItem("soft", "Portfolio",
-                lazy_("HHI {hhi} exceeds the {ceiling} target ceiling",
+            add("notice", "Portfolio",
+                lazy_("HHI {hhi} is above the {ceiling} ceiling you set",
                       hhi=Fmt("num", concentration.hhi, decimals=3), ceiling=Fmt("num", hhi_max, decimals=3)),
-                lazy_("Add uncorrelated positions or sectors to reduce concentration"),
-                mode="drift"))
-    elif concentration.hhi > 0.18:
-        items.append(RebalanceItem("soft", "Portfolio",
-            lazy_("HHI {hhi} — highly concentrated, above the 0.18 threshold",
-                  hhi=Fmt("num", concentration.hhi, decimals=3)),
-            lazy_("Add uncorrelated positions or sectors to reduce concentration")))
-    elif concentration.hhi > 0.10:
-        items.append(RebalanceItem("soft", "Portfolio",
-            lazy_("HHI {hhi} — moderately concentrated, monitor drift",
-                  hhi=Fmt("num", concentration.hhi, decimals=3)),
-            lazy_("Monitor concentration drift; avoid adding to largest positions")))
+                basis="user_target", mode="drift")
+    elif concentration.hhi > REF_HHI_HIGH:
+        add("notice", "Portfolio",
+            lazy_("HHI {hhi}: highly concentrated on the model's scale (above {ref})",
+                  hhi=Fmt("num", concentration.hhi, decimals=3), ref=Fmt("num", REF_HHI_HIGH, decimals=2)))
+    elif concentration.hhi > REF_HHI_MODERATE:
+        add("notice", "Portfolio",
+            lazy_("HHI {hhi}: moderately concentrated on the model's scale (above {ref})",
+                  hhi=Fmt("num", concentration.hhi, decimals=3), ref=Fmt("num", REF_HHI_MODERATE, decimals=2)))
 
     prior_hhi = _safe(prior_snapshot.get("hhi"))
     if prior_hhi is not None and concentration.hhi - prior_hhi > _DRIFT_PP:
-        items.append(RebalanceItem("soft", "Portfolio",
-            lazy_("HHI drifted +{change} since {date} (now {hhi})",
+        add("notice", "Portfolio",
+            lazy_("HHI rose by {change} since {date} (now {hhi})",
                   change=Fmt("num", concentration.hhi - prior_hhi, decimals=3), date=prior_since,
                   hhi=Fmt("num", concentration.hhi, decimals=3)),
-            lazy_("Rebalance toward the last-reviewed allocation"), mode="drift"))
+            basis="since_snapshot", mode="drift")
 
-    # Sector: drift vs target when a target allocation exists, else the
-    # absolute >30% guideline on the largest sector.
+    # Sector: drift vs the user's target allocation when one exists, else the
+    # model's 30% reference level on the largest sector.
     if sector_targets:
         for sec in sorted(set(sector_targets) | set(concentration.sector_weights)):
             tgt = _safe(sector_targets.get(sec))
@@ -1512,21 +1579,19 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
             actual = concentration.sector_weights.get(sec, 0.0)
             drift  = actual - tgt
             if abs(drift) >= _DRIFT_PP:
-                items.append(RebalanceItem("soft", sec,
-                    lazy_("{sector} at {actual} vs {target} target — {drift} drift exceeds {limit}",
+                add("notice", sec,
+                    lazy_("{sector} is {actual} of the portfolio against your {target} target ({drift})",
                           sector=Fmt("tr", sec), actual=Fmt("pct", actual, decimals=0, fraction=True),
                           target=Fmt("pct", tgt, decimals=0, fraction=True),
-                          drift=Fmt("pct", drift, decimals=0, fraction=True, signed=True),
-                          limit=Fmt("pct", _DRIFT_PP, decimals=0, fraction=True)),
-                    lazy_("Reduce the overweight sector; top up the underweights"), mode="drift"))
+                          drift=Fmt("pct", drift, decimals=0, fraction=True, signed=True)),
+                    basis="user_target", mode="drift")
     elif concentration.sector_flag and concentration.largest_sector:
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
-        items.append(RebalanceItem("soft", concentration.largest_sector,
-            lazy_("{sector} sector at {weight} — exceeds 30% guideline",
-                  sector=Fmt("tr", concentration.largest_sector), weight=Fmt("pct", w, decimals=0, fraction=True)),
-            lazy_("Reduce largest sector; add exposure to lagging sectors")))
+        add("notice", concentration.largest_sector,
+            lazy_("{sector} is {weight} of the portfolio, above the model's 30% sector reference level",
+                  sector=Fmt("tr", concentration.largest_sector), weight=Fmt("pct", w, decimals=0, fraction=True)))
 
-    # Per-name drift vs target (complements the hard >20% cap).
+    # Per-name drift vs the user's own target weights.
     if ticker_targets:
         for p in profiles:
             tgt = _safe(ticker_targets.get(p.ticker))
@@ -1534,32 +1599,31 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
                 continue
             drift = p.weight - tgt
             if abs(drift) >= _DRIFT_PP:
-                items.append(RebalanceItem("soft", p.ticker,
-                    lazy_("{ticker} at {weight} vs {target} target — {drift} drift", ticker=p.ticker,
-                          weight=Fmt("pct", p.weight, decimals=0, fraction=True),
+                add("notice", p.ticker,
+                    lazy_("{ticker} is {weight} of the portfolio against your {target} target ({drift})",
+                          ticker=p.ticker, weight=Fmt("pct", p.weight, decimals=0, fraction=True),
                           target=Fmt("pct", tgt, decimals=0, fraction=True),
                           drift=Fmt("pct", drift, decimals=0, fraction=True, signed=True)),
-                    lazy_("Trim or top up toward the target weight"), mode="drift"))
+                    basis="user_target", mode="drift")
 
-    if income.weighted_dgr is not None and income.weighted_dgr < 0.025:
-        items.append(RebalanceItem("soft", "Portfolio",
-            lazy_("Weighted portfolio DGR {dgr} may trail inflation (~2.5%) — real income erosion risk",
-                  dgr=Fmt("pct", income.weighted_dgr, fraction=True)),
-            lazy_("Favor payers with stronger dividend growth track records")))
+    if income.weighted_dgr is not None and income.weighted_dgr < REF_DGR_INFLATION:
+        add("notice", "Portfolio",
+            lazy_("Weighted dividend growth {dgr} is below the model's {ref} inflation reference",
+                  dgr=Fmt("pct", income.weighted_dgr, fraction=True),
+                  ref=Fmt("pct", REF_DGR_INFLATION, decimals=1, fraction=True)))
 
     prior_sharpe = _safe(prior_snapshot.get("sharpe"))
-    if quant.sharpe is not None and quant.sharpe < 1.0:
-        if prior_sharpe is not None and prior_sharpe < 1.0:
-            items.append(RebalanceItem("soft", "Portfolio",
-                lazy_("Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at {date})",
+    if quant.sharpe is not None and quant.sharpe < REF_SHARPE:
+        if prior_sharpe is not None and prior_sharpe < REF_SHARPE:
+            add("notice", "Portfolio",
+                lazy_("Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was {previous} at {date})",
                       sharpe=Fmt("num", quant.sharpe, decimals=2), previous=Fmt("num", prior_sharpe, decimals=2),
                       date=prior_since),
-                lazy_("Reassess risk/return mix; trim volatile underperformers"), mode="drift"))
+                basis="since_snapshot", mode="drift")
         else:
-            items.append(RebalanceItem("soft", "Portfolio",
-                lazy_("Sharpe ratio {sharpe} below 1.0 — risk-adjusted return suboptimal",
-                      sharpe=Fmt("num", quant.sharpe, decimals=2)),
-                lazy_("Reassess risk/return mix; trim volatile underperformers")))
+            add("notice", "Portfolio",
+                lazy_("Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was modest",
+                      sharpe=Fmt("num", quant.sharpe, decimals=2)))
 
     # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
     prior_ratings = prior_snapshot.get("ratings") or {}
@@ -1567,38 +1631,30 @@ def _stage8_rebalance(profiles: list[PositionRisk], concentration: Concentration
         was = prior_ratings.get(p.ticker)
         if (was in _RATING_RANK and p.rating in ("High", "Critical")
                 and _RATING_RANK[p.rating] > _RATING_RANK[was]):
-            items.append(RebalanceItem("soft", p.ticker,
-                lazy_("{ticker}: risk rating {previous} → {rating} since {date}", ticker=p.ticker,
-                      previous=Fmt("tr", was), rating=Fmt("tr", p.rating), date=prior_since),
-                lazy_("Review what changed; reduce if the deterioration holds"), mode="transition"))
+            add("notice", p.ticker,
+                lazy_("{ticker}: position risk rating changed from {previous} to {rating} since {date}",
+                      ticker=p.ticker, previous=Fmt("tr", was), rating=Fmt("tr", p.rating), date=prior_since),
+                basis="since_snapshot", mode="transition")
 
     for p in profiles:
         if p.rating == "High":
-            items.append(RebalanceItem("soft", p.ticker,
-                lazy_("{ticker}: High risk rating — monitor closely", ticker=p.ticker),
-                lazy_("Monitor closely; reduce if fundamentals weaken further")))
+            add("notice", p.ticker,
+                lazy_("{ticker}: position risk rating High", ticker=p.ticker))
 
     for p in profiles:
         if p.liquidity_flag and p.days_to_liquidate is not None:
-            items.append(RebalanceItem("soft", p.ticker,
-                lazy_("{ticker}: ~{days} trading days to exit at {participation} of average volume — thin for this position size",
+            add("notice", p.ticker,
+                lazy_("{ticker}: the full position equals about {days} trading days at {participation} of average daily volume",
                       ticker=p.ticker, days=Fmt("num", p.days_to_liquidate, decimals=0),
-                      participation=Fmt("pct", _LIQ_PARTICIPATION, decimals=0, fraction=True)),
-                lazy_("Size the position to what you can exit in a few days, or accept the exit risk")))
+                      participation=Fmt("pct", _LIQ_PARTICIPATION, decimals=0, fraction=True)))
 
     if quant.high_corr_pairs:
         pairs_str = ", ".join(f"{a}/{b}" for a, b, _corr in quant.high_corr_pairs[:3])
-        items.append(RebalanceItem("soft", pairs_str,
-            lazy_("High correlation pairs (>0.80): {pairs} — limited diversification benefit", pairs=pairs_str),
-            lazy_("Replace one position per pair with uncorrelated exposure")))
+        add("notice", pairs_str,
+            lazy_("Highly correlated pairs (above 0.80): {pairs}. Their prices have tended to move together",
+                  pairs=pairs_str))
 
-    return RebalanceSignals(
-        items=items,
-        hard_triggers=[i.message for i in items if i.severity == "hard"],
-        soft_triggers=[i.message for i in items if i.severity == "soft"],
-        actions=[{"ticker": i.ticker, "issue": i.message, "action": i.action}
-                 for i in items if i.action is not None],
-    )
+    return RiskObservations(items=items)
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────
@@ -1616,7 +1672,7 @@ def snapshot_from_report(report: "RiskReport") -> dict:
 
 
 def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
-                     income_portfolio: bool = False,
+                     weighting: str = "standard",
                      veto_lookup: dict[str, bool] | None = None,
                      targets: dict | None = None,
                      prior_snapshot: dict | None = None) -> RiskReport:
@@ -1635,10 +1691,13 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
                        missing currency is treated as EUR. Its "beta" field is
                        the fallback when a holding has too little history to
                        regress a beta against BENCHMARK_TICKER.
-    income_portfolio — if True, income risk weight is elevated in Stage 7.
+    weighting        — Stage 7 weighting preset, one of WEIGHTINGS. A model
+                       setting the user picks (PER-8); never derive it from the
+                       user's goals or a questionnaire (PER-3). "income_weighted"
+                       was the former income_portfolio=True.
     veto_lookup      — optional {ticker: bool} from the screener's own `veto`
                        column (screener.py's df["veto"]); feeds Stage 1's
-                       PositionRisk.veto and Stage 8's hard veto trigger.
+                       PositionRisk.veto only (Stage 8 no longer reads it, PER-5).
     targets          — optional target allocation
                        {"sectors": {..}, "tickers": {..}, "hhi_max": float}
                        (portfolio.load_targets()); switches Stage 8's sector /
@@ -1646,8 +1705,10 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     prior_snapshot   — optional {"date","hhi","sharpe","sector_weights","ratings"}
                        from the last run (portfolio.load_risk_snapshot(), built
                        via snapshot_from_report()); adds drift-since / two-period
-                       / rating-transition triggers.
+                       / rating-transition observations.
     """
+    if weighting not in WEIGHTINGS:
+        raise ValueError(f"unknown weighting {weighting!r}; expected one of {WEIGHTINGS}")
     if pf_df is None or pf_df.empty:
         raise ValueError(lazy_("Portfolio is empty — nothing to assess"))
 
@@ -1729,9 +1790,9 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
     s4 = _stage4_factor(port_rets)
     s5 = _stage5_income(pf, cache, total_value)
     s6 = _stage6_stress(pf, cache, s3.portfolio_beta, total_value, port_rets_stress, s2)
-    s7 = _stage7_composite(s1, s2, s3, s4, s5, s6, income_portfolio)
-    s8 = _stage8_rebalance(s1, s2, s3, s5, s6, total_value,
-                           targets=targets, prior_snapshot=prior_snapshot)
+    s7 = _stage7_composite(s1, s2, s3, s4, s5, s6, weighting)
+    s8 = _stage8_observations(s1, s2, s3, s5, s6, total_value,
+                              targets=targets, prior_snapshot=prior_snapshot)
 
     return RiskReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
@@ -1744,5 +1805,6 @@ def assess_portfolio(pf_df: pd.DataFrame, cache: dict,
         income=s5,
         stress=s6,
         composite=s7,
-        rebalance=s8,
+        observations=s8,
+        disclosures=list(RISK_DISCLOSURES),
     )

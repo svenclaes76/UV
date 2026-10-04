@@ -64,15 +64,22 @@ Data feeds section (Brussels, Amsterdam, Paris, Milan, Frankfurt, Swiss).
 **Columns** — Company, Ticker, Market, Signal, Score, MoS %, Price, P/E, Div
 Yield. Every column is sortable by clicking its header.
 
-**Decision signal** — each stock receives BUY / MONITOR / AVOID based on its
+**Model signal** — each stock gets a descriptive model signal from its
 composite score (0–100) *and* its margin of safety, both checked against the
-thresholds set in Settings → Screening & veto rules:
-- **BUY** — composite score ≥ BUY threshold (default 70) **and** margin of
-  safety ≥ the configured minimum (default 0%).
-- **MONITOR** — composite score ≥ 40.
-- **AVOID** — composite score < 40, or a hard veto below.
+shared thresholds in Settings → Screening & veto rules. Signals are the same
+for every user and are not personal advice:
+- **Undervalued** — composite score ≥ the upper threshold (default 70),
+  margin of safety ≥ the configured minimum (never below 10%), and a fair
+  value backed by two or more independent models.
+- **Neutral** — composite score ≥ 40 without all of the above.
+- **Low score** — composite score < 40.
+- **Fails quality screen** — one of the rules below applies.
+- **No signal** — not enough peer data to rank the stock yet.
 
-A stock receives a hard veto regardless of score if: Debt/Equity exceeds the
+Each badge shows when it was computed, the time of the price it used and the
+model version; hover it for what the badge means.
+
+A stock fails the quality screen regardless of score if: Debt/Equity exceeds the
 configured maximum (default 500%, some sectors exempt), free cash flow is
 negative for 3+ consecutive years, or the dividend is flagged "At Risk" with
 coverage below 1.0×. A dividend is "At Risk" on a high payout/cash-payout, a
@@ -227,8 +234,8 @@ Available to every user — user/workspace administration lives in the
   currency and Number format are shown but not yet configurable (EUR only
   for now).
 - **Screening & veto rules** — Max debt/equity, Max dividend payout, Target
-  margin of safety, and BUY score threshold sliders drive every BUY/MONITOR/
-  AVOID decision app-wide (admin-only); a Euro Stoxx 50 benchmark default; an
+  margin of safety, and score threshold sliders drive every model signal
+  app-wide (admin-only; each change is kept in the compliance audit log); a Euro Stoxx 50 benchmark default; an
   (unavailable) US-listed toggle.
 - **Target allocation** — your personal reference weights: sector targets and
   per-name targets (one `NAME  WEIGHT%` per line) plus an optional

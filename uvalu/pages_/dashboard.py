@@ -11,7 +11,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings, load_settings, get_dividend_withholding
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
-                        load_portfolio_risk, apply_live_mos)
+                        load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
@@ -125,9 +125,10 @@ def render() -> None:
 
     # Scored rows for just this portfolio's holdings, via the dedicated
     # PORTFOLIO_FETCH lane — no full-universe scoring on the render path (WP-3).
-    # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
-    # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
-    _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
+    # apply_live_prices adds the live quote next to the scored figures; the
+    # ladder's price, fair value and margin of safety stay those the signal
+    # was computed from, so all three reconcile with the badge (B3).
+    _db_scr = apply_live_prices(_load_portfolio_scored(_db_pf), _db_prices).copy()
     # True only while there's genuinely nothing scored yet AND the background
     # fetch is still working on it — an empty _db_scr for any other reason
     # (fetch finished with nothing to show) falls through to the plain "no
@@ -498,13 +499,13 @@ def render() -> None:
                 # two rows if a user bought it in separate lots (add_position()
                 # appends rather than merging), which would otherwise collide.
                 with st.container(key=f"db_hold_{_hidx}"):
-                    # `_hr.get("Decision")` returns the actual NaN float (not
-                    # the "" default) for holdings with no screener match —
-                    # the "Decision" key exists as a merged column, it's just
+                    # `_hr.get("signal_code")` returns the actual NaN float
+                    # (not the "" default) for holdings with no screener
+                    # match — the key exists as a merged column, it's just
                     # empty for that row — so str()-ing it unguarded would
-                    # produce the literal text "nan" in the signal badge.
-                    _decision = _hr.get("Decision")
-                    _decision = str(_decision) if pd.notna(_decision) else ""
+                    # produce the literal text "nan".
+                    _signal_code = _hr.get("signal_code")
+                    _signal_code = str(_signal_code) if pd.notna(_signal_code) else ""
                     _w = _hr.get("weight", 0)
                     _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
                     _cv = _hr.get("current_value")
@@ -514,8 +515,8 @@ def render() -> None:
                     st.markdown(_holdings_row_html(
                         ticker=_hr.get("ticker", ""),
                         sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
-                        decision=_decision, veto=_hr.get("veto"),
-                        price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
+                        signal_code=_signal_code, veto=_hr.get("veto"),
+                        price=_hr.get("Price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, total_gain=_hr.get("price_gain"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
                         data_thin=bool(_dt) if pd.notna(_dt) else False, grid_cols=_hold_grid,

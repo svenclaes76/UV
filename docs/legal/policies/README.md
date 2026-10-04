@@ -35,7 +35,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 | Marketing | Individual shares may be mentioned, always with a statement of whether the founder holds them |
 | Signal performance | Not published (draft option A) |
 | Minimum margin of safety for "Undervalued" | **10%** (code default is still 0%, see §4) |
-| Signal labels | Undervalued / Neutral / Low score / Fails quality screen / No signal (from `screener_compliant.py`; not BDG-1's "Near fair value"/"Overvalued") |
+| Signal labels | Undervalued / Neutral / Low score / Fails quality screen / No signal (from `screener.py`; not BDG-1's "Near fair value"/"Overvalued") |
 | Market data | EODHD, **end-of-day prices only**, contract not yet signed |
 | Analyst data | Not used (`ANALYST_INPUTS_ENABLED = False`) |
 | Hosting / backups | Hetzner, Germany / Hetzner Storage Box, Germany |
@@ -47,7 +47,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 | Mailboxes | `support@uvalu.app`, `security@uvalu.app`, `privacy@uvalu.app`, `complaints@uvalu.app` (create these aliases) |
 | Complaint timelines | Draft defaults, confirmed: acknowledge in 2 working days, answer in 14 days, 30 days at most |
 
-**Methodology** was rewritten from the code, not just filled in. The draft listed DCF and EV/EBITDA models, which do not exist, a composite score with other components, and labels the code does not use. Sources: `screener_compliant.methodology()`, `settings._SCORE_STYLES`, `risk_compliant` (`REF_*`, `RISK_BANDS`, `RISK_DISCLOSURES`, Monte Carlo constants), and the two `*_compliant.md` specs in `docs/legal/`. **Data sources** now describes the risk-free rate as a fixed model assumption rather than a data feed, and adds the EURO STOXX 50 benchmark.
+**Methodology** was rewritten from the code, not just filled in. The draft listed DCF and EV/EBITDA models, which do not exist, a composite score with other components, and labels the code does not use. Sources: `screener.methodology()`, `settings._SCORE_STYLES`, `risk` (`REF_*`, `RISK_BANDS`, `RISK_DISCLOSURES`, Monte Carlo constants), and the two algorithm specs in `docs/`. **Data sources** now describes the risk-free rate as a fixed model assumption rather than a data feed, and adds the EURO STOXX 50 benchmark.
 
 ## 2. Counsel review points
 
@@ -64,7 +64,7 @@ Find them with `grep -rn "\[TBD" docs/legal/policies`.
 | Placeholder | Where | Notes |
 | --- | --- | --- |
 | `ENTERPRISE NUMBER`, `VAT NUMBER` (not yet registered) | Terms §1, Privacy §1, Conflicts §1, Methodology §11 | Register the eenmanszaak at an enterprise counter (ondernemingsloket) and activate VAT before 1 January 2027; legally required on the site |
-| `MODEL_VERSION AT LAUNCH` | Methodology header + change log | Bump `screener_compliant.MODEL_VERSION` with the 10% minimum |
+| `MODEL_VERSION AT LAUNCH` | Methodology header + change log | Bump `screener.MODEL_VERSION` with the 10% minimum |
 | `EODHD ATTRIBUTION TEXT` | Data sources §2 | Copy verbatim from the contract |
 | `_streamlit_user` duration | Privacy §7 | Check in the browser on the production build |
 
@@ -76,7 +76,7 @@ These pages promise behaviour. Each item below must be true in the app before th
 - A footer on every screen and on the sign-in/sign-up screens, linking all six pages. The Methodology page is also linked from every signal badge (BDG-2).
 - The pages render in all six app languages. They are legal texts: a fluent reviewer translates them (INT-1, INT-4). English stays the reference version (Terms §17).
 - Each page shows its version and date. Keep earlier versions retrievable (Terms §15).
-- The Methodology page is rendered from `screener_compliant.methodology()` and the `risk_compliant.REF_*` constants, so the numbers can't drift. This file is the reference text and layout. It also shows the live signal distribution (`signal_distribution()`) and the weighting in force.
+- The Methodology page is rendered from `screener.methodology()` and the `risk.REF_*` constants, so the numbers can't drift. This file is the reference text and layout. It also shows the live signal distribution (`signal_distribution()`) and the weighting in force.
 
 **Account and subscription (Terms, Privacy)**
 - Sign-up limited to EEA countries and age 18+. Store the country of residence.
@@ -96,7 +96,7 @@ These pages promise behaviour. Each item below must be true in the app before th
 - Replace yfinance with EODHD and set `DATA_SOURCE` plus the attribution text (wiring checklist §4.9 in `../algorithm-compliance-review.md`).
 - **End-of-day prices only:** remove or disable the intraday price auto-refresh (`price_autorefresh`), and show the price date next to every price.
 - Raise the shared `min_mos` default from 0% to 10% and bump `MODEL_VERSION`.
-- Wire the `*_compliant` modules in (checklist in `../algorithm-compliance-review.md` §4): signal history on the stock page (12 months), timestamps, data flags and model list next to every signal, no analyst-target display.
+- Finish wiring the compliant algorithms in (status in `../algorithm-compliance-review.md` §4): signal history on the stock page (12 months), timestamps, data flags and model list next to every signal, no analyst-target display.
 - Show `FOUNDER_HOLDS_NOTICE` on the stock page and next to the signal of every share the founder holds, at any size: keep `data/founder_holdings.json` current within 2 business days of each trade, and pass `load_founder_holdings()` to the universe build.
 - Call `settings_audit.record_settings_change()` from the shared-settings save and `record_model_version()` after each universe build. Keep `data/settings_audit.jsonl` outside the 31-day log retention: it is the evidence for Conflicts §4. It names the admin who made each change. While the founder is the only admin, no Privacy notice entry is needed. Add one if other people get admin rights. The signal history and daily snapshots hold no personal data, since they cover public-universe stocks only.
 
