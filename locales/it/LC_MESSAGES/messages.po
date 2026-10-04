@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-04 12:35+0000\n"
-"PO-Revision-Date: 2026-10-01 23:42+0200\n"
+"PO-Revision-Date: 2026-10-04 14:41+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -56,12 +56,10 @@ msgid "Settings"
 msgstr "Impostazioni"
 
 #: app.py:107 uvalu/pages_/help.py:135 uvalu/shell.py:378
-#, fuzzy
 msgid "Methodology & help"
 msgstr "Metodologia e guida"
 
 #: app.py:108
-#, fuzzy
 msgid "Legal"
 msgstr "Note legali"
 
@@ -468,11 +466,9 @@ msgid "Low risk"
 msgstr "Rischio basso"
 
 #: risk.py:120
-#, fuzzy
 msgid "Composite risk score 0–25: the lowest band of the model's scale."
 msgstr ""
-"Punteggio di rischio composito 0–25: la fascia più bassa della scala del "
-"modello."
+"Punteggio di rischio composito 0–25: la fascia più bassa della scala del modello."
 
 #. Context: Risk page › overall risk band name
 #: risk.py:121
@@ -480,7 +476,6 @@ msgid "Moderate risk"
 msgstr "Rischio moderato"
 
 #: risk.py:122
-#, fuzzy
 msgid "Composite risk score 25–50: below the scale's midpoint."
 msgstr "Punteggio di rischio composito 25–50: sotto il punto medio della scala."
 
@@ -490,7 +485,6 @@ msgid "Elevated risk"
 msgstr "Rischio elevato"
 
 #: risk.py:124
-#, fuzzy
 msgid "Composite risk score 50–70: above the scale's midpoint."
 msgstr "Punteggio di rischio composito 50–70: sopra il punto medio della scala."
 
@@ -500,11 +494,9 @@ msgid "High risk"
 msgstr "Rischio alto"
 
 #: risk.py:126
-#, fuzzy
 msgid "Composite risk score 70–85: the upper band of the model's scale."
 msgstr ""
-"Punteggio di rischio composito 70–85: la fascia superiore della scala del"
-" modello."
+"Punteggio di rischio composito 70–85: la fascia superiore della scala del modello."
 
 #. Context: Risk page › overall risk band name
 #: risk.py:127
@@ -512,48 +504,40 @@ msgid "Critical risk"
 msgstr "Rischio critico"
 
 #: risk.py:128
-#, fuzzy
 msgid "Composite risk score above 85: the highest band of the model's scale."
 msgstr ""
-"Punteggio di rischio composito oltre 85: la fascia più alta della scala "
-"del modello."
+"Punteggio di rischio composito oltre 85: la fascia più alta della scala del modello."
 
 #: risk.py:143
-#, fuzzy
 msgid ""
-"VaR, CVaR, Monte Carlo and stress-test figures are statistical estimates based "
-"on historical data and model assumptions. Real losses can exceed them."
+"VaR, CVaR, Monte Carlo and stress-test figures are statistical estimates based on "
+"historical data and model assumptions. Real losses can exceed them."
 msgstr ""
-"I valori di VaR, CVaR, Monte Carlo e stress test sono stime statistiche "
-"basate su dati storici e ipotesi del modello. Le perdite effettive "
-"possono superarli."
+"I valori di VaR, CVaR, Monte Carlo e stress test sono stime statistiche basate su dati "
+"storici e ipotesi del modello. Le perdite effettive possono superarli."
 
 #: risk.py:145
-#, fuzzy
 msgid ""
-"Historical scenarios replay past market moves; future crises can be larger, "
-"longer or different in kind."
+"Historical scenarios replay past market moves; future crises can be larger, longer or "
+"different in kind."
 msgstr ""
-"Gli scenari storici riproducono movimenti di mercato passati; le crisi "
-"future possono essere più forti, più lunghe o di natura diversa."
+"Gli scenari storici riproducono movimenti di mercato passati; le crisi future possono "
+"essere più forti, più lunghe o di natura diversa."
 
 #: risk.py:147
-#, fuzzy
 msgid ""
 "The composite risk score and its bands describe this portfolio's figures on the "
-"model's scale. They are not a personal risk assessment and do not say what you "
-"should do."
+"model's scale. They are not a personal risk assessment and do not say what you should "
+"do."
 msgstr ""
-"Il punteggio di rischio composito e le sue fasce descrivono i valori di "
-"questo portafoglio sulla scala del modello. Non sono una valutazione "
-"personale del rischio e non indicano cosa dovresti fare."
+"Il punteggio di rischio composito e le sue fasce descrivono i valori di questo "
+"portafoglio sulla scala del modello. Non sono una valutazione personale del rischio e "
+"non indicano cosa dovresti fare."
 
 #: risk.py:150
-#, fuzzy
 msgid "Factor data: Kenneth R. French Data Library (Tuck School of Business, Dartmouth)."
 msgstr ""
-"Dati sui fattori: Kenneth R. French Data Library (Tuck School of "
-"Business, Dartmouth)."
+"Dati sui fattori: Kenneth R. French Data Library (Tuck School of Business, Dartmouth)."
 
 #. Context: Risk page › historical stress scenario name (2000–2002)
 #: risk.py:178
@@ -607,23 +591,20 @@ msgid "Low"
 msgstr "Basso"
 
 #: risk.py:573 uvalu/components.py:1152
-#, fuzzy
 msgid "Above model fair value"
 msgstr "Sopra il valore equo del modello"
 
 #: risk.py:574 uvalu/components.py:1151
-#, fuzzy
 msgid "Near model fair value"
 msgstr "Vicino al valore equo del modello"
 
 #: risk.py:574 uvalu/components.py:1150
-#, fuzzy
 msgid "Below model fair value"
 msgstr "Sotto il valore equo del modello"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:577 risk.py:732 risk.py:739 uvalu/pages_/risk.py:283
-#: uvalu/pages_/risk.py:285 uvalu/pages_/risk.py:287 uvalu/pages_/risk.py:288
+#: risk.py:577 risk.py:732 risk.py:739 uvalu/pages_/risk.py:283 uvalu/pages_/risk.py:285
+#: uvalu/pages_/risk.py:287 uvalu/pages_/risk.py:288
 msgid "N/A"
 msgstr "N/D"
 
@@ -792,156 +773,152 @@ msgid "last snapshot"
 msgstr "ultima istantanea"
 
 #: risk.py:1508
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "{ticker} is {weight} of the portfolio, above the model's {ref} single-position "
 "reference level"
 msgstr ""
-"{ticker} rappresenta il {weight} del portafoglio, sopra il livello di "
-"riferimento del modello di {ref} per singola posizione"
+"{ticker} rappresenta il {weight} del portafoglio, sopra il livello di riferimento del "
+"modello di {ref} per singola posizione"
 
 #: risk.py:1514
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"Portfolio beta is {beta}, above {ref}: historically the portfolio moved more "
-"than the market in both directions"
+"Portfolio beta is {beta}, above {ref}: historically the portfolio moved more than the "
+"market in both directions"
 msgstr ""
-"Il beta del portafoglio è {beta}, sopra {ref}: storicamente il "
-"portafoglio si è mosso più del mercato in entrambe le direzioni"
+"Il beta del portafoglio è {beta}, sopra {ref}: storicamente il portafoglio si è mosso "
+"più del mercato in entrambe le direzioni"
 
 #: risk.py:1521
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid ""
-"Estimated 1-day 99% VaR is {amount} ({pct}), above the model's {ref} reference "
-"level"
+"Estimated 1-day 99% VaR is {amount} ({pct}), above the model's {ref} reference level"
 msgstr ""
-"Il VaR stimato a 1 giorno (99%) è {amount} ({pct}), sopra il livello di "
-"riferimento del modello di {ref}"
+"Il VaR stimato a 1 giorno (99%) è {amount} ({pct}), sopra il livello di riferimento "
+"del modello di {ref}"
 
 #: risk.py:1529
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"{pct} of estimated portfolio income comes from positions whose dividend is "
-"flagged at risk"
+"{pct} of estimated portfolio income comes from positions whose dividend is flagged at "
+"risk"
 msgstr ""
-"Il {pct} dei proventi stimati del portafoglio proviene da posizioni il "
-"cui dividendo è segnalato a rischio"
+"Il {pct} dei proventi stimati del portafoglio proviene da posizioni il cui dividendo è "
+"segnalato a rischio"
 
 #: risk.py:1536
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"The worst historical scenario replay gives an estimated {drawdown} portfolio "
-"drawdown"
+"The worst historical scenario replay gives an estimated {drawdown} portfolio drawdown"
 msgstr ""
-"Il peggiore scenario storico riprodotto dà un calo stimato del "
-"portafoglio di {drawdown}"
+"Il peggiore scenario storico riprodotto dà un calo stimato del portafoglio di "
+"{drawdown}"
 
 #: risk.py:1542
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "{ticker}: position risk rating Critical (from its weight, beta, valuation gap, "
 "financial health and earnings quality)"
 msgstr ""
-"{ticker}: livello di rischio della posizione Critico (in base a peso, "
-"beta, scarto di valutazione, solidità finanziaria e qualità degli utili)"
+"{ticker}: livello di rischio della posizione Critico (in base a peso, beta, scarto di "
+"valutazione, solidità finanziaria e qualità degli utili)"
 
 #: risk.py:1552
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "HHI {hhi} is above the {ceiling} ceiling you set"
 msgstr "HHI {hhi} è sopra il limite di {ceiling} che hai impostato"
 
 #: risk.py:1557
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "HHI {hhi}: highly concentrated on the model's scale (above {ref})"
 msgstr "HHI {hhi}: fortemente concentrato sulla scala del modello (sopra {ref})"
 
 #: risk.py:1561
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "HHI {hhi}: moderately concentrated on the model's scale (above {ref})"
 msgstr "HHI {hhi}: moderatamente concentrato sulla scala del modello (sopra {ref})"
 
 #: risk.py:1567
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "HHI rose by {change} since {date} (now {hhi})"
 msgstr "L'HHI è aumentato di {change} dal {date} (ora {hhi})"
 
 #: risk.py:1583
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{sector} is {actual} of the portfolio against your {target} target ({drift})"
 msgstr ""
-"{sector} rappresenta il {actual} del portafoglio rispetto al tuo "
-"obiettivo del {target} ({drift})"
+"{sector} rappresenta il {actual} del portafoglio rispetto al tuo obiettivo del "
+"{target} ({drift})"
 
 #: risk.py:1591
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid ""
-"{sector} is {weight} of the portfolio, above the model's 30% sector reference "
-"level"
+"{sector} is {weight} of the portfolio, above the model's 30% sector reference level"
 msgstr ""
-"{sector} rappresenta il {weight} del portafoglio, sopra il livello di "
-"riferimento settoriale del modello del 30%"
+"{sector} rappresenta il {weight} del portafoglio, sopra il livello di riferimento "
+"settoriale del modello del 30%"
 
 #: risk.py:1603
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{ticker} is {weight} of the portfolio against your {target} target ({drift})"
 msgstr ""
-"{ticker} rappresenta il {weight} del portafoglio rispetto al tuo "
-"obiettivo del {target} ({drift})"
+"{ticker} rappresenta il {weight} del portafoglio rispetto al tuo obiettivo del "
+"{target} ({drift})"
 
 #: risk.py:1611
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation reference"
 msgstr ""
-"La crescita ponderata dei dividendi del {dgr} è sotto il riferimento di "
-"inflazione del modello del {ref}"
+"La crescita ponderata dei dividendi del {dgr} è sotto il riferimento di inflazione del "
+"modello del {ref}"
 
 #: risk.py:1619
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was "
-"{previous} at {date})"
+"Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was {previous} at "
+"{date})"
 msgstr ""
-"L'indice di Sharpe di {sharpe} è sotto 1,0 in due report di rischio "
-"consecutivi (era {previous} il {date})"
+"L'indice di Sharpe di {sharpe} è sotto 1,0 in due report di rischio consecutivi (era "
+"{previous} il {date})"
 
 #: risk.py:1625
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was"
-" modest"
+"Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was modest"
 msgstr ""
-"L'indice di Sharpe di {sharpe} è sotto 1,0: il rendimento storico per "
-"unità di volatilità è stato modesto"
+"L'indice di Sharpe di {sharpe} è sotto 1,0: il rendimento storico per unità di "
+"volatilità è stato modesto"
 
 #: risk.py:1635
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{ticker}: position risk rating changed from {previous} to {rating} since {date}"
 msgstr ""
-"{ticker}: il livello di rischio della posizione è passato da {previous} a"
-" {rating} dal {date}"
+"{ticker}: il livello di rischio della posizione è passato da {previous} a {rating} dal "
+"{date}"
 
 #: risk.py:1642
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{ticker}: position risk rating High"
 msgstr "{ticker}: livello di rischio della posizione Alto"
 
 #: risk.py:1647
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"{ticker}: the full position equals about {days} trading days at {participation} "
-"of average daily volume"
+"{ticker}: the full position equals about {days} trading days at {participation} of "
+"average daily volume"
 msgstr ""
 "{ticker}: l'intera posizione equivale a circa {days} giorni di borsa al "
 "{participation} del volume medio giornaliero"
 
 #: risk.py:1654
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Highly correlated pairs (above 0.80): {pairs}. Their prices have tended to move "
 "together"
 msgstr ""
-"Coppie fortemente correlate (sopra 0,80): {pairs}. I loro prezzi hanno "
-"teso a muoversi insieme"
+"Coppie fortemente correlate (sopra 0,80): {pairs}. I loro prezzi hanno teso a muoversi "
+"insieme"
 
 #. Context: Risk page › error when the portfolio has no positions
 #: risk.py:1713
@@ -960,160 +937,133 @@ msgid "Undervalued"
 msgstr "Sottovalutato"
 
 #: screener.py:323
-#, fuzzy
 msgid "Neutral"
 msgstr "Neutrale"
 
 #: screener.py:324
-#, fuzzy
 msgid "Low score"
 msgstr "Punteggio basso"
 
 #: screener.py:325 uvalu/drawer.py:239 uvalu/pages_/analysis.py:286
 #: uvalu/pages_/risk.py:436
-#, fuzzy
 msgid "Fails quality screen"
 msgstr "Non supera il filtro di qualità"
 
 #: screener.py:326
-#, fuzzy
 msgid "No signal"
 msgstr "Nessun segnale"
 
 #: screener.py:330
-#, fuzzy
 msgid ""
 "Model output based on public data and the settings shown. Not a recommendation "
 "tailored to you."
 msgstr ""
-"Risultato del modello basato su dati pubblici e sulle impostazioni "
-"mostrate. Non è una raccomandazione personalizzata per te."
+"Risultato del modello basato su dati pubblici e sulle impostazioni mostrate. Non è una "
+"raccomandazione personalizzata per te."
 
 #: screener.py:335
-#, fuzzy
 msgid ""
-"The models value a business on its current fundamentals and assume a holding "
-"horizon of 3 to 5 years; they say nothing about short-term price moves."
+"The models value a business on its current fundamentals and assume a holding horizon "
+"of 3 to 5 years; they say nothing about short-term price moves."
 msgstr ""
-"I modelli valutano un'azienda sui fondamentali attuali e ipotizzano un "
-"orizzonte di detenzione da 3 a 5 anni; non dicono nulla sui movimenti di "
-"prezzo a breve termine."
+"I modelli valutano un'azienda sui fondamentali attuali e ipotizzano un orizzonte di "
+"detenzione da 3 a 5 anni; non dicono nulla sui movimenti di prezzo a breve termine."
 
 #: screener.py:338
-#, fuzzy
 msgid ""
-"Model signals can be wrong. They depend on third-party data that may be delayed "
-"or incorrect and on assumptions that may not hold. Investing involves risk, "
-"including loss of capital."
+"Model signals can be wrong. They depend on third-party data that may be delayed or "
+"incorrect and on assumptions that may not hold. Investing involves risk, including "
+"loss of capital."
 msgstr ""
-"I segnali del modello possono essere errati. Dipendono da dati di terzi "
-"che possono essere in ritardo o inesatti e da ipotesi che potrebbero non "
-"verificarsi. Investire comporta rischi, inclusa la perdita di capitale."
+"I segnali del modello possono essere errati. Dipendono da dati di terzi che possono "
+"essere in ritardo o inesatti e da ipotesi che potrebbero non verificarsi. Investire "
+"comporta rischi, inclusa la perdita di capitale."
 
 #: screener.py:341
-#, fuzzy, no-python-format
+#, no-python-format
 msgid ""
-"Fair values are sensitive to the discount rate, growth and sector multiples: "
-"with a 2% growth rate, raising the discount rate from 8% to 9% lowers a "
-"dividend-model fair value by about 14%."
+"Fair values are sensitive to the discount rate, growth and sector multiples: with a 2% "
+"growth rate, raising the discount rate from 8% to 9% lowers a dividend-model fair "
+"value by about 14%."
 msgstr ""
-"I valori equi sono sensibili al tasso di attualizzazione, alla crescita e"
-" ai multipli settoriali: con una crescita del 2%, portare il tasso di "
-"attualizzazione dall'8% al 9% riduce di circa il 14% il valore equo del "
-"modello a dividendi."
+"I valori equi sono sensibili al tasso di attualizzazione, alla crescita e ai multipli "
+"settoriali: con una crescita del 2%, portare il tasso di attualizzazione dall'8% al 9% "
+"riduce di circa il 14% il valore equo del modello a dividendi."
 
 #: screener.py:345
-#, fuzzy
 msgid ""
-"Composite model score at or above the upper threshold, the price at least the "
-"minimum margin below the model fair value, and the fair value backed by two or "
-"more independent models."
+"Composite model score at or above the upper threshold, the price at least the minimum "
+"margin below the model fair value, and the fair value backed by two or more "
+"independent models."
 msgstr ""
-"Punteggio composito del modello pari o superiore alla soglia superiore, "
-"prezzo almeno del margine minimo sotto il valore equo del modello e "
-"valore equo sostenuto da due o più modelli indipendenti."
+"Punteggio composito del modello pari o superiore alla soglia superiore, prezzo almeno "
+"del margine minimo sotto il valore equo del modello e valore equo sostenuto da due o "
+"più modelli indipendenti."
 
 #: screener.py:348
-#, fuzzy
 msgid ""
-"Composite model score between the lower and upper thresholds, or above the upper"
-" threshold without a confirmed margin of safety."
+"Composite model score between the lower and upper thresholds, or above the upper "
+"threshold without a confirmed margin of safety."
 msgstr ""
-"Punteggio composito del modello tra la soglia inferiore e quella "
-"superiore, oppure sopra la soglia superiore senza un margine di sicurezza"
-" confermato."
+"Punteggio composito del modello tra la soglia inferiore e quella superiore, oppure "
+"sopra la soglia superiore senza un margine di sicurezza confermato."
 
 #: screener.py:350
-#, fuzzy
 msgid "Composite model score below the lower threshold."
 msgstr "Punteggio composito del modello sotto la soglia inferiore."
 
 #: screener.py:351
-#, fuzzy
 msgid ""
-"Fails at least one quality rule (debt, cash flow, dividend cover, multi-year "
-"decline or no trading volume); its composite score is set to 0."
+"Fails at least one quality rule (debt, cash flow, dividend cover, multi-year decline "
+"or no trading volume); its composite score is set to 0."
 msgstr ""
-"Non rispetta almeno una regola di qualità (debito, flusso di cassa, "
-"copertura del dividendo, calo pluriennale o assenza di volumi di "
-"scambio); il suo punteggio composito viene portato a 0."
+"Non rispetta almeno una regola di qualità (debito, flusso di cassa, copertura del "
+"dividendo, calo pluriennale o assenza di volumi di scambio); il suo punteggio "
+"composito viene portato a 0."
 
 #: screener.py:354
-#, fuzzy
 msgid "Not enough peer data to rank this stock yet."
-msgstr ""
-"Non ci sono ancora abbastanza dati di confronto per classificare questo "
-"titolo."
+msgstr "Non ci sono ancora abbastanza dati di confronto per classificare questo titolo."
 
 #: screener.py:369
-#, fuzzy
 msgid "debt-to-equity above the maximum"
 msgstr "rapporto debito/patrimonio sopra il massimo"
 
 #: screener.py:370
-#, fuzzy
 msgid "negative free cash flow"
 msgstr "flusso di cassa libero negativo"
 
 #: screener.py:371
-#, fuzzy
 msgid "dividend flagged at risk with earnings cover below 1.0"
 msgstr "dividendo segnalato a rischio con copertura degli utili sotto 1,0"
 
 #: screener.py:372
-#, fuzzy
 msgid "multi-year revenue decline"
 msgstr "calo dei ricavi pluriennale"
 
 #: screener.py:373
-#, fuzzy
 msgid "operating income negative for several years"
 msgstr "reddito operativo negativo per diversi anni"
 
 #: screener.py:374
-#, fuzzy
 msgid "negative and eroding retained earnings"
 msgstr "utili non distribuiti negativi e in calo"
 
 #: screener.py:375
-#, fuzzy
 msgid "recent dividend cut with thin cover"
 msgstr "recente taglio del dividendo con copertura ridotta"
 
 #: screener.py:376
-#, fuzzy
 msgid "no trading volume"
 msgstr "nessun volume di scambio"
 
 #: screener.py:382
-#, fuzzy
 msgid ""
 "Disclosure: the founder of Uvalu holds a position in this stock. Its signal is "
 "calculated exactly like every other stock's."
 msgstr ""
-"Dichiarazione: il fondatore di Uvalu detiene una posizione in questo "
-"titolo. Il suo segnale è calcolato esattamente come quello di ogni altro "
-"titolo."
+"Dichiarazione: il fondatore di Uvalu detiene una posizione in questo titolo. Il suo "
+"segnale è calcolato esattamente come quello di ogni altro titolo."
 
 #. Context: Sector name (from market data)
 #: screener.py:394 uvalu/dialogs.py:41
@@ -1167,54 +1117,49 @@ msgid "Annual"
 msgstr "Annuale"
 
 #: screener.py:1825
-#, fuzzy
 msgid "No signal: the peer group needed to rank this stock is not available yet."
 msgstr ""
-"Nessun segnale: il gruppo di confronto necessario per classificare questo"
-" titolo non è ancora disponibile."
+"Nessun segnale: il gruppo di confronto necessario per classificare questo titolo non è "
+"ancora disponibile."
 
 #: screener.py:1832
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Fails the model's quality screen ({rules}), so its composite score is set to 0."
 msgstr ""
-"Non supera il filtro di qualità del modello ({rules}), quindi il suo "
-"punteggio composito viene portato a 0."
-
-#: screener.py:1834
-#, fuzzy
-msgid "Fails the model's quality screen, so its composite score is set to 0."
-msgstr ""
-"Non supera il filtro di qualità del modello, quindi il suo punteggio "
+"Non supera il filtro di qualità del modello ({rules}), quindi il suo punteggio "
 "composito viene portato a 0."
 
-#: screener.py:1838
-#, fuzzy, python-brace-format
-msgid ""
-"Model score {score} is at or above {threshold}, and the price is {mos} below the"
-" model fair value (minimum {min_mos})."
+#: screener.py:1834
+msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr ""
-"Il punteggio del modello {score} è pari o superiore a {threshold} e il "
-"prezzo è del {mos} sotto il valore equo del modello (minimo {min_mos})."
+"Non supera il filtro di qualità del modello, quindi il suo punteggio composito viene "
+"portato a 0."
+
+#: screener.py:1838
+#, python-brace-format
+msgid ""
+"Model score {score} is at or above {threshold}, and the price is {mos} below the model "
+"fair value (minimum {min_mos})."
+msgstr ""
+"Il punteggio del modello {score} è pari o superiore a {threshold} e il prezzo è del "
+"{mos} sotto il valore equo del modello (minimo {min_mos})."
 
 #: screener.py:1841
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
 msgstr "Il punteggio del modello {score} è pari o superiore a {threshold}."
 
 #: screener.py:1844
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
 msgstr "Il punteggio del modello {score} è sotto la soglia inferiore di {floor}."
 
 #: screener.py:1849
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
-msgstr ""
-"il punteggio del modello {score} è sotto la soglia superiore di "
-"{threshold}"
+msgstr "il punteggio del modello {score} è sotto la soglia superiore di {threshold}"
 
 #: screener.py:1852
-#, fuzzy
 msgid "no model fair value could be computed"
 msgstr "non è stato possibile calcolare un valore equo del modello"
 
@@ -1225,17 +1170,15 @@ msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr "il margine di sicurezza {mos} è sotto il minimo di {min_mos}"
 
 #: screener.py:1856
-#, fuzzy
 msgid "the fair value rests on fewer than two independent models"
 msgstr "il valore equo si basa su meno di due modelli indipendenti"
 
 #: screener.py:1857
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Neutral: {reasons}."
 msgstr "Neutrale: {reasons}."
 
 #: screener.py:1858
-#, fuzzy
 msgid "Model score is between the lower and upper thresholds."
 msgstr "Il punteggio del modello è tra la soglia inferiore e quella superiore."
 
@@ -1263,37 +1206,30 @@ msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividendo tagliato nel {year} con copertura di appena {coverage}×"
 
 #: screener.py:2721
-#, fuzzy
 msgid "The price is more than 72 hours old."
 msgstr "Il prezzo risale a più di 72 ore fa."
 
 #: screener.py:2722
-#, fuzzy
 msgid "The time of the price is unknown."
 msgstr "L'ora del prezzo è sconosciuta."
 
 #: screener.py:2723
-#, fuzzy
 msgid "No model could compute a fair value."
 msgstr "Nessun modello ha potuto calcolare un valore equo."
 
 #: screener.py:2724
-#, fuzzy
 msgid "The fair value rests on fewer than two independent models."
 msgstr "Il valore equo si basa su meno di due modelli indipendenti."
 
 #: screener.py:2725
-#, fuzzy
 msgid "The fair value was capped at the models' median."
 msgstr "Il valore equo è stato limitato alla mediana dei modelli."
 
 #: screener.py:2726
-#, fuzzy
 msgid "Earnings per share were derived from the P/E ratio."
 msgstr "L'utile per azione è stato ricavato dal rapporto P/E."
 
 #: screener.py:2727
-#, fuzzy
 msgid "Fewer than 20 stocks were available for comparison."
 msgstr "Per il confronto erano disponibili meno di 20 titoli."
 
@@ -1400,20 +1336,17 @@ msgid "value engine"
 msgstr "motore di valore"
 
 #: uvalu/authgate.py:238
-#, fuzzy
 msgid "Calculate fair value with five models."
 msgstr "Calcola il valore equo con cinque modelli."
 
 #: uvalu/authgate.py:239
-#, fuzzy
 msgid ""
-"Five valuation models across 6 European exchanges: margin of safety, composite "
-"scores and quality screens in one workspace. Model outputs are the same for "
-"every user."
+"Five valuation models across 6 European exchanges: margin of safety, composite scores "
+"and quality screens in one workspace. Model outputs are the same for every user."
 msgstr ""
-"Cinque modelli di valutazione su 6 borse europee: margine di sicurezza, "
-"punteggi compositi e filtri di qualità in un unico spazio di lavoro. I "
-"risultati dei modelli sono gli stessi per ogni utente."
+"Cinque modelli di valutazione su 6 borse europee: margine di sicurezza, punteggi "
+"compositi e filtri di qualità in un unico spazio di lavoro. I risultati dei modelli "
+"sono gli stessi per ogni utente."
 
 #. Context: Sign-in screen › stat label under the big number '6' (six valuation
 #. models). Lowercase.
@@ -1428,7 +1361,6 @@ msgid "EU exchanges"
 msgstr "borse UE"
 
 #: uvalu/authgate.py:243
-#, fuzzy
 msgid "model update cycle"
 msgstr "ciclo di aggiornamento del modello"
 
@@ -1724,12 +1656,10 @@ msgid "Ask your admin for an invite"
 msgstr "Chiedi un invito al tuo amministratore"
 
 #: uvalu/components.py:64
-#, fuzzy
 msgid "No data"
 msgstr "Nessun dato"
 
 #: uvalu/components.py:70
-#, fuzzy
 msgid "See Methodology for thresholds."
 msgstr "Vedi Metodologia per le soglie."
 
@@ -1763,47 +1693,45 @@ msgid "no confirmed trading volume"
 msgstr "nessun volume di scambi confermato"
 
 #: uvalu/components.py:117
-#, fuzzy
 msgid "a quality-screen rule"
 msgstr "una regola del filtro di qualità"
 
 #: uvalu/components.py:129
-#, fuzzy
 msgid "Methodology →"
 msgstr "Metodologia →"
 
 #: uvalu/components.py:148
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Signal computed {when}"
 msgstr "Segnale calcolato {when}"
 
 #: uvalu/components.py:149
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price as of {when}, delayed"
 msgstr "prezzo del {when}, ritardato"
 
 #: uvalu/components.py:150 uvalu/components.py:177
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "model {version}"
 msgstr "modello {version}"
 
 #: uvalu/components.py:168
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Signals computed {when}"
 msgstr "Segnali calcolati {when}"
 
 #: uvalu/components.py:171
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "prices delayed, as of {when}"
 msgstr "prezzi ritardati, al {when}"
 
 #: uvalu/components.py:173
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "prices delayed, fetched {oldest} to {newest}"
 msgstr "prezzi ritardati, recuperati dal {oldest} al {newest}"
 
 #: uvalu/components.py:181
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "coverage: {shares}"
 msgstr "copertura: {shares}"
 
@@ -2019,7 +1947,6 @@ msgid "View"
 msgstr "Vedi"
 
 #: uvalu/components.py:1153
-#, fuzzy
 msgid "Model fair value"
 msgstr "Valore equo del modello"
 
@@ -2088,10 +2015,10 @@ msgstr "Modifica dividendo"
 
 #. Context: Table column header: the stock (name and ticker). Used on
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
-#: uvalu/components.py:1602 uvalu/pages_/dashboard.py:464
-#: uvalu/pages_/dashboard.py:469 uvalu/pages_/portfolio.py:65
-#: uvalu/pages_/portfolio.py:71 uvalu/pages_/portfolio.py:432 uvalu/pages_/risk.py:34
-#: uvalu/pages_/screener.py:49 uvalu/pages_/watchlist.py:31
+#: uvalu/components.py:1602 uvalu/pages_/dashboard.py:464 uvalu/pages_/dashboard.py:469
+#: uvalu/pages_/portfolio.py:65 uvalu/pages_/portfolio.py:71
+#: uvalu/pages_/portfolio.py:432 uvalu/pages_/risk.py:34 uvalu/pages_/screener.py:49
+#: uvalu/pages_/watchlist.py:31
 msgid "Position"
 msgstr "Posizione"
 
@@ -2439,13 +2366,12 @@ msgid "Add position"
 msgstr "Aggiungi posizione"
 
 #: uvalu/dialogs.py:397
-#, fuzzy
 msgid ""
-"Record a purchase you made at your broker: enter a total cost or a price per "
-"share. Nothing is executed."
+"Record a purchase you made at your broker: enter a total cost or a price per share. "
+"Nothing is executed."
 msgstr ""
-"Registra un acquisto effettuato presso il tuo broker: inserisci un costo "
-"totale o un prezzo per azione. Nessun ordine viene eseguito."
+"Registra un acquisto effettuato presso il tuo broker: inserisci un costo totale o un "
+"prezzo per azione. Nessun ordine viene eseguito."
 
 #. Context: Position dialogs › field label; * = required
 #: uvalu/dialogs.py:406 uvalu/dialogs.py:496
@@ -2539,7 +2465,6 @@ msgstr ""
 "Nessuna variazione di liquidità: il registro mantiene l'acquisto come registrato."
 
 #: uvalu/dialogs.py:538
-#, fuzzy
 msgid "Record a sale…"
 msgstr "Registra una vendita…"
 
@@ -2555,18 +2480,16 @@ msgid "Buy date is required."
 msgstr "La data di acquisto è obbligatoria."
 
 #: uvalu/dialogs.py:561 uvalu/drawer.py:343
-#, fuzzy
 msgid "Record sale"
 msgstr "Registra vendita"
 
 #: uvalu/dialogs.py:566
-#, fuzzy
 msgid ""
-"Record a sale of all or part of this position that you made at your broker. "
-"Nothing is executed."
+"Record a sale of all or part of this position that you made at your broker. Nothing is "
+"executed."
 msgstr ""
-"Registra una vendita totale o parziale di questa posizione effettuata "
-"presso il tuo broker. Nessun ordine viene eseguito."
+"Registra una vendita totale o parziale di questa posizione effettuata presso il tuo "
+"broker. Nessun ordine viene eseguito."
 
 #. Context: Close position dialog › dropdown label; * = required
 #: uvalu/dialogs.py:573
@@ -3069,8 +2992,8 @@ msgstr "Chiudi"
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
 #: uvalu/drawer.py:221 uvalu/locale_ui.py:81 uvalu/pages_/analysis.py:306
-#: uvalu/pages_/analysis.py:322 uvalu/pages_/portfolio.py:66
-#: uvalu/pages_/screener.py:53 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/analysis.py:322 uvalu/pages_/portfolio.py:66 uvalu/pages_/screener.py:53
+#: uvalu/pages_/watchlist.py:31
 msgid "Price"
 msgstr "Prezzo"
 
@@ -3083,13 +3006,11 @@ msgstr "Valore equo"
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
 #: uvalu/drawer.py:223 uvalu/pages_/analysis.py:272 uvalu/pages_/analysis.py:348
-#: uvalu/pages_/analysis.py:653 uvalu/pages_/screener.py:52
-#: uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/analysis.py:653 uvalu/pages_/screener.py:52 uvalu/pages_/watchlist.py:31
 msgid "Margin of safety"
 msgstr "Margine di sicurezza"
 
 #: uvalu/drawer.py:224
-#, fuzzy
 msgid "Implied return (est.)"
 msgstr "Rendimento implicito (stima)"
 
@@ -3186,7 +3107,6 @@ msgid "View full analysis"
 msgstr "Vedi analisi completa"
 
 #: uvalu/drawer.py:359
-#, fuzzy
 msgid "Record purchase"
 msgstr "Registra acquisto"
 
@@ -3297,8 +3217,8 @@ msgstr "Valore totale"
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
 #: uvalu/locale_ui.py:85 uvalu/pages_/dashboard.py:464 uvalu/pages_/dashboard.py:469
-#: uvalu/pages_/screener.py:50 uvalu/pages_/screener.py:269
-#: uvalu/pages_/screener.py:270 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:50 uvalu/pages_/screener.py:269 uvalu/pages_/screener.py:270
+#: uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr "Segnale"
 
@@ -3348,7 +3268,6 @@ msgstr "Formato data"
 
 #. Context: Planned (spec, not in code yet) › Date format option
 #: uvalu/locale_ui.py:153
-#, fuzzy
 msgctxt "date_format"
 msgid "Short"
 msgstr "Breve"
@@ -3494,215 +3413,179 @@ msgid "TOTAL"
 msgstr "TOTALE"
 
 #: uvalu/compliance/disclosures.py:19
-#, fuzzy
 msgid ""
-"Free beta: a test version. Features and data can change, and the beta can end at"
-" any time."
+"Free beta: a test version. Features and data can change, and the beta can end at any "
+"time."
 msgstr ""
-"Beta gratuita: una versione di prova. Funzionalità e dati possono "
-"cambiare e la beta può terminare in qualsiasi momento."
+"Beta gratuita: una versione di prova. Funzionalità e dati possono cambiare e la beta "
+"può terminare in qualsiasi momento."
 
 #: uvalu/compliance/disclosures.py:29
-#, fuzzy
 msgid "enterprise number: registration pending"
 msgstr "numero d'impresa: iscrizione in corso"
 
 #: uvalu/compliance/disclosures.py:30
-#, fuzzy
 msgid "Not authorised or supervised by the FSMA as an investment firm."
 msgstr "Non autorizzato né vigilato dalla FSMA come impresa di investimento."
 
 #: uvalu/compliance/disclosures.py:31
-#, fuzzy
 msgid ""
-"Not directed at residents of the United Kingdom, the United States or "
-"Switzerland."
-msgstr ""
-"Non destinato ai residenti nel Regno Unito, negli Stati Uniti o in "
-"Svizzera."
+"Not directed at residents of the United Kingdom, the United States or Switzerland."
+msgstr "Non destinato ai residenti nel Regno Unito, negli Stati Uniti o in Svizzera."
 
 #: uvalu/compliance/disclosures.py:35
-#, fuzzy
 msgid ""
-"Uvalu is an analysis tool. Scores, fair values and signals are model outputs "
-"based on public data and are the same for every user. They are not personal "
-"investment advice and do not take your situation into account. Investing "
-"involves risk, including loss of capital. Decisions are your own."
+"Uvalu is an analysis tool. Scores, fair values and signals are model outputs based on "
+"public data and are the same for every user. They are not personal investment advice "
+"and do not take your situation into account. Investing involves risk, including loss "
+"of capital. Decisions are your own."
 msgstr ""
-"Uvalu è uno strumento di analisi. Punteggi, valori equi e segnali sono "
-"risultati di modelli basati su dati pubblici e sono gli stessi per ogni "
-"utente. Non costituiscono consulenza personalizzata in materia di "
-"investimenti e non tengono conto della tua situazione. Investire comporta"
-" rischi, inclusa la perdita di capitale. Le decisioni spettano a te."
+"Uvalu è uno strumento di analisi. Punteggi, valori equi e segnali sono risultati di "
+"modelli basati su dati pubblici e sono gli stessi per ogni utente. Non costituiscono "
+"consulenza personalizzata in materia di investimenti e non tengono conto della tua "
+"situazione. Investire comporta rischi, inclusa la perdita di capitale. Le decisioni "
+"spettano a te."
 
 #: uvalu/compliance/disclosures.py:40
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"Uvalu ({producer}) is not an investment firm, bank or broker and is not "
-"authorised or supervised by the FSMA to provide investment services. Uvalu does "
-"not provide investment advice, portfolio management or order execution. All "
-"valuations, scores, signals and risk figures are generated automatically from "
-"third-party data and from assumptions that may be wrong, incomplete or out of "
-"date. They are general information made available to all users on the same "
-"basis. Before investing, consider your own circumstances and, where appropriate,"
-" consult an authorised adviser. Positions held by the founder in covered "
-"instruments are disclosed on the stock page and in the conflicts of interest "
-"policy."
+"Uvalu ({producer}) is not an investment firm, bank or broker and is not authorised or "
+"supervised by the FSMA to provide investment services. Uvalu does not provide "
+"investment advice, portfolio management or order execution. All valuations, scores, "
+"signals and risk figures are generated automatically from third-party data and from "
+"assumptions that may be wrong, incomplete or out of date. They are general information "
+"made available to all users on the same basis. Before investing, consider your own "
+"circumstances and, where appropriate, consult an authorised adviser. Positions held by "
+"the founder in covered instruments are disclosed on the stock page and in the "
+"conflicts of interest policy."
 msgstr ""
-"Uvalu ({producer}) non è un'impresa di investimento, una banca o un "
-"broker e non è autorizzato né vigilato dalla FSMA per la prestazione di "
-"servizi di investimento. Uvalu non presta consulenza in materia di "
-"investimenti, gestione di portafogli o esecuzione di ordini. Tutte le "
-"valutazioni, i punteggi, i segnali e i dati di rischio sono generati "
-"automaticamente a partire da dati di terzi e da ipotesi che possono "
-"essere errate, incomplete o non aggiornate. Si tratta di informazioni "
-"generali messe a disposizione di tutti gli utenti alle stesse condizioni."
-" Prima di investire, considera la tua situazione personale e, se "
-"opportuno, rivolgiti a un consulente autorizzato. Le posizioni detenute "
-"dal fondatore negli strumenti coperti sono indicate nella pagina del "
-"titolo e nella politica sui conflitti di interesse."
+"Uvalu ({producer}) non è un'impresa di investimento, una banca o un broker e non è "
+"autorizzato né vigilato dalla FSMA per la prestazione di servizi di investimento. "
+"Uvalu non presta consulenza in materia di investimenti, gestione di portafogli o "
+"esecuzione di ordini. Tutte le valutazioni, i punteggi, i segnali e i dati di rischio "
+"sono generati automaticamente a partire da dati di terzi e da ipotesi che possono "
+"essere errate, incomplete o non aggiornate. Si tratta di informazioni generali messe a "
+"disposizione di tutti gli utenti alle stesse condizioni. Prima di investire, considera "
+"la tua situazione personale e, se opportuno, rivolgiti a un consulente autorizzato. Le "
+"posizioni detenute dal fondatore negli strumenti coperti sono indicate nella pagina "
+"del titolo e nella politica sui conflitti di interesse."
 
 #: uvalu/compliance/disclosures.py:50
-#, fuzzy
 msgid ""
-"Support explains how Uvalu works; we can't comment on whether you should buy, "
-"hold or sell any stock."
+"Support explains how Uvalu works; we can't comment on whether you should buy, hold or "
+"sell any stock."
 msgstr ""
-"Il supporto spiega come funziona Uvalu; non possiamo esprimerci "
-"sull'opportunità di comprare, mantenere o vendere un titolo."
+"Il supporto spiega come funziona Uvalu; non possiamo esprimerci sull'opportunità di "
+"comprare, mantenere o vendere un titolo."
 
 #: uvalu/compliance/disclosures.py:54
-#, fuzzy
 msgid "Your records · nothing is executed"
 msgstr "Le tue registrazioni · nessun ordine viene eseguito"
 
 #: uvalu/compliance/disclosures.py:58
-#, fuzzy
 msgid "Prices"
 msgstr "Prezzi"
 
 #: uvalu/compliance/disclosures.py:58
-#, fuzzy
 msgid "Yahoo Finance · delayed quotes, with the time they were fetched"
-msgstr ""
-"Yahoo Finance · quotazioni ritardate, con l'ora in cui sono state "
-"recuperate"
+msgstr "Yahoo Finance · quotazioni ritardate, con l'ora in cui sono state recuperate"
 
 #: uvalu/compliance/disclosures.py:59
-#, fuzzy
 msgid "Fundamentals"
 msgstr "Dati fondamentali"
 
 #: uvalu/compliance/disclosures.py:59
-#, fuzzy
 msgid "Yahoo Finance · refreshed about every 24 hours"
 msgstr "Yahoo Finance · aggiornati circa ogni 24 ore"
 
 #: uvalu/compliance/disclosures.py:60
-#, fuzzy
 msgid "Dividends"
 msgstr "Dividendi"
 
 #: uvalu/compliance/disclosures.py:60
-#, fuzzy
 msgid "Yahoo Finance payment history · your own entries are your records"
 msgstr ""
-"Storico dei pagamenti di Yahoo Finance · i tuoi inserimenti sono le tue "
-"registrazioni"
+"Storico dei pagamenti di Yahoo Finance · i tuoi inserimenti sono le tue registrazioni"
 
 #: uvalu/compliance/disclosures.py:61
-#, fuzzy
 msgid "FX"
 msgstr "Cambi"
 
 #: uvalu/compliance/disclosures.py:61
-#, fuzzy
 msgid "ECB reference rates via frankfurter.dev"
 msgstr "Tassi di riferimento BCE tramite frankfurter.dev"
 
 #: uvalu/compliance/disclosures.py:66
-#, fuzzy
 msgid "Tax figures are estimates"
 msgstr "I dati fiscali sono stime"
 
 #: uvalu/compliance/disclosures.py:67
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Rules applied: Belgium. Foreign withholding at the rate you set per exchange in "
-"Settings, then the Belgian withholding tax (roerende voorheffing) of {be_rate} "
-"on the remainder; not applied to stock (scrip) dividends. Rates last reviewed "
-"{date}."
+"Settings, then the Belgian withholding tax (roerende voorheffing) of {be_rate} on the "
+"remainder; not applied to stock (scrip) dividends. Rates last reviewed {date}."
 msgstr ""
-"Regole applicate: Belgio. Ritenuta estera all'aliquota che imposti per "
-"borsa in Impostazioni, poi la ritenuta belga sui redditi mobiliari "
-"(précompte mobilier / roerende voorheffing) del {be_rate} sull'importo "
-"restante; non applicata ai dividendi in azioni. Aliquote verificate "
-"l'ultima volta il {date}."
+"Regole applicate: Belgio. Ritenuta estera all'aliquota che imposti per borsa in "
+"Impostazioni, poi la ritenuta belga sui redditi mobiliari (précompte mobilier / "
+"roerende voorheffing) del {be_rate} sull'importo restante; non applicata ai dividendi "
+"in azioni. Aliquote verificate l'ultima volta il {date}."
 
 #: uvalu/compliance/disclosures.py:70
-#, fuzzy
 msgid ""
-"Not handled: the dividend exemption and its carry-forward, substantial holdings,"
-" funds with a bond component, non-Belgian residents, split ownership, "
-"professional or speculative trading."
+"Not handled: the dividend exemption and its carry-forward, substantial holdings, funds "
+"with a bond component, non-Belgian residents, split ownership, professional or "
+"speculative trading."
 msgstr ""
-"Non gestiti: l'esenzione sui dividendi e il relativo riporto, le "
-"partecipazioni rilevanti, i fondi con componente obbligazionaria, i non "
-"residenti in Belgio, la proprietà divisa (usufrutto e nuda proprietà), "
-"l'operatività professionale o speculativa."
+"Non gestiti: l'esenzione sui dividendi e il relativo riporto, le partecipazioni "
+"rilevanti, i fondi con componente obbligazionaria, i non residenti in Belgio, la "
+"proprietà divisa (usufrutto e nuda proprietà), l'operatività professionale o "
+"speculativa."
 
 #: uvalu/compliance/disclosures.py:73
-#, fuzzy
 msgid ""
-"You remain responsible for your tax return. Check these figures against your "
-"bank statements or with a tax professional."
+"You remain responsible for your tax return. Check these figures against your bank "
+"statements or with a tax professional."
 msgstr ""
-"La dichiarazione dei redditi resta sotto la tua responsabilità. Verifica "
-"questi dati con i tuoi estratti conto o con un professionista fiscale."
+"La dichiarazione dei redditi resta sotto la tua responsabilità. Verifica questi dati "
+"con i tuoi estratti conto o con un professionista fiscale."
 
 #: uvalu/compliance/disclosures.py:81
-#, fuzzy
 msgid "Privacy notice"
 msgstr "Informativa sulla privacy"
 
 #: uvalu/compliance/disclosures.py:82
-#, fuzzy
 msgid "Methodology"
 msgstr "Metodologia"
 
 #: uvalu/compliance/disclosures.py:83 uvalu/pages_/analysis.py:152
 #: uvalu/pages_/help.py:215
-#, fuzzy
 msgid "Data sources"
 msgstr "Fonti dei dati"
 
 #: uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:225
-#, fuzzy
 msgid "Conflicts of interest"
 msgstr "Conflitti di interesse"
 
 #: uvalu/compliance/disclosures.py:85
-#, fuzzy
 msgid "Complaints & Consumer Mediation Service"
 msgstr "Reclami e Servizio di mediazione per i consumatori"
 
 #: uvalu/compliance/disclosures.py:87
-#, fuzzy
 msgid ""
-"Reference language: English. You may rely on the version shown to you in your "
-"own language."
+"Reference language: English. You may rely on the version shown to you in your own "
+"language."
 msgstr ""
-"Lingua di riferimento: inglese. Puoi fare affidamento sulla versione che "
-"ti viene mostrata nella tua lingua."
+"Lingua di riferimento: inglese. Puoi fare affidamento sulla versione che ti viene "
+"mostrata nella tua lingua."
 
 #: uvalu/compliance/disclosures.py:89
-#, fuzzy
 msgid ""
-"This page is not yet available in your language; the English reference version "
-"is shown."
+"This page is not yet available in your language; the English reference version is "
+"shown."
 msgstr ""
-"Questa pagina non è ancora disponibile nella tua lingua; viene mostrata "
-"la versione di riferimento in inglese."
+"Questa pagina non è ancora disponibile nella tua lingua; viene mostrata la versione di "
+"riferimento in inglese."
 
 #. Context: Market label for Euronext Brussels (Screener market filter,
 #. Portfolio, Watchlist, Analysis)
@@ -3742,106 +3625,89 @@ msgid "Swiss"
 msgstr "Svizzera"
 
 #: uvalu/pages_/analysis.py:81
-#, fuzzy
 msgid "Badge history · 12 months"
 msgstr "Storico dei badge · 12 mesi"
 
 #: uvalu/pages_/analysis.py:87
-#, fuzzy
 msgid "No badge change recorded for this stock yet."
 msgstr "Nessuna modifica del badge registrata finora per questo titolo."
 
 #: uvalu/pages_/analysis.py:96
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "score {score} · margin of safety {mos} · model {version}"
 msgstr "punteggio {score} · margine di sicurezza {mos} · modello {version}"
 
 #: uvalu/pages_/analysis.py:109
-#, fuzzy
 msgid "Every badge change is logged with its inputs and model version."
 msgstr ""
-"Ogni modifica del badge viene registrata con i dati di input e la "
-"versione del modello."
+"Ogni modifica del badge viene registrata con i dati di input e la versione del modello."
 
 #: uvalu/pages_/analysis.py:112
-#, fuzzy
 msgid "Assumptions & sensitivity"
 msgstr "Ipotesi e sensibilità"
 
 #: uvalu/pages_/analysis.py:124
-#, fuzzy
 msgid "Discount rate"
 msgstr "Tasso di attualizzazione"
 
 #: uvalu/pages_/analysis.py:125
-#, fuzzy
 msgid "Min. margin of safety"
 msgstr "Margine di sicurezza min."
 
 #: uvalu/pages_/analysis.py:126
-#, fuzzy
 msgid "Score threshold"
 msgstr "Soglia di punteggio"
 
 #: uvalu/pages_/analysis.py:131
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Discount rate {rate}"
 msgstr "Tasso di attualizzazione {rate}"
 
 #: uvalu/pages_/analysis.py:132
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "fair value {fv} · margin of safety {mos}"
 msgstr "valore equo {fv} · margine di sicurezza {mos}"
 
 #: uvalu/pages_/analysis.py:138
-#, fuzzy
 msgid "The sensitivity table appears once the full stock universe has been scored."
 msgstr ""
-"La tabella di sensibilità compare quando l'intero universo di titoli è "
-"stato valutato."
+"La tabella di sensibilità compare quando l'intero universo di titoli è stato valutato."
 
 #: uvalu/pages_/analysis.py:139
-#, fuzzy
 msgid ""
-"Fair values are model estimates, not forecasts or price targets. The settings "
-"are shared model settings, the same for every user; this table changes no score "
-"or signal."
+"Fair values are model estimates, not forecasts or price targets. The settings are "
+"shared model settings, the same for every user; this table changes no score or signal."
 msgstr ""
-"I valori equi sono stime del modello, non previsioni né prezzi obiettivo."
-" Le impostazioni sono impostazioni del modello condivise, uguali per ogni"
-" utente; questa tabella non modifica alcun punteggio o segnale."
+"I valori equi sono stime del modello, non previsioni né prezzi obiettivo. Le "
+"impostazioni sono impostazioni del modello condivise, uguali per ogni utente; questa "
+"tabella non modifica alcun punteggio o segnale."
 
 #: uvalu/pages_/analysis.py:158
-#, fuzzy
 msgid "No data quality flags for this stock."
 msgstr "Nessuna segnalazione sulla qualità dei dati per questo titolo."
 
 #: uvalu/pages_/analysis.py:165
-#, fuzzy
 msgid "Producer & conflicts"
 msgstr "Produttore e conflitti di interesse"
 
 #: uvalu/pages_/analysis.py:167
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "The founder holds no position in {ticker}."
 msgstr "Il fondatore non detiene alcuna posizione in {ticker}."
 
 #: uvalu/pages_/analysis.py:169
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Produced automatically by {producer}."
 msgstr "Prodotto automaticamente da {producer}."
 
 #: uvalu/pages_/analysis.py:172
-#, fuzzy
 msgid ""
-"No payment from the issuer, brokers or data vendors in connection with this "
-"output."
+"No payment from the issuer, brokers or data vendors in connection with this output."
 msgstr ""
-"Nessun compenso dall'emittente, da broker o da fornitori di dati in "
-"relazione a questo risultato."
+"Nessun compenso dall'emittente, da broker o da fornitori di dati in relazione a questo "
+"risultato."
 
 #: uvalu/pages_/analysis.py:177
-#, fuzzy
 msgid "Conflicts of interest policy →"
 msgstr "Politica sui conflitti di interesse →"
 
@@ -3868,17 +3734,14 @@ msgid "No data found for **{ticker}**."
 msgstr "Nessun dato trovato per **{ticker}**."
 
 #: uvalu/pages_/analysis.py:213
-#, fuzzy
 msgid "Upper range"
 msgstr "Fascia alta"
 
 #: uvalu/pages_/analysis.py:215
-#, fuzzy
 msgid "Middle range"
 msgstr "Fascia media"
 
 #: uvalu/pages_/analysis.py:217
-#, fuzzy
 msgid "Lower range"
 msgstr "Fascia bassa"
 
@@ -3896,7 +3759,6 @@ msgid "Current price"
 msgstr "Prezzo attuale"
 
 #: uvalu/pages_/analysis.py:271
-#, fuzzy
 msgid "Composite fair value · estimate"
 msgstr "Valore equo composito · stima"
 
@@ -3946,7 +3808,6 @@ msgid "Momentum"
 msgstr "Momentum"
 
 #: uvalu/pages_/analysis.py:359
-#, fuzzy
 msgid "Model fair values"
 msgstr "Valori equi dei modelli"
 
@@ -4002,7 +3863,6 @@ msgid "Payout ratio"
 msgstr "Payout ratio"
 
 #: uvalu/pages_/analysis.py:428
-#, fuzzy
 msgid "Quality screen checks"
 msgstr "Controlli del filtro di qualità"
 
@@ -4239,18 +4099,17 @@ msgid "No dividend events recorded yet for this holding."
 msgstr "Nessun dividendo registrato finora per questa posizione."
 
 #: uvalu/pages_/analysis.py:651
-#, fuzzy
 msgid "Model summary"
 msgstr "Sintesi del modello"
 
 #: uvalu/pages_/analysis.py:657
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"{name} trades at {price} against an estimated model fair value of {fair_value} "
-"({mos} margin of safety)."
+"{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} "
+"margin of safety)."
 msgstr ""
-"{name} quota {price} rispetto a un valore equo stimato dal modello di "
-"{fair_value} ({mos} di margine di sicurezza)."
+"{name} quota {price} rispetto a un valore equo stimato dal modello di {fair_value} "
+"({mos} di margine di sicurezza)."
 
 #. Context: Analysis page › second sentence of the value thesis. {best}/{worst}
 #. are sub-score names (margin of safety, risk, quality…) — the code must pass
@@ -4328,8 +4187,8 @@ msgstr ""
 "saldo è la somma progressiva del registro."
 
 #. Context: Portfolio and Cash activity › download button (CSV/Excel)
-#: uvalu/pages_/cash.py:102 uvalu/pages_/portfolio.py:283
-#: uvalu/pages_/portfolio.py:631 uvalu/pages_/portfolio.py:729
+#: uvalu/pages_/cash.py:102 uvalu/pages_/portfolio.py:283 uvalu/pages_/portfolio.py:631
+#: uvalu/pages_/portfolio.py:729
 msgid "Export"
 msgstr "Esporta"
 
@@ -4448,13 +4307,12 @@ msgid "No portfolio yet"
 msgstr "Nessun portafoglio per ora"
 
 #: uvalu/pages_/dashboard.py:46
-#, fuzzy
 msgid ""
 "Browse the screener to explore stocks and their model valuations, or import an "
 "existing Excel portfolio in Settings."
 msgstr ""
-"Sfoglia lo screener per esplorare i titoli e le loro valutazioni dei "
-"modelli, oppure importa un portafoglio Excel esistente in Impostazioni."
+"Sfoglia lo screener per esplorare i titoli e le loro valutazioni dei modelli, oppure "
+"importa un portafoglio Excel esistente in Impostazioni."
 
 #. Context: Dashboard › empty state link to the Screener page
 #: uvalu/pages_/dashboard.py:48
@@ -4478,7 +4336,7 @@ msgid "Portfolio overview"
 msgstr "Panoramica del portafoglio"
 
 #: uvalu/pages_/dashboard.py:158
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "{positions} across {count} European exchange · compared with model fair-value "
 "estimates."
@@ -4486,11 +4344,11 @@ msgid_plural ""
 "{positions} across {count} European exchanges · compared with model fair-value "
 "estimates."
 msgstr[0] ""
-"{positions} su {count} borsa europea · confrontate con le stime di valore"
-" equo del modello."
+"{positions} su {count} borsa europea · confrontate con le stime di valore equo del "
+"modello."
 msgstr[1] ""
-"{positions} su {count} borse europee · confrontate con le stime di valore"
-" equo del modello."
+"{positions} su {count} borse europee · confrontate con le stime di valore equo del "
+"modello."
 
 #. Context: Count of holdings. Used inside the Dashboard subtitle and
 #. elsewhere.
@@ -4568,7 +4426,6 @@ msgid "Avg margin of safety"
 msgstr "Margine di sicurezza medio"
 
 #: uvalu/pages_/dashboard.py:204
-#, fuzzy
 msgid "vs model fair value"
 msgstr "vs valore equo del modello"
 
@@ -4581,7 +4438,6 @@ msgstr "Periodo"
 #. Context: Dashboard › portfolio value chart range button: last month. Keep it
 #. this short (number + one-letter unit), like '1M' in English.
 #: uvalu/pages_/dashboard.py:225
-#, fuzzy
 msgctxt "chart_range"
 msgid "1M"
 msgstr "1M"
@@ -4589,7 +4445,6 @@ msgstr "1M"
 #. Context: Dashboard › portfolio value chart range button: last 3 months. Same
 #. short style as '1M'.
 #: uvalu/pages_/dashboard.py:226
-#, fuzzy
 msgctxt "chart_range"
 msgid "3M"
 msgstr "3M"
@@ -4597,7 +4452,6 @@ msgstr "3M"
 #. Context: Dashboard › portfolio value chart range button: last year. Use your
 #. language's one-letter abbreviation for 'year' (e.g. 1J, 1A).
 #: uvalu/pages_/dashboard.py:227
-#, fuzzy
 msgctxt "chart_range"
 msgid "1Y"
 msgstr "1A"
@@ -4641,7 +4495,6 @@ msgid "No history yet — it will appear after your first portfolio snapshot."
 msgstr "Nessuno storico per ora: comparirà dopo la prima istantanea del portafoglio."
 
 #: uvalu/pages_/dashboard.py:327
-#, fuzzy
 msgid "Score & risk"
 msgstr "Punteggio e rischio"
 
@@ -4651,43 +4504,36 @@ msgid "Full analysis →"
 msgstr "Analisi completa →"
 
 #: uvalu/pages_/dashboard.py:397
-#, fuzzy
 msgid "Upper range of the model scale"
 msgstr "Fascia alta della scala del modello"
 
 #: uvalu/pages_/dashboard.py:398
-#, fuzzy
 msgid "Middle range of the model scale"
 msgstr "Fascia media della scala del modello"
 
 #: uvalu/pages_/dashboard.py:399
-#, fuzzy
 msgid "Lower range of the model scale"
 msgstr "Fascia bassa della scala del modello"
 
 #: uvalu/pages_/dashboard.py:400
-#, fuzzy
 msgid ""
-"Value-weighted mean of model scores across scored holdings. Describes the "
-"portfolio."
+"Value-weighted mean of model scores across scored holdings. Describes the portfolio."
 msgstr ""
-"Media ponderata per valore dei punteggi del modello delle posizioni "
-"valutate. Descrive il portafoglio."
+"Media ponderata per valore dei punteggi del modello delle posizioni valutate. Descrive "
+"il portafoglio."
 
 #: uvalu/pages_/dashboard.py:402
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{count} position fails a quality screen."
 msgid_plural "{count} positions fail a quality screen."
 msgstr[0] "{count} posizione non supera un filtro di qualità."
 msgstr[1] "{count} posizioni non superano un filtro di qualità."
 
 #: uvalu/pages_/dashboard.py:414
-#, fuzzy
 msgid "Weighted composite score"
 msgstr "Punteggio composito ponderato"
 
 #: uvalu/pages_/dashboard.py:420
-#, fuzzy
 msgid "Not enough scored holdings for a weighted composite score."
 msgstr "Troppe poche posizioni valutate per un punteggio composito ponderato."
 
@@ -4709,14 +4555,12 @@ msgstr "Posizioni · prezzo vs valore equo"
 
 # "
 #: uvalu/pages_/dashboard.py:454
-#, fuzzy
 msgid ""
-"Each track runs from zero to the model fair-value estimate. Gap to the marker is"
-" the model margin of safety. Fair values are estimates."
+"Each track runs from zero to the model fair-value estimate. Gap to the marker is the "
+"model margin of safety. Fair values are estimates."
 msgstr ""
-"Ogni barra va da zero alla stima del valore equo del modello. La distanza"
-" dall'indicatore è il margine di sicurezza del modello. I valori equi "
-"sono stime."
+"Ogni barra va da zero alla stima del valore equo del modello. La distanza "
+"dall'indicatore è il margine di sicurezza del modello. I valori equi sono stime."
 
 #. Context: Dashboard › holdings table column: margin of safety in percent
 #. (short)
@@ -4888,19 +4732,17 @@ msgstr ""
 "ciascuna scontata separatamente. Anche questo solo per chi paga dividendi."
 
 #: uvalu/pages_/help.py:68
-#, fuzzy
 msgid "Book value and FCF fallbacks"
 msgstr "Modelli di riserva valore contabile e FCF"
 
 #: uvalu/pages_/help.py:68
-#, fuzzy
 msgid ""
-"Used only when Graham, P/E and EPV all fail (typically a loss-maker): book value"
-" × a sector P/B multiple, and free cash flow × a fixed multiple."
+"Used only when Graham, P/E and EPV all fail (typically a loss-maker): book value × a "
+"sector P/B multiple, and free cash flow × a fixed multiple."
 msgstr ""
-"Usati solo quando Graham, P/E ed EPV falliscono tutti (di solito "
-"un'azienda in perdita): valore contabile × un multiplo settoriale "
-"prezzo/valore contabile e flusso di cassa libero × un multiplo fisso."
+"Usati solo quando Graham, P/E ed EPV falliscono tutti (di solito un'azienda in "
+"perdita): valore contabile × un multiplo settoriale prezzo/valore contabile e flusso "
+"di cassa libero × un multiplo fisso."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:76
@@ -4908,36 +4750,30 @@ msgid "How is the composite fair value calculated?"
 msgstr "Come si calcola il valore equo composito?"
 
 #: uvalu/pages_/help.py:77
-#, fuzzy
 msgid ""
-"Each stock is valued by every model that applies to it. Their values are "
-"combined into one weighted fair value, capped when a single model runs far above"
-" the others. Margin of safety is the discount of the price to that figure. Both "
-"are model estimates."
+"Each stock is valued by every model that applies to it. Their values are combined into "
+"one weighted fair value, capped when a single model runs far above the others. Margin "
+"of safety is the discount of the price to that figure. Both are model estimates."
 msgstr ""
-"Ogni titolo è valutato da tutti i modelli applicabili. I loro valori sono"
-" combinati in un unico valore equo ponderato, limitato quando un singolo "
-"modello risulta molto più alto degli altri. Il margine di sicurezza è lo "
-"sconto del prezzo rispetto a quel valore. Entrambi sono stime del "
-"modello."
+"Ogni titolo è valutato da tutti i modelli applicabili. I loro valori sono combinati in "
+"un unico valore equo ponderato, limitato quando un singolo modello risulta molto più "
+"alto degli altri. Il margine di sicurezza è lo sconto del prezzo rispetto a quel "
+"valore. Entrambi sono stime del modello."
 
 #: uvalu/pages_/help.py:80
-#, fuzzy
 msgid "What does the weighted composite score mean?"
 msgstr "Che cosa significa il punteggio composito ponderato?"
 
 #: uvalu/pages_/help.py:81
-#, fuzzy
 msgid ""
-"A 0–100 value-weighted mean of the model scores across your holdings. It "
-"describes the portfolio; it is not a recommendation. A holding that fails a "
-"quality screen counts with its score of 0; a holding without a score (No signal)"
-" is left out."
+"A 0–100 value-weighted mean of the model scores across your holdings. It describes the "
+"portfolio; it is not a recommendation. A holding that fails a quality screen counts "
+"with its score of 0; a holding without a score (No signal) is left out."
 msgstr ""
-"Una media da 0 a 100, ponderata per valore, dei punteggi del modello "
-"delle tue posizioni. Descrive il portafoglio; non è una raccomandazione. "
-"Una posizione che non supera un filtro di qualità conta con il suo "
-"punteggio di 0; una posizione senza punteggio (Nessun segnale) è esclusa."
+"Una media da 0 a 100, ponderata per valore, dei punteggi del modello delle tue "
+"posizioni. Descrive il portafoglio; non è una raccomandazione. Una posizione che non "
+"supera un filtro di qualità conta con il suo punteggio di 0; una posizione senza "
+"punteggio (Nessun segnale) è esclusa."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:84
@@ -4945,35 +4781,30 @@ msgid "How often do prices update?"
 msgstr "Ogni quanto si aggiornano i prezzi?"
 
 #: uvalu/pages_/help.py:85
-#, fuzzy
 msgid ""
-"During the beta, prices are delayed quotes from Yahoo Finance that refresh on "
-"the interval set in Settings → Data during market hours. Fundamentals refresh "
-"about every 24 hours, and the signals are recomputed when they do. Every signal "
-"shows the time of its price."
+"During the beta, prices are delayed quotes from Yahoo Finance that refresh on the "
+"interval set in Settings → Data during market hours. Fundamentals refresh about every "
+"24 hours, and the signals are recomputed when they do. Every signal shows the time of "
+"its price."
 msgstr ""
-"Durante la beta, i prezzi sono quotazioni ritardate di Yahoo Finance che "
-"si aggiornano durante l'orario di borsa con l'intervallo impostato in "
-"Impostazioni → Dati. I dati fondamentali si aggiornano circa ogni 24 ore "
-"e in quel momento i segnali vengono ricalcolati. Ogni segnale mostra "
-"l'ora del suo prezzo."
+"Durante la beta, i prezzi sono quotazioni ritardate di Yahoo Finance che si aggiornano "
+"durante l'orario di borsa con l'intervallo impostato in Impostazioni → Dati. I dati "
+"fondamentali si aggiornano circa ogni 24 ore e in quel momento i segnali vengono "
+"ricalcolati. Ogni segnale mostra l'ora del suo prezzo."
 
 #: uvalu/pages_/help.py:88
-#, fuzzy
 msgid "Why does a stock show “Fails quality screen”?"
 msgstr "Perché un titolo mostra «Non supera il filtro di qualità»?"
 
 #: uvalu/pages_/help.py:89
-#, fuzzy
 msgid ""
-"It breaks one of the quality rules listed on this page; the explanation next to "
-"the badge names which. Its composite score is set to 0. It still appears in your"
-" portfolio and valuations."
+"It breaks one of the quality rules listed on this page; the explanation next to the "
+"badge names which. Its composite score is set to 0. It still appears in your portfolio "
+"and valuations."
 msgstr ""
-"Non rispetta una delle regole di qualità elencate in questa pagina; la "
-"spiegazione accanto al badge indica quale. Il suo punteggio composito "
-"viene portato a 0. Continua a comparire nel tuo portafoglio e nelle "
-"valutazioni."
+"Non rispetta una delle regole di qualità elencate in questa pagina; la spiegazione "
+"accanto al badge indica quale. Il suo punteggio composito viene portato a 0. Continua "
+"a comparire nel tuo portafoglio e nelle valutazioni."
 
 #. Context: Help › FAQ question
 #: uvalu/pages_/help.py:92
@@ -4992,41 +4823,34 @@ msgid "← Back"
 msgstr "← Indietro"
 
 #: uvalu/pages_/help.py:137
-#, fuzzy
 msgid ""
-"How each model works, what the badges mean, how often they change and where the "
-"data comes from."
+"How each model works, what the badges mean, how often they change and where the data "
+"comes from."
 msgstr ""
-"Come funziona ogni modello, cosa significano i badge, quanto spesso "
-"cambiano e da dove provengono i dati."
+"Come funziona ogni modello, cosa significano i badge, quanto spesso cambiano e da dove "
+"provengono i dati."
 
 #: uvalu/pages_/help.py:141
-#, fuzzy
 msgid "Full methodology →"
 msgstr "Metodologia completa →"
 
 #: uvalu/pages_/help.py:142
-#, fuzzy
 msgid "Data sources →"
 msgstr "Fonti dei dati →"
 
 #: uvalu/pages_/help.py:143
-#, fuzzy
 msgid "Conflicts of interest →"
 msgstr "Conflitti di interesse →"
 
 #: uvalu/pages_/help.py:151
-#, fuzzy
 msgid "Badges · meaning"
 msgstr "Badge · significato"
 
 #: uvalu/pages_/help.py:160
-#, fuzzy
 msgid "The fair-value models"
 msgstr "I modelli di valore equo"
 
 #: uvalu/pages_/help.py:172
-#, fuzzy
 msgid "Quality screens"
 msgstr "Filtri di qualità"
 
@@ -5036,132 +4860,111 @@ msgid "Frequently asked"
 msgstr "Domande frequenti"
 
 #: uvalu/pages_/help.py:186
-#, fuzzy
 msgid "Time horizon"
 msgstr "Orizzonte temporale"
 
 #: uvalu/pages_/help.py:186
-#, fuzzy
 msgid "3 to 5 years, the period the valuation models assume"
 msgstr "Da 3 a 5 anni, il periodo ipotizzato dai modelli di valutazione"
 
 #: uvalu/pages_/help.py:187
-#, fuzzy
 msgid "Updated"
 msgstr "Aggiornamento"
 
 #: uvalu/pages_/help.py:187
-#, fuzzy
 msgid "Fundamentals about every 24 hours; signals are recomputed when they change"
 msgstr ""
-"Dati fondamentali circa ogni 24 ore; i segnali vengono ricalcolati quando"
-" cambiano"
+"Dati fondamentali circa ogni 24 ore; i segnali vengono ricalcolati quando cambiano"
 
 #: uvalu/pages_/help.py:188
-#, fuzzy
 msgid "History"
 msgstr "Storico"
 
 #: uvalu/pages_/help.py:188
-#, fuzzy
 msgid "Every badge change kept 24 months, the last 12 shown on each stock page"
 msgstr ""
-"Ogni modifica del badge è conservata 24 mesi; gli ultimi 12 sono mostrati"
-" nella pagina di ogni titolo"
+"Ogni modifica del badge è conservata 24 mesi; gli ultimi 12 sono mostrati nella pagina "
+"di ogni titolo"
 
 #: uvalu/pages_/help.py:191
-#, fuzzy
 msgid "Same for every user."
 msgstr "Uguali per ogni utente."
 
 #: uvalu/pages_/help.py:191
-#, fuzzy
 msgid ""
-"Badges, scores and fair values use only instrument data and the shared model "
-"settings. They never use your holdings, income, goals or risk tolerance."
+"Badges, scores and fair values use only instrument data and the shared model settings. "
+"They never use your holdings, income, goals or risk tolerance."
 msgstr ""
-"Badge, punteggi e valori equi usano solo dati sullo strumento e le "
-"impostazioni del modello condivise. Non usano mai le tue posizioni, il "
-"tuo reddito, i tuoi obiettivi o la tua tolleranza al rischio."
+"Badge, punteggi e valori equi usano solo dati sullo strumento e le impostazioni del "
+"modello condivise. Non usano mai le tue posizioni, il tuo reddito, i tuoi obiettivi o "
+"la tua tolleranza al rischio."
 
 #: uvalu/pages_/help.py:194
-#, fuzzy
 msgid "Risk."
 msgstr "Rischio."
 
 #: uvalu/pages_/help.py:194
-#, fuzzy
 msgid ""
-"Model outputs can be wrong. Share prices can stay below or above fair value for "
-"years, and you can lose capital."
+"Model outputs can be wrong. Share prices can stay below or above fair value for years, "
+"and you can lose capital."
 msgstr ""
-"I risultati dei modelli possono essere errati. I prezzi possono restare "
-"sotto o sopra il valore equo per anni e puoi perdere capitale."
+"I risultati dei modelli possono essere errati. I prezzi possono restare sotto o sopra "
+"il valore equo per anni e puoi perdere capitale."
 
 #: uvalu/pages_/help.py:199
-#, fuzzy
 msgid "Reading the badges"
 msgstr "Leggere i badge"
 
 #: uvalu/pages_/help.py:221
-#, fuzzy
 msgid ""
-"Stale or missing inputs are flagged on the stock page. No analyst estimates or "
-"ratings are shown."
+"Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings "
+"are shown."
 msgstr ""
-"I dati di input obsoleti o mancanti sono segnalati nella pagina del "
-"titolo. Non vengono mostrate stime o giudizi degli analisti."
+"I dati di input obsoleti o mancanti sono segnalati nella pagina del titolo. Non "
+"vengono mostrate stime o giudizi degli analisti."
 
 #: uvalu/pages_/help.py:228
-#, fuzzy
 msgid ""
-"The founder discloses any position in a covered stock on that stock’s page, "
-"whatever its size."
+"The founder discloses any position in a covered stock on that stock’s page, whatever "
+"its size."
 msgstr ""
-"Il fondatore dichiara qualsiasi posizione in un titolo coperto nella "
-"pagina di quel titolo, a prescindere dalla dimensione."
+"Il fondatore dichiara qualsiasi posizione in un titolo coperto nella pagina di quel "
+"titolo, a prescindere dalla dimensione."
 
 #: uvalu/pages_/help.py:229
-#, fuzzy
 msgid ""
-"Uvalu receives no payment from issuers, brokers or data vendors for any output, "
-"and has no affiliate or broker links."
+"Uvalu receives no payment from issuers, brokers or data vendors for any output, and "
+"has no affiliate or broker links."
 msgstr ""
-"Uvalu non riceve alcun compenso da emittenti, broker o fornitori di dati "
-"per alcun risultato e non ha link di affiliazione o verso broker."
+"Uvalu non riceve alcun compenso da emittenti, broker o fornitori di dati per alcun "
+"risultato e non ha link di affiliazione o verso broker."
 
 #: uvalu/pages_/help.py:230
-#, fuzzy
 msgid ""
-"The founder does not trade a stock from the moment a model change that would "
-"alter its signal is decided until 2 trading days after it is live."
+"The founder does not trade a stock from the moment a model change that would alter its "
+"signal is decided until 2 trading days after it is live."
 msgstr ""
-"Il fondatore non negozia un titolo dal momento in cui viene decisa una "
-"modifica del modello che ne cambierebbe il segnale fino a 2 giorni di "
-"borsa dopo la sua entrata in funzione."
+"Il fondatore non negozia un titolo dal momento in cui viene decisa una modifica del "
+"modello che ne cambierebbe il segnale fino a 2 giorni di borsa dopo la sua entrata in "
+"funzione."
 
 #: uvalu/pages_/help.py:236
-#, fuzzy
 msgid "About Uvalu"
 msgstr "Informazioni su Uvalu"
 
 #: uvalu/pages_/legal.py:62
-#, fuzzy
 msgid "Legal & policies"
 msgstr "Note legali e politiche"
 
 #: uvalu/pages_/legal.py:75
-#, fuzzy
 msgid "This document is not available yet."
 msgstr "Questo documento non è ancora disponibile."
 
 #: uvalu/pages_/legal.py:81
-#, fuzzy
 msgid "Uvalu · Legal"
 msgstr "Uvalu · Note legali"
 
 #: uvalu/pages_/legal.py:81
-#, fuzzy
 msgid "Free beta"
 msgstr "Beta gratuita"
 
@@ -5181,8 +4984,7 @@ msgid "Income 12m"
 msgstr "Reddito 12m"
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:67 uvalu/pages_/screener.py:55
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/pages_/portfolio.py:67 uvalu/pages_/screener.py:55 uvalu/pages_/watchlist.py:32
 msgid "Yield"
 msgstr "Rendimento"
 
@@ -5411,7 +5213,6 @@ msgid "Annual dividend income summary"
 msgstr "Riepilogo annuale dei dividendi"
 
 #: uvalu/pages_/portfolio.py:727
-#, fuzzy
 msgid "Estimate under Belgian rules · gross and net shown separately."
 msgstr "Stima secondo le regole belghe · lordo e netto mostrati separatamente."
 
@@ -5531,7 +5332,6 @@ msgstr ""
 "portafoglio."
 
 #: uvalu/pages_/risk.py:199
-#, fuzzy
 msgid "These figures describe the portfolio and do not suggest changes to it."
 msgstr "Questi dati descrivono il portafoglio e non suggeriscono modifiche."
 
@@ -5566,7 +5366,7 @@ msgid "VaR 95% (1D)"
 msgstr "VaR 95% (1G)"
 
 #: uvalu/pages_/risk.py:289
-#, fuzzy, no-python-format
+#, no-python-format
 msgid "Estimated 1-day loss exceeded on 5% of days"
 msgstr "Perdita stimata a 1 giorno superata nel 5% dei giorni"
 
@@ -5630,35 +5430,32 @@ msgid "Largest single name"
 msgstr "Posizione singola più grande"
 
 #: uvalu/pages_/risk.py:376
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid "{ticker} at {weight} is above the model's 15% single-name reference level"
 msgstr ""
-"{ticker} al {weight} è sopra il livello di riferimento del modello del "
-"15% per singolo titolo"
+"{ticker} al {weight} è sopra il livello di riferimento del modello del 15% per singolo "
+"titolo"
 
 #: uvalu/pages_/risk.py:379
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid "{sector} at {weight} is above the model's 30% sector reference level"
 msgstr ""
-"{sector} al {weight} è sopra il livello di riferimento settoriale del "
-"modello del 30%"
+"{sector} al {weight} è sopra il livello di riferimento settoriale del modello del 30%"
 
 #: uvalu/pages_/risk.py:382
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid "{country} at {weight} is above the model's 60% country reference level"
 msgstr ""
-"{country} al {weight} è sopra il livello di riferimento per paese del "
-"modello del 60%"
+"{country} al {weight} è sopra il livello di riferimento per paese del modello del 60%"
 
 #: uvalu/pages_/risk.py:387
-#, fuzzy, no-python-format
+#, no-python-format
 msgid ""
-"No single name is above 15% of the invested portfolio, no sector above 30% and "
-"no country above 60% (model reference levels)."
+"No single name is above 15% of the invested portfolio, no sector above 30% and no "
+"country above 60% (model reference levels)."
 msgstr ""
-"Nessun singolo titolo supera il 15% del portafoglio investito, nessun "
-"settore il 30% e nessun paese il 60% (livelli di riferimento del "
-"modello)."
+"Nessun singolo titolo supera il 15% del portafoglio investito, nessun settore il 30% e "
+"nessun paese il 60% (livelli di riferimento del modello)."
 
 #. Context: Risk page › caption under the contribution table
 #: uvalu/pages_/risk.py:457
@@ -5680,44 +5477,36 @@ msgstr ""
 "completa della varianza."
 
 #: uvalu/pages_/risk.py:464
-#, fuzzy
 msgid "Risk observations"
 msgstr "Osservazioni sul rischio"
 
 #: uvalu/pages_/risk.py:466
-#, fuzzy
 msgid ""
-"Figures compared with the model reference levels, or with targets you set "
-"yourself. They describe the portfolio; they are not recommendations."
+"Figures compared with the model reference levels, or with targets you set yourself. "
+"They describe the portfolio; they are not recommendations."
 msgstr ""
-"Dati confrontati con i livelli di riferimento del modello o con obiettivi"
-" che hai impostato tu. Descrivono il portafoglio; non sono "
-"raccomandazioni."
+"Dati confrontati con i livelli di riferimento del modello o con obiettivi che hai "
+"impostato tu. Descrivono il portafoglio; non sono raccomandazioni."
 
 #: uvalu/pages_/risk.py:470
-#, fuzzy
 msgid "No figure is above a model reference level or away from a target you set."
 msgstr ""
-"Nessun dato è sopra un livello di riferimento del modello o si discosta "
-"da un obiettivo che hai impostato."
+"Nessun dato è sopra un livello di riferimento del modello o si discosta da un "
+"obiettivo che hai impostato."
 
 #: uvalu/pages_/risk.py:472
-#, fuzzy
 msgid "Above reference"
 msgstr "Sopra il riferimento"
 
 #: uvalu/pages_/risk.py:473 uvalu/pages_/risk.py:476
-#, fuzzy
 msgid "Notice"
 msgstr "Nota"
 
 #: uvalu/pages_/risk.py:477
-#, fuzzy
 msgid "your target"
 msgstr "il tuo obiettivo"
 
 #: uvalu/pages_/risk.py:477
-#, fuzzy
 msgid "since last report"
 msgstr "dall'ultimo report"
 
@@ -5791,13 +5580,13 @@ msgstr ""
 "di segnale composito."
 
 #: uvalu/pages_/screener.py:339
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
-"Small universe ({count} stocks) — composite scores are percentile ranks within "
-"it, so a high score carries less weight here."
+"Small universe ({count} stocks) — composite scores are percentile ranks within it, so "
+"a high score carries less weight here."
 msgstr ""
-"Universo ridotto ({count} titoli): i punteggi compositi sono ranghi "
-"percentili al suo interno, quindi qui un punteggio alto ha meno peso."
+"Universo ridotto ({count} titoli): i punteggi compositi sono ranghi percentili al suo "
+"interno, quindi qui un punteggio alto ha meno peso."
 
 #. Context: Screener › button
 #: uvalu/pages_/screener.py:347
@@ -5824,7 +5613,6 @@ msgstr "Aggiungi alla watchlist"
 
 #. Context: Settings › Screening style option (message context 'style')
 #: uvalu/pages_/settings.py:162
-#, fuzzy
 msgctxt "style"
 msgid "Balanced"
 msgstr "Bilanciato"
@@ -5838,7 +5626,6 @@ msgstr "Valore"
 
 #. Context: Settings › Screening style option (message context 'style')
 #: uvalu/pages_/settings.py:163
-#, fuzzy
 msgctxt "style"
 msgid "Growth"
 msgstr "Crescita"
@@ -6204,19 +5991,17 @@ msgid "Light"
 msgstr "Chiaro"
 
 #: uvalu/pages_/settings.py:603
-#, fuzzy
 msgid "Model settings & quality screens"
 msgstr "Impostazioni del modello e filtri di qualità"
 
 #: uvalu/pages_/settings.py:604
-#, fuzzy
 msgid ""
-"Shared model settings: they set every model signal across the app, the same for "
-"every user, and are published on the Methodology page. Each change is recorded."
+"Shared model settings: they set every model signal across the app, the same for every "
+"user, and are published on the Methodology page. Each change is recorded."
 msgstr ""
-"Impostazioni del modello condivise: determinano ogni segnale del modello "
-"nell'app, uguali per ogni utente, e sono pubblicate nella pagina "
-"Metodologia. Ogni modifica viene registrata."
+"Impostazioni del modello condivise: determinano ogni segnale del modello nell'app, "
+"uguali per ogni utente, e sono pubblicate nella pagina Metodologia. Ogni modifica "
+"viene registrata."
 
 #. Context: Settings › Screening & veto rules › note for non-admins
 #: uvalu/pages_/settings.py:605
@@ -6229,13 +6014,12 @@ msgid "Max debt / equity"
 msgstr "Debito / patrimonio max"
 
 #: uvalu/pages_/settings.py:613
-#, fuzzy
 msgid ""
-"Fails the quality screen above this leverage (Financials, Real Estate, Utilities"
-" exempt)."
+"Fails the quality screen above this leverage (Financials, Real Estate, Utilities "
+"exempt)."
 msgstr ""
-"Non supera il filtro di qualità oltre questa leva finanziaria (esclusi "
-"Servizi finanziari, Immobiliare e Servizi di pubblica utilità)."
+"Non supera il filtro di qualità oltre questa leva finanziaria (esclusi Servizi "
+"finanziari, Immobiliare e Servizi di pubblica utilità)."
 
 #. Context: Settings › slider label
 #: uvalu/pages_/settings.py:617
@@ -6248,24 +6032,19 @@ msgid "Flag dividends above this payout."
 msgstr "Segnala i dividendi oltre questo payout."
 
 #: uvalu/pages_/settings.py:624
-#, fuzzy
 msgid "Minimum margin of safety"
 msgstr "Margine di sicurezza minimo"
 
 #: uvalu/pages_/settings.py:626
-#, fuzzy, no-python-format
+#, no-python-format
 msgid "Margin of safety needed for the Undervalued signal; never below 10%."
-msgstr ""
-"Margine di sicurezza richiesto per il segnale Sottovalutato; mai sotto il"
-" 10%."
+msgstr "Margine di sicurezza richiesto per il segnale Sottovalutato; mai sotto il 10%."
 
 #: uvalu/pages_/settings.py:629
-#, fuzzy
 msgid "Undervalued score threshold"
 msgstr "Soglia di punteggio Sottovalutato"
 
 #: uvalu/pages_/settings.py:631
-#, fuzzy
 msgid "Minimum composite score for the Undervalued signal."
 msgstr "Punteggio composito minimo per il segnale Sottovalutato."
 
@@ -6310,15 +6089,13 @@ msgid "Target allocation"
 msgstr "Allocazione obiettivo"
 
 #: uvalu/pages_/settings.py:682
-#, fuzzy
 msgid ""
-"Reference weights you set yourself. When any are set, the Risk page's "
-"observations compare the portfolio with them instead of the model reference "
-"levels."
+"Reference weights you set yourself. When any are set, the Risk page's observations "
+"compare the portfolio with them instead of the model reference levels."
 msgstr ""
-"Pesi di riferimento che imposti tu. Quando ne è impostato almeno uno, le "
-"osservazioni della pagina Rischio confrontano il portafoglio con questi "
-"invece che con i livelli di riferimento del modello."
+"Pesi di riferimento che imposti tu. Quando ne è impostato almeno uno, le osservazioni "
+"della pagina Rischio confrontano il portafoglio con questi invece che con i livelli di "
+"riferimento del modello."
 
 #. Context: Settings › Target allocation › row title and field label
 #: uvalu/pages_/settings.py:687 uvalu/pages_/settings.py:690
@@ -6401,14 +6178,12 @@ msgid "Price refresh interval"
 msgstr "Intervallo di aggiornamento dei prezzi"
 
 #: uvalu/pages_/settings.py:743
-#, fuzzy
 msgid ""
-"How often delayed quotes from Yahoo Finance update during market hours. Real-"
-"time quotes are not offered."
+"How often delayed quotes from Yahoo Finance update during market hours. Real-time "
+"quotes are not offered."
 msgstr ""
-"Con quale frequenza le quotazioni ritardate di Yahoo Finance si "
-"aggiornano durante l'orario di borsa. Le quotazioni in tempo reale non "
-"sono offerte."
+"Con quale frequenza le quotazioni ritardate di Yahoo Finance si aggiornano durante "
+"l'orario di borsa. Le quotazioni in tempo reale non sono offerte."
 
 #. Context: Settings › Data › toggle title
 #: uvalu/pages_/settings.py:761
@@ -6650,9 +6425,6 @@ msgstr[1] ""
 #~ msgid "Sold"
 #~ msgstr "Vendute"
 
-#~ msgid "Dividends"
-#~ msgstr "Dividendi"
-
 #~ msgid "Dividend coverage adequate"
 #~ msgstr "Copertura del dividendo adeguata"
 
@@ -6694,17 +6466,14 @@ msgstr[1] ""
 
 #~ msgid "{pct} of portfolio income comes from dividend-at-risk positions"
 #~ msgstr ""
-#~ "Il {pct} del reddito del portafoglio "
-#~ "proviene da posizioni con dividendo a "
-#~ "rischio"
+#~ "Il {pct} del reddito del portafoglio proviene da posizioni con dividendo a rischio"
 
 #~ msgid "Diversify income across more dividend payers"
 #~ msgstr "Diversificare il reddito su più titoli che pagano dividendi"
 
 #~ msgid "Worst-case historical scenario implies {drawdown} portfolio drawdown"
 #~ msgstr ""
-#~ "Lo scenario storico peggiore implica un "
-#~ "drawdown del portafoglio del {drawdown}"
+#~ "Lo scenario storico peggiore implica un drawdown del portafoglio del {drawdown}"
 
 #~ msgid "Add defensive/uncorrelated assets to cushion tail risk"
 #~ msgstr "Aggiungere attività difensive/non correlate per attenuare il rischio di coda"
@@ -6741,8 +6510,7 @@ msgstr[1] ""
 
 #~ msgid "{sector} at {actual} vs {target} target — {drift} drift exceeds {limit}"
 #~ msgstr ""
-#~ "{sector} al {actual} vs obiettivo {target}: "
-#~ "scostamento di {drift} oltre {limit}"
+#~ "{sector} al {actual} vs obiettivo {target}: scostamento di {drift} oltre {limit}"
 
 #~ msgid "Reduce the overweight sector; top up the underweights"
 #~ msgstr "Ridurre il settore sovrappesato; incrementare i sottopesi"
@@ -6760,25 +6528,18 @@ msgstr[1] ""
 #~ msgstr "Ridurre o incrementare verso il peso obiettivo"
 
 #~ msgid ""
-#~ "Weighted portfolio DGR {dgr} may trail "
-#~ "inflation (~2.5%) — real income erosion "
-#~ "risk"
+#~ "Weighted portfolio DGR {dgr} may trail inflation (~2.5%) — real income erosion risk"
 #~ msgstr ""
-#~ "La crescita ponderata dei dividendi del "
-#~ "portafoglio ({dgr}) potrebbe restare sotto "
-#~ "l'inflazione (~2,5%): rischio di erosione del"
-#~ " reddito reale"
+#~ "La crescita ponderata dei dividendi del portafoglio ({dgr}) potrebbe restare sotto "
+#~ "l'inflazione (~2,5%): rischio di erosione del reddito reale"
 
 #~ msgid "Favor payers with stronger dividend growth track records"
 #~ msgstr "Privilegiare chi ha uno storico di crescita dei dividendi migliore"
 
 #~ msgid ""
-#~ "Sharpe {sharpe} below 1.0 for a second"
-#~ " consecutive review (was {previous} at "
-#~ "{date})"
+#~ "Sharpe {sharpe} below 1.0 for a second consecutive review (was {previous} at {date})"
 #~ msgstr ""
-#~ "Sharpe {sharpe} sotto 1,0 per la seconda"
-#~ " revisione consecutiva (era {previous} il "
+#~ "Sharpe {sharpe} sotto 1,0 per la seconda revisione consecutiva (era {previous} il "
 #~ "{date})"
 
 #~ msgid "Reassess risk/return mix; trim volatile underperformers"
@@ -6786,9 +6547,7 @@ msgstr[1] ""
 
 #~ msgid "Sharpe ratio {sharpe} below 1.0 — risk-adjusted return suboptimal"
 #~ msgstr ""
-#~ "Indice di Sharpe {sharpe} sotto 1,0: "
-#~ "rendimento corretto per il rischio non "
-#~ "ottimale"
+#~ "Indice di Sharpe {sharpe} sotto 1,0: rendimento corretto per il rischio non ottimale"
 
 #~ msgid "{ticker}: risk rating {previous} → {rating} since {date}"
 #~ msgstr "{ticker}: rating di rischio {previous} → {rating} dal {date}"
@@ -6803,24 +6562,20 @@ msgstr[1] ""
 #~ msgstr "Monitorare da vicino; ridurre se i fondamentali peggiorano ancora"
 
 #~ msgid ""
-#~ "{ticker}: ~{days} trading days to exit at"
-#~ " {participation} of average volume — thin"
-#~ " for this position size"
+#~ "{ticker}: ~{days} trading days to exit at {participation} of average volume — thin "
+#~ "for this position size"
 #~ msgstr ""
-#~ "{ticker}: ~{days} giorni di borsa per "
-#~ "uscire al {participation} del volume medio, "
+#~ "{ticker}: ~{days} giorni di borsa per uscire al {participation} del volume medio, "
 #~ "poco liquido per questa dimensione"
 
 #~ msgid "Size the position to what you can exit in a few days, or accept the exit risk"
 #~ msgstr ""
-#~ "Dimensionare la posizione in modo da "
-#~ "poter uscire in pochi giorni, o accettare"
-#~ " il rischio di uscita"
+#~ "Dimensionare la posizione in modo da poter uscire in pochi giorni, o accettare il "
+#~ "rischio di uscita"
 
 #~ msgid "High correlation pairs (>0.80): {pairs} — limited diversification benefit"
 #~ msgstr ""
-#~ "Coppie molto correlate (>0,80): {pairs}, "
-#~ "beneficio di diversificazione limitato"
+#~ "Coppie molto correlate (>0,80): {pairs}, beneficio di diversificazione limitato"
 
 #~ msgid "Replace one position per pair with uncorrelated exposure"
 #~ msgstr "Sostituire una posizione per coppia con un'esposizione non correlata"
@@ -6829,33 +6584,27 @@ msgstr[1] ""
 #~ msgstr "Veto rigido attivo: escluso dai BUY, qualunque sia il punteggio composito."
 
 #~ msgid ""
-#~ "Composite score {score} ≥ {threshold} and "
-#~ "margin of safety {mos} ≥ {min_mos} — "
-#~ "both BUY conditions met."
+#~ "Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — both "
+#~ "BUY conditions met."
 #~ msgstr ""
-#~ "Punteggio composito {score} ≥ {threshold} e "
-#~ "margine di sicurezza {mos} ≥ {min_mos}: "
+#~ "Punteggio composito {score} ≥ {threshold} e margine di sicurezza {mos} ≥ {min_mos}: "
 #~ "entrambe le condizioni BUY soddisfatte."
 
 #~ msgid "Composite score {score} ≥ {threshold} — both BUY conditions met."
 #~ msgstr ""
-#~ "Punteggio composito {score} ≥ {threshold}: "
-#~ "entrambe le condizioni BUY soddisfatte."
+#~ "Punteggio composito {score} ≥ {threshold}: entrambe le condizioni BUY soddisfatte."
 
 #~ msgid "composite score {score} is below the {threshold} BUY threshold"
 #~ msgstr "il punteggio composito {score} è sotto la soglia BUY di {threshold}"
 
 #~ msgid "no computable fair value, so the margin of safety can't be confirmed"
 #~ msgstr ""
-#~ "nessun valore equo calcolabile, quindi il "
-#~ "margine di sicurezza non può essere "
+#~ "nessun valore equo calcolabile, quindi il margine di sicurezza non può essere "
 #~ "confermato"
 
 #~ msgid "the fair value rests on too few independent models to confirm a BUY"
 #~ msgstr ""
-#~ "il valore equo si basa su troppo "
-#~ "pochi modelli indipendenti per confermare un"
-#~ " BUY"
+#~ "il valore equo si basa su troppo pochi modelli indipendenti per confermare un BUY"
 
 #~ msgid "Composite score {score} is below the {floor} Avoid floor."
 #~ msgstr "Il punteggio composito {score} è sotto la soglia Avoid di {floor}."
@@ -6866,13 +6615,6 @@ msgstr[1] ""
 #~ msgid "Sits in the Monitor band."
 #~ msgstr "Rientra nella fascia Monitor."
 
-#~ msgid ""
-#~ "The models value a business on its "
-#~ "current fundamentals and assume a multi-"
-#~ "year holding horizon; they say nothing "
-#~ "about short-term price moves."
-#~ msgstr ""
-
 #~ msgid "Hard veto triggered"
 #~ msgstr "Veto rigido attivato"
 
@@ -6880,55 +6622,39 @@ msgstr[1] ""
 #~ msgstr "Veto rigido attivo"
 
 #~ msgid ""
-#~ "Composite score clears the BUY threshold "
-#~ "and the margin of safety clears its "
-#~ "target — both conditions together, set in"
-#~ " Settings → Screening & veto rules."
+#~ "Composite score clears the BUY threshold and the margin of safety clears its target "
+#~ "— both conditions together, set in Settings → Screening & veto rules."
 #~ msgstr ""
-#~ "Il punteggio composito supera la soglia "
-#~ "BUY e il margine di sicurezza raggiunge"
-#~ " l'obiettivo: entrambe le condizioni insieme, "
-#~ "impostate in Impostazioni → Regole di "
+#~ "Il punteggio composito supera la soglia BUY e il margine di sicurezza raggiunge "
+#~ "l'obiettivo: entrambe le condizioni insieme, impostate in Impostazioni → Regole di "
 #~ "screening e veto."
 
 #~ msgid ""
-#~ "Composite score is decent but the margin"
-#~ " of safety hasn't cleared the target "
-#~ "yet, or the score itself sits below "
-#~ "the BUY threshold — worth watching."
+#~ "Composite score is decent but the margin of safety hasn't cleared the target yet, "
+#~ "or the score itself sits below the BUY threshold — worth watching."
 #~ msgstr ""
-#~ "Il punteggio composito è discreto ma il"
-#~ " margine di sicurezza non ha ancora "
-#~ "raggiunto l'obiettivo, oppure il punteggio è"
-#~ " sotto la soglia BUY: da tenere "
+#~ "Il punteggio composito è discreto ma il margine di sicurezza non ha ancora "
+#~ "raggiunto l'obiettivo, oppure il punteggio è sotto la soglia BUY: da tenere "
 #~ "d'occhio."
 
 #~ msgid "Composite score falls well below the BUY threshold."
 #~ msgstr "Il punteggio composito è molto al di sotto della soglia BUY."
 
 #~ msgid ""
-#~ "A hard-veto rule tripped (see below) "
-#~ "— excluded from BUY scoring no matter "
-#~ "what the composite score would otherwise "
-#~ "be."
+#~ "A hard-veto rule tripped (see below) — excluded from BUY scoring no matter what the "
+#~ "composite score would otherwise be."
 #~ msgstr ""
-#~ "È scattata una regola di veto rigido "
-#~ "(vedi sotto): escluso dai BUY, qualunque "
-#~ "sia il punteggio composito."
+#~ "È scattata una regola di veto rigido (vedi sotto): escluso dai BUY, qualunque sia "
+#~ "il punteggio composito."
 
 #~ msgid ""
-#~ "No scored screener row for this holding"
-#~ " — the fundamentals feed returned nothing"
-#~ " (or no price) for it, so there "
-#~ "is no fair value, score or signal "
-#~ "to show. Not a veto."
+#~ "No scored screener row for this holding — the fundamentals feed returned nothing "
+#~ "(or no price) for it, so there is no fair value, score or signal to show. Not a "
+#~ "veto."
 #~ msgstr ""
-#~ "Nessuna riga valutata nello screener per "
-#~ "questa posizione: la fonte dei dati "
-#~ "fondamentali non ha restituito nulla (o "
-#~ "nessun prezzo), quindi non ci sono valore"
-#~ " equo, punteggio o segnale. Non è un"
-#~ " veto."
+#~ "Nessuna riga valutata nello screener per questa posizione: la fonte dei dati "
+#~ "fondamentali non ha restituito nulla (o nessun prezzo), quindi non ci sono valore "
+#~ "equo, punteggio o segnale. Non è un veto."
 
 #~ msgid "Analyst target"
 #~ msgstr "Target degli analisti"
@@ -6937,52 +6663,38 @@ msgstr[1] ""
 #~ msgstr "Target price medio a 12 mesi degli analisti, fonte Yahoo Finance."
 
 #~ msgid ""
-#~ "Debt / equity exceeds the Max debt/equity"
-#~ " threshold set in Settings → Screening "
-#~ "& veto rules (default 500%)."
+#~ "Debt / equity exceeds the Max debt/equity threshold set in Settings → Screening & "
+#~ "veto rules (default 500%)."
 #~ msgstr ""
-#~ "Il rapporto debito / patrimonio netto "
-#~ "supera la soglia Debito/patrimonio max "
-#~ "impostata in Impostazioni → Regole di "
-#~ "screening e veto (predefinito 500%)."
+#~ "Il rapporto debito / patrimonio netto supera la soglia Debito/patrimonio max "
+#~ "impostata in Impostazioni → Regole di screening e veto (predefinito 500%)."
 
 #~ msgid "Free cash flow (trailing twelve months) is negative."
 #~ msgstr "Il flusso di cassa libero (ultimi dodici mesi) è negativo."
 
 #~ msgid ""
-#~ "The dividend is flagged \"At risk\" "
-#~ "(payout ratio, cash payout ratio, or "
-#~ "coverage breach) <em>and</em> dividend coverage "
-#~ "is below 1.0× — both conditions together,"
-#~ " not either alone."
+#~ "The dividend is flagged \"At risk\" (payout ratio, cash payout ratio, or coverage "
+#~ "breach) <em>and</em> dividend coverage is below 1.0× — both conditions together, "
+#~ "not either alone."
 #~ msgstr ""
-#~ "Il dividendo è segnalato \"A rischio\" "
-#~ "(payout ratio, payout di cassa o "
-#~ "copertura insufficiente) <em>e</em> la copertura "
-#~ "del dividendo è inferiore a 1,0×: "
-#~ "entrambe le condizioni insieme, non una "
-#~ "sola."
+#~ "Il dividendo è segnalato \"A rischio\" (payout ratio, payout di cassa o copertura "
+#~ "insufficiente) <em>e</em> la copertura del dividendo è inferiore a 1,0×: entrambe "
+#~ "le condizioni insieme, non una sola."
 
 #~ msgid "Why is a holding excluded from scoring?"
 #~ msgstr "Perché una posizione è esclusa dalla valutazione?"
 
 #~ msgid ""
-#~ "It has breached a hard-veto rule. "
-#~ "It still appears in your portfolio and"
-#~ " valuations, but is left out of the"
-#~ " conviction score until the flag clears."
+#~ "It has breached a hard-veto rule. It still appears in your portfolio and "
+#~ "valuations, but is left out of the conviction score until the flag clears."
 #~ msgstr ""
-#~ "Ha violato una regola di veto rigido. "
-#~ "Resta visibile nel portafoglio e nelle "
-#~ "valutazioni, ma è esclusa dal punteggio "
-#~ "di convinzione finché la segnalazione è "
+#~ "Ha violato una regola di veto rigido. Resta visibile nel portafoglio e nelle "
+#~ "valutazioni, ma è esclusa dal punteggio di convinzione finché la segnalazione è "
 #~ "attiva."
 
 #~ msgid "How Uvalu scores value, builds fair value and applies veto discipline."
 #~ msgstr ""
-#~ "Come Uvalu valuta il valore, calcola il"
-#~ " valore equo e applica le regole di"
-#~ " veto."
+#~ "Come Uvalu valuta il valore, calcola il valore equo e applica le regole di veto."
 
 #~ msgid "Signal legend"
 #~ msgstr "Legenda dei segnali"
@@ -7057,54 +6769,29 @@ msgstr[1] ""
 #~ msgstr "Convinzione composita"
 
 #~ msgid ""
-#~ "Each holding is valued by all six "
-#~ "models. Outliers are trimmed and the "
-#~ "remainder averaged into a single composite "
-#~ "fair value. Margin of safety is the "
-#~ "discount of the current price to that "
-#~ "figure."
+#~ "Each holding is valued by all six models. Outliers are trimmed and the remainder "
+#~ "averaged into a single composite fair value. Margin of safety is the discount of "
+#~ "the current price to that figure."
 #~ msgstr ""
-#~ "Ogni posizione è valutata da tutti e "
-#~ "sei i modelli. I valori anomali vengono"
-#~ " esclusi e il resto è mediato in "
-#~ "un unico valore equo composito. Il "
-#~ "margine di sicurezza è lo sconto del "
-#~ "prezzo attuale rispetto a quel valore."
+#~ "Ogni posizione è valutata da tutti e sei i modelli. I valori anomali vengono "
+#~ "esclusi e il resto è mediato in un unico valore equo composito. Il margine di "
+#~ "sicurezza è lo sconto del prezzo attuale rispetto a quel valore."
 
 #~ msgid ""
-#~ "A 0–100 value-weighted mean of the "
-#~ "model scores across your scored holdings. "
-#~ "It describes the portfolio; it is not "
-#~ "a recommendation. Holdings that fail a "
-#~ "quality screen are left out of the "
-#~ "average."
+#~ "Quotes refresh on the interval set in Settings → Data during market hours (default "
+#~ "every 15 minutes). Fundamentals update daily after each exchange close."
 #~ msgstr ""
-
-#~ msgid ""
-#~ "Quotes refresh on the interval set in "
-#~ "Settings → Data during market hours "
-#~ "(default every 15 minutes). Fundamentals update"
-#~ " daily after each exchange close."
-#~ msgstr ""
-#~ "Durante l'orario di mercato le quotazioni "
-#~ "si aggiornano all'intervallo impostato in "
-#~ "Impostazioni → Dati (predefinito ogni 15 "
-#~ "minuti). I dati fondamentali si aggiornano "
-#~ "ogni giorno dopo la chiusura di ciascuna"
-#~ " borsa."
-
-#~ msgid "How each model works, what the badges mean and how they are computed."
-#~ msgstr ""
+#~ "Durante l'orario di mercato le quotazioni si aggiornano all'intervallo impostato in "
+#~ "Impostazioni → Dati (predefinito ogni 15 minuti). I dati fondamentali si aggiornano "
+#~ "ogni giorno dopo la chiusura di ciascuna borsa."
 
 #~ msgid "Net and gross reported separately, for your own tax filing."
 #~ msgstr "Netto e lordo indicati separatamente, per la tua dichiarazione dei redditi."
 
 #~ msgid ""
-#~ "Blended score across six risk factors, "
-#~ "weighted by exposure and hard-veto flags."
+#~ "Blended score across six risk factors, weighted by exposure and hard-veto flags."
 #~ msgstr ""
-#~ "Punteggio combinato su sei fattori di "
-#~ "rischio, ponderato per esposizione e veti "
+#~ "Punteggio combinato su sei fattori di rischio, ponderato per esposizione e veti "
 #~ "rigidi."
 
 #~ msgid "Max expected 1-day loss"
@@ -7116,13 +6803,10 @@ msgstr[1] ""
 #~ msgstr[1] "{names} restano sotto veto rigido"
 
 #~ msgid ""
-#~ "All positions sit within the 15% "
-#~ "single-name, 30% sector, and 60% country "
-#~ "limits."
+#~ "All positions sit within the 15% single-name, 30% sector, and 60% country limits."
 #~ msgstr ""
-#~ "Tutte le posizioni rientrano nei limiti "
-#~ "del 15% per titolo, 30% per settore "
-#~ "e 60% per paese."
+#~ "Tutte le posizioni rientrano nei limiti del 15% per titolo, 30% per settore e 60% "
+#~ "per paese."
 
 #~ msgid "Veto"
 #~ msgstr "Veto"
@@ -7131,28 +6815,22 @@ msgstr[1] ""
 #~ msgstr "Regole di screening e veto"
 
 #~ msgid ""
-#~ "These drive every BUY/MONITOR/AVOID decision "
-#~ "across the app — Screener, Watchlist, "
-#~ "Dashboard, Portfolio and Analysis all read "
-#~ "the same values."
+#~ "These drive every BUY/MONITOR/AVOID decision across the app — Screener, Watchlist, "
+#~ "Dashboard, Portfolio and Analysis all read the same values."
 #~ msgstr ""
-#~ "Determinano ogni decisione BUY/MONITOR/AVOID "
-#~ "nell'app: Screener, Watchlist, Dashboard, Portafoglio"
-#~ " e Analisi usano gli stessi valori."
+#~ "Determinano ogni decisione BUY/MONITOR/AVOID nell'app: Screener, Watchlist, "
+#~ "Dashboard, Portafoglio e Analisi usano gli stessi valori."
 
 #~ msgid "Discount to fair value required for a BUY."
 #~ msgstr "Sconto sul valore equo richiesto per un BUY."
 
 #~ msgid ""
-#~ "Your personal reference weights. When any "
-#~ "are set, the Risk page's rebalancing "
-#~ "signals switch from absolute thresholds to "
-#~ "drift-vs-target."
+#~ "Your personal reference weights. When any are set, the Risk page's rebalancing "
+#~ "signals switch from absolute thresholds to drift-vs-target."
 #~ msgstr ""
-#~ "I tuoi pesi di riferimento personali. "
-#~ "Quando ne imposti uno, i segnali di "
-#~ "ribilanciamento della pagina Rischio passano da"
-#~ " soglie assolute allo scostamento dall'obiettivo."
+#~ "I tuoi pesi di riferimento personali. Quando ne imposti uno, i segnali di "
+#~ "ribilanciamento della pagina Rischio passano da soglie assolute allo scostamento "
+#~ "dall'obiettivo."
 
 #~ msgid "How often quotes update during market hours."
 #~ msgstr "Ogni quanto si aggiornano le quotazioni durante l'orario di mercato."
