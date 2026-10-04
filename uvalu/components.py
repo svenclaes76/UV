@@ -114,23 +114,73 @@ def veto_reason_str(row: "pd.Series") -> str:
         reasons.append(_("dividend flagged at risk with {coverage}× coverage", coverage=fmt_num(coverage, 2)))
     if pd.notna(volume) and volume == 0:
         reasons.append(_("no confirmed trading volume"))
-    return "; ".join(reasons) if reasons else _("a hard-veto rule")
+    return "; ".join(reasons) if reasons else _("a quality-screen rule")
+
+
+METHODOLOGY_HREF = "/legal?doc=methodology"
+
+
+def methodology_link_html() -> str:
+    """REC-5: "Methodology →" link, shown with every signal (the badge's own
+    tooltip can't hold a link). A plain link to the in-app legal page."""
+    import html as _html_mod
+    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
+            f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
+            f'{_html_mod.escape(_("Methodology →"))}</a>')
+
+
+def _provenance_div(parts: list[str], *, link: bool = True) -> str:
+    import html as _html_mod
+    items = [f"<span>{_html_mod.escape(p)}</span>" for p in parts]
+    if link:
+        items.append(methodology_link_html())
+    return ('<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--faint);'
+            'font-family:var(--uv-mono);margin-top:6px;line-height:1.5;">' + "".join(items) + "</div>")
 
 
 def signal_provenance_html(row) -> str:
-    """REC-4 / DATA-3: when the signal was computed, the time of the price it
-    used (labelled delayed: the beta's quotes are not end-of-day closes), and
-    the model version. Shown under every signal badge that has a row behind it."""
-    import html as _html_mod
+    """REC-4 / DATA-3 / REC-5: when the signal was computed, the time of the
+    price it used (labelled delayed: the beta's quotes are not end-of-day
+    closes), the model version and the methodology link. Shown under every
+    signal badge that has a row behind it (drawer, Analysis page)."""
     from uvalu.i18n import fmt_datetime
-    parts = [
+    return _provenance_div([
         _("Signal computed {when}", when=fmt_datetime(row.get("signal_computed_at"))),
         _("price as of {when}, delayed", when=fmt_datetime(row.get("price_as_of"))),
         _("model {version}", version=str(row.get("model_version") or "—")),
-    ]
-    return ('<div style="font-size:11px;color:var(--faint);font-family:var(--uv-mono);'
-            'margin-top:6px;line-height:1.5;">'
-            + " · ".join(_html_mod.escape(p) for p in parts) + "</div>")
+    ])
+
+
+def list_provenance_html(df, *, coverage: bool = False) -> str:
+    """The same provenance for a whole list of signals (Dashboard holdings,
+    Screener, Watchlist): the latest computation time, the range of price
+    times (delayed quotes), the model version(s) and, with ``coverage``, the
+    share of covered stocks per signal (REC-10). Empty string without data."""
+    if df is None or getattr(df, "empty", True) or "signal_computed_at" not in df.columns:
+        return ""
+    from screener import SIGNAL_LABELS, signal_distribution
+    from uvalu.i18n import fmt_datetime
+    computed = pd.to_datetime(df["signal_computed_at"], errors="coerce", utc=True).dropna()
+    prices = pd.to_datetime(df.get("price_as_of"), errors="coerce", utc=True).dropna() \
+        if "price_as_of" in df.columns else pd.Series(dtype="datetime64[ns, UTC]")
+    parts = []
+    if not computed.empty:
+        parts.append(_("Signals computed {when}", when=fmt_datetime(computed.max())))
+    if not prices.empty:
+        if prices.min().date() == prices.max().date():
+            parts.append(_("prices delayed, as of {when}", when=fmt_datetime(prices.max())))
+        else:
+            parts.append(_("prices delayed, fetched {oldest} to {newest}",
+                           oldest=fmt_datetime(prices.min()), newest=fmt_datetime(prices.max())))
+    versions = sorted({str(v) for v in df.get("model_version", pd.Series(dtype=object)).dropna()})
+    if versions:
+        parts.append(_("model {version}", version=", ".join(versions)))
+    if coverage:
+        dist = signal_distribution(df)
+        if dist:
+            parts.append(_("coverage: {shares}", shares=" · ".join(
+                f"{fmt_pct(share * 100, 0)} {tr(SIGNAL_LABELS[code])}" for code, share in dist.items())))
+    return _provenance_div(parts) if parts else ""
 
 
 def founder_notice_html(row) -> str:
@@ -1093,14 +1143,14 @@ def refresh_top_bar_html() -> str:
 
 
 def fair_value_legend_row() -> None:
-    """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
+    """The below/near/above model fair value legend strip that
     accompanies fair_value_bar_compact in a holdings/screener table header."""
     st.markdown(f"""
 <div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--faint);flex-wrap:wrap;">
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);display:inline-block;"></span>{h_("Undervalued")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);display:inline-block;"></span>{h_("Near fair")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;display:inline-block;"></span>{h_("Overvalued")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>{h_("Fair value")}</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);display:inline-block;"></span>{h_("Below model fair value")}</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);display:inline-block;"></span>{h_("Near model fair value")}</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;display:inline-block;"></span>{h_("Above model fair value")}</div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>{h_("Model fair value")}</div>
 </div>""", unsafe_allow_html=True)
 
 

@@ -1,8 +1,10 @@
-"""Top bar shell — logo, horizontal nav, theme toggle, avatar menu.
+"""Top bar shell — logo, horizontal nav, theme toggle, avatar menu — plus the
+legal footer and the beta banner.
 
 Replaces the old st.sidebar navigation (see app.py) with the mockup's dark
 top bar. Call render_topbar(nav) once per run, after st.navigation(...) is
-built but before nav.run() so the bar renders above the page body.
+built but before nav.run() so the bar renders above the page body;
+render_beta_banner() right after it, and render_footer() after nav.run().
 """
 import html
 
@@ -373,7 +375,7 @@ def render_topbar(nav) -> None:
                             if _settings_page is not None:
                                 st.page_link(_settings_page, label=_("Settings"))
                             if _help_page is not None:
-                                st.page_link(_help_page, label=_("Help & docs"))
+                                st.page_link(_help_page, label=_("Methodology & help"))
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()
@@ -382,3 +384,64 @@ def render_topbar(nav) -> None:
                             f'style="color:var(--down-txt);font-size:12.5px;">{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )
+
+
+# ── Beta banner (decision B7) and legal footer (DIS-1, REC-1, BIZ-3) ──────────
+
+def producer_line() -> str:
+    """Producer identity for the footer, the stock page and the methodology
+    page (REC-1, BIZ-3): name, trading name, address, enterprise number (or
+    "registration pending", decision B6) and contact."""
+    from uvalu.compliance import disclosures as d
+    number = (d.PRODUCER_ENTERPRISE_NUMBER if d.PRODUCER_ENTERPRISE_NUMBER
+              else tr(d.ENTERPRISE_NUMBER_PENDING))
+    return (f"{d.PRODUCER_TRADING_AS} · {d.PRODUCER_NAME}, {d.PRODUCER_ADDRESS} · "
+            f"{number} · {d.PRODUCER_CONTACT}")
+
+
+def render_beta_banner() -> None:
+    from uvalu.compliance import disclosures as d
+    if not d.BETA:
+        return
+    st.markdown(
+        '<div style="font-size:11.5px;color:var(--muted);background:var(--soft);'
+        'border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;margin:-4px 0 10px;">'
+        f'<span style="font-weight:600;color:var(--mint);margin-right:6px;">{html.escape(_("Beta"))}</span>'
+        f'{html.escape(tr(d.BETA_BANNER))}</div>',
+        unsafe_allow_html=True)
+
+
+_FOOTER_CSS = """
+.st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding-top: 16px; gap: 8px !important; }
+.st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
+.st-key-uv_footer_links { gap: 2px 16px !important; flex-wrap: wrap !important; }
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
+  padding: 0 !important; min-height: 0 !important; background: none !important;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] p,
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] span {
+  font-size: 11px !important; color: var(--teal) !important;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+"""
+
+
+def render_footer() -> None:
+    """Short disclaimer, producer identity and the legal page links, at the
+    bottom of every screen, in the user's language (DIS-1, REC-1, TOU-8,
+    INT-5/6)."""
+    from uvalu.compliance import disclosures as d
+    with st.container(key="uv_footer"):
+        st.markdown(f"<style>{_FOOTER_CSS}</style>"
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;max-width:980px;">'
+                    f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
+                    f'<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px;">'
+                    f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
+                    unsafe_allow_html=True)
+        legal_page = nav_registry.pages.get("legal")
+        with st.container(key="uv_footer_links", horizontal=True, vertical_alignment="center"):
+            if legal_page is not None:
+                for key, title, _file in d.LEGAL_DOCS:
+                    st.page_link(legal_page, label=tr(title), query_params={"doc": key})
+            st.markdown(f'<span style="font-size:11px;color:var(--faint);">'
+                        f'{html.escape(tr(d.NOT_DIRECTED))}</span>', unsafe_allow_html=True)

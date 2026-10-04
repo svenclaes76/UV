@@ -8,7 +8,7 @@ The in-app page must be rendered from methodology() so the numbers cannot drift;
 Update it in the same release as any model or threshold change.
 Counsel points: signal labels "Neutral"/"Low score" deviate from BDG-1 on purpose (see algorithm-compliance-review.md §2);
 whether "Undervalued" still counts as Uvalu's own "opinion" under MAR.
-Requires before launch: shared min_mos default raised from 0% to 10% in code (stated here as 10%).
+The 10% minimum margin of safety for Undervalued is enforced in code (screener.MIN_MOS_FLOOR, decision D1).
 Other IDs: REC-2..7, REC-10, DIS-3, DIS-4.
 -->
 
@@ -103,7 +103,7 @@ For a stock that fails the quality screen, the explanation next to the signal na
 
 A dividend is "at risk" when the payout ratio is above 90%, the cash payout ratio is above 80%, dividend cover is below 1.2×, or the dividend was cut in the last 3 years.
 
-**Time horizon.** The models value a business on its current fundamentals and assume a multi-year holding horizon. They say nothing about short-term price movements.
+**Time horizon.** The models value a business on its current fundamentals and assume a holding horizon of 3 to 5 years. They say nothing about short-term price movements.
 
 **Current distribution.** The share of covered stocks per signal is shown live on this page in the app and updated with every recalculation.
 

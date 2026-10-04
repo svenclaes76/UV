@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from portfolio import load_portfolio
-from risk import MARKET_DAILY_VOL, TRADING_DAYS, band_tone
+from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
@@ -13,7 +13,7 @@ from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
-from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, ngettext, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
 
@@ -186,6 +186,18 @@ def render() -> None:
     st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Risk assessment")}</div>',
                unsafe_allow_html=True)
     st.caption(_("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
+    # DIS-3 / PER-4: estimates, and a description, never a prescription.
+    st.markdown(
+        '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:10px;'
+        'border:0.5px solid #C98A3A;background:rgba(201,138,58,0.08);margin:4px 0 6px;">'
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C98A3A" stroke-width="1.7" '
+        'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
+        '<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
+        '1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
+        f'<span style="font-size:12.5px;color:var(--text);line-height:1.55;">'
+        f'{html.escape(tr(RISK_DISCLOSURES[0]))} '
+        f'{h_("These figures describe the portfolio and do not suggest changes to it.")}</span></div>',
+        unsafe_allow_html=True)
     _render_cash_banner(pf)
 
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
@@ -248,7 +260,7 @@ def render() -> None:
   </div>
 </div>
 <div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{tr(r.composite.label)}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">{h_("Blended score across six risk factors, weighted by exposure and hard-veto flags.")}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">{html.escape(tr(r.composite.description))}</div>
 <div style="width:100%;margin-top:16px;">{risk_score_meter_html(r.composite.score, tr(r.composite.label), dark=_dark, heading=None)}</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
@@ -274,7 +286,7 @@ def render() -> None:
              tr(r.quant.mdd_label), r.quant.mdd_label),
             (h_("Sharpe"), fmt_num(r.quant.sharpe, 2) if r.quant.sharpe else _("N/A"), tr(r.quant.ratio_label), r.quant.ratio_label),
             (h_("VaR 95% (1D)"), fmt_pct(r.quant.var_95_1d_pct, fraction=True) if r.quant.var_95_1d_pct else _("N/A"),
-             h_("Max expected 1-day loss"), ""),
+             h_("Estimated 1-day loss exceeded on 5% of days"), ""),
             (h_("Sector HHI"), fmt_num(r.concentration.sector_hhi, 2), tr(r.concentration.sector_hhi_label), ""),
         ]
         _cells = "".join(
@@ -361,22 +373,18 @@ def render() -> None:
 
         _flags = []
         if c.top1_flag:
-            _flags.append(h_("{ticker} at {weight} exceeds the 15% single-name limit",
+            _flags.append(h_("{ticker} at {weight} is above the model's 15% single-name reference level",
                              ticker=c.top1_ticker, weight=fmt_pct(c.top1_weight, 0, fraction=True)))
         if c.sector_flag and _has_sector:
-            _flags.append(h_("{sector} at {weight} exceeds the 30% sector limit", sector=tr(c.largest_sector),
+            _flags.append(h_("{sector} at {weight} is above the model's 30% sector reference level", sector=tr(c.largest_sector),
                              weight=fmt_pct(c.sector_weights.get(c.largest_sector, 0), 0, fraction=True)))
         if c.geo_flag and c.largest_geo:
-            _flags.append(h_("{country} at {weight} exceeds the 60% country limit", country=tr(c.largest_geo),
+            _flags.append(h_("{country} at {weight} is above the model's 60% country reference level", country=tr(c.largest_geo),
                              weight=fmt_pct(c.geo_weights.get(c.largest_geo, 0), 0, fraction=True)))
-        _veto_tickers = [t for t in pf["ticker"] if bool(_veto_lookup.get(t, False))]
-        _veto_names = pf[pf["ticker"].isin(_veto_tickers)]["name"].tolist()
-        if _veto_names:
-            _flags.append(html.escape(ngettext("{names} remains under a hard veto",
-                                               "{names} remain under a hard veto",
-                                               len(_veto_names), names=", ".join(_veto_names)), quote=False))
+        # PER-5: a held stock's quality-screen result stays on its own badge
+        # (the Flag column below); it isn't turned into a portfolio alert.
         _alert_msg = (" · ".join(_flags) + ".") if _flags else \
-            h_("All positions sit within the 15% single-name, 30% sector, and 60% country limits.")
+            h_("No single name is above 15% of the invested portfolio, no sector above 30% and no country above 60% (model reference levels).")
         # Same navy alert-box + warning-triangle icon as Analysis's hard-veto
         # box (analysis.py) — matches Uvalu.dc.html's Risk-screen concentration
         # alert exactly (16px icon here vs. Analysis's 18px, per that page's
@@ -425,7 +433,7 @@ def render() -> None:
             # rating, which is only surfaced here for High/Critical — Low/
             # Medium render blank, matching the mockup's mostly-empty column.
             if bool(_veto_lookup.get(p.ticker, False)):
-                _flag, _flag_color = N_("Veto"), "var(--down-txt)"
+                _flag, _flag_color = N_("Fails quality screen"), "var(--down-txt)"
             elif p.rating == "Critical":
                 _flag, _flag_color = N_("Critical"), "var(--down-txt)"
             elif p.rating == "High":
@@ -450,6 +458,33 @@ def render() -> None:
             if _contrib_method == "variance" else
             _("Weight × |beta| — not enough correlated return history this run for the full variance decomposition.")
         )
+
+    # ── Risk observations (Stage 8, PER-4) and disclosures (DIS-3) ─────────
+    with st.container(key="risk_card_observations", border=True):
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:4px;">{h_("Risk observations")}</div>'
+                    f'<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">'
+                    f'{h_("Figures compared with the model reference levels, or with targets you set yourself. They describe the portfolio; they are not recommendations.")}</div>',
+                    unsafe_allow_html=True)
+        _obs = list(r.observations.items)
+        if not _obs:
+            st.caption(_("No figure is above a model reference level or away from a target you set."))
+        else:
+            _level_style = {"high": ("var(--down-txt)", N_("Above reference")),
+                            "notice": ("#C98A3A", N_("Notice"))}
+            _rows_html = []
+            for _o in _obs:
+                _color, _lvl = _level_style.get(_o.level, ("var(--muted)", N_("Notice")))
+                _basis = {"user_target": h_("your target"), "since_snapshot": h_("since last report")}.get(_o.basis, "")
+                _rows_html.append(
+                    '<div style="display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:12px;'
+                    'padding:9px 0;border-bottom:0.5px solid var(--line-2);align-items:baseline;">'
+                    f'<span style="font-size:11px;font-weight:500;color:{_color};">{h_(_lvl)}</span>'
+                    f'<span style="font-size:12.5px;color:var(--text);line-height:1.5;">{html.escape(tr(_o.message))}</span>'
+                    f'<span style="font-size:11px;color:var(--faint);white-space:nowrap;">{_basis}</span></div>')
+            st.markdown("".join(_rows_html), unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.6;">'
+                    + "<br>".join(html.escape(tr(_d)) for _d in r.disclosures) + "</div>",
+                    unsafe_allow_html=True)
 
     # Dispatch at most one detail dialog per render
     if _risk_dlg_pending:

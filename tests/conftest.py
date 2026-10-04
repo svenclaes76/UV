@@ -117,6 +117,25 @@ def _fx_isolated(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _all_languages_enabled(tmp_path, monkeypatch):
+    """The i18n tests exercise all six catalogs, so they run against a copy
+    of i18n.config.json with every language on, whatever the shipped config
+    enables. The shipped config itself is pinned by tests/test_legal_guards.py."""
+    import json
+    from uvalu import i18n as _i18n
+    raw = json.loads(_i18n.CONFIG_PATH.read_text(encoding="utf-8"))
+    raw["i18n"]["enabled_languages"] = ["en", "nl", "fr", "de", "it", "es"]
+    cfg = tmp_path / "i18n.config.json"
+    cfg.write_text(json.dumps(raw), encoding="utf-8")
+    monkeypatch.setattr(_i18n, "CONFIG_PATH", cfg)
+    _i18n.config.cache_clear()
+    yield
+    # A test may have swapped i18n.config for a plain function (monkeypatch
+    # undoes that after this teardown); the next test clears the cache anyway.
+    getattr(_i18n.config, "cache_clear", lambda: None)()
+
+
+@pytest.fixture(autouse=True)
 def _compliance_isolated(tmp_path, monkeypatch):
     """Never write the real data/compliance/ logs (signal history, daily
     snapshots, settings audit) and never read the real founder holdings:

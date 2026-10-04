@@ -1,6 +1,8 @@
 """Analysis page — full-page stock deep dive, reached from the drawer's
 "View full analysis" link (uvalu/drawer.py). Ticker is passed via
 st.session_state["_analysis_ticker"], set right before st.switch_page()."""
+import html
+
 import pandas as pd
 import yfinance as yf
 import plotly.graph_objects as go
@@ -60,6 +62,121 @@ def _fv(row, field, fmt=None):
     return fmt(v) if fmt else str(v)
 
 
+_PANEL_TITLE = '<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{title}</div>'
+_KV_ROW = ('<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:8px 0;'
+           'border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="color:var(--faint);">{k}</span>'
+           '<span style="color:var(--text);line-height:1.5;">{v}</span></div>')
+
+
+def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: dict) -> None:
+    """Badge history of the last 12 months (REC-7, uvalu.compliance.signal_history)
+    and the fair value at a ±1 pp discount rate (REC-6, display only, D2)."""
+    from screener import SIGNAL_LABELS, effective_min_mos, fair_value_sensitivity
+    from uvalu.compliance import signal_history
+    from uvalu.components import model_signal_badge_html
+    from uvalu.data import universe_reference_for
+
+    _h_col, _s_col = st.columns(2)
+    with _h_col, st.container(key="an_card_history", border=True):
+        st.markdown(_PANEL_TITLE.format(title=h_("Badge history · 12 months")), unsafe_allow_html=True)
+        try:
+            _hist = signal_history.history_for(ticker)
+        except Exception:
+            _hist = []
+        if not _hist:
+            st.caption(_("No badge change recorded for this stock yet."))
+        else:
+            _rows = []
+            _prev = None
+            for rec in _hist:
+                code = rec.get("signal_code")
+                _from = (model_signal_badge_html(_prev) + ' <span style="color:var(--faint);">→</span> '
+                         if _prev else "")
+                _mos = rec.get("margin_of_safety")
+                _note = _("score {score} · margin of safety {mos} · model {version}",
+                          score=fmt_num(rec.get("Value Score"), 0),
+                          mos=fmt_pct(_mos, 0, fraction=True, signed=True) if _mos is not None else "—",
+                          version=str(rec.get("model_version") or "—"))
+                _rows.append(
+                    '<div style="display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;padding:10px 0;'
+                    'border-bottom:0.5px solid var(--line-2);">'
+                    f'<div style="font-family:var(--uv-mono);font-size:11.5px;color:var(--muted);">'
+                    f'{html.escape(fmt_date(rec.get("signal_computed_at")))}</div>'
+                    f'<div>{_from}{model_signal_badge_html(code)}'
+                    f'<div style="font-size:12px;color:var(--muted);margin-top:6px;">{html.escape(_note)}</div></div></div>')
+                _prev = code
+            st.markdown("".join(reversed(_rows)), unsafe_allow_html=True)
+        st.caption(_("Every badge change is logged with its inputs and model version."))
+
+    with _s_col, st.container(key="an_card_sensitivity", border=True):
+        st.markdown(_PANEL_TITLE.format(title=h_("Assumptions & sensitivity")), unsafe_allow_html=True)
+        _thr = get_veto_thresholds()
+        _ref_key = (tuple(enabled), tuple(manual.keys()), tuple(manual.values()),
+                    tuple(_thr), tuple(get_score_weights()))
+        _ref = universe_reference_for(_ref_key)
+        _sens = fair_value_sensitivity(row, _ref) if _ref is not None else []
+        _base = next((x for x in _sens if x["shift"] == 0.0), None)
+        st.markdown(
+            '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px;">'
+            + "".join(f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+                      f'letter-spacing:0.05em;">{k}</div><div style="font-family:var(--uv-mono);font-size:14px;'
+                      f'margin-top:4px;">{v}</div></div>' for k, v in (
+                          (h_("Discount rate"), fmt_pct(_base["discount_rate"], 1, fraction=True) if _base else "—"),
+                          (h_("Min. margin of safety"), fmt_pct(effective_min_mos(_thr[2]), 0, fraction=True)),
+                          (h_("Score threshold"), fmt_num(_thr[3], 0))))
+            + "</div>", unsafe_allow_html=True)
+        if _sens:
+            st.markdown("".join(
+                _KV_ROW.format(
+                    k=html.escape(_("Discount rate {rate}", rate=fmt_pct(x["discount_rate"], 1, fraction=True))),
+                    v=html.escape(_("fair value {fv} · margin of safety {mos}",
+                                    fv=_fmt_eur(x["fair_value"]) if x["fair_value"] is not None else "—",
+                                    mos=fmt_pct(x["margin_of_safety"], 0, fraction=True, signed=True)
+                                    if x["margin_of_safety"] is not None else "—")))
+                for x in _sens), unsafe_allow_html=True)
+        else:
+            st.caption(_("The sensitivity table appears once the full stock universe has been scored."))
+        st.caption(_("Fair values are model estimates, not forecasts or price targets. The settings are shared model "
+                     "settings, the same for every user; this table changes no score or signal."))
+
+
+def _render_sources_and_producer(row, ticker: str) -> None:
+    """Data sources with a freshness flag (REC-3) and who produces the
+    output, with the founder disclosure (REC-1, REC-8)."""
+    from screener import DATA_FLAG_LABELS, FOUNDER_HOLDS_NOTICE
+    from uvalu.compliance import disclosures as d
+    from uvalu.shell import producer_line
+
+    _d_col, _p_col = st.columns(2)
+    with _d_col, st.container(key="an_card_sources", border=True):
+        st.markdown(_PANEL_TITLE.format(title=h_("Data sources")), unsafe_allow_html=True)
+        st.markdown("".join(_KV_ROW.format(k=h_(k), v=h_(v)) for k, v in d.DATA_SOURCE_ROWS),
+                    unsafe_allow_html=True)
+        _flags = row.get("data_flags")
+        _flags = [f for f in (_flags if isinstance(_flags, list) else []) if f in DATA_FLAG_LABELS]
+        _dot = "#C98A3A" if _flags else "var(--uv-mint,#1DD6A4)"
+        _msg = " ".join(tr(DATA_FLAG_LABELS[f]) for f in _flags) if _flags else _("No data quality flags for this stock.")
+        st.markdown(f'<div style="display:flex;gap:9px;align-items:flex-start;padding:10px 0 2px;font-size:12px;">'
+                    f'<span style="width:7px;height:7px;border-radius:50%;flex:none;margin-top:5px;background:{_dot};"></span>'
+                    f'<span style="color:var(--text);line-height:1.5;">{html.escape(_msg)}</span></div>',
+                    unsafe_allow_html=True)
+
+    with _p_col, st.container(key="an_card_producer", border=True):
+        st.markdown(_PANEL_TITLE.format(title=h_("Producer & conflicts")), unsafe_allow_html=True)
+        _founder = (tr(FOUNDER_HOLDS_NOTICE) if bool(row.get("founder_holds"))
+                    else _("The founder holds no position in {ticker}.", ticker=ticker))
+        _lines = [
+            _("Produced automatically by {producer}.", producer=producer_line()),
+            tr(d.NOT_SUPERVISED),
+            _founder,
+            _("No payment from the issuer, brokers or data vendors in connection with this output."),
+        ]
+        st.markdown('<div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--muted);'
+                    'line-height:1.55;">' + "".join(f"<div>{html.escape(x)}</div>" for x in _lines)
+                    + f'<a href="/legal?doc=conflicts" target="_self" style="color:var(--teal);text-decoration:none;">'
+                    f'{html.escape(_("Conflicts of interest policy →"))}</a></div>', unsafe_allow_html=True)
+
+
 def render() -> None:
     ticker = st.session_state.get("_analysis_ticker")
 
@@ -91,12 +208,13 @@ def render() -> None:
 
     # ── Header ────────────────────────────────────────────────────────────────
     _score = row.get("Value Score")
+    # Where the score sits on the model scale (PER-4: no verdict words).
     if pd.notna(_score) and _score >= 70:
-        _score_rating, _score_color = h_("Strong"), "var(--up-txt, #0F6E56)"
+        _score_rating, _score_color = h_("Upper range"), "var(--up-txt, #0F6E56)"
     elif pd.notna(_score) and _score >= 40:
-        _score_rating, _score_color = h_("Moderate"), "#C98A3A"
+        _score_rating, _score_color = h_("Middle range"), "#C98A3A"
     elif pd.notna(_score):
-        _score_rating, _score_color = h_("Weak"), "var(--down-txt, #A32D2D)"
+        _score_rating, _score_color = h_("Lower range"), "var(--down-txt, #A32D2D)"
     else:
         _score_rating, _score_color = None, None
     _score_rating_html = (f'<div style="font-size:12px;color:{_score_color};">{_score_rating}</div>'
@@ -150,7 +268,7 @@ def render() -> None:
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
             + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_eur))
-            + _hero_card(h_("Composite fair value"), _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
+            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur), color="var(--mint)")
             + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), color=_mos_color)
             + _hero_card(h_("Your position"), _held_str)
             + '</div>',
@@ -238,7 +356,7 @@ def render() -> None:
                 _bar_color = quality_score_color(float(v))[0]
                 st.markdown(sub_score_bar_html(label_, float(v), color=_bar_color), unsafe_allow_html=True)
     with _col2, st.container(key="an_card_sixmodel", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Six-model fair value")}</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Model fair values")}</div>',
                    unsafe_allow_html=True)
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
@@ -307,7 +425,7 @@ def render() -> None:
                     f'color:{_fcolor};">{_fval}</span></div>',
                     unsafe_allow_html=True)
     with _col4, st.container(key="an_card_vetochecks", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Hard-veto checks")}</div>',
+        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Quality screen checks")}</div>',
                    unsafe_allow_html=True)
         _max_de_thr = get_veto_thresholds()[0]
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
@@ -523,15 +641,20 @@ def render() -> None:
                 else:
                     st.caption(_("No dividend events recorded yet for this holding."))
 
-    # ── Value thesis (derived from real computed fields only) ────────────────
+    # ── Badge history | assumptions & sensitivity (REC-6, REC-7) ─────────────
+    _render_history_and_sensitivity(row, ticker, _enabled, _manual_tickers_map)
+    # ── Data sources | producer & conflicts (REC-1, REC-3, REC-8) ────────────
+    _render_sources_and_producer(row, ticker)
+
+    # ── Model summary (derived from real computed fields only) ───────────────
     _thesis_card = st.container(key="an_card_thesis", border=True)
-    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Value thesis")}</div>',
+    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
                           unsafe_allow_html=True)
     _sub_fields = {N_("Margin of safety"): row.get("Sub MoS"), N_("Risk"): row.get("Sub Risk"),
                   N_("Quality"): row.get("Sub Quality"), N_("Momentum"): row.get("Sub Momentum"),
                   N_("Dividend"): row.get("Sub Dividend")}
     _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
-    _thesis = [_("{name} trades at {price} against a composite fair value of {fair_value} ({mos} margin of safety).",
+    _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
                  name=row.get('Name', ticker), price=_fv(row, 'Price', _fmt_eur),
                  fair_value=_fv(row, 'fair_value', _fmt_eur),
                  mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]

@@ -95,7 +95,7 @@ You have the right to:
 
 - **access** your data and receive a copy;
 - **correct** data that is wrong;
-- **delete** your data. You can delete your account yourself in the settings; live data is removed at once and backups within 35 days. Data we must keep by law, such as invoices, is kept until the legal period ends;
+- **delete** your data. You can delete your account yourself in the settings; live data is removed at once and backups within 30 days. Data we must keep by law, such as invoices, is kept until the legal period ends;
 - **export** your portfolio data in a machine-readable format from the settings;
 - **object** to processing based on our legitimate interest;
 - **restrict** processing in the cases the law provides;

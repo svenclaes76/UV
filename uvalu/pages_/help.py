@@ -37,7 +37,9 @@ import streamlit as st
 from uvalu import nav as nav_registry
 from screener import (SIGNAL_DEFINITIONS, SIGNAL_LABELS, SIGNAL_HORIZON, SIGNAL_RISK_WARNING,
                       SIGNAL_SENSITIVITY, VETO_RULE_LABELS)
+from uvalu.compliance import disclosures
 from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip
+from uvalu.shell import producer_line
 from uvalu.i18n import N_, _, h_, tr
 
 
@@ -72,16 +74,17 @@ _MODELS = [
 
 _FAQ = [
     (N_("How is the composite fair value calculated?"),
-     N_("Each holding is valued by all six models. Outliers are trimmed and the remainder averaged "
-        "into a single composite fair value. Margin of safety is the discount of the current price "
-        "to that figure.")),
+     N_("Each stock is valued by every model that applies to it. Their values are combined into one "
+        "weighted fair value, capped when a single model runs far above the others. Margin of safety "
+        "is the discount of the price to that figure. Both are model estimates.")),
     (N_("What does the weighted composite score mean?"),
-     N_("A 0–100 value-weighted mean of the model scores across your scored holdings. It describes "
-        "the portfolio; it is not a recommendation. Holdings that fail a quality screen are left "
-        "out of the average.")),
+     N_("A 0–100 value-weighted mean of the model scores across your holdings. It describes the "
+        "portfolio; it is not a recommendation. A holding that fails a quality screen counts with its "
+        "score of 0; a holding without a score (No signal) is left out.")),
     (N_("How often do prices update?"),
-     N_("Quotes refresh on the interval set in Settings → Data during market hours (default every "
-        "15 minutes). Fundamentals update daily after each exchange close.")),
+     N_("During the beta, prices are delayed quotes from Yahoo Finance that refresh on the interval "
+        "set in Settings → Data during market hours. Fundamentals refresh about every 24 hours, and "
+        "the signals are recomputed when they do. Every signal shows the time of its price.")),
     (N_("Why does a stock show “Fails quality screen”?"),
      N_("It breaks one of the quality rules listed on this page; the explanation next to the badge "
         "names which. Its composite score is set to 0. It still appears in your portfolio and "
@@ -129,9 +132,16 @@ def render() -> None:
     if _dash_page is not None and st.button(_("← Back"), key="help_back", type="tertiary"):
         st.switch_page(_dash_page)
 
-    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Help & docs")}</div>',
+    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Methodology & help")}</div>',
                unsafe_allow_html=True)
-    st.caption(_("How each model works, what the badges mean and how they are computed."))
+    st.caption(_("How each model works, what the badges mean, how often they change and where the data comes from."))
+    # Links to the full legal pages (REC-5, REC-3, REC-8).
+    _link = ('<a href="/legal?doc={doc}" target="_self" style="color:var(--teal);text-decoration:none;'
+             'margin-right:16px;font-size:12px;">{label}</a>')
+    st.markdown(_link.format(doc="methodology", label=h_("Full methodology →"))
+                + _link.format(doc="data", label=h_("Data sources →"))
+                + _link.format(doc="conflicts", label=h_("Conflicts of interest →")),
+                unsafe_allow_html=True)
 
     # ── Badges: meaning (REC-5 / REC-6) ───────────────────────────────────────
     _notes = "".join(
@@ -170,3 +180,62 @@ def render() -> None:
                    + "".join(_faq_row_html(q, a) for q, a in _FAQ)
                    + "</div>",
                    unsafe_allow_html=True)
+
+    # ── Reading the badges (REC-6, REC-7, PER-1/2) ───────────────────────────
+    _reading = [
+        (N_("Time horizon"), N_("3 to 5 years, the period the valuation models assume")),
+        (N_("Updated"), N_("Fundamentals about every 24 hours; signals are recomputed when they change")),
+        (N_("History"), N_("Every badge change kept 24 months, the last 12 shown on each stock page")),
+    ]
+    _reading_notes = [
+        (N_("Same for every user."), N_("Badges, scores and fair values use only instrument data and the "
+                                        "shared model settings. They never use your holdings, income, goals "
+                                        "or risk tolerance.")),
+        (N_("Risk."), N_("Model outputs can be wrong. Share prices can stay below or above fair value for "
+                         "years, and you can lose capital.")),
+    ]
+    with st.container(key="help_card_reading", border=True):
+        st.markdown(
+            _HEADER_HTML.format(label=h_("Reading the badges"))
+            + '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:0.5px solid var(--line-2);">'
+            + "".join(f'<div style="padding:14px 20px;"><div style="font-size:10px;color:var(--faint);'
+                      f'text-transform:uppercase;letter-spacing:0.05em;">{_t(k)}</div>'
+                      f'<div style="font-size:13px;margin-top:6px;line-height:1.5;">{_t(v)}</div></div>'
+                      for k, v in _reading)
+            + '</div><div style="padding:14px 20px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;'
+              'color:var(--muted);line-height:1.6;">'
+            + "".join(f'<div><span style="color:var(--text);font-weight:500;">{_t(k)}</span> {_t(v)}</div>'
+                      for k, v in _reading_notes)
+            + "</div>", unsafe_allow_html=True)
+
+    # ── Data sources | conflicts of interest (REC-3, REC-8) ─────────────────
+    _src_col, _coi_col = st.columns(2, gap="medium")
+    with _src_col, st.container(key="help_card_sources", border=True):
+        st.markdown(
+            _HEADER_HTML.format(label=h_("Data sources"))
+            + "".join(f'<div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;'
+                      f'padding:10px 20px;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
+                      f'<span style="color:var(--faint);">{_t(k)}</span><span>{_t(v)}</span></div>'
+                      for k, v in disclosures.DATA_SOURCE_ROWS)
+            + f'<div style="padding:12px 20px;font-size:12px;color:var(--muted);line-height:1.55;">'
+              f'{h_("Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings are shown.")}</div>',
+            unsafe_allow_html=True)
+    with _coi_col, st.container(key="help_card_conflicts", border=True):
+        st.markdown(
+            _HEADER_HTML.format(label=h_("Conflicts of interest"))
+            + '<div style="padding:14px 20px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;'
+              'color:var(--muted);line-height:1.6;">'
+            + f'<div>{h_("The founder discloses any position in a covered stock on that stock’s page, whatever its size.")}</div>'
+            + f'<div>{h_("Uvalu receives no payment from issuers, brokers or data vendors for any output, and has no affiliate or broker links.")}</div>'
+            + f'<div>{h_("The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live.")}</div>'
+            + "</div>", unsafe_allow_html=True)
+
+    # ── About Uvalu: full disclaimer and producer (DIS-1, REC-1, PER-6) ─────
+    with st.container(key="help_card_about", border=True):
+        st.markdown(
+            _HEADER_HTML.format(label=h_("About Uvalu"))
+            + f'<div style="padding:14px 20px;font-size:12.5px;color:var(--muted);line-height:1.65;">'
+              f'{html.escape(tr(disclosures.FULL_DISCLAIMER).format(producer=producer_line()))}</div>'
+            + f'<div style="padding:0 20px 14px;font-size:12px;color:var(--muted);line-height:1.6;">'
+              f'{html.escape(tr(disclosures.SUPPORT_REFUSAL))}</div>',
+            unsafe_allow_html=True)

@@ -407,7 +407,7 @@ class TestVetoReasonStr:
         # independent ones — "At Risk" alone (coverage still healthy)
         # shouldn't surface as its own veto reason.
         row = pd.Series({"Div Flag": "At Risk", "dividendCoverage": 2.0})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_multiple_reasons_joined(self, isolated_data):
         row = pd.Series({"debtToEquity": 900.0, "freeCashflow": -1.0})
@@ -416,7 +416,7 @@ class TestVetoReasonStr:
         assert "; " in result
 
     def test_no_reasons_falls_back_to_generic_message(self, isolated_data):
-        assert veto_reason_str(pd.Series({})) == "a hard-veto rule"
+        assert veto_reason_str(pd.Series({})) == "a quality-screen rule"
 
     def test_leverage_exempt_sector_does_not_surface_debt_reason(self, isolated_data):
         # Financial Services/Real Estate/Utilities are exempt from the D/E
@@ -424,13 +424,13 @@ class TestVetoReasonStr:
         # surface as a reason for those sectors, matching screener.py's
         # _hard_veto formula.
         row = pd.Series({"debtToEquity": 900.0, "sector": "Financial Services"})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_single_bad_fcf_year_not_a_reason_with_three_year_history(self, isolated_data):
         # A single negative year no longer vetoes once 3-year fcfHistory
         # exists — only 3 consecutive negative years do.
         row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, 50.0, 80.0]})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_three_consecutive_negative_fcf_years_is_a_reason(self, isolated_data):
         row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, -2.0, -3.0]})
@@ -452,7 +452,7 @@ class TestVetoReasonStr:
 
     def test_short_history_does_not_add_a_trend_reason(self, isolated_data):
         row = pd.Series({"revenueHistory": [80.0, 100.0]})   # < 3 years
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_confirmed_zero_volume_is_a_reason(self, isolated_data):
         row = pd.Series({"averageVolume": 0.0})
@@ -463,7 +463,7 @@ class TestVetoReasonStr:
         # surface as a reason — matches screener.py's `== 0` (not
         # `.fillna(0)`) hard-veto test.
         row = pd.Series({"averageVolume": None})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
 
 class TestFairValueBarHtml:

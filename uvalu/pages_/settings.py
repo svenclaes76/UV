@@ -600,8 +600,8 @@ def render() -> None:
         # other user's screening results.
         _is_admin = _u.is_admin
         with st.container(key="set_card_screening", border=True):
-            _row_header(h_("Screening & veto rules"))
-            _row_desc(h_("These drive every BUY/MONITOR/AVOID decision across the app — Screener, Watchlist, Dashboard, Portfolio and Analysis all read the same values.")
+            _row_header(h_("Model settings & quality screens"))
+            _row_desc(h_("Shared model settings: they set every model signal across the app, the same for every user, and are published on the Methodology page. Each change is recorded.")
                      + ("" if _is_admin else " " + h_("Admin-only — sign in as an Admin to change these.")))
 
             with st.container(key="set_slider_grid"):
@@ -610,7 +610,7 @@ def render() -> None:
                     _max_de = _threshold_slider(
                         "scr_max_de", h_("Max debt / equity"), 50, 1000, 50,
                         int(_shared.get("max_debt_equity", 500)), lambda v: fmt_pct(v, 0),
-                        _("Hard veto above this leverage (Financials, Real Estate, Utilities exempt)."),
+                        _("Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."),
                         disabled=not _is_admin)
                 with _v2:
                     _max_payout = _threshold_slider(
@@ -621,14 +621,14 @@ def render() -> None:
                 _v3, _v4 = st.columns(2, gap="large")
                 with _v3:
                     _min_mos = _threshold_slider(
-                        "scr_min_mos", h_("Target margin of safety"), -20, 50, 5,
-                        int(_shared.get("min_mos", 0)), lambda v: fmt_pct(v, 0, signed=True),
-                        _("Discount to fair value required for a BUY."), disabled=not _is_admin)
+                        "scr_min_mos", h_("Minimum margin of safety"), 10, 50, 5,
+                        max(10, int(_shared.get("min_mos", 10))), lambda v: fmt_pct(v, 0, signed=True),
+                        _("Margin of safety needed for the Undervalued signal; never below 10%."), disabled=not _is_admin)
                 with _v4:
                     _buy_thr = _threshold_slider(
-                        "scr_buy_thr", h_("BUY score threshold"), 50, 90, 5,
+                        "scr_buy_thr", h_("Undervalued score threshold"), 50, 90, 5,
                         int(_shared.get("buy_threshold", 70)), str,
-                        _("Composite score required for a BUY signal."), disabled=not _is_admin)
+                        _("Minimum composite score for the Undervalued signal."), disabled=not _is_admin)
 
             _style_opts = [s.capitalize() for s in _SCORE_STYLES]
             _cur_style  = str(_shared.get("screen_style", "balanced"))
@@ -679,7 +679,7 @@ def render() -> None:
         _targets = load_targets()
         with st.container(key="set_card_targets", border=True):
             _row_header(h_("Target allocation"))
-            _row_desc(h_("Your personal reference weights. When any are set, the Risk page's rebalancing signals switch from absolute thresholds to drift-vs-target."))
+            _row_desc(h_("Reference weights you set yourself. When any are set, the Risk page's observations compare the portfolio with them instead of the model reference levels."))
 
             with st.container(key="set_targets_body"):
                 _tc1, _tc2 = st.columns(2, gap="large")
@@ -740,7 +740,7 @@ def render() -> None:
             _cur_refresh = _s.get("refresh_interval_s", 60)
             _new_refresh = _seg_row(
                 "refresh", "disp_refresh_interval", h_("Price refresh interval"),
-                h_("How often quotes update during market hours."),
+                h_("How often delayed quotes from Yahoo Finance update during market hours. Real-time quotes are not offered."),
                 _refresh_opts, _cur_refresh if _cur_refresh in _refresh_opts else 60, ratio=(2, 2),
                 format_func=frozen(_refresh_fmt)) or _cur_refresh
 

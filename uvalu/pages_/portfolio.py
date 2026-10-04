@@ -29,7 +29,7 @@ from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_car
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
 from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.i18n import N_, _, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
 from uvalu.locale_ui import export_menu
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -94,6 +94,25 @@ def _col_header(widths: list, labels: list[str], rights: list[bool]) -> None:
     for _c, _lbl, _right in zip(st.columns(widths, vertical_alignment="center"), labels, rights):
         with _c:
             st.markdown(header_cell_html(_lbl, right=_right), unsafe_allow_html=True)
+
+
+def _tax_estimate_box() -> None:
+    """TAX-1 / TAX-2 / TAX-5 / TAX-6: every tax figure here is an estimate,
+    with the rules, rates and country applied, the review date, the cases not
+    handled and the user's own responsibility. No optimisation prompts (TAX-3)."""
+    import html as _html_mod
+    from portfolio import BE_WITHHOLDING_RATE
+    from uvalu.compliance import disclosures as d
+    _rules = tr(d.TAX_RULES).format(be_rate=fmt_pct(BE_WITHHOLDING_RATE * 100, 0),
+                                    date=fmt_date(d.TAX_RULES_REVIEWED))
+    with st.container(key="pf_card_tax_note", border=True):
+        st.markdown(
+            f'<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;">'
+            f'{_html_mod.escape(tr(d.TAX_TITLE))}</div>'
+            + "".join(f'<div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px;">'
+                      f'{_html_mod.escape(t)}</div>'
+                      for t in (_rules, tr(d.TAX_NOT_HANDLED), tr(d.TAX_RESPONSIBILITY))),
+            unsafe_allow_html=True)
 
 
 def render() -> None:
@@ -697,13 +716,15 @@ def render() -> None:
             # Design width: the summary takes the left of a 1.6 : 1 split; the
             # right-hand column is intentionally empty, reserved for future cards.
             _yc1, _yc2 = st.columns([1.6, 1], gap="large")
+            with _yc2:
+                _tax_estimate_box()
             with _yc1:
                 with st.container(key="pf_card_tax_years", border=True):
                     with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
                                       horizontal_alignment="distribute"):
                         st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Annual dividend income summary")}</div>'
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
-                                   f'{h_("Net and gross reported separately, for your own tax filing.")}</div>',
+                                   f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")
                         export_menu(_("Export"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
                                     key="div_summary_export", disabled=_year_summary.empty)

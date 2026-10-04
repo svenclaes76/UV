@@ -9,7 +9,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
-from settings import load_shared_settings, load_settings, get_dividend_withholding
+from settings import load_shared_settings, load_settings, get_dividend_withholding, get_veto_thresholds
 from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
@@ -17,7 +17,7 @@ from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
-from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_row, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -155,8 +155,8 @@ def render() -> None:
             st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio overview")}</div>',
                        unsafe_allow_html=True)
             st.caption(ngettext(
-                "{positions} across {count} European exchange · valued against a six-model fair-value estimate.",
-                "{positions} across {count} European exchanges · valued against a six-model fair-value estimate.",
+                "{positions} across {count} European exchange · compared with model fair-value estimates.",
+                "{positions} across {count} European exchanges · compared with model fair-value estimates.",
                 _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))))
         with st.container(key="db_refresh_btn", width="content"):
             if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
@@ -201,7 +201,7 @@ def render() -> None:
                 st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
             else:
                 _kpi_card(h_("Avg margin of safety"), fmt_pct(_db_avg_mos, signed=True),
-                         "", (_db_avg_mos or 0) >= 0, h_("vs six-model fair value"), icon="target")
+                         "", (_db_avg_mos or 0) >= 0, h_("vs model fair value"), icon="target")
     _conv_note = conversion_note()
     if _conv_note:
         st.caption(_conv_note)
@@ -324,7 +324,7 @@ def render() -> None:
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
         with _cvh_col:
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Conviction & risk")}</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Score & risk")}</div>',
                        unsafe_allow_html=True)
         with _cvh_link_col:
             if st.button(_("Full analysis →"), key="db_conv_full_analysis", type="tertiary", width="stretch"):
@@ -336,9 +336,13 @@ def render() -> None:
             # here otherwise.
             _scr_cv = _db_pf.groupby("ticker")["current_value"].sum()
             _scr_vs = pd.to_numeric(_db_scr.set_index("Ticker")["Value Score"], errors="coerce")
+            # Only holdings with a model score count: "No signal" rows (no
+            # peer basis yet, PER-1) have none, so they're left out rather
+            # than averaged in as 0. A failed quality screen counts as its 0.
+            _scr_vs = _scr_vs.dropna()
             _w = _scr_cv.reindex(_scr_vs.index).fillna(0)
             if _w.sum() > 0:
-                _conv_score = float((_scr_vs.fillna(0) * _w).sum() / _w.sum())
+                _conv_score = float((_scr_vs * _w).sum() / _w.sum())
         _n_veto = int(_db_scr.get("veto", pd.Series(dtype=bool)).fillna(False).sum()) if "veto" in _db_scr.columns else 0
 
         # Risk report comes from the SAME shared builder the Risk page uses
@@ -385,18 +389,18 @@ def render() -> None:
             _auto_rerun(5, "dashboard_conviction_pending")
         else:
             if _conv_score is not None:
-                # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
-                # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
-                # (not this card's earlier "Strong/Moderate/Weak conviction" at
-                # 70/40), and the label is always mint-colored regardless of
-                # tier — the spec hardcodes `color:var(--mint)` unconditionally,
-                # not a tier-dependent color.
-                _conv_label = (h_("High conviction") if _conv_score >= 75 else
-                              h_("Constructive") if _conv_score >= 55 else h_("Cautious"))
-                _conv_text = h_("Weighted mean signal score across scored holdings.")
+                # PER-4: describes where the portfolio sits on the model's
+                # scale, no "conviction" verdict (legal design, Uvalu.dc.html).
+                # Bands follow the signal thresholds (screener SCORE_AVOID 40,
+                # the shared upper threshold, default 70).
+                _upper = get_veto_thresholds()[3]
+                _conv_label = (h_("Upper range of the model scale") if _conv_score >= _upper else
+                              h_("Middle range of the model scale") if _conv_score >= 40
+                              else h_("Lower range of the model scale"))
+                _conv_text = h_("Value-weighted mean of model scores across scored holdings. Describes the portfolio.")
                 if _n_veto:
-                    _conv_text += " " + ngettext("{count} position under hard veto.",
-                                                 "{count} positions under hard veto.", _n_veto)
+                    _conv_text += " " + ngettext("{count} position fails a quality screen.",
+                                                 "{count} positions fail a quality screen.", _n_veto)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
@@ -407,13 +411,13 @@ def render() -> None:
     </div>
   </div>
   <div>
-    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Composite conviction")}</div>
+    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
     <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                st.caption(_("Not enough scored holdings for a conviction score."))
+                st.caption(_("Not enough scored holdings for a weighted composite score."))
 
             if _risk_score is not None:
                 # Shared renderer (uvalu/components.risk_score_meter_html) — same
@@ -447,8 +451,8 @@ def render() -> None:
             with st.container(width="content"):
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.")}</div>""",
-                           unsafe_allow_html=True)
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>"""
+                           + list_provenance_html(_db_scr), unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()
         # Column header renders for the real table AND the fetch-in-progress

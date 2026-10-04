@@ -1,0 +1,140 @@
+"""
+Legal guardrails across the whole app (Track G of
+docs/legal/compliance-implementation-plan.md).
+
+  • wording — no UI string uses the banned terms of DIS-5 / DIS-6 / PER-4 or
+    the retired BUY/MONITOR/AVOID/VETO badge words (scans locales/messages.pot,
+    so a new screen can't bring one back);
+  • beta scope — the shipped config offers all six reviewed languages
+    (decision B5, lifted Oct 4 2026);
+  • legal pages — every page exists, the beta texts win while BETA is on, and
+    the in-app page and the footer render.
+
+The algorithm-level rules (PER-1/2, REC-*, DATA-6) are pinned in
+tests/test_compliance_algorithms.py.
+"""
+import json
+import re
+from pathlib import Path
+
+import pytest
+from babel.messages.pofile import read_po
+from streamlit.testing.v1 import AppTest
+
+from uvalu.compliance import disclosures
+from uvalu.pages_ import legal
+
+ROOT = Path(__file__).resolve().parents[1]
+
+# Case-sensitive: the retired badge words, as badges.
+_BADGE_WORDS = re.compile(r"\b(Strong Buy|BUY|MONITOR|AVOID|VETO)\b")
+# Case-insensitive: advice / promise / prescription wording. ("adviser" stays
+# allowed: the full disclaimer's "consult an authorised adviser" is the
+# requirements doc's own text.)
+_BANNED = re.compile(
+    r"recommended for you|\byour personal\b|consider (selling|reducing|buying|exiting)"
+    r"|\brebalanc|beat the market|find winners|know when to buy|safe stocks|\bconviction\b"
+    r"|hard[- ]veto|\btrim to\b|\bredeploy\b|guaranteed return",
+    re.I)
+
+
+def _pot_msgids() -> list[str]:
+    with (ROOT / "locales" / "messages.pot").open("rb") as fh:
+        catalog = read_po(fh)
+    out = []
+    for msg in catalog:
+        if msg.id:
+            out.extend(msg.id if isinstance(msg.id, tuple) else (msg.id,))
+    return out
+
+
+class TestWording:
+    def test_no_ui_string_uses_a_retired_badge_word(self):
+        hits = [t for t in _pot_msgids() if _BADGE_WORDS.search(t)]
+        assert not hits, hits
+
+    def test_no_ui_string_uses_banned_advice_wording(self):
+        hits = [t for t in _pot_msgids() if _BANNED.search(t)]
+        assert not hits, hits
+
+    def test_disclosure_texts_are_clean(self):
+        texts = [v for k, v in vars(disclosures).items() if k.isupper() and isinstance(v, str)]
+        assert texts
+        for text in texts:
+            assert not _BADGE_WORDS.search(text) and not _BANNED.search(text), text
+
+
+class TestBetaScope:
+    def test_shipped_config_offers_the_six_reviewed_languages(self):
+        raw = json.loads((ROOT / "i18n.config.json").read_text(encoding="utf-8"))
+        assert raw["i18n"]["enabled_languages"] == ["en", "nl", "fr", "de", "it", "es"]
+
+    def test_beta_is_on(self):
+        assert disclosures.BETA is True
+
+
+class TestLegalPages:
+    @pytest.mark.parametrize("key,title,file_name", disclosures.LEGAL_DOCS)
+    def test_every_launch_page_exists(self, key, title, file_name):
+        assert (legal.POLICIES_DIR / file_name).exists()
+
+    def test_beta_texts_win_while_beta_is_on(self):
+        path, translated = legal.resolve_doc_path("terms-of-use.md", "en", beta=True)
+        assert path.parent.name == "beta" and translated
+        path, _t = legal.resolve_doc_path("terms-of-use.md", "en", beta=False)
+        assert path.parent == legal.POLICIES_DIR
+        # no beta version → the launch page
+        path, _t = legal.resolve_doc_path("complaints.md", "en", beta=True)
+        assert path.parent == legal.POLICIES_DIR
+
+    def test_untranslated_language_falls_back_to_english(self, tmp_path):
+        (tmp_path / "beta").mkdir()
+        (tmp_path / "x.md").write_text("# X", encoding="utf-8")
+        path, translated = legal.resolve_doc_path("x.md", "nl", beta=True, root=tmp_path)
+        assert path == tmp_path / "x.md" and translated is False
+        (tmp_path / "nl").mkdir()
+        (tmp_path / "nl" / "x.md").write_text("# X nl", encoding="utf-8")
+        path, translated = legal.resolve_doc_path("x.md", "nl", beta=True, root=tmp_path)
+        assert path == tmp_path / "nl" / "x.md" and translated is True
+
+    def test_beta_texts_say_what_is_true_in_the_beta(self):
+        beta = legal.POLICIES_DIR / "beta"
+        def public(name):   # without the internal drafting comment
+            return legal._strip_header((beta / name).read_text(encoding="utf-8"))
+
+        terms = public("terms-of-use.md")
+        assert "Mollie" not in terms and "withdraw" not in terms.lower()
+        privacy = public("privacy-notice.md")
+        assert "Mollie" not in privacy and "Brevo" not in privacy
+        data = public("data-sources.md")
+        assert "Yahoo Finance" in data and "EODHD" not in data
+
+    def test_legal_page_renders_the_requested_document(self):
+        def _script():
+            import streamlit as st
+            st.query_params["doc"] = "privacy"
+            from uvalu.pages_ import legal as page
+            page.render()
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        md = "".join(m.value for m in at.markdown)
+        assert "Privacy notice — free beta" in md
+        assert "<!--" not in md    # the drafting comment is not public
+
+
+class TestFooter:
+    def test_footer_carries_disclaimer_producer_and_supervision_note(self):
+        def _script():
+            from uvalu.shell import render_footer
+            render_footer()
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        md = "".join(m.value for m in at.markdown)
+        assert "Uvalu is an analysis tool." in md
+        assert "Sven Claes" in md and "registration pending" in md
+        assert "Not authorised or supervised by the FSMA" in md
+        assert "Not directed at residents of the United Kingdom" in md

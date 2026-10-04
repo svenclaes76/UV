@@ -55,7 +55,7 @@ def test_renders_full_analysis_for_matched_ticker(isolated_data, monkeypatch):
     assert "Composite fair value" in html
     assert "Signal sub-scores" in html
     assert "Financials" in html
-    assert "Hard-veto checks" in html
+    assert "Quality screen checks" in html
 
 
 def test_shows_veto_banner_when_row_is_vetoed(isolated_data, monkeypatch):

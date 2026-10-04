@@ -188,7 +188,7 @@ class TestOpenDrawer:
         html = "".join(m.value for m in at.markdown)
         assert "AAA.BR" in html
         assert "Not held" in html
-        assert any(b.label == "Add" for b in at.button)
+        assert any(b.label == "Record purchase" for b in at.button)
 
     def test_renders_veto_banner(self):
         at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
@@ -207,8 +207,8 @@ class TestOpenDrawer:
         html = "".join(m.value for m in at.markdown)
         assert "Shares held" in html
         assert "Unrealised P&amp;L" in html  # label is HTML-escaped (renders as "P&L")
-        assert any(b.label == "Edit" for b in at.button)
-        assert any(b.label == "Close" for b in at.button)
+        assert any(b.label == "Edit position" for b in at.button)
+        assert any(b.label == "Record sale" for b in at.button)
 
     def test_scored_price_beside_the_signal_live_price_for_the_position(self):
         # B3: the hero Price tile shows the price the signal was computed
@@ -286,7 +286,7 @@ open_drawer(row)
     def test_add_button_stashes_buy_action_and_reruns(self):
         at = AppTest.from_string(_open_drawer_script(), default_timeout=60)
         at.run()
-        add_btn = [b for b in at.button if b.label == "Add"][0]
+        add_btn = [b for b in at.button if b.label == "Record purchase"][0]
         add_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         # After st.rerun(), the drawer dialog is not re-invoked by this bare
@@ -312,7 +312,7 @@ open_drawer(row)
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        edit_btn = [b for b in at.button if b.label == "Edit"][0]
-        close_btn = [b for b in at.button if b.label == "Close"][0]
+        edit_btn = [b for b in at.button if b.label == "Edit position"][0]
+        close_btn = [b for b in at.button if b.label == "Record sale"][0]
         assert edit_btn.disabled
         assert close_btn.disabled

@@ -16,7 +16,8 @@ from screener import get_fetch_progress, SIGNAL_LABELS
 from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
-from uvalu.components import (fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto, empty_results_html,
+from uvalu.components import (fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
+                              list_provenance_html, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
@@ -338,6 +339,9 @@ def render() -> None:
                     _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
                                             count=len(_all_df))
                 st.caption(_scr_caption)
+                # REC-4 / REC-5 / REC-10: when the signals were computed, the
+                # price times, model version, coverage per signal, methodology.
+                st.markdown(list_provenance_html(_all_df, coverage=True), unsafe_allow_html=True)
             with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
                 with st.container(key="scr_reset_btn"):
                     if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):

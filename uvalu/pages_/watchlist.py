@@ -12,7 +12,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
+from uvalu.components import list_provenance_html, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
@@ -142,6 +142,8 @@ def render() -> None:
                 h_("Your watchlist is empty. Star a ticker in the screener or add one above.")),
                 unsafe_allow_html=True)
         return
+    if not wl_df.empty:
+        st.markdown(list_provenance_html(wl_df), unsafe_allow_html=True)   # REC-4 / REC-5
     if wl_df.empty:
         # Watchlist has tickers but none are scored yet — cold fundamentals
         # cache. Show a skeleton and (while a fetch is running) let it fill in

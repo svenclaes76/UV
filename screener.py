@@ -1509,7 +1509,7 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
 
 
 def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
-                       sector_pb: "dict | None" = None) -> dict:
+                       sector_pb: "dict | None" = None, *, discount_shift: float = 0.0) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
@@ -1530,7 +1530,9 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
-    wacc = _approx_wacc(beta)
+    # discount_shift: added to the discount rate for the sensitivity table
+    # (fair_value_sensitivity, REC-6); 0 for every scored row.
+    wacc = _approx_wacc(beta) + discount_shift
 
     # FV-8: for a NAV-driven sector the earnings-anchored models are skipped
     # (see _GRAHAM_EPV_SKIP_SECTORS / _PE_SKIP_SECTORS) — the row is valued off
@@ -2712,6 +2714,39 @@ def signal_distribution(df: pd.DataFrame) -> dict[str, float]:
     shares = codes.value_counts(normalize=True)
     return {code: float(shares.get(code, 0.0))
             for code in (SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL, SIGNAL_LOW_SCORE, SIGNAL_FAILS)}
+
+
+# REC-3: what each data flag means, for the stock page's data panel.
+DATA_FLAG_LABELS = {
+    "price_stale": N_("The price is more than 72 hours old."),
+    "price_missing_timestamp": N_("The time of the price is unknown."),
+    "fair_value_missing": N_("No model could compute a fair value."),
+    "fair_value_thin_basis": N_("The fair value rests on fewer than two independent models."),
+    "fair_value_clamped": N_("The fair value was capped at the models' median."),
+    "eps_derived_from_pe": N_("Earnings per share were derived from the P/E ratio."),
+    "small_peer_group": N_("Fewer than 20 stocks were available for comparison."),
+}
+
+
+def fair_value_sensitivity(row: "pd.Series | dict", reference: "ScoreReference | None" = None,
+                           shifts: tuple = (-0.01, 0.0, 0.01)) -> list[dict]:
+    """REC-6: the stock's model fair value and margin of safety with the
+    discount rate shifted by each of ``shifts`` (fractions), all else equal.
+    Uses the scored universe's sector multiples (``reference``) so the 0 shift
+    reproduces the row's own fair value. Display only: a shifted fair value
+    never changes a score or a signal (decision D2)."""
+    row = pd.Series(row) if isinstance(row, dict) else row
+    sector_pe = reference.sector_pe if reference is not None else {}
+    sector_pb = reference.sector_pb if reference is not None else {}
+    base_rate = _approx_wacc(row.get("beta"))
+    price = _finite(row.get("Price"))
+    out = []
+    for shift in shifts:
+        fv = _finite(_fair_value_models(row, sector_pe=sector_pe, sector_pb=sector_pb,
+                                        discount_shift=shift).get("fair_value"))
+        out.append({"shift": shift, "discount_rate": base_rate + shift, "fair_value": fv,
+                    "margin_of_safety": _margin_of_safety(price, fv)})
+    return out
 
 
 # The inputs a signal can be reproduced from (REC-11), next to its outputs.

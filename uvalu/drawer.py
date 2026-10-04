@@ -29,7 +29,7 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
                               veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
 from uvalu.formatting import fmt_eur as _fmt_eur
-from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, pgettext, tr
+from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
 
@@ -324,17 +324,23 @@ def open_drawer(row: "pd.Series") -> None:
 
     _is_viewer = current_user().is_viewer
     _vhelp = _("Viewer role is read-only") if _is_viewer else None
+    # PER-7: the position buttons record trades the user already made at
+    # their broker; nothing is executed, and no order or broker link sits
+    # next to the signal.
+    from uvalu.compliance.disclosures import RECORDS_NOTE
+    st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+                f'color:var(--faint);margin:4px 0 2px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
+                unsafe_allow_html=True)
     if _held:
-        _act1, _act2, _act3 = st.columns([2, 1, 1])
+        _act1, _act2, _act3 = st.columns([1.6, 1.2, 1.2])
         with _act1:
             if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
                 _go_analysis(ticker)
         with _act2:
-            if st.button(_("Edit"), key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button(_("Edit position"), key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
                 _go_portfolio_edit(ticker)
         with _act3:
-            # Translators: Stock preview › button that closes (sells) the position you hold — not "close this panel".
-            if st.button(pgettext("position", "Close"), key="drw_sell", width="stretch",
+            if st.button(_("Record sale"), key="drw_sell", width="stretch",
                          disabled=_is_viewer, help=_vhelp):
                 # Streamlit forbids nesting one @st.dialog inside another —
                 # sell_position_dialog can't be called directly from here.
@@ -345,12 +351,12 @@ def open_drawer(row: "pd.Series") -> None:
                                                    "price": _safe_float(_market_price)}
                 st.rerun()
     else:
-        _act1, _act2 = st.columns([2, 1])
+        _act1, _act2 = st.columns([1.6, 1.2])
         with _act1:
             if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
                 _go_analysis(ticker)
         with _act2:
-            if st.button(_("Add"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
+            if st.button(_("Record purchase"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,
                                                    "name": str(row.get("Name", "")),
                                                    "price": _safe_float(_market_price)}
