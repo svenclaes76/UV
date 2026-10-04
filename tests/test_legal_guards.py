@@ -122,6 +122,34 @@ class TestLegalPages:
         md = "".join(m.value for m in at.markdown)
         assert "Privacy notice — free beta" in md
         assert "<!--" not in md    # the drafting comment is not public
+        # Header chips from the "**Version:** … · **Effective from:** …" line,
+        # a section list, and the reference-language note only outside English.
+        assert "beta 1.0" in md and "Effective from" in md
+        assert 'href="#sec-1"' in md and 'id="sec-1"' in md
+        assert "Reference language" not in md
+
+    def test_split_document_reads_title_meta_and_body(self):
+        md = ("# Terms of use — free beta\n\n"
+              "**Version:** beta 1.0 · **Effective from:** the opening of the free beta\n\n"
+              "Intro.\n\n## 1. Who we are\n\nText.\n")
+        title, meta, body = legal.split_document(md)
+        assert title == "Terms of use — free beta"
+        assert meta == [("Version", "beta 1.0"), ("Effective from", "the opening of the free beta")]
+        assert body.startswith("Intro.") and "**Version:**" not in body
+        assert legal.split_document("No heading here.") == ("", [], "No heading here.")
+
+    def test_anchor_sections_builds_the_on_this_page_list(self):
+        body, toc = legal.anchor_sections("Intro\n## 1. **Who** we are\nx\n## 2. The free beta\ny")
+        assert toc == [("sec-1", "1. Who we are"), ("sec-2", "2. The free beta")]
+        assert body.index('id="sec-1"') < body.index("## 1.") < body.index('id="sec-2"')
+
+    def test_every_policy_file_has_a_title_and_version_line(self):
+        for _key, _title, file_name in disclosures.LEGAL_DOCS:
+            for beta in (True, False):
+                path, _t = legal.resolve_doc_path(file_name, "en", beta=beta)
+                title, meta, _body = legal.split_document(legal._strip_header(path.read_text(encoding="utf-8")))
+                assert title, path
+                assert meta and meta[0][0] == "Version", path
 
 
 class TestFooter:

@@ -131,6 +131,12 @@ if _legacy_page:
     if _legacy_page in nav.pages:
         st.switch_page(nav.pages[_legacy_page])
 
+# Remember the last page outside Legal/Admin, so the legal page's "← Back"
+# returns there (uvalu/pages_/legal.py) instead of always to the Dashboard.
+_nav_key = next((k for k, p in nav.pages.items() if p.url_path == _nav.url_path), None)
+if _nav_key and _nav_key not in ("legal", "admin"):
+    st.session_state["_uv_last_page"] = _nav_key
+
 # Admin renders its own standalone sidebar/topbar (uvalu/pages_/admin.py),
 # matching Uvalu Admin.dc.html's separate shell — skip the main app's
 # horizontal top-bar nav for it instead of stacking both.

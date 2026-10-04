@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-04 18:03+0000\n"
+"POT-Creation-Date: 2026-10-04 18:25+0000\n"
 "PO-Revision-Date: 2026-10-04 14:41+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -3141,22 +3141,26 @@ msgstr "Overschakelen naar donker thema"
 msgid "Switch to light theme"
 msgstr "Overschakelen naar licht thema"
 
+#: uvalu/pages_/legal.py:220 uvalu/shell.py:381
+msgid "Legal & policies"
+msgstr "Juridisch en beleid"
+
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:380
+#: uvalu/shell.py:383
 msgid "Admin portal"
 msgstr "Beheerportaal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:384
+#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:387
 msgid "Sign out"
 msgstr "Afmelden"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:441 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:292
-#: uvalu/shell.py:409
+#: uvalu/shell.py:412
 msgid "Beta"
 msgstr "Bèta"
 
@@ -4396,7 +4400,7 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Brussel/Parijs, XETRA, SIX Swiss en Borsa Italiana."
 
 #. Context: Help and Settings pages › back button
-#: uvalu/pages_/help.py:132 uvalu/pages_/legal.py:56 uvalu/pages_/settings.py:407
+#: uvalu/pages_/help.py:132 uvalu/pages_/settings.py:407
 msgid "← Back"
 msgstr "← Terug"
 
@@ -4497,21 +4501,24 @@ msgstr "De oprichter handelt niet in een aandeel vanaf het moment dat een modelw
 msgid "About Uvalu"
 msgstr "Over Uvalu"
 
-#: uvalu/pages_/legal.py:62
-msgid "Legal & policies"
-msgstr "Juridisch en beleid"
+#: uvalu/pages_/legal.py:164
+#, fuzzy, python-brace-format
+msgid "← Back to {page}"
+msgstr "← Terug naar {page}"
 
-#: uvalu/pages_/legal.py:83
+#: uvalu/pages_/legal.py:187
+#, fuzzy
+msgid "Print or save as PDF"
+msgstr "Afdrukken of opslaan als pdf"
+
+#: uvalu/pages_/legal.py:232
+#, fuzzy
+msgid "On this page"
+msgstr "Op deze pagina"
+
+#: uvalu/pages_/legal.py:237
 msgid "This document is not available yet."
 msgstr "Dit document is nog niet beschikbaar."
-
-#: uvalu/pages_/legal.py:89
-msgid "Uvalu · Legal"
-msgstr "Uvalu · Juridisch"
-
-#: uvalu/pages_/legal.py:89
-msgid "Free beta"
-msgstr "Gratis bèta"
 
 #. Context: Portfolio › column header: average purchase price per share
 #: uvalu/pages_/portfolio.py:65
@@ -6134,3 +6141,9 @@ msgstr[1] "Nog geen screenergegevens voor je tickers op de volglijst; ze verschi
 
 #~ msgid "coverage: {shares}"
 #~ msgstr "dekking: {shares}"
+
+#~ msgid "Uvalu · Legal"
+#~ msgstr "Uvalu · Juridisch"
+
+#~ msgid "Free beta"
+#~ msgstr "Gratis bèta"

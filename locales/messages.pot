@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-04 18:03+0000\n"
+"POT-Creation-Date: 2026-10-04 18:25+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3268,22 +3268,26 @@ msgstr ""
 msgid "Switch to light theme"
 msgstr ""
 
+#: uvalu/pages_/legal.py:220 uvalu/shell.py:381
+msgid "Legal & policies"
+msgstr ""
+
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:380
+#: uvalu/shell.py:383
 msgid "Admin portal"
 msgstr ""
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:384
+#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:890 uvalu/shell.py:387
 msgid "Sign out"
 msgstr ""
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:441 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:292
-#: uvalu/shell.py:409
+#: uvalu/shell.py:412
 msgid "Beta"
 msgstr ""
 
@@ -4622,7 +4626,7 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr ""
 
 #. Context: Help and Settings pages › back button
-#: uvalu/pages_/help.py:132 uvalu/pages_/legal.py:56 uvalu/pages_/settings.py:407
+#: uvalu/pages_/help.py:132 uvalu/pages_/settings.py:407
 msgid "← Back"
 msgstr ""
 
@@ -4737,20 +4741,21 @@ msgstr ""
 msgid "About Uvalu"
 msgstr ""
 
-#: uvalu/pages_/legal.py:62
-msgid "Legal & policies"
+#: uvalu/pages_/legal.py:164
+#, python-brace-format
+msgid "← Back to {page}"
 msgstr ""
 
-#: uvalu/pages_/legal.py:83
+#: uvalu/pages_/legal.py:187
+msgid "Print or save as PDF"
+msgstr ""
+
+#: uvalu/pages_/legal.py:232
+msgid "On this page"
+msgstr ""
+
+#: uvalu/pages_/legal.py:237
 msgid "This document is not available yet."
-msgstr ""
-
-#: uvalu/pages_/legal.py:89
-msgid "Uvalu · Legal"
-msgstr ""
-
-#: uvalu/pages_/legal.py:89
-msgid "Free beta"
 msgstr ""
 
 #. Context: Portfolio › column header: average purchase price per share

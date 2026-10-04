@@ -376,6 +376,9 @@ def render_topbar(nav) -> None:
                                 st.page_link(_settings_page, label=_("Settings"))
                             if _help_page is not None:
                                 st.page_link(_help_page, label=_("Methodology & help"))
+                            _legal_page = nav_registry.pages.get("legal")
+                            if _legal_page is not None:
+                                st.page_link(_legal_page, label=_("Legal & policies"), query_params={"doc": "terms"})
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()

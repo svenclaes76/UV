@@ -418,6 +418,15 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    table can show). The coverage bar keeps REC-10's share over all covered stocks. Existing msgids are
    kept; new ones: "Coverage", "oldest {age}", "{count} price(s) is/are more than 72 hours old.".
 4. **Legal page (1.3), ≈ ½–1 day.** L2–L14.
+
+   **Status 4 Oct 2026: done, not committed.** L2 (active state), L3 (no icons), L4 (sticky column),
+   L5 ("On this page" from the `##` headings), L6 (header block with title, chips and a print button;
+   the breadcrumb is gone), L7 (reference-language note only outside English), L8 (app notice style),
+   L9 ("← Back to {page}", the last page visited in this session), L10 (72ch measure, H2 rhythm),
+   L11 (current document marked in the footer), L12 (phone: section list and print hidden), L13 (user
+   menu entry; the Settings "Legal" section comes with 1.4). L14 is moot: no document links to another yet.
+   Print stylesheet checked by applying its rules on screen (the browser tool can't open a print
+   dialog). Worth one real print or "Save as PDF" test in Chrome.
 5. **Settings (1.4), ≈ 1–1½ days.** Row component + section nav first (fixes S4–S6), then the save
    model, the copy cleanup and the controls.
 6. **Design-system polish, ≈ 1 day.** G3–G7, G10–G12, G14–G18. Mostly CSS/helpers in `components.py`
