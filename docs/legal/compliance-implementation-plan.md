@@ -119,6 +119,26 @@ The design and the code disagree in several places. Each one must be settled onc
 | D11 | **Legal entity** | `Uvalu [legal form]` | Policies: sole trader (eenmanszaak) | Requirements doc: a sole trader is fine for a closed free beta, a BV is recommended for the paid launch (BIZ). Decide with an accountant. It fills every `[TBD]` in pages, footer and checkout. |
 | D12 | **Model version shown** | "Model v2.3" | `MODEL_VERSION = "2.0.1-legal.1"` | A model version independent of the app version (e.g. `M1`, `M2`, …), bumped on any change that moves a score. Shown in the UI, the methodology change log and the signal log. |
 
+### Decided (Oct 4, 2026)
+
+Sven accepted the recommendations. Where the recommendation left a choice, the choice is:
+
+| # | Decision |
+| --- | --- |
+| D1 | Labels: **Undervalued · Neutral · Low score · Fails quality screen · No signal**. "Undervalued" additionally requires a margin of safety of at least **10%**, enforced in code as a floor the shared setting cannot go below. **[Counsel]** in the limited round. |
+| D2 | Model settings stay shared. Non-admins see them read-only; only the admin sees the sliders. No new discount-rate or terminal-growth settings. The sensitivity table is display-only. |
+| D3 | The UI and methodology list only the models the code runs. |
+| D4 | Signal history kept 24 months; stock pages show 12. |
+| D5 | Horizon "3–5 years", in `SIGNAL_HORIZON` and the UI. |
+| D6 | Trial: decided with M4. |
+| D7 | Email domain **uvalu.app** everywhere (the legal pages already use it). |
+| D8 | Backups purged within **30 days** of deletion, matching the privacy notice; the backup rotation must be set to deliver this. |
+| D9 | Founder line driven by `founder_holds`. |
+| D10 | Beta: **Yahoo Finance** named as the source (B2). EODHD with M2. |
+| D11 | Beta: sole trader. BV or not: decided before M4. |
+| D12 | Model version independent of the app version, starting at **M1**. |
+| B2 | Beta runs on **Yahoo Finance**, with the mitigations in §0. |
+
 ---
 
 ## 2. Track A: external work (critical path)
