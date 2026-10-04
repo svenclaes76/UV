@@ -74,15 +74,17 @@ def _row(title: str, desc: str | None = None):
 
 
 def _preview(ctx: i18n.Ctx) -> None:
-    """S-01: sample price, portfolio total, % change, date and a BUY badge in
-    the current selection."""
-    from uvalu.components import signal_badge_html
+    """S-01: sample price, portfolio total, % change, date and a signal badge
+    in the current selection — the real model-signal label (BDG-1), not the
+    retired BUY wording."""
+    from screener import SIGNAL_UNDERVALUED
+    from uvalu.components import signal_badge_for, signal_badge_html
     cells = [
         (_("Price"), fmt_money(42.17, "EUR")),
         (_("Total value"), fmt_money(125430.5, ctx.currency)),
         (_("Change"), fmt_pct(3.2, signed=True)),
         (_("Date"), fmt_date(_SAMPLE_DATE)),
-        (_("Signal"), signal_badge_html("buy", "BUY")),
+        (_("Signal"), signal_badge_html(*signal_badge_for(SIGNAL_UNDERVALUED))),
     ]
     inner = "".join(
         f'<div><div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;'
@@ -167,7 +169,7 @@ def render_card(email: str) -> None:
 
         with st.container(key="set_row_i18n_week_start"):
             with _row(_("First day of week")):
-                days = ctx.locale.days["format"]["wide"]
+                days = i18n.names_locale().days["format"]["wide"]
                 day_names = {"monday": days[0], "sunday": days[6]}
                 st.radio(_("First day of week"), options=list(i18n.WEEK_STARTS),
                          format_func=i18n.frozen(lambda d: day_names[d][:1].upper() + day_names[d][1:]),

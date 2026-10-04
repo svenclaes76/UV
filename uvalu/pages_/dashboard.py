@@ -10,7 +10,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings, load_settings, get_dividend_withholding, get_veto_thresholds
-from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
+from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
 from uvalu.formatting import safe_pct as _safe_pct
@@ -134,6 +134,12 @@ def render() -> None:
     # (fetch finished with nothing to show) falls through to the plain "no
     # data" captions below instead of an endless skeleton.
     _db_fetch_running = _db_scr.empty and bool(get_fetch_progress(PORTFOLIO_FETCH).get("running"))
+    # Cold start: the holdings are scored but can't be ranked until the
+    # universe's peer reference exists — every signal would read "No signal",
+    # the fair values would lack sector medians and the composite would
+    # average only the failed-screen rows (0/100). Everything that depends on
+    # the ranking shows its skeleton until then (G1).
+    _db_ref_pending = not _db_scr.empty and peer_reference_pending()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
@@ -197,7 +203,7 @@ def render() -> None:
             else:
                 _kpi_card(h_("Dividends received"), fmt_total(_db_divs), "", True, "", icon="coin")
         with _k4:
-            if _db_avg_mos is None and _db_fetch_running:
+            if (_db_avg_mos is None and _db_fetch_running) or _db_ref_pending:
                 st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
             else:
                 _kpi_card(h_("Avg margin of safety"), fmt_pct(_db_avg_mos, signed=True),
@@ -379,7 +385,7 @@ def render() -> None:
             except Exception:
                 pass
 
-        if _db_fetch_running or _risk_pending:
+        if _db_fetch_running or _risk_pending or _db_ref_pending:
             # Either half of this card can independently still be computing
             # (conviction from the PORTFOLIO_FETCH lane, risk score from the
             # background risk report) — one combined skeleton covers both
@@ -452,7 +458,7 @@ def render() -> None:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>"""
-                           + list_provenance_html(_db_scr), unsafe_allow_html=True)
+                           + ("" if _db_ref_pending else list_provenance_html(_db_scr)), unsafe_allow_html=True)
             with st.container(width="content"):
                 fair_value_legend_row()
         # Column header renders for the real table AND the fetch-in-progress
@@ -474,7 +480,7 @@ def render() -> None:
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
 
-        if not _db_scr.empty:
+        if not _db_scr.empty and not _db_ref_pending:
             _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
             _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
             _hold = _hold.sort_values("price_gain", ascending=False).reset_index(drop=True)
@@ -532,6 +538,11 @@ def render() -> None:
 
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target])
+        elif _db_ref_pending:
+            # Scored, but the peer reference is still being built — the
+            # universe recompute's poll fills the real rows in (G1).
+            poll_while_fetching("dashboard_peer_reference", lane="screener")
+            st.markdown(skeleton_holdings_table_html(grid_cols=_hold_grid), unsafe_allow_html=True)
         elif _db_fetch_running:
             # Nothing scored yet, but the PORTFOLIO_FETCH lane is still
             # working on it — paint the table's real shape immediately

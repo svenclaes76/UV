@@ -828,6 +828,15 @@ def _loc(locale: str | None) -> Locale:
     return _locale(locale) if locale else current().locale
 
 
+def names_locale(locale: str | None = None) -> Locale:
+    """The locale for month and day *words*: the interface language, not the
+    region. The region decides the order and separators (F-07), but its
+    language must not leak into the UI — an English interface with the
+    Belgium (Dutch) region read "closed mei 2026" and "Maandag". An explicit
+    ``locale`` keeps meaning "format exactly as this region"."""
+    return _locale(locale) if locale else _locale(current().lang)
+
+
 def _apply(pattern, value, loc: Locale, decimals: int, min_decimals: int | None,
            currency: str | None = None, grouping: bool = True) -> str:
     p = copy.copy(pattern)
@@ -963,13 +972,21 @@ def fmt_date(value, style: str | None = None, *, skeleton: str | None = None,
     if isinstance(d, _dt.datetime):
         d = d.date()
     loc = _loc(locale)
+    names = names_locale(locale)
     if skeleton:
-        return _bdates.format_skeleton(skeleton, d, locale=loc)
+        if names == loc:
+            return _bdates.format_skeleton(skeleton, d, locale=loc)
+        # The region's pattern for this skeleton, filled with the interface
+        # language's month names (see names_locale).
+        best = _bdates.match_skeleton(skeleton, loc.datetime_skeletons)
+        if best is None:
+            return _bdates.format_skeleton(skeleton, d, locale=names)
+        return _bdates.format_date(d, format=loc.datetime_skeletons[best].pattern, locale=names)
     style = style or current().date_format
     if style == "iso":
         return d.isoformat()
-    return _bdates.format_date(d, format=style if style in ("short", "medium", "long", "full") else "short",
-                               locale=loc)
+    style = style if style in ("short", "medium", "long", "full") else "short"
+    return _bdates.format_date(d, format=loc.date_formats[style].pattern, locale=names)
 
 
 def _in_tz(value, tz: str | None) -> _dt.datetime | None:

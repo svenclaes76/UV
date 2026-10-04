@@ -62,6 +62,14 @@ def render() -> None:
                     f'color:var(--faint);margin-bottom:8px;">{h_("Legal & policies")}</div>',
                     unsafe_allow_html=True)
         page = nav_registry.pages.get("legal")
+        # Let long titles wrap: the narrow nav column cut "Complaints &
+        # Consumer Mediation Service" to "Complaints & Consume…".
+        st.markdown('<style>.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] { height:auto !important;'
+                    ' padding-top:3px !important; padding-bottom:3px !important; }'
+                    '.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] p,'
+                    '.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] span {'
+                    ' white-space:normal !important; overflow:visible !important; text-overflow:clip !important;'
+                    ' line-height:1.35 !important; }</style>', unsafe_allow_html=True)
         with st.container(key="legal_doc_list"):
             for key, doc_title, _f in d.LEGAL_DOCS:
                 if page is not None:

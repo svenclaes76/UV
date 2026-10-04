@@ -394,6 +394,23 @@ def _universe_ref_args() -> tuple:
     return (args, version) if ref is not None else (None, 0)
 
 
+def peer_reference_pending() -> bool:
+    """True while the holdings can't be ranked yet because the universe's
+    ScoreReference is still being built (cold start). In that window the
+    portfolio lane gives every holding "No signal" (PER-1) and fair values
+    without sector medians, so a page showing them — or an average over the
+    few failed-screen rows that do carry a score (0) — would paint figures
+    that change seconds later. Pages show their loading skeleton instead.
+    False once a reference exists, or when no build is running (a failed or
+    empty universe), so a skeleton never spins forever."""
+    try:
+        from uvalu.store import universe_recomputing
+        ref_key, _version = _universe_ref_args()
+        return ref_key is None and universe_recomputing()
+    except Exception:
+        return False
+
+
 def _load_portfolio_scored(held: "pd.DataFrame | None",
                            sold: "pd.DataFrame | None" = None) -> pd.DataFrame:
     """Scored screener rows for a portfolio's own tickers (held + optionally
@@ -553,6 +570,17 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
     from portfolio_enrichment import enrich_for_risk
     from uvalu.runtime import current_user
 
+    # Not from pre-reference scores (G1): until the universe's peer reference
+    # exists the holdings carry no signals and fair values without sector
+    # medians, and a report built from them would sit in the session cache
+    # for an hour (Dashboard read 35, the Risk page 36, for one portfolio).
+    if peer_reference_pending():
+        return None
+    try:
+        _ref_version = _universe_ref_args()[1]
+    except Exception:
+        _ref_version = 0
+
     live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     # Live quote alongside the scored figures (B3: the scored Price and MoS
     # stay those the signal was computed from).
@@ -572,7 +600,7 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
 
     key = str((tuple(sorted(pf_enriched["ticker"].tolist())), weighting,
                tuple(sorted(veto_lookup.items())),
-               repr(sorted(targets.items()))))
+               repr(sorted(targets.items())), _ref_version))
     cached = st.session_state.get("_risk_report_cache", {})
     report = None
     if cached.get("key") == key and "report" in cached:

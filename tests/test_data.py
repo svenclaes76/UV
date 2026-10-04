@@ -676,3 +676,34 @@ class TestPriceFeedStatus:
         s = data_module.price_feed_status(
             {"A.BR": {"price": 1.0, "as_of": "2026-09-01T12:00:00", "quote_source": "eod"}})
         assert s["as_of"].tzinfo is not None
+
+
+# ── Peer reference still building (G1, visual review 2026-10-04) ─────────────
+
+@pytest.mark.parametrize("ref_key, recomputing, expected", [
+    (None, True, True),                  # cold start: no reference yet, build running
+    (None, False, False),                # no build running (failed/empty universe): never spin forever
+    (("enabled",), True, False),         # a reference exists: holdings are ranked
+])
+def test_peer_reference_pending(monkeypatch, ref_key, recomputing, expected):
+    import uvalu.store
+    monkeypatch.setattr(data_module, "_universe_ref_args", lambda: (ref_key, 1 if ref_key else 0))
+    monkeypatch.setattr(uvalu.store, "universe_recomputing", lambda: recomputing)
+    assert data_module.peer_reference_pending() is expected
+
+
+def test_peer_reference_pending_is_false_when_the_lookup_fails(monkeypatch):
+    def _boom():
+        raise RuntimeError("no settings")
+    monkeypatch.setattr(data_module, "_universe_ref_args", _boom)
+    assert data_module.peer_reference_pending() is False
+
+
+def test_risk_report_waits_for_the_peer_reference(monkeypatch):
+    """A report built from pre-reference scores (no signals, fair values
+    without sector medians) would sit in the session cache for an hour —
+    the Dashboard read 35 while the Risk page read 36."""
+    monkeypatch.setattr(data_module, "peer_reference_pending", lambda: True)
+    monkeypatch.setattr(data_module, "_load_portfolio_scored",
+                        lambda *a, **k: pytest.fail("must not score before the reference exists"))
+    assert data_module.load_portfolio_risk(make_portfolio_df()) is None

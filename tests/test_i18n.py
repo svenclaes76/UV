@@ -85,6 +85,21 @@ def test_percent_in_text_follows_the_region(region, sep):
         assert i18n._percent_spacing("die 15-%-Grenze") == "die 15-%-Grenze"   # compounds untouched
 
 
+def test_month_and_day_names_follow_the_interface_language_not_the_region():
+    """An English UI with the Belgium (Dutch) region read "closed mei 2026"
+    and "Maandag": the region sets the order, the language sets the words."""
+    d = dt.date(2026, 5, 4)
+    with i18n._using(i18n.with_(i18n._default_ctx(), lang="en", region="nl-BE")):
+        assert i18n.fmt_date(d, skeleton="yMMM") == "May 2026"
+        assert i18n.fmt_date(d, "medium") == "4 May 2026"        # nl-BE order, English month
+        assert i18n.fmt_date(d, "short") == "4/05/2026"          # numeric: region only
+        assert i18n.names_locale().days["format"]["wide"][0] == "Monday"
+    with i18n._using(i18n.with_(i18n._default_ctx(), lang="nl", region="nl-BE")):
+        assert i18n.fmt_date(d, skeleton="yMMM") == "mei 2026"
+    # An explicit locale still means "exactly this region" (format snapshots).
+    assert i18n.fmt_date(d, "medium", locale="nl-BE") == "4 mei 2026"
+
+
 def test_money_never_shows_minus_zero():
     assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "€0.00"
     assert i18n.fmt_money(-0.0, "CHF", locale="de-CH") == f"CHF{NBSP}0.00"

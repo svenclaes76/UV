@@ -1306,6 +1306,10 @@ GLOBAL_CSS = """
   .st-key-set_targets_hhi { padding: 14px 20px 4px !important; }
   .st-key-set_targets_hhi [data-testid="stNumberInput"] { max-width: 180px !important; }
   .st-key-set_targets_save { padding: 6px 20px 18px !important; }
+  /* Settings cards carry no padding of their own (each row pads itself), so
+     the bare withholding grid sat flush on the card edge and its right-hand
+     input ran past the card border. */
+  .st-key-set_dividend_wh_grid { padding: 8px 20px 18px !important; box-sizing: border-box; }
   /* Import & Export — the whole two-column content block had NO horizontal
      padding at all (confirmed live: "Import portfolio" sat 1px from the
      card's own left edge, vs. every other row on this page having a 20px
@@ -1705,6 +1709,35 @@ GLOBAL_CSS = """
   .uv-badge-avoid,   .uv-badge-warn    { background: var(--uv-neg-bg); color: var(--uv-neg-txt); }
   .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
   .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
+  /* Dark theme: the brand tints above are light-surface colours — on the
+     navy cards they read as glaring near-white pills, and the navy veto pill
+     vanished into the card (only its text showed). Tinted fills + light
+     semantic text instead; the veto badge keeps its "dark, white text" look
+     with a slate fill and a hairline border so the pill stays visible. */
+  html:not([data-theme="light"]) .uv-badge-buy,
+  html:not([data-theme="light"]) .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
+  html:not([data-theme="light"]) .uv-badge-monitor,
+  html:not([data-theme="light"]) .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
+  html:not([data-theme="light"]) .uv-badge-avoid,
+  html:not([data-theme="light"]) .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
+  html:not([data-theme="light"]) .uv-badge-veto    { background: #1E2D4A; color: #FFFFFF;
+                                                     box-shadow: inset 0 0 0 0.5px rgba(245,247,250,0.28); }
+  html:not([data-theme="light"]) .uv-badge-neutral { background: rgba(245,247,250,0.07); color: var(--muted); }
+
+  /* ── Numeric table cells never wrap mid-value ───────────────────────────────
+     The st.columns tables (Portfolio open/closed/dividends, …) size columns by
+     weight, so a narrow half-width card squeezed "€ 109,20" onto two lines
+     ("€ 109,⏎20"). A right-aligned monospace cell is a number: keep each line
+     on one line. When the column is a few px too narrow, a flex column with
+     align-items:flex-end overflows on its start (left) side, into the column
+     gap, instead of out of the card on the right. (Growing the column with
+     min-width:max-content wrapped the whole row instead — Streamlit then
+     pins the measured width, so it never recovers.) React writes these
+     inline styles back as "prop: value;" with a space, hence the spelling. */
+  [data-testid="stColumn"] [style*="text-align: right"][style*="font-family: var(--uv-mono)"] {
+    white-space: nowrap;
+    display: flex; flex-direction: column; align-items: flex-end;
+  }
 
   /* ── Dialog key/value data rows — brand spec (monospace, right-aligned) ──── */
   [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:last-child {

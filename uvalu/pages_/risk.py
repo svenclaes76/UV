@@ -217,12 +217,22 @@ def render() -> None:
     # one portfolio (WP-DQ4). It also returns the scored held+sold frame and
     # the hard-veto lookup this page needs below for the Flag column, the
     # concentration alert and the per-holding drawer.
+    # The call below can block for seconds on a cold start (portfolio scoring,
+    # price fetch) before it hands back None/the bundle — paint a shimmer
+    # first so the page never sits on just the two notices (G1). Unkeyed, so
+    # it can't collide with the keyed cards rendered after it.
+    _loading_ph = st.empty()
+    with _loading_ph.container():
+        st.markdown(skeleton_gauge_card_html(132), unsafe_allow_html=True)
+        st.markdown(skeleton_metrics_grid_html(n_cells=6, n_cols=3), unsafe_allow_html=True)
     try:
         _bundle = load_portfolio_risk(pf)
     except Exception as _risk_err:
+        _loading_ph.empty()
         st.error(_("Risk assessment failed: {error}", error=tr(_risk_err.args[0]) if _risk_err.args else str(_risk_err)))
         st.stop()
 
+    _loading_ph.empty()
     if _bundle is None:
         # Still computing in the background (cold/stale cache — a real
         # network-bound assess_portfolio() call, see uvalu/data.py) — paint

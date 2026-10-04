@@ -208,8 +208,14 @@ def render() -> None:
 
     # ── Header ────────────────────────────────────────────────────────────────
     _score = row.get("Value Score")
-    # Where the score sits on the model scale (PER-4: no verdict words).
-    if pd.notna(_score) and _score >= 70:
+    _excluded = is_hard_veto(row.get("veto"))
+    # Where the score sits on the model scale (PER-4: no verdict words). A
+    # stock that fails a quality screen is excluded from scoring: its stored
+    # 0 is not a position on the scale, so show "—" and say why, the way the
+    # drawer's "excluded" does (the header used to read "0 · Lower range").
+    if _excluded:
+        _score_rating, _score_color = h_("Excluded · fails a quality screen"), "var(--muted)"
+    elif pd.notna(_score) and _score >= 70:
         _score_rating, _score_color = h_("Upper range"), "var(--up-txt, #0F6E56)"
     elif pd.notna(_score) and _score >= 40:
         _score_rating, _score_color = h_("Middle range"), "#C98A3A"
@@ -230,7 +236,7 @@ def render() -> None:
             f'<div style="text-align:right;">'
             f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{h_("Composite score")}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
-            f'{fmt_num(_score, 0)}</div></div></div>'
+            f'{"—" if _excluded else fmt_num(_score, 0)}</div></div></div>'
             # Row 2: company/sector/exchange caption (left) on the same line
             # as the score rating (right), matching row 1's baseline pairing.
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
