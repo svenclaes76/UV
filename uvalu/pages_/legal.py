@@ -30,11 +30,6 @@ from uvalu.i18n import _, current, h_, tr
 POLICIES_DIR = Path(__file__).resolve().parents[2] / "docs" / "legal" / "policies"
 _DOC_KEYS = [key for key, _title, _file in d.LEGAL_DOCS]
 
-# Session key app.py sets to the last page visited outside Legal/Admin, so
-# "← Back" returns there instead of always to the Dashboard.
-LAST_PAGE_KEY = "_uv_last_page"
-
-
 def resolve_doc_path(file_name: str, lang: str, *, beta: bool | None = None,
                      root: Path | None = None) -> tuple[Path | None, bool]:
     """(path, translated) for a policy file: the most specific existing
@@ -93,7 +88,6 @@ _CSS = """
    reach while reading a 4 000 px Terms page. */
 [data-testid="stColumn"]:has(.st-key-legal_nav) {
   position: sticky; top: 16px; align-self: flex-start;
-  max-height: calc(100vh - 32px); overflow-y: auto;
 }
 .st-key-legal_doc_list { gap: 2px !important; }
 .st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] {
@@ -130,7 +124,7 @@ _CSS = """
    section list (long, and the document follows) and the print button
    (wrapped onto its own line) are hidden. */
 @media (max-width: 640px) {
-  [data-testid="stColumn"]:has(.st-key-legal_nav) { position: static; max-height: none; }
+  [data-testid="stColumn"]:has(.st-key-legal_nav) { position: static; }
   .st-key-legal_toc, .st-key-legal_print { display: none !important; }
   .st-key-legal_doc_body { padding: 18px 16px !important; }
 }
@@ -154,11 +148,8 @@ _CSS = """
 
 def _back_target():
     """(page, label) for "← Back": the page the user came from in this
-    session, the Dashboard otherwise (a full reload starts a new session)."""
-    pages = nav_registry.pages
-    key = st.session_state.get(LAST_PAGE_KEY)
-    page = pages.get(key) if key and key not in ("legal", "admin") else None
-    page = page or pages.get("dashboard")
+    session (uvalu/nav.py), the Dashboard otherwise."""
+    page, _key = nav_registry.back_target("legal")
     if page is None:
         return None, ""
     return page, _("← Back to {page}", page=page.title)

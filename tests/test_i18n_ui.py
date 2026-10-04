@@ -82,7 +82,7 @@ def test_language_and_region_settings_persist_and_apply(isolated_data, monkeypat
     at = _settings_app(monkeypatch)
     at.selectbox(key="set_i18n_language").set_value("fr").run()
     at.selectbox(key="set_i18n_region").set_value("de-CH").run()
-    at.radio(key="set_i18n_date_format").set_value("iso").run()
+    at.segmented_control(key="set_i18n_date_format").set_value("iso").run()
     assert not at.exception, [str(e.value) for e in at.exception]
 
     saved = settings.load_settings(TEST_EMAIL)

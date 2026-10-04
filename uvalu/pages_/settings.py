@@ -31,6 +31,7 @@ borrows its visual chrome:
   settings were removed per a separate request.
 - Account footer shows the real derived display name/email/role, not the
   mockup's fabricated "Marek Kowalski · Pro plan"."""
+import html
 import io
 import traceback
 from datetime import datetime
@@ -49,6 +50,7 @@ from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
+from uvalu.compliance import disclosures
 from uvalu.dialogs import _dialog, _dialog_width_css
 from uvalu.i18n import N_, _, fmt_date, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import number_field
@@ -83,10 +85,40 @@ def _parse_targets_text(txt: str) -> dict:
     return out
 
 
-def _row_header(label: str) -> None:
-    st.markdown(f'<div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
+def _row_header(label: str, *, anchor: str | None = None, chip: str | None = None) -> None:
+    """A card's uppercase header row. ``anchor`` is the id the section nav
+    links to; ``chip`` an amber note on the right (the shared model settings'
+    "affects all users")."""
+    _a = f'<span id="{anchor}" class="uv-set-anchor"></span>' if anchor else ""
+    _c = (f'<span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em;text-transform:none;'
+          f'color:var(--amber-txt);background:var(--amber-bg);border-radius:6px;padding:2px 8px;'
+          f'white-space:nowrap;">{chip}</span>') if chip else ""
+    # One outer <div> so Markdown keeps it a raw HTML block (a leading <span>
+    # would make it a paragraph, with Markdown applied inside).
+    st.markdown(f'<div>{_a}<div class="uv-set-head" style="display:flex;align-items:center;justify-content:space-between;'
+               f'gap:12px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
                f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
-               f'line-height:1.3;">{label}</div>', unsafe_allow_html=True)
+               f'line-height:1.3;"><span>{label}</span>{_c}</div></div>', unsafe_allow_html=True)
+
+
+# Section nav: (anchor, label msgid, admin-visible-only?) in page order.
+_SECTIONS = (
+    ("set-language", N_("Language & region")),
+    ("set-account", N_("Account")),
+    ("set-display", N_("Display")),
+    ("set-portfolio", N_("Portfolio")),
+    ("set-data", N_("Data & alerts")),
+    ("set-import", N_("Import & export")),
+    ("set-model", N_("Model settings")),
+    ("set-legal", N_("Legal")),
+)
+
+
+def _section_nav_html(is_admin: bool) -> str:  # noqa: ARG001 — every section shows for every role
+    """The sticky left list of the page's sections (in-page anchor links)."""
+    import html as _html_mod
+    links = "".join(f'<a href="#{a}" target="_self">{_html_mod.escape(tr(label))}</a>' for a, label in _SECTIONS)
+    return f'<nav class="uv-set-nav">{links}</nav>'
 
 
 def _row_desc(text: str) -> None:
@@ -106,7 +138,7 @@ def _row_title(title: str, desc: str) -> None:
 
 
 def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1),
-             format_func=str):
+             format_func=str, stacked=False):
     """Title+desc on the left, a segmented control flush right — Theme/
     Display currency/Number format all share this shape. `ratio` defaults to
     the [3, 1] every 1-2-option row uses; Screening style and Price refresh
@@ -114,7 +146,16 @@ def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False,
     ratio's control column is too narrow for 4 segments inside this page's
     920px-capped width (see styles.py's `nowrap` note on the segmented-
     control track, which stops them silently wrapping but doesn't by itself
-    make the column wide enough)."""
+    make the column wide enough).
+
+    ``stacked`` puts the control under the title instead of beside it — for
+    4-option controls next to a long description, which otherwise wrapped to
+    three lines and ran into the next row's divider."""
+    if stacked:
+        with st.container(key=f"set_row_{row_key}"):
+            _row_title(title, desc)
+            return st.segmented_control(title, options=options, default=current, disabled=disabled,
+                                        format_func=format_func, label_visibility="collapsed", key=widget_key)
     with st.container(key=f"set_row_{row_key}"):
         _c1, _c2 = st.columns(list(ratio), vertical_alignment="center")
         with _c1:
@@ -147,13 +188,14 @@ def _threshold_slider(widget_key, label, minv, maxv, step, current, fmt, caption
     """One cell of the Screening & veto rules 2x2 grid — mono/mint value
     inline with the label (read from session_state *before* the widget so it
     reflects this rerun's value instead of lagging a step behind the slider,
-    same trick uvalu/pages_/screener.py's sliders use), then the slider, then
-    a caption below."""
+    same trick uvalu/pages_/screener.py's sliders use), the help text right
+    under the label, then the slider (its own thumb value is hidden by CSS —
+    the label row already shows the value)."""
     _slider_label(label, fmt(st.session_state.get(widget_key, current)))
-    _val = st.slider(label, minv, maxv, current, step=step, key=widget_key,
+    st.markdown(f'<div style="font-size:12px;color:var(--muted);line-height:1.45;margin:-4px 0 2px;">'
+                f'{html.escape(caption)}</div>', unsafe_allow_html=True)
+    return st.slider(label, minv, maxv, current, step=step, key=widget_key,
                      label_visibility="collapsed", disabled=disabled)
-    st.caption(caption)
-    return _val
 
 
 def _style_label(style: str) -> str:
@@ -403,489 +445,529 @@ def render() -> None:
     # (uvalu/styles.py), which stretched every row edge-to-edge on a wide
     # window instead of the design's tightly grouped card rows.
     with st.container(key="set_root"):
-        _dash_page = nav_registry.pages.get("dashboard")
-        if _dash_page is not None and st.button(_("← Back"), key="set_back", type="tertiary"):
-            st.switch_page(_dash_page)
+        _back_page, _back_key = nav_registry.back_target("settings")
+        if _back_page is not None and st.button(_("← Back to {page}", page=_back_page.title),
+                                                key="set_back", type="tertiary"):
+            st.switch_page(_back_page)
 
         st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Settings")}</div>',
                    unsafe_allow_html=True)
-        st.caption(_("Display preferences and screening thresholds. Changes apply immediately."))
+        st.caption(_("Choices apply as you make them; sections with typed values have their own Save button."))
 
-        # ── Language & region (docs/i18n-spec.md §7) ────────────────────────────────
-        # First card, so the language picker is two clicks away from any page
-        # (avatar → Settings) for someone who picked a language they can't read
-        # (S-06).
-        locale_ui.render_card(_email)
+        _nav_col, _main_col = st.columns([1, 4.2], gap="large")
+        with _nav_col, st.container(key="set_nav"):
+            st.markdown(_section_nav_html(_u.is_admin), unsafe_allow_html=True)
+        with _main_col, st.container(key="set_main"):
+            # ── Language & region (docs/i18n-spec.md §7) ────────────────────────────────
+            # First card, so the language picker is two clicks away from any page
+            # (avatar → Settings) for someone who picked a language they can't read
+            # (S-06).
+            locale_ui.render_card(_email, anchor="set-language")
 
-        # ── Security ─────────────────────────────────────────────────────────────────
-        _has_pw = has_password(_email)
-        with st.container(key="set_card_security", border=True):
-            _row_header(h_("Security"))
-            with st.container(key="set_row_password"):
-                _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
-                with _pc1:
-                    if _has_pw:
-                        _changed = password_last_changed(_email)
-                        _row_title(h_("Password"), h_("Last changed {date}.", date=_fmt_date(_changed)) if _changed
-                                  else h_("No password change on record."))
-                    else:
-                        _row_title(
-                            f'{h_("Password")}<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;'
-                            'border-radius:4px;background:var(--line-2);color:var(--faint);margin-left:8px;">'
-                            f'{h_("NOT SET")}</span>',
-                            h_("Add one so you can sign in when your provider is unavailable."))
-                with _pc2:
-                    if _has_pw:
-                        if st.button(pgettext("button", "Change"), key="set_pw_change_btn"):
-                            _dlg_change_password(_email)
-                    else:
-                        if st.button(_("Set a password"), key="set_pw_set_btn", type="primary"):
-                            _dlg_set_password(_email)
+            # ── Account: who is signed in, at the top of the account section ────────────
+            # (it used to sit at the bottom of the page, with a second Sign out).
+            with st.container(key="set_card_profile", border=True):
+                st.markdown(
+                    # Anchor inside the <div>: a leading <span> made Markdown read
+                    # the block as a paragraph and auto-link the email address.
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;">'
+                    f'<span id="set-account" class="uv-set-anchor"></span>'
+                    f'<div style="width:38px;height:38px;border-radius:9px;background:var(--navy);'
+                    f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
+                    f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'
+                    f'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:500;">{_display_name(_email)}</div>'
+                    f'<div style="font-size:12px;color:var(--faint);font-family:var(--uv-mono);overflow:hidden;'
+                    f'text-overflow:ellipsis;white-space:nowrap;">{_email} · {tr(_u.role.capitalize())}</div></div>'
+                    f'<a href="/?logout=1" target="_self" class="uv-set-signout">{h_("Sign out")}</a>'
+                    f'</div>', unsafe_allow_html=True)
 
-            # Linked accounts — one row per known provider (oauth.PROVIDERS), not
-            # just the ones this account has linked, so an unconfigured/
-            # unlinked provider still shows up dimmed instead of only appearing
-            # once someone connects it (mockup: "adding one later changes a
-            # state rather than a layout").
-            with st.container(key="set_row_linked"):
-                _lc1, _lc2 = st.columns([3, 1], vertical_alignment="center")
-                with _lc1:
-                    _row_title(h_("Linked accounts"), h_("One row per configured provider."))
-                _linked = {oauth.label_for_issuer(i["issuer"]): i for i in list_linked_identities(_email)}
-                for _prov in oauth.configured_providers():
-                    _ident = _linked.get(_prov["label"])
-                    with st.container(key=f"set_row_linked_{_prov['id']}"):
-                        _pc1b, _pc2b = st.columns([3, 1], vertical_alignment="center")
-                        with _pc1b:
-                            if _ident:
-                                _meta = h_("{email} · linked {date}", email=_ident.get('email_at_link', ''),
-                                           date=_fmt_date(_ident.get('linked_at', '')))
-                                _row_title(
-                                    f'{_prov["label"]}<span style="font-size:9.5px;letter-spacing:0.04em;'
-                                    f'padding:2px 6px;border-radius:4px;background:var(--up-bg);'
-                                    f'color:var(--up-txt);margin-left:8px;">{h_("CONNECTED")}</span>', _meta)
-                            elif _prov["configured"]:
-                                _row_title(_prov["label"], h_("Available for this workspace."))
-                            else:
-                                _row_title(_prov["label"], h_("Not configured for this workspace."))
-                        with _pc2b:
-                            if _ident:
-                                if st.button(_("Disconnect"), key=f"set_unlink_{_prov['id']}"):
-                                    ok, msg = unlink_identity(_email, _ident["issuer"])
-                                    if not ok:
-                                        st.toast(msg, icon=":material/warning:")
-                                    st.rerun()
-                            elif _prov["configured"]:
-                                if st.button(_("Connect"), key=f"set_link_{_prov['id']}"):
+            # ── Security ─────────────────────────────────────────────────────────────────
+            _has_pw = has_password(_email)
+            with st.container(key="set_card_security", border=True):
+                _row_header(h_("Security"))
+                with st.container(key="set_row_password"):
+                    _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
+                    with _pc1:
+                        if _has_pw:
+                            _changed = password_last_changed(_email)
+                            _row_title(h_("Password"), h_("Last changed {date}.", date=_fmt_date(_changed)) if _changed
+                                      else h_("No password change on record."))
+                        else:
+                            _row_title(
+                                f'{h_("Password")}<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;'
+                                'border-radius:4px;background:var(--line-2);color:var(--faint);margin-left:8px;">'
+                                f'{h_("NOT SET")}</span>',
+                                h_("Add one so you can sign in when your provider is unavailable."))
+                    with _pc2:
+                        if _has_pw:
+                            if st.button(pgettext("button", "Change"), key="set_pw_change_btn"):
+                                _dlg_change_password(_email)
+                        else:
+                            if st.button(_("Set a password"), key="set_pw_set_btn", type="primary"):
+                                _dlg_set_password(_email)
+
+                # Linked accounts — one row per known provider (oauth.PROVIDERS), not
+                # just the ones this account has linked, so an unconfigured/
+                # unlinked provider still shows up dimmed instead of only appearing
+                # once someone connects it (mockup: "adding one later changes a
+                # state rather than a layout").
+                with st.container(key="set_row_linked"):
+                    _linked = {oauth.label_for_issuer(i["issuer"]): i for i in list_linked_identities(_email)}
+                    # Only providers this workspace offers, or one already linked:
+                    # a list of "Not configured · Unavailable" rows was noise.
+                    _providers = [p for p in oauth.configured_providers()
+                                  if p["configured"] or p["label"] in _linked]
+                    _lc1, _lc2 = st.columns([3, 1], vertical_alignment="center")
+                    with _lc1:
+                        _row_title(h_("Linked accounts"),
+                                   h_("Other ways to sign in to this account.") if _providers
+                                   else h_("Sign-in with Google or Microsoft is not available in the beta."))
+                    for _prov in _providers:
+                        _ident = _linked.get(_prov["label"])
+                        with st.container(key=f"set_row_linked_{_prov['id']}"):
+                            _pc1b, _pc2b = st.columns([3, 1], vertical_alignment="center")
+                            with _pc1b:
+                                if _ident:
+                                    _meta = h_("{email} · linked {date}", email=_ident.get('email_at_link', ''),
+                                               date=_fmt_date(_ident.get('linked_at', '')))
+                                    _row_title(
+                                        f'{_prov["label"]}<span style="font-size:9.5px;letter-spacing:0.04em;'
+                                        f'padding:2px 6px;border-radius:4px;background:var(--up-bg);'
+                                        f'color:var(--up-txt);margin-left:8px;">{h_("CONNECTED")}</span>', _meta)
+                                else:
+                                    _row_title(_prov["label"], h_("Available for this workspace."))
+                            with _pc2b:
+                                if _ident:
+                                    if st.button(_("Disconnect"), key=f"set_unlink_{_prov['id']}"):
+                                        ok, msg = unlink_identity(_email, _ident["issuer"])
+                                        if not ok:
+                                            st.toast(msg, icon=":material/warning:")
+                                        st.rerun()
+                                elif st.button(_("Connect"), key=f"set_link_{_prov['id']}"):
                                     oauth.start_login(_prov["id"])
-                            else:
-                                st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
-                                           f'{h_("Unavailable")}</div>', unsafe_allow_html=True)
 
-            # Two-factor authentication — password-path only. A provider-only
-            # account's 2FA is whatever its provider itself enforces (Google's own
-            # 2-step verification, say) — Uvalu has no password step to challenge
-            # for that account, so this shows static "managed by provider" text
-            # instead of a toggle, matching the impact doc's own scoping of 2FA
-            # to the password path.
-            _totp_on = is_totp_enabled(_email)
-            with st.container(key="set_row_totp"):
-                _tc1, _tc2 = st.columns([3, 1], vertical_alignment="center")
-                with _tc1:
-                    _row_title(h_("Two-factor authentication"),
-                              h_("Require a code from an authenticator app in addition to your password.")
-                              if _has_pw else h_("Managed by your identity provider."))
-                with _tc2:
-                    if not _has_pw:
-                        st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
-                                   f'{h_("Not applicable")}</div>', unsafe_allow_html=True)
-                    else:
-                        _new_totp = st.toggle(_("Two-factor authentication"), value=_totp_on,
-                                              key="set_totp_toggle", label_visibility="collapsed")
-                        if _new_totp and not _totp_on:
-                            _dlg_totp_enroll(_email)
-                        elif not _new_totp and _totp_on:
-                            disable_totp(_email)
-                            st.rerun()
+                # Two-factor authentication — password-path only. A provider-only
+                # account's 2FA is whatever its provider itself enforces (Google's own
+                # 2-step verification, say) — Uvalu has no password step to challenge
+                # for that account, so this shows static "managed by provider" text
+                # instead of a toggle, matching the impact doc's own scoping of 2FA
+                # to the password path.
+                _totp_on = is_totp_enabled(_email)
+                with st.container(key="set_row_totp"):
+                    _tc1, _tc2 = st.columns([3, 1], vertical_alignment="center")
+                    with _tc1:
+                        _row_title(h_("Two-factor authentication"),
+                                  h_("Require a code from an authenticator app in addition to your password.")
+                                  if _has_pw else h_("Managed by your identity provider."))
+                    with _tc2:
+                        if not _has_pw:
+                            st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
+                                       f'{h_("Not applicable")}</div>', unsafe_allow_html=True)
+                        else:
+                            _new_totp = st.toggle(_("Two-factor authentication"), value=_totp_on,
+                                                  key="set_totp_toggle", label_visibility="collapsed")
+                            if _new_totp and not _totp_on:
+                                _dlg_totp_enroll(_email)
+                            elif not _new_totp and _totp_on:
+                                disable_totp(_email)
+                                st.rerun()
 
-            if _has_pw and _totp_on:
-                with st.container(key="set_row_backup_codes"):
-                    _bc1, _bc2 = st.columns([3, 1], vertical_alignment="center")
-                    with _bc1:
-                        _remaining = backup_codes_remaining(_email)
-                        _row_title(h_("Backup codes"), ngettext("{count} unused code remaining.",
-                                                               "{count} unused codes remaining.", _remaining))
-                    with _bc2:
-                        if st.button(_("Regenerate"), key="set_totp_regen_btn"):
-                            _dlg_regenerate_backup_codes(_email)
+                if _has_pw and _totp_on:
+                    with st.container(key="set_row_backup_codes"):
+                        _bc1, _bc2 = st.columns([3, 1], vertical_alignment="center")
+                        with _bc1:
+                            _remaining = backup_codes_remaining(_email)
+                            _row_title(h_("Backup codes"), ngettext("{count} unused code remaining.",
+                                                                   "{count} unused codes remaining.", _remaining))
+                        with _bc2:
+                            if st.button(_("Regenerate"), key="set_totp_regen_btn"):
+                                _dlg_regenerate_backup_codes(_email)
 
-                with st.container(key="set_row_trusted_devices"):
-                    _dc1, _dc2 = st.columns([3, 1], vertical_alignment="center")
-                    with _dc1:
-                        _dev_count = trusted_device_count(_email)
-                        _row_title(h_("Trusted devices"), ngettext("{count} device skips the two-factor challenge.",
-                                                                  "{count} devices skip the two-factor challenge.",
-                                                                  _dev_count))
-                    with _dc2:
-                        if st.button(_("Revoke all"), key="set_totp_revoke_devices_btn",
-                                    disabled=_dev_count == 0):
-                            revoke_trusted_devices(_email)
-                            st.rerun()
+                    with st.container(key="set_row_trusted_devices"):
+                        _dc1, _dc2 = st.columns([3, 1], vertical_alignment="center")
+                        with _dc1:
+                            _dev_count = trusted_device_count(_email)
+                            _row_title(h_("Trusted devices"), ngettext("{count} device skips the two-factor challenge.",
+                                                                      "{count} devices skip the two-factor challenge.",
+                                                                      _dev_count))
+                        with _dc2:
+                            if st.button(_("Revoke all"), key="set_totp_revoke_devices_btn",
+                                        disabled=_dev_count == 0):
+                                revoke_trusted_devices(_email)
+                                st.rerun()
 
-            # Passkeys — Phase 3, UI stub only (mockup frame 14): no WebAuthn/
-            # py_webauthn registration or login exists yet. Shown regardless of
-            # password/TOTP state (unlike the rows above) since a passkey is its
-            # own independent credential, not gated behind having a password.
-            with st.container(key="set_row_passkeys"):
-                _pkc1, _pkc2 = st.columns([3, 1], vertical_alignment="center")
-                with _pkc1:
-                    _row_title(
-                        f'{h_("Passkeys")}<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;'
-                        'border-radius:4px;background:var(--amber-bg);color:var(--amber-txt);margin-left:8px;">'
-                        f'{h_("PHASE 3")}</span>',
-                        h_("Sign in with Face ID, Touch ID or a security key."))
-                with _pkc2:
-                    st.button(_("Manage"), key="set_passkeys_manage_btn", disabled=True,
-                             help=_("Not built yet — feature-flagged off until Phase 3."))
+                # Passkeys — UI stub only (mockup frame 14): no WebAuthn/py_webauthn
+                # registration or login exists yet. Shown regardless of password/TOTP
+                # state (unlike the rows above) since a passkey is its own
+                # independent credential. Users see "not available in the beta",
+                # not the internal roadmap phase.
+                with st.container(key="set_row_passkeys"):
+                    _pkc1, _pkc2 = st.columns([3, 1], vertical_alignment="center")
+                    with _pkc1:
+                        _row_title(h_("Passkeys"), h_("Sign in with Face ID, Touch ID or a security key.")
+                                   + " " + h_("Not available in the beta."))
+                    with _pkc2:
+                        st.button(_("Manage"), key="set_passkeys_manage_btn", disabled=True,
+                                 help=_("Not available in the beta."))
 
-        # ── Active sessions ────────────────────────────────────────────────────────
-        with st.container(key="set_card_sessions", border=True):
-            _row_header(h_("Active sessions"))
-            _sessions = list_sessions(_email)
-            _current_sid = st.session_state.get("jwt_sid")
-            for _sess in _sessions:
-                with st.container(key=f"set_row_session_{_sess['sid']}"):
-                    _sc1, _sc2 = st.columns([3, 1], vertical_alignment="center")
-                    with _sc1:
-                        _is_current = _sess["sid"] == _current_sid
-                        _meta = h_("{device} · signed in {date}", device=_device_label(_sess.get('user_agent', '')),
-                                   date=_fmt_date(_sess['created_at']))
-                        _row_title(h_("This browser") if _is_current else _device_label(_sess.get("user_agent", "")), _meta)
-                    with _sc2:
-                        if _is_current:
-                            st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--faint);">{h_("Current")}</div>',
-                                       unsafe_allow_html=True)
-                        elif st.button(_("Sign out"), key=f"set_session_signout_{_sess['sid']}"):
-                            ok, msg = revoke_session(_email, _sess["sid"])
-                            if not ok:
-                                st.toast(msg, icon=":material/warning:")
-                            st.rerun()
-            if len(_sessions) > 1:
-                if st.button(_("Sign out everywhere else"), key="set_sessions_revoke_others"):
-                    ok, msg = revoke_other_sessions(_email, _current_sid)
-                    st.toast(msg)
+            # ── Active sessions ────────────────────────────────────────────────────────
+            with st.container(key="set_card_sessions", border=True):
+                _row_header(h_("Active sessions"))
+                _sessions = list_sessions(_email)
+                _current_sid = st.session_state.get("jwt_sid")
+                for _sess in _sessions:
+                    with st.container(key=f"set_row_session_{_sess['sid']}"):
+                        _sc1, _sc2 = st.columns([3, 1], vertical_alignment="center")
+                        with _sc1:
+                            _is_current = _sess["sid"] == _current_sid
+                            _meta = h_("{device} · signed in {date}", device=_device_label(_sess.get('user_agent', '')),
+                                       date=_fmt_date(_sess['created_at']))
+                            _row_title(h_("This browser") if _is_current else _device_label(_sess.get("user_agent", "")), _meta)
+                        with _sc2:
+                            if _is_current:
+                                st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--faint);">{h_("Current")}</div>',
+                                           unsafe_allow_html=True)
+                            elif st.button(_("Sign out"), key=f"set_session_signout_{_sess['sid']}"):
+                                ok, msg = revoke_session(_email, _sess["sid"])
+                                if not ok:
+                                    st.toast(msg, icon=":material/warning:")
+                                st.rerun()
+                if len(_sessions) > 1:
+                    if st.button(_("Sign out everywhere else"), key="set_sessions_revoke_others"):
+                        ok, msg = revoke_other_sessions(_email, _current_sid)
+                        st.toast(msg)
+                        st.rerun()
+
+            # ── Display ────────────────────────────────────────────────────────────────
+            with st.container(key="set_card_display", border=True):
+                _row_header(h_("Display"), anchor="set-display")
+
+                _light = theme_colors().effective_light
+                _cur_theme = "Light" if _light else "Dark"
+                _theme_sel = _seg_row("theme", "set_theme_seg", h_("Theme"),
+                                      h_("Deep-navy dark or surface-white light."), [N_("Dark"), N_("Light")], _cur_theme,
+                                      format_func=frozen(_))
+                if _theme_sel and _theme_sel != _cur_theme:
+                    set_theme_script(_theme_sel)
+
+            # ── Target allocation (per-user, personal reference weights) ────────────────
+            _targets = load_targets()
+            with st.container(key="set_card_targets", border=True):
+                _row_header(h_("Target allocation"), anchor="set-portfolio")
+                _row_desc(h_("Reference weights you set yourself. When any are set, the Risk page's observations compare the portfolio with them instead of the model reference levels."))
+
+                with st.container(key="set_targets_body"):
+                    _tc1, _tc2 = st.columns(2, gap="large")
+                    with _tc1:
+                        _row_title(h_("Sector targets"),
+                                  h_("Blank = no sector targets; the 30% guideline applies instead."))
+                        _tgt_sectors_txt = st.text_area(
+                            _("Sector targets"), key="tgt_sectors",
+                            value=_targets_to_text(_targets.get("sectors")), height=140,
+                            placeholder=_("One per line — sector and target %:\nTechnology 25\nHealthcare 15"),
+                            label_visibility="collapsed")
+                    with _tc2:
+                        _row_title(h_("Per-name targets"),
+                                  h_("Blank = no per-name targets; only the 20% hard cap applies."))
+                        _tgt_tickers_txt = st.text_area(
+                            _("Per-name targets"), key="tgt_tickers",
+                            value=_targets_to_text(_targets.get("tickers")), height=140,
+                            placeholder=_("One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5"),
+                            label_visibility="collapsed")
+
+                with st.container(key="set_targets_hhi"):
+                    # Empty = the default bands (it used to be a magic 0).
+                    _row_title(h_("Concentration ceiling (HHI)"),
+                              h_("Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."))
+                    _hhi_max = number_field(
+                        _("Concentration ceiling (HHI)"), min_value=0.0, max_value=0.50,
+                        value=float(_targets["hhi_max"]) if _targets.get("hhi_max") else None, step=0.01,
+                        key="tgt_hhi", label_visibility="collapsed",
+                        placeholder=_("Default ({low} / {high})", low=fmt_num(0.10, 2), high=fmt_num(0.18, 2)))
+
+                with st.container(key="set_targets_save"):
+                    _save_clicked = st.button(_("Save target allocation"), key="tgt_save", type="secondary")
+                if _save_clicked:
+                    _new: dict = {}
+                    _secs = _parse_targets_text(_tgt_sectors_txt)
+                    _tks  = _parse_targets_text(_tgt_tickers_txt)
+                    if _secs:
+                        _new["sectors"] = _secs
+                    if _tks:
+                        _new["tickers"] = _tks
+                    if _hhi_max and _hhi_max > 0:
+                        _new["hhi_max"] = float(_hhi_max)
+                    save_targets(_new)
+                    st.toast(_("Target allocation saved."))
                     st.rerun()
 
-        # ── Display ────────────────────────────────────────────────────────────────
-        with st.container(key="set_card_display", border=True):
-            _row_header(h_("Display"))
+            # ── Data ─────────────────────────────────────────────────────────────────────
+            with st.container(key="set_card_data", border=True):
+                _row_header(h_("Data & alerts"), anchor="set-data")
 
-            _light = theme_colors().effective_light
-            _cur_theme = "Light" if _light else "Dark"
-            _theme_sel = _seg_row("theme", "set_theme_seg", h_("Theme"),
-                                  h_("Deep-navy dark or surface-white light."), [N_("Dark"), N_("Light")], _cur_theme,
-                                  format_func=frozen(_))
-            if _theme_sel and _theme_sel != _cur_theme:
-                set_theme_script(_theme_sel)
+                # A segmented control, not a select_slider — every other discrete-
+                # choice row on this page (Theme, Screening style) already uses
+                # one, and unlike a BaseWeb slider it has a genuinely fixed width
+                # regardless of which option is selected (was visibly resizing
+                # per value before).
+                # Options are the intervals in seconds (stable across a language
+                # switch); only their labels are translated.
+                _refresh_opts = [30, 60, 300, 900]
+                _refresh_fmt = lambda s: f"{s}s" if s < 60 else _("{minutes} min", minutes=s // 60)
+                _cur_refresh = _s.get("refresh_interval_s", 60)
+                _new_refresh = _seg_row(
+                    "refresh", "disp_refresh_interval", h_("Price refresh interval"),
+                    h_("How often delayed quotes from Yahoo Finance update during market hours. Real-time quotes are not offered."),
+                    _refresh_opts, _cur_refresh if _cur_refresh in _refresh_opts else 60, stacked=True,
+                    format_func=frozen(_refresh_fmt)) or _cur_refresh
 
-
-        # ── Screening & veto rules ───────────────────────────────────────────────────
-        # Admin-only: these are shared, all-user settings (settings.py's own
-        # docstring calls them "admin-controlled, apply to all users") that drive
-        # every BUY/MONITOR/AVOID decision app-wide — not a personal preference
-        # like Display/Data below. Gated the same way admin.py gates its whole
-        # page and portfolio.py/drawer.py disable mutating controls for Viewers
-        # (`disabled=_is_viewer`); this card was the one place in the app that
-        # let any signed-in user, including a read-only Viewer, change every
-        # other user's screening results.
-        _is_admin = _u.is_admin
-        with st.container(key="set_card_screening", border=True):
-            _row_header(h_("Model settings & quality screens"))
-            _row_desc(h_("Shared model settings: they set every model signal across the app, the same for every user, and are published on the Methodology page. Each change is recorded.")
-                     + ("" if _is_admin else " " + h_("Admin-only — sign in as an Admin to change these.")))
-
-            with st.container(key="set_slider_grid"):
-                _v1, _v2 = st.columns(2, gap="large")
-                with _v1:
-                    _max_de = _threshold_slider(
-                        "scr_max_de", h_("Max debt / equity"), 50, 1000, 50,
-                        int(_shared.get("max_debt_equity", 500)), lambda v: fmt_pct(v, 0),
-                        _("Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."),
-                        disabled=not _is_admin)
-                with _v2:
-                    _max_payout = _threshold_slider(
-                        "scr_max_payout", h_("Max dividend payout"), 50, 100, 5,
-                        int(_shared.get("max_payout", 90)), lambda v: fmt_pct(v, 0),
-                        _("Flag dividends above this payout."), disabled=not _is_admin)
-
-                _v3, _v4 = st.columns(2, gap="large")
-                with _v3:
-                    _min_mos = _threshold_slider(
-                        "scr_min_mos", h_("Minimum margin of safety"), 10, 50, 5,
-                        max(10, int(_shared.get("min_mos", 10))), lambda v: fmt_pct(v, 0, signed=True),
-                        _("Margin of safety needed for the Undervalued signal; never below 10%."), disabled=not _is_admin)
-                with _v4:
-                    _buy_thr = _threshold_slider(
-                        "scr_buy_thr", h_("Undervalued score threshold"), 50, 90, 5,
-                        int(_shared.get("buy_threshold", 70)), str,
-                        _("Minimum composite score for the Undervalued signal."), disabled=not _is_admin)
-
-            _style_opts = [s.capitalize() for s in _SCORE_STYLES]
-            _cur_style  = str(_shared.get("screen_style", "balanced"))
-            _style_sel  = _seg_row(
-                "screen_style", "scr_style", h_("Screening style"),
-                h_("Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."),
-                _style_opts, _cur_style.capitalize(), disabled=not _is_admin, ratio=(2, 2),
-                format_func=frozen(_style_label))
-
-            _stoxx = _toggle_row("stoxx", "scr_stoxx", h_("Benchmark — Euro Stoxx 50"),
-                                 h_("Overlay on the portfolio value chart."),
-                                 bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
-            _toggle_row("us", "scr_us", h_("Include US-listed names"),
-                       h_("Extend the screener beyond European exchanges."), False, disabled=True)
-
-            # Save immediately, one field at a time — only the field the user
-            # actually just touched differs from the persisted value, so at most
-            # one of these branches fires on a given rerun. Guarded by _is_admin
-            # server-side too, not just via the widgets' disabled= above — a
-            # disabled Streamlit widget can't be driven by the user, but this
-            # keeps the write path itself from ever depending on that alone.
-            if _is_admin:
-                _veto_changed = (
-                    _max_de     != _shared.get("max_debt_equity", 500) or
-                    _max_payout != _shared.get("max_payout", 90) or
-                    _min_mos    != _shared.get("min_mos", 0) or
-                    _buy_thr    != _shared.get("buy_threshold", 70)
-                )
-                if _veto_changed:
-                    _shared["max_debt_equity"] = float(_max_de)
-                    _shared["max_payout"]      = float(_max_payout)
-                    _shared["min_mos"]         = float(_min_mos)
-                    _shared["buy_threshold"]   = float(_buy_thr)
-                    save_shared_settings(_shared)
-                    _load_all_screener_data.clear()
-                    st.rerun()
-                elif _style_sel and _style_sel.lower() != _cur_style:
-                    _shared["screen_style"] = _style_sel.lower()
-                    save_shared_settings(_shared)
-                    _load_all_screener_data.clear()
-                    st.rerun()
-                elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
-                    _shared["benchmark_stoxx"] = bool(_stoxx)
-                    save_shared_settings(_shared)
-                    st.rerun()
-
-        # ── Target allocation (per-user, personal reference weights) ────────────────
-        _targets = load_targets()
-        with st.container(key="set_card_targets", border=True):
-            _row_header(h_("Target allocation"))
-            _row_desc(h_("Reference weights you set yourself. When any are set, the Risk page's observations compare the portfolio with them instead of the model reference levels."))
-
-            with st.container(key="set_targets_body"):
-                _tc1, _tc2 = st.columns(2, gap="large")
-                with _tc1:
-                    _row_title(h_("Sector targets"),
-                              h_("Blank = no sector targets; the 30% guideline applies instead."))
-                    _tgt_sectors_txt = st.text_area(
-                        _("Sector targets"), key="tgt_sectors",
-                        value=_targets_to_text(_targets.get("sectors")), height=140,
-                        placeholder=_("One per line — sector and target %:\nTechnology 25\nHealthcare 15"),
-                        label_visibility="collapsed")
-                with _tc2:
-                    _row_title(h_("Per-name targets"),
-                              h_("Blank = no per-name targets; only the 20% hard cap applies."))
-                    _tgt_tickers_txt = st.text_area(
-                        _("Per-name targets"), key="tgt_tickers",
-                        value=_targets_to_text(_targets.get("tickers")), height=140,
-                        placeholder=_("One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5"),
-                        label_visibility="collapsed")
-
-            with st.container(key="set_targets_hhi"):
-                _row_title(h_("Concentration ceiling (HHI)"),
-                          h_("Flag when portfolio HHI exceeds this. 0 = use the default 0.10 / 0.18 bands."))
-                _hhi_max = number_field(
-                    _("Concentration ceiling (HHI)"), min_value=0.0, max_value=0.50,
-                    value=float(_targets.get("hhi_max") or 0.0), step=0.01, key="tgt_hhi",
-                    label_visibility="collapsed")
-
-            with st.container(key="set_targets_save"):
-                _save_clicked = st.button(_("Save target allocation"), key="tgt_save", type="secondary")
-            if _save_clicked:
-                _new: dict = {}
-                _secs = _parse_targets_text(_tgt_sectors_txt)
-                _tks  = _parse_targets_text(_tgt_tickers_txt)
-                if _secs:
-                    _new["sectors"] = _secs
-                if _tks:
-                    _new["tickers"] = _tks
-                if _hhi_max and _hhi_max > 0:
-                    _new["hhi_max"] = float(_hhi_max)
-                save_targets(_new)
-                st.toast(_("Target allocation saved."))
-                st.rerun()
-
-        # ── Data ─────────────────────────────────────────────────────────────────────
-        with st.container(key="set_card_data", border=True):
-            _row_header(h_("Data"))
-
-            # A segmented control, not a select_slider — every other discrete-
-            # choice row on this page (Theme, Screening style) already uses
-            # one, and unlike a BaseWeb slider it has a genuinely fixed width
-            # regardless of which option is selected (was visibly resizing
-            # per value before).
-            # Options are the intervals in seconds (stable across a language
-            # switch); only their labels are translated.
-            _refresh_opts = [30, 60, 300, 900]
-            _refresh_fmt = lambda s: f"{s}s" if s < 60 else _("{minutes} min", minutes=s // 60)
-            _cur_refresh = _s.get("refresh_interval_s", 60)
-            _new_refresh = _seg_row(
-                "refresh", "disp_refresh_interval", h_("Price refresh interval"),
-                h_("How often delayed quotes from Yahoo Finance update during market hours. Real-time quotes are not offered."),
-                _refresh_opts, _cur_refresh if _cur_refresh in _refresh_opts else 60, ratio=(2, 2),
-                format_func=frozen(_refresh_fmt)) or _cur_refresh
-
-            if int(_new_refresh) != _cur_refresh:
-                _s["refresh_interval_s"] = int(_new_refresh)
-                save_settings(_s, _email)
-                st.rerun()
-
-            # Unlike the module docstring's removed "Alerts" toggles (never
-            # wired to any delivery mechanism — no email/push exists here),
-            # this one IS wired: Dashboard's Upcoming Dividends card
-            # (uvalu/pages_/dashboard.py) shows a "· soon" badge next to any
-            # holding going ex-dividend within 7 days when this is on. It's
-            # an in-app badge on a page the user already visits, not a new
-            # delivery channel, so the earlier "not wired" reasoning doesn't
-            # apply to this one.
-            _alert_ex_div = _toggle_row(
-                "alert_ex_div", "disp_alert_ex_div", h_("Ex-dividend alerts"),
-                h_("Flag holdings going ex-dividend within 7 days on the Dashboard."),
-                bool(_s.get("alert_dividend_ex_date", False)))
-            if _alert_ex_div != bool(_s.get("alert_dividend_ex_date", False)):
-                _s["alert_dividend_ex_date"] = bool(_alert_ex_div)
-                save_settings(_s, _email)
-                st.rerun()
-
-            if _alert_ex_div:
-                _cur_thr = float(_s.get("alert_dividend_size_threshold_pct", 0.0))
-                _new_thr = _threshold_slider(
-                    "disp_alert_dividend_size", h_("Only above this position weight"), 0.0, 15.0, 0.5,
-                    _cur_thr, lambda v: (fmt_pct(v) if v > 0 else _("any size")),
-                    _("0% flags every held ex-date; raise it to only badge your larger positions."))
-                if _new_thr != _cur_thr:
-                    _s["alert_dividend_size_threshold_pct"] = float(_new_thr)
+                if int(_new_refresh) != _cur_refresh:
+                    _s["refresh_interval_s"] = int(_new_refresh)
                     save_settings(_s, _email)
                     st.rerun()
 
-            # Both wired the same way as Ex-dividend alerts above (an in-app
-            # Dashboard badge, not a new delivery channel) — cut/suspension
-            # from screener.dividend_last_cut_year, increase from the
-            # symmetric dividend_last_increase_year (WP-DIV5).
-            _alert_cut = _toggle_row(
-                "alert_div_cut", "disp_alert_div_cut", h_("Dividend cut / suspension alerts"),
-                h_("Flag a holding on the Dashboard when its dividend was just cut or suspended."),
-                bool(_s.get("alert_dividend_cut", False)))
-            if _alert_cut != bool(_s.get("alert_dividend_cut", False)):
-                _s["alert_dividend_cut"] = bool(_alert_cut)
-                save_settings(_s, _email)
-                st.rerun()
+                # Unlike the module docstring's removed "Alerts" toggles (never
+                # wired to any delivery mechanism — no email/push exists here),
+                # this one IS wired: Dashboard's Upcoming Dividends card
+                # (uvalu/pages_/dashboard.py) shows a "· soon" badge next to any
+                # holding going ex-dividend within 7 days when this is on. It's
+                # an in-app badge on a page the user already visits, not a new
+                # delivery channel, so the earlier "not wired" reasoning doesn't
+                # apply to this one.
+                _alert_ex_div = _toggle_row(
+                    "alert_ex_div", "disp_alert_ex_div", h_("Ex-dividend alerts"),
+                    h_("Flag holdings going ex-dividend within 7 days on the Dashboard."),
+                    bool(_s.get("alert_dividend_ex_date", False)))
+                if _alert_ex_div != bool(_s.get("alert_dividend_ex_date", False)):
+                    _s["alert_dividend_ex_date"] = bool(_alert_ex_div)
+                    save_settings(_s, _email)
+                    st.rerun()
 
-            _alert_increase = _toggle_row(
-                "alert_div_increase", "disp_alert_div_increase", h_("Dividend increase alerts"),
-                h_("Flag a holding on the Dashboard when its dividend was just raised."),
-                bool(_s.get("alert_dividend_increase", False)))
-            if _alert_increase != bool(_s.get("alert_dividend_increase", False)):
-                _s["alert_dividend_increase"] = bool(_alert_increase)
-                save_settings(_s, _email)
-                st.rerun()
+                if _alert_ex_div:
+                    _cur_thr = float(_s.get("alert_dividend_size_threshold_pct", 0.0))
+                    _new_thr = _threshold_slider(
+                        "disp_alert_dividend_size", h_("Only above this position weight"), 0.0, 15.0, 0.5,
+                        _cur_thr, lambda v: (fmt_pct(v) if v > 0 else _("any size")),
+                        _("0% flags every held ex-date; raise it to only badge your larger positions."))
+                    if _new_thr != _cur_thr:
+                        _s["alert_dividend_size_threshold_pct"] = float(_new_thr)
+                        save_settings(_s, _email)
+                        st.rerun()
 
-        # ── Dividend withholding (per-user — depends on tax residency/treaty) ────────
-        with st.container(key="set_card_dividend_tax", border=True):
-            _row_header(h_("Dividend withholding"))
-            _row_desc(h_("Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."))
-            _wh = dict(_s.get("dividend_withholding") or {})
-            _wh_new: dict[str, float] = {}
-            with st.container(key="set_dividend_wh_grid"):
-                for _i in range(0, len(ALL_EXCHANGES), 3):
-                    _wh_cols = st.columns(3, gap="large")
-                    for _col, _ex in zip(_wh_cols, ALL_EXCHANGES[_i:_i + 3]):
-                        with _col:
-                            _wh_val = number_field(
-                                EXCHANGE_LABELS.get(_ex, _ex.title()), min_value=0.0, max_value=100.0,
-                                step=0.5, value=float(_wh.get(_ex, 0.0)), format="%.1f",
-                                key=f"disp_wh_{_ex}")
-                            _wh_new[_ex] = float(_wh.get(_ex, 0.0)) if _wh_val is None else _wh_val
-            if _wh_new != {k: float(_wh.get(k, 0.0)) for k in ALL_EXCHANGES}:
-                _s["dividend_withholding"] = _wh_new
-                save_settings(_s, _email)
-                st.rerun()
+                # Both wired the same way as Ex-dividend alerts above (an in-app
+                # Dashboard badge, not a new delivery channel) — cut/suspension
+                # from screener.dividend_last_cut_year, increase from the
+                # symmetric dividend_last_increase_year (WP-DIV5).
+                _alert_cut = _toggle_row(
+                    "alert_div_cut", "disp_alert_div_cut", h_("Dividend cut / suspension alerts"),
+                    h_("Flag a holding on the Dashboard when its dividend was just cut or suspended."),
+                    bool(_s.get("alert_dividend_cut", False)))
+                if _alert_cut != bool(_s.get("alert_dividend_cut", False)):
+                    _s["alert_dividend_cut"] = bool(_alert_cut)
+                    save_settings(_s, _email)
+                    st.rerun()
 
-        # ── Import / Export (per-user, not admin-scoped) ─────────────────────────────
-        with st.container(key="set_card_import", border=True):
-            _row_header(h_("Import & export"))
+                _alert_increase = _toggle_row(
+                    "alert_div_increase", "disp_alert_div_increase", h_("Dividend increase alerts"),
+                    h_("Flag a holding on the Dashboard when its dividend was just raised."),
+                    bool(_s.get("alert_dividend_increase", False)))
+                if _alert_increase != bool(_s.get("alert_dividend_increase", False)):
+                    _s["alert_dividend_increase"] = bool(_alert_increase)
+                    save_settings(_s, _email)
+                    st.rerun()
 
-            with st.container(key="set_import_row"):
-                _imp_col, _exp_col = st.columns(2, gap="large")
-                with _imp_col:
-                    with st.container(key="set_import_body"):
-                        _row_title(h_("Import portfolio"),
-                                  h_("Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."))
-                    _imp_file = st.file_uploader(_("Choose your portfolio .xlsx file"), type=["xlsx"], key="imp_portfolio",
-                                                 label_visibility="collapsed")
-                    if _imp_file:
-                        with st.spinner(_("Parsing Excel…")):
+            # ── Dividend withholding (per-user — depends on tax residency/treaty) ────────
+            with st.container(key="set_card_dividend_tax", border=True):
+                _row_header(h_("Dividend withholding"))
+                _row_desc(h_("Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."))
+                _wh = dict(_s.get("dividend_withholding") or {})
+                _wh_new: dict[str, float] = {}
+                with st.container(key="set_dividend_wh_grid"):
+                    for _i in range(0, len(ALL_EXCHANGES), 3):
+                        _wh_cols = st.columns(3, gap="large")
+                        for _col, _ex in zip(_wh_cols, ALL_EXCHANGES[_i:_i + 3]):
+                            with _col:
+                                _wh_val = number_field(
+                                    f"{EXCHANGE_LABELS.get(_ex, _ex.title())} (%)", min_value=0.0, max_value=100.0,
+                                    step=0.5, value=float(_wh.get(_ex, 0.0)), format="%.1f",
+                                    key=f"disp_wh_{_ex}")
+                                _wh_new[_ex] = float(_wh.get(_ex, 0.0)) if _wh_val is None else _wh_val
+                # Typed values: saved with the button, not on every keystroke/blur
+                # (a half-typed rate shouldn't apply).
+                with st.container(key="set_wh_save"):
+                    if st.button(_("Save withholding rates"), key="wh_save"):
+                        _s["dividend_withholding"] = _wh_new
+                        save_settings(_s, _email)
+                        st.toast(_("Withholding rates saved."))
+                        st.rerun()
+
+            # ── Import / Export (per-user, not admin-scoped) ─────────────────────────────
+            with st.container(key="set_card_import", border=True):
+                _row_header(h_("Import & export"), anchor="set-import")
+
+                with st.container(key="set_import_row"):
+                    _imp_col, _exp_col = st.columns(2, gap="large")
+                    with _imp_col:
+                        with st.container(key="set_import_body"):
+                            _row_title(h_("Import portfolio"),
+                                      h_("Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."))
+                        # A new key after an import or cancel empties the uploader —
+                        # the old one kept its file, so the page re-imported it on
+                        # every rerun after a successful import.
+                        _imp_n = st.session_state.get("imp_portfolio_n", 0)
+                        _imp_key = "imp_portfolio" if not _imp_n else f"imp_portfolio_{_imp_n}"
+                        _imp_file = st.file_uploader(_("Choose your portfolio .xlsx file"), type=["xlsx"], key=_imp_key,
+                                                     label_visibility="collapsed")
+                        if _imp_file:
                             try:
-                                _imp_pf, _imp_sold, _imp_div = parse_excel(_imp_file)
-                                if _imp_pf.empty:
-                                    st.error(_("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format."))
-                                else:
-                                    _udir = user_data_dir(_email)
-                                    (_udir / "portfolio.json").unlink(missing_ok=True)
-                                    (_udir / "sold.json").unlink(missing_ok=True)
-                                    (_udir / "dividends_history.json").unlink(missing_ok=True)
-                                    save_portfolio(_imp_pf)
-                                    save_sold(_imp_sold)
-                                    save_div_hist(_imp_div)
-                                    st.success(_("Imported {open} open, {sold} sold, {dividends} dividend records.",
-                                                 open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div)))
-                                    st.rerun()
+                                with st.spinner(_("Parsing Excel…")):
+                                    _imp_pf, _imp_sold, _imp_div = parse_excel(_imp_file)
                             except Exception as e:
                                 st.error(_("Could not parse file: {error}", error=e))
                                 st.code(traceback.format_exc())
+                            else:
+                                if _imp_pf.empty:
+                                    st.error(_("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format."))
+                                else:
+                                    # Destructive: say what the file holds and that the
+                                    # current data goes, and wait for an explicit yes.
+                                    with st.container(key="set_import_confirm"):
+                                        st.markdown(
+                                            f'<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
+                                            + h_("Replace all portfolio data with this file? It holds {open} open positions, "
+                                                 "{sold} sold positions and {dividends} dividend records. Your current "
+                                                 "positions, sales and dividends are deleted.",
+                                                 open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div))
+                                            + "</div>", unsafe_allow_html=True)
+                                        with st.container(horizontal=True, gap="small"):
+                                            _imp_yes = st.button(_("Replace my portfolio data"), key="imp_confirm")
+                                            _imp_no = st.button(_("Cancel"), key="imp_cancel", type="tertiary")
+                                    if _imp_yes:
+                                        _udir = user_data_dir(_email)
+                                        (_udir / "portfolio.json").unlink(missing_ok=True)
+                                        (_udir / "sold.json").unlink(missing_ok=True)
+                                        (_udir / "dividends_history.json").unlink(missing_ok=True)
+                                        save_portfolio(_imp_pf)
+                                        save_sold(_imp_sold)
+                                        save_div_hist(_imp_div)
+                                        st.toast(_("Imported {open} open, {sold} sold, {dividends} dividend records.",
+                                                   open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div)))
+                                    if _imp_yes or _imp_no:
+                                        st.session_state["imp_portfolio_n"] = _imp_n + 1
+                                        st.rerun()
 
-                with _exp_col:
-                    with st.container(key="set_export_body"):
-                        _row_title(h_("Excel export"),
-                                  h_("Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."))
-                    try:
-                        xls_bytes = export_excel()
-                        st.download_button(
-                            _("Download backup.xlsx"),
-                            data=xls_bytes,
-                            file_name=backup_filename("xlsx"),
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        )
-                    except ValueError:
-                        st.info(_("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export."))
-                    except Exception as e:
-                        st.error(_("Could not create Excel: {error}", error=e))
+                    with _exp_col:
+                        with st.container(key="set_export_body"):
+                            _row_title(h_("Excel export"),
+                                      h_("Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."))
+                        try:
+                            xls_bytes = export_excel()
+                            st.download_button(
+                                _("Download backup.xlsx"),
+                                data=xls_bytes,
+                                file_name=backup_filename("xlsx"),
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            )
+                        except ValueError:
+                            st.info(_("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export."))
+                        except Exception as e:
+                            st.error(_("Could not create Excel: {error}", error=e))
 
-        # ── Account footer ─────────────────────────────────────────────────────────
-        # One raw-HTML flex row (not st.columns) — nothing here is an interactive
-        # widget, and Streamlit's per-column vertical_alignment centering proved
-        # unreliable for mismatched-height siblings (confirmed live: an 8px
-        # offset between the avatar square and the Sign out pill persisted even
-        # after forcing align-items:center + matching explicit heights on a
-        # column-based version). A single native CSS flex row centers all three
-        # exactly.
-        with st.container(key="set_account_footer"):
-            st.markdown(
-                f'<div style="display:flex;align-items:center;gap:12px;">'
-                f'<div style="width:38px;height:38px;border-radius:9px;background:var(--navy);'
-                f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
-                f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'
-                f'<div style="flex:1;"><div style="font-size:13.5px;font-weight:500;">{_display_name(_email)}</div>'
-                f'<div style="font-size:12px;color:var(--faint);font-family:var(--uv-mono);">'
-                f'{_email} · {tr(_u.role.capitalize())}</div></div>'
-                f'<a href="/?logout=1" target="_self" class="uv-set-signout">{h_("Sign out")}</a>'
-                f'</div>', unsafe_allow_html=True)
+            # ── Screening & veto rules ───────────────────────────────────────────────────
+            # Admin-only: these are shared, all-user settings (settings.py's own
+            # docstring calls them "admin-controlled, apply to all users") that drive
+            # every BUY/MONITOR/AVOID decision app-wide — not a personal preference
+            # like Display/Data below. Gated the same way admin.py gates its whole
+            # page and portfolio.py/drawer.py disable mutating controls for Viewers
+            # (`disabled=_is_viewer`); this card was the one place in the app that
+            # let any signed-in user, including a read-only Viewer, change every
+            # other user's screening results.
+            _is_admin = _u.is_admin
+            with st.container(key="set_card_screening", border=True):
+                _row_header(h_("Model settings & quality screens"), anchor="set-model",
+                            chip=h_("Affects all users · logged"))
+                _row_desc(h_("Shared model settings: they set every model signal across the app, the same for every user, and are published on the Methodology page. Each change is recorded.")
+                         + ("" if _is_admin else " " + h_("Admin-only — sign in as an Admin to change these.")))
+
+                with st.container(key="set_slider_grid"):
+                    _v1, _v2 = st.columns(2, gap="large")
+                    with _v1:
+                        _max_de = _threshold_slider(
+                            "scr_max_de", h_("Max debt / equity"), 50, 1000, 50,
+                            int(_shared.get("max_debt_equity", 500)), lambda v: fmt_pct(v, 0),
+                            _("Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."),
+                            disabled=not _is_admin)
+                    with _v2:
+                        _max_payout = _threshold_slider(
+                            "scr_max_payout", h_("Max dividend payout"), 50, 100, 5,
+                            int(_shared.get("max_payout", 90)), lambda v: fmt_pct(v, 0),
+                            _("Flag dividends above this payout."), disabled=not _is_admin)
+
+                    _v3, _v4 = st.columns(2, gap="large")
+                    with _v3:
+                        _min_mos = _threshold_slider(
+                            "scr_min_mos", h_("Minimum margin of safety"), 10, 50, 5,
+                            max(10, int(_shared.get("min_mos", 10))), lambda v: fmt_pct(v, 0, signed=True),
+                            _("Margin of safety needed for the Undervalued signal; never below 10%."), disabled=not _is_admin)
+                    with _v4:
+                        _buy_thr = _threshold_slider(
+                            "scr_buy_thr", h_("Undervalued score threshold"), 50, 90, 5,
+                            int(_shared.get("buy_threshold", 70)), str,
+                            _("Minimum composite score for the Undervalued signal."), disabled=not _is_admin)
+
+                _style_opts = [s.capitalize() for s in _SCORE_STYLES]
+                _cur_style  = str(_shared.get("screen_style", "balanced"))
+                _style_sel  = _seg_row(
+                    "screen_style", "scr_style", h_("Screening style"),
+                    h_("Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."),
+                    _style_opts, _cur_style.capitalize(), disabled=not _is_admin, stacked=True,
+                    format_func=frozen(_style_label))
+
+                _stoxx = _toggle_row("stoxx", "scr_stoxx", h_("Benchmark — Euro Stoxx 50"),
+                                     h_("Overlay on the portfolio value chart."),
+                                     bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
+                _toggle_row("us", "scr_us", h_("Include US-listed names"),
+                           h_("Not available: the beta covers European exchanges only."), False, disabled=True)
+
+                # Save immediately, one field at a time — only the field the user
+                # actually just touched differs from the persisted value, so at most
+                # one of these branches fires on a given rerun. Guarded by _is_admin
+                # server-side too, not just via the widgets' disabled= above — a
+                # disabled Streamlit widget can't be driven by the user, but this
+                # keeps the write path itself from ever depending on that alone.
+                if _is_admin:
+                    _veto_changed = (
+                        _max_de     != _shared.get("max_debt_equity", 500) or
+                        _max_payout != _shared.get("max_payout", 90) or
+                        _min_mos    != _shared.get("min_mos", 0) or
+                        _buy_thr    != _shared.get("buy_threshold", 70)
+                    )
+                    if _veto_changed:
+                        _shared["max_debt_equity"] = float(_max_de)
+                        _shared["max_payout"]      = float(_max_payout)
+                        _shared["min_mos"]         = float(_min_mos)
+                        _shared["buy_threshold"]   = float(_buy_thr)
+                        save_shared_settings(_shared)
+                        _load_all_screener_data.clear()
+                        st.rerun()
+                    elif _style_sel and _style_sel.lower() != _cur_style:
+                        _shared["screen_style"] = _style_sel.lower()
+                        save_shared_settings(_shared)
+                        _load_all_screener_data.clear()
+                        st.rerun()
+                    elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
+                        _shared["benchmark_stoxx"] = bool(_stoxx)
+                        save_shared_settings(_shared)
+                        st.rerun()
+
+
+            # ── Legal (L13) ─────────────────────────────────────────────────────────────
+            with st.container(key="set_card_legal", border=True):
+                _row_header(h_("Legal"), anchor="set-legal")
+                _legal_page = nav_registry.pages.get("legal")
+                with st.container(key="set_legal_links"):
+                    if _legal_page is not None:
+                        for _lkey, _ltitle, _lfile in disclosures.LEGAL_DOCS:
+                            st.page_link(_legal_page, label=tr(_ltitle), query_params={"doc": _lkey})
+                _row_desc(h_("To get a copy of your data or have it deleted, write to {email}.",
+                             email=disclosures.PRODUCER_PRIVACY_CONTACT))

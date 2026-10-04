@@ -1146,7 +1146,25 @@ GLOBAL_CSS = """
      without this override its rows stretched edge-to-edge on a wide window
      (label pinned far left, control pinned far right, large dead gap between
      them) instead of the design's tightly grouped card rows. */
-  .st-key-set_root { max-width: 920px !important; margin: 0 auto !important; }
+  /* Since the section nav (visual review 2026-10-04 §1.4) the page is a
+     nav + content pair, left-aligned on the same gutter as every other page
+     (the centred 920px column sat ~18px further in than the beta banner). */
+  .st-key-set_root { max-width: 1180px !important; margin: 0 !important; }
+  /* No overflow:auto/max-height: Streamlit under-measures the column's
+     raw-HTML content, so a scroll box clipped the last link. */
+  [data-testid="stColumn"]:has(.st-key-set_nav) {
+    position: sticky; top: 16px; align-self: flex-start;
+  }
+  .uv-set-nav a {
+    display: block; padding: 6px 10px; font-size: 13px; line-height: 1.35; color: var(--muted);
+    text-decoration: none; border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
+  }
+  .uv-set-nav a:hover { color: var(--text); border-left-color: var(--teal); background: var(--soft); }
+  .uv-set-anchor { display: block; scroll-margin-top: 16px; }
+  .st-key-set_main { gap: 20px !important; }
+  @media (max-width: 640px) {
+    [data-testid="stColumn"]:has(.st-key-set_nav) { display: none !important; }
+  }
 
   /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
@@ -1183,6 +1201,12 @@ GLOBAL_CSS = """
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
   .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
+    margin-top: 0 !important;
+  }
+  /* …and every card's first row, whatever its key: the row right after the
+     header (Language had no top padding — the -16px pulled it under the
+     header's hairline). */
+  [data-testid="stElementContainer"]:has(.uv-set-head) + [data-testid="stLayoutWrapper"] > [class*="st-key-set_row_"] {
     margin-top: 0 !important;
   }
   .st-key-set_row_theme, .st-key-set_row_currency {
@@ -1257,7 +1281,30 @@ GLOBAL_CSS = """
      changes again. */
   [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child {
     min-height: 38px !important;
+    /* A one-line title sat at the top of the 38px floor while the control
+       beside it was centred (Language, Region format, Time zone). */
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
   }
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child > [data-testid="stVerticalBlock"] {
+    justify-content: center !important;
+  }
+  /* Streamlit's markdown container carries margin-bottom:-16px, so its
+     wrapper reported 22px for 38px of title + description and the centring
+     above put the text 8px low. Zeroed here, the wrapper is the real height
+     and the text centres on the control beside it. */
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
+  /* Stacked rows (4-option controls under a long description): the control
+     on its own line, as wide as its segments, not a full-width track. */
+  .st-key-set_row_screen_style [data-testid="stButtonGroup"],
+  .st-key-set_row_refresh [data-testid="stButtonGroup"] {
+    width: fit-content !important; margin-top: 6px !important;
+  }
+  /* The slider's own thumb value repeated the value already shown, larger,
+     on the label row. */
+  [class*="st-key-set_card_"] [data-testid="stSliderThumbValue"] { display: none !important; }
+  .st-key-set_row_i18n_reset { align-items: flex-end !important; }
   /* Segmented controls (Theme/Currency/Number format/Table density) — same
      restyle as the Dashboard's db_range control: a padded panel-2 track with
      3px-gapped segments, the active one lifted with a panel background +
@@ -1309,7 +1356,8 @@ GLOBAL_CSS = """
   /* Settings cards carry no padding of their own (each row pads itself), so
      the bare withholding grid sat flush on the card edge and its right-hand
      input ran past the card border. */
-  .st-key-set_dividend_wh_grid { padding: 8px 20px 18px !important; box-sizing: border-box; }
+  .st-key-set_dividend_wh_grid { padding: 8px 20px 4px !important; box-sizing: border-box; }
+  .st-key-set_wh_save { padding: 0 20px 18px !important; }
   /* Import & Export — the whole two-column content block had NO horizontal
      padding at all (confirmed live: "Import portfolio" sat 1px from the
      card's own left edge, vs. every other row on this page having a 20px
@@ -1326,7 +1374,18 @@ GLOBAL_CSS = """
      now. No vertical divider between the columns — tried one on request,
      then removed on request; a plain `gap="large"` column gap is enough
      separation. */
-  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 0 !important; }
+  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 18px !important; }
+  /* Importing replaces all portfolio data: the confirmation reads as a
+     danger zone, with a red-outline confirm button. */
+  .st-key-set_import_confirm {
+    border: 0.5px solid var(--down-txt) !important; border-radius: 8px !important;
+    background: var(--down-bg) !important; padding: 12px 14px !important; gap: 10px !important;
+  }
+  .st-key-imp_confirm button {
+    border-color: var(--down-txt) !important; color: var(--down-txt) !important; background: transparent !important;
+  }
+  /* Streamlit's "200MB per file • XLSX" line — the description says .xlsx. */
+  .st-key-set_card_import [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
   /* The file_uploader's dropzone has its own unconditional 12px padding on
      all sides (confirmed live via computed style) — pushing the actual
      "Upload" button 12px below AND 12px right of the row's own top-left
@@ -1368,16 +1427,21 @@ GLOBAL_CSS = """
      them. 56px matches the real measured height with the 1.3/1.5
      line-height in place — re-measure if that ever changes. */
   .st-key-set_import_body, .st-key-set_export_body { min-height: 56px !important; }
-  /* Account footer — no card chrome in the mockup (sits directly on the page
-     background), just an avatar + name/email + a bordered "Sign out" pill
-     flush right. Rendered as one raw-HTML flex row (uvalu/pages_/settings.py)
-     rather than st.columns — a st.columns' per-column vertical_alignment
-     centering proved unreliable for mismatched-height siblings here
-     (confirmed live: an 8px offset between the avatar square and the Sign
-     out pill persisted even after forcing align-items:center + matching
-     explicit heights on the column-based version), so this only needs the
-     outer padding; the flex/gap/centering all live in the inline style. */
-  .st-key-set_account_footer { padding: 4px 2px 24px !important; }
+  /* Legal card: the six documents as one wrapping row of teal links. */
+  .st-key-set_legal_links {
+    flex-direction: row !important; flex-wrap: wrap !important; gap: 4px 18px !important;
+    padding: 12px 20px 0 !important;
+  }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] {
+    padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+  }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--teal) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+  .st-key-set_card_legal { padding-bottom: 14px !important; }
+  /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
+     row with the avatar and name — st.columns' per-column centring was off
+     by 8px for these mismatched heights. */
   .uv-set-signout {
     display: inline-flex !important; align-items: center !important;
     box-sizing: border-box !important; height: 38px !important;
@@ -1695,6 +1759,9 @@ GLOBAL_CSS = """
   }
   /* Tighter dividers — color comes from the theme borderColor */
   [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
+
+  /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
+  input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }
 
   /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
   .uv-badge {

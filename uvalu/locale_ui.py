@@ -43,7 +43,13 @@ def _save(email: str, key: str, value) -> None:
 
 
 def _on_change(email: str, key: str) -> None:
-    _save(email, key, st.session_state.get(_KEYS[key]))
+    value = st.session_state.get(_KEYS[key])
+    if value is None:
+        # A segmented control deselected by a second click: keep the saved
+        # choice (these settings always have a value).
+        st.session_state[_KEYS[key]] = load_settings(email).get(key) or getattr(i18n.current(), key, None)
+        return
+    _save(email, key, value)
 
 
 def _sync_widgets(ctx: i18n.Ctx, profile: dict) -> None:
@@ -109,8 +115,9 @@ def _reset(email: str) -> None:
     st.session_state["_uv_i18n_reset_done"] = True
 
 
-def render_card(email: str) -> None:
-    """The Settings › Language & region card (spec §7.1)."""
+def render_card(email: str, anchor: str | None = None) -> None:
+    """The Settings › Language & region card (spec §7.1). ``anchor`` is the
+    id the Settings section nav links to."""
     from uvalu.pages_.settings import _row_header
     cfg = i18n.config()
     ctx = i18n.current()
@@ -118,7 +125,7 @@ def render_card(email: str) -> None:
     _sync_widgets(ctx, profile)
 
     with st.container(key="set_card_i18n", border=True):
-        _row_header(_("Language & region"))
+        _row_header(_("Language & region"), anchor=anchor)
 
         with st.container(key="set_row_i18n_language"):
             with _row(f"{GLOBE_SVG}{html.escape(_('Language'))}"):
@@ -151,13 +158,15 @@ def render_card(email: str) -> None:
                              on_change=_on_change, args=(email, "display_currency"))
 
         with st.container(key="set_row_i18n_date_format"):
-            with _row(_("Date format")):
+            # A segmented control like every other small fixed choice on the
+            # page; the sample date for the current choice is the description.
+            with _row(_("Date format"), fmt_date(_SAMPLE_DATE, st.session_state.get(_KEYS["date_format"]))):
                 names = {"short": pgettext("date_format", "Short"),
                          "medium": pgettext("date_format", "Medium"), "iso": "ISO"}
-                st.radio(_("Date format"), options=list(i18n.DATE_FORMATS),
-                         format_func=i18n.frozen(lambda f: f"{names[f]} ({fmt_date(_SAMPLE_DATE, f)})"),
-                         key=_KEYS["date_format"], label_visibility="collapsed",
-                         on_change=_on_change, args=(email, "date_format"))
+                st.segmented_control(_("Date format"), options=list(i18n.DATE_FORMATS),
+                                     format_func=i18n.frozen(lambda f: names[f]),
+                                     key=_KEYS["date_format"], label_visibility="collapsed",
+                                     on_change=_on_change, args=(email, "date_format"))
 
         with st.container(key="set_row_i18n_time_zone"):
             with _row(_("Time zone")):
@@ -171,10 +180,10 @@ def render_card(email: str) -> None:
             with _row(_("First day of week")):
                 days = i18n.names_locale().days["format"]["wide"]
                 day_names = {"monday": days[0], "sunday": days[6]}
-                st.radio(_("First day of week"), options=list(i18n.WEEK_STARTS),
-                         format_func=i18n.frozen(lambda d: day_names[d][:1].upper() + day_names[d][1:]),
-                         key=_KEYS["week_start"], label_visibility="collapsed", horizontal=True,
-                         on_change=_on_change, args=(email, "week_start"))
+                st.segmented_control(_("First day of week"), options=list(i18n.WEEK_STARTS),
+                                     format_func=i18n.frozen(lambda d: day_names[d][:1].upper() + day_names[d][1:]),
+                                     key=_KEYS["week_start"], label_visibility="collapsed",
+                                     on_change=_on_change, args=(email, "week_start"))
 
         _preview(ctx)
 

@@ -429,6 +429,20 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    dialog). Worth one real print or "Save as PDF" test in Chrome.
 5. **Settings (1.4), ≈ 1–1½ days.** Row component + section nav first (fixes S4–S6), then the save
    model, the copy cleanup and the controls.
+
+   **Status 4 Oct 2026: done, not committed.** Sticky section nav; page on the standard gutter.
+   Order: Language & region first (kept first for i18n spec S-06), then Account (profile card with
+   Sign out, Security, Sessions), Display, Portfolio, Data & alerts, Import & export, Model settings,
+   Legal. Row fixes: first row under each header, centred labels (the markdown container's -16px
+   margin was the cause), 4-option controls stacked under their description. Save model: autosave for
+   choices, explicit Save for targets and withholding (new). Model card: "Affects all users · logged"
+   chip, duplicate thumb value hidden, help text under the label. Copy: no "PHASE 3"; linked
+   accounts show only offered providers (else a beta line); the US toggle explains why. Controls:
+   segmented date format and week start, HHI empty = default, withholding labels with "(%)",
+   placeholders faint app-wide (G16). Import: confirm step listing what the file holds, in a danger
+   box; the uploader resets afterwards (this also fixes the re-import loop the old test had to stub).
+   Not done: a structured target editor (the textareas stay), slider min/max ticks, a "View change
+   log" link (no change-log page exists yet).
 6. **Design-system polish, ≈ 1 day.** G3–G7, G10–G12, G14–G18. Mostly CSS/helpers in `components.py`
    and `shell.py`.
 7. **Per-screen polish.** The remaining D/SC/W/P/R/DR/A/AD/U rows.
