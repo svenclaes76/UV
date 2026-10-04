@@ -263,7 +263,7 @@ Only the legal changes in `Uvalu.dc.html` are listed. Build them in Streamlit to
 
 | Element | Req. | Repo |
 | --- | --- | --- |
-| Footer: short disclaimer (in the user's language), producer identity, "not supervised by the FSMA", links to the six legal pages, "not directed at UK, US, Switzerland" | DIS-1, REC-1, BIZ-3, TOU-8, INT-5/6 | `uvalu/shell.py` |
+| Footer: short disclaimer (in the user's language), producer identity, "not supervised by the FSMA", links to the six legal pages ("not directed at UK, US, Switzerland" moved to the Terms of use, eligibility, Oct 4 2026) | DIS-1, REC-1, BIZ-3, TOU-8, INT-5/6 | `uvalu/shell.py` |
 | Badge helper: descriptive label (D1) + BDG-2 tooltip + methodology link; badge column widened to 140 px in every table | BDG-1/2 | `uvalu/components.py` |
 | Provenance line under each page title that shows badges: "Prices · end-of-day close <date> · Signals computed <time> · Model <version> · Methodology →" | REC-4, DATA-3, REC-5 | Dashboard, Portfolio, Screener, Watchlist, Analysis, drawer |
 | "Buy" → "Add position"; drawer actions under "Your records · nothing is executed": "Record purchase", "Record sale", "Edit position"; sell dialog title "Record sale · <ticker>" | PER-7 | `uvalu/dialogs.py`, `uvalu/drawer.py`, pages |

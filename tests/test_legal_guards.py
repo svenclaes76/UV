@@ -137,4 +137,14 @@ class TestFooter:
         assert "Uvalu is an analysis tool." in md
         assert "Sven Claes" in md and "registration pending" in md
         assert "Not authorised or supervised by the FSMA" in md
-        assert "Not directed at residents of the United Kingdom" in md
+        # INT-5/6 moved to the Terms (test below); the footer stays short.
+        assert "Not directed at residents" not in md
+
+    @pytest.mark.parametrize("terms", ["beta/terms-of-use.md", "terms-of-use.md"])
+    def test_terms_state_the_service_is_not_directed_at_uk_us_ch(self, terms):
+        """INT-5 / INT-6: the Terms of use say the service is not directed at
+        UK, US or Swiss residents (removed from the footer, Oct 4 2026)."""
+        from pathlib import Path
+        text = (Path(__file__).resolve().parents[1] / "docs" / "legal" / "policies" / terms).read_text(encoding="utf-8")
+        assert ("Uvalu is not directed at residents of the United Kingdom, the United States "
+                "or Switzerland.") in text

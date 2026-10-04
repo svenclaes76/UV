@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-04 16:28+0000\n"
+"POT-Creation-Date: 2026-10-04 17:36+0000\n"
 "PO-Revision-Date: 2026-10-04 14:41+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
@@ -2919,7 +2919,7 @@ msgid "Privacy policy"
 msgstr "Política de privacidad"
 
 #. Context: Planned (spec, not in code yet) › Link text
-#: uvalu/compliance/disclosures.py:80 uvalu/i18n_planned.py:15
+#: uvalu/compliance/disclosures.py:82 uvalu/i18n_planned.py:15
 msgid "Terms of use"
 msgstr "Condiciones de uso"
 
@@ -3187,102 +3187,107 @@ msgstr "número de empresa: inscripción en trámite"
 msgid "Not authorised or supervised by the FSMA as an investment firm."
 msgstr "No autorizado ni supervisado por la FSMA como empresa de servicios de inversión."
 
-#: uvalu/compliance/disclosures.py:31
+#: uvalu/compliance/disclosures.py:33
 msgid "Not directed at residents of the United Kingdom, the United States or Switzerland."
 msgstr "No dirigido a residentes en el Reino Unido, los Estados Unidos o Suiza."
 
-#: uvalu/compliance/disclosures.py:35
+#: uvalu/compliance/disclosures.py:37
 msgid "Uvalu is an analysis tool. Scores, fair values and signals are model outputs based on public data and are the same for every user. They are not personal investment advice and do not take your situation into account. Investing involves risk, including loss of capital. Decisions are your own."
 msgstr "Uvalu es una herramienta de análisis. Las puntuaciones, los valores razonables y las señales son resultados de modelos basados en datos públicos y son iguales para todos los usuarios. No constituyen asesoramiento personalizado en materia de inversión ni tienen en cuenta tu situación. Invertir conlleva riesgos, incluida la pérdida de capital. Las decisiones son tuyas."
 
-#: uvalu/compliance/disclosures.py:40
+#: uvalu/compliance/disclosures.py:42
 #, python-brace-format
 msgid "Uvalu ({producer}) is not an investment firm, bank or broker and is not authorised or supervised by the FSMA to provide investment services. Uvalu does not provide investment advice, portfolio management or order execution. All valuations, scores, signals and risk figures are generated automatically from third-party data and from assumptions that may be wrong, incomplete or out of date. They are general information made available to all users on the same basis. Before investing, consider your own circumstances and, where appropriate, consult an authorised adviser. Positions held by the founder in covered instruments are disclosed on the stock page and in the conflicts of interest policy."
 msgstr "Uvalu ({producer}) no es una empresa de servicios de inversión, un banco ni un bróker, y no está autorizado ni supervisado por la FSMA para prestar servicios de inversión. Uvalu no presta asesoramiento en materia de inversión, gestión de carteras ni ejecución de órdenes. Todas las valoraciones, puntuaciones, señales y cifras de riesgo se generan automáticamente a partir de datos de terceros y de hipótesis que pueden ser erróneas, incompletas o estar desactualizadas. Se trata de información general puesta a disposición de todos los usuarios en las mismas condiciones. Antes de invertir, ten en cuenta tu propia situación y, cuando proceda, consulta a un asesor autorizado. Las posiciones del fundador en los instrumentos cubiertos se indican en la página de la acción y en la política de conflictos de intereses."
 
-#: uvalu/compliance/disclosures.py:50
+#: uvalu/compliance/disclosures.py:52
 msgid "Support explains how Uvalu works; we can't comment on whether you should buy, hold or sell any stock."
 msgstr "El soporte explica cómo funciona Uvalu; no podemos opinar sobre si deberías comprar, mantener o vender una acción."
 
-#: uvalu/compliance/disclosures.py:54
+#: uvalu/compliance/disclosures.py:56
 msgid "Your records · nothing is executed"
 msgstr "Tus registros · no se ejecuta ninguna orden"
 
-#: uvalu/compliance/disclosures.py:58
+#: uvalu/compliance/disclosures.py:60
 msgid "Prices"
 msgstr "Precios"
 
-#: uvalu/compliance/disclosures.py:58
+#: uvalu/compliance/disclosures.py:60
 msgid "Yahoo Finance · delayed quotes, with the time they were fetched"
 msgstr "Yahoo Finance · cotizaciones diferidas, con la hora en que se obtuvieron"
 
-#: uvalu/compliance/disclosures.py:59
+#: uvalu/compliance/disclosures.py:61
 msgid "Fundamentals"
 msgstr "Datos fundamentales"
 
-#: uvalu/compliance/disclosures.py:59
+#: uvalu/compliance/disclosures.py:61
 msgid "Yahoo Finance · refreshed about every 24 hours"
 msgstr "Yahoo Finance · actualizados aproximadamente cada 24 horas"
 
-#: uvalu/compliance/disclosures.py:60
+#: uvalu/compliance/disclosures.py:62
 msgid "Dividends"
 msgstr "Dividendos"
 
-#: uvalu/compliance/disclosures.py:60
+#: uvalu/compliance/disclosures.py:62
 msgid "Yahoo Finance payment history · your own entries are your records"
 msgstr "Historial de pagos de Yahoo Finance · tus propias entradas son tus registros"
 
-#: uvalu/compliance/disclosures.py:61
+#: uvalu/compliance/disclosures.py:63
 msgid "FX"
 msgstr "Divisas"
 
-#: uvalu/compliance/disclosures.py:61
+#: uvalu/compliance/disclosures.py:63
 msgid "ECB reference rates via frankfurter.dev"
 msgstr "Tipos de referencia del BCE a través de frankfurter.dev"
 
-#: uvalu/compliance/disclosures.py:66
+#: uvalu/compliance/disclosures.py:68
 msgid "Tax figures are estimates"
 msgstr "Las cifras fiscales son estimaciones"
 
-#: uvalu/compliance/disclosures.py:67
+#: uvalu/compliance/disclosures.py:69
 #, python-brace-format
 msgid "Rules applied: Belgium. Foreign withholding at the rate you set per exchange in Settings, then the Belgian withholding tax (roerende voorheffing) of {be_rate} on the remainder; not applied to stock (scrip) dividends. Rates last reviewed {date}."
 msgstr "Reglas aplicadas: Bélgica. Retención extranjera al tipo que fijas por bolsa en Ajustes y, después, la retención belga sobre rendimientos del capital mobiliario (précompte mobilier / roerende voorheffing) del {be_rate} sobre el resto; no se aplica a los dividendos en acciones (scrip). Tipos revisados por última vez el {date}."
 
-#: uvalu/compliance/disclosures.py:70
+#: uvalu/compliance/disclosures.py:72
 msgid "Not handled: the dividend exemption and its carry-forward, substantial holdings, funds with a bond component, non-Belgian residents, split ownership, professional or speculative trading."
 msgstr "No contemplados: la exención de dividendos y su traslado, las participaciones significativas, los fondos con componente de renta fija, los no residentes en Bélgica, la propiedad desmembrada (usufructo y nuda propiedad), las operaciones profesionales o especulativas."
 
-#: uvalu/compliance/disclosures.py:73
+#: uvalu/compliance/disclosures.py:75
 msgid "You remain responsible for your tax return. Check these figures against your bank statements or with a tax professional."
 msgstr "Sigues siendo responsable de tu declaración de impuestos. Comprueba estas cifras con tus extractos bancarios o con un profesional fiscal."
 
-#: uvalu/compliance/disclosures.py:81
+#: uvalu/compliance/disclosures.py:83
 msgid "Privacy notice"
 msgstr "Aviso de privacidad"
 
-#: uvalu/compliance/disclosures.py:82
+#: uvalu/compliance/disclosures.py:84
 msgid "Methodology"
 msgstr "Metodología"
 
-#: uvalu/compliance/disclosures.py:83 uvalu/pages_/analysis.py:152
+#: uvalu/compliance/disclosures.py:85 uvalu/pages_/analysis.py:152
 #: uvalu/pages_/help.py:215
 msgid "Data sources"
 msgstr "Fuentes de datos"
 
-#: uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:225
+#: uvalu/compliance/disclosures.py:86 uvalu/pages_/help.py:225
 msgid "Conflicts of interest"
 msgstr "Conflictos de intereses"
 
-#: uvalu/compliance/disclosures.py:85
+#: uvalu/compliance/disclosures.py:87
 msgid "Complaints & Consumer Mediation Service"
 msgstr "Reclamaciones y Servicio de Mediación para el Consumidor"
 
-#: uvalu/compliance/disclosures.py:87
+#: uvalu/compliance/disclosures.py:91
+#, fuzzy
+msgid "Complaints"
+msgstr "Reclamaciones"
+
+#: uvalu/compliance/disclosures.py:92
 msgid "Reference language: English. You may rely on the version shown to you in your own language."
 msgstr "Idioma de referencia: inglés. Puedes acogerte a la versión que se te muestra en tu idioma."
 
-#: uvalu/compliance/disclosures.py:89
+#: uvalu/compliance/disclosures.py:94
 msgid "This page is not yet available in your language; the English reference version is shown."
 msgstr "Esta página aún no está disponible en tu idioma; se muestra la versión de referencia en inglés."
 

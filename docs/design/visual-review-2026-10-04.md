@@ -407,6 +407,9 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    reproduced on a warm start; re-check after a cold start.
 2. **Footer (1.1), ≈ 1–2 h.** Including the Terms sentence and the test move for NOT_DIRECTED.
    Small and self-contained, and it touches legal texts, so keep it its own commit.
+
+   **Status 4 Oct 2026: done, not committed.** Items 1–6. Text lines stay left-aligned (question 1,
+   recommended option). The optional version marker (item 7) is not done.
 3. **Provenance bar (1.2), ≈ ½ day.** New component + the five call sites + Screener pill counts.
 4. **Legal page (1.3), ≈ ½–1 day.** L2–L14.
 5. **Settings (1.4), ≈ 1–1½ days.** Row component + section nav first (fixes S4–S6), then the save

@@ -40,6 +40,7 @@ You make your own investment decisions and you are responsible for them. Where a
 ## 4. Your account
 
 - You must be at least 18 years old and live in a country of the European Economic Area (EEA).
+- Uvalu is not directed at residents of the United Kingdom, the United States or Switzerland.
 - Give accurate information and keep it up to date.
 - Keep your login details secret. One account is for one person; do not share it.
 - Tell us at once at security@uvalu.app if you think someone else has used your account.

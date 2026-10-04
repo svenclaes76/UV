@@ -28,6 +28,8 @@ PRODUCER_PRIVACY_CONTACT = "privacy@uvalu.app"
 PRODUCER_ENTERPRISE_NUMBER = None   # None until the KBO/BCE registration
 ENTERPRISE_NUMBER_PENDING = N_("enterprise number: registration pending")
 NOT_SUPERVISED = N_("Not authorised or supervised by the FSMA as an investment firm.")
+# INT-5/6: stated in the Terms of use (eligibility). No longer in the footer;
+# kept for the invite-acceptance screen (M3).
 NOT_DIRECTED = N_("Not directed at residents of the United Kingdom, the United States or Switzerland.")
 
 # ── Disclaimers (DIS-1) ──────────────────────────────────────────────────────
@@ -84,6 +86,9 @@ LEGAL_DOCS = (
     ("conflicts", N_("Conflicts of interest"), "conflicts-of-interest.md"),
     ("complaints", N_("Complaints & Consumer Mediation Service"), "complaints.md"),
 )
+# Shorter labels for the footer's one-line link row; the legal page itself
+# keeps the full titles above.
+FOOTER_LINK_LABELS = {"complaints": N_("Complaints")}
 REFERENCE_LANGUAGE_NOTE = N_("Reference language: English. You may rely on the version shown "
                              "to you in your own language.")
 NOT_YET_TRANSLATED = N_("This page is not yet available in your language; the English "

@@ -412,12 +412,26 @@ def render_beta_banner() -> None:
 
 
 _FOOTER_CSS = """
-.st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding-top: 16px; gap: 8px !important; }
+.st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding: 16px 0 16px; gap: 8px !important; }
 .st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
-.st-key-uv_footer_links { gap: 2px 16px !important; flex-wrap: wrap !important; }
-.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
-  padding: 0 !important; min-height: 0 !important; background: none !important;
+/* Short pages (empty Analysis, a loading Watchlist): keep the footer at the
+   bottom of the screen instead of floating mid-page. The block container
+   fills the scrolling stMain, the page's block grows into it, and the
+   footer's wrapper takes the slack above it. */
+[data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
+/* Legal links: one centred row, "·" between them, no icons (st.page_link
+   inherits the Legal page's gavel icon, which repeated six times). */
+.st-key-uv_footer_links { justify-content: center !important; gap: 2px 0 !important; flex-wrap: wrap !important; margin-top: 4px; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"]:not(:last-child)::after {
+  content: "·"; color: var(--faint); font-size: 11px; margin: 0 10px;
 }
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
+  padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] p,
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] span {
   font-size: 11px !important; color: var(--teal) !important;
@@ -428,12 +442,13 @@ _FOOTER_CSS = """
 
 def render_footer() -> None:
     """Short disclaimer, producer identity and the legal page links, at the
-    bottom of every screen, in the user's language (DIS-1, REC-1, TOU-8,
-    INT-5/6)."""
+    bottom of every screen, in the user's language (DIS-1, REC-1, TOU-8).
+    The "not directed at the UK, US or Switzerland" statement (INT-5/6) lives
+    in the Terms of use, where those requirements put it."""
     from uvalu.compliance import disclosures as d
     with st.container(key="uv_footer"):
         st.markdown(f"<style>{_FOOTER_CSS}</style>"
-                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;max-width:980px;">'
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
                     f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
                     f'<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px;">'
                     f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
@@ -442,6 +457,5 @@ def render_footer() -> None:
         with st.container(key="uv_footer_links", horizontal=True, vertical_alignment="center"):
             if legal_page is not None:
                 for key, title, _file in d.LEGAL_DOCS:
-                    st.page_link(legal_page, label=tr(title), query_params={"doc": key})
-            st.markdown(f'<span style="font-size:11px;color:var(--faint);">'
-                        f'{html.escape(tr(d.NOT_DIRECTED))}</span>', unsafe_allow_html=True)
+                    st.page_link(legal_page, label=tr(d.FOOTER_LINK_LABELS.get(key, title)),
+                                 query_params={"doc": key})
