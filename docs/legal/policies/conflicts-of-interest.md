@@ -35,6 +35,7 @@ When the founder holds a position in a share that Uvalu covers, of any size, the
 - **No override.** Signals of shares held by the founder are calculated exactly like all others.
 - **No promotion of own positions without disclosure.** When we mention an individual share in marketing, newsletters or social media, we always state whether the founder holds it.
 - **Trade register.** The founder keeps a dated record of personal transactions in covered shares, which can be given to the regulator on request.
+- **Change log.** Uvalu records the date and time when a model or threshold change is decided, when each setting changes, and when each model version goes live. Together with the trade register, this shows that the rules above were followed.
 
 ## 5. Payments and relationships
 
@@ -48,7 +49,7 @@ If any of the above changes, we update this page before the change takes effect.
 
 ## 6. Specific disclosures
 
-Where a specific conflict exists for a share, it is shown on that share's page. At the date of this version: none.
+Where a specific conflict exists for a share, it is shown on that share's page. This includes the founder's positions (section 3). At the date of this version there are no other specific conflicts.
 
 ## 7. Questions
 

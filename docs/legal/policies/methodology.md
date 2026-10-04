@@ -99,6 +99,8 @@ A model signal summarises the result in one label. It describes where the stock 
 | **Fails quality screen** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
 | **No signal** | Not enough comparison data to rank the stock yet | — |
 
+For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.
+
 A dividend is "at risk" when the payout ratio is above 90%, the cash payout ratio is above 80%, dividend cover is below 1.2×, or the dividend was cut in the last 3 years.
 
 **Time horizon.** The models value a business on its current fundamentals and assume a multi-year holding horizon. They say nothing about short-term price movements.
@@ -111,7 +113,8 @@ A dividend is "at risk" when the payout ratio is above 90%, the cash payout rati
 - Fundamentals are refreshed about every 24 hours.
 - Signals are recalculated whenever new data arrives. Each signal shows the date and time of calculation and the date of the price used.
 - Each stock page shows the history of signal changes for at least the past 12 months.
-- Every result carries the model version and a code for the settings used, so a past signal can be reproduced on request.
+- Every result carries the model version and a code for the settings used. Uvalu also keeps a daily record of every signal with the figures behind it, so a past signal can be reproduced on request.
+- Signal histories and daily records cover only the stocks in Uvalu's public coverage. Stocks that one user adds for themselves are not included.
 - Changes to models or thresholds are listed in the change log below and announced in the app when material.
 
 ## 8. Sensitivity and limits of the models

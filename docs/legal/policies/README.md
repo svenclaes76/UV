@@ -98,7 +98,7 @@ These pages promise behaviour. Each item below must be true in the app before th
 - Raise the shared `min_mos` default from 0% to 10% and bump `MODEL_VERSION`.
 - Wire the `*_compliant` modules in (checklist in `../algorithm-compliance-review.md` §4): signal history on the stock page (12 months), timestamps, data flags and model list next to every signal, no analyst-target display.
 - Show `FOUNDER_HOLDS_NOTICE` on the stock page and next to the signal of every share the founder holds, at any size: keep `data/founder_holdings.json` current within 2 business days of each trade, and pass `load_founder_holdings()` to the universe build.
-- Call `settings_audit.record_settings_change()` from the shared-settings save and `record_model_version()` after each universe build. Keep `data/settings_audit.jsonl` outside the 31-day log retention: it is the evidence for Conflicts §4. Add it, with the admin email as actor, to the Privacy notice's processing list.
+- Call `settings_audit.record_settings_change()` from the shared-settings save and `record_model_version()` after each universe build. Keep `data/settings_audit.jsonl` outside the 31-day log retention: it is the evidence for Conflicts §4. It names the admin who made each change. While the founder is the only admin, no Privacy notice entry is needed. Add one if other people get admin rights. The signal history and daily snapshots hold no personal data, since they cover public-universe stocks only.
 
 **Offline commitments (no code)**
 - Keep the personal trade register for covered shares (Conflicts §4).
