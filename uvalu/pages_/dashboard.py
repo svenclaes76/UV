@@ -17,7 +17,7 @@ from uvalu.formatting import safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
-from uvalu.components import (fair_value_legend_row, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_html, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -452,15 +452,15 @@ def render() -> None:
 
     # ── Holdings · price vs fair value ────────────────────────────────────────
     with st.container(key="db_holdings_card", border=True):
-        with st.container(key="db_holdings_header", horizontal=True,
-                          vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f"""
+        with st.container(key="db_holdings_header"):
+            # Title, then the provenance bar with the fair-value legend on its
+            # right (REC-4/5); the legend alone while the signals are loading.
+            _db_prov = "" if _db_ref_pending else list_provenance_html(_db_scr, right=fair_value_legend_html())
+            st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>"""
-                           + ("" if _db_ref_pending else list_provenance_html(_db_scr)), unsafe_allow_html=True)
-            with st.container(width="content"):
-                fair_value_legend_row()
+                        + (_db_prov or f'<div style="margin-top:10px;">{fair_value_legend_html()}</div>'),
+                        unsafe_allow_html=True)
         # Column header renders for the real table AND the fetch-in-progress
         # skeleton below (never just the header floating over a blank body,
         # never rows with no header) — only the genuine "nothing here" case

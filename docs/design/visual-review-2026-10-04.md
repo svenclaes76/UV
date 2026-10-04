@@ -411,6 +411,12 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    **Status 4 Oct 2026: done, not committed.** Items 1–6. Text lines stay left-aligned (question 1,
    recommended option). The optional version marker (item 7) is not done.
 3. **Provenance bar (1.2), ≈ ½ day.** New component + the five call sites + Screener pill counts.
+
+   **Status 4 Oct 2026: done, not committed.** `provenance_bar_html` / `coverage_bar_html` /
+   `fair_value_legend_html` in `components.py`. Items 1–8, with a staleness chip after 72 h (the same
+   rule as the stock page's data flag). Pill counts are over the stocks with a fair value (what the
+   table can show). The coverage bar keeps REC-10's share over all covered stocks. Existing msgids are
+   kept; new ones: "Coverage", "oldest {age}", "{count} price(s) is/are more than 72 hours old.".
 4. **Legal page (1.3), ≈ ½–1 day.** L2–L14.
 5. **Settings (1.4), ≈ 1–1½ days.** Row component + section nav first (fixes S4–S6), then the save
    model, the copy cleanup and the controls.

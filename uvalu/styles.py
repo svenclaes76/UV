@@ -132,7 +132,7 @@ GLOBAL_CSS = """
     overflow: hidden !important; padding: 0 !important;
   }
   .st-key-db_holdings_header {
-    padding: 16px 20px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 16px 20px 8px !important;   /* the provenance bar brings its own 12px */ border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-db_holdings_colheader {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;

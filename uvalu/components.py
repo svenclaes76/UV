@@ -129,13 +129,69 @@ def methodology_link_html() -> str:
             f'{_html_mod.escape(_("Methodology →"))}</a>')
 
 
-def _provenance_div(parts: list[str], *, link: bool = True) -> str:
+# A price older than this is stale — the same 72-hour rule as the stock
+# page's data flag (screener.DATA_FLAG_LABELS["price_stale"]).
+STALE_PRICE_HOURS = 72
+
+# Coverage-bar colours per signal, in the badge colours of the active theme.
+_COVERAGE_COLORS = {
+    "undervalued": "var(--up-txt)",
+    "neutral": "var(--amber-txt)",
+    "low_score": "var(--down-txt)",
+    "fails_screen": "var(--faint)",
+}
+
+
+def _mono(value: str, title: str | None = None) -> str:
+    """A provenance value (time, model version) in the data font; prose stays
+    in the sans stack (brand: numbers are monospace, prose is not)."""
     import html as _html_mod
-    items = [f"<span>{_html_mod.escape(p)}</span>" for p in parts]
-    if link:
-        items.append(methodology_link_html())
-    return ('<div style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--faint);'
-            'font-family:var(--uv-mono);margin-top:6px;line-height:1.5;">' + "".join(items) + "</div>")
+    t = f' title="{_html_attr(title)}"' if title else ""
+    return (f'<span{t} style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);">'
+            f'{_html_mod.escape(value)}</span>')
+
+
+def _full_timestamp(ts) -> str:
+    """Tooltip text: ISO date and time plus the time zone it is shown in."""
+    from uvalu.i18n import current, fmt_datetime
+    return f"{fmt_datetime(ts, style='iso')} ({current().time_zone})"
+
+
+def _stale_chip_html(prices) -> str:
+    """Amber chip when the oldest price behind a list is past STALE_PRICE_HOURS:
+    "⚠ oldest 3 weeks", with the count of stale prices in the tooltip."""
+    if prices is None or prices.empty:
+        return ""
+    ages = pd.Timestamp.now(tz="UTC") - prices
+    stale = int((ages > pd.Timedelta(hours=STALE_PRICE_HOURS)).sum())
+    if not stale:
+        return ""
+    from babel.dates import format_timedelta
+    from uvalu.i18n import names_locale, ngettext
+    age = format_timedelta(ages.max().to_pytimedelta(), threshold=1, locale=names_locale())
+    tip = ngettext("{count} price is more than 72 hours old.",
+                   "{count} prices are more than 72 hours old.", stale)
+    return (f'<span title="{_html_attr(tip)}" style="white-space:nowrap;font-size:10.5px;font-weight:500;'
+            f'color:var(--amber-txt);background:var(--amber-bg);border-radius:6px;padding:1px 7px;">'
+            f'⚠ {h_("oldest {age}", age=age)}</span>')
+
+
+def provenance_bar_html(items: list[str], *, right: str = "", link: bool = True,
+                        below: str = "", margin: str = "10px 0 12px") -> str:
+    """REC-4 / REC-5 strip shown with every signal: the facts (``items``,
+    ready-made HTML) on the left, ``right`` (e.g. the fair-value legend) and
+    the "Methodology →" link on the right, ``below`` (the Screener's coverage
+    bar) under them. One subtle panel, like the beta banner, in the same place
+    on every screen. Each fact wraps as a whole, never mid-phrase."""
+    sep = '<span style="color:var(--faint);">·</span>'
+    facts = sep.join(f'<span style="white-space:nowrap;">{i}</span>' for i in items if i)
+    tail = "".join(x for x in (right, methodology_link_html() if link else "") if x)
+    return ('<div style="background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
+            f'padding:6px 12px;margin:{margin};font-size:11.5px;color:var(--muted);line-height:1.6;">'
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 18px;">'
+            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;">{facts}</div>'
+            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin-left:auto;">{tail}</div></div>'
+            f'{below}</div>')
 
 
 def signal_provenance_html(row) -> str:
@@ -144,43 +200,71 @@ def signal_provenance_html(row) -> str:
     closes), the model version and the methodology link. Shown under every
     signal badge that has a row behind it (drawer, Analysis page)."""
     from uvalu.i18n import fmt_datetime
-    return _provenance_div([
-        _("Signal computed {when}", when=fmt_datetime(row.get("signal_computed_at"))),
-        _("price as of {when}, delayed", when=fmt_datetime(row.get("price_as_of"))),
-        _("model {version}", version=str(row.get("model_version") or "—")),
-    ])
+    computed, price_at = row.get("signal_computed_at"), row.get("price_as_of")
+    return provenance_bar_html([
+        h_("Signal computed {when}", when=_mono(fmt_datetime(computed, style="medium"), _full_timestamp(computed))),
+        h_("price as of {when}, delayed", when=_mono(fmt_datetime(price_at, style="medium"), _full_timestamp(price_at))),
+        h_("model {version}", version=_mono(str(row.get("model_version") or "—"))),
+    ], margin="10px 0 8px")
 
 
-def list_provenance_html(df, *, coverage: bool = False) -> str:
+def coverage_bar_html(df) -> str:
+    """REC-10 as a picture: a 100 % stacked bar of the share of covered stocks
+    per signal, in the badge colours, with the shares as its legend."""
+    import html as _html_mod
+    from screener import SIGNAL_LABELS, signal_distribution
+    dist = signal_distribution(df)
+    if not dist:
+        return ""
+    segs = "".join(
+        f'<span title="{_html_attr(tr(SIGNAL_LABELS[code]))}" style="width:{share * 100:.2f}%;'
+        f'background:{_COVERAGE_COLORS[code]};"></span>'
+        for code, share in dist.items() if share > 0)
+    legend = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">'
+        f'<span style="width:8px;height:8px;border-radius:2px;background:{_COVERAGE_COLORS[code]};"></span>'
+        f'{_mono(fmt_pct(share * 100, 0))} {_html_mod.escape(tr(SIGNAL_LABELS[code]))}</span>'
+        for code, share in dist.items())
+    return ('<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-top:5px;'
+            'padding-top:6px;border-top:0.5px solid var(--line-2);">'
+            f'<span style="color:var(--faint);">{h_("Coverage")}</span>'
+            '<span style="display:flex;width:180px;height:6px;border-radius:3px;overflow:hidden;gap:1px;">'
+            f'{segs}</span>{legend}</div>')
+
+
+def list_provenance_html(df, *, coverage: bool = False, right: str = "") -> str:
     """The same provenance for a whole list of signals (Dashboard holdings,
-    Screener, Watchlist): the latest computation time, the range of price
-    times (delayed quotes), the model version(s) and, with ``coverage``, the
-    share of covered stocks per signal (REC-10). Empty string without data."""
+    Screener, Watchlist): the latest computation time, the price times
+    (delayed quotes; an amber chip when some are older than 72 hours), the
+    model version(s) and, with ``coverage``, the share of covered stocks per
+    signal as a stacked bar (REC-10). ``right`` goes next to the methodology
+    link. Empty string without data."""
     if df is None or getattr(df, "empty", True) or "signal_computed_at" not in df.columns:
         return ""
-    from screener import SIGNAL_LABELS, signal_distribution
-    from uvalu.i18n import fmt_datetime
+    from uvalu.i18n import fmt_date, fmt_datetime, fmt_time
     computed = pd.to_datetime(df["signal_computed_at"], errors="coerce", utc=True).dropna()
     prices = pd.to_datetime(df.get("price_as_of"), errors="coerce", utc=True).dropna() \
         if "price_as_of" in df.columns else pd.Series(dtype="datetime64[ns, UTC]")
-    parts = []
+    items = []
     if not computed.empty:
-        parts.append(_("Signals computed {when}", when=fmt_datetime(computed.max())))
+        items.append(h_("Signals computed {when}", when=_mono(
+            fmt_datetime(computed.max(), style="medium"), _full_timestamp(computed.max()))))
     if not prices.empty:
-        if prices.min().date() == prices.max().date():
-            parts.append(_("prices delayed, as of {when}", when=fmt_datetime(prices.max())))
+        oldest, newest = prices.min(), prices.max()
+        if oldest.date() == newest.date():
+            items.append(h_("prices delayed, as of {when}", when=_mono(
+                fmt_time(newest), _full_timestamp(newest))))
         else:
-            parts.append(_("prices delayed, fetched {oldest} to {newest}",
-                           oldest=fmt_datetime(prices.min()), newest=fmt_datetime(prices.max())))
+            items.append(h_("prices delayed, fetched {oldest} to {newest}",
+                            oldest=_mono(fmt_date(oldest, skeleton="MMMd"), _full_timestamp(oldest)),
+                            newest=_mono(fmt_date(newest, skeleton="MMMd"), _full_timestamp(newest))))
+        items.append(_stale_chip_html(prices))
     versions = sorted({str(v) for v in df.get("model_version", pd.Series(dtype=object)).dropna()})
     if versions:
-        parts.append(_("model {version}", version=", ".join(versions)))
-    if coverage:
-        dist = signal_distribution(df)
-        if dist:
-            parts.append(_("coverage: {shares}", shares=" · ".join(
-                f"{fmt_pct(share * 100, 0)} {tr(SIGNAL_LABELS[code])}" for code, share in dist.items())))
-    return _provenance_div(parts) if parts else ""
+        items.append(h_("model {version}", version=_mono(", ".join(versions))))
+    if not items:
+        return ""
+    return provenance_bar_html(items, right=right, below=coverage_bar_html(df) if coverage else "")
 
 
 def founder_notice_html(row) -> str:
@@ -1142,16 +1226,29 @@ def refresh_top_bar_html() -> str:
     )
 
 
+def fair_value_legend_html() -> str:
+    """The below/near/above model fair value legend that accompanies
+    fair_value_bar_compact — as markup, for the provenance bar's right side."""
+    def _item(swatch: str, label: str) -> str:
+        return (f'<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">'
+                f'{swatch}{label}</span>')
+    def _box(color: str) -> str:
+        return (f'<span style="width:9px;height:9px;border-radius:2px;background:{color};'
+                f'display:inline-block;"></span>')
+    return ('<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
+            'font-size:11px;color:var(--faint);">'
+            + _item(_box("var(--mint)"), h_("Below model fair value"))
+            + _item(_box("var(--teal)"), h_("Near model fair value"))
+            + _item(_box("#A32D2D"), h_("Above model fair value"))
+            + _item('<span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
+                    h_("Model fair value"))
+            + '</span>')
+
+
 def fair_value_legend_row() -> None:
-    """The below/near/above model fair value legend strip that
-    accompanies fair_value_bar_compact in a holdings/screener table header."""
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--faint);flex-wrap:wrap;">
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);display:inline-block;"></span>{h_("Below model fair value")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);display:inline-block;"></span>{h_("Near model fair value")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;display:inline-block;"></span>{h_("Above model fair value")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>{h_("Model fair value")}</div>
-</div>""", unsafe_allow_html=True)
+    """The legend strip on its own row (a table header without a provenance
+    bar)."""
+    st.markdown(fair_value_legend_html(), unsafe_allow_html=True)
 
 
 # ── Signals feed ─────────────────────────────────────────────────────────────

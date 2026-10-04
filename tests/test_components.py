@@ -571,3 +571,53 @@ class TestGainColor:
 
     def test_zero_is_up(self):
         assert _gain_color(0.0) == "var(--up-txt)"
+
+
+# ── Provenance bar (REC-4 / REC-5 / REC-10; visual review 2026-10-04) ────────
+
+def _signals_frame(price_ages_hours, codes=("undervalued",)):
+    now = pd.Timestamp.now(tz="UTC")
+    n = len(price_ages_hours)
+    return pd.DataFrame({
+        "Ticker": [f"T{i}.BR" for i in range(n)],
+        "signal_computed_at": [now] * n,
+        "price_as_of": [now - pd.Timedelta(hours=h) for h in price_ages_hours],
+        "model_version": ["M1"] * n,
+        "signal_code": [codes[i % len(codes)] for i in range(n)],
+    })
+
+
+def test_list_provenance_keeps_every_rec4_rec5_fact():
+    from uvalu.components import list_provenance_html
+    html = list_provenance_html(_signals_frame([1, 2]))
+    assert "Signals computed" in html and "prices delayed" in html
+    assert "model" in html and "M1" in html
+    assert "Methodology" in html and "/legal?doc=methodology" in html
+
+
+def test_list_provenance_flags_prices_older_than_72_hours():
+    from uvalu.components import list_provenance_html
+    fresh = list_provenance_html(_signals_frame([1, 30]))
+    stale = list_provenance_html(_signals_frame([1, 24 * 21]))
+    assert "oldest" not in fresh
+    assert "oldest 3 weeks" in stale
+    assert "1 price is more than 72 hours old." in stale
+
+
+def test_coverage_bar_only_with_coverage_and_shows_each_share():
+    from uvalu.components import list_provenance_html
+    df = _signals_frame([1, 1, 1, 1], codes=("undervalued", "neutral", "neutral", "fails_screen"))
+    assert "Coverage" not in list_provenance_html(df)
+    html = list_provenance_html(df, coverage=True)
+    assert "Coverage" in html
+    for label in ("Undervalued", "Neutral", "Fails quality screen"):
+        assert label in html
+    assert "width:50.00%" in html and "width:25.00%" in html
+
+
+def test_signal_provenance_for_one_row():
+    from uvalu.components import signal_provenance_html
+    row = _signals_frame([2]).iloc[0]
+    html = signal_provenance_html(row)
+    assert "Signal computed" in html and "price as of" in html and "delayed" in html
+    assert "M1" in html and "/legal?doc=methodology" in html

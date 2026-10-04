@@ -19,7 +19,7 @@ from uvalu.drawer import open_drawer
 from uvalu.components import (fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
-from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
+from uvalu.i18n import N_, _, fmt_int, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -267,8 +267,13 @@ def render() -> None:
                 _search_width_css(_placeholder)
             with st.container(key="scr_signal_pills"):
                 _filter_label(h_("Signal"))
+                # Each pill carries its count (stocks with a fair value, what the
+                # table can show), so the coverage reads off the filter itself.
+                _signal_counts = (_valued_df.apply(
+                    lambda r: "fails_screen" if is_hard_veto(r.get("veto")) else r.get("signal_code"),
+                    axis=1).value_counts() if not _valued_df.empty else pd.Series(dtype=int))
                 _signal = st.pills(_("Signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
-                                   format_func=lambda c: tr(SIGNAL_LABELS[c]),
+                                   format_func=lambda c: f"{tr(SIGNAL_LABELS[c])} · {fmt_int(int(_signal_counts.get(c, 0)))}",
                                    default=["undervalued"], key="scr_signal", label_visibility="collapsed")
             with st.container(key="scr_select_sector"):
                 _filter_label(h_("Sector"))
@@ -339,9 +344,6 @@ def render() -> None:
                     _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
                                             count=len(_all_df))
                 st.caption(_scr_caption)
-                # REC-4 / REC-5 / REC-10: when the signals were computed, the
-                # price times, model version, coverage per signal, methodology.
-                st.markdown(list_provenance_html(_all_df, coverage=True), unsafe_allow_html=True)
             with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
                 with st.container(key="scr_reset_btn"):
                     if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):
@@ -349,6 +351,11 @@ def render() -> None:
                                   "scr_min_score", "scr_min_mos"):
                             st.session_state.pop(_k, None)
                         st.rerun()
+
+    # REC-4 / REC-5 / REC-10, directly above the results: when the signals
+    # were computed, the price times, model version, methodology and the share
+    # of covered stocks per signal.
+    st.markdown(list_provenance_html(_all_df, coverage=True), unsafe_allow_html=True)
 
     if _filtered.empty:
         with st.container(border=True):
