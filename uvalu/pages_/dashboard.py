@@ -43,7 +43,7 @@ def render() -> None:
         with _es_col:
             st.container(height=48, border=False)
             st.subheader(_("No portfolio yet"))
-            st.caption(_("Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings."))
+            st.caption(_("Browse the screener to explore stocks and their model valuations, or import an existing Excel portfolio in Settings."))
             with st.container(horizontal=True, gap="small"):
                 st.page_link(_pg_screener, label=_("Open screener"))
                 st.page_link(_pg_settings, label=_("Import portfolio"))
