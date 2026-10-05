@@ -1,6 +1,8 @@
 """Dashboard page — portfolio overview matching the Uvalu.dc.html mockup:
 KPI strip, value chart + conviction/risk card, holdings fair-value ladder,
 sector allocation, upcoming dividends, top movers."""
+import html as _html
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -9,15 +11,15 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
-from settings import load_shared_settings, load_settings, get_dividend_withholding
-from uvalu.data import (_load_portfolio_scored, _fetch_prices_cached,
-                        load_portfolio_risk, apply_live_mos)
+from settings import load_shared_settings, load_settings, get_dividend_withholding, get_veto_thresholds
+from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
+                        load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
-from uvalu.formatting import safe_pct as _safe_pct
+from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import theme_colors, current_user
-from uvalu.components import (fair_value_legend_row, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_html, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -43,7 +45,7 @@ def render() -> None:
         with _es_col:
             st.container(height=48, border=False)
             st.subheader(_("No portfolio yet"))
-            st.caption(_("Browse the screener to identify stocks worth buying, or import an existing Excel portfolio in Settings."))
+            st.caption(_("Browse the screener to explore stocks and their model valuations, or import an existing Excel portfolio in Settings."))
             with st.container(horizontal=True, gap="small"):
                 st.page_link(_pg_screener, label=_("Open screener"))
                 st.page_link(_pg_settings, label=_("Import portfolio"))
@@ -125,14 +127,21 @@ def render() -> None:
 
     # Scored rows for just this portfolio's holdings, via the dedicated
     # PORTFOLIO_FETCH lane — no full-universe scoring on the render path (WP-3).
-    # apply_live_mos refreshes Price / MoS % on the live quote so the Holdings
-    # ladder's price, fair value and margin of safety reconcile (WP-DQ1).
-    _db_scr = apply_live_mos(_load_portfolio_scored(_db_pf), _db_prices).copy()
+    # apply_live_prices adds the live quote next to the scored figures; the
+    # ladder's price, fair value and margin of safety stay those the signal
+    # was computed from, so all three reconcile with the badge (B3).
+    _db_scr = apply_live_prices(_load_portfolio_scored(_db_pf), _db_prices).copy()
     # True only while there's genuinely nothing scored yet AND the background
     # fetch is still working on it — an empty _db_scr for any other reason
     # (fetch finished with nothing to show) falls through to the plain "no
     # data" captions below instead of an endless skeleton.
     _db_fetch_running = _db_scr.empty and bool(get_fetch_progress(PORTFOLIO_FETCH).get("running"))
+    # Cold start: the holdings are scored but can't be ranked until the
+    # universe's peer reference exists — every signal would read "No signal",
+    # the fair values would lack sector medians and the composite would
+    # average only the failed-screen rows (0/100). Everything that depends on
+    # the ranking shows its skeleton until then (G1).
+    _db_ref_pending = not _db_scr.empty and peer_reference_pending()
     _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
     _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
 
@@ -154,8 +163,8 @@ def render() -> None:
             st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio overview")}</div>',
                        unsafe_allow_html=True)
             st.caption(ngettext(
-                "{positions} across {count} European exchange · valued against a six-model fair-value estimate.",
-                "{positions} across {count} European exchanges · valued against a six-model fair-value estimate.",
+                "{positions} across {count} European exchange · compared with model fair-value estimates.",
+                "{positions} across {count} European exchanges · compared with model fair-value estimates.",
                 _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))))
         with st.container(key="db_refresh_btn", width="content"):
             if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
@@ -180,7 +189,8 @@ def render() -> None:
         with _k1:
             _kpi_card(h_("Current value"), fmt_total(_db_current + _db_cash['balance']),
                      fmt_pct(_db_gain_pct, signed=True), _db_gain >= 0,
-                     (h_("incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
+                     # The chip is the unrealised result on the holdings: say so.
+                     (h_("unrealised · incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
                       else h_("{amount} unrealised", amount=fmt_total(_db_gain, signed=True))), icon="wallet")
         with _kc:
             _kpi_card(h_("Cash"), fmt_total(_db_cash['balance']), fmt_pct(_db_cash['cash_pct']), True,
@@ -196,11 +206,11 @@ def render() -> None:
             else:
                 _kpi_card(h_("Dividends received"), fmt_total(_db_divs), "", True, "", icon="coin")
         with _k4:
-            if _db_avg_mos is None and _db_fetch_running:
+            if (_db_avg_mos is None and _db_fetch_running) or _db_ref_pending:
                 st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
             else:
                 _kpi_card(h_("Avg margin of safety"), fmt_pct(_db_avg_mos, signed=True),
-                         "", (_db_avg_mos or 0) >= 0, h_("vs six-model fair value"), icon="target")
+                         "", (_db_avg_mos or 0) >= 0, h_("vs model fair value"), icon="target")
     _conv_note = conversion_note()
     if _conv_note:
         st.caption(_conv_note)
@@ -235,7 +245,10 @@ def render() -> None:
             _db_last_val   = float(_vh_view["value"].iloc[-1])
             _db_first_val  = float(_vh_view["value"].iloc[0])
             _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
-            _range_txt = _("All") if (_range_sel or "All") == "All" else _range_sel
+            # The change in value over the range, deposits included — not a
+            # return (that's the Total return tile); say so next to the chip.
+            _range_txt = _("{range} · incl. deposits",
+                           range=_("All") if (_range_sel or "All") == "All" else _range_sel)
             with _title_col:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
@@ -323,7 +336,7 @@ def render() -> None:
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
         with _cvh_col:
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Conviction & risk")}</div>',
+            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Score & risk")}</div>',
                        unsafe_allow_html=True)
         with _cvh_link_col:
             if st.button(_("Full analysis →"), key="db_conv_full_analysis", type="tertiary", width="stretch"):
@@ -335,9 +348,13 @@ def render() -> None:
             # here otherwise.
             _scr_cv = _db_pf.groupby("ticker")["current_value"].sum()
             _scr_vs = pd.to_numeric(_db_scr.set_index("Ticker")["Value Score"], errors="coerce")
+            # Only holdings with a model score count: "No signal" rows (no
+            # peer basis yet, PER-1) have none, so they're left out rather
+            # than averaged in as 0. A failed quality screen counts as its 0.
+            _scr_vs = _scr_vs.dropna()
             _w = _scr_cv.reindex(_scr_vs.index).fillna(0)
             if _w.sum() > 0:
-                _conv_score = float((_scr_vs.fillna(0) * _w).sum() / _w.sum())
+                _conv_score = float((_scr_vs * _w).sum() / _w.sum())
         _n_veto = int(_db_scr.get("veto", pd.Series(dtype=bool)).fillna(False).sum()) if "veto" in _db_scr.columns else 0
 
         # Risk report comes from the SAME shared builder the Risk page uses
@@ -374,7 +391,7 @@ def render() -> None:
             except Exception:
                 pass
 
-        if _db_fetch_running or _risk_pending:
+        if _db_fetch_running or _risk_pending or _db_ref_pending:
             # Either half of this card can independently still be computing
             # (conviction from the PORTFOLIO_FETCH lane, risk score from the
             # background risk report) — one combined skeleton covers both
@@ -384,35 +401,41 @@ def render() -> None:
             _auto_rerun(5, "dashboard_conviction_pending")
         else:
             if _conv_score is not None:
-                # Matches Uvalu.dc.html's conviction viewmodel exactly: labels
-                # "High conviction"/"Constructive"/"Cautious" at 75/55 thresholds
-                # (not this card's earlier "Strong/Moderate/Weak conviction" at
-                # 70/40), and the label is always mint-colored regardless of
-                # tier — the spec hardcodes `color:var(--mint)` unconditionally,
-                # not a tier-dependent color.
-                _conv_label = (h_("High conviction") if _conv_score >= 75 else
-                              h_("Constructive") if _conv_score >= 55 else h_("Cautious"))
-                _conv_text = h_("Weighted mean signal score across scored holdings.")
+                # PER-4: describes where the portfolio sits on the model's
+                # scale, no "conviction" verdict (legal design, Uvalu.dc.html).
+                # Bands follow the signal thresholds (screener SCORE_AVOID 40,
+                # the shared upper threshold, default 70).
+                _upper = get_veto_thresholds()[3]
+                _conv_label = (h_("Upper range of the model scale") if _conv_score >= _upper else
+                              h_("Middle range of the model scale") if _conv_score >= 40
+                              else h_("Lower range of the model scale"))
+                # Ring in the band's colour (the Analysis header's bands: mint at
+                # or above the Undervalued threshold, amber in the middle, red
+                # below 40 like the Low score signal); the headline stays plain
+                # text — it states a position on the scale, not good news.
+                _conv_ring = ("#1DD6A4" if _conv_score >= _upper else
+                              "#C98A3A" if _conv_score >= 40 else "#A32D2D")
+                _conv_text = h_("Value-weighted mean of model scores across scored holdings. Describes the portfolio.")
                 if _n_veto:
-                    _conv_text += " " + ngettext("{count} position under hard veto.",
-                                                 "{count} positions under hard veto.", _n_veto)
+                    _conv_text += " " + ngettext("{count} position fails a quality screen.",
+                                                 "{count} positions fail a quality screen.", _n_veto)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;margin-top:14px;">
   <div style="position:relative;width:118px;height:118px;flex:none;">
-    {radial_gauge_svg(_conv_score, "#1DD6A4", size=118)}
+    {radial_gauge_svg(_conv_score, _conv_ring, size=118)}
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
       <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{fmt_num(_conv_score, 0)}</span>
       <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
     </div>
   </div>
   <div>
-    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Composite conviction")}</div>
-    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--mint);">{_conv_label}</div>
+    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
+    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--text);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
 </div>""", unsafe_allow_html=True)
             else:
-                st.caption(_("Not enough scored holdings for a conviction score."))
+                st.caption(_("Not enough scored holdings for a weighted composite score."))
 
             if _risk_score is not None:
                 # Shared renderer (uvalu/components.risk_score_meter_html) — same
@@ -441,15 +464,15 @@ def render() -> None:
 
     # ── Holdings · price vs fair value ────────────────────────────────────────
     with st.container(key="db_holdings_card", border=True):
-        with st.container(key="db_holdings_header", horizontal=True,
-                          vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f"""
+        with st.container(key="db_holdings_header"):
+            # Title, then the provenance bar with the fair-value legend on its
+            # right (REC-4/5); the legend alone while the signals are loading.
+            _db_prov = "" if _db_ref_pending else list_provenance_html(_db_scr, right=fair_value_legend_html())
+            st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the six-model fair-value estimate. Gap to the marker is your remaining margin of safety.")}</div>""",
-                           unsafe_allow_html=True)
-            with st.container(width="content"):
-                fair_value_legend_row()
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>"""
+                        + (_db_prov or f'<div style="margin-top:10px;">{fair_value_legend_html()}</div>'),
+                        unsafe_allow_html=True)
         # Column header renders for the real table AND the fetch-in-progress
         # skeleton below (never just the header floating over a blank body,
         # never rows with no header) — only the genuine "nothing here" case
@@ -469,7 +492,7 @@ def render() -> None:
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
 
-        if not _db_scr.empty:
+        if not _db_scr.empty and not _db_ref_pending:
             _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
             _hold["weight"] = _hold["current_value"] / _db_current if _db_current else 0
             _hold = _hold.sort_values("price_gain", ascending=False).reset_index(drop=True)
@@ -498,13 +521,13 @@ def render() -> None:
                 # two rows if a user bought it in separate lots (add_position()
                 # appends rather than merging), which would otherwise collide.
                 with st.container(key=f"db_hold_{_hidx}"):
-                    # `_hr.get("Decision")` returns the actual NaN float (not
-                    # the "" default) for holdings with no screener match —
-                    # the "Decision" key exists as a merged column, it's just
+                    # `_hr.get("signal_code")` returns the actual NaN float
+                    # (not the "" default) for holdings with no screener
+                    # match — the key exists as a merged column, it's just
                     # empty for that row — so str()-ing it unguarded would
-                    # produce the literal text "nan" in the signal badge.
-                    _decision = _hr.get("Decision")
-                    _decision = str(_decision) if pd.notna(_decision) else ""
+                    # produce the literal text "nan".
+                    _signal_code = _hr.get("signal_code")
+                    _signal_code = str(_signal_code) if pd.notna(_signal_code) else ""
                     _w = _hr.get("weight", 0)
                     _w = float(_w) if _w is not None and pd.notna(_w) else 0.0
                     _cv = _hr.get("current_value")
@@ -514,8 +537,8 @@ def render() -> None:
                     st.markdown(_holdings_row_html(
                         ticker=_hr.get("ticker", ""),
                         sector=sector_for(_hr.get("ticker"), _hr.get("sector")), name=_hr.get("name", ""),
-                        decision=_decision, veto=_hr.get("veto"),
-                        price=_hr.get("live_price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
+                        signal_code=_signal_code, veto=_hr.get("veto"),
+                        price=_hr.get("Price"), fair_value=_hr.get("fair_value"), mos_pct=_hr.get("MoS %"),
                         weight=_w, value=_cv, total_gain=_hr.get("price_gain"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
                         data_thin=bool(_dt) if pd.notna(_dt) else False, grid_cols=_hold_grid,
@@ -527,6 +550,11 @@ def render() -> None:
 
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target])
+        elif _db_ref_pending:
+            # Scored, but the peer reference is still being built — the
+            # universe recompute's poll fills the real rows in (G1).
+            poll_while_fetching("dashboard_peer_reference", lane="screener")
+            st.markdown(skeleton_holdings_table_html(grid_cols=_hold_grid), unsafe_allow_html=True)
         elif _db_fetch_running:
             # Nothing scored yet, but the PORTFOLIO_FETCH lane is still
             # working on it — paint the table's real shape immediately
@@ -641,7 +669,7 @@ def render() -> None:
                         st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
-    <div style="font-size:12.5px;">{_dr['Name']}</div>
+    <div style="font-size:12.5px;">{_html.escape(display_name(_dr['Name']))}</div>
     <div style="font-size:11px;color:var(--faint);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
   </div>
   <div style="text-align:right;">
@@ -672,8 +700,7 @@ def render() -> None:
                 _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
-  <span style="font-family:var(--uv-mono);color:var(--faint);width:64px;flex:none;white-space:nowrap;">{_mr['ticker']}</span>
-  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_mr['name']}</span>
+  <span title="{_html.escape(str(_mr['ticker']))}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
   <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
     <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>

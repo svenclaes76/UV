@@ -36,7 +36,7 @@ def test_renders_without_exceptions():
 def test_shows_all_four_section_headers():
     at = _run()
     html = "".join(m.value for m in at.markdown)
-    for header in ("Signal legend", "The six fair-value models", "Hard-veto rules", "Frequently asked"):
+    for header in ("Badges · meaning", "The fair-value models", "Quality screens", "Frequently asked"):
         assert header in html
 
 

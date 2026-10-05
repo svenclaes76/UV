@@ -25,6 +25,7 @@ health/latency monitoring" / "no scheduler, every backup is Manual" / "no
 outbound email, share the temporary password yourself" captions instead of
 the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 "they'll receive an email invite" copy. Admin-role only."""
+import pandas as pd
 import streamlit as st
 
 from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
@@ -34,8 +35,13 @@ from backup import list_backups, create_backup, get_backup_bytes, restore_backup
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
 from uvalu import logkit, nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
+from uvalu.i18n import fmt_datetime
 from uvalu.runtime import current_user
 from uvalu.shell import _initials, _display_name, apply_theme_script, _close_stray_popover_script
+
+# User table columns (User, Role, Status, Sign-in, 2FA, Last active, actions):
+# Role is wide enough for "Analyst" (it was cut to "Ad" at 1024px).
+_USER_COLS = [2.2, 1.35, 1, 1.2, 0.8, 1.5, 1.2]
 
 _NAV_ITEMS = (
     ("users",    "Users",       ":material/group:"),
@@ -241,7 +247,7 @@ def _render_users() -> None:
 
     with st.container(key="admin_users_card", border=True):
         with st.container(key="admin_users_colheader"):
-            _h1, _h2, _h3, _h4, _h5, _h6, _h7 = st.columns([2.4, 1, 1, 1.3, 0.9, 1.5, 1.2])
+            _h1, _h2, _h3, _h4, _h5, _h6, _h7 = st.columns(_USER_COLS)
             for _col, _label in zip((_h1, _h2, _h3, _h4, _h5, _h6, _h7),
                                     ("User", "Role", "Status", "Sign-in", "2FA", "Last active", "")):
                 with _col:
@@ -256,8 +262,7 @@ def _render_users() -> None:
 
         for u in _filtered:
             with st.container(key=f"admin_user_row_{u['email']}"):
-                _c1, _c2, _c3, _c4, _c5, _c6, _c7 = st.columns(
-                    [2.4, 1, 1, 1.3, 0.9, 1.5, 1.2], vertical_alignment="center")
+                _c1, _c2, _c3, _c4, _c5, _c6, _c7 = st.columns(_USER_COLS, vertical_alignment="center")
                 with _c1:
                     st.markdown(f'<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                f'{_display_name(u["email"])}</div>'
@@ -284,10 +289,11 @@ def _render_users() -> None:
                 with _c5:
                     st.markdown(_2fa_badge(two_factor_status(u["email"])), unsafe_allow_html=True)
                 with _c6:
+                    # In the user's date format and time zone, not raw ISO.
                     _last = u["last_active"]
+                    _last_txt = fmt_datetime(pd.to_datetime(_last, errors="coerce")) if _last else "Never"
                     st.markdown(f'<div style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);">'
-                               f'{_last[:16].replace("T", " ") if _last else "Never"}</div>',
-                               unsafe_allow_html=True)
+                               f'{_last_txt}</div>', unsafe_allow_html=True)
                 with _c7:
                     if u["email"] == _current_email:
                         st.markdown('<div style="font-size:12px;color:var(--faint);text-align:right;">You</div>',
@@ -1485,7 +1491,7 @@ def render() -> None:
                 with _t2:
                     st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:flex-end;gap:16px;">
-  <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--uv-mono);">
+  <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--uv-mono);white-space:nowrap;">
     <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>
     All systems operational</div>
   <div style="width:30px;height:30px;border-radius:8px;background:var(--navy);border:0.5px solid var(--line);

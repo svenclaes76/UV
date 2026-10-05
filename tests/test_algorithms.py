@@ -57,7 +57,7 @@ from risk import (
     _sharpe_label,
     _sortino_label,
     _position_rating,
-    _risk_label_action,
+    _risk_label_description,
     _to_eur,
     _ols_beta,
     _resolve_betas,
@@ -69,7 +69,7 @@ from risk import (
     _stage4_factor,
     _stage5_income,
     _stage6_stress,
-    _stage8_rebalance,
+    _stage8_observations,
     _score_fundamental,
     _fetch_ff_csv,
     PositionRisk,
@@ -82,6 +82,15 @@ from risk import (
 )
 from prices import _day_change
 import marketdata
+
+
+@pytest.fixture(autouse=True)
+def _analyst_model_on(monkeypatch):
+    """These tests pin the fair-value math, including the analyst-target model
+    that sits behind screener.ANALYST_INPUTS_ENABLED (off until licensed,
+    DATA-6). Run them with the model on; the switch's own behaviour is pinned
+    in tests/test_compliance_algorithms.py."""
+    monkeypatch.setattr(screener, "ANALYST_INPUTS_ENABLED", True)
 
 
 @pytest.fixture(autouse=True)
@@ -837,7 +846,7 @@ class TestPerShareInputSanityFloor:
              "sector": "Financial Services", "averageVolume": 59.0,
              "payoutRatio": 0.0}])).iloc[0]
         assert pd.isna(out["fair_value"])
-        assert out["Decision"] != "Strong Buy"
+        assert out["signal_code"] != "undervalued"
 
 
 class TestFvBasisThin:
@@ -868,49 +877,46 @@ class TestFvBasisThin:
 # Screener Stage 3 — MoS, TER, dividend sustainability
 # ══════════════════════════════════════════════════════════════════════════════
 
-class TestDecisionReason:
-    """WP-DQ9: one-line explanation of a row's Decision, mirroring
-    compute_scores Stage 6."""
+class TestSignalReason:
+    """WP-DQ9 / REC-2: one-line statement of the rule behind a row's
+    signal_code, mirroring compute_scores Stage 6, in descriptive terms."""
 
-    def test_strong_buy_states_both_conditions_met(self):
-        r = pd.Series({"Decision": "Strong Buy", "Value Score": 82.0,
+    def test_undervalued_states_both_conditions(self):
+        r = pd.Series({"signal_code": "undervalued", "Value Score": 82.0,
                        "margin_of_safety": 0.25, "veto": False})
-        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
-        assert "82" in msg and "25%" in msg and "both BUY conditions met" in msg
+        msg = screener.signal_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "82" in msg and "25%" in msg and "at or above 70" in msg
+        assert "+10%" in msg   # the D1 floor, not the 0% setting
 
-    def test_monitor_names_the_failing_gates(self):
-        # score below the BUY bar AND a negative MoS -> both gates listed;
-        # still Monitor (not Avoid) because score clears the 40 floor.
-        r = pd.Series({"Decision": "Monitor", "Value Score": 46.0,
+    def test_neutral_names_the_failing_gates(self):
+        r = pd.Series({"signal_code": "neutral", "Value Score": 46.0,
                        "margin_of_safety": -0.22, "veto": False})
-        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
-        assert msg.startswith("Not a BUY:")
-        assert "below the 70 BUY threshold" in msg
-        assert "-22% is below the +0% minimum" in msg
+        msg = screener.signal_reason(r, buy_threshold=70, min_mos=0.0)
+        assert msg.startswith("Neutral:")
+        assert "below the upper threshold of 70" in msg
+        assert "-22% is below the +10% minimum" in msg
 
-    def test_monitor_flags_missing_fair_value(self):
-        r = pd.Series({"Decision": "Monitor", "Value Score": 55.0,
+    def test_neutral_flags_missing_fair_value(self):
+        r = pd.Series({"signal_code": "neutral", "Value Score": 55.0,
                        "margin_of_safety": float("nan"), "veto": False})
-        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
-        assert "no computable fair value" in msg
+        msg = screener.signal_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "no model fair value could be computed" in msg
 
-    def test_avoid_points_at_the_score_floor_not_the_mos(self):
-        # MONT.BR-style: barely-negative MoS but Avoid — driven by score < 40.
-        r = pd.Series({"Decision": "Avoid", "Value Score": 31.0,
+    def test_low_score_points_at_the_score_floor_not_the_mos(self):
+        r = pd.Series({"signal_code": "low_score", "Value Score": 31.0,
                        "margin_of_safety": -0.01, "veto": False})
-        msg = screener.decision_reason(r)
-        assert msg == "Composite score 31 is below the 40 Avoid floor."
+        assert screener.signal_reason(r) == "Model score 31 is below the lower threshold of 40."
 
-    def test_veto_short_circuits(self):
-        r = pd.Series({"Decision": "Avoid", "Value Score": 0.0,
-                       "margin_of_safety": 0.4, "veto": True})
-        assert "Hard veto active" in screener.decision_reason(r)
+    def test_failed_screen_short_circuits(self):
+        r = pd.Series({"signal_code": "fails_screen", "Value Score": 0.0,
+                       "margin_of_safety": 0.4, "veto": True, "veto_rules": ["debt_to_equity"]})
+        assert screener.signal_reason(r).startswith("Fails the model's quality screen")
 
-    def test_monitor_flags_thin_fair_value_basis(self):
-        r = pd.Series({"Decision": "Monitor", "Value Score": 82.0,
+    def test_neutral_flags_thin_fair_value_basis(self):
+        r = pd.Series({"signal_code": "neutral", "Value Score": 82.0,
                        "margin_of_safety": 0.9, "veto": False, "fv_basis_thin": True})
-        msg = screener.decision_reason(r, buy_threshold=70, min_mos=0.0)
-        assert "too few independent models" in msg
+        msg = screener.signal_reason(r, buy_threshold=70, min_mos=0.0)
+        assert "fewer than two independent models" in msg
 
 
 class TestUntradeableInstruments:
@@ -933,7 +939,7 @@ class TestUntradeableInstruments:
         }])
         out = compute_scores(row).iloc[0]
         assert bool(out["veto"]) is True
-        assert out["Decision"] == "Avoid"
+        assert out["signal_code"] == "fails_screen"
 
     def test_missing_volume_is_not_vetoed(self):
         # Same row, averageVolume simply absent (not confirmed zero) -> the
@@ -948,7 +954,7 @@ class TestUntradeableInstruments:
         }])
         out = compute_scores(row).iloc[0]
         assert bool(out["veto"]) is False
-        assert out["Decision"] == "Strong Buy"
+        assert out["signal_code"] == "undervalued"
 
     def test_thin_fair_value_basis_blocks_strong_buy_not_avoid(self):
         # NAITR.AS-shaped case: no earnings/PE/EPV/DDM/analyst anchor at all,
@@ -972,7 +978,7 @@ class TestUntradeableInstruments:
         assert bool(out["fv_basis_thin"]) is True
         assert bool(out["veto"]) is False
         assert out["margin_of_safety"] > 0
-        assert out["Decision"] == "Monitor"
+        assert out["signal_code"] == "neutral"
 
 
 class TestStage3:
@@ -1461,7 +1467,7 @@ class TestTrendVeto:
         steady = out[out["Ticker"] == "STEADY"].iloc[0]
         assert bool(shrink["veto"]) is True
         assert shrink["Value Score"] == 0.0
-        assert shrink["Decision"] == "Avoid"
+        assert shrink["signal_code"] == "fails_screen"
         assert bool(steady["veto"]) is False
 
 
@@ -1593,7 +1599,7 @@ class TestCompositeScore:
         out = compute_scores(pd.DataFrame(rows))
         assert (out["MoS %"] < 0).all()                       # all overvalued
         assert (out["Value Score"] < screener.SCORE_STRONG_BUY).all()
-        assert (out["Decision"] != "Strong Buy").all()
+        assert (out["signal_code"] != "undervalued").all()
         # every MoS sub-score is held at/under the pure-percentile midpoint
         # (50) — the absolute half is 0 for a negative MoS, so blend ≤ 50
         assert (out["Sub MoS"] <= 50.5).all()
@@ -1623,13 +1629,13 @@ class TestCompositeScore:
     def test_end_to_end_scoring(self, synthetic_universe):
         out = compute_scores(synthetic_universe)
 
-        assert set(out["Decision"]).issubset({"Strong Buy", "Monitor", "Avoid"})
+        assert set(out["signal_code"]).issubset({"undervalued", "neutral", "low_score", "fails_screen"})
         assert out["Value Score"].between(0, 100).all()
         assert list(out["Value Score"]) == sorted(out["Value Score"], reverse=True)
 
         veto = out[out["Ticker"] == "VETO"].iloc[0]
         assert veto["Value Score"] == 0.0
-        assert veto["Decision"] == "Avoid"
+        assert veto["signal_code"] == "fails_screen"
         assert bool(veto["veto"]) is True
 
         good = out[out["Ticker"] == "GOOD"].iloc[0]
@@ -1699,7 +1705,7 @@ class TestCompositeScore:
 
         out = compute_scores(pd.DataFrame(rows))
         weakest = out[out["Ticker"] == "T4"].iloc[0]
-        assert weakest["Decision"] == "Avoid"
+        assert weakest["signal_code"] == "low_score"
         assert bool(weakest["veto"]) is False
         assert weakest["Value Score"] < screener.SCORE_AVOID
 
@@ -1716,7 +1722,7 @@ class TestCompositeScore:
             "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
         }])
         out = compute_scores(row)
-        assert out.iloc[0]["Decision"] == "Strong Buy"
+        assert out.iloc[0]["signal_code"] == "undervalued"
 
     def test_missing_fair_value_cannot_reach_strong_buy(self):
         # NOVAL has no trailingEps/bookValue/targetMeanPrice/ebit/dividend at
@@ -1752,7 +1758,7 @@ class TestCompositeScore:
         assert pd.isna(row["fair_value"])
         assert pd.isna(row["margin_of_safety"])
         assert row["Value Score"] >= screener.SCORE_STRONG_BUY  # would have qualified pre-fix
-        assert row["Decision"] != "Strong Buy"
+        assert row["signal_code"] != "undervalued"
 
 
 class TestVectorisedStage3And6:
@@ -1787,14 +1793,14 @@ class TestVectorisedStage3And6:
     @staticmethod
     def _scalar_decision(row, *, buy_threshold, min_mos):
         if row["_hard_veto"] if "_hard_veto" in row else row["veto"]:
-            return "Avoid"
+            return "fails_screen"
         s, mos = row["Value Score"], row["margin_of_safety"]
-        if (s >= buy_threshold and pd.notna(mos) and mos >= min_mos
+        if (s >= buy_threshold and pd.notna(mos) and mos >= screener.effective_min_mos(min_mos)
                 and not bool(row["fv_basis_thin"])):
-            return "Strong Buy"
+            return "undervalued"
         if s >= screener.SCORE_AVOID:
-            return "Monitor"
-        return "Avoid"
+            return "neutral"
+        return "low_score"
 
     def test_margin_of_safety_matches_scalar_row_apply(self):
         out = compute_scores(self._universe())
@@ -1813,13 +1819,13 @@ class TestVectorisedStage3And6:
                 lambda r: self._scalar_decision(r, buy_threshold=buy_threshold, min_mos=min_mos),
                 axis=1,
             )
-            assert list(out["Decision"]) == list(want), (buy_threshold, min_mos, list(out["Ticker"]))
+            assert list(out["signal_code"]) == list(want), (buy_threshold, min_mos, list(out["Ticker"]))
 
     def test_veto_row_is_always_avoid(self):
         out = compute_scores(self._universe())
         e = out[out["Ticker"] == "E"].iloc[0]
         assert bool(e["veto"]) is True
-        assert e["Decision"] == "Avoid"
+        assert e["signal_code"] == "fails_screen"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1865,11 +1871,11 @@ class TestRiskHelpers:
         assert _sortino_label(None) == "N/A"
 
     def test_risk_label_boundaries(self):
-        assert _risk_label_action(25.0)[0] == "Low risk"
-        assert _risk_label_action(25.1)[0] == "Moderate risk"
-        assert _risk_label_action(50.1)[0] == "Elevated risk"
-        assert _risk_label_action(70.1)[0] == "High risk"
-        assert _risk_label_action(85.1)[0] == "Critical risk"
+        assert _risk_label_description(25.0)[0] == "Low risk"
+        assert _risk_label_description(25.1)[0] == "Moderate risk"
+        assert _risk_label_description(50.1)[0] == "Elevated risk"
+        assert _risk_label_description(70.1)[0] == "High risk"
+        assert _risk_label_description(85.1)[0] == "Critical risk"
 
 
 class TestToEur:
@@ -2111,13 +2117,13 @@ class TestStage1:
 
         assert und.weight == pytest.approx(0.20)
         assert und.mos == pytest.approx(0.20)
-        assert und.valuation_flag == "Undervalued"
+        assert und.valuation_flag == "Below model fair value"
         # Parametric VaR: value × |beta| × market vol × 1.645
         assert und.var_95_1d_eur == pytest.approx(200 * 1.5 * 0.012 * 1.645, abs=0.01)
 
         assert ovr.weight == pytest.approx(0.80)
         assert ovr.mos == pytest.approx(-0.10)
-        assert ovr.valuation_flag == "Overvalued"
+        assert ovr.valuation_flag == "Above model fair value"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2825,12 +2831,12 @@ class TestWS8Liquidity:
         inc = IncomeRisk(0.0, 0.0, None, [], None, None, False, [], 0.0)
         mc = MonteCarloResult(1, -0.1, -0.02, 0.03, 0.08, 0.15, 0.2)
         stress = StressResults([ScenarioResult("x", "x", -0.1, -0.1, 100.0)], [], mc, mc, mc)
-        r = _stage8_rebalance(profs, conc, q, inc, stress, 1_000_000.0)
-        assert any("days to exit" in i.message for i in r.items)
+        r = _stage8_observations(profs, conc, q, inc, stress, 1_000_000.0)
+        assert any("trading days" in str(i.message) for i in r.items)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Risk Stage 8 — rebalancing signals
+# Risk Stage 8 — risk observations (PER-4: describe, never prescribe)
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestStage8:
@@ -2866,20 +2872,21 @@ class TestStage8:
             historical=[ScenarioResult("Crash", "x", -0.30, -0.45, 450.0)],
             factor_scenarios=[], mc_1y=mc, mc_3y=mc, mc_5y=mc)
 
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0)
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
 
-        hard_text = " | ".join(r.hard_triggers)
-        assert "BIG" in hard_text and "20%" in hard_text     # overweight position
-        assert "beta 1.60" in hard_text                       # excessive beta
-        assert "45%" in hard_text                             # dividend-at-risk income share
-        assert "-45%" in hard_text                            # worst drawdown
+        high_text = " | ".join(str(i.message) for i in r.items if i.level == "high")
+        assert "BIG" in high_text and "20%" in high_text     # position above the reference level
+        assert "1.60" in high_text                           # portfolio beta
+        assert "45%" in high_text                            # dividend-at-risk income share
+        assert "-45%" in high_text                           # worst drawdown
 
-        soft_text = " | ".join(r.soft_triggers)
-        assert "HHI" in soft_text
-        assert "Tech" in soft_text                            # sector guideline
-        assert "DGR" in soft_text                             # income growth < 2.5%
-        assert "Sharpe" in soft_text
-        assert "A/B" in soft_text                             # correlated pair
+        notice_text = " | ".join(str(i.message) for i in r.items if i.level == "notice")
+        assert "HHI" in notice_text
+        assert "Tech" in notice_text                         # sector reference level
+        assert "dividend growth" in notice_text              # income growth < 2.5%
+        assert "Sharpe" in notice_text
+        assert "A/B" in notice_text                          # correlated pair
+        assert all(i.basis == "model_reference" for i in r.items)
 
 
 class TestStage8Drift:
@@ -2920,61 +2927,70 @@ class TestStage8Drift:
 
     def test_sector_drift_replaces_absolute_guideline_when_target_set(self):
         profiles, conc, quant, income, stress = self._inputs()
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               targets={"sectors": {"Tech": 0.20}})
-        drift = [i for i in r.items if i.ticker == "Tech" and i.mode == "drift"]
-        assert drift and "+12%" in drift[0].message and "target" in drift[0].message
-        # the absolute ">30% guideline" wording must not also appear
-        assert not any("guideline" in i.message for i in r.items)
+        drift = [i for i in r.items if i.scope == "Tech" and i.mode == "drift"]
+        assert drift and "+12%" in str(drift[0].message) and "target" in str(drift[0].message)
+        assert drift[0].basis == "user_target"
+        # the absolute "30% sector reference level" wording must not also appear
+        assert not any("sector reference level" in str(i.message) for i in r.items)
 
     def test_absolute_sector_check_still_fires_without_a_target(self):
         profiles, conc, quant, income, stress = self._inputs()
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0)
-        assert any("guideline" in i.message and i.mode == "absolute" for i in r.items)
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
+        assert any("sector reference level" in str(i.message) and i.mode == "absolute" for i in r.items)
 
     def test_ticker_drift_vs_target(self):
         profiles, conc, quant, income, stress = self._inputs()
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               targets={"tickers": {"AAA": 0.10}})
-        it = next(i for i in r.items if i.ticker == "AAA" and i.mode == "drift")
-        assert "+12%" in it.message
+        it = next(i for i in r.items if i.scope == "AAA" and i.mode == "drift")
+        assert "+12%" in str(it.message)
 
     def test_hhi_target_ceiling(self):
         profiles, conc, quant, income, stress = self._inputs(hhi=0.20)
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               targets={"hhi_max": 0.15})
-        hhi_items = [i for i in r.items if "HHI" in i.message]
-        assert any("target ceiling" in i.message and i.mode == "drift" for i in hhi_items)
-        assert not any("0.18 threshold" in i.message for i in hhi_items)
+        hhi_items = [i for i in r.items if "HHI" in str(i.message)]
+        assert any("ceiling you set" in str(i.message) and i.mode == "drift" for i in hhi_items)
+        assert not any("model's scale" in str(i.message) for i in hhi_items)
 
     def test_hhi_drift_since_snapshot(self):
         profiles, conc, quant, income, stress = self._inputs(hhi=0.18)
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               prior_snapshot={"hhi": 0.10, "date": "2026-01-01"})
         # The prior date renders in the user's date format (en-GB short by default).
-        assert any("drifted +0.080 since 01/01/2026" in i.message and i.mode == "drift"
+        assert any("rose by 0.080 since 01/01/2026" in str(i.message) and i.mode == "drift"
                    for i in r.items)
 
     def test_sharpe_two_consecutive_reviews(self):
         profiles, conc, quant, income, stress = self._inputs(sharpe=0.7)
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               prior_snapshot={"sharpe": 0.8, "date": "2026-01-01"})
-        sharpe_it = next(i for i in r.items if "Sharpe" in i.message)
-        assert sharpe_it.mode == "drift" and "second consecutive" in sharpe_it.message
+        sharpe_it = next(i for i in r.items if "Sharpe" in str(i.message))
+        assert sharpe_it.mode == "drift" and "two consecutive" in str(sharpe_it.message)
 
         # no prior → the plain absolute wording
-        r2 = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0)
-        assert next(i for i in r2.items if "Sharpe" in i.message).mode == "absolute"
+        r2 = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
+        assert next(i for i in r2.items if "Sharpe" in str(i.message)).mode == "absolute"
 
     def test_rating_transition_flags_an_upgrade(self):
         profiles, conc, quant, income, stress = self._inputs(ratings=(("AAA", "High"),))
-        r = _stage8_rebalance(profiles, conc, quant, income, stress, 1000.0,
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
                               prior_snapshot={"ratings": {"AAA": "Medium"}, "date": "2026-01-01"})
         tr = [i for i in r.items if i.mode == "transition"]
-        assert tr and "Medium → High" in tr[0].message
+        assert tr and "from Medium to High" in str(tr[0].message)
+        # ...and not a second, plain "rating High" note for the same holding.
+        assert not any(i.scope == "AAA" and i.mode == "absolute" and "rating High" in str(i.message)
+                       for i in r.items)
+
+    def test_plain_rating_high_note_without_a_transition(self):
+        profiles, conc, quant, income, stress = self._inputs(ratings=(("AAA", "High"),))
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
+        assert any(i.scope == "AAA" and "rating High" in str(i.message) for i in r.items)
 
     def test_snapshot_from_report_roundtrips_via_report(self):
-        # snapshot_from_report pulls the exact fields _stage8_rebalance reads back
+        # snapshot_from_report pulls the exact fields _stage8_observations reads back
         prof = PositionRisk(ticker="AAA", name="AAA", weight=0.5, beta=1.0,
                             var_95_1d_eur=None, vol_annual=None, mos=0.0,
                             valuation_flag="N/A", div_sustainability="",
@@ -2986,7 +3002,7 @@ class TestStage8Drift:
             factor=risk.FactorExposure(False, {}, None, None, []),
             income=self._inputs()[3], stress=self._inputs()[4],
             composite=risk.CompositeScore(40.0, "Moderate risk", "x", {}),
-            rebalance=risk.RebalanceSignals([], [], [], []))
+            observations=risk.RiskObservations([]), disclosures=[])
         snap = risk.snapshot_from_report(rep)
         assert snap["ratings"] == {"AAA": "High"}
         assert snap["hhi"] == self._inputs()[1].hhi
@@ -3040,7 +3056,7 @@ class TestScoreReference:
         uni = compute_scores(uni_df.copy(), reference_out=out)
         held = ["T03.BR", "T07.BR", "T12.BR", "T21.BR", "T40.BR"]
         cols = ["fair_value", "pb_fair_value", "pe_fair_value", "Value Score",
-                "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend", "Decision"]
+                "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend", "signal_code"]
         sub = compute_scores(uni_df[uni_df["Ticker"].isin(held)].copy(), reference=out["ref"])
         expected = uni.set_index("Ticker").loc[held, cols]
         got = sub.set_index("Ticker").loc[held, cols]

@@ -1,8 +1,10 @@
-"""Top bar shell — logo, horizontal nav, theme toggle, avatar menu.
+"""Top bar shell — logo, horizontal nav, theme toggle, avatar menu — plus the
+legal footer and the beta banner.
 
 Replaces the old st.sidebar navigation (see app.py) with the mockup's dark
 top bar. Call render_topbar(nav) once per run, after st.navigation(...) is
-built but before nav.run() so the bar renders above the page body.
+built but before nav.run() so the bar renders above the page body;
+render_beta_banner() right after it, and render_footer() after nav.run().
 """
 import html
 
@@ -10,7 +12,7 @@ import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
-from uvalu.i18n import N_, _, fmt_time, tr
+from uvalu.i18n import N_, _, fmt_time, pgettext, tr
 from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
 
@@ -246,8 +248,10 @@ div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !import
 /* Below ~1200px the nav links and the market-status text no longer fit side
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
+.uv-pi-short {{ display: none; }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
+  .uv-pi-short {{ display: inline !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{ display: none !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{ padding: 7px 9px !important; }}
 }}
@@ -345,12 +349,17 @@ def render_topbar(nav) -> None:
                 # — an animated dot next to "Delayed"/"Feed stale"/"Market
                 # closed" would read as "still updating" when it isn't.
                 _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
+                # One word for widths where the full text doesn't fit next to
+                # the nav (below 1200px the dot used to stand alone).
+                _pi_short = {"#8A8A8A": pgettext("market", "Closed"),
+                             "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
                 st.markdown(
                     f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
                     f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
-                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span></div>',
+                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
+                    f'<span class="uv-pi-short" style="white-space:nowrap;">{html.escape(_pi_short)}</span></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -362,9 +371,16 @@ def render_topbar(nav) -> None:
 
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
-                        st.markdown(f"**{_display_name(user.email)}**")
-                        st.caption(user.email)
-                        st.caption(tr(user.role.capitalize()))
+                        # Name, then the email as plain text (st.caption auto-linked it
+                        # as a mailto link) and the role as a chip.
+                        st.markdown(
+                            f'<div><div style="font-size:14px;font-weight:600;">{html.escape(_display_name(user.email))}</div>'
+                            f'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
+                            f'{html.escape(user.email).replace("@", "&#64;")}</div>'
+                            f'<span style="display:inline-block;margin-top:8px;font-size:10.5px;font-weight:500;'
+                            f'color:var(--muted);border:0.5px solid var(--line);border-radius:6px;padding:1px 8px;">'
+                            f'{html.escape(tr(user.role.capitalize()))}</span></div>',
+                            unsafe_allow_html=True)
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
                             _settings_page = nav_registry.pages.get("settings")
@@ -373,12 +389,97 @@ def render_topbar(nav) -> None:
                             if _settings_page is not None:
                                 st.page_link(_settings_page, label=_("Settings"))
                             if _help_page is not None:
-                                st.page_link(_help_page, label=_("Help & docs"))
+                                st.page_link(_help_page, label=_("Methodology & help"))
+                            _legal_page = nav_registry.pages.get("legal")
+                            if _legal_page is not None:
+                                st.page_link(_legal_page, label=_("Legal & policies"), query_params={"doc": "terms"})
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()
+                        # A menu item like the links above (icon + label), not a small
+                        # underlined link.
                         st.markdown(
-                            '<a href="/?logout=1" target="_self" '
-                            f'style="color:var(--down-txt);font-size:12.5px;">{html.escape(_("Sign out"))}</a>',
+                            '<a href="/?logout=1" target="_self" style="display:flex;align-items:center;gap:10px;'
+                            'color:var(--text);font-size:14px;text-decoration:none;padding:2px 0;">'
+                            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                            'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                            '<path d="M14 8v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/>'
+                            '<path d="M9 12h12l-3-3M18 15l3-3"/></svg>'
+                            f'{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )
+
+
+# ── Beta banner (decision B7) and legal footer (DIS-1, REC-1, BIZ-3) ──────────
+
+def producer_line() -> str:
+    """Producer identity for the footer, the stock page and the methodology
+    page (REC-1, BIZ-3): name, trading name, address, enterprise number (or
+    "registration pending", decision B6) and contact."""
+    from uvalu.compliance import disclosures as d
+    number = (d.PRODUCER_ENTERPRISE_NUMBER if d.PRODUCER_ENTERPRISE_NUMBER
+              else tr(d.ENTERPRISE_NUMBER_PENDING))
+    return (f"{d.PRODUCER_TRADING_AS} · {d.PRODUCER_NAME}, {d.PRODUCER_ADDRESS} · "
+            f"{number} · {d.PRODUCER_CONTACT}")
+
+
+def render_beta_banner() -> None:
+    from uvalu.compliance import disclosures as d
+    if not d.BETA:
+        return
+    st.markdown(
+        '<div style="font-size:11.5px;color:var(--muted);background:var(--soft);'
+        'border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;margin:-4px 0 10px;">'
+        f'<span style="font-weight:600;color:var(--mint);margin-right:6px;">{html.escape(_("Beta"))}</span>'
+        f'{html.escape(tr(d.BETA_BANNER))}</div>',
+        unsafe_allow_html=True)
+
+
+_FOOTER_CSS = """
+.st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding: 16px 0 16px; gap: 8px !important; }
+.st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
+/* Short pages (empty Analysis, a loading Watchlist): keep the footer at the
+   bottom of the screen instead of floating mid-page. The block container
+   fills the scrolling stMain, the page's block grows into it, and the
+   footer's wrapper takes the slack above it. */
+[data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
+[data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
+/* Legal links: one centred row, "·" between them, no icons (st.page_link
+   inherits the Legal page's gavel icon, which repeated six times). */
+.st-key-uv_footer_links { justify-content: center !important; gap: 2px 0 !important; flex-wrap: wrap !important; margin-top: 4px; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"]:not(:last-child)::after {
+  content: "·"; color: var(--faint); font-size: 11px; margin: 0 10px;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
+  padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] p,
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] span {
+  font-size: 11px !important; color: var(--teal) !important;
+}
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+"""
+
+
+def render_footer() -> None:
+    """Short disclaimer, producer identity and the legal page links, at the
+    bottom of every screen, in the user's language (DIS-1, REC-1, TOU-8).
+    The "not directed at the UK, US or Switzerland" statement (INT-5/6) lives
+    in the Terms of use, where those requirements put it."""
+    from uvalu.compliance import disclosures as d
+    with st.container(key="uv_footer"):
+        st.markdown(f"<style>{_FOOTER_CSS}</style>"
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
+                    f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
+                    f'<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px;">'
+                    f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
+                    unsafe_allow_html=True)
+        legal_page = nav_registry.pages.get("legal")
+        with st.container(key="uv_footer_links", horizontal=True, vertical_alignment="center"):
+            if legal_page is not None:
+                for key, title, _file in d.LEGAL_DOCS:
+                    st.page_link(legal_page, label=tr(d.FOOTER_LINK_LABELS.get(key, title)),
+                                 query_params={"doc": key})

@@ -220,21 +220,30 @@ def _start_session(token: str) -> None:
 
 
 def _render_brand_panel() -> None:
+    # DIS-5 / DIS-8: describe the tool, not the outcome; DIS-1 / REC-1: the
+    # short disclaimer and the producer on the sign-in screen too (the app
+    # footer only renders behind the wall). Model count per decision D3:
+    # Graham, P/E, EPV and the two dividend models (plus two fallbacks).
+    from uvalu.compliance import disclosures as _disc
+    from uvalu.shell import producer_line
+    _foot = (html.escape(tr(_disc.SHORT_DISCLAIMER))
+             + '<div style="margin-top:8px;color:rgba(245,247,250,0.45);">'
+             + html.escape(producer_line()) + " · " + html.escape(tr(_disc.NOT_SUPERVISED)) + "</div>")
     st.markdown(f"""
     <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
       <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
       <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">{h_("value engine")}</span>
     </div>
     <div style="position:relative;z-index:2;">
-      <div class="uv-login-headline">{h_("Find value before the market does.")}</div>
-      <div class="uv-login-copy">{h_("A six-model fair-value engine across 6 European exchanges — margin of safety, conviction scoring and hard-veto discipline in one workspace.")}</div>
+      <div class="uv-login-headline">{h_("Calculate fair value with five models.")}</div>
+      <div class="uv-login-copy">{h_("Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user.")}</div>
       <div class="uv-login-stats">
-        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">{h_("valuation models")}</div></div>
+        <div><div class="uv-login-stat-val">5</div><div class="uv-login-stat-lbl">{h_("valuation models")}</div></div>
         <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">{h_("EU exchanges")}</div></div>
-        <div><div class="uv-login-stat-val">24/7</div><div class="uv-login-stat-lbl">{h_("signal monitoring")}</div></div>
+        <div><div class="uv-login-stat-val">24 h</div><div class="uv-login-stat-lbl">{h_("model update cycle")}</div></div>
       </div>
     </div>
-    <div class="uv-login-foot">{h_("© 2026 Uvalu · Not investment advice.")}</div>
+    <div class="uv-login-foot" style="line-height:1.6;max-width:520px;">{_foot}</div>
     <div class="uv-login-ring" style="right:-120px;bottom:-120px;width:420px;height:420px;"></div>
     <div class="uv-login-ring" style="right:-40px;bottom:-40px;width:260px;height:260px;"></div>
     """, unsafe_allow_html=True)

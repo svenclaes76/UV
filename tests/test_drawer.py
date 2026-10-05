@@ -188,13 +188,13 @@ class TestOpenDrawer:
         html = "".join(m.value for m in at.markdown)
         assert "AAA.BR" in html
         assert "Not held" in html
-        assert any(b.label == "Add" for b in at.button)
+        assert any(b.label == "Record purchase" for b in at.button)
 
     def test_renders_veto_banner(self):
         at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert "Hard veto triggered" in "".join(m.value for m in at.markdown)
+        assert "Fails quality screen" in "".join(m.value for m in at.markdown)
 
     def test_renders_held_state_with_position_metrics(self):
         portfolio.save_portfolio(pd.DataFrame([{
@@ -207,14 +207,14 @@ class TestOpenDrawer:
         html = "".join(m.value for m in at.markdown)
         assert "Shares held" in html
         assert "Unrealised P&amp;L" in html  # label is HTML-escaped (renders as "P&L")
-        assert any(b.label == "Edit" for b in at.button)
-        assert any(b.label == "Close" for b in at.button)
+        assert any(b.label == "Edit position" for b in at.button)
+        assert any(b.label == "Record sale" for b in at.button)
 
-    def test_prefers_live_price_over_stale_screener_price(self):
-        # dashboard.py's holdings table merges a 60s-fresh live_price
-        # alongside the screener's own up-to-24h-cached Price -- the drawer
-        # must use the fresher one for the hero tile and Position value/P&L
-        # when it's present, not silently fall back to the stale figure.
+    def test_scored_price_beside_the_signal_live_price_for_the_position(self):
+        # B3: the hero Price tile shows the price the signal was computed
+        # from (with its time in the provenance line), so price, fair value
+        # and MoS reconcile with the badge. Position value / P&L use the
+        # 60s-fresh live_price dashboard.py merges in, matching that page.
         portfolio.save_portfolio(pd.DataFrame([{
             "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
             "purchase_value": 900.0, "purchase_price": 90.0,
@@ -229,8 +229,7 @@ open_drawer(row)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
-        assert "€150.00" in html   # hero Price tile, from live_price
-        assert "€100.00" not in html
+        assert "€100.00" in html   # hero Price tile: the scored price
         assert "€1,500" in html    # Position value = 10 shares * live_price
         assert "€1,000" not in html
 
@@ -287,7 +286,7 @@ open_drawer(row)
     def test_add_button_stashes_buy_action_and_reruns(self):
         at = AppTest.from_string(_open_drawer_script(), default_timeout=60)
         at.run()
-        add_btn = [b for b in at.button if b.label == "Add"][0]
+        add_btn = [b for b in at.button if b.label == "Record purchase"][0]
         add_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         # After st.rerun(), the drawer dialog is not re-invoked by this bare
@@ -313,7 +312,7 @@ open_drawer(row)
         at = AppTest.from_string(script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        edit_btn = [b for b in at.button if b.label == "Edit"][0]
-        close_btn = [b for b in at.button if b.label == "Close"][0]
+        edit_btn = [b for b in at.button if b.label == "Edit position"][0]
+        close_btn = [b for b in at.button if b.label == "Record sale"][0]
         assert edit_btn.disabled
         assert close_btn.disabled

@@ -17,6 +17,12 @@ GLOBAL_CSS = """
     --uv-mono:        "SF Mono","Fira Code","Cascadia Code",ui-monospace,Menlo,monospace;
   }
 
+  /* Bar tracks (fair-value ladders, score/sub-score bars, weights): the
+     light-surface #EEF1F5 above was used in dark theme too, which made the
+     empty part of every bar the brightest thing on the navy screen. Only the
+     fill carries colour; the track is a faint tint (visual review G3). */
+  html:not([data-theme="light"]) { --uv-track: rgba(245,247,250,0.10); }
+
   /* ── Design-mockup tokens (dark-navy top bar/shell + card surfaces) ────────
      Namespaced separately from the --uv-* set above so existing components
      keep working unchanged while new raw-HTML screens (top bar, Dashboard,
@@ -132,7 +138,7 @@ GLOBAL_CSS = """
     overflow: hidden !important; padding: 0 !important;
   }
   .st-key-db_holdings_header {
-    padding: 16px 20px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 16px 20px 8px !important;   /* the provenance bar brings its own 12px */ border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-db_holdings_colheader {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
@@ -413,6 +419,11 @@ GLOBAL_CSS = """
     flex: 1 1 auto !important;
   }
   [class*="st-key-an_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  /* The last block in a card kept Streamlit's markdown margin-bottom:-16px,
+     so its text sat on the card's bottom edge (Data sources' flag line). */
+  [class*="st-key-an_card_"] [data-testid="stElementContainer"]:last-child [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
 
   /* Same class of bug as the Holdings-row/KPI-strip height underestimation
      above: Streamlit's own layout estimate for these two raw-HTML blocks
@@ -553,6 +564,13 @@ GLOBAL_CSS = """
      free to use the full (wider) column. */
   .st-key-scr_score_slider [data-baseweb="slider"],
   .st-key-scr_mos_slider [data-baseweb="slider"] { width: 150px !important; }
+  /* Streamlit's slider no longer carries data-baseweb="slider", so the rule
+     above stopped applying and Min score shrank to its 72px label. Fixed
+     container widths instead (same track length for both); the two sit in
+     one group (scr_slider_group) so they wrap together. */
+  .st-key-scr_score_slider { width: 170px !important; }
+  .st-key-scr_mos_slider { width: 190px !important; }
+  .st-key-scr_slider_group { gap: 32px !important; width: auto !important; flex: none !important; }
 
   /* The name column's stColumn wrapper reported only 28px tall live while
      its actual markdown content (ticker+exchange line, company-name line)
@@ -591,7 +609,9 @@ GLOBAL_CSS = """
   .st-key-scr_table_card {
     background: var(--panel) !important; border-color: var(--line) !important;
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
-    overflow: hidden !important; padding: 0 !important;
+    /* clip, not hidden: same rounded clipping, but no scroll container, so
+       the column header below can stick to the top of the page. */
+    overflow: clip !important; padding: 0 !important;
     /* No margin-top cancellation here, unlike scr_row_'s below. This used to
        carry a -16px pull for an observed 32px double gap against
        scr_filter_panel — but that gap's real cause was a phantom sibling
@@ -605,6 +625,12 @@ GLOBAL_CSS = """
   }
   .st-key-scr_col_header {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
+    background: var(--panel) !important;
+  }
+  /* Sticky column header while scrolling the results (visual review SC3) —
+     on its wrapper, whose parent is the whole table card. */
+  [data-testid="stLayoutWrapper"]:has(> .st-key-scr_col_header) {
+    position: sticky !important; top: 0 !important; z-index: 3 !important;
   }
   /* Each sort button's wrapper (.stButton, display:block by default) reported
      26px tall against the button's own real 16px content — not padding or
@@ -979,6 +1005,11 @@ GLOBAL_CSS = """
     margin-bottom: -16px !important;
   }
   .st-key-pf_card_cash_full [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  /* Overview cash card: Deposit/Withdraw side by side, same width. */
+  .st-key-pf_cash_btns { flex-wrap: nowrap !important; }
+  .st-key-pf_cash_btns button { min-width: 96px !important; justify-content: center !important; }
+  .st-key-pf_open_ov_all { padding: 4px 20px 10px !important; }
+  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--teal) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
   .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
   .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 10px !important; }
@@ -1114,6 +1145,12 @@ GLOBAL_CSS = """
     padding: 10px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
     min-height: 30px !important;
   }
+  /* Title above the header row; the card has no padding of its own, and the
+     -16px cancels the sibling gap so the title and header read as one block. */
+  .st-key-risk_holdings_title { padding: 16px 20px 0 !important; }
+  .st-key-risk_holdings_title + * , [data-testid="stLayoutWrapper"]:has(> .st-key-risk_holdings_title) + [data-testid="stLayoutWrapper"] > .st-key-risk_col_header {
+    margin-top: -6px !important;
+  }
   /* :not([class*="_view"]) matters here — unlike db_hold_'s button (keyed
      "db_holdbtn_<idx>", a name that never contains "db_hold_" as a
      substring by design), this row's trailing button is keyed
@@ -1146,7 +1183,25 @@ GLOBAL_CSS = """
      without this override its rows stretched edge-to-edge on a wide window
      (label pinned far left, control pinned far right, large dead gap between
      them) instead of the design's tightly grouped card rows. */
-  .st-key-set_root { max-width: 920px !important; margin: 0 auto !important; }
+  /* Since the section nav (visual review 2026-10-04 §1.4) the page is a
+     nav + content pair, left-aligned on the same gutter as every other page
+     (the centred 920px column sat ~18px further in than the beta banner). */
+  .st-key-set_root { max-width: 1180px !important; margin: 0 !important; }
+  /* No overflow:auto/max-height: Streamlit under-measures the column's
+     raw-HTML content, so a scroll box clipped the last link. */
+  [data-testid="stColumn"]:has(.st-key-set_nav) {
+    position: sticky; top: 16px; align-self: flex-start;
+  }
+  .uv-set-nav a {
+    display: block; padding: 6px 10px; font-size: 13px; line-height: 1.35; color: var(--muted);
+    text-decoration: none; border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
+  }
+  .uv-set-nav a:hover { color: var(--text); border-left-color: var(--teal); background: var(--soft); }
+  .uv-set-anchor { display: block; scroll-margin-top: 16px; }
+  .st-key-set_main { gap: 20px !important; }
+  @media (max-width: 640px) {
+    [data-testid="stColumn"]:has(.st-key-set_nav) { display: none !important; }
+  }
 
   /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
@@ -1183,6 +1238,12 @@ GLOBAL_CSS = """
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
   .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
+    margin-top: 0 !important;
+  }
+  /* …and every card's first row, whatever its key: the row right after the
+     header (Language had no top padding — the -16px pulled it under the
+     header's hairline). */
+  [data-testid="stElementContainer"]:has(.uv-set-head) + [data-testid="stLayoutWrapper"] > [class*="st-key-set_row_"] {
     margin-top: 0 !important;
   }
   .st-key-set_row_theme, .st-key-set_row_currency {
@@ -1257,7 +1318,30 @@ GLOBAL_CSS = """
      changes again. */
   [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child {
     min-height: 38px !important;
+    /* A one-line title sat at the top of the 38px floor while the control
+       beside it was centred (Language, Region format, Time zone). */
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
   }
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child > [data-testid="stVerticalBlock"] {
+    justify-content: center !important;
+  }
+  /* Streamlit's markdown container carries margin-bottom:-16px, so its
+     wrapper reported 22px for 38px of title + description and the centring
+     above put the text 8px low. Zeroed here, the wrapper is the real height
+     and the text centres on the control beside it. */
+  [class*="st-key-set_row_"] [data-testid="stColumn"]:first-child [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
+  /* Stacked rows (4-option controls under a long description): the control
+     on its own line, as wide as its segments, not a full-width track. */
+  .st-key-set_row_screen_style [data-testid="stButtonGroup"],
+  .st-key-set_row_refresh [data-testid="stButtonGroup"] {
+    width: fit-content !important; margin-top: 6px !important;
+  }
+  /* The slider's own thumb value repeated the value already shown, larger,
+     on the label row. */
+  [class*="st-key-set_card_"] [data-testid="stSliderThumbValue"] { display: none !important; }
+  .st-key-set_row_i18n_reset { align-items: flex-end !important; }
   /* Segmented controls (Theme/Currency/Number format/Table density) — same
      restyle as the Dashboard's db_range control: a padded panel-2 track with
      3px-gapped segments, the active one lifted with a panel background +
@@ -1306,6 +1390,11 @@ GLOBAL_CSS = """
   .st-key-set_targets_hhi { padding: 14px 20px 4px !important; }
   .st-key-set_targets_hhi [data-testid="stNumberInput"] { max-width: 180px !important; }
   .st-key-set_targets_save { padding: 6px 20px 18px !important; }
+  /* Settings cards carry no padding of their own (each row pads itself), so
+     the bare withholding grid sat flush on the card edge and its right-hand
+     input ran past the card border. */
+  .st-key-set_dividend_wh_grid { padding: 8px 20px 4px !important; box-sizing: border-box; }
+  .st-key-set_wh_save { padding: 0 20px 18px !important; }
   /* Import & Export — the whole two-column content block had NO horizontal
      padding at all (confirmed live: "Import portfolio" sat 1px from the
      card's own left edge, vs. every other row on this page having a 20px
@@ -1322,7 +1411,18 @@ GLOBAL_CSS = """
      now. No vertical divider between the columns — tried one on request,
      then removed on request; a plain `gap="large"` column gap is enough
      separation. */
-  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 0 !important; }
+  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 18px !important; }
+  /* Importing replaces all portfolio data: the confirmation reads as a
+     danger zone, with a red-outline confirm button. */
+  .st-key-set_import_confirm {
+    border: 0.5px solid var(--down-txt) !important; border-radius: 8px !important;
+    background: var(--down-bg) !important; padding: 12px 14px !important; gap: 10px !important;
+  }
+  .st-key-imp_confirm button {
+    border-color: var(--down-txt) !important; color: var(--down-txt) !important; background: transparent !important;
+  }
+  /* Streamlit's "200MB per file • XLSX" line — the description says .xlsx. */
+  .st-key-set_card_import [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
   /* The file_uploader's dropzone has its own unconditional 12px padding on
      all sides (confirmed live via computed style) — pushing the actual
      "Upload" button 12px below AND 12px right of the row's own top-left
@@ -1364,16 +1464,21 @@ GLOBAL_CSS = """
      them. 56px matches the real measured height with the 1.3/1.5
      line-height in place — re-measure if that ever changes. */
   .st-key-set_import_body, .st-key-set_export_body { min-height: 56px !important; }
-  /* Account footer — no card chrome in the mockup (sits directly on the page
-     background), just an avatar + name/email + a bordered "Sign out" pill
-     flush right. Rendered as one raw-HTML flex row (uvalu/pages_/settings.py)
-     rather than st.columns — a st.columns' per-column vertical_alignment
-     centering proved unreliable for mismatched-height siblings here
-     (confirmed live: an 8px offset between the avatar square and the Sign
-     out pill persisted even after forcing align-items:center + matching
-     explicit heights on the column-based version), so this only needs the
-     outer padding; the flex/gap/centering all live in the inline style. */
-  .st-key-set_account_footer { padding: 4px 2px 24px !important; }
+  /* Legal card: the six documents as one wrapping row of teal links. */
+  .st-key-set_legal_links {
+    flex-direction: row !important; flex-wrap: wrap !important; gap: 4px 18px !important;
+    padding: 12px 20px 0 !important;
+  }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] {
+    padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+  }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--teal) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+  .st-key-set_card_legal { padding-bottom: 14px !important; }
+  /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
+     row with the avatar and name — st.columns' per-column centring was off
+     by 8px for these mismatched heights. */
   .uv-set-signout {
     display: inline-flex !important; align-items: center !important;
     box-sizing: border-box !important; height: 38px !important;
@@ -1692,12 +1797,32 @@ GLOBAL_CSS = """
   /* Tighter dividers — color comes from the theme borderColor */
   [data-testid="stDivider"] hr, hr { margin: 8px 0 !important; }
 
+  /* ── Captions inside cards: one footnote style (visual review G7) ──────────
+     st.caption inside a card rendered at near body size (the factor-loading
+     note, the risk-contribution note, the Analysis sub-score and assumptions
+     notes); footnotes are 12px muted everywhere. The risk-contribution card
+     has no padding of its own (rows pad themselves), so its note sat on the
+     card edge — given the rows' 20px inset. */
+  [class*="st-key-"][class*="_card_"] [data-testid="stCaptionContainer"],
+  [class*="st-key-"][class*="_card_"] [data-testid="stCaptionContainer"] p {
+    font-size: 12px !important; line-height: 1.5 !important; color: var(--muted) !important;
+  }
+  .st-key-risk_card_holdings [data-testid="stCaptionContainer"] { padding: 10px 20px 14px !important; }
+
+  /* ── Admin user rows: markdown cells carried margin-bottom:-16px, so the
+     row centring put them ~6px below the role select and badges. ───────── */
+  [class*="st-key-admin_user_row_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  [class*="st-key-admin_role_"] { min-width: 104px !important; }
+
+  /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
+  input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }
+
   /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
   .uv-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 46px; height: 22px; padding: 0 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 500; text-transform: uppercase;
-    letter-spacing: 0.02em; white-space: nowrap; line-height: 1;
+    min-width: 64px; height: 22px; padding: 0 9px; border-radius: 6px;
+    font-size: 10.5px; font-weight: 500;   /* mixed case: descriptive labels (BDG-1) */
+    letter-spacing: 0.03em; white-space: nowrap; line-height: 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
   .uv-badge-buy,     .uv-badge-ok      { background: var(--uv-pos-bg); color: var(--uv-pos-txt); }
@@ -1705,6 +1830,35 @@ GLOBAL_CSS = """
   .uv-badge-avoid,   .uv-badge-warn    { background: var(--uv-neg-bg); color: var(--uv-neg-txt); }
   .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
   .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
+  /* Dark theme: the brand tints above are light-surface colours — on the
+     navy cards they read as glaring near-white pills, and the navy veto pill
+     vanished into the card (only its text showed). Tinted fills + light
+     semantic text instead; the veto badge keeps its "dark, white text" look
+     with a slate fill and a hairline border so the pill stays visible. */
+  html:not([data-theme="light"]) .uv-badge-buy,
+  html:not([data-theme="light"]) .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
+  html:not([data-theme="light"]) .uv-badge-monitor,
+  html:not([data-theme="light"]) .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
+  html:not([data-theme="light"]) .uv-badge-avoid,
+  html:not([data-theme="light"]) .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
+  html:not([data-theme="light"]) .uv-badge-veto    { background: #1E2D4A; color: #FFFFFF;
+                                                     box-shadow: inset 0 0 0 0.5px rgba(245,247,250,0.28); }
+  html:not([data-theme="light"]) .uv-badge-neutral { background: rgba(245,247,250,0.07); color: var(--muted); }
+
+  /* ── Numeric table cells never wrap mid-value ───────────────────────────────
+     The st.columns tables (Portfolio open/closed/dividends, …) size columns by
+     weight, so a narrow half-width card squeezed "€ 109,20" onto two lines
+     ("€ 109,⏎20"). A right-aligned monospace cell is a number: keep each line
+     on one line. When the column is a few px too narrow, a flex column with
+     align-items:flex-end overflows on its start (left) side, into the column
+     gap, instead of out of the card on the right. (Growing the column with
+     min-width:max-content wrapped the whole row instead — Streamlit then
+     pins the measured width, so it never recovers.) React writes these
+     inline styles back as "prop: value;" with a space, hence the spelling. */
+  [data-testid="stColumn"] [style*="text-align: right"][style*="font-family: var(--uv-mono)"] {
+    white-space: nowrap;
+    display: flex; flex-direction: column; align-items: flex-end;
+  }
 
   /* ── Dialog key/value data rows — brand spec (monospace, right-aligned) ──── */
   [data-testid="stDialog"] [data-testid="stMarkdownContainer"] table td:last-child {

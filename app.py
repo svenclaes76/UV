@@ -30,7 +30,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
                           risk as _page_risk, screener as _page_screener,
                           watchlist as _page_watchlist, analysis as _page_analysis,
                           settings as _page_settings, help as _page_help,
-                          admin as _page_admin)
+                          admin as _page_admin, legal as _page_legal)
 
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
@@ -104,7 +104,8 @@ _pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":mat
 _pg_watchlist = st.Page(_page_watchlist.render, title=_("Watchlist"), icon=":material/star:",             url_path="watchlist")
 _pg_analysis  = st.Page(_page_analysis.render,  title=_("Analysis"),  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":material/settings:",        url_path="settings")
-_pg_help      = st.Page(_page_help.render,      title=_("Help"),      icon=":material/help:",            url_path="help")
+_pg_help      = st.Page(_page_help.render,      title=_("Methodology & help"), icon=":material/help:",   url_path="help")
+_pg_legal     = st.Page(_page_legal.render,     title=_("Legal"),     icon=":material/gavel:",           url_path="legal")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
 
 # Populate the shared registry so page modules can link to one another.
@@ -114,12 +115,12 @@ _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":materi
 nav.pages.update({
     "dashboard": _pg_dashboard, "portfolio": _pg_portfolio, "risk": _pg_risk,
     "screener": _pg_screener, "watchlist": _pg_watchlist, "analysis": _pg_analysis,
-    "settings": _pg_settings, "help": _pg_help, "admin": _pg_admin,
+    "settings": _pg_settings, "help": _pg_help, "admin": _pg_admin, "legal": _pg_legal,
 })
 
 _nav = st.navigation(
     [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
-     _pg_analysis, _pg_settings, _pg_help, _pg_admin],
+     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal],
     position="hidden",
 )
 
@@ -130,11 +131,15 @@ if _legacy_page:
     if _legacy_page in nav.pages:
         st.switch_page(nav.pages[_legacy_page])
 
+# Page history for the Legal and Settings pages' "← Back" (uvalu/nav.py).
+nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url_path), None))
+
 # Admin renders its own standalone sidebar/topbar (uvalu/pages_/admin.py),
 # matching Uvalu Admin.dc.html's separate shell — skip the main app's
 # horizontal top-bar nav for it instead of stacking both.
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
+    shell.render_beta_banner()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).
@@ -144,6 +149,9 @@ _nav_started = time.perf_counter()
 _render_ok = True
 try:
     _nav.run()
+    # Legal footer on every screen (DIS-1, REC-1); Admin has its own shell.
+    if _nav.url_path != "admin":
+        shell.render_footer()
 except Exception:
     _render_ok = False
     logkit.get_logger("uvalu.render").exception(

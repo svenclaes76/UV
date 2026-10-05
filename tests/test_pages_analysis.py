@@ -39,7 +39,10 @@ analysis_page.render()
 
 def test_shows_info_when_no_ticker_selected(isolated_data, monkeypatch):
     at = _run(monkeypatch, ticker=None)
-    assert "No stock selected" in "".join(i.value for i in at.info)
+    # The app's own empty state (not st.info). Its "Open the screener" button
+    # needs the page registry, which this isolated script doesn't populate.
+    assert "No stock selected" in "".join(m.value for m in at.markdown)
+    assert not at.info
 
 
 def test_shows_warning_when_ticker_not_found(isolated_data, monkeypatch):
@@ -55,14 +58,14 @@ def test_renders_full_analysis_for_matched_ticker(isolated_data, monkeypatch):
     assert "Composite fair value" in html
     assert "Signal sub-scores" in html
     assert "Financials" in html
-    assert "Hard-veto checks" in html
+    assert "Quality screen checks" in html
 
 
 def test_shows_veto_banner_when_row_is_vetoed(isolated_data, monkeypatch):
     df = make_scored_df([make_scored_row(veto=True)])
     at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
     html = "".join(m.value for m in at.markdown)
-    assert "Hard veto active" in html
+    assert "Fails quality screen" in html
 
 
 def test_leverage_exempt_sector_debt_check_passes_despite_high_de(isolated_data, monkeypatch):
@@ -87,7 +90,7 @@ def test_single_bad_fcf_year_passes_the_positive_fcf_check(isolated_data, monkey
     html = "".join(m.value for m in at.markdown)
     assert "Positive free cash flow" in html
     # Same row must not show the veto banner (it isn't actually vetoed).
-    assert "Hard veto active" not in html
+    assert "Fails quality screen" not in html
 
 
 def test_dividend_flag_alone_warns_but_does_not_fail_the_veto_check(isolated_data, monkeypatch):

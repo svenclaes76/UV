@@ -124,39 +124,39 @@ class TestSharesOutstandingSanity:
 
 class TestZeroVolumeVsStrongBuy:
     def test_fires(self):
-        df = _df({"averageVolume": 0.0, "Decision": "Strong Buy"})
+        df = _df({"averageVolume": 0.0, "signal_code": "undervalued"})
         assert bool(va.check_zero_volume_vs_strong_buy(df).iloc[0]) is True
 
     def test_missing_volume_does_not_fire(self):
-        df = _df({"averageVolume": None, "Decision": "Strong Buy"})
+        df = _df({"averageVolume": None, "signal_code": "undervalued"})
         assert bool(va.check_zero_volume_vs_strong_buy(df).iloc[0]) is False
 
     def test_zero_volume_but_not_strong_buy_does_not_fire(self):
-        df = _df({"averageVolume": 0.0, "Decision": "Avoid"})
+        df = _df({"averageVolume": 0.0, "signal_code": "fails_screen"})
         assert bool(va.check_zero_volume_vs_strong_buy(df).iloc[0]) is False
 
 
 class TestFvBasisThinVsStrongBuy:
     def test_fires(self):
-        df = _df({"fv_basis_thin": True, "Decision": "Strong Buy"})
+        df = _df({"fv_basis_thin": True, "signal_code": "undervalued"})
         assert bool(va.check_fv_basis_thin_vs_strong_buy(df).iloc[0]) is True
 
     def test_thin_but_not_strong_buy_does_not_fire(self):
-        df = _df({"fv_basis_thin": True, "Decision": "Monitor"})
+        df = _df({"fv_basis_thin": True, "signal_code": "neutral"})
         assert bool(va.check_fv_basis_thin_vs_strong_buy(df).iloc[0]) is False
 
 
 class TestDecisionVetoConsistency:
     def test_fires_on_mismatch(self):
-        df = _df({"veto": True, "Decision": "Monitor"})
+        df = _df({"veto": True, "signal_code": "neutral"})
         assert bool(va.check_decision_veto_consistency(df).iloc[0]) is True
 
     def test_consistent_veto_does_not_fire(self):
-        df = _df({"veto": True, "Decision": "Avoid"})
+        df = _df({"veto": True, "signal_code": "fails_screen"})
         assert bool(va.check_decision_veto_consistency(df).iloc[0]) is False
 
     def test_no_veto_does_not_fire(self):
-        df = _df({"veto": False, "Decision": "Strong Buy"})
+        df = _df({"veto": False, "signal_code": "undervalued"})
         assert bool(va.check_decision_veto_consistency(df).iloc[0]) is False
 
 
@@ -231,7 +231,7 @@ class TestAggregationAndSeverity:
         return va.run_all_checks(df)
 
     def test_signal_safety_hit_is_always_critical(self):
-        df = _df({"Ticker": "X", "Decision": "Strong Buy", "veto": False,
+        df = _df({"Ticker": "X", "signal_code": "undervalued", "veto": False,
                   "averageVolume": 0.0, "fv_basis_thin": False,
                   "Price": 10.0, "fair_value": 12.0, "dividendYield": 0.02})
         findings = va.aggregate_findings(df, self._outcome_for(df))
@@ -241,7 +241,7 @@ class TestAggregationAndSeverity:
 
     def test_basis_integrity_hit_is_critical_when_strong_buy(self):
         row = dict(fx.SNB_LEGITIMATE_LOW_SHARE_COUNT)
-        row.update({"Ticker": "SNBN.SW", "Decision": "Strong Buy", "veto": False,
+        row.update({"Ticker": "SNBN.SW", "signal_code": "undervalued", "veto": False,
                     "averageVolume": 100.0, "fv_basis_thin": False, "fair_value": None,
                     "dividendYield": None})
         df = _df(row)
@@ -251,7 +251,7 @@ class TestAggregationAndSeverity:
 
     def test_basis_integrity_hit_is_notable_when_not_strong_buy(self):
         row = dict(fx.SNB_LEGITIMATE_LOW_SHARE_COUNT)
-        row.update({"Ticker": "SNBN.SW", "Decision": "Monitor", "veto": False,
+        row.update({"Ticker": "SNBN.SW", "signal_code": "neutral", "veto": False,
                     "averageVolume": 100.0, "fv_basis_thin": False, "fair_value": None,
                     "dividendYield": None})
         df = _df(row)
@@ -262,7 +262,7 @@ class TestAggregationAndSeverity:
     def test_uncorroborated_display_correctness_is_informational_even_when_strong_buy(self):
         # TPG0.DE shape: real, legitimate Strong Buy at ~23.5x fair value/price,
         # no basis-integrity hit alongside it.
-        df = _df({"Ticker": "TPG0.DE", "Decision": "Strong Buy", "veto": False,
+        df = _df({"Ticker": "TPG0.DE", "signal_code": "undervalued", "veto": False,
                   "averageVolume": 489_489.0, "fv_basis_thin": False,
                   "Price": 0.966, "fair_value": 22.70, "bookValue": 8.465,
                   "sharesOutstanding": 24_986_493.0, "trailingEps": 2.05,
@@ -275,7 +275,7 @@ class TestAggregationAndSeverity:
     def test_findings_aggregate_per_ticker_not_per_check(self):
         # A row failing two checks at once (the treasury-share shape this
         # session) produces ONE finding listing both, not two.
-        df = _df({"Ticker": "NAITR.AS", "Decision": "Strong Buy", "veto": False,
+        df = _df({"Ticker": "NAITR.AS", "signal_code": "undervalued", "veto": False,
                   "averageVolume": 0.0, "fv_basis_thin": True,
                   "Price": 0.04, "fair_value": 12.70, "dividendYield": 5.625})
         findings = va.aggregate_findings(df, self._outcome_for(df))
@@ -285,7 +285,7 @@ class TestAggregationAndSeverity:
         }
 
     def test_clean_row_produces_no_finding(self):
-        df = _df({"Ticker": "CLEAN", "Decision": "Monitor", "veto": False,
+        df = _df({"Ticker": "CLEAN", "signal_code": "neutral", "veto": False,
                   "averageVolume": 500_000.0, "fv_basis_thin": False,
                   "Price": 50.0, "fair_value": 55.0, "bookValue": 40.0,
                   "dividendYield": 0.03})
@@ -299,7 +299,7 @@ class TestAggregationAndSeverity:
 
 class TestSuppressionLogDiff:
     def _finding(self, ticker="X", checks=("implied_ptb_floor",)):
-        return va.Finding(ticker=ticker, decision="Strong Buy", veto=False,
+        return va.Finding(ticker=ticker, decision="undervalued", veto=False,
                           severity="critical", checks_failed=list(checks),
                           details={c: "detail" for c in checks})
 
@@ -406,18 +406,18 @@ class TestSetDisposition:
 
 class TestSentinelPlumbing:
     def test_absent_sentinel_ticker_is_skipped_not_failed(self):
-        df = _df({"Ticker": "SOMETHING_ELSE", "Decision": "Monitor"}).set_index("Ticker", drop=False)
+        df = _df({"Ticker": "SOMETHING_ELSE", "signal_code": "neutral"}).set_index("Ticker", drop=False)
         results = va.run_sentinels(df)
         assert results == {}
 
     def test_naitr_sentinel_passes_when_vetoed_and_avoid(self):
-        df = _df({"Ticker": "NAITR.AS", "veto": True, "Decision": "Avoid",
+        df = _df({"Ticker": "NAITR.AS", "veto": True, "signal_code": "fails_screen",
                   "fetched_at": "2026-09-11T00:00:00Z"}).set_index("Ticker", drop=False)
         results = va.run_sentinels(df)
         assert results["NAITR.AS"] is None
 
     def test_naitr_sentinel_fails_when_regressed(self):
-        df = _df({"Ticker": "NAITR.AS", "veto": False, "Decision": "Strong Buy",
+        df = _df({"Ticker": "NAITR.AS", "veto": False, "signal_code": "undervalued",
                   "fetched_at": "2026-09-11T00:00:00Z"}).set_index("Ticker", drop=False)
         results = va.run_sentinels(df)
         assert results["NAITR.AS"] is not None
@@ -433,6 +433,6 @@ class TestSentinelPlumbing:
         assert results == {}
 
     def test_missing_fetched_at_column_is_also_treated_as_placeholder(self):
-        df = _df({"Ticker": "NAITR.AS", "veto": True, "Decision": "Avoid"}).set_index("Ticker", drop=False)
+        df = _df({"Ticker": "NAITR.AS", "veto": True, "signal_code": "fails_screen"}).set_index("Ticker", drop=False)
         results = va.run_sentinels(df)
         assert results == {}

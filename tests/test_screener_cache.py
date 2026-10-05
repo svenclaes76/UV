@@ -120,7 +120,10 @@ class TestRowIsScorable:
     def test_positive_eps_is_scorable(self):
         assert screener._row_is_scorable({"trailingEps": 4.2}) is True
 
-    def test_analyst_target_alone_is_scorable(self):
+    def test_analyst_target_alone_is_scorable_only_when_licensed(self, monkeypatch):
+        # DATA-6: the analyst model only exists behind the licence switch.
+        assert screener._row_is_scorable({"targetMeanPrice": 88.0}) is False
+        monkeypatch.setattr(screener, "ANALYST_INPUTS_ENABLED", True)
         assert screener._row_is_scorable({"targetMeanPrice": 88.0}) is True
 
     def test_dividend_needs_payout_to_count(self):

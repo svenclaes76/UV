@@ -261,4 +261,12 @@ def test_view_button_opens_drawer(isolated_data, monkeypatch):
     view_btn = [b for b in at.button if b.key == "scr_row_0_AAA.BR_view"][0]
     view_btn.click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert "Six-model fair value" in "".join(m.value for m in at.markdown)
+    assert "Model fair values" in "".join(m.value for m in at.markdown)
+
+
+def test_reset_filters_only_shows_when_filters_differ_from_defaults(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    assert not any(b.key == "scr_reset" for b in at.button)       # default filters
+    at.text_input(key="scr_search").set_value("AAA").run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert any(b.key == "scr_reset" for b in at.button)

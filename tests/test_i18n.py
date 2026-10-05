@@ -85,6 +85,21 @@ def test_percent_in_text_follows_the_region(region, sep):
         assert i18n._percent_spacing("die 15-%-Grenze") == "die 15-%-Grenze"   # compounds untouched
 
 
+def test_month_and_day_names_follow_the_interface_language_not_the_region():
+    """An English UI with the Belgium (Dutch) region read "closed mei 2026"
+    and "Maandag": the region sets the order, the language sets the words."""
+    d = dt.date(2026, 5, 4)
+    with i18n._using(i18n.with_(i18n._default_ctx(), lang="en", region="nl-BE")):
+        assert i18n.fmt_date(d, skeleton="yMMM") == "May 2026"
+        assert i18n.fmt_date(d, "medium") == "4 May 2026"        # nl-BE order, English month
+        assert i18n.fmt_date(d, "short") == "4/05/2026"          # numeric: region only
+        assert i18n.names_locale().days["format"]["wide"][0] == "Monday"
+    with i18n._using(i18n.with_(i18n._default_ctx(), lang="nl", region="nl-BE")):
+        assert i18n.fmt_date(d, skeleton="yMMM") == "mei 2026"
+    # An explicit locale still means "exactly this region" (format snapshots).
+    assert i18n.fmt_date(d, "medium", locale="nl-BE") == "4 mei 2026"
+
+
 def test_money_never_shows_minus_zero():
     assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "€0.00"
     assert i18n.fmt_money(-0.0, "CHF", locale="de-CH") == f"CHF{NBSP}0.00"
@@ -563,3 +578,17 @@ def test_drawer_stays_at_design_width_in_english_and_widens_for_german():
     de = [("Kurs", "12,24 €"), ("Fairer Wert", "23,55 €"), ("Sicherheitsmarge", "+48,0 %"), ("Gesamtrendite", "+113,7 %")]
     assert _hero_row_px(en) + _DRAWER_CHROME_PX <= _DRAWER_PX
     assert 470 <= _hero_row_px(de) <= 480   # live-measured 473px
+
+
+@pytest.mark.parametrize("region", ["nl-BE", "nl-NL", "en-GB", "de-CH"])
+def test_negative_money_puts_the_minus_in_front_like_the_plus(region):
+    """A P&L column read "+€ 126,60" above "€ -86,01" (nl-BE): the minus now
+    goes where the plus goes, in front of the symbol (visual review G4)."""
+    neg = i18n.fmt_money(-86.01, "EUR", locale=region)
+    pos = i18n.fmt_money(86.01, "EUR", signed=True, locale=region)
+    assert neg[0] == "-" and pos[0] == "+"
+    assert neg[1:] == pos[1:]
+
+
+def test_negative_money_with_the_symbol_after_is_unchanged():
+    assert i18n.fmt_money(-86.01, "EUR", locale="fr-BE").startswith("-86,01")

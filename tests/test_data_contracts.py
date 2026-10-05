@@ -63,7 +63,7 @@ def test_risk_score_matches_between_dashboard_and_risk_page(isolated_data, monke
 
 def test_dataless_holding_reads_nodata_not_veto_and_no_phantom_vetoes(isolated_data, monkeypatch):
     """docs/data-contracts.md → Signal badge: a held ticker with no scored row
-    is NO DATA, never VETO (bool(nan) is True), and the veto count stays 0
+    is "No data", never a failed screen (bool(nan) is True), and the veto count stays 0
     across pages."""
     portfolio.save_portfolio(make_portfolio_df(rows=[
         dict(ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA", shares=10,
@@ -78,7 +78,7 @@ def test_dataless_holding_reads_nodata_not_veto_and_no_phantom_vetoes(isolated_d
     at_d = _run_dashboard(monkeypatch, scored=only_aaa, with_risk_cache=True)
     assert not at_d.exception, [str(e.value) for e in at_d.exception]
     d_html = "".join(m.value for m in at_d.markdown)
-    assert "NO DATA" in d_html
+    assert "No data" in d_html
     assert "uv-badge-veto" not in d_html          # no phantom veto from bool(nan)
 
     at_r = _run_risk(monkeypatch, risk_cache=_SHARED_CACHE, portfolio_scored=only_aaa)
@@ -106,9 +106,10 @@ def test_missing_sector_never_renders_as_nan_and_labels_agree(isolated_data, mon
 
 
 class TestHoldingsRowReconciles:
-    """docs/data-contracts.md → Margin of safety: after apply_live_mos, a
-    Holdings row's printed price / fair value / MoS% reconcile — the
-    "at fair value" label next to a -39.5% bar can't recur."""
+    """docs/data-contracts.md → Margin of safety: a Holdings row prints the
+    price the signal was computed from, its fair value and its MoS%, and the
+    three reconcile — whatever the live quote does (B3: apply_live_prices
+    adds the live quote without changing the scored figures)."""
 
     def _numbers(self, html: str):
         price = float(re.search(r">€([\d,]+\.\d\d)<", html).group(1).replace(",", ""))
@@ -118,25 +119,26 @@ class TestHoldingsRowReconciles:
 
     def _render(self, batch_price, fair_value, live_price):
         from uvalu.components import holdings_row_html
+        _mos = (fair_value - batch_price) / fair_value
         scored = pd.DataFrame([{"Ticker": "X.BR", "Price": batch_price,
-                                "fair_value": fair_value, "MoS %": 99.9,
-                                "margin_of_safety": 0.999}])
-        row = uv_data.apply_live_mos(
+                                "fair_value": fair_value, "MoS %": round(_mos * 100, 1),
+                                "margin_of_safety": _mos}])
+        row = uv_data.apply_live_prices(
             scored, {"X.BR": {"price": live_price, "quote_source": "intraday"}}).iloc[0]
         return holdings_row_html(
-            ticker="X.BR", sector=None, name="X", decision="Monitor", veto=False,
-            price=row["live_price"], fair_value=row["fair_value"], mos_pct=row["MoS %"],
+            ticker="X.BR", sector=None, name="X", signal_code="neutral", veto=False,
+            price=row["Price"], fair_value=row["fair_value"], mos_pct=row["MoS %"],
             weight=0.1, value=1000.0, total_gain=0.0)
 
-    def test_stale_cache_price_does_not_desync_the_row(self):
-        # Porsche case: €40 cached price, €28 fair value, €28.21 live.
+    def test_live_quote_does_not_desync_the_row(self):
+        # Porsche case: €40 scored price, €28 fair value, €28.21 live.
         price, fv, mos = self._numbers(self._render(40.0, 28.0, 28.21))
-        assert price == pytest.approx(28.21)
+        assert price == pytest.approx(40.0)
         assert fv == pytest.approx(28.0)
         assert mos == pytest.approx((fv - price) / fv * 100, abs=0.15)
 
     def test_undervalued_row_reconciles(self):
-        price, fv, mos = self._numbers(self._render(12.0, 13.44, 12.0))
+        price, fv, mos = self._numbers(self._render(12.0, 13.44, 12.5))
         assert mos == pytest.approx((fv - price) / fv * 100, abs=0.15)
         assert mos > 0
 

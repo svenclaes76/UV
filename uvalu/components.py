@@ -15,19 +15,30 @@ import streamlit as st
 from risk import SCORE_LOW, SCORE_ELEVATED, risk_band
 from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
-from uvalu.formatting import fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
                         ngettext, pgettext, tr)
 
 # ── Signal badge ─────────────────────────────────────────────────────────────
 
-_DECISION_BADGE = {
-    "Strong Buy": ("buy", "BUY"),
-    "Monitor":    ("monitor", "MONITOR"),
-    "Avoid":      ("avoid", "AVOID"),
+# Model signal (screener.signal_code) → badge colour kind. Labels come from
+# screener.SIGNAL_LABELS, translated at render time (BDG-1).
+_SIGNAL_KIND = {
+    "undervalued":  "buy",
+    "neutral":      "monitor",
+    "low_score":    "avoid",
+    "fails_screen": "veto",
+    "pending":      "neutral",
 }
 
 _TIP_LABELS = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
+
+
+def _name_html(name) -> str:
+    """A company name for row markup: tidied for display (display_name,
+    visual review G5) and HTML-escaped (names come from the data provider)."""
+    import html as _html_mod
+    return _html_mod.escape(display_name(name))
 
 
 def is_hard_veto(v: object) -> bool:
@@ -43,20 +54,33 @@ def is_hard_veto(v: object) -> bool:
     return bool(v)
 
 
-def signal_badge_for_decision(decision: object, veto: object = False) -> tuple[str, str]:
-    """Map a screener Decision string (+ veto flag) to a (kind, label) badge pair.
+def signal_badge_for(signal_code: object, veto: object = False) -> tuple[str, str]:
+    """Map a screener ``signal_code`` (+ veto flag) to a (kind, label) badge
+    pair, the label translated.
 
-    Three distinct states, not two: a real hard veto → VETO; a scored
-    BUY/MONITOR/AVOID → that; anything else (no Decision — the row has no
-    scored screener data at all) → a neutral "NO DATA" badge, so a
-    fundamentals gap never masquerades as an AVOID or, via ``bool(nan)``, a
-    VETO."""
+    A real quality-screen failure → "Fails quality screen"; a scored state →
+    its label; anything else (no signal_code — the row has no scored screener
+    data at all) → a neutral "No data" badge, so a fundamentals gap never
+    masquerades as a low score or, via ``bool(nan)``, a failed screen."""
+    from screener import SIGNAL_FAILS, SIGNAL_LABELS
     if is_hard_veto(veto):
-        return "veto", "VETO"
-    decision = "" if decision is None or (isinstance(decision, float) and pd.isna(decision)) else str(decision)
-    if decision in _DECISION_BADGE:
-        return _DECISION_BADGE[decision]
-    return "neutral", _("NO DATA")
+        return "veto", tr(SIGNAL_LABELS[SIGNAL_FAILS])
+    code = "" if signal_code is None or (isinstance(signal_code, float) and pd.isna(signal_code)) else str(signal_code)
+    if code in _SIGNAL_KIND:
+        return _SIGNAL_KIND[code], tr(SIGNAL_LABELS[code])
+    return "neutral", _("No data")
+
+
+def signal_tooltip() -> str:
+    """BDG-2: the tooltip every model-signal badge carries."""
+    from screener import SIGNAL_TOOLTIP
+    return tr(SIGNAL_TOOLTIP) + " " + _("See Methodology for thresholds.")
+
+
+def model_signal_badge_html(signal_code: object, veto: object = False) -> str:
+    """A model-signal badge with its BDG-2 tooltip — use for every signal badge."""
+    kind, label = signal_badge_for(signal_code, veto=veto)
+    return signal_badge_html(kind, label, tooltip=signal_tooltip())
 
 
 def veto_reason_str(row: "pd.Series") -> str:
@@ -97,12 +121,174 @@ def veto_reason_str(row: "pd.Series") -> str:
         reasons.append(_("dividend flagged at risk with {coverage}× coverage", coverage=fmt_num(coverage, 2)))
     if pd.notna(volume) and volume == 0:
         reasons.append(_("no confirmed trading volume"))
-    return "; ".join(reasons) if reasons else _("a hard-veto rule")
+    return "; ".join(reasons) if reasons else _("a quality-screen rule")
 
 
-def signal_badge_html(kind: str, label: str) -> str:
-    """Raw <span> markup for a signal badge — embed inside markdown/HTML contexts."""
-    return f'<span class="uv-badge uv-badge-{kind}">{label}</span>'
+METHODOLOGY_HREF = "/legal?doc=methodology"
+
+
+def methodology_link_html() -> str:
+    """REC-5: "Methodology →" link, shown with every signal (the badge's own
+    tooltip can't hold a link). A plain link to the in-app legal page."""
+    import html as _html_mod
+    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
+            f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
+            f'{_html_mod.escape(_("Methodology →"))}</a>')
+
+
+# A price older than this is stale — the same 72-hour rule as the stock
+# page's data flag (screener.DATA_FLAG_LABELS["price_stale"]).
+STALE_PRICE_HOURS = 72
+
+# Coverage-bar colours per signal, in the badge colours of the active theme.
+_COVERAGE_COLORS = {
+    "undervalued": "var(--up-txt)",
+    "neutral": "var(--amber-txt)",
+    "low_score": "var(--down-txt)",
+    "fails_screen": "var(--faint)",
+}
+
+
+def _mono(value: str, title: str | None = None) -> str:
+    """A provenance value (time, model version) in the data font; prose stays
+    in the sans stack (brand: numbers are monospace, prose is not)."""
+    import html as _html_mod
+    t = f' title="{_html_attr(title)}"' if title else ""
+    return (f'<span{t} style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);">'
+            f'{_html_mod.escape(value)}</span>')
+
+
+def _full_timestamp(ts) -> str:
+    """Tooltip text: ISO date and time plus the time zone it is shown in."""
+    from uvalu.i18n import current, fmt_datetime
+    return f"{fmt_datetime(ts, style='iso')} ({current().time_zone})"
+
+
+def _stale_chip_html(prices) -> str:
+    """Amber chip when the oldest price behind a list is past STALE_PRICE_HOURS:
+    "⚠ oldest 3 weeks", with the count of stale prices in the tooltip."""
+    if prices is None or prices.empty:
+        return ""
+    ages = pd.Timestamp.now(tz="UTC") - prices
+    stale = int((ages > pd.Timedelta(hours=STALE_PRICE_HOURS)).sum())
+    if not stale:
+        return ""
+    from babel.dates import format_timedelta
+    from uvalu.i18n import names_locale, ngettext
+    age = format_timedelta(ages.max().to_pytimedelta(), threshold=1, locale=names_locale())
+    tip = ngettext("{count} price is more than 72 hours old.",
+                   "{count} prices are more than 72 hours old.", stale)
+    return (f'<span title="{_html_attr(tip)}" style="white-space:nowrap;font-size:10.5px;font-weight:500;'
+            f'color:var(--amber-txt);background:var(--amber-bg);border-radius:6px;padding:1px 7px;">'
+            f'⚠ {h_("oldest {age}", age=age)}</span>')
+
+
+def provenance_bar_html(items: list[str], *, right: str = "", link: bool = True,
+                        below: str = "", margin: str = "10px 0 12px") -> str:
+    """REC-4 / REC-5 strip shown with every signal: the facts (``items``,
+    ready-made HTML) on the left, ``right`` (e.g. the fair-value legend) and
+    the "Methodology →" link on the right, ``below`` (the Screener's coverage
+    bar) under them. One subtle panel, like the beta banner, in the same place
+    on every screen. Each fact wraps as a whole, never mid-phrase."""
+    sep = '<span style="color:var(--faint);">·</span>'
+    facts = sep.join(f'<span style="white-space:nowrap;">{i}</span>' for i in items if i)
+    tail = "".join(x for x in (right, methodology_link_html() if link else "") if x)
+    return ('<div style="background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
+            f'padding:6px 12px;margin:{margin};font-size:11.5px;color:var(--muted);line-height:1.6;">'
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 18px;">'
+            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;">{facts}</div>'
+            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin-left:auto;">{tail}</div></div>'
+            f'{below}</div>')
+
+
+def signal_provenance_html(row) -> str:
+    """REC-4 / DATA-3 / REC-5: when the signal was computed, the time of the
+    price it used (labelled delayed: the beta's quotes are not end-of-day
+    closes), the model version and the methodology link. Shown under every
+    signal badge that has a row behind it (drawer, Analysis page)."""
+    from uvalu.i18n import fmt_datetime
+    computed, price_at = row.get("signal_computed_at"), row.get("price_as_of")
+    return provenance_bar_html([
+        h_("Signal computed {when}", when=_mono(fmt_datetime(computed, style="medium"), _full_timestamp(computed))),
+        h_("price as of {when}, delayed", when=_mono(fmt_datetime(price_at, style="medium"), _full_timestamp(price_at))),
+        h_("model {version}", version=_mono(str(row.get("model_version") or "—"))),
+    ], margin="10px 0 8px")
+
+
+def coverage_bar_html(df) -> str:
+    """REC-10 as a picture: a 100 % stacked bar of the share of covered stocks
+    per signal, in the badge colours, with the shares as its legend."""
+    import html as _html_mod
+    from screener import SIGNAL_LABELS, signal_distribution
+    dist = signal_distribution(df)
+    if not dist:
+        return ""
+    segs = "".join(
+        f'<span title="{_html_attr(tr(SIGNAL_LABELS[code]))}" style="width:{share * 100:.2f}%;'
+        f'background:{_COVERAGE_COLORS[code]};"></span>'
+        for code, share in dist.items() if share > 0)
+    legend = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">'
+        f'<span style="width:8px;height:8px;border-radius:2px;background:{_COVERAGE_COLORS[code]};"></span>'
+        f'{_mono(fmt_pct(share * 100, 0))} {_html_mod.escape(tr(SIGNAL_LABELS[code]))}</span>'
+        for code, share in dist.items())
+    return ('<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-top:5px;'
+            'padding-top:6px;border-top:0.5px solid var(--line-2);">'
+            f'<span style="color:var(--faint);">{h_("Coverage")}</span>'
+            '<span style="display:flex;width:180px;height:6px;border-radius:3px;overflow:hidden;gap:1px;">'
+            f'{segs}</span>{legend}</div>')
+
+
+def list_provenance_html(df, *, coverage: bool = False, right: str = "") -> str:
+    """The same provenance for a whole list of signals (Dashboard holdings,
+    Screener, Watchlist): the latest computation time, the price times
+    (delayed quotes; an amber chip when some are older than 72 hours), the
+    model version(s) and, with ``coverage``, the share of covered stocks per
+    signal as a stacked bar (REC-10). ``right`` goes next to the methodology
+    link. Empty string without data."""
+    if df is None or getattr(df, "empty", True) or "signal_computed_at" not in df.columns:
+        return ""
+    from uvalu.i18n import fmt_date, fmt_datetime, fmt_time
+    computed = pd.to_datetime(df["signal_computed_at"], errors="coerce", utc=True).dropna()
+    prices = pd.to_datetime(df.get("price_as_of"), errors="coerce", utc=True).dropna() \
+        if "price_as_of" in df.columns else pd.Series(dtype="datetime64[ns, UTC]")
+    items = []
+    if not computed.empty:
+        items.append(h_("Signals computed {when}", when=_mono(
+            fmt_datetime(computed.max(), style="medium"), _full_timestamp(computed.max()))))
+    if not prices.empty:
+        oldest, newest = prices.min(), prices.max()
+        if oldest.date() == newest.date():
+            items.append(h_("prices delayed, as of {when}", when=_mono(
+                fmt_time(newest), _full_timestamp(newest))))
+        else:
+            items.append(h_("prices delayed, fetched {oldest} to {newest}",
+                            oldest=_mono(fmt_date(oldest, skeleton="MMMd"), _full_timestamp(oldest)),
+                            newest=_mono(fmt_date(newest, skeleton="MMMd"), _full_timestamp(newest))))
+        items.append(_stale_chip_html(prices))
+    versions = sorted({str(v) for v in df.get("model_version", pd.Series(dtype=object)).dropna()})
+    if versions:
+        items.append(h_("model {version}", version=_mono(", ".join(versions))))
+    if not items:
+        return ""
+    return provenance_bar_html(items, right=right, below=coverage_bar_html(df) if coverage else "")
+
+
+def founder_notice_html(row) -> str:
+    """REC-8: the founder-position disclosure, when the founder holds the stock."""
+    if not bool(row.get("founder_holds")) or pd.isna(row.get("founder_holds")):
+        return ""
+    import html as _html_mod
+    from screener import FOUNDER_HOLDS_NOTICE
+    return ('<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">'
+            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE)) + "</div>")
+
+
+def signal_badge_html(kind: str, label: str, tooltip: "str | None" = None) -> str:
+    """Raw <span> markup for a badge — embed inside markdown/HTML contexts.
+    For model signals use model_signal_badge_html (adds the BDG-2 tooltip)."""
+    title = f' title="{_html_attr(tooltip)}"' if tooltip else ""
+    return f'<span class="uv-badge uv-badge-{kind}"{title}>{label}</span>'
 
 
 def render_signal_tips(tips: list[tuple[str, str]]) -> None:
@@ -317,8 +503,12 @@ def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
         ["EPV",                   row.get("epv")],
         [N_("Dividend discount"), row.get("ddm")],
         [N_("DDM 2-stage"),       row.get("ddm_multistage")],
-        [N_("Analyst Target"),    row.get("targetMeanPrice")],
     ]
+    # DATA-6: the analyst target is licensed separately; it is only a model
+    # (and only shown) while screener.ANALYST_INPUTS_ENABLED is on.
+    from screener import ANALYST_INPUTS_ENABLED
+    if ANALYST_INPUTS_ENABLED:
+        rows.append([N_("Analyst Target"), row.get("targetMeanPrice")])
     fallbacks = [(N_("Book value"), row.get("pb_fair_value")),
                  (N_("FCF value"),  row.get("fcf_fair_value"))]
     for label, value in fallbacks:
@@ -548,11 +738,11 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 # align-items:center handles vertical centering natively. The one thing this
 # can't do is a native onClick, so the caller renders this in a wide column
 # next to a normal narrow st.button("→", ...) column for the drawer link.
-HOLDINGS_GRID_COLS = "210px 78px 1fr 82px 66px 108px 96px"
+HOLDINGS_GRID_COLS = "210px 140px 1fr 82px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
 
 
 def holdings_row_html(*, ticker: str, sector: str | None, name: str,
-                      decision: str, veto: bool,
+                      signal_code: str, veto: bool,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, total_gain: float | None,
                       price_stale: bool = False, data_thin: bool = False,
@@ -573,10 +763,11 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     fair value because the fundamentals record came back incomplete. Embed
     inside an outer st.markdown(unsafe_allow_html=True) call; pair with a
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
+    name = _name_html(name)
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
                    f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
                    if sector and pd.notna(sector) else "")
-    kind, label = signal_badge_for_decision(decision, veto=veto)
+    badge_html = model_signal_badge_html(signal_code, veto=veto)
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
@@ -613,7 +804,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
            f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
-           f'<div>{signal_badge_html(kind, label)}</div>'
+           f'<div>{badge_html}</div>'
            f'<div style="min-width:0;">{ladder_html}</div>'
            f'<div style="text-align:right;">{mos_html}</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{fmt_pct(weight * 100)}</div>'
@@ -629,7 +820,9 @@ def _score_bar_cell_html(score: float | None) -> str:
     number itself is only ever mint (>=75) or the default text color."""
     if score is None or pd.isna(score):
         return "—"
-    score = float(score)
+    # Banded on the shown (rounded) number: 74.6 printed "75" in plain text
+    # next to a real 75 in mint.
+    score = float(round(float(score)))
     bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
     text_color = "var(--uv-mint)" if score >= 75 else "var(--text, inherit)"
     pct = max(0.0, min(100.0, score))
@@ -642,7 +835,7 @@ def _score_bar_cell_html(score: float | None) -> str:
 </div>"""
 
 
-def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decision: str,
+def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_code: str,
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
@@ -680,6 +873,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
     anywhere on the row (caller opens the drawer); `action` fires on the
     star (Screener: toggle watchlist membership; Watchlist: remove).
     """
+    name = _name_html(name)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
     # keys) — a raw dot in a CSS class selector is parsed as two chained
@@ -718,7 +912,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             # (not "" or None) when it doesn't match one of the tracked
             # exchanges, and NaN is truthy in Python, so `if exchange` let
             # the literal string "nan" through (confirmed live: "BDC nan").
-            _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);"
+            _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);"
                          f"margin-left:8px;'>{exchange}</span>" if exchange and pd.notna(exchange) else "")
             # Two explicit block divs (matching holdings_row_html's proven
             # compact ticker/name layout), not a <br>-separated pair of
@@ -734,8 +928,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
                        f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
-            _kind, _label = signal_badge_for_decision(decision, veto=veto)
-            st.markdown(signal_badge_html(_kind, _label), unsafe_allow_html=True)
+            st.markdown(model_signal_badge_html(signal_code, veto=veto), unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
             st.markdown(_score_bar_cell_html(score), unsafe_allow_html=True)
@@ -768,7 +961,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, decisio
             # with no font-family, drifting from both the mockup's exact
             # size and its monospace figure column convention.
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'>"
-                       f"{fmt_num(pe, 1)}</div>", unsafe_allow_html=True)
+                       f"{fmt_num(pe, 1) if pe is not None and pd.notna(pe) and pe >= 0.05 else '—'}</div>",
+                       unsafe_allow_html=True)   # P/E ≤ 0 (losses, missing EPS), or one that would read "0,0", means nothing
         _i += 1
         with _cols[_i]:
             # Matches r.dy — same fix as P/E above.
@@ -1044,16 +1238,29 @@ def refresh_top_bar_html() -> str:
     )
 
 
+def fair_value_legend_html() -> str:
+    """The below/near/above model fair value legend that accompanies
+    fair_value_bar_compact — as markup, for the provenance bar's right side."""
+    def _item(swatch: str, label: str) -> str:
+        return (f'<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">'
+                f'{swatch}{label}</span>')
+    def _box(color: str) -> str:
+        return (f'<span style="width:9px;height:9px;border-radius:2px;background:{color};'
+                f'display:inline-block;"></span>')
+    return ('<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
+            'font-size:11px;color:var(--faint);">'
+            + _item(_box("var(--mint)"), h_("Below model fair value"))
+            + _item(_box("var(--teal)"), h_("Near model fair value"))
+            + _item(_box("#A32D2D"), h_("Above model fair value"))
+            + _item('<span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
+                    h_("Model fair value"))
+            + '</span>')
+
+
 def fair_value_legend_row() -> None:
-    """The Undervalued/Near fair/Overvalued/Fair-value-line legend strip that
-    accompanies fair_value_bar_compact in a holdings/screener table header."""
-    st.markdown(f"""
-<div style="display:flex;align-items:center;gap:14px;font-size:11px;color:var(--faint);flex-wrap:wrap;">
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--mint);display:inline-block;"></span>{h_("Undervalued")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:var(--teal);display:inline-block;"></span>{h_("Near fair")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:9px;height:9px;border-radius:2px;background:#A32D2D;display:inline-block;"></span>{h_("Overvalued")}</div>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>{h_("Fair value")}</div>
-</div>""", unsafe_allow_html=True)
+    """The legend strip on its own row (a table header without a provenance
+    bar)."""
+    st.markdown(fair_value_legend_html(), unsafe_allow_html=True)
 
 
 # ── Signals feed ─────────────────────────────────────────────────────────────
@@ -1277,6 +1484,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
     Returns {"view": bool, "edit": bool} — `edit` is always False when
     show_edit=False.
     """
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
     _name_w = 240 if show_edit else 200
     _show_income = income_12m is not None or ttm_yield_pct is not None or yoc_pct is not None
@@ -1292,7 +1500,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1371,6 +1579,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
     rows have no onClick, unlike the open-position `h.onClick`); `show_edit`
     adds a trailing edit-pencil button (the full Closed positions page only,
     not the Overview preview). Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
     _widths = widths or (([400] if show_edit else [300]) + [56, 74, 74, 110] + ([32] if show_edit else []))
     with st.container(key=key):
@@ -1380,7 +1589,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1428,6 +1637,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
     columns (full page only) — all EUR-converted figures, the caller passes
     `amount`/`tax`/`net` already through portfolio.dividends_in_eur().
     Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
 
     def _money(v: float | None) -> str:
@@ -1526,6 +1736,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
     this has no `show_edit` toggle since it's only ever used on the full
     page, never a preview list.
     Returns {"edit": bool}."""
+    name = _name_html(name)
     _css_key = key.replace(".", "-")
 
     def _money(v: float | None) -> str:
@@ -1533,7 +1744,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
 
     _num = "text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);"
     _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:5px;white-space:nowrap;"
-    _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
@@ -1546,8 +1757,8 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
                   "color:var(--muted);border:0.5px solid var(--line);")
     _ps_str = fmt_money(per_share, "EUR")
     _sh_str = fmt_int(int(shares)) if shares is not None and pd.notna(shares) else "—"
-    _fwh_str = f"−{_money(foreign_wh)}" if foreign_wh else "—"
-    _be_str = f"−{_money(be_wh)}" if be_wh else "—"
+    _fwh_str = _money(-foreign_wh) if foreign_wh else "—"
+    _be_str = _money(-be_wh) if be_wh else "—"
     _src_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
                  if source == "auto" else "border:0.5px solid var(--line);color:var(--muted);")
     _src_label = h_("Auto") if source == "auto" else h_("Manual")
@@ -1602,7 +1813,8 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     Vol/Contribution-bar/Flag). Embed inside an outer st.markdown() call,
     same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
     templated header for aligned column labels."""
-    _exch_html = (f"<span style='font-size:9px;color:var(--faint);font-family:var(--uv-mono);'>{exchange}</span>"
+    name = _name_html(name)
+    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     _beta_str = fmt_num(beta, 2)
     _vol_str = fmt_pct(vol_pct, 0)

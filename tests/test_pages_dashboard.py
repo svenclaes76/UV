@@ -255,7 +255,7 @@ def test_multi_lot_same_ticker_does_not_crash(isolated_data, monkeypatch):
     at = _run(monkeypatch, scored=make_scored_df([future_row]))
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
-    assert "Composite conviction" in html
+    assert "Weighted composite score" in html
 
 
 def test_risk_label_never_disagrees_with_risk_page_bands(isolated_data, monkeypatch):
@@ -276,7 +276,7 @@ def test_conviction_score_renders_from_scored_holdings(isolated_data, monkeypatc
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
-    assert "Composite conviction" in html
+    assert "Weighted composite score" in html
 
 
 def test_holdings_view_details_opens_drawer(isolated_data, monkeypatch):
@@ -285,7 +285,7 @@ def test_holdings_view_details_opens_drawer(isolated_data, monkeypatch):
     view_btn = [b for b in at.button if b.label == "View details"][0]
     view_btn.click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert "Six-model fair value" in "".join(m.value for m in at.markdown)
+    assert "Model fair values" in "".join(m.value for m in at.markdown)
 
 
 def test_holdings_no_screener_data_shows_caption(isolated_data, monkeypatch):

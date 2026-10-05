@@ -394,7 +394,7 @@ def cash_after_html(kind: str, gross: float, fee: float, on=None) -> str:
 @_dialog(N_("Add position"))
 def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_price: float = 0.0) -> None:
     enter_dialog()
-    dialog_frame(_("Enter a total cost or a price per share."))
+    dialog_frame(_("Record a purchase you made at your broker: enter a total cost or a price per share. Nothing is executed."))
     if viewer_blocked():
         return
     ticker_raw, name_raw = identity_row(ticker=preset_ticker, name=preset_name, key_prefix="dlg_ap",
@@ -533,9 +533,9 @@ def edit_position_dialog(trade_id: str, live_price: float | None = None) -> None
                                 help=_("Re-posts the buy ({trade_id}) at the new cost, fees and date.", trade_id=trade_id))
         else:
             cash_link_line(_("No cash change — the ledger keeps this buy as recorded."))
-        # Selling opens the Close position dialog (dialogs can't nest): hand
+        # Recording a sale opens the Record sale dialog (dialogs can't nest): hand
         # the request to app.py's dispatch_pending_drawer_action.
-        if st.button(_("Sell shares…"), key="dlg_eop_sell", type="tertiary", icon=":material/sell:"):
+        if st.button(_("Record a sale…"), key="dlg_eop_sell", type="tertiary", icon=":material/sell:"):
             st.session_state["_drw_action"] = {"kind": "sell", "ticker": str(row["ticker"]),
                                                "price": live_price}
             st.rerun()
@@ -558,12 +558,12 @@ def edit_position_dialog(trade_id: str, live_price: float | None = None) -> None
         st.error(str(exc))
 
 
-@_dialog(N_("Close position"))
+@_dialog(N_("Record sale"))   # PER-7: a record of a sale made elsewhere, not an order
 def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
                          preset_price: float | None = None) -> None:
     from uvalu.i18n import sort_df
     enter_dialog()
-    dialog_frame(_("Sell all or part of this position."))
+    dialog_frame(_("Record a sale of all or part of this position that you made at your broker. Nothing is executed."))
     if viewer_blocked():
         return
     if ticker is None:

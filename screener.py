@@ -2,13 +2,38 @@
 Stock valuation screener — implements the 6-stage algorithm from docs/stock_valuation_algorithm.md
 
 Stage 1  — Data collection (yfinance, cached)
-Stage 2  — Fair value: Graham Number · PE Fair Value · EPV · DDM (single + multi-stage) · Analyst
-Stage 3  — Margin of Safety + Total Expected Return (TER) + Dividend Sustainability Flag
+Stage 2  — Fair value: Graham Number · PE Fair Value · EPV · DDM (single + multi-stage)
+           · Analyst only when ANALYST_INPUTS_ENABLED (licensed data, DATA-6)
+Stage 3  — Margin of Safety + model-implied return (estimate) + Dividend Sustainability Flag
 Stage 4  — Risk scoring: financial health · earnings quality · market risk · dividend risk · liquidity
 Stage 5  — Composite Score = α×MoS + β×(100−Risk) + γ×Quality + δ×Momentum + ε×DividendScore
-Stage 6  — Decision: Strong Buy (>70) | Monitor (40–70) | Avoid (<40) + hard veto rules
+Stage 6  — Model signal (descriptive): Undervalued | Neutral | Low score |
+           Fails quality screen | No signal
 
 Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE_TTL_HOURS.
+
+Legal design rules (docs/legal/compliance-implementation-plan.md,
+docs/legal/algorithm-compliance-review.md), by requirement ID of
+"Uvalu — Legal Requirements for Launch":
+  PER-1/2  Peer reference (sector medians, percentile ranks) is built from the
+           public universe only (``peer_mask``); a user-selected set (holdings,
+           watchlist) scored without one gets no signal (``user_selected``), and
+           its P/E and P/B fair values use the fixed fallback multiples, not
+           medians of the user's own holdings.
+  BDG-1/3  Descriptive signal labels; a failed quality screen is its own state.
+  REC-2    Model outputs are named as estimates ("Implied Return % (est.)");
+           ``signal_reason`` states the rule applied, including which quality
+           rules failed (``veto_rules``).
+  REC-3    ``data_source`` and ``data_flags`` (stale price, thin basis, derived
+           EPS, clamped fair value, small peer group) on every row.
+  REC-4    ``signal_computed_at`` and ``price_as_of`` on every row.
+  REC-5/6  ``methodology()`` and ``SIGNAL_DEFINITIONS`` read the live constants,
+           so the methodology page cannot drift from the code.
+  REC-8    ``founder_holds`` flag + FOUNDER_HOLDS_NOTICE for any founder position.
+  REC-10   ``signal_distribution()``.
+  REC-11   ``model_version`` + ``model_settings_id`` per row; ``signal_records()``.
+  DATA-6   Analyst price targets and recommendation means are off by default:
+           not fetched, not used, not in the output (``strip_analyst_fields``).
 """
 
 import contextlib
@@ -242,6 +267,122 @@ SCORE_AVOID      = 40
 # that point. Heuristic threshold, not statistically derived.
 MIN_UNIVERSE_SIZE = 20
 
+# ── Legal-compliance constants (see module docstring) ─────────────────────────
+
+# REC-11: bump on any change that can move a fair value, score or signal, so a
+# logged signal can be reproduced against the code that produced it.
+MODEL_VERSION = "M1"   # D12: independent of the app version; shown in the UI and the methodology change log
+
+# D1: "Undervalued" needs at least this margin of safety, whatever the shared
+# `min_mos` setting says. At 0% a price 0.5% below the model fair value would
+# carry a valuation label the model can't support (REC-2, WER VI.97).
+MIN_MOS_FLOOR = 0.10
+
+# REC-3 / DATA-4: where the inputs come from, as shown to users. The free beta
+# runs on Yahoo Finance, which is not licensed for a commercial service
+# (decision B2: free, invite-only beta with mitigations). Replace with the
+# licensed provider's name and required attribution wording once DATA-2 is
+# signed (M2).
+DATA_SOURCE = "Yahoo Finance (delayed quotes, via yfinance)"
+
+# DATA-6: analyst price targets (targetMeanPrice/High/Low, numberOfAnalystOpinions)
+# and the consensus recommendation mean are sell-side content licensed separately
+# from prices and fundamentals. Off until a licence covers them; with it off the
+# analyst model drops out of the fair-value blend (its weight renormalises across
+# the remaining models) and momentum uses earnings + revenue growth only.
+ANALYST_INPUTS_ENABLED = False
+
+# The sell-side fields covered by that switch. With it off, compute_scores
+# drops them from its output so no table, drawer or export can show them, and
+# strip_analyst_fields() removes them from raw fundamentals rows. Stage 1
+# (screener.py) still fetches and caches them until the wiring step removes
+# them from its field lists (docs/legal/algorithm-compliance-review.md §4).
+ANALYST_FIELDS = ("targetMeanPrice", "targetHighPrice", "targetLowPrice",
+                  "numberOfAnalystOpinions", "recommendationMean")
+
+# REC-3: a price older than this is flagged as stale in `data_flags`.
+PRICE_STALE_HOURS = 72
+
+# BDG-1: descriptive signal states. `signal_code` is the stable machine value
+# (store/compare this); `Signal` is the English display label (show via tr()).
+# Deviation from BDG-1's literal mapping, deliberately: MONITOR → "Near fair
+# value" and AVOID → "Overvalued" would be false for many rows, because the
+# bands come from the composite score (MoS + risk + quality + momentum +
+# dividend), not from valuation alone — a stock 30% below fair value with weak
+# quality sits in the lowest band. Labels must describe what the model measured
+# (REC-2; WER VI.97 misleading practices), so the lower bands are named after
+# the score.
+SIGNAL_UNDERVALUED = "undervalued"
+SIGNAL_NEUTRAL     = "neutral"
+SIGNAL_LOW_SCORE   = "low_score"
+SIGNAL_FAILS       = "fails_screen"
+SIGNAL_PENDING     = "pending"
+
+SIGNAL_LABELS = {
+    SIGNAL_UNDERVALUED: N_("Undervalued"),
+    SIGNAL_NEUTRAL:     N_("Neutral"),
+    SIGNAL_LOW_SCORE:   N_("Low score"),
+    SIGNAL_FAILS:       N_("Fails quality screen"),
+    SIGNAL_PENDING:     N_("No signal"),
+}
+
+# BDG-2: tooltip on every badge, plus the methodology link (the page renders it).
+SIGNAL_TOOLTIP = N_("Model output based on public data and the settings shown. "
+                    "Not a recommendation tailored to you.")
+
+# REC-6: what each state means, the horizon the model assumes, and the risk
+# warning. Thresholds are filled in from the live settings by methodology().
+SIGNAL_HORIZON = N_("The models value a business on its current fundamentals and "
+                    "assume a holding horizon of 3 to 5 years; they say nothing "
+                    "about short-term price moves.")
+SIGNAL_RISK_WARNING = N_("Model signals can be wrong. They depend on third-party data "
+                         "that may be delayed or incorrect and on assumptions that may "
+                         "not hold. Investing involves risk, including loss of capital.")
+SIGNAL_SENSITIVITY = N_("Fair values are sensitive to the discount rate, growth and "
+                        "sector multiples: with a 2% growth rate, raising the discount "
+                        "rate from 8% to 9% lowers a dividend-model fair value by about 14%.")
+SIGNAL_DEFINITIONS = {
+    SIGNAL_UNDERVALUED: N_("Composite model score at or above the upper threshold, the "
+                           "price at least the minimum margin below the model fair value, "
+                           "and the fair value backed by two or more independent models."),
+    SIGNAL_NEUTRAL:     N_("Composite model score between the lower and upper thresholds, "
+                           "or above the upper threshold without a confirmed margin of safety."),
+    SIGNAL_LOW_SCORE:   N_("Composite model score below the lower threshold."),
+    SIGNAL_FAILS:       N_("Fails at least one quality rule (debt, cash flow, dividend "
+                           "cover, multi-year decline or no trading volume); its composite "
+                           "score is set to 0."),
+    SIGNAL_PENDING:     N_("Not enough peer data to rank this stock yet."),
+}
+
+# REC-2 / BDG-3: which quality rule a "Fails quality screen" row tripped. The
+# code is stored in `veto_rules` and logged (REC-11); the label is shown.
+VETO_RULE_DEBT_EQUITY      = "debt_to_equity"
+VETO_RULE_NEGATIVE_FCF     = "negative_fcf"
+VETO_RULE_DIVIDEND_AT_RISK = "dividend_at_risk"
+VETO_RULE_REVENUE_DECLINE  = "revenue_decline"
+VETO_RULE_NEGATIVE_EBIT    = "negative_operating_income"
+VETO_RULE_RETAINED_EROSION = "retained_earnings_erosion"
+VETO_RULE_DIVIDEND_CUT     = "dividend_cut_thin_cover"
+VETO_RULE_NO_VOLUME        = "no_trading_volume"
+
+VETO_RULE_LABELS = {
+    VETO_RULE_DEBT_EQUITY:      N_("debt-to-equity above the maximum"),
+    VETO_RULE_NEGATIVE_FCF:     N_("negative free cash flow"),
+    VETO_RULE_DIVIDEND_AT_RISK: N_("dividend flagged at risk with earnings cover below 1.0"),
+    VETO_RULE_REVENUE_DECLINE:  N_("multi-year revenue decline"),
+    VETO_RULE_NEGATIVE_EBIT:    N_("operating income negative for several years"),
+    VETO_RULE_RETAINED_EROSION: N_("negative and eroding retained earnings"),
+    VETO_RULE_DIVIDEND_CUT:     N_("recent dividend cut with thin cover"),
+    VETO_RULE_NO_VOLUME:        N_("no trading volume"),
+}
+
+# REC-8 / MAR Delegated Regulation 2016/958 art. 5: shown on the stock page,
+# and with the badge, whenever the founder holds a position in the stock, at
+# any size. Positions come from FOUNDER_HOLDINGS_FILE (load_founder_holdings).
+FOUNDER_HOLDS_NOTICE = N_("Disclosure: the founder of Uvalu holds a position in this stock. "
+                          "Its signal is calculated exactly like every other stock's.")
+FOUNDER_HOLDINGS_FILE = Path(__file__).parent / "data" / "compliance" / "founder_holdings.json"
+
 # Sectors where high leverage is a normal feature of the business model (banks and
 # insurers hold customer deposits/float as liabilities, REITs debt-finance long-lived
 # property, regulated utilities finance capex with debt) rather than a distress signal.
@@ -350,10 +491,6 @@ VALUATION_FIELDS = [
     "trailingAnnualDividendRate",   # DDM single-stage
     "dividendRate",                 # Forward DPS (multi-stage DDM)
     "fiveYearAvgDividendYield",     # Yield vs historical average
-    "targetMeanPrice",              # Analyst target
-    "targetHighPrice",              # Analyst target — dispersion (high–low)/mean
-    "targetLowPrice",               # Analyst target — dispersion (high–low)/mean
-    "numberOfAnalystOpinions",      # Analyst target — coverage depth
     "ebit",                         # EPV
     "enterpriseValue",              # EPV: EV → per-share scaling
     "totalDebt",                    # EPV: EV reconstruction when enterpriseValue is dropped (FV-4)
@@ -385,11 +522,13 @@ QUALITY_FIELDS = [
 MOMENTUM_FIELDS = [
     "earningsGrowth",     # EPS trend / proxy for DGR
     "revenueGrowth",      # Revenue CAGR proxy
-    "recommendationMean", # Analyst revisions (1=strong buy, 5=strong sell)
 ]
 
+# DATA-6: the sell-side ANALYST_FIELDS (price targets, analyst count,
+# consensus rating) are fetched only while a licence covers them.
 ALL_EXTRA_FIELDS = list({
-    *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS
+    *VALUATION_FIELDS, *RISK_FIELDS, *QUALITY_FIELDS, *MOMENTUM_FIELDS,
+    *(ANALYST_FIELDS if ANALYST_INPUTS_ENABLED else ()),
 })
 
 # ── Cache helpers ─────────────────────────────────────────────────────────────
@@ -398,7 +537,9 @@ def _load_cache(fetcher: "_Fetcher | None" = None) -> dict:
     f = fetcher or SCREENER_FETCH
     if f.cache_file.exists():
         try:
-            return json.loads(f.cache_file.read_text(encoding="utf-8"))
+            # strip_analyst_fields: rows cached before DATA-6 still carry the
+            # analyst fields; they leave the cache on its next save.
+            return strip_analyst_fields(json.loads(f.cache_file.read_text(encoding="utf-8")))
         except Exception:
             pass
     return {}
@@ -1358,7 +1499,7 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
         eps is not None and eps > 0,                                     # Graham, PE fair value
         book is not None and book > 0
             and pe is not None and _PE_DERIVE_BAND[0] < pe < _PE_DERIVE_BAND[1],  # WP-B recovers EPS -> Graham, PE
-        target is not None and target > 0,                              # analyst target
+        ANALYST_INPUTS_ENABLED and target is not None and target > 0,   # analyst target (DATA-6)
         div is not None and div > 0
             and _ddm_weight_factor(div, _payout_signal(row)[0]) > 0,     # DDM (payout ramp must be non-zero)
         have_ebit and _enterprise_value(row)[0] is not None,            # EPV (EV from provider or FV-4 reconstruction)
@@ -1368,7 +1509,7 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
 
 
 def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
-                       sector_pb: "dict | None" = None) -> dict:
+                       sector_pb: "dict | None" = None, *, discount_shift: float = 0.0) -> dict:
     price    = row.get("Price")
     eps      = row.get("trailingEps")
     bvps     = row.get("bookValue")
@@ -1389,7 +1530,9 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     shares   = row.get("sharesOutstanding")
     tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
 
-    wacc = _approx_wacc(beta)
+    # discount_shift: added to the discount rate for the sensitivity table
+    # (fair_value_sensitivity, REC-6); 0 for every scored row.
+    wacc = _approx_wacc(beta) + discount_shift
 
     # FV-8: for a NAV-driven sector the earnings-anchored models are skipped
     # (see _GRAHAM_EPV_SKIP_SECTORS / _PE_SKIP_SECTORS) — the row is valued off
@@ -1469,8 +1612,11 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     # feeds the composite (the undiscounted target is still shown elsewhere in the UI),
     # then scale its already-low base weight down further when the sell-side estimates
     # are widely dispersed or thinly covered (_analyst_weight_factor).
-    analyst_fv = analyst * (1 - ANALYST_TARGET_HAIRCUT) if analyst else None
-    w_analyst  = W_ANALYST * _analyst_weight_factor(row)
+    # DATA-6: with ANALYST_INPUTS_ENABLED off the model is dark (weight 0), so the
+    # blend renormalises across the remaining models and fv_model_count ignores it.
+    analyst_fv = (analyst * (1 - ANALYST_TARGET_HAIRCUT)
+                  if analyst and ANALYST_INPUTS_ENABLED else None)
+    w_analyst  = W_ANALYST * _analyst_weight_factor(row) if ANALYST_INPUTS_ENABLED else 0.0
 
     # FV-3: book-value and FCF fallbacks. Eligible only when *none* of the
     # fundamentals trio (Graham / PE / EPV) produced a value — a genuine
@@ -1629,7 +1775,9 @@ def _fv_dark_reasons(gn, pe_fv, epv, ddm1, ddm2, analyst_fv, *, eps, ev, ebit,
                       else "payout_band" if (payout <= _DDM_PAYOUT_KNOTS[0]
                                              or payout >= _DDM_PAYOUT_KNOTS[3])
                       else "spread")
-    if _dead(analyst_fv):
+    if not ANALYST_INPUTS_ENABLED:
+        out["analyst"] = "not_licensed"
+    elif _dead(analyst_fv):
         out["analyst"] = "no_coverage"
     return out
 
@@ -1652,22 +1800,20 @@ def _margin_of_safety(price, fair_value) -> float | None:
     return None
 
 
-def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
-                    min_mos: float = 0.0) -> str:
-    """One-line, stock-specific explanation of a row's ``Decision`` — why it's a
-    BUY, or which gate is holding it at Monitor / Avoid. Mirrors
-    ``compute_scores`` Stage 6 exactly (veto → Avoid; else score ≥
-    buy_threshold AND a confirmed MoS ≥ min_mos AND a corroborated fair value
-    (not ``fv_basis_thin``) → Strong Buy; else score ≥ SCORE_AVOID → Monitor;
-    else Avoid). ``min_mos`` is a fraction (``settings.get_veto_thresholds``
-    already divides by 100). Shared by the Analysis page and the drawer so the
-    two never explain the same signal differently."""
-    dec = str(row.get("Decision") or "")
+def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
+                  min_mos: float = 0.0) -> str:
+    """One-line, stock-specific statement of which model rule produced a row's
+    ``signal_code`` (REC-2, REC-5). Replaces the former decision_reason: it
+    reports the rule and the figures, in descriptive terms only — no "BUY",
+    no "avoid", nothing addressed to the reader (DIS-6). Mirrors
+    ``compute_scores`` Stage 6 exactly. ``min_mos`` is a fraction."""
+    code = str(row.get("signal_code") or "")
     _s = row.get("Value Score")
     _m = row.get("margin_of_safety")
     score = None if _s is None or (isinstance(_s, float) and pd.isna(_s)) else float(_s)
     mos   = None if _m is None or (isinstance(_m, float) and pd.isna(_m)) else float(_m)
     thin  = bool(row.get("fv_basis_thin"))
+    min_mos = effective_min_mos(min_mos)
     from uvalu.i18n import _, fmt_num, fmt_pct
     _score_txt = "—" if score is None else fmt_num(score, 0)
     _thr = fmt_num(buy_threshold, 0)
@@ -1675,34 +1821,48 @@ def decision_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY
     def _pct(v):
         return fmt_pct(v, 0, fraction=True, signed=True)
 
-    if bool(row.get("veto")):
-        return _("Hard veto active — excluded from BUY scoring regardless of composite score.")
+    if code == SIGNAL_PENDING:
+        return _("No signal: the peer group needed to rank this stock is not available yet.")
 
-    if dec == "Strong Buy":
+    if code == SIGNAL_FAILS:
+        rules = row.get("veto_rules")
+        names = [_(VETO_RULE_LABELS[r]) for r in (rules if isinstance(rules, list) else [])
+                 if r in VETO_RULE_LABELS]
+        if names:
+            return _("Fails the model's quality screen ({rules}), so its composite score is set to 0.",
+                     rules="; ".join(names))
+        return _("Fails the model's quality screen, so its composite score is set to 0.")
+
+    if code == SIGNAL_UNDERVALUED:
         if mos is not None:
-            return _("Composite score {score} ≥ {threshold} and margin of safety {mos} ≥ {min_mos} — both BUY conditions met.",
+            return _("Model score {score} is at or above {threshold}, and the price is {mos} below the "
+                     "model fair value (minimum {min_mos}).",
                      score=_score_txt, threshold=_thr, mos=_pct(mos), min_mos=_pct(min_mos))
-        return _("Composite score {score} ≥ {threshold} — both BUY conditions met.", score=_score_txt, threshold=_thr)
+        return _("Model score {score} is at or above {threshold}.", score=_score_txt, threshold=_thr)
+
+    if code == SIGNAL_LOW_SCORE:
+        return _("Model score {score} is below the lower threshold of {floor}.", score=_score_txt,
+                 floor=fmt_num(SCORE_AVOID, 0))
 
     gates = []
     if score is None or score < buy_threshold:
-        gates.append(_("composite score {score} is below the {threshold} BUY threshold",
+        gates.append(_("model score {score} is below the upper threshold of {threshold}",
                        score=_score_txt, threshold=_thr))
     if mos is None:
-        gates.append(_("no computable fair value, so the margin of safety can't be confirmed"))
+        gates.append(_("no model fair value could be computed"))
     elif mos < min_mos:
         gates.append(_("margin of safety {mos} is below the {min_mos} minimum", mos=_pct(mos), min_mos=_pct(min_mos)))
     if thin:
-        gates.append(_("the fair value rests on too few independent models to confirm a BUY"))
-
-    if dec == "Avoid":
-        return _("Composite score {score} is below the {floor} Avoid floor.", score=_score_txt,
-                 floor=fmt_num(SCORE_AVOID, 0))
-    return _("Not a BUY: {reasons}.", reasons="; ".join(gates)) if gates else _("Sits in the Monitor band.")
+        gates.append(_("the fair value rests on fewer than two independent models"))
+    return (_("Neutral: {reasons}.", reasons="; ".join(gates)) if gates
+            else _("Model score is between the lower and upper thresholds."))
 
 
 def _total_expected_return(price, fair_value, div_yield, dgr, ddm_contributed=False) -> float | None:
-    """TER = capital gain % + forward dividend yield + expected DGR (all as %).
+    """Model-implied return estimate = gap to model fair value % + forward
+    dividend yield + assumed DGR (all as %). Formerly "TER %" (Total Expected
+    Return); published as "Implied Return % (est.)" because it is a model estimate, not
+    an expected return (REC-2, DIS-5).
 
     When DDM contributed to this stock's fair value, the growth assumption is
     already embedded in the capital-gain term via the fair value itself — adding
@@ -1827,13 +1987,13 @@ def _quality_raw(row: pd.Series) -> float:
 
 
 def _momentum_raw(row: pd.Series) -> float:
-    """0–10 composite of growth and analyst sentiment."""
+    """0–10 composite of growth (and analyst sentiment when licensed, DATA-6)."""
     scores = []
     eg = _get_num(row, "earningsGrowth")
     if eg is not None: scores.append(_clamp(5 + eg * 25, 0, 10))
     rg = _get_num(row, "revenueGrowth")
     if rg is not None: scores.append(_clamp(5 + rg * 25, 0, 10))
-    rm = _get_num(row, "recommendationMean")
+    rm = _get_num(row, "recommendationMean") if ANALYST_INPUTS_ENABLED else None
     if rm is not None: scores.append(_clamp((5 - rm) / 4 * 10, 0, 10))
     return float(np.mean(scores)) if scores else 5.0
 
@@ -1998,6 +2158,41 @@ def _declining_run(vals: list[float]) -> int:
     return run
 
 
+def _trend_veto_rules(row: pd.Series) -> list[tuple[str, object]]:
+    """(rule code, reason text) for each *trend*-based hard veto a stock trips
+    (empty list = clean). The code is a stable VETO_RULE_* value (logged with
+    the signal, REC-11); the text carries the stock's own figures."""
+    rules: list[tuple[str, object]] = []
+
+    rev = _clean_history(row, "revenueHistory")
+    if len(rev) >= _TREND_MIN_YEARS:
+        run = _declining_run(rev)
+        if run >= _TREND_DECLINE_RUN:
+            rules.append((VETO_RULE_REVENUE_DECLINE,
+                          lazy_("revenue fell {years} straight years", years=run + 1)))
+
+    ebit = _clean_history(row, "ebitHistory")
+    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
+        rules.append((VETO_RULE_NEGATIVE_EBIT,
+                      lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS)))
+
+    ret = _clean_history(row, "retainedEarningsHistory")
+    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
+            and _declining_run(ret) >= _TREND_DECLINE_RUN):
+        rules.append((VETO_RULE_RETAINED_EROSION, lazy_("retained earnings negative and still eroding")))
+
+    last_cut = _get_num(row, "dividend_last_cut_year")
+    coverage = _get_num(row, "dividendCoverage")
+    if (last_cut is not None and coverage is not None
+            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
+            and coverage < _DIV_CUT_VETO_COVERAGE):
+        rules.append((VETO_RULE_DIVIDEND_CUT,
+                      lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
+                            coverage=Fmt("num", coverage, decimals=2))))
+
+    return rules
+
+
 def _trend_veto(row: pd.Series) -> list[str]:
     """Reasons a stock trips a *trend*-based hard veto (empty list = clean).
 
@@ -2007,32 +2202,7 @@ def _trend_veto(row: pd.Series) -> list[str]:
     both veto UIs (components.veto_reason_str, analysis.py's checks panel) read
     the exact same rule instead of re-deriving it.
     """
-    reasons: list[str] = []
-
-    rev = _clean_history(row, "revenueHistory")
-    if len(rev) >= _TREND_MIN_YEARS:
-        run = _declining_run(rev)
-        if run >= _TREND_DECLINE_RUN:
-            reasons.append(lazy_("revenue fell {years} straight years", years=run + 1))
-
-    ebit = _clean_history(row, "ebitHistory")
-    if len(ebit) >= _TREND_MIN_YEARS and all(v < 0 for v in ebit[:_TREND_MIN_YEARS]):
-        reasons.append(lazy_("operating income negative {years} years running", years=_TREND_MIN_YEARS))
-
-    ret = _clean_history(row, "retainedEarningsHistory")
-    if (len(ret) >= _TREND_MIN_YEARS and ret[0] < 0
-            and _declining_run(ret) >= _TREND_DECLINE_RUN):
-        reasons.append(lazy_("retained earnings negative and still eroding"))
-
-    last_cut = _get_num(row, "dividend_last_cut_year")
-    coverage = _get_num(row, "dividendCoverage")
-    if (last_cut is not None and coverage is not None
-            and last_cut >= datetime.now(timezone.utc).year - _DIV_CUT_VETO_YEARS
-            and coverage < _DIV_CUT_VETO_COVERAGE):
-        reasons.append(lazy_("dividend cut in {year} with only {coverage}× cover", year=str(int(last_cut)),
-                             coverage=Fmt("num", coverage, decimals=2)))
-
-    return reasons
+    return [text for _code, text in _trend_veto_rules(row)]
 
 
 def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2040,15 +2210,37 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    buy_threshold: float = SCORE_STRONG_BUY,
                    weights: "tuple | None" = None,
                    reference: "ScoreReference | None" = None,
-                   reference_out: "dict | None" = None) -> pd.DataFrame:
+                   reference_out: "dict | None" = None,
+                   peer_mask: "pd.Series | None" = None,
+                   user_selected: bool = False,
+                   founder_holdings: "set | frozenset | None" = None,
+                   computed_at: "datetime | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
     # scored universe's). ``reference_out``: a dict that receives this pass's
     # own ScoreReference under "ref", for later callers to score against.
+    #
+    # PER-1 / PER-2:
+    # ``peer_mask``: boolean Series aligned to `df` marking the rows of the
+    # public universe. Only those rows set the sector medians and the rank
+    # distributions; the other rows (a user's manual tickers, holdings on a
+    # disabled exchange) are scored *against* the public peers without moving
+    # them. Without a mask every row is a peer; before v2.1.0 that let a user's
+    # manual tickers shift every other stock's percentile ranks, so two users
+    # could see different signals for the same stock.
+    # ``user_selected``: `df` is a set a user picked (holdings, watchlist), not
+    # the public universe. Without a ``reference`` its rows are not ranked among
+    # themselves (that would make the signal depend on the user's holdings);
+    # they get signal_code "pending" instead. Fair values are still computed.
+    # ``founder_holdings``: tickers the founder holds a position in (REC-8;
+    # see load_founder_holdings). Sets only the `founder_holds` disclosure
+    # flag; it never touches a score or a signal.
+    # ``computed_at``: timestamp stamped on every row (REC-4); defaults to now.
     # Composite sub-score weights (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM,
     # W_DIVIDEND). None → the module defaults ("balanced"); the Settings
     # screening-style picker passes a re-lensed vector via
     # settings.get_score_weights().
+    min_mos = effective_min_mos(min_mos)   # D1 floor
     w_mos, w_risk, w_quality, w_momentum, w_dividend = (
         weights if weights is not None
         else (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND)
@@ -2062,7 +2254,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "true_dgr", "dgr_1y", "dgr_3y", "dgr_5y",
         "dividend_growth_streak", "dividend_payment_years",
         "dividend_last_cut_year", "dividend_last_increase_year",
-        *_STATEMENT_HISTORY_KEYS,
+        *_STATEMENT_HISTORY_KEYS, *ANALYST_FIELDS,
     ]
     # dict.fromkeys dedupes: VALUATION/RISK/QUALITY/MOMENTUM field lists overlap
     # (e.g. currentRatio, freeCashflow appear in two of them), and reindexing with
@@ -2094,11 +2286,22 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # UI never disagree about a ticker's sector (review).
     if "Ticker" in df.columns:
         df["sector"] = [sector_for(t, s) for t, s in zip(df["Ticker"], df["sector"])]
+    if peer_mask is not None:
+        _peers = peer_mask.reindex(df.index).fillna(False).astype(bool)
+    else:
+        _peers = pd.Series(True, index=df.index)
+    _no_peer_basis = reference is None and (user_selected or not _peers.any())
     if reference is not None:
         sector_pe, sector_pb = reference.sector_pe, reference.sector_pb
+    elif _no_peer_basis:
+        # PER-1: no public peer group to take sector multiples from. Medians of
+        # a user-selected set would make the P/E and P/B fair values depend on
+        # what the user holds, so every sector uses the fixed fallback multiples.
+        sector_pe, sector_pb = {}, {}
     else:
-        sector_pe = _sector_pe_medians(df)   # universe-relative PE-fair-value multiples
-        sector_pb = _sector_pb_medians(df)   # ...and P/B, for the FV-3 fallback
+        # universe-relative PE / P/B multiples, from the public peers only (PER-2)
+        sector_pe = _sector_pe_medians(df[_peers])
+        sector_pb = _sector_pb_medians(df[_peers])
     fv_cols = df.apply(lambda r: _fair_value_models(r, sector_pe=sector_pe,
                                                     sector_pb=sector_pb),
                        axis=1, result_type="expand")
@@ -2121,7 +2324,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     df["margin_of_safety"] = (
         (_mos_fv - _mos_price) / _mos_fv
     ).where((_mos_price > 0) & (_mos_fv > 0))
-    df["TER %"] = df.apply(
+    df["Implied Return % (est.)"] = df.apply(
         lambda r: _total_expected_return(
             r["Price"], r["fair_value"],
             r.get("dividendYield"), _dgr_estimate(r),
@@ -2149,22 +2352,37 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     coverage      = df["dividendCoverage"].fillna(999)
     leverage_exempt = df["sector"].isin(LEVERAGE_EXEMPT_SECTORS)
     fcf_veto      = df.apply(_fcf_hard_veto, axis=1)
-    trend_veto    = df.apply(lambda r: bool(_trend_veto(r)), axis=1)
+    trend_rules   = df.apply(lambda r: [code for code, _t in _trend_veto_rules(r)], axis=1)
+    trend_veto    = trend_rules.map(bool)
     no_trade_veto = pd.to_numeric(df["averageVolume"], errors="coerce") == 0
-    df["_hard_veto"] = ((de > max_debt_equity) & ~leverage_exempt) | fcf_veto | trend_veto | (
-        (df["Div Flag"] == "At Risk") & (coverage < 1.0)
-    ) | no_trade_veto
+    de_veto       = (de > max_debt_equity) & ~leverage_exempt
+    div_veto      = (df["Div Flag"] == "At Risk") & (coverage < 1.0)
+    df["_hard_veto"] = de_veto | fcf_veto | trend_veto | div_veto | no_trade_veto
+    # REC-2 / BDG-3: the rules each vetoed row tripped, as stable codes, in
+    # the order of the methodology page's quality-screen list.
+    _static_rules = ((VETO_RULE_DEBT_EQUITY, de_veto), (VETO_RULE_NEGATIVE_FCF, fcf_veto),
+                     (VETO_RULE_DIVIDEND_AT_RISK, div_veto))
+    df["veto_rules"] = [
+        [code for code, hit in _static_rules if bool(hit.iloc[i])]
+        + list(trend_rules.iloc[i])
+        + ([VETO_RULE_NO_VOLUME] if bool(no_trade_veto.iloc[i]) else [])
+        for i in range(len(df))
+    ]
 
     # ── Stage 5: sub-scores (blend of percentile rank + absolute band) → 0–100 ─
     _raw_cols = {"mos": "margin_of_safety", "risk": "_risk_raw", "quality": "_quality_raw",
                  "momentum": "_momentum_raw", "dividend": "_dividend_raw"}
     _dists = (reference.dists if reference is not None else
-              {k: np.sort(pd.to_numeric(df[c], errors="coerce").dropna().to_numpy(dtype=float))
+              {k: np.sort(pd.to_numeric(df.loc[_peers, c], errors="coerce").dropna().to_numpy(dtype=float))
                for k, c in _raw_cols.items()})
-    if reference_out is not None:
+    _peer_size = reference.size if reference is not None else int(_peers.sum())
+    if reference_out is not None and not _no_peer_basis:
         reference_out["ref"] = ScoreReference(sector_pe=dict(sector_pe), sector_pb=dict(sector_pb),
-                                              dists=_dists, size=len(df))
-    _ref_dist = (lambda k: _dists[k]) if reference is not None else (lambda k: None)
+                                              dists=_dists, size=_peer_size)
+    # Rank against the explicit distribution whenever some rows are not peers;
+    # with every row a peer, Series.rank is the same ranking (see _pct_rank).
+    _use_dists = reference is not None or not bool(_peers.all())
+    _ref_dist = (lambda k: _dists[k]) if _use_dists else (lambda k: None)
     mos_rank      = _blend_ranks(df["margin_of_safety"], _BAND_MOS,  ascending=True,  dist=_ref_dist("mos"))
     risk_rank     = _blend_ranks(df["_risk_raw"],        _BAND_RISK, ascending=False,  # lower raw = safer
                                  dist=_ref_dist("risk"))
@@ -2197,50 +2415,102 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # above to be statistically meaningful (see MIN_UNIVERSE_SIZE) — callers (e.g. the
     # Screener page) can surface this as a caveat rather than letting a "Strong Buy"
     # from a tiny universe look as confident as one from a large, competitive one.
-    df["small_universe"] = (reference.size if reference is not None else len(df)) < MIN_UNIVERSE_SIZE
+    df["small_universe"] = _peer_size < MIN_UNIVERSE_SIZE
 
-    # ── Stage 6: decision ────────────────────────────────────────────────────
-    # A BUY requires both the composite score AND the margin of safety to
-    # clear their configured thresholds (Settings → Screening & veto rules) —
-    # a high score alone no longer overrides an unacceptably thin MoS. A stock
-    # with no computable fair value (NaN MoS — every model failed) can't have
-    # its margin of safety confirmed, so it can't reach Strong Buy either; it
-    # falls through to Monitor/Avoid on score alone instead of bypassing the gate.
-    # A `fv_basis_thin` fair value (FV-5: fewer than MIN_FV_MODELS independent
-    # sub-models, e.g. a lone book-value fallback) is real but weakly
-    # corroborated — deferred at FV-5 ship time as its own Stage 6 change; it
-    # gates Strong Buy here rather than joining `_hard_veto`, since a thin basis
-    # isn't a red flag on its own, just an unconfirmed one — the row still falls
-    # through to Monitor on score.
-    # Vectorised equivalent of the former per-row `_decision`: veto → Avoid;
-    # else score ≥ buy_threshold with a confirmed MoS ≥ min_mos and a
-    # corroborated fair value → Strong Buy; else score ≥ SCORE_AVOID → Monitor;
-    # else Avoid. np.select takes the first true branch, and every non-veto
-    # branch already excludes veto rows, so the priority matches the if/elif
-    # ladder exactly. NaN score compares False everywhere → Avoid, same as the
-    # scalar path.
+    # ── Stage 6: model signal ────────────────────────────────────────────────
+    # The former Strong Buy / Monitor / Avoid decision, published as a
+    # descriptive state (BDG-1) — veto → fails_screen (its own state, BDG-3,
+    # not folded into the lowest band); score ≥ buy_threshold + confirmed
+    # MoS ≥ min_mos + corroborated fair value → undervalued; score ≥
+    # SCORE_AVOID → neutral; else low_score. Rows with no public peer basis
+    # (PER-1) → pending, with no score: a rank among a user's own holdings is
+    # not shown.
+    # Rationale for the gates:
+    # Undervalued requires both the composite score AND the margin of safety
+    # to clear their configured thresholds (Settings → Model settings) — a
+    # high score alone doesn't override a thin MoS. A stock with no computable
+    # fair value (NaN MoS — every model failed) can't have its margin of
+    # safety confirmed, so it can't be Undervalued; it falls through to
+    # Neutral / Low score on score alone. A `fv_basis_thin` fair value (FV-5:
+    # fewer than MIN_FV_MODELS independent sub-models, e.g. a lone book-value
+    # fallback) is real but weakly corroborated: it keeps the row out of
+    # Undervalued rather than joining `_hard_veto`, since a thin basis isn't a
+    # red flag on its own, just an unconfirmed one.
+    # np.select takes the first true branch, and every non-veto branch
+    # already excludes veto rows. NaN score compares False everywhere → Low
+    # score.
     _dec_veto  = df["_hard_veto"].fillna(False).astype(bool)
     _dec_score = pd.to_numeric(df["Value Score"], errors="coerce")
     _dec_mos   = pd.to_numeric(df["margin_of_safety"], errors="coerce")
     _dec_thin  = df["fv_basis_thin"].fillna(False).astype(bool)
-    df["Decision"] = np.select(
+    df["signal_code"] = np.select(
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
                 & (_dec_mos >= min_mos) & ~_dec_thin,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
-        ["Avoid", "Strong Buy", "Monitor"],
-        default="Avoid",
+        [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
+        default=SIGNAL_LOW_SCORE,
     )
+    if _no_peer_basis:
+        # PER-1: the vetoes are absolute rules on the stock's own data, so a
+        # failed screen still shows; everything rank-based is withheld.
+        _pending = ~_dec_veto
+        df.loc[_pending, "signal_code"] = SIGNAL_PENDING
+        for _c in ("Value Score", "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend"):
+            df.loc[_pending, _c] = np.nan
+    df["Signal"] = df["signal_code"].map(SIGNAL_LABELS)
     df["Risk Score"] = df["_risk_raw"].round(1)
     df["MoS %"]      = (df["margin_of_safety"] * 100).round(1)
 
     # Expose the veto flag publicly before dropping internal-only columns
     df["veto"] = df["_hard_veto"]
 
-    # Drop internal columns
+    # ── Provenance (REC-3, REC-4, REC-11) ────────────────────────────────────
+    _now = computed_at or datetime.now(timezone.utc)
+    df["signal_computed_at"] = _now.isoformat(timespec="seconds")
+    # A plain list, not df.apply: apply would coerce the datetimes to
+    # datetime64 and turn a missing timestamp into NaT, which `is None` misses.
+    _fetched = [_row_fetch_time({"fetched_at": v})
+                for v in (df["fetched_at"] if "fetched_at" in df.columns else [None] * len(df))]
+    df["price_as_of"] = [
+        (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).isoformat(timespec="seconds")
+        if t is not None else None
+        for t in _fetched
+    ]
+    df["data_source"]       = DATA_SOURCE
+    # Whether the row belongs to the shared public universe. Only these rows go
+    # into the shared signal history (signal_history.record_changes): a user's
+    # own tickers, or a user-selected pass without a peer mask, never do.
+    df["public_universe"] = (_peers & (peer_mask is not None or not user_selected)).astype(bool)
+    # REC-8: founder position disclosure, at any size (FOUNDER_HOLDS_NOTICE).
+    _founder = {str(t) for t in (founder_holdings or ())}
+    df["founder_holds"] = (df["Ticker"].astype(str).isin(_founder) if "Ticker" in df.columns
+                           else pd.Series(False, index=df.index))
+    df["model_version"]     = MODEL_VERSION
+    df["model_settings_id"] = model_settings_id(
+        max_debt_equity=max_debt_equity, max_payout=max_payout, min_mos=min_mos,
+        buy_threshold=buy_threshold,
+        weights=(w_mos, w_risk, w_quality, w_momentum, w_dividend))
+    _stale_before = _now - timedelta(hours=PRICE_STALE_HOURS)
+    _flag_cols = {
+        "price_missing_timestamp": [t is None for t in _fetched],
+        "price_stale": [t is not None and (t if t.tzinfo else t.replace(tzinfo=timezone.utc)) < _stale_before
+                        for t in _fetched],
+        "fair_value_missing": df["fair_value"].isna().tolist(),
+        "fair_value_thin_basis": df["fv_basis_thin"].fillna(False).astype(bool).tolist(),
+        "fair_value_clamped": df["fair_value_clamped"].fillna(False).astype(bool).tolist(),
+        "eps_derived_from_pe": df["trailingEps_derived"].fillna(False).astype(bool).tolist(),
+        "small_peer_group": df["small_universe"].astype(bool).tolist(),
+    }
+    df["data_flags"] = [
+        [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
+    ]
+
+    # Drop internal columns, and the unlicensed analyst fields (DATA-6)
     df = df.drop(columns=[c for c in df.columns if c.startswith("_")])
+    df = strip_analyst_fields(df)
     df = df.sort_values("Value Score", ascending=False).reset_index(drop=True)
     df.index += 1
     return df
@@ -2252,13 +2522,19 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          buy_threshold: float = SCORE_STRONG_BUY,
                          weights: "tuple | None" = None,
                          reference: "ScoreReference | None" = None,
-                         reference_out: "dict | None" = None) -> pd.DataFrame:
+                         reference_out: "dict | None" = None,
+                         peer_mask: "pd.Series | None" = None,
+                         user_selected: bool = False,
+                         founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
-    ``reference`` / ``reference_out``: see compute_scores."""
+    ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
+    ``founder_holdings``: see compute_scores."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
-                            reference=reference, reference_out=reference_out)
+                            reference=reference, reference_out=reference_out,
+                            peer_mask=peer_mask, user_selected=user_selected,
+                            founder_holdings=founder_holdings)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2266,11 +2542,17 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      buy_threshold: float = SCORE_STRONG_BUY,
                      weights: "tuple | None" = None,
                      reference: "ScoreReference | None" = None,
-                     reference_out: "dict | None" = None) -> pd.DataFrame:
+                     reference_out: "dict | None" = None,
+                     peer_mask: "pd.Series | None" = None,
+                     user_selected: bool = False,
+                     founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
-    df      = df[df["Price"].notna()].reset_index(drop=True)
+    _keep   = df["Price"].notna()
+    if peer_mask is not None:   # keep it aligned with the rows that survive
+        peer_mask = peer_mask.reindex(df.index).fillna(False).astype(bool)[_keep].reset_index(drop=True)
+    df      = df[_keep].reset_index(drop=True)
     dropped = before - len(df)
     if dropped:
         _log.debug("dropped %d ticker(s) with no price (likely delisted/inactive)", dropped,
@@ -2281,4 +2563,224 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                extra={"event": "score.compute", "rows": len(df)})
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
                           min_mos=min_mos, buy_threshold=buy_threshold, weights=weights,
-                          reference=reference, reference_out=reference_out)
+                          reference=reference, reference_out=reference_out,
+                          peer_mask=peer_mask, user_selected=user_selected,
+                          founder_holdings=founder_holdings)
+
+
+# ── Legal-compliance helpers ──────────────────────────────────────────────────
+
+def peer_mask_for(df: pd.DataFrame, public_tickers) -> pd.Series:
+    """PER-2: the ``peer_mask`` for `df` — True for rows whose Ticker is in the
+    public universe (the enabled exchanges' ticker lists, a shared setting),
+    False for user-added rows (manual tickers, holdings on a disabled exchange)."""
+    public = set(public_tickers)
+    if "Ticker" not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df["Ticker"].isin(public)
+
+
+def effective_min_mos(min_mos: float) -> float:
+    """The margin of safety "Undervalued" actually requires: the shared
+    `min_mos` setting (a fraction), but never below MIN_MOS_FLOOR (D1)."""
+    try:
+        return max(float(min_mos), MIN_MOS_FLOOR)
+    except (TypeError, ValueError):
+        return MIN_MOS_FLOOR
+
+
+def strip_analyst_fields(data):
+    """DATA-6: `data` without the sell-side ANALYST_FIELDS while
+    ANALYST_INPUTS_ENABLED is off — a DataFrame (columns dropped), a single
+    fundamentals row (dict) or a {ticker: row} cache dict. Returned unchanged
+    when the switch is on. Never mutates its argument."""
+    if ANALYST_INPUTS_ENABLED or data is None:
+        return data
+    if isinstance(data, pd.DataFrame):
+        return data.drop(columns=[c for c in ANALYST_FIELDS if c in data.columns])
+    if isinstance(data, dict):
+        if data and all(isinstance(v, dict) for v in data.values()):   # {ticker: row}
+            return {k: strip_analyst_fields(v) for k, v in data.items()}
+        return {k: v for k, v in data.items() if k not in ANALYST_FIELDS}
+    return data
+
+
+def load_founder_holdings(path: Path = FOUNDER_HOLDINGS_FILE) -> frozenset:
+    """REC-8: the tickers the founder holds a position in, at any size, for the
+    `founder_holds` disclosure flag. The file is kept by hand and updated with
+    each personal trade in a covered stock (see the conflicts of interest
+    policy): {"updated": "YYYY-MM-DD", "tickers": ["ABI.BR", ...]}.
+
+    A missing file means "no positions". A file that exists but can't be read
+    raises: silently showing no disclosure would be a false statement."""
+    if not path.exists():
+        return frozenset()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    tickers = data.get("tickers") if isinstance(data, dict) else None
+    if not isinstance(tickers, list):
+        raise ValueError(f"{path}: expected {{\"tickers\": [...]}}")
+    return frozenset(str(t).strip() for t in tickers if str(t).strip())
+
+
+def model_settings_id(*, max_debt_equity: float, max_payout: float, min_mos: float,
+                      buy_threshold: float, weights: tuple) -> str:
+    """REC-11: short stable id of the shared model settings a signal was computed
+    with, so a logged signal can be matched to the exact settings behind it."""
+    import hashlib
+    payload = json.dumps({
+        "max_debt_equity": round(float(max_debt_equity), 6),
+        "max_payout": round(float(max_payout), 6),
+        "min_mos": round(float(min_mos), 6),
+        "buy_threshold": round(float(buy_threshold), 6),
+        "weights": [round(float(w), 6) for w in weights],
+        "analyst_inputs": ANALYST_INPUTS_ENABLED,
+    }, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:12]
+
+
+def methodology(*, max_debt_equity: float = 500.0, max_payout: float = 0.90,
+                min_mos: float = 0.0, buy_threshold: float = SCORE_STRONG_BUY,
+                weights: "tuple | None" = None) -> dict:
+    """REC-5 / REC-6 / PER-8: everything the methodology page must publish, read
+    from the live constants and the active shared settings, so the page states
+    the thresholds the code actually applies. Pass the same arguments as
+    compute_scores (settings.get_veto_thresholds / get_score_weights)."""
+    min_mos = effective_min_mos(min_mos)   # D1 floor
+    w = weights if weights is not None else (W_MOS, W_RISK, W_QUALITY, W_MOMENTUM, W_DIVIDEND)
+    models = {
+        "graham_number": W_GRAHAM, "pe_fair_value": W_PE, "epv": W_EPV,
+        "ddm_single": W_DDM_SINGLE, "ddm_multistage": W_DDM_MULTI,
+        "book_value_fallback": W_PB, "fcf_fallback": W_FCF,
+    }
+    if ANALYST_INPUTS_ENABLED:
+        models["analyst_target"] = W_ANALYST
+    return {
+        "model_version": MODEL_VERSION,
+        "model_settings_id": model_settings_id(max_debt_equity=max_debt_equity, max_payout=max_payout,
+                                               min_mos=min_mos, buy_threshold=buy_threshold, weights=w),
+        "data_source": DATA_SOURCE,
+        "update_frequency_hours": {"fundamentals": CACHE_TTL_HOURS,
+                                   "fundamentals_jitter": CACHE_TTL_JITTER},
+        "fair_value": {
+            "model_base_weights": models,
+            "min_independent_models": MIN_FV_MODELS,
+            "risk_free_rate": RISK_FREE_RATE,
+            "equity_risk_premium": EQUITY_RISK_PREMIUM,
+            "ddm_stable_growth": DDM_STABLE_GROWTH,
+            "pe_multiple_fallback": PE_MULTIPLE_FALLBACK,
+            "pe_multiple_band": PE_MULTIPLE_BAND,
+            "fcf_multiple": FCF_MULTIPLE,
+            "sanity_multiple": FV_SANITY_MULT,
+            "analyst_inputs": ANALYST_INPUTS_ENABLED,
+        },
+        "composite_weights": dict(zip(("margin_of_safety", "risk", "quality", "momentum", "dividend"), w)),
+        "rank_blend": {"percentile_share": BLEND_PCT, "absolute_share": 1.0 - BLEND_PCT},
+        "thresholds": {
+            "undervalued_min_score": float(buy_threshold),
+            "undervalued_min_margin_of_safety": float(min_mos),
+            "low_score_below": float(SCORE_AVOID),
+            "min_peer_group": MIN_UNIVERSE_SIZE,
+        },
+        "quality_screen": {
+            "max_debt_equity_pct": float(max_debt_equity),
+            "leverage_exempt_sectors": sorted(LEVERAGE_EXEMPT_SECTORS),
+            "negative_fcf_years": 3,
+            "dividend_at_risk_payout_above": float(max_payout),
+            "dividend_at_risk_cover_below": 1.0,
+            "revenue_decline_years": _TREND_DECLINE_RUN + 1,
+            "negative_operating_income_years": _TREND_MIN_YEARS,
+            "dividend_cut_within_years": _DIV_CUT_VETO_YEARS,
+            "dividend_cut_cover_below": _DIV_CUT_VETO_COVERAGE,
+            "zero_average_volume": True,
+        },
+        "signals": {code: {"label": SIGNAL_LABELS[code], "definition": SIGNAL_DEFINITIONS[code]}
+                    for code in SIGNAL_LABELS},
+        "tooltip": SIGNAL_TOOLTIP,
+        "horizon": SIGNAL_HORIZON,
+        "risk_warning": SIGNAL_RISK_WARNING,
+        "sensitivity": SIGNAL_SENSITIVITY,
+        "price_stale_after_hours": PRICE_STALE_HOURS,
+    }
+
+
+def signal_distribution(df: pd.DataFrame) -> dict[str, float]:
+    """REC-10: share of covered stocks per signal state (fractions summing to 1
+    over the rows that have a signal; "pending" rows are left out)."""
+    if df is None or df.empty or "signal_code" not in df.columns:
+        return {}
+    codes = df.loc[df["signal_code"] != SIGNAL_PENDING, "signal_code"]
+    if codes.empty:
+        return {}
+    shares = codes.value_counts(normalize=True)
+    return {code: float(shares.get(code, 0.0))
+            for code in (SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL, SIGNAL_LOW_SCORE, SIGNAL_FAILS)}
+
+
+# REC-3: what each data flag means, for the stock page's data panel.
+DATA_FLAG_LABELS = {
+    "price_stale": N_("The price is more than 72 hours old."),
+    "price_missing_timestamp": N_("The time of the price is unknown."),
+    "fair_value_missing": N_("No model could compute a fair value."),
+    "fair_value_thin_basis": N_("The fair value rests on fewer than two independent models."),
+    "fair_value_clamped": N_("The fair value was capped at the models' median."),
+    "eps_derived_from_pe": N_("Earnings per share were derived from the P/E ratio."),
+    "small_peer_group": N_("Fewer than 20 stocks were available for comparison."),
+}
+
+
+def fair_value_sensitivity(row: "pd.Series | dict", reference: "ScoreReference | None" = None,
+                           shifts: tuple = (-0.01, 0.0, 0.01)) -> list[dict]:
+    """REC-6: the stock's model fair value and margin of safety with the
+    discount rate shifted by each of ``shifts`` (fractions), all else equal.
+    Uses the scored universe's sector multiples (``reference``) so the 0 shift
+    reproduces the row's own fair value. Display only: a shifted fair value
+    never changes a score or a signal (decision D2)."""
+    row = pd.Series(row) if isinstance(row, dict) else row
+    sector_pe = reference.sector_pe if reference is not None else {}
+    sector_pb = reference.sector_pb if reference is not None else {}
+    base_rate = _approx_wacc(row.get("beta"))
+    price = _finite(row.get("Price"))
+    out = []
+    for shift in shifts:
+        fv = _finite(_fair_value_models(row, sector_pe=sector_pe, sector_pb=sector_pb,
+                                        discount_shift=shift).get("fair_value"))
+        out.append({"shift": shift, "discount_rate": base_rate + shift, "fair_value": fv,
+                    "margin_of_safety": _margin_of_safety(price, fv)})
+    return out
+
+
+# The inputs a signal can be reproduced from (REC-11), next to its outputs.
+SIGNAL_RECORD_FIELDS = (
+    "Ticker", "signal_code", "Value Score", "Price", "price_as_of", "fair_value",
+    "margin_of_safety", "fv_model_count", "fv_basis_thin", "veto",
+    "Sub MoS", "Sub Risk", "Sub Quality", "Sub Momentum", "Sub Dividend",
+    "graham_number", "pe_fair_value", "epv", "ddm", "ddm_multistage",
+    "pb_fair_value", "fcf_fair_value", "data_flags", "veto_rules",
+    "public_universe", "founder_holds",
+    "signal_computed_at", "model_version", "model_settings_id",
+)
+
+
+def signal_records(df: pd.DataFrame) -> list[dict]:
+    """REC-7 / REC-11: one JSON-safe record per scored row with the signal, the
+    inputs and fair values behind it, and the model version/settings — for an
+    append-only signal log (see uvalu/compliance/signal_history.py). NaN becomes None."""
+    if df is None or df.empty:
+        return []
+    cols = [c for c in SIGNAL_RECORD_FIELDS if c in df.columns]
+    out = []
+    for rec in df[cols].to_dict(orient="records"):
+        clean = {}
+        for k, v in rec.items():
+            if isinstance(v, (list, tuple)):
+                clean[k] = list(v)
+            elif v is None or (isinstance(v, float) and math.isnan(v)):
+                clean[k] = None
+            elif isinstance(v, (np.bool_, bool)):
+                clean[k] = bool(v)
+            elif isinstance(v, (np.integer, np.floating)):
+                clean[k] = v.item()
+            else:
+                clean[k] = v
+        out.append(clean)
+    return out

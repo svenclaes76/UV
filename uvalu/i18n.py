@@ -828,6 +828,15 @@ def _loc(locale: str | None) -> Locale:
     return _locale(locale) if locale else current().locale
 
 
+def names_locale(locale: str | None = None) -> Locale:
+    """The locale for month and day *words*: the interface language, not the
+    region. The region decides the order and separators (F-07), but its
+    language must not leak into the UI — an English interface with the
+    Belgium (Dutch) region read "closed mei 2026" and "Maandag". An explicit
+    ``locale`` keeps meaning "format exactly as this region"."""
+    return _locale(locale) if locale else _locale(current().lang)
+
+
 def _apply(pattern, value, loc: Locale, decimals: int, min_decimals: int | None,
            currency: str | None = None, grouping: bool = True) -> str:
     p = copy.copy(pattern)
@@ -891,9 +900,11 @@ def fmt_money(value, currency: str | None = None, decimals: int = 2, *, signed: 
     ccy = currency or current().currency
     value = 0.0 if value == 0 else value   # no "-0.00"
     pattern = loc.currency_formats["standard"]
-    if value < 0 and _glued_minus(pattern):
-        # de-CH / it-CH: CLDR's "¤-#,##0.00" reads "CHF-4’390" next to a signed
-        # "+EUR 155.72". Put the minus where the plus goes: "-CHF 4’390".
+    if value < 0 and (_glued_minus(pattern) or "¤" in pattern.prefix[0]):
+        # The minus goes where the plus goes: in front of the symbol. de-CH /
+        # it-CH's CLDR "¤-#,##0.00" read "CHF-4’390", and nl-BE's "¤ -#,##0.00"
+        # put "€ -86,01" next to a signed "+€ 126,60" in the same P&L column.
+        # Symbol-after formats ("-1.234,56 €") already lead with the minus.
         out = _bnum.get_minus_sign_symbol(loc) + _apply(pattern, -value, loc, decimals, None, currency=ccy)
     else:
         out = _apply(pattern, value, loc, decimals, None, currency=ccy)
@@ -963,13 +974,21 @@ def fmt_date(value, style: str | None = None, *, skeleton: str | None = None,
     if isinstance(d, _dt.datetime):
         d = d.date()
     loc = _loc(locale)
+    names = names_locale(locale)
     if skeleton:
-        return _bdates.format_skeleton(skeleton, d, locale=loc)
+        if names == loc:
+            return _bdates.format_skeleton(skeleton, d, locale=loc)
+        # The region's pattern for this skeleton, filled with the interface
+        # language's month names (see names_locale).
+        best = _bdates.match_skeleton(skeleton, loc.datetime_skeletons)
+        if best is None:
+            return _bdates.format_skeleton(skeleton, d, locale=names)
+        return _bdates.format_date(d, format=loc.datetime_skeletons[best].pattern, locale=names)
     style = style or current().date_format
     if style == "iso":
         return d.isoformat()
-    return _bdates.format_date(d, format=style if style in ("short", "medium", "long", "full") else "short",
-                               locale=loc)
+    style = style if style in ("short", "medium", "long", "full") else "short"
+    return _bdates.format_date(d, format=loc.date_formats[style].pattern, locale=names)
 
 
 def _in_tz(value, tz: str | None) -> _dt.datetime | None:

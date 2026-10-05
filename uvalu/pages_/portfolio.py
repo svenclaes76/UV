@@ -21,15 +21,15 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        ensure_trade_ids, ensure_div_ids, save_div_hist,
                        strip_derived_columns, DERIVED_POSITION_COLS)
 from screener import get_fetch_progress, PORTFOLIO_FETCH
-from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_mos
+from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_prices
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
                            edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
 from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
-from uvalu.formatting import safe_pct as _safe_pct
-from uvalu.i18n import N_, _, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
+from uvalu.formatting import exchange_label, safe_pct as _safe_pct
+from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
 from uvalu.locale_ui import export_menu
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -42,19 +42,9 @@ _SECTIONS = ("overview", "open", "closed", "dividends", "cash")
 _VIEWER_HELP = N_("Viewer role is read-only")
 
 
-# Same suffix->exchange mapping already used in uvalu/pages_/risk.py — the
-# row components render a compact mono exchange chip next to the ticker.
-_TICKER_SUFFIX_EXCHANGE = {
-    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
-    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
-}
-
-
 def _exchange_label(ticker: str) -> str:
-    for suffix, label in _TICKER_SUFFIX_EXCHANGE.items():
-        if str(ticker).endswith(suffix):
-            return tr(label)
-    return "—"
+    """Exchange chip next to the ticker (shared map, uvalu/formatting.py)."""
+    return exchange_label(ticker)
 
 
 # Table columns: (label, design width in px, right-aligned). The design widths
@@ -94,6 +84,25 @@ def _col_header(widths: list, labels: list[str], rights: list[bool]) -> None:
     for _c, _lbl, _right in zip(st.columns(widths, vertical_alignment="center"), labels, rights):
         with _c:
             st.markdown(header_cell_html(_lbl, right=_right), unsafe_allow_html=True)
+
+
+def _tax_estimate_box() -> None:
+    """TAX-1 / TAX-2 / TAX-5 / TAX-6: every tax figure here is an estimate,
+    with the rules, rates and country applied, the review date, the cases not
+    handled and the user's own responsibility. No optimisation prompts (TAX-3)."""
+    import html as _html_mod
+    from portfolio import BE_WITHHOLDING_RATE
+    from uvalu.compliance import disclosures as d
+    _rules = tr(d.TAX_RULES).format(be_rate=fmt_pct(BE_WITHHOLDING_RATE * 100, 0),
+                                    date=fmt_date(d.TAX_RULES_REVIEWED))
+    with st.container(key="pf_card_tax_note", border=True):
+        st.markdown(
+            f'<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;">'
+            f'{_html_mod.escape(tr(d.TAX_TITLE))}</div>'
+            + "".join(f'<div style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px;">'
+                      f'{_html_mod.escape(t)}</div>'
+                      for t in (_rules, tr(d.TAX_NOT_HANDLED), tr(d.TAX_RESPONSIBILITY))),
+            unsafe_allow_html=True)
 
 
 def render() -> None:
@@ -202,7 +211,7 @@ def render() -> None:
     live_data = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
     # Refresh Price / MoS on the scored lookup frame so a drawer opened from a
     # position shows a margin of safety consistent with its live price (WP-DQ1).
-    _all_scr_df = apply_live_mos(_all_scr_df, live_data)
+    _all_scr_df = apply_live_prices(_all_scr_df, live_data)
     pf["live_price"]     = pf["ticker"].map(lambda t: live_data[t].get("price"))
     pf["current_value"]  = pf["live_price"] * pf["shares"]
     pf["price_gain"]     = pf["current_value"] - pf["purchase_value"]
@@ -357,6 +366,12 @@ def render() -> None:
                     _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                     if not _r.empty:
                         _pf_dlg_pending.append((_r.iloc[0],))
+                # The ↗ icon alone hid that only the top 5 are listed.
+                if len(pf) > 5:
+                    with st.container(key="pf_open_ov_all"):
+                        if st.button(ngettext("Show all {count} position", "Show all {count} positions", len(pf)),
+                                     key="ov_open_show_all", type="tertiary"):
+                            _goto("open")
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -635,7 +650,7 @@ def render() -> None:
                              sub=(ngettext("{count} event", "{count} events", _tile_n_events) + " · "
                                   + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin")
                 with _t2:
-                    _kpi_card(h_("Withholding · 12m"), "−" + fmt_total(_tile_fwh + _tile_be),
+                    _kpi_card(h_("Withholding · 12m"), fmt_total(-(_tile_fwh + _tile_be)),
                              sub=h_("{foreign} foreign · {belgian} BE 30%",
                                     foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin")
                 with _t3:
@@ -691,19 +706,22 @@ def render() -> None:
 
             def _neg_eur(v: float) -> str:
                 # "—" for no withholding, same as the log's Foreign WH / BE 30%
-                # cells — a bare "−€0.00" reads like a real deduction.
-                return "−" + fmt_money(v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
+                # cells — a bare "-€0.00" reads like a real deduction. The sign
+                # comes from fmt_money, like every other negative amount.
+                return fmt_money(-v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
 
             # Design width: the summary takes the left of a 1.6 : 1 split; the
             # right-hand column is intentionally empty, reserved for future cards.
             _yc1, _yc2 = st.columns([1.6, 1], gap="large")
+            with _yc2:
+                _tax_estimate_box()
             with _yc1:
                 with st.container(key="pf_card_tax_years", border=True):
                     with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
                                       horizontal_alignment="distribute"):
                         st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Annual dividend income summary")}</div>'
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
-                                   f'{h_("Net and gross reported separately, for your own tax filing.")}</div>',
+                                   f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")
                         export_menu(_("Export"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
                                     key="div_summary_export", disabled=_year_summary.empty)

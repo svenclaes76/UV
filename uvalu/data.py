@@ -19,7 +19,8 @@ from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
-                      cancel_background_fetch, clear_live_cache, get_fetch_progress)
+                      cancel_background_fetch, clear_live_cache, get_fetch_progress,
+                      peer_mask_for, load_founder_holdings)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
 from uvalu import logkit
 from uvalu.store import get_scored_universe, clear_scored_universe
@@ -41,6 +42,18 @@ def _bust_cache() -> None:
             pass
     _load_all_screener_data.clear()
     st.rerun()
+
+
+def _founder_holdings() -> frozenset:
+    """REC-8: tickers the founder holds, for the `founder_holds` disclosure.
+    An unreadable file is logged as an error and treated as empty rather than
+    taking the screens down; fix it, because the disclosure is then missing."""
+    try:
+        return load_founder_holdings()
+    except Exception:
+        logkit.get_logger("uvalu.data").error("founder holdings file unreadable", exc_info=True,
+                                              extra={"event": "compliance.founder_holdings_failed"})
+        return frozenset()
 
 
 def _cache_age_str() -> str:
@@ -213,14 +226,23 @@ def _build_all_screener_data(enabled: tuple,
     # whole enabled universe (one European peer group), not per exchange. Its
     # ScoreReference is kept so the portfolio lane can score holdings against
     # the same peers (universe_reference_for).
+    # PER-2: only the enabled exchanges' tickers (a shared setting) set the
+    # sector medians and percentile ranks. The extra tickers (a user's manual
+    # additions) are scored against those peers without moving them, so every
+    # user sees the same signal for the same stock.
     _ref_out: dict = {}
-    scored = run_screener_from_df(all_fund[all_fund["Ticker"].isin({s["ticker"] for s in all_stocks})],
+    _universe_fund = all_fund[all_fund["Ticker"].isin({s["ticker"] for s in all_stocks})]
+    scored = run_screener_from_df(_universe_fund,
                                   max_debt_equity=_max_de, max_payout=_max_payout,
                                   min_mos=_min_mos, buy_threshold=_buy_threshold,
-                                  weights=score_weights, reference_out=_ref_out)
+                                  weights=score_weights, reference_out=_ref_out,
+                                  peer_mask=peer_mask_for(_universe_fund, _exchange_ticker_set),
+                                  founder_holdings=_founder_holdings())
     if _ref_out.get("ref") is not None:
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
+
+    _record_signals(scored)
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -234,6 +256,26 @@ def _build_all_screener_data(enabled: tuple,
     )
     _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
     return exchange_dfs + (_extra_df,)
+
+
+def _record_signals(scored: pd.DataFrame) -> None:
+    """REC-7 / REC-11: log signal changes and the day's snapshot of every
+    public signal, and the model version the build used. Never fails a build:
+    an error is logged and the screens carry on."""
+    if scored is None or scored.empty:
+        return
+    try:
+        from screener import MODEL_VERSION, signal_records
+        from uvalu.compliance import settings_audit, signal_history
+        recs = signal_records(scored)
+        signal_history.record_changes(recs)
+        signal_history.write_daily_snapshot(recs)
+        _ids = scored["model_settings_id"].dropna().unique() if "model_settings_id" in scored.columns else []
+        if len(_ids):
+            settings_audit.record_model_version(MODEL_VERSION, str(_ids[0]))
+    except Exception:
+        logkit.get_logger("uvalu.data").error("signal log write failed", exc_info=True,
+                                              extra={"event": "compliance.signal_log_failed"})
 
 
 # ScoreReference of the last scored universe per get_scored_universe key
@@ -315,7 +357,9 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     holdings are scored against (sector medians, percentile ranks), so their
     fair values, scores and signals match the Screener and Analysis page.
     ``ref_version`` is only a cache key. Without a reference (cold start, the
-    universe not built yet) they are scored among themselves, as before.
+    universe not built yet) they are *not* ranked among themselves (PER-1: that
+    would make a signal depend on what the user holds): they get "No signal"
+    until the universe is built, while fair values and quality screens show.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
     stocks = [{"ticker": t, "name": n, "isin": ""} for t, n in zip(tickers, names)]
@@ -331,7 +375,8 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
     return run_screener_from_df(fund, max_debt_equity=_max_de, max_payout=_max_payout,
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
                                 weights=score_weights,
-                                reference=universe_reference_for(ref_key) if ref_key else None)
+                                reference=universe_reference_for(ref_key) if ref_key else None,
+                                user_selected=True, founder_holdings=_founder_holdings())
 
 
 def _universe_ref_args() -> tuple:
@@ -347,6 +392,23 @@ def _universe_ref_args() -> tuple:
             tuple(get_veto_thresholds()), tuple(get_score_weights()))
     ref, version = universe_reference(*args, token=_cache_version())
     return (args, version) if ref is not None else (None, 0)
+
+
+def peer_reference_pending() -> bool:
+    """True while the holdings can't be ranked yet because the universe's
+    ScoreReference is still being built (cold start). In that window the
+    portfolio lane gives every holding "No signal" (PER-1) and fair values
+    without sector medians, so a page showing them — or an average over the
+    few failed-screen rows that do carry a score (0) — would paint figures
+    that change seconds later. Pages show their loading skeleton instead.
+    False once a reference exists, or when no build is running (a failed or
+    empty universe), so a skeleton never spins forever."""
+    try:
+        from uvalu.store import universe_recomputing
+        ref_key, _version = _universe_ref_args()
+        return ref_key is None and universe_recomputing()
+    except Exception:
+        return False
 
 
 def _load_portfolio_scored(held: "pd.DataFrame | None",
@@ -389,30 +451,24 @@ def _load_portfolio_scored(held: "pd.DataFrame | None",
     )
 
 
-# ── Live-price margin of safety overlay (WP-DQ1) ─────────────────────────────
+# ── Live-price overlay (WP-DQ1, B3) ──────────────────────────────────────────
 
-def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.DataFrame | None":
-    """Refresh ``Price`` / ``live_price`` / ``MoS %`` on a scored portfolio
-    frame so the Holdings ladder's three numbers reconcile.
+def apply_live_prices(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.DataFrame | None":
+    """Add the live quote to a scored portfolio frame, next to the scored
+    figures, without changing them.
 
-    ``screener.compute_scores`` computes ``margin_of_safety`` / ``MoS %``
-    against the fundamentals-cache ``Price`` snapshot, which can be hours or
-    days stale. The portfolio screens render that percentage next to a live
-    price and a fair value, so the three didn't agree — worst case a holding
-    shown "at fair value" beside a deeply negative MoS because its cached
-    price was weeks old (WP-DQ1).
+    Adds ``live_price``, ``price_stale``, ``data_thin`` and the curated
+    ``sector``. ``Price``, ``margin_of_safety`` and ``MoS %`` stay those of
+    the scoring pass: a model signal is shown with the price and margin of
+    safety it was computed from, and that price's time (``price_as_of``)
+    (REC-4, BDG-3; decision B3 in docs/legal/compliance-implementation-plan.md).
+    Until v2.1.0 this function (then ``apply_live_mos``) recomputed the
+    margin of safety on the live quote, so a badge could sit next to a margin
+    of safety it was never computed from.
 
-    This recomputes ``margin_of_safety`` = ``(fair_value − live_price) /
-    fair_value`` from the batch fair value and the live quote. It deliberately
-    leaves ``fair_value``, the six sub-model values, ``Value Score``, the
-    ``Sub *`` ranks and ``Decision`` on the universe-ranked batch basis: those
-    need the whole scored universe and are not live figures. Only ``EPV``'s
-    net-debt term is price-sensitive in the fair-value blend, a second-order
-    effect not worth a row-wise model re-run here.
-
-    Adds ``price_stale`` — True when there is no live quote, or the live quote
-    is more than 10% off the batch price (a sign the cached fundamentals row,
-    and so the fair value built from it, is old).
+    ``price_stale`` is True when there is no live quote, the live quote is
+    more than 10% off the scored price (the scored fundamentals row is old),
+    or, during a live session, the feed only had a daily close.
     """
     if scored is None or getattr(scored, "empty", True) or "Ticker" not in getattr(scored, "columns", []):
         return scored
@@ -424,10 +480,8 @@ def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.Data
         errors="coerce",
     )
     _src = out["Ticker"].map(lambda t: (live_prices.get(str(t)) or {}).get("quote_source"))
-    _price = _live.where(_live > 0, _batch_price)
 
     out["live_price"] = _live
-    out["Price"] = _price
     # A row's price is "stale" for display purposes when there's no live
     # quote, the live quote is >10% off the cached price (old fundamentals
     # row), or — during a live session — the feed only had a daily close for
@@ -438,12 +492,6 @@ def apply_live_mos(scored: "pd.DataFrame | None", live_prices: dict) -> "pd.Data
            & (_live / _batch_price - 1).abs().gt(0.10))
         | (is_market_hours() & _src.isin(["eod", "stale"]))
     )
-
-    if "fair_value" in out.columns:
-        _fv = pd.to_numeric(out["fair_value"], errors="coerce")
-        _mos = ((_fv - _price) / _fv).where((_price > 0) & (_fv > 0))
-        out["margin_of_safety"] = _mos
-        out["MoS %"] = (_mos * 100).round(1)
 
     # WP-E: `data_thin` == "no fair value AND none of the six models can produce
     # one from this row's own fundamentals" — i.e. a partial provider payload
@@ -522,11 +570,21 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
     from portfolio_enrichment import enrich_for_risk
     from uvalu.runtime import current_user
 
+    # Not from pre-reference scores (G1): until the universe's peer reference
+    # exists the holdings carry no signals and fair values without sector
+    # medians, and a report built from them would sit in the session cache
+    # for an hour (Dashboard read 35, the Risk page 36, for one portfolio).
+    if peer_reference_pending():
+        return None
+    try:
+        _ref_version = _universe_ref_args()[1]
+    except Exception:
+        _ref_version = 0
+
     live = _fetch_prices_cached(tuple(pf["ticker"].tolist()))
-    # Refresh Price / MoS on the live quote so the drawer opened from this
-    # page (and the Dashboard, which shares this frame's convention) shows a
-    # margin of safety that agrees with the price beside it (WP-DQ1).
-    scored = apply_live_mos(_load_portfolio_scored(pf, load_sold()), live)
+    # Live quote alongside the scored figures (B3: the scored Price and MoS
+    # stay those the signal was computed from).
+    scored = apply_live_prices(_load_portfolio_scored(pf, load_sold()), live)
     veto_lookup = (scored.set_index("Ticker")["veto"].to_dict()
                    if "veto" in getattr(scored, "columns", []) else {})
     scored_by_ticker = (
@@ -536,13 +594,13 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
     pf_enriched = enrich_for_risk(pf, scored_by_ticker, live)
 
     cache = load_fundamentals_cache()
-    income_portfolio = False
+    weighting = "standard"   # PER-3: a model setting, never derived from a user objective
     targets = load_targets()
     prior_snapshot = load_risk_snapshot()
 
-    key = str((tuple(sorted(pf_enriched["ticker"].tolist())), income_portfolio,
+    key = str((tuple(sorted(pf_enriched["ticker"].tolist())), weighting,
                tuple(sorted(veto_lookup.items())),
-               repr(sorted(targets.items()))))
+               repr(sorted(targets.items())), _ref_version))
     cached = st.session_state.get("_risk_report_cache", {})
     report = None
     if cached.get("key") == key and "report" in cached:
@@ -602,7 +660,7 @@ def load_portfolio_risk(pf: "pd.DataFrame") -> "PortfolioRisk | None":
                         with logkit.job("risk_report", trigger="cache_miss",
                                         tickers=_n_tickers):
                             _r = _risk.assess_portfolio(
-                                pf_enriched, cache, income_portfolio, veto_lookup,
+                                pf_enriched, cache, weighting=weighting, veto_lookup=veto_lookup,
                                 targets=targets, prior_snapshot=prior_snapshot)
                         with _risk_compute_lock:
                             _risk_compute_result[key] = _r

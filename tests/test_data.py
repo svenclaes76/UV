@@ -407,8 +407,10 @@ class TestLoadAllScreenerData:
         assert at.text[0].value == "True"
 
     def test_universe_is_scored_once_and_its_reference_kept(self, monkeypatch):
-        """One peer group for every enabled exchange plus the extras, and its
-        ScoreReference stored under the store key for the portfolio lane."""
+        """One scoring pass for every enabled exchange plus the extras, and its
+        ScoreReference stored under the store key for the portfolio lane. The
+        reference comes from the exchange tickers only (PER-2): the extra
+        (a user's manual ticker) is scored but doesn't join the peer group."""
         extra_row = dict(_FUND_ROW, Name="Beta Corp", Ticker="BBB.BR")
         self._patch_fetchers(
             monkeypatch,
@@ -424,7 +426,7 @@ class TestLoadAllScreenerData:
         key = (("brussels",), ("BBB.BR",), ("Beta Corp",), (500.0, 0.90, 0.0, 70.0),
                (0.30, 0.18, 0.22, 0.15, 0.15))
         ref = data_module.universe_reference_for(key)
-        assert ref is not None and ref.size == 2
+        assert ref is not None and ref.size == 1
 
 
 class TestPortfolioLaneReference:
@@ -450,6 +452,7 @@ class TestPortfolioLaneReference:
                             lambda df, **kw: seen.update(kw) or df)
         data_module._load_portfolio_screener_data.__wrapped__("v1", ("AAA.BR",), ("Alpha Corp",))
         assert seen["reference"] is None
+        assert seen["user_selected"] is True   # PER-1: no rank among the user's own holdings
 
 
 # ── screener_refresh_signature / _price_refresh_signature (WP-6) ──────────
@@ -590,66 +593,62 @@ class TestPrefetchPortfolioData:
         assert "AAA.BR" in seen["price_tickers"]
 
 
-class TestApplyLiveMos:
-    """WP-DQ1: refresh Price / live_price / MoS % on a scored portfolio frame
-    from the live quote so the Holdings ladder's three numbers reconcile,
-    without touching fair_value / Value Score / Decision."""
+class TestApplyLivePrices:
+    """B3 / WP-DQ1: add the live quote to a scored portfolio frame without
+    changing the scored figures — a badge is shown with the price and margin
+    of safety it was computed from (REC-4, BDG-3)."""
 
     def _frame(self, **over):
         row = {"Ticker": "AAA.BR", "Price": 100.0, "fair_value": 120.0,
                "MoS %": 16.7, "margin_of_safety": 0.1667, "Value Score": 70.0,
-               "Decision": "Monitor"}
+               "signal_code": "neutral"}
         row.update(over)
         return pd.DataFrame([row])
 
-    def test_recomputes_mos_from_live_price_and_batch_fair_value(self):
-        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 108.0}})
+    def test_adds_live_price_and_keeps_the_scored_figures(self):
+        out = data_module.apply_live_prices(self._frame(), {"AAA.BR": {"price": 108.0}})
         r = out.iloc[0]
-        assert r["Price"] == 108.0 and r["live_price"] == 108.0
-        # (120 - 108) / 120 = 0.10
-        assert r["margin_of_safety"] == pytest.approx(0.10)
-        assert r["MoS %"] == pytest.approx(10.0)
+        assert r["live_price"] == 108.0
+        assert r["Price"] == 100.0
+        assert r["margin_of_safety"] == pytest.approx(0.1667) and r["MoS %"] == pytest.approx(16.7)
         assert not r["price_stale"]
-        # untouched
-        assert r["fair_value"] == 120.0 and r["Value Score"] == 70.0 and r["Decision"] == "Monitor"
+        assert r["fair_value"] == 120.0 and r["Value Score"] == 70.0 and r["signal_code"] == "neutral"
 
     def test_flags_price_stale_when_live_quote_far_from_batch(self):
-        # batch 100, live 140 -> 40% gap -> the cached fundamentals row is old
-        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 140.0}})
+        # batch 100, live 140 -> 40% gap -> the scored fundamentals row is old
+        out = data_module.apply_live_prices(self._frame(), {"AAA.BR": {"price": 140.0}})
         r = out.iloc[0]
         assert r["price_stale"]
-        assert r["MoS %"] == pytest.approx((120.0 - 140.0) / 120.0 * 100, abs=0.05)
-
-    def test_missing_live_quote_keeps_batch_price_and_flags_stale(self):
-        out = data_module.apply_live_mos(self._frame(), {})
-        r = out.iloc[0]
-        assert r["Price"] == 100.0 and pd.isna(r["live_price"]) and r["price_stale"]
-        # (120 - 100) / 120 = 0.16667 -> 16.7 at 1dp
         assert r["MoS %"] == pytest.approx(16.7)
 
-    def test_no_fair_value_column_sets_price_without_crashing(self):
+    def test_missing_live_quote_flags_stale(self):
+        out = data_module.apply_live_prices(self._frame(), {})
+        r = out.iloc[0]
+        assert r["Price"] == 100.0 and pd.isna(r["live_price"]) and r["price_stale"]
+
+    def test_no_fair_value_column_does_not_crash(self):
         f = self._frame().drop(columns=["fair_value", "MoS %", "margin_of_safety"])
-        out = data_module.apply_live_mos(f, {"AAA.BR": {"price": 108.0}})
-        assert out.iloc[0]["Price"] == 108.0 and "MoS %" not in out.columns
+        out = data_module.apply_live_prices(f, {"AAA.BR": {"price": 108.0}})
+        assert out.iloc[0]["live_price"] == 108.0 and "MoS %" not in out.columns
 
     def test_none_or_empty_frame_passes_through(self):
-        assert data_module.apply_live_mos(None, {}) is None
+        assert data_module.apply_live_prices(None, {}) is None
         empty = pd.DataFrame(columns=["Ticker"])
-        assert data_module.apply_live_mos(empty, {}).empty
+        assert data_module.apply_live_prices(empty, {}).empty
 
     # WP-E: data_thin == no fair value AND no model can produce one from this row.
     def test_data_thin_true_when_unscorable_and_no_fair_value(self):
         f = self._frame(fair_value=float("nan")).drop(columns=["MoS %", "margin_of_safety"])
-        out = data_module.apply_live_mos(f, {"AAA.BR": {"price": 100.0}})
+        out = data_module.apply_live_prices(f, {"AAA.BR": {"price": 100.0}})
         assert bool(out.iloc[0]["data_thin"]) is True
 
     def test_data_thin_false_when_fair_value_present(self):
-        out = data_module.apply_live_mos(self._frame(), {"AAA.BR": {"price": 108.0}})
+        out = data_module.apply_live_prices(self._frame(), {"AAA.BR": {"price": 108.0}})
         assert bool(out.iloc[0]["data_thin"]) is False
 
     def test_data_thin_false_when_row_is_scorable_even_without_fair_value(self):
         f = self._frame(fair_value=float("nan"), trailingEps=6.0)
-        out = data_module.apply_live_mos(f, {})
+        out = data_module.apply_live_prices(f, {})
         assert bool(out.iloc[0]["data_thin"]) is False
 
 
@@ -677,3 +676,34 @@ class TestPriceFeedStatus:
         s = data_module.price_feed_status(
             {"A.BR": {"price": 1.0, "as_of": "2026-09-01T12:00:00", "quote_source": "eod"}})
         assert s["as_of"].tzinfo is not None
+
+
+# ── Peer reference still building (G1, visual review 2026-10-04) ─────────────
+
+@pytest.mark.parametrize("ref_key, recomputing, expected", [
+    (None, True, True),                  # cold start: no reference yet, build running
+    (None, False, False),                # no build running (failed/empty universe): never spin forever
+    (("enabled",), True, False),         # a reference exists: holdings are ranked
+])
+def test_peer_reference_pending(monkeypatch, ref_key, recomputing, expected):
+    import uvalu.store
+    monkeypatch.setattr(data_module, "_universe_ref_args", lambda: (ref_key, 1 if ref_key else 0))
+    monkeypatch.setattr(uvalu.store, "universe_recomputing", lambda: recomputing)
+    assert data_module.peer_reference_pending() is expected
+
+
+def test_peer_reference_pending_is_false_when_the_lookup_fails(monkeypatch):
+    def _boom():
+        raise RuntimeError("no settings")
+    monkeypatch.setattr(data_module, "_universe_ref_args", _boom)
+    assert data_module.peer_reference_pending() is False
+
+
+def test_risk_report_waits_for_the_peer_reference(monkeypatch):
+    """A report built from pre-reference scores (no signals, fair values
+    without sector medians) would sit in the session cache for an hour —
+    the Dashboard read 35 while the Risk page read 36."""
+    monkeypatch.setattr(data_module, "peer_reference_pending", lambda: True)
+    monkeypatch.setattr(data_module, "_load_portfolio_scored",
+                        lambda *a, **k: pytest.fail("must not score before the reference exists"))
+    assert data_module.load_portfolio_risk(make_portfolio_df()) is None

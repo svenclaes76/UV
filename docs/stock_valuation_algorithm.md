@@ -1,9 +1,15 @@
 # Stock Valuation Algorithm
-A systematic pipeline for identifying undervalued stocks and deciding whether they are worth buying.
+A systematic pipeline that estimates a model fair value for each stock in the public coverage universe and summarises the result in a descriptive model signal. The output is general information, the same for every user. It is not a personal recommendation and does not say whether anyone should buy or sell.
 
-This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers), which is the single source of fair value, risk, and decision logic used across the Screener, Analysis, Portfolio, Risk, and Dashboard pages. Thresholds marked **(configurable)** below are user-adjustable sliders under Settings → Screening & veto rules (`settings.get_veto_thresholds()`); the values shown are the shipped defaults. The same admin-only card also carries a **Screening style** picker (`settings.get_score_weights()`) that swaps the Stage 5 composite weights — see Stage 5.
+> **Status.** Since v2.1.0 this spec, and [`screener.py`](../screener.py) which it describes, follow *Uvalu — Legal Requirements for Launch* (Oct 2, 2026). The legal changes are listed in [§ Changes from the original spec](#changes-from-the-original-spec) (the pre-v2.1.0 spec is in git history) and reviewed in [`legal/algorithm-compliance-review.md`](legal/algorithm-compliance-review.md). Counsel review is pending.
 
-> The 0–10 fundamental scorers `_financial_health_score`, `_earnings_quality_score` and `_dividend_sustainability_flag` (plus `_clamp` / `_get_num`) now live in [`scoring.py`](../scoring.py) and are shared with the portfolio risk engine; `screener.py` re-exports them, so every `from screener import …` call site is unchanged.
+This document describes the algorithm as implemented in [`screener.py`](../screener.py) (`compute_scores()` and its helpers). It is the single source of fair value, risk and signal logic for the Screener, Analysis, Portfolio, Risk and Dashboard pages. Thresholds marked **(configurable)** below are **shared, admin-only** model settings under Settings → Screening & veto rules (`settings.get_veto_thresholds()`). Every user sees signals computed with the same settings (PER-2). The values shown are the shipped defaults. The same card carries a **Screening style** picker (`settings.get_score_weights()`) that swaps the Stage 5 composite weights; see Stage 5. The live values of every threshold and weight are published on the methodology page, which is generated from `screener.methodology()` so it cannot drift from the code (REC-5).
+
+> The 0–10 fundamental scorers `_financial_health_score`, `_earnings_quality_score` and `_dividend_sustainability_flag` (plus `_clamp` / `_get_num`) live in [`scoring.py`](../scoring.py) and are shared with the portfolio risk engine. Stage 1 (data collection and the fetch cache) is unchanged from the pre-v2.1.0 spec.
+
+### Data source and licensing (DATA-1 to DATA-6)
+
+All inputs currently come from Yahoo Finance via `yfinance` (`screener.DATA_SOURCE`). That source is very likely **not licensed** for a paid, multi-user service; this is a launch blocker (requirements §9). Once a provider contract is signed, `DATA_SOURCE` must carry its name and required attribution, and every scored row repeats it in its `data_source` column. **Analyst estimates are excluded** until a licence covers them; see Stage 2.
 
 ---
 ## Stage 1 — Data Collection
@@ -17,11 +23,11 @@ There is a partial multi-year financial-statement history (the lines listed abov
 **Fields fetched:**
 - Price, EPS (`trailingEps`), book value per share (`bookValue`)
 - Dividend rate (`trailingAnnualDividendRate` / `dividendRate`), 5-yr average dividend yield, ex-dividend and payment dates
-- Analyst target price — mean (`targetMeanPrice`), high / low (`targetHighPrice` / `targetLowPrice`, for dispersion), and analyst count (`numberOfAnalystOpinions`, for coverage depth)
+- Analyst target price — mean (`targetMeanPrice`), high / low (`targetHighPrice` / `targetLowPrice`, for dispersion), and analyst count (`numberOfAnalystOpinions`, for coverage depth). **Fetched but not used** while `ANALYST_INPUTS_ENABLED` is off (DATA-6).
 - EBIT, enterprise value, shares outstanding, plus `totalDebt` / `totalCash` / `marketCap` (FV-4: to rebuild enterprise value when the provider drops it)
 - Debt/equity, current ratio, interest coverage, free cash flow (current + up to ~4-5yr history via `fcfHistory`), net income, beta, average volume, payout ratio
 - ROE, ROA, operating margin, profit margin
-- Earnings growth, revenue growth, analyst recommendation mean
+- Earnings growth, revenue growth, analyst recommendation mean (the last **not used** while `ANALYST_INPUTS_ENABLED` is off)
 - Sector, country, quote currency
 - Multi-year statement history → `revenueHistory`, `ebitHistory`, `netIncomeHistory`, `cfoHistory`, `retainedEarningsHistory`, `totalAssetsHistory` (`screener._statement_history`)
 - Dividend history → `true_dgr`, `dividend_growth_streak`, `dividend_payment_years`, `dividend_last_cut_year` (`screener._dividend_stats`)
@@ -29,7 +35,9 @@ There is a partial multi-year financial-statement history (the lines listed abov
 EV/EBITDA is fetched but **display-only**. Trailing P/E is display-only per row, but its **sector median across the screened universe** sets the PE Fair Value multiple (Stage 2). Price-to-book is display-only for a normally-valued stock, but its **sector median** feeds the FV-3 book-value fallback below when a stock has no earnings anchor.
 ---
 ## Stage 2 — Fair Value Estimation (Multi-Model)
-Six core models run per stock; the composite is a weighted average of whichever produced a positive value (`screener._fair_value_models`). Two further **fallback** models (book value, FCF) join the blend **only** for a stock where none of the three earnings-anchored core models (Graham / PE / EPV) could be computed — see "Fallback models" below.
+Six core models are defined; the composite is a weighted average of whichever produced a positive value (`screener._fair_value_models`).
+
+> **Analyst model off by default (DATA-6).** Sell-side price targets and the consensus recommendation mean are licensed separately from prices and fundamentals. While `screener.ANALYST_INPUTS_ENABLED` is `False`, the analyst model is dark for every stock (`fv_dark_reasons["analyst"] = "not_licensed"`). Its weight drops out, and the blend re-normalises over the remaining models exactly as it does for a stock without analyst coverage. In effect **five** core models run. Wherever the text below mentions the analyst model or "six models", it applies only once a licence is in place and the switch is turned on. The UI must not show the raw `targetMeanPrice` either while the switch is off. Two further **fallback** models (book value, FCF) join the blend **only** for a stock where none of the three earnings-anchored core models (Graham / PE / EPV) could be computed — see "Fallback models" below.
 
 ### Models
 | Model | Formula / Approach | Base weight |
@@ -39,7 +47,7 @@ Six core models run per stock; the composite is a weighted average of whichever 
 | **Earnings Power Value (EPV)** | `EPV_EV = EBIT × (1 − t) / WACC`, where **EBIT is a robust central value of `ebitHistory`** (`screener._normalised_ebit`, ≥ `_EBIT_MIN_YEARS` = 3 finite years): the **median** at exactly 3 years, a **symmetric trimmed mean** (drop the min and the max, average the rest) at 4+. This removes a lone crisis (a one-off multi-billion writedown) or windfall year without the MAD-based rule's failure of flagging a fast grower's newest, most-relevant year as the "outlier" (FV-2, review). Fewer than 3 finite years → point-in-time `ebit` (recent IPOs / failed statement fetches). Converted to per-share as `(EPV_EV − NetDebt) / SharesOutstanding` where `NetDebt = EnterpriseValue − (Price × SharesOutstanding)` — subtracts actual net debt directly rather than assuming EPV_EV's implied capital structure mirrors the market's EV/market-cap ratio; falls back to the `Price × (EPV_EV / EnterpriseValue)` EV-ratio shortcut when `sharesOutstanding` is unavailable. **`EnterpriseValue` itself** (FV-4) is the provider's `enterpriseValue` when positive, else reconstructed as `(marketCap or Price × shares) + totalDebt − totalCash` (`screener._enterprise_value`, `ev_source` records which) — yfinance drops `enterpriseValue` on a partial payload while keeping the balance-sheet legs; when the EV was reconstructed, `NetDebt` is taken straight from `totalDebt − totalCash` so a multi-class `marketCap` leg can't inject phantom debt (review). A per-share EPV that comes out **≤ 0** (net debt exceeds the capitalised earnings power — routine for leveraged names) is kept out of the blend by the `> 0` filter but sets **`epv_negative`** so the UI can explain the gap. `t` is the country's statutory corporate tax rate from the static `COUNTRY_TAX_RATES` table (e.g. 21% US, 30% Germany, 12.5% Ireland), falling back to 25% when `country` is missing or unlisted. **FV-8: skipped entirely for `Real Estate` and `Financial Services`** — a Greenwald EPV needs an operating EBIT that neither cohort has. | 0.208 (`W_EPV`) |
 | **DDM — single-stage** | Gordon growth: `D₁ / (WACC − g)`, `g` = the true DPS CAGR (`_dgr_estimate`, FV-7), clamped to 0–5% **and further to `WACC − DDM_MIN_SPREAD`** so the denominator floors at 3 pp — a low-beta payer keeps the model with a conservative growth assumption rather than losing it silently (review). Dropped only when WACC itself is ≤ `DDM_MIN_SPREAD` | 0.167 (`W_DDM_SINGLE`) × payout ramp |
 | **DDM — multi-stage** | 5-year explicit high-growth phase (`g_high` = the same DPS CAGR, clamped to `min(15%, WACC − DDM_MIN_SPREAD)` so the explicit terms can't compound above the discount rate — review) + Gordon terminal value (terminal g = 2%). Dropped when `WACC − 2% < DDM_MIN_SPREAD` | 0.167 (`W_DDM_MULTI`) × payout ramp |
-| **Analyst target price** | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still what the drawer / Analyst "Six-model" ladder row shows (only the model *input* is haircut); FV-6 adds a caption there — "the composite applies a −10% haircut to the Analyst Target shown" — so the printed row and the composite reconcile. | 0.130 (`W_ANALYST`) × dispersion & coverage factor |
+| **Analyst target price** *(only with `ANALYST_INPUTS_ENABLED`, DATA-6)* | `targetMeanPrice × (1 − 10%)` — a flat haircut (`screener.ANALYST_TARGET_HAIRCUT`) applied before it feeds the composite, to discount sell-side targets' well-documented optimism bias. The undiscounted `targetMeanPrice` is still what the drawer / Analyst "Six-model" ladder row shows (only the model *input* is haircut); FV-6 adds a caption there — "the composite applies a −10% haircut to the Analyst Target shown" — so the printed row and the composite reconcile. | 0.130 (`W_ANALYST`) × dispersion & coverage factor |
 
 #### Fallback models (FV-3) — only when Graham, PE **and** EPV all failed
 
@@ -94,7 +102,7 @@ The six **core** base weights (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_D
 | **Payout ratio** | `payoutRatio` (as reported) | Dividend sustainability flag, dividend risk/score |
 | **Cash payout ratio** | `(DPS × Shares) / FCF` | Dividend sustainability flag, dividend risk/score |
 | **Dividend coverage ratio** | `EPS / DPS` | Dividend sustainability flag, dividend risk/score, hard veto |
-| **Dividend growth rate (DGR)** | `screener._dgr_estimate(row)` — the **true DGR** below when the dividend history has ≥2 complete years, else the `earningsGrowth` (TTM) proxy. A real `0.0` (flat DPS) wins over the proxy. Used in TER, dividend risk score, dividend score | TER, dividend risk/score |
+| **Dividend growth rate (DGR)** | `screener._dgr_estimate(row)` — the **true DGR** below when the dividend history has ≥2 complete years, else the `earningsGrowth` (TTM) proxy. A real `0.0` (flat DPS) wins over the proxy. Used in the implied return, dividend risk score, dividend score | Implied return, dividend risk/score |
 | **Dividend yield vs. historical average** | `dividendYield / fiveYearAvgDividendYield`, feeds the dividend score | Dividend score |
 | **Dividend yield vs. sector peers** | *Not implemented* — no peer-median dataset exists | — |
 | **True DGR** `(DPS_t / DPS_{t-n})^(1/(n-1)) − 1` | **Implemented** (`screener._dividend_stats.true_dgr`) — CAGR of annual DPS across the complete calendar years in a ~6yr window (the incomplete current year is dropped); `None` with fewer than 2 such years | DGR estimate above |
@@ -103,22 +111,24 @@ The six **core** base weights (`W_GRAHAM`, `W_PE`, `W_EPV`, `W_DDM_SINGLE`, `W_D
 ```
 Intrinsic Value = Σ (Model weight × Model fair value) / Σ (Model weight)
 ```
-summed over whichever models produced a value for that stock; the weighted average becomes the **fair value** (`fair_value` column).
+summed over whichever models produced a value for that stock; the weighted average becomes the **model fair value** (`fair_value` column).
+
+**Presentation (REC-2, REC-6).** The fair value is a model estimate, not a fact or a price target. Wherever it is shown, it is labelled "Model fair value (estimate)" and sits next to the model values that fed it, the number of independent models (`fv_model_count`) and its data flags (Stage 6). The methodology page carries the key assumptions, read from the live constants: risk-free rate, equity risk premium, terminal growth, the P/E fallback and band, and the FCF multiple. It also carries the sensitivity note (`SIGNAL_SENSITIVITY`): with a 2% growth rate, raising the discount rate from 8% to 9% lowers a dividend-model fair value by about 14%.
 ---
-## Stage 3 — Margin of Safety & Total Expected Return
+## Stage 3 — Margin of Safety & Model-Implied Return
 ### Margin of Safety (MoS)
 ```
 MoS = (Fair Value − Price) / Fair Value
 ```
-There is no fixed 20–30% buy-zone band on MoS itself. Instead, a **Strong Buy** decision additionally requires MoS to clear a configurable minimum (`min_mos`, default **0%**) — see Stage 6.
+There is no fixed 20–30% band on MoS itself. Instead, the **Undervalued** signal additionally requires MoS to clear a configurable minimum (`min_mos`, default **0%**); see Stage 6. *Recommendation:* at the 0% default, a price 0.5% below the model fair value can be labelled "Undervalued". Raise the shared default to about 10% before launch so that the label stays meaningful.
 
-### Total Expected Return (TER)
+### Model-Implied Return (estimate)
 ```
-TER = Capital gain % + Forward dividend yield % + Expected DGR %
+Implied Return % (est.) = Gap to model fair value % + Forward dividend yield % + Assumed DGR %
 ```
-where Capital gain % = `(Fair Value − Price) / Price × 100`, and Expected DGR is `_dgr_estimate` (true DPS CAGR when available, else the `earningsGrowth` proxy) clamped to 0–10%. TER is displayed per-stock but there is **no >15% / 8–15% / <8% attractiveness banding** applied anywhere — it is not classified into "Attractive / Acceptable / Unattractive".
+where Gap to model fair value % = `(Fair Value − Price) / Price × 100`, and Assumed DGR is `_dgr_estimate` (true DPS CAGR when available, else the `earningsGrowth` proxy) clamped to 0–10%. It is published as the column `Implied Return % (est.)` (formerly `TER %`, "Total Expected Return"). It is a model estimate that holds only if the model fair value is right and the dividend assumptions hold. **It is not an expected or promised return** (REC-2, DIS-5). It is never classified into bands such as "Attractive / Acceptable / Unattractive", and it must not be used in marketing.
 
-**DGR halving when DDM contributed:** if either DDM variant fed that stock's composite fair value (`ddm_contributed`, `screener._fair_value_models`), the Expected DGR term is halved before summing. Growth is already embedded in the Capital gain % term via the DDM-derived fair value in that case, so adding the full DGR proxy on top would double-count it.
+**DGR halving when DDM contributed:** if either DDM variant fed that stock's composite fair value (`ddm_contributed`), the Assumed DGR term is halved before summing. In that case growth is already embedded in the gap term through the DDM-derived fair value, so adding the full DGR proxy on top would double-count it.
 
 ### Dividend Sustainability Flag
 `scoring._dividend_sustainability_flag` (re-exported from `screener`) returns `"At Risk"`, `"OK"`, or `""` (non-payer). **Any** of:
@@ -140,15 +150,18 @@ The composite **risk** score averages **five** dimensions (0–10 each, higher =
 | **Dividend risk** | Payout ratio, cash payout ratio, dividend coverage, DGR (`_dgr_estimate` — true DGR when available, else `earningsGrowth`) | Risk |
 | **Liquidity** | Average daily volume — a confirmed 0 scores worst-case (0/10), a missing value stays neutral (5/10); a confirmed 0 also forces the Stage 6 hard veto, see above | Risk |
 | **Quality** | ROE, ROA, operating margin, FCF yield, current ratio | *Separate score* |
-| **Momentum** | Earnings growth, revenue growth, analyst recommendation mean | *Separate score* |
+| **Momentum** | Earnings growth, revenue growth (+ analyst recommendation mean only with `ANALYST_INPUTS_ENABLED`, DATA-6) | *Separate score* |
 
-`Momentum`'s analyst component (`recommendationMean`) is a current-snapshot rating, not a trend of analyst revisions over time. A **Qualitative dimension** (competitive moat, management track record, ESG flags) is **not implemented** — there is no data source for it, so the risk composite has no room reserved for it.
+`Momentum`'s analyst component (`recommendationMean`), when licensed and enabled, is a current-snapshot rating, not a trend of analyst revisions over time. A **Qualitative dimension** (competitive moat, management track record, ESG flags) is **not implemented** — there is no data source for it, so the risk composite has no room reserved for it.
 
 The **Dividend score** (separate from dividend risk, feeds Stage 5 directly) combines: yield vs. 5-yr average, payout ratio safety, cash payout ratio, dividend coverage, and `_dgr_estimate` (true DGR when available, else the `earningsGrowth` proxy) — non-payers get a neutral 5.0 so they're neither rewarded nor penalized.
 ---
 ## Stage 5 — Composite Score
 Before weighting, MoS, Risk, Quality, Momentum and Dividend are each turned into a **0–100 sub-score** (`screener._blend_ranks`, higher = better for all five), a blend of two views of the same value:
-- **Cross-sectional percentile rank** (`screener._pct_rank`) — the stock's standing *within the current screened universe*: every enabled exchange together, plus portfolio holdings on disabled exchanges. Holdings scored by the portfolio lane are ranked against that same universe through its `ScoreReference` (sector medians too), so a stock gets the same score on every screen; only before the first universe build are they ranked among themselves. NaN rows get a neutral 50.
+- **Cross-sectional percentile rank** (`screener._pct_rank`): the stock's standing *within the public peer universe*, meaning every enabled exchange together (a shared setting). NaN rows get a neutral 50. **The peer universe never depends on the user (PER-1, PER-2):**
+  - Only rows marked by `peer_mask` (built with `peer_mask_for(df, public_tickers)` from the enabled exchanges' ticker lists) set the sector P/E and P/B medians and the rank distributions. Rows a user added (manual tickers, holdings on a disabled exchange) are scored *against* those peers without moving them. The original spec put "portfolio holdings on disabled exchanges", and in the code each user's manual tickers, into the universe itself, so one user's additions shifted everyone's scores.
+  - Holdings and watchlists scored by the portfolio lane are ranked against the same public universe through its `ScoreReference`, so a stock gets the same score and signal on every screen and for every user.
+  - A user-selected set scored **without** a reference (`user_selected=True`, e.g. before the first universe build) is **not** ranked among itself, as the original spec allowed. Its rows get signal **No signal** (`pending`) and no composite score. Fair values and quality-screen failures (absolute rules) are still shown. The P/E and P/B fair values then use the fixed fallback multiples (`PE_MULTIPLE_FALLBACK`, `PB_MULTIPLE_FALLBACK`), never medians of the user's own holdings.
 - **Absolute band** (`screener._abs_band`) — the same value mapped through a fixed piecewise-linear scale, independent of the universe:
   - MoS: `≤ 0 → 0`, `10% → 40`, `25% → 70`, `≥ 50% → 100` (`_BAND_MOS`).
   - Quality / Momentum / Dividend: the raw 0–10 score × 10 (`_BAND_0_10`).
@@ -160,24 +173,48 @@ Score = 0.24×MoS_sub + 0.22×Risk_sub + 0.24×Quality_sub + 0.15×Momentum_sub 
 ```
 (Risk_sub is already oriented so that safer = higher, so it's added, not subtracted.) The default weights are `screener.W_MOS` / `W_RISK` / `W_QUALITY` / `W_MOMENTUM` / `W_DIVIDEND` (`0.24 / 0.22 / 0.24 / 0.15 / 0.15` — the **balanced** style). These were rebalanced from an earlier MoS-led `0.30 / 0.18 / 0.22 / 0.15 / 0.15`: margin of safety now co-leads with quality rather than dominating, and risk is weighted more heavily, so a wide discount can't on its own outvote weak fundamentals or a poor risk profile. Settings → Screening & veto rules → **Screening style** swaps in one of four shared, admin-controlled vectors (`settings._SCORE_STYLES`, each summing to 1.0, passed to `compute_scores(weights=…)` via `settings.get_score_weights()`): *balanced*, *value* (MoS + quality lead), *growth* (momentum + quality lead, thin MoS), *income* (dividend-led). The `Sub MoS` / `Sub Risk` / … columns carry the blended sub-scores; only the final weighting changes with the style.
 
-**Universe-size guard:** a small or low-quality universe can still let a mediocre stock rank high on the percentile half of each sub-score. `compute_scores` sets `small_universe = True` on every row when the screened universe has fewer than `screener.MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks; the Screener page surfaces this as a caption caveat next to the result count.
+**Universe-size guard:** a small or low-quality universe can still let a mediocre stock rank high on the percentile half of each sub-score. `compute_scores` sets `small_universe = True` on every row when the **peer** universe has fewer than `MIN_UNIVERSE_SIZE` (20, a heuristic threshold) stocks. The row also carries the `small_peer_group` data flag, which is shown next to the signal.
 ---
-## Stage 6 — Decision
-| Score | Action |
-|---|---|
-| ≥ 70 **(configurable, `buy_threshold`)** — *and* MoS ≥ `min_mos` (default 0%) — *and* the fair value is not `fv_basis_thin` (FV-5) | **Strong Buy** |
-| 40–70 | **Monitor / watch list** |
-| < 40 | **Avoid** |
+## Stage 6 — Model Signal
+The composite score is summarised in a **descriptive model signal** (BDG-1). It states where the stock sits on the model's scale; it does not say what to do. Each row carries a stable machine value `signal_code` (store and compare this) and an English display label `Signal` (shown through `tr()` in the user's language).
 
-A hard veto forces **Avoid** regardless of score. A `fv_basis_thin` fair value —
-fewer than `MIN_FV_MODELS` (2) independent sub-models back the composite, e.g.
-a lone book-value fallback with no earnings/PE/EPV/DDM/analyst anchor at all —
-is not itself a hard veto (an unconfirmed fair value isn't a red flag the way
-a D/E blowout is); it only blocks the row from reaching Strong Buy, so it
-falls through to Monitor on score instead.
+| Rule (first match wins) | `signal_code` | Label |
+|---|---|---|
+| Fails the quality screen (any hard-veto rule below) | `fails_screen` | **Fails quality screen** |
+| No public peer basis (user-selected set without a reference, Stage 5) | `pending` | **No signal** |
+| Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 0%) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
+| Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Neutral** |
+| Score < 40 | `low_score` | **Low score** |
 
-### Hard Veto Rules
-`screener.compute_scores`'s `_hard_veto` is true when **any** of the following holds. The
+These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Neutral** on score.
+
+**Why not "Near fair value" / "Overvalued" for the lower bands.** The requirements' BDG-1 suggests MONITOR → "Near fair value" and AVOID → "Overvalued". Those labels would often be false: the bands come from the composite score (margin of safety + risk + quality + momentum + dividend), not from valuation alone, and a stock 30% below its model fair value with weak quality can sit in the lowest band. A label must describe what the model measured (REC-2; WER VI.97). Hence "Neutral" and "Low score". **[Counsel]** to confirm.
+
+### What every signal is shown with (BDG-2, BDG-3, REC-3, REC-4, REC-6)
+A signal is never shown on its own. The badge, or the row it sits in, carries:
+- a visible **"Model signal"** header, or the qualifier "model signal" wherever the badge appears without that context (exports, emails, share cards, screenshots);
+- the tooltip `SIGNAL_TOOLTIP`, *"Model output based on public data and the settings shown. Not a recommendation tailored to you."*, plus a link to the methodology page;
+- the **model fair value**, the **margin of safety**, and the models behind it (`fv_model_count`);
+- **`signal_computed_at`** (UTC) and **`price_as_of`** (when the price used was fetched);
+- **`data_flags`**: `price_stale` (price older than `PRICE_STALE_HOURS` = 72 h), `price_missing_timestamp`, `fair_value_missing`, `fair_value_thin_basis`, `fair_value_clamped`, `eps_derived_from_pe`, `small_peer_group`;
+- **`data_source`**, plus any attribution the data licence requires;
+- when `founder_holds` is True, the disclosure `FOUNDER_HOLDS_NOTICE` (REC-8). Any position counts, whatever its size. The flag comes from `load_founder_holdings()` and never moves a score or signal.
+
+`signal_reason(row)` gives a one-line statement of the rule and figures behind the signal, e.g. *"Model score 74 is at or above 70, and the price is 18% below the model fair value (minimum 0%)."* It uses descriptive terms only: no "buy", "avoid", "advice" or second-person phrasing (DIS-6). For **Fails quality screen** it names the rules that failed, from `veto_rules` (stable codes such as `debt_to_equity`, `negative_fcf`, `revenue_decline`; labels in `VETO_RULE_LABELS`).
+
+### Methodology, horizon and risk warning (REC-5, REC-6)
+`methodology(**settings)` returns everything the public methodology page must show, read from the live constants and the active shared settings: every model and its base weight, the composite weights, the rank blend, the exact signal thresholds, every quality-screen rule, the signal definitions (`SIGNAL_DEFINITIONS`), the assumed horizon (`SIGNAL_HORIZON`: a multi-year view on current fundamentals, nothing about short-term price moves), the risk warning (`SIGNAL_RISK_WARNING`), the sensitivity note and the stale-price limit. Every badge links to that page.
+
+### Update frequency, history and reproducibility (REC-7, REC-10, REC-11)
+- **Update frequency.** Fundamentals refresh about every 24 h (± 4 h jitter per ticker, `CACHE_TTL_HOURS` / `CACHE_TTL_JITTER`), and signals are recomputed whenever the cache changes. The methodology page states this.
+- **History.** After each universe build, `signal_history.record_changes(signal_records(scored))` appends one record per stock whose `signal_code`, `model_version` or `model_settings_id` changed, tagged with `log_reason`. Each stock page shows `history_for(ticker)`: every badge change of the last 12 months, kept for at least that long. Only public-universe rows (`public_universe`) are logged, so a ticker a user added for themselves never appears in the shared history.
+- **Daily snapshot.** `signal_history.write_daily_snapshot()` stores every public signal with its inputs once a day. A past screen can then be reproduced even on days when no badge changed.
+- **Settings audit.** `settings_audit` logs each planned signal-moving change, each shared-settings change (who, old → new) and each new model version. This is the evidence for the founder's trading blackout (REC-9).
+- **Reproducibility.** Every row and log record carries `model_version` (`MODEL_VERSION`, bumped on any change that can move a fair value, score or signal) and `model_settings_id` (a hash of the shared thresholds, weights and the analyst switch), next to the inputs and model fair values. This makes any past signal reproducible on request.
+- **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Neutral), shown on the methodology page (REC-10).
+
+### Hard Veto Rules (quality screen)
+`compute_scores`'s `_hard_veto` is true when **any** of the following holds; the stock's signal is then **Fails quality screen**. The
 static, point-in-time checks:
 - Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
 - Free cash flow negative for the **3 most recent consecutive fiscal years** (`fcfHistory`, from the cash flow statement's "Free Cash Flow" row, newest first — `screener._fcf_history`). Falls back to the **single most recent reported period** (`freeCashflow`) when fewer than 3 years of history are available (recent IPOs, or tickers where the statement fetch failed/doesn't expose the row) — a single bad year no longer vetoes an otherwise-sound stock on its own once 3-year history exists.
@@ -197,7 +234,7 @@ Not implemented — no data source exists: active fraud investigation / accounti
 Data collection (yfinance snapshot + FCF & dividend history, 24h cache; DPS history via marketdata.dividends)
     ↓
 Fair value estimation
-  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on a median/trimmed-mean multi-year EBIT, EV reconstructed if the provider dropped it] + DDM single-stage + DDM multi-stage [g clamped so the Gordon denominator ≥ DDM_MIN_SPREAD] + Analyst target [10% haircut, weight scaled by dispersion & coverage]; Graham/PE/EPV skipped for Real Estate / Financial Services [FV-8, NAV-driven, on the resolved sector] — those value off P/B + DDM + analyst [banks also keep P/E]; Book-value/FCF *fallbacks* otherwise fire only when none of Graham/PE/EPV did; Graham/PE/Book-value also held dark, any sector, when Price/BVPS < PTB_SANITY_FLOOR [0.02] — bookValue and trailingEps share a sharesOutstanding basis, so an implausible implied P/B taints both]
+  (Graham Number + PE Fair Value [sector-median trailing P/E × bounded PEG tilt] + EPV [on a median/trimmed-mean multi-year EBIT, EV reconstructed if the provider dropped it] + DDM single-stage + DDM multi-stage [g clamped so the Gordon denominator ≥ DDM_MIN_SPREAD] + Analyst target [only when licensed — ANALYST_INPUTS_ENABLED, off by default (DATA-6); 10% haircut, weight scaled by dispersion & coverage]; Graham/PE/EPV skipped for Real Estate / Financial Services [FV-8, NAV-driven, on the resolved sector] — those value off P/B + DDM + analyst [banks also keep P/E]; Book-value/FCF *fallbacks* otherwise fire only when none of Graham/PE/EPV did; Graham/PE/Book-value also held dark, any sector, when Price/BVPS < PTB_SANITY_FLOOR [0.02] — bookValue and trailingEps share a sharesOutstanding basis, so an implausible implied P/B taints both]
     ↓
 Weighted fair value
   (base weights sum to 1.00; combined DDM weight ≈0.334 × a continuous payout
@@ -206,16 +243,46 @@ Weighted fair value
    1/coverage; the unused part re-normalizes over Graham/PE/EPV/Analyst)
     ↓
 Margin of Safety = (Fair Value − Price) / Fair Value
-Total Expected Return = Capital Gain % + Forward Yield % + DGR % (true DPS CAGR, else earnings-growth proxy) [DGR halved if DDM contributed to Fair Value]
+Implied Return % (est.) = Gap to model fair value % + Forward Yield % + Assumed DGR % (true DPS CAGR, else earnings-growth proxy) [DGR halved if DDM contributed to Fair Value] — a model estimate, not an expected return
 Dividend Sustainability Flag (payout ratio, cash payout ratio, coverage ratio, DPS cut in last 3 complete years)
     ↓
 Risk scoring (5 dimensions; earnings quality blends FCF-history consistency + a Sloan accrual ratio, dividend risk uses true DGR) + separate Quality score + separate Momentum score + Dividend score
     ↓
-Each sub-score (0–100) = BLEND_PCT×(cross-sectional percentile rank) + (1−BLEND_PCT)×(absolute band); BLEND_PCT = 0.5
+Each sub-score (0–100) = BLEND_PCT×(percentile rank within the PUBLIC peer universe — peer_mask / ScoreReference, never a user's own set) + (1−BLEND_PCT)×(absolute band); BLEND_PCT = 0.5
     ↓
 Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.24/0.22/0.24/0.15/0.15)
     ↓
-Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → forces Avoid
+Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → Fails quality screen (score 0)
     ↓
-Strong Buy (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Monitor | Avoid
+Model signal: Undervalued (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Neutral | Low score | Fails quality screen | No signal (no public peer basis)
+    ↓
+Shown with: tooltip + methodology link, model fair value, MoS, signal_computed_at, price_as_of, data_flags, data_source; changes logged to signal_history (12 months); model_version + model_settings_id per row
 ```
+
+---
+## Design rules that keep the output general (PER-1 to PER-7)
+These constrain any future change to this algorithm. Review them before each release that touches signals or alerts (PER-9).
+1. Fair values, scores and signals use only instrument data and the **shared** model settings. They never use a user's holdings, position sizes, income, goals, age, horizon or risk tolerance (PER-1).
+2. The peer universe is the public coverage only. A user's manual tickers or holdings never enter the sector medians or rank distributions (PER-2).
+3. No questionnaire (knowledge, objectives, risk appetite) may feed any input or setting of this algorithm (PER-3).
+4. No alert may combine a signal with the user's own portfolio, such as "a stock you hold is now Low score" (PER-5). Alerts on thresholds the user sets on their own watchlist are allowed.
+5. No order button, broker deep link or affiliate link next to a signal (PER-7).
+6. The signal labels, definitions, `signal_reason` texts, the tooltip and the methodology page are legal texts. They exist in every offered language before that language is released (INT-1, INT-3, INT-4).
+
+## Changes from the original spec
+| Area | Original (`docs/stock_valuation_algorithm.md`) | This version | Req. |
+|---|---|---|---|
+| Purpose | "identifying undervalued stocks and deciding whether they are worth buying" | Model fair value plus a descriptive signal; general information, not a recommendation | DIS-5, DIS-6, PER |
+| Settings | "user-adjustable sliders" | Shared, admin-only model settings; the same for every user | PER-2 |
+| Data source | yfinance, licence not addressed | Data source stated per row; licence named as a launch blocker | DATA-1/2, REC-3 |
+| Analyst inputs | Analyst target model (weight 0.13) + recommendation mean in momentum | Off until licensed; the blend re-normalises | DATA-6 |
+| Peer universe | Enabled exchanges + holdings on disabled exchanges (+ in code: each user's manual tickers); holdings ranked among themselves before the first build | Public universe only (`peer_mask`); user rows scored against it; no ranked signal without a public reference | PER-1, PER-2 |
+| Stage 3 | "Total Expected Return" | "Implied Return % (est.)", explicitly not an expected return | REC-2, DIS-5 |
+| Stage 6 | Decision: Strong Buy / Monitor / Avoid, veto → Avoid | Model signal: Undervalued / Neutral / Low score / Fails quality screen / No signal | BDG-1, BDG-3 |
+| Presentation | — | Tooltip, methodology link, fair value + MoS, timestamps, data flags and source with every signal | BDG-2/3, REC-3/4 |
+| Methodology | Thresholds only in this spec | `methodology()` generates the public page from the live constants: horizon, risk warning, sensitivity | REC-5, REC-6 |
+| History | — | Signal-change log, 12 months, visible per stock; distribution of signals | REC-7, REC-10 |
+| Reproducibility | — | `model_version` + `model_settings_id` per row and log record; daily snapshot; settings audit log | REC-9, REC-11 |
+| Analyst data | Fetched and passed through to every screen | Dropped from the output while unlicensed (`strip_analyst_fields`) | DATA-6 |
+| Quality screen | Veto reasons only in the UI | `veto_rules` per row, named in `signal_reason` and logged | REC-2, BDG-3 |
+| Conflicts | — | `founder_holds` + `FOUNDER_HOLDS_NOTICE`, any position size | REC-8 |

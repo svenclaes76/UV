@@ -166,27 +166,45 @@ def _build_test_workbook() -> bytes:
     return buf.getvalue()
 
 
-def test_import_valid_excel_saves_portfolio(isolated_data, monkeypatch):
-    # settings.py's import branch calls st.rerun() unconditionally on success
-    # without ever clearing the file_uploader's own state — since AppTest's
-    # uploaded file persists across reruns exactly like a real session, that
-    # st.rerun() re-enters the same "file present -> re-import -> rerun"
-    # branch forever (confirmed: this hangs for the full 60s timeout without
-    # this patch). Real bug in the app, out of scope here — st.rerun is
-    # stubbed to a no-op so this test can still verify the save itself
-    # happened before rerun() would have fired.
-    import streamlit as st
-    monkeypatch.setattr(st, "rerun", lambda *a, **k: None)
+def _no_portfolio() -> bool:
+    pf = portfolio.load_portfolio()
+    return pf is None or pf.empty
 
-    at = _run(monkeypatch)
-    uploader = at.file_uploader(key="imp_portfolio")
-    uploader.upload(
-        "portfolio.xlsx", _build_test_workbook(),
+
+def _upload_workbook(at, data):
+    at.file_uploader(key="imp_portfolio").upload(
+        "portfolio.xlsx", data,
         mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     at.run()
+
+
+def test_import_valid_excel_saves_portfolio_after_confirmation(isolated_data, monkeypatch):
+    # Importing replaces everything, so it waits for an explicit "Replace my
+    # portfolio data". The uploader gets a new key afterwards — the old one
+    # kept its file and re-imported it on every rerun (this test used to
+    # stub st.rerun to dodge that loop).
+    at = _run(monkeypatch)
+    _upload_workbook(at, _build_test_workbook())
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert _no_portfolio()                                      # nothing replaced yet
+    assert "Replace all portfolio data" in "".join(m.value for m in at.markdown)
+    at.button(key="imp_confirm").click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_portfolio().iloc[0]["ticker"] == "TESTX.BR"
+    # A fresh, empty uploader replaced the one holding the file: no re-import
+    # loop. (AppTest keeps the pre-rerun buttons in its tree, so assert on
+    # the uploader rather than the confirm button's absence.)
+    assert [(u.key, bool(u.value)) for u in at.file_uploader] == [("imp_portfolio_1", False)]
+
+
+def test_import_cancel_keeps_the_current_portfolio(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    _upload_workbook(at, _build_test_workbook())
+    at.button(key="imp_cancel").click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert _no_portfolio()
+    assert [(u.key, bool(u.value)) for u in at.file_uploader] == [("imp_portfolio_1", False)]
 
 
 def test_import_excel_with_no_valid_positions_shows_error(isolated_data, monkeypatch):
@@ -215,7 +233,7 @@ def test_targets_section_renders(isolated_data, monkeypatch):
     html = "".join(m.value for m in at.markdown)
     assert "Target allocation" in html
     assert at.text_area(key="tgt_sectors").value == ""      # nothing saved yet
-    assert at.number_input(key="tgt_hhi").value == 0.0
+    assert at.number_input(key="tgt_hhi").value is None         # empty = default bands
 
 
 def test_save_target_allocation_persists(isolated_data, monkeypatch):
@@ -242,6 +260,23 @@ def test_existing_targets_prefill_the_editor(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     assert "Technology 30" in at.text_area(key="tgt_sectors").value
     assert at.number_input(key="tgt_hhi").value == 0.12
+
+
+def test_withholding_rates_save_only_with_the_button(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    at.number_input(key="disp_wh_brussels").set_value(30.0).run()
+    assert settings.load_settings(TEST_EMAIL).get("dividend_withholding", {}).get("brussels", 0.0) == 0.0
+    at.button(key="wh_save").click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_settings(TEST_EMAIL)["dividend_withholding"]["brussels"] == 30.0
+
+
+def test_section_nav_links_every_card_anchor(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    for anchor in ("set-language", "set-account", "set-display", "set-portfolio", "set-data",
+                   "set-import", "set-model", "set-legal"):
+        assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html, anchor
 
 
 def test_parse_targets_text_drops_malformed_and_out_of_range():
@@ -490,8 +525,8 @@ class TestLinkedAccounts:
         auth.register(TEST_EMAIL, "password123")
         at = _run(monkeypatch)
         html = "".join(m.value for m in at.markdown)
-        assert "Not configured for this workspace" in html
-        assert "Unavailable" in html
+        assert "not available in the beta" in html
+        assert not any(b.label == "Connect" for b in at.button)
 
     def test_linked_provider_shows_connected_and_disconnect(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")
@@ -772,11 +807,12 @@ class TestTrustedDevicesCard:
 # ── Passkeys stub (Phase 3 — UI only, no WebAuthn) ──────────────────────────
 
 class TestPasskeysStubRow:
-    def test_shows_phase_3_badge_and_disabled_manage_button(self, isolated_data, monkeypatch):
+    def test_says_not_available_in_beta_and_disables_manage(self, isolated_data, monkeypatch):
         at = _run(monkeypatch)
         html = "".join(m.value for m in at.markdown)
         assert "Passkeys" in html
-        assert "PHASE 3" in html
+        assert "Not available in the beta." in html
+        assert "PHASE 3" not in html                               # no internal roadmap labels
         manage_btn = [b for b in at.button if b.label == "Manage"][0]
         assert manage_btn.disabled
 

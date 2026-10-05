@@ -37,8 +37,10 @@ _SHARED_DEFAULTS: dict = {
     # payout>0.90 check).
     "max_debt_equity": 500.0,   # % — hard veto above this D/E
     "max_payout":      90.0,    # % — dividend flagged "At Risk" above this payout ratio
-    "min_mos":         0.0,     # % — minimum margin of safety required for a BUY signal
-    "buy_threshold":   70.0,    # composite score required for a BUY signal
+    # Undervalued needs at least screener.MIN_MOS_FLOOR (10%) whatever this
+    # says (decision D1); the default matches the floor.
+    "min_mos":         10.0,    # % — minimum margin of safety for the Undervalued signal
+    "buy_threshold":   70.0,    # composite score required for the Undervalued signal
     "screen_style":    "balanced",  # composite sub-score weighting — see _SCORE_STYLES
     "benchmark_stoxx": False,   # default state of the Dashboard's Euro Stoxx 50 overlay checkbox
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
@@ -92,8 +94,8 @@ _SCORE_STYLES: dict[str, tuple] = {
 _USER_DEFAULTS: dict = {
     "density":  "comfortable",  # "comfortable" | "compact" — table row density
     "refresh_interval_s": 60,   # portfolio price auto-refresh cadence
-    "alert_buy_signal":      False,
-    "alert_avoid_signal":    False,
+    # No alert may pair a model signal with the user's holdings (PER-5): the
+    # former alert_buy_signal / alert_avoid_signal were removed in v2.1.0.
     "alert_dividend_ex_date": False,
     # Only badge an approaching ex-date for a holding at least this big a
     # slice of the portfolio — an ex-div reminder for a 0.3%-weight position
@@ -155,6 +157,15 @@ def save_shared_settings(s: dict) -> None:
     _prev = load_shared_settings()
     write_encrypted(_SHARED_FILE, json.dumps(s, indent=2))
     _log_setting_changes(_prev, s, scope="shared")
+    # REC-9: shared settings decide every user's signal, so each change is also
+    # kept in the compliance audit log (not subject to log retention).
+    try:
+        from uvalu.compliance import settings_audit
+        settings_audit.record_settings_change(logkit.user_id() or "unknown", _prev, s)
+    except Exception:
+        logkit.get_logger("uvalu.settings").error(
+            "settings audit write failed", exc_info=True,
+            extra={"event": "compliance.settings_audit_failed"})
 
 
 def get_veto_thresholds() -> tuple[float, float, float, float]:
@@ -164,7 +175,7 @@ def get_veto_thresholds() -> tuple[float, float, float, float]:
     return (
         float(s.get("max_debt_equity", 500.0)),
         float(s.get("max_payout", 90.0)) / 100,
-        float(s.get("min_mos", 0.0)) / 100,
+        float(s.get("min_mos", 10.0)) / 100,
         float(s.get("buy_threshold", 70.0)),
     )
 

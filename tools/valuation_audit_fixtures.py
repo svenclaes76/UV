@@ -43,7 +43,7 @@ CONFIRMED_BUG_SIBLING_RATIOS = {
 
 # ── Considered and dropped: sharesOutstanding upper bound ────────────────────
 # BCY.DE (Glencore's Frankfurt line) and HBC1.DE (HSBC's Frankfurt line) --
-# both real, currently-legitimate Strong Buy rows with share counts far above
+# both real, currently-legitimate Undervalued rows (formerly Strong Buy) with share counts far above
 # any naive "implausibly high" cutoff. No bug found this session involved an
 # implausibly *high* share count, so no upper bound ships at all.
 SHARES_OUTSTANDING_UPPER_BOUND_COUNTEREXAMPLES = {
@@ -52,7 +52,7 @@ SHARES_OUTSTANDING_UPPER_BOUND_COUNTEREXAMPLES = {
 }
 
 # ── Legitimate low-implied-P/E rows (disprove a naive P/E floor a second way) ─
-# All real, currently-legitimate Strong Buy rows this session, with implied
+# All real, currently-legitimate Undervalued rows (formerly Strong Buy) this session, with implied
 # P/E well under the levels a naive floor would need to clear BC.MI.
 LEGITIMATE_LOW_PE_ROWS = {
     "TPG0.DE": 0.47,

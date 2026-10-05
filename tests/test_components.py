@@ -10,7 +10,7 @@ from streamlit.testing.v1 import AppTest
 
 import numpy as np
 
-from uvalu.components import (signal_badge_for_decision, signal_badge_html, is_hard_veto,
+from uvalu.components import (signal_badge_for, signal_badge_html, model_signal_badge_html, is_hard_veto,
                               score_color, band_tone_color, risk_score_meter_html,
                               radial_gauge_svg, sub_score_bar_html,
                               sparkline_svg, veto_reason_str, _fair_value_bar_html,
@@ -18,25 +18,32 @@ from uvalu.components import (signal_badge_for_decision, signal_badge_html, is_h
                               quality_score_color, _gain_color)
 
 
-def test_signal_badge_for_decision_maps_known_labels():
-    assert signal_badge_for_decision("Strong Buy") == ("buy", "BUY")
-    assert signal_badge_for_decision("Monitor") == ("monitor", "MONITOR")
-    assert signal_badge_for_decision("Avoid") == ("avoid", "AVOID")
+def test_signal_badge_for_maps_every_signal_code():
+    assert signal_badge_for("undervalued") == ("buy", "Undervalued")
+    assert signal_badge_for("neutral") == ("monitor", "Neutral")
+    assert signal_badge_for("low_score") == ("avoid", "Low score")
+    assert signal_badge_for("fails_screen") == ("veto", "Fails quality screen")
+    assert signal_badge_for("pending") == ("neutral", "No signal")
 
 
-def test_signal_badge_for_decision_veto_overrides_decision():
-    assert signal_badge_for_decision("Strong Buy", veto=True) == ("veto", "VETO")
+def test_signal_badge_for_veto_overrides_the_code():
+    assert signal_badge_for("undervalued", veto=True) == ("veto", "Fails quality screen")
 
 
-def test_signal_badge_for_decision_missing_decision_is_nodata_not_avoid():
-    # A holding with no scored screener row (fundamentals gap) has no Decision
-    # and a NaN veto cell — it must read as "NO DATA", never AVOID or (via
-    # bool(nan)) VETO (WP-DQ6).
-    assert signal_badge_for_decision("") == ("neutral", "NO DATA")
-    assert signal_badge_for_decision(None) == ("neutral", "NO DATA")
-    assert signal_badge_for_decision(np.nan) == ("neutral", "NO DATA")
-    assert signal_badge_for_decision("Something Else") == ("neutral", "NO DATA")
-    assert signal_badge_for_decision(np.nan, veto=np.nan) == ("neutral", "NO DATA")
+def test_signal_badge_for_missing_code_is_nodata_not_low_score():
+    # A holding with no scored screener row (fundamentals gap) has no
+    # signal_code and a NaN veto cell — it must read as "No data", never a
+    # low score or (via bool(nan)) a failed screen (WP-DQ6).
+    for code in ("", None, np.nan, "Strong Buy"):
+        assert signal_badge_for(code) == ("neutral", "No data")
+    assert signal_badge_for(np.nan, veto=np.nan) == ("neutral", "No data")
+
+
+def test_model_signal_badge_carries_the_bdg2_tooltip():
+    html = model_signal_badge_html("undervalued")
+    assert 'title="Model output based on public data and the settings shown. ' \
+           'Not a recommendation tailored to you. See Methodology for thresholds."' in html
+    assert ">Undervalued<" in html
 
 
 def test_is_hard_veto_is_nan_safe():
@@ -48,8 +55,8 @@ def test_is_hard_veto_is_nan_safe():
 
 
 def test_signal_badge_html_renders_expected_span():
-    html = signal_badge_html("buy", "BUY")
-    assert html == '<span class="uv-badge uv-badge-buy">BUY</span>'
+    html = signal_badge_html("buy", "OK")
+    assert html == '<span class="uv-badge uv-badge-buy">OK</span>'
 
 
 def _run(fn) -> AppTest:
@@ -124,7 +131,7 @@ def test_stock_row_without_action_hides_star():
     def _script():
         from uvalu.components import stock_row
         stock_row(key="row1", ticker="AAA.BR", name="Alpha Corp", exchange="Brussels",
-                 decision="Strong Buy", veto=False, score=80.0, mos_pct=None,
+                 signal_code="undervalued", veto=False, score=80.0, mos_pct=None,
                  price=100.0, pe=15.0, div_yield=0.03, show_action=False)
 
     at = _run(_script)
@@ -135,7 +142,7 @@ def test_stock_row_missing_mos_shows_dash():
     def _script():
         from uvalu.components import stock_row
         stock_row(key="row1", ticker="AAA.BR", name="Alpha Corp", exchange="Brussels",
-                 decision="Strong Buy", veto=False, score=80.0, mos_pct=None,
+                 signal_code="undervalued", veto=False, score=80.0, mos_pct=None,
                  price=100.0, pe=15.0, div_yield=0.03)
 
     at = _run(_script)
@@ -181,8 +188,7 @@ def test_six_model_ladder_rows_relabels_dark_slots_with_fv3_fallbacks():
            "pb_fair_value": 8.5, "fcf_fair_value": 10.2}
     rows = six_model_ladder_rows(row)
     assert [lbl for lbl, _ in rows] == [
-        "Book value", "FCF value", "EPV", "Dividend discount",
-        "DDM 2-stage", "Analyst Target"]
+        "Book value", "FCF value", "EPV", "Dividend discount", "DDM 2-stage"]
     assert rows[0] == ("Book value", 8.5)
     assert rows[1] == ("FCF value", 10.2)
     assert rows[2] == ("EPV", 30.0)
@@ -195,8 +201,16 @@ def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
            "pb_fair_value": None, "fcf_fair_value": None}
     rows = six_model_ladder_rows(row)
     assert [lbl for lbl, _ in rows] == [
-        "Graham Number", "P/E fair value", "EPV", "Dividend discount",
-        "DDM 2-stage", "Analyst Target"]
+        "Graham Number", "P/E fair value", "EPV", "Dividend discount", "DDM 2-stage"]
+
+
+def test_six_model_ladder_rows_show_the_analyst_target_only_when_licensed(monkeypatch):
+    import screener
+    from uvalu.components import six_model_ladder_rows
+    row = {"graham_number": 52.0, "targetMeanPrice": 55.0}
+    assert "Analyst Target" not in [lbl for lbl, _ in six_model_ladder_rows(row)]
+    monkeypatch.setattr(screener, "ANALYST_INPUTS_ENABLED", True)
+    assert ("Analyst Target", 55.0) in six_model_ladder_rows(row)
 
 
 def test_six_model_ladder_reasons_formats_the_dark_codes():
@@ -393,7 +407,7 @@ class TestVetoReasonStr:
         # independent ones — "At Risk" alone (coverage still healthy)
         # shouldn't surface as its own veto reason.
         row = pd.Series({"Div Flag": "At Risk", "dividendCoverage": 2.0})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_multiple_reasons_joined(self, isolated_data):
         row = pd.Series({"debtToEquity": 900.0, "freeCashflow": -1.0})
@@ -402,7 +416,7 @@ class TestVetoReasonStr:
         assert "; " in result
 
     def test_no_reasons_falls_back_to_generic_message(self, isolated_data):
-        assert veto_reason_str(pd.Series({})) == "a hard-veto rule"
+        assert veto_reason_str(pd.Series({})) == "a quality-screen rule"
 
     def test_leverage_exempt_sector_does_not_surface_debt_reason(self, isolated_data):
         # Financial Services/Real Estate/Utilities are exempt from the D/E
@@ -410,13 +424,13 @@ class TestVetoReasonStr:
         # surface as a reason for those sectors, matching screener.py's
         # _hard_veto formula.
         row = pd.Series({"debtToEquity": 900.0, "sector": "Financial Services"})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_single_bad_fcf_year_not_a_reason_with_three_year_history(self, isolated_data):
         # A single negative year no longer vetoes once 3-year fcfHistory
         # exists — only 3 consecutive negative years do.
         row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, 50.0, 80.0]})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_three_consecutive_negative_fcf_years_is_a_reason(self, isolated_data):
         row = pd.Series({"freeCashflow": -1.0, "fcfHistory": [-1.0, -2.0, -3.0]})
@@ -438,7 +452,7 @@ class TestVetoReasonStr:
 
     def test_short_history_does_not_add_a_trend_reason(self, isolated_data):
         row = pd.Series({"revenueHistory": [80.0, 100.0]})   # < 3 years
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
     def test_confirmed_zero_volume_is_a_reason(self, isolated_data):
         row = pd.Series({"averageVolume": 0.0})
@@ -449,7 +463,7 @@ class TestVetoReasonStr:
         # surface as a reason — matches screener.py's `== 0` (not
         # `.fillna(0)`) hard-veto test.
         row = pd.Series({"averageVolume": None})
-        assert veto_reason_str(row) == "a hard-veto rule"
+        assert veto_reason_str(row) == "a quality-screen rule"
 
 
 class TestFairValueBarHtml:
@@ -477,7 +491,7 @@ class TestFairValueBarHtml:
 class TestHoldingsRowHtml:
     def _row(self, **overrides):
         kwargs = dict(ticker="AAA.BR", sector="Technology", name="Alpha Corp",
-                      decision="Strong Buy", veto=False, price=100.0, fair_value=120.0,
+                      signal_code="undervalued", veto=False, price=100.0, fair_value=120.0,
                       mos_pct=16.7, weight=0.25, value=2500.0, total_gain=125.0)
         kwargs.update(overrides)
         return holdings_row_html(**kwargs)
@@ -502,9 +516,10 @@ class TestHoldingsRowHtml:
 
     def test_dataless_row_renders_nodata_badge_not_veto(self):
         # A held ticker with no scored screener row merges in as NaN veto /
-        # empty decision — must be NO DATA, never VETO via bool(nan) (WP-DQ6).
-        html = self._row(decision="", veto=np.nan, fair_value=np.nan, mos_pct=np.nan)
-        assert "uv-badge-neutral" in html and ">NO DATA<" in html
+        # empty signal_code — must be "No data", never a failed screen via
+        # bool(nan) (WP-DQ6).
+        html = self._row(signal_code="", veto=np.nan, fair_value=np.nan, mos_pct=np.nan)
+        assert "uv-badge-neutral" in html and ">No data<" in html
         assert "uv-badge-veto" not in html
 
     def test_data_thin_row_shows_pending_for_ladder_and_mos(self):
@@ -556,3 +571,53 @@ class TestGainColor:
 
     def test_zero_is_up(self):
         assert _gain_color(0.0) == "var(--up-txt)"
+
+
+# ── Provenance bar (REC-4 / REC-5 / REC-10; visual review 2026-10-04) ────────
+
+def _signals_frame(price_ages_hours, codes=("undervalued",)):
+    now = pd.Timestamp.now(tz="UTC")
+    n = len(price_ages_hours)
+    return pd.DataFrame({
+        "Ticker": [f"T{i}.BR" for i in range(n)],
+        "signal_computed_at": [now] * n,
+        "price_as_of": [now - pd.Timedelta(hours=h) for h in price_ages_hours],
+        "model_version": ["M1"] * n,
+        "signal_code": [codes[i % len(codes)] for i in range(n)],
+    })
+
+
+def test_list_provenance_keeps_every_rec4_rec5_fact():
+    from uvalu.components import list_provenance_html
+    html = list_provenance_html(_signals_frame([1, 2]))
+    assert "Signals computed" in html and "prices delayed" in html
+    assert "model" in html and "M1" in html
+    assert "Methodology" in html and "/legal?doc=methodology" in html
+
+
+def test_list_provenance_flags_prices_older_than_72_hours():
+    from uvalu.components import list_provenance_html
+    fresh = list_provenance_html(_signals_frame([1, 30]))
+    stale = list_provenance_html(_signals_frame([1, 24 * 21]))
+    assert "oldest" not in fresh
+    assert "oldest 3 weeks" in stale
+    assert "1 price is more than 72 hours old." in stale
+
+
+def test_coverage_bar_only_with_coverage_and_shows_each_share():
+    from uvalu.components import list_provenance_html
+    df = _signals_frame([1, 1, 1, 1], codes=("undervalued", "neutral", "neutral", "fails_screen"))
+    assert "Coverage" not in list_provenance_html(df)
+    html = list_provenance_html(df, coverage=True)
+    assert "Coverage" in html
+    for label in ("Undervalued", "Neutral", "Fails quality screen"):
+        assert label in html
+    assert "width:50.00%" in html and "width:25.00%" in html
+
+
+def test_signal_provenance_for_one_row():
+    from uvalu.components import signal_provenance_html
+    row = _signals_frame([2]).iloc[0]
+    html = signal_provenance_html(row)
+    assert "Signal computed" in html and "price as of" in html and "delayed" in html
+    assert "M1" in html and "/legal?doc=methodology" in html

@@ -62,7 +62,9 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
             if st.button("", key="ov_cash_expand", icon=":material/open_in_full:", help=_("Open full page")):
                 on_open()
         with st.container(key="pf_cash_strip_body"):
-            _cols = st.columns([1.1, 3.4, 1.1], vertical_alignment="center", gap="large")
+            # Wider outer columns: the 1.1-wide ones wrapped "Last entry …"
+            # under the balance and stacked Deposit/Withdraw at two widths.
+            _cols = st.columns([1.5, 3, 1.6], vertical_alignment="center", gap="large")
             _c1, _c2 = _cols[0], _cols[1]
             with _c1:
                 st.markdown(cash_balance_block_html(cash.money(s["balance"], base), _last_text(s)),
@@ -72,7 +74,7 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
                             unsafe_allow_html=True)
             _help = _(_VIEWER_HELP) if is_viewer else None
             with _cols[2]:
-                with st.container(horizontal=True, gap="small", horizontal_alignment="right"):
+                with st.container(key="pf_cash_btns", horizontal=True, gap="small", horizontal_alignment="right"):
                     if st.button(pgettext("button", "Deposit"), key="ov_cash_deposit", disabled=is_viewer, help=_help):
                         cash_transaction_dialog("Deposit")
                     if st.button(_("Withdraw"), key="ov_cash_withdraw", disabled=is_viewer, help=_help):
