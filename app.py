@@ -30,7 +30,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
                           risk as _page_risk, screener as _page_screener,
                           watchlist as _page_watchlist, analysis as _page_analysis,
                           settings as _page_settings, help as _page_help,
-                          admin as _page_admin, legal as _page_legal)
+                          admin as _page_admin, legal as _page_legal, about as _page_about)
 
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
@@ -40,6 +40,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 styles.inject()
+# Non-production builds are marked on every screen, sign-in included (VD-03).
+shell.render_env_marker()
 
 # A broken i18n config stops the app with a message naming the key (spec C-02).
 try:
@@ -116,6 +118,7 @@ _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":mat
 _pg_help      = st.Page(_page_help.render,      title=_("Methodology & help"), icon=":material/help:",   url_path="help")
 _pg_legal     = st.Page(_page_legal.render,     title=_("Legal"),     icon=":material/gavel:",           url_path="legal")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
+_pg_about     = st.Page(_page_about.render,     title=_("About Uvalu"), icon=":material/info:",        url_path="about")
 
 # Populate the shared registry so page modules can link to one another.
 # _pg_analysis and _pg_admin are deliberately not in the top-bar nav
@@ -125,11 +128,12 @@ nav.pages.update({
     "dashboard": _pg_dashboard, "portfolio": _pg_portfolio, "risk": _pg_risk,
     "screener": _pg_screener, "watchlist": _pg_watchlist, "analysis": _pg_analysis,
     "settings": _pg_settings, "help": _pg_help, "admin": _pg_admin, "legal": _pg_legal,
+    "about": _pg_about,
 })
 
 _nav = st.navigation(
     [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
-     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal],
+     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal, _pg_about],
     position="hidden",
 )
 

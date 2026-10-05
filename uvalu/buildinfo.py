@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = ROOT / "pyproject.toml"
 STAMP_FILE = ROOT / "build_info.json"
 STATIC_DIR = ROOT / "static"
+# Where a commit can be looked up (About page, admins only — the repo is private).
+REPO_URL = os.environ.get("UVALU_REPO_URL", "https://github.com/svenclaes76/UV")
 VERSION_JSON = STATIC_DIR / "version.json"
 
 # CalVer YYYY.MM.N (VM-01) — two-digit month; N is the release's sequence number
@@ -191,6 +193,13 @@ def write_public(info: BuildInfo, *, schema_version: "int | None" = None,
 
 # ── process-wide accessor ────────────────────────────────────────────────────
 
+def _stamp_is_stale(info: BuildInfo, root: "Path | None" = None) -> bool:
+    """A stamp written for another commit (a checkout moved on, a dev server
+    started without run_app.py) must not be shown. One git call per process;
+    without git the stamp is trusted (a deploy without a checkout)."""
+    head = _git(root or ROOT, "rev-parse", "HEAD")
+    return bool(head) and head != info.commit_full
+
 _lock = threading.Lock()
 _current: "BuildInfo | None" = None
 
@@ -202,12 +211,21 @@ def current() -> BuildInfo:
     with _lock:
         if _current is None:
             info = load()
+            if info is not None and _stamp_is_stale(info):
+                info = None
             if info is None:
                 info = compute()
             else:
                 info = replace(info, environment=_runtime_environment())
             _current = info
         return _current
+
+
+def commit_url(info: "BuildInfo | None" = None) -> "str | None":
+    info = info or current()
+    if not REPO_URL or info.commit_full in ("", "unknown"):
+        return None
+    return f"{REPO_URL.rstrip('/')}/commit/{info.commit_full}"
 
 
 def build_id(info: "BuildInfo | None" = None) -> str:

@@ -230,3 +230,23 @@ def test_no_hard_coded_app_version_in_ui_code():
                  for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
                  if _LITERAL.search(line)]
     assert offenders == []
+
+
+def test_stamp_for_another_commit_is_ignored(tmp_path, monkeypatch):
+    """A dev server started without run_app.py must not show an old stamp."""
+    stamp = tmp_path / "build_info.json"
+    old = buildinfo.compute(ROOT, environment="test")
+    buildinfo.write(buildinfo.BuildInfo(**{**old.to_dict(), "commit_full": "0" * 40, "commit": "0000000"}), stamp)
+    monkeypatch.setattr(buildinfo, "STAMP_FILE", stamp)
+    buildinfo.reset()
+    try:
+        cur = buildinfo.current()
+        assert cur.source == "runtime" and cur.commit == old.commit
+    finally:
+        buildinfo.reset()
+
+
+def test_stamp_trusted_without_git(tmp_path, monkeypatch):
+    info = buildinfo.compute(ROOT, environment="test")
+    monkeypatch.setattr(buildinfo, "_git", lambda *a, **k: None)
+    assert not buildinfo._stamp_is_stale(info)

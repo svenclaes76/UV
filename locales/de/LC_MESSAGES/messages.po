@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-05 18:06+0000\n"
+"POT-Creation-Date: 2026-10-05 18:16+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: de <LL@li.org>\n"
@@ -20,49 +20,53 @@ msgstr ""
 "X-Generator: Poedit 3.9\n"
 
 #. Context: Main navigation › page name in the top bar and browser tab
-#: app.py:109 uvalu/shell.py:47
+#: app.py:111 uvalu/shell.py:47
 msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:110 uvalu/pages_/portfolio.py:263 uvalu/pages_/settings.py:109
+#: app.py:112 uvalu/pages_/portfolio.py:263 uvalu/pages_/settings.py:109
 #: uvalu/shell.py:50
 msgid "Portfolio"
 msgstr "Portfolio"
 
 #. Context: Main navigation › page name for the risk assessment page
-#: app.py:111 uvalu/pages_/analysis.py:188 uvalu/shell.py:51
+#: app.py:113 uvalu/pages_/analysis.py:188 uvalu/shell.py:51
 msgid "Risk"
 msgstr "Risiko"
 
 #. Context: Main navigation › page name. Kept in English in all languages
 #. (glossary).
-#: app.py:112 uvalu/shell.py:48
+#: app.py:114 uvalu/shell.py:48
 msgid "Screener"
 msgstr "Screener"
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:113 uvalu/pages_/watchlist.py:64 uvalu/shell.py:49
+#: app.py:115 uvalu/pages_/watchlist.py:64 uvalu/shell.py:49
 msgid "Watchlist"
 msgstr "Watchlist"
 
 #. Context: Page name of the single-stock analysis page (browser tab title)
-#: app.py:114
+#: app.py:116
 msgid "Analysis"
 msgstr "Analyse"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:115 uvalu/pages_/settings.py:453 uvalu/shell.py:390
+#: app.py:117 uvalu/pages_/settings.py:453 uvalu/shell.py:390
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: app.py:116 uvalu/pages_/help.py:135 uvalu/shell.py:392
+#: app.py:118 uvalu/pages_/help.py:135 uvalu/shell.py:392
 msgid "Methodology & help"
 msgstr "Methodik & Hilfe"
 
-#: app.py:117 uvalu/pages_/settings.py:113 uvalu/pages_/settings.py:966
+#: app.py:119 uvalu/pages_/settings.py:113 uvalu/pages_/settings.py:966
 msgid "Legal"
 msgstr "Rechtliches"
+
+#: app.py:121 uvalu/pages_/about.py:136 uvalu/pages_/help.py:236 uvalu/shell.py:398
+msgid "About Uvalu"
+msgstr "Über Uvalu"
 
 #. Context: User role name (shown after your email in Settings and in invites)
 #: auth.py:57
@@ -3173,31 +3177,32 @@ msgstr "Rechtliches & Richtlinien"
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:397
+#: uvalu/shell.py:400
 msgid "Admin portal"
 msgstr "Admin-Portal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:481 uvalu/pages_/settings.py:630 uvalu/shell.py:408
+#: uvalu/pages_/settings.py:481 uvalu/pages_/settings.py:630 uvalu/shell.py:411
 msgid "Sign out"
 msgstr "Abmelden"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:453 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:289 uvalu/shell.py:433
+#: uvalu/pages_/dashboard.py:453 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:289
+#: uvalu/shell.py:436
 msgid "Beta"
 msgstr "Beta"
 
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:445
+#: uvalu/shell.py:481
 #, fuzzy
 msgid "Uvalu is being updated"
 msgstr "Uvalu wird aktualisiert"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:447
+#: uvalu/shell.py:483
 #, fuzzy
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
@@ -3205,6 +3210,11 @@ msgid ""
 msgstr ""
 "Die App wartet, bis eine Aktualisierung der Daten abgeschlossen ist. Versuch es "
 "in ein paar Minuten noch einmal."
+
+#: uvalu/shell.py:565
+#, fuzzy
+msgid "About this version and what's new"
+msgstr "Über diese Version und was neu ist"
 
 #. Context: Dashboard › empty state of the allocation chart
 #: uvalu/ui.py:313
@@ -3331,6 +3341,105 @@ msgstr "Referenzsprache: Englisch. Du kannst dich auf die Fassung berufen, die d
 msgid "This page is not yet available in your language; the English reference version is shown."
 msgstr "Diese Seite ist noch nicht in deiner Sprache verfügbar; die englische Referenzfassung wird angezeigt."
 
+#. About › What's new › heading of a group of release notes (things added / changed /
+#. fixed / removed in a release).
+#: uvalu/pages_/about.py:28
+#, fuzzy
+#| msgid "Dividend"
+msgid "Added"
+msgstr "Hinzugefügt"
+
+#: uvalu/pages_/about.py:28
+#, fuzzy
+#| msgid "Change"
+msgid "Changed"
+msgstr "Geändert"
+
+#: uvalu/pages_/about.py:29
+#, fuzzy
+#| msgid "Yield"
+msgid "Fixed"
+msgstr "Behoben"
+
+#: uvalu/pages_/about.py:29
+#, fuzzy
+msgid "Removed"
+msgstr "Entfernt"
+
+#: uvalu/pages_/about.py:74
+#, fuzzy
+#| msgid "model {version}"
+msgid "App version"
+msgstr "App-Version"
+
+#: uvalu/pages_/about.py:75
+#, fuzzy
+#| msgid "Complaints"
+msgid "Commit"
+msgstr "Commit"
+
+#: uvalu/pages_/about.py:76
+#, fuzzy
+msgid "Built"
+msgstr "Erstellt"
+
+#: uvalu/pages_/about.py:77
+#, fuzzy
+msgid "Environment"
+msgstr "Umgebung"
+
+#: uvalu/pages_/about.py:78
+#, fuzzy
+msgid "Scoring model"
+msgstr "Bewertungsmodell"
+
+#: uvalu/pages_/about.py:83
+#, fuzzy
+msgid "About this version"
+msgstr "Über diese Version"
+
+#: uvalu/pages_/about.py:85
+#, fuzzy
+msgid "Copy these details when you contact support:"
+msgstr "Kopiere diese Angaben, wenn du den Support kontaktierst:"
+
+#. About › What's new › title of the notes for changes not yet in a release (test
+#. builds only).
+#: uvalu/pages_/about.py:102
+#, fuzzy
+#| msgid "No cache yet"
+msgid "Not released yet"
+msgstr "Noch nicht veröffentlicht"
+
+#: uvalu/pages_/about.py:110
+#, fuzzy
+msgid "What’s new"
+msgstr "Was ist neu"
+
+#: uvalu/pages_/about.py:113
+#, fuzzy
+msgid "Release notes are written in English."
+msgstr "Die Versionshinweise sind auf Englisch."
+
+#: uvalu/pages_/about.py:115
+#, fuzzy
+#| msgid "No closed positions yet."
+msgid "No release notes yet."
+msgstr "Noch keine Versionshinweise."
+
+#. About › What's new › marker after the release the user is running.
+#: uvalu/pages_/about.py:120
+#, fuzzy
+#| msgid "This deposit"
+msgid "this version"
+msgstr "diese Version"
+
+#: uvalu/pages_/about.py:133 uvalu/pages_/analysis.py:212 uvalu/pages_/legal.py:155
+#: uvalu/pages_/settings.py:449
+#, python-brace-format
+msgid "← Back to {page}"
+msgstr "← Zurück zu {page}"
+
 #: uvalu/pages_/analysis.py:81
 msgid "Badge history · 12 months"
 msgstr "Badge-Verlauf · 12 Monate"
@@ -3434,11 +3543,6 @@ msgstr "{name} notiert bei {price}, bei einem geschätzten fairen Wert laut Mode
 #, python-brace-format
 msgid "Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100)."
 msgstr "Am stärksten bei {best} ({best_score}/100), am schwächsten bei {worst} ({worst_score}/100)."
-
-#: uvalu/pages_/analysis.py:212 uvalu/pages_/legal.py:155 uvalu/pages_/settings.py:449
-#, python-brace-format
-msgid "← Back to {page}"
-msgstr "← Zurück zu {page}"
 
 #. Context: Analysis page › shown when you open the page without choosing a
 #. stock. Page names in brackets must match the translated navigation names.
@@ -4509,10 +4613,6 @@ msgstr "Uvalu erhält für keine Ausgabe eine Vergütung von Emittenten, Brokern
 #: uvalu/pages_/help.py:230
 msgid "The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live."
 msgstr "Der Gründer handelt eine Aktie nicht ab dem Zeitpunkt, an dem eine Modelländerung beschlossen wird, die ihr Signal ändern würde, bis 2 Handelstage nach ihrer Live-Schaltung."
-
-#: uvalu/pages_/help.py:236
-msgid "About Uvalu"
-msgstr "Über Uvalu"
 
 #: uvalu/pages_/legal.py:178
 msgid "Print or save as PDF"
