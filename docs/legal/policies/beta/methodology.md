@@ -4,11 +4,13 @@ Derived from ../methodology.md (the paid-launch version): delayed Yahoo Finance 
 EODHD closes, update frequency as built, producer without enterprise number (B6). Keep both versions in step
 with screener.methodology() and the risk REF_* constants on every model or threshold change.
 Other IDs: REC-2..7, REC-10, DIS-3, DIS-4.
+Beta-readiness review 5 October 2026: history wording made true from day one (records start with the beta),
+24-month retention (D4) stated, change-log date set. MODEL_VERSION "M1" and MIN_MOS_FLOOR 0.10 checked.
 -->
 
 # Methodology — free beta
 
-**Version:** beta 1.0 · **Last updated:** the opening of the free beta · **Model version:** M1
+**Version:** beta 1.0 · **Last updated:** 5 October 2026 · **Model version:** M1
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -106,7 +108,7 @@ A dividend is "at risk" when the payout ratio is above 90%, the cash payout rati
 - During the beta, prices are delayed quotes from Yahoo Finance, not end-of-day closing prices; each signal shows the time of the price it used.
 - Fundamentals are refreshed about every 24 hours, at a slightly different time for each stock.
 - Signals are recalculated whenever new data arrives. Each signal shows the date and time of calculation and the date of the price used.
-- Each stock page shows the history of signal changes for at least the past 12 months.
+- Each stock page shows the history of signal changes for the past 12 months. Records start at the opening of the free beta, so at first the history is shorter. Records are kept for 24 months.
 - Every result carries the model version and a code for the settings used. Uvalu also keeps a daily record of every signal with the figures behind it, so a past signal can be reproduced on request.
 - Signal histories and daily records cover only the stocks in Uvalu's public coverage. Stocks that one user adds for themselves are not included.
 - Changes to models or thresholds are listed in the change log below and announced in the app when material.
@@ -167,4 +169,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 
 | Date | Model version | Change |
 | --- | --- | --- |
-| Opening of the free beta | M1 | First published version |
+| 5 October 2026 | M1 | First published version |

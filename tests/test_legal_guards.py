@@ -83,9 +83,20 @@ class TestLegalPages:
         assert path.parent.name == "beta" and translated
         path, _t = legal.resolve_doc_path("terms-of-use.md", "en", beta=False)
         assert path.parent == legal.POLICIES_DIR
-        # no beta version → the launch page
-        path, _t = legal.resolve_doc_path("complaints.md", "en", beta=True)
-        assert path.parent == legal.POLICIES_DIR
+        # every page has a beta version (Complaints since Oct 5 2026: the launch
+        # text cites the launch Terms' section numbers); the launch-page
+        # fallback is covered by test_untranslated_language_falls_back_to_english
+        for _key, _title, file_name in disclosures.LEGAL_DOCS:
+            path, _t = legal.resolve_doc_path(file_name, "en", beta=True)
+            assert path.parent.name == "beta", file_name
+
+    @pytest.mark.parametrize("lang", ["nl", "fr", "de", "it", "es"])
+    def test_every_page_is_available_in_english_for_every_language(self, lang):
+        """English-only beta texts (Oct 5 2026): every enabled language gets
+        the English version of all six pages, never "not available"."""
+        for _key, _title, file_name in disclosures.LEGAL_DOCS:
+            path, _t = legal.resolve_doc_path(file_name, lang, beta=True)
+            assert path is not None and path.exists(), (lang, file_name)
 
     def test_untranslated_language_falls_back_to_english(self, tmp_path):
         (tmp_path / "beta").mkdir()
@@ -127,6 +138,26 @@ class TestLegalPages:
         assert "beta 1.0" in md and "Effective from" in md
         assert 'href="#sec-1"' in md and 'id="sec-1"' in md
         assert "Reference language" not in md
+
+    def test_reference_note_hidden_on_the_english_fallback(self, monkeypatch):
+        """A Dutch user sees the English page with the not-yet-translated
+        notice, without the "rely on the version in your own language" note."""
+        def _script():
+            import streamlit as st
+            from uvalu import i18n
+            st.session_state[i18n._SS_CTX] = i18n.with_(i18n._default_ctx(), lang="nl", region="nl-BE")
+            st.query_params["doc"] = "terms"
+            from uvalu.pages_ import legal as page
+            page.render()
+
+        at = AppTest.from_function(_script, default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        md = "".join(m.value for m in at.markdown)
+        assert "Terms of use — free beta" in md
+        assert "Reference language" not in md and "Referentietaal" not in md
+        # …while the not-yet-translated notice is there (rendered in Dutch)
+        assert "ⓘ" in md
 
     def test_split_document_reads_title_meta_and_body(self):
         md = ("# Terms of use — free beta\n\n"

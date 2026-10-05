@@ -15,6 +15,8 @@ Final texts of the six public legal pages, kept as the reference for building th
 
 Each file starts with an HTML comment holding its status and its counsel points. Strip the comment when rendering.
 
+**Free beta.** While `disclosures.BETA` is on, the app shows the versions in [`beta/`](beta/) (decision B4), all six reviewed for beta readiness and dated 5 October 2026. Each beta file's header comment lists what that review changed and what must still be built before the beta opens.
+
 ## 1. Decisions (Oct 3, 2026)
 
 | Topic | Decision |
@@ -66,7 +68,8 @@ Find them with `grep -rn "\[TBD" docs/legal/policies`.
 | `ENTERPRISE NUMBER`, `VAT NUMBER` (not yet registered) | Terms §1, Privacy §1, Conflicts §1, Methodology §11 | Register the eenmanszaak at an enterprise counter (ondernemingsloket) and activate VAT before 1 January 2027; legally required on the site |
 | `MODEL_VERSION AT LAUNCH` | Methodology header + change log | Bump `screener.MODEL_VERSION` with the 10% minimum |
 | `EODHD ATTRIBUTION TEXT` | Data sources §2 | Copy verbatim from the contract |
-| `_streamlit_user` duration | Privacy §7 | Check in the browser on the production build |
+| ~~`_streamlit_user` duration~~ | Privacy §7 | Resolved Oct 5 2026: 30 days (Streamlit `AUTH_COOKIE_MAX_AGE_SECONDS`), plus `_streamlit_user_tokens`; re-check on a Streamlit upgrade |
+| `EMAIL HOSTING PROVIDER`, `LOCATION` | Privacy §4 (beta and launch) | Provider of the uvalu.app mailboxes: a processor, needs a DPA |
 
 ## 4. Implementation requirements
 

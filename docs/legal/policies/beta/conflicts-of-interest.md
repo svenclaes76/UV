@@ -1,12 +1,13 @@
 <!--
 Uvalu public legal page — FREE BETA version (decision B4). Derived from ../conflicts-of-interest.md:
 no enterprise number yet (B6), no income during the beta. Keep both versions in step.
+Beta-readiness review 5 October 2026: data-provider line made true for the free Yahoo/ECB/French sources.
 Requirement IDs: REC-1, REC-8, REC-9, PER-7.
 -->
 
 # Conflicts of interest — free beta
 
-**Version:** beta 1.0 · **Last updated:** the opening of the free beta
+**Version:** beta 1.0 · **Last updated:** 5 October 2026
 
 Uvalu publishes fair value estimates and model signals on listed shares. This page explains what interests we have that could influence those outputs, and how we manage them.
 
@@ -40,7 +41,7 @@ When the founder holds a position in a share that Uvalu covers, of any size, the
 
 - **Issuers.** We receive no payment or other benefit from companies whose shares we cover, and they have no say in our outputs. They do not see a signal before it is published.
 - **Brokers and platforms.** We receive no commission, referral or affiliate fee from brokers, banks or trading platforms. Uvalu contains no order buttons or broker links.
-- **Data providers.** We pay our data providers for data. They do not influence our models or signals.
+- **Data providers.** During the beta we use free public data sources and have no agreements with data providers. No data provider influences our models or signals.
 - **Advertising.** Uvalu shows no third-party advertising.
 - **Income.** Uvalu has no income during the free beta. After a paid launch, its only income will be subscription fees paid by users.
 

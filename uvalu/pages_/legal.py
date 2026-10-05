@@ -236,7 +236,10 @@ def render() -> None:
                                   f"{html.escape(value)}</b>") for label, value in meta)
             ref_note = (f'<div style="font-size:11.5px;color:var(--faint);margin-top:10px;">'
                         f'{html.escape(tr(d.REFERENCE_LANGUAGE_NOTE))}</div>'
-                        if current().lang != "en" else "")
+                        # Only over a real translation: on the English
+                        # fallback (every page during the beta) the
+                        # not-yet-translated notice says enough.
+                        if translated and current().lang != "en" else "")
             st.markdown(f'<div style="font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;">'
                         f'{html.escape(title)}</div>'
                         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">{chips}</div>'

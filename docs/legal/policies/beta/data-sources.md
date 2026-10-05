@@ -4,11 +4,14 @@ Derived from ../data-sources.md (the paid-launch version, EODHD). During the fre
 Yahoo Finance via yfinance, which is not licensed for a commercial service (decision B2: free, invite-only,
 with mitigations). Open: Fama-French Data Library terms for display to third parties (DATA-6).
 Other requirement IDs: REC-3, REC-4, DATA-3, DATA-5, DATA-6.
+Beta-readiness review 5 October 2026: "used for beta" (ambiguous next to "free beta") reworded; no-affiliation
+statement extended to data providers. Freshness figures checked against the code (CACHE_TTL_HOURS 24 ± 4,
+dividends weekly, PRICE_STALE_HOURS 72).
 -->
 
 # Data sources — free beta
 
-**Version:** beta 1.0 · **Last updated:** the opening of the free beta
+**Version:** beta 1.0 · **Last updated:** 5 October 2026
 
 Uvalu's calculations depend on data from third parties. This page lists where the data comes from, how fresh it is, and what to keep in mind.
 
@@ -19,7 +22,7 @@ Uvalu's calculations depend on data from third parties. This page lists where th
 | Share prices | Yahoo Finance (via the yfinance library) | Delayed quotes, not real-time; the time each price was fetched is shown next to the signal that used it | Euronext Brussels, Euronext Amsterdam, Euronext Paris, Borsa Italiana, Deutsche Börse, SIX Swiss Exchange |
 | Company financial statements | Yahoo Finance | Uvalu checks for updates about every 24 hours | Same exchanges |
 | Dividends and corporate actions (splits, etc.) | Yahoo Finance | Dividend history refreshed weekly | Same exchanges |
-| Benchmark index (EURO STOXX 50), used for beta | Yahoo Finance | Daily | Euro area |
+| Benchmark index (EURO STOXX 50), used to measure market sensitivity (beta) | Yahoo Finance | Daily | Euro area |
 | Sector and industry classification | Yahoo Finance, with a few corrections by Uvalu where the source has none | With the company data | All covered shares |
 | Currency rates | European Central Bank reference rates, retrieved through Frankfurter (frankfurter.dev) | Daily, on ECB working days | All currencies of the covered exchanges, converted to EUR |
 | Factor data for risk analysis | Kenneth R. French Data Library (Tuck School of Business, Dartmouth): Developed markets five factors plus momentum, with the US factors as a fallback | Daily series, refreshed at most weekly | Developed markets |
@@ -57,8 +60,8 @@ Portfolio holdings and transactions are entered by you. Uvalu does not connect t
 
 ## 6. Permitted use
 
-Data shown in Uvalu is for your personal use inside the app during the beta. You may export your own portfolio. You may not copy, scrape, redistribute or resell market data, fundamentals, scores or signals. See the Terms of use, section 8.
+Data shown in Uvalu is for your personal use inside the app during the beta. You may export your own portfolio. You may not copy, scrape, redistribute or resell market data, fundamentals, scores or signals. See the Terms of use, section 6.
 
 ## 7. Trade marks
 
-Company names and ticker symbols are used only to identify the shares concerned. All trade marks belong to their owners. Uvalu is not affiliated with, sponsored by or endorsed by any company or exchange shown.
+Company names and ticker symbols are used only to identify the shares concerned. All trade marks belong to their owners. Uvalu is not affiliated with, sponsored by or endorsed by any company or exchange shown, or by the data providers listed above.

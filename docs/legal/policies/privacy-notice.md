@@ -53,6 +53,7 @@ We do not sell your data. We share it only with service providers that process i
 | --- | --- | --- |
 | Hetzner Online GmbH | Hosting and database | Germany |
 | Hetzner Online GmbH (Storage Box) | Encrypted backups | Germany |
+| [TBD: EMAIL HOSTING PROVIDER] | Mailboxes for support@, privacy@, security@ and complaints@uvalu.app | [TBD: LOCATION] |
 | Brevo | Transactional and service email | France |
 | Mollie B.V. | Payment processing (also a controller for its own legal obligations) | Netherlands |
 | External accountant | Bookkeeping and tax filings (billing data only) | Belgium |
@@ -84,7 +85,7 @@ If a data breach is likely to put you at high risk, we tell you without undue de
 | `uv_jwt` (cookie and browser storage) | Keeps you logged in | Strictly necessary | 24 hours |
 | `uv_td` | Remembers a device you trusted for two-step verification, so you are not asked for a code on it again | Strictly necessary; only set if you tick "Remember this device" | 30 days |
 | `_streamlit_xsrf` | Protects forms against misuse | Strictly necessary | Session |
-| `_streamlit_user` | Keeps your Google sign-in session | Strictly necessary; only set if you sign in with Google | [TBD: VERIFY DURATION] |
+| `_streamlit_user`, `_streamlit_user_tokens` | Keep your Google sign-in session | Strictly necessary; only set if you sign in with Google | 30 days, or until you sign out |
 | Browser storage of the app framework | Remembers light or dark mode | Functional | Until you clear your browser data |
 
 Strictly necessary cookies need no consent. We use no other cookies, no analytics and no advertising trackers.
