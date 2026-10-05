@@ -9,6 +9,56 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-05
+
+MINOR — **scores and signals change**: the scoring and risk algorithms were replaced by their compliant versions (model **M1**, `docs/legal/compliance-implementation-plan.md`, decisions D1–D12 and B2). Nothing needs migrating: pull and restart. Expect different signals and some different fair values, see *Changed*. The app now runs as a **free beta** with the legal pages, footer and beta banner in place.
+
+### Added
+
+- **Legal page** (`/legal`): Terms of use, Privacy notice, Methodology, Data sources, Conflicts of interest and Complaints, rendered from `docs/legal/policies/` (beta versions in `policies/beta/` while the beta runs). A section menu stays in view while you read, each document has an "On this page" list, version and date tags, and a *Print or save as PDF* button that prints only the document. Reachable from the footer, the user menu (*Legal & policies*), Settings and every badge's *Methodology →* link.
+- **Legal footer on every screen**: short disclaimer, producer identity, "not authorised or supervised by the FSMA", and the six legal links. **Beta banner** at the top of every screen.
+- **Signal provenance** with every signal (REC-4/5/10): when the signals were computed, the time of the delayed prices (an amber "oldest …" chip when some are more than 72 hours old), the model version and *Methodology →*. On the Screener also the share of covered stocks per signal as a stacked bar, and counts in the signal filter buttons.
+- **Signal and settings logs** (`data/compliance/`, kept 24 months): every signal change, a daily snapshot of the public signals, and every change to the shared model settings, with the model version.
+- **Analysis page**: badge history (12 months), assumptions & sensitivity, data-quality flags, data sources, producer & conflicts (including a notice when the founder holds the stock) and a plain-language model summary at the top.
+- **Settings**: a section menu; a *Legal* card; the *Dividend withholding* rates save with their own button; importing an Excel file now asks for confirmation before it replaces your portfolio data.
+- Screener: 25 results at a time (*Show 25 more*) and a column header that stays visible while scrolling.
+
+### Changed
+
+- **Signals** (BDG-1/3): **Undervalued / Neutral / Low score / Fails quality screen / No signal** replace BUY / MONITOR / AVOID / VETO / Strong Buy, each with a tooltip saying it is a model output, not a personal recommendation.
+- **Scores and fair values**:
+  - *Undervalued* now needs at least a 10% margin of safety (D1).
+  - Sector medians and percentile ranks come only from the public universe of enabled exchanges. Your own holdings and manual tickers no longer move them (PER-2).
+  - A holding without that peer reference gets *No signal* instead of a rank among your own stocks (PER-1).
+  - Analyst targets are no longer fetched or used while unlicensed (DATA-6).
+  - The badge shows the price and margin of safety it was computed from (B3).
+- **Risk page**: observations against the model's reference levels or your own targets, and disclosures, instead of rebalancing actions (PER-4). A failed quality screen stays a flag on the holding (PER-5).
+- Dashboard: *Weighted composite score* replaces the conviction verdict. While the peer reference is still being built after a restart, the score card, average margin of safety and holdings table show a loading state instead of provisional numbers.
+- **Look and feel** (visual review, `docs/design/visual-review-2026-10-04.md`):
+  - Dark-theme signal badges and bar tracks are tinted instead of near-white.
+  - Negative amounts put the minus in front of the symbol, like the plus (`-€ 86,01` / `+€ 126,60`).
+  - Company names are tidied for display (share-class letters, ALL CAPS, "X, The").
+  - Card footnotes use one style, and caution states use amber; red is kept for avoid/veto signals.
+  - Settings rows are aligned, Analysis rows split 50/50, and the sector donut shows its shares in the legend.
+- Month and day names follow the interface language; the region still sets the order (an English interface with Belgian formats read "mei" and "Maandag").
+- "← Back" on the Legal, Settings and Analysis pages returns to the page you came from.
+- The statement that Uvalu is not directed at residents of the UK, the US or Switzerland moved from the footer into the Terms of use (INT-5/6).
+
+### Removed
+
+- Rebalancing actions on the Risk page, and the buy/avoid alerts (PER-4, PER-5).
+- The internal "PHASE 3" label on Passkeys; it now says "Not available in the beta".
+
+### Fixed
+
+- Portfolio: amounts wrapped mid-number at 1024px ("€ 109,⏎20").
+- Analysis: a stock that fails a quality screen showed composite score "0 · Lower range"; it now shows "—" and "Excluded".
+- Settings: the dividend-withholding fields ran out of their card, and the language preview still showed a *BUY* badge.
+- Settings import: after a successful import the same file was imported again on every rerun.
+- Risk: one holding could get both "rating changed to High" and "rating High"; the transition note replaces the plain one.
+- The Watchlist is sorted by composite score. Score colours band on the shown (rounded) number. P/E ≤ 0 shows "—".
+- Admin: the role select no longer cuts off, and "Last active" follows your date format.
+
 ## [2.0.1] — 2026-10-02
 
 ### Fixed
