@@ -48,7 +48,7 @@ def test_login_wall_renders_without_exceptions():
     assert not at.exception, _exceptions(at)
 
 
-def test_authenticated_app_renders_without_exceptions(monkeypatch):
+def test_authenticated_app_renders_without_exceptions(isolated_data, monkeypatch):
     _fake_authenticated_session(monkeypatch)
     at = AppTest.from_file(APP, default_timeout=TIMEOUT)
     at.session_state["jwt_token"] = "smoke-test-token"
@@ -67,7 +67,7 @@ def test_app_defines_render_telemetry_hook():
     assert "logkit.render_event(" in Path(APP).read_text(encoding="utf-8")
 
 
-def test_legacy_page_query_param_redirects_without_exceptions(monkeypatch):
+def test_legacy_page_query_param_redirects_without_exceptions(isolated_data, monkeypatch):
     # Pre-st.navigation deep links (?page=<name>) get redirected to the new
     # url-path-based page — see app.py's "Legacy ?page= deep links" block.
     # A short default_timeout here: st.switch_page() called at a script's
