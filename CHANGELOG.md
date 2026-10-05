@@ -9,6 +9,25 @@ Version numbers follow the scheme in
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-10-05
+
+PATCH — legal texts only; scores and signals are unchanged. Pull and restart.
+
+### Changed
+
+- **Legal pages reviewed for the free beta** and dated 5 October 2026. The beta texts now match what is true during the beta:
+  - Conflicts of interest: the beta's data sources are free; no paid data-provider relationships.
+  - Complaints: a beta version that refers to the right sections of the beta Terms and no longer mentions billing.
+  - Privacy notice: invitation data, which account data is required, personal emails from our own mailbox, what market-data providers receive (ticker requests only), the sign-in storage and the Google sign-in cookies (30 days).
+  - Terms of use: 14 days' notice and a free exit before changes take effect, a feedback clause, a reminder to keep your own records, a pointer to the founder's holdings disclosure, and English as the only language of the legal texts during the beta.
+  - Methodology: the signal history starts at the opening of the beta and is kept 24 months.
+- All six legal pages are shown in English in every app language, with a notice that no translation exists yet.
+
+### Fixed
+
+- The legal page no longer shows the "Reference language … rely on the version in your own language" note over the English fallback; it appears only over a real translation.
+- Data sources linked to the wrong section of the beta Terms of use.
+
 ## [2.1.0] — 2026-10-05
 
 MINOR — **scores and signals change**: the scoring and risk algorithms were replaced by their compliant versions (model **M1**, `docs/legal/compliance-implementation-plan.md`, decisions D1–D12 and B2). Nothing needs migrating: pull and restart. Expect different signals and some different fair values, see *Changed*. The app now runs as a **free beta** with the legal pages, footer and beta banner in place.
