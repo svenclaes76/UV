@@ -151,7 +151,7 @@ def _run_about(monkeypatch, tmp_path, query=None, role="Viewer"):
     return at
 
 
-def test_about_shows_build_details(monkeypatch, tmp_path, fake_build):
+def test_about_shows_build_details(isolated_data, monkeypatch, tmp_path, fake_build):
     fake_build()
     at = _run_about(monkeypatch, tmp_path)
     html = "".join(m.value for m in at.markdown)
@@ -161,13 +161,13 @@ def test_about_shows_build_details(monkeypatch, tmp_path, fake_build):
     assert at.code[0].value == about.details_line(_info())
 
 
-def test_about_commit_links_for_admin(monkeypatch, tmp_path, fake_build):
+def test_about_commit_links_for_admin(isolated_data, monkeypatch, tmp_path, fake_build):
     fake_build()
     at = _run_about(monkeypatch, tmp_path, role="Admin")
     assert "/commit/fedcba9" in "".join(m.value for m in at.markdown)
 
 
-def test_whats_new_lists_releases_newest_first(monkeypatch, tmp_path, fake_build):
+def test_whats_new_lists_releases_newest_first(isolated_data, monkeypatch, tmp_path, fake_build):
     fake_build(environment="production", display_version="2031.07.4", is_release=True)
     at = _run_about(monkeypatch, tmp_path)
     labels = [e.label for e in at.expander]
@@ -178,13 +178,13 @@ def test_whats_new_lists_releases_newest_first(monkeypatch, tmp_path, fake_build
     assert "Version in the footer." in text and "legacy" not in text
 
 
-def test_whats_new_shows_unreleased_outside_production(monkeypatch, tmp_path, fake_build):
+def test_whats_new_shows_unreleased_outside_production(isolated_data, monkeypatch, tmp_path, fake_build):
     fake_build(environment="development")
     at = _run_about(monkeypatch, tmp_path)
     assert at.expander[0].label == "Not released yet"
 
 
-def test_whats_new_deep_link_opens_that_release(monkeypatch, tmp_path, fake_build):
+def test_whats_new_deep_link_opens_that_release(isolated_data, monkeypatch, tmp_path, fake_build):
     fake_build(environment="production")
     at = _run_about(monkeypatch, tmp_path, query={"v": "2031.07.3"})
     opened = [e.label for e in at.expander if e.proto.expanded]
