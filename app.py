@@ -48,6 +48,15 @@ except i18n.I18nConfigError as _cfg_err:
     st.error(str(_cfg_err))
     st.stop()
 
+# The stored data must match the schema this version expects (VM-09). On a
+# mismatch the app refuses to run; the log line says what the operator must do.
+from uvalu import migrations
+try:
+    migrations.ensure_compatible()
+except migrations.SchemaMismatch:
+    shell.render_maintenance()
+    st.stop()
+
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
 authgate.recover_session_from_cookie()
 authgate.handle_logout()

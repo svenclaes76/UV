@@ -69,7 +69,7 @@ class TestExportZip:
 
     def test_no_data_produces_empty_but_valid_zip(self):
         names = _zip_names(backup.export_zip(EMAIL))
-        assert names == set()
+        assert names == {"meta.json"}       # only the schema/app-version metadata
 
     def test_excludes_env_file_even_when_present(self):
         # .env (AUTH_SECRET/ENCRYPTION_KEY) is deliberately never bundled

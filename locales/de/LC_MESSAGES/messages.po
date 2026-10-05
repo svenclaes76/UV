@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-04 19:55+0000\n"
+"POT-Creation-Date: 2026-10-05 18:06+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: de <LL@li.org>\n"
@@ -20,46 +20,47 @@ msgstr ""
 "X-Generator: Poedit 3.9\n"
 
 #. Context: Main navigation › page name in the top bar and browser tab
-#: app.py:100 uvalu/shell.py:47
+#: app.py:109 uvalu/shell.py:47
 msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:101 uvalu/pages_/portfolio.py:263 uvalu/pages_/settings.py:109 uvalu/shell.py:50
+#: app.py:110 uvalu/pages_/portfolio.py:263 uvalu/pages_/settings.py:109
+#: uvalu/shell.py:50
 msgid "Portfolio"
 msgstr "Portfolio"
 
 #. Context: Main navigation › page name for the risk assessment page
-#: app.py:102 uvalu/pages_/analysis.py:188 uvalu/shell.py:51
+#: app.py:111 uvalu/pages_/analysis.py:188 uvalu/shell.py:51
 msgid "Risk"
 msgstr "Risiko"
 
 #. Context: Main navigation › page name. Kept in English in all languages
 #. (glossary).
-#: app.py:103 uvalu/shell.py:48
+#: app.py:112 uvalu/shell.py:48
 msgid "Screener"
 msgstr "Screener"
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:104 uvalu/pages_/watchlist.py:64 uvalu/shell.py:49
+#: app.py:113 uvalu/pages_/watchlist.py:64 uvalu/shell.py:49
 msgid "Watchlist"
 msgstr "Watchlist"
 
 #. Context: Page name of the single-stock analysis page (browser tab title)
-#: app.py:105
+#: app.py:114
 msgid "Analysis"
 msgstr "Analyse"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:106 uvalu/pages_/settings.py:453 uvalu/shell.py:390
+#: app.py:115 uvalu/pages_/settings.py:453 uvalu/shell.py:390
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: app.py:107 uvalu/pages_/help.py:135 uvalu/shell.py:392
+#: app.py:116 uvalu/pages_/help.py:135 uvalu/shell.py:392
 msgid "Methodology & help"
 msgstr "Methodik & Hilfe"
 
-#: app.py:108 uvalu/pages_/settings.py:113 uvalu/pages_/settings.py:966
+#: app.py:117 uvalu/pages_/settings.py:113 uvalu/pages_/settings.py:966
 msgid "Legal"
 msgstr "Rechtliches"
 
@@ -253,7 +254,7 @@ msgid "Password changed."
 msgstr "Passwort geändert."
 
 #. Context: Settings › Excel export error
-#: backup.py:134
+#: backup.py:161
 msgid "No portfolio data found to export."
 msgstr "Keine Portfoliodaten zum Exportieren gefunden."
 
@@ -2428,7 +2429,7 @@ msgid "Realised P&L"
 msgstr "Realisierter G/V"
 
 #. Context: Closed trade dialogs › field label; Screener › filter label
-#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:280 uvalu/pages_/screener.py:281
+#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:282 uvalu/pages_/screener.py:283
 msgid "Sector"
 msgstr "Sektor"
 
@@ -2988,7 +2989,9 @@ msgstr "Gesamtwert"
 
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
-#: uvalu/locale_ui.py:93 uvalu/pages_/dashboard.py:482 uvalu/pages_/dashboard.py:487 uvalu/pages_/screener.py:51 uvalu/pages_/screener.py:270 uvalu/pages_/screener.py:276 uvalu/pages_/watchlist.py:31
+#: uvalu/locale_ui.py:93 uvalu/pages_/dashboard.py:482 uvalu/pages_/dashboard.py:487
+#: uvalu/pages_/screener.py:51 uvalu/pages_/screener.py:272
+#: uvalu/pages_/screener.py:278 uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr "Signal"
 
@@ -3185,6 +3188,23 @@ msgstr "Abmelden"
 #: uvalu/pages_/dashboard.py:453 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:289 uvalu/shell.py:433
 msgid "Beta"
 msgstr "Beta"
+
+#. Maintenance screen › title, shown instead of the app while stored data waits for an
+#. update.
+#: uvalu/shell.py:445
+#, fuzzy
+msgid "Uvalu is being updated"
+msgstr "Uvalu wird aktualisiert"
+
+#. Maintenance screen › body text under "Uvalu is being updated".
+#: uvalu/shell.py:447
+#, fuzzy
+msgid ""
+"The app is waiting for a data update to finish. Please try again in a few "
+"minutes."
+msgstr ""
+"Die App wartet, bis eine Aktualisierung der Daten abgeschlossen ist. Versuch es "
+"in ein paar Minuten noch einmal."
 
 #. Context: Dashboard › empty state of the allocation chart
 #: uvalu/ui.py:313
@@ -5011,7 +5031,7 @@ msgid "All markets"
 msgstr "Alle Märkte"
 
 #. Context: Screener › page heading
-#: uvalu/pages_/screener.py:208 uvalu/pages_/screener.py:340
+#: uvalu/pages_/screener.py:208 uvalu/pages_/screener.py:345
 msgid "Value screener"
 msgstr "Value-Screener"
 
@@ -5027,62 +5047,62 @@ msgid "Loading the screening universe — results appear as soon as the backgrou
 msgstr "Das Screening-Universum wird geladen – die Ergebnisse erscheinen, sobald der Abruf im Hintergrund fertig ist."
 
 #. Context: Screener › filter label
-#: uvalu/pages_/screener.py:264 uvalu/pages_/screener.py:266
+#: uvalu/pages_/screener.py:266 uvalu/pages_/screener.py:268
 msgid "Search"
 msgstr "Suchen"
 
 #. Context: Screener › search field placeholder
-#: uvalu/pages_/screener.py:265
+#: uvalu/pages_/screener.py:267
 msgid "Ticker or company…"
 msgstr "Ticker oder Unternehmen …"
 
 #. Context: Screener › filter label (stock exchange)
-#: uvalu/pages_/screener.py:284 uvalu/pages_/screener.py:285
+#: uvalu/pages_/screener.py:286 uvalu/pages_/screener.py:287
 msgid "Market"
 msgstr "Markt"
 
 #. Context: Screener › slider label: minimum composite score
-#: uvalu/pages_/screener.py:294 uvalu/pages_/screener.py:296
+#: uvalu/pages_/screener.py:299 uvalu/pages_/screener.py:301
 msgid "Min score"
 msgstr "Mindestscore"
 
 #. Context: Screener › slider label
-#: uvalu/pages_/screener.py:301 uvalu/pages_/screener.py:303
+#: uvalu/pages_/screener.py:306 uvalu/pages_/screener.py:308
 msgid "Min margin of safety"
 msgstr "Mindest-Sicherheitsmarge"
 
 #. Context: Screener › result count above the table. Keep the ** bold markers.
-#: uvalu/pages_/screener.py:342
+#: uvalu/pages_/screener.py:347
 #, python-brace-format
 msgid "**{shown}** of {total} European stocks pass your filters · ranked by composite signal score."
 msgstr "**{shown}** von {total} europäischen Aktien erfüllen deine Filter · sortiert nach Gesamt-Signal-Score."
 
-#: uvalu/pages_/screener.py:345
+#: uvalu/pages_/screener.py:350
 #, python-brace-format
 msgid "Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here."
 msgstr "Kleines Universum ({count} Aktien): Gesamtscores sind Perzentilränge innerhalb dieses Universums, daher hat ein hoher Score hier weniger Gewicht."
 
 #. Context: Screener › button
-#: uvalu/pages_/screener.py:354
+#: uvalu/pages_/screener.py:359
 msgid "Reset filters"
 msgstr "Filter zurücksetzen"
 
 #. Context: Screener › empty results message
-#: uvalu/pages_/screener.py:369
+#: uvalu/pages_/screener.py:374
 msgid "No stocks match these filters. Try loosening the score or margin-of-safety threshold."
 msgstr "Keine Aktien entsprechen diesen Filtern. Lockere die Schwelle für Score oder Sicherheitsmarge."
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:425 uvalu/pages_/watchlist.py:195
+#: uvalu/pages_/screener.py:430 uvalu/pages_/watchlist.py:195
 msgid "Remove from watchlist"
 msgstr "Von der Watchlist entfernen"
 
 #. Context: Screener › tooltip on the empty star
-#: uvalu/pages_/screener.py:425
+#: uvalu/pages_/screener.py:430
 msgid "Add to watchlist"
 msgstr "Zur Watchlist hinzufügen"
 
-#: uvalu/pages_/screener.py:444
+#: uvalu/pages_/screener.py:449
 #, python-brace-format
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr "{count} weitere anzeigen · {shown} von {total} angezeigt"

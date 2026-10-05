@@ -1,5 +1,6 @@
-"""Launch the Streamlit app: generate the localhost TLS cert, stamp the build
-metadata (tools/stamp_build.py — VM-05), then start Streamlit.
+"""Launch the Streamlit app: generate the localhost TLS cert, bring the stored
+data up to this version's schema (uvalu/migrations — VM-08/VM-09), stamp the
+build metadata (tools/stamp_build.py — VM-05), then start Streamlit.
 
 Run with ``python run_app.py`` (or double-click ``run_app.bat`` on Windows).
 """
@@ -64,14 +65,32 @@ def _ensure_cert() -> None:
     print(f"Certificate written to {CERT_FILE}")
 
 
-def _stamp_build() -> None:
+def _migrate_data() -> "int | None":
+    """Apply pending data migrations (after a snapshot) — plan decision D7.
+    Downgrades are never automatic. Exits when the data can't be brought to
+    this version's schema: the app would refuse to serve it anyway (VM-09)."""
+    sys.path.insert(0, str(ROOT))
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+    from uvalu import migrations
+    try:
+        applied = migrations.upgrade()
+        if applied:
+            print(f"Data migrated: {applied}")
+        return migrations.ensure_compatible()
+    except migrations.MigrationError as exc:
+        print(f"\nUvalu cannot start: {exc}\n", file=sys.stderr)
+        sys.exit(2)
+
+
+def _stamp_build(schema_version: "int | None") -> None:
     """Write build_info.json + static/version.json for this checkout. A failure
     here must never stop the app from starting — uvalu.buildinfo falls back to
     computing the same fields in-process."""
     try:
         sys.path.insert(0, str(ROOT))
         from tools.stamp_build import stamp
-        info = stamp()
+        info = stamp(schema_version=schema_version)
         print(f"Uvalu {info.display_version} ({info.commit}, {info.environment})")
     except Exception as exc:  # pragma: no cover - defensive
         print(f"Build stamp skipped: {exc}")
@@ -79,7 +98,7 @@ def _stamp_build() -> None:
 
 if __name__ == "__main__":
     _ensure_cert()
-    _stamp_build()
+    _stamp_build(_migrate_data())
     port = os.environ.get("PORT", "8501")
     subprocess.run(
     [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port],

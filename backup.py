@@ -38,6 +38,10 @@ _ENV_FILE        = Path(__file__).parent / ".env"
 _ZIP_DATA_PREFIX = "data/"
 _ZIP_SETTINGS_KEY        = "data/settings.json"
 _ZIP_SHARED_SETTINGS_KEY = "data/shared_settings.json"
+# Which data schema / app version wrote the backup (VM-08). Backups from before
+# this file existed are at schema 1, the baseline.
+_ZIP_META_KEY = "meta.json"
+_LEGACY_SCHEMA = 1
 
 # cash.json (Cash Management v1 ledger — retained indefinitely), its
 # portfolio_meta.json (fixed base currency + never-reused id counters) and
@@ -86,7 +90,30 @@ def export_zip(email: str = "") -> bytes:
             zf.write(settings_path, arcname=_ZIP_SETTINGS_KEY)
         if _SHARED_FILE.exists():
             zf.write(_SHARED_FILE, arcname=_ZIP_SHARED_SETTINGS_KEY)
+        zf.writestr(_ZIP_META_KEY, json.dumps(_backup_meta(), indent=2))
     return buf.getvalue()
+
+
+def _backup_meta() -> dict:
+    from uvalu import buildinfo, migrations
+    info = buildinfo.current()
+    try:
+        schema = migrations.current_version()
+    except migrations.MigrationError:
+        schema = None
+    return {"schema_version": schema if schema is not None else migrations.expected_version(),
+            "app_version": info.display_version, "commit": info.commit,
+            "created_at": datetime.now(timezone.utc).isoformat()}
+
+
+def _zip_schema(zf: zipfile.ZipFile) -> int:
+    try:
+        meta = json.loads(zf.read(_ZIP_META_KEY))
+        return int(meta["schema_version"])
+    except KeyError:
+        return _LEGACY_SCHEMA
+    except (ValueError, TypeError):
+        raise ValueError("Backup metadata is unreadable.")
 
 
 def export_env_key() -> bytes | None:
@@ -165,6 +192,12 @@ def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
             has_env  = ".env" in names
             if not has_data and not has_env:
                 raise ValueError("ZIP does not contain recognisable backup files.")
+            from uvalu import migrations
+            backup_schema = _zip_schema(zf)
+            expected = migrations.expected_version()
+            if backup_schema > expected:
+                raise ValueError(f"This backup was made by a newer Uvalu version (data schema "
+                                 f"{backup_schema}); this version reads up to schema {expected}.")
 
             for name in names:
                 if name == _ZIP_SHARED_SETTINGS_KEY:
@@ -192,6 +225,10 @@ def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
                     continue
     except zipfile.BadZipFile:
         raise ValueError("File is not a valid ZIP archive.")
+    # Older backup: re-run the (idempotent) migrations after its schema so the
+    # restored files match this version's layout.
+    if restored and backup_schema < expected:
+        migrations.upgrade(from_version=backup_schema)
     logkit.data_mutation(actor=logkit.user_id(), action="backup.import",
                          entity_type="backup", restored=restored,
                          subject=logkit.user_hash(email) if email else None)
@@ -246,6 +283,7 @@ def create_backup(email: str) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "size_bytes": len(zip_bytes),
         "filename":   filename,
+        **{k: v for k, v in _backup_meta().items() if k in ("schema_version", "app_version")},
     }
     entries = _load_backup_manifest()
     entries.append(entry)

@@ -435,6 +435,26 @@ def render_beta_banner() -> None:
         unsafe_allow_html=True)
 
 
+def render_maintenance() -> None:
+    """Shown instead of the app when the stored data doesn't match this version
+    (VM-09). Deliberately neutral — the instruction for the operator is in the
+    server log (event ``startup.schema_mismatch``) and on the console."""
+    from uvalu import buildinfo
+    info = buildinfo.current()
+    # Translators: Maintenance screen › title, shown instead of the app while stored data waits for an update.
+    title = _("Uvalu is being updated")
+    # Translators: Maintenance screen › body text under "Uvalu is being updated".
+    body = _("The app is waiting for a data update to finish. Please try again in a few minutes.")
+    st.markdown(
+        '<div style="max-width:560px;margin:12vh auto 0;padding:28px 32px;border:0.5px solid var(--line);'
+        'border-radius:12px;background:var(--panel);">'
+        f'<div style="font-size:20px;font-weight:600;margin-bottom:8px;">{html.escape(title)}</div>'
+        f'<div style="font-size:14px;color:var(--muted);line-height:1.6;">{html.escape(body)}</div>'
+        f'<div style="font-size:11.5px;color:var(--faint);margin-top:16px;">'
+        f'v{html.escape(info.display_version)} · {html.escape(info.commit)}</div></div>',
+        unsafe_allow_html=True)
+
+
 _FOOTER_CSS = """
 .st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding: 16px 0 16px; gap: 8px !important; }
 .st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
