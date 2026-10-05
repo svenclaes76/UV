@@ -3456,20 +3456,18 @@ msgstr "Beta"
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
 #: uvalu/shell.py:486
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr "Qualcosa è andato storto. Riferimento per l’assistenza: {ref}"
 
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
 #: uvalu/shell.py:498
-#, fuzzy
 msgid "Uvalu is being updated"
 msgstr "Uvalu è in aggiornamento"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
 #: uvalu/shell.py:500
-#, fuzzy
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
 "minutes."
@@ -3478,7 +3476,6 @@ msgstr ""
 "minuto."
 
 #: uvalu/shell.py:582
-#, fuzzy
 msgid "About this version and what's new"
 msgstr "Informazioni su questa versione e novità"
 
@@ -3494,30 +3491,23 @@ msgid "TOTAL"
 msgstr "TOTALE"
 
 #: uvalu/update_notice.py:89
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Uvalu was updated to version {version}."
 msgstr "Uvalu è stato aggiornato alla versione {version}."
 
 #: uvalu/update_notice.py:93
-#, fuzzy
-#| msgid "What’s new"
 msgid "See what’s new"
 msgstr "Scopri le novità"
 
 #: uvalu/update_notice.py:96
-#, fuzzy
-#| msgid "Swiss"
 msgid "Dismiss"
 msgstr "Chiudi"
 
 #: uvalu/update_notice.py:137
-#, fuzzy
 msgid "A new version of Uvalu is available. Reload the page to use it."
 msgstr "È disponibile una nuova versione di Uvalu. Ricarica la pagina per usarla."
 
 #: uvalu/update_notice.py:140
-#, fuzzy
-#| msgid "Removed"
 msgid "Reload"
 msgstr "Ricarica"
 
@@ -3699,93 +3689,69 @@ msgstr ""
 #. About › What's new › heading of a group of release notes (things added / changed /
 #. fixed / removed in a release).
 #: uvalu/pages_/about.py:28
-#, fuzzy
-#| msgid "Dividend"
 msgid "Added"
 msgstr "Aggiunto"
 
 #: uvalu/pages_/about.py:28
-#, fuzzy
-#| msgid "Change"
 msgid "Changed"
 msgstr "Modificato"
 
 #: uvalu/pages_/about.py:29
-#, fuzzy
-#| msgid "Yield"
 msgid "Fixed"
 msgstr "Corretto"
 
 #: uvalu/pages_/about.py:29
-#, fuzzy
 msgid "Removed"
 msgstr "Rimosso"
 
 #: uvalu/pages_/about.py:74
-#, fuzzy
-#| msgid "model {version}"
 msgid "App version"
 msgstr "Versione dell’app"
 
 #: uvalu/pages_/about.py:75
-#, fuzzy
-#| msgid "Complaints"
 msgid "Commit"
 msgstr "Commit"
 
 #: uvalu/pages_/about.py:76
-#, fuzzy
 msgid "Built"
 msgstr "Compilata il"
 
 #: uvalu/pages_/about.py:77
-#, fuzzy
 msgid "Environment"
 msgstr "Ambiente"
 
 #: uvalu/pages_/about.py:78
-#, fuzzy
 msgid "Scoring model"
 msgstr "Modello di valutazione"
 
 #: uvalu/pages_/about.py:83
-#, fuzzy
 msgid "About this version"
 msgstr "Informazioni su questa versione"
 
 #: uvalu/pages_/about.py:85
-#, fuzzy
 msgid "Copy these details when you contact support:"
 msgstr "Copia questi dati quando contatti l’assistenza:"
 
 #. About › What's new › title of the notes for changes not yet in a release (test
 #. builds only).
 #: uvalu/pages_/about.py:102
-#, fuzzy
-#| msgid "No cache yet"
 msgid "Not released yet"
 msgstr "Non ancora rilasciato"
 
 #: uvalu/pages_/about.py:110
-#, fuzzy
 msgid "What’s new"
 msgstr "Novità"
 
 #: uvalu/pages_/about.py:113
-#, fuzzy
 msgid "Release notes are written in English."
 msgstr "Le note di rilascio sono scritte in inglese."
 
 #: uvalu/pages_/about.py:115
-#, fuzzy
-#| msgid "No closed positions yet."
 msgid "No release notes yet."
 msgstr "Ancora nessuna nota di rilascio."
 
 #. About › What's new › marker after the release the user is running.
 #: uvalu/pages_/about.py:120
-#, fuzzy
-#| msgid "This deposit"
 msgid "this version"
 msgstr "questa versione"
 

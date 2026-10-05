@@ -643,7 +643,7 @@
 642;Removed;;uvalu/pages_/about.py:29;;Removed;Verwijderd;Supprimé;Entfernt;Rimosso;Eliminado
 643;App version;;uvalu/pages_/about.py:74;;App version;Appversie;Version de l’app;App-Version;Versione dell’app;Versión de la app
 644;Commit;;uvalu/pages_/about.py:75;;Commit;Commit;Commit;Commit;Commit;Commit
-645;Built;;uvalu/pages_/about.py:76;;Built;Gebouwd;Compilée le;Erstellt;Compilata il;Compilada
+645;Built;;uvalu/pages_/about.py:76;;Built;Gemaakt;Compilée le;Erstellt;Compilata il;Compilada
 646;Environment;;uvalu/pages_/about.py:77;;Environment;Omgeving;Environnement;Umgebung;Ambiente;Entorno
 647;Scoring model;;uvalu/pages_/about.py:78;;Scoring model;Scoremodel;Modèle de notation;Bewertungsmodell;Modello di valutazione;Modelo de puntuación
 648;About this version;;uvalu/pages_/about.py:83;;About this version;Over deze versie;À propos de cette version;Über diese Version;Informazioni su questa versione;Acerca de esta versión
