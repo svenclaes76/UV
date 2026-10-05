@@ -30,8 +30,9 @@ STAMP_FILE = ROOT / "build_info.json"
 STATIC_DIR = ROOT / "static"
 VERSION_JSON = STATIC_DIR / "version.json"
 
-# CalVer YYYY.MM.N — N is the release's sequence number within the month, from 1.
-CALVER_RE = re.compile(r"^(?P<year>\d{4})\.(?P<month>0?[1-9]|1[0-2])\.(?P<n>[1-9]\d*)$")
+# CalVer YYYY.MM.N (VM-01) — two-digit month; N is the release's sequence number
+# within that month, from 1. Example: 2026.10.2 = the second release of October 2026.
+CALVER_RE = re.compile(r"^(?P<year>\d{4})\.(?P<month>0[1-9]|1[0-2])\.(?P<n>[1-9]\d*)$")
 
 ENVIRONMENTS = ("development", "test", "production")
 _ENV_ALIASES = {

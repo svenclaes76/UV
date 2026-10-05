@@ -1,9 +1,17 @@
 # Changelog
 
-All notable changes to UV are documented here.
+All notable changes to Uvalu are documented here. The app shows these notes
+under *What's new*, so they are written for the people who use it.
 
-Version numbers follow the scheme in
-[CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning-and-releases).
+From October 2026 versions are calendar versions, `YYYY.MM.N` (the N-th release
+of that month); earlier releases used SemVer. Rules in
+[CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning-and-releases):
+
+- Start a release with one or two sentences: what you'll notice, and anything
+  you need to do besides restarting. Say it when scores or signals change, and
+  add `Data schema: N` when stored data is migrated.
+- Group entries under **Added**, **Changed**, **Fixed** and **Removed** only.
+- Plain language — no file paths, function names or work-package ids.
 
 ---
 

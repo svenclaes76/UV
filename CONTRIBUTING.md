@@ -95,43 +95,42 @@ All UI text goes through `uvalu/i18n.py` (spec: `docs/i18n-spec.md`, translator 
 
 ## Versioning and releases
 
-UV uses **`MAJOR.MINOR.PATCH`** (SemVer), but adapted for a deployed app rather
-than a library: nobody imports UV, so "breaking change" is defined by what
-breaks for the operator or user on `git pull && restart`, not by a public API.
+Uvalu uses **calendar versioning, `YYYY.MM.N`**: year, two-digit month, and the
+release's sequence number within that month, starting at 1. `2026.10.2` is the
+second release of October 2026. Uvalu is an app, not a library — nobody depends
+on an API — so the version only says *when*; *what* and *how big* go in the
+changelog. Releases before October 2026 used SemVer (`v1.0.0`–`v2.1.1`); those
+tags stay as they are.
 
-### Which digit to bump
+- **One source**: `version` in `pyproject.toml`. Nothing else holds a version;
+  the app reads it through `uvalu/buildinfo.py`.
+- **Build metadata** (commit, UTC build time, environment, release or dev) is
+  written by `tools/stamp_build.py` into the git-ignored `build_info.json` and
+  `static/version.json`. `run_app.py` runs it on every start and CI runs it
+  before the tests. Never edit or commit these files.
+- **Release vs. dev build**: a build is a release only when HEAD is exactly the
+  annotated tag `v<version>` and the working tree is clean. Anything else shows
+  as `<last release>-dev+<commit>` (plus `.dirty` with uncommitted changes),
+  e.g. `2026.10.1-dev+a1b2c3d`.
+- **Environment**: `UVALU_ENV` = `development` / `test` / `production`.
+  Everything other than `production` shows an environment badge in the app.
 
-**MAJOR** — the release needs a migration step or a manual action; you can't
-just pull and restart:
+### What the changelog must call out
 
-- On-disk schema change that isn't auto-migrated — `portfolio/*.json`,
-  `value_history.json`, `manual_tickers.json`, the watchlist store, the backup
-  ZIP format.
-- A new **required** `.env` key, or a rotated `AUTH_SECRET` / `ENCRYPTION_KEY`
-  (forces re-login or re-encryption).
-- Python floor raised, or a dependency bump that changes stored-data
-  compatibility.
-- A page/URL removed or renamed (`/risk`, `/analysis`, …) that could be
-  bookmarked.
-- An auth-model change that invalidates existing sessions or user records.
+The number no longer signals impact, so the release section's first paragraph
+does. Say it plainly when a release:
 
-**MINOR** — new capability, backward-compatible:
+- **needs an action** beyond pull + restart — a new required `.env` key, a
+  rotated `AUTH_SECRET` / `ENCRYPTION_KEY`, a raised Python floor, a removed or
+  renamed page URL, an auth change that signs everyone out;
+- **changes scores or signals** — any valuation or risk algorithm change that
+  moves scores or flips BUY/AVOID, even when it's "a fix";
+- **migrates stored data** — add `Data schema: N` (see `uvalu/migrations/`).
 
-- A new page, screen, or subsystem.
-- A new user-facing feature, or a materially new UX behaviour.
-- A **valuation or risk algorithm change that moves scores or flips
-  BUY/AVOID decisions** — even when it's "a fix". Call it out in the CHANGELOG.
-- New *optional* config; a deprecation that still works but warns.
-
-**PATCH** — nothing new; something wrong is now right:
-
-- Bug fixes with no intended change to correct-path output.
-- Performance, CSS/visual polish, copy changes.
-- Refactors, test-only changes, docs, dependency bumps with no behaviour change.
-
-**Tie-breaker (MINOR vs PATCH):** would a user *notice* or need to *do*
-something? → MINOR. Does it only make a wrong thing right, with no new surface?
-→ PATCH. Score-affecting changes always round up to MINOR.
+Group entries under `### Added`, `### Changed`, `### Fixed`, `### Removed` only,
+in words a user understands — no file paths or work-package ids (those belong in
+commits). `python tools/release.py check-changelog` checks the rules; the test
+suite runs the same check.
 
 Never retag or renumber a release that's already tagged and pushed.
 
@@ -145,15 +144,19 @@ already carries the right version:
    — both must pass. Release CI runs the same strict gate on the tag, but by then
    the tag is public and can't be redone (see above), so catch it here. Commit
    the rebuilt `.mo` files if they changed.
-2. `CHANGELOG.md`: rename `## [Unreleased]` to `## [x.y.z] — YYYY-MM-DD`, then
-   add a fresh empty `## [Unreleased]` above it.
-3. `pyproject.toml`: `version = "x.y.z"`.
-4. Commit: `chore(release): x.y.z`.
-5. `git checkout master && git merge --no-ff <branch>`.
-6. `git tag -a vx.y.z <merge-commit> -m "…"`; push `master` and the tag; delete
-   the branch (local + remote).
-7. Publish a GitHub Release for `vx.y.z` — body is the CHANGELOG section plus a
-   full-changelog compare link.
+2. `python tools/release.py prepare` — picks the next number for the current
+   month from the existing tags (`release.py next` only prints it), sets
+   `pyproject.toml`, turns `## [Unreleased]` into `## [YYYY.MM.N] — YYYY-MM-DD`
+   with a fresh `## [Unreleased]` above it, and checks the changelog. Use
+   `--version`/`--date` if the merge happens on another day or month.
+3. Commit: `chore(release): YYYY.MM.N`.
+4. `git checkout master && git merge --no-ff <branch>`.
+5. `git tag -a vYYYY.MM.N <merge-commit> -m "vYYYY.MM.N — <one-line summary>"`;
+   push `master` and the tag; delete the branch (local + remote).
+6. The `release` workflow verifies the tag (annotated, CalVer, equals
+   `pyproject.toml` at that commit, on `master`, has a changelog section) and
+   publishes the GitHub Release with the changelog section as its body. If the
+   guard fails, no Release is published — fix it before anyone pulls the tag.
 
 ---
 

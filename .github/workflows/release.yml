@@ -1,0 +1,41 @@
+# Release guard + GitHub Release (VM-03, VM-07).
+# On every pushed v* tag: the tag must be annotated, CalVer vYYYY.MM.N, equal
+# to pyproject.toml's version at that commit, on master, with a CHANGELOG
+# section — then the GitHub Release is published with that section as body.
+# A tag that fails the guard gets no Release; delete it and tag again before
+# anyone pulls it (never retag a published release).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch annotated tag objects
+        run: git fetch --force --tags origin
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify tag
+        run: python tools/release.py verify-tag "$GITHUB_REF_NAME" --main-ref origin/master
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python tools/release.py notes "$VERSION" > notes.md
+          PREV=$(git tag -l 'v*' --sort=-v:refname | grep -v -x "$GITHUB_REF_NAME" | head -n1)
+          if [ -n "$PREV" ]; then
+            printf '\n**Full changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "$GITHUB_REPOSITORY" "$PREV" "$GITHUB_REF_NAME" >> notes.md
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

@@ -18,12 +18,12 @@ HAS_GIT = shutil.which("git") is not None
 
 # ── CalVer + naming ──────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("v", ["2026.10.1", "2026.1.1", "2026.01.3", "2027.12.12"])
+@pytest.mark.parametrize("v", ["2026.10.1", "2026.01.3", "2027.12.12", "2026.10.15"])
 def test_calver_accepts(v):
     assert buildinfo.is_calver(v)
 
 
-@pytest.mark.parametrize("v", ["2.1.1", "2026.13.1", "2026.10.0", "2026.00.1", "26.10.1",
+@pytest.mark.parametrize("v", ["2.1.1", "2026.1.1", "2026.13.1", "2026.10.0", "2026.00.1", "26.10.1",
                                "2026.10", "2026.10.1-dev", "v2026.10.1", ""])
 def test_calver_rejects(v):
     assert not buildinfo.is_calver(v)
