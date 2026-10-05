@@ -93,7 +93,15 @@ def test_build_version_matches_pyproject():
     want = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
     )["project"]["version"]
-    assert _json_line(_record())["metadata"]["build_version"] == want
+    md = _json_line(_record())["metadata"]
+    # a release build logs exactly the pyproject version, a dev build "<version>-dev+<sha>"
+    assert md["build_version"] == want or md["build_version"].startswith(f"{want}-dev+")
+
+
+def test_log_line_carries_commit_from_buildinfo():
+    from uvalu import buildinfo
+    md = _json_line(_record())["metadata"]
+    assert md["commit"] == buildinfo.current().commit
 
 
 def test_context_filter_uses_bound_correlation_and_user():

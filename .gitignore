@@ -11,3 +11,7 @@ report.html
 .coverage
 .venv/
 .idea/
+
+# Build metadata — written by tools/stamp_build.py at start/deploy, never by hand (VM-05)
+build_info.json
+static/version.json

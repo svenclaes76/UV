@@ -1,4 +1,5 @@
-"""Launch the Streamlit app: generate the localhost TLS cert, then start Streamlit.
+"""Launch the Streamlit app: generate the localhost TLS cert, stamp the build
+metadata (tools/stamp_build.py — VM-05), then start Streamlit.
 
 Run with ``python run_app.py`` (or double-click ``run_app.bat`` on Windows).
 """
@@ -63,8 +64,22 @@ def _ensure_cert() -> None:
     print(f"Certificate written to {CERT_FILE}")
 
 
+def _stamp_build() -> None:
+    """Write build_info.json + static/version.json for this checkout. A failure
+    here must never stop the app from starting — uvalu.buildinfo falls back to
+    computing the same fields in-process."""
+    try:
+        sys.path.insert(0, str(ROOT))
+        from tools.stamp_build import stamp
+        info = stamp()
+        print(f"Uvalu {info.display_version} ({info.commit}, {info.environment})")
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Build stamp skipped: {exc}")
+
+
 if __name__ == "__main__":
     _ensure_cert()
+    _stamp_build()
     port = os.environ.get("PORT", "8501")
     subprocess.run(
     [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port],
