@@ -17,6 +17,8 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.1] — 2026-10-05
+
 Versions are now calendar versions: this is the first, `YYYY.MM.N`. Nothing to
 do besides restarting with `run_app.py`. Data schema: 1 (recorded on the first
 start; no data changes).
