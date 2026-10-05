@@ -499,6 +499,8 @@ Each step is a self-contained commit or PR. Run the full test suite and a visual
    - W1 (not reproduced).
 8. **Phone layout (G13), separate project.** Merge with the parked "tablet layout" backlog item.
 
+   **Status 5 Oct 2026: parked in the backlog** as its own item next to the tablet layout. Not started.
+
 ---
 
 ## 5. Questions to decide before implementing

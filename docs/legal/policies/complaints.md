@@ -7,7 +7,7 @@ verify them on consumentenombudsdienst.be before publishing.
 
 # Complaints and Consumer Mediation Service
 
-**Version:** 1.0 · **Last updated:** 1 January 2027
+**Version:** 1.0 · **Last updated:** 4 October 2026
 
 If something went wrong, tell us. Most problems can be solved quickly and directly.
 
