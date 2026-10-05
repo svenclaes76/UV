@@ -443,18 +443,24 @@ def set_session_language(lang: str) -> None:
 
 # ── Catalogs (spec T-01, D-01, D-02) ──────────────────────────────────────────
 
+def _is_production() -> bool:
+    # same reading of UVALU_ENV as the logs and the environment badge ("prod" too)
+    from uvalu.logkit.config import resolve_environment
+    return resolve_environment() == "production"
+
+
 def _drafts_enabled() -> bool:
     """UVALU_I18N_DRAFTS=1 shows unreviewed (fuzzy) drafts — for screenshot
     passes before review. Never in production (spec W-04)."""
     return (os.environ.get("UVALU_I18N_DRAFTS") == "1"
-            and os.environ.get("UVALU_ENV", "development") != "production")
+            and not _is_production())
 
 
 def _pseudo_enabled() -> bool:
     """UVALU_I18N_PSEUDO=1 renders every translated text as ~35%-longer
     pseudo text (spec §12) to spot hard-coded English and clipping."""
     return (os.environ.get("UVALU_I18N_PSEUDO") == "1"
-            and os.environ.get("UVALU_ENV", "development") != "production")
+            and not _is_production())
 
 
 @dataclass(frozen=True)

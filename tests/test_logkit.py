@@ -130,7 +130,21 @@ def test_config_environment_overrides_env_var(monkeypatch):
     monkeypatch.setenv("UVALU_ENV", "production")
     monkeypatch.setattr(_config, "_current",
                         {**_config.DEFAULTS, "environment": "staging"})
-    assert _config.resolve_environment() == "staging"
+    assert _config.resolve_environment() == "test"           # staging is an alias of test
+
+
+@pytest.mark.parametrize("raw,want", [("prod", "production"), ("PRODUCTION", "production"),
+                                      ("live", "production"), ("staging", "test"), ("dev", "development"),
+                                      ("", "development"), ("qa", "qa")])
+def test_environment_aliases_are_canonical_everywhere(monkeypatch, raw, want):
+    """One reading of UVALU_ENV for logs, stack traces, i18n previews and the badge."""
+    from uvalu import buildinfo, i18n
+    monkeypatch.setenv("UVALU_ENV", raw)
+    assert _config.resolve_environment() == want
+    assert _json_line(_record())["metadata"]["environment"] == want
+    assert buildinfo._runtime_environment() == want
+    monkeypatch.setenv("UVALU_I18N_DRAFTS", "1")
+    assert i18n._drafts_enabled() is (want != "production")
 
 
 def test_include_stack_auto_is_off_in_production_only():

@@ -37,11 +37,6 @@ VERSION_JSON = STATIC_DIR / "version.json"
 CALVER_RE = re.compile(r"^(?P<year>\d{4})\.(?P<month>0[1-9]|1[0-2])\.(?P<n>[1-9]\d*)$")
 
 ENVIRONMENTS = ("development", "test", "production")
-_ENV_ALIASES = {
-    "dev": "development", "develop": "development", "development": "development", "local": "development",
-    "test": "test", "testing": "test", "staging": "test", "acceptance": "test",
-    "prod": "production", "production": "production", "live": "production",
-}
 _ENV_LABELS = {"development": "DEV", "test": "TEST", "production": "PROD"}
 
 
@@ -80,8 +75,9 @@ def is_calver(version: str) -> bool:
 
 
 def normalize_environment(value: "str | None") -> str:
-    v = str(value or "development").strip().lower()
-    return _ENV_ALIASES.get(v, v or "development")
+    # one definition for the whole app: uvalu/logkit/config.py
+    from uvalu.logkit.config import normalize_environment as _normalize
+    return _normalize(value)
 
 
 def environment_label(env: str) -> str:
@@ -119,11 +115,8 @@ def _git(root: Path, *args: str) -> "str | None":
 
 
 def _runtime_environment() -> str:
-    try:
-        from uvalu.logkit import config as _config
-        return normalize_environment(_config.resolve_environment())
-    except Exception:
-        return normalize_environment(os.environ.get("UVALU_ENV"))
+    from uvalu.logkit import config as _config
+    return _config.resolve_environment()
 
 
 # ── compute / load / write ───────────────────────────────────────────────────

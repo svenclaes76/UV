@@ -84,7 +84,23 @@ def file_mtime(path: "str | Path | None" = None) -> float:
         return 0.0
 
 
+# Accepted spellings → the canonical name everything compares against. The one
+# place UVALU_ENV is interpreted, so logs, stack-trace policy, translation
+# previews and the environment badge can never disagree (e.g. "prod").
+ENVIRONMENT_ALIASES = {
+    "dev": "development", "develop": "development", "development": "development", "local": "development",
+    "test": "test", "testing": "test", "staging": "test", "acceptance": "test",
+    "prod": "production", "production": "production", "live": "production",
+}
+
+
+def normalize_environment(value) -> str:
+    """Canonical environment name: development / test / production. Any other
+    value is kept (lower-cased) and counts as non-production."""
+    v = str(value or "").strip().lower() or "development"
+    return ENVIRONMENT_ALIASES.get(v, v)
+
+
 def resolve_environment(cfg: "dict | None" = None) -> str:
     cfg = cfg if cfg is not None else current()
-    val = cfg.get("environment") or os.environ.get("UVALU_ENV") or "development"
-    return str(val).strip().lower()
+    return normalize_environment(cfg.get("environment") or os.environ.get("UVALU_ENV"))
