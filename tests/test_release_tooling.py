@@ -131,6 +131,13 @@ def test_cut_changelog_moves_unreleased_into_release():
     assert changelog.check(out) == []
 
 
+def test_cut_changelog_keeps_intro_paragraph_separate():
+    text = GOOD.replace("## [Unreleased]\n\n### Added", "## [Unreleased]\n\nRestart only.\n\n### Added")
+    out = release.cut_changelog(text, "2026.10.2", "2026-10-20")
+    assert "## [2026.10.2] — 2026-10-20\n\nRestart only." in out
+    assert changelog.parse(out)[1].intro == "Restart only."
+
+
 def test_cut_changelog_refuses_empty_unreleased():
     empty = GOOD.replace("### Added\n\n- Something new.\n\n## [2026.10.1]", "## [2026.10.1]", 1)
     with pytest.raises(release.ReleaseError, match="empty"):

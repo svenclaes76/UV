@@ -88,7 +88,7 @@ def cut_changelog(text: str, version: str, date: str) -> str:
     unrel = releases[0]
     if not unrel.groups or not any(body.strip() for _, body in unrel.groups):
         raise ReleaseError("[Unreleased] is empty — nothing to release")
-    heading = re.compile(r"^## \[Unreleased\]\s*$", re.MULTILINE)
+    heading = re.compile(r"^## \[Unreleased\][ \t]*$", re.MULTILINE)   # not \s*: keep the blank line
     return heading.sub(f"## [Unreleased]\n\n## [{version}] — {date}", text, count=1)
 
 
