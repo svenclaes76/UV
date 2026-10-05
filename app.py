@@ -172,6 +172,8 @@ except Exception:
         extra={"event": "render.error", "page": getattr(_nav, "url_path", None),
                "duration_ms": int((time.perf_counter() - _nav_started) * 1000)},
     )
+    # A reference the user can quote to support, matching the log line (VD-08).
+    shell.render_error_reference()
     raise
 finally:
     # Render telemetry (spec §4), in `finally` so a page that ends its render

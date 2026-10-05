@@ -471,6 +471,23 @@ def render_env_marker() -> None:
             st.markdown(marker, unsafe_allow_html=True)
 
 
+def error_reference() -> str:
+    """``<correlation id> · v<version> (<commit>)`` — the same ids the log line
+    for this run carries, so support can find it (VD-08)."""
+    from uvalu import buildinfo, logkit
+    info = buildinfo.current()
+    cid = (logkit.correlation_id() or "-")[:12]
+    return f"{cid} · v{info.display_version} ({info.commit})"
+
+
+def render_error_reference() -> None:
+    try:
+        # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
+        st.caption(_("Something went wrong. Reference for support: {ref}", ref=error_reference()))
+    except Exception:
+        pass
+
+
 def render_maintenance() -> None:
     """Shown instead of the app when the stored data doesn't match this version
     (VM-09). Deliberately neutral — the instruction for the operator is in the

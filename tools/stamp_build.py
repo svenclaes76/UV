@@ -33,6 +33,12 @@ def stamp(*, environment: "str | None" = None, root: Path = ROOT,
             load_dotenv(root / ".env")
         except Exception:
             pass
+    if schema_version is None and root == ROOT:
+        try:
+            from uvalu import migrations
+            schema_version = migrations.current_version()
+        except Exception:
+            schema_version = None
     info = buildinfo.compute(root, environment=environment)
     buildinfo.write(info, root / buildinfo.STAMP_FILE.name)
     buildinfo.write_public(info, schema_version=schema_version,

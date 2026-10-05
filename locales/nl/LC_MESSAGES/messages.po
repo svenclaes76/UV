@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-05 18:16+0000\n"
+"POT-Creation-Date: 2026-10-05 18:32+0000\n"
 "PO-Revision-Date: 2026-10-04 22:20+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -3194,15 +3194,22 @@ msgstr "Afmelden"
 msgid "Beta"
 msgstr "Bèta"
 
+#. Shown under an error message; {ref} is a technical reference (id, version, commit)
+#. to quote to support.
+#: uvalu/shell.py:486
+#, fuzzy, python-brace-format
+msgid "Something went wrong. Reference for support: {ref}"
+msgstr "Er ging iets mis. Referentie voor support: {ref}"
+
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:481
+#: uvalu/shell.py:498
 #, fuzzy
 msgid "Uvalu is being updated"
 msgstr "Uvalu wordt bijgewerkt"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:483
+#: uvalu/shell.py:500
 #, fuzzy
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
@@ -3211,7 +3218,7 @@ msgstr ""
 "De app wacht tot een update van de gegevens klaar is. Probeer het over een paar "
 "minuten opnieuw."
 
-#: uvalu/shell.py:565
+#: uvalu/shell.py:582
 #, fuzzy
 msgid "About this version and what's new"
 msgstr "Over deze versie en wat er nieuw is"

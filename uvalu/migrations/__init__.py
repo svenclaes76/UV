@@ -10,3 +10,9 @@ from uvalu.migrations.runner import (  # noqa: F401
     discover, downgrade, ensure_compatible, expected_version, is_reversible, list_snapshots,
     mismatch_message, read_state, reset_cache, restore_snapshot, snapshot, upgrade,
 )
+
+__all__ = [
+    "MigrationContext", "MigrationError", "SchemaMismatch", "current_version", "default_context",
+    "discover", "downgrade", "ensure_compatible", "expected_version", "is_reversible", "list_snapshots",
+    "mismatch_message", "read_state", "reset_cache", "restore_snapshot", "snapshot", "upgrade",
+]

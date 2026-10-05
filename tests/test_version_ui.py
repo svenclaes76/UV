@@ -189,3 +189,40 @@ def test_whats_new_deep_link_opens_that_release(monkeypatch, tmp_path, fake_buil
     at = _run_about(monkeypatch, tmp_path, query={"v": "2031.07.3"})
     opened = [e.label for e in at.expander if e.proto.expanded]
     assert opened == ["2031.07.3 · 2031-07-02"]
+
+
+# ── machine-readable version + error reference (VD-07, VD-08) ───────────────
+
+def test_static_serving_enabled_and_static_dir_holds_only_version_json():
+    import subprocess
+    import tomllib
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    cfg = tomllib.loads((root / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    assert cfg["server"]["enableStaticServing"] is True
+    # nothing tracked under static/: it is public without sign-in
+    assert subprocess.run(["git", "ls-files", "static"], cwd=root, capture_output=True,
+                          text=True).stdout.strip() == ""
+    if (root / "static").is_dir():
+        assert {p.name for p in (root / "static").iterdir()} <= {"version.json", "version.json.tmp"}
+
+
+def test_error_reference_names_run_version_and_commit(fake_build):
+    from uvalu import logkit
+    fake_build()
+    logkit.begin_run()
+    ref = shell.error_reference()
+    assert ref == f"{logkit.correlation_id()[:12]} · v2031.07.4-dev+fedcba9 (fedcba9)"
+
+
+def test_render_failure_shows_reference(fake_build):
+    fake_build()
+
+    def _script():
+        from uvalu import shell
+        shell.render_error_reference()
+
+    at = AppTest.from_function(_script, default_timeout=60)
+    at.run()
+    assert "Reference for support:" in at.caption[0].value
+    assert "v2031.07.4-dev+fedcba9 (fedcba9)" in at.caption[0].value
