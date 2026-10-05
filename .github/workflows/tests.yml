@@ -20,5 +20,7 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt pytest
+      - name: Stamp build metadata (VM-04/VM-05)
+        run: python tools/stamp_build.py --env test && python tools/stamp_build.py --check
       - name: pytest
         run: python -m pytest -q

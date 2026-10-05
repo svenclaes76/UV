@@ -393,6 +393,9 @@ def render_topbar(nav) -> None:
                             _legal_page = nav_registry.pages.get("legal")
                             if _legal_page is not None:
                                 st.page_link(_legal_page, label=_("Legal & policies"), query_params={"doc": "terms"})
+                            _about_page = nav_registry.pages.get("about")
+                            if _about_page is not None:
+                                st.page_link(_about_page, label=_("About Uvalu"))
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"))
                         st.divider()
@@ -435,6 +438,76 @@ def render_beta_banner() -> None:
         unsafe_allow_html=True)
 
 
+# Environment marker (VD-03): fixed colours, the same in light and dark theme,
+# white text on both (contrast ≥ 4.5:1). Production shows nothing.
+ENV_COLORS = {"development": "#B45309", "test": "#6D28D9"}
+_ENV_FALLBACK_COLOR = "#B91C1C"
+
+
+def env_marker_html(info=None) -> str:
+    """A 3px stripe across the top of the window plus a small label in the
+    bottom-left corner (clear of the top bar's nav), so a non-production build
+    can't be mistaken for production — not even on a screenshot. Empty for
+    production."""
+    from uvalu import buildinfo
+    info = info or buildinfo.current()
+    if info.is_production:
+        return ""
+    color = ENV_COLORS.get(info.environment, _ENV_FALLBACK_COLOR)
+    label = html.escape(info.environment_label)
+    title = html.escape(f"{info.environment} — {info.display_version}")
+    return (f'<div class="uv-env-stripe" style="position:fixed;top:0;left:0;right:0;height:3px;'
+            f'background:{color};z-index:1000000;pointer-events:none;"></div>'
+            f'<div class="uv-env-badge" title="{title}" style="position:fixed;bottom:0;left:16px;'
+            f'z-index:1000000;background:{color};color:#fff;'
+            f'font:600 10px/1 var(--uv-mono, monospace);letter-spacing:0.12em;padding:4px 10px 4px;'
+            f'border-radius:6px 6px 0 0;pointer-events:none;">{label}</div>')
+
+
+def render_env_marker() -> None:
+    marker = env_marker_html()
+    if marker:
+        with st.container(key="uv_hidden_util_env"):
+            st.markdown(marker, unsafe_allow_html=True)
+
+
+def error_reference() -> str:
+    """``<correlation id> · v<version> (<commit>)`` — the same ids the log line
+    for this run carries, so support can find it (VD-08)."""
+    from uvalu import buildinfo, logkit
+    info = buildinfo.current()
+    cid = (logkit.correlation_id() or "-")[:12]
+    return f"{cid} · v{info.display_version} ({info.commit})"
+
+
+def render_error_reference() -> None:
+    try:
+        # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
+        st.caption(_("Something went wrong. Reference for support: {ref}", ref=error_reference()))
+    except Exception:
+        pass
+
+
+def render_maintenance() -> None:
+    """Shown instead of the app when the stored data doesn't match this version
+    (VM-09). Deliberately neutral — the instruction for the operator is in the
+    server log (event ``startup.schema_mismatch``) and on the console."""
+    from uvalu import buildinfo
+    info = buildinfo.current()
+    # Translators: Maintenance screen › title, shown instead of the app while stored data waits for an update.
+    title = _("Uvalu is being updated")
+    # Translators: Maintenance screen › body text under "Uvalu is being updated".
+    body = _("The app is waiting for a data update to finish. Please try again in a few minutes.")
+    st.markdown(
+        '<div style="max-width:560px;margin:12vh auto 0;padding:28px 32px;border:0.5px solid var(--line);'
+        'border-radius:12px;background:var(--panel);">'
+        f'<div style="font-size:20px;font-weight:600;margin-bottom:8px;">{html.escape(title)}</div>'
+        f'<div style="font-size:14px;color:var(--muted);line-height:1.6;">{html.escape(body)}</div>'
+        f'<div style="font-size:11.5px;color:var(--faint);margin-top:16px;">'
+        f'v{html.escape(info.display_version)} · {html.escape(info.commit)}</div></div>',
+        unsafe_allow_html=True)
+
+
 _FOOTER_CSS = """
 .st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding: 16px 0 16px; gap: 8px !important; }
 .st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
@@ -461,6 +534,16 @@ _FOOTER_CSS = """
   font-size: 11px !important; color: var(--teal) !important;
 }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+/* Version marker (VD-01): quieter than the legal links, monospace. */
+.st-key-uv_footer_version { margin-top: 2px; }
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] {
+  padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+}
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] p {
+  font-size: 10.5px !important; color: var(--faint) !important; font-family: var(--uv-mono) !important;
+}
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--teal) !important; }
 """
 
 
@@ -483,3 +566,20 @@ def render_footer() -> None:
                 for key, title, _file in d.LEGAL_DOCS:
                     st.page_link(legal_page, label=tr(d.FOOTER_LINK_LABELS.get(key, title)),
                                  query_params={"doc": key})
+        render_version_marker()
+
+
+def render_version_marker() -> None:
+    """``v2026.10.1`` under the legal links on every page (VD-01), linking to
+    What's new on the About page (VD-04). The text is read from the build
+    metadata, never written in the UI (VD-10)."""
+    from uvalu import buildinfo
+    info = buildinfo.current()
+    about = nav_registry.pages.get("about")
+    with st.container(key="uv_footer_version", horizontal=True, horizontal_alignment="center"):
+        label = f"v{info.display_version}"
+        if about is not None:
+            st.page_link(about, label=label, help=_("About this version and what's new"))
+        else:
+            st.markdown(f'<span style="font-size:11px;color:var(--faint);">{html.escape(label)}</span>',
+                        unsafe_allow_html=True)

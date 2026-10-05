@@ -369,11 +369,39 @@ whatever is already computed and refreshes itself as background work lands.
 
 Every record carries a `correlation_id` (one UUID per script run, propagated
 into `logkit.spawn` workers), a pseudonymous `user_id` (`sha256(email)[:16]` —
-the same hash as the data-dir slug), `environment`, and `build_version`. The
+the same hash as the data-dir slug), `environment`, `build_version` and `commit` (from `uvalu/buildinfo.py`). The
 redaction filter scrubs secrets/PII from the message, the `extra` metadata, and
 rendered stack traces. High-volume per-ticker fetch progress is sampled to 5%.
 Recurring exceptions are grouped by a 6-hex fingerprint (`error_stats()` exposes
 the table for a future admin indicator).
+
+---
+
+## Versions, build metadata and data schema
+
+Plan: `docs/version-management-plan.md`; operations: `docs/operations/release-and-rollback.md`.
+
+- **Version** — CalVer `YYYY.MM.N`, set only in `pyproject.toml`.
+  `uvalu/buildinfo.py` is the single accessor (`buildinfo.current()`): version,
+  display version (`2026.10.1` for a release, `2026.10.1-dev+<sha>[.dirty]`
+  otherwise), commit, UTC build time, environment. It reads `build_info.json`
+  (stamped by `tools/stamp_build.py`, which `run_app.py` runs on every start)
+  and falls back to computing the same from git once per process; a stamp for
+  another commit is ignored.
+- **Where it shows** — footer marker → `/about` (`uvalu/pages_/about.py`: build
+  details + What's new from `CHANGELOG.md` via `uvalu/changelog.py`); an
+  environment marker outside production (`shell.render_env_marker`); Admin →
+  System; `/app/static/version.json`; `build_version` + `commit` on every log
+  line; a support reference under a render error. `uvalu/update_notice.py`
+  shows a one-time What's new notice per user and asks a session to reload
+  when another build has been stamped.
+- **Data schema** — `uvalu/migrations/`: numbered migrations
+  (`m0001_baseline` = the October 2026 layout), the recorded version in
+  `data/schema_version.json`, a snapshot + lock around every run.
+  `run_app.py` upgrades on start; `app.py` calls `migrations.ensure_compatible()`
+  before the sign-in wall and shows a maintenance screen on a mismatch.
+  Backups carry `meta.json` (schema + app version): newer ones are refused,
+  older ones re-run the migrations after restore.
 
 ---
 

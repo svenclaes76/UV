@@ -12,7 +12,6 @@ import logging
 import re
 import threading
 import time
-from pathlib import Path
 
 from uvalu.logkit import config as _config
 from uvalu.logkit import redaction
@@ -20,32 +19,23 @@ from uvalu.logkit.context import correlation_id, user_id
 
 # ── standard-attr set (values RedactionFilter must not walk) ─────────────────
 _STD_ATTRS = set(logging.makeLogRecord({}).__dict__) | {
-    "taskName", "correlation_id", "user_id", "environment", "build_version",
+    "taskName", "correlation_id", "user_id", "environment", "build_version", "commit",
     "error_fingerprint", "error_count",
 }
 
-_BUILD_VERSION: "str | None" = None
-
-
-def _build_version() -> str:
-    global _BUILD_VERSION
-    if _BUILD_VERSION is None:
-        _BUILD_VERSION = _read_pyproject_version() or "unknown"
-    return _BUILD_VERSION
-
-
-def _read_pyproject_version() -> "str | None":
+def _build() -> "tuple[str, str]":
+    """(display version, short commit) of the running build — uvalu.buildinfo
+    is the single source; it caches, so this is cheap per record."""
     try:
-        import tomllib
-        p = Path(__file__).resolve().parents[2] / "pyproject.toml"
-        with p.open("rb") as fh:
-            return tomllib.load(fh).get("project", {}).get("version")
+        from uvalu import buildinfo
+        info = buildinfo.current()
+        return info.display_version, info.commit
     except Exception:
-        return None
+        return "unknown", "unknown"
 
 
 class ContextFilter(logging.Filter):
-    """Inject correlation id, user id, environment and build version. Explicit
+    """Inject correlation id, user id, environment, build version and commit. Explicit
     values already on the record (passed via ``extra=``) win over context."""
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -54,7 +44,7 @@ class ContextFilter(logging.Filter):
         if getattr(record, "user_id", None) is None:
             record.user_id = user_id()
         record.environment = _config.resolve_environment()
-        record.build_version = _build_version()
+        record.build_version, record.commit = _build()
         return True
 
 

@@ -83,7 +83,8 @@ migration handle for the future admin portal.
   "metadata": {
     "schema_version": 1,
     "environment": "production",
-    "build_version": "1.4.0",
+    "build_version": "2026.10.1",
+    "commit": "a1b2c3d",
     "event": "external_call.failed",
     "endpoint": "yfinance.download.history",
     "params": {"tickers": 42, "period": "5y"},
@@ -106,6 +107,7 @@ migration handle for the future admin portal.
 | `correlation_id` | UUID4 hex; per script run, propagated into `logkit.spawn` workers. `null` only before `begin_run()` runs. |
 | `user_id` | `sha256(lower(email))[:16]` — the **same hash `portfolio.py` / `settings.py` use for data-dir slugs**. `null` when unauthenticated. |
 | `message` | Short, human. **No interpolated identifiers or secret/PII values** — those go in `metadata`, and the redaction filter scrubs the message too. |
+| `metadata.build_version` / `commit` | The running build from `uvalu.buildinfo` (VD-08): `2026.10.1` for a release, `2026.10.1-dev+a1b2c3d` otherwise; short commit hash or `unknown`. `commit` was added additively — still schema v1. |
 | `metadata.event` | Machine slug for filtering: `auth.login.ok`, `auth.login.failed`, `authz.denied`, `mutation`, `config.change`, `job.start`/`job.ok`/`job.failed`, `external_call.ok`/`external_call.failed`, `render`. |
 | `metadata.stack` | Full traceback in `development` / `staging`; omitted in `production` (only `error_type` + `error_fingerprint` remain). Controlled by `stack_traces`. |
 | `metadata.error_fingerprint` / `error_count` | Recurring exceptions with the same root cause share a 6-hex fingerprint; only the 1st and every 10th occurrence is emitted, carrying the running count. |

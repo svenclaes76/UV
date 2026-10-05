@@ -93,7 +93,15 @@ def test_build_version_matches_pyproject():
     want = tomllib.loads(
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
     )["project"]["version"]
-    assert _json_line(_record())["metadata"]["build_version"] == want
+    md = _json_line(_record())["metadata"]
+    # a release build logs exactly the pyproject version, a dev build "<version>-dev+<sha>"
+    assert md["build_version"] == want or md["build_version"].startswith(f"{want}-dev+")
+
+
+def test_log_line_carries_commit_from_buildinfo():
+    from uvalu import buildinfo
+    md = _json_line(_record())["metadata"]
+    assert md["commit"] == buildinfo.current().commit
 
 
 def test_context_filter_uses_bound_correlation_and_user():
@@ -122,7 +130,21 @@ def test_config_environment_overrides_env_var(monkeypatch):
     monkeypatch.setenv("UVALU_ENV", "production")
     monkeypatch.setattr(_config, "_current",
                         {**_config.DEFAULTS, "environment": "staging"})
-    assert _config.resolve_environment() == "staging"
+    assert _config.resolve_environment() == "test"           # staging is an alias of test
+
+
+@pytest.mark.parametrize("raw,want", [("prod", "production"), ("PRODUCTION", "production"),
+                                      ("live", "production"), ("staging", "test"), ("dev", "development"),
+                                      ("", "development"), ("qa", "qa")])
+def test_environment_aliases_are_canonical_everywhere(monkeypatch, raw, want):
+    """One reading of UVALU_ENV for logs, stack traces, i18n previews and the badge."""
+    from uvalu import buildinfo, i18n
+    monkeypatch.setenv("UVALU_ENV", raw)
+    assert _config.resolve_environment() == want
+    assert _json_line(_record())["metadata"]["environment"] == want
+    assert buildinfo._runtime_environment() == want
+    monkeypatch.setenv("UVALU_I18N_DRAFTS", "1")
+    assert i18n._drafts_enabled() is (want != "production")
 
 
 def test_include_stack_auto_is_off_in_production_only():

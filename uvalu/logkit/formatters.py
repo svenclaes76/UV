@@ -21,7 +21,7 @@ _SERVICE = "uvalu"
 # else on the record is treated as caller-supplied metadata.
 _RESERVED = set(logging.makeLogRecord({}).__dict__) | {
     "message", "asctime", "taskName",
-    "correlation_id", "user_id", "environment", "build_version",
+    "correlation_id", "user_id", "environment", "build_version", "commit",
     "event", "schema_version", "service",
 }
 
@@ -52,6 +52,7 @@ def _metadata(record: logging.LogRecord, *, include_stack: bool) -> dict:
         "schema_version": _SCHEMA_VERSION,
         "environment": getattr(record, "environment", None),
         "build_version": getattr(record, "build_version", None),
+        "commit": getattr(record, "commit", None),
     }
     if getattr(record, "event", None):
         md["event"] = record.event
@@ -100,7 +101,7 @@ class ColorTextFormatter(logging.Formatter):
     present, is appended dimmed on following lines.
     """
 
-    _SKIP_KV = {"schema_version", "environment", "build_version"}
+    _SKIP_KV = {"schema_version", "environment", "build_version", "commit"}
 
     def __init__(self, *, color=True, include_stack=True) -> None:
         super().__init__()

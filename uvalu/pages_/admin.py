@@ -25,6 +25,10 @@ health/latency monitoring" / "no scheduler, every backup is Manual" / "no
 outbound email, share the temporary password yourself" captions instead of
 the mockup's fabricated per-feed ms latency, "Scheduled" backup type, and
 "they'll receive an email invite" copy. Admin-role only."""
+import html
+from datetime import datetime, timezone
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
@@ -48,9 +52,10 @@ _NAV_ITEMS = (
     ("security", "Security",    ":material/shield:"),
     ("feeds",    "Data feeds",  ":material/dns:"),
     ("backups",  "Backups",     ":material/backup:"),
+    ("system",   "System",      ":material/info:"),
 )
 _SECTION_TITLES = {"users": "User management", "security": "Security", "feeds": "Data feeds",
-                   "backups": "Backups & restore"}
+                   "backups": "Backups & restore", "system": "System & versions"}
 
 _2FA_STYLE = {
     "ON":       ("var(--up-bg)",    "var(--up-txt)"),
@@ -598,6 +603,83 @@ def _render_feeds() -> None:
                     save_shared_settings(_shared)
                     _load_all_screener_data.clear()
                     st.rerun()
+
+
+# Key dependencies whose versions support needs to know (VD-06).
+SYSTEM_PACKAGES = ("streamlit", "pandas", "numpy", "yfinance", "requests", "cryptography",
+                   "bcrypt", "PyJWT", "Authlib", "babel", "plotly", "openpyxl")
+
+
+def _kv_card(key: str, title: str, rows: "list[tuple[str, str]]", note: str = "") -> None:
+    grid = "".join(f'<div style="color:var(--faint);">{html.escape(k)}</div>'
+                   f'<div style="font-family:var(--uv-mono);color:var(--text);overflow-wrap:anywhere;">'
+                   f'{html.escape(v)}</div>' for k, v in rows)
+    with st.container(key=key, border=True):
+        st.markdown(f'<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">'
+                    f'{html.escape(title)}</div>'
+                    f'<div style="display:grid;grid-template-columns:max-content 1fr;gap:6px 24px;'
+                    f'font-size:12.5px;">{grid}</div>'
+                    + (f'<div style="font-size:11.5px;color:var(--faint);margin-top:10px;">{html.escape(note)}</div>'
+                       if note else ""), unsafe_allow_html=True)
+
+
+def _file_time(path) -> str:
+    try:
+        ts = Path(path).stat().st_mtime
+    except OSError:
+        return "never"
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+def system_rows() -> dict:
+    """Everything the System tab shows, as plain rows (tested without a UI)."""
+    import platform
+    from importlib import metadata
+
+    import fx
+    import screener
+    from uvalu import buildinfo, migrations
+
+    info = buildinfo.current()
+    build = [("App version", info.display_version), ("Release build", "yes" if info.is_release else "no"),
+             ("Commit", info.commit_full), ("Built", info.built_at), ("Environment", info.environment),
+             ("Build metadata", "stamped at start" if info.source == "stamp" else "computed (no stamp)"),
+             ("Scoring model", screener.MODEL_VERSION)]
+    try:
+        state = migrations.read_state() or {}
+        on_disk = str(state.get("schema_version", "not recorded"))
+        history = state.get("history", [])
+    except migrations.MigrationError as exc:
+        on_disk, history = f"unreadable ({exc})", []
+    schema = [("Data schema", on_disk), ("Expected by this version", str(migrations.expected_version())),
+              ("Snapshots kept", str(len(migrations.list_snapshots())))]
+    schema += [(f"#{h.get('number')} {h.get('direction')}", f"{h.get('at')} · {h.get('app_version')}")
+               for h in reversed(history[-5:])]
+    runtime = [("Python", platform.python_version())]
+    for pkg in SYSTEM_PACKAGES:
+        try:
+            runtime.append((pkg, metadata.version(pkg)))
+        except metadata.PackageNotFoundError:
+            runtime.append((pkg, "not installed"))
+    sources = [("Yahoo Finance — screener fundamentals", _file_time(screener.SCREENER_FETCH.cache_file)),
+               ("Yahoo Finance — portfolio fundamentals", _file_time(screener.PORTFOLIO_FETCH.cache_file)),
+               ("Frankfurter — FX rates", _file_time(fx._CACHE_FILE))]
+    return {"build": build, "schema": schema, "runtime": runtime, "sources": sources}
+
+
+def _render_system() -> None:
+    st.caption("What this server is running: build, data schema, dependencies and data sources. "
+               "The same version data is public at /app/static/version.json.")
+    rows = system_rows()
+    left, right = st.columns(2, gap="medium")
+    with left:
+        _kv_card("admin_sys_build", "Build", rows["build"])
+        _kv_card("admin_sys_schema", "Data schema", rows["schema"],
+                 note="Migrations: python -m uvalu.migrations status")
+    with right:
+        _kv_card("admin_sys_sources", "Data sources · last update", rows["sources"],
+                 note="Last time each cache was written. Exchange on/off is under Data feeds.")
+        _kv_card("admin_sys_runtime", "Runtime", rows["runtime"])
 
 
 def _render_backups(email: str) -> None:
@@ -1506,5 +1588,7 @@ def render() -> None:
                     _render_security()
                 elif _section == "feeds":
                     _render_feeds()
+                elif _section == "system":
+                    _render_system()
                 else:
                     _render_backups(_u.email)

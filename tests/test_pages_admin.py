@@ -566,3 +566,33 @@ _dlg_restore({entry['id']!r}, {entry['created_at']!r}, {TEST_EMAIL!r})
         cancel_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert portfolio.load_portfolio().iloc[0]["ticker"] == "CHANGED.BR"
+
+
+# ── System tab (VD-06) ───────────────────────────────────────────────────────
+
+def test_system_section_shows_build_schema_runtime_and_sources(isolated_data, monkeypatch):
+    from uvalu import buildinfo, migrations
+    migrations.ensure_compatible()                      # records the schema in the tmp data dir
+    at = _run(monkeypatch, role="Admin", section="system")
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    info = buildinfo.current()
+    for text in ("System & versions", info.commit_full, "Data schema",
+                 "Expected by this version", "streamlit", "Python", "Frankfurter", "fresh-install"):
+        assert text in html, text
+
+
+def test_system_rows_report_schema_and_packages():
+    from uvalu import migrations
+    rows = admin_page.system_rows()
+    schema = dict(rows["schema"])
+    assert schema["Expected by this version"] == str(migrations.expected_version())
+    runtime = dict(rows["runtime"])
+    assert runtime["streamlit"] and runtime["streamlit"] != "not installed"
+    assert {k for k, _ in rows["sources"]} >= {"Frankfurter — FX rates"}
+
+
+def test_system_section_hidden_from_non_admin(isolated_data, monkeypatch):
+    at = _run(monkeypatch, role="Viewer", section="system")
+    assert "Admin access required" in "".join(e.value for e in at.error)
+    assert not any("Data schema" in m.value for m in at.markdown)

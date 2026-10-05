@@ -126,6 +126,26 @@ on-demand snapshot.
   without them the new machine can't decrypt the old data. Use the separate
   **Export key** button, store that `.env` somewhere apart from your data
   backups, and load it on the new machine before restoring.
+- **Backups from another version:** a backup records its data schema. One from
+  a newer version is refused; an older one is brought up to date
+  automatically after the restore.
+
+---
+
+## Which version is a user on?
+
+- Ask them for the footer marker (e.g. `v2026.10.1`), or the line under
+  **About Uvalu → About this version**, which has a copy button.
+- An error screen shows `Reference for support: <id> · v<version> (<commit>)`;
+  search the logs for that correlation id.
+- Admin portal → **System** shows the server's build, data schema and
+  dependency versions; monitoring can read `/app/static/version.json`.
+- **"Uvalu is being updated"** instead of the app: the stored data doesn't match
+  this version's schema. The log line `startup.schema_mismatch` says what to
+  run; see [operations/release-and-rollback.md](operations/release-and-rollback.md).
+
+Deploying, migrating data and rolling back are in
+[operations/release-and-rollback.md](operations/release-and-rollback.md).
 
 ---
 

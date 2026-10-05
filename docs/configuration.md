@@ -8,7 +8,8 @@ Stored in `.env` in the project root. Required — the app will not start withou
 |---|---|---|
 | `AUTH_SECRET` | 64-char hex | HMAC-SHA256 signing key for JWT tokens. Must be kept secret. |
 | `ENCRYPTION_KEY` | 64-char hex | Fernet key for encrypting portfolio and settings files at rest. Must be kept secret. Changing this key makes all existing encrypted files unreadable. |
-| `UVALU_ENV` | `development` \| `staging` \| `production` | Optional (default `development`). Tags every log line (`metadata.environment`) and controls stack-trace verbosity — full traces in `development`/`staging`, `error_type` + `error_fingerprint` only in `production`. Overridden by `environment` in `logging.config.json` if that is set. |
+| `UVALU_ENV` | `development` \| `test` \| `production` | Optional (default `development`). Tags every log line (`metadata.environment`) and controls stack-trace verbosity — full traces outside `production`, `error_type` + `error_fingerprint` only in `production`. Every value other than `production` shows an environment marker in the app (a coloured top stripe and a DEV/TEST corner label); Aliases are read the same everywhere (logs, stack traces, translation previews, badge): `dev`/`local` = `development`, `staging`/`testing` = `test`, `prod`/`live` = `production`. Recorded in the build metadata. Overridden by `environment` in `logging.config.json` if that is set. |
+| `UVALU_REPO_URL` | URL | Optional. Where the About page links a commit for admins (default: the GitHub repository). |
 | `ADMIN_EMAIL` | email address | Optional. If set and the user store is empty at startup, this account is created and promoted to `Admin` via `auth.bootstrap_admin_from_env()` — the only way to create the first account now that the sign-in wall is invite-only. Ignored once any account exists. |
 | `ADMIN_PASSWORD` | string, 8+ chars | Optional. Password for `ADMIN_EMAIL`'s bootstrap account. If `ADMIN_EMAIL` is set but this isn't, bootstrap is skipped (logged as a warning) rather than generating a password with nowhere to show it — use `scripts/create_admin.py` instead. |
 
@@ -137,6 +138,10 @@ All paths are relative to the project root and are created automatically on firs
 | Path | Description |
 |---|---|
 | `.env` | Environment secrets |
+| `build_info.json` | Build metadata of the running checkout — version, commit, UTC build time, environment. Written by `tools/stamp_build.py` (run by `run_app.py`); git-ignored, never edit |
+| `static/version.json` | The same, public at `/app/static/version.json` for monitoring, plus the data schema (Streamlit static serving) |
+| `data/schema_version.json` | Recorded data-schema version + migration history (`uvalu/migrations/`) |
+| `data/migration-snapshots/` | ZIP of the data taken before each migration run (last 10 kept) |
 | `.ssl/cert.pem` | Auto-generated TLS certificate |
 | `.ssl/key.pem` | Auto-generated TLS private key |
 | `.cache/users.json` | User account store (bcrypt hashes, roles) |

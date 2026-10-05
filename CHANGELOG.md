@@ -1,13 +1,51 @@
 # Changelog
 
-All notable changes to UV are documented here.
+All notable changes to Uvalu are documented here. The app shows these notes
+under *What's new*, so they are written for the people who use it.
 
-Version numbers follow the scheme in
-[CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning-and-releases).
+From October 2026 versions are calendar versions, `YYYY.MM.N` (the N-th release
+of that month); earlier releases used SemVer. Rules in
+[CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning-and-releases):
+
+- Start a release with one or two sentences: what you'll notice, and anything
+  you need to do besides restarting. Say it when scores or signals change, and
+  add `Data schema: N` when stored data is migrated.
+- Group entries under **Added**, **Changed**, **Fixed** and **Removed** only.
+- Plain language — no file paths, function names or work-package ids.
 
 ---
 
 ## [Unreleased]
+
+## [2026.10.1] — 2026-10-05
+
+Versions are now calendar versions: this is the first, `YYYY.MM.N`. Nothing to
+do besides restarting with `run_app.py`. Data schema: 1 (recorded on the first
+start; no data changes).
+
+### Added
+
+- **Version in the footer** of every screen. Click it for the new **About Uvalu**
+  page: the exact version, when it was built, and a line to copy when you
+  contact support. Also in the avatar menu.
+- **What's new**: the release notes of every version, in the app. After an
+  update you see a short notice once, with a link to what changed.
+- A prompt to reload the page when a newer version has been installed while
+  you were using the app.
+- Test installations are clearly marked with a coloured stripe and a DEV or
+  TEST label, so they can't be mistaken for the real app.
+- An error message now includes a short reference to quote to support.
+- Admins: a **System** tab with the server's version, data version, software
+  versions and when each data source last updated.
+- Operators: stored data now has a version and is upgraded automatically on
+  start, with a snapshot first; the app refuses to run on data from another
+  version instead of misreading it. Rolling back to an earlier release is a
+  documented, tested procedure.
+
+### Changed
+
+- Backups record which version made them. A backup from a newer version is
+  refused; an older one is brought up to date when you restore it.
 
 ## [2.1.1] — 2026-10-05
 

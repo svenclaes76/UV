@@ -98,6 +98,19 @@ def _logkit_isolated(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _migrations_isolated(tmp_path, monkeypatch):
+    """Point the data-schema check/migrations (uvalu/migrations) at an empty
+    tmp data dir, so app.py's start-up check never records a schema version
+    in — or snapshots — the developer's real data/ and .cache/."""
+    from uvalu.migrations import runner
+    monkeypatch.setattr(runner, "DATA_DIR", tmp_path / "mig_data")
+    monkeypatch.setattr(runner, "CACHE_DIR", tmp_path / "mig_cache")
+    runner.reset_cache()
+    yield
+    runner.reset_cache()
+
+
+@pytest.fixture(autouse=True)
 def _fx_isolated(tmp_path, monkeypatch):
     """Never call the real frankfurter.dev API and never touch the developer's
     real .cache/fx_frankfurter.json: every test gets an empty FX cache in

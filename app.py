@@ -22,7 +22,7 @@ import streamlit as st
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
-from uvalu import authgate, i18n, nav, shell, styles
+from uvalu import authgate, i18n, nav, shell, styles, update_notice
 from uvalu.i18n import _
 from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
@@ -30,7 +30,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
                           risk as _page_risk, screener as _page_screener,
                           watchlist as _page_watchlist, analysis as _page_analysis,
                           settings as _page_settings, help as _page_help,
-                          admin as _page_admin, legal as _page_legal)
+                          admin as _page_admin, legal as _page_legal, about as _page_about)
 
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
@@ -40,12 +40,23 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 styles.inject()
+# Non-production builds are marked on every screen, sign-in included (VD-03).
+shell.render_env_marker()
 
 # A broken i18n config stops the app with a message naming the key (spec C-02).
 try:
     i18n.config()
 except i18n.I18nConfigError as _cfg_err:
     st.error(str(_cfg_err))
+    st.stop()
+
+# The stored data must match the schema this version expects (VM-09). On a
+# mismatch the app refuses to run; the log line says what the operator must do.
+from uvalu import migrations
+try:
+    migrations.ensure_compatible()
+except migrations.SchemaMismatch:
+    shell.render_maintenance()
     st.stop()
 
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
@@ -107,6 +118,7 @@ _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":mat
 _pg_help      = st.Page(_page_help.render,      title=_("Methodology & help"), icon=":material/help:",   url_path="help")
 _pg_legal     = st.Page(_page_legal.render,     title=_("Legal"),     icon=":material/gavel:",           url_path="legal")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
+_pg_about     = st.Page(_page_about.render,     title=_("About Uvalu"), icon=":material/info:",        url_path="about")
 
 # Populate the shared registry so page modules can link to one another.
 # _pg_analysis and _pg_admin are deliberately not in the top-bar nav
@@ -116,11 +128,12 @@ nav.pages.update({
     "dashboard": _pg_dashboard, "portfolio": _pg_portfolio, "risk": _pg_risk,
     "screener": _pg_screener, "watchlist": _pg_watchlist, "analysis": _pg_analysis,
     "settings": _pg_settings, "help": _pg_help, "admin": _pg_admin, "legal": _pg_legal,
+    "about": _pg_about,
 })
 
 _nav = st.navigation(
     [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
-     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal],
+     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal, _pg_about],
     position="hidden",
 )
 
@@ -140,6 +153,9 @@ nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
     shell.render_beta_banner()
+    update_notice.render_whats_new_notice(_email)
+update_notice.remember_session_build()
+update_notice.render_reload_prompt()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).
@@ -159,6 +175,8 @@ except Exception:
         extra={"event": "render.error", "page": getattr(_nav, "url_path", None),
                "duration_ms": int((time.perf_counter() - _nav_started) * 1000)},
     )
+    # A reference the user can quote to support, matching the log line (VD-08).
+    shell.render_error_reference()
     raise
 finally:
     # Render telemetry (spec §4), in `finally` so a page that ends its render
