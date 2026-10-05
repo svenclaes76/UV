@@ -1,15 +1,23 @@
 # Translation checks (docs/i18n-spec.md T-06, W-04).
-# Every push and PR: placeholders/markup valid, .mo files compile, the code and
-# locales/messages.pot agree, and the i18n tests pass. Release tags (v*) also
-# run the strict gate, which fails while any translation is still unreviewed
-# (fuzzy) — nothing unreviewed ships.
+# Pushes to master, PRs and manual runs (Actions tab); docs-only changes are
+# skipped and superseded runs cancelled. Checks: placeholders/markup valid, .mo
+# files compile, the code and locales/messages.pot agree, and the i18n tests
+# pass. Release tags (v*) also run the strict gate, which fails while any
+# translation is still unreviewed (fuzzy) — nothing unreviewed ships.
 name: i18n
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
     tags: ["v*"]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   catalogs:

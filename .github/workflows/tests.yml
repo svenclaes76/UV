@@ -1,12 +1,22 @@
-# Full test suite (tests/) on every push and PR.
+# Full test suite (tests/) on pushes to master and on PRs; run it by hand on any
+# other branch from the Actions tab (Run workflow). Docs-only changes skip it,
+# and a newer push cancels the run still going for the same branch — the repo
+# is private, so every run spends Actions minutes.
 # Needs no .env, secrets or network: tests set their own ENCRYPTION_KEY and stub
 # market-data and auth lookups.
 name: tests
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pytest:
