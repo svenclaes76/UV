@@ -119,6 +119,9 @@ _USER_DEFAULTS: dict = {
     "date_format": None,       # "short" | "medium" | "iso"
     "time_zone": None,         # IANA zone; None = config default (Europe/Brussels)
     "week_start": None,        # "monday" | "sunday"; None follows the region
+    # Last release whose "What's new" notice this user saw or dismissed
+    # (uvalu/update_notice.py, VD-05). None = not recorded yet.
+    "last_seen_version": None,
 }
 
 

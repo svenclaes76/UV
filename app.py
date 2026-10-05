@@ -22,7 +22,7 @@ import streamlit as st
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
-from uvalu import authgate, i18n, nav, shell, styles
+from uvalu import authgate, i18n, nav, shell, styles, update_notice
 from uvalu.i18n import _
 from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
@@ -153,6 +153,9 @@ nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
     shell.render_beta_banner()
+    update_notice.render_whats_new_notice(_email)
+update_notice.remember_session_build()
+update_notice.render_reload_prompt()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).

@@ -136,3 +136,7 @@ def render() -> None:
                 f'{h_("About Uvalu")}</div>', unsafe_allow_html=True)
     _build_card(info)
     _notes_card(info)
+    # Reading the notes counts as having seen the update notice (VD-05).
+    if changelog.find(changelog.load(), info.version) is not None:
+        from uvalu import update_notice
+        update_notice.mark_seen(current_user().email, info.version)

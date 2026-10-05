@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-05 18:32+0000\n"
+"POT-Creation-Date: 2026-10-05 18:40+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
@@ -3492,6 +3492,34 @@ msgstr "Nessun dato disponibile per questa ripartizione."
 #: uvalu/ui.py:358
 msgid "TOTAL"
 msgstr "TOTALE"
+
+#: uvalu/update_notice.py:89
+#, fuzzy, python-brace-format
+msgid "Uvalu was updated to version {version}."
+msgstr "Uvalu è stato aggiornato alla versione {version}."
+
+#: uvalu/update_notice.py:93
+#, fuzzy
+#| msgid "What’s new"
+msgid "See what’s new"
+msgstr "Scopri le novità"
+
+#: uvalu/update_notice.py:96
+#, fuzzy
+#| msgid "Swiss"
+msgid "Dismiss"
+msgstr "Chiudi"
+
+#: uvalu/update_notice.py:137
+#, fuzzy
+msgid "A new version of Uvalu is available. Reload the page to use it."
+msgstr "È disponibile una nuova versione di Uvalu. Ricarica la pagina per usarla."
+
+#: uvalu/update_notice.py:140
+#, fuzzy
+#| msgid "Removed"
+msgid "Reload"
+msgstr "Ricarica"
 
 #: uvalu/compliance/disclosures.py:19
 msgid ""
