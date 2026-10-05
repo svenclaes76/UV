@@ -29,6 +29,13 @@ out). The **Analysis** deep-dive page and the **Admin portal** are
 deliberately not in the main navigation — Analysis is reached from a stock's
 preview drawer, Admin from the avatar menu.
 
+The footer at the bottom of every screen shows the version you're using
+(e.g. `v2026.10.1`). Click it — or **About Uvalu** in the avatar menu — for
+the version details and **What's new**, the release notes of every version.
+After an update you see a short notice once, with a link to what changed.
+A test installation shows a coloured stripe at the top and a DEV/TEST label in
+the bottom-left corner, so it can't be mistaken for the real thing.
+
 ---
 
 ## Dashboard
@@ -263,6 +270,9 @@ Reached from the avatar menu, not the main navigation — Admin role only.
 - **Backups** — every entry is a real, on-demand snapshot (this app has no
   scheduler — all entries are typed *Manual*). Create, download, or restore
   a previous snapshot (restoring overwrites current data).
+- **System** — what the server runs: version and commit, data schema and
+  migration history, key dependency versions, and when each data source
+  last updated.
 
 ---
 

@@ -17,6 +17,34 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+Versions are now calendar versions: this is the first, `YYYY.MM.N`. Nothing to
+do besides restarting with `run_app.py`. Data schema: 1 (recorded on the first
+start; no data changes).
+
+### Added
+
+- **Version in the footer** of every screen. Click it for the new **About Uvalu**
+  page: the exact version, when it was built, and a line to copy when you
+  contact support. Also in the avatar menu.
+- **What's new**: the release notes of every version, in the app. After an
+  update you see a short notice once, with a link to what changed.
+- A prompt to reload the page when a newer version has been installed while
+  you were using the app.
+- Test installations are clearly marked with a coloured stripe and a DEV or
+  TEST label, so they can't be mistaken for the real app.
+- An error message now includes a short reference to quote to support.
+- Admins: a **System** tab with the server's version, data version, software
+  versions and when each data source last updated.
+- Operators: stored data now has a version and is upgraded automatically on
+  start, with a snapshot first; the app refuses to run on data from another
+  version instead of misreading it. Rolling back to an earlier release is a
+  documented, tested procedure.
+
+### Changed
+
+- Backups record which version made them. A backup from a newer version is
+  refused; an older one is brought up to date when you restore it.
+
 ## [2.1.1] — 2026-10-05
 
 PATCH — legal texts only; scores and signals are unchanged. Pull and restart.

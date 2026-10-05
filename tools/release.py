@@ -14,6 +14,10 @@ Usage:
         version at that commit, on the main branch, has a changelog section.
     python tools/release.py notes 2026.10.1
         Print the changelog section body (the GitHub Release text).
+    python tools/release.py schema-of v2026.10.1
+        The data schema that release expects (highest uvalu/migrations/m####_*.py
+        at the tag; 1 for releases from before versioned migrations). Used by
+        tools/rollback.py.
 """
 from __future__ import annotations
 
@@ -140,6 +144,21 @@ def verify_tag(tag: str, *, main_ref: str = "origin/master", root: Path = ROOT) 
     return problems
 
 
+# ── schema of a release (VM-10) ──────────────────────────────────────────────
+
+_MIGRATION_FILE_RE = re.compile(r"^m(\d{4})_\w+\.py$")
+
+
+def schema_of(ref: str, *, root: Path = ROOT) -> int:
+    """Data schema the code at ``ref`` expects. Before versioned migrations
+    existed the layout was the baseline, schema 1."""
+    _git("rev-parse", "--verify", f"{ref}^{{commit}}", root=root)
+    listing = _git("ls-tree", "--name-only", f"{ref}:uvalu/migrations", root=root, check=False)
+    numbers = [int(m.group(1)) for name in listing.split()
+               if (m := _MIGRATION_FILE_RE.match(name))]
+    return max(numbers, default=1)
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 def _date(s: "str | None") -> _dt.date:
@@ -162,6 +181,8 @@ def main(argv: "list[str] | None" = None) -> int:
     p.add_argument("--main-ref", default="origin/master")
     p = sub.add_parser("notes")
     p.add_argument("version")
+    p = sub.add_parser("schema-of")
+    p.add_argument("ref")
     args = ap.parse_args(argv)
 
     try:
@@ -187,6 +208,8 @@ def main(argv: "list[str] | None" = None) -> int:
             if not problems:
                 print(f"{args.tag}: ok")
             return 1 if problems else 0
+        elif args.cmd == "schema-of":
+            print(schema_of(args.ref))
         elif args.cmd == "notes":
             rel = changelog.find(changelog.parse(CHANGELOG.read_text(encoding="utf-8")), args.version)
             if rel is None:

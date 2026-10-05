@@ -5,6 +5,41 @@ Written 5 October 2026 against master `dc1d456` (v2.1.1).
 
 ---
 
+## Status — 5 October 2026
+
+Branch `feature/version-management`: WP-1..WP-11 implemented with tests; the
+docs part of WP-12 is done. Decisions D1–D8 taken as recommended. **Left:** review
+the new translations (drafted, still *Needs work*; the release tag's strict
+i18n gate fails until they are reviewed), then release as `2026.10.1` with
+`tools/release.py prepare`.
+
+Deviations from the plan text below, decided during implementation:
+
+- **Month is always two digits** (`2026.01.1`, not `2026.1.1`), as the format
+  `YYYY.MM.N` says; `uvalu.buildinfo.CALVER_RE` rejects the short form.
+- **Environment comes from the running process** (`UVALU_ENV`), not from the
+  stamp, so the badge can't disagree with the logs. The stamp records it too.
+- **A stamp for another commit is ignored** (one `git rev-parse` per process):
+  a dev server started without `run_app.py` would otherwise show an old commit.
+- **Environment marker**: a 3px top stripe plus a DEV/TEST label in the
+  bottom-left corner (fixed), on every screen including sign-in and Admin —
+  a pill in the top bar overlapped the nav.
+- **Log schema stays v1**: `commit` was added next to `build_version` as an
+  additive field.
+- **Admin System tab is English** like the rest of the Admin portal.
+- **What's new** shows CalVer sections only; before the first CalVer release
+  it says "No release notes yet". Non-production builds also show `[Unreleased]`.
+- **What's new notice**: a user with nothing recorded is recorded silently
+  (no notice), so existing users only start seeing notices from the release
+  after `2026.10.1`.
+- **VD-09 reload prompt** works as designed but rarely fires today: a deploy
+  restarts the server, which ends every session (see `uvalu/update_notice.py`).
+- **Backups**: `meta.json` in each ZIP; legacy backups count as schema 1.
+- **Rollback**: `tools/rollback.py` plus `tools/release.py schema-of`; runbook
+  in `docs/operations/release-and-rollback.md`.
+
+---
+
 ## 0. Where we start
 
 | Area | Today | Gap |
