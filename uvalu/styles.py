@@ -38,7 +38,7 @@ GLOBAL_CSS = """
     --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
     --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
     --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
-    --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D;
+    --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D; --amber-fill:#C98A3A;
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
   }
@@ -48,7 +48,7 @@ GLOBAL_CSS = """
     --text:#0D1F3C; --muted:#5F5E5A; --faint:rgba(13,31,60,0.38);
     --up-bg:rgba(15,110,86,0.11); --up-txt:#0F6E56;
     --down-bg:rgba(163,45,45,0.11); --down-txt:#A32D2D;
-    --amber-bg:#FDF0E8; --amber-txt:#854F0B;
+    --amber-bg:#FDF0E8; --amber-txt:#854F0B; --amber-fill:#C98A3A;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
   }
@@ -138,7 +138,7 @@ GLOBAL_CSS = """
     overflow: hidden !important; padding: 0 !important;
   }
   .st-key-db_holdings_header {
-    padding: 16px 20px 8px !important;   /* the provenance bar brings its own 12px */ border-bottom: 0.5px solid var(--line-2) !important;
+    padding: 16px 20px 14px !important; border-bottom: 0.5px solid var(--line-2) !important;
   }
   .st-key-db_holdings_colheader {
     padding: 7px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
@@ -1176,32 +1176,105 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
-  /* ── Settings page — centered, width-capped column matching Uvalu.dc.html's
-     own Settings frame (`max-width:920px;margin:0 auto`). The app's global
-     block-container rule above is deliberately full-width for pages like
-     Screener/Dashboard that need table space; Settings has no tables and
-     without this override its rows stretched edge-to-edge on a wide window
-     (label pinned far left, control pinned far right, large dead gap between
-     them) instead of the design's tightly grouped card rows. */
-  /* Since the section nav (visual review 2026-10-04 §1.4) the page is a
-     nav + content pair, left-aligned on the same gutter as every other page
-     (the centred 920px column sat ~18px further in than the beta banner). */
-  .st-key-set_root { max-width: 1180px !important; margin: 0 !important; }
-  /* No overflow:auto/max-height: Streamlit under-measures the column's
-     raw-HTML content, so a scroll box clipped the last link. */
-  [data-testid="stColumn"]:has(.st-key-set_nav) {
-    position: sticky; top: 16px; align-self: flex-start;
+  /* ── Supporting-page frame (components.support_page): Settings,
+     Methodology & help, Legal, About. Left-aligned on the same gutter as
+     every other page, 1180px cap; back link, 24px title (brand H1), then a
+     200px sticky rail beside a 760px content column. ───────────────────── */
+  .st-key-uv_support { max-width: 1180px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; }
+  .st-key-uv_support_back button {
+    min-height: 0 !important; padding: 0 !important; margin-bottom: 6px !important;
+    border: none !important; background: none !important;
   }
-  .uv-set-nav a {
-    display: block; padding: 6px 10px; font-size: 13px; line-height: 1.35; color: var(--muted);
-    text-decoration: none; border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
+  .st-key-uv_support_back button p { font-size: 12px !important; color: var(--muted) !important; }
+  .st-key-uv_support_back button:hover p { color: var(--text) !important; }
+  .uv-support-head { padding-bottom: 20px; }
+  /* Streamlit pulls every markdown block up by 16px (margin-bottom:-1rem),
+     which would swallow the gap above the rail. */
+  [data-testid="stMarkdownContainer"]:has(> .uv-support-head) { margin-bottom: 0 !important; }
+  .uv-support-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
+  .uv-support-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .st-key-uv_support_grid {
+    gap: 32px !important; align-items: flex-start !important;
+    flex-wrap: nowrap !important;
   }
-  .uv-set-nav a:hover { color: var(--text); border-left-color: var(--teal); background: var(--soft); }
-  .uv-set-anchor { display: block; scroll-margin-top: 16px; }
+  .st-key-uv_support_content { max-width: 760px !important; min-width: 0 !important; flex: 1 1 0 !important; gap: 20px !important; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-uv_support_content) { max-width: 760px; min-width: 0; flex: 1 1 0; }
+  /* No overflow:auto/max-height: Streamlit under-measures raw-HTML content,
+     so a scroll box clipped the last link. */
+  .st-key-uv_support_rail { position: sticky; top: 16px; align-self: flex-start; gap: 2px !important; flex: none !important; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-uv_support_rail) { position: sticky; top: 16px; align-self: flex-start; flex: none; }
+  .st-key-uv_support_rail [data-testid="stPageLink"], .st-key-uv_support_rail [data-testid="stPageLink"] > *,
+  .st-key-uv_support_rail [class*="st-key-uv_rail_link_"] { width: 100% !important; }
+  a.uv-rail-item, .st-key-uv_support_rail a[data-testid="stPageLink-NavLink"] {
+    width: 100% !important; box-sizing: border-box;
+    display: block; padding: 7px 12px; font-size: 13px; line-height: 1.35; color: var(--muted);
+    text-decoration: none; border-left: 2px solid transparent; border-radius: 0 6px 6px 0;
+  }
+  a.uv-rail-item:hover { color: var(--text); }
+  a.uv-rail-item.uv-rail-active {
+    border-left-color: var(--teal); background: var(--panel); color: var(--text); font-weight: 500; padding-left: 10px;
+  }
+  .st-key-uv_support_rail a[data-testid="stPageLink-NavLink"] {
+    height: auto !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+  }
+  .st-key-uv_support_rail a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
+  .st-key-uv_support_rail a[data-testid="stPageLink-NavLink"] p {
+    font-size: 13px !important; font-weight: 400 !important; color: var(--muted) !important; line-height: 1.35 !important;
+    white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
+  }
+  .st-key-uv_support_rail a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
+  [class*="st-key-uv_rail_link_active_"] a[data-testid="stPageLink-NavLink"] {
+    border-left-color: var(--teal); background: var(--panel) !important; padding-left: 10px !important;
+  }
+  [class*="st-key-uv_rail_link_active_"] a[data-testid="stPageLink-NavLink"] p {
+    color: var(--text) !important; font-weight: 500 !important;
+  }
+  .uv-toc-label { font-size: 12px; color: var(--muted); margin: 18px 0 6px 12px; }
+  .uv-toc { display: flex; flex-direction: column; margin-left: 12px; border-left: 0.5px solid var(--line); }
+  .uv-toc a { display: block; padding: 3px 0 3px 10px; font-size: 12px; line-height: 1.4;
+    color: var(--muted); text-decoration: none; }
+  .uv-toc a:hover { color: var(--text); }
+  /* Section anchors land a little below the top edge. */
+  .uv-anchor { display: block; scroll-margin-top: 16px; }
+  /* Phone/tablet portrait: no rail (Legal shows a document select instead). */
+  @media (max-width: 767px) {
+    .st-key-uv_support_grid { flex-direction: column !important; gap: 16px !important; }
+    .st-key-uv_support_rail, [data-testid="stLayoutWrapper"]:has(> .st-key-uv_support_rail) { display: none !important; }
+    .st-key-uv_support_content, [data-testid="stLayoutWrapper"]:has(> .st-key-uv_support_content) { max-width: none !important; width: 100% !important; }
+  }
+
+  /* Long-form typography on the supporting pages: 14px / 1.65 body at a
+     72ch measure, 17px H2, 12px captions — the denser end of the brand
+     scale, next to the 13–13.5px data screens. Only st.markdown text, never
+     widget labels. */
+  .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
+  .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
+    font-size: 14px; line-height: 1.65; color: #3E3D3A; max-width: 72ch;
+  }
+  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
+  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
+    color: rgba(245,247,250,0.85);
+  }
+  .st-key-uv_support_content [data-testid="stMarkdown"] li { margin-bottom: 6px; }
+  .st-key-uv_support_content [data-testid="stMarkdown"] h2 {
+    font-size: 17px !important; font-weight: 500 !important; margin: 28px 0 8px !important; padding: 0 !important;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdown"] h3 {
+    font-size: 14px !important; font-weight: 500 !important; margin: 20px 0 6px !important; padding: 0 !important;
+  }
+  .st-key-uv_support_content [data-testid="stCaptionContainer"],
+  .st-key-uv_support_content [data-testid="stCaptionContainer"] p { font-size: 12px !important; color: var(--muted) !important; }
+  /* Card header row shared by Settings and Help: sentence case, 15px/500
+     (brand §5 — no tracked uppercase). */
+  .uv-card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; border-bottom: 0.5px solid var(--line-2);
+    font-size: 15px; font-weight: 500; color: var(--text); line-height: 1.3;
+  }
   .st-key-set_main { gap: 20px !important; }
-  @media (max-width: 640px) {
-    [data-testid="stColumn"]:has(.st-key-set_nav) { display: none !important; }
-  }
+  /* The profile card is one markdown block: undo Streamlit's -16px pull-up,
+     which clipped its bottom padding under overflow:hidden. */
+  .st-key-set_card_profile [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 
   /* ── Settings page cards — Display/Screening & veto rules/Data,
      matching Uvalu.dc.html's Settings screen: one seamless bordered/shadowed
@@ -1501,37 +1574,10 @@ GLOBAL_CSS = """
     border-radius: 12px !important; box-shadow: var(--shadow) !important;
     overflow: hidden !important; padding: 0 !important;
   }
-  /* Same "wrapper under-reports raw-HTML content's real height" bug as
-     an_header_row/an_hero_row/set_row_ elsewhere in this file — confirmed
-     live: Streamlit's flex-item box for this card consistently measures a
-     constant ~14.7px shorter than its raw-HTML markdown child's real
-     rendered height, across all 4 cards despite their very different
-     content lengths (so it's a Streamlit layout-timing quirk, not a
-     content-size issue). Combined with `overflow:hidden` above (needed so
-     the card's own rounded corners look clean), that ~15px of real content
-     — including the padding-bottom meant to give the last row breathing
-     room — was being silently clipped off. Fixed the same way as those
-     other rows: an explicit min-height floor matching the real measured
-     content height (numbers below include that ~15px). Re-measure if any
-     of these cards' copy changes enough to reflow. */
-  .st-key-help_card_signals { min-height: 280px !important; }
-  .st-key-help_card_models  { min-height: 333px !important; }
-  .st-key-help_card_vetoes  { min-height: 242px !important; }
-  .st-key-help_card_faqs   { min-height: 535px !important; }
-  /* Hard-veto rules | Frequently asked sit side by side (design spec:
-     1fr 1.3fr, align-items:start — NOT stretch, unlike db_card_/an_card_'s
-     two-card rows). The veto card has far fewer rows than the FAQ card;
-     stretching it to match would balloon a 3-line card into a mostly-empty
-     ~500px box. Only the width needs the flex/width override below (so each
-     card fills its own column instead of shrinking to content); height
-     stays each card's own natural content height. */
-  [data-testid="stHorizontalBlock"]:has([class*="st-key-help_card_"]) {
-    align-items: flex-start !important; gap: 18px !important;
-  }
-  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-help_card_"]) {
-    flex: 1 1 auto !important;
-  }
-  [class*="st-key-help_card_"] { flex: 1 1 auto !important; width: 100% !important; }
+  /* Streamlit pulls every markdown block up by 16px (margin-bottom:-1rem),
+     so with overflow:hidden the card clipped the last 16px of its content —
+     the cause of the old per-card min-height floors, now removed. */
+  [class*="st-key-help_card_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 
   section[data-testid="stMain"] { width: 100% !important; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
@@ -1866,12 +1912,67 @@ GLOBAL_CSS = """
     font-size: 0.85rem !important;
   }
 
+  /* ── Signal provenance caption (components.provenance_bar_html) — the
+     third line of the page header on Dashboard/Screener/Watchlist and under
+     the ticker line in the drawer/Analysis. No fill or border; separators
+     and the "Methodology" link stay quiet. ──────────────────────────────── */
+  .uv-prov-sep { color: var(--faint); }
+  [data-theme="light"] .uv-prov-sep { color: rgba(13,31,60,0.3); }
+  a.uv-quiet-link, a.uv-quiet-link:visited {
+    color: var(--muted) !important; text-decoration: underline !important;
+    text-decoration-color: var(--line) !important; text-underline-offset: 3px; white-space: nowrap;
+  }
+  a.uv-quiet-link:hover { color: var(--text) !important; }
+  /* REC-10: the share of covered stocks in each Screener signal pill
+     (components.signal_share_label puts it in backticks). */
+  .st-key-scr_signal_pills button code {
+    font-family: var(--uv-mono) !important; font-size: 11px !important; color: var(--muted) !important;
+    background: none !important; padding: 0 0 0 4px !important; border: none !important;
+  }
+  .st-key-scr_signal_pills .uv-pill-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+
+  /* ── Tooltips — one brand style for all three kinds: the app's own
+     title= tooltips (uvalu/tooltips.py draws them as .uv-tip), Streamlit's
+     help= tooltips (stTooltipContent) and Plotly hover labels
+     (runtime.brand_hoverlabel, same colours). Light surface with navy text
+     in light theme, a raised navy surface in dark theme. ───────────────── */
+  :root { --tip-bg:#15305A; --tip-border:rgba(245,247,250,0.16); --tip-shadow:0 4px 16px rgba(0,0,0,0.45); }
+  [data-theme="light"] { --tip-bg:#FFFFFF; --tip-border:rgba(13,31,60,0.14); --tip-shadow:0 4px 16px rgba(13,31,60,0.12); }
+  .uv-tip {
+    position: fixed; top: 0; left: 0; z-index: 1000000; max-width: 280px; padding: 6px 10px;
+    background: var(--tip-bg); color: var(--text); border: 0.5px solid var(--tip-border); border-radius: 8px;
+    box-shadow: var(--tip-shadow); pointer-events: none; opacity: 0; visibility: hidden;
+    font: 400 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    white-space: pre-line; overflow-wrap: anywhere; transition: opacity 0.12s ease;
+  }
+  .uv-tip.uv-tip-on { opacity: 1; visibility: visible; }
+  [data-testid="stTooltipContent"] {
+    background: var(--tip-bg) !important; color: var(--text) !important;
+    border: 0.5px solid var(--tip-border) !important; border-radius: 8px !important;
+    box-shadow: var(--tip-shadow) !important; padding: 6px 10px !important; max-width: 280px !important;
+  }
+  [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] p,
+  [data-testid="stTooltipContent"] [data-testid="stMarkdownContainer"] li {
+    font-size: 12px !important; line-height: 1.5 !important; color: var(--text) !important;
+  }
+
   /* ── JS bridge iframes ───────────────────────────────────────────────────── */
   [data-testid="stIFrame"] { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
     margin: 0 !important; padding: 0 !important; overflow: hidden !important; line-height: 0 !important; }
   [data-testid="stIFrame"] > div,
   [data-testid="stIFrame"] iframe { height: 0 !important; min-height: 0 !important; max-height: 0 !important;
     overflow: hidden !important; visibility: hidden !important; }
+  /* …except the visible iframe buttons: Legal's "Print or save as PDF" and
+     About's "Copy for support" (markdown can't carry an onclick). The rule
+     above collapsed them to 0px too. */
+  .st-key-legal_print [data-testid="stIFrame"], .st-key-legal_print [data-testid="stIFrame"] > div,
+  .st-key-legal_print [data-testid="stIFrame"] iframe {
+    height: 34px !important; max-height: none !important; visibility: visible !important; line-height: normal !important;
+  }
+  .st-key-about_copy [data-testid="stIFrame"], .st-key-about_copy [data-testid="stIFrame"] > div,
+  .st-key-about_copy [data-testid="stIFrame"] iframe {
+    height: 32px !important; max-height: none !important; visibility: visible !important; line-height: normal !important;
+  }
 """
 
 

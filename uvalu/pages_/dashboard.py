@@ -18,7 +18,7 @@ from uvalu.drawer import open_drawer
 from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
-from uvalu.runtime import theme_colors, current_user
+from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
 from uvalu.components import (fair_value_legend_html, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
@@ -166,6 +166,10 @@ def render() -> None:
                 "{positions} across {count} European exchange · compared with model fair-value estimates.",
                 "{positions} across {count} European exchanges · compared with model fair-value estimates.",
                 _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))))
+            # REC-4 / REC-5: the third line of the page header, in the same
+            # place as on the Screener and Watchlist.
+            if not _db_ref_pending and (_db_prov := list_provenance_html(_db_scr)):
+                st.markdown(_db_prov, unsafe_allow_html=True)
         with st.container(key="db_refresh_btn", width="content"):
             if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
                 st.cache_data.clear()
@@ -296,6 +300,7 @@ def render() -> None:
                 xaxis=dict(showgrid=False, tickfont=dict(color=_c_axis)),
                 hovermode="x unified", font=dict(color=_c_axis),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                hoverlabel=brand_hoverlabel(),
             )
             localize_fig(_db_vfig)
             st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
@@ -465,13 +470,12 @@ def render() -> None:
     # ── Holdings · price vs fair value ────────────────────────────────────────
     with st.container(key="db_holdings_card", border=True):
         with st.container(key="db_holdings_header"):
-            # Title, then the provenance bar with the fair-value legend on its
-            # right (REC-4/5); the legend alone while the signals are loading.
-            _db_prov = "" if _db_ref_pending else list_provenance_html(_db_scr, right=fair_value_legend_html())
+            # Title with the fair-value legend right-aligned on the same row
+            # (it explains the bars below); wraps under the title when narrow.
             st.markdown(f"""
-<div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>"""
-                        + (_db_prov or f'<div style="margin-top:10px;">{fair_value_legend_html()}</div>'),
+<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;">
+<div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>{fair_value_legend_html()}</div>
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>""",
                         unsafe_allow_html=True)
         # Column header renders for the real table AND the fetch-in-progress
         # skeleton below (never just the header floating over a blank body,

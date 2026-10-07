@@ -34,11 +34,10 @@ import html
 
 import streamlit as st
 
-from uvalu import nav as nav_registry
 from screener import (SIGNAL_DEFINITIONS, SIGNAL_LABELS, SIGNAL_HORIZON, SIGNAL_RISK_WARNING,
                       SIGNAL_SENSITIVITY, VETO_RULE_LABELS)
 from uvalu.compliance import disclosures
-from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip
+from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip, support_page
 from uvalu.shell import producer_line
 from uvalu.i18n import N_, _, h_, tr
 
@@ -93,8 +92,26 @@ _FAQ = [
      N_("Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana.")),
 ]
 
-_HEADER_HTML = ('<div style="padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
-               'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);">{label}</div>')
+# Card header: sentence case, 15px/500 (styles.py .uv-card-head, brand §5),
+# with the anchor the rail links to. One outer <div> so Markdown keeps it a
+# raw HTML block (a leading <span> would make it a paragraph).
+_HEADER_HTML = '<div><span id="{anchor}" class="uv-anchor"></span><div class="uv-card-head">{label}</div></div>'
+
+
+def _rail() -> list[tuple[str, str]]:
+    """The page's sections for the support_page rail."""
+    return [
+        # Translators: Methodology & help › left-hand section list › the signal badges (Undervalued, Neutral, …).
+        (_("Badges"), "#help-badges"),
+        # Translators: Methodology & help › left-hand section list › the fair-value models (Graham Number, EPV, …).
+        (_("Models"), "#help-models"),
+        (_("Quality screens"), "#help-screens"),
+        (_("Data sources"), "#help-data"),
+        # Translators: Methodology & help › left-hand section list › short for "Conflicts of interest".
+        (_("Conflicts"), "#help-conflicts"),
+        # Translators: Methodology & help › left-hand section list › frequently asked questions.
+        (_("FAQ"), "#help-faq"),
+    ]
 
 _VETO_X_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--down-txt)" '
               'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" '
@@ -128,13 +145,13 @@ def _faq_row_html(question: str, answer: str) -> str:
 
 
 def render() -> None:
-    _dash_page = nav_registry.pages.get("dashboard")
-    if _dash_page is not None and st.button(_("← Back"), key="help_back", type="tertiary"):
-        st.switch_page(_dash_page)
+    _content = support_page(_("Methodology & help"), back_key="help", rail=_rail(),
+                            subtitle=h_("How each model works, what the badges mean, how often they change and where the data comes from."))
+    with _content:
+        _render_cards()
 
-    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Methodology & help")}</div>',
-               unsafe_allow_html=True)
-    st.caption(_("How each model works, what the badges mean, how often they change and where the data comes from."))
+
+def _render_cards() -> None:
     # Links to the full legal pages (REC-5, REC-3, REC-8).
     _link = ('<a href="/legal?doc={doc}" target="_self" style="color:var(--teal);text-decoration:none;'
              'margin-right:16px;font-size:12px;">{label}</a>')
@@ -148,37 +165,11 @@ def render() -> None:
         f'<div style="font-size:12.5px;color:var(--muted);line-height:1.6;padding:4px 20px;">{_t(t)}</div>'
         for t in (SIGNAL_HORIZON, SIGNAL_RISK_WARNING, SIGNAL_SENSITIVITY))
     with st.container(key="help_card_signals", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("Badges · meaning"))
+        st.markdown(_HEADER_HTML.format(anchor="help-badges", label=h_("Badges · meaning"))
                    + '<div style="padding-bottom:6px;">'
                    + "".join(_signal_row_html(kind, label, desc) for kind, label, desc in _signal_legend())
                    + "</div>"
                    + f'<div style="padding:10px 0 14px;">{_notes}</div>',
-                   unsafe_allow_html=True)
-
-    # ── The six fair-value models ─────────────────────────────────────────────
-    with st.container(key="help_card_models", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("The fair-value models"))
-                   + '<div style="display:grid;grid-template-columns:1fr 1fr;padding-bottom:6px;">'
-                   + "".join(_model_cell_html(name, desc) for name, desc in _MODELS)
-                   + "</div>",
-                   unsafe_allow_html=True)
-
-    # ── Hard-veto rules | Frequently asked ────────────────────────────────────
-    # align-items:start in the design spec (not stretch) — the veto card has
-    # far fewer rows than the FAQ card and should size to its own content, not
-    # balloon to match its taller neighbour.
-    _veto_col, _faq_col = st.columns([1, 1.3], gap="medium")
-    with _veto_col, st.container(key="help_card_vetoes", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("Quality screens"))
-                   + '<div style="padding:8px 20px 14px;">'
-                   + "".join(_veto_row_html(rule) for rule in VETO_RULE_LABELS.values())
-                   + "</div>",
-                   unsafe_allow_html=True)
-    with _faq_col, st.container(key="help_card_faqs", border=True):
-        st.markdown(_HEADER_HTML.format(label=h_("Frequently asked"))
-                   + '<div style="padding-bottom:6px;">'
-                   + "".join(_faq_row_html(q, a) for q, a in _FAQ)
-                   + "</div>",
                    unsafe_allow_html=True)
 
     # ── Reading the badges (REC-6, REC-7, PER-1/2) ───────────────────────────
@@ -196,10 +187,10 @@ def render() -> None:
     ]
     with st.container(key="help_card_reading", border=True):
         st.markdown(
-            _HEADER_HTML.format(label=h_("Reading the badges"))
+            _HEADER_HTML.format(anchor="help-reading", label=h_("Reading the badges"))
             + '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:0.5px solid var(--line-2);">'
-            + "".join(f'<div style="padding:14px 20px;"><div style="font-size:10px;color:var(--faint);'
-                      f'text-transform:uppercase;letter-spacing:0.05em;">{_t(k)}</div>'
+            + "".join(f'<div style="padding:14px 20px;"><div style="font-size:12px;font-weight:500;'
+                      f'color:var(--muted);">{_t(k)}</div>'
                       f'<div style="font-size:13px;margin-top:6px;line-height:1.5;">{_t(v)}</div></div>'
                       for k, v in _reading)
             + '</div><div style="padding:14px 20px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;'
@@ -208,21 +199,35 @@ def render() -> None:
                       for k, v in _reading_notes)
             + "</div>", unsafe_allow_html=True)
 
-    # ── Data sources | conflicts of interest (REC-3, REC-8) ─────────────────
-    _src_col, _coi_col = st.columns(2, gap="medium")
-    with _src_col, st.container(key="help_card_sources", border=True):
+    # ── The six fair-value models ─────────────────────────────────────────────
+    with st.container(key="help_card_models", border=True):
+        st.markdown(_HEADER_HTML.format(anchor="help-models", label=h_("The fair-value models"))
+                   + '<div style="display:grid;grid-template-columns:1fr 1fr;padding-bottom:6px;">'
+                   + "".join(_model_cell_html(name, desc) for name, desc in _MODELS)
+                   + "</div>",
+                   unsafe_allow_html=True)
+
+    # ── Quality screens ───────────────────────────────────────────────────────
+    with st.container(key="help_card_vetoes", border=True):
+        st.markdown(_HEADER_HTML.format(anchor="help-screens", label=h_("Quality screens"))
+                   + '<div style="padding:8px 20px 14px;">'
+                   + "".join(_veto_row_html(rule) for rule in VETO_RULE_LABELS.values())
+                   + "</div>",
+                   unsafe_allow_html=True)
+    # ── Data sources, conflicts of interest (REC-3, REC-8) ─────────────────
+    with st.container(key="help_card_sources", border=True):
         st.markdown(
-            _HEADER_HTML.format(label=h_("Data sources"))
+            _HEADER_HTML.format(anchor="help-data", label=h_("Data sources"))
             + "".join(f'<div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;'
                       f'padding:10px 20px;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
-                      f'<span style="color:var(--faint);">{_t(k)}</span><span>{_t(v)}</span></div>'
+                      f'<span style="color:var(--muted);">{_t(k)}</span><span>{_t(v)}</span></div>'
                       for k, v in disclosures.DATA_SOURCE_ROWS)
             + f'<div style="padding:12px 20px;font-size:12px;color:var(--muted);line-height:1.55;">'
               f'{h_("Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings are shown.")}</div>',
             unsafe_allow_html=True)
-    with _coi_col, st.container(key="help_card_conflicts", border=True):
+    with st.container(key="help_card_conflicts", border=True):
         st.markdown(
-            _HEADER_HTML.format(label=h_("Conflicts of interest"))
+            _HEADER_HTML.format(anchor="help-conflicts", label=h_("Conflicts of interest"))
             + '<div style="padding:14px 20px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;'
               'color:var(--muted);line-height:1.6;">'
             + f'<div>{h_("The founder discloses any position in a covered stock on that stock’s page, whatever its size.")}</div>'
@@ -230,10 +235,19 @@ def render() -> None:
             + f'<div>{h_("The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live.")}</div>'
             + "</div>", unsafe_allow_html=True)
 
+    # ── Frequently asked ──────────────────────────────────────────────────────
+    with st.container(key="help_card_faqs", border=True):
+        st.markdown(_HEADER_HTML.format(anchor="help-faq", label=h_("Frequently asked"))
+                   + '<div style="padding-bottom:6px;">'
+                   + "".join(_faq_row_html(q, a) for q, a in _FAQ)
+                   + "</div>",
+                   unsafe_allow_html=True)
+
+
     # ── About Uvalu: full disclaimer and producer (DIS-1, REC-1, PER-6) ─────
     with st.container(key="help_card_about", border=True):
         st.markdown(
-            _HEADER_HTML.format(label=h_("About Uvalu"))
+            _HEADER_HTML.format(anchor="help-about", label=h_("About Uvalu"))
             + f'<div style="padding:14px 20px;font-size:12.5px;color:var(--muted);line-height:1.65;">'
               f'{html.escape(tr(disclosures.FULL_DISCLAIMER).format(producer=producer_line()))}</div>'
             + f'<div style="padding:0 20px 14px;font-size:12px;color:var(--muted);line-height:1.6;">'

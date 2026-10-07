@@ -22,7 +22,7 @@ import streamlit as st
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
-from uvalu import authgate, i18n, nav, shell, styles, update_notice
+from uvalu import authgate, i18n, nav, shell, styles, tooltips, update_notice
 from uvalu.i18n import _
 from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
@@ -40,6 +40,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 styles.inject()
+tooltips.inject()   # brand tooltips for title= attributes (uvalu/tooltips.py)
 # Non-production builds are marked on every screen, sign-in included (VD-03).
 shell.render_env_marker()
 

@@ -51,6 +51,7 @@ from settings import (load_shared_settings, save_shared_settings, load_settings,
                       _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
 from uvalu.compliance import disclosures
+from uvalu.components import support_page
 from uvalu.dialogs import _dialog, _dialog_width_css
 from uvalu.i18n import N_, _, fmt_date, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import number_field
@@ -86,19 +87,17 @@ def _parse_targets_text(txt: str) -> dict:
 
 
 def _row_header(label: str, *, anchor: str | None = None, chip: str | None = None) -> None:
-    """A card's uppercase header row. ``anchor`` is the id the section nav
-    links to; ``chip`` an amber note on the right (the shared model settings'
-    "affects all users")."""
-    _a = f'<span id="{anchor}" class="uv-set-anchor"></span>' if anchor else ""
-    _c = (f'<span style="font-size:10.5px;font-weight:500;letter-spacing:0.02em;text-transform:none;'
+    """A card's header row, sentence case (styles.py .uv-card-head). ``anchor``
+    is the id the section rail links to; ``chip`` an amber note on the right
+    (the shared model settings' "affects all users")."""
+    _a = f'<span id="{anchor}" class="uv-anchor"></span>' if anchor else ""
+    _c = (f'<span style="font-size:10.5px;font-weight:500;'
           f'color:var(--amber-txt);background:var(--amber-bg);border-radius:6px;padding:2px 8px;'
           f'white-space:nowrap;">{chip}</span>') if chip else ""
     # One outer <div> so Markdown keeps it a raw HTML block (a leading <span>
     # would make it a paragraph, with Markdown applied inside).
-    st.markdown(f'<div>{_a}<div class="uv-set-head" style="display:flex;align-items:center;justify-content:space-between;'
-               f'gap:12px;padding:15px 20px;border-bottom:0.5px solid var(--line-2);font-size:13px;'
-               f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
-               f'line-height:1.3;"><span>{label}</span>{_c}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div>{_a}<div class="uv-card-head uv-set-head"><span>{label}</span>{_c}</div></div>',
+                unsafe_allow_html=True)
 
 
 # Section nav: (anchor, label msgid, admin-visible-only?) in page order.
@@ -112,13 +111,6 @@ _SECTIONS = (
     ("set-model", N_("Model settings")),
     ("set-legal", N_("Legal")),
 )
-
-
-def _section_nav_html(is_admin: bool) -> str:  # noqa: ARG001 — every section shows for every role
-    """The sticky left list of the page's sections (in-page anchor links)."""
-    import html as _html_mod
-    links = "".join(f'<a href="#{a}" target="_self">{_html_mod.escape(tr(label))}</a>' for a, label in _SECTIONS)
-    return f'<nav class="uv-set-nav">{links}</nav>'
 
 
 def _row_desc(text: str) -> None:
@@ -439,25 +431,13 @@ def render() -> None:
         _ok, _msg = link_identity(_email, _identity["issuer"], _identity["subject"], _identity["email"])
         st.toast(_msg, icon=None if _ok else ":material/warning:")
 
-    # Centered, width-capped content column matching Uvalu.dc.html's own
-    # Settings frame (`max-width:920px;margin:0 auto`) -- without this the
-    # page inherited the app's global full-width block-container rule
-    # (uvalu/styles.py), which stretched every row edge-to-edge on a wide
-    # window instead of the design's tightly grouped card rows.
-    with st.container(key="set_root"):
-        _back_page, _back_key = nav_registry.back_target("settings")
-        if _back_page is not None and st.button(_("← Back to {page}", page=_back_page.title),
-                                                key="set_back", type="tertiary"):
-            st.switch_page(_back_page)
-
-        st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Settings")}</div>',
-                   unsafe_allow_html=True)
-        st.caption(_("Choices apply as you make them; sections with typed values have their own Save button."))
-
-        _nav_col, _main_col = st.columns([1, 4.2], gap="large")
-        with _nav_col, st.container(key="set_nav"):
-            st.markdown(_section_nav_html(_u.is_admin), unsafe_allow_html=True)
-        with _main_col, st.container(key="set_main"):
+    # The shared supporting-page frame (components.support_page): back link,
+    # title, and the section list as the sticky rail beside the cards.
+    _content = support_page(_("Settings"), back_key="settings",
+                            subtitle=h_("Choices apply as you make them; sections with typed values have their own Save button."),
+                            rail=[(tr(label), f"#{anchor}") for anchor, label in _SECTIONS])
+    with _content:
+        with st.container(key="set_main"):
             # ── Language & region (docs/i18n-spec.md §7) ────────────────────────────────
             # First card, so the language picker is two clicks away from any page
             # (avatar → Settings) for someone who picked a language they can't read
@@ -471,7 +451,7 @@ def render() -> None:
                     # Anchor inside the <div>: a leading <span> made Markdown read
                     # the block as a paragraph and auto-link the email address.
                     f'<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;">'
-                    f'<span id="set-account" class="uv-set-anchor"></span>'
+                    f'<span id="set-account" class="uv-anchor"></span>'
                     f'<div style="width:38px;height:38px;border-radius:9px;background:var(--navy);'
                     f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
                     f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'

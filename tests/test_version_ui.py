@@ -1,6 +1,8 @@
 """Version surfaces in the UI: footer marker (VD-01), environment marker
 (VD-03), About + What's new page (VD-02, VD-04) — always fed by
 uvalu.buildinfo, never hard-coded (VD-10)."""
+from html import escape as html_escape
+
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -158,7 +160,9 @@ def test_about_shows_build_details(isolated_data, monkeypatch, tmp_path, fake_bu
     for text in ("2031.07.4-dev+fedcba9", "fedcba9", "2031-07-09 08:07:06 UTC", "test (TEST)", "M1"):
         assert text in html
     assert "/commit/" not in html                     # commit link is for admins only
-    assert at.code[0].value == about.details_line(_info())
+    # The support line sits in the card footer with a "Copy for support" button.
+    assert html_escape(about.details_line(_info())) in html
+    assert any("Copy for support" in f.proto.srcdoc for f in at.get("iframe"))
 
 
 def test_about_commit_links_for_admin(isolated_data, monkeypatch, tmp_path, fake_build):
@@ -171,8 +175,10 @@ def test_whats_new_lists_releases_newest_first(isolated_data, monkeypatch, tmp_p
     fake_build(environment="production", display_version="2031.07.4", is_release=True)
     at = _run_about(monkeypatch, tmp_path)
     labels = [e.label for e in at.expander]
-    assert labels[0].startswith("2031.07.4 · 2031-07-09") and "this version" in labels[0]
-    assert labels[1] == "2031.07.3 · 2031-07-02"
+    assert labels[0].startswith("`2031.07.4` · 2031-07-09") and ":green-badge[This version]" in labels[0]
+    assert labels[1] == "`2031.07.3` · 2031-07-02"
+    # Only the running release is open.
+    assert [e.proto.expanded for e in at.expander][:2] == [True, False]
     assert not any("Not released" in l for l in labels)
     text = "".join(m.value for m in at.markdown)
     assert "Version in the footer." in text and "legacy" not in text
@@ -188,7 +194,7 @@ def test_whats_new_deep_link_opens_that_release(isolated_data, monkeypatch, tmp_
     fake_build(environment="production")
     at = _run_about(monkeypatch, tmp_path, query={"v": "2031.07.3"})
     opened = [e.label for e in at.expander if e.proto.expanded]
-    assert opened == ["2031.07.3 · 2031-07-02"]
+    assert opened == ["`2031.07.3` · 2031-07-02"]
 
 
 # ── machine-readable version + error reference (VD-07, VD-08) ───────────────
@@ -226,3 +232,15 @@ def test_render_failure_shows_reference(fake_build):
     at.run()
     assert "Reference for support:" in at.caption[0].value
     assert "v2031.07.4-dev+fedcba9 (fedcba9)" in at.caption[0].value
+
+
+def test_about_uses_the_supporting_page_frame(isolated_data, monkeypatch, tmp_path, fake_build):
+    """Proposal 1e: 24px title in the shared frame, a rail with anchors for
+    both cards, data rows instead of the old definition grid."""
+    fake_build()
+    at = _run_about(monkeypatch, tmp_path)
+    html = "".join(m.value for m in at.markdown)
+    assert 'class="uv-support-title"' in html and "About Uvalu" in html
+    assert 'href="#version"' in html and 'id="version"' in html
+    assert 'href="#whats-new"' in html and 'id="whats-new"' in html
+    assert 'class="uv-about-rows"' in html
