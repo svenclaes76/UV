@@ -1,6 +1,9 @@
 # Uvalu — Brand Guidelines
 
 > *Find value before the market does.*
+>
+> ⚠ Tagline under legal review: it can read as a promise to beat the market.
+> Keep it out of new material until counsel has cleared it (see §3, Tagline).
 
 ---
 
@@ -8,7 +11,7 @@
 
 **Uvalu** is a personal stock portfolio management and screening app built around a systematic, quantitative approach to identifying undervalued equities. The name is a portmanteau of *undervalued* — immediately meaningful to any value investor, yet clean and distinctive enough to stand alone as a brand.
 
-Uvalu is not a trading app. It is a thinking tool — a rigorous, systematic layer between raw market data and investment decisions.
+Uvalu is not a trading app. It is a thinking tool — a rigorous, systematic layer between raw market data and investment decisions. Its signals are model outputs based on public data, the same for every user; they are not personal investment advice.
 
 ---
 
@@ -18,7 +21,7 @@ Uvalu is not a trading app. It is a thinking tool — a rigorous, systematic lay
 |---|---|
 | Audience | Solo investors with a systematic mindset |
 | Category | Portfolio management & stock screening |
-| Differentiator | Multi-model fair value engine with hard veto rules |
+| Differentiator | Multi-model fair value engine with quality screens |
 | Tone | Precise, confident, grounded, systematic |
 | Against | Hype-driven apps, sentiment trackers, tip services |
 
@@ -32,7 +35,7 @@ Uvalu is not a trading app. It is a thinking tool — a rigorous, systematic lay
 uvalu
 ```
 
-- All lowercase, no capitalisation
+- All lowercase, no capitalisation — **in the wordmark only**. In running text the name is written *Uvalu* (see §9).
 - Tight letter-spacing: `−0.03em`
 - Final **u** rendered in Signal Teal (`#1A8C6E`) — a subtle nod to the "U" in undervalued and the moment a signal surfaces
 - Font weight: 500 (medium)
@@ -44,13 +47,15 @@ A downward V-shape converging on a teal circle — representing a stock price fi
 - Icon background: Deep Navy `#0D1F3C`, border-radius 14px
 - V-stroke: White `#FFFFFF`, 1.8px
 - Circle at base: Mint Pulse `#1DD6A4`
-- Enclosing ring: Teal `#1DD6A4`, 1.5px stroke
+- Enclosing ring: Mint Pulse `#1DD6A4`, 1.5px stroke
 
 ### Tagline
 
 > Find value before the market does.
 
-Use the tagline in onboarding, marketing, and the app's empty states. Never use it in dense UI contexts.
+**Under legal review.** "Before the market does" can be read as a promise of outperformance, which the beta disclaimers rule out. Until counsel has cleared it (or a neutral alternative is chosen), do not use it in new screens, onboarding or marketing. Where it already appears, it stays until the decision.
+
+When cleared: use it in onboarding, marketing, and the app's empty states. Never in dense UI contexts.
 
 ### Clear space
 
@@ -66,7 +71,7 @@ Maintain a minimum clear space of `1×` the height of the lowercase **u** on all
 
 ### Don'ts
 
-- Do not use all-caps or title case: ~~UVALU~~ ~~Uvalu~~
+- Do not set the wordmark in all-caps or title case: ~~UVALU~~ ~~Uvalu~~ (as a logo)
 - Do not stretch, rotate, or skew the logo
 - Do not place the logo on busy photographic backgrounds
 - Do not change the accent colour of the final **u**
@@ -84,30 +89,53 @@ Maintain a minimum clear space of `1×` the height of the lowercase **u** on all
 | Signal Teal | `#1A8C6E` | Brand accent, interactive elements, links, bordered highlights |
 | Mint Pulse | `#1DD6A4` | Active states, positive indicators, icon accents, badges |
 
-### Surface colours
+### Surface colours (light theme)
 
 | Name | Hex | Usage |
 |---|---|---|
-| Surface White | `#F5F7FA` | App background, card surfaces |
-| Positive Tint | `#E8F5F0` | Buy signals, positive metric backgrounds |
-| Caution Tint | `#FDF0E8` | Monitor/watch signals, caution metric backgrounds |
-| Danger Tint | `#FCEAEA` | Avoid signals, negative metric backgrounds |
+| Page | `#EAEEF3` | App page background |
+| Surface White | `#F5F7FA` | Inset panels, card footers, inputs |
+| Panel | `#FFFFFF` | Cards |
+| Positive Tint | `#E8F5F0` | Undervalued signal, positive metric backgrounds |
+| Caution Tint | `#FDF0E8` | Neutral signal, caution metric backgrounds |
+| Danger Tint | `#FCEAEA` | Low-score signal, negative metric backgrounds |
 
 ### Semantic colours (data & status)
 
 | Semantic | Hex | Use case |
 |---|---|---|
-| Positive text | `#0F6E56` | Positive percentage, gain, buy label |
-| Caution text | `#854F0B` | Margin-of-safety warning, monitor label |
-| Danger text | `#A32D2D` | Overvalued, avoid label, veto trigger |
+| Positive text | `#0F6E56` | Positive percentage, gain, Undervalued label |
+| Caution text | `#854F0B` | Margin-of-safety warning, Neutral label |
+| Caution fill | `#C98A3A` | Bars and swatches for caution states, e.g. a price above the model fair value |
+| Danger text | `#A32D2D` | Negative values, Low-score label, failed quality screen |
 | Muted text | `#5F5E5A` | Secondary labels, metadata |
+
+### Dark theme
+
+The app has a full dark variant. Use these values (CSS tokens in `uvalu/styles.py`) instead of inventing new shades.
+
+| Token | Dark | Light | Use |
+|---|---|---|---|
+| `--bg` | `#0A1730` | `#EAEEF3` | Page background |
+| `--panel` | `#0E2143` | `#FFFFFF` | Cards |
+| `--panel-2` | `#0B1D3D` | `#F5F7FA` | Inset panels, card footers |
+| `--text` | `#F5F7FA` | `#0D1F3C` | Body text |
+| `--muted` | `rgba(245,247,250,0.55)` | `#5F5E5A` | Secondary text, metadata (≥ 4.5:1 on both themes) |
+| `--faint` | `rgba(245,247,250,0.30)` | `rgba(13,31,60,0.38)` | Decoration only — never for text that must be read |
+| `--line` | `rgba(255,255,255,0.08)` | `rgba(13,31,60,0.10)` | Card borders, dividers |
+| `--up-txt` | `#1DD6A4` | `#0F6E56` | Gains, Undervalued |
+| `--down-txt` | `#F0A6A6` | `#A32D2D` | Losses, Low score |
+| `--amber-txt` | `#E0B94D` | `#854F0B` | Caution text |
+| `--amber-fill` | `#C98A3A` | `#C98A3A` | Caution bars and swatches |
 
 ### Colour usage rules
 
 - Never use Deep Navy as a text colour on a dark background
 - Always pair Positive/Caution/Danger tints with their matching text colour
-- Data readouts (prices, ratios, percentages) use Mint Pulse or semantic text colours, never grey
-- Avoid decorative use of red — reserve it strictly for avoid/veto signals
+- Data readouts (prices, ratios, percentages) use Mint Pulse or semantic text colours, never grey. **Exception:** metadata values — times, dates, model and app versions — are muted, because they describe a value rather than being one.
+- Avoid decorative use of red — reserve it for negative values, the Low-score signal and a failed quality screen. Caution states (a price above fair value, a concentration warning) are amber, not red.
+- Tints are for signals and metrics, never decoration: no mint or tinted panels around metadata.
+- Text that must be read is at least 4.5:1 against its background; use `--muted`, never `--faint`.
 
 ---
 
@@ -121,23 +149,28 @@ Maintain a minimum clear space of `1×` the height of the lowercase **u** on all
 **Data & numeric display:** System monospace  
 `"SF Mono", "Fira Code", "Cascadia Code", monospace`
 
-Use monospace for all ticker symbols, price values, ratios, and scores. This visually separates analytical data from prose, reinforcing the app's systematic nature.
+Use monospace for all ticker symbols, price values, ratios, scores, times and version numbers. This visually separates analytical data from prose, reinforcing the app's systematic nature.
 
 ### Type scale
 
 | Role | Size | Weight | Line height | Usage |
 |---|---|---|---|---|
 | Display | 32px | 500 | 1.1 | Hero headlines, onboarding |
-| Heading 1 | 24px | 500 | 1.2 | Section titles |
-| Heading 2 | 18px | 500 | 1.3 | Card headings, panel labels |
+| Heading 1 | 24px | 500 | 1.2 | Page titles |
+| Document title | 20px | 500 | 1.25 | Title of a legal document inside its card |
+| Heading 2 | 17–18px | 500 | 1.3 | Sections in long text (17px), panel headings (18px) |
+| Card heading | 15px | 500 | 1.3 | Card header rows |
 | Body | 15px | 400 | 1.6 | Descriptions, explanations |
+| Long-form body | 14px | 400 | 1.65 | Legal texts, methodology, release notes; measure 72ch |
+| Data-screen text | 13–13.5px | 400 | 1.5 | Rows and descriptions on data screens |
 | Label | 13px | 500 | 1.4 | Field labels, metadata, badges |
-| Caption | 11px | 400 | 1.5 | Footnotes, source attribution |
+| Caption | 12px | 400 | 1.5 | Footnotes, provenance, source attribution (muted) |
 | Data | 14–20px | 500 | 1.2 | Prices, ratios, scores (monospace) |
 
 ### Typographic rules
 
-- **Sentence case always.** Never title case or ALL CAPS in UI.
+- **Sentence case always.** Never title case or ALL CAPS in headings, buttons, badges or prose.
+- **One exception, for now:** compact column headers, filter labels and metric-card labels (10–11px) use uppercase with `letter-spacing: 0.06em`, as the data screens do today. Under review — don't introduce it anywhere else.
 - **Numbers are monospace.** P/E ratios, price targets, margin of safety percentages — always monospace.
 - **Tight tracking on display text.** Apply `letter-spacing: -0.02em` to headings 24px and above.
 - **No mid-sentence bolding.** Bold is for headings and data labels only.
@@ -146,15 +179,15 @@ Use monospace for all ticker symbols, price values, ratios, and scores. This vis
 
 ## 6. Iconography
 
-Use **Tabler Icons** (outline only) throughout the UI. Never use filled variants.
+Use **outline** icons only, never filled variants. The app uses **Material Symbols (outlined)**, because that is the icon set Streamlit renders natively (`:material/name:`). *(v1.0 named Tabler Icons; keep Tabler for marketing material only if the two sets are not mixed on one surface.)*
 
-| Context | Icon examples |
+| Context | Icon examples (Material) |
 |---|---|
-| Navigation | `ti-home`, `ti-chart-bar`, `ti-search`, `ti-bell` |
-| Stock actions | `ti-plus`, `ti-star`, `ti-trash`, `ti-edit` |
-| Data & analysis | `ti-trending-up`, `ti-trending-down`, `ti-calculator`, `ti-filter` |
-| Status | `ti-check`, `ti-alert-triangle`, `ti-x` |
-| Portfolio | `ti-briefcase`, `ti-clock`, `ti-download` |
+| Navigation | `dashboard`, `search`, `star`, `business_center`, `monitoring` |
+| Stock actions | `add`, `star`, `delete`, `edit` |
+| Data & analysis | `trending_up`, `trending_down`, `calculate`, `filter_list` |
+| Status | `check`, `warning`, `close`, `info` |
+| Portfolio & app | `refresh`, `schedule`, `download`, `settings`, `help` |
 
 Icon size: 20px in navigation and cards, 16px inline with text.
 
@@ -185,6 +218,7 @@ All spacing, padding, and margin values should be multiples of 4px.
 | Badges / chips | 6px |
 | Buttons | 8px |
 | Input fields | 8px |
+| Tooltips | 8px |
 
 ### Border weight
 
@@ -192,39 +226,110 @@ All spacing, padding, and margin values should be multiples of 4px.
 - Dividers: `0.5px`
 - Focused / selected state: `2px` (the only exception)
 
+### Page layouts
+
+**Data screens** (Dashboard, Portfolio, Risk, Screener, Watchlist): full content width. Page header = title (22–24px), subtitle (13px muted) and, on screens with signals, the provenance line (§8) as the third line. Actions sit right-aligned on the title row.
+
+**Supporting pages** (Settings, Methodology & help, Legal, About) share one frame:
+
+- Left-aligned on the page gutter, max width 1180px.
+- Back link above the title: "← Back to {page}", 12px muted, to the page the user came from (the Dashboard otherwise).
+- Title 24px / 500 / −0.02em (Heading 1), optional 13px muted subtitle 4px below, 20px gap to the content.
+- Two columns: a **200px sticky section list** and a content column of at most **760px**, 32px apart.
+- Section list: 13px items. The current item has a 2px teal left border, panel background and weight 500; the others are muted. An optional "On this page" list follows in 12px with a 0.5px left rule.
+- Content in white cards (12px radius, 0.5px border), sentence-case 15px card headers, long-form text at 14px / 1.65 within 72ch.
+- Below 768px the section list is hidden; Legal shows a document picker instead.
+
 ---
 
 ## 8. UI components
 
 ### Signal badges
 
-Used for the buy/monitor/avoid decision output.
+The model's signal for a stock. Badges describe the model output; they never tell the user to buy or sell.
 
 | Signal | Background | Text | Label |
 |---|---|---|---|
-| Buy | `#E8F5F0` | `#0F6E56` | BUY |
-| Monitor | `#FDF0E8` | `#854F0B` | MONITOR |
-| Avoid | `#FCEAEA` | `#A32D2D` | AVOID |
-| Veto | `#0D1F3C` | `#FFFFFF` | VETO |
+| Undervalued | `#E8F5F0` | `#0F6E56` | Undervalued |
+| Neutral | `#FDF0E8` | `#854F0B` | Neutral |
+| Low score | `#FCEAEA` | `#A32D2D` | Low score |
+| Fails quality screen | `#0D1F3C` | `#FFFFFF` | Fails quality screen |
+| No signal | grey tint | Muted | No signal |
 
-Badges use 11px uppercase text, `font-weight: 500`, horizontal padding 8px, border-radius 6px.
+- Sentence case, 10.5–11px, `font-weight: 500`, horizontal padding 8–9px, border-radius 6px.
+- Every signal badge carries the methodology tooltip: *"Model output based on public data and the settings shown. Not a recommendation tailored to you. See Methodology for thresholds."*
+- In dark theme the tints become translucent (`--up-bg`, `--amber-bg`, `--down-bg`); Fails quality screen is `#1E2D4A` with a light hairline.
+
+### Signal provenance line
+
+Wherever signals are listed (Dashboard holdings, Screener, Watchlist) or shown for one stock (stock drawer, Analysis), say when they were made. This line is a legal requirement and must stay **visible next to the signals** — never move it into a tooltip or popover.
+
+> Signals computed `7 Oct 2026 21:15` · prices delayed, as of `19:37` · model `M1` · Methodology →
+
+- Placement: the third line of the page header, directly under the subtitle; in the drawer and Analysis 8px under the ticker line.
+- Style: 12px muted caption, no fill, no border. Values monospace 11.5px muted. Separators `·` in a faint tone.
+- Each fact wraps as a whole, never mid-phrase.
+- Prices are always labelled **delayed**.
+- An amber chip ("⚠ oldest 3 weeks") appears when any price is more than 72 hours old.
+- Ends with the quiet **Methodology →** link.
+- On the Screener, the share of covered stocks per signal is shown in the signal filter pills (`Undervalued 3%`), with the note "share of covered stocks".
+
+### Links
+
+| Kind | Style | Example |
+|---|---|---|
+| Call to action | Signal Teal, no underline, ends with "→" | Full analysis → |
+| Quiet link | Muted text, underlined in the line colour (offset 3px), text colour on hover, ends with "→" | Methodology → |
+
+A link always ends with "→", so it reads as a link even in grey. Back links start with "←".
+
+### Tooltips
+
+One style for every tooltip: the app's own (`title` attributes, drawn by `uvalu/tooltips.py`), Streamlit's help icons and chart hover labels.
+
+| | Light theme | Dark theme |
+|---|---|---|
+| Background | `#FFFFFF` | `#15305A` |
+| Text | `#0D1F3C` | `#F5F7FA` |
+| Border | 0.5px `rgba(13,31,60,0.14)` | 0.5px `rgba(245,247,250,0.16)` |
+| Shadow | `0 4px 16px rgba(13,31,60,0.12)` | `0 4px 16px rgba(0,0,0,0.45)` |
+
+- 12px / 1.5 sans text, padding 6px 10px, 8px radius, max width 280px.
+- Never a dark box on a light page, never a trace or brand colour as the fill.
+- Tooltips add detail; anything the user must see (provenance, disclaimers, risk notes) stays on the page.
 
 ### Metric cards
 
 Used to surface key valuation data at a glance.
 
-- Background: Surface `#F5F7FA`
-- Label: 11px, `#5F5E5A`, uppercase, `letter-spacing: 0.06em`
+- Background: Panel, with a `0.5px` border on the page background
+- Label: 10–11px, muted, uppercase, `letter-spacing: 0.06em` (the §5 exception)
 - Value: 22–28px, `font-weight: 500`, monospace, Deep Navy or semantic colour
-- No border on metric cards — background contrast provides separation
 
 ### Data rows
 
-Used in stock detail views for model outputs (DCF, P/E, Graham Number, etc.)
+Used in stock detail views for model outputs (Graham Number, P/E fair value, EPV, DDM, …) and for key/value lists such as the About page's build details.
 
 - Label left-aligned, 13px, muted
-- Value right-aligned, 14px monospace, coloured by semantic meaning
+- Value 13–14px monospace, coloured by semantic meaning; right-aligned in tables, left-aligned in key/value lists
 - Divider: `0.5px` border between rows
+
+### Fair-value ladder
+
+- The bar fills from zero to the current price; a dashed tick marks the model fair value.
+- Fill colours: Mint when the price is below fair value, Teal within ±3%, Caution fill `#C98A3A` above it.
+- Legend on the table card's title row: "Below / Near / Above model fair value · Model fair value", 11.5px muted.
+
+### Disclosures
+
+These texts are required and keep their wording; translations must keep their meaning.
+
+| Element | Where | Wording / style |
+|---|---|---|
+| Beta banner | Top of every screen | "Free beta: a test version. Features and data can change, and the beta can end at any time." Mint tint, small text |
+| Footer disclaimer | Bottom of every screen | "Uvalu is an analysis tool. Scores, fair values and signals are model outputs based on public data and are the same for every user. They are not personal investment advice…" + producer + links to the legal pages |
+| Founder notice | Stock drawer and Analysis, when the founder holds the stock | "Disclosure: the founder of Uvalu holds a position in this stock. Its signal is calculated exactly like every other stock's." 12px muted |
+| Badge tooltip | Every signal badge | See Signal badges |
 
 ---
 
@@ -234,28 +339,39 @@ Used in stock detail views for model outputs (DCF, P/E, Graham Number, etc.)
 
 **Precise** — Every claim is grounded in a number. Uvalu does not use market sentiment language ("the market feels uncertain"). It uses data: "P/E of 9.4× against a fair-value estimate of 14.2×."
 
-**Confident** — Uvalu surfaces clear signals. When the model says buy, the UI says buy. Hedging language ("you might consider") is reserved for genuinely ambiguous cases, not the default tone.
+**Clear, not directive** — Uvalu states what the models found, plainly and without hedging the facts. It never tells the user what to do: no "buy", "sell", "you should", and no language that turns a signal into a recommendation. The user decides.
 
-**Systematic** — The algorithm decides, not the mood. Copy reinforces that the process is repeatable, rule-based, and unemotional.
+**Systematic** — The rules decide, not the mood. Copy reinforces that the process is repeatable, rule-based, and unemotional.
 
-**Grounded** — No hype. No FOMO. No "hot picks." Uvalu respects the user's intelligence and long-term orientation.
+**Grounded** — No hype. No FOMO. No "hot picks". No promises about returns or beating the market. Uvalu respects the user's intelligence and long-term orientation.
 
 ### Voice examples
 
 | Context | Do | Don't |
 |---|---|---|
 | Empty state | "No stocks match your screening criteria." | "Looks like nothing's here yet! 🙁" |
-| Buy signal | "Uvalu assigns a BUY signal. Composite score: 82/100. Margin of safety: 34%." | "This stock looks great — might be worth a look!" |
-| Veto trigger | "Hard veto triggered: debt/equity exceeds threshold. Stock excluded from scoring." | "We had to remove this one from the results." |
-| Onboarding | "Uvalu evaluates fair value across six models and surfaces stocks with a sufficient margin of safety." | "Welcome! Let's get started on your investment journey 🚀" |
+| Model signal | "Model signal: Undervalued. Composite score 82/100, margin of safety 34%." | "Uvalu assigns a BUY signal." / "This stock looks great — might be worth a look!" |
+| Quality screen | "Fails quality screen: debt/equity of 240% exceeds the 200% limit. Composite score set to 0." | "Hard veto triggered. Stock excluded." / "We had to remove this one from the results." |
+| Onboarding | "Uvalu values each stock with several models and shows how far the price is from the model fair value." | "Welcome! Let's get started on your investment journey 🚀" |
+| Risk | "Model outputs can be wrong. Share prices can stay below or above fair value for years." | "Find bargains before everyone else." |
+
+### Words to use and avoid
+
+| Use | Avoid |
+|---|---|
+| Undervalued, Neutral, Low score, Fails quality screen | Buy, Monitor, Avoid, Veto (as signal names) |
+| quality screen, quality rule | hard veto |
+| model fair value, model estimate | true value, target price |
+| signal, model output | recommendation, advice, pick, tip |
+| delayed price | live price, real-time (during the beta) |
 
 ### Writing rules
 
 - No emoji in core UI
 - No exclamation marks in data contexts
-- Use "Uvalu" (not "we" or "the app") when describing the system's actions
+- In the product, use "Uvalu" (not "we" or "the app") when describing the system's actions. Legal texts (terms, privacy, policies) use "we" for the operator.
 - Numeric values always include units: `34%`, `11.4×`, `€42.80`
-- Percentages use `%`, multiples use `×`, currency symbols precede the value
+- Percentages use `%`, multiples use `×`, currency symbols follow the user's region format
 
 ---
 
@@ -285,11 +401,21 @@ Used in stock detail views for model outputs (DCF, P/E, Graham Number, etc.)
 Uvalu's identity is defined as much by what it rejects as what it embraces.
 
 - Not a social trading app — no feeds, no following, no tips from strangers
-- Not a robo-advisor — it surfaces signals, not recommendations; the user decides
+- Not a robo-advisor or investment adviser — it shows model signals, not recommendations; the user decides
+- Not a broker — no orders, no custody
 - Not a dashboard for casual trackers — every screen serves the valuation process
 - Not gamified — no streaks, no confetti, no engagement mechanics
 - Not short-term — the entire system is oriented around intrinsic value and long-duration holding
 
 ---
 
-*Document version 1.0 — Uvalu Brand Guidelines*
+## Changes
+
+**v1.1 — 7 Oct 2026** (matches app v2026.10.2)
+
+- Signal badges renamed to the legal wording (Undervalued / Neutral / Low score / Fails quality screen / No signal), sentence case; "hard veto" → "quality screen"; voice principles and examples no longer present signals as buy instructions; tagline marked for legal review.
+- Added: dark-theme tokens, caution fill `#C98A3A`, signal provenance line, links, tooltips, fair-value ladder, disclosures, supporting-page layout.
+- Typography: long-form body 14px, 17px section headings, 12px captions; the uppercase small-label exception made explicit.
+- Fixed: wordmark-vs-name rule, "we" in legal texts, logo ring colour, icon set (Material Symbols), no DCF in the model list.
+
+*Document version 1.1 — Uvalu Brand Guidelines*
