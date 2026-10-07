@@ -130,13 +130,13 @@ METHODOLOGY_HREF = "/legal?doc=methodology"
 def methodology_link_html(quiet: bool = False) -> str:
     """REC-5: "Methodology →" link, shown with every signal (the badge's own
     tooltip can't hold a link). A plain link to the in-app legal page.
-    ``quiet``: the provenance caption's variant, "Methodology" in grey
+    ``quiet``: the provenance caption's variant, "Methodology →" in grey
     underlined text (styles.py .uv-quiet-link) instead of a teal call to
-    action."""
+    action; the arrow marks it as a link, like every other link."""
     import html as _html_mod
     if quiet:
         return (f'<a class="uv-quiet-link" href="{METHODOLOGY_HREF}" target="_self">'
-                f'{_html_mod.escape(_("Methodology"))}</a>')
+                f'{_html_mod.escape(_("Methodology →"))}</a>')
     return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
             f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
             f'{_html_mod.escape(_("Methodology →"))}</a>')
@@ -182,7 +182,7 @@ def _stale_chip_html(prices) -> str:
 
 def provenance_bar_html(items: list[str], *, link: bool = True, margin: str = "8px 0 0") -> str:
     """REC-4 / REC-5 caption shown with every signal: the facts (``items``,
-    ready-made HTML) and, last, the "Methodology" link, as one quiet line of
+    ready-made HTML) and, last, the "Methodology →" link, as one quiet line of
     12px muted text (no fill or border: tints are for signals, brand §4).
     Each fact wraps as a whole, never mid-phrase."""
     sep = '<span class="uv-prov-sep">·</span>'

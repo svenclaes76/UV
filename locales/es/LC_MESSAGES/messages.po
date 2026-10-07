@@ -56,7 +56,7 @@ msgstr "Análisis"
 msgid "Settings"
 msgstr "Ajustes"
 
-#: app.py:119 uvalu/pages_/help.py:147 uvalu/shell.py:392
+#: app.py:119 uvalu/pages_/help.py:148 uvalu/shell.py:392
 msgid "Methodology & help"
 msgstr "Metodología y ayuda"
 
@@ -64,7 +64,7 @@ msgstr "Metodología y ayuda"
 msgid "Legal"
 msgstr "Legal"
 
-#: app.py:122 uvalu/pages_/about.py:191 uvalu/pages_/help.py:249 uvalu/shell.py:398
+#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:398
 msgid "About Uvalu"
 msgstr "Acerca de Uvalu"
 
@@ -1509,11 +1509,7 @@ msgstr "sin volumen de negociación confirmado"
 msgid "a quality-screen rule"
 msgstr "una regla del filtro de calidad"
 
-#: uvalu/compliance/disclosures.py:84 uvalu/components.py:139
-msgid "Methodology"
-msgstr "Metodología"
-
-#: uvalu/components.py:142
+#: uvalu/components.py:139 uvalu/components.py:142
 msgid "Methodology →"
 msgstr "Metodología →"
 
@@ -2001,7 +1997,7 @@ msgstr "Ver movimiento vinculado"
 msgid "← Back to {page}"
 msgstr "← Volver a {page}"
 
-#: uvalu/components.py:2011
+#: uvalu/components.py:2012
 msgid "On this page"
 msgstr "En esta página"
 
@@ -2455,7 +2451,7 @@ msgid "Realised P&L"
 msgstr "G/P realizada"
 
 #. Context: Closed trade dialogs › field label; Screener › filter label
-#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:284 uvalu/pages_/screener.py:285
+#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:288 uvalu/pages_/screener.py:289
 msgid "Sector"
 msgstr "Sector"
 
@@ -3019,7 +3015,7 @@ msgstr "Valor total"
 #. themselves stay in English)
 #: uvalu/locale_ui.py:93 uvalu/pages_/dashboard.py:486 uvalu/pages_/dashboard.py:491
 #: uvalu/pages_/screener.py:51 uvalu/pages_/screener.py:272
-#: uvalu/pages_/screener.py:277 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:279 uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr "Señal"
 
@@ -3195,7 +3191,7 @@ msgstr "Cambiar al tema oscuro"
 msgid "Switch to light theme"
 msgstr "Cambiar al tema claro"
 
-#: uvalu/pages_/about.py:194 uvalu/pages_/legal.py:169 uvalu/pages_/legal.py:186
+#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:194
 #: uvalu/shell.py:395
 msgid "Legal & policies"
 msgstr "Aviso legal y políticas"
@@ -3367,12 +3363,16 @@ msgstr "Sigues siendo responsable de tu declaración de impuestos. Comprueba est
 msgid "Privacy notice"
 msgstr "Aviso de privacidad"
 
+#: uvalu/compliance/disclosures.py:84
+msgid "Methodology"
+msgstr "Metodología"
+
 #: uvalu/compliance/disclosures.py:85 uvalu/pages_/analysis.py:153
-#: uvalu/pages_/help.py:108 uvalu/pages_/help.py:219
+#: uvalu/pages_/help.py:109 uvalu/pages_/help.py:220
 msgid "Data sources"
 msgstr "Fuentes de datos"
 
-#: uvalu/compliance/disclosures.py:86 uvalu/pages_/help.py:229
+#: uvalu/compliance/disclosures.py:86 uvalu/pages_/help.py:230
 msgid "Conflicts of interest"
 msgstr "Conflictos de intereses"
 
@@ -3415,32 +3415,32 @@ msgstr "Eliminado"
 #. About › button that copies the one-line build details for a support e-mail;
 #. "Copied" is its confirmation after a click.
 #. About › button that copies the one-line build details for a support e-mail.
-#: uvalu/pages_/about.py:90
+#: uvalu/pages_/about.py:95
 msgid "Copy for support"
 msgstr "Copiar para soporte"
 
 #. About › the "Copy for support" button's label for a moment after a click.
-#: uvalu/pages_/about.py:92
+#: uvalu/pages_/about.py:97
 msgid "Copied"
 msgstr "Copiado"
 
-#: uvalu/pages_/about.py:122
+#: uvalu/pages_/about.py:127
 msgid "App version"
 msgstr "Versión de la app"
 
-#: uvalu/pages_/about.py:123
+#: uvalu/pages_/about.py:128
 msgid "Commit"
 msgstr "Commit"
 
-#: uvalu/pages_/about.py:124
+#: uvalu/pages_/about.py:129
 msgid "Built"
 msgstr "Compilada"
 
-#: uvalu/pages_/about.py:125
+#: uvalu/pages_/about.py:130
 msgid "Environment"
 msgstr "Entorno"
 
-#: uvalu/pages_/about.py:126
+#: uvalu/pages_/about.py:131
 msgid "Scoring model"
 msgstr "Modelo de puntuación"
 
@@ -3448,11 +3448,11 @@ msgstr "Modelo de puntuación"
 #. the build-details card and an entry in the page's section list.
 #. About › What's new › badge on the release the user is running; also the heading of
 #. the build-details card and an entry in the page's section list.
-#: uvalu/pages_/about.py:131 uvalu/pages_/about.py:159 uvalu/pages_/about.py:192
+#: uvalu/pages_/about.py:136 uvalu/pages_/about.py:164 uvalu/pages_/about.py:198
 msgid "This version"
 msgstr "Esta versión"
 
-#: uvalu/pages_/about.py:135
+#: uvalu/pages_/about.py:140
 msgid "Copy these details when you contact support:"
 msgstr "Copia estos datos cuando contactes con soporte:"
 
@@ -3460,19 +3460,19 @@ msgstr "Copia estos datos cuando contactes con soporte:"
 #. builds only).
 #. About › What's new › title of the notes for changes not yet in a release (test
 #. builds only).
-#: uvalu/pages_/about.py:155
+#: uvalu/pages_/about.py:160
 msgid "Not released yet"
 msgstr "Aún no publicado"
 
-#: uvalu/pages_/about.py:170 uvalu/pages_/about.py:193
+#: uvalu/pages_/about.py:175 uvalu/pages_/about.py:199
 msgid "What’s new"
 msgstr "Novedades"
 
-#: uvalu/pages_/about.py:173
+#: uvalu/pages_/about.py:178
 msgid "Release notes are written in English."
 msgstr "Las notas de la versión están escritas en inglés."
 
-#: uvalu/pages_/about.py:173
+#: uvalu/pages_/about.py:178
 msgid "No release notes yet."
 msgstr "Todavía no hay notas de la versión."
 
@@ -4558,7 +4558,7 @@ msgstr "Euronext Ámsterdam/Bruselas/París, XETRA, SIX Swiss y Borsa Italiana."
 #. Neutral, …).
 #. Methodology & help › left-hand section list › the signal badges (Undervalued,
 #. Neutral, …).
-#: uvalu/pages_/help.py:104
+#: uvalu/pages_/help.py:105
 msgid "Badges"
 msgstr "Etiquetas"
 
@@ -4566,118 +4566,118 @@ msgstr "Etiquetas"
 #. EPV, …).
 #. Methodology & help › left-hand section list › the fair-value models (Graham Number,
 #. EPV, …).
-#: uvalu/pages_/help.py:106
+#: uvalu/pages_/help.py:107
 msgid "Models"
 msgstr "Modelos"
 
-#: uvalu/pages_/help.py:107 uvalu/pages_/help.py:211
+#: uvalu/pages_/help.py:108 uvalu/pages_/help.py:212
 msgid "Quality screens"
 msgstr "Filtros de calidad"
 
 #. Methodology & help › left-hand section list › short for "Conflicts of interest".
-#: uvalu/pages_/help.py:110
+#: uvalu/pages_/help.py:111
 msgid "Conflicts"
 msgstr "Conflictos de intereses"
 
 #. Methodology & help › left-hand section list › frequently asked questions.
-#: uvalu/pages_/help.py:112
+#: uvalu/pages_/help.py:113
 msgid "FAQ"
 msgstr "Preguntas frecuentes"
 
-#: uvalu/pages_/help.py:148
+#: uvalu/pages_/help.py:149
 msgid "How each model works, what the badges mean, how often they change and where the data comes from."
 msgstr "Cómo funciona cada modelo, qué significan las etiquetas, con qué frecuencia cambian y de dónde proceden los datos."
 
-#: uvalu/pages_/help.py:157
+#: uvalu/pages_/help.py:158
 msgid "Full methodology →"
 msgstr "Metodología completa →"
 
-#: uvalu/pages_/help.py:158
+#: uvalu/pages_/help.py:159
 msgid "Data sources →"
 msgstr "Fuentes de datos →"
 
-#: uvalu/pages_/help.py:159
+#: uvalu/pages_/help.py:160
 msgid "Conflicts of interest →"
 msgstr "Conflictos de intereses →"
 
-#: uvalu/pages_/help.py:167
+#: uvalu/pages_/help.py:168
 msgid "Badges · meaning"
 msgstr "Etiquetas · significado"
 
-#: uvalu/pages_/help.py:176
+#: uvalu/pages_/help.py:177
 msgid "Time horizon"
 msgstr "Horizonte temporal"
 
-#: uvalu/pages_/help.py:176
+#: uvalu/pages_/help.py:177
 msgid "3 to 5 years, the period the valuation models assume"
 msgstr "De 3 a 5 años, el periodo que suponen los modelos de valoración"
 
-#: uvalu/pages_/help.py:177
+#: uvalu/pages_/help.py:178
 msgid "Updated"
 msgstr "Actualización"
 
-#: uvalu/pages_/help.py:177
+#: uvalu/pages_/help.py:178
 msgid "Fundamentals about every 24 hours; signals are recomputed when they change"
 msgstr "Datos fundamentales aproximadamente cada 24 horas; las señales se recalculan cuando cambian"
 
-#: uvalu/pages_/help.py:178
+#: uvalu/pages_/help.py:179
 msgid "History"
 msgstr "Historial"
 
-#: uvalu/pages_/help.py:178
+#: uvalu/pages_/help.py:179
 msgid "Every badge change kept 24 months, the last 12 shown on each stock page"
 msgstr "Cada cambio de etiqueta se conserva 24 meses; los últimos 12 se muestran en la página de cada acción"
 
-#: uvalu/pages_/help.py:181
+#: uvalu/pages_/help.py:182
 msgid "Same for every user."
 msgstr "Iguales para todos los usuarios."
 
-#: uvalu/pages_/help.py:181
+#: uvalu/pages_/help.py:182
 msgid "Badges, scores and fair values use only instrument data and the shared model settings. They never use your holdings, income, goals or risk tolerance."
 msgstr "Las etiquetas, puntuaciones y valores razonables solo usan datos del instrumento y los ajustes del modelo compartidos. Nunca usan tus posiciones, ingresos, objetivos ni tolerancia al riesgo."
 
-#: uvalu/pages_/help.py:184
+#: uvalu/pages_/help.py:185
 msgid "Risk."
 msgstr "Riesgo."
 
-#: uvalu/pages_/help.py:184
+#: uvalu/pages_/help.py:185
 msgid "Model outputs can be wrong. Share prices can stay below or above fair value for years, and you can lose capital."
 msgstr "Los resultados de los modelos pueden ser erróneos. Los precios pueden mantenerse por debajo o por encima del valor razonable durante años y puedes perder capital."
 
-#: uvalu/pages_/help.py:189
+#: uvalu/pages_/help.py:190
 msgid "Reading the badges"
 msgstr "Cómo leer las etiquetas"
 
-#: uvalu/pages_/help.py:203
+#: uvalu/pages_/help.py:204
 msgid "The fair-value models"
 msgstr "Los modelos de valor razonable"
 
-#: uvalu/pages_/help.py:225
+#: uvalu/pages_/help.py:226
 msgid "Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings are shown."
 msgstr "Los datos de entrada obsoletos o ausentes se señalan en la página de la acción. No se muestran estimaciones ni calificaciones de analistas."
 
-#: uvalu/pages_/help.py:232
+#: uvalu/pages_/help.py:233
 msgid "The founder discloses any position in a covered stock on that stock’s page, whatever its size."
 msgstr "El fundador declara cualquier posición en una acción cubierta en la página de esa acción, sea cual sea su tamaño."
 
-#: uvalu/pages_/help.py:233
+#: uvalu/pages_/help.py:234
 msgid "Uvalu receives no payment from issuers, brokers or data vendors for any output, and has no affiliate or broker links."
 msgstr "Uvalu no recibe ninguna remuneración de emisores, brókeres ni proveedores de datos por ningún resultado y no tiene enlaces de afiliación ni de brókeres."
 
-#: uvalu/pages_/help.py:234
+#: uvalu/pages_/help.py:235
 msgid "The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live."
 msgstr "El fundador no opera con una acción desde el momento en que se decide un cambio del modelo que alteraría su señal hasta 2 sesiones bursátiles después de que entre en vigor."
 
 #. Context: Help page › FAQ section heading
-#: uvalu/pages_/help.py:239
+#: uvalu/pages_/help.py:240
 msgid "Frequently asked"
 msgstr "Preguntas frecuentes"
 
-#: uvalu/pages_/legal.py:139
+#: uvalu/pages_/legal.py:144
 msgid "Print or save as PDF"
 msgstr "Imprimir o guardar como PDF"
 
-#: uvalu/pages_/legal.py:190
+#: uvalu/pages_/legal.py:198
 msgid "This document is not available yet."
 msgstr "Este documento aún no está disponible."
 
@@ -5186,7 +5186,7 @@ msgid "All markets"
 msgstr "Todos los mercados"
 
 #. Context: Screener › page heading
-#: uvalu/pages_/screener.py:208 uvalu/pages_/screener.py:347
+#: uvalu/pages_/screener.py:208 uvalu/pages_/screener.py:351
 msgid "Value screener"
 msgstr "Screener de valor"
 
@@ -5217,57 +5217,57 @@ msgstr "Ticker o empresa…"
 #. Screener › note after the signal filter pills: each percentage is the share of all
 #. covered stocks with that signal (not a count of filter results). Lower case, a
 #. caption.
-#: uvalu/pages_/screener.py:281
+#: uvalu/pages_/screener.py:284
 msgid "share of covered stocks"
 msgstr "proporción de acciones cubiertas"
 
 #. Context: Screener › filter label (stock exchange)
-#: uvalu/pages_/screener.py:288 uvalu/pages_/screener.py:289
+#: uvalu/pages_/screener.py:292 uvalu/pages_/screener.py:293
 msgid "Market"
 msgstr "Mercado"
 
 #. Context: Screener › slider label: minimum composite score
-#: uvalu/pages_/screener.py:301 uvalu/pages_/screener.py:303
+#: uvalu/pages_/screener.py:305 uvalu/pages_/screener.py:307
 msgid "Min score"
 msgstr "Puntuación mín."
 
 #. Context: Screener › slider label
-#: uvalu/pages_/screener.py:308 uvalu/pages_/screener.py:310
+#: uvalu/pages_/screener.py:312 uvalu/pages_/screener.py:314
 msgid "Min margin of safety"
 msgstr "Margen de seguridad mín."
 
 #. Context: Screener › result count above the table. Keep the ** bold markers.
-#: uvalu/pages_/screener.py:349
+#: uvalu/pages_/screener.py:353
 #, python-brace-format
 msgid "**{shown}** of {total} European stocks pass your filters · ranked by composite signal score."
 msgstr "**{shown}** de {total} acciones europeas cumplen tus filtros · ordenadas por puntuación de señal compuesta."
 
-#: uvalu/pages_/screener.py:352
+#: uvalu/pages_/screener.py:356
 #, python-brace-format
 msgid "Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here."
 msgstr "Universo reducido ({count} acciones): las puntuaciones compuestas son rangos percentiles dentro de él, así que aquí una puntuación alta tiene menos peso."
 
 #. Context: Screener › button
-#: uvalu/pages_/screener.py:363
+#: uvalu/pages_/screener.py:367
 msgid "Reset filters"
 msgstr "Restablecer filtros"
 
 #. Context: Screener › empty results message
-#: uvalu/pages_/screener.py:373
+#: uvalu/pages_/screener.py:377
 msgid "No stocks match these filters. Try loosening the score or margin-of-safety threshold."
 msgstr "Ninguna acción cumple estos filtros. Prueba a relajar el umbral de puntuación o de margen de seguridad."
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:429 uvalu/pages_/watchlist.py:198
+#: uvalu/pages_/screener.py:433 uvalu/pages_/watchlist.py:198
 msgid "Remove from watchlist"
 msgstr "Quitar de la lista de seguimiento"
 
 #. Context: Screener › tooltip on the empty star
-#: uvalu/pages_/screener.py:429
+#: uvalu/pages_/screener.py:433
 msgid "Add to watchlist"
 msgstr "Añadir a la lista de seguimiento"
 
-#: uvalu/pages_/screener.py:448
+#: uvalu/pages_/screener.py:452
 #, python-brace-format
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr "Mostrar {count} más · {shown} de {total} mostrados"

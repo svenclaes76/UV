@@ -618,8 +618,8 @@ def test_provenance_is_a_quiet_caption_without_fill_or_border():
 def test_provenance_methodology_link_is_inline_and_quiet():
     from uvalu.components import list_provenance_html
     html = list_provenance_html(_signals_frame([1, 2]))
-    assert 'class="uv-quiet-link"' in html and ">Methodology</a>" in html
-    assert "Methodology →" not in html
+    # The arrow marks it as a link, like every other link in the app.
+    assert 'class="uv-quiet-link"' in html and ">Methodology →</a>" in html
     # Last fact on the line, after a separator — not pushed to the right.
     assert html.rstrip().endswith("</a></div>")
     assert "margin-left:auto" not in html
