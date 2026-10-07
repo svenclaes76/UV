@@ -1,9 +1,6 @@
 # Uvalu — Brand Guidelines
 
 > *Find value before the market does.*
->
-> ⚠ Tagline under legal review: it can read as a promise to beat the market.
-> Keep it out of new material until counsel has cleared it (see §3, Tagline).
 
 ---
 
@@ -53,9 +50,7 @@ A downward V-shape converging on a teal circle — representing a stock price fi
 
 > Find value before the market does.
 
-**Under legal review.** "Before the market does" can be read as a promise of outperformance, which the beta disclaimers rule out. Until counsel has cleared it (or a neutral alternative is chosen), do not use it in new screens, onboarding or marketing. Where it already appears, it stays until the decision.
-
-When cleared: use it in onboarding, marketing, and the app's empty states. Never in dense UI contexts.
+Use the tagline in onboarding, the sign-in screen, marketing, and the app's empty states. Never in dense UI contexts, and never next to a specific stock, signal or number — it describes the approach, not a result.
 
 ### Clear space
 
@@ -169,8 +164,8 @@ Use monospace for all ticker symbols, price values, ratios, scores, times and ve
 
 ### Typographic rules
 
-- **Sentence case always.** Never title case or ALL CAPS in headings, buttons, badges or prose.
-- **One exception, for now:** compact column headers, filter labels and metric-card labels (10–11px) use uppercase with `letter-spacing: 0.06em`, as the data screens do today. Under review — don't introduce it anywhere else.
+- **Sentence case** for headings, buttons, badges, links and prose. Never title case.
+- **Small labels are uppercase.** Compact column headers, filter labels and metric-card labels (10–11px) use uppercase with `letter-spacing: 0.06em`, muted colour. This is the only place for capitals: never at 12px or larger, and never for headings or buttons.
 - **Numbers are monospace.** P/E ratios, price targets, margin of safety percentages — always monospace.
 - **Tight tracking on display text.** Apply `letter-spacing: -0.02em` to headings 24px and above.
 - **No mid-sentence bolding.** Bold is for headings and data labels only.
@@ -179,7 +174,7 @@ Use monospace for all ticker symbols, price values, ratios, scores, times and ve
 
 ## 6. Iconography
 
-Use **outline** icons only, never filled variants. The app uses **Material Symbols (outlined)**, because that is the icon set Streamlit renders natively (`:material/name:`). *(v1.0 named Tabler Icons; keep Tabler for marketing material only if the two sets are not mixed on one surface.)*
+Use **Material Symbols (outlined)** everywhere — in the app (Streamlit renders them natively as `:material/name:`) and in marketing material — so one icon style runs through every surface. Outline only, never filled variants. *(Replaces Tabler Icons from v1.0.)*
 
 | Context | Icon examples (Material) |
 |---|---|
@@ -303,7 +298,7 @@ One style for every tooltip: the app's own (`title` attributes, drawn by `uvalu/
 Used to surface key valuation data at a glance.
 
 - Background: Panel, with a `0.5px` border on the page background
-- Label: 10–11px, muted, uppercase, `letter-spacing: 0.06em` (the §5 exception)
+- Label: 10–11px, muted, uppercase, `letter-spacing: 0.06em` (§5 small labels)
 - Value: 22–28px, `font-weight: 500`, monospace, Deep Navy or semantic colour
 
 ### Data rows
@@ -411,11 +406,17 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 
 ## Changes
 
+**v1.2 — 7 Oct 2026**
+
+- Uppercase small labels confirmed as the rule for 10–11px column headers, filter and metric labels (no longer "under review").
+- Icons: Material Symbols (outlined) everywhere, marketing included; Tabler dropped.
+- Tagline kept; usage guidance restored, with the rule never to place it next to a specific stock, signal or number.
+
 **v1.1 — 7 Oct 2026** (matches app v2026.10.2)
 
-- Signal badges renamed to the legal wording (Undervalued / Neutral / Low score / Fails quality screen / No signal), sentence case; "hard veto" → "quality screen"; voice principles and examples no longer present signals as buy instructions; tagline marked for legal review.
+- Signal badges renamed to the legal wording (Undervalued / Neutral / Low score / Fails quality screen / No signal), sentence case; "hard veto" → "quality screen"; voice principles and examples no longer present signals as buy instructions; tagline flagged for legal review (decided in v1.2).
 - Added: dark-theme tokens, caution fill `#C98A3A`, signal provenance line, links, tooltips, fair-value ladder, disclosures, supporting-page layout.
 - Typography: long-form body 14px, 17px section headings, 12px captions; the uppercase small-label exception made explicit.
 - Fixed: wordmark-vs-name rule, "we" in legal texts, logo ring colour, icon set (Material Symbols), no DCF in the model list.
 
-*Document version 1.1 — Uvalu Brand Guidelines*
+*Document version 1.2 — Uvalu Brand Guidelines*
