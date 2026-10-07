@@ -17,11 +17,18 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.2] — 2026-10-07
+
+A calmer, more consistent look: signal details sit in one quiet line under the
+page title, the supporting pages share one layout, and tooltips follow the
+app's theme. Scores and signals are unchanged; nothing to do besides
+restarting with `run_app.py`.
+
 ### Changed
 
 - **Signal details are quieter and always in the same place.** When the
   signals were computed, the price time, the model version and the
-  Methodology link are now a plain line under the page title on the
+  *Methodology →* link are now a plain line under the page title on the
   Dashboard, Screener and Watchlist, instead of a coloured box.
 - **Screener**: each signal filter now shows the share of covered stocks with
   that signal (for example *Undervalued 3%*), replacing the separate coverage

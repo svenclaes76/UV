@@ -7,7 +7,7 @@
 
 [project]
 name = "uvalu"
-version = "2026.10.1"
+version = "2026.10.2"
 description = "Streamlit web app for European stock value screening and personal portfolio management."
 readme = "README.md"
 requires-python = ">=3.12"
