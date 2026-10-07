@@ -17,6 +17,41 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.2] — 2026-10-07
+
+A calmer, more consistent look: signal details sit in one quiet line under the
+page title, the supporting pages share one layout, and tooltips follow the
+app's theme. Scores and signals are unchanged; nothing to do besides
+restarting with `run_app.py`.
+
+### Changed
+
+- **Signal details are quieter and always in the same place.** When the
+  signals were computed, the price time, the model version and the
+  *Methodology →* link are now a plain line under the page title on the
+  Dashboard, Screener and Watchlist, instead of a coloured box.
+- **Screener**: each signal filter now shows the share of covered stocks with
+  that signal (for example *Undervalued 3%*), replacing the separate coverage
+  bar.
+- **Dashboard**: the fair-value legend sits on the Holdings title row. A price
+  above the model fair value is now amber instead of red, on every
+  fair-value bar; red is kept for a failed quality screen.
+- **Settings, Methodology & help, Legal and About share one layout**: a back
+  link, the same title size, a section list on the left (a document picker on
+  a phone) and a comfortable reading width. Long texts are a little smaller
+  and easier to read; card headings are no longer in capitals.
+- **About**: the build details are a simple list with a *Copy for support*
+  button, and only the release you are running is opened, marked *This
+  version*.
+- **Tooltips** now follow the app's light or dark theme everywhere, including
+  chart labels. Before, they could show as dark boxes on a light page.
+
+### Fixed
+
+- The *Print or save as PDF* button on the legal pages was not visible.
+- The last line of some cards on the Methodology & help and Settings pages
+  was cut off.
+
 ## [2026.10.1] — 2026-10-05
 
 Versions are now calendar versions: this is the first, `YYYY.MM.N`. Nothing to

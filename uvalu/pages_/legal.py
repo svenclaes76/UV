@@ -12,8 +12,9 @@ texts (decision B4) describe what is actually true during the free beta.
 A language without its own reviewed translation falls back to English with
 a notice (INT-1, INT-2).
 
-Layout (visual review 2026-10-04, §1.3): a sticky left column with the
-document list and an "On this page" list of the document's sections; the
+Layout: the shared supporting-page frame (components.support_page,
+proposal 1d) — the document list and an "On this page" list of the
+document's sections in the sticky rail (a document select on a phone); the
 document in a card with a header block (title, version/date chips, print)
 and a readable measure; a print stylesheet that prints only the document.
 """
@@ -23,9 +24,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from uvalu import nav as nav_registry
+from uvalu.components import support_page
 from uvalu.compliance import disclosures as d
-from uvalu.i18n import _, current, h_, tr
+from uvalu.i18n import _, current, tr
 
 POLICIES_DIR = Path(__file__).resolve().parents[2] / "docs" / "legal" / "policies"
 _DOC_KEYS = [key for key, _title, _file in d.LEGAL_DOCS]
@@ -78,54 +79,26 @@ def anchor_sections(body: str) -> tuple[str, list[tuple[str, str]]]:
         if line.startswith("## "):
             anchor = f"sec-{len(toc) + 1}"
             toc.append((anchor, re.sub(r"[*_`]", "", line[3:]).strip()))
-            out.append(f'<a id="{anchor}" class="uv-legal-anchor"></a>\n')
+            out.append(f'<a id="{anchor}" class="uv-anchor"></a>\n')
         out.append(line)
     return "\n".join(out), toc
 
 
 _CSS = """
-/* Left column: sticky, so the document list and the section list stay in
-   reach while reading a 4 000 px Terms page. */
-[data-testid="stColumn"]:has(.st-key-legal_nav) {
-  position: sticky; top: 16px; align-self: flex-start;
+/* The document card. Long-form type comes from the frame (styles.py). */
+.st-key-legal_doc_body {
+  padding: 28px 32px 32px !important; background: var(--panel) !important; border-color: var(--line) !important;
+  border-radius: 12px !important; box-shadow: var(--shadow) !important;
 }
-.st-key-legal_doc_list { gap: 2px !important; }
-.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] {
-  height: auto !important; min-height: 0 !important; background: none !important;
-  padding: 6px 10px !important; border-radius: 0 6px 6px 0 !important;
-  border-left: 2px solid transparent; gap: 0 !important;
-}
-.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
-.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"] p {
-  font-size: 13px !important; color: var(--muted) !important; line-height: 1.35 !important;
-  white-space: normal !important; overflow: visible !important; text-overflow: clip !important;
-}
-.st-key-legal_doc_list a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
-[class*="st-key-legal_nav_active"] a[data-testid="stPageLink-NavLink"] {
-  border-left-color: var(--teal); background: var(--soft) !important;
-}
-[class*="st-key-legal_nav_active"] a[data-testid="stPageLink-NavLink"] p {
-  color: var(--text) !important; font-weight: 500 !important;
-}
-.uv-legal-toc a { display: block; padding: 3px 0 3px 12px; font-size: 12px; line-height: 1.4;
-  color: var(--muted); text-decoration: none; border-left: 0.5px solid var(--line); }
-.uv-legal-toc a:hover { color: var(--teal); }
-
-/* The document: readable measure and heading rhythm. */
-.st-key-legal_doc_body { padding: 24px 28px 28px !important; }
-.st-key-legal_doc_text [data-testid="stMarkdownContainer"] { max-width: 72ch; }
-.st-key-legal_doc_text h2 { font-size: 18px !important; font-weight: 500 !important;
-  margin: 32px 0 8px !important; padding: 0 !important; }
-.st-key-legal_doc_text li { margin-bottom: 6px; }
-.uv-legal-anchor { display: block; scroll-margin-top: 16px; }
 .st-key-legal_print iframe { display: block; }
+/* The document select replaces the rail below 768px. Its wrapper goes too,
+   or it still takes a row gap. */
+.st-key-legal_doc_select, div:has(> .st-key-legal_doc_select) { display: none !important; }
 
-/* Phone: the columns stack, the document list sits above the document; the
-   section list (long, and the document follows) and the print button
-   (wrapped onto its own line) are hidden. */
-@media (max-width: 640px) {
-  [data-testid="stColumn"]:has(.st-key-legal_nav) { position: static; }
-  .st-key-legal_toc, .st-key-legal_print { display: none !important; }
+@media (max-width: 767px) {
+  .st-key-legal_doc_select { display: flex !important; }
+  div:has(> .st-key-legal_doc_select) { display: block !important; }
+  .st-key-legal_print, div:has(> .st-key-legal_print) { display: none !important; }
   .st-key-legal_doc_body { padding: 18px 16px !important; }
 }
 
@@ -142,17 +115,10 @@ _CSS = """
     border: none !important; box-shadow: none !important; background: #fff !important; padding: 0 !important; }
   .st-key-legal_print, .st-key-legal_notice { display: none !important; }
   .st-key-legal_doc_text [data-testid="stMarkdownContainer"] { max-width: none; }
+  .st-key-legal_doc_text p, .st-key-legal_doc_text li { max-width: none !important; }
+  .st-key-legal_doc_select { display: none !important; }
 }
 """
-
-
-def _back_target():
-    """(page, label) for "← Back": the page the user came from in this
-    session (uvalu/nav.py), the Dashboard otherwise."""
-    page, _key = nav_registry.back_target("legal")
-    if page is None:
-        return None, ""
-    return page, _("← Back to {page}", page=page.title)
 
 
 def _chip(text: str) -> str:
@@ -196,37 +162,38 @@ def render() -> None:
     title, meta, body = split_document(_strip_header(path.read_text(encoding="utf-8"))) if path else ("", [], "")
     body, toc = anchor_sections(body)
 
-    # The footer's link to this document reads as "you are here".
-    st.markdown(f"<style>{_CSS}"
-                # One attribute more than the footer's own link rule, which
-                # renders after this page and would otherwise win the tie.
-                f'.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"][href$="doc={doc}"] p'
-                f' {{ color: var(--text) !important; }}'
-                "</style>", unsafe_allow_html=True)
+    # The footer's link to this document reads as "you are here". In a
+    # hidden-util container, so the <style> block takes no row gap above the
+    # back link (titles line up across the supporting pages).
+    with st.container(key="uv_hidden_util_legal_css"):
+        st.markdown(f"<style>{_CSS}"
+                    # One attribute more than the footer's own link rule, which
+                    # renders after this page and would otherwise win the tie.
+                    f'.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"][href$="doc={doc}"] p'
+                    f' {{ color: var(--text) !important; }}'
+                    "</style>", unsafe_allow_html=True)
 
-    _back, _back_label = _back_target()
-    if _back is not None and st.button(_back_label, key="legal_back", type="tertiary"):
-        st.switch_page(_back)
+    content = support_page(
+        _("Legal & policies"), back_key="legal",
+        rail=[(tr(doc_title), f"/legal?doc={key}") for key, doc_title, _f in d.LEGAL_DOCS],
+        active=f"/legal?doc={doc}", toc=toc if len(toc) > 1 else None)
+    with content:
+        _document(doc, path, translated, title, meta, body)
 
-    nav_col, body_col = st.columns([1, 3.4], gap="large")
-    with nav_col, st.container(key="legal_nav"):
-        st.markdown(f'<div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;'
-                    f'color:var(--faint);margin-bottom:6px;">{h_("Legal & policies")}</div>',
-                    unsafe_allow_html=True)
-        page = nav_registry.pages.get("legal")
-        with st.container(key="legal_doc_list"):
-            for key, doc_title, _f in d.LEGAL_DOCS:
-                if page is not None:
-                    with st.container(key=f"legal_nav_active_{key}" if key == doc else f"legal_nav_{key}"):
-                        st.page_link(page, label=tr(doc_title), query_params={"doc": key})
-        if len(toc) > 1:
-            with st.container(key="legal_toc"):
-                links = "".join(f'<a href="#{a}" target="_self">{html.escape(t)}</a>' for a, t in toc)
-                st.markdown(f'<div style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;'
-                            f'color:var(--faint);margin:14px 0 6px;">{h_("On this page")}</div>'
-                            f'<nav class="uv-legal-toc">{links}</nav>', unsafe_allow_html=True)
 
-    with body_col, st.container(key="legal_doc_body", border=True):
+def _pick_document() -> None:
+    """The phone's document select: open the picked document."""
+    st.query_params["doc"] = st.session_state["legal_doc_pick"]
+
+
+def _document(doc: str, path, translated: bool, title: str, meta, body: str) -> None:
+    # Phone: the rail is hidden, so a select picks the document.
+    with st.container(key="legal_doc_select"):
+        st.session_state["legal_doc_pick"] = doc
+        titles = {key: tr(doc_title) for key, doc_title, _f in d.LEGAL_DOCS}
+        st.selectbox(_("Legal & policies"), options=_DOC_KEYS, format_func=titles.get,
+                     key="legal_doc_pick", on_change=_pick_document, label_visibility="collapsed")
+    with st.container(key="legal_doc_body", border=True):
         if path is None:
             st.warning(_("This document is not available yet."))
             return
@@ -234,13 +201,13 @@ def render() -> None:
                           horizontal_alignment="distribute", gap="medium"):
             chips = "".join(_chip(f"{html.escape(label)}: <b style='font-weight:500;color:var(--text);'>"
                                   f"{html.escape(value)}</b>") for label, value in meta)
-            ref_note = (f'<div style="font-size:11.5px;color:var(--faint);margin-top:10px;">'
+            ref_note = (f'<div style="font-size:12px;color:var(--muted);margin-top:10px;">'
                         f'{html.escape(tr(d.REFERENCE_LANGUAGE_NOTE))}</div>'
                         # Only over a real translation: on the English
                         # fallback (every page during the beta) the
                         # not-yet-translated notice says enough.
                         if translated and current().lang != "en" else "")
-            st.markdown(f'<div style="font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;">'
+            st.markdown(f'<div style="font-size:20px;font-weight:500;letter-spacing:-0.01em;line-height:1.25;">'
                         f'{html.escape(title)}</div>'
                         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">{chips}</div>'
                         f'{ref_note}', unsafe_allow_html=True, width="stretch")

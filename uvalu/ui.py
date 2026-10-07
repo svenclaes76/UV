@@ -15,7 +15,7 @@ from settings import load_settings
 from uvalu import logkit
 from uvalu.i18n import _, fmt_compact, fmt_pct, fmt_total, h_, localize_fig, to_display, tr
 from uvalu.market_hours import is_market_hours
-from uvalu.runtime import current_user, theme_colors
+from uvalu.runtime import brand_hoverlabel, current_user, theme_colors
 
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 
@@ -297,6 +297,7 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_ax_color),
+        hoverlabel=brand_hoverlabel(),
     )
     localize_fig(fig, date_axis=None)
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
@@ -362,6 +363,7 @@ def _donut_chart(series: "pd.Series", title: str = "") -> None:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_c_text),
+        hoverlabel=brand_hoverlabel(),
     )
     localize_fig(fig, date_axis=None)
     st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)

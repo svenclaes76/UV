@@ -41,6 +41,23 @@ def theme_colors() -> ThemeColors:
     )
 
 
+
+# The brand tooltip (styles.py .uv-tip, uvalu/tooltips.py): a light surface
+# with navy text in light theme, a raised navy surface in dark theme — never
+# a dark box on a light page, and never a trace colour as the fill.
+TOOLTIP_BG = {True: "#FFFFFF", False: "#15305A"}
+TOOLTIP_BORDER = {True: "rgba(13,31,60,0.14)", False: "rgba(245,247,250,0.16)"}
+
+
+def brand_hoverlabel(tc: "ThemeColors | None" = None) -> dict:
+    """Plotly ``hoverlabel`` in the brand tooltip style, for every chart's
+    update_layout (Plotly's default fills the label with the trace colour)."""
+    tc = tc or theme_colors()
+    return dict(bgcolor=TOOLTIP_BG[tc.effective_light], bordercolor=TOOLTIP_BORDER[tc.effective_light],
+                font=dict(color=tc.text, size=12,
+                          family='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'),
+                align="left")
+
 @dataclass(frozen=True)
 class CurrentUser:
     email: str

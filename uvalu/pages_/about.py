@@ -2,9 +2,10 @@
 (VD-02, VD-04).
 
 Reached from the version marker in the footer and *About Uvalu* in the user
-menu. Two cards:
+menu. The shared supporting-page frame (components.support_page, proposal
+1e) with two cards:
 
-- **About this version**: app version, commit, build date/time, environment,
+- **This version**: app version, commit, build date/time, environment,
   and the scoring-model version (``screener.MODEL_VERSION`` — independent of the
   app version, so labelled differently). A copyable one-line summary for
   support e-mails. All values come from ``uvalu.buildinfo`` — never hard-coded
@@ -20,7 +21,7 @@ from datetime import datetime, timezone
 import streamlit as st
 
 from uvalu import buildinfo, changelog
-from uvalu import nav as nav_registry
+from uvalu.components import support_page
 from uvalu.i18n import N_, _, current, fmt_datetime, h_, tr
 from uvalu.runtime import current_user
 
@@ -30,11 +31,35 @@ GROUP_LABELS = {"Added": N_("Added"), "Changed": N_("Changed"),
 SHOWN_EXPANDED = 1
 
 _CSS = """
-.st-key-about_build [data-testid="stMarkdownContainer"] { margin: 0 !important; }
-.uv-about-grid { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; font-size: 13.5px; }
-.uv-about-grid dt { color: var(--muted); }
-.uv-about-grid dd { margin: 0; font-family: var(--uv-mono); color: var(--text); overflow-wrap: anywhere; }
-.st-key-about_notes [data-testid="stExpander"] details summary p { font-weight: 500; }
+.st-key-about_build, .st-key-about_notes {
+  background: var(--panel) !important; border-color: var(--line) !important; border-radius: 12px !important;
+  box-shadow: var(--shadow) !important; overflow: hidden !important; padding: 0 !important; gap: 0 !important;
+}
+/* Streamlit pulls markdown blocks up by 16px; here that slid the footer over
+   the last data row. */
+.st-key-about_build [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+.uv-about-rows { display: grid; grid-template-columns: 140px minmax(0, 1fr); margin: 0; }
+.uv-about-rows > * { padding: 10px 20px; font-size: 13px; border-bottom: 0.5px solid var(--line-2); margin: 0; }
+.uv-about-rows > dt { color: var(--muted); }
+.uv-about-rows > dd { font-family: var(--uv-mono); color: var(--text); overflow-wrap: anywhere; }
+.uv-about-rows > :nth-last-child(-n+2) { border-bottom: none; }
+.st-key-about_support {
+  background: var(--panel-2); border-top: 0.5px solid var(--line-2); padding: 12px 20px !important;
+  align-items: center !important; flex-wrap: nowrap !important;
+}
+/* The support line takes the room left of the button and wraps inside it. */
+.st-key-about_support > [data-testid="stElementContainer"]:first-child { flex: 1 1 0 !important; min-width: 0 !important; }
+.uv-about-support { font-family: var(--uv-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.st-key-about_copy iframe { display: block; }
+.st-key-about_notes [data-testid="stExpander"] details { border: none !important; border-radius: 0 !important;
+  border-top: 0.5px solid var(--line-2) !important; }
+.st-key-about_notes [data-testid="stExpander"] summary p { font-size: 14px !important; font-weight: 500 !important; }
+.st-key-about_notes [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+.st-key-about_notes [data-testid="stExpander"] [data-testid="stMarkdownContainer"] li {
+  font-size: 13.5px !important; line-height: 1.6 !important;
+}
+.uv-notes-group { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 8px; }
+.st-key-about_notes_caption { padding: 8px 20px 0; }
 """
 
 
@@ -60,6 +85,34 @@ def _commit_html(info: "buildinfo.BuildInfo", is_admin: bool) -> str:
     return text
 
 
+def _copy_button(text: str) -> None:
+    """"Copy for support": copies the one-line summary. An iframe button,
+    because markdown can't carry an onclick (same as Legal's print button)."""
+    import json
+    from uvalu.runtime import theme_colors
+    tc = theme_colors()
+    # Translators: About › button that copies the one-line build details for a support e-mail.
+    label = _("Copy for support")
+    # Translators: About › the "Copy for support" button's label for a moment after a click.
+    done = _("Copied")
+    with st.container(key="about_copy", width="content"):
+        st.iframe(f"""<!doctype html><html><head><style>
+html,body{{margin:0;background:transparent;text-align:right;}}
+button{{font:500 12px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:{tc.text};
+background:transparent;border:0.5px solid {tc.axis};border-radius:8px;padding:5px 10px;cursor:pointer;
+white-space:nowrap;}}
+button:hover{{border-color:#1A8C6E;}}
+</style></head><body><button id="b">{html.escape(label)}</button><script>
+const text = {json.dumps(text)}, label = {json.dumps(label)}, done = {json.dumps(done)};
+document.getElementById("b").onclick = async (e) => {{
+  try {{ await navigator.clipboard.writeText(text); }}
+  catch (err) {{ const a = document.createElement("textarea"); a.value = text; document.body.appendChild(a);
+                 a.select(); document.execCommand("copy"); a.remove(); }}
+  e.target.textContent = done; setTimeout(() => {{ e.target.textContent = label; }}, 1600);
+}};
+</script></body></html>""", height=32, width=max(len(label), len(done)) * 7 + 40)
+
+
 def _build_card(info: "buildinfo.BuildInfo") -> None:
     try:
         import screener
@@ -78,12 +131,15 @@ def _build_card(info: "buildinfo.BuildInfo") -> None:
         (_("Scoring model"), html.escape(model)),
     ]
     grid = "".join(f"<dt>{html.escape(k)}</dt><dd>{v}</dd>" for k, v in rows)
+    line = details_line(info)
     with st.container(key="about_build", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:600;margin-bottom:12px;">'
-                    f'{h_("About this version")}</div><dl class="uv-about-grid">{grid}</dl>',
-                    unsafe_allow_html=True)
-        st.caption(_("Copy these details when you contact support:"))
-        st.code(details_line(info), language=None)
+        st.markdown(f'<div><span id="version" class="uv-anchor"></span><div class="uv-card-head">{h_("This version")}</div>'
+                    f'<dl class="uv-about-rows">{grid}</dl></div>', unsafe_allow_html=True)
+        with st.container(key="about_support", horizontal=True, horizontal_alignment="distribute",
+                          vertical_alignment="center", gap="small"):
+            st.markdown(f'<div class="uv-about-support" title="{html.escape(_("Copy these details when you contact support:"))}">'
+                        f'{html.escape(line)}</div>', unsafe_allow_html=True, width="stretch")
+            _copy_button(line)
 
 
 def visible_releases(releases: "list[changelog.Release]", *, production: bool) -> "list[changelog.Release]":
@@ -96,46 +152,56 @@ def visible_releases(releases: "list[changelog.Release]", *, production: bool) -
     return out
 
 
-def _release_title(r: "changelog.Release") -> str:
+def _release_title(r: "changelog.Release", info: "buildinfo.BuildInfo") -> str:
+    """Expander label (Markdown): the version in the data font, the date, and
+    a positive "This version" badge on the release that is running."""
     if r.is_unreleased:
         # Translators: About › What's new › title of the notes for changes not yet in a release (test builds only).
         return _("Not released yet")
-    return f"{r.version} · {r.date}" if r.date else r.version
+    title = f"`{r.version}` · {r.date}" if r.date else f"`{r.version}`"
+    if r.version == info.version:
+        # Translators: About › What's new › badge on the release the user is running; also the heading of the build-details card and an entry in the page's section list.
+        title += f" :green-badge[{_('This version')}]"
+    return title
 
 
 def _notes_card(info: "buildinfo.BuildInfo") -> None:
     releases = visible_releases(changelog.load(), production=info.is_production)
     wanted = st.query_params.get("v")
+    # Open: the release asked for (?v=), else the running one, else the newest.
+    running = any(r.version == info.version for r in releases)
     with st.container(key="about_notes", border=True):
-        st.markdown(f'<div id="whats-new" style="font-size:15px;font-weight:600;">{h_("What’s new")}</div>',
-                    unsafe_allow_html=True)
-        if current().lang != "en":
-            st.caption(_("Release notes are written in English."))
-        if not releases:
-            st.markdown(_("No release notes yet."))
-            return
+        st.markdown(f'<div><span id="whats-new" class="uv-anchor"></span>'
+                    f'<div class="uv-card-head">{h_("What’s new")}</div></div>', unsafe_allow_html=True)
+        if current().lang != "en" or not releases:
+            with st.container(key="about_notes_caption"):
+                st.caption(_("Release notes are written in English.") if releases else _("No release notes yet."))
         for i, r in enumerate(releases):
-            open_ = (r.version == wanted) if wanted else i < SHOWN_EXPANDED
-            # Translators: About › What's new › marker after the release the user is running.
-            current_marker = "  ·  " + _("this version") if r.version == info.version else ""
-            with st.expander(_release_title(r) + current_marker, expanded=open_):
+            if wanted:
+                open_ = r.version == wanted
+            else:
+                open_ = r.version == info.version if running else i < SHOWN_EXPANDED
+            with st.expander(_release_title(r, info), expanded=open_):
                 if r.intro:
                     st.markdown(r.intro)
                 for name, body in r.groups:
-                    st.markdown(f"**{tr(GROUP_LABELS.get(name, name))}**")
+                    st.markdown(f'<div class="uv-notes-group">{html.escape(tr(GROUP_LABELS.get(name, name)))}</div>',
+                                unsafe_allow_html=True)
                     st.markdown(body)
 
 
 def render() -> None:
     info = buildinfo.current()
-    st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
-    back, _key = nav_registry.back_target("about")
-    if back is not None and st.button(_("← Back to {page}", page=back.title), key="about_back", type="tertiary"):
-        st.switch_page(back)
-    st.markdown(f'<div style="font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-bottom:14px;">'
-                f'{h_("About Uvalu")}</div>', unsafe_allow_html=True)
-    _build_card(info)
-    _notes_card(info)
+    with st.container(key="uv_hidden_util_about_css"):
+        st.markdown(f"<style>{_CSS}</style>", unsafe_allow_html=True)
+    content = support_page(_("About Uvalu"), back_key="about", rail=[
+        (_("This version"), "#version"),
+        (_("What’s new"), "#whats-new"),
+        (_("Legal & policies"), "/legal"),
+    ])
+    with content:
+        _build_card(info)
+        _notes_card(info)
     # Reading the notes counts as having seen the update notice (VD-05).
     if changelog.find(changelog.load(), info.version) is not None:
         from uvalu import update_notice

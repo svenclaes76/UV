@@ -286,7 +286,7 @@ def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
 
     at = _run(_script)
     assert "var(--uv-mint)" in at.markdown[0].value
-    assert "var(--uv-neg-txt)" in at.markdown[1].value
+    assert "var(--amber-fill, #C98A3A)" in at.markdown[1].value   # amber: red is veto-only
     assert "var(--teal" in at.markdown[2].value  # within the near-fair band
     # Shows the absolute price/fair-value figures instead of a below/above label
     assert "€100.00" in at.markdown[0].value and "fv €120.00" in at.markdown[0].value
@@ -604,15 +604,60 @@ def test_list_provenance_flags_prices_older_than_72_hours():
     assert "1 price is more than 72 hours old." in stale
 
 
-def test_coverage_bar_only_with_coverage_and_shows_each_share():
+def test_provenance_is_a_quiet_caption_without_fill_or_border():
+    """Option 1a: no box around the provenance; tints are for signals."""
+    import re
     from uvalu.components import list_provenance_html
-    df = _signals_frame([1, 1, 1, 1], codes=("undervalued", "neutral", "neutral", "fails_screen"))
-    assert "Coverage" not in list_provenance_html(df)
-    html = list_provenance_html(df, coverage=True)
-    assert "Coverage" in html
-    for label in ("Undervalued", "Neutral", "Fails quality screen"):
-        assert label in html
-    assert "width:50.00%" in html and "width:25.00%" in html
+    html = list_provenance_html(_signals_frame([1, 2]))
+    outer = re.match(r'<div[^>]*style="([^"]*)"', html).group(1)
+    assert "background" not in outer and "border" not in outer
+    assert "var(--faint)" not in html          # A5: muted text only, >= 4.5:1
+    assert "font-size:12px" in outer
+
+
+def test_provenance_methodology_link_is_inline_and_quiet():
+    from uvalu.components import list_provenance_html
+    html = list_provenance_html(_signals_frame([1, 2]))
+    # The arrow marks it as a link, like every other link in the app.
+    assert 'class="uv-quiet-link"' in html and ">Methodology →</a>" in html
+    # Last fact on the line, after a separator — not pushed to the right.
+    assert html.rstrip().endswith("</a></div>")
+    assert "margin-left:auto" not in html
+
+
+def test_provenance_facts_never_wrap_mid_phrase():
+    from uvalu.components import list_provenance_html
+    html = list_provenance_html(_signals_frame([1, 2]))
+    assert html.count('white-space:nowrap;">') >= 3
+
+
+def test_signal_pill_shares_sum_to_about_100():
+    """Option 1c / REC-10: the share per signal sits in the Screener's pills."""
+    import re
+    from screener import signal_distribution
+    from uvalu.components import signal_share_label
+    df = _signals_frame([1, 1, 1, 1, 1, 1, 1],
+                        codes=("undervalued", "neutral", "neutral", "low_score", "fails_screen",
+                               "fails_screen", "fails_screen"))
+    shares = signal_distribution(df)
+    labels = [signal_share_label(code, shares.get(code)) for code in
+              ("undervalued", "neutral", "low_score", "fails_screen")]
+    assert labels[0].startswith("Undervalued `") and labels[3].startswith("Fails quality screen `")
+    pcts = [int(re.search(r"`(\d+)\s*%`", label).group(1)) for label in labels]
+    assert 98 <= sum(pcts) <= 102
+
+
+def test_signal_pill_without_share_is_the_bare_label():
+    from uvalu.components import signal_share_label
+    assert signal_share_label("neutral", None) == "Neutral"
+
+
+def test_fair_value_legend_above_is_amber_not_red():
+    from uvalu.components import _ladder_bar_color, fair_value_legend_html
+    html = fair_value_legend_html()
+    assert "#A32D2D" not in html and "--amber-fill" in html
+    assert "var(--faint)" not in html
+    assert "amber" in _ladder_bar_color(-20.0)
 
 
 def test_signal_provenance_for_one_row():

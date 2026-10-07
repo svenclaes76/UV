@@ -26,7 +26,7 @@ from uvalu.components import (model_signal_badge_html, signal_provenance_html, f
 from uvalu.formatting import display_name, exchange_label, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
                         lowercase_noun, ngettext, plotly_money_axis, tr)
-from uvalu.runtime import theme_colors, current_user
+from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
 from uvalu.ui import _CHART_CONFIG
 
 _EXCHANGE_LABELS = {
@@ -380,6 +380,7 @@ def render() -> None:
                 yaxis=dict(**plotly_money_axis("EUR", decimals=0), tickfont=dict(color=_C.axis), gridcolor=_C.grid),
                 xaxis=dict(showgrid=False, tickfont=dict(color=_C.axis)),
                 font=dict(color=_C.axis), plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                hoverlabel=brand_hoverlabel(_C),
             )
             localize_fig(_fig)
             _chart_slot.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)

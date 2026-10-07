@@ -821,3 +821,15 @@ class TestPasskeysStubRow:
         # appears, unlike the TOTP-gated rows above it.
         at = _run(monkeypatch)
         assert any(b.label == "Manage" for b in at.button)
+
+
+def test_uses_the_supporting_page_frame(isolated_data, monkeypatch):
+    """Proposal 1d/1e: 24px title in the shared frame, the section list as the
+    rail, sentence-case card headers."""
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert 'class="uv-support-title"' in html and ">Settings<" in html
+    for anchor, _label in settings_page._SECTIONS:
+        assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html
+    assert 'class="uv-card-head uv-set-head"' in html
+    assert "text-transform:uppercase" not in html.split('class="uv-card-head')[1][:200]

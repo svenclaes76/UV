@@ -64,6 +64,9 @@ def render() -> None:
     st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Watchlist")}</div>',
                unsafe_allow_html=True)
     st.caption(_("Track tickers you don't hold yet. Add from the screener with the star, or type a symbol directly below."))
+    # REC-4 / REC-5: the third line of the page header, filled in once the
+    # watchlist's rows are known (below the add form).
+    _prov_slot = st.empty()
 
     watchlist = load_watchlist()
     _settings = load_shared_settings()
@@ -148,8 +151,8 @@ def render() -> None:
                 h_("Your watchlist is empty. Star a ticker in the screener or add one above.")),
                 unsafe_allow_html=True)
         return
-    if not wl_df.empty:
-        st.markdown(list_provenance_html(wl_df), unsafe_allow_html=True)   # REC-4 / REC-5
+    if not wl_df.empty and (_prov := list_provenance_html(wl_df)):
+        _prov_slot.markdown(_prov, unsafe_allow_html=True)
     if wl_df.empty:
         # Watchlist has tickers but none are scored yet — cold fundamentals
         # cache. Show a skeleton and (while a fetch is running) let it fill in

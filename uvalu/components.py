@@ -127,10 +127,16 @@ def veto_reason_str(row: "pd.Series") -> str:
 METHODOLOGY_HREF = "/legal?doc=methodology"
 
 
-def methodology_link_html() -> str:
+def methodology_link_html(quiet: bool = False) -> str:
     """REC-5: "Methodology →" link, shown with every signal (the badge's own
-    tooltip can't hold a link). A plain link to the in-app legal page."""
+    tooltip can't hold a link). A plain link to the in-app legal page.
+    ``quiet``: the provenance caption's variant, "Methodology →" in grey
+    underlined text (styles.py .uv-quiet-link) instead of a teal call to
+    action; the arrow marks it as a link, like every other link."""
     import html as _html_mod
+    if quiet:
+        return (f'<a class="uv-quiet-link" href="{METHODOLOGY_HREF}" target="_self">'
+                f'{_html_mod.escape(_("Methodology →"))}</a>')
     return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
             f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
             f'{_html_mod.escape(_("Methodology →"))}</a>')
@@ -140,21 +146,12 @@ def methodology_link_html() -> str:
 # page's data flag (screener.DATA_FLAG_LABELS["price_stale"]).
 STALE_PRICE_HOURS = 72
 
-# Coverage-bar colours per signal, in the badge colours of the active theme.
-_COVERAGE_COLORS = {
-    "undervalued": "var(--up-txt)",
-    "neutral": "var(--amber-txt)",
-    "low_score": "var(--down-txt)",
-    "fails_screen": "var(--faint)",
-}
-
-
 def _mono(value: str, title: str | None = None) -> str:
     """A provenance value (time, model version) in the data font; prose stays
     in the sans stack (brand: numbers are monospace, prose is not)."""
     import html as _html_mod
     t = f' title="{_html_attr(title)}"' if title else ""
-    return (f'<span{t} style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);">'
+    return (f'<span{t} style="font-family:var(--uv-mono);font-size:11.5px;color:var(--muted);">'
             f'{_html_mod.escape(value)}</span>')
 
 
@@ -183,22 +180,17 @@ def _stale_chip_html(prices) -> str:
             f'⚠ {h_("oldest {age}", age=age)}</span>')
 
 
-def provenance_bar_html(items: list[str], *, right: str = "", link: bool = True,
-                        below: str = "", margin: str = "10px 0 12px") -> str:
-    """REC-4 / REC-5 strip shown with every signal: the facts (``items``,
-    ready-made HTML) on the left, ``right`` (e.g. the fair-value legend) and
-    the "Methodology →" link on the right, ``below`` (the Screener's coverage
-    bar) under them. One subtle panel, like the beta banner, in the same place
-    on every screen. Each fact wraps as a whole, never mid-phrase."""
-    sep = '<span style="color:var(--faint);">·</span>'
-    facts = sep.join(f'<span style="white-space:nowrap;">{i}</span>' for i in items if i)
-    tail = "".join(x for x in (right, methodology_link_html() if link else "") if x)
-    return ('<div style="background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
-            f'padding:6px 12px;margin:{margin};font-size:11.5px;color:var(--muted);line-height:1.6;">'
-            '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 18px;">'
-            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;">{facts}</div>'
-            f'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin-left:auto;">{tail}</div></div>'
-            f'{below}</div>')
+def provenance_bar_html(items: list[str], *, link: bool = True, margin: str = "8px 0 0") -> str:
+    """REC-4 / REC-5 caption shown with every signal: the facts (``items``,
+    ready-made HTML) and, last, the "Methodology →" link, as one quiet line of
+    12px muted text (no fill or border: tints are for signals, brand §4).
+    Each fact wraps as a whole, never mid-phrase."""
+    sep = '<span class="uv-prov-sep">·</span>'
+    parts = [f'<span style="white-space:nowrap;">{i}</span>' for i in items if i]
+    if link:
+        parts.append(methodology_link_html(quiet=True))
+    return (f'<div class="uv-provenance" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;'
+            f'margin:{margin};font-size:12px;line-height:1.5;color:var(--muted);">{sep.join(parts)}</div>')
 
 
 def signal_provenance_html(row) -> str:
@@ -212,46 +204,29 @@ def signal_provenance_html(row) -> str:
         h_("Signal computed {when}", when=_mono(fmt_datetime(computed, style="medium"), _full_timestamp(computed))),
         h_("price as of {when}, delayed", when=_mono(fmt_datetime(price_at, style="medium"), _full_timestamp(price_at))),
         h_("model {version}", version=_mono(str(row.get("model_version") or "—"))),
-    ], margin="10px 0 8px")
+    ], margin="8px 0 12px")
 
 
-def coverage_bar_html(df) -> str:
-    """REC-10 as a picture: a 100 % stacked bar of the share of covered stocks
-    per signal, in the badge colours, with the shares as its legend."""
-    import html as _html_mod
-    from screener import SIGNAL_LABELS, signal_distribution
-    dist = signal_distribution(df)
-    if not dist:
-        return ""
-    segs = "".join(
-        f'<span title="{_html_attr(tr(SIGNAL_LABELS[code]))}" style="width:{share * 100:.2f}%;'
-        f'background:{_COVERAGE_COLORS[code]};"></span>'
-        for code, share in dist.items() if share > 0)
-    legend = "".join(
-        f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">'
-        f'<span style="width:8px;height:8px;border-radius:2px;background:{_COVERAGE_COLORS[code]};"></span>'
-        f'{_mono(fmt_pct(share * 100, 0))} {_html_mod.escape(tr(SIGNAL_LABELS[code]))}</span>'
-        for code, share in dist.items())
-    return ('<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;margin-top:5px;'
-            'padding-top:6px;border-top:0.5px solid var(--line-2);">'
-            f'<span style="color:var(--faint);">{h_("Coverage")}</span>'
-            '<span style="display:flex;width:180px;height:6px;border-radius:3px;overflow:hidden;gap:1px;">'
-            f'{segs}</span>{legend}</div>')
+def signal_share_label(code: str, share: "float | None") -> str:
+    """REC-10 on the Screener's signal filter pill: the label and the share of
+    covered stocks with that signal, the share in backticks so styles.py can
+    set it in the data font (pill labels take Markdown, not HTML)."""
+    from screener import SIGNAL_LABELS
+    label = tr(SIGNAL_LABELS[code])
+    return label if share is None else f"{label} `{fmt_pct(share * 100, 0)}`"
 
 
-def list_provenance_html(df, *, coverage: bool = False, right: str = "") -> str:
+def list_provenance_html(df) -> str:
     """The same provenance for a whole list of signals (Dashboard holdings,
     Screener, Watchlist): the latest computation time, the price times
-    (delayed quotes; an amber chip when some are older than 72 hours), the
-    model version(s) and, with ``coverage``, the share of covered stocks per
-    signal as a stacked bar (REC-10). ``right`` goes next to the methodology
-    link. Empty string without data."""
+    (delayed quotes; an amber chip when some are older than 72 hours) and the
+    model version(s). Shown as the third line of the page header. Empty
+    string without data."""
     if df is None or getattr(df, "empty", True) or "signal_computed_at" not in df.columns:
         return ""
     from uvalu.i18n import fmt_date, fmt_datetime, fmt_time
     computed = pd.to_datetime(df["signal_computed_at"], errors="coerce", utc=True).dropna()
-    prices = pd.to_datetime(df.get("price_as_of"), errors="coerce", utc=True).dropna() \
-        if "price_as_of" in df.columns else pd.Series(dtype="datetime64[ns, UTC]")
+    prices = pd.to_datetime(df.get("price_as_of"), errors="coerce", utc=True).dropna()         if "price_as_of" in df.columns else pd.Series(dtype="datetime64[ns, UTC]")
     items = []
     if not computed.empty:
         items.append(h_("Signals computed {when}", when=_mono(
@@ -271,7 +246,7 @@ def list_provenance_html(df, *, coverage: bool = False, right: str = "") -> str:
         items.append(h_("model {version}", version=_mono(", ".join(versions))))
     if not items:
         return ""
-    return provenance_bar_html(items, right=right, below=coverage_bar_html(df) if coverage else "")
+    return provenance_bar_html(items)
 
 
 def founder_notice_html(row) -> str:
@@ -479,7 +454,8 @@ def _ladder_bar_color(delta_pct: float) -> str:
         return "var(--uv-mint)"
     if delta_pct >= -_NEAR_FAIR_BAND:
         return "var(--teal, #1A8C6E)"
-    return "var(--uv-neg-txt)"
+    # Amber, not red: red is reserved for a failed quality screen (brand §4).
+    return "var(--amber-fill, #C98A3A)"
 
 
 def _is_live(v) -> bool:
@@ -1240,19 +1216,21 @@ def refresh_top_bar_html() -> str:
 
 def fair_value_legend_html() -> str:
     """The below/near/above model fair value legend that accompanies
-    fair_value_bar_compact — as markup, for the provenance bar's right side."""
+    fair_value_bar_compact — as markup, for the Holdings card's title row.
+    "Above" is amber like the bars: red is reserved for a failed quality
+    screen (brand §4)."""
     def _item(swatch: str, label: str) -> str:
-        return (f'<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">'
+        return (f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">'
                 f'{swatch}{label}</span>')
     def _box(color: str) -> str:
-        return (f'<span style="width:9px;height:9px;border-radius:2px;background:{color};'
+        return (f'<span style="width:8px;height:8px;border-radius:2px;background:{color};'
                 f'display:inline-block;"></span>')
-    return ('<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
-            'font-size:11px;color:var(--faint);">'
+    return ('<span class="uv-fv-legend" style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
+            'font-size:11.5px;color:var(--muted);">'
             + _item(_box("var(--mint)"), h_("Below model fair value"))
             + _item(_box("var(--teal)"), h_("Near model fair value"))
-            + _item(_box("#A32D2D"), h_("Above model fair value"))
-            + _item('<span style="width:16px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
+            + _item(_box("var(--amber-fill, #C98A3A)"), h_("Above model fair value"))
+            + _item('<span style="width:12px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
                     h_("Model fair value"))
             + '</span>')
 
@@ -1968,3 +1946,70 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
         with _cols[1]:
             return st.button("✎", key=f"{key}_edit", type="tertiary", disabled=edit_disabled,
                              help=_("Edit entry") if editable else _("View linked entry"))
+
+
+# ── Supporting-page frame (Settings, Methodology & help, Legal, About) ──────
+# One frame for the four pages that aren't data screens (supporting-screens
+# proposal 1d/1e): back link above a 24px title, then a 200px sticky rail
+# beside a content column with a 760px measure. styles.py keys its layout and
+# long-form typography on the uv_support* containers.
+
+def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
+    """One rail entry: an in-page anchor (``#id``) as a plain link, an app page
+    (``/legal?doc=terms``) as st.page_link so the session — and with it the
+    back-link history — survives the jump."""
+    import html as _html_mod
+    from urllib.parse import parse_qsl, urlsplit
+    from uvalu import nav as nav_registry
+    cls = "uv-rail-item uv-rail-active" if active else "uv-rail-item"
+    if href.startswith("#"):
+        st.markdown(f'<a class="{cls}" href="{_html_attr(href)}" target="_self">'
+                    f'{_html_mod.escape(label)}</a>', unsafe_allow_html=True)
+        return
+    parts = urlsplit(href)
+    page = nav_registry.pages.get(parts.path.strip("/"))
+    if page is None:
+        return
+    with st.container(key=f"uv_rail_link_active_{index}" if active else f"uv_rail_link_{index}"):
+        st.page_link(page, label=label, query_params=dict(parse_qsl(parts.query)) or None, width="stretch")
+
+
+def support_page(title: str, *, subtitle: str = "", back_key: str,
+                 rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
+                 toc: "list[tuple[str, str]] | None" = None):
+    """Back link, H1, optional subtitle, then a [200px rail | content] row.
+    Returns the content container.
+
+    ``rail``: (label, href) pairs — ``#anchor`` for a section of this page,
+    ``/page?query`` for another page; ``active`` is the href of the current
+    one. ``toc``: (anchor id, label) pairs for an "On this page" list under
+    the rail. The back link goes to the page the user came from
+    (uvalu/nav.py), the Dashboard otherwise; its button key is
+    ``{back_key}_back``."""
+    import html as _html_mod
+    from uvalu import nav as nav_registry
+    root = st.container(key="uv_support")
+    with root:
+        back, _key = nav_registry.back_target(back_key)
+        if back is not None:
+            with st.container(key="uv_support_back"):
+                if st.button(_("← Back to {page}", page=back.title), key=f"{back_key}_back", type="tertiary"):
+                    st.switch_page(back)
+        st.markdown(f'<div class="uv-support-head"><div class="uv-support-title" role="heading" aria-level="1">'
+                    f'{_html_mod.escape(title)}</div>'
+                    + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "") + "</div>",
+                    unsafe_allow_html=True)
+        grid = st.container(key="uv_support_grid", horizontal=True, gap=None)
+        with grid:
+            if rail or toc:
+                with st.container(key="uv_support_rail", width=200):
+                    for i, (label, href) in enumerate(rail or []):
+                        _rail_item(label, href, active=href == active, index=i)
+                    if toc:
+                        links = "".join(f'<a href="#{_html_attr(a)}" target="_self">{_html_mod.escape(t)}</a>'
+                                        for a, t in toc)
+                        with st.container(key="uv_support_toc"):
+                            st.markdown(f'<div class="uv-toc-label">{h_("On this page")}</div>'
+                                        f'<nav class="uv-toc">{links}</nav>', unsafe_allow_html=True)
+            content = st.container(key="uv_support_content")
+    return content
