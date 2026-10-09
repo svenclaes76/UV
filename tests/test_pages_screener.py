@@ -28,9 +28,8 @@ def _run(monkeypatch, screener_tuple=None, fetch_progress=None) -> AppTest:
 def test_renders_skeleton_when_no_data(isolated_data, monkeypatch):
     empty = make_scored_df([])
     at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty))
-    caption_txt = "".join(c.value for c in at.caption)
     html = "".join(m.value for m in at.markdown)
-    assert "Loading the screening universe" in caption_txt
+    assert "Loading the screening universe" in html
     # Layout-matching skeleton: filter-bar and column-header shapes render
     # too, not just a generic shimmer card (uvalu/pages_/screener.py).
     assert "uv-skel-bar" in html
@@ -41,9 +40,8 @@ def test_skeleton_shows_fetch_progress_when_running(isolated_data, monkeypatch):
     empty = make_scored_df([])
     at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=empty),
               fetch_progress={"running": True, "total": 40, "done": 12})
-    caption_txt = "".join(c.value for c in at.caption)
     html = "".join(m.value for m in at.markdown)
-    assert "12/40 companies scored" in caption_txt
+    assert "12/40 companies scored" in html
     assert "uv-skel-bar" in html
 
 

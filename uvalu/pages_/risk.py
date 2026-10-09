@@ -8,7 +8,7 @@ from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import (score_color, band_tone_color, radial_gauge_svg,
+from uvalu.components import (score_color, band_tone_color, radial_gauge_svg, page_header,
                               risk_score_meter_html, risk_holding_row_html,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
@@ -180,9 +180,8 @@ def render() -> None:
     # doesn't depend on the risk report, so there's no reason for it to wait
     # behind load_portfolio_risk() the way it used to (that call used to gate
     # the ENTIRE page, this heading included).
-    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Risk assessment")}</div>',
-               unsafe_allow_html=True)
-    st.caption(_("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
+    page_header(_("Risk assessment"),
+                _("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
     # DIS-3 / PER-4: estimates, and a description, never a prescription.
     st.markdown(
         '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:8px;'

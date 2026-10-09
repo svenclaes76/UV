@@ -19,7 +19,7 @@ from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
-from uvalu.components import (fair_value_legend_html, list_provenance_html, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -158,18 +158,15 @@ def render() -> None:
 
     # ── Heading ───────────────────────────────────────────────────────────────
     _n_exch = len({t.split(".")[-1] for t in _db_tickers if "." in t})
-    with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-        with st.container(width="content"):
-            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio overview")}</div>',
-                       unsafe_allow_html=True)
-            st.caption(ngettext(
-                "{positions} across {count} European exchange · compared with model fair-value estimates.",
-                "{positions} across {count} European exchanges · compared with model fair-value estimates.",
-                _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))))
-            # REC-4 / REC-5: the third line of the page header, in the same
-            # place as on the Screener and Watchlist.
-            if not _db_ref_pending and (_db_prov := list_provenance_html(_db_scr)):
-                st.markdown(_db_prov, unsafe_allow_html=True)
+    # REC-4 / REC-5: the provenance is the third line of the page header, in
+    # the same place as on the Screener and Watchlist.
+    _db_actions = page_header(
+        _("Portfolio overview"),
+        ngettext("{positions} across {count} European exchange · compared with model fair-value estimates.",
+                 "{positions} across {count} European exchanges · compared with model fair-value estimates.",
+                 _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))),
+        provenance="" if _db_ref_pending else list_provenance_html(_db_scr))
+    with _db_actions:
         with st.container(key="db_refresh_btn", width="content"):
             if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
                 st.cache_data.clear()

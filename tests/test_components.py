@@ -66,6 +66,32 @@ def _run(fn) -> AppTest:
     return at
 
 
+def test_page_header_renders_title_subtitle_and_actions():
+    def _script():
+        import streamlit as st
+        from uvalu.components import page_header
+        with page_header("Value screener", "**12** of 40 <stocks> pass",
+                         provenance='<div class="uv-provenance">model M1</div>'):
+            st.button("Reset filters")
+
+    at = _run(_script)
+    head = at.markdown[0].value
+    assert '<div class="uv-page-title" role="heading" aria-level="1">Value screener</div>' in head
+    # Bold kept, the rest escaped.
+    assert '<div class="uv-page-sub"><b>12</b> of 40 &lt;stocks&gt; pass</div>' in head
+    assert head.index("uv-page-sub") < head.index("uv-provenance")
+    assert [b.label for b in at.button] == ["Reset filters"]
+
+
+def test_back_link_is_keyed_for_the_shared_style():
+    def _script():
+        from uvalu.components import back_link
+        back_link("← Back to Positions", key="back_x")
+
+    at = _run(_script)
+    assert at.button(key="back_x").label == "← Back to Positions"
+
+
 def test_render_signal_tips_renders_ok_and_warn_badges():
     def _script():
         from uvalu.components import render_signal_tips

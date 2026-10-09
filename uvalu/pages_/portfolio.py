@@ -24,7 +24,7 @@ from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_prices
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
                            edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
-from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
+from uvalu.components import (back_link, page_header, fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
@@ -258,22 +258,18 @@ def render() -> None:
 
     # ── Overview — heading + 5-card KPI strip + open/closed/dividends previews ──
     if _section == "overview":
-        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Cost basis, market value and realised results across open and closed positions."))
-            with st.container(horizontal=True, gap="small", width="content"):
-                _ov_frame = pd.DataFrame({
-                    "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
-                    "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
-                    "Invested": pf["purchase_value"], "Current value": pf["current_value"],
-                    "Price gain": pf["price_gain"],
-                })
-                export_menu(_("Export"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
-                if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
-                             disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
-                    add_position_dialog()
+        with page_header(_("Portfolio"),
+                         _("Cost basis, market value and realised results across open and closed positions.")):
+            _ov_frame = pd.DataFrame({
+                "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
+                "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
+                "Invested": pf["purchase_value"], "Current value": pf["current_value"],
+                "Price gain": pf["price_gain"],
+            })
+            export_menu(_("Export"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
+            if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
+                add_position_dialog()
 
         # Realised P&L and a real trailing-12m dividend figure — matches
         # Uvalu.dc.html's 5-card set (Invested/Market value/Unrealised P&L/
@@ -458,14 +454,11 @@ def render() -> None:
 
     # ── Full page: Open positions ──────────────────────────────────────────────
     if _section == "open":
-        if st.button(_("← Back to Positions"), key="back_open", type="tertiary"):
+        if back_link(_("← Back to Positions"), key="back_open"):
             _goto("overview")
-        with st.container(key="pf_page_title_open", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Open positions")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."))
+        with page_header(_("Open positions"),
+                         _("Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."),
+                         key="pf_page_title_open"):
             if st.button(_("Add position"), key="btn_add_pos", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_position_dialog()
@@ -521,15 +514,12 @@ def render() -> None:
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":
-        if st.button(_("← Back to Positions"), key="back_closed", type="tertiary"):
+        if back_link(_("← Back to Positions"), key="back_closed"):
             _goto("overview")
-        with st.container(key="pf_page_title_closed", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Closed positions")} '
-                           f'<span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span></div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."))
+        with page_header(_("Closed positions"),
+                         _("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."),
+                         title_suffix=f' <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
+                         key="pf_page_title_closed"):
             # Records a trade opened and closed outside this app (no cash
             # posting) — it used to be labelled "Close", which read like
             # selling one of the holdings; the dialog is "Add trade".
@@ -573,7 +563,7 @@ def render() -> None:
 
     # ── Full page: Dividends ───────────────────────────────────────────────────
     if _section == "dividends":
-        if st.button(_("← Back to Positions"), key="back_div", type="tertiary"):
+        if back_link(_("← Back to Positions"), key="back_div"):
             _goto("overview")
         # Auto-import from market data — once per session per user, never for
         # the read-only Viewer role (it writes the ledger). The import itself
@@ -617,18 +607,14 @@ def render() -> None:
                 "net_after_be_amount": "Net (native)", "source": "Source", "reinvested": "DRIP",
             })
 
-        with st.container(key="pf_page_title_dividends", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Dividend log")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."))
-            with st.container(horizontal=True, gap="small", width="content"):
-                export_menu(_("Export"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
-                            key="div_export", disabled=not _has_divs)
-                if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
-                             disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
-                    add_dividend_dialog(pf)
+        with page_header(_("Dividend log"),
+                         _("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."),
+                         key="pf_page_title_dividends"):
+            export_menu(_("Export"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
+                        key="div_export", disabled=not _has_divs)
+            if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
+                add_dividend_dialog(pf)
         if not _has_divs:
             st.info(_("No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."))
         else:

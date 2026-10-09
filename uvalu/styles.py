@@ -1192,17 +1192,28 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
+  /* ── Data-page header (components.page_header): brand §7 — 24px title,
+     13px subtitle 2px below, provenance 8px below (provenance_bar_html). */
+  :root { --uv-page-pad: 22px 28px 60px; --uv-section-gap: 18px; }
+  .uv-page-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
+  .uv-page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+  .uv-page-sub b { color: var(--text); font-weight: 500; }
+  /* Streamlit's -1rem markdown margin would let the next block ride up
+     over the provenance line. */
+  [data-testid="stMarkdownContainer"]:has(> .uv-page-head) { margin-bottom: 0 !important; }
+
   /* ── Supporting-page frame (components.support_page): Settings,
      Methodology & help, Legal, About. Left-aligned on the same gutter as
      every other page, 1180px cap; back link, 24px title (brand H1), then a
      200px sticky rail beside a 760px content column. ───────────────────── */
   .st-key-uv_support { max-width: 1180px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; }
-  .st-key-uv_support_back button {
+  /* components.back_link — every "← Back to …" above a page title. */
+  [class*="st-key-uv_back_"] button {
     min-height: 0 !important; padding: 0 !important; margin-bottom: 6px !important;
     border: none !important; background: none !important;
   }
-  .st-key-uv_support_back button p { font-size: 12px !important; color: var(--muted) !important; }
-  .st-key-uv_support_back button:hover p { color: var(--text) !important; }
+  [class*="st-key-uv_back_"] button p { font-size: 12px !important; color: var(--muted) !important; }
+  [class*="st-key-uv_back_"] button:hover p { color: var(--text) !important; }
   .uv-support-head { padding-bottom: 20px; }
   /* Streamlit pulls every markdown block up by 16px (margin-bottom:-1rem),
      which would swallow the gap above the rail. */
@@ -1703,7 +1714,7 @@ GLOBAL_CSS = """
     display: flex !important; flex-direction: column !important; justify-content: center !important;
     padding: 48px 56px !important; overflow-y: auto !important; box-sizing: border-box !important;
   }
-  .uv-login-heading { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+  .uv-login-heading { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
   .uv-login-subhead { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 8px; }
   .uv-login-headline {
     font-size: 30px; font-weight: 500; letter-spacing: -0.02em; color: #F5F7FA;

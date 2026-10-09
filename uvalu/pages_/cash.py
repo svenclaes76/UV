@@ -15,7 +15,7 @@ import streamlit as st
 
 import cash
 from portfolio import base_currency
-from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html,
+from uvalu.components import (back_link, page_header, kpi_card, cash_balance_block_html, cash_alloc_html,
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
@@ -91,21 +91,17 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
     entries = cash.load_ledger()
     s = cash.summary(entries, invested_value)
 
-    if st.button(_("← Back to Positions"), key="back_cash", type="tertiary"):
+    if back_link(_("← Back to Positions"), key="back_cash"):
         on_back()
-    with st.container(key="pf_page_title_cash", horizontal=True, vertical_alignment="center",
-                      horizontal_alignment="distribute"):
-        with st.container(width="content"):
-            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Cash activity")}</div>',
-                        unsafe_allow_html=True)
-            st.caption(_("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
-                         currency=base))
-        with st.container(horizontal=True, gap="small", width="content", vertical_alignment="center"):
-            export_menu(_("Export"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
-                        file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
-            if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
-                         disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
-                cash_transaction_dialog("Deposit")
+    with page_header(_("Cash activity"),
+                     _("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
+                       currency=base),
+                     key="pf_page_title_cash"):
+        export_menu(_("Export"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
+                    file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
+        if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
+                     disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
+            cash_transaction_dialog("Deposit")
 
     with st.container(key="pf_cash_tiles"):
         _t = st.columns(5)

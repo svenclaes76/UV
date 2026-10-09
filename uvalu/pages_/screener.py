@@ -16,7 +16,7 @@ from screener import get_fetch_progress, signal_distribution
 from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
-from uvalu.components import (fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
+from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
@@ -205,13 +205,10 @@ def render() -> None:
 
     if _valued_df.empty:
         with _header_slot.container():
-            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Value screener")}</div>',
-                       unsafe_allow_html=True)
-            if _prog["running"] and _prog["total"] > 0:
-                st.caption(_("Loading the screening universe… {done}/{total} companies scored — results appear here as they land.",
-                             done=_prog['done'], total=_prog['total']))
-            else:
-                st.caption(_("Loading the screening universe — results appear as soon as the background fetch returns."))
+            page_header(_("Value screener"),
+                        _("Loading the screening universe… {done}/{total} companies scored — results appear here as they land.",
+                          done=_prog['done'], total=_prog['total']) if _prog["running"] and _prog["total"] > 0 else
+                        _("Loading the screening universe — results appear as soon as the background fetch returns."))
         # Filter-bar and column-header shapes, matching the loaded page's own
         # containers/widths (scr_filter_panel, scr_table_card, the same
         # _hh_widths stock_row's real header uses) so there's zero layout
@@ -346,30 +343,25 @@ def render() -> None:
         key=(lambda s: s.map(sort_key)) if _text_sort else None).reset_index(drop=True)
 
     with _header_slot.container():
-        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Value screener")}</div>',
-                           unsafe_allow_html=True)
-                _scr_caption = _("**{shown}** of {total} European stocks pass your filters · ranked by composite signal score.",
-                                 shown=len(_filtered), total=len(_valued_df))
-                if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
-                    _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
-                                            count=len(_all_df))
-                st.caption(_scr_caption)
-                # REC-4 / REC-5: the third line of the page header.
-                st.markdown(list_provenance_html(_all_df), unsafe_allow_html=True)
-            # Only when something differs from the default filters.
-            _filters_dirty = (bool(_search) or set(_signal or []) != {"undervalued"}
-                              or _sector_sel != _ALL_SECTORS or _market_sel != _ALL_MARKETS
-                              or _min_score != 0 or _min_mos != -20)
-            with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
-                with st.container(key="scr_reset_btn"):
-                    if _filters_dirty and st.button(_("Reset filters"), key="scr_reset",
-                                                    icon=":material/refresh:", type="tertiary"):
-                        for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
-                                  "scr_min_score", "scr_min_mos"):
-                            st.session_state.pop(_k, None)
-                        st.rerun()
+        _scr_caption = _("**{shown}** of {total} European stocks pass your filters · ranked by composite signal score.",
+                         shown=len(_filtered), total=len(_valued_df))
+        if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
+            _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
+                                    count=len(_all_df))
+        # REC-4 / REC-5: the provenance is the third line of the page header.
+        _scr_actions = page_header(_("Value screener"), _scr_caption, provenance=list_provenance_html(_all_df))
+        # Only when something differs from the default filters.
+        _filters_dirty = (bool(_search) or set(_signal or []) != {"undervalued"}
+                          or _sector_sel != _ALL_SECTORS or _market_sel != _ALL_MARKETS
+                          or _min_score != 0 or _min_mos != -20)
+        with _scr_actions.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
+            with st.container(key="scr_reset_btn"):
+                if _filters_dirty and st.button(_("Reset filters"), key="scr_reset",
+                                                icon=":material/refresh:", type="tertiary"):
+                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                              "scr_min_score", "scr_min_mos"):
+                        st.session_state.pop(_k, None)
+                    st.rerun()
 
     if _filtered.empty:
         with st.container(border=True):

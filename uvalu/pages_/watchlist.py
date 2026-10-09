@@ -12,7 +12,7 @@ from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import list_provenance_html, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
+from uvalu.components import list_provenance_html, page_header, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
@@ -61,12 +61,16 @@ def _not_found_html(sym: str) -> str:
 
 def render() -> None:
     _is_viewer = current_user().is_viewer
-    st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Watchlist")}</div>',
-               unsafe_allow_html=True)
-    st.caption(_("Track tickers you don't hold yet. Add from the screener with the star, or type a symbol directly below."))
-    # REC-4 / REC-5: the third line of the page header, filled in once the
-    # watchlist's rows are known (below the add form).
-    _prov_slot = st.empty()
+    # REC-4 / REC-5: the provenance (third line of the page header) is filled
+    # in once the watchlist's rows are known (below the add form).
+    _header_slot = st.empty()
+
+    def _header(provenance: str = "") -> None:
+        with _header_slot.container():
+            page_header(_("Watchlist"),
+                        _("Track tickers you don't hold yet. Add from the screener with the star, or type a symbol directly below."),
+                        provenance=provenance)
+    _header()
 
     watchlist = load_watchlist()
     _settings = load_shared_settings()
@@ -152,7 +156,7 @@ def render() -> None:
                 unsafe_allow_html=True)
         return
     if not wl_df.empty and (_prov := list_provenance_html(wl_df)):
-        _prov_slot.markdown(_prov, unsafe_allow_html=True)
+        _header(_prov)
     if wl_df.empty:
         # Watchlist has tickers but none are scored yet — cold fundamentals
         # cache. Show a skeleton and (while a fetch is running) let it fill in

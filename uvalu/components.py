@@ -1982,6 +1982,39 @@ def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
         st.page_link(page, label=label, query_params=dict(parse_qsl(parts.query)) or None, width="stretch")
 
 
+def page_heading_html(title: str, subtitle: str = "", provenance: str = "", *, title_suffix: str = "") -> str:
+    """The left side of a data page's header: 24px title, 13px subtitle 2px
+    below it, then the provenance line (``provenance_bar_html``, 8px below).
+    ``subtitle`` is plain text; ``**bold**`` in it is kept as bold.
+    ``title_suffix`` is ready-made HTML after the title (e.g. "· realised")."""
+    import html as _html_mod
+    sub = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html_mod.escape(subtitle))
+    return (f'<div class="uv-page-head"><div class="uv-page-title" role="heading" aria-level="1">'
+            f'{_html_mod.escape(title)}{title_suffix}</div>'
+            + (f'<div class="uv-page-sub">{sub}</div>' if subtitle else "")
+            + provenance + "</div>")
+
+
+def page_header(title: str, subtitle: str = "", *, provenance: str = "", title_suffix: str = "",
+                key: "str | None" = None):
+    """Data-page header row: title, subtitle and provenance left, actions
+    right (they wrap under the title on a narrow window). Returns the
+    actions container."""
+    with st.container(key=key, horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+        with st.container(width="content"):
+            st.markdown(page_heading_html(title, subtitle, provenance, title_suffix=title_suffix),
+                        unsafe_allow_html=True)
+        actions = st.container(horizontal=True, gap="small", width="content", vertical_alignment="center")
+    return actions
+
+
+def back_link(label: str, *, key: str) -> bool:
+    """A "← Back to …" link above a page title (``label`` translated by the
+    caller): 12px muted, hover --text. True when clicked."""
+    with st.container(key=f"uv_back_{key}"):
+        return st.button(label, key=key, type="tertiary")
+
+
 def support_page(title: str, *, subtitle: str = "", back_key: str,
                  rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
                  toc: "list[tuple[str, str]] | None" = None):
@@ -1999,10 +2032,8 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
     root = st.container(key="uv_support")
     with root:
         back, _key = nav_registry.back_target(back_key)
-        if back is not None:
-            with st.container(key="uv_support_back"):
-                if st.button(_("← Back to {page}", page=back.title), key=f"{back_key}_back", type="tertiary"):
-                    st.switch_page(back)
+        if back is not None and back_link(_("← Back to {page}", page=back.title), key=f"{back_key}_back"):
+            st.switch_page(back)
         st.markdown(f'<div class="uv-support-head"><div class="uv-support-title" role="heading" aria-level="1">'
                     f'{_html_mod.escape(title)}</div>'
                     + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "") + "</div>",
