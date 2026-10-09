@@ -14,6 +14,7 @@ from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PO
 from settings import load_shared_settings, get_dividend_withholding
 from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
+from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
 from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
@@ -142,8 +143,17 @@ def render() -> None:
     # average only the failed-screen rows (0/100). Everything that depends on
     # the ranking shows its skeleton until then (G1).
     _db_ref_pending = not _db_scr.empty and peer_reference_pending()
-    _db_mos_vals = pd.to_numeric(_db_scr.get("MoS %", pd.Series(dtype=float)), errors="coerce").dropna()
-    _db_avg_mos  = _db_mos_vals.mean() if not _db_mos_vals.empty else None
+    # G13: weighted by each holding's current value (all its lots), like the
+    # mockup's "weighted MoS" — a 1% position no longer counts as much as a 20% one.
+    _db_avg_mos = None
+    if not _db_scr.empty and "MoS %" in _db_scr.columns:
+        _db_mos_by_t = pd.to_numeric(_db_scr.drop_duplicates("Ticker").set_index("Ticker")["MoS %"],
+                                     errors="coerce").dropna()
+        _db_cv_by_t = _db_pf.groupby("ticker")["current_value"].sum().reindex(_db_mos_by_t.index).fillna(0)
+        if _db_cv_by_t.sum() > 0:
+            _db_avg_mos = float((_db_mos_by_t * _db_cv_by_t).sum() / _db_cv_by_t.sum())
+        elif not _db_mos_by_t.empty:
+            _db_avg_mos = float(_db_mos_by_t.mean())
 
     _db_fwd_income = None
     if not _db_scr.empty and "dividendYield" in _db_scr.columns:
@@ -162,8 +172,8 @@ def render() -> None:
     # the same place as on the Screener and Watchlist.
     _db_actions = page_header(
         _("Portfolio overview"),
-        ngettext("{positions} across {count} European exchange · compared with model fair-value estimates.",
-                 "{positions} across {count} European exchanges · compared with model fair-value estimates.",
+        ngettext("{positions} across {count} European exchange · valued against a model fair-value estimate.",
+                 "{positions} across {count} European exchanges · valued against a model fair-value estimate.",
                  _n_exch, positions=ngettext("{count} position", "{count} positions", len(_db_pf))),
         provenance="" if _db_ref_pending else list_provenance_html(_db_scr))
     with _db_actions:
@@ -171,6 +181,10 @@ def render() -> None:
             if st.button(_("Refresh"), key="db_refresh", icon=":material/refresh:", type="tertiary"):
                 st.cache_data.clear()
                 st.rerun()
+        _db_viewer = current_user().is_viewer
+        if st.button(_("Add position"), key="db_add_position", type="primary", icon=":material/add:",
+                     disabled=_db_viewer, help=_("Viewer role is read-only") if _db_viewer else None):
+            add_position_dialog()
 
     # ── KPI strip ─────────────────────────────────────────────────────────────
     # Wrapped in a keyed container (styles.py) purely so CSS can give this
@@ -210,8 +224,12 @@ def render() -> None:
             if (_db_avg_mos is None and _db_fetch_running) or _db_ref_pending:
                 st.markdown(skeleton_kpi_card_html(), unsafe_allow_html=True)
             else:
+                # "model": an outline tag, not an up/down chip — the figure is a
+                # model estimate, not a gain.
                 _kpi_card(h_("Avg margin of safety"), fmt_pct(_db_avg_mos, signed=True),
-                         "", (_db_avg_mos or 0) >= 0, h_("vs model fair value"), icon="target")
+                          h_("model"), True, h_("weighted MoS"), icon="target",
+                          delta_style="display:inline-flex;font-size:11px;color:var(--muted);padding:2px 7px;"
+                                      "border-radius:6px;border:0.5px solid var(--line);")
     _conv_note = conversion_note()
     if _conv_note:
         st.caption(_conv_note)
@@ -253,8 +271,8 @@ def render() -> None:
             with _title_col:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
-<div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-  <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
+<div style="display:flex;align-items:center;gap:10px;margin-top:7px;">
+  <span style="font-family:var(--uv-mono);font-size:24px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
   {_chip_html(fmt_pct(_db_range_pct, signed=True), _db_range_pct >= 0)}
   <span style="font-size:11px;color:var(--muted);">{_range_txt}</span>
 </div>""", unsafe_allow_html=True)
@@ -423,7 +441,7 @@ def render() -> None:
     </div>
   </div>
   <div>
-    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
     <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--up-txt);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
