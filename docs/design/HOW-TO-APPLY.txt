@@ -1,0 +1,18 @@
+Copy these files into docs/design/ in svenclaes76/UV, replacing what is there.
+
+Replace:
+- Uvalu.dc.html (the main app reference)
+- Uvalu Admin.dc.html
+- Uvalu Auth.dc.html
+
+Add:
+- README.md: replaces docs/design/README.md (points to Design reference.md, drops the removed mockups, keeps the deliberate deviations)
+- Design reference.md: which file is the reference for each screen, the decisions built into it, the label changes and removals for the code, deferred items, and what to recheck with real translations
+- legal-docs.js and support.js: needed to open Uvalu.dc.html in a browser
+
+Delete (superseded, merged into Uvalu.dc.html):
+- Uvalu Cash Management.dc.html
+- Uvalu Dividend Management.dc.html
+
+
+Also copy uvalu-brand-guidelines.md (v1.3) to docs/uvalu-brand-guidelines.md, replacing the old version.
