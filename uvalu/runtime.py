@@ -21,6 +21,7 @@ class ThemeColors:
     surface: str
     up_txt: str
     down_txt: str
+    link: str
 
 
 def theme_colors() -> ThemeColors:
@@ -38,6 +39,8 @@ def theme_colors() -> ThemeColors:
         # pandas Styler cell colors) can't resolve CSS custom properties.
         up_txt="#0F6E56"           if light else "#1DD6A4",
         down_txt="#A32D2D"         if light else "#F0A6A6",
+        # Brand v1.3 --link: link text (Signal Teal is too light on white).
+        link="#167A60"             if light else "#3FBF98",
     )
 
 

@@ -41,6 +41,11 @@ GLOBAL_CSS = """
     --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D; --amber-fill:#C98A3A;
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+    /* Brand v1.3: link text (Signal Teal is 4.2:1 on white, too low for
+       small text), the wordmark's final "u", and the badge fills that have
+       no semantic token of their own. */
+    --link:#3FBF98; --logo-accent:#1DD6A4;
+    --veto-bg:#1E2D4A; --veto-line:rgba(245,247,250,0.18); --nosig-bg:rgba(245,247,250,0.07);
   }
   [data-theme="light"] {
     --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
@@ -51,6 +56,17 @@ GLOBAL_CSS = """
     --amber-bg:#FDF0E8; --amber-txt:#854F0B; --amber-fill:#C98A3A;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
+    --link:#167A60; --logo-accent:#1A8C6E;
+    --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
+  }
+
+  /* Keyboard focus (brand §7): 2px ring, teal on light, mint on dark. Only
+     :focus-visible, so a mouse click doesn't draw it. */
+  :focus-visible { outline: 2px solid var(--mint) !important; outline-offset: 2px !important; }
+  [data-theme="light"] :focus-visible { outline-color: var(--teal) !important; }
+  /* No motion for people who ask for none (brand §7 Loading). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
