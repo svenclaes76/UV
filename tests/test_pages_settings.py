@@ -48,12 +48,16 @@ def test_renders_without_exceptions(isolated_data, monkeypatch):
     _run(monkeypatch)
 
 
-def test_shows_default_veto_thresholds(isolated_data, monkeypatch):
+def test_model_settings_in_force_list_for_every_user(isolated_data, monkeypatch):
+    """G14: a read-only list of the settings in force, the same for everyone."""
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    assert "500%" in html   # max debt/equity default
-    assert "90%" in html    # max payout default
-    assert "70" in html     # buy threshold default
+    assert "Model settings in force" in html and "Same for every user · model M1" in html
+    assert "&gt; 500%" in html          # quality screen: debt / equity
+    assert "≥ 70" in html and "≥ 10%" in html
+    assert "3% + β × 5%" in html and "Terminal dividend growth" in html
+    assert "Margin of safety 24 · Risk 22 · Quality 24 · Momentum 15 · Dividend 15." in html
+    assert "Changes are logged." in html and "announced" not in html
 
 
 def test_changing_max_debt_equity_slider_persists_and_reruns(isolated_data, monkeypatch):
@@ -76,29 +80,13 @@ def test_changing_benchmark_toggle_persists(isolated_data, monkeypatch):
 
 
 @pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_screening_sliders_disabled_for_non_admin(isolated_data, monkeypatch, role):
-    # These are shared, all-user settings ("admin-controlled, apply to all
-    # users" per settings.py's own docstring) — a non-admin must not be able
-    # to change what every other user's BUY/AVOID decisions are based on.
+def test_screening_sliders_only_for_admins(isolated_data, monkeypatch, role):
+    # Shared, all-user settings: a non-admin sees the list, never a control
+    # that could change what every other user's signals are based on.
     at = _run(monkeypatch, role=role)
-    assert at.slider(key="scr_max_de").disabled is True
-    assert at.slider(key="scr_max_payout").disabled is True
-    assert at.slider(key="scr_min_mos").disabled is True
-    assert at.slider(key="scr_buy_thr").disabled is True
+    keys = {w.key for w in at.slider} | {w.key for w in at.segmented_control}
+    assert not keys & {"scr_max_de", "scr_max_payout", "scr_min_mos", "scr_buy_thr", "scr_style"}
     assert at.toggle(key="scr_stoxx").disabled is True
-    assert "Admin-only" in "".join(m.value for m in at.markdown)
-
-
-@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_non_admin_cannot_persist_veto_threshold_change(isolated_data, monkeypatch, role):
-    # Server-side guard, independent of the widgets' own disabled= state --
-    # even if a disabled slider's value were somehow driven, the save path
-    # itself must not write shared settings for a non-admin.
-    at = _run(monkeypatch, role=role)
-    at.slider(key="scr_max_de").set_value(300)
-    at.run()
-    assert not at.exception, [str(e.value) for e in at.exception]
-    assert settings.load_shared_settings()["max_debt_equity"] == 500.0
 
 
 def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch):
@@ -107,15 +95,6 @@ def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert settings.load_shared_settings()["screen_style"] == "income"
-
-
-@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_screening_style_disabled_and_not_persisted_for_non_admin(isolated_data, monkeypatch, role):
-    at = _run(monkeypatch, role=role)
-    assert at.segmented_control(key="scr_style").disabled is True
-    at.segmented_control(key="scr_style").set_value("Growth")
-    at.run()
-    assert settings.load_shared_settings().get("screen_style", "balanced") == "balanced"
 
 
 def test_export_shows_info_when_portfolio_empty(isolated_data, monkeypatch):
@@ -850,3 +829,19 @@ def test_uses_the_supporting_page_frame(isolated_data, monkeypatch):
         assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html
     assert 'class="uv-card-head uv-set-head"' in html
     assert "text-transform:uppercase" not in html.split('class="uv-card-head')[1][:200]
+
+
+def test_table_density_persists(isolated_data, monkeypatch):
+    """G15: the Display card's Table density writes the density setting."""
+    at = _run(monkeypatch)
+    at.segmented_control(key="set_density_seg").set_value("compact").run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_settings(TEST_EMAIL)["density"] == "compact"
+
+
+def test_legal_card_is_legal_documents_with_english_only_note(isolated_data, monkeypatch):
+    """G18."""
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Legal documents" in html
+    assert "During the beta these documents are available in English only." in html

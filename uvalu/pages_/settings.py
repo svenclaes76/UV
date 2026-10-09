@@ -42,7 +42,7 @@ from backup import export_excel, backup_filename
 from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
                        save_div_hist, load_targets, save_targets)
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
-                      _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
+                      get_score_weights, _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
 from uvalu.compliance import disclosures
 from uvalu.components import support_page
@@ -428,7 +428,8 @@ def render() -> None:
     # The shared supporting-page frame (components.support_page): back link,
     # title, and the section list as the sticky rail beside the cards.
     _content = support_page(_("Settings"), back_key="settings",
-                            subtitle=h_("Choices apply as you make them; sections with typed values have their own Save button."),
+                            subtitle=h_("Language, account security, display, portfolio targets, dividend withholding, "
+                                        "import and export, model settings."),
                             rail=[(tr(label), f"#{anchor}") for anchor, label in _SECTIONS])
     with _content:
         with st.container(key="set_main"):
@@ -614,40 +615,55 @@ def render() -> None:
                 if _theme_sel and _theme_sel != _cur_theme:
                     set_theme_script(_theme_sel)
 
+                _cur_density = str(_s.get("density") or "comfortable")
+                _density_sel = _seg_row("density", "set_density_seg", h_("Table density"),
+                                        h_("Row height for holdings and screener."), ["compact", "comfortable"],
+                                        _cur_density if _cur_density in ("compact", "comfortable") else "comfortable",
+                                        format_func=frozen(lambda d: _("Compact") if d == "compact" else _("Comfortable")))
+                if _density_sel and _density_sel != _cur_density:
+                    _s["density"] = _density_sel
+                    save_settings(_s, _email)
+                    st.rerun()
+
             # ── Target allocation (per-user, personal reference weights) ────────────────
             _targets = load_targets()
             with st.container(key="set_card_targets", border=True):
                 _row_header(h_("Target allocation"), anchor="set-portfolio")
-                _row_desc(h_("Reference weights you set yourself. When any are set, the Risk page's observations compare the portfolio with them instead of the model reference levels."))
-
                 with st.container(key="set_targets_body"):
-                    _tc1, _tc2 = st.columns(2, gap="large")
-                    with _tc1:
-                        _row_title(h_("Sector targets"),
-                                  h_("Blank = no sector targets; the 30% guideline applies instead."))
-                        _tgt_sectors_txt = st.text_area(
-                            _("Sector targets"), key="tgt_sectors",
-                            value=_targets_to_text(_targets.get("sectors")), height=140,
-                            placeholder=_("One per line — sector and target %:\nTechnology 25\nHealthcare 15"),
-                            label_visibility="collapsed")
-                    with _tc2:
-                        _row_title(h_("Per-name targets"),
-                                  h_("Blank = no per-name targets; only the 20% hard cap applies."))
-                        _tgt_tickers_txt = st.text_area(
-                            _("Per-name targets"), key="tgt_tickers",
-                            value=_targets_to_text(_targets.get("tickers")), height=140,
-                            placeholder=_("One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5"),
-                            label_visibility="collapsed")
+                    with st.container(key="set_targets_row_sectors"):
+                        _tc1, _tc2 = st.columns([3, 2], vertical_alignment="top")
+                        with _tc1:
+                            _row_title(h_("Sector targets"),
+                                      h_("Blank = no sector targets; the 30% guideline applies instead."))
+                        with _tc2:
+                            _tgt_sectors_txt = st.text_area(
+                                _("Sector targets"), key="tgt_sectors",
+                                value=_targets_to_text(_targets.get("sectors")), height=110,
+                                placeholder=_("One per line — sector and target %:\nTechnology 25\nHealthcare 15"),
+                                label_visibility="collapsed")
+                    with st.container(key="set_targets_row_tickers"):
+                        _tc1, _tc2 = st.columns([3, 2], vertical_alignment="top")
+                        with _tc1:
+                            _row_title(h_("Per-name targets"),
+                                      h_("Blank = no per-name targets; only the 20% hard cap applies."))
+                        with _tc2:
+                            _tgt_tickers_txt = st.text_area(
+                                _("Per-name targets"), key="tgt_tickers",
+                                value=_targets_to_text(_targets.get("tickers")), height=110,
+                                placeholder=_("One per line — ticker and target %:\nAAA.BR 10\nBBB.PA 7.5"),
+                                label_visibility="collapsed")
 
                 with st.container(key="set_targets_hhi"):
                     # Empty = the default bands (it used to be a magic 0).
-                    _row_title(h_("Concentration ceiling (HHI)"),
-                              h_("Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."))
-                    _hhi_max = number_field(
-                        _("Concentration ceiling (HHI)"), min_value=0.0, max_value=0.50,
-                        value=float(_targets["hhi_max"]) if _targets.get("hhi_max") else None, step=0.01,
-                        key="tgt_hhi", label_visibility="collapsed",
-                        placeholder=_("Default ({low} / {high})", low=fmt_num(0.10, 2), high=fmt_num(0.18, 2)))
+                    _hc1, _hc2 = st.columns([3, 2], vertical_alignment="center")
+                    with _hc1:
+                        _row_title(h_("Concentration ceiling (HHI)"),
+                                  h_("Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."))
+                    with _hc2:
+                        _hhi_max = number_field(
+                            _("Concentration ceiling (HHI)"), min_value=0.0, max_value=0.50,
+                            value=float(_targets["hhi_max"]) if _targets.get("hhi_max") else None, step=0.01,
+                            key="tgt_hhi", label_visibility="collapsed", placeholder=fmt_num(0.15, 2))
 
                 with st.container(key="set_targets_save"):
                     _save_clicked = st.button(_("Save target allocation"), key="tgt_save", type="secondary")
@@ -695,11 +711,12 @@ def render() -> None:
                 _row_header(h_("Import & export"), anchor="set-import")
 
                 with st.container(key="set_import_row"):
-                    _imp_col, _exp_col = st.columns(2, gap="large")
-                    with _imp_col:
+                    _imp_l, _imp_col = st.columns([3, 2], vertical_alignment="center")
+                    with _imp_l:
                         with st.container(key="set_import_body"):
                             _row_title(h_("Import portfolio"),
                                       h_("Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."))
+                    with _imp_col:
                         # A new key after an import or cancel empties the uploader —
                         # the old one kept its file, so the page re-imported it on
                         # every rerun after a successful import.
@@ -745,10 +762,13 @@ def render() -> None:
                                         st.session_state["imp_portfolio_n"] = _imp_n + 1
                                         st.rerun()
 
-                    with _exp_col:
+                with st.container(key="set_export_row"):
+                    _exp_l, _exp_col = st.columns([3, 2], vertical_alignment="center")
+                    with _exp_l:
                         with st.container(key="set_export_body"):
                             _row_title(h_("Excel export"),
                                       h_("Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."))
+                    with _exp_col:
                         try:
                             xls_bytes = export_excel()
                             st.download_button(
@@ -773,44 +793,85 @@ def render() -> None:
             # other user's screening results.
             _is_admin = _u.is_admin
             with st.container(key="set_card_screening", border=True):
-                _row_header(h_("Model settings & quality screens"), anchor="set-model",
-                            chip=h_("Affects all users · logged"))
-                _row_desc(h_("Shared model settings: they set every model signal across the app, the same for every user, and are published on the Methodology page. Each change is recorded.")
-                         + ("" if _is_admin else " " + h_("Admin-only — sign in as an Admin to change these.")))
+                from screener import DDM_STABLE_GROWTH, EQUITY_RISK_PREMIUM, MODEL_VERSION, RISK_FREE_RATE
+                st.markdown(
+                    '<div><span id="set-model" class="uv-anchor"></span>'
+                    '<div class="uv-card-head uv-set-head" style="align-items:baseline;">'
+                    f'<span>{h_("Model settings in force")}</span>'
+                    f'<span style="font-size:11px;font-weight:400;color:var(--muted);">'
+                    f'{h_("Same for every user · model {version}", version=MODEL_VERSION)}</span></div></div>',
+                    unsafe_allow_html=True)
+                _w = get_score_weights()
+                _model_rows = [
+                    (h_("Undervalued: composite score"), h_("And fair value from at least two independent models."),
+                     f"≥ {fmt_num(_shared.get('buy_threshold', 70), 0)}"),
+                    (h_("Undervalued: margin of safety"), h_("Discount of price to model fair value."),
+                     f"≥ {fmt_pct(max(10, float(_shared.get('min_mos', 10))), 0)}"),
+                    (h_("Cost of equity"), h_("Risk-free rate plus beta times equity risk premium."),
+                     f"{fmt_pct(RISK_FREE_RATE * 100, 0)} + β × {fmt_pct(EQUITY_RISK_PREMIUM * 100, 0)}"),
+                    (h_("Terminal dividend growth"), h_("Multi-stage dividend model, after year 5."),
+                     fmt_pct(DDM_STABLE_GROWTH * 100, 0)),
+                    (h_("Quality screen: debt / equity"), h_("Not applied to financials, real estate and utilities."),
+                     f"&gt; {fmt_pct(float(_shared.get('max_debt_equity', 500)), 0)}"),
+                    (h_("Score weighting"),
+                     h_("Margin of safety {a} · Risk {b} · Quality {c} · Momentum {d} · Dividend {e}.",
+                        a=fmt_num(_w[0] * 100, 0), b=fmt_num(_w[1] * 100, 0), c=fmt_num(_w[2] * 100, 0),
+                        d=fmt_num(_w[3] * 100, 0), e=fmt_num(_w[4] * 100, 0)),
+                     html.escape(_style_label(str(_shared.get("screen_style", "balanced")).capitalize()))),
+                ]
+                st.markdown(
+                    '<div class="uv-model-rows" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);'
+                    'gap:0 40px;padding:4px 20px 8px;">'
+                    + "".join(
+                        '<div style="display:flex;justify-content:space-between;gap:16px;padding:12px 0;'
+                        'border-bottom:0.5px solid var(--line-2);"><div style="min-width:0;">'
+                        f'<div style="font-size:13px;font-weight:500;">{label}</div>'
+                        f'<div style="font-size:11px;color:var(--muted);margin-top:3px;">{hint}</div></div>'
+                        f'<span style="font-family:var(--uv-mono);font-size:13px;color:var(--text);flex:none;">{value}</span></div>'
+                        for label, hint, value in _model_rows)
+                    + '</div>'
+                    '<div style="padding:12px 20px;font-size:12px;color:var(--muted);line-height:1.55;">'
+                    f'{h_("Thresholds and weights are set centrally by Uvalu, so every user sees the same signals. Changes are logged.")} '
+                    f'<a href="/help" target="_self" style="color:var(--link);text-decoration:none;">{h_("Methodology →")}</a></div>',
+                    unsafe_allow_html=True)
 
-                with st.container(key="set_slider_grid"):
-                    _v1, _v2 = st.columns(2, gap="large")
-                    with _v1:
-                        _max_de = _threshold_slider(
-                            "scr_max_de", h_("Max debt / equity"), 50, 1000, 50,
-                            int(_shared.get("max_debt_equity", 500)), lambda v: fmt_pct(v, 0),
-                            _("Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."),
-                            disabled=not _is_admin)
-                    with _v2:
-                        _max_payout = _threshold_slider(
-                            "scr_max_payout", h_("Max dividend payout"), 50, 100, 5,
-                            int(_shared.get("max_payout", 90)), lambda v: fmt_pct(v, 0),
-                            _("Flag dividends above this payout."), disabled=not _is_admin)
+                # Admins change them here (D2: logged); everyone else sees the list above.
+                _cur_style = str(_shared.get("screen_style", "balanced"))
+                _style_sel = None
+                if _is_admin:
+                    with st.container(key="set_slider_grid"):
+                        _v1, _v2 = st.columns(2, gap="large")
+                        with _v1:
+                            _max_de = _threshold_slider(
+                                "scr_max_de", h_("Max debt / equity"), 50, 1000, 50,
+                                int(_shared.get("max_debt_equity", 500)), lambda v: fmt_pct(v, 0),
+                                _("Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."),
+                                disabled=not _is_admin)
+                        with _v2:
+                            _max_payout = _threshold_slider(
+                                "scr_max_payout", h_("Max dividend payout"), 50, 100, 5,
+                                int(_shared.get("max_payout", 90)), lambda v: fmt_pct(v, 0),
+                                _("Flag dividends above this payout."), disabled=not _is_admin)
 
-                    _v3, _v4 = st.columns(2, gap="large")
-                    with _v3:
-                        _min_mos = _threshold_slider(
-                            "scr_min_mos", h_("Minimum margin of safety"), 10, 50, 5,
-                            max(10, int(_shared.get("min_mos", 10))), lambda v: fmt_pct(v, 0, signed=True),
-                            _("Margin of safety needed for the Undervalued signal; never below 10%."), disabled=not _is_admin)
-                    with _v4:
-                        _buy_thr = _threshold_slider(
-                            "scr_buy_thr", h_("Undervalued score threshold"), 50, 90, 5,
-                            int(_shared.get("buy_threshold", 70)), str,
-                            _("Minimum composite score for the Undervalued signal."), disabled=not _is_admin)
+                        _v3, _v4 = st.columns(2, gap="large")
+                        with _v3:
+                            _min_mos = _threshold_slider(
+                                "scr_min_mos", h_("Minimum margin of safety"), 10, 50, 5,
+                                max(10, int(_shared.get("min_mos", 10))), lambda v: fmt_pct(v, 0, signed=True),
+                                _("Margin of safety needed for the Undervalued signal; never below 10%."), disabled=not _is_admin)
+                        with _v4:
+                            _buy_thr = _threshold_slider(
+                                "scr_buy_thr", h_("Undervalued score threshold"), 50, 90, 5,
+                                int(_shared.get("buy_threshold", 70)), str,
+                                _("Minimum composite score for the Undervalued signal."), disabled=not _is_admin)
 
-                _style_opts = [s.capitalize() for s in _SCORE_STYLES]
-                _cur_style  = str(_shared.get("screen_style", "balanced"))
-                _style_sel  = _seg_row(
-                    "screen_style", "scr_style", h_("Screening style"),
-                    h_("Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."),
-                    _style_opts, _cur_style.capitalize(), disabled=not _is_admin, stacked=True,
-                    format_func=frozen(_style_label))
+                    _style_opts = [s.capitalize() for s in _SCORE_STYLES]
+                    _cur_style  = str(_shared.get("screen_style", "balanced"))
+                    _style_sel  = _seg_row(
+                        "screen_style", "scr_style", h_("Screening style"),
+                        h_("Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."),
+                        _style_opts, _cur_style.capitalize(), disabled=not _is_admin, stacked=True,
+                        format_func=frozen(_style_label))
 
                 _stoxx = _toggle_row("stoxx", "scr_stoxx", h_("Benchmark — Euro Stoxx 50"),
                                      h_("Overlay on the portfolio value chart."),
@@ -852,7 +913,7 @@ def render() -> None:
 
             # ── Legal (L13) ─────────────────────────────────────────────────────────────
             with st.container(key="set_card_legal", border=True):
-                _row_header(h_("Legal"), anchor="set-legal")
+                _row_header(h_("Legal documents"), anchor="set-legal")
                 _legal_page = nav_registry.pages.get("legal")
                 with st.container(key="set_legal_links"):
                     if _legal_page is not None:
@@ -860,6 +921,7 @@ def render() -> None:
                             st.page_link(_legal_page, label=tr(_ltitle), query_params={"doc": _lkey})
                 _row_desc(h_("To get a copy of your data or have it deleted, write to {email}.",
                              email=disclosures.PRODUCER_PRIVACY_CONTACT))
+                _row_desc(h_("During the beta these documents are available in English only."))
 
             # ── Account footer: who is signed in (G27: "Free beta", not the role) ──
             st.markdown(

@@ -439,7 +439,14 @@ GLOBAL_CSS = """
      Dashboard's holdings rows) — native st.dataframe tables render to a
      canvas (glide-data-grid) whose row height is set in Python per call and
      can't be restyled from CSS, so this intentionally doesn't touch them. */
-  [data-density="compact"] [class*="st-key-db_hold_"] { padding: 4px 8px !important; }
+  /* Compact rows (Settings › Display › Table density, G15): Dashboard
+     holdings, Screener, Watchlist and Portfolio open positions. */
+  [data-density="compact"] [class*="st-key-db_hold_"],
+  [data-density="compact"] [class*="st-key-scr_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]),
+  [data-density="compact"] [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]),
+  [data-density="compact"] [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]) {
+    padding-top: 6px !important; padding-bottom: 6px !important; min-height: 55px !important;
+  }
 
   /* ── Analysis page cards (chart, sub-scores, six-model, financials,
      hard-veto checks, value thesis) — same `background:var(--panel);
@@ -1396,6 +1403,16 @@ GLOBAL_CSS = """
   .st-key-set_sessions_revoke_wrap button { min-height: 0 !important; padding: 0 !important; }
   .st-key-set_sessions_revoke_wrap button p { font-size: 12px !important; color: var(--link) !important; }
   .st-key-set_sessions_revoke_wrap button:hover p { color: var(--text) !important; }
+  /* Target allocation and Import & export: label left, control right. */
+  .st-key-set_targets_body textarea { max-width: 280px !important; }
+  .st-key-set_targets_hhi :is([data-testid="stNumberInput"], [data-testid="stTextInput"]) {
+    max-width: 110px !important; margin-left: auto;
+  }
+  .st-key-set_targets_save { align-items: flex-end !important; }
+  /* The uploader as a compact, button-sized dropzone (it is a framework
+     widget; this is the closest stable option). */
+  .st-key-set_import_row [data-testid="stFileUploaderDropzone"] { padding: 6px 10px !important; }
+  .st-key-set_import_row [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
   .st-key-set_row_theme, .st-key-set_row_password {
     margin-top: 0 !important;
   }
