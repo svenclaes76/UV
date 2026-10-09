@@ -8,8 +8,8 @@ from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import (score_color, band_tone_color, radial_gauge_svg, page_header,
-                              risk_score_meter_html, risk_holding_row_html,
+from uvalu.components import (score_color, band_tone_color, radial_gauge_svg, page_header, material_icon_html,
+                              risk_holding_row_html,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
@@ -182,19 +182,17 @@ def render() -> None:
     # the ENTIRE page, this heading included).
     page_header(_("Risk assessment"),
                 _("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
+    # The cash note first (what the figures cover), then the estimates warning.
+    _render_cash_banner(pf)
     # DIS-3 / PER-4: estimates, and a description, never a prescription.
     st.markdown(
         '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:8px;'
-        'border:0.5px solid #C98A3A;background:rgba(201,138,58,0.08);margin:4px 0 6px;">'
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C98A3A" stroke-width="1.7" '
-        'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
-        '<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
-        '1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
+        'border:0.5px solid var(--amber-fill);background:var(--amber-bg);margin:4px 0 6px;">'
+        f'<span style="color:var(--amber-txt);margin-top:1px;">{material_icon_html("warning", 16)}</span>'
         f'<span style="font-size:12.5px;color:var(--text);line-height:1.55;">'
         f'{html.escape(tr(RISK_DISCLOSURES[0]))} '
         f'{h_("These figures describe the portfolio and do not suggest changes to it.")}</span></div>',
         unsafe_allow_html=True)
-    _render_cash_banner(pf)
 
     # Live prices on the shared portfolio cadence (see uvalu/ui.py).
     price_autorefresh("risk_refresh")
@@ -255,7 +253,7 @@ def render() -> None:
         # score_color) — green only for "Low risk", amber for "Moderate"/
         # "Elevated", red for "High"/"Critical" — so the ring can no longer be
         # green under a "Moderate risk" label, and it agrees with the Dashboard
-        # bar and the LOW/MODERATE/HIGH legend rendered just below.
+        # bar. No meter here (mockup): the ring and the label say it.
         _ring_color, _label_color = score_color(r.composite.score, dark=_dark)
         st.markdown(f"""<div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
 <div style="position:relative;width:132px;height:132px;">
@@ -267,7 +265,6 @@ def render() -> None:
 </div>
 <div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{tr(r.composite.label)}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;">{html.escape(tr(r.composite.description))}</div>
-<div style="width:100%;margin-top:16px;">{risk_score_meter_html(r.composite.score, tr(r.composite.label), dark=_dark, heading=None)}</div>
 </div>""", unsafe_allow_html=True)
     with _metrics_col, st.container(key="risk_card_metrics", border=True):
         # Plain grid cells (no st.metric()) — st.metric() is styled app-wide

@@ -280,3 +280,14 @@ class TestRiskContributions:
         raw, method = risk_page._risk_contributions(profs, corr)
         assert method == "variance"
         assert all(x >= 0 for x in raw) and sum(raw) > 0
+
+
+def test_gauge_card_has_no_meter_and_warning_uses_tokens(isolated_data, monkeypatch):
+    """RK-04: ring and label only; the estimates warning on the amber tokens."""
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert ">LOW<" not in html and ">MODERATE<" not in html
+    assert "background:var(--amber-bg)" in html and ">warning</span>" in html
+    assert "#C98A3A" not in html.split("These figures describe the portfolio")[0][-900:]
