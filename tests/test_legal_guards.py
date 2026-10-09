@@ -156,8 +156,10 @@ class TestLegalPages:
         md = "".join(m.value for m in at.markdown)
         assert "Terms of use — free beta" in md
         assert "Reference language" not in md and "Referentietaal" not in md
-        # …while the not-yet-translated notice is there (rendered in Dutch)
-        assert "ⓘ" in md
+        # …while the English-only note sits in the rail (rendered in Dutch,
+        # LG-03) instead of a notice in the document card.
+        assert 'class="uv-rail-note"' in md and "alleen in het Engels" in md
+        assert "ⓘ" not in md
 
     def test_split_document_reads_title_meta_and_body(self):
         md = ("# Terms of use — free beta\n\n"

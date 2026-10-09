@@ -87,7 +87,7 @@ def anchor_sections(body: str) -> tuple[str, list[tuple[str, str]]]:
 _CSS = """
 /* The document card. Long-form type comes from the frame (styles.py). */
 .st-key-legal_doc_body {
-  padding: 28px 32px 32px !important; background: var(--panel) !important; border-color: var(--line) !important;
+  padding: 30px 44px 40px !important; background: var(--panel) !important; border-color: var(--line) !important;
   border-radius: 12px !important; box-shadow: var(--shadow) !important;
 }
 .st-key-legal_print iframe { display: block; }
@@ -139,7 +139,7 @@ def _print_button() -> None:
     """Print / save as PDF: the browser's print dialog for this page, which
     the print stylesheet narrows to the document. An iframe button, because
     markdown can't carry an onclick."""
-    from uvalu.runtime import theme_colors
+    from uvalu.runtime import SIGNAL_TEAL, theme_colors
     tc = theme_colors()
     label = html.escape(_("Print or save as PDF"))
     with st.container(key="legal_print", width="content"):
@@ -148,7 +148,7 @@ html,body{{margin:0;background:transparent;text-align:right;}}
 button{{font:500 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:{tc.text};
 background:transparent;border:0.5px solid {tc.axis};border-radius:8px;padding:6px 12px;cursor:pointer;
 white-space:nowrap;}}
-button:hover{{border-color:#1A8C6E;}}
+button:hover{{border-color:{SIGNAL_TEAL};}}
 </style></head><body><button onclick="window.parent.print()">⎙ {label}</button></body></html>""",
                   height=34, width=len(label) * 7 + 56)
 
@@ -176,7 +176,8 @@ def render() -> None:
     content = support_page(
         _("Legal & policies"), back_key="legal",
         rail=[(tr(doc_title), f"/legal?doc={key}") for key, doc_title, _f in d.LEGAL_DOCS],
-        active=f"/legal?doc={doc}", toc=toc if len(toc) > 1 else None)
+        active=f"/legal?doc={doc}", toc=toc if len(toc) > 1 else None,
+        rail_note=_("During the free beta these pages are available in English only.") if d.BETA else "")
     with content:
         _document(doc, path, translated, title, meta, body)
 
@@ -197,8 +198,13 @@ def _document(doc: str, path, translated: bool, title: str, meta, body: str) -> 
         if path is None:
             st.warning(_("This document is not available yet."))
             return
-        with st.container(key="legal_doc_head", horizontal=True, vertical_alignment="top",
+        with st.container(key="legal_doc_eyebrow", horizontal=True, vertical_alignment="center",
                           horizontal_alignment="distribute", gap="medium"):
+            st.markdown(f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;'
+                        f'color:var(--muted);">{html.escape(_("Uvalu · Legal"))}</div>',
+                        unsafe_allow_html=True, width="content")
+            _print_button()
+        with st.container(key="legal_doc_head"):
             chips = "".join(_chip(f"{html.escape(label)}: <b style='font-weight:500;color:var(--text);'>"
                                   f"{html.escape(value)}</b>") for label, value in meta)
             ref_note = (f'<div style="font-size:12px;color:var(--muted);margin-top:10px;">'
@@ -211,11 +217,12 @@ def _document(doc: str, path, translated: bool, title: str, meta, body: str) -> 
                         f'{html.escape(title)}</div>'
                         f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">{chips}</div>'
                         f'{ref_note}', unsafe_allow_html=True, width="stretch")
-            _print_button()
-        if not translated:
+        # Outside the beta an untranslated page says so in the card; during
+        # the beta the note in the rail covers every page (LG-03).
+        if not translated and not d.BETA:
             with st.container(key="legal_notice"):
                 st.markdown(_notice(tr(d.NOT_YET_TRANSLATED)), unsafe_allow_html=True)
-        st.markdown('<div style="border-top:0.5px solid var(--line);margin:18px 0 4px;"></div>',
+        st.markdown('<div style="border-top:0.5px solid var(--line);margin:24px 0 6px;"></div>',
                     unsafe_allow_html=True)
         with st.container(key="legal_doc_text"):
             st.markdown(body, unsafe_allow_html=True)

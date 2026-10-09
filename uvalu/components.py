@@ -2232,7 +2232,8 @@ def back_link(label: str, *, key: str) -> bool:
 
 def support_page(title: str, *, subtitle: str = "", back_key: str,
                  rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
-                 toc: "list[tuple[str, str]] | None" = None, links_html: str = ""):
+                 toc: "list[tuple[str, str]] | None" = None, links_html: str = "",
+                 rail_note: str = ""):
     """Back link, H1, optional subtitle, then a [200px rail | content] row.
     Returns the content container.
 
@@ -2266,5 +2267,8 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
                         with st.container(key="uv_support_toc"):
                             st.markdown(f'<div class="uv-toc-label">{h_("On this page")}</div>'
                                         f'<nav class="uv-toc">{links}</nav>', unsafe_allow_html=True)
+                    if rail_note:
+                        st.markdown(f'<div class="uv-rail-note">{_html_mod.escape(rail_note)}</div>',
+                                    unsafe_allow_html=True)
             content = st.container(key="uv_support_content")
     return content

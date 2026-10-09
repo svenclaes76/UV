@@ -10,6 +10,11 @@ from dataclasses import dataclass
 import streamlit as st
 
 
+# Signal Teal (brand --teal), for the few places CSS variables can't reach
+# (iframe buttons, SVG attributes).
+SIGNAL_TEAL = "#1A8C6E"
+
+
 @dataclass(frozen=True)
 class ThemeColors:
     """Plotly/chart palette tokens for the active light/dark theme variant."""

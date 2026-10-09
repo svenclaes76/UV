@@ -1337,12 +1337,11 @@ GLOBAL_CSS = """
      widget labels. */
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
-    font-size: 14px; line-height: 1.65; color: #3E3D3A; max-width: 72ch;
+    font-size: 14px; line-height: 1.65; color: var(--muted); max-width: 72ch;
   }
-  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
-  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
-    color: rgba(245,247,250,0.85);
-  }
+  /* Bullets in the link colour (LG-04). */
+  .st-key-uv_support_content [data-testid="stMarkdown"] li::marker { color: var(--link); }
+  .uv-rail-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 16px 0 0 12px; max-width: 188px; }
   .st-key-uv_support_content [data-testid="stMarkdown"] li { margin-bottom: 6px; }
   .st-key-uv_support_content [data-testid="stMarkdown"] h2 {
     font-size: 17px !important; font-weight: 500 !important; margin: 28px 0 8px !important; padding: 0 !important;

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 18:15+0000\n"
+"POT-Creation-Date: 2026-10-09 18:29+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
@@ -2252,14 +2252,14 @@ msgstr "Modifica registrazione"
 msgid "View linked entry"
 msgstr "Vedi registrazione collegata"
 
-#: uvalu/components.py:2250 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
+#: uvalu/components.py:2251 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/portfolio.py:513
 #: uvalu/pages_/portfolio.py:561
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Torna a {page}"
 
-#: uvalu/components.py:2267
+#: uvalu/components.py:2268
 msgid "On this page"
 msgstr "In questa pagina"
 
@@ -3931,7 +3931,7 @@ msgstr "Le note di rilascio sono scritte in inglese."
 msgid "No release notes yet."
 msgstr "Ancora nessuna nota di rilascio."
 
-#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:194
+#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:195
 msgid "Legal & policies"
 msgstr "Note legali e politiche"
 
@@ -5239,9 +5239,17 @@ msgstr ""
 msgid "Print or save as PDF"
 msgstr "Stampa o salva come PDF"
 
-#: uvalu/pages_/legal.py:198
+#: uvalu/pages_/legal.py:180
+msgid "During the free beta these pages are available in English only."
+msgstr "Durante la beta gratuita queste pagine sono disponibili solo in inglese."
+
+#: uvalu/pages_/legal.py:199
 msgid "This document is not available yet."
 msgstr "Questo documento non è ancora disponibile."
+
+#: uvalu/pages_/legal.py:204
+msgid "Uvalu · Legal"
+msgstr "Uvalu · Note legali"
 
 #. Context: Portfolio › column header: average purchase price per share
 #: uvalu/pages_/portfolio.py:55

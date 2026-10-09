@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 18:15+0000\n"
+"POT-Creation-Date: 2026-10-09 18:29+0000\n"
 "PO-Revision-Date: 2026-10-04 22:20+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -2056,14 +2056,14 @@ msgstr "Boeking bewerken"
 msgid "View linked entry"
 msgstr "Gekoppelde boeking bekijken"
 
-#: uvalu/components.py:2250 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
+#: uvalu/components.py:2251 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/portfolio.py:513
 #: uvalu/pages_/portfolio.py:561
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Terug naar {page}"
 
-#: uvalu/components.py:2267
+#: uvalu/components.py:2268
 msgid "On this page"
 msgstr "Op deze pagina"
 
@@ -3637,7 +3637,7 @@ msgstr "Release notes zijn in het Engels geschreven."
 msgid "No release notes yet."
 msgstr "Nog geen release notes."
 
-#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:194
+#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:195
 msgid "Legal & policies"
 msgstr "Juridisch en beleid"
 
@@ -4829,9 +4829,17 @@ msgstr "De oprichter handelt niet in een aandeel vanaf het moment dat een modelw
 msgid "Print or save as PDF"
 msgstr "Afdrukken of opslaan als pdf"
 
-#: uvalu/pages_/legal.py:198
+#: uvalu/pages_/legal.py:180
+msgid "During the free beta these pages are available in English only."
+msgstr "Tijdens de gratis bèta zijn deze pagina's alleen in het Engels beschikbaar."
+
+#: uvalu/pages_/legal.py:199
 msgid "This document is not available yet."
 msgstr "Dit document is nog niet beschikbaar."
+
+#: uvalu/pages_/legal.py:204
+msgid "Uvalu · Legal"
+msgstr "Uvalu · Juridisch"
 
 #. Context: Portfolio › column header: average purchase price per share
 #: uvalu/pages_/portfolio.py:55
