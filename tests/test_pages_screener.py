@@ -45,9 +45,7 @@ def test_skeleton_shows_fetch_progress_when_running(isolated_data, monkeypatch):
     assert "uv-skel-bar" in html
 
 
-def test_shows_ticker_row_for_default_buy_filter(isolated_data, monkeypatch):
-    # Default Signal filter is ["BUY"]; the fake row's Decision="Strong Buy"
-    # maps to the BUY signal, so it should survive the default filter set.
+def test_shows_ticker_row_at_the_default_filters(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
     assert "AAA.BR" in html
@@ -268,3 +266,48 @@ def test_reset_filters_only_shows_when_filters_differ_from_defaults(isolated_dat
     at.text_input(key="scr_search").set_value("AAA").run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert any(b.key == "scr_reset" for b in at.button)
+
+
+def _with_pending_row():
+    """A valued Undervalued row plus a No signal row (no fair value, score or margin)."""
+    pending = make_scored_row(Ticker="PEND.BR", Name="Pending Peer NV", signal_code="pending",
+                              fair_value=float("nan"), **{"Value Score": float("nan"), "MoS %": float("nan"),
+                                                           "margin_of_safety": float("nan")})
+    return make_screener_data_tuple(exchange_df=make_scored_df([make_scored_row(), pending]))
+
+
+def test_default_signal_filter_selects_nothing(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    assert list(at.session_state["scr_signal"]) == []
+    assert "pending" in screener_page._SIGNAL_CHIPS
+
+
+def test_no_signal_stock_is_listed_at_the_default_filters(isolated_data, monkeypatch):
+    at = _run(monkeypatch, screener_tuple=_with_pending_row())
+    html = "".join(m.value for m in at.markdown)
+    assert "PEND.BR" in html and "AAA.BR" in html
+    assert "<b>2</b> of 2 European stocks" in html
+
+
+def test_no_signal_stock_drops_out_when_min_margin_is_raised(isolated_data, monkeypatch):
+    at = _run(monkeypatch, screener_tuple=_with_pending_row())
+    at.slider(key="scr_min_mos").set_value(-15).run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "PEND.BR" not in html and "AAA.BR" in html
+
+
+def test_no_signal_stock_drops_out_when_min_score_is_raised(isolated_data, monkeypatch):
+    at = _run(monkeypatch, screener_tuple=_with_pending_row())
+    at.slider(key="scr_min_score").set_value(5).run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "PEND.BR" not in html and "AAA.BR" in html
+
+
+def test_no_signal_chip_filters_to_pending_rows(isolated_data, monkeypatch):
+    at = _run(monkeypatch, screener_tuple=_with_pending_row())
+    at.pills(key="scr_signal").set_value(["pending"]).run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "PEND.BR" in html and "AAA.BR" not in html

@@ -31,8 +31,11 @@ _EXCHANGE_LABELS = {
 }
 _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
-# Filter chips: model signal codes, shown with their translated label (BDG-1).
-_SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen"]
+# Filter chips: model signal codes, shown with their translated label (BDG-1,
+# G20: the full "Fails quality screen"). None selected by default = every
+# signal, No signal ("pending") included, as in the design reference.
+_SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen", "pending"]
+_MIN_MOS_DEFAULT = -20
 _PAGE_ROWS = 25   # results shown per "page" (visual review SC3)
 
 # Matches stock_row's own column widths exactly (star=0.5, name=3.0,
@@ -232,7 +235,7 @@ def render() -> None:
     # ── Filter bar — one bordered/shadowed panel holding every control in a
     # single row (styles.py's scr_filter_panel), matching Uvalu.dc.html
     # instead of native widgets sitting bare on the page background.
-    _sector_vals = sorted((v for v in _valued_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
+    _sector_vals = sorted((v for v in _all_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
                           key=lambda v: sort_key(tr(v)))
     _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
 
@@ -275,7 +278,7 @@ def render() -> None:
                                   gap="small"):
                     _signal = st.pills(_("Signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
                                        format_func=lambda c: signal_share_label(c, _signal_shares.get(c)),
-                                       default=["undervalued"], key="scr_signal", label_visibility="collapsed",
+                                       default=[], key="scr_signal", label_visibility="collapsed",
                                        width="content")
                     # Translators: Screener › note after the signal filter pills: each percentage is the share of all covered stocks with that signal (not a count of filter results). Lower case, a caption.
                     _pill_note = h_("share of covered stocks")
@@ -307,12 +310,15 @@ def render() -> None:
                     st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
                                f'letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">'
                                f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--up-txt);">'
-                               f'{fmt_pct(st.session_state.get("scr_min_mos", -20), 0)}</span></div>', unsafe_allow_html=True)
-                    _min_mos = st.slider(_("Min margin of safety"), -20, 50, -20, step=5, key="scr_min_mos",
+                               f'{fmt_pct(st.session_state.get("scr_min_mos", _MIN_MOS_DEFAULT), 0)}</span></div>', unsafe_allow_html=True)
+                    _min_mos = st.slider(_("Min margin of safety"), _MIN_MOS_DEFAULT, 50, _MIN_MOS_DEFAULT, step=5,
+                                         key="scr_min_mos",
                                          label_visibility="collapsed")
 
     # ── Apply filters ──────────────────────────────────────────────────────────
-    _filtered = _valued_df.copy()
+    # Every scored row, valued or not: a No signal stock has no fair value
+    # but still belongs in the list at the default filters (design reference).
+    _filtered = _all_df.copy()
     if _search:
         # Accent-, case- and punctuation-insensitive (spec F-14): "societe"
         # finds "Société Générale", "loreal" finds "L'Oréal".
@@ -327,7 +333,10 @@ def render() -> None:
     if _market_sel and _market_sel != _ALL_MARKETS:
         _filtered = _filtered[_filtered["Exchange"] == _market_sel]
     _filtered = _filtered[pd.to_numeric(_filtered["Value Score"], errors="coerce").fillna(0) >= _min_score]
-    _filtered = _filtered[pd.to_numeric(_filtered["MoS %"], errors="coerce").fillna(-999) >= _min_mos]
+    # A missing margin of safety (No signal) passes only while the filter is
+    # at its lowest setting; raising it means "at least this margin".
+    _mos_num = pd.to_numeric(_filtered["MoS %"], errors="coerce")
+    _filtered = _filtered[(_mos_num >= _min_mos) | (_mos_num.isna() & (_min_mos <= _MIN_MOS_DEFAULT))]
 
     _sort_key = st.session_state.get("scr_sort_key", "score")
     _sort_dir = st.session_state.get("scr_sort_dir", "desc")
@@ -344,16 +353,16 @@ def render() -> None:
 
     with _header_slot.container():
         _scr_caption = _("**{shown}** of {total} European stocks pass your filters · ranked by composite signal score.",
-                         shown=len(_filtered), total=len(_valued_df))
+                         shown=len(_filtered), total=len(_all_df))
         if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
             _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
                                     count=len(_all_df))
         # REC-4 / REC-5: the provenance is the third line of the page header.
         _scr_actions = page_header(_("Value screener"), _scr_caption, provenance=list_provenance_html(_all_df))
         # Only when something differs from the default filters.
-        _filters_dirty = (bool(_search) or set(_signal or []) != {"undervalued"}
+        _filters_dirty = (bool(_search) or bool(_signal)
                           or _sector_sel != _ALL_SECTORS or _market_sel != _ALL_MARKETS
-                          or _min_score != 0 or _min_mos != -20)
+                          or _min_score != 0 or _min_mos != _MIN_MOS_DEFAULT)
         with _scr_actions.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
             with st.container(key="scr_reset_btn"):
                 if _filters_dirty and st.button(_("Reset filters"), key="scr_reset",
