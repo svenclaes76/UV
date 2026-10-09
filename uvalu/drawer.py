@@ -69,8 +69,11 @@ _DRAWER_CSS = """
   width: 30px !important; height: 30px !important; min-height: 30px !important; padding: 0 !important;
   border-radius: 8px !important; border: 0.5px solid var(--line, rgba(13,31,60,0.1)) !important;
 }
-.st-key-drw_sell button { color: var(--down-txt, #A32D2D) !important; border-color: var(--down-txt, #A32D2D) !important; }
-.st-key-drw_buy button  { color: var(--up-txt) !important; border-color: var(--mint, #1DD6A4) !important; }
+/* Record buttons: neutral outline (red is for a failed quality screen). */
+.st-key-drw_sell button, .st-key-drw_buy button, .st-key-drw_edit button {
+  background: transparent !important; border: 0.5px solid var(--line) !important; color: var(--text) !important;
+}
+.st-key-drw_sell button:hover, .st-key-drw_buy button:hover, .st-key-drw_edit button:hover { border-color: var(--teal) !important; }
 """
 
 
@@ -205,25 +208,19 @@ def open_drawer(row: "pd.Series") -> None:
     # unambiguously as cards). ───────────────────────────────────────────────
     _mos = row.get("MoS %")
     _mos_color = mos_text_color(_mos)
-    _ter = row.get("Implied Return % (est.)")
-    _ter_color = ("var(--up-txt)" if _ter >= 0 else "var(--amber-txt)") if pd.notna(_ter) else "inherit"
     # Tighter side padding/gap/letter-spacing than a first pass at this (13px
     # 14px padding, 12px gap, 0.06em spacing) — "Margin of safety" wrapped to
     # 2 lines at 452px drawer width with those values, throwing off vertical
     # alignment between the tiles' values. Confirmed via live DOM
     # measurement (scrollWidth vs clientWidth) that this combination is the
-    # minimum squeeze needed to keep all labels on one line. A 4th tile (TER,
-    # next to MoS) reuses this same squeeze rather than widening the row —
-    # "Total return" still fits at this padding/font-size.
+    # minimum squeeze needed to keep all labels on one line. Three tiles
+    # (G24: no "Implied return" tile).
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
-        # Neutral: a fair value far below the price isn't good news; only the
-        # margin of safety beside it carries the colour.
-        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--text)"),
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--up-txt)"),
         (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
-        (_("Implied return (est.)"), _fv(row, "Implied Return % (est.)", lambda v: fmt_pct(v, signed=True)), _ter_color),
     ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
@@ -331,14 +328,15 @@ def open_drawer(row: "pd.Series") -> None:
     # their broker; nothing is executed, and no order or broker link sits
     # next to the signal.
     from uvalu.compliance.disclosures import RECORDS_NOTE
-    st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                f'color:var(--muted);margin:18px 0 8px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
-                unsafe_allow_html=True)
+    # The analysis first, full width; the record buttons under a divider and
+    # their label, so they read as bookkeeping, not as the next step.
+    if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
+        _go_analysis(ticker)
+    st.markdown(f'<div style="border-top:0.5px solid var(--line-2);margin:14px 0 0;padding-top:14px;'
+                f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
+                f'{_html.escape(tr(RECORDS_NOTE))}</div>', unsafe_allow_html=True)
     if _held:
-        _act1, _act2, _act3 = st.columns([1.6, 1.2, 1.2])
-        with _act1:
-            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
-                _go_analysis(ticker)
+        _act2, _act3 = st.columns(2)
         with _act2:
             if st.button(_("Edit position"), key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
                 _go_portfolio_edit(ticker)
@@ -354,10 +352,7 @@ def open_drawer(row: "pd.Series") -> None:
                                                    "price": _safe_float(_market_price)}
                 st.rerun()
     else:
-        _act1, _act2 = st.columns([1.6, 1.2])
-        with _act1:
-            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
-                _go_analysis(ticker)
+        _act2, _act_pad = st.columns(2)
         with _act2:
             if st.button(_("Record purchase"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,

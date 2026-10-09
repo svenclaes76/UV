@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 17:10+0000\n"
+"POT-Creation-Date: 2026-10-09 17:20+0000\n"
 "PO-Revision-Date: 2026-10-04 14:39+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
@@ -851,7 +851,7 @@ msgstr "Neutral"
 msgid "Low score"
 msgstr "Low score"
 
-#: screener.py:325 uvalu/drawer.py:241 uvalu/pages_/analysis.py:340
+#: screener.py:325 uvalu/drawer.py:238 uvalu/pages_/analysis.py:340
 #: uvalu/pages_/risk.py:447
 msgid "Fails quality screen"
 msgstr "Fails quality screen"
@@ -1800,7 +1800,7 @@ msgid "Delayed quote — not a live intraday price"
 msgstr "Delayed quote — not a live intraday price"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1077 uvalu/components.py:1162 uvalu/drawer.py:329
+#: uvalu/components.py:1077 uvalu/components.py:1162 uvalu/drawer.py:326
 #: uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:186 uvalu/pages_/portfolio.py:42
 #: uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
@@ -1849,7 +1849,7 @@ msgstr "{amount} gr"
 
 #. Context: Portfolio › tooltip on the pencil icon of an open position; also
 #. the dialog title
-#: uvalu/components.py:1753 uvalu/dialogs.py:477 uvalu/drawer.py:343
+#: uvalu/components.py:1753 uvalu/dialogs.py:477 uvalu/drawer.py:341
 msgid "Edit position"
 msgstr "Edit position"
 
@@ -2350,7 +2350,7 @@ msgstr "Delete {ticker} ({shares} shares)?"
 msgid "Buy date is required."
 msgstr "Buy date is required."
 
-#: uvalu/dialogs.py:561 uvalu/drawer.py:346
+#: uvalu/dialogs.py:561 uvalu/drawer.py:344
 msgid "Record sale"
 msgstr "Record sale"
 
@@ -2827,12 +2827,12 @@ msgstr "Update this entry; its type stays the same."
 
 #. Context: Stock preview panel (opens when you click a stock in a table) ›
 #. panel title
-#: uvalu/drawer.py:168
+#: uvalu/drawer.py:171
 msgid "Stock preview"
 msgstr "Stock preview"
 
 #. Context: Stock preview panel › close button and its tooltip
-#: uvalu/drawer.py:189
+#: uvalu/drawer.py:192
 msgid "Close"
 msgstr "Close"
 
@@ -2846,112 +2846,108 @@ msgstr "Price"
 
 #. Context: Label for the estimated fair value of a share (glossary term):
 #. stock preview tile, Analysis chart, fair-value legend
-#: uvalu/drawer.py:224 uvalu/pages_/analysis.py:363
+#: uvalu/drawer.py:222 uvalu/pages_/analysis.py:363
 msgid "Fair value"
 msgstr "Fair value"
 
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
-#: uvalu/drawer.py:225 uvalu/pages_/analysis.py:196 uvalu/pages_/analysis.py:326
+#: uvalu/drawer.py:223 uvalu/pages_/analysis.py:196 uvalu/pages_/analysis.py:326
 #: uvalu/pages_/analysis.py:406 uvalu/pages_/dashboard.py:493
 #: uvalu/pages_/dashboard.py:498 uvalu/pages_/screener.py:58
 #: uvalu/pages_/watchlist.py:32
 msgid "Margin of safety"
 msgstr "Margin of safety"
 
-#: uvalu/drawer.py:226
-msgid "Implied return (est.)"
-msgstr "Implied return (est.)"
-
-#: uvalu/drawer.py:249 uvalu/pages_/analysis.py:417
+#: uvalu/drawer.py:246 uvalu/pages_/analysis.py:417
 msgid "Model fair values"
 msgstr "Model fair values"
 
 #. Context: Stock preview › small note under the fair-value bars
-#: uvalu/drawer.py:269
+#: uvalu/drawer.py:266
 msgid "⚑ Composite capped at the models' median — one model ran far above the rest."
 msgstr "⚑ Composite capped at the models' median — one model ran far above the rest."
 
 #. Context: Stock preview › section heading for the key metrics list
-#: uvalu/drawer.py:274
+#: uvalu/drawer.py:271
 msgid "Position & metrics"
 msgstr "Position & metrics"
 
 #. Context: Stock preview › value shown instead of the score when the stock is
 #. vetoed
-#: uvalu/drawer.py:285
+#: uvalu/drawer.py:282
 msgid "excluded"
 msgstr "excluded"
 
 #. Context: Stock preview › composite score value, e.g. '72 / 100'
-#: uvalu/drawer.py:285
+#: uvalu/drawer.py:282
 #, python-brace-format
 msgid "{score} / 100"
 msgstr "{score} / 100"
 
 #. Context: Composite score label (glossary term): stock preview row, Analysis
 #. header, Watchlist column
-#: uvalu/drawer.py:292 uvalu/pages_/analysis.py:279 uvalu/pages_/screener.py:57
+#: uvalu/drawer.py:289 uvalu/pages_/analysis.py:279 uvalu/pages_/screener.py:57
 #: uvalu/pages_/watchlist.py:32
 msgid "Composite score"
 msgstr "Composite score"
 
 #. Context: Stock preview and Analysis › row label: current price/earnings
 #. ratio vs the fair P/E used by the model
-#: uvalu/drawer.py:293 uvalu/pages_/analysis.py:455
+#: uvalu/drawer.py:290 uvalu/pages_/analysis.py:455
 msgid "P/E · fair P/E"
 msgstr "P/E · fair P/E"
 
 #. Context: Stock preview and Analysis › row label
-#: uvalu/drawer.py:294 uvalu/pages_/analysis.py:470
+#: uvalu/drawer.py:291 uvalu/pages_/analysis.py:470
 msgid "Dividend yield"
 msgstr "Dividend yield"
 
 #. Context: Stock preview › row label for the stock exchange (e.g. Euronext
 #. Brussels)
-#: uvalu/drawer.py:295
+#: uvalu/drawer.py:292
 msgid "Exchange"
 msgstr "Exchange"
 
 #. Context: Stock preview row and Add/Edit dividend dialog field: number of
 #. shares you own
-#: uvalu/drawer.py:311
+#: uvalu/drawer.py:308
 msgid "Shares held"
 msgstr "Shares held"
 
 #. Context: Stock preview › row label: current market value of your holding
-#: uvalu/drawer.py:312
+#: uvalu/drawer.py:309
 msgid "Position value"
 msgstr "Position value"
 
 #. Context: Unrealised profit & loss label (stock preview row, Portfolio KPI
 #. card). Short form.
-#: uvalu/drawer.py:313 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:316
+#: uvalu/drawer.py:310 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:316
 msgid "Unrealised P&L"
 msgstr "Unrealised P&L"
 
 #. Context: Stock preview › value of 'Portfolio status': not owned, but on your
 #. watchlist
-#: uvalu/drawer.py:317
+#: uvalu/drawer.py:314
 msgid "Not held · watchlist"
 msgstr "Not held · watchlist"
 
 #. Context: Stock preview and Analysis › shown when you don't own the stock
-#: uvalu/drawer.py:317 uvalu/pages_/analysis.py:307
+#: uvalu/drawer.py:314 uvalu/pages_/analysis.py:307
 msgid "Not held"
 msgstr "Not held"
 
 #. Context: Stock preview › row label shown when you don't hold the stock
-#: uvalu/drawer.py:318
+#: uvalu/drawer.py:315
 msgid "Portfolio status"
 msgstr "Portfolio status"
 
 #. Context: Stock preview › button that opens the full Analysis page
-#: uvalu/drawer.py:340 uvalu/drawer.py:359
+#: uvalu/drawer.py:333
 msgid "View full analysis"
 msgstr "View full analysis"
 
-#: uvalu/drawer.py:362
+#: uvalu/drawer.py:357
 msgid "Record purchase"
 msgstr "Record purchase"
 
@@ -6740,3 +6736,6 @@ msgstr[1] "No screener data yet for your watchlisted tickers — they'll appear 
 
 #~ msgid "fair value {fv} · margin of safety {mos}"
 #~ msgstr "fair value {fv} · margin of safety {mos}"
+
+#~ msgid "Implied return (est.)"
+#~ msgstr "Implied return (est.)"
