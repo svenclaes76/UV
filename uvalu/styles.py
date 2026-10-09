@@ -1114,6 +1114,11 @@ GLOBAL_CSS = """
   /* Same -1rem margin on the summary card: it under-reported the year table's
      height so overflow:hidden clipped the last year row by 15px, and pulled
      the title block off the Export button's centre line (both live-measured). */
+  /* Tax-estimate box under the annual summary: a plain 8px box, not a card. */
+  .st-key-pf_card_tax_note {
+    padding: 14px 16px !important; border-radius: 8px !important; background: var(--panel) !important;
+    box-shadow: none !important; border-color: var(--line) !important;
+  }
   .st-key-pf_card_tax_years [data-testid="stMarkdownContainer"] {
     margin-bottom: 0 !important;
   }

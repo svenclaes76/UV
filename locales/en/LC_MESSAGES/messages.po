@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 16:41+0000\n"
+"POT-Creation-Date: 2026-10-09 16:52+0000\n"
 "PO-Revision-Date: 2026-10-04 14:39+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
@@ -325,7 +325,7 @@ msgid "Trades"
 msgstr "Trades"
 
 #. Context: Cash activity › KPI card label
-#: cash.py:64 uvalu/pages_/cash.py:117
+#: cash.py:64 uvalu/pages_/cash.py:122
 msgid "Income"
 msgstr "Income"
 
@@ -1916,24 +1916,24 @@ msgstr "Shares"
 
 #. Context: Column header / label: gross dividend amount (annual summary,
 #. dividend log, dividend dialog preview)
-#: uvalu/components.py:1913 uvalu/dialogs.py:105 uvalu/pages_/portfolio.py:724
+#: uvalu/components.py:1913 uvalu/dialogs.py:105 uvalu/pages_/portfolio.py:720
 msgid "Gross"
 msgstr "Gross"
 
 #. Context: Column header: foreign withholding tax (short)
-#: uvalu/components.py:1913 uvalu/pages_/portfolio.py:725
+#: uvalu/components.py:1913 uvalu/pages_/portfolio.py:721
 msgid "Foreign WH"
 msgstr "Foreign WH"
 
 #. Context: Column header: 30% Belgian withholding tax on dividends (roerende
 #. voorheffing / précompte mobilier)
-#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:725
+#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:721
 #, no-python-format
 msgid "BE 30%"
 msgstr "BE 30%"
 
 #. Context: Column header: net dividend after withholding
-#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:726
+#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:722
 msgid "Net"
 msgstr "Net"
 
@@ -4047,7 +4047,7 @@ msgid "Last entry {date} · {type}"
 msgstr "Last entry {date} · {type}"
 
 #. Context: Portfolio › Cash card title and Cash activity KPI card
-#: uvalu/pages_/cash.py:59 uvalu/pages_/cash.py:109
+#: uvalu/pages_/cash.py:59 uvalu/pages_/cash.py:114
 msgid "Cash balance"
 msgstr "Cash balance"
 
@@ -4086,55 +4086,57 @@ msgstr "Cash activity"
 msgid "Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger."
 msgstr "Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger."
 
-#. Context: Portfolio and Cash activity › download button (CSV/Excel)
-#: uvalu/pages_/cash.py:100 uvalu/pages_/portfolio.py:608
-#: uvalu/pages_/portfolio.py:707
-msgid "Export"
-msgstr "Export"
+#: uvalu/pages_/cash.py:104
+msgid "Viewer · read-only"
+msgstr "Viewer · read-only"
+
+#: uvalu/pages_/cash.py:105 uvalu/pages_/portfolio.py:269
+msgid "Export CSV"
+msgstr "Export CSV"
 
 #. Context: Cash activity › button to record a cash transaction
-#: uvalu/pages_/cash.py:102
+#: uvalu/pages_/cash.py:107
 msgid "Add transaction"
 msgstr "Add transaction"
 
 #. Context: Cash activity › small text on the Cash balance card
-#: uvalu/pages_/cash.py:110
+#: uvalu/pages_/cash.py:115
 #, no-python-format, python-brace-format
 msgid "{pct}% of total portfolio value"
 msgstr "{pct}% of total portfolio value"
 
 #. Context: Cash activity › KPI card label
-#: uvalu/pages_/cash.py:113
+#: uvalu/pages_/cash.py:118
 msgid "Net deposits"
 msgstr "Net deposits"
 
 #. Context: Cash activity › small text on the Net deposits card
-#: uvalu/pages_/cash.py:113
+#: uvalu/pages_/cash.py:118
 msgid "deposits − withdrawals"
 msgstr "deposits − withdrawals"
 
 #. Context: Cash activity › KPI card label: net cash from trading
-#: uvalu/pages_/cash.py:115
+#: uvalu/pages_/cash.py:120
 msgid "Trade flow"
 msgstr "Trade flow"
 
 #. Context: Cash activity › small text on the Trade flow card
-#: uvalu/pages_/cash.py:115
+#: uvalu/pages_/cash.py:120
 msgid "sells − buys, incl. fees"
 msgstr "sells − buys, incl. fees"
 
 #. Context: Cash activity › small text on the Income card
-#: uvalu/pages_/cash.py:117
+#: uvalu/pages_/cash.py:122
 msgid "net dividends + interest"
 msgstr "net dividends + interest"
 
 #. Context: Cash activity › KPI card label
-#: uvalu/pages_/cash.py:120
+#: uvalu/pages_/cash.py:125
 msgid "Fees & corrections"
 msgstr "Fees & corrections"
 
 #. Context: Cash activity › small text on the Fees & corrections card
-#: uvalu/pages_/cash.py:121
+#: uvalu/pages_/cash.py:126
 #, python-brace-format
 msgid "excl. opening balance · {count} correction"
 msgid_plural "excl. opening balance · {count} corrections"
@@ -4142,42 +4144,36 @@ msgstr[0] "excl. opening balance · {count} correction"
 msgstr[1] "excl. opening balance · {count} corrections"
 
 #. Context: Cash activity › warning
-#: uvalu/pages_/cash.py:126
+#: uvalu/pages_/cash.py:131
 msgid "The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."
 msgstr "The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."
 
 #. Context: Cash activity › empty state
-#: uvalu/pages_/cash.py:131
+#: uvalu/pages_/cash.py:136
 msgid "No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."
 msgstr "No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."
 
 #. Context: Cash activity › label of the transaction-type filter
-#: uvalu/pages_/cash.py:136
+#: uvalu/pages_/cash.py:141
 msgid "Filter"
 msgstr "Filter"
 
 #. Context: Cash activity › count above the ledger
-#: uvalu/pages_/cash.py:141
+#: uvalu/pages_/cash.py:146
 #, python-brace-format
 msgid "{shown} of {total} entries"
 msgstr "{shown} of {total} entries"
 
 #. Context: Cash activity › empty state when the filter matches nothing
-#: uvalu/pages_/cash.py:144
+#: uvalu/pages_/cash.py:149
 msgid "No entries of this type."
 msgstr "No entries of this type."
 
 #. Context: Cash activity › button under the ledger to load more rows
-#: uvalu/pages_/cash.py:158
+#: uvalu/pages_/cash.py:163
 #, python-brace-format
 msgid "Show {more} more · {hidden} not shown"
 msgstr "Show {more} more · {hidden} not shown"
-
-#. Context: Cash activity › explanatory footnote under the ledger
-#: uvalu/pages_/cash.py:166
-#, python-brace-format
-msgid "Entries can be made in any currency and are converted to {currency} at the ECB reference rate for the transaction date (frankfurter.dev), stored with the entry. When no rate is available the rate is entered manually and flagged. Buy/sell trades and received dividend payments post automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never goes below zero."
-msgstr "Entries can be made in any currency and are converted to {currency} at the ECB reference rate for the transaction date (frankfurter.dev), stored with the entry. When no rate is available the rate is entered manually and flagged. Buy/sell trades and received dividend payments post automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never goes below zero."
 
 #. Context: Dashboard › heading of the empty state for a new user
 #: uvalu/pages_/dashboard.py:48
@@ -4767,10 +4763,6 @@ msgstr "Your portfolio is empty. Click Add position to record your first positio
 msgid "Cost basis, market value and realised results across open and closed positions."
 msgstr "Cost basis, market value and realised results across open and closed positions."
 
-#: uvalu/pages_/portfolio.py:269
-msgid "Export CSV"
-msgstr "Export CSV"
-
 #. Context: Portfolio › small text on the Invested card
 #: uvalu/pages_/portfolio.py:311
 #, python-brace-format
@@ -4876,6 +4868,10 @@ msgstr "Dividend log"
 msgid "Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."
 msgstr "Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."
 
+#: uvalu/pages_/portfolio.py:608
+msgid "Export log"
+msgstr "Export log"
+
 #. Context: Portfolio › Dividend log empty state
 #: uvalu/pages_/portfolio.py:614
 msgid "No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."
@@ -4888,7 +4884,7 @@ msgstr "Gross income · 12m"
 
 #. Context: Portfolio › dividend KPI and annual summary: number of dividend
 #. payments. Combined as '{events} · {holdings}'.
-#: uvalu/pages_/portfolio.py:631 uvalu/pages_/portfolio.py:736
+#: uvalu/pages_/portfolio.py:631 uvalu/pages_/portfolio.py:732
 #, python-brace-format
 msgid "{count} event"
 msgid_plural "{count} events"
@@ -4953,31 +4949,35 @@ msgid "no treaty WH"
 msgstr "no treaty WH"
 
 #. Context: Portfolio › card heading: per-year dividend totals
-#: uvalu/pages_/portfolio.py:703
+#: uvalu/pages_/portfolio.py:699
 msgid "Annual dividend income summary"
 msgstr "Annual dividend income summary"
 
-#: uvalu/pages_/portfolio.py:705
+#: uvalu/pages_/portfolio.py:701
 msgid "Estimate under Belgian rules · gross and net shown separately."
 msgstr "Estimate under Belgian rules · gross and net shown separately."
 
+#: uvalu/pages_/portfolio.py:703
+msgid "Export summary"
+msgstr "Export summary"
+
 #. Context: Portfolio › annual summary empty state
-#: uvalu/pages_/portfolio.py:710
+#: uvalu/pages_/portfolio.py:706
 msgid "No dividend history to summarise yet."
 msgstr "No dividend history to summarise yet."
 
 #. Context: Portfolio › annual summary column header
-#: uvalu/pages_/portfolio.py:724
+#: uvalu/pages_/portfolio.py:720
 msgid "Year"
 msgstr "Year"
 
 #. Context: Portfolio › annual summary: marks the current, unfinished year
-#: uvalu/pages_/portfolio.py:729
+#: uvalu/pages_/portfolio.py:725
 msgid "year to date"
 msgstr "year to date"
 
 #. Context: Portfolio › annual summary: marks a completed year
-#: uvalu/pages_/portfolio.py:729
+#: uvalu/pages_/portfolio.py:725
 msgid "full year"
 msgstr "full year"
 
@@ -6685,3 +6685,26 @@ msgstr[1] "No screener data yet for your watchlisted tickers — they'll appear 
 #~ "Realised results of sold positions. To "
 #~ "sell a holding, use Sell shares in "
 #~ "its Edit dialog on Open positions."
+
+#~ msgid ""
+#~ "Entries can be made in any currency "
+#~ "and are converted to {currency} at the"
+#~ " ECB reference rate for the transaction "
+#~ "date (frankfurter.dev), stored with the entry."
+#~ " When no rate is available the rate"
+#~ " is entered manually and flagged. Buy/sell"
+#~ " trades and received dividend payments post"
+#~ " automatically; a buy the balance can't "
+#~ "cover adds a linked top-up deposit "
+#~ "so the balance never goes below zero."
+#~ msgstr ""
+#~ "Entries can be made in any currency "
+#~ "and are converted to {currency} at the"
+#~ " ECB reference rate for the transaction "
+#~ "date (frankfurter.dev), stored with the entry."
+#~ " When no rate is available the rate"
+#~ " is entered manually and flagged. Buy/sell"
+#~ " trades and received dividend payments post"
+#~ " automatically; a buy the balance can't "
+#~ "cover adds a linked top-up deposit "
+#~ "so the balance never goes below zero."

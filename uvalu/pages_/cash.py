@@ -97,7 +97,12 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                      _("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
                        currency=base),
                      key="pf_page_title_cash"):
-        export_menu(_("Export"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
+        if is_viewer:
+            # Says why the buttons beside it are greyed out.
+            st.markdown(f'<span style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);'
+                        f'border:0.5px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap;">'
+                        f'{h_("Viewer · read-only")}</span>', unsafe_allow_html=True, width="content")
+        export_menu(_("Export CSV"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
                     file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
         if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
                      disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
@@ -163,8 +168,6 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                 if _target is not None:
                     edit_cash_dialog(_target["id"])
 
-    st.caption(_("Entries can be made in any currency and are converted to {currency} at the ECB reference rate for the transaction date (frankfurter.dev), stored with the entry. When no rate is available the rate is entered manually and flagged. Buy/sell trades and received dividend payments post automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never goes below zero.",
-                 currency=base))
 
 
 def dashboard_cash_tile_values(invested_value: float) -> dict:

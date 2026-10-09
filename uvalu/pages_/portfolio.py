@@ -605,7 +605,7 @@ def render() -> None:
         with page_header(_("Dividend log"),
                          _("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."),
                          key="pf_page_title_dividends"):
-            export_menu(_("Export"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
+            export_menu(_("Export log"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
                         key="div_export", disabled=not _has_divs)
             if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
@@ -691,12 +691,8 @@ def render() -> None:
                 # comes from fmt_money, like every other negative amount.
                 return fmt_money(-v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
 
-            # Design width: the summary takes the left of a 1.6 : 1 split; the
-            # right-hand column is intentionally empty, reserved for future cards.
-            _yc1, _yc2 = st.columns([1.6, 1], gap="large")
-            with _yc2:
-                _tax_estimate_box()
-            with _yc1:
+            # The summary full width, the tax-estimate box under it (mockup).
+            with st.container(key="pf_tax_section"):
                 with st.container(key="pf_card_tax_years", border=True):
                     with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
                                       horizontal_alignment="distribute"):
@@ -704,7 +700,7 @@ def render() -> None:
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
                                    f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")
-                        export_menu(_("Export"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
+                        export_menu(_("Export summary"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
                                     key="div_summary_export", disabled=_year_summary.empty)
                     if _year_summary.empty:
                         st.caption(_("No dividend history to summarise yet."))
@@ -741,6 +737,7 @@ def render() -> None:
                                 f'{fmt_money(_yrow["net"], "EUR")}</div></div>'
                             )
                         st.markdown(_rows_html, unsafe_allow_html=True)
+                _tax_estimate_box()
 
     # ── Full page: Cash activity (Cash Management v1) ─────────────────────────
     if _section == "cash":
