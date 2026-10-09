@@ -1,7 +1,6 @@
 """Dashboard page — portfolio overview matching the Uvalu.dc.html mockup:
 KPI strip, value chart + conviction/risk card, holdings fair-value ladder,
 sector allocation, upcoming dividends, top movers."""
-import html as _html
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,17 +16,18 @@ from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_p
 from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
 from uvalu.formatting import display_name, safe_pct as _safe_pct
-from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
+from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
-from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, score_band_label, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, score_band_label,
+                              donut_html, dividend_row_html, mover_row_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
                               skeleton_chart_html, skeleton_gauge_card_html,
                               skeleton_metrics_grid_html, skeleton_text_html,
                               refresh_top_bar_html)
-from uvalu.ui import _donut_chart, _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick, _auto_rerun
+from uvalu.ui import _CHART_CONFIG, price_autorefresh, poll_while_fetching, consumed_tick, _auto_rerun
 
 # Matches Uvalu.dc.html's own rangesArr exactly (['1M','3M','1Y','ALL'],
 # uvalu_dc.html ~line 2137) — the mockup has no 6M option.
@@ -603,7 +603,11 @@ def render() -> None:
                   .groupby("sector")["current_value"].sum()
                   .sort_values(ascending=False)
             )
-            _donut_chart(_db_al)
+            _db_donut = donut_html(_db_al)
+            if _db_donut:
+                st.markdown(_db_donut, unsafe_allow_html=True)
+            else:
+                st.caption(_("No data available for this breakdown."))
 
     with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
@@ -612,8 +616,8 @@ def render() -> None:
                        unsafe_allow_html=True)
         with _dh_total_col:
             if _db_fwd_income is not None:
-                st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
-                           f'color:var(--up-txt);">{h_("{amount} / yr", amount=fmt_total(_db_fwd_income))}</div>',
+                st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:11px;'
+                           f'color:var(--up-txt);">{h_("{amount} / yr fwd", amount=fmt_total(_db_fwd_income))}</div>',
                            unsafe_allow_html=True)
         if _db_fetch_running:
             st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
@@ -636,7 +640,7 @@ def render() -> None:
             if _db_div_scr["exDividendDate"].notna().any():
                 _db_upcoming = (
                     _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
-                      .sort_values("exDividendDate").head(6)
+                      .sort_values("exDividendDate").head(5)
                 )
                 if not _db_upcoming.empty:
                     # groupby(...).sum(), not set_index(...) — same
@@ -647,24 +651,25 @@ def render() -> None:
                         _shares=_db_upcoming["Ticker"].map(_db_shares_map).fillna(0),
                         _rate=pd.to_numeric(_db_upcoming.get("dividendRate"), errors="coerce").fillna(0),
                     )
+                    # The payment date is yfinance's dividendDate when it falls
+                    # on or after the ex-date (otherwise it's the last payment).
+                    _db_pay = (pd.to_datetime(_db_upcoming["dividendDate"], errors="coerce", dayfirst=True)
+                               if "dividendDate" in _db_upcoming.columns
+                               else pd.Series(pd.NaT, index=_db_upcoming.index))
+                    _dv_rows = []
                     for _dr_idx, _dr in _db_upcoming.iterrows():
                         _gross = float(_dr["_shares"]) * float(_dr["_rate"])
                         _wh_pct = get_dividend_withholding(exchange_key_for_ticker(_dr["Ticker"]), current_user().email)
                         _fwh = _gross * _wh_pct / 100
                         _net = round(_gross - _fwh - max(0.0, _gross - _fwh) * BE_WITHHOLDING_RATE, 2)
-                        _yld = _dr.get("dividendYield")
-                        _yld_str = fmt_pct(float(_yld), 2, fraction=True) if pd.notna(_yld) else "—"
-                        st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
-  <div>
-    <div style="font-size:12.5px;">{_html.escape(display_name(_dr['Name']))}</div>
-    <div style="font-size:11px;color:var(--muted);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}</div>
-  </div>
-  <div style="text-align:right;">
-    <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(_net, "EUR", 0)}</div>
-    <div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);">{h_("{amount} gross", amount=fmt_money(_gross, "EUR", 0))}</div>
-  </div>
-</div>""", unsafe_allow_html=True)
+                        _dv_rows.append(dividend_row_html(
+                            name=display_name(_dr["Name"]), ex_date=_dr["exDividendDate"],
+                            pay_date=_db_pay.get(_dr_idx), net=_net, gross=_gross))
+                    st.markdown(
+                        '<div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:0.06em;'
+                        'text-transform:uppercase;color:var(--muted);padding:6px 0;border-bottom:0.5px solid var(--line-2);">'
+                        f'<span>{h_("Ex-date · payment")}</span><span>{h_("Net est.")}</span></div>'
+                        + "".join(_dv_rows), unsafe_allow_html=True)
                 else:
                     st.caption(_("No upcoming ex-dividend dates in the next 30 days."))
             else:
@@ -682,17 +687,22 @@ def render() -> None:
         _db_top = _db_mv.sort_values("_abs", ascending=False).head(6).sort_values("day_change_pct", ascending=False)
         if not _db_top.empty:
             _mv_max = float(_db_top["_abs"].max()) or 1.0
-            for _mr_idx, _mr in _db_top.iterrows():
-                _pos = _mr["day_change_pct"] >= 0
-                _color = "var(--up-txt)" if _pos else "var(--down-txt)"
-                _bar_pct = min(100.0, abs(_mr["day_change_pct"]) / _mv_max * 100)
-                st.markdown(f"""
-<div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
-  <span title="{_html.escape(str(_mr['ticker']))}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
-  <span style="width:36px;height:5px;border-radius:4px;background:var(--line-2);position:relative;flex:none;">
-    <span style="position:absolute;left:0;top:0;height:5px;border-radius:4px;background:{_color};width:{_bar_pct:.0f}%;"></span>
-  </span>
-  <span style="width:64px;text-align:right;flex:none;">{_chip_html(fmt_pct(_mr['day_change_pct'], 2, signed=True), _pos)}</span>
-</div>""", unsafe_allow_html=True)
+            # The whole row opens the stock drawer (an invisible button over
+            # it, as the Holdings rows do).
+            _mv_scored = (_db_scr.drop_duplicates("Ticker").set_index("Ticker")
+                          if not _db_scr.empty and "Ticker" in _db_scr.columns else pd.DataFrame())
+            _mv_target = None
+            for _mv_i, (_mr_idx, _mr) in enumerate(_db_top.iterrows()):
+                with st.container(key=f"db_mover_{_mv_i}"):
+                    st.markdown(mover_row_html(ticker=str(_mr["ticker"]), name=display_name(_mr["name"]),
+                                               change_pct=float(_mr["day_change_pct"]), max_abs=_mv_max),
+                                unsafe_allow_html=True)
+                    if _mr["ticker"] in _mv_scored.index:
+                        if st.button(_("View details"), key=f"db_moverbtn_{_mv_i}"):
+                            _mv_target = _mr
+            if _mv_target is not None:
+                # Same merged holding + scored row the Holdings table passes.
+                open_drawer(_db_pf[_db_pf["ticker"] == _mv_target["ticker"]].merge(
+                    _db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr")).iloc[0])
         else:
             st.caption(_("No daily price data available."))

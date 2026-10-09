@@ -413,6 +413,107 @@ def chip_html(text: str, positive: bool = True) -> str:
            f'padding:2px 7px;border-radius:4px;background:{bg};color:{color};">{text}</span>')
 
 
+# ── Dashboard bottom row: sector donut, upcoming dividends, top movers ──────
+
+DONUT_MAX_SLICES = 12   # above this, the 11 largest plus "Other"
+
+
+def short_total(value_eur: float) -> str:
+    """A total in the display currency, compact from 10,000 ("€ 23.7k")."""
+    from uvalu.i18n import fmt_compact, fmt_total, to_display
+    v, ccy, converted = to_display(value_eur)
+    return (("≈ " if converted else "") + fmt_compact(v, currency=ccy)) if value_eur >= 10_000 else fmt_total(value_eur)
+
+
+def donut_html(series: "pd.Series") -> str:
+    """Sector (or any) breakdown as a 132px SVG donut with a legend on the
+    right (brand §8 Charts): slices in the categorical palette with 2px gaps
+    in the card colour, "TOTAL" and the short total in the middle, each
+    legend row's amount in its tooltip. Empty string without positive values."""
+    import html as _html_mod
+    from uvalu.ui import _DONUT_PALETTE
+    bad = {"", "nan", "none", "undefined", "<na>", "n/a"}
+    s = series[[pd.notna(k) and str(k).strip().lower() not in bad for k in series.index]]
+    s = s[s > 0].sort_values(ascending=False)
+    if s.empty:
+        return ""
+    if len(s) > DONUT_MAX_SLICES:
+        top = s.iloc[:DONUT_MAX_SLICES - 1]
+        s = pd.concat([top, pd.Series({N_("Other"): float(s.iloc[DONUT_MAX_SLICES - 1:].sum())})])
+    total = float(s.sum())
+    r, width, size = 52.0, 17, 132
+    circ = 2 * math.pi * r
+    gap = 2.0 if len(s) > 1 else 0.0
+    arcs, rows, start = [], [], 0.0
+    for i, (label, value) in enumerate(s.items()):
+        color = _DONUT_PALETTE[i % len(_DONUT_PALETTE)]
+        length = float(value) / total * circ
+        dash = max(length - gap, 0.6)
+        arcs.append(f'<circle cx="66" cy="66" r="{r}" fill="none" stroke="{color}" stroke-width="{width}" '
+                    f'stroke-dasharray="{dash:.2f} {circ:.2f}" stroke-dashoffset="{-start:.2f}"/>')
+        start += length
+        name = tr(str(label))
+        tip = _html_attr(f"{name} · {fmt_money(float(value), 'EUR', 0)}")
+        rows.append(f'<div title="{tip}" style="display:flex;align-items:center;gap:8px;min-width:0;">'
+                    f'<span style="width:8px;height:8px;border-radius:4px;background:{color};flex:none;"></span>'
+                    f'<span style="flex:1;min-width:0;font-size:11.5px;color:var(--muted);white-space:nowrap;'
+                    f'overflow:hidden;text-overflow:ellipsis;">{_html_mod.escape(name)}</span>'
+                    f'<span style="font-family:var(--uv-mono);font-size:11.5px;color:var(--text);flex:none;">'
+                    f'{fmt_pct(float(value) / total * 100)}</span></div>')
+    svg = (f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" style="display:block;'
+           f'transform:rotate(-90deg);" aria-hidden="true">{"".join(arcs)}</svg>')
+    centre = (f'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;'
+              f'justify-content:center;"><span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+              f'color:var(--muted);">{h_("Total")}</span><span style="font-family:var(--uv-mono);font-size:14px;'
+              f'font-weight:500;margin-top:2px;">{_html_mod.escape(short_total(total))}</span></div>')
+    return (f'<div style="display:flex;align-items:center;gap:18px;margin-top:6px;">'
+            f'<div style="position:relative;width:{size}px;height:{size}px;flex:none;">{svg}{centre}</div>'
+            f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</div></div>')
+
+
+def dividend_row_html(*, name: str, ex_date, pay_date, net: float, gross: float) -> str:
+    """One upcoming dividend: a 38px date block (day, month), the company,
+    "ex-date · pays {date}" (or just "ex-date" when the payment date isn't
+    known yet), and the estimated net with the gross under it."""
+    import html as _html_mod
+    ex = pd.Timestamp(ex_date)
+    month = fmt_date(ex, skeleton="MMM")
+    sub = (h_("ex-date · pays {date}", date=fmt_date(pd.Timestamp(pay_date), skeleton="MMMd"))
+           if pay_date is not None and pd.notna(pay_date) and pd.Timestamp(pay_date) >= ex else h_("ex-date"))
+    return (f'<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:0.5px solid var(--line-2);">'
+            f'<div style="width:38px;flex:none;text-align:center;line-height:1.1;">'
+            f'<div style="font-family:var(--uv-mono);font-size:15px;font-weight:500;">{ex.day}</div>'
+            f'<div style="font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
+            f'{_html_mod.escape(month)}</div></div>'
+            f'<div style="flex:1;min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;'
+            f'text-overflow:ellipsis;">{_html_mod.escape(name)}</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:10.5px;color:var(--muted);margin-top:2px;">{sub}</div></div>'
+            f'<div style="text-align:right;flex:none;">'
+            f'<div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(net, "EUR", 0)}</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);">'
+            f'{h_("{amount} gross", amount=fmt_money(gross, "EUR", 0))}</div></div></div>')
+
+
+def mover_row_html(*, ticker: str, name: str, change_pct: float, max_abs: float) -> str:
+    """One Top movers row: ticker, name, a 52x22 diverging bar (up to the
+    right of the centre line, down to the left) and the day's change chip."""
+    import html as _html_mod
+    up = change_pct >= 0
+    half = min(1.0, abs(change_pct) / (max_abs or 1.0)) * 25
+    color = "var(--up-txt)" if up else "var(--down-txt)"
+    bar_left = 26 if up else 26 - half
+    bar = (f'<svg width="52" height="22" viewBox="0 0 52 22" style="flex:none;display:block;" aria-hidden="true">'
+           f'<rect x="{bar_left:.1f}" y="7" width="{max(half, 0.8):.1f}" height="8" rx="2" style="fill:{color};"/>'
+           f'<line x1="26" y1="2" x2="26" y2="20" style="stroke:var(--axis);" stroke-width="1"/></svg>')
+    return (f'<div style="display:flex;align-items:center;gap:10px;">'
+            f'<span style="width:64px;flex:none;font-family:var(--uv-mono);font-size:12px;font-weight:500;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_html_mod.escape(ticker)}</span>'
+            f'<span style="flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;'
+            f'text-overflow:ellipsis;">{_html_mod.escape(name)}</span>{bar}'
+            f'<span style="width:64px;text-align:right;flex:none;">'
+            f'{chip_html(fmt_pct(change_pct, 2, signed=True), up)}</span></div>')
+
+
 # ── KPI card ─────────────────────────────────────────────────────────────────
 # Shared by the Dashboard KPI strip and Portfolio's summary rows (overview +
 # the three full-page drill-downs) so every screen's headline numbers render
@@ -767,8 +868,8 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
     price_pct = min(100.0, price / scale * 100)
     fair_pct = min(100.0, fair_value / scale * 100)
     # Single-line — see the matching note in holdings_row_html().
-    return (f'<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">'
-           f'<span>{fmt_money(price, ccy)}</span><span style="color:var(--muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
+    return (f'<div style="display:flex;justify-content:space-between;font:400 10.5px var(--uv-mono);margin-bottom:5px">'
+           f'<span style="color:var(--text)">{fmt_money(price, ccy)}</span><span style="color:var(--muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
            f'<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">'
            f'<div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>'
            f'<div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);'
@@ -866,7 +967,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     # wrong. Collapsing to one line fixed it outright.
     return (f'<div style="display:grid;grid-template-columns:{grid_cols or HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
-           f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
+           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
            f'<div>{badge_html}</div>'

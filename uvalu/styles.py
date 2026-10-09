@@ -294,21 +294,44 @@ GLOBAL_CSS = """
     gap: 16px !important;
   }
   [class*="st-key-db_card_"] { width: 100% !important; }
-  /* Only the chart+conviction row stretches to a shared row height (the
-     conviction card's beta/volatility footer relies on that via the
-     margin-top:auto rule below). The bottom row (sector allocation/upcoming
-     dividends/top movers) intentionally does NOT get this treatment — each
-     of those three cards should size to its own content instead of
-     stretching to match its tallest sibling, which previously left large
-     empty gaps under the shorter dividends/movers cards. */
-  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_chart"]) {
+  /* Both card rows stretch to a shared row height (the conviction card's
+     beta/volatility footer relies on that via the margin-top:auto rule
+     below). The bottom row (sector allocation/upcoming dividends/top
+     movers) used to size each card to its content because the old
+     dividends/movers lists were much shorter than the donut; with the
+     design reference v1.3 rows (five dividends, six movers, a 132px donut)
+     the three are close in height and the mockup stretches them. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_chart"]),
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_sector"]) {
     align-items: stretch !important;
   }
   [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_chart"]),
-  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_conviction"]) {
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_conviction"]),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_sector),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_dividends),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_movers) {
     flex: 1 1 auto !important;
   }
-  .st-key-db_card_chart, .st-key-db_card_conviction { flex: 1 1 auto !important; }
+  .st-key-db_card_chart, .st-key-db_card_conviction,
+  .st-key-db_card_sector, .st-key-db_card_dividends, .st-key-db_card_movers { flex: 1 1 auto !important; }
+  /* Top movers rows: 8px rows with --line-2 dividers; the whole row opens
+     the drawer through an invisible button laid over it (as db_hold_). */
+  [class*="st-key-db_mover_"] {
+    position: relative !important; padding: 8px 0 !important; margin-top: -16px !important;
+    border-bottom: 0.5px solid var(--line-2) !important; min-height: 39px !important;
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
+  }
+  .st-key-db_mover_0 { margin-top: 0 !important; }
+  [class*="st-key-db_mover_"]:last-child { border-bottom: none !important; }
+  [class*="st-key-db_mover_"]:hover { background: var(--soft) !important; }
+  [class*="st-key-db_mover_"] [data-testid="stMarkdownContainer"] { margin: 0 !important; }
+  [class*="st-key-db_mover_"] [data-testid="stElementContainer"]:has(button) {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+  }
+  [class*="st-key-db_mover_"] [data-testid="stElementContainer"]:has(button) button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important; cursor: pointer;
+  }
 
   /* ── Dashboard "Conviction & risk" card — "Full analysis →" as a plain
      teal text link, matching Uvalu.dc.html's `<div style="color:var(--teal);

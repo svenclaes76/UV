@@ -5,6 +5,8 @@ Pure mapping functions are asserted directly; the render_* functions (which
 call st.markdown/st.caption) are exercised through AppTest so a broken f-string
 or missing import fails loudly instead of only showing up visually.
 """
+import re
+
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -775,3 +777,37 @@ def test_signal_provenance_for_one_row():
     html = signal_provenance_html(row)
     assert "Signal computed" in html and "price as of" in html and "delayed" in html
     assert "M1" in html and "/legal?doc=methodology" in html
+
+
+class TestDashboardBottomRow:
+    def test_donut_has_a_slice_and_legend_row_per_sector(self):
+        from uvalu.components import donut_html
+        html = donut_html(pd.Series({"Technology": 700.0, "Healthcare": 300.0, "n/a": 50.0}))
+        assert html.count("<circle") == 2 and "Technology" in html and "Healthcare" in html
+        assert "n/a" not in html and ">Total</span>" in html
+        assert "70.0%" in html and "30.0%" in html
+
+    def test_donut_folds_the_tail_into_other(self):
+        from uvalu.components import DONUT_MAX_SLICES, donut_html
+        html = donut_html(pd.Series({f"S{i}": float(100 - i) for i in range(15)}))
+        assert html.count("<circle") == DONUT_MAX_SLICES and "Other" in html
+
+    def test_donut_empty_series_is_empty(self):
+        from uvalu.components import donut_html
+        assert donut_html(pd.Series(dtype=float)) == ""
+
+    def test_dividend_row_shows_payment_date_only_on_or_after_the_ex_date(self):
+        from uvalu.components import dividend_row_html
+        with_pay = dividend_row_html(name="Alpha", ex_date="2026-11-03", pay_date="2026-11-20", net=12.0, gross=17.0)
+        assert re.search(r"ex-date · pays (Nov 20|20 Nov)<", with_pay) and ">3</div>" in with_pay and ">Nov<" in with_pay
+        stale = dividend_row_html(name="Alpha", ex_date="2026-11-03", pay_date="2026-05-20", net=12.0, gross=17.0)
+        assert "pays" not in stale and ">ex-date<" in stale
+        assert "€17 gross" in stale
+
+    def test_mover_bar_diverges_from_the_centre(self):
+        from uvalu.components import mover_row_html
+        up = mover_row_html(ticker="AAA.BR", name="Alpha", change_pct=2.0, max_abs=4.0)
+        down = mover_row_html(ticker="BBB.BR", name="Beta", change_pct=-4.0, max_abs=4.0)
+        assert '<rect x="26.0" y="7" width="12.5"' in up and "fill:var(--up-txt)" in up
+        assert '<rect x="1.0" y="7" width="25.0"' in down and "fill:var(--down-txt)" in down
+        assert ">AAA.BR</span>" in up and "+2.00%" in up
