@@ -211,7 +211,7 @@ Use **Material Symbols (outlined)** everywhere — in the app (Streamlit renders
 | Status | `check`, `warning`, `close`, `info` |
 | Portfolio & app | `refresh`, `schedule`, `download`, `settings`, `help` |
 
-Icon size: 20px in navigation and cards, 16px inline with text.
+Icon size: 16px in the top navigation and inline with text, 20px in cards (the app and the design reference use 16px navigation icons, decided 9 Oct 2026).
 
 ---
 
@@ -270,7 +270,7 @@ Only these values. The app icon and logo mark use a ratio instead (§10). Any 7,
 
 **Data screens** (Dashboard, Portfolio, Risk, Screener, Watchlist): full content width. Page header = title (Heading 1, 24px), subtitle (13px muted) and, on screens with signals, the provenance line (§8) as the third line. Actions sit right-aligned on the title row.
 
-**Supporting pages** (Settings, Methodology & help, Legal, About) share one frame:
+**Supporting pages** (Settings, Methodology, Legal, About) share one frame:
 
 - Left-aligned on the page gutter, max width 1180px.
 - Back link above the title: "← Back to {page}", 12px muted, to the page the user came from (the Dashboard otherwise).
