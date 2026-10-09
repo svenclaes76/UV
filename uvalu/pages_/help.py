@@ -21,7 +21,7 @@ corresponding check for, so it's omitted rather than documented as if it
 were real. The badge legend and the quality-screen list are generated from
 screener.py (SIGNAL_LABELS, SIGNAL_DEFINITIONS, VETO_RULE_LABELS), so this
 page — the methodology page every badge links to (REC-5) — can't drift from
-the rules the code applies. Full redesign as "Methodology & help": M1 Track D
+the rules the code applies. Full redesign as "Methodology" (first named "Methodology & help"): M1 Track D
 in docs/legal/compliance-implementation-plan.md.
 
 The mockup's closing "Still stuck? Contact support" banner is left out on
@@ -101,15 +101,15 @@ _HEADER_HTML = '<div><span id="{anchor}" class="uv-anchor"></span><div class="uv
 def _rail() -> list[tuple[str, str]]:
     """The page's sections for the support_page rail."""
     return [
-        # Translators: Methodology & help › left-hand section list › the signal badges (Undervalued, Neutral, …).
+        # Translators: Methodology › left-hand section list › the signal badges (Undervalued, Neutral, …).
         (_("Badges"), "#help-badges"),
-        # Translators: Methodology & help › left-hand section list › the fair-value models (Graham Number, EPV, …).
+        # Translators: Methodology › left-hand section list › the fair-value models (Graham Number, EPV, …).
         (_("Models"), "#help-models"),
         (_("Quality screens"), "#help-screens"),
         (_("Data sources"), "#help-data"),
-        # Translators: Methodology & help › left-hand section list › short for "Conflicts of interest".
+        # Translators: Methodology › left-hand section list › short for "Conflicts of interest".
         (_("Conflicts"), "#help-conflicts"),
-        # Translators: Methodology & help › left-hand section list › frequently asked questions.
+        # Translators: Methodology › left-hand section list › frequently asked questions.
         (_("FAQ"), "#help-faq"),
     ]
 
@@ -145,7 +145,7 @@ def _faq_row_html(question: str, answer: str) -> str:
 
 
 def render() -> None:
-    _content = support_page(_("Methodology & help"), back_key="help", rail=_rail(),
+    _content = support_page(_("Methodology"), back_key="help", rail=_rail(),
                             subtitle=h_("How each model works, what the badges mean, how often they change and where the data comes from."))
     with _content:
         _render_cards()

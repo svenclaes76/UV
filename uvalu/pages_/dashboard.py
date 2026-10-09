@@ -480,12 +480,12 @@ def render() -> None:
         # (fetch finished, still no data) drops it entirely.
         # Fixed-px tracks widened to the translated labels (the ladder's 1fr
         # track gives up the room); header, rows and skeleton share it.
-        _hold_grid = fit_grid_cols(_HOLD_GRID, [_("Position"), _("Signal"), "", _("MoS %"), _("Weight"),
+        _hold_grid = fit_grid_cols(_HOLD_GRID, [_("Position"), _("Signal"), "", _("Margin of safety"), _("Weight"),
                                                 _("Value"), _("P&L")])
         if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = (h_("Position"), h_("Signal"), h_("Fair-value ladder"), h_("MoS %"), h_("Weight"),
+                _hh_labels = (h_("Position"), h_("Signal"), h_("Fair-value ladder"), h_("Margin of safety"), h_("Weight"),
                               h_("Value"), h_("P&L"))
                 _hh_cells = "".join(
                     f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))

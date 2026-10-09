@@ -116,7 +116,7 @@ _pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":mat
 _pg_watchlist = st.Page(_page_watchlist.render, title=_("Watchlist"), icon=":material/star:",             url_path="watchlist")
 _pg_analysis  = st.Page(_page_analysis.render,  title=_("Analysis"),  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":material/settings:",        url_path="settings")
-_pg_help      = st.Page(_page_help.render,      title=_("Methodology & help"), icon=":material/help:",   url_path="help")
+_pg_help      = st.Page(_page_help.render,      title=_("Methodology"), icon=":material/help:",   url_path="help")
 _pg_legal     = st.Page(_page_legal.render,     title=_("Legal"),     icon=":material/gavel:",           url_path="legal")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
 _pg_about     = st.Page(_page_about.render,     title=_("About Uvalu"), icon=":material/info:",        url_path="about")

@@ -103,9 +103,9 @@ def _row_header(label: str, *, anchor: str | None = None, chip: str | None = Non
 # Section nav: (anchor, label msgid, admin-visible-only?) in page order.
 _SECTIONS = (
     ("set-language", N_("Language & region")),
-    ("set-account", N_("Account")),
+    ("set-account", N_("Account security")),
     ("set-display", N_("Display")),
-    ("set-portfolio", N_("Portfolio")),
+    ("set-portfolio", N_("Target allocation")),
     ("set-data", N_("Data & alerts")),
     ("set-import", N_("Import & export")),
     ("set-model", N_("Model settings")),
@@ -464,7 +464,7 @@ def render() -> None:
             # ── Security ─────────────────────────────────────────────────────────────────
             _has_pw = has_password(_email)
             with st.container(key="set_card_security", border=True):
-                _row_header(h_("Security"))
+                _row_header(h_("Account security"))
                 with st.container(key="set_row_password"):
                     _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
                     with _pc1:

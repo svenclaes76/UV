@@ -36,7 +36,7 @@ restarting with `run_app.py`.
 - **Dashboard**: the fair-value legend sits on the Holdings title row. A price
   above the model fair value is now amber instead of red, on every
   fair-value bar; red is kept for a failed quality screen.
-- **Settings, Methodology & help, Legal and About share one layout**: a back
+- **Settings, Methodology, Legal and About share one layout**: a back
   link, the same title size, a section list on the left (a document picker on
   a phone) and a comfortable reading width. Long texts are a little smaller
   and easier to read; card headings are no longer in capitals.
@@ -49,7 +49,7 @@ restarting with `run_app.py`.
 ### Fixed
 
 - The *Print or save as PDF* button on the legal pages was not visible.
-- The last line of some cards on the Methodology & help and Settings pages
+- The last line of some cards on the Methodology and Settings pages
   was cut off.
 
 ## [2026.10.1] — 2026-10-05

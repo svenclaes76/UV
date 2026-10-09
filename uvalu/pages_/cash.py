@@ -91,7 +91,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
     entries = cash.load_ledger()
     s = cash.summary(entries, invested_value)
 
-    if back_link(_("← Back to Positions"), key="back_cash"):
+    if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_cash"):
         on_back()
     with page_header(_("Cash activity"),
                      _("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",

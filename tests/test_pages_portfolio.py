@@ -90,7 +90,7 @@ def test_open_positions_full_page(isolated_data, monkeypatch):
     html = "".join(m.value for m in at.markdown)
     assert "Open positions" in html
     assert "AAA.BR" in html
-    assert any(b.label == "← Back to Positions" for b in at.button)
+    assert any(b.label == "← Back to Portfolio" for b in at.button)
 
 
 def test_closed_positions_full_page_empty(isolated_data, monkeypatch):
@@ -211,7 +211,7 @@ class TestOverviewSectionNavigation:
     def test_back_to_positions_returns_to_overview(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
         at = _run(monkeypatch, section="open")
-        back_btn = [b for b in at.button if b.label == "← Back to Positions"][0]
+        back_btn = [b for b in at.button if b.label == "← Back to Portfolio"][0]
         back_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "Portfolio" in "".join(m.value for m in at.markdown)

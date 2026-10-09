@@ -121,10 +121,10 @@ def test_kpi_card_md_value_is_23px():
 def test_back_link_is_keyed_for_the_shared_style():
     def _script():
         from uvalu.components import back_link
-        back_link("← Back to Positions", key="back_x")
+        back_link("← Back to Portfolio", key="back_x")
 
     at = _run(_script)
-    assert at.button(key="back_x").label == "← Back to Positions"
+    assert at.button(key="back_x").label == "← Back to Portfolio"
 
 
 def test_render_signal_tips_renders_ok_and_warn_badges():

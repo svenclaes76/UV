@@ -1205,7 +1205,7 @@ GLOBAL_CSS = """
   [data-testid="stMarkdownContainer"]:has(> .uv-page-head) { margin-bottom: 0 !important; }
 
   /* ── Supporting-page frame (components.support_page): Settings,
-     Methodology & help, Legal, About. Left-aligned on the same gutter as
+     Methodology, Legal, About. Left-aligned on the same gutter as
      every other page, 1180px cap; back link, 24px title (brand H1), then a
      200px sticky rail beside a 760px content column. ───────────────────── */
   .st-key-uv_support { max-width: 1180px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; }

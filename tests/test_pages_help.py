@@ -73,7 +73,7 @@ def test_uses_the_supporting_page_frame():
     anchor for every rail entry."""
     at = _run()
     html = "".join(m.value for m in at.markdown)
-    assert 'class="uv-support-title"' in html and "Methodology &amp; help" in html
+    assert 'class="uv-support-title"' in html and ">Methodology<" in html
     for anchor in ("help-badges", "help-models", "help-screens", "help-data", "help-conflicts", "help-faq"):
         assert f'href="#{anchor}"' in html      # rail entry
         assert f'id="{anchor}"' in html         # card anchor

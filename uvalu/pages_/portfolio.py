@@ -454,7 +454,7 @@ def render() -> None:
 
     # ── Full page: Open positions ──────────────────────────────────────────────
     if _section == "open":
-        if back_link(_("← Back to Positions"), key="back_open"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_open"):
             _goto("overview")
         with page_header(_("Open positions"),
                          _("Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."),
@@ -514,7 +514,7 @@ def render() -> None:
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":
-        if back_link(_("← Back to Positions"), key="back_closed"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_closed"):
             _goto("overview")
         with page_header(_("Closed positions"),
                          _("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."),
@@ -563,7 +563,7 @@ def render() -> None:
 
     # ── Full page: Dividends ───────────────────────────────────────────────────
     if _section == "dividends":
-        if back_link(_("← Back to Positions"), key="back_div"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_div"):
             _goto("overview")
         # Auto-import from market data — once per session per user, never for
         # the read-only Viewer role (it writes the ledger). The import itself

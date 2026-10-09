@@ -749,7 +749,7 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 # align-items:center handles vertical centering natively. The one thing this
 # can't do is a native onClick, so the caller renders this in a wide column
 # next to a normal narrow st.button("→", ...) column for the drawer link.
-HOLDINGS_GRID_COLS = "210px 140px 1fr 82px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
+HOLDINGS_GRID_COLS = "210px 140px 1fr 106px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
 
 
 def holdings_row_html(*, ticker: str, sector: str | None, name: str,
@@ -1983,7 +1983,7 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
                              help=_("Edit entry") if editable else _("View linked entry"))
 
 
-# ── Supporting-page frame (Settings, Methodology & help, Legal, About) ──────
+# ── Supporting-page frame (Settings, Methodology, Legal, About) ──────
 # One frame for the four pages that aren't data screens (supporting-screens
 # proposal 1d/1e): back link above a 24px title, then a 200px sticky rail
 # beside a content column with a 760px measure. styles.py keys its layout and
