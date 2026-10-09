@@ -2177,7 +2177,7 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
 # beside a content column with a 760px measure. styles.py keys its layout and
 # long-form typography on the uv_support* containers.
 
-def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
+def _rail_item(label: str, href: str, *, active: bool, index: int, plain: bool = False) -> None:
     """One rail entry: an in-page anchor (``#id``) as a plain link, an app page
     (``/legal?doc=terms``) as st.page_link so the session — and with it the
     back-link history — survives the jump."""
@@ -2185,7 +2185,7 @@ def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
     from urllib.parse import parse_qsl, urlsplit
     from uvalu import nav as nav_registry
     cls = "uv-rail-item uv-rail-active" if active else "uv-rail-item"
-    if href.startswith("#"):
+    if href.startswith("#") or plain:
         st.markdown(f'<a class="{cls}" href="{_html_attr(href)}" target="_self">'
                     f'{_html_mod.escape(label)}</a>', unsafe_allow_html=True)
         return
@@ -2233,7 +2233,7 @@ def back_link(label: str, *, key: str) -> bool:
 def support_page(title: str, *, subtitle: str = "", back_key: str,
                  rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
                  toc: "list[tuple[str, str]] | None" = None, links_html: str = "",
-                 rail_note: str = ""):
+                 rail_note: str = "", public: bool = False):
     """Back link, H1, optional subtitle, then a [200px rail | content] row.
     Returns the content container.
 
@@ -2247,7 +2247,9 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
     from uvalu import nav as nav_registry
     root = st.container(key="uv_support")
     with root:
-        back, _key = nav_registry.back_target(back_key)
+        # Before sign-in (``public``) there is no app navigation: no back
+        # link here (the caller adds "Back to sign in") and plain rail links.
+        back, _key = (None, None) if public else nav_registry.back_target(back_key)
         if back is not None and back_link(_("← Back to {page}", page=back.title), key=f"{back_key}_back"):
             st.switch_page(back)
         st.markdown(f'<div class="uv-support-head"><div class="uv-support-title" role="heading" aria-level="1">'
@@ -2260,7 +2262,7 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
             if rail or toc:
                 with st.container(key="uv_support_rail", width=200):
                     for i, (label, href) in enumerate(rail or []):
-                        _rail_item(label, href, active=href == active, index=i)
+                        _rail_item(label, href, active=href == active, index=i, plain=public)
                     if toc:
                         links = "".join(f'<a href="#{_html_attr(a)}" target="_self">{_html_mod.escape(t)}</a>'
                                         for a, t in toc)

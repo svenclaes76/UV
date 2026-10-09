@@ -153,7 +153,9 @@ button:hover{{border-color:{SIGNAL_TEAL};}}
                   height=34, width=len(label) * 7 + 56)
 
 
-def render() -> None:
+def render(*, public: bool = False) -> None:
+    """The legal page; ``public`` renders it before sign-in (linked from the
+    sign-in panel's footer), without app navigation."""
     doc = st.query_params.get("doc", "terms")
     if doc not in _DOC_KEYS:
         doc = "terms"
@@ -176,7 +178,7 @@ def render() -> None:
     content = support_page(
         _("Legal & policies"), back_key="legal",
         rail=[(tr(doc_title), f"/legal?doc={key}") for key, doc_title, _f in d.LEGAL_DOCS],
-        active=f"/legal?doc={doc}", toc=toc if len(toc) > 1 else None,
+        active=f"/legal?doc={doc}", toc=toc if len(toc) > 1 else None, public=public,
         rail_note=_("During the free beta these pages are available in English only.") if d.BETA else "")
     with content:
         _document(doc, path, translated, title, meta, body)

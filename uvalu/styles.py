@@ -1791,6 +1791,9 @@ GLOBAL_CSS = """
     display: flex !important; flex-direction: column !important; justify-content: center !important;
     padding: 48px 56px !important; overflow-y: auto !important; box-sizing: border-box !important;
   }
+  a.uv-public-back { display: inline-block; font-size: 12px; color: var(--muted) !important;
+    text-decoration: none; margin: 16px 0 6px; }
+  a.uv-public-back:hover { color: var(--text) !important; }
   .uv-login-heading { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
   .uv-login-subhead { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 8px; }
   .uv-login-headline {
@@ -1803,7 +1806,7 @@ GLOBAL_CSS = """
   .uv-login-stats { display: flex; gap: 28px; margin-top: 32px; }
   .uv-login-stat-val { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--mint); }
   .uv-login-stat-lbl { font-size: 11px; color: rgba(245,247,250,0.5); margin-top: 3px; }
-  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.35); position: relative; z-index: 2; }
+  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.6); position: relative; z-index: 2; }
   .uv-login-ring {
     position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
   }

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 18:29+0000\n"
+"POT-Creation-Date: 2026-10-09 18:41+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: fr <LL@li.org>\n"
@@ -1335,15 +1335,15 @@ msgstr "Robustesse du mot de passe : {strength}"
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:235 uvalu/shell.py:364
+#: uvalu/authgate.py:242 uvalu/shell.py:364
 msgid "value engine"
 msgstr "moteur de valeur"
 
-#: uvalu/authgate.py:238
-msgid "Calculate fair value with five models."
-msgstr "Calcule la juste valeur avec cinq modèles."
+#: uvalu/authgate.py:245
+msgid "Find value before the market does."
+msgstr "Trouve la valeur avant le marché."
 
-#: uvalu/authgate.py:239
+#: uvalu/authgate.py:246
 msgid ""
 "Five valuation models across 6 European exchanges: margin of safety, composite scores "
 "and quality screens in one workspace. Model outputs are the same for every user."
@@ -1354,49 +1354,49 @@ msgstr ""
 
 #. Context: Sign-in screen › stat label under the big number '6' (six valuation
 #. models). Lowercase.
-#: uvalu/authgate.py:241
+#: uvalu/authgate.py:248
 msgid "valuation models"
 msgstr "modèles de valorisation"
 
 #. Context: Sign-in screen › stat label under the big number '6' (six European
 #. stock exchanges)
-#: uvalu/authgate.py:242
+#: uvalu/authgate.py:249
 msgid "EU exchanges"
 msgstr "bourses européennes"
 
-#: uvalu/authgate.py:243
+#: uvalu/authgate.py:250
 msgid "model update cycle"
 msgstr "cycle de mise à jour du modèle"
 
 #. Context: Sign-in screen › single sign-on button. {provider} is 'Google' or
 #. 'Microsoft Entra ID'.
-#: uvalu/authgate.py:275 uvalu/authgate.py:281
+#: uvalu/authgate.py:282 uvalu/authgate.py:288
 #, python-brace-format
 msgid "Continue with {provider}"
 msgstr "Continuer avec {provider}"
 
 #. Context: Sign-in screen › small uppercase badge on a sign-on button whose
 #. provider is not set up by the admin
-#: uvalu/authgate.py:283
+#: uvalu/authgate.py:290
 msgid "NOT CONFIGURED"
 msgstr "NON CONFIGURÉ"
 
 #. Context: Sign-in screen › heading after a single sign-on for a suspended
 #. account
-#: uvalu/authgate.py:290
+#: uvalu/authgate.py:297
 msgid "This account has been suspended"
 msgstr "Ce compte a été suspendu"
 
 #. Context: Sign-in screen › text under 'This account has been suspended'.
 #. {provider} = Google / Microsoft Entra ID.
-#: uvalu/authgate.py:291
+#: uvalu/authgate.py:298
 #, python-brace-format
 msgid "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
 msgstr "La connexion via {provider} a réussi, mais le compte Uvalu associé est suspendu."
 
 #. Context: Sign-in screen › heading when a single sign-on email has no Uvalu
 #. account
-#: uvalu/authgate.py:294
+#: uvalu/authgate.py:301
 #, python-brace-format
 msgid "No Uvalu account for this {provider} identity"
 msgstr "Aucun compte Uvalu pour cette identité {provider}"
@@ -1404,7 +1404,7 @@ msgstr "Aucun compte Uvalu pour cette identité {provider}"
 #. Context: Sign-in screen › text under 'No Uvalu account…'. {email} is shown
 #. in bold. (Code currently builds this from two pieces; merge them into one
 #. string.)
-#: uvalu/authgate.py:295
+#: uvalu/authgate.py:302
 #, python-brace-format
 msgid ""
 "Uvalu is invite-only. {email} is not a member of this workspace, so no account was "
@@ -1414,7 +1414,7 @@ msgstr ""
 "aucun compte n'a donc été créé."
 
 #. Context: Sign-in screen › follow-up hint under the 'no account' message
-#: uvalu/authgate.py:303
+#: uvalu/authgate.py:310
 msgid ""
 "If you were invited on a different address, sign in with that one — or ask an admin to "
 "invite this address."
@@ -1423,18 +1423,18 @@ msgstr ""
 "administrateur d'inviter cette adresse."
 
 #. Context: Sign-in screens › button that returns to the normal sign-in form
-#: uvalu/authgate.py:306 uvalu/authgate.py:443
+#: uvalu/authgate.py:313 uvalu/authgate.py:452
 msgid "Back to sign in"
 msgstr "Retour à la connexion"
 
 #. Context: Invite acceptance screen › heading when the invite link is wrong or
 #. expired
-#: uvalu/authgate.py:323
+#: uvalu/authgate.py:330
 msgid "Invite link invalid"
 msgstr "Lien d'invitation non valide"
 
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
-#: uvalu/authgate.py:324
+#: uvalu/authgate.py:331
 msgid "This invite link is invalid or has expired. Ask your admin to send a new one."
 msgstr ""
 "Ce lien d'invitation n'est pas valide ou a expiré. Demande-en un nouveau à ton "
@@ -1442,14 +1442,14 @@ msgstr ""
 
 #. Context: Fills {inviter} in 'Invited by {inviter} as …' when the inviter is
 #. unknown
-#: uvalu/authgate.py:329
+#: uvalu/authgate.py:336
 msgid "an admin"
 msgstr "un administrateur"
 
 #. Context: Invite acceptance screen › text under 'Create your account'.
 #. {inviter} = inviter's email or 'an admin'; {role} = Viewer / Analyst / Admin
 #. (bold). (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:330
+#: uvalu/authgate.py:337
 #, python-brace-format
 msgid ""
 "Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can "
@@ -1459,85 +1459,82 @@ msgstr ""
 "fournisseur connecté ; tu pourras ajouter une autre méthode plus tard."
 
 #. Context: Invite acceptance screen › heading
-#: uvalu/authgate.py:333
+#: uvalu/authgate.py:340
 msgid "Create your account"
 msgstr "Crée ton compte"
 
 #. Context: Sign-in, sign-up and invite screens › label of the email field
-#: uvalu/authgate.py:340 uvalu/authgate.py:405 uvalu/authgate.py:658
+#: uvalu/authgate.py:347 uvalu/authgate.py:414 uvalu/authgate.py:687
 msgid "Email"
 msgstr "E-mail"
 
 #. Context: Invite acceptance screen › small uppercase badge next to the email:
 #. the email can't be changed
-#: uvalu/authgate.py:346
+#: uvalu/authgate.py:353
 msgid "FIXED BY INVITE"
 msgstr "DÉFINI PAR L'INVITATION"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:351 uvalu/authgate.py:406 uvalu/authgate.py:668
-#: uvalu/authgate.py:673 uvalu/authgate.py:715 uvalu/pages_/settings.py:451
+#: uvalu/authgate.py:358 uvalu/authgate.py:415 uvalu/authgate.py:697
+#: uvalu/authgate.py:702 uvalu/authgate.py:744 uvalu/pages_/settings.py:451
 #: uvalu/pages_/settings.py:455
 msgid "Password"
 msgstr "Mot de passe"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:353 uvalu/authgate.py:408 uvalu/authgate.py:475
+#: uvalu/authgate.py:360 uvalu/authgate.py:417 uvalu/authgate.py:484
 #: uvalu/pages_/settings.py:262 uvalu/pages_/settings.py:294
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Au moins {min_len} caractères."
 
 #. Context: Invite acceptance screen › submit button
-#: uvalu/authgate.py:354
+#: uvalu/authgate.py:361
 msgid "Create account"
 msgstr "Créer le compte"
 
 #. Context: Sign-in screen › divider between the password form and the
 #. 'Continue with Google/Microsoft' buttons
-#: uvalu/authgate.py:368 uvalu/authgate.py:634 uvalu/authgate.py:723
+#: uvalu/authgate.py:376 uvalu/authgate.py:663 uvalu/authgate.py:753
 msgid "or"
 msgstr "ou"
 
 #. Context: First-run screen (no users yet) › heading
-#: uvalu/authgate.py:399
+#: uvalu/authgate.py:408
 msgid "Create the first admin account"
 msgstr "Crée le premier compte administrateur"
 
 #. Context: Sign-in and first-admin screens › example text inside the empty
 #. email field
-#: uvalu/authgate.py:405 uvalu/authgate.py:658
+#: uvalu/authgate.py:414 uvalu/authgate.py:687
 msgid "you@company.com"
 msgstr "toi@entreprise.com"
 
 #. Context: First-run screen › submit button
-#: uvalu/authgate.py:409
+#: uvalu/authgate.py:418
 msgid "Create admin account"
 msgstr "Créer le compte administrateur"
 
 #. Context: Sign-in screen › heading of the info box opened by 'Forgot?'
-#: uvalu/authgate.py:439
+#: uvalu/authgate.py:448
 msgid "Forgot your password?"
 msgstr "Mot de passe oublié ?"
 
-#. Context: Sign-in screen › text in the 'Forgot your password?' box
-#: uvalu/authgate.py:440
+#: uvalu/authgate.py:449
 msgid ""
-"Uvalu has no automated password reset — ask an admin to send you a one-time reset link "
-"from the Admin portal."
-msgstr ""
-"Uvalu ne propose pas de réinitialisation automatique : demande à un administrateur de "
-"t'envoyer un lien de réinitialisation à usage unique depuis le portail d'administration."
+"During the beta Uvalu doesn’t send emails. Ask your admin to reset your "
+"password. They give you a single-use link, valid for 24 hours."
+msgstr "Pendant la bêta, Uvalu n'envoie pas d'e-mails. Demande à ton administrateur de réinitialiser ton mot de passe. Il te donne un lien à usage unique, valable 24 heures."
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired
-#: uvalu/authgate.py:458
+#: uvalu/authgate.py:467
 msgid "Reset link invalid"
 msgstr "Lien de réinitialisation non valide"
 
 #. Context: Password reset screen › text under 'Reset link invalid'
-#: uvalu/authgate.py:459
+#: uvalu/authgate.py:468
 msgid "This reset link is invalid or has expired. Ask your admin to send a new one."
 msgstr ""
 "Ce lien de réinitialisation n'est pas valide ou a expiré. Demande-en un nouveau à ton "
@@ -1545,54 +1542,58 @@ msgstr ""
 
 #. Context: Password reset screen › text under the heading; {email} shown in
 #. bold. (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:464
+#: uvalu/authgate.py:473
 #, python-brace-format
 msgid "Resetting the password for {email}"
 msgstr "Réinitialisation du mot de passe de {email}"
 
 #. Context: Password reset screen › heading
-#: uvalu/authgate.py:467
+#: uvalu/authgate.py:476
 msgid "Choose a new password"
 msgstr "Choisis un nouveau mot de passe"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:473 uvalu/pages_/settings.py:261 uvalu/pages_/settings.py:293
+#: uvalu/authgate.py:482 uvalu/pages_/settings.py:261 uvalu/pages_/settings.py:293
 msgid "New password"
 msgstr "Nouveau mot de passe"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:476 uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:296
+#: uvalu/authgate.py:485 uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:296
 msgid "Confirm new password"
 msgstr "Confirme le nouveau mot de passe"
 
 #. Context: Password reset screen › submit button
-#: uvalu/authgate.py:478
+#: uvalu/authgate.py:487
 msgid "Reset password"
 msgstr "Réinitialiser le mot de passe"
 
 #. Context: Sign-in screen › notice after this session was ended from another
 #. device
-#: uvalu/authgate.py:535
+#: uvalu/authgate.py:553
 msgid "You were signed out of this session."
 msgstr "Tu as été déconnecté de cette session."
 
 #. Context: Sign-in screen › notice when the signed-in account was deleted
-#: uvalu/authgate.py:541
+#: uvalu/authgate.py:559
 msgid "Your account no longer exists. Please contact your admin."
 msgstr "Ton compte n'existe plus. Contacte ton administrateur."
 
 #. Context: Sign-in screen › notice when the signed-in account was suspended
-#: uvalu/authgate.py:545
+#: uvalu/authgate.py:563
 msgid "This account has been suspended."
 msgstr "Ce compte a été suspendu."
 
+#: uvalu/authgate.py:614
+msgid "← Back to sign in"
+msgstr "← Retour à la connexion"
+
 #. Context: Sign-in screen › heading after too many failed password attempts
-#: uvalu/authgate.py:618
+#: uvalu/authgate.py:646
 msgid "Sign in temporarily locked"
 msgstr "Connexion temporairement bloquée"
 
 #. Context: Sign-in screen › text under the lockout heading
-#: uvalu/authgate.py:619
+#: uvalu/authgate.py:647
 msgid ""
 "Too many failed attempts on this account. Uvalu will accept a new attempt when the timer "
 "expires."
@@ -1603,63 +1604,58 @@ msgstr ""
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:625
+#: uvalu/authgate.py:653
 #, python-brace-format
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
 #. Context: Sign-in lockout card › caption under the countdown ('12 min / until
 #. the next attempt')
-#: uvalu/authgate.py:626
+#: uvalu/authgate.py:654
 msgid "until the next attempt"
 msgstr "avant la prochaine tentative"
 
 #. Context: Sign-in screen › heading of the form, and the (disabled) sign-in
 #. button when the account is locked
-#: uvalu/authgate.py:628 uvalu/authgate.py:651 uvalu/authgate.py:675
+#: uvalu/authgate.py:656 uvalu/authgate.py:680 uvalu/authgate.py:704
 msgid "Sign in"
 msgstr "Se connecter"
 
-#. Context: Sign-in lockout screen › note under the Google/Microsoft buttons
-#: uvalu/authgate.py:641
-msgid "The lock applies to password sign-in only. Providers are unaffected."
-msgstr ""
-"Le blocage ne concerne que la connexion par mot de passe. Les fournisseurs d'identité ne "
-"sont pas concernés."
+#: uvalu/authgate.py:670
+msgid "The lock applies to password sign-in only."
+msgstr "Le blocage ne concerne que la connexion par mot de passe."
 
 #. Context: Sign-in lockout screen › button to try another email address
-#: uvalu/authgate.py:644
+#: uvalu/authgate.py:673
 msgid "Not you? Use a different account"
 msgstr "Ce n'est pas toi ? Utilise un autre compte"
 
 #. Context: Sign-in screen › subheading under 'Sign in'
-#: uvalu/authgate.py:652
+#: uvalu/authgate.py:681
 msgid "Welcome back. Enter your credentials to continue."
 msgstr "Bon retour. Saisis tes identifiants pour continuer."
 
 #. Context: Sign-in screen › small link next to the password label, opens the
 #. 'Forgot your password?' note
-#: uvalu/authgate.py:670
+#: uvalu/authgate.py:699
 msgid "Forgot?"
 msgstr "Oublié ?"
 
 #. Context: Sign-in screen › error when the form is submitted with an empty
 #. field
-#: uvalu/authgate.py:678
+#: uvalu/authgate.py:707
 msgid "Enter your email and password to continue."
 msgstr "Saisis ton e-mail et ton mot de passe pour continuer."
 
 #. Context: Sign-in screen › footer line, followed by 'Ask your admin for an
 #. invite'
-#: uvalu/authgate.py:733
+#: uvalu/authgate.py:763
 msgid "New to Uvalu?"
 msgstr "Nouveau sur Uvalu ?"
 
-#. Context: Sign-in screen › footer, after 'New to Uvalu?'. Uvalu is
-#. invite-only.
-#: uvalu/authgate.py:733
-msgid "Ask your admin for an invite"
-msgstr "Demande une invitation à ton administrateur"
+#: uvalu/authgate.py:763
+msgid "Ask for an invite"
+msgstr "Demande une invitation"
 
 #: uvalu/components.py:71
 msgid "No data"
@@ -2261,14 +2257,14 @@ msgstr "Modifier l'écriture"
 msgid "View linked entry"
 msgstr "Voir l'écriture liée"
 
-#: uvalu/components.py:2251 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
+#: uvalu/components.py:2253 uvalu/pages_/analysis.py:223 uvalu/pages_/cash.py:94
 #: uvalu/pages_/portfolio.py:455 uvalu/pages_/portfolio.py:513
 #: uvalu/pages_/portfolio.py:561
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Retour à {page}"
 
-#: uvalu/components.py:2268
+#: uvalu/components.py:2270
 msgid "On this page"
 msgstr "Sur cette page"
 
@@ -3511,7 +3507,7 @@ msgstr "Doit être d'au plus {max}."
 
 #. Context: Fallback name for the sign-on provider in messages, e.g. 'Sign-in
 #. via your identity provider succeeded…'
-#: uvalu/oauth.py:65
+#: uvalu/oauth.py:73
 msgid "your identity provider"
 msgstr "ton fournisseur d'identité"
 
@@ -3942,7 +3938,7 @@ msgstr "Les notes de version sont rédigées en anglais."
 msgid "No release notes yet."
 msgstr "Pas encore de notes de version."
 
-#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:195
+#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:179 uvalu/pages_/legal.py:197
 msgid "Legal & policies"
 msgstr "Informations juridiques et politiques"
 
@@ -5256,15 +5252,15 @@ msgstr ""
 msgid "Print or save as PDF"
 msgstr "Imprimer ou enregistrer en PDF"
 
-#: uvalu/pages_/legal.py:180
+#: uvalu/pages_/legal.py:182
 msgid "During the free beta these pages are available in English only."
 msgstr "Pendant la bêta gratuite, ces pages ne sont disponibles qu'en anglais."
 
-#: uvalu/pages_/legal.py:199
+#: uvalu/pages_/legal.py:201
 msgid "This document is not available yet."
 msgstr "Ce document n'est pas encore disponible."
 
-#: uvalu/pages_/legal.py:204
+#: uvalu/pages_/legal.py:206
 msgid "Uvalu · Legal"
 msgstr "Uvalu · Juridique"
 
@@ -7481,3 +7477,25 @@ msgstr[1] ""
 #~ msgstr ""
 #~ "Réservé aux administrateurs : connecte-toi "
 #~ "en tant qu'administrateur pour les modifier."
+
+#~ msgid "Calculate fair value with five models."
+#~ msgstr "Calcule la juste valeur avec cinq modèles."
+
+#~ msgid ""
+#~ "Uvalu has no automated password reset —"
+#~ " ask an admin to send you a "
+#~ "one-time reset link from the Admin "
+#~ "portal."
+#~ msgstr ""
+#~ "Uvalu ne propose pas de réinitialisation "
+#~ "automatique : demande à un administrateur "
+#~ "de t'envoyer un lien de réinitialisation "
+#~ "à usage unique depuis le portail "
+#~ "d'administration."
+
+#~ msgid ""
+#~ "During the beta Uvalu doesn’t send "
+#~ "emails. Ask your admin to reset your "
+#~ "password. They give you a single-use "
+#~ "link, valid for 30 minutes."
+#~ msgstr ""
