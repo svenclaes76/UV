@@ -315,7 +315,9 @@ def test_score_color_bands():
     # Green only for "Low" (<=25), amber for "Moderate"/"Elevated" (<=70),
     # red for "High"/"Critical" — cut-offs come from risk.RISK_BANDS.
     assert score_color(20) == ("#1DD6A4", "#0F6E56")
-    assert score_color(55) == ("#C98A3A", "#C98A3A")
+    # Amber text is the caution text token (#854F0B light), not the fill.
+    assert score_color(55) == ("#C98A3A", "#854F0B")
+    assert score_color(55, dark=True) == ("#C98A3A", "#E0B94D")
     assert score_color(85) == ("#A32D2D", "#A32D2D")
     # dark=True swaps only the text hex (mirrors runtime.theme_colors()).
     assert score_color(20, dark=True) == ("#1DD6A4", "#1DD6A4")

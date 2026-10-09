@@ -119,7 +119,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
             kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend")
         with _t[3]:
             kpi_card(h_("Income"), _signed0(s["income"], base), sub=h_("net dividends + interest"), icon="coin",
-                     value_color="var(--mint)")
+                     value_color="var(--up-txt)")
         with _t[4]:
             kpi_card(h_("Fees & corrections"), _signed0(s["fees_corrections"], base),
                      sub=ngettext("excl. opening balance · {count} correction",

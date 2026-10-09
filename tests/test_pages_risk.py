@@ -237,10 +237,10 @@ def test_view_button_opens_drawer(isolated_data, monkeypatch):
 
 class TestLoadingTier:
     def test_low_at_boundary(self):
-        assert risk_page._loading_tier(0.75) == ("Low", "var(--uv-mint)")
+        assert risk_page._loading_tier(0.75) == ("Low", "var(--up-txt)")
 
     def test_moderate(self):
-        assert risk_page._loading_tier(1.0) == ("Moderate", "#C98A3A")
+        assert risk_page._loading_tier(1.0) == ("Moderate", "var(--amber-txt)")
 
     def test_elevated(self):
         assert risk_page._loading_tier(2.0) == ("Elevated", "var(--down-txt)")

@@ -96,9 +96,9 @@ def _loading_tier(abs_val: float) -> tuple[str, str]:
     "concentrated factor bet"; Low/Moderate splits the remaining range at
     half that, since the real data only ever documented the one cutoff."""
     if abs_val <= 0.75:
-        return _("Low"), "var(--uv-mint)"
+        return _("Low"), "var(--up-txt)"
     if abs_val <= 1.5:
-        return _("Moderate"), "#C98A3A"
+        return _("Moderate"), "var(--amber-txt)"
     return _("Elevated"), "var(--down-txt)"
 
 
@@ -371,7 +371,7 @@ def render() -> None:
             # level — red is kept for avoid/veto signals, brand guide §4) —
             # the value text itself stays plain, matching the mockup's
             # `c.value` (no conditional color in the template).
-            _bar_color = "var(--amber-txt)" if _val > _limit else "var(--teal)"
+            _bar_color = "var(--amber-fill)" if _val > _limit else "var(--teal)"
             st.markdown(
                 f'<div style="margin-bottom:16px;">'
                 f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px;">'
@@ -452,7 +452,7 @@ def render() -> None:
             elif p.rating == "Critical":
                 _flag, _flag_color = N_("Critical"), "var(--down-txt)"
             elif p.rating == "High":
-                _flag, _flag_color = N_("High risk"), "#C98A3A"
+                _flag, _flag_color = N_("High risk"), "var(--amber-txt)"
             else:
                 _flag, _flag_color = "", "var(--faint)"
             with st.container(key=f"risk_hold_{_idx}_{p.ticker}"):

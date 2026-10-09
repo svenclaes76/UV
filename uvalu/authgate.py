@@ -666,7 +666,7 @@ def auth_wall() -> None:
                     'margin-top:4px;">'
                     '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
                     f'color:var(--faint);">{h_("Password")}</span>'
-                    '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--teal);'
+                    '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--link);'
                     f'text-decoration:none;">{h_("Forgot?")}</a></div>',
                     unsafe_allow_html=True,
                 )
@@ -730,7 +730,7 @@ def auth_wall() -> None:
             # a dead link.
             st.markdown(
                 '<div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">'
-                f'{h_("New to Uvalu?")} <span style="color:var(--teal);">{h_("Ask your admin for an invite")}</span></div>',
+                f'{h_("New to Uvalu?")} <span style="color:var(--link);">{h_("Ask your admin for an invite")}</span></div>',
                 unsafe_allow_html=True,
             )
 

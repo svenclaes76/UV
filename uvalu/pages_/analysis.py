@@ -174,7 +174,7 @@ def _render_sources_and_producer(row, ticker: str) -> None:
         ]
         st.markdown('<div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--muted);'
                     'line-height:1.55;">' + "".join(f"<div>{html.escape(x)}</div>" for x in _lines)
-                    + f'<a href="/legal?doc=conflicts" target="_self" style="color:var(--teal);text-decoration:none;">'
+                    + f'<a href="/legal?doc=conflicts" target="_self" style="color:var(--link);text-decoration:none;">'
                     f'{html.escape(_("Conflicts of interest policy →"))}</a></div>', unsafe_allow_html=True)
 
 
@@ -593,7 +593,7 @@ def render() -> None:
                 _src_auto = bool(_has_div_history and (_div_hist_all.loc[_div_hist_all["ticker"] == ticker]
                                  .sort_values("date").iloc[-1].get("source") == "auto"))
                 _src_label = h_("Auto-fetched") if _src_auto else (h_("Manual entry") if _has_div_history else h_("Market data"))
-                _src_style = ("background:var(--uv-soft,rgba(29,214,164,.08));color:var(--uv-mint,#1DD6A4);"
+                _src_style = ("background:var(--soft);color:var(--up-txt);"
                              if _src_auto or not _has_div_history else "border:0.5px solid var(--line);color:var(--muted);")
                 st.markdown(f'<div style="text-align:right;"><span style="font-size:9.5px;font-family:var(--uv-mono);'
                            f'padding:2px 6px;border-radius:5px;{_src_style}">{_src_label}</span></div>',
@@ -623,7 +623,7 @@ def render() -> None:
                     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
                     + _stat(h_("Yield · TTM"), fmt_pct(_ttm_yield, 2) if _ttm_yield is not None else "—")
                     + _stat(h_("Yield · forward"), fmt_pct(_dy_fwd, 2, fraction=True) if pd.notna(_dy_fwd) and _dy_fwd else "—")
-                    + _stat(h_("Yield-on-cost · net"), fmt_pct(_yoc, 2) if _yoc is not None else "—", "var(--uv-mint,#1DD6A4)")
+                    + _stat(h_("Yield-on-cost · net"), fmt_pct(_yoc, 2) if _yoc is not None else "—", "var(--up-txt)")
                     + _stat(h_("Increase streak"), ngettext("{count} yr", "{count} yrs",
                                                            int(row.get('dividend_growth_streak') or 0)))
                     + '</div>', unsafe_allow_html=True)
@@ -648,7 +648,7 @@ def render() -> None:
                 _rg1, _rg2 = st.columns(2)
                 for _i, (_glabel, _gval) in enumerate(_grid_rows):
                     with (_rg1 if _i % 2 == 0 else _rg2):
-                        _gcolor = "var(--uv-mint,#1DD6A4)" if _glabel == _ddm_label else "inherit"
+                        _gcolor = "var(--up-txt)" if _glabel == _ddm_label else "inherit"
                         st.markdown(
                             f'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;'
                             f'border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">'
@@ -681,7 +681,7 @@ def render() -> None:
                     for _bidx, _brow in _bars.iterrows():
                         _ps = float(pd.to_numeric(_brow.get("amount_per_share"), errors="coerce") or 0)
                         _h = max(6, round(_ps / _mx * 74))
-                        _color = "#C98A3A" if _brow.get("div_type") == "Special" else "var(--uv-teal,#1A8C6E)"
+                        _color = "#C98A3A" if _brow.get("div_type") == "Special" else "var(--teal)"
                         _lbl = fmt_date(_brow["_d"], skeleton="yyMMM") if pd.notna(_brow["_d"]) else "—"
                         _bar_html += (f'<div style="width:44px;flex:none;display:flex;flex-direction:column;'
                                      f'align-items:center;justify-content:flex-end;gap:5px;">'

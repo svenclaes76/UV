@@ -1551,7 +1551,7 @@ def render() -> None:
                         '<div style="display:flex;align-items:center;gap:9px;padding-left:8px;">'
                         '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;'
                         'line-height:1;color:var(--text);">'
-                        'uval<span style="color:var(--teal)">u</span></span>'
+                        'uval<span style="color:var(--link)">u</span></span>'
                         '<span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;'
                         'line-height:1;color:var(--faint);">admin</span></div>',
                         unsafe_allow_html=True,

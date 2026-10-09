@@ -4,9 +4,34 @@
     {
       "name": "uvalu",
       "runtimeExecutable": ".venv/Scripts/streamlit.exe",
-      "runtimeArgs": ["run", "app.py", "--server.port", "8502",
-                      "--server.sslCertFile", "", "--server.sslKeyFile", ""],
+      "runtimeArgs": [
+        "run",
+        "app.py",
+        "--server.port",
+        "8502",
+        "--server.sslCertFile",
+        "",
+        "--server.sslKeyFile",
+        ""
+      ],
       "port": 8502
+    },
+    {
+      "name": "uvalu-dev",
+      "runtimeExecutable": ".venv/Scripts/streamlit.exe",
+      "runtimeArgs": [
+        "run",
+        ".claude/skills/run-uvalu/_dev_entry.py",
+        "--server.port",
+        "8520",
+        "--server.headless",
+        "true",
+        "--server.sslCertFile",
+        "",
+        "--server.sslKeyFile",
+        ""
+      ],
+      "port": 8520
     }
   ]
 }

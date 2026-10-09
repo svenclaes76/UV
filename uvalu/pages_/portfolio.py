@@ -756,7 +756,7 @@ def render() -> None:
                                 f'<div style="{_num}font-size:12.5px;">{fmt_money(_yrow["gross"], "EUR")}</div>'
                                 f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["fwh"])}</div>'
                                 f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["be"])}</div>'
-                                f'<div style="{_num}font-size:13px;font-weight:500;color:var(--uv-mint,#1DD6A4);">'
+                                f'<div style="{_num}font-size:13px;font-weight:500;color:var(--up-txt);">'
                                 f'{fmt_money(_yrow["net"], "EUR")}</div></div>'
                             )
                         st.markdown(_rows_html, unsafe_allow_html=True)

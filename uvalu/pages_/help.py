@@ -153,7 +153,7 @@ def render() -> None:
 
 def _render_cards() -> None:
     # Links to the full legal pages (REC-5, REC-3, REC-8).
-    _link = ('<a href="/legal?doc={doc}" target="_self" style="color:var(--teal);text-decoration:none;'
+    _link = ('<a href="/legal?doc={doc}" target="_self" style="color:var(--link);text-decoration:none;'
              'margin-right:16px;font-size:12px;">{label}</a>')
     st.markdown(_link.format(doc="methodology", label=h_("Full methodology →"))
                 + _link.format(doc="data", label=h_("Data sources →"))

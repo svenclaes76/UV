@@ -70,7 +70,7 @@ _DRAWER_CSS = """
   border-radius: 8px !important; border: 0.5px solid var(--line, rgba(13,31,60,0.1)) !important;
 }
 .st-key-drw_sell button { color: var(--down-txt, #A32D2D) !important; border-color: var(--down-txt, #A32D2D) !important; }
-.st-key-drw_buy button  { color: var(--mint, #1DD6A4) !important; border-color: var(--mint, #1DD6A4) !important; }
+.st-key-drw_buy button  { color: var(--up-txt) !important; border-color: var(--mint, #1DD6A4) !important; }
 """
 
 
@@ -283,7 +283,7 @@ def open_drawer(row: "pd.Series") -> None:
     _veto = is_hard_veto(row.get("veto"))
     _score = row.get("Value Score")
     _score_str = _("excluded") if _veto else _fv(row, "Value Score", lambda v: _("{score} / 100", score=fmt_num(v, 0)))
-    _score_color = "var(--down-txt)" if _veto else ("var(--mint)" if pd.notna(_score) else "inherit")
+    _score_color = "var(--down-txt)" if _veto else ("var(--up-txt)" if pd.notna(_score) else "inherit")
     _pe = row.get("trailingPE")
     _pe_str = f"{fmt_num(_pe, 1)}× · {fmt_num(15.0, 1)}×" if pd.notna(_pe) else "—"
     _dy_str = _fv(row, "dividendYield", lambda v: fmt_pct(v, fraction=True))

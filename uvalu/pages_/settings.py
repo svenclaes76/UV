@@ -172,7 +172,7 @@ def _toggle_row(row_key, widget_key, title, desc, value, disabled=False):
 def _slider_label(label: str, value_str: str) -> None:
     st.markdown(f'<div style="display:flex;align-items:baseline;justify-content:space-between;'
                f'margin-bottom:9px;line-height:1.3;"><span style="font-size:13px;font-weight:500;">{label}</span>'
-               f'<span style="font-family:var(--uv-mono);font-size:13px;color:var(--mint);">{value_str}</span>'
+               f'<span style="font-family:var(--uv-mono);font-size:13px;color:var(--up-txt);">{value_str}</span>'
                f'</div>', unsafe_allow_html=True)
 
 

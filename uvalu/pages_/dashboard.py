@@ -606,7 +606,7 @@ def render() -> None:
         with _dh_total_col:
             if _db_fwd_income is not None:
                 st.markdown(f'<div style="text-align:right;font-family:var(--uv-mono);font-size:13px;'
-                           f'color:var(--mint);">{h_("{amount} / yr", amount=fmt_total(_db_fwd_income))}</div>',
+                           f'color:var(--up-txt);">{h_("{amount} / yr", amount=fmt_total(_db_fwd_income))}</div>',
                            unsafe_allow_html=True)
         if _db_fetch_running:
             st.markdown(skeleton_text_html((85, 92, 70, 88)), unsafe_allow_html=True)
@@ -677,7 +677,7 @@ def render() -> None:
     <div style="font-size:11px;color:var(--faint);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
   </div>
   <div style="text-align:right;">
-    <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--mint);">{fmt_money(_net, "EUR", 0)}</div>
+    <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(_net, "EUR", 0)}</div>
     <div style="font-family:var(--uv-mono);font-size:10px;color:var(--faint);">{h_("{amount} gross", amount=fmt_money(_gross, "EUR", 0))}</div>
   </div>
 </div>""", unsafe_allow_html=True)

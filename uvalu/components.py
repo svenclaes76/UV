@@ -137,7 +137,7 @@ def methodology_link_html(quiet: bool = False) -> str:
     if quiet:
         return (f'<a class="uv-quiet-link" href="{METHODOLOGY_HREF}" target="_self">'
                 f'{_html_mod.escape(_("Methodology →"))}</a>')
-    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
+    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--link);'
             f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
             f'{_html_mod.escape(_("Methodology →"))}</a>')
 
@@ -641,7 +641,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
         # column at 2dp), so it can show full 2-decimal precision safely.
         composite_html = (f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">'
                           f'<span style="flex:1;font-size:12.5px;font-weight:600;">{tr(composite_label)}</span>'
-                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--mint);">{fmt_money(composite, ccy)}</span></div>')
+                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
 
     # FV-6: "basis" line — how many sub-models actually back the composite, and a
     # muted flag when that's a weakly-corroborated one (fv_basis_thin).
@@ -670,7 +670,7 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
         if data_thin:
             _tip = _html_attr(_("Fair value pending: this holding's fundamentals record came back incomplete and is being refetched"))
             return (f'<span title="{_tip}" style="font:500 10px var(--uv-mono);'
-                    'color:var(--uv-muted,var(--muted));border:0.5px solid var(--line);'
+                    'color:var(--muted);border:0.5px solid var(--line);'
                     f'border-radius:5px;padding:1px 7px;white-space:nowrap;">{h_("fv pending")}</span>')
         return '<span style="color:var(--uv-faint,var(--faint));">—</span>'
     price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
@@ -681,7 +681,7 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
     fair_pct = min(100.0, fair_value / scale * 100)
     # Single-line — see the matching note in holdings_row_html().
     return (f'<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">'
-           f'<span>{fmt_money(price, ccy)}</span><span style="color:var(--uv-muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
+           f'<span>{fmt_money(price, ccy)}</span><span style="color:var(--muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
            f'<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">'
            f'<div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>'
            f'<div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);'
@@ -800,7 +800,7 @@ def _score_bar_cell_html(score: float | None) -> str:
     # next to a real 75 in mint.
     score = float(round(float(score)))
     bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
-    text_color = "var(--uv-mint)" if score >= 75 else "var(--text, inherit)"
+    text_color = "var(--up-txt)" if score >= 75 else "var(--text, inherit)"
     pct = max(0.0, min(100.0, score))
     return f"""
 <div style="display:flex;align-items:center;gap:7px;">
@@ -858,7 +858,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     _css_key = key.replace(".", "-")
     with st.container(key=key):
         if show_action:
-            _action_color = "var(--uv-mint)" if action_active else "var(--uv-muted, #5F5E5A)"
+            _action_color = "var(--up-txt)" if action_active else "var(--muted)"
             # A per-row <style>-only markdown block is otherwise an unmarked
             # "invisible utility element" — it still counts as a sibling in
             # this row's own vertical block and eats a full ~16px flex gap
@@ -913,7 +913,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             if mos_pct is not None and pd.notna(mos_pct):
                 # 3-tier upCol scale from Uvalu.dc.html: mint >=15% upside, plain
                 # text 0-14% (priced near/at fair value), red only when negative.
-                _mos_color = ("var(--uv-mint)" if mos_pct >= 15
+                _mos_color = ("var(--up-txt)" if mos_pct >= 15
                              else "var(--text, inherit)" if mos_pct >= 0 else "var(--down-txt)")
                 # Matches Uvalu.dc.html's r.mos exactly: 13px, weight 500
                 # (not the plain 400-weight the other numeric cells use —
@@ -1251,7 +1251,7 @@ def signals_feed(items: list[tuple[str, str, str]]) -> None:
     rows_html = "".join(f"""
 <div style="display:flex;gap:9px;align-items:flex-start;margin-top:11px">
   <span style="margin-top:5px;width:7px;height:7px;border-radius:50%;background:{color};flex:none"></span>
-  <div style="font:400 12px/1.45 -apple-system,sans-serif;color:var(--uv-muted)">
+  <div style="font:400 12px/1.45 -apple-system,sans-serif;color:var(--muted)">
     <b style="color:var(--uv-navy)">{entity}</b> {message}
   </div>
 </div>""" for color, entity, message in items)
@@ -1272,8 +1272,8 @@ def signals_feed(items: list[tuple[str, str, str]]) -> None:
 # risk.SCORE_ELEVATED (70).
 _RISK_TONE_COLORS = {
     "low":      ("#1DD6A4", "#0F6E56", "#1DD6A4"),
-    "moderate": ("#C98A3A", "#C98A3A", "#C98A3A"),
-    "elevated": ("#C98A3A", "#C98A3A", "#C98A3A"),
+    "moderate": ("#C98A3A", "#854F0B", "#E0B94D"),
+    "elevated": ("#C98A3A", "#854F0B", "#E0B94D"),
     "high":     ("#A32D2D", "#A32D2D", "#F0A6A6"),
     "critical": ("#A32D2D", "#A32D2D", "#F0A6A6"),
 }
@@ -1527,7 +1527,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f"color:var(--muted);'>{_yld_str}</div>", unsafe_allow_html=True)
             with _cols[9]:
                 _yoc_str = fmt_pct(yoc_pct)
-                _yoc_color = "var(--uv-mint)" if yoc_pct is not None and pd.notna(yoc_pct) and yoc_pct >= 4 else "inherit"
+                _yoc_color = "var(--up-txt)" if yoc_pct is not None and pd.notna(yoc_pct) and yoc_pct >= 4 else "inherit"
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
                            f"font-weight:500;color:{_yoc_color};'>{_yoc_str}</div>", unsafe_allow_html=True)
             _next = 10
@@ -1652,7 +1652,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            f"color:var(--down-txt);'>{_money(-tax) if tax else '—'}</div>", unsafe_allow_html=True)
             with _cols[4]:
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:var(--mint);'>{_money(net)}</div>", unsafe_allow_html=True)
+                           f"font-weight:500;color:var(--up-txt);'>{_money(net)}</div>", unsafe_allow_html=True)
             _edit_col = 5
         else:
             with _cols[0]:
@@ -1662,7 +1662,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            unsafe_allow_html=True)
             with _cols[1]:
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:var(--mint);'>{_money(amount)}</div>", unsafe_allow_html=True)
+                           f"font-weight:500;color:var(--up-txt);'>{_money(amount)}</div>", unsafe_allow_html=True)
             _edit_col = 2
 
         if show_edit:
@@ -1727,20 +1727,20 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
     # "· confirm" text, which overflowed the Pay date track onto Type.
-    _pay_attr = ("style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;color:#C98A3A;' "
+    _pay_attr = ("style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;color:var(--amber-txt);' "
                  f"title='{_html_attr(_('Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date.'))}'"
                  if needs_confirm else
                  "style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'")
-    _type_style = ("background:#FDF0E8;color:#854F0B;" if div_type == "Special" else
+    _type_style = ("background:var(--amber-bg);color:var(--amber-txt);" if div_type == "Special" else
                   "color:var(--muted);border:0.5px solid var(--line);")
     _ps_str = fmt_money(per_share, "EUR")
     _sh_str = fmt_int(int(shares)) if shares is not None and pd.notna(shares) else "—"
     _fwh_str = _money(-foreign_wh) if foreign_wh else "—"
     _be_str = _money(-be_wh) if be_wh else "—"
-    _src_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
+    _src_style = ("background:var(--soft);color:var(--up-txt);"
                  if source == "auto" else "border:0.5px solid var(--line);color:var(--muted);")
     _src_label = h_("Auto") if source == "auto" else h_("Manual")
-    _drip_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
+    _drip_style = ("background:var(--soft);color:var(--up-txt);"
                   if drip else "color:var(--faint);")
     _html = (
         f'<div style="display:grid;grid-template-columns:{DIVIDEND_LOG_GRID_COLS};gap:14px;align-items:center;">'
@@ -1758,7 +1758,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         f"color:var(--faint);white-space:nowrap;'>{wh_note or ''}</div></div>"
         f"<div style='{_num}'>{_be_str}</div>"
         f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-        f"font-weight:500;color:var(--uv-mint,#1DD6A4);'>{_money(net)}</div>"
+        f"font-weight:500;color:var(--up-txt);'>{_money(net)}</div>"
         f"<div><span style='{_pill}{_src_style}'>{_src_label}</span></div>"
         f"<div><span style='{_pill}{_drip_style}'>{'DRIP' if drip else h_('Cash')}</span></div>"
         f"</div>"
@@ -1818,7 +1818,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
 # mockup's hex chips onto theme tokens (--amber-* for Fee / manual FX).
 
 MINT_CHIP_STYLE = ("display:inline-flex;font-family:var(--uv-mono);font-size:11.5px;font-weight:500;"
-                   "padding:2px 7px;border-radius:5px;background:var(--soft);color:var(--mint);")
+                   "padding:2px 7px;border-radius:4px;background:var(--soft);color:var(--up-txt);")
 
 _CASH_CHIP = ("display:inline-flex;align-items:center;font-size:9.5px;font-family:var(--uv-mono);"
               "padding:2px 7px;border-radius:5px;white-space:nowrap;")
@@ -1827,8 +1827,8 @@ _CASH_TYPE_STYLE = {
     "Withdrawal": "background:var(--down-bg);color:var(--down-txt);",
     "Buy":        "color:var(--muted);border:0.5px solid var(--line);",
     "Sell":       "color:var(--text);border:0.5px solid var(--teal);",
-    "Dividend":   "background:var(--soft);color:var(--mint);",
-    "Interest":   "background:var(--soft);color:var(--mint);",
+    "Dividend":   "background:var(--soft);color:var(--up-txt);",
+    "Interest":   "background:var(--soft);color:var(--up-txt);",
     "Fee":        "background:var(--amber-bg);color:var(--amber-txt);",
     "Adjustment": "color:var(--muted);border:0.5px dashed var(--faint);",
 }
@@ -1898,7 +1898,7 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
     base_color = "var(--up-txt)" if base_amt >= 0 else "var(--text)"
     base_txt = ("+" if base_amt >= 0 else "−") + _cash.money(abs(base_amt), base)
     auto = bool(r.get("auto"))
-    src_style = ("background:var(--soft);color:var(--mint);" if auto
+    src_style = ("background:var(--soft);color:var(--up-txt);" if auto
                  else "color:var(--muted);border:0.5px solid var(--line);")
     note = _html.escape(_cash.note_text(r) or "—")
     return (

@@ -322,7 +322,7 @@ def render_topbar(nav) -> None:
             st.markdown(
                 '<div style="display:flex;align-items:baseline;gap:9px;">'
                 '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
-                'uval<span style="color:var(--teal)">u</span></span>'
+                'uval<span style="color:var(--logo-accent)">u</span></span>'
                 '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
                 f'color:var(--faint);">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
@@ -433,7 +433,7 @@ def render_beta_banner() -> None:
     st.markdown(
         '<div style="font-size:11.5px;color:var(--muted);background:var(--soft);'
         'border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;margin:-4px 0 10px;">'
-        f'<span style="font-weight:600;color:var(--mint);margin-right:6px;">{html.escape(_("Beta"))}</span>'
+        f'<span style="font-weight:600;color:var(--up-txt);margin-right:6px;">{html.escape(_("Beta"))}</span>'
         f'{html.escape(tr(d.BETA_BANNER))}</div>',
         unsafe_allow_html=True)
 
@@ -531,9 +531,9 @@ _FOOTER_CSS = """
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] p,
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] span {
-  font-size: 11px !important; color: var(--teal) !important;
+  font-size: 11px !important; color: var(--link) !important;
 }
-.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
 /* Version marker (VD-01): quieter than the legal links, monospace. */
 .st-key-uv_footer_version { margin-top: 2px; }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] {
@@ -543,7 +543,7 @@ _FOOTER_CSS = """
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] p {
   font-size: 10.5px !important; color: var(--faint) !important; font-family: var(--uv-mono) !important;
 }
-.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--teal) !important; }
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--link) !important; }
 """
 
 

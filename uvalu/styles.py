@@ -314,11 +314,11 @@ GLOBAL_CSS = """
      boxed tertiary button. */
   .st-key-db_conv_full_analysis button {
     background: transparent !important; border: none !important; box-shadow: none !important;
-    color: var(--teal) !important; font-size: 11px !important; padding: 0 !important;
+    color: var(--link) !important; font-size: 11px !important; padding: 0 !important;
     min-height: unset !important; height: auto !important; text-decoration: none !important;
     justify-content: flex-end !important;
   }
-  .st-key-db_conv_full_analysis button:hover { color: var(--mint) !important; }
+  .st-key-db_conv_full_analysis button:hover { color: var(--text) !important; }
   /* One line in every language ("Vollständige Analyse →"): the link's
      column sizes to the link, the title takes the rest. */
   [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"] > .st-key-db_conv_full_analysis) {
@@ -985,7 +985,7 @@ GLOBAL_CSS = """
     background: transparent !important; border: none !important; color: var(--faint) !important;
     padding: 0 !important; min-height: 22px !important; height: 22px !important; width: 22px !important;
   }
-  [class*="st-key-pf_panel_title_"] button:hover { color: var(--teal) !important; }
+  [class*="st-key-pf_panel_title_"] button:hover { color: var(--link) !important; }
   /* No margin-top cancellation here, unlike scr_table_card — confirmed live
      (getBoundingClientRect) that every pf_card_ panel already sits a clean
      natural 16px below whatever precedes it (heading row, another card, or
@@ -1025,11 +1025,11 @@ GLOBAL_CSS = """
   .st-key-pf_cash_btns { flex-wrap: nowrap !important; }
   .st-key-pf_cash_btns button { min-width: 96px !important; justify-content: center !important; }
   .st-key-pf_open_ov_all { padding: 4px 20px 10px !important; }
-  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--teal) !important; }
+  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--link) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
   .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
   .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 10px !important; }
-  .st-key-risk_cash_banner button p { color: var(--teal) !important; font-size: 12px !important;
+  .st-key-risk_cash_banner button p { color: var(--link) !important; font-size: 12px !important;
     white-space: nowrap !important; }
 
   /* Row lists — hairline-divided flat rows, no per-row border/shadow (the
@@ -1562,8 +1562,8 @@ GLOBAL_CSS = """
     padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
   }
   .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--teal) !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--link) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
   .st-key-set_card_legal { padding-bottom: 14px !important; }
   /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
      row with the avatar and name — st.columns' per-column centring was off
@@ -1666,11 +1666,11 @@ GLOBAL_CSS = """
   [data-testid="stMetricDelta"] svg { display: none; }
   [data-testid="stMetricDelta"] { border-radius: 4px; padding: 1px 6px; font-size: 0.8rem !important; }
   [data-testid="stMetricDelta"][data-direction="increase"] {
-    color: #1DD6A4 !important; background: rgba(29,214,164,0.12);
+    color: var(--up-txt) !important; background: var(--up-bg);
   }
   [data-testid="stMetricDelta"][data-direction="increase"]::before { content: "↑ "; }
   [data-testid="stMetricDelta"][data-direction="decrease"] {
-    color: #F5B5B5 !important; background: rgba(163,45,45,0.20);
+    color: var(--down-txt) !important; background: var(--down-bg);
   }
   [data-testid="stMetricDelta"][data-direction="decrease"]::before { content: "↓ "; }
 
@@ -1789,7 +1789,7 @@ GLOBAL_CSS = """
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
   }
-  .uv-logout:hover { border-color: rgba(29,214,164,0.5); color: #1DD6A4 !important; }
+  .uv-logout:hover { border-color: var(--teal); color: var(--text) !important; }
 
   /* ── Dialogs ─────────────────────────────────────────────────────────────── */
   [data-testid="stDialog"] [role="dialog"],
@@ -1879,33 +1879,24 @@ GLOBAL_CSS = """
   /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
   input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }
 
-  /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
+  /* ── Signal badges — brand v1.3 §8: one rule set on the token pairs for
+     both themes (the tokens carry the light/dark difference). Fails quality
+     screen is navy in light theme and slate with a hairline in dark theme, so
+     the pill doesn't vanish into a navy card; No signal / No data are a grey
+     wash with muted text. ─────────────────────────────────────────────── */
   .uv-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 64px; height: 22px; padding: 0 9px; border-radius: 6px;
-    font-size: 10.5px; font-weight: 500;   /* mixed case: descriptive labels (BDG-1) */
-    letter-spacing: 0.03em; white-space: nowrap; line-height: 1;
+    height: 22px; padding: 0 9px; border-radius: 6px;
+    font-size: 10.5px; font-weight: 500;   /* sentence case: descriptive labels (BDG-1) */
+    white-space: nowrap; line-height: 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
-  .uv-badge-buy,     .uv-badge-ok      { background: var(--uv-pos-bg); color: var(--uv-pos-txt); }
-  .uv-badge-monitor, .uv-badge-caution { background: var(--uv-cau-bg); color: var(--uv-cau-txt); }
-  .uv-badge-avoid,   .uv-badge-warn    { background: var(--uv-neg-bg); color: var(--uv-neg-txt); }
-  .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
-  .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
-  /* Dark theme: the brand tints above are light-surface colours — on the
-     navy cards they read as glaring near-white pills, and the navy veto pill
-     vanished into the card (only its text showed). Tinted fills + light
-     semantic text instead; the veto badge keeps its "dark, white text" look
-     with a slate fill and a hairline border so the pill stays visible. */
-  html:not([data-theme="light"]) .uv-badge-buy,
-  html:not([data-theme="light"]) .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
-  html:not([data-theme="light"]) .uv-badge-monitor,
-  html:not([data-theme="light"]) .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
-  html:not([data-theme="light"]) .uv-badge-avoid,
-  html:not([data-theme="light"]) .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
-  html:not([data-theme="light"]) .uv-badge-veto    { background: #1E2D4A; color: #FFFFFF;
-                                                     box-shadow: inset 0 0 0 0.5px rgba(245,247,250,0.28); }
-  html:not([data-theme="light"]) .uv-badge-neutral { background: rgba(245,247,250,0.07); color: var(--muted); }
+  .uv-badge-buy,     .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
+  .uv-badge-monitor, .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
+  .uv-badge-avoid,   .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
+  .uv-badge-veto                       { background: var(--veto-bg);  color: #FFFFFF;
+                                         box-shadow: inset 0 0 0 0.5px var(--veto-line); }
+  .uv-badge-neutral                    { background: var(--nosig-bg); color: var(--muted); }
 
   /* ── Numeric table cells never wrap mid-value ───────────────────────────────
      The st.columns tables (Portfolio open/closed/dividends, …) size columns by

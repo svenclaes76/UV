@@ -105,7 +105,7 @@ def dividend_tax_preview(gross: float, fwh: float, be: float, net: float) -> Non
     calc_preview(_("Calculated"), [(_("Gross"), fmt_money(gross, "EUR")),
                                    (_("Foreign withholding"), "−" + fmt_money(fwh, "EUR")),
                                    (_("Belgian RV 30%"), "−" + fmt_money(be, "EUR"))],
-                 _("Net received"), fmt_money(net, "EUR"), "var(--uv-mint,#1DD6A4)")
+                 _("Net received"), fmt_money(net, "EUR"), "var(--up-txt)")
 
 
 DIALOG_WIDTH = 420  # Uvalu.dc.html's modal width — every dialog uses it
@@ -992,7 +992,7 @@ def _cash_dialog_css_block() -> None:
         ' border-radius:8px !important; padding:10px 12px !important; }'
         '.st-key-uv_cash_fx_auto { border:0.5px solid var(--line) !important; border-radius:8px !important;'
         ' padding:6px 12px !important; }'
-        '.st-key-uv_cash_fx_auto button p, .st-key-uv_cash_fx_manual button p { color:var(--teal) !important;'
+        '.st-key-uv_cash_fx_auto button p, .st-key-uv_cash_fx_manual button p { color:var(--link) !important;'
         ' font-size:11.5px !important; white-space:nowrap !important; }'
         '</style>', unsafe_allow_html=True)
 
@@ -1042,7 +1042,7 @@ def _cash_rate_panel(ccy: str, base: str, d: "_dt.date", entry: dict | None) -> 
         _default = round(float(entry["fx_rate"]), 4)
     with st.container(key="uv_cash_fx_manual"):
         if outage:
-            st.markdown(f'<div style="font-size:11.5px;color:#C98A3A;line-height:1.5;">{_html.escape(_(CASH_OUTAGE_TEXT))}</div>',
+            st.markdown(f'<div style="font-size:11.5px;color:var(--amber-txt);line-height:1.5;">{_html.escape(_(CASH_OUTAGE_TEXT))}</div>',
                         unsafe_allow_html=True)
         _m1, _m2 = st.columns([0.9, 1.1], vertical_alignment="center")
         with _m1:
