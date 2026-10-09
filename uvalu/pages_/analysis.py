@@ -21,7 +21,7 @@ from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
-                              sub_score_bar_html, quality_score_color,
+                              sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html, empty_results_html)
 from uvalu.formatting import display_name, exchange_label, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
@@ -251,16 +251,10 @@ def render() -> None:
     # stock that fails a quality screen is excluded from scoring: its stored
     # 0 is not a position on the scale, so show "—" and say why, the way the
     # drawer's "excluded" does (the header used to read "0 · Lower range").
-    if _excluded:
-        _score_rating, _score_color = h_("Excluded · fails a quality screen"), "var(--muted)"
-    elif pd.notna(_score) and _score >= 70:
-        _score_rating, _score_color = h_("Upper range"), "var(--up-txt, #0F6E56)"
-    elif pd.notna(_score) and _score >= 40:
-        _score_rating, _score_color = h_("Middle range"), "#C98A3A"
-    elif pd.notna(_score):
-        _score_rating, _score_color = h_("Lower range"), "var(--down-txt, #A32D2D)"
-    else:
-        _score_rating, _score_color = None, None
+    # The band label is a position, not good or bad news: --up-txt for every
+    # band (mockup), muted when there is no position on the scale.
+    _score_rating = score_band_label(_score, excluded=_excluded)
+    _score_color = "var(--muted)" if _excluded or pd.isna(_score) else "var(--up-txt)"
     _score_rating_html = (f'<div style="font-size:12px;color:{_score_color};">{_score_rating}</div>'
                          if _score_rating else "")
     with st.container(key="an_header_row"):
@@ -297,8 +291,7 @@ def render() -> None:
                  if _held_row is not None else h_("Not held"))
 
     _mos_val = row.get("MoS %")
-    _mos_color = ("var(--up-txt, #0F6E56)" if pd.notna(_mos_val) and _mos_val >= 0
-                 else "var(--down-txt, #A32D2D)" if pd.notna(_mos_val) else "inherit")
+    _mos_color = mos_text_color(_mos_val)
 
     def _hero_card(label: str, value: str, color: str = "var(--text)") -> str:
         return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
@@ -403,8 +396,8 @@ def render() -> None:
                 # These sub-scores are all higher-is-better, the opposite sense
                 # of sub_score_bar_html's risk-scale default — pass the
                 # matching quality scale explicitly.
-                _bar_color = quality_score_color(float(v))[0]
-                st.markdown(sub_score_bar_html(label_, float(v), color=_bar_color), unsafe_allow_html=True)
+                st.markdown(sub_score_bar_html(label_, float(v), color=quality_score_color(float(v))),
+                            unsafe_allow_html=True)
     with _col2, st.container(key="an_card_sixmodel", border=True):
         st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Model fair values")}</div>',
                    unsafe_allow_html=True)
@@ -463,7 +456,8 @@ def render() -> None:
             (h_("Payout ratio"),      _fv(row, "payoutRatio", lambda v: fmt_pct(v, fraction=True)),
              "down" if pd.notna(row.get("payoutRatio")) and row.get("payoutRatio") > 0.80 else None),
         ]
-        _warn_colors = {"up": "var(--up-txt, #0F6E56)", "down": "var(--down-txt, #A32D2D)"}
+        # Financial warnings in amber: red is reserved for a failed quality screen.
+        _warn_colors = {"up": "var(--up-txt)", "down": "var(--amber-txt)"}
         _fg1, _fg2 = st.columns(2)
         for _i, (_flabel, _fval, _fwarn) in enumerate(_fin_fields):
             with (_fg1 if _i % 2 == 0 else _fg2):
@@ -658,8 +652,8 @@ def render() -> None:
                 _cut_year = row.get("dividend_last_cut_year")
                 if pd.notna(_cut_year) and _cut_year:
                     st.markdown(
-                        f'<div style="margin-top:14px;padding:11px 13px;border-radius:8px;background:var(--down-bg,#FCEAEA);">'
-                        f'<div style="font-size:12.5px;font-weight:500;color:var(--down-txt,#A32D2D);">{h_("Dividend cut detected")}</div>'
+                        f'<div style="margin-top:14px;padding:11px 13px;border-radius:8px;background:var(--amber-bg);">'
+                        f'<div style="font-size:12.5px;font-weight:500;color:var(--amber-txt);">{h_("Dividend cut detected")}</div>'
                         f'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'
                         f'{h_("Annual dividend per share fell in {year} versus the prior year.", year=str(int(_cut_year)))}</div></div>',
                         unsafe_allow_html=True)

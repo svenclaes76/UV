@@ -6,6 +6,7 @@ call st.markdown/st.caption) are exercised through AppTest so a broken f-string
 or missing import fails loudly instead of only showing up visually.
 """
 import pandas as pd
+import pytest
 from streamlit.testing.v1 import AppTest
 
 import numpy as np
@@ -346,9 +347,10 @@ def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
         fair_value_bar_compact(price=100.0, fair_value=101.5, mos_pct=1.5)
 
     at = _run(_script)
-    assert "var(--uv-mint)" in at.markdown[0].value
-    assert "var(--amber-fill, #C98A3A)" in at.markdown[1].value   # amber: red is veto-only
-    assert "var(--teal" in at.markdown[2].value  # within the near-fair band
+    # Brand §8 ladder fills: --up-txt / --axis / --amber-fill (red is veto-only).
+    assert "background:var(--up-txt)" in at.markdown[0].value
+    assert "background:var(--amber-fill)" in at.markdown[1].value
+    assert "background:var(--axis)" in at.markdown[2].value  # within the near-fair band
     # Shows the absolute price/fair-value figures instead of a below/above label
     assert "€100.00" in at.markdown[0].value and "fv €120.00" in at.markdown[0].value
 
@@ -567,11 +569,18 @@ class TestHoldingsRowHtml:
         html = self._row(total_gain=None)
         assert html.count("<span style='color:var(--muted);'>—</span>") == 1  # only P&L dash
 
-    def test_total_gain_colors_and_formats_by_sign(self):
-        assert "+€125.00" in self._row(total_gain=125.0)
-        assert "-€125.00" in self._row(total_gain=-125.0)
-        assert "var(--up-txt)" in self._row(total_gain=125.0)
-        assert "var(--down-txt)" in self._row(total_gain=-125.0)
+    def test_total_gain_is_a_percent_chip_against_cost(self):
+        # value 2500, gain 125 -> cost 2375 -> +5.3%; the € amount is in the tooltip.
+        up = self._row(total_gain=125.0)
+        assert ">+5.3%</span>" in up and "background:var(--up-bg)" in up
+        assert "Unrealised result against your average cost · +€125.00" in up
+        down = self._row(total_gain=-125.0)
+        assert ">-4.8%</span>" in down and "background:var(--down-bg)" in down
+
+    def test_mos_colour_tiers(self):
+        assert "color:var(--up-txt);'>+16.7%" in self._row(mos_pct=16.7)
+        assert "color:var(--text);'>+5.0%" in self._row(mos_pct=5.0)
+        assert "color:var(--amber-txt);'>-5.0%" in self._row(mos_pct=-5.0)
 
     def test_no_sector_omits_sector_pill(self):
         html = self._row(sector=None)
@@ -602,21 +611,56 @@ class TestScoreBarCellHtml:
     def test_missing_score_returns_dash(self):
         assert _score_bar_cell_html(None) == "—"
 
-    def test_present_score_renders_bar(self):
+    def test_present_score_renders_bar(self, isolated_data):
         html = _score_bar_cell_html(80.0)
         assert "80" in html
-        assert "var(--uv-mint)" in html
+        assert "background:var(--mint)" in html and "color:var(--up-txt)" in html
+
+    @pytest.mark.parametrize("score,bar,text", [(70, "var(--mint)", "var(--up-txt)"),
+                                                (69, "var(--teal)", "var(--text)"),
+                                                (40, "var(--teal)", "var(--text)"),
+                                                (39, "var(--amber-fill)", "var(--text)")])
+    def test_bands_follow_70_and_40(self, isolated_data, score, bar, text):
+        html = _score_bar_cell_html(float(score))
+        assert f"background:{bar}" in html and f"color:{text}" in html
+
+    def test_upper_band_moves_with_the_undervalued_threshold(self, isolated_data):
+        import settings
+        settings.save_shared_settings({**settings.load_shared_settings(), "buy_threshold": 80.0})
+        assert "background:var(--teal)" in _score_bar_cell_html(75.0)
 
 
 class TestQualityScoreColor:
-    def test_high_is_mint(self):
-        assert quality_score_color(80) == ("var(--uv-mint)", "var(--uv-mint)")
+    def test_high_is_mint(self, isolated_data):
+        assert quality_score_color(80) == ("var(--mint)", "var(--up-txt)")
 
-    def test_mid_is_teal(self):
-        assert quality_score_color(50) == ("var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)")
+    def test_mid_is_teal_with_plain_text(self, isolated_data):
+        # G34: plain text for the middle band, not the mockup's link colour.
+        assert quality_score_color(50) == ("var(--teal)", "var(--text)")
 
-    def test_low_is_amber(self):
-        assert quality_score_color(20) == ("#C98A3A", "#C98A3A")
+    def test_low_is_amber(self, isolated_data):
+        assert quality_score_color(20) == ("var(--amber-fill)", "var(--amber-txt)")
+
+
+class TestScoreBandLabel:
+    @pytest.mark.parametrize("score,label", [(85, "Upper band · 70–100"), (55, "Middle band · 40–69"),
+                                             (12, "Lower band · 0–39")])
+    def test_bands(self, isolated_data, score, label):
+        from uvalu.components import score_band_label
+        assert score_band_label(score) == label
+
+    def test_excluded_and_no_signal(self, isolated_data):
+        from uvalu.components import score_band_label
+        assert score_band_label(0, excluded=True) == "Excluded · fails quality screen"
+        assert score_band_label(None) == "No signal · no peer reference"
+
+
+class TestMosTextColor:
+    @pytest.mark.parametrize("mos,color", [(15, "var(--up-txt)"), (14.9, "var(--text)"), (0, "var(--text)"),
+                                           (-0.1, "var(--amber-txt)"), (None, "var(--muted)")])
+    def test_three_tiers_never_red(self, mos, color):
+        from uvalu.components import mos_text_color
+        assert mos_text_color(mos) == color
 
 
 class TestGainColor:

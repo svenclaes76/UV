@@ -17,7 +17,7 @@ from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
-                        ngettext, pgettext, tr)
+                        pgettext, tr)
 
 # ── Signal badge ─────────────────────────────────────────────────────────────
 
@@ -485,12 +485,64 @@ def _ladder_bar_color(delta_pct: float) -> str:
     """3-tier band matching fair_value_bar_compact's Undervalued/Near
     fair/Overvalued legend — kept in sync so a model bar and a table's
     compact bar never disagree about what counts as "near fair"."""
+    # Brand §8: three clearly different hues (two greens side by side can't
+    # be told apart); amber, not red — red is reserved for a failed quality
+    # screen (brand §4).
     if delta_pct > _NEAR_FAIR_BAND:
-        return "var(--uv-mint)"
+        return "var(--up-txt)"
     if delta_pct >= -_NEAR_FAIR_BAND:
-        return "var(--teal, #1A8C6E)"
-    # Amber, not red: red is reserved for a failed quality screen (brand §4).
-    return "var(--amber-fill, #C98A3A)"
+        return "var(--axis)"
+    return "var(--amber-fill)"
+
+
+# ── Score bands and margin-of-safety colour ──────────────────────────────────
+# One scale for every 0-100 model score (composite and sub-scores): the upper
+# band starts at the shared Undervalued threshold (Settings › Model settings,
+# default 70), the middle band at the Low score floor (screener.SCORE_AVOID).
+# Never red: red means a failed quality screen.
+
+def _upper_threshold() -> float:
+    from settings import get_veto_thresholds
+    return float(get_veto_thresholds()[3])
+
+
+def score_band(score: float, upper: "float | None" = None) -> str:
+    """"upper", "middle" or "lower" for a 0-100 model score."""
+    from screener import SCORE_AVOID
+    upper = _upper_threshold() if upper is None else upper
+    return "upper" if score >= upper else "middle" if score >= SCORE_AVOID else "lower"
+
+
+def score_band_label(score: "float | None", *, excluded: bool = False, upper: "float | None" = None) -> str:
+    """Where a score sits on the model scale, no verdict words (PER-4):
+    "Upper band · 70–100", "Middle band · 40–69", "Lower band · 0–39";
+    "Excluded · fails quality screen" for a failed screen and "No signal · no
+    peer reference" without a score."""
+    from screener import SCORE_AVOID
+    if excluded:
+        return h_("Excluded · fails quality screen")
+    if score is None or pd.isna(score):
+        return h_("No signal · no peer reference")
+    upper = _upper_threshold() if upper is None else upper
+    hi, lo = fmt_num(upper, 0), fmt_num(SCORE_AVOID, 0)
+    band = score_band(float(score), upper)
+    if band == "upper":
+        return h_("Upper band · {low}–{high}", low=hi, high=fmt_num(100, 0))
+    if band == "middle":
+        return h_("Middle band · {low}–{high}", low=lo, high=fmt_num(upper - 1, 0))
+    return h_("Lower band · {low}–{high}", low=fmt_num(0, 0), high=fmt_num(SCORE_AVOID - 1, 0))
+
+
+_BAND_BAR = {"upper": "var(--mint)", "middle": "var(--teal)", "lower": "var(--amber-fill)"}
+
+
+def mos_text_color(mos_pct: "float | None") -> str:
+    """Margin-of-safety text: --up-txt from 15%, plain text from 0%, amber
+    below — never red (a price above a model estimate is not a failure)."""
+    if mos_pct is None or pd.isna(mos_pct):
+        return "var(--muted)"
+    mos_pct = float(mos_pct)
+    return "var(--up-txt)" if mos_pct >= 15 else "var(--text)" if mos_pct >= 0 else "var(--amber-txt)"
 
 
 def _is_live(v) -> bool:
@@ -682,7 +734,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
     # muted flag when that's a weakly-corroborated one (fv_basis_thin).
     basis_html = ""
     if basis_count is not None and not pd.isna(basis_count):
-        _c = "var(--uv-neg-txt)" if basis_thin else "var(--muted)"
+        _c = "var(--amber-txt)" if basis_thin else "var(--muted)"
         _tail = h_("· lightly corroborated") if basis_thin else ""
         _sep = " " if _tail else ""
         basis_html = (f'<div style="padding:2px 0 0;font-size:10.5px;color:{_c};">'
@@ -782,19 +834,21 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
-        _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
         mos_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                    f"color:{_mos_color};'>{fmt_pct(mos_pct, signed=True)}</span>")
+                    f"color:{mos_text_color(mos_pct)};'>{fmt_pct(mos_pct, signed=True)}</span>")
     elif data_thin:
         mos_html = (f"<span title='{_html_attr(_('Margin of safety pending, no fair value yet'))}' "
                     f"style='color:var(--muted);font-family:var(--uv-mono);font-size:11px;'>{h_('pending')}</span>")
     else:
         mos_html = "<span style='color:var(--muted);'>—</span>"
-    if total_gain is not None and pd.notna(total_gain):
-        total_gain = float(total_gain)
-        _gain_color = "var(--up-txt)" if total_gain >= 0 else "var(--down-txt)"
-        gain_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                    f"color:{_gain_color};'>{fmt_money(total_gain, 'EUR', signed=True)}</span>")
+    _cost = (float(value) - float(total_gain)) if total_gain is not None and pd.notna(total_gain) else None
+    if _cost and _cost > 0:
+        # A % chip against the average cost (mockup), the € amount in the tooltip.
+        _gain_pct = float(total_gain) / _cost * 100
+        _tip = _html_attr(_("Unrealised result against your average cost")
+                          + f" · {fmt_money(float(total_gain), 'EUR', signed=True)}")
+        gain_html = (f"<span title='{_tip}'>"
+                     f"{chip_html(fmt_pct(_gain_pct, 1, signed=True), _gain_pct >= 0)}</span>")
     else:
         gain_html = "<span style='color:var(--muted);'>—</span>"
     if price_stale:
@@ -825,17 +879,17 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
 
 def _score_bar_cell_html(score: float | None) -> str:
     """Compact progress bar + number for a stock-list row's Score cell.
-    Matches Uvalu.dc.html's scoreFill/scoreColor exactly: the bar is a 3-tier
-    mint/teal/amber scale (>=75/>=55/below — never red, this is a composite
-    Value Score where higher is always better, not a risk scale) while the
-    number itself is only ever mint (>=75) or the default text color."""
+    Matches Uvalu.dc.html's scoreFill/scoreColor: the bar follows the score
+    bands (score_band: mint / teal / amber, never red) while the number is
+    --up-txt in the upper band and plain text otherwise."""
     if score is None or pd.isna(score):
         return "—"
     # Banded on the shown (rounded) number: 74.6 printed "75" in plain text
     # next to a real 75 in mint.
     score = float(round(float(score)))
-    bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
-    text_color = "var(--up-txt)" if score >= 75 else "var(--text, inherit)"
+    band = score_band(score)
+    bar_color = _BAND_BAR[band]
+    text_color = "var(--up-txt)" if band == "upper" else "var(--text)"
     pct = max(0.0, min(100.0, score))
     return f"""
 <div style="display:flex;align-items:center;gap:7px;">
@@ -946,10 +1000,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
         _i += 1
         with _cols[_i]:
             if mos_pct is not None and pd.notna(mos_pct):
-                # 3-tier upCol scale from Uvalu.dc.html: mint >=15% upside, plain
-                # text 0-14% (priced near/at fair value), red only when negative.
-                _mos_color = ("var(--up-txt)" if mos_pct >= 15
-                             else "var(--text, inherit)" if mos_pct >= 0 else "var(--down-txt)")
+                # 3-tier upCol scale from Uvalu.dc.html (mos_text_color).
+                _mos_color = mos_text_color(mos_pct)
                 # Matches Uvalu.dc.html's r.mos exactly: 13px, weight 500
                 # (not the plain 400-weight the other numeric cells use —
                 # upside is the one figure this table wants to read as
@@ -1262,9 +1314,9 @@ def fair_value_legend_html() -> str:
                 f'display:inline-block;"></span>')
     return ('<span class="uv-fv-legend" style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
             'font-size:11.5px;color:var(--muted);">'
-            + _item(_box("var(--mint)"), h_("Below model fair value"))
-            + _item(_box("var(--teal)"), h_("Near model fair value"))
-            + _item(_box("var(--amber-fill, #C98A3A)"), h_("Above model fair value"))
+            + _item(_box("var(--up-txt)"), h_("Below model fair value"))
+            + _item(_box("var(--axis)"), h_("Near model fair value"))
+            + _item(_box("var(--amber-fill)"), h_("Above model fair value"))
             + _item('<span style="width:12px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
                     h_("Model fair value"))
             + '</span>')
@@ -1400,22 +1452,22 @@ def quality_score_color(value: float) -> tuple[str, str]:
     Analysis screen's Value/Quality/Momentum/Financial health/Dividend safety
     breakdown, where a high number is always good. The opposite sense of
     score_color's risk scale (there, low is good); mixing the two up made a
-    strong 85/100 quality score render red. Matches Uvalu.dc.html's subScores
-    coloring exactly: mint >=70, teal >=45, amber below — never red, since
-    these are components of a score that's already risk-adjusted elsewhere.
+    strong 85/100 quality score render red. (bar, text) on the score bands:
+    mint / teal / amber bars, --up-txt / plain text / --amber-txt numbers
+    (G34: plain text, not the mockup's link colour, for the middle band) —
+    never red, since these are components of a score that's already
+    risk-adjusted elsewhere.
     """
-    if value >= 70:
-        return "var(--uv-mint)", "var(--uv-mint)"
-    if value >= 45:
-        return "var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)"
-    return "#C98A3A", "#C98A3A"
+    band = score_band(value)
+    return _BAND_BAR[band], {"upper": "var(--up-txt)", "middle": "var(--text)", "lower": "var(--amber-txt)"}[band]
 
 
-def sub_score_bar_html(label: str, value: float, color: str | None = None) -> str:
+def sub_score_bar_html(label: str, value: float, color: "str | tuple[str, str] | None" = None) -> str:
     """One label/value/bar row for a sub-score list — matches the Analysis
     screen's Signal sub-scores spec (baseline-aligned 12.5px label/value,
     7px bar), its only caller today."""
-    bar_color, text_color = score_color(value) if color is None else (color, color)
+    bar_color, text_color = (score_color(value) if color is None else
+                             color if isinstance(color, tuple) else (color, color))
     return f"""
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">

@@ -23,7 +23,7 @@ from portfolio import load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -204,9 +204,9 @@ def open_drawer(row: "pd.Series") -> None:
     # columns; a visible border on top of the background tint so they read
     # unambiguously as cards). ───────────────────────────────────────────────
     _mos = row.get("MoS %")
-    _mos_color = ("var(--up-txt)" if pd.notna(_mos) and _mos >= 0 else "var(--down-txt)") if pd.notna(_mos) else "inherit"
+    _mos_color = mos_text_color(_mos)
     _ter = row.get("Implied Return % (est.)")
-    _ter_color = ("var(--up-txt)" if pd.notna(_ter) and _ter >= 0 else "var(--down-txt)") if pd.notna(_ter) else "inherit"
+    _ter_color = ("var(--up-txt)" if _ter >= 0 else "var(--amber-txt)") if pd.notna(_ter) else "inherit"
     # Tighter side padding/gap/letter-spacing than a first pass at this (13px
     # 14px padding, 12px gap, 0.06em spacing) — "Margin of safety" wrapped to
     # 2 lines at 452px drawer width with those values, throwing off vertical

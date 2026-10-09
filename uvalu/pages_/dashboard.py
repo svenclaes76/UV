@@ -11,7 +11,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
-from settings import load_shared_settings, get_dividend_withholding, get_veto_thresholds
+from settings import load_shared_settings, get_dividend_withholding
 from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
@@ -19,7 +19,7 @@ from uvalu.formatting import display_name, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_money, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
-from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, radial_gauge_svg, risk_score_meter_html,
+from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, score_band_label, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
                               skeleton_kpi_card_html, skeleton_holdings_table_html,
@@ -405,18 +405,10 @@ def render() -> None:
             if _conv_score is not None:
                 # PER-4: describes where the portfolio sits on the model's
                 # scale, no "conviction" verdict (legal design, Uvalu.dc.html).
-                # Bands follow the signal thresholds (screener SCORE_AVOID 40,
-                # the shared upper threshold, default 70).
-                _upper = get_veto_thresholds()[3]
-                _conv_label = (h_("Upper range of the model scale") if _conv_score >= _upper else
-                              h_("Middle range of the model scale") if _conv_score >= 40
-                              else h_("Lower range of the model scale"))
-                # Ring in the band's colour (the Analysis header's bands: mint at
-                # or above the Undervalued threshold, amber in the middle, red
-                # below 40 like the Low score signal); the headline stays plain
-                # text — it states a position on the scale, not good news.
-                _conv_ring = ("#1DD6A4" if _conv_score >= _upper else
-                              "#C98A3A" if _conv_score >= 40 else "#A32D2D")
+                # Bands follow the signal thresholds (components.score_band_label).
+                # The ring is always Mint (mockup): a position on the scale, never red.
+                _conv_label = score_band_label(_conv_score)
+                _conv_ring = "#1DD6A4"
                 _conv_text = h_("Value-weighted mean of model scores across scored holdings. Describes the portfolio.")
                 if _n_veto:
                     _conv_text += " " + ngettext("{count} position fails a quality screen.",
@@ -432,7 +424,7 @@ def render() -> None:
   </div>
   <div>
     <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
-    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--text);">{_conv_label}</div>
+    <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--up-txt);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
 </div>""", unsafe_allow_html=True)

@@ -593,3 +593,42 @@ class TestRiskEquivalenceAndRules:
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
         rep = risk.assess_portfolio(pf, cache)
         assert {p.valuation_flag for p in rep.position_profiles} == {"Above model fair value"}
+
+
+# ── Score bands and signal colours (design reference v1.3, S08) ──────────────
+
+_VERDICT_WORDS = re.compile(r"\b(strong|weak|good|bad|excellent|poor|attractive|cheap|expensive|buy|sell|avoid)\b",
+                            re.I)
+
+
+def test_band_labels_carry_no_verdict_words(isolated_data):
+    """PER-4: a band label says where a score sits on the scale, nothing more."""
+    from uvalu.components import score_band_label
+    labels = [score_band_label(s) for s in (95, 70, 69, 40, 39, 0)]
+    labels += [score_band_label(None), score_band_label(0, excluded=True)]
+    for label in labels:
+        assert not _VERDICT_WORDS.search(label), label
+        assert not _ADVICE_WORDS.search(label), label
+
+
+@pytest.mark.parametrize("mos", [-80.0, -15.0, -0.1, 0.0, 7.5, 15.0, 60.0])
+def test_mos_colour_is_never_red(mos):
+    from uvalu.components import _ladder_bar_color, mos_text_color
+    assert "down" not in mos_text_color(mos) and "#A32D2D" not in mos_text_color(mos)
+    assert "down" not in _ladder_bar_color(mos)
+
+
+def test_only_a_failed_screen_is_red(isolated_data):
+    """Score bars, sub-scores and the fair-value legend never use the red
+    tokens: on the scale, red means a failed quality screen. (The Low score
+    badge keeps its own red tint, brand §8 signal badges.)"""
+    from uvalu.components import (_score_bar_cell_html, fair_value_legend_html, model_signal_badge_html,
+                                  quality_score_color)
+    red = re.compile(r"--down-|#A32D2D|--veto-")
+    for score in (0.0, 20.0, 39.0, 40.0, 69.0, 70.0, 100.0):
+        assert not red.search(_score_bar_cell_html(score))
+        assert not red.search(" ".join(quality_score_color(score)))
+    assert not red.search(fair_value_legend_html())
+    for code in ("undervalued", "neutral", "no_signal"):
+        assert not red.search(model_signal_badge_html(code, veto=False)), code
+    assert "uv-badge-veto" in model_signal_badge_html("undervalued", veto=True)
