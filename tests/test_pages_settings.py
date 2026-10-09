@@ -283,11 +283,13 @@ def test_parse_targets_text_drops_malformed_and_out_of_range():
     assert parsed == {"Technology": 0.25, "Consumer Cyclical": 0.12}
 
 
-def test_account_footer_shows_email_and_role(isolated_data, monkeypatch):
+def test_account_footer_comes_last_with_email_and_free_beta(isolated_data, monkeypatch):
+    """ST-05 / G27: after the last card; "Free beta" instead of the role."""
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    assert TEST_EMAIL in html
-    assert "Analyst" in html
+    assert TEST_EMAIL.replace("@", "&#64;") + " · Free beta" in html
+    assert "Analyst" not in html
+    assert html.index("uv-set-account-footer") > html.index('id="set-legal"')
     assert "Sign out" in html
 
 
@@ -462,7 +464,7 @@ class TestActiveSessions:
                   user_agent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit Firefox/120.0")
         at = _run(monkeypatch, jwt_sid=sid1)
         html = "".join(m.value for m in at.markdown)
-        assert "Current" in html
+        assert "This session" in html and "Signed in " in html
         assert "Chrome on macOS" in html
         assert "Firefox on Windows" in html
         assert any(b.label == "Sign out" for b in at.button)
@@ -518,6 +520,23 @@ class TestLinkedAccounts:
                       "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
         at = _run(monkeypatch)
         assert any(b.label == "Connect" for b in at.button)
+
+    def test_google_row_reads_not_in_the_beta(self, isolated_data, monkeypatch):
+        """ST-03: one "Linked account · Google" row while Google is off."""
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Linked account · Google" in html and "Not in the beta" in html
+        assert "Sign-in with Google is not available in the beta." in html
+
+    def test_sessions_sit_inside_the_security_card(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.login(TEST_EMAIL, "password123", user_agent="Mozilla/5.0 (Macintosh) AppleWebKit Chrome/120.0")
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not any("set_card_sessions" in (c.key or "") for c in at.get("flex_container"))
+        html = "".join(m.value for m in at.markdown)
+        assert html.index("Active sessions") > html.index("Two-factor authentication")
 
     def test_unconfigured_provider_shows_unavailable(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")
@@ -748,7 +767,7 @@ class TestBackupCodesCard:
         _enable_totp()
         at = _run(monkeypatch)
         html = "".join(m.value for m in at.markdown)
-        assert "10 unused code" in html
+        assert "10 of 10 unused. Regenerating replaces the old set." in html
 
     def test_regenerate_opens_confirm_dialog(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")

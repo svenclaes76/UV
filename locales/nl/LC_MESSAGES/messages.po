@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 17:20+0000\n"
+"POT-Creation-Date: 2026-10-09 17:30+0000\n"
 "PO-Revision-Date: 2026-10-04 22:20+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -53,7 +53,7 @@ msgid "Analysis"
 msgstr "Analyse"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:429
+#: app.py:118 uvalu/pages_/settings.py:430 uvalu/shell.py:429
 msgid "Settings"
 msgstr "Instellingen"
 
@@ -62,7 +62,7 @@ msgstr "Instellingen"
 msgid "Methodology"
 msgstr "Methodologie"
 
-#: app.py:120 uvalu/pages_/settings.py:105 uvalu/pages_/settings.py:864
+#: app.py:120 uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:855
 msgid "Legal"
 msgstr "Juridisch"
 
@@ -91,7 +91,7 @@ msgid "Enter a valid email address."
 msgstr "Vul een geldig e-mailadres in."
 
 #. Context: Password forms › validation error
-#: auth.py:130 auth.py:918
+#: auth.py:130 auth.py:933
 #, python-brace-format
 msgid "Password must be at least {min_len} characters."
 msgstr "Het wachtwoord moet minstens {min_len} tekens hebben."
@@ -152,7 +152,8 @@ msgstr[1] "Ongeldig e-mailadres of wachtwoord. Nog {count} pogingen voordat dit 
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:617 auth.py:637 auth.py:713 auth.py:871 auth.py:953 auth.py:976 auth.py:1002 auth.py:1189
+#: auth.py:617 auth.py:637 auth.py:713 auth.py:886 auth.py:968 auth.py:991
+#: auth.py:1017 auth.py:1204
 msgid "User not found."
 msgstr "Gebruiker niet gevonden."
 
@@ -200,62 +201,62 @@ msgid "Two-factor authentication isn't enabled for this account."
 msgstr "Tweestapsverificatie is niet ingeschakeld voor dit account."
 
 #. Context: Settings › confirmation after 'Revoke all'
-#: auth.py:876
+#: auth.py:891
 msgid "All trusted devices revoked."
 msgstr "Alle vertrouwde apparaten ingetrokken."
 
 #. Context: Password forms › error
-#: auth.py:922
+#: auth.py:937
 msgid "This password has appeared in known data breaches. Choose a different one."
 msgstr "Dit wachtwoord is opgedoken in bekende datalekken. Kies een ander."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:956
+#: auth.py:971
 msgid "This identity is already linked to a different account."
 msgstr "Deze identiteit is al gekoppeld aan een ander account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:959
+#: auth.py:974
 msgid "This provider is already linked to your account."
 msgstr "Deze provider is al gekoppeld aan je account."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:966
+#: auth.py:981
 msgid "Provider connected."
 msgstr "Provider gekoppeld."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:981
+#: auth.py:996
 msgid "That provider isn't linked to your account."
 msgstr "Die provider is niet gekoppeld aan je account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:983
+#: auth.py:998
 msgid "Can't disconnect your only sign-in method — set a password first."
 msgstr "Je kunt je enige aanmeldmethode niet ontkoppelen: stel eerst een wachtwoord in."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:988
+#: auth.py:1003
 msgid "Provider disconnected."
 msgstr "Provider ontkoppeld."
 
 #. Context: Settings › Set a password › error. 'Change' must match the button.
-#: auth.py:1004
+#: auth.py:1019
 msgid "This account already has a password — use Change instead."
 msgstr "Dit account heeft al een wachtwoord: gebruik Wijzigen."
 
 #. Context: Settings › confirmation
-#: auth.py:1010
+#: auth.py:1025
 msgid "Password set."
 msgstr "Wachtwoord ingesteld."
 
 #. Context: Settings › Change password › error
-#: auth.py:1194
+#: auth.py:1209
 msgid "Current password is incorrect."
 msgstr "Het huidige wachtwoord is onjuist."
 
 #. Context: Settings › confirmation
-#: auth.py:1200
+#: auth.py:1215
 msgid "Password changed."
 msgstr "Wachtwoord gewijzigd."
 
@@ -1097,7 +1098,7 @@ msgstr "Er bestaan nog geen accounts. Dit account krijgt volledige beheerdersrec
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
-#: uvalu/authgate.py:32 uvalu/pages_/settings.py:274 uvalu/pages_/settings.py:306
+#: uvalu/authgate.py:32 uvalu/pages_/settings.py:275 uvalu/pages_/settings.py:307
 msgid "New password and confirmation don't match."
 msgstr "Het nieuwe wachtwoord en de bevestiging komen niet overeen."
 
@@ -1113,7 +1114,7 @@ msgstr "Open je authenticator-app en voer de 6-cijferige code voor Uvalu in."
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
-#: uvalu/authgate.py:133 uvalu/pages_/settings.py:342
+#: uvalu/authgate.py:133 uvalu/pages_/settings.py:343
 msgid "Code"
 msgstr "Code"
 
@@ -1136,9 +1137,9 @@ msgstr "Een back-upcode gebruiken"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:311
-#: uvalu/dialogs.py:319 uvalu/locale_ui.py:201 uvalu/pages_/settings.py:267
-#: uvalu/pages_/settings.py:299 uvalu/pages_/settings.py:346
-#: uvalu/pages_/settings.py:389 uvalu/pages_/settings.py:742
+#: uvalu/dialogs.py:319 uvalu/locale_ui.py:201 uvalu/pages_/settings.py:268
+#: uvalu/pages_/settings.py:300 uvalu/pages_/settings.py:347
+#: uvalu/pages_/settings.py:390 uvalu/pages_/settings.py:733
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -1170,7 +1171,7 @@ msgstr "Terug naar de authenticatorcode"
 
 #. Context: Sign-up, reset and change-password forms › live meter under the
 #. password field. {strength} is Weak, Fair or Strong (translated separately).
-#: uvalu/authgate.py:210 uvalu/pages_/settings.py:246
+#: uvalu/authgate.py:210 uvalu/pages_/settings.py:247
 #, python-brace-format
 msgid "Password strength: {strength}"
 msgstr "Wachtwoordsterkte: {strength}"
@@ -1300,14 +1301,14 @@ msgstr "VAST DOOR UITNODIGING"
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
 #: uvalu/authgate.py:351 uvalu/authgate.py:406 uvalu/authgate.py:668
-#: uvalu/authgate.py:673 uvalu/authgate.py:715 uvalu/pages_/settings.py:466
-#: uvalu/pages_/settings.py:470
+#: uvalu/authgate.py:673 uvalu/authgate.py:715 uvalu/pages_/settings.py:450
+#: uvalu/pages_/settings.py:454
 msgid "Password"
 msgstr "Wachtwoord"
 
 #. Context: Password fields › tooltip with the minimum password length
 #: uvalu/authgate.py:353 uvalu/authgate.py:408 uvalu/authgate.py:475
-#: uvalu/pages_/settings.py:261 uvalu/pages_/settings.py:293
+#: uvalu/pages_/settings.py:262 uvalu/pages_/settings.py:294
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Minstens {min_len} tekens."
@@ -1373,12 +1374,12 @@ msgid "Choose a new password"
 msgstr "Kies een nieuw wachtwoord"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:473 uvalu/pages_/settings.py:260 uvalu/pages_/settings.py:292
+#: uvalu/authgate.py:473 uvalu/pages_/settings.py:261 uvalu/pages_/settings.py:293
 msgid "New password"
 msgstr "Nieuw wachtwoord"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:476 uvalu/pages_/settings.py:263 uvalu/pages_/settings.py:295
+#: uvalu/authgate.py:476 uvalu/pages_/settings.py:264 uvalu/pages_/settings.py:296
 msgid "Confirm new password"
 msgstr "Bevestig nieuw wachtwoord"
 
@@ -3099,7 +3100,7 @@ msgid "Preview"
 msgstr "Voorbeeld"
 
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:128 uvalu/pages_/settings.py:98
+#: uvalu/locale_ui.py:128 uvalu/pages_/settings.py:99
 msgid "Language & region"
 msgstr "Taal en regio"
 
@@ -3265,7 +3266,7 @@ msgstr "Overschakelen naar donker thema"
 msgid "Switch to light theme"
 msgstr "Overschakelen naar licht thema"
 
-#: uvalu/shell.py:420
+#: uvalu/pages_/settings.py:875 uvalu/shell.py:420
 msgid "Free beta"
 msgstr "Gratis bèta"
 
@@ -3277,7 +3278,7 @@ msgstr "Beheerportaal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:443
+#: uvalu/pages_/settings.py:599 uvalu/pages_/settings.py:876 uvalu/shell.py:443
 msgid "Sign out"
 msgstr "Afmelden"
 
@@ -4204,7 +4205,7 @@ msgstr "Screener openen"
 
 #. Context: Dashboard › empty state link; also the Settings › Import & export
 #. row title
-#: uvalu/pages_/dashboard.py:52 uvalu/pages_/settings.py:710
+#: uvalu/pages_/dashboard.py:52 uvalu/pages_/settings.py:701
 msgid "Import portfolio"
 msgstr "Portefeuille importeren"
 
@@ -5342,390 +5343,381 @@ msgstr "Aan volglijst toevoegen"
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr "Nog {count} tonen · {shown} van {total} getoond"
 
-#: uvalu/pages_/settings.py:99 uvalu/pages_/settings.py:460
+#: uvalu/pages_/settings.py:100 uvalu/pages_/settings.py:444
 msgid "Account security"
 msgstr "Accountbeveiliging"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:100 uvalu/pages_/settings.py:616
+#: uvalu/pages_/settings.py:101 uvalu/pages_/settings.py:607
 msgid "Display"
 msgstr "Weergave"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:101 uvalu/pages_/settings.py:629
+#: uvalu/pages_/settings.py:102 uvalu/pages_/settings.py:620
 msgid "Target allocation"
 msgstr "Doelverdeling"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:102 uvalu/pages_/settings.py:679
+#: uvalu/pages_/settings.py:103 uvalu/pages_/settings.py:670
 msgid "Dividend withholding"
 msgstr "Bronheffing op dividenden"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:103 uvalu/pages_/settings.py:704
+#: uvalu/pages_/settings.py:104 uvalu/pages_/settings.py:695
 msgid "Import & export"
 msgstr "Importeren en exporteren"
 
-#: uvalu/pages_/settings.py:104
+#: uvalu/pages_/settings.py:105
 msgid "Model settings"
 msgstr "Modelinstellingen"
 
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:189
+#: uvalu/pages_/settings.py:190
 msgctxt "style"
 msgid "Balanced"
 msgstr "Gebalanceerd"
 
 #. Context: Settings › Screening style option (message context 'style') (value
 #. investing). Also the Dashboard holdings column 'Value' (market value).
-#: uvalu/pages_/settings.py:189
+#: uvalu/pages_/settings.py:190
 msgctxt "style"
 msgid "Value"
 msgstr "Waarde"
 
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:190
+#: uvalu/pages_/settings.py:191
 msgctxt "style"
 msgid "Growth"
 msgstr "Groei"
 
 #. Context: Settings › Screening style option (message context 'style'); also
 #. the Cash activity 'Income' card
-#: uvalu/pages_/settings.py:190
+#: uvalu/pages_/settings.py:191
 msgctxt "style"
 msgid "Income"
 msgstr "Inkomen"
 
 #. Context: Settings › fallback when a date is missing
-#: uvalu/pages_/settings.py:195 uvalu/pages_/settings.py:199
+#: uvalu/pages_/settings.py:196 uvalu/pages_/settings.py:200
 msgid "unknown date"
 msgstr "onbekende datum"
 
 #. Context: Settings › Active sessions › fallback device name
-#: uvalu/pages_/settings.py:221
+#: uvalu/pages_/settings.py:222
 msgid "Unknown device"
 msgstr "Onbekend apparaat"
 
 #. Context: Settings › Active sessions › fallback browser name in '{browser} on
 #. {os}'
-#: uvalu/pages_/settings.py:234
+#: uvalu/pages_/settings.py:235
 msgid "a browser"
 msgstr "een browser"
 
 #. Context: Settings › Active sessions › device name, e.g. 'Firefox on macOS'
-#: uvalu/pages_/settings.py:235
+#: uvalu/pages_/settings.py:236
 #, python-brace-format
 msgid "{browser} on {os}"
 msgstr "{browser} op {os}"
 
 #. Context: Settings › dialog title and save button
-#: uvalu/pages_/settings.py:255 uvalu/pages_/settings.py:270
+#: uvalu/pages_/settings.py:256 uvalu/pages_/settings.py:271
 msgid "Change password"
 msgstr "Wachtwoord wijzigen"
 
 #. Context: Settings › Change password › field label
-#: uvalu/pages_/settings.py:259
+#: uvalu/pages_/settings.py:260
 msgid "Current password"
 msgstr "Huidig wachtwoord"
 
 #. Context: Settings › Change password dialog › caption. The quoted button name
 #. must match its translation.
-#: uvalu/pages_/settings.py:279
+#: uvalu/pages_/settings.py:280
 msgid "Other devices stay signed in — use “Sign out everywhere else” below if you want to end those sessions too."
 msgstr "Andere apparaten blijven aangemeld. Gebruik hieronder ‘Overal elders afmelden’ als je ook die sessies wilt beëindigen."
 
 #. Context: Settings › dialog title (account without a password)
-#: uvalu/pages_/settings.py:284 uvalu/pages_/settings.py:479
+#: uvalu/pages_/settings.py:285 uvalu/pages_/settings.py:463
 msgid "Set a password"
 msgstr "Een wachtwoord instellen"
 
 #. Context: Settings › Set a password dialog › caption
-#: uvalu/pages_/settings.py:290
+#: uvalu/pages_/settings.py:291
 msgid "Add a password so you can sign in when your provider is unavailable."
 msgstr "Voeg een wachtwoord toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
 
 #. Context: Settings › Set a password dialog › save button
-#: uvalu/pages_/settings.py:302
+#: uvalu/pages_/settings.py:303
 msgid "Set password"
 msgstr "Wachtwoord instellen"
 
 #. Context: Settings › 2FA setup dialog title
-#: uvalu/pages_/settings.py:322
+#: uvalu/pages_/settings.py:323
 msgid "Set up two-factor authentication"
 msgstr "Tweestapsverificatie instellen"
 
 #. Context: Settings › 2FA setup › error
-#: uvalu/pages_/settings.py:332
+#: uvalu/pages_/settings.py:333
 msgid "Could not start enrollment. Try again."
 msgstr "Kon de instelling niet starten. Probeer opnieuw."
 
 #. Context: Settings › 2FA setup › step 1 instruction
-#: uvalu/pages_/settings.py:336
+#: uvalu/pages_/settings.py:337
 msgid "Step 1 of 2 — scan this QR code with your authenticator app (Google Authenticator, 1Password, Authy, etc.)."
 msgstr "Stap 1 van 2: scan deze QR-code met je authenticator-app (Google Authenticator, 1Password, Authy enz.)."
 
 #. Context: Settings › 2FA setup › shown above the secret key
-#: uvalu/pages_/settings.py:338
+#: uvalu/pages_/settings.py:339
 msgid "Can't scan it? Enter this key manually:"
 msgstr "Lukt scannen niet? Voer deze sleutel handmatig in:"
 
 #. Context: Settings › 2FA setup › step 2 instruction
-#: uvalu/pages_/settings.py:341
+#: uvalu/pages_/settings.py:342
 msgid "Step 2 of 2 — enter the 6-digit code your app is showing."
 msgstr "Stap 2 van 2: voer de 6-cijferige code in die je app toont."
 
 #. Context: Settings › 2FA setup › save button
-#: uvalu/pages_/settings.py:351
+#: uvalu/pages_/settings.py:352
 msgid "Confirm and enable"
 msgstr "Bevestigen en inschakelen"
 
 #. Context: Settings › dialog title after enabling 2FA
-#: uvalu/pages_/settings.py:365
+#: uvalu/pages_/settings.py:366
 msgid "Save your backup codes"
 msgstr "Bewaar je back-upcodes"
 
 #. Context: Settings › backup codes dialog › warning
-#: uvalu/pages_/settings.py:371
+#: uvalu/pages_/settings.py:372
 msgid "Save these somewhere safe. Each code can be used once if you lose access to your authenticator app. They won't be shown again."
 msgstr "Bewaar deze op een veilige plek. Elke code kan één keer worden gebruikt als je geen toegang meer hebt tot je authenticator-app. Ze worden niet opnieuw getoond."
 
 #. Context: Settings › backup codes dialog › confirmation checkbox
-#: uvalu/pages_/settings.py:374
+#: uvalu/pages_/settings.py:375
 msgid "I have saved these codes."
 msgstr "Ik heb deze codes bewaard."
 
 #. Context: Settings › backup codes dialog › close button
-#: uvalu/pages_/settings.py:375
+#: uvalu/pages_/settings.py:376
 msgid "Done"
 msgstr "Klaar"
 
 #. Context: Settings › dialog title
-#: uvalu/pages_/settings.py:382
+#: uvalu/pages_/settings.py:383
 msgid "Regenerate backup codes"
 msgstr "Back-upcodes opnieuw genereren"
 
 #. Context: Settings › Regenerate backup codes dialog › warning
-#: uvalu/pages_/settings.py:385
+#: uvalu/pages_/settings.py:386
 msgid "This invalidates every existing backup code — only the new ones will work."
 msgstr "Hierdoor worden alle bestaande back-upcodes ongeldig; alleen de nieuwe werken nog."
 
 #. Context: Settings › button to create new backup codes
-#: uvalu/pages_/settings.py:392 uvalu/pages_/settings.py:556
+#: uvalu/pages_/settings.py:393 uvalu/pages_/settings.py:540
 msgid "Regenerate"
 msgstr "Opnieuw genereren"
 
-#: uvalu/pages_/settings.py:430
+#: uvalu/pages_/settings.py:431
 msgid "Choices apply as you make them; sections with typed values have their own Save button."
 msgstr "Keuzes gelden meteen; onderdelen met ingetypte waarden hebben een eigen knop Opslaan."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:466
+#: uvalu/pages_/settings.py:450
 #, python-brace-format
 msgid "Last changed {date}."
 msgstr "Laatst gewijzigd op {date}."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:467
+#: uvalu/pages_/settings.py:451
 msgid "No password change on record."
 msgstr "Geen wachtwoordwijziging geregistreerd."
 
 #. Context: Settings › Security › badge when the account has no password (SSO
 #. only)
-#: uvalu/pages_/settings.py:472
+#: uvalu/pages_/settings.py:456
 msgid "NOT SET"
 msgstr "NIET INGESTELD"
 
 #. Context: Settings › Security › Password row description when no password is
 #. set
-#: uvalu/pages_/settings.py:473
+#: uvalu/pages_/settings.py:457
 msgid "Add one so you can sign in when your provider is unavailable."
 msgstr "Voeg er een toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
 
 #. Context: Settings › Security › button to change the password (verb). Context
 #. 'button' separates it from the noun 'Change'.
-#: uvalu/pages_/settings.py:476
+#: uvalu/pages_/settings.py:460
 msgctxt "button"
 msgid "Change"
 msgstr "Wijzigen"
 
-#. Context: Settings › Security › row title for single sign-on providers
-#: uvalu/pages_/settings.py:495
-msgid "Linked accounts"
-msgstr "Gekoppelde accounts"
+#: uvalu/pages_/settings.py:478
+#, python-brace-format
+msgid "Linked account · {provider}"
+msgstr "Gekoppeld account · {provider}"
 
-#: uvalu/pages_/settings.py:496
-msgid "Other ways to sign in to this account."
-msgstr "Andere manieren om bij dit account aan te melden."
-
-#: uvalu/pages_/settings.py:497
-msgid "Sign-in with Google or Microsoft is not available in the beta."
-msgstr "Aanmelden met Google of Microsoft is niet beschikbaar in de bèta."
+#. Context: Settings › Linked accounts › small uppercase badge on a linked
+#. provider
+#: uvalu/pages_/settings.py:483
+msgid "CONNECTED"
+msgstr "GEKOPPELD"
 
 #. Context: Settings › Linked accounts › provider row detail
-#: uvalu/pages_/settings.py:504
+#: uvalu/pages_/settings.py:484
 #, python-brace-format
 msgid "{email} · linked {date}"
 msgstr "{email} · gekoppeld op {date}"
 
-#. Context: Settings › Linked accounts › small uppercase badge on a linked
-#. provider
-#: uvalu/pages_/settings.py:509
-msgid "CONNECTED"
-msgstr "GEKOPPELD"
+#: uvalu/pages_/settings.py:487
+#, python-brace-format
+msgid "Sign in with {provider} as well as your password."
+msgstr "Meld je naast je wachtwoord ook aan met {provider}."
 
-#. Context: Settings › Linked accounts › provider row detail when not linked
-#. yet
-#: uvalu/pages_/settings.py:511
-msgid "Available for this workspace."
-msgstr "Beschikbaar voor deze werkruimte."
+#: uvalu/pages_/settings.py:490
+msgid "Sign-in with Google is not available in the beta."
+msgstr "Aanmelden met Google is niet beschikbaar in de bèta."
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:514
+#: uvalu/pages_/settings.py:493
 msgid "Disconnect"
 msgstr "Ontkoppelen"
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:519
+#: uvalu/pages_/settings.py:499
 msgid "Connect"
 msgstr "Koppelen"
 
+#: uvalu/pages_/settings.py:503
+msgid "Not in the beta"
+msgstr "Niet in de bèta"
+
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:532 uvalu/pages_/settings.py:540
+#: uvalu/pages_/settings.py:515 uvalu/pages_/settings.py:523
 msgid "Two-factor authentication"
 msgstr "Tweestapsverificatie"
 
 #. Context: Settings › Security › 2FA row description
-#: uvalu/pages_/settings.py:533
+#: uvalu/pages_/settings.py:516
 msgid "Require a code from an authenticator app in addition to your password."
 msgstr "Vraag naast je wachtwoord een code uit een authenticator-app."
 
 #. Context: Settings › Security › 2FA row description for SSO-only accounts
-#: uvalu/pages_/settings.py:534
+#: uvalu/pages_/settings.py:517
 msgid "Managed by your identity provider."
 msgstr "Beheerd door je identiteitsprovider."
 
 #. Context: Settings › Security › 2FA status for SSO-only accounts
-#: uvalu/pages_/settings.py:538
+#: uvalu/pages_/settings.py:521
 msgid "Not applicable"
 msgstr "Niet van toepassing"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:553
+#: uvalu/pages_/settings.py:536
 msgid "Backup codes"
 msgstr "Back-upcodes"
 
-#. Context: Settings › Security › Backup codes row description
-#: uvalu/pages_/settings.py:553
+#: uvalu/pages_/settings.py:537
 #, python-brace-format
-msgid "{count} unused code remaining."
-msgid_plural "{count} unused codes remaining."
-msgstr[0] "Nog {count} ongebruikte code."
-msgstr[1] "Nog {count} ongebruikte codes."
+msgid "{count} of {total} unused. Regenerating replaces the old set."
+msgstr "{count} van {total} ongebruikt. Opnieuw aanmaken vervangt de oude set."
 
 #. Context: Settings › Security › row title: devices that skip the 2FA code
-#: uvalu/pages_/settings.py:563
+#: uvalu/pages_/settings.py:548
 msgid "Trusted devices"
 msgstr "Vertrouwde apparaten"
 
-#. Context: Settings › Security › Trusted devices row description
-#: uvalu/pages_/settings.py:563
+#: uvalu/pages_/settings.py:549
 #, python-brace-format
-msgid "{count} device skips the two-factor challenge."
-msgid_plural "{count} devices skip the two-factor challenge."
-msgstr[0] "{count} apparaat slaat de tweestapsverificatie over."
-msgstr[1] "{count} apparaten slaan de tweestapsverificatie over."
+msgid "{count} device skips the code until {date}."
+msgid_plural "{count} devices skip the code until {date}."
+msgstr[0] "{count} apparaat slaat de code over tot {date}."
+msgstr[1] "{count} apparaten slaan de code over tot {date}."
+
+#: uvalu/pages_/settings.py:552
+msgid "No device skips the code."
+msgstr "Geen enkel apparaat slaat de code over."
 
 #. Context: Settings › Security › Trusted devices button
-#: uvalu/pages_/settings.py:567
+#: uvalu/pages_/settings.py:554
 msgid "Revoke all"
 msgstr "Alles intrekken"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:580
+#: uvalu/pages_/settings.py:567
 msgid "Passkeys"
 msgstr "Passkeys"
 
 #. Context: Settings › Security › Passkeys row description
-#: uvalu/pages_/settings.py:580
+#: uvalu/pages_/settings.py:567
 msgid "Sign in with Face ID, Touch ID or a security key."
 msgstr "Meld je aan met Face ID, Touch ID of een beveiligingssleutel."
 
-#: uvalu/pages_/settings.py:581 uvalu/pages_/settings.py:584
+#: uvalu/pages_/settings.py:568 uvalu/pages_/settings.py:571
 msgid "Not available in the beta."
 msgstr "Niet beschikbaar in de bèta."
 
 #. Context: Settings › Security › Passkeys button
-#: uvalu/pages_/settings.py:583
+#: uvalu/pages_/settings.py:570
 msgid "Manage"
 msgstr "Beheren"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:588
+#: uvalu/pages_/settings.py:579
 msgid "Active sessions"
 msgstr "Actieve sessies"
 
-#. Context: Settings › Active sessions › row detail, e.g. 'Chrome on Windows ·
-#. signed in 12 Sep 2026'
-#: uvalu/pages_/settings.py:596
-#, python-brace-format
-msgid "{device} · signed in {date}"
-msgstr "{device} · aangemeld op {date}"
-
-#. Context: Settings › Active sessions › row title for the current session
-#: uvalu/pages_/settings.py:598
-msgid "This browser"
-msgstr "Deze browser"
-
-#. Context: Settings › Active sessions › badge on the current session
-#: uvalu/pages_/settings.py:601
-msgid "Current"
-msgstr "Huidig"
-
 #. Context: Settings › Active sessions › button to end all other sessions
-#: uvalu/pages_/settings.py:609
+#: uvalu/pages_/settings.py:583
 msgid "Sign out everywhere else"
 msgstr "Overal elders afmelden"
 
+#: uvalu/pages_/settings.py:594
+#, python-brace-format
+msgid "Signed in {time}"
+msgstr "Aangemeld op {time}"
+
+#: uvalu/pages_/settings.py:598
+msgid "This session"
+msgstr "Deze sessie"
+
 #. Context: Settings › Display › row title
-#: uvalu/pages_/settings.py:620
+#: uvalu/pages_/settings.py:611
 msgid "Theme"
 msgstr "Thema"
 
 #. Context: Settings › Display › Theme row description
-#: uvalu/pages_/settings.py:621
+#: uvalu/pages_/settings.py:612
 msgid "Deep-navy dark or surface-white light."
 msgstr "Donker marineblauw of helder wit."
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:621
+#: uvalu/pages_/settings.py:612
 msgid "Dark"
 msgstr "Donker"
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:621
+#: uvalu/pages_/settings.py:612
 msgid "Light"
 msgstr "Licht"
 
-#: uvalu/pages_/settings.py:630
+#: uvalu/pages_/settings.py:621
 msgid "Reference weights you set yourself. When any are set, the Risk page's observations compare the portfolio with them instead of the model reference levels."
 msgstr "Referentiegewichten die je zelf instelt. Zodra er een is ingesteld, vergelijken de vaststellingen op de pagina Risico de portefeuille daarmee in plaats van met de referentieniveaus van het model."
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:635 uvalu/pages_/settings.py:638
+#: uvalu/pages_/settings.py:626 uvalu/pages_/settings.py:629
 msgid "Sector targets"
 msgstr "Sectordoelen"
 
 #. Context: Settings › Sector targets description
-#: uvalu/pages_/settings.py:636
+#: uvalu/pages_/settings.py:627
 #, no-python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr "Leeg = geen sectordoelen; dan geldt de richtlijn van 30%."
 
 #. Context: Settings › Sector targets › example text inside the empty box.
 #. Sector names in the example should be the translated ones.
-#: uvalu/pages_/settings.py:640
+#: uvalu/pages_/settings.py:631
 #, no-python-format
 msgid ""
 "One per line — sector and target %:\n"
@@ -5737,19 +5729,19 @@ msgstr ""
 "Gezondheidszorg 15"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:643 uvalu/pages_/settings.py:646
+#: uvalu/pages_/settings.py:634 uvalu/pages_/settings.py:637
 msgid "Per-name targets"
 msgstr "Doelen per aandeel"
 
 #. Context: Settings › Per-name targets description
-#: uvalu/pages_/settings.py:644
+#: uvalu/pages_/settings.py:635
 #, no-python-format
 msgid "Blank = no per-name targets; only the 20% hard cap applies."
 msgstr "Leeg = geen doelen per aandeel; alleen het harde maximum van 20% geldt."
 
 #. Context: Settings › Per-name targets › example text inside the empty box.
 #. Use the local decimal separator in 7.5.
-#: uvalu/pages_/settings.py:648
+#: uvalu/pages_/settings.py:639
 #, no-python-format
 msgid ""
 "One per line — ticker and target %:\n"
@@ -5761,195 +5753,195 @@ msgstr ""
 "BBB.PA 7,5"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:653 uvalu/pages_/settings.py:656
+#: uvalu/pages_/settings.py:644 uvalu/pages_/settings.py:647
 msgid "Concentration ceiling (HHI)"
 msgstr "Concentratieplafond (HHI)"
 
-#: uvalu/pages_/settings.py:654
+#: uvalu/pages_/settings.py:645
 msgid "Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."
 msgstr "Markeren wanneer de HHI van de portefeuille hoger is. Laat leeg voor de standaardbanden."
 
-#: uvalu/pages_/settings.py:659
+#: uvalu/pages_/settings.py:650
 #, python-brace-format
 msgid "Default ({low} / {high})"
 msgstr "Standaard ({low} / {high})"
 
 #. Context: Settings › Target allocation › save button
-#: uvalu/pages_/settings.py:662
+#: uvalu/pages_/settings.py:653
 msgid "Save target allocation"
 msgstr "Doelverdeling opslaan"
 
 #. Context: Settings › toast after saving
-#: uvalu/pages_/settings.py:674
+#: uvalu/pages_/settings.py:665
 msgid "Target allocation saved."
 msgstr "Doelverdeling opgeslagen."
 
 #. Context: Settings › Dividend withholding description
-#: uvalu/pages_/settings.py:680
+#: uvalu/pages_/settings.py:671
 #, no-python-format
 msgid "Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."
 msgstr "Standaardpercentage bronheffing dat wordt toegepast wanneer je een dividend per beurs registreert; per record altijd aan te passen. Het hangt af van je eigen fiscale woonplaats en belastingverdrag, die de app niet kan kennen, dus elk tarief begint op 0% tot je het instelt."
 
-#: uvalu/pages_/settings.py:696
+#: uvalu/pages_/settings.py:687
 msgid "Save withholding rates"
 msgstr "Bronheffingen opslaan"
 
-#: uvalu/pages_/settings.py:699
+#: uvalu/pages_/settings.py:690
 msgid "Withholding rates saved."
 msgstr "Bronheffingen opgeslagen."
 
 #. Context: Settings › Import portfolio description
-#: uvalu/pages_/settings.py:711
+#: uvalu/pages_/settings.py:702
 msgid "Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."
 msgstr "Upload een Excel-bestand om posities, verkoophistoriek en dividenden te importeren. Dit vervangt alle bestaande portefeuillegegevens van dit account."
 
 #. Context: Settings › file upload label
-#: uvalu/pages_/settings.py:717
+#: uvalu/pages_/settings.py:708
 msgid "Choose your portfolio .xlsx file"
 msgstr "Kies je .xlsx-portefeuillebestand"
 
 #. Context: Settings › loading message during import
-#: uvalu/pages_/settings.py:721
+#: uvalu/pages_/settings.py:712
 msgid "Parsing Excel…"
 msgstr "Excel wordt verwerkt…"
 
 #. Context: Settings › import error; {error} is a technical message (stays
 #. English)
-#: uvalu/pages_/settings.py:724
+#: uvalu/pages_/settings.py:715
 #, python-brace-format
 msgid "Could not parse file: {error}"
 msgstr "Kon het bestand niet verwerken: {error}"
 
 #. Context: Settings › import error. Keep the exchange codes as they are.
-#: uvalu/pages_/settings.py:728
+#: uvalu/pages_/settings.py:719
 msgid "No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format."
 msgstr "Geen open EBR:/AMS:/EPA:/BIT:/ETR:/SWX:-posities gevonden. Controleer of je bestand het verwachte formaat heeft."
 
-#: uvalu/pages_/settings.py:735
+#: uvalu/pages_/settings.py:726
 #, python-brace-format
 msgid "Replace all portfolio data with this file? It holds {open} open positions, {sold} sold positions and {dividends} dividend records. Your current positions, sales and dividends are deleted."
 msgstr "Alle portefeuillegegevens vervangen door dit bestand? Het bevat {open} open posities, {sold} verkochte posities en {dividends} dividendregels. Je huidige posities, verkopen en dividenden worden verwijderd."
 
-#: uvalu/pages_/settings.py:741
+#: uvalu/pages_/settings.py:732
 msgid "Replace my portfolio data"
 msgstr "Mijn portefeuillegegevens vervangen"
 
 #. Context: Settings › success message after import
-#: uvalu/pages_/settings.py:751
+#: uvalu/pages_/settings.py:742
 #, python-brace-format
 msgid "Imported {open} open, {sold} sold, {dividends} dividend records."
 msgstr "Geïmporteerd: {open} open, {sold} verkocht, {dividends} dividendrecords."
 
 #. Context: Settings › row title
-#: uvalu/pages_/settings.py:759
+#: uvalu/pages_/settings.py:750
 msgid "Excel export"
 msgstr "Excel-export"
 
 #. Context: Settings › Excel export description
-#: uvalu/pages_/settings.py:760
+#: uvalu/pages_/settings.py:751
 msgid "Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."
 msgstr "Leesbare werkmap met posities, dividenden, verkoophistoriek en volglijst. Handig om na te kijken of te migreren."
 
 #. Context: Settings › download button (keep the file name)
-#: uvalu/pages_/settings.py:764
+#: uvalu/pages_/settings.py:755
 msgid "Download backup.xlsx"
 msgstr "backup.xlsx downloaden"
 
 #. Context: Settings › export notice
-#: uvalu/pages_/settings.py:770
+#: uvalu/pages_/settings.py:761
 msgid "Your portfolio is empty. Add positions in the Portfolio section first, then come back to export."
 msgstr "Je portefeuille is leeg. Voeg eerst posities toe in Portefeuille en kom dan terug om te exporteren."
 
 #. Context: Settings › export error; {error} is technical (stays English)
-#: uvalu/pages_/settings.py:772
+#: uvalu/pages_/settings.py:763
 #, python-brace-format
 msgid "Could not create Excel: {error}"
 msgstr "Kon het Excel-bestand niet aanmaken: {error}"
 
-#: uvalu/pages_/settings.py:785
+#: uvalu/pages_/settings.py:776
 msgid "Model settings & quality screens"
 msgstr "Modelinstellingen en kwaliteitstoetsen"
 
-#: uvalu/pages_/settings.py:786
+#: uvalu/pages_/settings.py:777
 msgid "Affects all users · logged"
 msgstr "Geldt voor alle gebruikers · gelogd"
 
-#: uvalu/pages_/settings.py:787
+#: uvalu/pages_/settings.py:778
 msgid "Shared model settings: they set every model signal across the app, the same for every user, and are published on the Methodology page. Each change is recorded."
 msgstr "Gedeelde modelinstellingen: ze bepalen elk modelsignaal in de app, voor elke gebruiker dezelfde, en worden gepubliceerd op de pagina Methodologie. Elke wijziging wordt vastgelegd."
 
 #. Context: Settings › Screening & veto rules › note for non-admins
-#: uvalu/pages_/settings.py:788
+#: uvalu/pages_/settings.py:779
 msgid "Admin-only — sign in as an Admin to change these."
 msgstr "Alleen voor beheerders: meld je aan als beheerder om dit te wijzigen."
 
 #. Context: Settings › slider label: maximum debt-to-equity before a hard veto
-#: uvalu/pages_/settings.py:794
+#: uvalu/pages_/settings.py:785
 msgid "Max debt / equity"
 msgstr "Max. schuld / eigen vermogen"
 
-#: uvalu/pages_/settings.py:796
+#: uvalu/pages_/settings.py:787
 msgid "Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."
 msgstr "Voldoet niet aan de kwaliteitstoets boven deze schuldgraad (financiële sector, vastgoed en nutsbedrijven uitgezonderd)."
 
 #. Context: Settings › slider label
-#: uvalu/pages_/settings.py:800
+#: uvalu/pages_/settings.py:791
 msgid "Max dividend payout"
 msgstr "Max. uitkeringsratio"
 
 #. Context: Settings › slider description
-#: uvalu/pages_/settings.py:802
+#: uvalu/pages_/settings.py:793
 msgid "Flag dividends above this payout."
 msgstr "Markeer dividenden boven deze uitkeringsratio."
 
-#: uvalu/pages_/settings.py:807
+#: uvalu/pages_/settings.py:798
 msgid "Minimum margin of safety"
 msgstr "Minimale veiligheidsmarge"
 
-#: uvalu/pages_/settings.py:809
+#: uvalu/pages_/settings.py:800
 #, no-python-format
 msgid "Margin of safety needed for the Undervalued signal; never below 10%."
 msgstr "Veiligheidsmarge die nodig is voor het signaal Ondergewaardeerd; nooit minder dan 10%."
 
-#: uvalu/pages_/settings.py:812
+#: uvalu/pages_/settings.py:803
 msgid "Undervalued score threshold"
 msgstr "Scoredrempel Ondergewaardeerd"
 
-#: uvalu/pages_/settings.py:814
+#: uvalu/pages_/settings.py:805
 msgid "Minimum composite score for the Undervalued signal."
 msgstr "Minimale totaalscore voor het signaal Ondergewaardeerd."
 
 #. Context: Settings › row title
-#: uvalu/pages_/settings.py:819
+#: uvalu/pages_/settings.py:810
 msgid "Screening style"
 msgstr "Screeningstijl"
 
 #. Context: Settings › Screening style description. Style names must match the
 #. options below.
-#: uvalu/pages_/settings.py:820
+#: uvalu/pages_/settings.py:811
 msgid "Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."
 msgstr "Welke signalen de totaalscore sturen: Waarde legt de nadruk op veiligheidsmarge en kwaliteit, Groei op momentum, Inkomen op dividenden."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:824
+#: uvalu/pages_/settings.py:815
 msgid "Benchmark — Euro Stoxx 50"
 msgstr "Benchmark: Euro Stoxx 50"
 
 #. Context: Settings › benchmark toggle description
-#: uvalu/pages_/settings.py:825
+#: uvalu/pages_/settings.py:816
 msgid "Overlay on the portfolio value chart."
 msgstr "Toon over de grafiek met de waarde van de portefeuille."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:827
+#: uvalu/pages_/settings.py:818
 msgid "Include US-listed names"
 msgstr "Amerikaanse aandelen opnemen"
 
-#: uvalu/pages_/settings.py:828
+#: uvalu/pages_/settings.py:819
 msgid "Not available: the beta covers European exchanges only."
 msgstr "Niet beschikbaar: de bèta dekt alleen Europese beurzen."
 
-#: uvalu/pages_/settings.py:870
+#: uvalu/pages_/settings.py:861
 #, python-brace-format
 msgid "To get a copy of your data or have it deleted, write to {email}."
 msgstr "Voor een kopie van je gegevens of om ze te laten verwijderen, schrijf naar {email}."
@@ -6590,3 +6582,23 @@ msgstr[1] "Nog geen screenergegevens voor je tickers op de volglijst; ze verschi
 
 #~ msgid "Implied return (est.)"
 #~ msgstr "Impliciet rendement (sch.)"
+
+#~ msgid "Other ways to sign in to this account."
+#~ msgstr "Andere manieren om bij dit account aan te melden."
+
+#~ msgid "Available for this workspace."
+#~ msgstr "Beschikbaar voor deze werkruimte."
+
+#~ msgid "{count} unused code remaining."
+#~ msgid_plural "{count} unused codes remaining."
+#~ msgstr[0] "Nog {count} ongebruikte code."
+#~ msgstr[1] "Nog {count} ongebruikte codes."
+
+#~ msgid "{device} · signed in {date}"
+#~ msgstr "{device} · aangemeld op {date}"
+
+#~ msgid "This browser"
+#~ msgstr "Deze browser"
+
+#~ msgid "Current"
+#~ msgstr "Huidig"

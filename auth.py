@@ -677,7 +677,7 @@ def _fresh_backup_codes() -> tuple[list[str], list[str]]:
     """(plaintext_codes, bcrypt_hashes) — 10 single-use "xxxx-xxxx" codes.
     Plaintext is returned only so the caller can show it once; only the
     hashes are ever persisted, same as a password."""
-    plain = [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(10)]
+    plain = [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(BACKUP_CODE_COUNT)]
     hashed = [bcrypt.hashpw(c.encode(), bcrypt.gensalt()).decode() for c in plain]
     return plain, hashed
 
@@ -862,6 +862,21 @@ def trusted_device_count(email: str) -> int:
     now = datetime.now(timezone.utc)
     return sum(1 for d in user.get("trusted_devices", [])
               if datetime.fromisoformat(d["expires_at"]) > now)
+
+
+def trusted_devices_until(email: str) -> "str | None":
+    """ISO time the last still-trusted device stops skipping the code, or None."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return None
+    now = datetime.now(timezone.utc)
+    live = [d["expires_at"] for d in user.get("trusted_devices", [])
+            if datetime.fromisoformat(d["expires_at"]) > now]
+    return max(live) if live else None
+
+
+BACKUP_CODE_COUNT = 10
 
 
 def revoke_trusted_devices(email: str) -> tuple[bool, str]:

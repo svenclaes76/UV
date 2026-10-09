@@ -35,6 +35,7 @@ import streamlit as st
 from auth import (backup_codes_remaining, begin_totp_enrollment, change_password,
                   confirm_totp_enrollment, disable_totp, has_password, is_totp_enabled,
                   link_identity, list_linked_identities, list_sessions, password_last_changed,
+                  trusted_devices_until, BACKUP_CODE_COUNT,
                   regenerate_backup_codes, revoke_other_sessions, revoke_session,
                   revoke_trusted_devices, set_password, trusted_device_count, unlink_identity)
 from backup import export_excel, backup_filename
@@ -46,7 +47,7 @@ from uvalu import locale_ui, nav as nav_registry, oauth
 from uvalu.compliance import disclosures
 from uvalu.components import support_page
 from uvalu.dialogs import _dialog, _dialog_width_css
-from uvalu.i18n import N_, _, fmt_date, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_int, frozen, fmt_num, fmt_pct, h_, ngettext, pgettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
@@ -437,27 +438,10 @@ def render() -> None:
             # (S-06).
             locale_ui.render_card(_email, anchor="set-language")
 
-            # ── Account: who is signed in, at the top of the account section ────────────
-            # (it used to sit at the bottom of the page, with a second Sign out).
-            with st.container(key="set_card_profile", border=True):
-                st.markdown(
-                    # Anchor inside the <div>: a leading <span> made Markdown read
-                    # the block as a paragraph and auto-link the email address.
-                    f'<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;">'
-                    f'<span id="set-account" class="uv-anchor"></span>'
-                    f'<div style="width:38px;height:38px;border-radius:8px;background:var(--navy);'
-                    f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
-                    f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'
-                    f'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:500;">{_display_name(_email)}</div>'
-                    f'<div style="font-size:12px;color:var(--muted);font-family:var(--uv-mono);overflow:hidden;'
-                    f'text-overflow:ellipsis;white-space:nowrap;">{_email} · {tr(_u.role.capitalize())}</div></div>'
-                    f'<a href="/?logout=1" target="_self" class="uv-set-signout">{h_("Sign out")}</a>'
-                    f'</div>', unsafe_allow_html=True)
-
             # ── Security ─────────────────────────────────────────────────────────────────
             _has_pw = has_password(_email)
             with st.container(key="set_card_security", border=True):
-                _row_header(h_("Account security"))
+                _row_header(h_("Account security"), anchor="set-account")
                 with st.container(key="set_row_password"):
                     _pc1, _pc2 = st.columns([3, 1], vertical_alignment="center")
                     with _pc1:
@@ -479,45 +463,44 @@ def render() -> None:
                             if st.button(_("Set a password"), key="set_pw_set_btn", type="primary"):
                                 _dlg_set_password(_email)
 
-                # Linked accounts — one row per known provider (oauth.PROVIDERS), not
-                # just the ones this account has linked, so an unconfigured/
-                # unlinked provider still shows up dimmed instead of only appearing
-                # once someone connects it (mockup: "adding one later changes a
-                # state rather than a layout").
-                with st.container(key="set_row_linked"):
-                    _linked = {oauth.label_for_issuer(i["issuer"]): i for i in list_linked_identities(_email)}
-                    # Only providers this workspace offers, or one already linked:
-                    # a list of "Not configured · Unavailable" rows was noise.
-                    _providers = [p for p in oauth.configured_providers()
-                                  if p["configured"] or p["label"] in _linked]
-                    _lc1, _lc2 = st.columns([3, 1], vertical_alignment="center")
-                    with _lc1:
-                        _row_title(h_("Linked accounts"),
-                                   h_("Other ways to sign in to this account.") if _providers
-                                   else h_("Sign-in with Google or Microsoft is not available in the beta."))
-                    for _prov in _providers:
-                        _ident = _linked.get(_prov["label"])
-                        with st.container(key=f"set_row_linked_{_prov['id']}"):
-                            _pc1b, _pc2b = st.columns([3, 1], vertical_alignment="center")
-                            with _pc1b:
-                                if _ident:
-                                    _meta = h_("{email} · linked {date}", email=_ident.get('email_at_link', ''),
-                                               date=_fmt_date(_ident.get('linked_at', '')))
-                                    _row_title(
-                                        f'{_prov["label"]}<span style="font-size:9.5px;letter-spacing:0.04em;'
-                                        f'padding:2px 6px;border-radius:4px;background:var(--up-bg);'
-                                        f'color:var(--up-txt);margin-left:8px;">{h_("CONNECTED")}</span>', _meta)
-                                else:
-                                    _row_title(_prov["label"], h_("Available for this workspace."))
-                            with _pc2b:
-                                if _ident:
-                                    if st.button(_("Disconnect"), key=f"set_unlink_{_prov['id']}"):
-                                        ok, msg = unlink_identity(_email, _ident["issuer"])
-                                        if not ok:
-                                            st.toast(msg, icon=":material/warning:")
-                                        st.rerun()
-                                elif st.button(_("Connect"), key=f"set_link_{_prov['id']}"):
+                # Linked accounts: one row per provider this workspace offers or the
+                # account already uses, "Linked account · {provider}". Google is
+                # always listed: in the beta it reads "Not in the beta".
+                _linked = {oauth.label_for_issuer(i["issuer"]): i for i in list_linked_identities(_email)}
+                _providers = [p for p in oauth.configured_providers()
+                              if p["configured"] or p["label"] in _linked or p["id"] == "google"]
+                for _prov in _providers:
+                    _ident = _linked.get(_prov["label"])
+                    _live = _prov["configured"] or _ident is not None
+                    with st.container(key=f"set_row_linked_{_prov['id']}"):
+                        _pc1b, _pc2b = st.columns([3, 1], vertical_alignment="center")
+                        with _pc1b:
+                            _title = h_("Linked account · {provider}", provider=_prov["label"])
+                            if _ident:
+                                _row_title(
+                                    f'{_title}<span style="font-size:9.5px;letter-spacing:0.04em;'
+                                    f'padding:2px 6px;border-radius:4px;background:var(--up-bg);'
+                                    f'color:var(--up-txt);margin-left:8px;">{h_("CONNECTED")}</span>',
+                                    h_("{email} · linked {date}", email=_ident.get('email_at_link', ''),
+                                       date=_fmt_date(_ident.get('linked_at', ''))))
+                            elif _live:
+                                _row_title(_title, h_("Sign in with {provider} as well as your password.",
+                                                      provider=_prov["label"]))
+                            else:
+                                _row_title(_title, h_("Sign-in with Google is not available in the beta."))
+                        with _pc2b:
+                            if _ident:
+                                if st.button(_("Disconnect"), key=f"set_unlink_{_prov['id']}"):
+                                    ok, msg = unlink_identity(_email, _ident["issuer"])
+                                    if not ok:
+                                        st.toast(msg, icon=":material/warning:")
+                                    st.rerun()
+                            elif _live:
+                                if st.button(_("Connect"), key=f"set_link_{_prov['id']}"):
                                     oauth.start_login(_prov["id"])
+                            else:
+                                st.markdown('<div style="text-align:right;font-size:12px;color:var(--muted);">'
+                                            f'{h_("Not in the beta")}</div>', unsafe_allow_html=True)
 
                 # Two-factor authentication — password-path only. A provider-only
                 # account's 2FA is whatever its provider itself enforces (Google's own
@@ -550,8 +533,9 @@ def render() -> None:
                         _bc1, _bc2 = st.columns([3, 1], vertical_alignment="center")
                         with _bc1:
                             _remaining = backup_codes_remaining(_email)
-                            _row_title(h_("Backup codes"), ngettext("{count} unused code remaining.",
-                                                                   "{count} unused codes remaining.", _remaining))
+                            _row_title(h_("Backup codes"),
+                                       h_("{count} of {total} unused. Regenerating replaces the old set.",
+                                          count=fmt_int(_remaining), total=fmt_int(BACKUP_CODE_COUNT)))
                         with _bc2:
                             if st.button(_("Regenerate"), key="set_totp_regen_btn"):
                                 _dlg_regenerate_backup_codes(_email)
@@ -560,9 +544,12 @@ def render() -> None:
                         _dc1, _dc2 = st.columns([3, 1], vertical_alignment="center")
                         with _dc1:
                             _dev_count = trusted_device_count(_email)
-                            _row_title(h_("Trusted devices"), ngettext("{count} device skips the two-factor challenge.",
-                                                                      "{count} devices skip the two-factor challenge.",
-                                                                      _dev_count))
+                            _until = trusted_devices_until(_email)
+                            _row_title(h_("Trusted devices"),
+                                       ngettext("{count} device skips the code until {date}.",
+                                                "{count} devices skip the code until {date}.",
+                                                _dev_count, date=_fmt_date(_until)) if _until
+                                       else h_("No device skips the code."))
                         with _dc2:
                             if st.button(_("Revoke all"), key="set_totp_revoke_devices_btn",
                                         disabled=_dev_count == 0):
@@ -583,33 +570,37 @@ def render() -> None:
                         st.button(_("Manage"), key="set_passkeys_manage_btn", disabled=True,
                                  help=_("Not available in the beta."))
 
-            # ── Active sessions ────────────────────────────────────────────────────────
-            with st.container(key="set_card_sessions", border=True):
-                _row_header(h_("Active sessions"))
+                # Active sessions, inside the card: device, when it signed in (the
+                # sign-in method and location aren't stored), "This session".
                 _sessions = list_sessions(_email)
                 _current_sid = st.session_state.get("jwt_sid")
+                with st.container(key="set_row_sessions_head", horizontal=True, vertical_alignment="center",
+                                  horizontal_alignment="distribute"):
+                    st.markdown(f'<div style="font-size:13.5px;font-weight:500;">{h_("Active sessions")}</div>',
+                                unsafe_allow_html=True, width="content")
+                    if len(_sessions) > 1:
+                        with st.container(key="set_sessions_revoke_wrap", width="content"):
+                            if st.button(_("Sign out everywhere else"), key="set_sessions_revoke_others",
+                                         type="tertiary"):
+                                ok, msg = revoke_other_sessions(_email, _current_sid)
+                                st.toast(msg)
+                                st.rerun()
                 for _sess in _sessions:
                     with st.container(key=f"set_row_session_{_sess['sid']}"):
                         _sc1, _sc2 = st.columns([3, 1], vertical_alignment="center")
                         with _sc1:
                             _is_current = _sess["sid"] == _current_sid
-                            _meta = h_("{device} · signed in {date}", device=_device_label(_sess.get('user_agent', '')),
-                                       date=_fmt_date(_sess['created_at']))
-                            _row_title(h_("This browser") if _is_current else _device_label(_sess.get("user_agent", "")), _meta)
+                            _row_title(_device_label(_sess.get("user_agent", "")),
+                                       h_("Signed in {time}", time=_fmt_date(_sess['created_at'])))
                         with _sc2:
                             if _is_current:
-                                st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--muted);">{h_("Current")}</div>',
-                                           unsafe_allow_html=True)
+                                st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--up-txt);">'
+                                            f'{h_("This session")}</div>', unsafe_allow_html=True)
                             elif st.button(_("Sign out"), key=f"set_session_signout_{_sess['sid']}"):
                                 ok, msg = revoke_session(_email, _sess["sid"])
                                 if not ok:
                                     st.toast(msg, icon=":material/warning:")
                                 st.rerun()
-                if len(_sessions) > 1:
-                    if st.button(_("Sign out everywhere else"), key="set_sessions_revoke_others"):
-                        ok, msg = revoke_other_sessions(_email, _current_sid)
-                        st.toast(msg)
-                        st.rerun()
 
             # ── Display ────────────────────────────────────────────────────────────────
             with st.container(key="set_card_display", border=True):
@@ -869,3 +860,18 @@ def render() -> None:
                             st.page_link(_legal_page, label=tr(_ltitle), query_params={"doc": _lkey})
                 _row_desc(h_("To get a copy of your data or have it deleted, write to {email}.",
                              email=disclosures.PRODUCER_PRIVACY_CONTACT))
+
+            # ── Account footer: who is signed in (G27: "Free beta", not the role) ──
+            st.markdown(
+                # Anchor-free: a leading <span> made Markdown read the block as a
+                # paragraph and auto-link the email address.
+                f'<div class="uv-set-account-footer" style="display:flex;align-items:center;gap:12px;'
+                f'padding:14px 4px;border-top:0.5px solid var(--line);margin-top:4px;">'
+                f'<div style="width:38px;height:38px;border-radius:8px;background:var(--navy);'
+                f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
+                f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'
+                f'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:500;">{_display_name(_email)}</div>'
+                f'<div style="font-size:12px;color:var(--muted);font-family:var(--uv-mono);overflow:hidden;'
+                f'text-overflow:ellipsis;white-space:nowrap;">{_email.replace("@", "&#64;")} · {h_("Free beta")}</div></div>'
+                f'<a href="/?logout=1" target="_self" class="uv-set-signout">{h_("Sign out")}</a>'
+                f'</div>', unsafe_allow_html=True)

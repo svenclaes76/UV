@@ -1384,6 +1384,14 @@ GLOBAL_CSS = """
      has no preceding sibling row to cancel against; a negative margin there
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
+  /* Backup codes and trusted devices sit under two-factor, indented on
+     --panel-2; "Sign out everywhere else" is a 12px link. */
+  .st-key-set_row_backup_codes, .st-key-set_row_trusted_devices {
+    margin-left: 34px !important; background: var(--panel-2) !important; border-radius: 8px !important;
+  }
+  .st-key-set_sessions_revoke_wrap button { min-height: 0 !important; padding: 0 !important; }
+  .st-key-set_sessions_revoke_wrap button p { font-size: 12px !important; color: var(--link) !important; }
+  .st-key-set_sessions_revoke_wrap button:hover p { color: var(--text) !important; }
   .st-key-set_row_theme, .st-key-set_row_password {
     margin-top: 0 !important;
   }
