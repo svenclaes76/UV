@@ -82,3 +82,16 @@ def display_name(name) -> str:
     if len(letters) > 3 and all(c.isupper() for c in letters):
         out = " ".join(_title_token(t, i == 0) for i, t in enumerate(out.split()))
     return out
+
+
+# Exchange short codes shown next to a ticker (Screener, Watchlist): the
+# venue's own abbreviation, never translated (glossary: exchange names stay).
+EXCHANGE_CODES = {"BR": "BRU", "PA": "PAR", "AS": "AMS", "MI": "MIL", "DE": "XET", "SW": "SWX"}
+
+
+def exchange_code(ticker) -> "str | None":
+    """"PAR" for "TTE.PA"; the raw suffix for another venue; None without one."""
+    if not isinstance(ticker, str) or "." not in ticker:
+        return None
+    suffix = ticker.rsplit(".", 1)[1].upper()
+    return EXCHANGE_CODES.get(suffix, suffix) or None

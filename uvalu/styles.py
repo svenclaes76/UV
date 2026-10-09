@@ -422,11 +422,11 @@ GLOBAL_CSS = """
      Uvalu.dc.html's benchChip spec (uvalu_dc.html ~line 2140): a 6px
      rounded chip, 11px text, transparent/muted when off and a teal
      border + var(--soft) tint + full-text color when on. */
-  .st-key-db_bench_pills [data-testid^="stBaseButton-pills"] {
+  .st-key-db_bench_pills button[data-variant="pills"] {
     border-radius: 6px !important; padding: 4px 9px !important; font-size: 11px !important;
     background: transparent !important; border: 0.5px solid var(--line) !important; color: var(--muted) !important;
   }
-  .st-key-db_bench_pills [data-testid="stBaseButton-pillsActive"] {
+  .st-key-db_bench_pills button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
     background: var(--soft) !important; border-color: var(--teal) !important; color: var(--text) !important;
   }
 
@@ -502,7 +502,7 @@ GLOBAL_CSS = """
      by default (same gotcha as the header buttons row) — pinning each
      child's own generated wrapper to `flex:none;width:auto` is what
      actually lets it shrink to content instead of stretching. */
-  .st-key-scr_filter_row { gap: 32px !important; }
+  .st-key-scr_filter_row { gap: 22px !important; }
   .st-key-scr_filter_row > [data-testid="stLayoutWrapper"] {
     flex: none !important; width: auto !important;
   }
@@ -529,17 +529,13 @@ GLOBAL_CSS = """
      Dashboard's benchmark chips (db_bench_pills above), but grouped inside
      a shared track (`background:var(--panel-2);border-radius:8px;
      padding:3px`) matching Uvalu.dc.html's scr.signalChips spec exactly.
-     [data-testid="stButtonGroup"] is NOT the buttons' direct parent —
-     confirmed live via outerHTML: it wraps a hidden <label> (the
-     collapsed "Signal" widget label) *and* a separate nested
-     [data-baseweb="button-group"] div, and the actual 4 <button>s live
-     inside that inner div. Styling display/gap/flex-wrap on the outer
-     stButtonGroup wrapper was a no-op for actual layout — its own
-     computed `display` stayed `block` regardless — so VETO (the 4th pill)
-     kept wrapping like ordinary text once it no longer fit on the line.
-     The chip-track look (track background/radius/padding) and the actual
-     flex/wrap behavior both belong on this inner div instead. */
-  .st-key-scr_signal_pills [data-baseweb="button-group"] {
+     Streamlit 1.60 renders st.pills as button[data-variant="pills"] inside
+     a role="toolbar" (multi-select) or role="radiogroup" (single) div,
+     the selected ones marked aria-pressed / aria-checked="true" (the old
+     stBaseButton-pills test ids and BaseWeb button-group are gone, so the
+     rules here had silently stopped matching). The chip-track look and the
+     flex/no-wrap behaviour belong on that inner group div. */
+  .st-key-scr_signal_pills :is([role="toolbar"], [role="radiogroup"]) {
     display: flex !important; align-items: center !important;
     background: var(--panel-2) !important; border-radius: 8px !important;
     padding: 3px !important; gap: 3px !important; flex-wrap: nowrap !important;
@@ -551,14 +547,29 @@ GLOBAL_CSS = """
        at its own top. */
     min-height: 40px !important;
   }
-  .st-key-scr_signal_pills [data-testid^="stBaseButton-pills"] {
+  .st-key-scr_signal_pills button[data-variant="pills"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
-    font-size: 9px !important; font-weight: 400 !important;
+    font-size: 10.5px !important; font-weight: 500 !important;
     padding: 6px 8px !important; min-height: unset !important;
     white-space: nowrap !important;
   }
-  .st-key-scr_signal_pills [data-testid="stBaseButton-pillsActive"] {
+  .st-key-scr_signal_pills button[data-variant="pills"] p { font-size: 10.5px !important; font-weight: 500 !important; }
+  /* "Hide positions I own": one toggle chip, a dot before the label; on =
+     --teal border on --soft. */
+  .st-key-scr_hide_owned button[data-variant="pills"] {
+    border: 0.5px solid var(--line) !important; border-radius: 8px !important; background: transparent !important;
+    color: var(--muted) !important; min-height: 40px !important; padding: 0 12px !important; box-shadow: none !important;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"] p { font-size: 12px !important; }
+  .st-key-scr_hide_owned button[data-variant="pills"]::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line); margin-right: 8px; flex: none;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
+    border-color: var(--teal) !important; background: var(--soft) !important; color: var(--text) !important;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"])::before { background: var(--teal); }
+  .st-key-scr_signal_pills button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
     font-weight: 500 !important;
   }
@@ -637,10 +648,13 @@ GLOBAL_CSS = """
      These are the row's 4th-through-8th columns (star=1st, name=2nd,
      signal=3rd) in both callers, so :nth-child(n+4) reaches exactly this
      group without needing five separate keyed containers. */
-  [class*="st-key-scr_row_"] [data-testid="stColumn"]:nth-child(n+4),
-  [class*="st-key-wl_row_"] [data-testid="stColumn"]:nth-child(n+4) {
+  [class*="st-key-scr_row_"] [data-testid="stColumn"]:not(:has([class*="_name_cell"])),
+  [class*="st-key-wl_row_"] [data-testid="stColumn"]:not(:has([class*="_name_cell"])) {
     min-height: 21px !important;
   }
+  /* Watchlist "×": --muted, --down-txt on hover. */
+  [class*="st-key-wl_row_"] [class*="_remove"] button p { color: var(--muted) !important; font-size: 16px !important; }
+  [class*="st-key-wl_row_"] [class*="_remove"] button:hover p { color: var(--down-txt) !important; }
 
   /* ── Screener/Watchlist results table — one seamless panel (column-header
      row, then flat hairline-divided rows), matching Uvalu.dc.html's results
@@ -1972,6 +1986,15 @@ GLOBAL_CSS = """
     background: none !important; padding: 0 0 0 4px !important; border: none !important;
   }
   .st-key-scr_signal_pills .uv-pill-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  /* "Show N more": an outline button centred under the rows. */
+  .st-key-scr_more { padding: 14px 20px !important; }
+  .st-key-scr_more button {
+    padding: 8px 14px !important; border: 0.5px solid var(--line) !important; border-radius: 8px !important;
+    background: transparent !important; min-height: 0 !important;
+  }
+  .st-key-scr_more button p { font-size: 12.5px !important; color: var(--muted) !important; }
+  .st-key-scr_more button:hover { border-color: var(--teal) !important; }
+  .st-key-scr_more button:hover p { color: var(--text) !important; }
 
   /* ── Tooltips — one brand style for all three kinds: the app's own
      title= tooltips (uvalu/tooltips.py draws them as .uv-tip), Streamlit's

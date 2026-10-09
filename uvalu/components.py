@@ -1005,7 +1005,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
-             action_disabled: bool = False, widths: list | None = None) -> dict:
+             action_disabled: bool = False, widths: list | None = None,
+             rank: "int | None" = None, show_remove: bool = False, remove_help: str = "") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -1035,9 +1036,14 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     so it needs the same Viewer-role gate every other write action in the
     app already has (portfolio.py's Add/Edit/Sell, drawer.py's Edit/Sell/Add).
 
-    Returns {"view": bool, "action": bool}: `view` fires on clicking
-    anywhere on the row (caller opens the drawer); `action` fires on the
-    star (Screener: toggle watchlist membership; Watchlist: remove).
+    `rank` adds a "#" column after the star (Screener: the row's place in
+    the current sort); `show_remove` adds a trailing "×" column (Watchlist,
+    which shows no star). `exchange` is the venue's short code (PAR, XET …,
+    formatting.exchange_code).
+
+    Returns {"view": bool, "action": bool, "remove": bool}: `view` fires on
+    clicking anywhere on the row (caller opens the drawer); `action` on the
+    star (Screener: toggle watchlist membership); `remove` on the "×".
     """
     name = _name_html(name)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
@@ -1058,7 +1064,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             with st.container(key=f"uv_hidden_util_{_css_key}_action"):
                 st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
                            unsafe_allow_html=True)
-        _widths = widths or [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+        _widths = widths or ([0.5] * show_action + [0.32] * (rank is not None)
+                             + [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + [0.32] * show_remove)
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
@@ -1066,19 +1073,23 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
                 _action_clicked = st.button("★", key=f"{key}_action", type="tertiary",
                                             help=(_("Viewer role is read-only") if action_disabled else action_help),
                                             disabled=action_disabled)
+            _i += 1
         else:
             _action_clicked = False
-        _i += 1
+        if rank is not None:
+            with _cols[_i]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                            f"color:var(--muted);'>{fmt_int(rank)}</div>", unsafe_allow_html=True)
+            _i += 1
         with _cols[_i], st.container(key=f"{_css_key}_name_cell"):
-            # Plain small mono text (Uvalu.dc.html's r.exch: 9px, var(--faint),
-            # no border/background) — not a bordered pill; that was this
-            # component's own embellishment, not part of the design spec.
+            # Plain small mono text (Uvalu.dc.html's r.exch: the venue code,
+            # 9px, --muted, no border/background) — not a bordered pill.
             # pd.notna(), not a bare truthiness check — a manually-added
             # watchlist ticker's Exchange comes back as an actual NaN float
             # (not "" or None) when it doesn't match one of the tracked
             # exchanges, and NaN is truthy in Python, so `if exchange` let
             # the literal string "nan" through (confirmed live: "BDC nan").
-            _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);"
+            _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);"
                          f"margin-left:8px;'>{exchange}</span>" if exchange and pd.notna(exchange) else "")
             # Two explicit block divs (matching holdings_row_html's proven
             # compact ticker/name layout), not a <br>-separated pair of
@@ -1140,8 +1151,15 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
         # to just the ticker/name cell). The leading star stays independently
         # clickable via a higher z-index (styles.py), so this can't swallow
         # its clicks despite sitting on top of the whole row.
+        _remove_clicked = False
+        if show_remove:
+            _i += 1
+            with _cols[_i]:
+                _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary",
+                                            help=(_("Viewer role is read-only") if action_disabled else remove_help),
+                                            disabled=action_disabled)
         _view_clicked = st.button(_("View"), key=f"{key}_view", type="tertiary")
-    return {"view": _view_clicked, "action": _action_clicked}
+    return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
 
 
 def empty_results_html(message: str) -> str:

@@ -52,7 +52,7 @@ def test_watchlisted_ticker_with_no_scored_row_shows_loading_state(isolated_data
     assert "No screener data yet for your watchlisted ticker" in html
     assert "uv-skel-bar" in html
     # Layout-matching skeleton: the real column header renders too.
-    assert "Position" in html and "Margin of safety" in html
+    assert "Company" in html and "Margin of safety" in html
 
 
 def test_watchlist_loading_state_shows_fetch_progress(isolated_data, monkeypatch):
@@ -128,16 +128,16 @@ def test_add_ticker_lookup_exception_shows_error(isolated_data, monkeypatch):
     assert "not found" in "".join(m.value for m in at.markdown)
 
 
-def test_star_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
+def test_remove_button_removes_ticker_from_watchlist(isolated_data, monkeypatch):
     portfolio.save_watchlist({"AAA.BR"})
     at = _run(monkeypatch)
-    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_remove"][0]
     star_btn.click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_watchlist() == set()
 
 
-def test_star_button_removes_manually_added_ticker_from_manual_tickers(isolated_data, monkeypatch):
+def test_remove_button_removes_manually_added_ticker_from_manual_tickers(isolated_data, monkeypatch):
     # A manually-added ticker never appears on the Screener page (it excludes
     # extra_df from its own ranked list) -- this star is the only place it
     # can ever be removed, so it has to clean up manual_tickers too or the
@@ -146,14 +146,14 @@ def test_star_button_removes_manually_added_ticker_from_manual_tickers(isolated_
     portfolio.save_watchlist({"AAA.BR"})
     portfolio.save_manual_tickers({"AAA.BR": "Alpha Corp"})
     at = _run(monkeypatch)
-    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_remove"][0]
     star_btn.click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_watchlist() == set()
     assert portfolio.load_manual_tickers() == {}
 
 
-def test_star_button_disabled_for_viewer_role(isolated_data, monkeypatch):
+def test_remove_button_disabled_for_viewer_role(isolated_data, monkeypatch):
     # Removing a watchlist entry (and, for a manually-added ticker, its
     # manual_tickers.json entry too) is a real write -- needs the same
     # Viewer-role gate as every other write action in the app.
@@ -169,7 +169,7 @@ watchlist_page.render()
     at = AppTest.from_string(script, default_timeout=60)
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_action"][0]
+    star_btn = [b for b in at.button if b.key == "wl_row_0_AAA.BR_remove"][0]
     assert star_btn.disabled
     assert portfolio.load_watchlist() == {"AAA.BR"}
 
@@ -197,3 +197,13 @@ def test_view_button_opens_drawer(isolated_data, monkeypatch):
     view_btn.click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Model fair values" in "".join(m.value for m in at.markdown)
+
+
+def test_adding_a_ticker_already_on_the_watchlist_says_so(isolated_data, monkeypatch):
+    """G28: no silent no-op for a duplicate."""
+    portfolio.save_watchlist({"AAA.BR"})
+    at = _run(monkeypatch)
+    at.text_input[0].set_value("aaa.br")
+    at.button(key="FormSubmitter:wl_add_form-Add ticker").click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert "Already on your watchlist." in "".join(m.value for m in at.markdown)

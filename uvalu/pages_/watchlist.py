@@ -14,6 +14,7 @@ from settings import load_shared_settings, get_veto_thresholds, get_score_weight
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import list_provenance_html, page_header, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
+from uvalu.formatting import exchange_code
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
 from uvalu.ui import poll_while_fetching
@@ -23,13 +24,13 @@ _EXCHANGE_LABELS = {
     "milan": N_("Milan"), "frankfurt": N_("Frankfurt"), "swiss": N_("Swiss"),
 }
 
-# 8 widths matching stock_row's show_action=True layout exactly (star, then
-# the 7 shared data columns) — shared by the real column header, the real
-# rows (stock_row), and the loading skeleton's column-header/rows so all
-# three always stay pixel-aligned.
-_HH_WIDTHS = [0.5, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fails quality screen" (BDG-1)
-_HH_LABELS = ("", N_("Position"), N_("Signal"), N_("Composite score"), N_("Margin of safety"), N_("Price"),
-              "P/E", N_("Yield"))
+# 8 widths matching stock_row's show_remove=True layout exactly (the 7
+# shared data columns, then the "×" remove column) — shared by the real
+# column header, the real rows (stock_row), and the loading skeleton's
+# column-header/rows so all three always stay pixel-aligned.
+_HH_WIDTHS = [3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9, 0.32]   # signal column fits "Fails quality screen" (BDG-1)
+_HH_LABELS = (N_("Company"), N_("Signal"), N_("Composite score"), N_("Margin of safety"), N_("Price"),
+              "P/E", N_("Yield"), "")
 # Upside/Price/P-E/Yield are right-aligned (matching their own right-aligned
 # data cells in stock_row); Position/Signal/Composite score stay left-aligned
 # like their left-anchored cells.
@@ -124,6 +125,10 @@ def render() -> None:
         if not _sym:
             st.markdown(f'<div style="font-size:12px;color:var(--down-txt);">{h_("Enter a ticker symbol.")}</div>',
                        unsafe_allow_html=True)
+        elif _sym in watchlist:
+            # G28: say so instead of silently doing nothing.
+            st.markdown(f'<div style="font-size:12px;color:var(--muted);">{h_("Already on your watchlist.")}</div>',
+                        unsafe_allow_html=True)
         else:
             try:
                 _info = yf.Ticker(_sym).info
@@ -182,7 +187,7 @@ def render() -> None:
                        unsafe_allow_html=True)
             with st.container(key="wl_col_header"):
                 _col_header()
-            skeleton_rows(_fitted_widths(), n=min(len(watchlist), 6), name_col=1, key_prefix="uv_skel_row_wl")
+            skeleton_rows(_fitted_widths(), n=min(len(watchlist), 6), name_col=0, key_prefix="uv_skel_row_wl")
         return
 
     with st.container(key="wl_table_card", border=True):
@@ -194,15 +199,14 @@ def render() -> None:
             _ticker = _row["Ticker"]
             _result = stock_row(
                 key=f"wl_row_{_ridx}_{_ticker}",
-                ticker=_ticker, name=_row.get("Name", ""),
-                exchange=tr(_row.get("Exchange")) if pd.notna(_row.get("Exchange")) else None,
+                ticker=_ticker, name=_row.get("Name", ""), exchange=exchange_code(_ticker),
                 signal_code=str(_row.get("signal_code", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
-                action_active=True, action_help=_("Remove from watchlist"),
+                show_action=False, show_remove=True, remove_help=_("Remove from watchlist"),
                 action_disabled=_is_viewer, widths=_fitted_widths(),
             )
-            if _result["action"]:
+            if _result["remove"]:
                 save_watchlist(watchlist - {_ticker})
                 # Manually-added tickers never appear on the Screener page
                 # (it excludes extra_df from its own ranked list) -- this is

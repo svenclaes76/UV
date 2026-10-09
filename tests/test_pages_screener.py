@@ -33,7 +33,7 @@ def test_renders_skeleton_when_no_data(isolated_data, monkeypatch):
     # Layout-matching skeleton: filter-bar and column-header shapes render
     # too, not just a generic shimmer card (uvalu/pages_/screener.py).
     assert "uv-skel-bar" in html
-    assert "Position" in html and "Margin of safety" in html
+    assert "Company" in html and "Margin of safety" in html
 
 
 def test_skeleton_shows_fetch_progress_when_running(isolated_data, monkeypatch):
@@ -260,12 +260,33 @@ def test_view_button_opens_drawer(isolated_data, monkeypatch):
     assert "Model fair values" in "".join(m.value for m in at.markdown)
 
 
-def test_reset_filters_only_shows_when_filters_differ_from_defaults(isolated_data, monkeypatch):
+def test_reset_filters_is_always_shown(isolated_data, monkeypatch):
     at = _run(monkeypatch)
-    assert not any(b.key == "scr_reset" for b in at.button)       # default filters
-    at.text_input(key="scr_search").set_value("AAA").run()
+    assert any(b.key == "scr_reset" for b in at.button)           # default filters too (SC-11)
+
+
+def test_rank_column_numbers_rows_in_the_current_sort(isolated_data, monkeypatch):
+    df = make_scored_df([make_scored_row(Ticker="LOW.BR", Name="Low NV", **{"Value Score": 40.0}),
+                         make_scored_row(Ticker="TOP.PA", Name="Top SA", **{"Value Score": 90.0})])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    html = "".join(m.value for m in at.markdown)
+    # Score descending: TOP.PA first. Exchange short codes, not city names.
+    assert html.index("TOP.PA") < html.index("LOW.BR")
+    assert ">PAR</span>" in html and ">BRU</span>" in html
+    assert "font-size:12px;color:var(--muted);'>1</div>" in html
+
+
+def test_hide_positions_i_own_drops_held_tickers(isolated_data, monkeypatch):
+    portfolio.save_portfolio(pd.DataFrame([dict(ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA",
+                                                shares=10, purchase_value=1000.0, purchase_price=100.0,
+                                                target_price=130.0, dividends=0.0, date_in="2023-01-01",
+                                                date_out="")]))
+    df = make_scored_df([make_scored_row(), make_scored_row(Ticker="BBB.BR", Name="Beta NV")])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    at.pills(key="scr_hide_owned_pill").set_value("owned").run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert any(b.key == "scr_reset" for b in at.button)
+    html = "".join(m.value for m in at.markdown)
+    assert "BBB.BR" in html and "AAA.BR" not in html
 
 
 def _with_pending_row():
@@ -286,7 +307,7 @@ def test_no_signal_stock_is_listed_at_the_default_filters(isolated_data, monkeyp
     at = _run(monkeypatch, screener_tuple=_with_pending_row())
     html = "".join(m.value for m in at.markdown)
     assert "PEND.BR" in html and "AAA.BR" in html
-    assert "<b>2</b> of 2 European stocks" in html
+    assert "2 of 2 European stocks" in html
 
 
 def test_no_signal_stock_drops_out_when_min_margin_is_raised(isolated_data, monkeypatch):
