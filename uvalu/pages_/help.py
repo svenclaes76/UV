@@ -81,9 +81,9 @@ _FAQ = [
         "portfolio; it is not a recommendation. A holding that fails a quality screen counts with its "
         "score of 0; a holding without a score (No signal) is left out.")),
     (N_("How often do prices update?"),
-     N_("During the beta, prices are delayed quotes from Yahoo Finance that refresh on the interval "
-        "set in Settings → Data during market hours. Fundamentals refresh about every 24 hours, and "
-        "the signals are recomputed when they do. Every signal shows the time of its price.")),
+     N_("During the free beta prices are delayed quotes from Yahoo Finance; each signal shows the time "
+        "of the price it used. Fundamentals are refreshed about every 24 hours. Real-time prices are "
+        "not offered.")),
     (N_("Why does a stock show “Fails quality screen”?"),
      N_("It breaks one of the quality rules listed on this page; the explanation next to the badge "
         "names which. Its composite score is set to 0. It still appears in your portfolio and "

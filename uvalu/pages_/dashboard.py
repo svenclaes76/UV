@@ -11,7 +11,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
-from settings import load_shared_settings, load_settings, get_dividend_withholding, get_veto_thresholds
+from settings import load_shared_settings, get_dividend_withholding, get_veto_thresholds
 from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.drawer import open_drawer
@@ -623,11 +623,6 @@ def render() -> None:
             _db_raw_ex  = pd.to_datetime(_db_div_scr["exDividendDate"], errors="coerce", dayfirst=True)
             _db_div_scr["exDividendDate"] = _db_next_ex.fillna(_db_raw_ex)
             _today = pd.Timestamp.today().normalize()
-            _db_user_settings = load_settings(current_user().email)
-            _db_alert_ex_div = bool(_db_user_settings.get("alert_dividend_ex_date"))
-            _db_alert_cut = bool(_db_user_settings.get("alert_dividend_cut"))
-            _db_alert_increase = bool(_db_user_settings.get("alert_dividend_increase"))
-            _db_size_threshold = float(_db_user_settings.get("alert_dividend_size_threshold_pct") or 0.0)
             if _db_div_scr["exDividendDate"].notna().any():
                 _db_upcoming = (
                     _db_div_scr[_db_div_scr["exDividendDate"] >= _today]
@@ -638,14 +633,9 @@ def render() -> None:
                     # duplicate-ticker hazard as above; .map() from a
                     # duplicate-indexed Series raises InvalidIndexError.
                     _db_shares_map = _db_pf.groupby("ticker")["shares"].sum()
-                    _db_weight_map = (
-                        (_db_pf.groupby("ticker")["current_value"].sum() / _db_current * 100)
-                        if _db_current else pd.Series(dtype=float)
-                    )
                     _db_upcoming = _db_upcoming.assign(
                         _shares=_db_upcoming["Ticker"].map(_db_shares_map).fillna(0),
                         _rate=pd.to_numeric(_db_upcoming.get("dividendRate"), errors="coerce").fillna(0),
-                        _weight=_db_upcoming["Ticker"].map(_db_weight_map).fillna(0),
                     )
                     for _dr_idx, _dr in _db_upcoming.iterrows():
                         _gross = float(_dr["_shares"]) * float(_dr["_rate"])
@@ -654,24 +644,11 @@ def render() -> None:
                         _net = round(_gross - _fwh - max(0.0, _gross - _fwh) * BE_WITHHOLDING_RATE, 2)
                         _yld = _dr.get("dividendYield")
                         _yld_str = fmt_pct(float(_yld), 2, fraction=True) if pd.notna(_yld) else "—"
-                        _days_out = (_dr["exDividendDate"] - _today).days
-                        _soon_badge = (
-                            f' <span style="color:var(--mint);font-weight:500;">{h_("· soon")}</span>'
-                            if _db_alert_ex_div and _days_out <= 7
-                            and (_db_size_threshold <= 0 or _dr["_weight"] >= _db_size_threshold) else ""
-                        )
-                        _cut_year = _dr.get("dividend_last_cut_year")
-                        _incr_year = _dr.get("dividend_last_increase_year")
-                        _cut_badge = (f' <span style="color:var(--down-txt,#A32D2D);font-weight:500;">{h_("· cut")}</span>'
-                                     if _db_alert_cut and pd.notna(_cut_year) and _cut_year else "")
-                        _incr_badge = (f' <span style="color:var(--mint);font-weight:500;">{h_("· raised")}</span>'
-                                      if _db_alert_increase and not _cut_badge
-                                      and pd.notna(_incr_year) and _incr_year else "")
                         st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
     <div style="font-size:12.5px;">{_html.escape(display_name(_dr['Name']))}</div>
-    <div style="font-size:11px;color:var(--muted);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
+    <div style="font-size:11px;color:var(--muted);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}</div>
   </div>
   <div style="text-align:right;">
     <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(_net, "EUR", 0)}</div>

@@ -1,4 +1,4 @@
-"""Settings page — Display, Screening & veto rules, Data, Import & Export,
+"""Settings page — Display, Screening & veto rules, Import & Export,
 matching the Uvalu.dc.html mockup's Settings screen: one bordered/shadowed
 card per section (uppercase header row, then flat hairline-divided setting
 rows), imported from the claude.ai/design project (projectId
@@ -16,16 +16,9 @@ borrows its visual chrome:
   demo segmented controls under Display.
 - Screening sliders keep the app's real ranges/units (e.g. Max debt/equity
   is 50-1000%) instead of the mockup's demo 1-3× scale.
-- The mockup's "Alerts & data" card (4 generic notification toggles + Price
-  refresh interval) became just "Data" with Price refresh interval only —
-  the original 4 toggles were removed per request (never wired to any real
-  delivery mechanism — no email/push exists in this app — so they didn't do
-  anything besides store an unused preference). This card has since grown
-  its own real, in-app-badge-wired alert toggles instead (ex-dividend
-  approaching, with an optional position-size gate; dividend cut/suspension;
-  dividend increase — all surfaced as Dashboard "Upcoming dividends" badges,
-  never a new delivery channel), so "Data" now means Price refresh interval
-  + these dividend alerts, not a return to the removed generic toggles.
+- No "Data & alerts" card (design reference v1.3): prices refresh on a fixed
+  cadence (uvalu.ui.PRICE_REFRESH_S) and there are no alert badges. Old
+  refresh/alert keys in stored settings are simply ignored.
 - Import/Export (per-user portfolio ops) isn't in the mockup at all but is
   a real, useful feature, so it stays; the mockup's Table density-adjacent
   settings were removed per a separate request.
@@ -106,7 +99,7 @@ _SECTIONS = (
     ("set-account", N_("Account security")),
     ("set-display", N_("Display")),
     ("set-portfolio", N_("Target allocation")),
-    ("set-data", N_("Data & alerts")),
+    ("set-withholding", N_("Dividend withholding")),
     ("set-import", N_("Import & export")),
     ("set-model", N_("Model settings")),
     ("set-legal", N_("Legal")),
@@ -681,84 +674,9 @@ def render() -> None:
                     st.toast(_("Target allocation saved."))
                     st.rerun()
 
-            # ── Data ─────────────────────────────────────────────────────────────────────
-            with st.container(key="set_card_data", border=True):
-                _row_header(h_("Data & alerts"), anchor="set-data")
-
-                # A segmented control, not a select_slider — every other discrete-
-                # choice row on this page (Theme, Screening style) already uses
-                # one, and unlike a BaseWeb slider it has a genuinely fixed width
-                # regardless of which option is selected (was visibly resizing
-                # per value before).
-                # Options are the intervals in seconds (stable across a language
-                # switch); only their labels are translated.
-                _refresh_opts = [30, 60, 300, 900]
-                _refresh_fmt = lambda s: f"{s}s" if s < 60 else _("{minutes} min", minutes=s // 60)
-                _cur_refresh = _s.get("refresh_interval_s", 60)
-                _new_refresh = _seg_row(
-                    "refresh", "disp_refresh_interval", h_("Price refresh interval"),
-                    h_("How often delayed quotes from Yahoo Finance update during market hours. Real-time quotes are not offered."),
-                    _refresh_opts, _cur_refresh if _cur_refresh in _refresh_opts else 60, stacked=True,
-                    format_func=frozen(_refresh_fmt)) or _cur_refresh
-
-                if int(_new_refresh) != _cur_refresh:
-                    _s["refresh_interval_s"] = int(_new_refresh)
-                    save_settings(_s, _email)
-                    st.rerun()
-
-                # Unlike the module docstring's removed "Alerts" toggles (never
-                # wired to any delivery mechanism — no email/push exists here),
-                # this one IS wired: Dashboard's Upcoming Dividends card
-                # (uvalu/pages_/dashboard.py) shows a "· soon" badge next to any
-                # holding going ex-dividend within 7 days when this is on. It's
-                # an in-app badge on a page the user already visits, not a new
-                # delivery channel, so the earlier "not wired" reasoning doesn't
-                # apply to this one.
-                _alert_ex_div = _toggle_row(
-                    "alert_ex_div", "disp_alert_ex_div", h_("Ex-dividend alerts"),
-                    h_("Flag holdings going ex-dividend within 7 days on the Dashboard."),
-                    bool(_s.get("alert_dividend_ex_date", False)))
-                if _alert_ex_div != bool(_s.get("alert_dividend_ex_date", False)):
-                    _s["alert_dividend_ex_date"] = bool(_alert_ex_div)
-                    save_settings(_s, _email)
-                    st.rerun()
-
-                if _alert_ex_div:
-                    _cur_thr = float(_s.get("alert_dividend_size_threshold_pct", 0.0))
-                    _new_thr = _threshold_slider(
-                        "disp_alert_dividend_size", h_("Only above this position weight"), 0.0, 15.0, 0.5,
-                        _cur_thr, lambda v: (fmt_pct(v) if v > 0 else _("any size")),
-                        _("0% flags every held ex-date; raise it to only badge your larger positions."))
-                    if _new_thr != _cur_thr:
-                        _s["alert_dividend_size_threshold_pct"] = float(_new_thr)
-                        save_settings(_s, _email)
-                        st.rerun()
-
-                # Both wired the same way as Ex-dividend alerts above (an in-app
-                # Dashboard badge, not a new delivery channel) — cut/suspension
-                # from screener.dividend_last_cut_year, increase from the
-                # symmetric dividend_last_increase_year (WP-DIV5).
-                _alert_cut = _toggle_row(
-                    "alert_div_cut", "disp_alert_div_cut", h_("Dividend cut / suspension alerts"),
-                    h_("Flag a holding on the Dashboard when its dividend was just cut or suspended."),
-                    bool(_s.get("alert_dividend_cut", False)))
-                if _alert_cut != bool(_s.get("alert_dividend_cut", False)):
-                    _s["alert_dividend_cut"] = bool(_alert_cut)
-                    save_settings(_s, _email)
-                    st.rerun()
-
-                _alert_increase = _toggle_row(
-                    "alert_div_increase", "disp_alert_div_increase", h_("Dividend increase alerts"),
-                    h_("Flag a holding on the Dashboard when its dividend was just raised."),
-                    bool(_s.get("alert_dividend_increase", False)))
-                if _alert_increase != bool(_s.get("alert_dividend_increase", False)):
-                    _s["alert_dividend_increase"] = bool(_alert_increase)
-                    save_settings(_s, _email)
-                    st.rerun()
-
             # ── Dividend withholding (per-user — depends on tax residency/treaty) ────────
             with st.container(key="set_card_dividend_tax", border=True):
-                _row_header(h_("Dividend withholding"))
+                _row_header(h_("Dividend withholding"), anchor="set-withholding")
                 _row_desc(h_("Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."))
                 _wh = dict(_s.get("dividend_withholding") or {})
                 _wh_new: dict[str, float] = {}

@@ -1339,7 +1339,7 @@ GLOBAL_CSS = """
      has no preceding sibling row to cancel against; a negative margin there
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
-  .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
+  .st-key-set_row_theme, .st-key-set_row_password {
     margin-top: 0 !important;
   }
   /* …and every card's first row, whatever its key: the row right after the
@@ -1436,8 +1436,7 @@ GLOBAL_CSS = """
   }
   /* Stacked rows (4-option controls under a long description): the control
      on its own line, as wide as its segments, not a full-width track. */
-  .st-key-set_row_screen_style [data-testid="stButtonGroup"],
-  .st-key-set_row_refresh [data-testid="stButtonGroup"] {
+  .st-key-set_row_screen_style [data-testid="stButtonGroup"] {
     width: fit-content !important; margin-top: 6px !important;
   }
   /* The slider's own thumb value repeated the value already shown, larger,

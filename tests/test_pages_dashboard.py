@@ -306,6 +306,23 @@ def test_upcoming_dividend_row_renders_for_future_ex_date(isolated_data, monkeyp
     assert "Alpha Corp" in html
 
 
+def test_upcoming_dividends_have_no_alert_badges(isolated_data, monkeypatch):
+    """Settings › Data & alerts is gone; old stored alert keys are ignored."""
+    import settings
+    from tests.conftest import TEST_EMAIL, make_scored_row
+    settings.save_settings({**settings.load_settings(TEST_EMAIL), "alert_dividend_ex_date": True,
+                            "alert_dividend_cut": True, "alert_dividend_increase": True}, TEST_EMAIL)
+    portfolio.save_portfolio(make_portfolio_df())
+    soon = (pd.Timestamp.today().normalize() + pd.Timedelta(days=3)).strftime("%d-%m-%Y")
+    row = make_scored_row(exDividendDate=soon, dividendRate=3.2, dividendYield=0.03,
+                          dividend_last_cut_year=2025, dividend_last_increase_year=2024)
+    at = _run(monkeypatch, scored=make_scored_df([row]))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Alpha Corp" in html
+    assert "· soon" not in html and "· cut" not in html and "· raised" not in html
+
+
 def test_upcoming_dividends_no_cached_dates_shows_caption(isolated_data, monkeypatch):
     from tests.conftest import make_scored_row
     portfolio.save_portfolio(make_portfolio_df())

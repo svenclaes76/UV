@@ -93,17 +93,8 @@ _SCORE_STYLES: dict[str, tuple] = {
 
 _USER_DEFAULTS: dict = {
     "density":  "comfortable",  # "comfortable" | "compact" — table row density
-    "refresh_interval_s": 60,   # portfolio price auto-refresh cadence
-    # No alert may pair a model signal with the user's holdings (PER-5): the
-    # former alert_buy_signal / alert_avoid_signal were removed in v2.1.0.
-    "alert_dividend_ex_date": False,
-    # Only badge an approaching ex-date for a holding at least this big a
-    # slice of the portfolio — an ex-div reminder for a 0.3%-weight position
-    # is noise. 0 disables the size gate (every held ex-date badges).
-    "alert_dividend_size_threshold_pct": 0.0,
-    "alert_dividend_cut":     False,   # badge when a holding's dividend was just cut/suspended
-    "alert_dividend_increase": False,  # badge when a holding's dividend was just raised
-    "alert_price_target":    False,
+    # refresh_interval_s and the alert_* keys were removed with Settings ›
+    # Data & alerts (design reference v1.3); stored values are ignored.
     # Per-exchange dividend withholding tax %, applied as the default tax_rate
     # when a dividend is recorded against a ticker on that exchange (still
     # editable per record). Every exchange starts at 0% — actual withholding

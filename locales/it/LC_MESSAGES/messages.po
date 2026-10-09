@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 11:59+0000\n"
+"POT-Creation-Date: 2026-10-09 12:15+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
@@ -53,7 +53,7 @@ msgid "Analysis"
 msgstr "Analisi"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:436 uvalu/shell.py:390
+#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:390
 msgid "Settings"
 msgstr "Impostazioni"
 
@@ -62,7 +62,7 @@ msgstr "Impostazioni"
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: app.py:120 uvalu/pages_/settings.py:112 uvalu/pages_/settings.py:946
+#: app.py:120 uvalu/pages_/settings.py:105 uvalu/pages_/settings.py:864
 msgid "Legal"
 msgstr "Note legali"
 
@@ -1241,7 +1241,7 @@ msgstr ""
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
-#: uvalu/authgate.py:32 uvalu/pages_/settings.py:281 uvalu/pages_/settings.py:313
+#: uvalu/authgate.py:32 uvalu/pages_/settings.py:274 uvalu/pages_/settings.py:306
 msgid "New password and confirmation don't match."
 msgstr "La nuova password e la conferma non corrispondono."
 
@@ -1257,7 +1257,7 @@ msgstr "Apri la tua app di autenticazione e inserisci il codice a 6 cifre per Uv
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
-#: uvalu/authgate.py:133 uvalu/pages_/settings.py:349
+#: uvalu/authgate.py:133 uvalu/pages_/settings.py:342
 msgid "Code"
 msgstr "Codice"
 
@@ -1280,9 +1280,9 @@ msgstr "Usa un codice di backup"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:311
-#: uvalu/dialogs.py:319 uvalu/locale_ui.py:201 uvalu/pages_/settings.py:274
-#: uvalu/pages_/settings.py:306 uvalu/pages_/settings.py:353
-#: uvalu/pages_/settings.py:396 uvalu/pages_/settings.py:824
+#: uvalu/dialogs.py:319 uvalu/locale_ui.py:201 uvalu/pages_/settings.py:267
+#: uvalu/pages_/settings.py:299 uvalu/pages_/settings.py:346
+#: uvalu/pages_/settings.py:389 uvalu/pages_/settings.py:742
 msgid "Cancel"
 msgstr "Annulla"
 
@@ -1321,7 +1321,7 @@ msgstr "Torna al codice di autenticazione"
 
 #. Context: Sign-up, reset and change-password forms › live meter under the
 #. password field. {strength} is Weak, Fair or Strong (translated separately).
-#: uvalu/authgate.py:210 uvalu/pages_/settings.py:253
+#: uvalu/authgate.py:210 uvalu/pages_/settings.py:246
 #, python-brace-format
 msgid "Password strength: {strength}"
 msgstr "Sicurezza della password: {strength}"
@@ -1469,14 +1469,14 @@ msgstr "FISSATO DALL'INVITO"
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
 #: uvalu/authgate.py:351 uvalu/authgate.py:406 uvalu/authgate.py:668
-#: uvalu/authgate.py:673 uvalu/authgate.py:715 uvalu/pages_/settings.py:473
-#: uvalu/pages_/settings.py:477
+#: uvalu/authgate.py:673 uvalu/authgate.py:715 uvalu/pages_/settings.py:466
+#: uvalu/pages_/settings.py:470
 msgid "Password"
 msgstr "Password"
 
 #. Context: Password fields › tooltip with the minimum password length
 #: uvalu/authgate.py:353 uvalu/authgate.py:408 uvalu/authgate.py:475
-#: uvalu/pages_/settings.py:268 uvalu/pages_/settings.py:300
+#: uvalu/pages_/settings.py:261 uvalu/pages_/settings.py:293
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Almeno {min_len} caratteri."
@@ -1548,12 +1548,12 @@ msgid "Choose a new password"
 msgstr "Scegli una nuova password"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:473 uvalu/pages_/settings.py:267 uvalu/pages_/settings.py:299
+#: uvalu/authgate.py:473 uvalu/pages_/settings.py:260 uvalu/pages_/settings.py:292
 msgid "New password"
 msgstr "Nuova password"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:476 uvalu/pages_/settings.py:270 uvalu/pages_/settings.py:302
+#: uvalu/authgate.py:476 uvalu/pages_/settings.py:263 uvalu/pages_/settings.py:295
 msgid "Confirm new password"
 msgstr "Conferma la nuova password"
 
@@ -1595,7 +1595,7 @@ msgstr ""
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:625 uvalu/pages_/settings.py:696
+#: uvalu/authgate.py:625
 #, python-brace-format
 msgid "{minutes} min"
 msgstr "{minutes} min"
@@ -3275,7 +3275,7 @@ msgid "Preview"
 msgstr "Anteprima"
 
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:128 uvalu/pages_/settings.py:105
+#: uvalu/locale_ui.py:128 uvalu/pages_/settings.py:98
 msgid "Language & region"
 msgstr "Lingua e regione"
 
@@ -3456,7 +3456,7 @@ msgstr "Portale di amministrazione"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:461 uvalu/pages_/settings.py:610 uvalu/shell.py:411
+#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:411
 msgid "Sign out"
 msgstr "Esci"
 
@@ -3498,13 +3498,13 @@ msgid "About this version and what's new"
 msgstr "Informazioni su questa versione e novità"
 
 #. Context: Dashboard › empty state of the allocation chart
-#: uvalu/ui.py:314
+#: uvalu/ui.py:317
 msgid "No data available for this breakdown."
 msgstr "Nessun dato disponibile per questa ripartizione."
 
 #. Context: Sector allocation donut › uppercase label above the total in the
 #. centre
-#: uvalu/ui.py:359
+#: uvalu/ui.py:362
 msgid "TOTAL"
 msgstr "TOTALE"
 
@@ -4477,7 +4477,7 @@ msgstr "Apri lo screener"
 
 #. Context: Dashboard › empty state link; also the Settings › Import & export
 #. row title
-#: uvalu/pages_/dashboard.py:51 uvalu/pages_/settings.py:792
+#: uvalu/pages_/dashboard.py:51 uvalu/pages_/settings.py:710
 msgid "Import portfolio"
 msgstr "Importa portafoglio"
 
@@ -4748,7 +4748,7 @@ msgid "View details"
 msgstr "Vedi dettagli"
 
 #. Context: Dashboard › empty state of holdings and dividends cards
-#: uvalu/pages_/dashboard.py:569 uvalu/pages_/dashboard.py:686
+#: uvalu/pages_/dashboard.py:569 uvalu/pages_/dashboard.py:663
 msgid "No screener data available for your holdings."
 msgstr "Nessun dato dello screener disponibile per le tue posizioni."
 
@@ -4769,53 +4769,38 @@ msgstr "Prossimi dividendi"
 msgid "{amount} / yr"
 msgstr "{amount} / anno"
 
-#. Context: Dashboard › badge on an upcoming dividend: ex-date within 7 days
-#: uvalu/pages_/dashboard.py:659
-msgid "· soon"
-msgstr "· a breve"
-
-#. Context: Dashboard › badge on an upcoming dividend: dividend was just cut
-#: uvalu/pages_/dashboard.py:665
-msgid "· cut"
-msgstr "· tagliato"
-
-#. Context: Dashboard › badge on an upcoming dividend: dividend was just raised
-#: uvalu/pages_/dashboard.py:667
-msgid "· raised"
-msgstr "· aumentato"
-
 #. Context: Dashboard › upcoming dividend row: ex-dividend date and yield.
 #. Badges ('· soon', '· cut', '· raised') may follow.
-#: uvalu/pages_/dashboard.py:674
+#: uvalu/pages_/dashboard.py:651
 #, python-brace-format
 msgid "{date} · {yield_pct} yield"
 msgstr "{date} · rendimento {yield_pct}"
 
 #. Context: Dashboard › upcoming dividend row: expected gross amount, e.g.
 #. '€84.00 gross'
-#: uvalu/pages_/dashboard.py:678
+#: uvalu/pages_/dashboard.py:655
 #, python-brace-format
 msgid "{amount} gross"
 msgstr "{amount} lordi"
 
 #. Context: Dashboard › empty state of Upcoming dividends
-#: uvalu/pages_/dashboard.py:682
+#: uvalu/pages_/dashboard.py:659
 msgid "No upcoming ex-dividend dates in the next 30 days."
 msgstr "Nessuna data di stacco nei prossimi 30 giorni."
 
 #. Context: Dashboard › note when dividend dates haven't been downloaded yet
-#: uvalu/pages_/dashboard.py:684
+#: uvalu/pages_/dashboard.py:661
 msgid "Ex-dividend dates not yet in cache — click Refresh in the screener."
 msgstr "Date di stacco non ancora in cache: fai clic su Aggiorna nello screener."
 
 #. Context: Dashboard › card heading: biggest daily price changes in your
 #. holdings
-#: uvalu/pages_/dashboard.py:689
+#: uvalu/pages_/dashboard.py:666
 msgid "Top movers today"
 msgstr "Maggiori variazioni di oggi"
 
 #. Context: Dashboard › empty state of Top movers
-#: uvalu/pages_/dashboard.py:711
+#: uvalu/pages_/dashboard.py:688
 msgid "No daily price data available."
 msgstr "Nessun prezzo giornaliero disponibile."
 
@@ -4932,15 +4917,10 @@ msgstr "Ogni quanto si aggiornano i prezzi?"
 
 #: uvalu/pages_/help.py:84
 msgid ""
-"During the beta, prices are delayed quotes from Yahoo Finance that refresh on the "
-"interval set in Settings → Data during market hours. Fundamentals refresh about every 24 "
-"hours, and the signals are recomputed when they do. Every signal shows the time of its "
-"price."
-msgstr ""
-"Durante la beta, i prezzi sono quotazioni ritardate di Yahoo Finance che si aggiornano "
-"durante l'orario di borsa con l'intervallo impostato in Impostazioni → Dati. I dati "
-"fondamentali si aggiornano circa ogni 24 ore e in quel momento i segnali vengono "
-"ricalcolati. Ogni segnale mostra l'ora del suo prezzo."
+"During the free beta prices are delayed quotes from Yahoo Finance; each signal "
+"shows the time of the price it used. Fundamentals are refreshed about every 24 "
+"hours. Real-time prices are not offered."
+msgstr "Durante la beta gratuita i prezzi sono quotazioni ritardate di Yahoo Finance; ogni segnale mostra l'ora del prezzo usato. I dati fondamentali vengono aggiornati circa ogni 24 ore. I prezzi in tempo reale non sono offerti."
 
 #: uvalu/pages_/help.py:87
 msgid "Why does a stock show “Fails quality screen”?"
@@ -4976,6 +4956,8 @@ msgstr "Badge"
 
 #. Methodology & help › left-hand section list › the fair-value models (Graham Number,
 #. EPV, …).
+#. Methodology › left-hand section list › the fair-value models (Graham Number, EPV,
+#. …).
 #. Methodology › left-hand section list › the fair-value models (Graham Number, EPV,
 #. …).
 #: uvalu/pages_/help.py:107
@@ -5794,94 +5776,95 @@ msgstr "Aggiungi alla watchlist"
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr "Mostra altri {count} · {shown} di {total} mostrati"
 
-#: uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:467
+#: uvalu/pages_/settings.py:99 uvalu/pages_/settings.py:460
 msgid "Account security"
 msgstr "Sicurezza dell'account"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:107 uvalu/pages_/settings.py:623
+#: uvalu/pages_/settings.py:100 uvalu/pages_/settings.py:616
 msgid "Display"
 msgstr "Visualizzazione"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:108 uvalu/pages_/settings.py:636
+#: uvalu/pages_/settings.py:101 uvalu/pages_/settings.py:629
 msgid "Target allocation"
 msgstr "Allocazione obiettivo"
 
-#: uvalu/pages_/settings.py:109 uvalu/pages_/settings.py:686
-msgid "Data & alerts"
-msgstr "Dati e avvisi"
+#. Context: Settings › section heading
+#: uvalu/pages_/settings.py:102 uvalu/pages_/settings.py:679
+msgid "Dividend withholding"
+msgstr "Ritenuta sui dividendi"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:110 uvalu/pages_/settings.py:786
+#: uvalu/pages_/settings.py:103 uvalu/pages_/settings.py:704
 msgid "Import & export"
 msgstr "Importazione ed esportazione"
 
-#: uvalu/pages_/settings.py:111
+#: uvalu/pages_/settings.py:104
 msgid "Model settings"
 msgstr "Impostazioni del modello"
 
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:196
+#: uvalu/pages_/settings.py:189
 msgctxt "style"
 msgid "Balanced"
 msgstr "Bilanciato"
 
 #. Context: Settings › Screening style option (message context 'style') (value
 #. investing). Also the Dashboard holdings column 'Value' (market value).
-#: uvalu/pages_/settings.py:196
+#: uvalu/pages_/settings.py:189
 msgctxt "style"
 msgid "Value"
 msgstr "Valore"
 
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:197
+#: uvalu/pages_/settings.py:190
 msgctxt "style"
 msgid "Growth"
 msgstr "Crescita"
 
 #. Context: Settings › Screening style option (message context 'style'); also
 #. the Cash activity 'Income' card
-#: uvalu/pages_/settings.py:197
+#: uvalu/pages_/settings.py:190
 msgctxt "style"
 msgid "Income"
 msgstr "Reddito"
 
 #. Context: Settings › fallback when a date is missing
-#: uvalu/pages_/settings.py:202 uvalu/pages_/settings.py:206
+#: uvalu/pages_/settings.py:195 uvalu/pages_/settings.py:199
 msgid "unknown date"
 msgstr "data sconosciuta"
 
 #. Context: Settings › Active sessions › fallback device name
-#: uvalu/pages_/settings.py:228
+#: uvalu/pages_/settings.py:221
 msgid "Unknown device"
 msgstr "Dispositivo sconosciuto"
 
 #. Context: Settings › Active sessions › fallback browser name in '{browser} on
 #. {os}'
-#: uvalu/pages_/settings.py:241
+#: uvalu/pages_/settings.py:234
 msgid "a browser"
 msgstr "un browser"
 
 #. Context: Settings › Active sessions › device name, e.g. 'Firefox on macOS'
-#: uvalu/pages_/settings.py:242
+#: uvalu/pages_/settings.py:235
 #, python-brace-format
 msgid "{browser} on {os}"
 msgstr "{browser} su {os}"
 
 #. Context: Settings › dialog title and save button
-#: uvalu/pages_/settings.py:262 uvalu/pages_/settings.py:277
+#: uvalu/pages_/settings.py:255 uvalu/pages_/settings.py:270
 msgid "Change password"
 msgstr "Modifica password"
 
 #. Context: Settings › Change password › field label
-#: uvalu/pages_/settings.py:266
+#: uvalu/pages_/settings.py:259
 msgid "Current password"
 msgstr "Password attuale"
 
 #. Context: Settings › Change password dialog › caption. The quoted button name
 #. must match its translation.
-#: uvalu/pages_/settings.py:286
+#: uvalu/pages_/settings.py:279
 msgid ""
 "Other devices stay signed in — use “Sign out everywhere else” below if you want to end "
 "those sessions too."
@@ -5890,32 +5873,32 @@ msgstr ""
 "sotto per chiudere anche quelle sessioni."
 
 #. Context: Settings › dialog title (account without a password)
-#: uvalu/pages_/settings.py:291 uvalu/pages_/settings.py:486
+#: uvalu/pages_/settings.py:284 uvalu/pages_/settings.py:479
 msgid "Set a password"
 msgstr "Imposta una password"
 
 #. Context: Settings › Set a password dialog › caption
-#: uvalu/pages_/settings.py:297
+#: uvalu/pages_/settings.py:290
 msgid "Add a password so you can sign in when your provider is unavailable."
 msgstr "Aggiungi una password per poter accedere quando il tuo provider non è disponibile."
 
 #. Context: Settings › Set a password dialog › save button
-#: uvalu/pages_/settings.py:309
+#: uvalu/pages_/settings.py:302
 msgid "Set password"
 msgstr "Imposta password"
 
 #. Context: Settings › 2FA setup dialog title
-#: uvalu/pages_/settings.py:329
+#: uvalu/pages_/settings.py:322
 msgid "Set up two-factor authentication"
 msgstr "Configura l'autenticazione a due fattori"
 
 #. Context: Settings › 2FA setup › error
-#: uvalu/pages_/settings.py:339
+#: uvalu/pages_/settings.py:332
 msgid "Could not start enrollment. Try again."
 msgstr "Impossibile avviare la configurazione. Riprova."
 
 #. Context: Settings › 2FA setup › step 1 instruction
-#: uvalu/pages_/settings.py:343
+#: uvalu/pages_/settings.py:336
 msgid ""
 "Step 1 of 2 — scan this QR code with your authenticator app (Google Authenticator, "
 "1Password, Authy, etc.)."
@@ -5924,27 +5907,27 @@ msgstr ""
 "Authenticator, 1Password, Authy ecc.)."
 
 #. Context: Settings › 2FA setup › shown above the secret key
-#: uvalu/pages_/settings.py:345
+#: uvalu/pages_/settings.py:338
 msgid "Can't scan it? Enter this key manually:"
 msgstr "Non riesci a scansionarlo? Inserisci questa chiave manualmente:"
 
 #. Context: Settings › 2FA setup › step 2 instruction
-#: uvalu/pages_/settings.py:348
+#: uvalu/pages_/settings.py:341
 msgid "Step 2 of 2 — enter the 6-digit code your app is showing."
 msgstr "Passaggio 2 di 2: inserisci il codice a 6 cifre mostrato dall'app."
 
 #. Context: Settings › 2FA setup › save button
-#: uvalu/pages_/settings.py:358
+#: uvalu/pages_/settings.py:351
 msgid "Confirm and enable"
 msgstr "Conferma e attiva"
 
 #. Context: Settings › dialog title after enabling 2FA
-#: uvalu/pages_/settings.py:372
+#: uvalu/pages_/settings.py:365
 msgid "Save your backup codes"
 msgstr "Salva i tuoi codici di backup"
 
 #. Context: Settings › backup codes dialog › warning
-#: uvalu/pages_/settings.py:378
+#: uvalu/pages_/settings.py:371
 msgid ""
 "Save these somewhere safe. Each code can be used once if you lose access to your "
 "authenticator app. They won't be shown again."
@@ -5953,33 +5936,33 @@ msgstr ""
 "all'app di autenticazione. Non verranno più mostrati."
 
 #. Context: Settings › backup codes dialog › confirmation checkbox
-#: uvalu/pages_/settings.py:381
+#: uvalu/pages_/settings.py:374
 msgid "I have saved these codes."
 msgstr "Ho salvato questi codici."
 
 #. Context: Settings › backup codes dialog › close button
-#: uvalu/pages_/settings.py:382
+#: uvalu/pages_/settings.py:375
 msgid "Done"
 msgstr "Fatto"
 
 #. Context: Settings › dialog title
-#: uvalu/pages_/settings.py:389
+#: uvalu/pages_/settings.py:382
 msgid "Regenerate backup codes"
 msgstr "Rigenera i codici di backup"
 
 #. Context: Settings › Regenerate backup codes dialog › warning
-#: uvalu/pages_/settings.py:392
+#: uvalu/pages_/settings.py:385
 msgid "This invalidates every existing backup code — only the new ones will work."
 msgstr ""
 "Tutti i codici di backup esistenti non saranno più validi: funzioneranno solo quelli "
 "nuovi."
 
 #. Context: Settings › button to create new backup codes
-#: uvalu/pages_/settings.py:399 uvalu/pages_/settings.py:563
+#: uvalu/pages_/settings.py:392 uvalu/pages_/settings.py:556
 msgid "Regenerate"
 msgstr "Rigenera"
 
-#: uvalu/pages_/settings.py:437
+#: uvalu/pages_/settings.py:430
 msgid ""
 "Choices apply as you make them; sections with typed values have their own Save button."
 msgstr ""
@@ -5987,103 +5970,103 @@ msgstr ""
 "Salva."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:473
+#: uvalu/pages_/settings.py:466
 #, python-brace-format
 msgid "Last changed {date}."
 msgstr "Ultima modifica il {date}."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:474
+#: uvalu/pages_/settings.py:467
 msgid "No password change on record."
 msgstr "Nessuna modifica della password registrata."
 
 #. Context: Settings › Security › badge when the account has no password (SSO
 #. only)
-#: uvalu/pages_/settings.py:479
+#: uvalu/pages_/settings.py:472
 msgid "NOT SET"
 msgstr "NON IMPOSTATA"
 
 #. Context: Settings › Security › Password row description when no password is
 #. set
-#: uvalu/pages_/settings.py:480
+#: uvalu/pages_/settings.py:473
 msgid "Add one so you can sign in when your provider is unavailable."
 msgstr "Aggiungine una per poter accedere quando il tuo provider non è disponibile."
 
 #. Context: Settings › Security › button to change the password (verb). Context
 #. 'button' separates it from the noun 'Change'.
-#: uvalu/pages_/settings.py:483
+#: uvalu/pages_/settings.py:476
 msgctxt "button"
 msgid "Change"
 msgstr "Modifica"
 
 #. Context: Settings › Security › row title for single sign-on providers
-#: uvalu/pages_/settings.py:502
+#: uvalu/pages_/settings.py:495
 msgid "Linked accounts"
 msgstr "Account collegati"
 
-#: uvalu/pages_/settings.py:503
+#: uvalu/pages_/settings.py:496
 msgid "Other ways to sign in to this account."
 msgstr "Altri modi per accedere a questo account."
 
-#: uvalu/pages_/settings.py:504
+#: uvalu/pages_/settings.py:497
 msgid "Sign-in with Google or Microsoft is not available in the beta."
 msgstr "L’accesso con Google o Microsoft non è disponibile nella beta."
 
 #. Context: Settings › Linked accounts › provider row detail
-#: uvalu/pages_/settings.py:511
+#: uvalu/pages_/settings.py:504
 #, python-brace-format
 msgid "{email} · linked {date}"
 msgstr "{email} · collegato il {date}"
 
 #. Context: Settings › Linked accounts › small uppercase badge on a linked
 #. provider
-#: uvalu/pages_/settings.py:516
+#: uvalu/pages_/settings.py:509
 msgid "CONNECTED"
 msgstr "COLLEGATO"
 
 #. Context: Settings › Linked accounts › provider row detail when not linked
 #. yet
-#: uvalu/pages_/settings.py:518
+#: uvalu/pages_/settings.py:511
 msgid "Available for this workspace."
 msgstr "Disponibile per questo spazio di lavoro."
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:521
+#: uvalu/pages_/settings.py:514
 msgid "Disconnect"
 msgstr "Scollega"
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:526
+#: uvalu/pages_/settings.py:519
 msgid "Connect"
 msgstr "Collega"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:539 uvalu/pages_/settings.py:547
+#: uvalu/pages_/settings.py:532 uvalu/pages_/settings.py:540
 msgid "Two-factor authentication"
 msgstr "Autenticazione a due fattori"
 
 #. Context: Settings › Security › 2FA row description
-#: uvalu/pages_/settings.py:540
+#: uvalu/pages_/settings.py:533
 msgid "Require a code from an authenticator app in addition to your password."
 msgstr "Richiedi un codice da un'app di autenticazione oltre alla password."
 
 #. Context: Settings › Security › 2FA row description for SSO-only accounts
-#: uvalu/pages_/settings.py:541
+#: uvalu/pages_/settings.py:534
 msgid "Managed by your identity provider."
 msgstr "Gestito dal tuo provider di identità."
 
 #. Context: Settings › Security › 2FA status for SSO-only accounts
-#: uvalu/pages_/settings.py:545
+#: uvalu/pages_/settings.py:538
 msgid "Not applicable"
 msgstr "Non applicabile"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:560
+#: uvalu/pages_/settings.py:553
 msgid "Backup codes"
 msgstr "Codici di backup"
 
 #. Context: Settings › Security › Backup codes row description
-#: uvalu/pages_/settings.py:560
+#: uvalu/pages_/settings.py:553
 #, python-brace-format
 msgid "{count} unused code remaining."
 msgid_plural "{count} unused codes remaining."
@@ -6091,12 +6074,12 @@ msgstr[0] "{count} codice non usato rimanente."
 msgstr[1] "{count} codici non usati rimanenti."
 
 #. Context: Settings › Security › row title: devices that skip the 2FA code
-#: uvalu/pages_/settings.py:570
+#: uvalu/pages_/settings.py:563
 msgid "Trusted devices"
 msgstr "Dispositivi attendibili"
 
 #. Context: Settings › Security › Trusted devices row description
-#: uvalu/pages_/settings.py:570
+#: uvalu/pages_/settings.py:563
 #, python-brace-format
 msgid "{count} device skips the two-factor challenge."
 msgid_plural "{count} devices skip the two-factor challenge."
@@ -6104,79 +6087,79 @@ msgstr[0] "{count} dispositivo salta la verifica a due fattori."
 msgstr[1] "{count} dispositivi saltano la verifica a due fattori."
 
 #. Context: Settings › Security › Trusted devices button
-#: uvalu/pages_/settings.py:574
+#: uvalu/pages_/settings.py:567
 msgid "Revoke all"
 msgstr "Revoca tutti"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:587
+#: uvalu/pages_/settings.py:580
 msgid "Passkeys"
 msgstr "Passkey"
 
 #. Context: Settings › Security › Passkeys row description
-#: uvalu/pages_/settings.py:587
+#: uvalu/pages_/settings.py:580
 msgid "Sign in with Face ID, Touch ID or a security key."
 msgstr "Accedi con Face ID, Touch ID o una chiave di sicurezza."
 
-#: uvalu/pages_/settings.py:588 uvalu/pages_/settings.py:591
+#: uvalu/pages_/settings.py:581 uvalu/pages_/settings.py:584
 msgid "Not available in the beta."
 msgstr "Non disponibile nella beta."
 
 #. Context: Settings › Security › Passkeys button
-#: uvalu/pages_/settings.py:590
+#: uvalu/pages_/settings.py:583
 msgid "Manage"
 msgstr "Gestisci"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:595
+#: uvalu/pages_/settings.py:588
 msgid "Active sessions"
 msgstr "Sessioni attive"
 
 #. Context: Settings › Active sessions › row detail, e.g. 'Chrome on Windows ·
 #. signed in 12 Sep 2026'
-#: uvalu/pages_/settings.py:603
+#: uvalu/pages_/settings.py:596
 #, python-brace-format
 msgid "{device} · signed in {date}"
 msgstr "{device} · accesso il {date}"
 
 #. Context: Settings › Active sessions › row title for the current session
-#: uvalu/pages_/settings.py:605
+#: uvalu/pages_/settings.py:598
 msgid "This browser"
 msgstr "Questo browser"
 
 #. Context: Settings › Active sessions › badge on the current session
-#: uvalu/pages_/settings.py:608
+#: uvalu/pages_/settings.py:601
 msgid "Current"
 msgstr "Corrente"
 
 #. Context: Settings › Active sessions › button to end all other sessions
-#: uvalu/pages_/settings.py:616
+#: uvalu/pages_/settings.py:609
 msgid "Sign out everywhere else"
 msgstr "Esci da tutti gli altri dispositivi"
 
 #. Context: Settings › Display › row title
-#: uvalu/pages_/settings.py:627
+#: uvalu/pages_/settings.py:620
 msgid "Theme"
 msgstr "Tema"
 
 #. Context: Settings › Display › Theme row description
-#: uvalu/pages_/settings.py:628
+#: uvalu/pages_/settings.py:621
 msgid "Deep-navy dark or surface-white light."
 msgstr "Blu notte scuro o bianco chiaro."
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:628
+#: uvalu/pages_/settings.py:621
 msgid "Dark"
 msgstr "Scuro"
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:628
+#: uvalu/pages_/settings.py:621
 msgid "Light"
 msgstr "Chiaro"
 
-#: uvalu/pages_/settings.py:637
+#: uvalu/pages_/settings.py:630
 msgid ""
 "Reference weights you set yourself. When any are set, the Risk page's observations "
 "compare the portfolio with them instead of the model reference levels."
@@ -6186,19 +6169,19 @@ msgstr ""
 "riferimento del modello."
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:642 uvalu/pages_/settings.py:645
+#: uvalu/pages_/settings.py:635 uvalu/pages_/settings.py:638
 msgid "Sector targets"
 msgstr "Obiettivi per settore"
 
 #. Context: Settings › Sector targets description
-#: uvalu/pages_/settings.py:643
+#: uvalu/pages_/settings.py:636
 #, no-python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr "Vuoto = nessun obiettivo per settore; si applica la regola del 30%."
 
 #. Context: Settings › Sector targets › example text inside the empty box.
 #. Sector names in the example should be the translated ones.
-#: uvalu/pages_/settings.py:647
+#: uvalu/pages_/settings.py:640
 #, no-python-format
 msgid ""
 "One per line — sector and target %:\n"
@@ -6210,19 +6193,19 @@ msgstr ""
 "Sanità 15"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:650 uvalu/pages_/settings.py:653
+#: uvalu/pages_/settings.py:643 uvalu/pages_/settings.py:646
 msgid "Per-name targets"
 msgstr "Obiettivi per titolo"
 
 #. Context: Settings › Per-name targets description
-#: uvalu/pages_/settings.py:651
+#: uvalu/pages_/settings.py:644
 #, no-python-format
 msgid "Blank = no per-name targets; only the 20% hard cap applies."
 msgstr "Vuoto = nessun obiettivo per titolo; si applica solo il limite rigido del 20%."
 
 #. Context: Settings › Per-name targets › example text inside the empty box.
 #. Use the local decimal separator in 7.5.
-#: uvalu/pages_/settings.py:655
+#: uvalu/pages_/settings.py:648
 #, no-python-format
 msgid ""
 "One per line — ticker and target %:\n"
@@ -6234,102 +6217,33 @@ msgstr ""
 "BBB.PA 7,5"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:660 uvalu/pages_/settings.py:663
+#: uvalu/pages_/settings.py:653 uvalu/pages_/settings.py:656
 msgid "Concentration ceiling (HHI)"
 msgstr "Tetto di concentrazione (HHI)"
 
-#: uvalu/pages_/settings.py:661
+#: uvalu/pages_/settings.py:654
 msgid "Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."
 msgstr ""
 "Segnala quando l’HHI del portafoglio supera questo valore. Lascia vuoto per le fasce "
 "predefinite."
 
-#: uvalu/pages_/settings.py:666
+#: uvalu/pages_/settings.py:659
 #, python-brace-format
 msgid "Default ({low} / {high})"
 msgstr "Predefinito ({low} / {high})"
 
 #. Context: Settings › Target allocation › save button
-#: uvalu/pages_/settings.py:669
+#: uvalu/pages_/settings.py:662
 msgid "Save target allocation"
 msgstr "Salva allocazione obiettivo"
 
 #. Context: Settings › toast after saving
-#: uvalu/pages_/settings.py:681
+#: uvalu/pages_/settings.py:674
 msgid "Target allocation saved."
 msgstr "Allocazione obiettivo salvata."
 
-#. Context: Settings › Data › row title
-#: uvalu/pages_/settings.py:699
-msgid "Price refresh interval"
-msgstr "Intervallo di aggiornamento dei prezzi"
-
-#: uvalu/pages_/settings.py:700
-msgid ""
-"How often delayed quotes from Yahoo Finance update during market hours. Real-time quotes "
-"are not offered."
-msgstr ""
-"Con quale frequenza le quotazioni ritardate di Yahoo Finance si aggiornano durante "
-"l'orario di borsa. Le quotazioni in tempo reale non sono offerte."
-
-#. Context: Settings › Data › toggle title
-#: uvalu/pages_/settings.py:718
-msgid "Ex-dividend alerts"
-msgstr "Avvisi di stacco"
-
-#. Context: Settings › Data › toggle description
-#: uvalu/pages_/settings.py:719
-msgid "Flag holdings going ex-dividend within 7 days on the Dashboard."
-msgstr "Segnala nella dashboard le posizioni con stacco entro 7 giorni."
-
-#. Context: Settings › Data › slider label under Ex-dividend alerts
-#: uvalu/pages_/settings.py:729
-msgid "Only above this position weight"
-msgstr "Solo sopra questo peso della posizione"
-
-#. Context: Settings › Data › slider value when set to 0%
-#: uvalu/pages_/settings.py:730
-msgid "any size"
-msgstr "qualsiasi dimensione"
-
-#. Context: Settings › Data › slider description
-#: uvalu/pages_/settings.py:731
-#, no-python-format
-msgid "0% flags every held ex-date; raise it to only badge your larger positions."
-msgstr ""
-"Con 0% viene segnalata ogni data di stacco; aumentalo per segnalare solo le posizioni "
-"più grandi."
-
-#. Context: Settings › Data › toggle title
-#: uvalu/pages_/settings.py:742
-msgid "Dividend cut / suspension alerts"
-msgstr "Avvisi di taglio / sospensione del dividendo"
-
-#. Context: Settings › Data › toggle description
-#: uvalu/pages_/settings.py:743
-msgid "Flag a holding on the Dashboard when its dividend was just cut or suspended."
-msgstr ""
-"Segnala una posizione nella dashboard quando il suo dividendo è appena stato tagliato o "
-"sospeso."
-
-#. Context: Settings › Data › toggle title
-#: uvalu/pages_/settings.py:751
-msgid "Dividend increase alerts"
-msgstr "Avvisi di aumento del dividendo"
-
-#. Context: Settings › Data › toggle description
-#: uvalu/pages_/settings.py:752
-msgid "Flag a holding on the Dashboard when its dividend was just raised."
-msgstr ""
-"Segnala una posizione nella dashboard quando il suo dividendo è appena stato aumentato."
-
-#. Context: Settings › section heading
-#: uvalu/pages_/settings.py:761
-msgid "Dividend withholding"
-msgstr "Ritenuta sui dividendi"
-
 #. Context: Settings › Dividend withholding description
-#: uvalu/pages_/settings.py:762
+#: uvalu/pages_/settings.py:680
 #, no-python-format
 msgid ""
 "Default withholding tax % applied when you record a dividend on each exchange — always "
@@ -6341,16 +6255,16 @@ msgstr ""
 "dalla convenzione applicabile, che l'app non può conoscere, quindi ogni aliquota parte "
 "da 0% finché non la imposti."
 
-#: uvalu/pages_/settings.py:778
+#: uvalu/pages_/settings.py:696
 msgid "Save withholding rates"
 msgstr "Salva le aliquote di ritenuta"
 
-#: uvalu/pages_/settings.py:781
+#: uvalu/pages_/settings.py:699
 msgid "Withholding rates saved."
 msgstr "Aliquote di ritenuta salvate."
 
 #. Context: Settings › Import portfolio description
-#: uvalu/pages_/settings.py:793
+#: uvalu/pages_/settings.py:711
 msgid ""
 "Upload an Excel file to import positions, sold history and dividends. This replaces all "
 "existing portfolio data for this account."
@@ -6359,24 +6273,24 @@ msgstr ""
 "Sostituisce tutti i dati di portafoglio esistenti di questo account."
 
 #. Context: Settings › file upload label
-#: uvalu/pages_/settings.py:799
+#: uvalu/pages_/settings.py:717
 msgid "Choose your portfolio .xlsx file"
 msgstr "Scegli il file .xlsx del portafoglio"
 
 #. Context: Settings › loading message during import
-#: uvalu/pages_/settings.py:803
+#: uvalu/pages_/settings.py:721
 msgid "Parsing Excel…"
 msgstr "Lettura del file Excel…"
 
 #. Context: Settings › import error; {error} is a technical message (stays
 #. English)
-#: uvalu/pages_/settings.py:806
+#: uvalu/pages_/settings.py:724
 #, python-brace-format
 msgid "Could not parse file: {error}"
 msgstr "Impossibile leggere il file: {error}"
 
 #. Context: Settings › import error. Keep the exchange codes as they are.
-#: uvalu/pages_/settings.py:810
+#: uvalu/pages_/settings.py:728
 msgid ""
 "No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the "
 "expected format."
@@ -6384,7 +6298,7 @@ msgstr ""
 "Nessuna posizione aperta EBR:/AMS:/EPA:/BIT:/ETR:/SWX: trovata. Verifica che il file "
 "rispetti il formato previsto."
 
-#: uvalu/pages_/settings.py:817
+#: uvalu/pages_/settings.py:735
 #, python-brace-format
 msgid ""
 "Replace all portfolio data with this file? It holds {open} open positions, {sold} sold "
@@ -6395,23 +6309,23 @@ msgstr ""
 "aperte, {sold} posizioni vendute e {dividends} dividendi. Le posizioni, le vendite e i "
 "dividendi attuali vengono eliminati."
 
-#: uvalu/pages_/settings.py:823
+#: uvalu/pages_/settings.py:741
 msgid "Replace my portfolio data"
 msgstr "Sostituisci i miei dati"
 
 #. Context: Settings › success message after import
-#: uvalu/pages_/settings.py:833
+#: uvalu/pages_/settings.py:751
 #, python-brace-format
 msgid "Imported {open} open, {sold} sold, {dividends} dividend records."
 msgstr "Importati: {open} aperte, {sold} vendute, {dividends} dividendi."
 
 #. Context: Settings › row title
-#: uvalu/pages_/settings.py:841
+#: uvalu/pages_/settings.py:759
 msgid "Excel export"
 msgstr "Esportazione Excel"
 
 #. Context: Settings › Excel export description
-#: uvalu/pages_/settings.py:842
+#: uvalu/pages_/settings.py:760
 msgid ""
 "Human-readable workbook with positions, dividends, sold history and watchlist. Useful "
 "for inspection or migration."
@@ -6420,12 +6334,12 @@ msgstr ""
 "watchlist. Utile per controlli o migrazioni."
 
 #. Context: Settings › download button (keep the file name)
-#: uvalu/pages_/settings.py:846
+#: uvalu/pages_/settings.py:764
 msgid "Download backup.xlsx"
 msgstr "Scarica backup.xlsx"
 
 #. Context: Settings › export notice
-#: uvalu/pages_/settings.py:852
+#: uvalu/pages_/settings.py:770
 msgid ""
 "Your portfolio is empty. Add positions in the Portfolio section first, then come back to "
 "export."
@@ -6434,20 +6348,20 @@ msgstr ""
 "per esportare."
 
 #. Context: Settings › export error; {error} is technical (stays English)
-#: uvalu/pages_/settings.py:854
+#: uvalu/pages_/settings.py:772
 #, python-brace-format
 msgid "Could not create Excel: {error}"
 msgstr "Impossibile creare il file Excel: {error}"
 
-#: uvalu/pages_/settings.py:867
+#: uvalu/pages_/settings.py:785
 msgid "Model settings & quality screens"
 msgstr "Impostazioni del modello e filtri di qualità"
 
-#: uvalu/pages_/settings.py:868
+#: uvalu/pages_/settings.py:786
 msgid "Affects all users · logged"
 msgstr "Vale per tutti gli utenti · registrato"
 
-#: uvalu/pages_/settings.py:869
+#: uvalu/pages_/settings.py:787
 msgid ""
 "Shared model settings: they set every model signal across the app, the same for every "
 "user, and are published on the Methodology page. Each change is recorded."
@@ -6457,16 +6371,16 @@ msgstr ""
 "registrata."
 
 #. Context: Settings › Screening & veto rules › note for non-admins
-#: uvalu/pages_/settings.py:870
+#: uvalu/pages_/settings.py:788
 msgid "Admin-only — sign in as an Admin to change these."
 msgstr "Solo per amministratori: accedi come amministratore per modificarle."
 
 #. Context: Settings › slider label: maximum debt-to-equity before a hard veto
-#: uvalu/pages_/settings.py:876
+#: uvalu/pages_/settings.py:794
 msgid "Max debt / equity"
 msgstr "Debito / patrimonio max"
 
-#: uvalu/pages_/settings.py:878
+#: uvalu/pages_/settings.py:796
 msgid ""
 "Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."
 msgstr ""
@@ -6474,40 +6388,40 @@ msgstr ""
 "finanziari, Immobiliare e Servizi di pubblica utilità)."
 
 #. Context: Settings › slider label
-#: uvalu/pages_/settings.py:882
+#: uvalu/pages_/settings.py:800
 msgid "Max dividend payout"
 msgstr "Payout max del dividendo"
 
 #. Context: Settings › slider description
-#: uvalu/pages_/settings.py:884
+#: uvalu/pages_/settings.py:802
 msgid "Flag dividends above this payout."
 msgstr "Segnala i dividendi oltre questo payout."
 
-#: uvalu/pages_/settings.py:889
+#: uvalu/pages_/settings.py:807
 msgid "Minimum margin of safety"
 msgstr "Margine di sicurezza minimo"
 
-#: uvalu/pages_/settings.py:891
+#: uvalu/pages_/settings.py:809
 #, no-python-format
 msgid "Margin of safety needed for the Undervalued signal; never below 10%."
 msgstr "Margine di sicurezza richiesto per il segnale Sottovalutato; mai sotto il 10%."
 
-#: uvalu/pages_/settings.py:894
+#: uvalu/pages_/settings.py:812
 msgid "Undervalued score threshold"
 msgstr "Soglia di punteggio Sottovalutato"
 
-#: uvalu/pages_/settings.py:896
+#: uvalu/pages_/settings.py:814
 msgid "Minimum composite score for the Undervalued signal."
 msgstr "Punteggio composito minimo per il segnale Sottovalutato."
 
 #. Context: Settings › row title
-#: uvalu/pages_/settings.py:901
+#: uvalu/pages_/settings.py:819
 msgid "Screening style"
 msgstr "Stile di screening"
 
 #. Context: Settings › Screening style description. Style names must match the
 #. options below.
-#: uvalu/pages_/settings.py:902
+#: uvalu/pages_/settings.py:820
 msgid ""
 "Which signals lead the composite score — Value tilts to margin of safety & quality, "
 "Growth to momentum, Income to dividends."
@@ -6516,25 +6430,25 @@ msgstr ""
 "qualità, Crescita il momentum, Reddito i dividendi."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:906
+#: uvalu/pages_/settings.py:824
 msgid "Benchmark — Euro Stoxx 50"
 msgstr "Benchmark: Euro Stoxx 50"
 
 #. Context: Settings › benchmark toggle description
-#: uvalu/pages_/settings.py:907
+#: uvalu/pages_/settings.py:825
 msgid "Overlay on the portfolio value chart."
 msgstr "Sovrapposto al grafico del valore del portafoglio."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:909
+#: uvalu/pages_/settings.py:827
 msgid "Include US-listed names"
 msgstr "Includi titoli quotati negli USA"
 
-#: uvalu/pages_/settings.py:910
+#: uvalu/pages_/settings.py:828
 msgid "Not available: the beta covers European exchanges only."
 msgstr "Non disponibile: la beta copre solo le borse europee."
 
-#: uvalu/pages_/settings.py:952
+#: uvalu/pages_/settings.py:870
 #, python-brace-format
 msgid "To get a copy of your data or have it deleted, write to {email}."
 msgstr "Per avere una copia dei tuoi dati o farli cancellare, scrivi a {email}."
@@ -7102,3 +7016,82 @@ msgstr[1] ""
 
 #~ msgid "Account"
 #~ msgstr "Account"
+
+#~ msgid "· soon"
+#~ msgstr "· a breve"
+
+#~ msgid "· cut"
+#~ msgstr "· tagliato"
+
+#~ msgid "· raised"
+#~ msgstr "· aumentato"
+
+#~ msgid ""
+#~ "During the beta, prices are delayed "
+#~ "quotes from Yahoo Finance that refresh on"
+#~ " the interval set in Settings → Data"
+#~ " during market hours. Fundamentals refresh "
+#~ "about every 24 hours, and the signals "
+#~ "are recomputed when they do. Every signal"
+#~ " shows the time of its price."
+#~ msgstr ""
+#~ "Durante la beta, i prezzi sono quotazioni"
+#~ " ritardate di Yahoo Finance che si "
+#~ "aggiornano durante l'orario di borsa con "
+#~ "l'intervallo impostato in Impostazioni → Dati."
+#~ " I dati fondamentali si aggiornano circa "
+#~ "ogni 24 ore e in quel momento i "
+#~ "segnali vengono ricalcolati. Ogni segnale "
+#~ "mostra l'ora del suo prezzo."
+
+#~ msgid "Data & alerts"
+#~ msgstr "Dati e avvisi"
+
+#~ msgid "Price refresh interval"
+#~ msgstr "Intervallo di aggiornamento dei prezzi"
+
+#~ msgid ""
+#~ "How often delayed quotes from Yahoo "
+#~ "Finance update during market hours. Real-"
+#~ "time quotes are not offered."
+#~ msgstr ""
+#~ "Con quale frequenza le quotazioni ritardate "
+#~ "di Yahoo Finance si aggiornano durante "
+#~ "l'orario di borsa. Le quotazioni in tempo"
+#~ " reale non sono offerte."
+
+#~ msgid "Ex-dividend alerts"
+#~ msgstr "Avvisi di stacco"
+
+#~ msgid "Flag holdings going ex-dividend within 7 days on the Dashboard."
+#~ msgstr "Segnala nella dashboard le posizioni con stacco entro 7 giorni."
+
+#~ msgid "Only above this position weight"
+#~ msgstr "Solo sopra questo peso della posizione"
+
+#~ msgid "any size"
+#~ msgstr "qualsiasi dimensione"
+
+#~ msgid "0% flags every held ex-date; raise it to only badge your larger positions."
+#~ msgstr ""
+#~ "Con 0% viene segnalata ogni data di "
+#~ "stacco; aumentalo per segnalare solo le "
+#~ "posizioni più grandi."
+
+#~ msgid "Dividend cut / suspension alerts"
+#~ msgstr "Avvisi di taglio / sospensione del dividendo"
+
+#~ msgid "Flag a holding on the Dashboard when its dividend was just cut or suspended."
+#~ msgstr ""
+#~ "Segnala una posizione nella dashboard quando"
+#~ " il suo dividendo è appena stato "
+#~ "tagliato o sospeso."
+
+#~ msgid "Dividend increase alerts"
+#~ msgstr "Avvisi di aumento del dividendo"
+
+#~ msgid "Flag a holding on the Dashboard when its dividend was just raised."
+#~ msgstr ""
+#~ "Segnala una posizione nella dashboard quando"
+#~ " il suo dividendo è appena stato "
+#~ "aumentato."

@@ -118,17 +118,6 @@ def test_screening_style_disabled_and_not_persisted_for_non_admin(isolated_data,
     assert settings.load_shared_settings().get("screen_style", "balanced") == "balanced"
 
 
-def test_changing_refresh_interval_persists(isolated_data, monkeypatch):
-    # A segmented control, not a select_slider — see uvalu/pages_/settings.py's
-    # "Data" card comment (fixed width regardless of the selected option).
-    at = _run(monkeypatch)
-    # Options are the interval in seconds; "5 min" is only its (translated) label.
-    at.segmented_control(key="disp_refresh_interval").set_value(300)
-    at.run()
-    assert not at.exception, [str(e.value) for e in at.exception]
-    assert settings.load_settings(TEST_EMAIL)["refresh_interval_s"] == 300
-
-
 def test_export_shows_info_when_portfolio_empty(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     assert "Your portfolio is empty" in "".join(i.value for i in at.info)
@@ -274,9 +263,18 @@ def test_withholding_rates_save_only_with_the_button(isolated_data, monkeypatch)
 def test_section_nav_links_every_card_anchor(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    for anchor in ("set-language", "set-account", "set-display", "set-portfolio", "set-data",
+    for anchor in ("set-language", "set-account", "set-display", "set-portfolio", "set-withholding",
                    "set-import", "set-model", "set-legal"):
         assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html, anchor
+    assert "set-data" not in html and "Data &amp; alerts" not in html
+
+
+def test_settings_order_matches_reference():
+    """Rail order of the design reference: … Target allocation, Dividend
+    withholding, Import & export …; no Data & alerts."""
+    from uvalu.pages_.settings import _SECTIONS
+    assert [a for a, *_ in _SECTIONS] == ["set-language", "set-account", "set-display", "set-portfolio",
+                                         "set-withholding", "set-import", "set-model", "set-legal"]
 
 
 def test_parse_targets_text_drops_malformed_and_out_of_range():
