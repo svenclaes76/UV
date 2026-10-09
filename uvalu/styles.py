@@ -1278,6 +1278,9 @@ GLOBAL_CSS = """
   [data-testid="stMarkdownContainer"]:has(> .uv-support-head) { margin-bottom: 0 !important; }
   .uv-support-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
   .uv-support-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .uv-support-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; font-size: 12px; }
+  .uv-support-links a { color: var(--link) !important; text-decoration: none; }
+  .uv-support-links a:hover { color: var(--text) !important; }
   .st-key-uv_support_grid {
     gap: 32px !important; align-items: flex-start !important;
     flex-wrap: nowrap !important;

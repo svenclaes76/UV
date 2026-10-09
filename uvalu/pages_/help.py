@@ -54,6 +54,52 @@ def _signal_legend() -> list[tuple[str, str, str]]:
     return [(_SIGNAL_KIND[code], SIGNAL_LABELS[code], SIGNAL_DEFINITIONS[code]) for code in SIGNAL_LABELS]
 
 
+def _live_definitions() -> dict[str, str]:
+    """G32: the badge definitions with the thresholds in force, as HTML.
+    The quality-screen and No signal definitions carry no number."""
+    from screener import (SCORE_AVOID, SIGNAL_LOW_SCORE, SIGNAL_NEUTRAL, SIGNAL_UNDERVALUED,
+                          effective_min_mos)
+    from settings import get_veto_thresholds
+    from uvalu.i18n import fmt_num, fmt_pct
+    _thr = get_veto_thresholds()
+    hi, lo = _thr[3], SCORE_AVOID
+    return {
+        SIGNAL_UNDERVALUED: h_("Composite model score of {score} or more, the price at least {mos} below the "
+                               "model fair value, and the fair value backed by two or more independent models.",
+                               score=fmt_num(hi, 0), mos=fmt_pct(effective_min_mos(_thr[2]), 0, fraction=True)),
+        SIGNAL_NEUTRAL: h_("Composite model score from {low} to {high}, or {score} or more without a confirmed "
+                           "margin of safety.", low=fmt_num(lo, 0), high=fmt_num(hi - 1, 0), score=fmt_num(hi, 0)),
+        SIGNAL_LOW_SCORE: h_("Composite model score below {low}.", low=fmt_num(lo, 0)),
+    }
+
+
+def _coverage_line() -> str:
+    """"Coverage today": the share of covered stocks per signal (REC-10),
+    the figure methodology.md says is shown live on this page. "—" before
+    the universe is scored."""
+    try:
+        import pandas as pd
+        from portfolio import load_manual_tickers
+        from screener import (SIGNAL_FAILS, SIGNAL_LOW_SCORE, SIGNAL_NEUTRAL, SIGNAL_UNDERVALUED,
+                              signal_distribution)
+        from settings import ALL_EXCHANGES, get_score_weights, get_veto_thresholds, load_shared_settings
+        from uvalu.data import _cache_version, _load_all_screener_data
+        from uvalu.i18n import fmt_pct
+        enabled = tuple(load_shared_settings().get("enabled_exchanges", ALL_EXCHANGES))
+        manual = load_manual_tickers()
+        dfs = _load_all_screener_data(_cache_version(), enabled, tuple(manual.keys()), tuple(manual.values()),
+                                      get_veto_thresholds(), get_score_weights())
+        frames = [d for d in dfs[:-1] if d is not None and not d.empty]
+        dist = signal_distribution(pd.concat(frames, ignore_index=True)) if frames else {}
+    except Exception:
+        dist = {}
+    if not dist:
+        return "—"
+    pct = lambda code: fmt_pct(dist.get(code, 0.0) * 100, 0)
+    return h_("{a} Undervalued · {b} Neutral · {c} Low score · {d} Fails quality screen",
+              a=pct(SIGNAL_UNDERVALUED), b=pct(SIGNAL_NEUTRAL), c=pct(SIGNAL_LOW_SCORE), d=pct(SIGNAL_FAILS))
+
+
 _MODELS = [
     (N_("Graham Number"), N_("√(22.5 × EPS × book value per share) — Benjamin Graham's classic value "
                              "formula. Needs positive trailing earnings and book value per share.")),
@@ -106,11 +152,12 @@ def _rail() -> list[tuple[str, str]]:
         # Translators: Methodology › left-hand section list › the fair-value models (Graham Number, EPV, …).
         (_("Models"), "#help-models"),
         (_("Quality screens"), "#help-screens"),
+        # Translators: Methodology › left-hand section list › frequently asked questions.
+        (_("FAQ"), "#help-faq"),
         (_("Data sources"), "#help-data"),
         # Translators: Methodology › left-hand section list › short for "Conflicts of interest".
         (_("Conflicts"), "#help-conflicts"),
-        # Translators: Methodology › left-hand section list › frequently asked questions.
-        (_("FAQ"), "#help-faq"),
+        (_("About Uvalu"), "#help-about"),
     ]
 
 _VETO_X_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--down-txt)" '
@@ -118,12 +165,12 @@ _VETO_X_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stro
               'style="flex:none;margin-top:2px;"><path d="M18 6L6 18M6 6l12 12"/></svg>')
 
 
-def _signal_row_html(kind: str, label: str, desc: str) -> str:
+def _signal_row_html(kind: str, label: str, desc: str, desc_html: "str | None" = None) -> str:
     return ('<div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;'
            'border-bottom:0.5px solid var(--line-2);">'
            f'<div style="width:150px;flex:none;padding-top:1px;">'
            f'{signal_badge_html(kind, _t(label), tooltip=signal_tooltip())}</div>'
-           f'<div style="font-size:13px;color:var(--muted);line-height:1.55;">{_t(desc)}</div></div>')
+           f'<div style="font-size:13px;color:var(--muted);line-height:1.55;">{desc_html or _t(desc)}</div></div>')
 
 
 def _model_cell_html(name: str, desc: str) -> str:
@@ -145,29 +192,29 @@ def _faq_row_html(question: str, answer: str) -> str:
 
 
 def render() -> None:
+    _link = '<a href="/legal?doc={doc}" target="_self">{label}</a>'
     _content = support_page(_("Methodology"), back_key="help", rail=_rail(),
-                            subtitle=h_("How each model works, what the badges mean, how often they change and where the data comes from."))
+                            subtitle=h_("How each model works, what the badges mean, how often they change and where the data comes from."),
+                            links_html=_link.format(doc="methodology", label=h_("Full methodology →"))
+                            + _link.format(doc="data", label=h_("Data sources →"))
+                            + _link.format(doc="conflicts", label=h_("Conflicts of interest →")))
     with _content:
         _render_cards()
 
 
 def _render_cards() -> None:
-    # Links to the full legal pages (REC-5, REC-3, REC-8).
-    _link = ('<a href="/legal?doc={doc}" target="_self" style="color:var(--link);text-decoration:none;'
-             'margin-right:16px;font-size:12px;">{label}</a>')
-    st.markdown(_link.format(doc="methodology", label=h_("Full methodology →"))
-                + _link.format(doc="data", label=h_("Data sources →"))
-                + _link.format(doc="conflicts", label=h_("Conflicts of interest →")),
-                unsafe_allow_html=True)
-
+    # (The links to the full legal pages, REC-5/REC-3/REC-8, sit in the header.)
     # ── Badges: meaning (REC-5 / REC-6) ───────────────────────────────────────
     _notes = "".join(
         f'<div style="font-size:12.5px;color:var(--muted);line-height:1.6;padding:4px 20px;">{_t(t)}</div>'
-        for t in (SIGNAL_HORIZON, SIGNAL_RISK_WARNING, SIGNAL_SENSITIVITY))
+        for t in (SIGNAL_HORIZON, SIGNAL_RISK_WARNING))
     with st.container(key="help_card_signals", border=True):
-        st.markdown(_HEADER_HTML.format(anchor="help-badges", label=h_("Badges · meaning"))
+        _defs = _live_definitions()
+        _codes = list(SIGNAL_LABELS)
+        st.markdown(_HEADER_HTML.format(anchor="help-badges", label=h_("Badges · meaning and thresholds"))
                    + '<div style="padding-bottom:6px;">'
-                   + "".join(_signal_row_html(kind, label, desc) for kind, label, desc in _signal_legend())
+                   + "".join(_signal_row_html(kind, label, desc, _defs.get(code))
+                             for code, (kind, label, desc) in zip(_codes, _signal_legend()))
                    + "</div>"
                    + f'<div style="padding:10px 0 14px;">{_notes}</div>',
                    unsafe_allow_html=True)
@@ -184,15 +231,17 @@ def _render_cards() -> None:
                                         "or risk tolerance.")),
         (N_("Risk."), N_("Model outputs can be wrong. Share prices can stay below or above fair value for "
                          "years, and you can lose capital.")),
+        (N_("Sensitivity."), SIGNAL_SENSITIVITY),
     ]
     with st.container(key="help_card_reading", border=True):
         st.markdown(
             _HEADER_HTML.format(anchor="help-reading", label=h_("Reading the badges"))
-            + '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:0.5px solid var(--line-2);">'
-            + "".join(f'<div style="padding:14px 20px;"><div style="font-size:12px;font-weight:500;'
-                      f'color:var(--muted);">{_t(k)}</div>'
-                      f'<div style="font-size:13px;margin-top:6px;line-height:1.5;">{_t(v)}</div></div>'
-                      for k, v in _reading)
+            + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:0.5px solid var(--line-2);">'
+            + "".join(f'<div style="padding:14px 20px;"><div style="font-size:10px;letter-spacing:0.06em;'
+                      f'text-transform:uppercase;color:var(--muted);">{k}</div>'
+                      f'<div style="font-size:13px;margin-top:6px;line-height:1.5;">{v}</div></div>'
+                      for k, v in [(_t(k), _t(v)) for k, v in _reading]
+                      + [(h_("Coverage today"), _coverage_line())])
             + '</div><div style="padding:14px 20px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;'
               'color:var(--muted);line-height:1.6;">'
             + "".join(f'<div><span style="color:var(--text);font-weight:500;">{_t(k)}</span> {_t(v)}</div>'
@@ -214,11 +263,19 @@ def _render_cards() -> None:
                    + "".join(_veto_row_html(rule) for rule in VETO_RULE_LABELS.values())
                    + "</div>",
                    unsafe_allow_html=True)
+    # ── Frequently asked ──────────────────────────────────────────────────────
+    with st.container(key="help_card_faqs", border=True):
+        st.markdown(_HEADER_HTML.format(anchor="help-faq", label=h_("Frequently asked"))
+                   + '<div style="padding-bottom:6px;">'
+                   + "".join(_faq_row_html(q, a) for q, a in _FAQ)
+                   + "</div>",
+                   unsafe_allow_html=True)
+
     # ── Data sources, conflicts of interest (REC-3, REC-8) ─────────────────
     with st.container(key="help_card_sources", border=True):
         st.markdown(
             _HEADER_HTML.format(anchor="help-data", label=h_("Data sources"))
-            + "".join(f'<div style="display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;'
+            + "".join(f'<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;'
                       f'padding:10px 20px;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
                       f'<span style="color:var(--muted);">{_t(k)}</span><span>{_t(v)}</span></div>'
                       for k, v in disclosures.DATA_SOURCE_ROWS)
@@ -234,15 +291,6 @@ def _render_cards() -> None:
             + f'<div>{h_("Uvalu receives no payment from issuers, brokers or data vendors for any output, and has no affiliate or broker links.")}</div>'
             + f'<div>{h_("The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live.")}</div>'
             + "</div>", unsafe_allow_html=True)
-
-    # ── Frequently asked ──────────────────────────────────────────────────────
-    with st.container(key="help_card_faqs", border=True):
-        st.markdown(_HEADER_HTML.format(anchor="help-faq", label=h_("Frequently asked"))
-                   + '<div style="padding-bottom:6px;">'
-                   + "".join(_faq_row_html(q, a) for q, a in _FAQ)
-                   + "</div>",
-                   unsafe_allow_html=True)
-
 
     # ── About Uvalu: full disclaimer and producer (DIS-1, REC-1, PER-6) ─────
     with st.container(key="help_card_about", border=True):

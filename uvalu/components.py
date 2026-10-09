@@ -2232,7 +2232,7 @@ def back_link(label: str, *, key: str) -> bool:
 
 def support_page(title: str, *, subtitle: str = "", back_key: str,
                  rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
-                 toc: "list[tuple[str, str]] | None" = None):
+                 toc: "list[tuple[str, str]] | None" = None, links_html: str = ""):
     """Back link, H1, optional subtitle, then a [200px rail | content] row.
     Returns the content container.
 
@@ -2251,7 +2251,8 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
             st.switch_page(back)
         st.markdown(f'<div class="uv-support-head"><div class="uv-support-title" role="heading" aria-level="1">'
                     f'{_html_mod.escape(title)}</div>'
-                    + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "") + "</div>",
+                    + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "")
+                    + (f'<div class="uv-support-links">{links_html}</div>' if links_html else "") + "</div>",
                     unsafe_allow_html=True)
         grid = st.container(key="uv_support_grid", horizontal=True, gap=None)
         with grid:

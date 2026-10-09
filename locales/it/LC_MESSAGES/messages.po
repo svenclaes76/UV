@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 18:00+0000\n"
+"POT-Creation-Date: 2026-10-09 18:15+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
@@ -57,7 +57,7 @@ msgstr "Analisi"
 msgid "Settings"
 msgstr "Impostazioni"
 
-#: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:148
+#: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:196
 #: uvalu/shell.py:431
 msgid "Methodology"
 msgstr "Metodologia"
@@ -66,7 +66,8 @@ msgstr "Metodologia"
 msgid "Legal"
 msgstr "Note legali"
 
-#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:434
+#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:160
+#: uvalu/pages_/help.py:298 uvalu/shell.py:434
 msgid "About Uvalu"
 msgstr "Informazioni su Uvalu"
 
@@ -1795,7 +1796,7 @@ msgstr "Fascia bassa · {low}–{high}"
 
 #. Context: Valuation model name (kept untranslated, L-08): Help page and
 #. fair-value bars
-#: uvalu/components.py:668 uvalu/pages_/help.py:58
+#: uvalu/components.py:668 uvalu/pages_/help.py:104
 msgid "Graham Number"
 msgstr "Graham Number"
 
@@ -2258,7 +2259,7 @@ msgstr "Vedi registrazione collegata"
 msgid "← Back to {page}"
 msgstr "← Torna a {page}"
 
-#: uvalu/components.py:2266
+#: uvalu/components.py:2267
 msgid "On this page"
 msgstr "In questa pagina"
 
@@ -3815,11 +3816,11 @@ msgid "Privacy notice"
 msgstr "Informativa sulla privacy"
 
 #: uvalu/compliance/disclosures.py:85 uvalu/pages_/analysis.py:161
-#: uvalu/pages_/help.py:109 uvalu/pages_/help.py:220
+#: uvalu/pages_/help.py:157 uvalu/pages_/help.py:277
 msgid "Data sources"
 msgstr "Fonti dei dati"
 
-#: uvalu/compliance/disclosures.py:86 uvalu/pages_/help.py:230
+#: uvalu/compliance/disclosures.py:86 uvalu/pages_/help.py:287
 msgid "Conflicts of interest"
 msgstr "Conflitti di interesse"
 
@@ -4905,9 +4906,33 @@ msgstr "Maggiori variazioni di oggi"
 msgid "No daily price data available."
 msgstr "Nessun prezzo giornaliero disponibile."
 
+#: uvalu/pages_/help.py:67
+#, python-brace-format
+msgid ""
+"Composite model score of {score} or more, the price at least {mos} below the "
+"model fair value, and the fair value backed by two or more independent models."
+msgstr "Punteggio composito del modello pari a {score} o più, prezzo almeno {mos} sotto il valore equo del modello e valore equo sostenuto da due o più modelli indipendenti."
+
+#: uvalu/pages_/help.py:70
+#, python-brace-format
+msgid ""
+"Composite model score from {low} to {high}, or {score} or more without a "
+"confirmed margin of safety."
+msgstr "Punteggio composito del modello da {low} a {high}, oppure {score} o più senza margine di sicurezza confermato."
+
+#: uvalu/pages_/help.py:72
+#, python-brace-format
+msgid "Composite model score below {low}."
+msgstr "Punteggio composito del modello sotto {low}."
+
+#: uvalu/pages_/help.py:99
+#, python-brace-format
+msgid "{a} Undervalued · {b} Neutral · {c} Low score · {d} Fails quality screen"
+msgstr "{a} Sottovalutato · {b} Neutrale · {c} Punteggio basso · {d} Non supera il filtro di qualità"
+
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
-#: uvalu/pages_/help.py:58
+#: uvalu/pages_/help.py:104
 msgid ""
 "√(22.5 × EPS × book value per share) — Benjamin Graham's classic value formula. Needs "
 "positive trailing earnings and book value per share."
@@ -4916,22 +4941,22 @@ msgstr ""
 "Graham. Richiede utili degli ultimi 12 mesi e valore contabile per azione positivi."
 
 #. Context: Help › valuation model name: fair value from a fair P/E multiple
-#: uvalu/pages_/help.py:60
+#: uvalu/pages_/help.py:106
 msgid "PE Fair Value"
 msgstr "Valore equo da P/E"
 
 #. Context: Help › explanation of the P/E fair value model
-#: uvalu/pages_/help.py:60
+#: uvalu/pages_/help.py:106
 msgid "Trailing EPS × a sector-typical fair P/E multiple."
 msgstr "EPS degli ultimi 12 mesi × un multiplo P/E equo tipico del settore."
 
 #. Context: Help › valuation model name (kept in English)
-#: uvalu/pages_/help.py:61
+#: uvalu/pages_/help.py:107
 msgid "EPV (Earnings Power Value)"
 msgstr "EPV (Earnings Power Value)"
 
 #. Context: Help › explanation of EPV
-#: uvalu/pages_/help.py:61
+#: uvalu/pages_/help.py:107
 msgid ""
 "Normalised earnings capitalised at the cost of capital, deliberately ignoring "
 "speculative growth."
@@ -4940,12 +4965,12 @@ msgstr ""
 "crescita speculativa."
 
 #. Context: Help › valuation model name: one-stage dividend discount model
-#: uvalu/pages_/help.py:63
+#: uvalu/pages_/help.py:109
 msgid "DDM — 1-stage"
 msgstr "DDM — 1 fase"
 
 #. Context: Help › explanation of the one-stage DDM
-#: uvalu/pages_/help.py:63
+#: uvalu/pages_/help.py:109
 msgid ""
 "Gordon growth model: next year's expected dividend discounted at (cost of equity − "
 "perpetual growth rate). Only applies to dividend payers."
@@ -4954,12 +4979,12 @@ msgstr ""
 "del capitale proprio − tasso di crescita perpetua). Solo per chi paga dividendi."
 
 #. Context: Help › valuation model name: two-stage dividend discount model
-#: uvalu/pages_/help.py:65
+#: uvalu/pages_/help.py:111
 msgid "DDM — 2-stage"
 msgstr "DDM — 2 fasi"
 
 #. Context: Help › explanation of the two-stage DDM
-#: uvalu/pages_/help.py:65
+#: uvalu/pages_/help.py:111
 msgid ""
 "A higher-growth phase followed by a stable terminal-growth phase, each discounted back "
 "separately. Also dividend-payer only."
@@ -4967,11 +4992,11 @@ msgstr ""
 "Una fase di crescita più alta seguita da una fase di crescita terminale stabile, "
 "ciascuna scontata separatamente. Anche questo solo per chi paga dividendi."
 
-#: uvalu/pages_/help.py:67
+#: uvalu/pages_/help.py:113
 msgid "Book value and FCF fallbacks"
 msgstr "Modelli di riserva valore contabile e FCF"
 
-#: uvalu/pages_/help.py:67
+#: uvalu/pages_/help.py:113
 msgid ""
 "Used only when Graham, P/E and EPV all fail (typically a loss-maker): book value × a "
 "sector P/B multiple, and free cash flow × a fixed multiple."
@@ -4981,11 +5006,11 @@ msgstr ""
 "libero × un multiplo fisso."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:75
+#: uvalu/pages_/help.py:121
 msgid "How is the composite fair value calculated?"
 msgstr "Come si calcola il valore equo composito?"
 
-#: uvalu/pages_/help.py:76
+#: uvalu/pages_/help.py:122
 msgid ""
 "Each stock is valued by every model that applies to it. Their values are combined into "
 "one weighted fair value, capped when a single model runs far above the others. Margin of "
@@ -4996,11 +5021,11 @@ msgstr ""
 "alto degli altri. Il margine di sicurezza è lo sconto del prezzo rispetto a quel valore. "
 "Entrambi sono stime del modello."
 
-#: uvalu/pages_/help.py:79
+#: uvalu/pages_/help.py:125
 msgid "What does the weighted composite score mean?"
 msgstr "Che cosa significa il punteggio composito ponderato?"
 
-#: uvalu/pages_/help.py:80
+#: uvalu/pages_/help.py:126
 msgid ""
 "A 0–100 value-weighted mean of the model scores across your holdings. It describes the "
 "portfolio; it is not a recommendation. A holding that fails a quality screen counts with "
@@ -5012,22 +5037,22 @@ msgstr ""
 "punteggio (Nessun segnale) è esclusa."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:83
+#: uvalu/pages_/help.py:129
 msgid "How often do prices update?"
 msgstr "Ogni quanto si aggiornano i prezzi?"
 
-#: uvalu/pages_/help.py:84
+#: uvalu/pages_/help.py:130
 msgid ""
 "During the free beta prices are delayed quotes from Yahoo Finance; each signal "
 "shows the time of the price it used. Fundamentals are refreshed about every 24 "
 "hours. Real-time prices are not offered."
 msgstr "Durante la beta gratuita i prezzi sono quotazioni ritardate di Yahoo Finance; ogni segnale mostra l'ora del prezzo usato. I dati fondamentali vengono aggiornati circa ogni 24 ore. I prezzi in tempo reale non sono offerti."
 
-#: uvalu/pages_/help.py:87
+#: uvalu/pages_/help.py:133
 msgid "Why does a stock show “Fails quality screen”?"
 msgstr "Perché un titolo mostra «Non supera il filtro di qualità»?"
 
-#: uvalu/pages_/help.py:88
+#: uvalu/pages_/help.py:134
 msgid ""
 "It breaks one of the quality rules listed on this page; the explanation next to the "
 "badge names which. Its composite score is set to 0. It still appears in your portfolio "
@@ -5038,20 +5063,20 @@ msgstr ""
 "comparire nel tuo portafoglio e nelle valutazioni."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:91
+#: uvalu/pages_/help.py:137
 msgid "Which exchanges are covered?"
 msgstr "Quali borse sono coperte?"
 
 #. Context: Help › FAQ answer. Exchange names are proper names; only translate
 #. city names if usual.
-#: uvalu/pages_/help.py:92
+#: uvalu/pages_/help.py:138
 msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Bruxelles/Parigi, XETRA, SIX Swiss e Borsa Italiana."
 
 #. Methodology & help › left-hand section list › the signal badges (Undervalued,
 #. Neutral, …).
 #. Methodology › left-hand section list › the signal badges (Undervalued, Neutral, …).
-#: uvalu/pages_/help.py:105
+#: uvalu/pages_/help.py:151
 msgid "Badges"
 msgstr "Badge"
 
@@ -5061,27 +5086,27 @@ msgstr "Badge"
 #. …).
 #. Methodology › left-hand section list › the fair-value models (Graham Number, EPV,
 #. …).
-#: uvalu/pages_/help.py:107
+#: uvalu/pages_/help.py:153
 msgid "Models"
 msgstr "Modelli"
 
-#: uvalu/pages_/help.py:108 uvalu/pages_/help.py:212
+#: uvalu/pages_/help.py:154 uvalu/pages_/help.py:261
 msgid "Quality screens"
 msgstr "Filtri di qualità"
 
-#. Methodology & help › left-hand section list › short for "Conflicts of interest".
-#. Methodology › left-hand section list › short for "Conflicts of interest".
-#: uvalu/pages_/help.py:111
-msgid "Conflicts"
-msgstr "Conflitti di interesse"
-
 #. Methodology & help › left-hand section list › frequently asked questions.
 #. Methodology › left-hand section list › frequently asked questions.
-#: uvalu/pages_/help.py:113
+#: uvalu/pages_/help.py:156
 msgid "FAQ"
 msgstr "Domande frequenti"
 
-#: uvalu/pages_/help.py:149
+#. Methodology & help › left-hand section list › short for "Conflicts of interest".
+#. Methodology › left-hand section list › short for "Conflicts of interest".
+#: uvalu/pages_/help.py:159
+msgid "Conflicts"
+msgstr "Conflitti di interesse"
+
+#: uvalu/pages_/help.py:197
 msgid ""
 "How each model works, what the badges mean, how often they change and where the data "
 "comes from."
@@ -5089,53 +5114,53 @@ msgstr ""
 "Come funziona ogni modello, cosa significano i badge, quanto spesso cambiano e da dove "
 "provengono i dati."
 
-#: uvalu/pages_/help.py:158
+#: uvalu/pages_/help.py:198
 msgid "Full methodology →"
 msgstr "Metodologia completa →"
 
-#: uvalu/pages_/help.py:159
+#: uvalu/pages_/help.py:199
 msgid "Data sources →"
 msgstr "Fonti dei dati →"
 
-#: uvalu/pages_/help.py:160
+#: uvalu/pages_/help.py:200
 msgid "Conflicts of interest →"
 msgstr "Conflitti di interesse →"
 
-#: uvalu/pages_/help.py:168
-msgid "Badges · meaning"
-msgstr "Badge · significato"
+#: uvalu/pages_/help.py:214
+msgid "Badges · meaning and thresholds"
+msgstr "Badge · significato e soglie"
 
-#: uvalu/pages_/help.py:177
+#: uvalu/pages_/help.py:224
 msgid "Time horizon"
 msgstr "Orizzonte temporale"
 
-#: uvalu/pages_/help.py:177
+#: uvalu/pages_/help.py:224
 msgid "3 to 5 years, the period the valuation models assume"
 msgstr "Da 3 a 5 anni, il periodo ipotizzato dai modelli di valutazione"
 
-#: uvalu/pages_/help.py:178
+#: uvalu/pages_/help.py:225
 msgid "Updated"
 msgstr "Aggiornamento"
 
-#: uvalu/pages_/help.py:178
+#: uvalu/pages_/help.py:225
 msgid "Fundamentals about every 24 hours; signals are recomputed when they change"
 msgstr "Dati fondamentali circa ogni 24 ore; i segnali vengono ricalcolati quando cambiano"
 
-#: uvalu/pages_/help.py:179
+#: uvalu/pages_/help.py:226
 msgid "History"
 msgstr "Storico"
 
-#: uvalu/pages_/help.py:179
+#: uvalu/pages_/help.py:226
 msgid "Every badge change kept 24 months, the last 12 shown on each stock page"
 msgstr ""
 "Ogni modifica del badge è conservata 24 mesi; gli ultimi 12 sono mostrati nella pagina "
 "di ogni titolo"
 
-#: uvalu/pages_/help.py:182
+#: uvalu/pages_/help.py:229
 msgid "Same for every user."
 msgstr "Uguali per ogni utente."
 
-#: uvalu/pages_/help.py:182
+#: uvalu/pages_/help.py:229
 msgid ""
 "Badges, scores and fair values use only instrument data and the shared model settings. "
 "They never use your holdings, income, goals or risk tolerance."
@@ -5144,11 +5169,11 @@ msgstr ""
 "modello condivise. Non usano mai le tue posizioni, il tuo reddito, i tuoi obiettivi o la "
 "tua tolleranza al rischio."
 
-#: uvalu/pages_/help.py:185
+#: uvalu/pages_/help.py:232
 msgid "Risk."
 msgstr "Rischio."
 
-#: uvalu/pages_/help.py:185
+#: uvalu/pages_/help.py:232
 msgid ""
 "Model outputs can be wrong. Share prices can stay below or above fair value for years, "
 "and you can lose capital."
@@ -5156,15 +5181,28 @@ msgstr ""
 "I risultati dei modelli possono essere errati. I prezzi possono restare sotto o sopra il "
 "valore equo per anni e puoi perdere capitale."
 
-#: uvalu/pages_/help.py:190
+#: uvalu/pages_/help.py:234
+msgid "Sensitivity."
+msgstr "Sensibilità."
+
+#: uvalu/pages_/help.py:238
 msgid "Reading the badges"
 msgstr "Leggere i badge"
 
-#: uvalu/pages_/help.py:204
+#: uvalu/pages_/help.py:244
+msgid "Coverage today"
+msgstr "Copertura oggi"
+
+#: uvalu/pages_/help.py:253
 msgid "The fair-value models"
 msgstr "I modelli di valore equo"
 
-#: uvalu/pages_/help.py:226
+#. Context: Help page › FAQ section heading
+#: uvalu/pages_/help.py:268
+msgid "Frequently asked"
+msgstr "Domande frequenti"
+
+#: uvalu/pages_/help.py:283
 msgid ""
 "Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings "
 "are shown."
@@ -5172,7 +5210,7 @@ msgstr ""
 "I dati di input obsoleti o mancanti sono segnalati nella pagina del titolo. Non vengono "
 "mostrate stime o giudizi degli analisti."
 
-#: uvalu/pages_/help.py:233
+#: uvalu/pages_/help.py:290
 msgid ""
 "The founder discloses any position in a covered stock on that stock’s page, whatever its "
 "size."
@@ -5180,7 +5218,7 @@ msgstr ""
 "Il fondatore dichiara qualsiasi posizione in un titolo coperto nella pagina di quel "
 "titolo, a prescindere dalla dimensione."
 
-#: uvalu/pages_/help.py:234
+#: uvalu/pages_/help.py:291
 msgid ""
 "Uvalu receives no payment from issuers, brokers or data vendors for any output, and has "
 "no affiliate or broker links."
@@ -5188,7 +5226,7 @@ msgstr ""
 "Uvalu non riceve alcun compenso da emittenti, broker o fornitori di dati per alcun "
 "risultato e non ha link di affiliazione o verso broker."
 
-#: uvalu/pages_/help.py:235
+#: uvalu/pages_/help.py:292
 msgid ""
 "The founder does not trade a stock from the moment a model change that would alter its "
 "signal is decided until 2 trading days after it is live."
@@ -5196,11 +5234,6 @@ msgstr ""
 "Il fondatore non negozia un titolo dal momento in cui viene decisa una modifica del "
 "modello che ne cambierebbe il segnale fino a 2 giorni di borsa dopo la sua entrata in "
 "funzione."
-
-#. Context: Help page › FAQ section heading
-#: uvalu/pages_/help.py:240
-msgid "Frequently asked"
-msgstr "Domande frequenti"
 
 #: uvalu/pages_/legal.py:144
 msgid "Print or save as PDF"
