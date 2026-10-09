@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 17:30+0000\n"
+"POT-Creation-Date: 2026-10-09 17:45+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
@@ -1280,7 +1280,7 @@ msgstr "Usa un codice di backup"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
 #: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:311
-#: uvalu/dialogs.py:319 uvalu/locale_ui.py:201 uvalu/pages_/settings.py:268
+#: uvalu/dialogs.py:319 uvalu/locale_ui.py:257 uvalu/pages_/settings.py:268
 #: uvalu/pages_/settings.py:300 uvalu/pages_/settings.py:347
 #: uvalu/pages_/settings.py:390 uvalu/pages_/settings.py:733
 msgid "Cancel"
@@ -2209,7 +2209,6 @@ msgstr "ricarica"
 
 #. Context: Cash ledger column header and Cash entry dialog label
 #: uvalu/components.py:2149 uvalu/dialogs.py:1118 uvalu/dialogs.py:1120
-#: uvalu/locale_ui.py:92
 msgid "Date"
 msgstr "Data"
 
@@ -2487,7 +2486,8 @@ msgid "Enter shares and either a total cost or a price per share."
 msgstr "Inserisci il numero di azioni e un costo totale o un prezzo per azione."
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
-#: uvalu/dialogs.py:467 uvalu/dialogs.py:471 uvalu/dialogs.py:1221 uvalu/locale_ui.py:91
+#: uvalu/dialogs.py:467 uvalu/dialogs.py:471 uvalu/dialogs.py:1221
+#: uvalu/locale_ui.py:105
 msgid "Change"
 msgstr "Variazione"
 
@@ -3063,9 +3063,9 @@ msgstr "Chiudi"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:221 uvalu/locale_ui.py:89 uvalu/pages_/analysis.py:360
-#: uvalu/pages_/analysis.py:376 uvalu/pages_/portfolio.py:56
-#: uvalu/pages_/screener.py:59 uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:221 uvalu/pages_/analysis.py:360 uvalu/pages_/analysis.py:376
+#: uvalu/pages_/portfolio.py:56 uvalu/pages_/screener.py:59
+#: uvalu/pages_/watchlist.py:32
 msgid "Price"
 msgstr "Prezzo"
 
@@ -3314,118 +3314,186 @@ msgstr "Ho capito"
 msgid "Last updated: {datetime}"
 msgstr "Ultimo aggiornamento: {datetime}"
 
-#. Context: Settings › Language & region preview: a sample portfolio total
-#: uvalu/locale_ui.py:90
-msgid "Total value"
-msgstr "Valore totale"
+#: uvalu/locale_ui.py:102
+#, python-brace-format
+msgid "Share price · {ticker}"
+msgstr "Prezzo · {ticker}"
+
+#: uvalu/locale_ui.py:103
+msgid "Portfolio total"
+msgstr "Totale portafoglio"
+
+#. Context: Count of holdings. Used inside the Dashboard subtitle and
+#. elsewhere.
+#: uvalu/locale_ui.py:104 uvalu/pages_/dashboard.py:177
+#, python-brace-format
+msgid "{count} position"
+msgid_plural "{count} positions"
+msgstr[0] "{count} posizione"
+msgstr[1] "{count} posizioni"
+
+#: uvalu/locale_ui.py:107
+msgid "Last updated"
+msgstr "Ultimo aggiornamento"
 
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
-#: uvalu/locale_ui.py:93 uvalu/pages_/dashboard.py:493 uvalu/pages_/dashboard.py:498
+#: uvalu/locale_ui.py:108 uvalu/pages_/dashboard.py:493 uvalu/pages_/dashboard.py:498
 #: uvalu/pages_/screener.py:56 uvalu/pages_/screener.py:275
 #: uvalu/pages_/screener.py:282 uvalu/pages_/watchlist.py:32
 msgid "Signal"
 msgstr "Segnale"
 
 #. Context: Planned (spec, not in code yet) › Heading of the live preview panel
-#: uvalu/locale_ui.py:102
+#: uvalu/locale_ui.py:122
 msgid "Preview"
 msgstr "Anteprima"
 
+#: uvalu/locale_ui.py:128 uvalu/locale_ui.py:129
+msgid "Try a number"
+msgstr "Prova un numero"
+
+#: uvalu/locale_ui.py:135
+#, python-brace-format
+msgid "Can’t read this number in {region} format."
+msgstr "Impossibile leggere questo numero nel formato {region}."
+
+#: uvalu/locale_ui.py:139
+#, python-brace-format
+msgid "Saved as {value}"
+msgstr "Salvato come {value}"
+
+#: uvalu/locale_ui.py:172
+msgid "✓ Saved to your profile"
+msgstr "✓ Salvato nel tuo profilo"
+
 #. Context: Planned (spec, not in code yet) › Settings page title
-#: uvalu/locale_ui.py:128 uvalu/pages_/settings.py:99
+#: uvalu/locale_ui.py:174 uvalu/pages_/settings.py:99
 msgid "Language & region"
 msgstr "Lingua e regione"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:131 uvalu/locale_ui.py:133 uvalu/locale_ui.py:228
+#: uvalu/locale_ui.py:178 uvalu/locale_ui.py:181 uvalu/locale_ui.py:285
 msgid "Language"
 msgstr "Lingua"
 
+#: uvalu/locale_ui.py:179
+msgid "Interface text and signal labels. Legal pages stay in English during the beta."
+msgstr "Testi dell'interfaccia ed etichette dei segnali. Le pagine legali restano in inglese durante la beta."
+
 #. Context: Planned (spec, not in code yet) › Settings label. Controls number,
 #. currency and date formatting.
-#: uvalu/locale_ui.py:139 uvalu/locale_ui.py:146
+#: uvalu/locale_ui.py:187 uvalu/locale_ui.py:194
 msgid "Region format"
 msgstr "Formato regionale"
 
+#: uvalu/locale_ui.py:187
+msgid "Numbers, dates and amounts."
+msgstr "Numeri, date e importi."
+
 #. Context: Planned (spec, not in code yet) › Region format option
-#: uvalu/locale_ui.py:147
+#: uvalu/locale_ui.py:195
 msgid "Same as language"
 msgstr "Come la lingua"
 
 #. Context: Settings › Display › row title
-#: uvalu/locale_ui.py:154 uvalu/locale_ui.py:156
+#: uvalu/locale_ui.py:202 uvalu/locale_ui.py:204
 msgid "Display currency"
 msgstr "Valuta di visualizzazione"
 
-#. Context: Planned (spec, not in code yet) › Help text under Display currency
-#: uvalu/locale_ui.py:155
-msgid "Applies to portfolio totals. Individual prices stay in the currency they trade in."
-msgstr ""
-"Si applica ai totali del portafoglio. I singoli prezzi restano nella valuta di "
-"negoziazione."
+#: uvalu/locale_ui.py:203
+msgid "Portfolio totals only, marked ≈. Instruments keep their own currency."
+msgstr "Solo i totali del portafoglio, contrassegnati con ≈. Gli strumenti mantengono la propria valuta."
+
+#: uvalu/locale_ui.py:208
+#, python-brace-format
+msgid "Follows region · {region}"
+msgstr "Segue la regione · {region}"
+
+#: uvalu/locale_ui.py:212 uvalu/locale_ui.py:247
+msgid "Set manually"
+msgstr "Impostato manualmente"
+
+#: uvalu/locale_ui.py:213
+msgid "Use region default"
+msgstr "Usa il valore della regione"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:163 uvalu/locale_ui.py:166
+#: uvalu/locale_ui.py:221 uvalu/locale_ui.py:224
 msgid "Date format"
 msgstr "Formato data"
 
+#: uvalu/locale_ui.py:221
+msgid "Tables, charts and exports."
+msgstr "Tabelle, grafici ed esportazioni."
+
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:164
+#: uvalu/locale_ui.py:222
 msgctxt "date_format"
 msgid "Short"
 msgstr "Breve"
 
 #. Context: Planned (spec, not in code yet) › Date format option
-#: uvalu/locale_ui.py:165
+#: uvalu/locale_ui.py:223
 msgctxt "date_format"
 msgid "Medium"
 msgstr "Medio"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:172 uvalu/locale_ui.py:176
+#: uvalu/locale_ui.py:231 uvalu/locale_ui.py:235
 msgid "Time zone"
 msgstr "Fuso orario"
 
+#: uvalu/locale_ui.py:231
+msgid "Timestamps and “last updated”."
+msgstr "Orari e «ultimo aggiornamento»."
+
 #. Context: Planned (spec, not in code yet) › Settings label. Day names
 #. themselves come from Babel, not from this file.
-#: uvalu/locale_ui.py:180 uvalu/locale_ui.py:183
+#: uvalu/locale_ui.py:239 uvalu/locale_ui.py:242
 msgid "First day of week"
 msgstr "Primo giorno della settimana"
 
-#. Context: Planned (spec, not in code yet) › Toast
-#: uvalu/locale_ui.py:192
-msgid "Settings saved"
-msgstr "Impostazioni salvate"
+#: uvalu/locale_ui.py:239
+msgid "Date pickers and calendar views."
+msgstr "Selettori di data e viste calendario."
 
-#. Context: Planned (spec, not in code yet) › Confirmation dialog
-#: uvalu/locale_ui.py:195
-msgid "Reset all language and region settings to their defaults?"
-msgstr "Ripristinare tutte le impostazioni di lingua e regione ai valori predefiniti?"
+#: uvalu/locale_ui.py:246
+#, python-brace-format
+msgid "From region · {region}"
+msgstr "Dalla regione · {region}"
+
+#: uvalu/locale_ui.py:255
+msgid "Return all six settings to the detected defaults?"
+msgstr "Riportare tutte e sei le impostazioni ai valori predefiniti rilevati?"
+
+#: uvalu/locale_ui.py:258
+msgid "Reset"
+msgstr "Ripristina"
 
 #. Context: Planned (spec, not in code yet) › Button
-#: uvalu/locale_ui.py:200 uvalu/locale_ui.py:209
+#: uvalu/locale_ui.py:266
 msgid "Reset to defaults"
 msgstr "Ripristina predefiniti"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:267
+#: uvalu/locale_ui.py:324
 msgid "Spreadsheet format (for Excel)"
 msgstr "Formato foglio di calcolo (per Excel)"
 
 #. Context: Planned (spec, not in code yet) › CSV export option (F-11)
-#: uvalu/locale_ui.py:270
+#: uvalu/locale_ui.py:327
 msgid "Machine format (for scripts)"
 msgstr "Formato macchina (per script)"
 
 #. Context: Number field › validation error; {min} is a formatted number
-#: uvalu/locale_ui.py:314
+#: uvalu/locale_ui.py:371
 #, python-brace-format
 msgid "Must be at least {min}."
 msgstr "Deve essere almeno {min}."
 
 #. Context: Number field › validation error; {max} is a formatted number
-#: uvalu/locale_ui.py:317
+#: uvalu/locale_ui.py:374
 #, python-brace-format
 msgid "Must be at most {max}."
 msgstr "Deve essere al massimo {max}."
@@ -4561,15 +4629,6 @@ msgid_plural ""
 "value estimate."
 msgstr[0] "{positions} su {count} borsa europea · valutate rispetto a un valore equo stimato dal modello."
 msgstr[1] "{positions} su {count} borse europee · valutate rispetto a un valore equo stimato dal modello."
-
-#. Context: Count of holdings. Used inside the Dashboard subtitle and
-#. elsewhere.
-#: uvalu/pages_/dashboard.py:177
-#, python-brace-format
-msgid "{count} position"
-msgid_plural "{count} positions"
-msgstr[0] "{count} posizione"
-msgstr[1] "{count} posizioni"
 
 #. Context: Dashboard › button to reload prices and data
 #: uvalu/pages_/dashboard.py:181
@@ -7250,3 +7309,17 @@ msgstr[1] ""
 
 #~ msgid "Current"
 #~ msgstr "Corrente"
+
+#~ msgid "Total value"
+#~ msgstr "Valore totale"
+
+#~ msgid ""
+#~ "Applies to portfolio totals. Individual prices"
+#~ " stay in the currency they trade in."
+#~ msgstr ""
+#~ "Si applica ai totali del portafoglio. I"
+#~ " singoli prezzi restano nella valuta di "
+#~ "negoziazione."
+
+#~ msgid "Settings saved"
+#~ msgstr "Impostazioni salvate"

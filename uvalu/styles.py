@@ -96,6 +96,10 @@ GLOBAL_CSS = """
      drives the topbar's price-freshness dot (uvalu/shell.py) when the feed
      is genuinely live, not delayed/stale/closed. */
   @keyframes uvSpin { to { transform: rotate(360deg); } }
+  @keyframes uvFadeOutLate { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  .uv-saved-note { animation: uvFadeOutLate 2.5s ease forwards; }
+  .st-key-set_i18n_currency_default button { min-height: 0 !important; padding: 0 !important; }
+  .st-key-set_i18n_currency_default button p { font-size: 11px !important; color: var(--link) !important; }
   @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
   @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
   /* components.skeleton_rows()'s hairline row divider — a native st.columns()
