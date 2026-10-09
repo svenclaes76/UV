@@ -154,7 +154,7 @@ def _render_sources_and_producer(row, ticker: str) -> None:
     output, with the founder disclosure (REC-1, REC-8)."""
     from screener import DATA_FLAG_LABELS, FOUNDER_HOLDS_NOTICE
     from uvalu.compliance import disclosures as d
-    from uvalu.shell import producer_line
+    from uvalu.shell import enterprise_number, producer_name
 
     _d_col, _p_col = st.columns(2)
     with _d_col, st.container(key="an_card_sources", border=True):
@@ -173,12 +173,13 @@ def _render_sources_and_producer(row, ticker: str) -> None:
     with _p_col, st.container(key="an_card_producer", border=True):
         st.markdown(_PANEL_TITLE.format(title=h_("Producer & conflicts")), unsafe_allow_html=True)
         _founder = (tr(FOUNDER_HOLDS_NOTICE) if bool(row.get("founder_holds"))
-                    else _("The founder holds no position in {ticker}.", ticker=ticker))
+                    else _("The founder does not hold {ticker}. A holding of any size would be shown here.",
+                           ticker=ticker))
         _lines = [
-            _("Produced automatically by {producer}.", producer=producer_line()),
-            tr(d.NOT_SUPERVISED),
+            _("Produced automatically by {producer} ({number}).", producer=producer_name(),
+              number=enterprise_number()) + " " + tr(d.NOT_SUPERVISED),
             _founder,
-            _("No payment from the issuer, brokers or data vendors in connection with this output."),
+            _("No payment from the issuer, brokers or data providers. Uvalu has no income during the free beta."),
         ]
         st.markdown('<div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--muted);'
                     'line-height:1.55;">' + "".join(f"<div>{html.escape(x)}</div>" for x in _lines)

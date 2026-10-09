@@ -649,3 +649,26 @@ def test_model_summary_carries_the_no_recommendation_sentence():
     src = inspect.getsource(analysis._render_model_summary)
     assert "the same text is shown to every user" in src
     assert "It is not a recommendation to buy, hold or sell." in src
+
+
+def test_producer_line_has_name_address_number_contact():
+    """REC-1 / BIZ-3: who, trading name, where, registration and contact (G05)."""
+    from uvalu.compliance import disclosures as d
+    from uvalu.shell import producer_line
+    line = producer_line()
+    assert line.startswith(f"{d.PRODUCER_NAME}, trading as {d.PRODUCER_TRADING_AS} · ")
+    assert d.PRODUCER_ADDRESS in line and d.PRODUCER_CONTACT in line
+    assert (d.PRODUCER_ENTERPRISE_NUMBER or "registration pending") in line
+
+
+def test_disclosure_texts_are_clean():
+    """The producer and conflicts sentences make no advice or verdict claims."""
+    from uvalu.pages_ import analysis, help as help_page
+    import inspect
+    src = inspect.getsource(analysis._render_sources_and_producer) + inspect.getsource(help_page._render_cards)
+    for text in ("No payment from the issuer, brokers or data providers. Uvalu has no income during the free beta.",
+                 "updated within 2 business days of each trade",
+                 "until 2 trading days after it is live"):
+        assert text in src
+    for word in ("recommend", "should buy", "guarantee"):
+        assert word not in src.lower()

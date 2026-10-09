@@ -38,7 +38,7 @@ from screener import (SIGNAL_DEFINITIONS, SIGNAL_LABELS, SIGNAL_HORIZON, SIGNAL_
                       SIGNAL_SENSITIVITY, VETO_RULE_LABELS)
 from uvalu.compliance import disclosures
 from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip, support_page
-from uvalu.shell import producer_line
+from uvalu.shell import producer_line, producer_name
 from uvalu.i18n import N_, _, h_, tr
 
 
@@ -287,9 +287,9 @@ def _render_cards() -> None:
             _HEADER_HTML.format(anchor="help-conflicts", label=h_("Conflicts of interest"))
             + '<div style="padding:14px 20px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;'
               'color:var(--muted);line-height:1.6;">'
-            + f'<div>{h_("The founder discloses any position in a covered stock on that stock’s page, whatever its size.")}</div>'
-            + f'<div>{h_("Uvalu receives no payment from issuers, brokers or data vendors for any output, and has no affiliate or broker links.")}</div>'
-            + f'<div>{h_("The founder does not trade a stock from the moment a model change that would alter its signal is decided until 2 trading days after it is live.")}</div>'
+            + f'<div>{h_("The founder’s position in a covered stock, of any size, is shown on that stock’s page and updated within 2 business days of each trade.")}</div>'
+            + f'<div>{h_("Uvalu receives no payment from issuers, brokers or data providers, has no affiliate or broker links and no income during the free beta.")}</div>'
+            + f'<div>{h_("The founder does not trade affected shares from the moment a model change is decided until 2 trading days after it is live.")}</div>'
             + "</div>", unsafe_allow_html=True)
 
     # ── About Uvalu: full disclaimer and producer (DIS-1, REC-1, PER-6) ─────
@@ -297,7 +297,9 @@ def _render_cards() -> None:
         st.markdown(
             _HEADER_HTML.format(anchor="help-about", label=h_("About Uvalu"))
             + f'<div style="padding:14px 20px;font-size:12.5px;color:var(--muted);line-height:1.65;">'
-              f'{html.escape(tr(disclosures.FULL_DISCLAIMER).format(producer=producer_line()))}</div>'
+              f'{html.escape(tr(disclosures.FULL_DISCLAIMER).format(producer=producer_name()))}</div>'
+            + f'<div style="padding:0 20px 8px;font-size:11.5px;color:var(--muted);line-height:1.6;">'
+              f'{html.escape(producer_line())}</div>'
             + f'<div style="padding:0 20px 14px;font-size:12px;color:var(--muted);line-height:1.6;">'
               f'{html.escape(tr(disclosures.SUPPORT_REFUSAL))}</div>',
             unsafe_allow_html=True)

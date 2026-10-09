@@ -447,15 +447,25 @@ def render_topbar(nav) -> None:
 
 # ── Beta banner (decision B7) and legal footer (DIS-1, REC-1, BIZ-3) ──────────
 
-def producer_line() -> str:
-    """Producer identity for the footer, the stock page and the methodology
-    page (REC-1, BIZ-3): name, trading name, address, enterprise number (or
-    "registration pending", decision B6) and contact."""
+def producer_name() -> str:
+    """"Sven Claes, trading as Uvalu" — who produces the output (REC-1)."""
     from uvalu.compliance import disclosures as d
-    number = (d.PRODUCER_ENTERPRISE_NUMBER if d.PRODUCER_ENTERPRISE_NUMBER
-              else tr(d.ENTERPRISE_NUMBER_PENDING))
-    return (f"{d.PRODUCER_TRADING_AS} · {d.PRODUCER_NAME}, {d.PRODUCER_ADDRESS} · "
-            f"{number} · {d.PRODUCER_CONTACT}")
+    return _("{name}, trading as {trading_as}", name=d.PRODUCER_NAME, trading_as=d.PRODUCER_TRADING_AS)
+
+
+def enterprise_number() -> str:
+    """The enterprise number, or "enterprise number: registration pending"
+    (decision B6)."""
+    from uvalu.compliance import disclosures as d
+    return d.PRODUCER_ENTERPRISE_NUMBER or tr(d.ENTERPRISE_NUMBER_PENDING)
+
+
+def producer_line() -> str:
+    """Producer identity for the footer, the sign-in panel and the
+    Methodology page (REC-1, BIZ-3): name and trading name, address,
+    enterprise number (or "registration pending") and contact."""
+    from uvalu.compliance import disclosures as d
+    return f"{producer_name()} · {d.PRODUCER_ADDRESS} · {enterprise_number()} · {d.PRODUCER_CONTACT}"
 
 
 def render_beta_banner() -> None:
