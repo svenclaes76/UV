@@ -102,11 +102,11 @@ def render() -> None:
             _c1, _c2, _c3 = st.columns([1.5, 3.8, 0.7], vertical_alignment="bottom")
             with _c1:
                 st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);margin-bottom:7px;">{h_("Ticker")}</div>', unsafe_allow_html=True)
+                           f'color:var(--muted);margin-bottom:7px;">{h_("Ticker")}</div>', unsafe_allow_html=True)
                 _new_ticker = st.text_input(_("Ticker"), placeholder="TTE.PA", label_visibility="collapsed")
             with _c2:
                 st.markdown('<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);margin-bottom:7px;">{h_("Company name (optional)")}</div>',
+                           f'color:var(--muted);margin-bottom:7px;">{h_("Company name (optional)")}</div>',
                            unsafe_allow_html=True)
                 _new_name = st.text_input(_("Company name (optional)"), placeholder="TotalEnergies",
                                           label_visibility="collapsed")
@@ -174,7 +174,7 @@ def render() -> None:
             # exact padding; a bare st.caption() here would sit flush against
             # the card's raw edge instead of aligned with those 20px-indented
             # children. Same padding loading_skeleton_html() used to carry.
-            st.markdown(f'<div style="padding:22px 20px 8px;font-size:13px;color:var(--faint);">{_wl_msg}</div>',
+            st.markdown(f'<div style="padding:22px 20px 8px;font-size:13px;color:var(--muted);">{_wl_msg}</div>',
                        unsafe_allow_html=True)
             with st.container(key="wl_col_header"):
                 _col_header()

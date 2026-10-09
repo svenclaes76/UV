@@ -94,7 +94,7 @@ def _preview(ctx: i18n.Ctx) -> None:
     ]
     inner = "".join(
         f'<div><div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;'
-        f'color:var(--faint);line-height:1.3;">{label}</div>'
+        f'color:var(--muted);line-height:1.3;">{label}</div>'
         f'<div style="font-family:var(--uv-mono);font-size:13.5px;margin-top:4px;line-height:1.3;">{value}</div></div>'
         for label, value in cells)
     st.markdown(

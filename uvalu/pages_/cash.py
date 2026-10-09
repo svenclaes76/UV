@@ -141,7 +141,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                                  format_func=frozen(tr), selection_mode="single", key="cash_filter",
                                  label_visibility="collapsed") or "All"
                 rows = cash.filter_rows(rows_all, group)
-                st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'
+                st.markdown(f'<span style="font-size:11.5px;color:var(--muted);font-family:var(--uv-mono);'
                             f'white-space:nowrap;">{h_("{shown} of {total} entries", shown=len(rows), total=len(rows_all))}</span>',
                             unsafe_allow_html=True, width="content")
             if not rows:

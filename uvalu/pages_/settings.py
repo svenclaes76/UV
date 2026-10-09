@@ -452,11 +452,11 @@ def render() -> None:
                     # the block as a paragraph and auto-link the email address.
                     f'<div style="display:flex;align-items:center;gap:12px;padding:14px 20px;">'
                     f'<span id="set-account" class="uv-anchor"></span>'
-                    f'<div style="width:38px;height:38px;border-radius:9px;background:var(--navy);'
+                    f'<div style="width:38px;height:38px;border-radius:8px;background:var(--navy);'
                     f'border:0.5px solid var(--line);display:flex;align-items:center;justify-content:center;'
                     f'font-size:13px;font-weight:600;color:var(--mint);flex:none;">{_initials(_email)}</div>'
                     f'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:500;">{_display_name(_email)}</div>'
-                    f'<div style="font-size:12px;color:var(--faint);font-family:var(--uv-mono);overflow:hidden;'
+                    f'<div style="font-size:12px;color:var(--muted);font-family:var(--uv-mono);overflow:hidden;'
                     f'text-overflow:ellipsis;white-space:nowrap;">{_email} · {tr(_u.role.capitalize())}</div></div>'
                     f'<a href="/?logout=1" target="_self" class="uv-set-signout">{h_("Sign out")}</a>'
                     f'</div>', unsafe_allow_html=True)
@@ -475,7 +475,7 @@ def render() -> None:
                         else:
                             _row_title(
                                 f'{h_("Password")}<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 7px;'
-                                'border-radius:4px;background:var(--line-2);color:var(--faint);margin-left:8px;">'
+                                'border-radius:4px;background:var(--line-2);color:var(--muted);margin-left:8px;">'
                                 f'{h_("NOT SET")}</span>',
                                 h_("Add one so you can sign in when your provider is unavailable."))
                     with _pc2:
@@ -541,7 +541,7 @@ def render() -> None:
                                   if _has_pw else h_("Managed by your identity provider."))
                     with _tc2:
                         if not _has_pw:
-                            st.markdown('<div style="text-align:right;font-size:12px;color:var(--faint);">'
+                            st.markdown('<div style="text-align:right;font-size:12px;color:var(--muted);">'
                                        f'{h_("Not applicable")}</div>', unsafe_allow_html=True)
                         else:
                             _new_totp = st.toggle(_("Two-factor authentication"), value=_totp_on,
@@ -605,7 +605,7 @@ def render() -> None:
                             _row_title(h_("This browser") if _is_current else _device_label(_sess.get("user_agent", "")), _meta)
                         with _sc2:
                             if _is_current:
-                                st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--faint);">{h_("Current")}</div>',
+                                st.markdown(f'<div style="text-align:right;font-size:12px;color:var(--muted);">{h_("Current")}</div>',
                                            unsafe_allow_html=True)
                             elif st.button(_("Sign out"), key=f"set_session_signout_{_sess['sid']}"):
                                 ok, msg = revoke_session(_email, _sess["sid"])

@@ -130,7 +130,7 @@ def _render_skeleton() -> None:
             _rh_cells = "".join(
                 f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
             st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
-                       f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
+                       f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
         st.markdown(skeleton_risk_holdings_html(5, grid_cols=_rh_grid()), unsafe_allow_html=True)
 
@@ -185,7 +185,7 @@ def render() -> None:
     st.caption(_("Factor exposures, concentration and per-holding risk contribution across the portfolio."))
     # DIS-3 / PER-4: estimates, and a description, never a prescription.
     st.markdown(
-        '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:10px;'
+        '<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:8px;'
         'border:0.5px solid #C98A3A;background:rgba(201,138,58,0.08);margin:4px 0 6px;">'
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C98A3A" stroke-width="1.7" '
         'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
@@ -263,7 +263,7 @@ def render() -> None:
   {radial_gauge_svg(r.composite.score, _ring_color, size=132)}
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
     <span style="font-family:var(--uv-mono);font-size:34px;font-weight:500;line-height:1;">{fmt_num(r.composite.score, 0)}</span>
-    <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
+    <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--muted);margin-top:3px;">/ 100</span>
   </div>
 </div>
 <div style="font-size:16px;font-weight:500;margin-top:14px;color:{_label_color};">{tr(r.composite.label)}</div>
@@ -298,9 +298,9 @@ def render() -> None:
         ]
         _cells = "".join(
             f'<div style="padding:18px 20px;">'
-            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{_l}</div>'
+            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">{_l}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:24px;font-weight:500;margin-top:9px;line-height:1;">{_v}</div>'
-            f'<div style="font-size:11px;color:{band_tone_color(band_tone(_t), _dark) if _t else "var(--faint)"};margin-top:7px;">{_s}</div></div>'
+            f'<div style="font-size:11px;color:{band_tone_color(band_tone(_t), _dark) if _t else "var(--muted)"};margin-top:7px;">{_s}</div></div>'
             for _l, _v, _s, _t in _metric_defs
         )
         st.markdown(f'<div style="display:grid;grid-template-columns:repeat(3,1fr);">{_cells}</div>',
@@ -327,7 +327,7 @@ def render() -> None:
                     f'<div style="margin-bottom:15px;">'
                     f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:7px;">'
                     f'<span style="font-size:12.5px;font-weight:500;">{html.escape(_fnote)}'
-                    f'<span style="font-family:var(--uv-mono);font-size:10px;font-weight:400;color:var(--faint);'
+                    f'<span style="font-family:var(--uv-mono);font-size:10px;font-weight:400;color:var(--muted);'
                     f'border:0.5px solid var(--line);border-radius:4px;padding:0 5px;margin-left:8px;">{html.escape(_fname)}</span></span>'
                     f'<span style="font-size:11px;font-weight:500;color:{_fcolor};font-family:var(--uv-mono);white-space:nowrap;">{_rate} · {fmt_num(_fval, 2, signed=True)}</span></div>'
                     f'<div style="height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden;">'
@@ -401,7 +401,7 @@ def render() -> None:
         # alert exactly (16px icon here vs. Analysis's 18px, per that page's
         # own spec).
         st.markdown(
-            f'<div style="margin-top:4px;padding:12px 14px;border-radius:10px;background:var(--navy);'
+            f'<div style="margin-top:4px;padding:12px 14px;border-radius:8px;background:var(--navy);'
             f'display:flex;gap:10px;align-items:flex-start;">'
             f'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" '
             f'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
@@ -426,7 +426,7 @@ def render() -> None:
             _rh_cells = "".join(
                 f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_rh_labels, _rh_align))
             st.markdown(f'<div style="display:grid;grid-template-columns:{_rh_grid()};gap:14px;'
-                       f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">'
+                       f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
                        f'{_rh_cells}</div>', unsafe_allow_html=True)
 
         _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
@@ -454,7 +454,7 @@ def render() -> None:
             elif p.rating == "High":
                 _flag, _flag_color = N_("High risk"), "var(--amber-txt)"
             else:
-                _flag, _flag_color = "", "var(--faint)"
+                _flag, _flag_color = "", "var(--muted)"
             with st.container(key=f"risk_hold_{_idx}_{p.ticker}"):
                 st.markdown(risk_holding_row_html(
                     ticker=p.ticker, exchange=_crow["exch"], name=p.name,
@@ -498,11 +498,11 @@ def render() -> None:
                     'padding:9px 0;border-bottom:0.5px solid var(--line-2);align-items:baseline;">'
                     f'<span style="font-size:11px;font-weight:500;color:{_color};">{h_(_lvl)}</span>'
                     f'<span style="font-size:12.5px;color:var(--text);line-height:1.5;">{html.escape(tr(_o.message))}</span>'
-                    f'<span style="font-size:11px;color:var(--faint);white-space:nowrap;">{_basis}</span></div>')
+                    f'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">{_basis}</span></div>')
             st.markdown("".join(_rows_html), unsafe_allow_html=True)
         # DIS-3's estimates sentence is already the warning at the top of this
         # page; list the other disclosures here instead of repeating it.
-        st.markdown('<div style="margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.6;">'
+        st.markdown('<div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.6;">'
                     + "<br>".join(html.escape(tr(_d)) for _d in r.disclosures if _d != RISK_DISCLOSURES[0])
                     + "</div>", unsafe_allow_html=True)
 

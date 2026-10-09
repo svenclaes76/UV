@@ -164,7 +164,7 @@ def _render_backup_code_challenge(pending: dict) -> None:
     )
     if backup_codes_remaining(pending["email"]) == 0:
         st.markdown(
-            '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+            '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
             'padding:14px 16px;margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
             f'{h_("No backup codes left on this account. Ask an admin to reset your two-factor authentication so you can re-enroll.")}</div>',
             unsafe_allow_html=True,
@@ -277,10 +277,10 @@ def _render_provider_buttons(key_prefix: str) -> None:
             else:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
-                    f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
-                    f'border:0.5px dashed var(--line);color:var(--faint);">{h_("Continue with {provider}", provider=_p["label"])}'
+                    f'width:100%;box-sizing:border-box;padding:11px;border-radius:8px;font-size:13px;'
+                    f'border:0.5px dashed var(--line);color:var(--muted);">{h_("Continue with {provider}", provider=_p["label"])}'
                     f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
-                    f'background:var(--line-2);color:var(--faint);">{h_("NOT CONFIGURED")}</span></div>',
+                    f'background:var(--line-2);color:var(--muted);">{h_("NOT CONFIGURED")}</span></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -298,7 +298,7 @@ def _render_oauth_refused(info: dict) -> None:
     st.markdown(
         f'<div class="uv-login-heading">{_heading}</div>'
         f'<div class="uv-login-subhead">{_body}</div>'
-        '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+        '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
         'padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
         f'{h_("If you were invited on a different address, sign in with that one — or ask an admin to invite this address.")}</div>',
         unsafe_allow_html=True,
@@ -337,13 +337,13 @@ def _render_invite_acceptance(token: str) -> None:
             st.markdown(
                 '<div style="margin-top:22px;">'
                 '<div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                f'color:var(--faint);margin-bottom:8px;">{h_("Email")}</div>'
-                '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:9px;'
+                f'color:var(--muted);margin-bottom:8px;">{h_("Email")}</div>'
+                '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:8px;'
                 'padding:11px 13px;font-size:14px;color:var(--muted);display:flex;align-items:center;'
                 'justify-content:space-between;">'
                 f'<span style="font-family:var(--uv-mono);font-size:13px;">{invite["email"]}</span>'
                 '<span style="font-size:10px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;'
-                f'background:var(--line-2);color:var(--faint);">{h_("FIXED BY INVITE")}</span></div></div>',
+                f'background:var(--line-2);color:var(--muted);">{h_("FIXED BY INVITE")}</span></div></div>',
                 unsafe_allow_html=True,
             )
             _min_len = int(load_shared_settings().get("min_password_length", 12))
@@ -365,7 +365,7 @@ def _render_invite_acceptance(token: str) -> None:
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
+                f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                 unsafe_allow_html=True,
             )
@@ -631,13 +631,13 @@ def auth_wall() -> None:
                 st.markdown(
                     '<div style="display:flex;align-items:center;gap:12px;margin:18px 0;">'
                     '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                    f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
+                    f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
                     '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                     unsafe_allow_html=True,
                 )
                 _render_provider_buttons("login_locked_provider")
                 st.markdown(
-                    '<div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;'
+                    '<div style="font-size:11.5px;color:var(--muted);margin-top:12px;text-align:center;'
                     f'line-height:1.5;">{h_("The lock applies to password sign-in only. Providers are unaffected.")}</div>',
                     unsafe_allow_html=True,
                 )
@@ -665,7 +665,7 @@ def auth_wall() -> None:
                     '<div style="display:flex;align-items:baseline;justify-content:space-between;'
                     'margin-top:4px;">'
                     '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                    f'color:var(--faint);">{h_("Password")}</span>'
+                    f'color:var(--muted);">{h_("Password")}</span>'
                     '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--link);'
                     f'text-decoration:none;">{h_("Forgot?")}</a></div>',
                     unsafe_allow_html=True,
@@ -720,7 +720,7 @@ def auth_wall() -> None:
             st.markdown(
                 '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
+                f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
                 '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
                 unsafe_allow_html=True,
             )

@@ -80,7 +80,7 @@ def _section_header(text: str) -> None:
     (distinct from Streamlit's plain st.caption, which isn't uppercase and
     has no letter-spacing)."""
     st.markdown(f'<div style="margin-top:20px;font-size:11px;letter-spacing:0.06em;'
-               f'text-transform:uppercase;color:var(--faint);margin-bottom:8px;">{text}</div>',
+               f'text-transform:uppercase;color:var(--muted);margin-bottom:8px;">{text}</div>',
                unsafe_allow_html=True)
 
 
@@ -215,8 +215,8 @@ def open_drawer(row: "pd.Series") -> None:
     # minimum squeeze needed to keep all labels on one line. A 4th tile (TER,
     # next to MoS) reuses this same squeeze rather than widening the row —
     # "Total return" still fits at this padding/font-size.
-    _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:13px 10px;'
-    _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
+    _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:13px 10px;'
+    _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
         # Neutral: a fair value far below the price isn't good news; only the
@@ -235,7 +235,7 @@ def open_drawer(row: "pd.Series") -> None:
 
     if is_hard_veto(row.get("veto")):
         st.markdown(
-            f'<div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
+            f'<div style="margin-top:14px;background:var(--navy);border-radius:8px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
             f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
@@ -332,7 +332,7 @@ def open_drawer(row: "pd.Series") -> None:
     # next to the signal.
     from uvalu.compliance.disclosures import RECORDS_NOTE
     st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                f'color:var(--faint);margin:18px 0 8px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
+                f'color:var(--muted);margin:18px 0 8px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
                 unsafe_allow_html=True)
     if _held:
         _act1, _act2, _act3 = st.columns([1.6, 1.2, 1.2])

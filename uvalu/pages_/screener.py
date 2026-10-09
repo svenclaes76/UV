@@ -95,7 +95,7 @@ def _scr_header_css(active_key: str) -> str:
 [class*="st-key-scr_sort_"] button {{
   background: transparent !important; border: none !important; padding: 0 !important;
   min-height: unset !important; font-size: 10px !important; letter-spacing: 0.06em !important;
-  text-transform: uppercase !important; color: var(--faint) !important; font-weight: 400 !important;
+  text-transform: uppercase !important; color: var(--muted) !important; font-weight: 400 !important;
   width: 100% !important;
   /* Streamlit centers a button's label by default — now that the button
      fills the full (wide) column width above, that centered the "Position"/
@@ -241,7 +241,7 @@ def render() -> None:
 
     def _filter_label(text: str) -> None:
         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                   f'color:var(--faint);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
+                   f'color:var(--muted);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
 
     # Sector/Market selects are fixed-width (styles.py, 140px); widen each to
     # its translated "All …" label (~7.2px per 13.5px glyph + padding and
@@ -301,14 +301,14 @@ def render() -> None:
                     # reflects this rerun's value instead of lagging a step
                     # behind the slider.
                     st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">'
                                f'<span>{h_("Min score")}</span><span style="font-family:var(--uv-mono);color:var(--up-txt);">'
                                f'{st.session_state.get("scr_min_score", 0)}</span></div>', unsafe_allow_html=True)
                     _min_score = st.slider(_("Min score"), 0, 90, 0, step=5, key="scr_min_score",
                                            label_visibility="collapsed")
                 with st.container(key="scr_mos_slider"):
                     st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">'
                                f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--up-txt);">'
                                f'{fmt_pct(st.session_state.get("scr_min_mos", -20), 0)}</span></div>', unsafe_allow_html=True)
                     _min_mos = st.slider(_("Min margin of safety"), -20, 50, -20, step=5, key="scr_min_mos",

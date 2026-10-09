@@ -83,7 +83,7 @@ GLOBAL_CSS = """
      Matches the "Loading Patterns" design concept. ────────────────────────── */
   @keyframes uvShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
   .uv-skel-bar {
-    height: 13px; border-radius: 5px;
+    height: 13px; border-radius: 6px;
     background: var(--line-2);
     background-image: linear-gradient(90deg, var(--line-2) 0px, var(--line) 60px, var(--line-2) 120px);
     background-size: 420px 100%;
@@ -982,7 +982,7 @@ GLOBAL_CSS = """
      exactly (faint, teal on hover), same small-square treatment as the row
      edit-pencil buttons elsewhere on this page for visual consistency. */
   [class*="st-key-pf_panel_title_"] button {
-    background: transparent !important; border: none !important; color: var(--faint) !important;
+    background: transparent !important; border: none !important; color: var(--muted) !important;
     padding: 0 !important; min-height: 22px !important; height: 22px !important; width: 22px !important;
   }
   [class*="st-key-pf_panel_title_"] button:hover { color: var(--link) !important; }
@@ -1028,7 +1028,7 @@ GLOBAL_CSS = """
   .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--link) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
   .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
-  .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 10px !important; }
+  .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 8px !important; }
   .st-key-risk_cash_banner button p { color: var(--link) !important; font-size: 12px !important;
     white-space: nowrap !important; }
 
@@ -1114,7 +1114,7 @@ GLOBAL_CSS = """
   [class*="st-key-pf_div_row_"] [class*="_edit"] button,
   [class*="st-key-pf_cash_row_"] [class*="_edit"] button {
     min-height: 26px !important; width: 26px !important; padding: 0 !important;
-    border-radius: 7px !important; background: transparent !important; border: none !important;
+    border-radius: 8px !important; background: transparent !important; border: none !important;
     text-decoration: none !important;
   }
   [class*="st-key-pf_open_row_"] [class*="_edit"] button:hover,
@@ -1729,11 +1729,11 @@ GLOBAL_CSS = """
   [class*="_provider_list"] { gap: 10px !important; }
   .st-key-uv_login_right div[data-testid="stTextInput"] label p {
     font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--faint) !important; font-weight: 400 !important;
+    color: var(--muted) !important; font-weight: 400 !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] > div {
     background: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
-    border-radius: 9px !important;
+    border-radius: 8px !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
   /* A tinted, bordered alert box — matches Uvalu Auth.dc.html frames 02/09b
@@ -1752,13 +1752,13 @@ GLOBAL_CSS = """
   }
   .uv-lock-card {
     display: flex; align-items: center; gap: 14px; background: var(--panel-2);
-    border: 0.5px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 18px;
+    border: 0.5px solid var(--line); border-radius: 8px; padding: 16px 18px; margin-top: 18px;
   }
   .uv-lock-icon { color: var(--amber-txt); flex: none; }
   .uv-lock-timer { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--amber-txt); }
-  .uv-lock-caption { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .uv-lock-caption { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .uv-login-btn-disabled {
-    text-align: center; padding: 12px; border-radius: 9px; background: var(--faint);
+    text-align: center; padding: 12px; border-radius: 8px; background: var(--faint);
     color: rgba(13,31,60,0.5); font-size: 13.5px; font-weight: 500; margin-top: 18px;
   }
 

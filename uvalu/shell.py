@@ -324,7 +324,7 @@ def render_topbar(nav) -> None:
                 '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
                 'uval<span style="color:var(--logo-accent)">u</span></span>'
                 '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
-                f'color:var(--faint);">{_("value engine")}</span></div>',
+                f'color:var(--muted);">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -355,7 +355,7 @@ def render_topbar(nav) -> None:
                              "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
                 st.markdown(
                     f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
-                    f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
+                    f'font-size:11px;color:var(--muted);font-family:var(--uv-mono);min-width:0;">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
                     f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
@@ -503,7 +503,7 @@ def render_maintenance() -> None:
         'border-radius:12px;background:var(--panel);">'
         f'<div style="font-size:20px;font-weight:600;margin-bottom:8px;">{html.escape(title)}</div>'
         f'<div style="font-size:14px;color:var(--muted);line-height:1.6;">{html.escape(body)}</div>'
-        f'<div style="font-size:11.5px;color:var(--faint);margin-top:16px;">'
+        f'<div style="font-size:11.5px;color:var(--muted);margin-top:16px;">'
         f'v{html.escape(info.display_version)} · {html.escape(info.commit)}</div></div>',
         unsafe_allow_html=True)
 
@@ -541,7 +541,7 @@ _FOOTER_CSS = """
 }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] p {
-  font-size: 10.5px !important; color: var(--faint) !important; font-family: var(--uv-mono) !important;
+  font-size: 10.5px !important; color: var(--muted) !important; font-family: var(--uv-mono) !important;
 }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--link) !important; }
 """
@@ -557,7 +557,7 @@ def render_footer() -> None:
         st.markdown(f"<style>{_FOOTER_CSS}</style>"
                     f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
                     f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
-                    f'<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px;">'
+                    f'<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:6px;">'
                     f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
                     unsafe_allow_html=True)
         legal_page = nav_registry.pages.get("legal")
@@ -581,5 +581,5 @@ def render_version_marker() -> None:
         if about is not None:
             st.page_link(about, label=label, help=_("About this version and what's new"))
         else:
-            st.markdown(f'<span style="font-size:11px;color:var(--faint);">{html.escape(label)}</span>',
+            st.markdown(f'<span style="font-size:11px;color:var(--muted);">{html.escape(label)}</span>',
                         unsafe_allow_html=True)

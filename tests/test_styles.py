@@ -78,3 +78,34 @@ def test_link_is_darker_than_signal_teal_on_white():
 
 def test_focus_ring_is_keyboard_only():
     assert ":focus-visible" in GLOBAL_CSS and "outline: 2px solid" in GLOBAL_CSS
+
+
+def _ui_sources():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "uvalu"
+    return [p for p in [*root.glob("*.py"), *root.glob("pages_/*.py")]]
+
+
+# Decoration that may stay --faint: provenance and footer separators, placeholders.
+_FAINT_ALLOWED = (".uv-prov-sep", 'content: "·"', "::placeholder")
+
+
+def test_no_readable_text_in_faint():
+    """Brand v1.3 §4: --faint is decoration only; readable text is --muted."""
+    hits = []
+    for path in _ui_sources():
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"(?<![-\w])color:\s*var\(--faint\)", line) and not any(a in line for a in _FAINT_ALLOWED):
+                hits.append(f"{path.name}:{n}")
+    assert not hits, hits
+
+
+def test_only_brand_radii():
+    """Brand v1.3 §7: radii are 4, 6, 8 or 12px (50% for dots and rings)."""
+    hits = []
+    for path in _ui_sources():
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for m in re.finditer(r"border-radius:\s*([0-9.]+)px", line):
+                if m.group(1) not in {"0", "4", "6", "8", "12"}:
+                    hits.append(f"{path.name}:{n} {m.group(0)}")
+    assert not hits, hits

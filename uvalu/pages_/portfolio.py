@@ -382,7 +382,7 @@ def render() -> None:
             with st.container(key="pf_card_closed_ov", border=True):
                 with st.container(key="pf_panel_title_closed_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
-                    st.markdown(f'{h_("Closed positions")} <span style="color:var(--faint);font-weight:400;">{h_("· realised")}</span>',
+                    st.markdown(f'{h_("Closed positions")} <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                                unsafe_allow_html=True)
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("closed")
@@ -527,7 +527,7 @@ def render() -> None:
                           horizontal_alignment="distribute"):
             with st.container(width="content"):
                 st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Closed positions")} '
-                           f'<span style="color:var(--faint);font-weight:400;">{h_("· realised")}</span></div>',
+                           f'<span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span></div>',
                            unsafe_allow_html=True)
                 st.caption(_("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."))
             # Records a trade opened and closed outside this app (no cash
@@ -739,7 +739,7 @@ def render() -> None:
                             f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
                             f'padding:10px 20px;border-top:0.5px solid var(--line-2);'
                             f'border-bottom:0.5px solid var(--line-2);font-size:10px;letter-spacing:0.06em;'
-                            f'text-transform:uppercase;color:var(--faint);">'
+                            f'text-transform:uppercase;color:var(--muted);">'
                             f'<div>{h_("Year")}</div><div></div><div style="text-align:right;">{h_("Gross")}</div>'
                             f'<div style="text-align:right;">{h_("Foreign WH")}</div><div style="text-align:right;">{h_("BE 30%")}</div>'
                             f'<div style="text-align:right;">{h_("Net")}</div></div>'
@@ -750,7 +750,7 @@ def render() -> None:
                                 f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
                                 f'padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
                                 f'<div style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{int(_year)}</div>'
-                                f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;'
+                                f'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;'
                                 f'overflow:hidden;text-overflow:ellipsis;">'
                                 f'{ngettext("{count} event", "{count} events", int(_yrow["events"]))} · {_partial}</div>'
                                 f'<div style="{_num}font-size:12.5px;">{fmt_money(_yrow["gross"], "EUR")}</div>'

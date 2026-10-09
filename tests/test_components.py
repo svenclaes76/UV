@@ -348,7 +348,7 @@ def test_band_tone_color_maps_quant_words():
     assert band_tone_color(risk.band_tone("High")) == "#A32D2D"
     assert band_tone_color(risk.band_tone("Low")) == "#0F6E56"
     assert band_tone_color(risk.band_tone("Aggressive")) == "#A32D2D"
-    assert band_tone_color(risk.band_tone("N/A")) == "var(--faint)"
+    assert band_tone_color(risk.band_tone("N/A")) == "var(--muted)"
 
 
 def test_risk_score_meter_html_gradient_and_marker():
@@ -470,9 +470,9 @@ class TestVetoReasonStr:
 
 class TestFairValueBarHtml:
     def test_missing_data_returns_dash(self):
-        assert _fair_value_bar_html(None, 100.0, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
-        assert _fair_value_bar_html(100.0, None, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
-        assert _fair_value_bar_html(100.0, 120.0, None) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+        assert _fair_value_bar_html(None, 100.0, 10.0) == '<span style="color:var(--muted);">—</span>'
+        assert _fair_value_bar_html(100.0, None, 10.0) == '<span style="color:var(--muted);">—</span>'
+        assert _fair_value_bar_html(100.0, 120.0, None) == '<span style="color:var(--muted);">—</span>'
 
     def test_valid_data_renders_bar(self):
         html = _fair_value_bar_html(100.0, 120.0, 16.7)
@@ -500,11 +500,11 @@ class TestHoldingsRowHtml:
 
     def test_missing_mos_pct_shows_dash(self):
         html = self._row(mos_pct=None)
-        assert "<span style='color:var(--faint);'>—</span>" in html
+        assert "<span style='color:var(--muted);'>—</span>" in html
 
     def test_missing_total_gain_shows_dash(self):
         html = self._row(total_gain=None)
-        assert html.count("<span style='color:var(--faint);'>—</span>") == 1  # only P&L dash
+        assert html.count("<span style='color:var(--muted);'>—</span>") == 1  # only P&L dash
 
     def test_total_gain_colors_and_formats_by_sign(self):
         assert "+€125.00" in self._row(total_gain=125.0)
@@ -559,11 +559,11 @@ class TestQualityScoreColor:
 
 
 class TestGainColor:
-    def test_none_is_faint(self):
-        assert _gain_color(None) == "var(--faint)"
+    def test_none_is_muted(self):
+        assert _gain_color(None) == "var(--muted)"
 
-    def test_nan_is_faint(self):
-        assert _gain_color(float("nan")) == "var(--faint)"
+    def test_nan_is_muted(self):
+        assert _gain_color(float("nan")) == "var(--muted)"
 
     def test_positive_is_up(self):
         assert _gain_color(5.0) == "var(--up-txt)"
@@ -603,7 +603,9 @@ def test_list_provenance_flags_prices_older_than_72_hours():
     stale = list_provenance_html(_signals_frame([1, 24 * 21]))
     assert "oldest" not in fresh
     assert "oldest 3 weeks" in stale
-    assert "1 price is more than 72 hours old." in stale
+    assert "Some prices are more than 72 hours old." in stale
+    # Brand v1.3: the Material `warning` symbol, not the ⚠ character.
+    assert ">warning</span>" in stale and "⚠" not in stale
 
 
 def test_provenance_is_a_quiet_caption_without_fill_or_border():

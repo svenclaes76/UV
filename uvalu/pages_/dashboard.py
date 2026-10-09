@@ -259,7 +259,7 @@ def render() -> None:
 <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
   <span style="font-family:var(--uv-mono);font-size:20px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
   {_chip_html(fmt_pct(_db_range_pct, signed=True), _db_range_pct >= 0)}
-  <span style="font-size:11px;color:var(--faint);">{_range_txt}</span>
+  <span style="font-size:11px;color:var(--muted);">{_range_txt}</span>
 </div>""", unsafe_allow_html=True)
 
             _db_has_spx   = "benchmark_spx"   in _vh_view.columns and _vh_view["benchmark_spx"].notna().any()
@@ -316,7 +316,7 @@ def render() -> None:
                     st.markdown(f"""
 <div style="display:flex;align-items:center;gap:18px;">
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
-    <span style="width:14px;height:2px;background:var(--mint);border-radius:2px;display:inline-block;"></span>{h_("Portfolio value")}</div>
+    <span style="width:14px;height:2px;background:var(--mint);border-radius:4px;display:inline-block;"></span>{h_("Portfolio value")}</div>
   <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);">
     <span style="width:14px;height:0;border-top:1.4px dashed var(--axis);display:inline-block;"></span>{h_("Amount invested")}</div>
 </div>""", unsafe_allow_html=True)
@@ -430,11 +430,11 @@ def render() -> None:
     {radial_gauge_svg(_conv_score, _conv_ring, size=118)}
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
       <span style="font-family:var(--uv-mono);font-size:27px;font-weight:500;line-height:1;color:var(--text);">{fmt_num(_conv_score, 0)}</span>
-      <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--faint);margin-top:3px;">/ 100</span>
+      <span style="font-size:9.5px;letter-spacing:0.08em;color:var(--muted);margin-top:3px;">/ 100</span>
     </div>
   </div>
   <div>
-    <div style="font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">{h_("Weighted composite score")}</div>
     <div style="font-size:15px;font-weight:500;margin-top:4px;color:var(--text);">{_conv_label}</div>
     <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">{_conv_text}</div>
   </div>
@@ -458,7 +458,7 @@ def render() -> None:
                     _dd_metric_defs = [(h_("Beta"), _beta_str, None), (h_("Volatility"), _vol_str, None),
                                        (h_("Max drawdown"), _dd_str, "var(--down-txt)")]
                     _dd_cells = "".join(
-                        f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
+                        f'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">{_l}</div>'
                         f'<div style="font-family:var(--uv-mono);font-size:16px;font-weight:500;margin-top:3px;{f"color:{_c};" if _c else ""}">{_v}</div></div>'
                         for _l, _v, _c in _dd_metric_defs
                     )
@@ -494,7 +494,7 @@ def render() -> None:
                     f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_hold_grid};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                           f'color:var(--faint);">{_hh_cells}</div>', unsafe_allow_html=True)
+                           f'color:var(--muted);">{_hh_cells}</div>', unsafe_allow_html=True)
 
         if not _db_scr.empty and not _db_ref_pending:
             _hold = _db_pf.merge(_db_scr, left_on="ticker", right_on="Ticker", how="left", suffixes=("", "_scr"))
@@ -674,11 +674,11 @@ def render() -> None:
 <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">
   <div>
     <div style="font-size:12.5px;">{_html.escape(display_name(_dr['Name']))}</div>
-    <div style="font-size:11px;color:var(--faint);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
+    <div style="font-size:11px;color:var(--muted);">{h_("{date} · {yield_pct} yield", date=fmt_date(_dr['exDividendDate']), yield_pct=_yld_str)}{_soon_badge}{_cut_badge}{_incr_badge}</div>
   </div>
   <div style="text-align:right;">
     <div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(_net, "EUR", 0)}</div>
-    <div style="font-family:var(--uv-mono);font-size:10px;color:var(--faint);">{h_("{amount} gross", amount=fmt_money(_gross, "EUR", 0))}</div>
+    <div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);">{h_("{amount} gross", amount=fmt_money(_gross, "EUR", 0))}</div>
   </div>
 </div>""", unsafe_allow_html=True)
                 else:
@@ -705,8 +705,8 @@ def render() -> None:
                 st.markdown(f"""
 <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;">
   <span title="{_html.escape(str(_mr['ticker']))}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_html.escape(display_name(_mr['name']))}</span>
-  <span style="width:36px;height:5px;border-radius:3px;background:var(--line-2);position:relative;flex:none;">
-    <span style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{_color};width:{_bar_pct:.0f}%;"></span>
+  <span style="width:36px;height:5px;border-radius:4px;background:var(--line-2);position:relative;flex:none;">
+    <span style="position:absolute;left:0;top:0;height:5px;border-radius:4px;background:{_color};width:{_bar_pct:.0f}%;"></span>
   </span>
   <span style="width:64px;text-align:right;flex:none;">{_chip_html(fmt_pct(_mr['day_change_pct'], 2, signed=True), _pos)}</span>
 </div>""", unsafe_allow_html=True)

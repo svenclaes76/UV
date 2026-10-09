@@ -64,7 +64,7 @@ def _fv(row, field, fmt=None):
 
 _PANEL_TITLE = '<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{title}</div>'
 _KV_ROW = ('<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:8px 0;'
-           'border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="color:var(--faint);">{k}</span>'
+           'border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="color:var(--muted);">{k}</span>'
            '<span style="color:var(--text);line-height:1.5;">{v}</span></div>')
 
 
@@ -90,7 +90,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
             _prev = None
             for rec in _hist:
                 code = rec.get("signal_code")
-                _from = (model_signal_badge_html(_prev) + ' <span style="color:var(--faint);">→</span> '
+                _from = (model_signal_badge_html(_prev) + ' <span style="color:var(--muted);">→</span> '
                          if _prev else "")
                 _mos = rec.get("margin_of_safety")
                 _note = _("score {score} · margin of safety {mos} · model {version}",
@@ -119,7 +119,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
         _base = next((x for x in _sens if x["shift"] == 0.0), None)
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px;">'
-            + "".join(f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+            + "".join(f'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;'
                       f'letter-spacing:0.05em;">{k}</div><div style="font-family:var(--uv-mono);font-size:14px;'
                       f'margin-top:4px;">{v}</div></div>' for k, v in (
                           (h_("Discount rate"), fmt_pct(_base["discount_rate"], 1, fraction=True) if _base else "—"),
@@ -272,7 +272,7 @@ def render() -> None:
             f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
             f'{model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"))}</div>'
             f'<div style="text-align:right;">'
-            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);">{h_("Composite score")}</div>'
+            f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">{h_("Composite score")}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
             f'{"—" if _excluded else fmt_num(_score, 0)}</div></div></div>'
             # Row 2: company/sector/exchange caption (left) on the same line
@@ -303,7 +303,7 @@ def render() -> None:
     def _hero_card(label: str, value: str, color: str = "var(--text)") -> str:
         return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
                f'padding:15px 17px;box-shadow:var(--shadow);">'
-               f'<div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;">'
+               f'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">'
                f'{label}</div>'
                f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;margin-top:8px;'
                f'color:{color};">{value}</div></div>')
@@ -596,7 +596,7 @@ def render() -> None:
                 _src_style = ("background:var(--soft);color:var(--up-txt);"
                              if _src_auto or not _has_div_history else "border:0.5px solid var(--line);color:var(--muted);")
                 st.markdown(f'<div style="text-align:right;"><span style="font-size:9.5px;font-family:var(--uv-mono);'
-                           f'padding:2px 6px;border-radius:5px;{_src_style}">{_src_label}</span></div>',
+                           f'padding:2px 6px;border-radius:6px;{_src_style}">{_src_label}</span></div>',
                            unsafe_allow_html=True)
 
             _bt = None
@@ -616,7 +616,7 @@ def render() -> None:
             _dcol1, _dcol2 = st.columns([1.35, 1], gap="large")
             with _dcol1:
                 def _stat(label: str, value: str, color: str = "inherit") -> str:
-                    return (f'<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+                    return (f'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;'
                            f'letter-spacing:0.05em;">{label}</div><div style="font-family:var(--uv-mono);'
                            f'font-size:19px;font-weight:500;margin-top:5px;color:{color};">{value}</div></div>')
                 st.markdown(
@@ -668,7 +668,7 @@ def render() -> None:
                     st.caption(_("Dividend increase detected in {year}.", year=str(int(_incr_year))))
 
             with _dcol2:
-                st.markdown('<div style="font-size:10px;color:var(--faint);text-transform:uppercase;'
+                st.markdown('<div style="font-size:10px;color:var(--muted);text-transform:uppercase;'
                            f'letter-spacing:0.05em;margin-bottom:10px;">{h_("Payment history · per share")}</div>',
                            unsafe_allow_html=True)
                 if _has_div_history:
@@ -689,7 +689,7 @@ def render() -> None:
                                      f'{fmt_money(_ps, "EUR")}</span><div style="width:100%;border-radius:4px 4px 0 0;'
                                      f'background:{_color};height:{_h}px;"></div></div>')
                         _label_html += (f'<span style="width:44px;flex:none;text-align:center;font-family:var(--uv-mono);'
-                                       f'font-size:9px;color:var(--faint);">{_lbl}</span>')
+                                       f'font-size:9px;color:var(--muted);">{_lbl}</span>')
                     st.markdown(_bar_html + '</div>' + _label_html + '</div>', unsafe_allow_html=True)
                 else:
                     st.caption(_("No dividend events recorded yet for this holding."))
