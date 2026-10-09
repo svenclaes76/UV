@@ -136,5 +136,5 @@ def render_reload_prompt() -> None:
         st.markdown(f'<div style="font-size:12.5px;color:var(--text);">'
                     f'{html.escape(_("A new version of Uvalu is available. Reload the page to use it."))}'
                     f'</div>', unsafe_allow_html=True, width="stretch")
-        st.markdown(f'<a href="" target="_self" style="font-size:12.5px;color:var(--link);">'
+        st.markdown(f'<a href="" target="_self" class="uv-reload-link">'
                     f'{html.escape(_("Reload"))}</a>', unsafe_allow_html=True, width="content")

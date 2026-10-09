@@ -151,12 +151,15 @@ nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url
 # Admin renders its own standalone sidebar/topbar (uvalu/pages_/admin.py),
 # matching Uvalu Admin.dc.html's separate shell — skip the main app's
 # horizontal top-bar nav for it instead of stacking both.
+# Order under the top bar: update notice, reload prompt, beta box, peer strip.
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
-    shell.render_beta_banner()
     update_notice.render_whats_new_notice(_email)
 update_notice.remember_session_build()
 update_notice.render_reload_prompt()
+if _nav.url_path != "admin":
+    shell.render_beta_banner()
+    shell.render_peer_rebuild_strip()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).

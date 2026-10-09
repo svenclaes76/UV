@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 12:46+0000\n"
+"POT-Creation-Date: 2026-10-09 12:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -51,12 +51,12 @@ msgid "Analysis"
 msgstr ""
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:400
+#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:424
 msgid "Settings"
 msgstr ""
 
 #: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:148
-#: uvalu/shell.py:402
+#: uvalu/shell.py:426
 msgid "Methodology"
 msgstr ""
 
@@ -64,7 +64,7 @@ msgstr ""
 msgid "Legal"
 msgstr ""
 
-#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:405
+#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:429
 msgid "About Uvalu"
 msgstr ""
 
@@ -1248,7 +1248,7 @@ msgstr ""
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:235 uvalu/shell.py:335
+#: uvalu/authgate.py:235 uvalu/shell.py:359
 msgid "value engine"
 msgstr ""
 
@@ -3334,59 +3334,75 @@ msgstr ""
 msgid "Fair"
 msgstr ""
 
-#: uvalu/shell.py:362
+#: uvalu/shell.py:386
 msgctxt "market"
 msgid "Closed"
 msgstr ""
 
-#: uvalu/shell.py:363
+#: uvalu/shell.py:387
 msgctxt "market"
 msgid "Live"
 msgstr ""
 
-#: uvalu/shell.py:363
+#: uvalu/shell.py:387
 msgctxt "market"
 msgid "Delayed"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:377
+#: uvalu/shell.py:401
 msgid "Switch to dark theme"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:377
+#: uvalu/shell.py:401
 msgid "Switch to light theme"
 msgstr ""
 
-#: uvalu/shell.py:391
+#: uvalu/shell.py:415
 msgid "Free beta"
 msgstr ""
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:407
+#: uvalu/shell.py:431
 msgid "Admin portal"
 msgstr ""
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:414
+#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:438
 msgid "Sign out"
 msgstr ""
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:447 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:288
-#: uvalu/shell.py:439
+#: uvalu/shell.py:466
 msgid "Beta"
+msgstr ""
+
+#: uvalu/shell.py:469
+msgid "Terms →"
+msgstr ""
+
+#. Strip under the beta notice while the app rebuilds its peer reference after a
+#. restart. “No signal” is the badge label.
+#: uvalu/shell.py:484
+msgid ""
+"Rebuilding the peer reference after a restart. Signals show “No signal” until it"
+" finishes, usually within a few minutes."
+msgstr ""
+
+#: uvalu/shell.py:546
+msgid "Couldn’t load this page. Try again in a moment."
 msgstr ""
 
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:489
+#: uvalu/shell.py:549
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr ""
@@ -3395,18 +3411,18 @@ msgstr ""
 #. update.
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:501
+#: uvalu/shell.py:562
 msgid "Uvalu is being updated"
 msgstr ""
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:503
+#: uvalu/shell.py:564
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
 "minutes."
 msgstr ""
 
-#: uvalu/shell.py:585
+#: uvalu/shell.py:644
 msgid "About this version and what's new"
 msgstr ""
 

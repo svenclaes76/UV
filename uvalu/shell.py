@@ -12,7 +12,7 @@ import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
-from uvalu.i18n import N_, _, fmt_time, pgettext, tr
+from uvalu.i18n import N_, _, fmt_time, h_, pgettext, tr
 from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
 
@@ -218,7 +218,7 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar {{
   position: sticky; top: 0; z-index: 999;
   background: var(--panel); border-bottom: 0.5px solid var(--line);
-  padding: 10px 24px; margin: 0 -1.5rem 0.75rem;
+  padding: 10px 24px; margin: 0 -1.5rem 0;
   width: calc(100% + 3rem) !important; max-width: calc(100% + 3rem) !important;
   flex: none !important; min-height: 61px !important; box-sizing: border-box !important;
 }}
@@ -305,6 +305,31 @@ a.uv-menu-signout {{
   color: var(--down-txt) !important; font-size: 13px; text-decoration: none;
 }}
 a.uv-menu-signout:hover {{ background: var(--down-bg); }}
+/* Notice strips (update notice, reload prompt): full width under the top bar,
+   --panel with a --line-2 rule, flush with the bar and with each other (the
+   negative top margin cancels the page's 18px section gap). */
+.st-key-uv_whats_new_notice, .st-key-uv_reload_prompt {{
+  margin: -18px -1.5rem 0 !important; width: calc(100% + 3rem) !important; max-width: none !important;
+  padding: 8px 24px !important; background: var(--panel); border-bottom: 0.5px solid var(--line-2);
+  gap: 8px 16px !important; flex-wrap: wrap !important; box-sizing: border-box;
+}}
+.st-key-uv_whats_new_notice [data-testid="stMarkdownContainer"],
+.st-key-uv_reload_prompt [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] {{
+  padding: 0 !important; min-height: 0 !important; background: none !important;
+}}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {{ display: none !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] p {{ font-size: 12.5px !important; color: var(--link) !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"]:hover p {{ color: var(--text) !important; }}
+.st-key-uv_whats_new_notice button {{ min-height: 0 !important; padding: 0 !important; }}
+.st-key-uv_whats_new_notice button p {{ font-size: 12.5px !important; color: var(--muted) !important; }}
+.st-key-uv_whats_new_notice button:hover p {{ color: var(--text) !important; }}
+/* Beta box and peer strip: Streamlit's -1rem markdown margin would eat the
+   gap below them (title 6px under the box instead of 22px). */
+[data-testid="stMarkdownContainer"]:has(> .uv-beta-box),
+[data-testid="stMarkdownContainer"]:has(> .uv-peer-strip) {{ margin-bottom: 0 !important; }}
+.uv-reload-link {{ font-size: 12.5px; color: var(--link) !important; text-decoration: none; white-space: nowrap; }}
+.uv-reload-link:hover {{ color: var(--text) !important; }}
 """
 
 
@@ -434,14 +459,42 @@ def producer_line() -> str:
 
 
 def render_beta_banner() -> None:
+    """The beta notice: a rounded box inside the page gutter (brand §8, G01),
+    with the Terms of use one click away."""
     from uvalu.compliance import disclosures as d
     if not d.BETA:
         return
     st.markdown(
-        '<div style="font-size:11.5px;color:var(--muted);background:var(--soft);'
-        'border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;margin:-4px 0 10px;">'
-        f'<span style="font-weight:600;color:var(--up-txt);margin-right:6px;">{html.escape(_("Beta"))}</span>'
-        f'{html.escape(tr(d.BETA_BANNER))}</div>',
+        '<div class="uv-beta-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;'
+        'color:var(--muted);background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
+        'padding:6px 12px;margin:-6px 0 4px;">'
+        f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Beta"))}</span>'
+        f'<span style="min-width:0;">{html.escape(tr(d.BETA_BANNER))}</span>'
+        f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'
+        f'text-decoration:none;">{html.escape(_("Terms →"))}</a></div>',
+        unsafe_allow_html=True)
+
+
+def render_peer_rebuild_strip() -> None:
+    """While the universe's peer reference is rebuilt after a restart, say why
+    the signals read "No signal" (G10; the pages keep their skeletons)."""
+    from uvalu.data import peer_reference_pending
+    try:
+        pending = peer_reference_pending()
+    except Exception:
+        pending = False
+    if not pending:
+        return
+    # Translators: Strip under the beta notice while the app rebuilds its peer reference after a restart. “No signal” is the badge label.
+    text = _("Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, "
+             "usually within a few minutes.")
+    st.markdown(
+        '<div role="status" class="uv-peer-strip" style="display:flex;align-items:center;gap:10px;padding:8px 12px;'
+        'background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;font-size:12.5px;'
+        'color:var(--muted);margin:-6px 0 4px;">'
+        '<span style="width:12px;height:12px;flex:none;border-radius:50%;border:1.5px solid var(--line);'
+        'border-top-color:var(--teal);animation:uvSpin 0.9s linear infinite;"></span>'
+        f'<span>{html.escape(text)}</span></div>',
         unsafe_allow_html=True)
 
 
@@ -488,9 +541,18 @@ def error_reference() -> str:
 
 
 def render_error_reference() -> None:
+    """The error box shown when a page fails to render (G11): a neutral
+    message — the handler can't tell what failed — and the reference to quote
+    to support, the same ids the log line carries (VD-08)."""
     try:
-        # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
-        st.caption(_("Something went wrong. Reference for support: {ref}", ref=error_reference()))
+        ref = f'<span style="font-family:var(--uv-mono);">{html.escape(error_reference())}</span>'
+        st.markdown(
+            '<div style="padding:12px 16px;border-radius:8px;background:var(--down-bg);color:var(--down-txt);'
+            f'font-size:13px;line-height:1.5;">{h_("Couldn’t load this page. Try again in a moment.")}</div>'
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px;">'
+            # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
+            f'{h_("Something went wrong. Reference for support: {ref}", ref=ref)}</div>',
+            unsafe_allow_html=True)
     except Exception:
         pass
 
@@ -510,7 +572,7 @@ def render_maintenance() -> None:
         'border-radius:12px;background:var(--panel);">'
         f'<div style="font-size:20px;font-weight:600;margin-bottom:8px;">{html.escape(title)}</div>'
         f'<div style="font-size:14px;color:var(--muted);line-height:1.6;">{html.escape(body)}</div>'
-        f'<div style="font-size:11.5px;color:var(--muted);margin-top:16px;">'
+        f'<div style="font-size:11.5px;color:var(--muted);margin-top:16px;font-family:var(--uv-mono);">'
         f'v{html.escape(info.display_version)} · {html.escape(info.commit)}</div></div>',
         unsafe_allow_html=True)
 
@@ -525,13 +587,10 @@ _FOOTER_CSS = """
 [data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
 [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
 [data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
-/* Legal links: one centred row, "·" between them, no icons (st.page_link
+/* Legal links: one left-aligned row, no separators, no icons (st.page_link
    inherits the Legal page's gavel icon, which repeated six times). */
-.st-key-uv_footer_links { justify-content: center !important; gap: 2px 0 !important; flex-wrap: wrap !important; margin-top: 4px; }
-.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; }
-.st-key-uv_footer_links > [data-testid="stElementContainer"]:not(:last-child)::after {
-  content: "·"; color: var(--faint); font-size: 11px; margin: 0 10px;
-}
+.st-key-uv_footer_links { justify-content: flex-start !important; gap: 6px 16px !important; flex-wrap: wrap !important; margin-top: 4px; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; width: auto !important; }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
   padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
 }
@@ -562,10 +621,11 @@ def render_footer() -> None:
     from uvalu.compliance import disclosures as d
     with st.container(key="uv_footer"):
         st.markdown(f"<style>{_FOOTER_CSS}</style>"
-                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;max-width:980px;">'
                     f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
-                    f'<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:6px;">'
-                    f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
+                    f'<div style="display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11px;color:var(--muted);'
+                    f'line-height:1.6;margin-top:6px;"><span>{html.escape(producer_line())}</span>'
+                    f'<span>{html.escape(tr(d.NOT_SUPERVISED))}</span></div>',
                     unsafe_allow_html=True)
         legal_page = nav_registry.pages.get("legal")
         with st.container(key="uv_footer_links", horizontal=True, vertical_alignment="center"):
@@ -583,7 +643,7 @@ def render_version_marker() -> None:
     from uvalu import buildinfo
     info = buildinfo.current()
     about = nav_registry.pages.get("about")
-    with st.container(key="uv_footer_version", horizontal=True, horizontal_alignment="center"):
+    with st.container(key="uv_footer_version", horizontal=True, horizontal_alignment="left"):
         label = f"v{info.display_version}"
         if about is not None:
             st.page_link(about, label=label, help=_("About this version and what's new"))

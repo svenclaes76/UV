@@ -230,8 +230,8 @@ def test_render_failure_shows_reference(fake_build):
 
     at = AppTest.from_function(_script, default_timeout=60)
     at.run()
-    assert "Reference for support:" in at.caption[0].value
-    assert "v2031.07.4-dev+fedcba9 (fedcba9)" in at.caption[0].value
+    assert "Reference for support:" in at.markdown[0].value
+    assert "v2031.07.4-dev+fedcba9 (fedcba9)" in at.markdown[0].value
 
 
 def test_about_uses_the_supporting_page_frame(isolated_data, monkeypatch, tmp_path, fake_build):
