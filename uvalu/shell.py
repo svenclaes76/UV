@@ -53,11 +53,11 @@ _NAV_ITEMS = (
 
 
 # Top-bar column widths (px at the design width). The nav column is sized to
-# its translated links — 12.5px text + icon + padding per link — so longer
+# its translated links — 13px/500 text + icon + padding per link — so longer
 # labels ("Portefeuille", "Beobachtungsliste") take room from the gap on the
 # right instead of running into the status pill.
 _LOGO_PX, _RIGHT_PX = 190, 330
-_NAV_CHAR_PX, _NAV_LINK_PX = 7.0, 52
+_NAV_CHAR_PX, _NAV_LINK_PX = 7.4, 54
 
 
 def _topbar_widths(labels: list[str]) -> list[float]:
@@ -231,9 +231,11 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
 .st-key-uv_topbar_nav {{ flex-wrap: nowrap !important; }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{
-  border-radius: 8px !important; padding: 7px 12px !important;
-  font-size: 12.5px !important; color: var(--muted) !important;
-  white-space: nowrap !important;
+  border-radius: 8px !important; padding: 7px 13px !important;
+  color: var(--muted) !important; white-space: nowrap !important;
+}}
+.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] p {{
+  font-size: 13px !important; font-weight: 500 !important; color: inherit !important;
 }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
   font-size: 16px !important;
@@ -242,31 +244,32 @@ def _topbar_css(active_path: str) -> str:
   background: var(--line-2) !important; color: var(--text) !important;
 }}
 .st-key-uv_topbar_nav a[href="{active_path}"] {{
-  background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;
+  background: var(--soft) !important; color: var(--text) !important;
 }}
 div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !important; }}
 /* Below ~1200px the nav links and the market-status text no longer fit side
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
 .uv-pi-short {{ display: none; }}
+/* The logo column is too narrow for the tagline beside the 22px logo. */
+@media (max-width: 1100px) {{ .uv-logo-tag {{ display: none !important; }} }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
   .uv-pi-short {{ display: inline !important; }}
-  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{ display: none !important; }}
+  /* The icon's own wrapper span, not just the glyph: a hidden glyph still
+     left a 16px box plus the 8px gap in every link. */
+  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {{ display: none !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{ padding: 7px 9px !important; }}
 }}
+/* A plain outline control in both themes (the avatar chip stays the one
+   navy + mint brand badge). */
 .st-key-uv_theme_toggle button {{
-  border-radius: 8px !important; background: var(--navy) !important;
-  color: var(--mint) !important; border: 0.5px solid var(--line) !important;
-  padding: 6px !important; min-height: 32px !important; min-width: 32px !important;
+  border-radius: 8px !important; background: transparent !important;
+  color: var(--muted) !important; border: 0.5px solid var(--line) !important;
+  padding: 0 !important; width: 34px !important; height: 34px !important;
+  min-height: 34px !important; min-width: 34px !important;
 }}
-/* Unlike the avatar chip (always navy+mint — a fixed brand badge), the
-   theme toggle is a plain UI control and should read as "off"/neutral in
-   light mode instead of standing out as a dark tile among light ones. */
-[data-theme="light"] .st-key-uv_theme_toggle button {{
-  background: var(--panel-2) !important; color: var(--text) !important;
-  border: 0.5px solid var(--line) !important;
-}}
+.st-key-uv_theme_toggle button:hover {{ border-color: var(--teal) !important; color: var(--text) !important; }}
 div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !important; }}
 /* The avatar control is two visually distinct zones — a navy initials pill
    plus a separate chevron — not one solid-color button. Streamlit renders
@@ -290,9 +293,18 @@ div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !importan
 }}
 .st-key-uv_avatar_pop button [aria-hidden="true"] {{ color: var(--muted) !important; }}
 .st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] {{
-  border-radius: 8px !important; padding: 8px 10px !important; font-size: 12.5px !important;
+  border-radius: 8px !important; padding: 8px 10px !important; gap: 10px !important;
+}}
+.st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] p {{ font-size: 13px !important; color: var(--text) !important; }}
+.st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
+  font-size: 16px !important; color: var(--muted) !important;
 }}
 .st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"]:hover {{ background: var(--line-2) !important; }}
+a.uv-menu-signout {{
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+  color: var(--down-txt) !important; font-size: 13px; text-decoration: none;
+}}
+a.uv-menu-signout:hover {{ background: var(--down-bg); }}
 """
 
 
@@ -321,10 +333,10 @@ def render_topbar(nav) -> None:
         with col_logo:
             st.markdown(
                 '<div style="display:flex;align-items:baseline;gap:9px;">'
-                '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
+                '<span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">'
                 'uval<span style="color:var(--logo-accent)">u</span></span>'
-                '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
-                f'color:var(--muted);">{_("value engine")}</span></div>',
+                '<span class="uv-logo-tag" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;'
+                f'white-space:nowrap;color:var(--muted);">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -372,43 +384,38 @@ def render_topbar(nav) -> None:
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
                         # Name, then the email as plain text (st.caption auto-linked it
-                        # as a mailto link) and the role as a chip.
+                        # as a mailto link) and the plan as a chip (G27: "Free beta";
+                        # the role is shown in the Admin portal).
                         st.markdown(
-                            f'<div><div style="font-size:14px;font-weight:600;">{html.escape(_display_name(user.email))}</div>'
-                            f'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
+                            f'<div><div style="font-size:13px;font-weight:500;">{html.escape(_display_name(user.email))}</div>'
+                            f'<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
                             f'{html.escape(user.email).replace("@", "&#64;")}</div>'
-                            f'<span style="display:inline-block;margin-top:8px;font-size:10.5px;font-weight:500;'
-                            f'color:var(--muted);border:0.5px solid var(--line);border-radius:6px;padding:1px 8px;">'
-                            f'{html.escape(tr(user.role.capitalize()))}</span></div>',
+                            f'<span style="display:inline-block;margin-top:8px;font-size:10px;font-weight:500;'
+                            f'color:var(--up-txt);background:var(--soft);border-radius:6px;padding:2px 8px;">'
+                            f'{html.escape(_("Free beta"))}</span></div>',
                             unsafe_allow_html=True)
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
                             _settings_page = nav_registry.pages.get("settings")
                             _help_page = nav_registry.pages.get("help")
                             _admin_page = nav_registry.pages.get("admin")
+                            # Legal texts are reached from the footer and Settings › Legal.
                             if _settings_page is not None:
-                                st.page_link(_settings_page, label=_("Settings"))
+                                st.page_link(_settings_page, label=_("Settings"), icon=":material/settings:")
                             if _help_page is not None:
-                                st.page_link(_help_page, label=_("Methodology"))
-                            _legal_page = nav_registry.pages.get("legal")
-                            if _legal_page is not None:
-                                st.page_link(_legal_page, label=_("Legal & policies"), query_params={"doc": "terms"})
+                                st.page_link(_help_page, label=_("Methodology"), icon=":material/info:")
                             _about_page = nav_registry.pages.get("about")
                             if _about_page is not None:
-                                st.page_link(_about_page, label=_("About Uvalu"))
+                                st.page_link(_about_page, label=_("About Uvalu"), icon=":material/layers:")
                             if user.is_admin and _admin_page is not None:
-                                st.page_link(_admin_page, label=_("Admin portal"))
+                                st.page_link(_admin_page, label=_("Admin portal"), icon=":material/shield:")
                         st.divider()
                         # A menu item like the links above (icon + label), not a small
                         # underlined link.
+                        from uvalu.components import material_icon_html
                         st.markdown(
-                            '<a href="/?logout=1" target="_self" style="display:flex;align-items:center;gap:10px;'
-                            'color:var(--text);font-size:14px;text-decoration:none;padding:2px 0;">'
-                            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                            'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-                            '<path d="M14 8v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/>'
-                            '<path d="M9 12h12l-3-3M18 15l3-3"/></svg>'
-                            f'{html.escape(_("Sign out"))}</a>',
+                            f'<a href="/?logout=1" target="_self" class="uv-menu-signout">'
+                            f'{material_icon_html("logout", 16)}{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 12:26+0000\n"
+"POT-Creation-Date: 2026-10-09 12:46+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -51,12 +51,12 @@ msgid "Analysis"
 msgstr ""
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:390
+#: app.py:118 uvalu/pages_/settings.py:429 uvalu/shell.py:400
 msgid "Settings"
 msgstr ""
 
 #: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:148
-#: uvalu/shell.py:392
+#: uvalu/shell.py:402
 msgid "Methodology"
 msgstr ""
 
@@ -64,7 +64,7 @@ msgstr ""
 msgid "Legal"
 msgstr ""
 
-#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:398
+#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:250 uvalu/shell.py:405
 msgid "About Uvalu"
 msgstr ""
 
@@ -1248,7 +1248,7 @@ msgstr ""
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:235 uvalu/shell.py:327
+#: uvalu/authgate.py:235 uvalu/shell.py:335
 msgid "value engine"
 msgstr ""
 
@@ -1949,7 +1949,7 @@ msgstr ""
 #: uvalu/components.py:1779 uvalu/pages_/dashboard.py:475
 #: uvalu/pages_/dashboard.py:480 uvalu/pages_/portfolio.py:55
 #: uvalu/pages_/portfolio.py:61 uvalu/pages_/portfolio.py:424 uvalu/pages_/risk.py:31
-#: uvalu/pages_/screener.py:50 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:53 uvalu/pages_/watchlist.py:31
 msgid "Position"
 msgstr ""
 
@@ -2597,7 +2597,7 @@ msgid "Realised P&L"
 msgstr ""
 
 #. Context: Closed trade dialogs › field label; Screener › filter label
-#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:285 uvalu/pages_/screener.py:286
+#: uvalu/dialogs.py:834 uvalu/pages_/screener.py:288 uvalu/pages_/screener.py:289
 msgid "Sector"
 msgstr ""
 
@@ -2921,7 +2921,7 @@ msgstr ""
 #. share price
 #: uvalu/drawer.py:221 uvalu/locale_ui.py:89 uvalu/pages_/analysis.py:346
 #: uvalu/pages_/analysis.py:362 uvalu/pages_/portfolio.py:56
-#: uvalu/pages_/screener.py:54 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:57 uvalu/pages_/watchlist.py:31
 msgid "Price"
 msgstr ""
 
@@ -2935,7 +2935,7 @@ msgstr ""
 #. Analysis hero card, sub-score name, Watchlist column
 #: uvalu/drawer.py:225 uvalu/pages_/analysis.py:188 uvalu/pages_/analysis.py:309
 #: uvalu/pages_/analysis.py:391 uvalu/pages_/dashboard.py:475
-#: uvalu/pages_/dashboard.py:480 uvalu/pages_/screener.py:53
+#: uvalu/pages_/dashboard.py:480 uvalu/pages_/screener.py:56
 #: uvalu/pages_/watchlist.py:31
 msgid "Margin of safety"
 msgstr ""
@@ -2974,7 +2974,7 @@ msgstr ""
 
 #. Context: Composite score label (glossary term): stock preview row, Analysis
 #. header, Watchlist column
-#: uvalu/drawer.py:292 uvalu/pages_/analysis.py:269 uvalu/pages_/screener.py:52
+#: uvalu/drawer.py:292 uvalu/pages_/analysis.py:269 uvalu/pages_/screener.py:55
 #: uvalu/pages_/watchlist.py:31
 msgid "Composite score"
 msgstr ""
@@ -3180,8 +3180,8 @@ msgstr ""
 #. Context: Table column header for the BUY / MONITOR / AVOID badge (badges
 #. themselves stay in English)
 #: uvalu/locale_ui.py:93 uvalu/pages_/dashboard.py:475 uvalu/pages_/dashboard.py:480
-#: uvalu/pages_/screener.py:51 uvalu/pages_/screener.py:269
-#: uvalu/pages_/screener.py:276 uvalu/pages_/watchlist.py:31
+#: uvalu/pages_/screener.py:54 uvalu/pages_/screener.py:272
+#: uvalu/pages_/screener.py:279 uvalu/pages_/watchlist.py:31
 msgid "Signal"
 msgstr ""
 
@@ -3334,52 +3334,51 @@ msgstr ""
 msgid "Fair"
 msgstr ""
 
-#: uvalu/shell.py:354
+#: uvalu/shell.py:362
 msgctxt "market"
 msgid "Closed"
 msgstr ""
 
-#: uvalu/shell.py:355
+#: uvalu/shell.py:363
 msgctxt "market"
 msgid "Live"
 msgstr ""
 
-#: uvalu/shell.py:355
+#: uvalu/shell.py:363
 msgctxt "market"
 msgid "Delayed"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:369
+#: uvalu/shell.py:377
 msgid "Switch to dark theme"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:369
+#: uvalu/shell.py:377
 msgid "Switch to light theme"
 msgstr ""
 
-#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:194
-#: uvalu/shell.py:395
-msgid "Legal & policies"
+#: uvalu/shell.py:391
+msgid "Free beta"
 msgstr ""
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:400
+#: uvalu/shell.py:407
 msgid "Admin portal"
 msgstr ""
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:411
+#: uvalu/pages_/settings.py:454 uvalu/pages_/settings.py:603 uvalu/shell.py:414
 msgid "Sign out"
 msgstr ""
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:447 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:288
-#: uvalu/shell.py:436
+#: uvalu/shell.py:439
 msgid "Beta"
 msgstr ""
 
@@ -3387,7 +3386,7 @@ msgstr ""
 #. to quote to support.
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:486
+#: uvalu/shell.py:489
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr ""
@@ -3396,18 +3395,18 @@ msgstr ""
 #. update.
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:498
+#: uvalu/shell.py:501
 msgid "Uvalu is being updated"
 msgstr ""
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:500
+#: uvalu/shell.py:503
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
 "minutes."
 msgstr ""
 
-#: uvalu/shell.py:582
+#: uvalu/shell.py:585
 msgid "About this version and what's new"
 msgstr ""
 
@@ -3669,6 +3668,10 @@ msgstr ""
 
 #: uvalu/pages_/about.py:178
 msgid "No release notes yet."
+msgstr ""
+
+#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:177 uvalu/pages_/legal.py:194
+msgid "Legal & policies"
 msgstr ""
 
 #: uvalu/pages_/analysis.py:81
@@ -4914,7 +4917,7 @@ msgid "Income 12m"
 msgstr ""
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:56
+#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:59
 #: uvalu/pages_/watchlist.py:32
 msgid "Yield"
 msgstr ""
@@ -5432,12 +5435,12 @@ msgid "All markets"
 msgstr ""
 
 #. Context: Screener › page heading
-#: uvalu/pages_/screener.py:208 uvalu/pages_/screener.py:352
+#: uvalu/pages_/screener.py:211 uvalu/pages_/screener.py:361
 msgid "Value screener"
 msgstr ""
 
 #. Context: Screener › loading caption with progress
-#: uvalu/pages_/screener.py:209
+#: uvalu/pages_/screener.py:212
 #, python-brace-format
 msgid ""
 "Loading the screening universe… {done}/{total} companies scored — results"
@@ -5445,19 +5448,19 @@ msgid ""
 msgstr ""
 
 #. Context: Screener › loading caption before any counts are known
-#: uvalu/pages_/screener.py:211
+#: uvalu/pages_/screener.py:214
 msgid ""
 "Loading the screening universe — results appear as soon as the background"
 " fetch returns."
 msgstr ""
 
 #. Context: Screener › filter label
-#: uvalu/pages_/screener.py:263 uvalu/pages_/screener.py:265
+#: uvalu/pages_/screener.py:266 uvalu/pages_/screener.py:268
 msgid "Search"
 msgstr ""
 
 #. Context: Screener › search field placeholder
-#: uvalu/pages_/screener.py:264
+#: uvalu/pages_/screener.py:267
 msgid "Ticker or company…"
 msgstr ""
 
@@ -5467,34 +5470,34 @@ msgstr ""
 #. Screener › note after the signal filter pills: each percentage is the share of all
 #. covered stocks with that signal (not a count of filter results). Lower case, a
 #. caption.
-#: uvalu/pages_/screener.py:281
+#: uvalu/pages_/screener.py:284
 msgid "share of covered stocks"
 msgstr ""
 
 #. Context: Screener › filter label (stock exchange)
-#: uvalu/pages_/screener.py:289 uvalu/pages_/screener.py:290
+#: uvalu/pages_/screener.py:292 uvalu/pages_/screener.py:293
 msgid "Market"
 msgstr ""
 
 #. Context: Screener › slider label: minimum composite score
-#: uvalu/pages_/screener.py:302 uvalu/pages_/screener.py:304
+#: uvalu/pages_/screener.py:305 uvalu/pages_/screener.py:307
 msgid "Min score"
 msgstr ""
 
 #. Context: Screener › slider label
-#: uvalu/pages_/screener.py:309 uvalu/pages_/screener.py:311
+#: uvalu/pages_/screener.py:312 uvalu/pages_/screener.py:314
 msgid "Min margin of safety"
 msgstr ""
 
 #. Context: Screener › result count above the table. Keep the ** bold markers.
-#: uvalu/pages_/screener.py:346
+#: uvalu/pages_/screener.py:355
 #, python-brace-format
 msgid ""
 "**{shown}** of {total} European stocks pass your filters · ranked by "
 "composite signal score."
 msgstr ""
 
-#: uvalu/pages_/screener.py:349
+#: uvalu/pages_/screener.py:358
 #, python-brace-format
 msgid ""
 "Small universe ({count} stocks) — composite scores are percentile ranks within "
@@ -5502,28 +5505,28 @@ msgid ""
 msgstr ""
 
 #. Context: Screener › button
-#: uvalu/pages_/screener.py:359
+#: uvalu/pages_/screener.py:368
 msgid "Reset filters"
 msgstr ""
 
 #. Context: Screener › empty results message
-#: uvalu/pages_/screener.py:369
+#: uvalu/pages_/screener.py:378
 msgid ""
 "No stocks match these filters. Try loosening the score or margin-of-"
 "safety threshold."
 msgstr ""
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:425 uvalu/pages_/watchlist.py:202
+#: uvalu/pages_/screener.py:434 uvalu/pages_/watchlist.py:202
 msgid "Remove from watchlist"
 msgstr ""
 
 #. Context: Screener › tooltip on the empty star
-#: uvalu/pages_/screener.py:425
+#: uvalu/pages_/screener.py:434
 msgid "Add to watchlist"
 msgstr ""
 
-#: uvalu/pages_/screener.py:444
+#: uvalu/pages_/screener.py:453
 #, python-brace-format
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr ""
