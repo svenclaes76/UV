@@ -632,3 +632,20 @@ def test_only_a_failed_screen_is_red(isolated_data):
     for code in ("undervalued", "neutral", "no_signal"):
         assert not red.search(model_signal_badge_html(code, veto=False)), code
     assert "uv-badge-veto" in model_signal_badge_html("undervalued", veto=True)
+
+
+def test_founder_notice_links_the_policy():
+    """REC-8: the founder disclosure points to the Conflicts of interest policy."""
+    from uvalu.components import founder_notice_html
+    html = founder_notice_html({"founder_holds": True})
+    assert 'href="/legal?doc=conflicts"' in html and "Conflicts of interest policy →" in html
+    assert founder_notice_html({"founder_holds": False}) == ""
+
+
+def test_model_summary_carries_the_no_recommendation_sentence():
+    """PER-4: the generated summary says it is the same for everyone and no advice."""
+    import inspect
+    from uvalu.pages_ import analysis
+    src = inspect.getsource(analysis._render_model_summary)
+    assert "the same text is shown to every user" in src
+    assert "It is not a recommendation to buy, hold or sell." in src

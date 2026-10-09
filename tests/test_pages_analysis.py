@@ -184,3 +184,22 @@ analysis_page.render()
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.get("plotly_chart")) == 1
+
+
+def test_model_summary_is_the_last_card_with_the_closing_sentence(isolated_data, monkeypatch):
+    """AN-03: the summary comes after Data sources / Producer."""
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert html.index("Producer &amp; conflicts") < html.index("Model summary")
+    assert "It is not a recommendation to buy, hold or sell." in html
+
+
+def test_sensitivity_shows_four_settings_and_no_badge_column(isolated_data, monkeypatch):
+    """AN-11 / G17: Terminal growth added; a shifted fair value carries no badge."""
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    for label in ("Discount rate", "Terminal growth", "MoS setting", "Score setting"):
+        assert label in html, label
+    sens = html.split("Assumptions &amp; sensitivity", 1)[1].split("Data sources", 1)[0]
+    assert "uv-badge" not in sens

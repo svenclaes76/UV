@@ -258,13 +258,16 @@ def list_provenance_html(df) -> str:
 
 
 def founder_notice_html(row) -> str:
-    """REC-8: the founder-position disclosure, when the founder holds the stock."""
+    """REC-8: the founder-position disclosure, when the founder holds the
+    stock, followed by the link to the Conflicts of interest policy."""
     if not bool(row.get("founder_holds")) or pd.isna(row.get("founder_holds")):
         return ""
     import html as _html_mod
     from screener import FOUNDER_HOLDS_NOTICE
     return ('<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">'
-            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE)) + "</div>")
+            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE))
+            + ' <a href="/legal?doc=conflicts" target="_self" style="color:var(--link);text-decoration:none;'
+            + f'white-space:nowrap;">{h_("Conflicts of interest policy →")}</a></div>')
 
 
 def signal_badge_html(kind: str, label: str, tooltip: "str | None" = None) -> str:

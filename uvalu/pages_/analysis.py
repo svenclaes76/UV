@@ -18,7 +18,7 @@ from settings import (load_shared_settings, get_veto_thresholds, get_score_weigh
                       ALL_EXCHANGES, get_dividend_withholding)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (back_link, model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
@@ -71,7 +71,7 @@ _KV_ROW = ('<div style="display:grid;grid-template-columns:120px minmax(0,1fr);g
 def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: dict) -> None:
     """Badge history of the last 12 months (REC-7, uvalu.compliance.signal_history)
     and the fair value at a ±1 pp discount rate (REC-6, display only, D2)."""
-    from screener import SIGNAL_LABELS, effective_min_mos, fair_value_sensitivity
+    from screener import DDM_STABLE_GROWTH, effective_min_mos, fair_value_sensitivity
     from uvalu.compliance import signal_history
     from uvalu.components import model_signal_badge_html
     from uvalu.data import universe_reference_for
@@ -107,7 +107,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
                     f'<div></div><div style="font-size:12px;color:var(--muted);">{html.escape(_note)}</div></div>')
                 _prev = code
             st.markdown("".join(reversed(_rows)), unsafe_allow_html=True)
-        st.caption(_("Every badge change is logged with its inputs and model version."))
+        st.caption(_("Full log with inputs and model version is kept for every badge change."))
 
     with _s_col, st.container(key="an_card_sensitivity", border=True):
         st.markdown(_PANEL_TITLE.format(title=h_("Assumptions & sensitivity")), unsafe_allow_html=True)
@@ -118,27 +118,35 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
         _sens = fair_value_sensitivity(row, _ref) if _ref is not None else []
         _base = next((x for x in _sens if x["shift"] == 0.0), None)
         st.markdown(
-            '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px;">'
+            '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:8px;">'
             + "".join(f'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;'
                       f'letter-spacing:0.05em;">{k}</div><div style="font-family:var(--uv-mono);font-size:14px;'
                       f'margin-top:4px;">{v}</div></div>' for k, v in (
                           (h_("Discount rate"), fmt_pct(_base["discount_rate"], 1, fraction=True) if _base else "—"),
-                          (h_("Min. margin of safety"), fmt_pct(effective_min_mos(_thr[2]), 0, fraction=True)),
-                          (h_("Score threshold"), fmt_num(_thr[3], 0))))
+                          (h_("Terminal growth"), fmt_pct(DDM_STABLE_GROWTH, 1, fraction=True)),
+                          (h_("MoS setting"), fmt_pct(effective_min_mos(_thr[2]), 0, fraction=True)),
+                          (h_("Score setting"), fmt_num(_thr[3], 0))))
             + "</div>", unsafe_allow_html=True)
         if _sens:
+            # Label · fair value · margin of safety. No badge per scenario
+            # (G17, D2): a shifted fair value never changes a signal.
+            _sg = "display:grid;grid-template-columns:minmax(0,1.4fr) 80px 70px;gap:12px;align-items:center;"
+            _num = "text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
             st.markdown("".join(
-                _KV_ROW.format(
-                    k=html.escape(_("Discount rate {rate}", rate=fmt_pct(x["discount_rate"], 1, fraction=True))),
-                    v=html.escape(_("fair value {fv} · margin of safety {mos}",
-                                    fv=_fmt_eur(x["fair_value"]) if x["fair_value"] is not None else "—",
-                                    mos=fmt_pct(x["margin_of_safety"], 0, fraction=True, signed=True)
-                                    if x["margin_of_safety"] is not None else "—")))
+                f'<div style="{_sg}padding:8px 0;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
+                f'<span style="color:var(--muted);">'
+                f'{html.escape(_("Discount rate {rate}", rate=fmt_pct(x["discount_rate"], 1, fraction=True)))}</span>'
+                f'<span style="{_num}">{_fmt_eur(x["fair_value"]) if x["fair_value"] is not None else "—"}</span>'
+                f'<span style="{_num}color:{mos_text_color(x["margin_of_safety"] * 100 if x["margin_of_safety"] is not None else None)};">'
+                f'{fmt_pct(x["margin_of_safety"], 0, fraction=True, signed=True) if x["margin_of_safety"] is not None else "—"}'
+                f'</span></div>'
                 for x in _sens), unsafe_allow_html=True)
         else:
             st.caption(_("The sensitivity table appears once the full stock universe has been scored."))
-        st.caption(_("Fair values are model estimates, not forecasts or price targets. The settings are shared model "
-                     "settings, the same for every user; this table changes no score or signal."))
+        st.caption(_("Fair values are model estimates, not forecasts or price targets. With 2% growth, raising the "
+                     "discount rate from 8% to 9% lowers a dividend-model fair value by about 14%.") + " "
+                   + _("The settings are shared model settings, the same for every user; this table changes no "
+                       "score or signal."))
 
 
 def _render_sources_and_producer(row, ticker: str) -> None:
@@ -155,7 +163,7 @@ def _render_sources_and_producer(row, ticker: str) -> None:
                     unsafe_allow_html=True)
         _flags = row.get("data_flags")
         _flags = [f for f in (_flags if isinstance(_flags, list) else []) if f in DATA_FLAG_LABELS]
-        _dot = "#C98A3A" if _flags else "var(--uv-mint,#1DD6A4)"
+        _dot = "var(--amber-fill)" if _flags else "var(--mint)"
         _msg = " ".join(tr(DATA_FLAG_LABELS[f]) for f in _flags) if _flags else _("No data quality flags for this stock.")
         st.markdown(f'<div style="display:flex;gap:9px;align-items:flex-start;padding:10px 0 2px;font-size:12px;">'
                     f'<span style="width:7px;height:7px;border-radius:50%;flex:none;margin-top:5px;background:{_dot};"></span>'
@@ -180,8 +188,8 @@ def _render_sources_and_producer(row, ticker: str) -> None:
 
 def _render_model_summary(row, ticker: str) -> None:
     """The plain-language model summary (derived from real computed fields
-    only). Shown right under the price cards: it was the last card on the
-    page, though it is the best orientation text on it."""
+    only), the last card on the page (mockup), ending with the sentence that
+    it is the same for every user and not a recommendation."""
     _thesis_card = st.container(key="an_card_thesis", border=True)
     _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
                           unsafe_allow_html=True)
@@ -200,7 +208,10 @@ def _render_model_summary(row, ticker: str) -> None:
             _thesis.append(_("Scores highest on {best} ({best_score}/100) and weakest on {worst} ({worst_score}/100).",
                              best=lowercase_noun(tr(_best)), best_score=fmt_num(_valid_subs[_best], 0),
                              worst=lowercase_noun(tr(_worst)), worst_score=fmt_num(_valid_subs[_worst], 0)))
-    _thesis_card.caption(" ".join(_thesis))
+    _thesis.append(_("Generated from the model outputs above; the same text is shown to every user. "
+                     "It is not a recommendation to buy, hold or sell."))
+    _thesis_card.markdown(f'<div style="font-size:13.5px;color:var(--muted);line-height:1.65;">'
+                          f'{html.escape(" ".join(_thesis))}</div>', unsafe_allow_html=True)
 
 
 def render() -> None:
@@ -209,8 +220,7 @@ def render() -> None:
     # Back to the page the stock was opened from (uvalu/nav.py), not always
     # the Dashboard.
     _back_page, _back_key = nav_registry.back_target("analysis")
-    if _back_page is not None and st.button(_("← Back to {page}", page=_back_page.title),
-                                            key="an_back", type="tertiary"):
+    if _back_page is not None and back_link(_("← Back to {page}", page=_back_page.title), key="an_back"):
         st.switch_page(_back_page)
 
     if not ticker:
@@ -287,27 +297,34 @@ def render() -> None:
         _m = _pf[_pf["ticker"] == ticker]
         if not _m.empty:
             _held_row = _m.iloc[0]
-    _held_str = (ngettext("{count} share", "{count} shares", int(_held_row.get('shares', 0) or 0))
-                 if _held_row is not None else h_("Not held"))
+    if _held_row is not None:
+        _held_n = int(_held_row.get('shares', 0) or 0)
+        _held_px = row.get("Price")
+        _held_str = (h_("{count} shares · {value}", count=fmt_num(_held_n, 0),
+                        value=_fmt_eur(_held_n * float(_held_px))) if pd.notna(_held_px) else
+                     ngettext("{count} share", "{count} shares", _held_n))
+    else:
+        _held_str = h_("Not held")
 
     _mos_val = row.get("MoS %")
     _mos_color = mos_text_color(_mos_val)
 
-    def _hero_card(label: str, value: str, color: str = "var(--text)") -> str:
+    def _hero_card(label: str, value: str, color: str = "var(--text)", *, small: bool = False) -> str:
+        _value_font = ("font-size:13px;margin-top:14px;" if small else
+                       "font-family:var(--uv-mono);font-size:23px;margin-top:8px;")
         return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
                f'padding:15px 17px;box-shadow:var(--shadow);">'
                f'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">'
                f'{label}</div>'
-               f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;margin-top:8px;'
-               f'color:{color};">{value}</div></div>')
+               f'<div style="{_value_font}font-weight:500;color:{color};">{value}</div></div>')
 
     with st.container(key="an_hero_row"):
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
             + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_eur))
-            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur))
+            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur), color="var(--up-txt)")
             + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), color=_mos_color)
-            + _hero_card(h_("Your position"), _held_str)
+            + _hero_card(h_("Your position"), _held_str, small=True)
             + '</div>',
             unsafe_allow_html=True,
         )
@@ -331,9 +348,6 @@ def render() -> None:
         _min_mos, _buy_thr = get_veto_thresholds()[2:4]
         st.caption(signal_reason(row, buy_threshold=_buy_thr, min_mos=_min_mos))
 
-    # ── Model summary (moved up from the bottom of the page) ─────────────────
-    _render_model_summary(row, ticker)
-
     # ── Price vs fair value chart ─────────────────────────────────────────────
     _C = theme_colors()
     with st.container(key="an_card_chart", border=True):
@@ -352,7 +366,7 @@ def render() -> None:
         # rather than both stacking on the page.
         _chart_slot = st.empty()
         if ticker not in st.session_state.get("_an_hist_cache_warm", set()):
-            _chart_slot.markdown(skeleton_chart_html(height=260), unsafe_allow_html=True)
+            _chart_slot.markdown(skeleton_chart_html(height=200), unsafe_allow_html=True)
         _hist = _fetch_price_history_1y(ticker)
         st.session_state.setdefault("_an_hist_cache_warm", set()).add(ticker)
         if not _hist.empty:
@@ -376,14 +390,15 @@ def render() -> None:
                 hoverlabel=brand_hoverlabel(_C),
             )
             localize_fig(_fig)
-            _chart_slot.plotly_chart(_fig, width="stretch", height=260, config=_CHART_CONFIG)
+            _chart_slot.plotly_chart(_fig, width="stretch", height=200, config=_CHART_CONFIG)
         else:
             _chart_slot.empty()
 
     # ── Sub-scores | six-model fair value ─────────────────────────────────────
-    # Every two-card row on this page splits 50/50 (it used to switch between
-    # 1:1.25, 1.25:1 and 1:1, so the gutter zig-zagged down the page).
-    _col1, _col2 = st.columns(2)
+    # Row proportions of the design reference: the models table gets the
+    # extra room here, the financials grid in the next row; badge history /
+    # sensitivity and sources / producer split 1 : 1.
+    _col1, _col2 = st.columns([1, 1.25])
     with _col1, st.container(key="an_card_subscores", border=True):
         st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Signal sub-scores")}</div>',
                    unsafe_allow_html=True)
@@ -421,7 +436,7 @@ def render() -> None:
                 st.caption(_("⚑ Composite capped at the models' median — one model ran far above the rest and the others don't corroborate it."))
 
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
-    _col3, _col4 = st.columns(2)
+    _col3, _col4 = st.columns([1.25, 1])
     with _col3, st.container(key="an_card_financials", border=True):
         st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Financials & valuation")}</div>',
                    unsafe_allow_html=True)
@@ -692,4 +707,6 @@ def render() -> None:
     _render_history_and_sensitivity(row, ticker, _enabled, _manual_tickers_map)
     # ── Data sources | producer & conflicts (REC-1, REC-3, REC-8) ────────────
     _render_sources_and_producer(row, ticker)
+    # ── Model summary: the last card, a reading of everything above ──────────
+    _render_model_summary(row, ticker)
 
