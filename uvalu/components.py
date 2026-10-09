@@ -376,6 +376,28 @@ def header_cell_html(label: str, *, right: bool = False) -> str:
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);{align}">{t}</div>')
 
 
+def card_header_html(title: str, right_html: str = "", *, support: bool = False) -> str:
+    """Title row of a card: 15px/500 title, optional ready-made HTML on the
+    right, a --line-2 hairline below. Data cards are padded 16px 20px 14px,
+    supporting-page cards 14px 20px."""
+    import html as _html_mod
+    pad = "14px 20px" if support else "16px 20px 14px"
+    right = f'<div style="flex:none;display:flex;align-items:center;gap:10px;">{right_html}</div>' if right_html else ""
+    return (f'<div class="uv-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;'
+            f'padding:{pad};border-bottom:0.5px solid var(--line-2);">'
+            f'<div style="font-size:15px;font-weight:500;color:var(--text);min-width:0;">{_html_mod.escape(title)}</div>'
+            f'{right}</div>')
+
+
+def table_header_html(labels: "list[str]", grid_cols: str, *, right: "set[int] | frozenset[int]" = frozenset(),
+                      gap: int = 14) -> str:
+    """A table's column-label row: 10px uppercase labels on ``grid_cols``,
+    padding 10px 20px, the columns in ``right`` (numbers) right-aligned."""
+    cells = "".join(header_cell_html(label, right=i in right) for i, label in enumerate(labels))
+    return (f'<div class="uv-table-head" style="display:grid;grid-template-columns:{grid_cols};gap:{gap}px;'
+            f'align-items:center;padding:10px 20px;border-bottom:0.5px solid var(--line-2);">{cells}</div>')
+
+
 # ── Delta chip ───────────────────────────────────────────────────────────────
 # Matches Uvalu.dc.html's shared _chip(up) helper — a colored pill (not plain
 # text) for any up/down delta: KPI card deltas, the value-chart's range
@@ -407,13 +429,18 @@ KPI_ICONS = {
 }
 
 
+KPI_VALUE_SIZES = {"lg": (26, 10), "md": (23, 9)}
+
+
 def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True,
             sub: str = "", icon: str = "wallet", value_color: str = "var(--text)",
-            delta_style: str | None = None) -> None:
+            delta_style: str | None = None, size: str = "lg") -> None:
     """One headline-number card: icon+label, a large mono value, and an
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
-    card (e.g. a count with nothing to compare it against)."""
+    card (e.g. a count with nothing to compare it against). ``size``: "lg"
+    (26px value, Dashboard) or "md" (23px, Portfolio, Cash and Dividends)."""
+    _value_px, _value_gap = KPI_VALUE_SIZES[size]
     _icon_svg = (f'<svg width="13" height="13" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                 f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
                 f'</svg>')
@@ -441,7 +468,7 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
   <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);font-weight:500;">
     {_icon_svg}<span title="{re.sub(r"<[^>]+>", "", label).replace('"', "&quot;")}" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</span></div>
-  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:{value_color};">{value}</div>
+  <div style="font-family:var(--uv-mono);font-size:{_value_px}px;font-weight:500;letter-spacing:-0.02em;margin-top:{_value_gap}px;line-height:1;color:{value_color};">{value}</div>
   <div style="margin-top:9px;min-height:22px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
 

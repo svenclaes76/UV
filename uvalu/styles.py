@@ -120,6 +120,8 @@ GLOBAL_CSS = """
     padding-top: 0 !important; padding-bottom: 0.5rem !important; max-width: 100% !important;
     padding-left: 1.5rem !important; padding-right: 1.5rem !important;
   }
+  /* Brand §7: 18px between a page's sections (Streamlit's default is 16px). */
+  .block-container > [data-testid="stVerticalBlock"] { gap: var(--uv-section-gap) !important; }
 
   /* ── Invisible helper elements (localStorage-sync iframes, theme/density
      scripts) render nothing but still occupy a full row-gap in Streamlit's
@@ -1002,11 +1004,11 @@ GLOBAL_CSS = """
      (the Open positions panel) flowed 16px too high and visually overlapped
      the true bottom of the cards instead of leaving the normal 16px gap.
      Wrap the row in this key and float its wrapper's height to match. */
-  .st-key-pf_kpi_row { min-height: 116px !important; }
+  .st-key-pf_kpi_row { min-height: 112px !important; }
   /* Same bug on the Dividend log's summary tiles: wrapper 99px vs 115px
      real cards, so the log table sat flush against them (0px gap vs the
      overview's 16px — both live-measured). */
-  .st-key-pf_div_tiles { min-height: 116px !important; }
+  .st-key-pf_div_tiles { min-height: 112px !important; }
   /* Cash Management v1 — cash strip + Cash activity page (Uvalu Cash
      Management.dc.html). pf_card_ panels are padding:0, so the strip body,
      the ledger filter bar and the empty-state caption carry the mockup's
@@ -1014,7 +1016,7 @@ GLOBAL_CSS = """
      ledger header (-16px cancels Streamlit's sibling gap), and the ledger's
      single st.markdown drops the -1rem margin that would clip its last row
      under overflow:hidden. */
-  .st-key-pf_cash_tiles { min-height: 116px !important; }
+  .st-key-pf_cash_tiles { min-height: 112px !important; }
   .st-key-pf_cash_strip_body { padding: 16px 20px !important; }
   .st-key-pf_cash_filter_row {
     padding: 12px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;

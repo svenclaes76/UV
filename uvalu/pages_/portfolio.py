@@ -307,18 +307,18 @@ def render() -> None:
             else:
                 with _o1:
                     _kpi_card(h_("Invested"), fmt_total(total_invested),
-                              sub=ngettext("{count} open position", "{count} open positions", len(pf)), icon="wallet")
+                              sub=ngettext("{count} open position", "{count} open positions", len(pf)), icon="wallet", size="md")
                 with _o2:
                     _kpi_card(h_("Market value"), fmt_total(total_current), fmt_pct(price_gain_pct, signed=True),
-                              price_gain >= 0, h_("current holdings"), icon="wallet")
+                              price_gain >= 0, h_("current holdings"), icon="wallet", size="md")
                 with _o3:
                     _kpi_card(h_("Unrealised P&L"), fmt_total(price_gain), fmt_pct(price_gain_pct, signed=True),
-                              price_gain >= 0, h_("open positions"), icon="trend")
+                              price_gain >= 0, h_("open positions"), icon="trend", size="md")
                 with _o4:
                     _kpi_card(h_("Realised P&L"), fmt_total(_realised_pl),
-                              sub=ngettext("{count} closed trade", "{count} closed trades", _realised_count), icon="trend")
+                              sub=ngettext("{count} closed trade", "{count} closed trades", _realised_count), icon="trend", size="md")
                 with _o5:
-                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m), sub=h_("income received"), icon="coin")
+                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m), sub=h_("income received"), icon="coin", size="md")
 
         # ── Cash strip (Cash Management v1) ───────────────────────────────────
         _cash_ui.render_strip(invested_value=total_current, is_viewer=_is_viewer,
@@ -634,19 +634,19 @@ def render() -> None:
                 with _t1:
                     _kpi_card(h_("Gross income · 12m"), fmt_total(_tile_gross),
                              sub=(ngettext("{count} event", "{count} events", _tile_n_events) + " · "
-                                  + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin")
+                                  + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin", size="md")
                 with _t2:
                     _kpi_card(h_("Withholding · 12m"), fmt_total(-(_tile_fwh + _tile_be)),
                              sub=h_("{foreign} foreign · {belgian} BE 30%",
-                                    foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin")
+                                    foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin", size="md")
                 with _t3:
-                    _kpi_card(h_("Net income · 12m"), fmt_total(_tile_net), sub=h_("after all withholding"), icon="coin")
+                    _kpi_card(h_("Net income · 12m"), fmt_total(_tile_net), sub=h_("after all withholding"), icon="coin", size="md")
                 with _t4:
                     _kpi_card(h_("Net yield"), fmt_pct(_safe_pct(_tile_net, total_current), 2),
-                              sub=h_("on market value"), icon="trend")
+                              sub=h_("on market value"), icon="trend", size="md")
                 with _t5:
                     _kpi_card(h_("Net yield-on-cost"), fmt_pct(_safe_pct(_tile_net, total_invested), 2),
-                             sub=h_("weighted, remaining cost basis"), icon="trend")
+                             sub=h_("weighted, remaining cost basis"), icon="trend", size="md")
 
             with st.container(key="pf_card_div_full", border=True):
                 with st.container(key="pf_col_header_div_full"):

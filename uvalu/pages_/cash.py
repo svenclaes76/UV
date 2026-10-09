@@ -108,19 +108,19 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
         with _t[0]:
             kpi_card(h_("Cash balance"), cash.money(s["balance"], base, 0),
                      sub=h_("{pct}% of total portfolio value", pct=fmt_num(s['cash_pct'], 1)),
-                     icon="cash")
+                     icon="cash", size="md")
         with _t[1]:
-            kpi_card(h_("Net deposits"), _signed0(s["net_deposits"], base), sub=h_("deposits − withdrawals"), icon="wallet")
+            kpi_card(h_("Net deposits"), _signed0(s["net_deposits"], base), sub=h_("deposits − withdrawals"), icon="wallet", size="md")
         with _t[2]:
-            kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend")
+            kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend", size="md")
         with _t[3]:
             kpi_card(h_("Income"), _signed0(s["income"], base), sub=h_("net dividends + interest"), icon="coin",
-                     value_color="var(--up-txt)")
+                     value_color="var(--up-txt)", size="md")
         with _t[4]:
             kpi_card(h_("Fees & corrections"), _signed0(s["fees_corrections"], base),
                      sub=ngettext("excl. opening balance · {count} correction",
                                   "excl. opening balance · {count} corrections", s['corrections']),
-                     icon="target")
+                     icon="target", size="md")
 
     if s["negative"]:
         st.warning(_("The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."),

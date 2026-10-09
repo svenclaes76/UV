@@ -83,6 +83,41 @@ def test_page_header_renders_title_subtitle_and_actions():
     assert [b.label for b in at.button] == ["Reset filters"]
 
 
+def test_card_header_html_data_and_support_padding():
+    from uvalu.components import card_header_html
+    data = card_header_html("Holdings <all>", '<a href="#">Full analysis →</a>')
+    assert "padding:16px 20px 14px" in data and "border-bottom:0.5px solid var(--line-2)" in data
+    assert "font-size:15px;font-weight:500" in data and "Holdings &lt;all&gt;" in data
+    assert "Full analysis →" in data
+    assert "padding:14px 20px;" in card_header_html("Display", support=True)
+
+
+def test_table_header_html_right_aligns_number_columns():
+    from uvalu.components import table_header_html
+    html = table_header_html(["Company", "Value"], "1fr 80px", right={1})
+    assert "grid-template-columns:1fr 80px" in html and "padding:10px 20px" in html
+    assert html.count("text-align:right") == 1
+    assert html.split("<div title=")[2].startswith("\"Value\"") and "text-align:right" in html.split("<div title=")[2]
+
+
+def test_kpi_card_value_is_26px_by_default():
+    def _script():
+        from uvalu.components import kpi_card
+        kpi_card("Cash", "€ 1")
+
+    html = _run(_script).markdown[0].value
+    assert "font-size:26px" in html and "margin-top:10px" in html
+
+
+def test_kpi_card_md_value_is_23px():
+    def _script():
+        from uvalu.components import kpi_card
+        kpi_card("Cash", "€ 1", size="md")
+
+    html = _run(_script).markdown[0].value
+    assert "font-size:23px" in html and "margin-top:9px" in html
+
+
 def test_back_link_is_keyed_for_the_shared_style():
     def _script():
         from uvalu.components import back_link
