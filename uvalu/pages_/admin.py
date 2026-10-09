@@ -47,15 +47,17 @@ from uvalu.shell import _initials, _display_name, apply_theme_script, _close_str
 # Role is wide enough for "Analyst" (it was cut to "Ad" at 1024px).
 _USER_COLS = [2.2, 1.35, 1, 1.2, 0.8, 1.5, 1.2]
 
+# Order of the design reference (G25): Users, Data feeds, System, Backups,
+# Security.
 _NAV_ITEMS = (
     ("users",    "Users",       ":material/group:"),
-    ("security", "Security",    ":material/shield:"),
     ("feeds",    "Data feeds",  ":material/dns:"),
-    ("backups",  "Backups",     ":material/backup:"),
     ("system",   "System",      ":material/info:"),
+    ("backups",  "Backups",     ":material/backup:"),
+    ("security", "Security",    ":material/shield:"),
 )
 _SECTION_TITLES = {"users": "User management", "security": "Security", "feeds": "Data feeds",
-                   "backups": "Backups & restore", "system": "System & versions"}
+                   "backups": "Backups & restore", "system": "System"}
 
 _2FA_STYLE = {
     "ON":       ("var(--up-bg)",    "var(--up-txt)"),
@@ -481,40 +483,45 @@ def _render_security() -> None:
         # ── Identity providers ──────────────────────────────────────────────────
         with st.container(key="admin_sec_card_providers", border=True):
             _sec_row_header("Identity providers")
+            # During the beta no provider is offered at sign-in
+            # (oauth.providers_enabled), whatever secrets.toml holds.
+            _offered = oauth.providers_enabled()
             for _p in oauth.configured_providers():
+                _live = _offered and _p["configured"]
                 with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
                     _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                     with _c1:
-                        _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
+                        _sec_row_title(_p["label"], "Available for this workspace." if _live
+                                      else "Not in the beta — password sign-in only." if not _offered
                                       else "Not configured — add credentials to secrets.toml.")
                     with _c2:
-                        _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
-                            else ("var(--line-2)", "var(--muted)")
+                        _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _live else ("var(--line-2)", "var(--muted)")
+                        _chip = ("Configured" if _live else
+                                 "Not configured · Not in the beta" if not _offered else "Not configured")
                         st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
                                    f'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'
-                                   f'{"Configured" if _p["configured"] else "Not configured"}</span>',
-                                   unsafe_allow_html=True)
+                                   f'{_chip}</span>', unsafe_allow_html=True)
 
-            with st.container(key="admin_sec_row_autoprov"):
+            with st.container(key="admin_sec_row_account_creation"):
                 _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                 with _c1:
-                    _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
-                                  "sign-in from an allowed domain below, instead of requiring an invite first.")
+                    _sec_row_title("Account creation", "Invitation only. Accounts are never created "
+                                  "automatically, because every member must accept the terms and "
+                                  "acknowledgements and give an EEA country first.")
                 with _c2:
-                    _auto_prov = st.toggle("Auto-provision new accounts",
-                                           value=bool(_shared.get("auto_provision_oauth", False)),
-                                           key="admin_sec_auto_prov", label_visibility="collapsed")
+                    st.markdown('<span style="display:inline-block;background:var(--line-2);color:var(--muted);'
+                                'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'
+                                'Invite only · fixed</span>', unsafe_allow_html=True)
 
             with st.container(key="admin_sec_row_domains"):
-                _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
+                _sec_row_title("Allowed email domains", "Comma-separated. Which addresses a provider "
+                              "sign-in may use, once providers are offered.")
                 _domains_txt = st.text_input(
                     "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
                     value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
 
             _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
-            if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
-                    or _new_domains != _shared.get("allowed_email_domains", [])):
-                _shared["auto_provision_oauth"] = bool(_auto_prov)
+            if _new_domains != _shared.get("allowed_email_domains", []):
                 _shared["allowed_email_domains"] = _new_domains
                 save_shared_settings(_shared)
                 st.rerun()

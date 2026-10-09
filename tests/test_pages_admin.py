@@ -403,12 +403,19 @@ class TestSecuritySection:
         assert not at.exception, [str(e.value) for e in at.exception]
         assert settings.load_shared_settings()["allowed_email_domains"] == ["company.com", "other.org"]
 
-    def test_toggling_auto_provision_persists(self, isolated_data, monkeypatch):
+    def test_account_creation_is_invite_only_and_fixed(self, isolated_data, monkeypatch):
+        """AD-01: no auto-provision switch, a fixed "Invite only" row."""
         at = _run(monkeypatch, role="Admin", section="security")
-        at.toggle(key="admin_sec_auto_prov").set_value(True)
-        at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert settings.load_shared_settings()["auto_provision_oauth"] is True
+        html = "".join(m.value for m in at.markdown)
+        assert "Invitation only." in html and "Invite only · fixed" in html
+        assert not any(t.key == "admin_sec_auto_prov" for t in at.toggle)
+
+    def test_google_reads_not_in_the_beta(self, isolated_data, monkeypatch):
+        """AD-03."""
+        at = _run(monkeypatch, role="Admin", section="security")
+        html = "".join(m.value for m in at.markdown)
+        assert "Not configured · Not in the beta" in html
 
     def test_passkeys_row_shows_phase_3_badge_and_disabled_toggle(self, isolated_data, monkeypatch):
         at = _run(monkeypatch, role="Admin", section="security")
@@ -577,7 +584,7 @@ def test_system_section_shows_build_schema_runtime_and_sources(isolated_data, mo
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
     info = buildinfo.current()
-    for text in ("System & versions", info.commit_full, "Data schema",
+    for text in ("System", info.commit_full, "Data schema",
                  "Expected by this version", "streamlit", "Python", "Frankfurter", "fresh-install"):
         assert text in html, text
 
@@ -596,3 +603,11 @@ def test_system_section_hidden_from_non_admin(isolated_data, monkeypatch):
     at = _run(monkeypatch, role="Viewer", section="system")
     assert "Admin access required" in "".join(e.value for e in at.error)
     assert not any("Data schema" in m.value for m in at.markdown)
+
+
+
+def test_section_order_follows_the_reference():
+    """G25: Users, Data feeds, System, Backups, Security."""
+    from uvalu.pages_ import admin as admin_page
+    assert [k for k, *_ in admin_page._NAV_ITEMS] == ["users", "feeds", "system", "backups", "security"]
+    assert admin_page._SECTION_TITLES["system"] == "System"

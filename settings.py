@@ -55,11 +55,10 @@ _SHARED_DEFAULTS: dict = {
     # header contract.
     "login_attempts_before_lock": 5,   # failed attempts on one account before it locks
     "lock_minutes": 15,                # how long a lock lasts once triggered
-    # Provider (OAuth) sign-in policy — read by auth.py's oauth_login() when a
-    # completed Google/Microsoft sign-in doesn't match any linked identity.
-    # Off keeps Uvalu invite-only; on creates an account for any address in
-    # an allowed domain instead of refusing it. Applies to every provider.
-    "auto_provision_oauth": False,
+    # Provider (OAuth) sign-in: which address domains may sign in with a
+    # provider once providers are offered. Accounts are invitation only —
+    # the former auto_provision_oauth switch is gone (a stored value is
+    # ignored).
     "allowed_email_domains": [],
     # Password policy — read by auth.py's validate_new_password() whenever a
     # new password is set (invite acceptance, admin reset, self-service

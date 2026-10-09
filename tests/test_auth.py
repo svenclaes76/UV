@@ -787,3 +787,16 @@ class TestAuthLogging:
         auth.delete_user("second@example.com")
         muts = [r for r in _events(caplog, "mutation") if r.action == "user.delete"]
         assert len(muts) == 1 and muts[0].before == "Viewer"
+
+
+
+def test_unknown_provider_identity_never_creates_an_account(isolated_store):
+    """AD-01: invitation only — even with an allowed domain and the old
+    auto-provision switch left on in stored settings."""
+    import settings
+    shared = settings.load_shared_settings()
+    shared.update({"auto_provision_oauth": True, "allowed_email_domains": ["company.com"]})
+    settings.save_shared_settings(shared)
+    ok, result = auth.oauth_login("https://accounts.google.com", "sub-1", "new@company.com")
+    assert (ok, result) == (False, "not_invited")
+    assert "new@company.com" not in auth._load_users()
