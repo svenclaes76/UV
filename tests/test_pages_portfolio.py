@@ -760,3 +760,37 @@ class TestAlignedDialogs:
         at = _run(monkeypatch, section="dividends")
         [b for b in at.button if b.key == "pf_div_row_0_edit"][0].click().run()
         assert any("Cash entry follows automatically (net EUR 7.00)" in c.value for c in at.caption)
+
+
+def test_overview_lists_every_open_position(isolated_data, monkeypatch):
+    """PF-03: no top-5 cut and no "Show all" link."""
+    rows = [dict(ticker=f"T{i}.BR", name=f"Company {i}", google_ticker=f"EBR:T{i}", shares=10,
+                 purchase_value=1000.0, purchase_price=100.0, target_price=130.0, dividends=0.0,
+                 date_in="2023-01-01", date_out="") for i in range(7)]
+    portfolio.save_portfolio(make_portfolio_df(rows))
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    keys = [b.key for b in at.button if b.key and b.key.startswith("pf_open_row_ov_") and b.key.endswith("_view")]
+    assert len(keys) == 7
+    assert not any(b.key == "ov_open_show_all" for b in at.button)
+
+
+def test_overview_dividend_preview_shows_paid_date_and_gross(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    portfolio.save_div_hist(pd.DataFrame([
+        {"ticker": "AAA.BR", "name": "Alpha Corp", "amount": 12.5, "date": "2024-03-01", "shares": 10},
+    ]))
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Position · paid" in html and "Net / gross" in html
+    assert "AAA.BR · paid" in html and "gross</div>" in html
+
+
+def test_full_pages_have_no_subtitle_and_closed_title_is_capped(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    for section in ("open", "closed"):
+        at = _run(monkeypatch, section=section)
+        html = "".join(m.value for m in at.markdown)
+        assert 'class="uv-page-sub"' not in html, section
+    from uvalu.styles import GLOBAL_CSS
+    assert ".st-key-pf_page_title_closed, .st-key-pf_card_closed_full { max-width: 760px" in GLOBAL_CSS

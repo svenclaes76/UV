@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-09 13:36+0000\n"
+"POT-Creation-Date: 2026-10-09 16:41+0000\n"
 "PO-Revision-Date: 2026-10-04 14:39+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
@@ -26,8 +26,8 @@ msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
 #: app.py:113 uvalu/pages_/cash.py:94 uvalu/pages_/portfolio.py:261
-#: uvalu/pages_/portfolio.py:457 uvalu/pages_/portfolio.py:517
-#: uvalu/pages_/portfolio.py:566 uvalu/shell.py:50
+#: uvalu/pages_/portfolio.py:455 uvalu/pages_/portfolio.py:513
+#: uvalu/pages_/portfolio.py:561 uvalu/shell.py:50
 msgid "Portfolio"
 msgstr "Portfolio"
 
@@ -1583,7 +1583,7 @@ msgstr "ex-date"
 
 #. Context: Dashboard › upcoming dividend row: expected gross amount, e.g.
 #. '€84.00 gross'
-#: uvalu/components.py:494
+#: uvalu/components.py:494 uvalu/components.py:1881
 #, python-brace-format
 msgid "{amount} gross"
 msgstr "{amount} gross"
@@ -1859,121 +1859,126 @@ msgstr "{name} · closed {date}"
 
 #. Context: Portfolio › tooltip on the pencil of a closed trade; also the
 #. dialog title
-#: uvalu/components.py:1805 uvalu/dialogs.py:900
+#: uvalu/components.py:1805
 msgid "Edit trade"
 msgstr "Edit trade"
 
 #. Context: Portfolio › Dividend log badge: dividend was reinvested (DRIP)
-#: uvalu/components.py:1845
+#: uvalu/components.py:1846
 msgid "· DRIP"
 msgstr "· DRIP"
 
+#: uvalu/components.py:1877
+#, python-brace-format
+msgid "{ticker} · paid {date}"
+msgstr "{ticker} · paid {date}"
+
 #. Context: Portfolio › tooltip on the pencil of a dividend row; also the
 #. dialog title
-#: uvalu/components.py:1876 uvalu/components.py:1981 uvalu/dialogs.py:721
+#: uvalu/components.py:1890 uvalu/components.py:1995 uvalu/dialogs.py:721
 msgid "Edit dividend"
 msgstr "Edit dividend"
 
 #. Context: Table column header: the stock (name and ticker). Used on
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
-#: uvalu/components.py:1898 uvalu/pages_/dashboard.py:493
+#: uvalu/components.py:1912 uvalu/pages_/dashboard.py:493
 #: uvalu/pages_/dashboard.py:498 uvalu/pages_/portfolio.py:55
-#: uvalu/pages_/portfolio.py:61 uvalu/pages_/portfolio.py:424 uvalu/pages_/risk.py:31
+#: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
 msgid "Position"
 msgstr "Position"
 
 #. Context: Dividend log column header: ex-dividend date
-#: uvalu/components.py:1898
+#: uvalu/components.py:1912
 msgid "Ex-date"
 msgstr "Ex-date"
 
 #. Context: Dividend log column header: payment date
-#: uvalu/components.py:1898
+#: uvalu/components.py:1912
 msgid "Pay date"
 msgstr "Pay date"
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:1898 uvalu/components.py:2132 uvalu/dialogs.py:675
+#: uvalu/components.py:1912 uvalu/components.py:2146 uvalu/dialogs.py:675
 #: uvalu/dialogs.py:770 uvalu/dialogs.py:1095
 msgid "Type"
 msgstr "Type"
 
 #. Context: Dividend log column header: gross dividend per share
-#: uvalu/components.py:1899
+#: uvalu/components.py:1913
 msgid "Per share"
 msgstr "Per share"
 
 #. Context: Table column header: number of shares
-#: uvalu/components.py:1899 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
+#: uvalu/components.py:1913 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
 msgid "Shares"
 msgstr "Shares"
 
 #. Context: Column header / label: gross dividend amount (annual summary,
 #. dividend log, dividend dialog preview)
-#: uvalu/components.py:1899 uvalu/dialogs.py:105 uvalu/pages_/portfolio.py:729
+#: uvalu/components.py:1913 uvalu/dialogs.py:105 uvalu/pages_/portfolio.py:724
 msgid "Gross"
 msgstr "Gross"
 
 #. Context: Column header: foreign withholding tax (short)
-#: uvalu/components.py:1899 uvalu/pages_/portfolio.py:730
+#: uvalu/components.py:1913 uvalu/pages_/portfolio.py:725
 msgid "Foreign WH"
 msgstr "Foreign WH"
 
 #. Context: Column header: 30% Belgian withholding tax on dividends (roerende
 #. voorheffing / précompte mobilier)
-#: uvalu/components.py:1900 uvalu/pages_/portfolio.py:730
+#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:725
 #, no-python-format
 msgid "BE 30%"
 msgstr "BE 30%"
 
 #. Context: Column header: net dividend after withholding
-#: uvalu/components.py:1900 uvalu/pages_/portfolio.py:731
+#: uvalu/components.py:1914 uvalu/pages_/portfolio.py:726
 msgid "Net"
 msgstr "Net"
 
 #. Context: Column header: where the entry came from (Auto / Manual)
-#: uvalu/components.py:1900 uvalu/components.py:2134
+#: uvalu/components.py:1914 uvalu/components.py:2148
 msgid "Source"
 msgstr "Source"
 
 #. Context: Dividend log › tooltip on an amber (unconfirmed) payment date
-#: uvalu/components.py:1937
+#: uvalu/components.py:1951
 msgid "Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date."
 msgstr "Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date."
 
 #. Context: Dividend log › source value: fetched automatically
-#: uvalu/components.py:1948 uvalu/components.py:2125
+#: uvalu/components.py:1962 uvalu/components.py:2139
 msgid "Auto"
 msgstr "Auto"
 
 #. Context: Dividend log › source value: entered by hand
-#: uvalu/components.py:1948 uvalu/components.py:2125
+#: uvalu/components.py:1962 uvalu/components.py:2139
 msgid "Manual"
 msgstr "Manual"
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:1969 uvalu/components.py:2069 uvalu/dialogs.py:45
+#: uvalu/components.py:1983 uvalu/components.py:2083 uvalu/dialogs.py:45
 #: uvalu/pages_/dashboard.py:211
 msgid "Cash"
 msgstr "Cash"
 
 #. Context: Portfolio KPI card label and Risk allocation bar: money invested in
 #. open positions
-#: uvalu/components.py:2066 uvalu/pages_/portfolio.py:309
+#: uvalu/components.py:2080 uvalu/pages_/portfolio.py:310
 msgid "Invested"
 msgstr "Invested"
 
 #. Context: Risk page › text under the invested/cash allocation bar
-#: uvalu/components.py:2075
+#: uvalu/components.py:2089
 #, python-brace-format
 msgid "Total portfolio value {amount} · risk metrics use the invested portion only"
 msgstr "Total portfolio value {amount} · risk metrics use the invested portion only"
 
 #. Context: Cash ledger › Original column for an Adjustment: balance set to
 #. this amount
-#: uvalu/components.py:2085
+#: uvalu/components.py:2099
 #, python-brace-format
 msgid "set to {amount}"
 msgstr "set to {amount}"
@@ -1982,79 +1987,79 @@ msgstr "set to {amount}"
 #. currency (no conversion).
 #. Cash activity › FX rate column note for an entry already in the base currency (no
 #. conversion).
-#: uvalu/components.py:2092
+#: uvalu/components.py:2106
 msgid "base"
 msgstr "base"
 
 #. Context: Cash entry dialog › FX rate source: typed by hand
-#: uvalu/components.py:2095
+#: uvalu/components.py:2109
 msgid "manual"
 msgstr "manual"
 
 #. Context: FX rate source: European Central Bank
-#: uvalu/components.py:2095
+#: uvalu/components.py:2109
 msgid "ECB"
 msgstr "ECB"
 
 #. Context: Cash ledger › marks an automatic top-up deposit (shown as '·
 #. top-up' after a reference)
-#: uvalu/components.py:2099 uvalu/dialogs.py:1094
+#: uvalu/components.py:2113 uvalu/dialogs.py:1094
 msgid "top-up"
 msgstr "top-up"
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:2132 uvalu/dialogs.py:1118 uvalu/dialogs.py:1120
+#: uvalu/components.py:2146 uvalu/dialogs.py:1118 uvalu/dialogs.py:1120
 #: uvalu/locale_ui.py:92
 msgid "Date"
 msgstr "Date"
 
 #. Context: Cash ledger column header
-#: uvalu/components.py:2132
+#: uvalu/components.py:2146
 msgid "Description"
 msgstr "Description"
 
 #. Context: Cash ledger column header: amount in the original currency
-#: uvalu/components.py:2132
+#: uvalu/components.py:2146
 msgid "Original"
 msgstr "Original"
 
 #. Context: Cash ledger column header and Cash entry dialog label: exchange
 #. rate
-#: uvalu/components.py:2133
+#: uvalu/components.py:2147
 msgid "FX rate"
 msgstr "FX rate"
 
 #. Context: Cash ledger column header: amount in the base currency, e.g.
 #. 'Amount · EUR'
-#: uvalu/components.py:2133
+#: uvalu/components.py:2147
 #, python-brace-format
 msgid "Amount · {currency}"
 msgstr "Amount · {currency}"
 
 #. Context: Cash ledger column header: running balance
-#: uvalu/components.py:2134
+#: uvalu/components.py:2148
 msgid "Balance"
 msgstr "Balance"
 
 #. Context: Cash ledger › tooltip on the pencil icon
-#: uvalu/components.py:2154
+#: uvalu/components.py:2168
 msgid "Edit entry"
 msgstr "Edit entry"
 
 #. Context: Cash ledger › tooltip on automatic entries (they are edited at
 #. their source)
-#: uvalu/components.py:2154
+#: uvalu/components.py:2168
 msgid "View linked entry"
 msgstr "View linked entry"
 
-#: uvalu/components.py:2233 uvalu/pages_/analysis.py:212 uvalu/pages_/cash.py:94
-#: uvalu/pages_/portfolio.py:457 uvalu/pages_/portfolio.py:517
-#: uvalu/pages_/portfolio.py:566
+#: uvalu/components.py:2247 uvalu/pages_/analysis.py:212 uvalu/pages_/cash.py:94
+#: uvalu/pages_/portfolio.py:455 uvalu/pages_/portfolio.py:513
+#: uvalu/pages_/portfolio.py:561
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Back to {page}"
 
-#: uvalu/components.py:2249
+#: uvalu/components.py:2263
 msgid "On this page"
 msgstr "On this page"
 
@@ -2227,7 +2232,7 @@ msgstr "Cash after trade"
 #. Context: Portfolio › button to record a new holding; also the title of the
 #. Add position dialog
 #: uvalu/dialogs.py:394 uvalu/pages_/dashboard.py:185 uvalu/pages_/portfolio.py:203
-#: uvalu/pages_/portfolio.py:270 uvalu/pages_/portfolio.py:462
+#: uvalu/pages_/portfolio.py:270 uvalu/pages_/portfolio.py:458
 msgid "Add position"
 msgstr "Add position"
 
@@ -2395,7 +2400,7 @@ msgid "The ex-dividend date must be on or before the payment date."
 msgstr "The ex-dividend date must be on or before the payment date."
 
 #. Context: Portfolio › Dividend log button; also the dialog title
-#: uvalu/dialogs.py:630 uvalu/pages_/portfolio.py:615
+#: uvalu/dialogs.py:630 uvalu/pages_/portfolio.py:610
 msgid "Add dividend"
 msgstr "Add dividend"
 
@@ -2506,7 +2511,7 @@ msgstr "Proceeds"
 
 #. Context: Portfolio › KPI card label and closed-positions column: realised
 #. profit and loss
-#: uvalu/dialogs.py:828 uvalu/pages_/portfolio.py:62 uvalu/pages_/portfolio.py:318
+#: uvalu/dialogs.py:828 uvalu/pages_/portfolio.py:62 uvalu/pages_/portfolio.py:319
 msgid "Realised P&L"
 msgstr "Realised P&L"
 
@@ -2520,11 +2525,9 @@ msgstr "Sector"
 msgid "Buy price *"
 msgstr "Buy price *"
 
-#. Context: Portfolio › Closed positions button and dialog title: record a
-#. trade opened and closed elsewhere
-#: uvalu/dialogs.py:856 uvalu/pages_/portfolio.py:526
-msgid "Add trade"
-msgstr "Add trade"
+#: uvalu/dialogs.py:856
+msgid "Add closed trade"
+msgstr "Add closed trade"
 
 #. Context: Add closed trade dialog › subtitle
 #: uvalu/dialogs.py:859
@@ -2535,6 +2538,10 @@ msgstr "Record a trade opened and closed elsewhere."
 #: uvalu/dialogs.py:874
 msgid "Enter a ticker, shares, and both a buy and sell price."
 msgstr "Enter a ticker, shares, and both a buy and sell price."
+
+#: uvalu/dialogs.py:900
+msgid "Edit closed trade"
+msgstr "Edit closed trade"
 
 #. Context: Edit trade dialog › subtitle
 #: uvalu/dialogs.py:908
@@ -2795,7 +2802,7 @@ msgstr "Open closed positions"
 
 #. Context: Portfolio › card and full-page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/dialogs.py:1296 uvalu/pages_/portfolio.py:331 uvalu/pages_/portfolio.py:459
+#: uvalu/dialogs.py:1296 uvalu/pages_/portfolio.py:334 uvalu/pages_/portfolio.py:457
 msgid "Open positions"
 msgstr "Open positions"
 
@@ -2915,7 +2922,7 @@ msgstr "Position value"
 
 #. Context: Unrealised profit & loss label (stock preview row, Portfolio KPI
 #. card). Short form.
-#: uvalu/drawer.py:313 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:315
+#: uvalu/drawer.py:313 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:316
 msgid "Unrealised P&L"
 msgstr "Unrealised P&L"
 
@@ -4051,8 +4058,8 @@ msgid "{currency} base"
 msgstr "{currency} base"
 
 #. Context: Portfolio › tooltip on the expand icon of a card
-#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:332 uvalu/pages_/portfolio.py:383
-#: uvalu/pages_/portfolio.py:420
+#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:335 uvalu/pages_/portfolio.py:380
+#: uvalu/pages_/portfolio.py:417
 msgid "Open full page"
 msgstr "Open full page"
 
@@ -4080,8 +4087,8 @@ msgid "Every movement in this portfolio's cash, converted to {currency}. The bal
 msgstr "Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger."
 
 #. Context: Portfolio and Cash activity › download button (CSV/Excel)
-#: uvalu/pages_/cash.py:100 uvalu/pages_/portfolio.py:269
-#: uvalu/pages_/portfolio.py:613 uvalu/pages_/portfolio.py:712
+#: uvalu/pages_/cash.py:100 uvalu/pages_/portfolio.py:608
+#: uvalu/pages_/portfolio.py:707
 msgid "Export"
 msgstr "Export"
 
@@ -4276,7 +4283,7 @@ msgstr "blended yield"
 
 #. Context: Dashboard KPI card label and Portfolio › Dividends received card
 #. heading
-#: uvalu/pages_/dashboard.py:222 uvalu/pages_/portfolio.py:419
+#: uvalu/pages_/dashboard.py:222 uvalu/pages_/portfolio.py:416
 msgid "Dividends received"
 msgstr "Dividends received"
 
@@ -4728,7 +4735,7 @@ msgid "Avg cost"
 msgstr "Avg cost"
 
 #. Context: Portfolio › KPI card label and table column: value at today's price
-#: uvalu/pages_/portfolio.py:56 uvalu/pages_/portfolio.py:312
+#: uvalu/pages_/portfolio.py:56 uvalu/pages_/portfolio.py:313
 msgid "Market value"
 msgstr "Market value"
 
@@ -4760,8 +4767,12 @@ msgstr "Your portfolio is empty. Click Add position to record your first positio
 msgid "Cost basis, market value and realised results across open and closed positions."
 msgstr "Cost basis, market value and realised results across open and closed positions."
 
+#: uvalu/pages_/portfolio.py:269
+msgid "Export CSV"
+msgstr "Export CSV"
+
 #. Context: Portfolio › small text on the Invested card
-#: uvalu/pages_/portfolio.py:310
+#: uvalu/pages_/portfolio.py:311
 #, python-brace-format
 msgid "{count} open position"
 msgid_plural "{count} open positions"
@@ -4769,17 +4780,17 @@ msgstr[0] "{count} open position"
 msgstr[1] "{count} open positions"
 
 #. Context: Portfolio › small text on the Market value card
-#: uvalu/pages_/portfolio.py:313
+#: uvalu/pages_/portfolio.py:314
 msgid "current holdings"
 msgstr "current holdings"
 
 #. Context: Portfolio › small text on the Unrealised P&L card
-#: uvalu/pages_/portfolio.py:316
+#: uvalu/pages_/portfolio.py:317
 msgid "open positions"
 msgstr "open positions"
 
 #. Context: Portfolio › small text on the Realised P&L card
-#: uvalu/pages_/portfolio.py:319
+#: uvalu/pages_/portfolio.py:320
 #, python-brace-format
 msgid "{count} closed trade"
 msgid_plural "{count} closed trades"
@@ -4788,71 +4799,66 @@ msgstr[1] "{count} closed trades"
 
 #. Context: Portfolio › KPI card label: dividends received in the last 12
 #. months
-#: uvalu/pages_/portfolio.py:321
+#: uvalu/pages_/portfolio.py:322
 msgid "Dividends (12m)"
 msgstr "Dividends (12m)"
 
-#. Context: Portfolio › small text on the Dividends (12m) card
-#: uvalu/pages_/portfolio.py:321
-msgid "income received"
-msgstr "income received"
-
-#: uvalu/pages_/portfolio.py:368
+#: uvalu/pages_/portfolio.py:323
 #, python-brace-format
-msgid "Show all {count} position"
-msgid_plural "Show all {count} positions"
-msgstr[0] "Show all {count} position"
-msgstr[1] "Show all {count} positions"
+msgid "net · {amount} gross"
+msgstr "net · {amount} gross"
+
+#: uvalu/pages_/portfolio.py:324
+msgid "net"
+msgstr "net"
 
 #. Context: Portfolio › card and full-page heading
-#: uvalu/pages_/portfolio.py:381 uvalu/pages_/portfolio.py:519
+#: uvalu/pages_/portfolio.py:378 uvalu/pages_/portfolio.py:515
 msgid "Closed positions"
 msgstr "Closed positions"
 
 #. Context: Portfolio › small suffix after the 'Closed positions' heading
-#: uvalu/pages_/portfolio.py:381 uvalu/pages_/portfolio.py:521
+#: uvalu/pages_/portfolio.py:378 uvalu/pages_/portfolio.py:516
 msgid "· realised"
 msgstr "· realised"
 
 #. Context: Portfolio › empty state of the Closed positions card
-#: uvalu/pages_/portfolio.py:414
+#: uvalu/pages_/portfolio.py:411
 msgid "No closed positions yet."
 msgstr "No closed positions yet."
 
-#. Context: Portfolio › Dividends received column header
-#: uvalu/pages_/portfolio.py:424
-msgid "Net dividend"
-msgstr "Net dividend"
+#: uvalu/pages_/portfolio.py:421
+msgid "Position · paid"
+msgstr "Position · paid"
+
+#: uvalu/pages_/portfolio.py:421
+msgid "Net / gross"
+msgstr "Net / gross"
 
 #. Context: Portfolio › empty state of Dividends received
-#: uvalu/pages_/portfolio.py:453
+#: uvalu/pages_/portfolio.py:451
 msgid "No dividends received yet."
 msgstr "No dividends received yet."
 
-#. Context: Portfolio › Open positions full page caption
-#: uvalu/pages_/portfolio.py:460
-msgid "Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."
-msgstr "Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."
-
-#. Context: Portfolio › Closed positions full page caption. Button names must
-#. match their translations.
-#: uvalu/pages_/portfolio.py:520
-msgid "Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."
-msgstr "Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."
+#. Context: Portfolio › Closed positions button and dialog title: record a
+#. trade opened and closed elsewhere
+#: uvalu/pages_/portfolio.py:521
+msgid "Add trade"
+msgstr "Add trade"
 
 #. Context: Portfolio › Closed positions full page empty state. 'Add trade'
 #. must match the button label.
-#: uvalu/pages_/portfolio.py:531
+#: uvalu/pages_/portfolio.py:526
 msgid "No closed positions yet. Sell a holding, or record an earlier trade with Add trade."
 msgstr "No closed positions yet. Sell a holding, or record an earlier trade with Add trade."
 
 #. Context: Portfolio › Dividend log › loading message
-#: uvalu/pages_/portfolio.py:576
+#: uvalu/pages_/portfolio.py:571
 msgid "Checking market data for new dividends…"
 msgstr "Checking market data for new dividends…"
 
 #. Context: Portfolio › toast after the automatic dividend import
-#: uvalu/pages_/portfolio.py:579
+#: uvalu/pages_/portfolio.py:574
 #, python-brace-format
 msgid "Imported {count} dividend event from market data."
 msgid_plural "Imported {count} dividend events from market data."
@@ -4861,28 +4867,28 @@ msgstr[1] "Imported {count} dividend events from market data."
 
 #. Context: Portfolio › Dividend log full page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/pages_/portfolio.py:610
+#: uvalu/pages_/portfolio.py:605
 msgid "Dividend log"
 msgstr "Dividend log"
 
 #. Context: Portfolio › Dividend log caption
-#: uvalu/pages_/portfolio.py:611
+#: uvalu/pages_/portfolio.py:606
 msgid "Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."
 msgstr "Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."
 
 #. Context: Portfolio › Dividend log empty state
-#: uvalu/pages_/portfolio.py:619
+#: uvalu/pages_/portfolio.py:614
 msgid "No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."
 msgstr "No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:635
+#: uvalu/pages_/portfolio.py:630
 msgid "Gross income · 12m"
 msgstr "Gross income · 12m"
 
 #. Context: Portfolio › dividend KPI and annual summary: number of dividend
 #. payments. Combined as '{events} · {holdings}'.
-#: uvalu/pages_/portfolio.py:636 uvalu/pages_/portfolio.py:741
+#: uvalu/pages_/portfolio.py:631 uvalu/pages_/portfolio.py:736
 #, python-brace-format
 msgid "{count} event"
 msgid_plural "{count} events"
@@ -4890,7 +4896,7 @@ msgstr[0] "{count} event"
 msgstr[1] "{count} events"
 
 #. Context: Portfolio › dividend KPI: number of paying holdings
-#: uvalu/pages_/portfolio.py:637
+#: uvalu/pages_/portfolio.py:632
 #, python-brace-format
 msgid "{count} holding"
 msgid_plural "{count} holdings"
@@ -4899,79 +4905,79 @@ msgstr[1] "{count} holdings"
 
 #. Context: Portfolio › Dividend log KPI card label: total withholding tax over
 #. 12 months
-#: uvalu/pages_/portfolio.py:639
+#: uvalu/pages_/portfolio.py:634
 msgid "Withholding · 12m"
 msgstr "Withholding · 12m"
 
 #. Context: Portfolio › small text on the Withholding card: foreign withholding
 #. and 30% Belgian withholding tax amounts
-#: uvalu/pages_/portfolio.py:640
+#: uvalu/pages_/portfolio.py:635
 #, no-python-format, python-brace-format
 msgid "{foreign} foreign · {belgian} BE 30%"
 msgstr "{foreign} foreign · {belgian} BE 30%"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:643
+#: uvalu/pages_/portfolio.py:638
 msgid "Net income · 12m"
 msgstr "Net income · 12m"
 
 #. Context: Portfolio › small text on the Net income card
-#: uvalu/pages_/portfolio.py:643
+#: uvalu/pages_/portfolio.py:638
 msgid "after all withholding"
 msgstr "after all withholding"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:645
+#: uvalu/pages_/portfolio.py:640
 msgid "Net yield"
 msgstr "Net yield"
 
 #. Context: Portfolio › small text on the Net yield card
-#: uvalu/pages_/portfolio.py:646
+#: uvalu/pages_/portfolio.py:641
 msgid "on market value"
 msgstr "on market value"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:648
+#: uvalu/pages_/portfolio.py:643
 msgid "Net yield-on-cost"
 msgstr "Net yield-on-cost"
 
 #. Context: Portfolio › small text on the Net yield-on-cost card
-#: uvalu/pages_/portfolio.py:649
+#: uvalu/pages_/portfolio.py:644
 msgid "weighted, remaining cost basis"
 msgstr "weighted, remaining cost basis"
 
 #. Context: Portfolio › Dividend log › withholding note: no foreign withholding
 #. under a tax treaty
-#: uvalu/pages_/portfolio.py:672
+#: uvalu/pages_/portfolio.py:667
 msgid "no treaty WH"
 msgstr "no treaty WH"
 
 #. Context: Portfolio › card heading: per-year dividend totals
-#: uvalu/pages_/portfolio.py:708
+#: uvalu/pages_/portfolio.py:703
 msgid "Annual dividend income summary"
 msgstr "Annual dividend income summary"
 
-#: uvalu/pages_/portfolio.py:710
+#: uvalu/pages_/portfolio.py:705
 msgid "Estimate under Belgian rules · gross and net shown separately."
 msgstr "Estimate under Belgian rules · gross and net shown separately."
 
 #. Context: Portfolio › annual summary empty state
-#: uvalu/pages_/portfolio.py:715
+#: uvalu/pages_/portfolio.py:710
 msgid "No dividend history to summarise yet."
 msgstr "No dividend history to summarise yet."
 
 #. Context: Portfolio › annual summary column header
-#: uvalu/pages_/portfolio.py:729
+#: uvalu/pages_/portfolio.py:724
 msgid "Year"
 msgstr "Year"
 
 #. Context: Portfolio › annual summary: marks the current, unfinished year
-#: uvalu/pages_/portfolio.py:734
+#: uvalu/pages_/portfolio.py:729
 msgid "year to date"
 msgstr "year to date"
 
 #. Context: Portfolio › annual summary: marks a completed year
-#: uvalu/pages_/portfolio.py:734
+#: uvalu/pages_/portfolio.py:729
 msgid "full year"
 msgstr "full year"
 
@@ -6650,3 +6656,32 @@ msgstr[1] "No screener data yet for your watchlisted tickers — they'll appear 
 
 #~ msgid "{date} · {yield_pct} yield"
 #~ msgstr "{date} · {yield_pct} yield"
+
+#~ msgid "income received"
+#~ msgstr "income received"
+
+#~ msgid "Show all {count} position"
+#~ msgid_plural "Show all {count} positions"
+#~ msgstr[0] "Show all {count} position"
+#~ msgstr[1] "Show all {count} positions"
+
+#~ msgid "Net dividend"
+#~ msgstr "Net dividend"
+
+#~ msgid ""
+#~ "Every holding at cost and at today's "
+#~ "price. Click a row for its detail; "
+#~ "the pencil edits or sells it."
+#~ msgstr ""
+#~ "Every holding at cost and at today's "
+#~ "price. Click a row for its detail; "
+#~ "the pencil edits or sells it."
+
+#~ msgid ""
+#~ "Realised results of sold positions. To "
+#~ "sell a holding, use Sell shares in "
+#~ "its Edit dialog on Open positions."
+#~ msgstr ""
+#~ "Realised results of sold positions. To "
+#~ "sell a holding, use Sell shares in "
+#~ "its Edit dialog on Open positions."

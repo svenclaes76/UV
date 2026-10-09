@@ -1742,7 +1742,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
             _weight_str = fmt_pct(weight_pct)
             st.markdown(f"<div style='display:flex;align-items:center;gap:8px;'>"
                        f"<div style='flex:1;height:6px;border-radius:4px;background:var(--uv-track,#EEF1F5);'>"
-                       f"<div style='height:6px;border-radius:4px;width:{_w:.1f}%;background:var(--uv-mint);'></div></div>"
+                       f"<div style='height:6px;border-radius:4px;width:{_w:.1f}%;background:var(--teal);'></div></div>"
                        f"<span style='font-family:var(--uv-mono);font-size:11px;color:var(--muted);width:34px;"
                        f"text-align:right;'>{_weight_str}</span></div>", unsafe_allow_html=True)
         if show_edit:
@@ -1813,7 +1813,8 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            show_edit: bool = False, edit_disabled: bool = False,
                            show_breakdown: bool = False, tax: float | None = None,
                            net: float | None = None, reinvested: bool = False,
-                           widths: list | None = None) -> dict:
+                           widths: list | None = None, gross: float | None = None,
+                           div_type: str | None = None) -> dict:
     """One dividend-payment row — flat list item, never opens the drawer;
     `show_edit` adds a trailing edit-pencil button (the full Dividends
     received page only, not the Overview preview). `show_breakdown` swaps
@@ -1861,14 +1862,27 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            f"font-weight:500;color:var(--up-txt);'>{_money(net)}</div>", unsafe_allow_html=True)
             _edit_col = 5
         else:
+            # Overview preview: name + type chip, "{TICKER} · paid {date}";
+            # net with the gross under it.
+            _chip = ""
+            if div_type and isinstance(div_type, str):
+                _chip_style = ("background:var(--amber-bg);color:var(--amber-txt);" if div_type == "Special" else
+                               "color:var(--muted);border:0.5px solid var(--line);")
+                _chip = (f" <span style='font-size:9.5px;font-family:var(--uv-mono);padding:1px 6px;border-radius:6px;"
+                         f"white-space:nowrap;{_chip_style}'>{_html_attr(tr(div_type))}</span>")
             with _cols[0]:
                 st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
-                           f"overflow:hidden;text-overflow:ellipsis;'>{name}</div><div style='font-size:10.5px;"
-                           f"color:var(--muted);font-family:var(--uv-mono);'>{ticker} · {fmt_date(date)}</div></div>",
+                           f"overflow:hidden;text-overflow:ellipsis;'>{name}{_chip}</div><div style='font-size:10.5px;"
+                           f"color:var(--muted);font-family:var(--uv-mono);'>"
+                           f"{h_('{ticker} · paid {date}', ticker=ticker, date=fmt_date(date))}</div></div>",
                            unsafe_allow_html=True)
             with _cols[1]:
-                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:var(--up-txt);'>{_money(amount)}</div>", unsafe_allow_html=True)
+                _gross_html = (f"<div style='font-size:10.5px;color:var(--muted);font-family:var(--uv-mono);white-space:nowrap;'>"
+                               f"{h_('{amount} gross', amount=_money(gross))}</div>"
+                               if gross is not None and pd.notna(gross) else "")
+                st.markdown(f"<div style='text-align:right;'><div style='font-family:var(--uv-mono);font-size:13px;"
+                           f"font-weight:500;color:var(--up-txt);'>{_money(amount)}</div>{_gross_html}</div>",
+                           unsafe_allow_html=True)
             _edit_col = 2
 
         if show_edit:

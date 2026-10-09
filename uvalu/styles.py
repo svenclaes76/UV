@@ -923,6 +923,9 @@ GLOBAL_CSS = """
   [class*="st-key-pf_page_title_"] {
     margin-bottom: 12px !important;
   }
+  /* Closed positions: five narrow columns, so the title row and the card
+     stop at 760px (mockup) instead of stretching a sparse table. */
+  .st-key-pf_page_title_closed, .st-key-pf_card_closed_full { max-width: 760px !important; }
 
   /* ── Portfolio page — card panels + row lists ────────────────────────────
      Same `background:var(--panel);border:0.5px solid var(--line);

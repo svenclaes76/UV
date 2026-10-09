@@ -853,7 +853,7 @@ def _trade_fields(key: str, *, date0, sector0: str | None, shares0: int, buy0: f
     return d, sector, shares, buy, sell
 
 
-@_dialog(N_("Add trade"))
+@_dialog(N_("Add closed trade"))
 def add_closed_trade_dialog() -> None:
     enter_dialog()
     dialog_frame(_("Record a trade opened and closed elsewhere."))
@@ -897,7 +897,7 @@ def add_closed_trade_dialog() -> None:
     st.rerun()
 
 
-@_dialog(N_("Edit trade"))
+@_dialog(N_("Edit closed trade"))
 def edit_closed_trade_dialog(trade_id: str) -> None:
     """Same fields as Add trade. Buy and sell are per-share prices, so
     changing the share count rescales both the cost basis and the proceeds."""

@@ -266,7 +266,7 @@ def render() -> None:
                 "Invested": pf["purchase_value"], "Current value": pf["current_value"],
                 "Price gain": pf["price_gain"],
             })
-            export_menu(_("Export"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
+            export_menu(_("Export CSV"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
             if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_position_dialog()
@@ -286,10 +286,11 @@ def render() -> None:
             # Net of foreign withholding and the Belgian 30% roerende
             # voorheffing (WP-DIV3) — the "real" income figure, not gross.
             _div_12m = _div_summary["net_eur"].sum()
+            _div_12m_gross = _div_summary["gross_eur"].sum()
         else:
             # No dividend-history file uploaded — fall back to dividends already
             # recorded against current holdings rather than showing zero.
-            _div_12m = total_dividends
+            _div_12m, _div_12m_gross = total_dividends, None
 
         if _pf_fetch_running:
             # A genuinely cold PORTFOLIO_FETCH lane (fresh session / newly-
@@ -318,13 +319,15 @@ def render() -> None:
                     _kpi_card(h_("Realised P&L"), fmt_total(_realised_pl),
                               sub=ngettext("{count} closed trade", "{count} closed trades", _realised_count), icon="trend", size="md")
                 with _o5:
-                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m), sub=h_("income received"), icon="coin", size="md")
+                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m),
+                              sub=h_("net · {amount} gross", amount=fmt_total(_div_12m_gross))
+                              if _div_12m_gross is not None else h_("net"), icon="coin", size="md")
 
         # ── Cash strip (Cash Management v1) ───────────────────────────────────
         _cash_ui.render_strip(invested_value=total_current, is_viewer=_is_viewer,
                               on_open=lambda: _goto("cash"))
 
-        # ── Open positions preview (top 5 by market value) ────────────────────
+        # ── Open positions (every open position, largest first) ──────────────
         with st.container(key="pf_card_open_ov", border=True):
             with st.container(key="pf_panel_title_open_ov", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
@@ -335,11 +338,11 @@ def render() -> None:
             with st.container(key="pf_col_header_open_ov"):
                 _col_header(_ov_open_w, _ov_open_l, _ov_open_r)
             if _pf_fetch_running:
-                skeleton_rows(_ov_open_w, n=min(len(pf), 5),
+                skeleton_rows(_ov_open_w, n=min(len(pf), 8),
                              key_prefix="uv_skel_row_pf_open")
             else:
                 _ov_view_target = None
-                _ov_open = pf.sort_values("current_value", ascending=False).head(5)
+                _ov_open = pf.sort_values("current_value", ascending=False)
                 for _idx, _prow in _ov_open.iterrows():
                     _dr = _div_row_for(_prow["ticker"])
                     _cost_val = _prow["purchase_value"] if pd.notna(_prow["purchase_value"]) and _prow["purchase_value"] else None
@@ -362,12 +365,6 @@ def render() -> None:
                     _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                     if not _r.empty:
                         _pf_dlg_pending.append((_r.iloc[0],))
-                # The ↗ icon alone hid that only the top 5 are listed.
-                if len(pf) > 5:
-                    with st.container(key="pf_open_ov_all"):
-                        if st.button(ngettext("Show all {count} position", "Show all {count} positions", len(pf)),
-                                     key="ov_open_show_all", type="tertiary"):
-                            _goto("open")
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -421,8 +418,8 @@ def render() -> None:
                         _goto("dividends")
                 # ~61px per weight unit in this half-width card; the amount
                 # column widens for longer labels ("NETTODIVIDENDE").
-                _div_l = [_("Position"), _("Net dividend")]
-                _div_w = fit_widths([6, 1.3], _div_l, px_per_unit=61)
+                _div_l = [_("Position · paid"), _("Net / gross")]
+                _div_w = fit_widths([5.2, 1.9], _div_l, px_per_unit=61)
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
                         _col_header(_div_w, _div_l, [False, True])
@@ -447,6 +444,7 @@ def render() -> None:
                                 key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
                                 ticker=_drow.get("ticker", ""), date=_drow["date"],
                                 amount=_drow.get("net_after_be_amount_eur"), show_edit=False,
+                                gross=_drow.get("amount_eur"), div_type=_drow.get("div_type"),
                                 widths=_div_w,
                             )
                     else:
@@ -456,9 +454,7 @@ def render() -> None:
     if _section == "open":
         if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_open"):
             _goto("overview")
-        with page_header(_("Open positions"),
-                         _("Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."),
-                         key="pf_page_title_open"):
+        with page_header(_("Open positions"), key="pf_page_title_open"):
             if st.button(_("Add position"), key="btn_add_pos", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_position_dialog()
@@ -517,7 +513,6 @@ def render() -> None:
         if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_closed"):
             _goto("overview")
         with page_header(_("Closed positions"),
-                         _("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."),
                          title_suffix=f' <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                          key="pf_page_title_closed"):
             # Records a trade opened and closed outside this app (no cash
@@ -544,7 +539,7 @@ def render() -> None:
             ).sort_values("_sort_date", ascending=False)
 
             with st.container(key="pf_card_closed_full", border=True):
-                _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, name_w=400, edit=True)
+                _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, edit=True)
                 with st.container(key="pf_col_header_closed_full"):
                     _col_header(_closed_w, _closed_l, _closed_r)
                 _edit_target = None
