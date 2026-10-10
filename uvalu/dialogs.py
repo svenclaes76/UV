@@ -85,7 +85,7 @@ def calc_preview_html(title: str, rows: list[tuple[str, str]], total_label: str,
            '<span style="color:var(--muted);">{l}</span>'
            '<span style="font-family:var(--uv-mono);white-space:nowrap;">{v}</span></div>')
     return (f'<div style="margin-top:4px;padding:10px 12px;border-radius:8px;background:var(--panel-2);">'
-            f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--faint);'
+            f'<div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);'
             f'margin-bottom:6px;">{title}</div>'
             + "".join(row.format(l=_html.escape(l), v=v) for l, v in rows)
             + f'<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0 0;margin-top:4px;'
@@ -105,7 +105,7 @@ def dividend_tax_preview(gross: float, fwh: float, be: float, net: float) -> Non
     calc_preview(_("Calculated"), [(_("Gross"), fmt_money(gross, "EUR")),
                                    (_("Foreign withholding"), "−" + fmt_money(fwh, "EUR")),
                                    (_("Belgian RV 30%"), "−" + fmt_money(be, "EUR"))],
-                 _("Net received"), fmt_money(net, "EUR"), "var(--uv-mint,#1DD6A4)")
+                 _("Net received"), fmt_money(net, "EUR"), "var(--up-txt)")
 
 
 DIALOG_WIDTH = 420  # Uvalu.dc.html's modal width — every dialog uses it
@@ -853,7 +853,7 @@ def _trade_fields(key: str, *, date0, sector0: str | None, shares0: int, buy0: f
     return d, sector, shares, buy, sell
 
 
-@_dialog(N_("Add trade"))
+@_dialog(N_("Add closed trade"))
 def add_closed_trade_dialog() -> None:
     enter_dialog()
     dialog_frame(_("Record a trade opened and closed elsewhere."))
@@ -897,7 +897,7 @@ def add_closed_trade_dialog() -> None:
     st.rerun()
 
 
-@_dialog(N_("Edit trade"))
+@_dialog(N_("Edit closed trade"))
 def edit_closed_trade_dialog(trade_id: str) -> None:
     """Same fields as Add trade. Buy and sell are per-share prices, so
     changing the share count rescales both the cost basis and the proceeds."""
@@ -992,7 +992,7 @@ def _cash_dialog_css_block() -> None:
         ' border-radius:8px !important; padding:10px 12px !important; }'
         '.st-key-uv_cash_fx_auto { border:0.5px solid var(--line) !important; border-radius:8px !important;'
         ' padding:6px 12px !important; }'
-        '.st-key-uv_cash_fx_auto button p, .st-key-uv_cash_fx_manual button p { color:var(--teal) !important;'
+        '.st-key-uv_cash_fx_auto button p, .st-key-uv_cash_fx_manual button p { color:var(--link) !important;'
         ' font-size:11.5px !important; white-space:nowrap !important; }'
         '</style>', unsafe_allow_html=True)
 
@@ -1031,7 +1031,7 @@ def _cash_rate_panel(ccy: str, base: str, d: "_dt.date", entry: dict | None) -> 
                 f'<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);flex:none;"></span>'
                 f'<div style="min-width:0;"><div style="font-family:var(--uv-mono);font-size:12.5px;">'
                 f'1 {ccy} = {cash.money(_rate, base, 4)}</div>'
-                f'<div style="font-size:10.5px;color:var(--faint);margin-top:2px;">{_sub}</div></div></div>',
+                f'<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">{_sub}</div></div></div>',
                 unsafe_allow_html=True, width="content")
             st.button(_("Enter manually"), key="dlg_cash_use_manual", type="tertiary",
                       on_click=_set_cash_mode, args=("manual",))
@@ -1042,7 +1042,7 @@ def _cash_rate_panel(ccy: str, base: str, d: "_dt.date", entry: dict | None) -> 
         _default = round(float(entry["fx_rate"]), 4)
     with st.container(key="uv_cash_fx_manual"):
         if outage:
-            st.markdown(f'<div style="font-size:11.5px;color:#C98A3A;line-height:1.5;">{_html.escape(_(CASH_OUTAGE_TEXT))}</div>',
+            st.markdown(f'<div style="font-size:11.5px;color:var(--amber-txt);line-height:1.5;">{_html.escape(_(CASH_OUTAGE_TEXT))}</div>',
                         unsafe_allow_html=True)
         _m1, _m2 = st.columns([0.9, 1.1], vertical_alignment="center")
         with _m1:
@@ -1055,7 +1055,7 @@ def _cash_rate_panel(ccy: str, base: str, d: "_dt.date", entry: dict | None) -> 
                                        key="dlg_cash_rate")
         with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
             st.markdown('<span style="font-size:9.5px;font-family:var(--uv-mono);padding:2px 7px;'
-                        'border-radius:5px;background:var(--amber-bg);color:var(--amber-txt);'
+                        'border-radius:6px;background:var(--amber-bg);color:var(--amber-txt);'
                         f'white-space:nowrap;">{_html.escape(_("Manual rate · flagged"))}</span>', unsafe_allow_html=True, width="content")
             if not outage:
                 st.button(_("Use ECB rate"), key="dlg_cash_use_auto", type="tertiary",
@@ -1145,7 +1145,7 @@ def _cash_form(entry: dict | None, preset_type: str = "Deposit", *, readonly: bo
             with st.container(key="uv_cash_fx_auto"):
                 st.markdown(
                     f'<div style="font-family:var(--uv-mono);font-size:12.5px;">1 {ccy} = {cash.money(rate, base, 4)}'
-                    f'</div><div style="font-size:10.5px;color:var(--faint);margin-top:2px;">{_html.escape(_src)}</div>',
+                    f'</div><div style="font-size:10.5px;color:var(--muted);margin-top:2px;">{_html.escape(_src)}</div>',
                     unsafe_allow_html=True)
     else:
         # Changing the date (or, when adding, the currency) drops back to the

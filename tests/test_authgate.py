@@ -271,11 +271,29 @@ class TestAuthWall:
         assert at.session_state["user_role"] == "Admin"
         assert "jwt_token" in at.session_state
 
-    def test_provider_buttons_are_disabled_when_unconfigured(self):
-        # No secrets.toml [auth] section exists in the test environment, so
-        # both providers render as inert "NOT CONFIGURED" markdown, not a
-        # real st.button (see tests/test_oauth.py for the is_configured()
-        # logic itself).
+    def test_no_provider_sign_in_during_the_beta(self):
+        """AU-01: password sign-in only while the beta runs."""
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall()
+        html = "".join(m.value for m in at.markdown)
+        assert "Continue with" not in html and ">or<" not in html
+        assert not any((b.label or "").startswith("Continue with") for b in at.button)
+        assert "Ask for an invite" in html and "Find value before the market does." in html
+
+    def test_sign_in_footer_links_the_legal_pages(self):
+        """AU-02: disclaimer, producer and the six legal links on the panel."""
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall()
+        html = "".join(m.value for m in at.markdown)
+        for doc in ("terms", "privacy", "methodology", "data", "conflicts", "complaints"):
+            assert f'href="/legal?doc={doc}"' in html, doc
+
+    def test_provider_buttons_are_disabled_when_unconfigured(self, monkeypatch):
+        # After the beta (providers enabled) with no secrets.toml [auth]
+        # section, both providers render as inert "NOT CONFIGURED" markdown,
+        # not a real st.button (see tests/test_oauth.py for is_configured()).
+        from uvalu import oauth
+        monkeypatch.setattr(oauth, "providers_enabled", lambda: True)
         auth.register("first@example.com", "password123")
         at = _run_auth_wall()
         assert not any(b.label == "Continue with Google" for b in at.button)
@@ -504,10 +522,12 @@ class TestInviteAcceptanceScreen:
         assert "characters" in "".join(m.value for m in at.markdown)
         assert "jwt_token" not in at.session_state
 
-    def test_provider_buttons_present_on_acceptance_screen(self):
-        # Unconfigured in the test environment, so it's inert "NOT
-        # CONFIGURED" markdown rather than a real button — see
+    def test_provider_buttons_present_on_acceptance_screen(self, monkeypatch):
+        # After the beta only (providers enabled); unconfigured in the test
+        # environment, so inert "NOT CONFIGURED" markdown — see
         # TestAuthWall.test_provider_buttons_are_disabled_when_unconfigured.
+        from uvalu import oauth
+        monkeypatch.setattr(oauth, "providers_enabled", lambda: True)
         _, _, token = auth.invite_user("new@example.com")
         at = _run_auth_wall(query_params={"invite": token})
         html = "".join(m.value for m in at.markdown)
@@ -520,7 +540,8 @@ class TestForgotPasswordScreen:
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
         assert "Forgot your password" in html
-        assert "ask an admin" in html.lower()
+        assert "Ask your admin to reset your password." in html
+        assert "valid for 24 hours" in html                 # matches auth._RESET_TTL_HOURS
 
     def test_back_to_sign_in_clears_query_param(self):
         at = _run_auth_wall(query_params={"forgot": "1"})
@@ -805,3 +826,33 @@ class TestOAuthRefusalScreen:
         assert "uv_oauth_refused" not in at.session_state
         assert "uv_oauth_handled" not in at.session_state
         assert len(at.text_input) == 2
+
+
+class TestPublicLegalPages:
+    def test_legal_page_renders_before_sign_in(self, monkeypatch):
+        """The sign-in footer links to /legal; it must not loop back to the form."""
+        from uvalu import authgate
+        monkeypatch.setattr(authgate, "_is_legal_path", lambda: True)
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall(query_params={"doc": "terms"})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "← Back to sign in" in html and "Terms of use" in html
+        assert "past the wall" not in [t.value for t in at.text]   # still not signed in
+        assert not any(b.label == "Sign in" for b in at.button)
+
+    def test_other_paths_show_the_sign_in_form(self, monkeypatch):
+        from uvalu import authgate
+        monkeypatch.setattr(authgate, "_is_legal_path", lambda: False)
+        auth.register("first@example.com", "password123")
+        at = _run_auth_wall()
+        assert any(b.label == "Sign in" for b in at.button)
+
+
+def test_providers_are_off_during_the_beta(monkeypatch):
+    from uvalu import oauth
+    from uvalu.compliance import disclosures
+    monkeypatch.setattr(disclosures, "BETA", True)
+    assert oauth.providers_enabled() is False
+    monkeypatch.setattr(disclosures, "BETA", False)
+    assert oauth.providers_enabled() is True

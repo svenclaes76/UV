@@ -116,7 +116,7 @@ _pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":mat
 _pg_watchlist = st.Page(_page_watchlist.render, title=_("Watchlist"), icon=":material/star:",             url_path="watchlist")
 _pg_analysis  = st.Page(_page_analysis.render,  title=_("Analysis"),  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":material/settings:",        url_path="settings")
-_pg_help      = st.Page(_page_help.render,      title=_("Methodology & help"), icon=":material/help:",   url_path="help")
+_pg_help      = st.Page(_page_help.render,      title=_("Methodology"), icon=":material/help:",   url_path="help")
 _pg_legal     = st.Page(_page_legal.render,     title=_("Legal"),     icon=":material/gavel:",           url_path="legal")
 _pg_admin     = st.Page(_page_admin.render,     title="Admin",     icon=":material/shield_person:",   url_path="admin")
 _pg_about     = st.Page(_page_about.render,     title=_("About Uvalu"), icon=":material/info:",        url_path="about")
@@ -151,12 +151,15 @@ nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url
 # Admin renders its own standalone sidebar/topbar (uvalu/pages_/admin.py),
 # matching Uvalu Admin.dc.html's separate shell — skip the main app's
 # horizontal top-bar nav for it instead of stacking both.
+# Order under the top bar: update notice, reload prompt, beta box, peer strip.
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
-    shell.render_beta_banner()
     update_notice.render_whats_new_notice(_email)
 update_notice.remember_session_build()
 update_notice.render_reload_prompt()
+if _nav.url_path != "admin":
+    shell.render_beta_banner()
+    shell.render_peer_rebuild_strip()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one
 # @st.dialog inside another, so open_drawer() can't call them directly).

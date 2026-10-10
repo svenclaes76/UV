@@ -75,6 +75,8 @@ nav_registry.pages["dashboard"] = st.Page(lambda: None, title="Dashboard")
 nav_registry.pages["screener"] = st.Page(lambda: None, title="Screener")
 nav_registry.pages["settings"] = st.Page(lambda: None, title="Settings")
 nav_registry.pages["help"] = st.Page(lambda: None, title="Help")
+nav_registry.pages["legal"] = st.Page(lambda: None, title="Legal", url_path="legal")
+nav_registry.pages["about"] = st.Page(lambda: None, title="About", url_path="about")
 {'nav_registry.pages["admin"] = st.Page(lambda: None, title="Admin")' if register_admin else ""}
 st.session_state["user_email"] = "test@example.com"
 st.session_state["user_role"] = "{"Admin" if is_admin else "Analyst"}"
@@ -124,3 +126,62 @@ class TestRenderTopbar:
         at = _run_topbar(is_admin=True, register_admin=False)
         assert not at.exception, [str(e.value) for e in at.exception]
         assert not any(link.label == "Admin portal" for link in at.get("page_link"))
+
+
+class TestUserMenu:
+    def test_menu_items_and_order(self):
+        at = _run_topbar()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        labels = [link.label for link in at.get("page_link") if link.label in
+                  ("Settings", "Methodology", "About Uvalu", "Legal & policies")]
+        # No "Legal & policies": the footer and Settings › Legal lead there.
+        assert labels == ["Settings", "Methodology", "About Uvalu"]
+
+    def test_header_shows_free_beta_not_the_role(self):
+        at = _run_topbar()
+        html = "".join(m.value for m in at.markdown)
+        assert ">Free beta</span>" in html and ">Analyst</span>" not in html
+
+    def test_sign_out_is_a_red_menu_item_with_a_symbol(self):
+        at = _run_topbar()
+        html = "".join(m.value for m in at.markdown)
+        assert 'class="uv-menu-signout"' in html and ">logout</span>Sign out</a>" in html
+
+
+class TestNotices:
+    def test_beta_box_links_the_terms(self):
+        at = AppTest.from_string("from uvalu import shell\nshell.render_beta_banner()\n", default_timeout=60)
+        at.run()
+        html = at.markdown[0].value
+        assert 'href="/legal?doc=terms"' in html and "Terms →" in html
+        assert "border-radius:8px" in html          # stays a rounded box (G01)
+
+    def test_peer_rebuild_strip_shown_only_while_pending(self, monkeypatch):
+        from uvalu import data
+        for pending, expected in ((True, 1), (False, 0)):
+            monkeypatch.setattr(data, "peer_reference_pending", lambda p=pending: p)
+            at = AppTest.from_string("from uvalu import shell\nshell.render_peer_rebuild_strip()\n",
+                                     default_timeout=60)
+            at.run()
+            assert not at.exception, [str(e.value) for e in at.exception]
+            assert len(at.markdown) == expected
+            if expected:
+                assert "Rebuilding the peer reference" in at.markdown[0].value
+
+    def test_notice_order(self):
+        """Top bar, update notice, reload prompt, beta box, peer strip (GL-02)."""
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+        calls = ["shell.render_topbar(", "update_notice.render_whats_new_notice(",
+                 "update_notice.render_reload_prompt(", "shell.render_beta_banner(",
+                 "shell.render_peer_rebuild_strip("]
+        positions = [src.index(c) for c in calls]
+        assert positions == sorted(positions)
+
+    def test_error_box_has_message_and_reference(self):
+        at = AppTest.from_string("from uvalu import shell\nshell.render_error_reference()\n", default_timeout=60)
+        at.run()
+        html = at.markdown[0].value
+        assert "Couldn’t load this page. Try again in a moment." in html
+        assert "background:var(--down-bg)" in html and "Reference for support:" in html
+        assert 'font-family:var(--uv-mono);' in html

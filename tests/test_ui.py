@@ -308,35 +308,34 @@ class TestConsumedTick:
 # ── price_autorefresh ─────────────────────────────────────────────────────
 
 class TestPriceAutorefresh:
-    def _capture(self, monkeypatch, *, market_open: bool, interval_s: int) -> dict:
+    def _capture(self, monkeypatch, *, market_open: bool) -> dict:
         captured: dict = {}
         monkeypatch.setattr(ui, "is_market_hours", lambda: market_open)
-        monkeypatch.setattr(ui, "load_settings", lambda _email: {"refresh_interval_s": interval_s})
-        monkeypatch.setattr(ui, "current_user",
-                            lambda: type("U", (), {"email": "x@y.z"})())
         monkeypatch.setattr(ui, "_auto_rerun",
                             lambda secs, key, version_fn=None, **kw: captured.update(
                                 secs=secs, key=key, version_fn=version_fn))
         return captured
 
-    def test_uses_user_interval_during_market_hours(self, monkeypatch):
-        captured = self._capture(monkeypatch, market_open=True, interval_s=30)
+    def test_every_minute_during_market_hours(self, monkeypatch):
+        captured = self._capture(monkeypatch, market_open=True)
         ui.price_autorefresh("portfolio_refresh")
-        assert captured["secs"] == 30
+        assert captured["secs"] == ui.PRICE_REFRESH_S == 60
         assert captured["key"] == "portfolio_refresh"
 
-    def test_stretches_to_15min_off_hours(self, monkeypatch):
-        captured = self._capture(monkeypatch, market_open=False, interval_s=60)
+    def test_every_15min_off_hours(self, monkeypatch):
+        captured = self._capture(monkeypatch, market_open=False)
         ui.price_autorefresh("dashboard_refresh")
         assert captured["secs"] == 900
 
-    def test_off_hours_keeps_a_longer_user_interval(self, monkeypatch):
-        captured = self._capture(monkeypatch, market_open=False, interval_s=1800)
+    def test_ignores_an_old_stored_refresh_setting(self, isolated_data, monkeypatch):
+        import settings
+        settings.save_settings({**settings.load_settings("a@b.c"), "refresh_interval_s": 30}, "a@b.c")
+        captured = self._capture(monkeypatch, market_open=True)
         ui.price_autorefresh("risk_refresh")
-        assert captured["secs"] == 1800   # max(user, 900)
+        assert captured["secs"] == 60
 
     def test_passes_a_version_diff_signature(self, monkeypatch):
         from uvalu.data import _price_refresh_signature
-        captured = self._capture(monkeypatch, market_open=True, interval_s=60)
+        captured = self._capture(monkeypatch, market_open=True)
         ui.price_autorefresh("dashboard_refresh")
         assert captured["version_fn"] is _price_refresh_signature

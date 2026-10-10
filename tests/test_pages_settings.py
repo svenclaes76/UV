@@ -48,12 +48,16 @@ def test_renders_without_exceptions(isolated_data, monkeypatch):
     _run(monkeypatch)
 
 
-def test_shows_default_veto_thresholds(isolated_data, monkeypatch):
+def test_model_settings_in_force_list_for_every_user(isolated_data, monkeypatch):
+    """G14: a read-only list of the settings in force, the same for everyone."""
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    assert "500%" in html   # max debt/equity default
-    assert "90%" in html    # max payout default
-    assert "70" in html     # buy threshold default
+    assert "Model settings in force" in html and "Same for every user · model M1" in html
+    assert "&gt; 500%" in html          # quality screen: debt / equity
+    assert "≥ 70" in html and "≥ 10%" in html
+    assert "3% + β × 5%" in html and "Terminal dividend growth" in html
+    assert "Margin of safety 24 · Risk 22 · Quality 24 · Momentum 15 · Dividend 15." in html
+    assert "Changes are logged." in html and "announced" not in html
 
 
 def test_changing_max_debt_equity_slider_persists_and_reruns(isolated_data, monkeypatch):
@@ -76,29 +80,13 @@ def test_changing_benchmark_toggle_persists(isolated_data, monkeypatch):
 
 
 @pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_screening_sliders_disabled_for_non_admin(isolated_data, monkeypatch, role):
-    # These are shared, all-user settings ("admin-controlled, apply to all
-    # users" per settings.py's own docstring) — a non-admin must not be able
-    # to change what every other user's BUY/AVOID decisions are based on.
+def test_screening_sliders_only_for_admins(isolated_data, monkeypatch, role):
+    # Shared, all-user settings: a non-admin sees the list, never a control
+    # that could change what every other user's signals are based on.
     at = _run(monkeypatch, role=role)
-    assert at.slider(key="scr_max_de").disabled is True
-    assert at.slider(key="scr_max_payout").disabled is True
-    assert at.slider(key="scr_min_mos").disabled is True
-    assert at.slider(key="scr_buy_thr").disabled is True
+    keys = {w.key for w in at.slider} | {w.key for w in at.segmented_control}
+    assert not keys & {"scr_max_de", "scr_max_payout", "scr_min_mos", "scr_buy_thr", "scr_style"}
     assert at.toggle(key="scr_stoxx").disabled is True
-    assert "Admin-only" in "".join(m.value for m in at.markdown)
-
-
-@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_non_admin_cannot_persist_veto_threshold_change(isolated_data, monkeypatch, role):
-    # Server-side guard, independent of the widgets' own disabled= state --
-    # even if a disabled slider's value were somehow driven, the save path
-    # itself must not write shared settings for a non-admin.
-    at = _run(monkeypatch, role=role)
-    at.slider(key="scr_max_de").set_value(300)
-    at.run()
-    assert not at.exception, [str(e.value) for e in at.exception]
-    assert settings.load_shared_settings()["max_debt_equity"] == 500.0
 
 
 def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch):
@@ -107,26 +95,6 @@ def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert settings.load_shared_settings()["screen_style"] == "income"
-
-
-@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
-def test_screening_style_disabled_and_not_persisted_for_non_admin(isolated_data, monkeypatch, role):
-    at = _run(monkeypatch, role=role)
-    assert at.segmented_control(key="scr_style").disabled is True
-    at.segmented_control(key="scr_style").set_value("Growth")
-    at.run()
-    assert settings.load_shared_settings().get("screen_style", "balanced") == "balanced"
-
-
-def test_changing_refresh_interval_persists(isolated_data, monkeypatch):
-    # A segmented control, not a select_slider — see uvalu/pages_/settings.py's
-    # "Data" card comment (fixed width regardless of the selected option).
-    at = _run(monkeypatch)
-    # Options are the interval in seconds; "5 min" is only its (translated) label.
-    at.segmented_control(key="disp_refresh_interval").set_value(300)
-    at.run()
-    assert not at.exception, [str(e.value) for e in at.exception]
-    assert settings.load_settings(TEST_EMAIL)["refresh_interval_s"] == 300
 
 
 def test_export_shows_info_when_portfolio_empty(isolated_data, monkeypatch):
@@ -274,9 +242,18 @@ def test_withholding_rates_save_only_with_the_button(isolated_data, monkeypatch)
 def test_section_nav_links_every_card_anchor(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    for anchor in ("set-language", "set-account", "set-display", "set-portfolio", "set-data",
+    for anchor in ("set-language", "set-account", "set-display", "set-portfolio", "set-withholding",
                    "set-import", "set-model", "set-legal"):
         assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html, anchor
+    assert "set-data" not in html and "Data &amp; alerts" not in html
+
+
+def test_settings_order_matches_reference():
+    """Rail order of the design reference: … Target allocation, Dividend
+    withholding, Import & export …; no Data & alerts."""
+    from uvalu.pages_.settings import _SECTIONS
+    assert [a for a, *_ in _SECTIONS] == ["set-language", "set-account", "set-display", "set-portfolio",
+                                         "set-withholding", "set-import", "set-model", "set-legal"]
 
 
 def test_parse_targets_text_drops_malformed_and_out_of_range():
@@ -285,11 +262,13 @@ def test_parse_targets_text_drops_malformed_and_out_of_range():
     assert parsed == {"Technology": 0.25, "Consumer Cyclical": 0.12}
 
 
-def test_account_footer_shows_email_and_role(isolated_data, monkeypatch):
+def test_account_footer_comes_last_with_email_and_free_beta(isolated_data, monkeypatch):
+    """ST-05 / G27: after the last card; "Free beta" instead of the role."""
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    assert TEST_EMAIL in html
-    assert "Analyst" in html
+    assert TEST_EMAIL.replace("@", "&#64;") + " · Free beta" in html
+    assert "Analyst" not in html
+    assert html.index("uv-set-account-footer") > html.index('id="set-legal"')
     assert "Sign out" in html
 
 
@@ -464,7 +443,7 @@ class TestActiveSessions:
                   user_agent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit Firefox/120.0")
         at = _run(monkeypatch, jwt_sid=sid1)
         html = "".join(m.value for m in at.markdown)
-        assert "Current" in html
+        assert "This session" in html and "Signed in " in html
         assert "Chrome on macOS" in html
         assert "Firefox on Windows" in html
         assert any(b.label == "Sign out" for b in at.button)
@@ -520,6 +499,23 @@ class TestLinkedAccounts:
                       "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration"}})
         at = _run(monkeypatch)
         assert any(b.label == "Connect" for b in at.button)
+
+    def test_google_row_reads_not_in_the_beta(self, isolated_data, monkeypatch):
+        """ST-03: one "Linked account · Google" row while Google is off."""
+        auth.register(TEST_EMAIL, "password123")
+        at = _run(monkeypatch)
+        html = "".join(m.value for m in at.markdown)
+        assert "Linked account · Google" in html and "Not in the beta" in html
+        assert "Sign-in with Google is not available in the beta." in html
+
+    def test_sessions_sit_inside_the_security_card(self, isolated_data, monkeypatch):
+        auth.register(TEST_EMAIL, "password123")
+        auth.login(TEST_EMAIL, "password123", user_agent="Mozilla/5.0 (Macintosh) AppleWebKit Chrome/120.0")
+        at = _run(monkeypatch)
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert not any("set_card_sessions" in (c.key or "") for c in at.get("flex_container"))
+        html = "".join(m.value for m in at.markdown)
+        assert html.index("Active sessions") > html.index("Two-factor authentication")
 
     def test_unconfigured_provider_shows_unavailable(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")
@@ -750,7 +746,7 @@ class TestBackupCodesCard:
         _enable_totp()
         at = _run(monkeypatch)
         html = "".join(m.value for m in at.markdown)
-        assert "10 unused code" in html
+        assert "10 of 10 unused. Regenerating replaces the old set." in html
 
     def test_regenerate_opens_confirm_dialog(self, isolated_data, monkeypatch):
         auth.register(TEST_EMAIL, "password123")
@@ -833,3 +829,19 @@ def test_uses_the_supporting_page_frame(isolated_data, monkeypatch):
         assert f'href="#{anchor}"' in html and f'id="{anchor}"' in html
     assert 'class="uv-card-head uv-set-head"' in html
     assert "text-transform:uppercase" not in html.split('class="uv-card-head')[1][:200]
+
+
+def test_table_density_persists(isolated_data, monkeypatch):
+    """G15: the Display card's Table density writes the density setting."""
+    at = _run(monkeypatch)
+    at.segmented_control(key="set_density_seg").set_value("compact").run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_settings(TEST_EMAIL)["density"] == "compact"
+
+
+def test_legal_card_is_legal_documents_with_english_only_note(isolated_data, monkeypatch):
+    """G18."""
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Legal documents" in html
+    assert "During the beta these documents are available in English only." in html

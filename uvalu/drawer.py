@@ -23,7 +23,7 @@ from portfolio import load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -69,8 +69,11 @@ _DRAWER_CSS = """
   width: 30px !important; height: 30px !important; min-height: 30px !important; padding: 0 !important;
   border-radius: 8px !important; border: 0.5px solid var(--line, rgba(13,31,60,0.1)) !important;
 }
-.st-key-drw_sell button { color: var(--down-txt, #A32D2D) !important; border-color: var(--down-txt, #A32D2D) !important; }
-.st-key-drw_buy button  { color: var(--mint, #1DD6A4) !important; border-color: var(--mint, #1DD6A4) !important; }
+/* Record buttons: neutral outline (red is for a failed quality screen). */
+.st-key-drw_sell button, .st-key-drw_buy button, .st-key-drw_edit button {
+  background: transparent !important; border: 0.5px solid var(--line) !important; color: var(--text) !important;
+}
+.st-key-drw_sell button:hover, .st-key-drw_buy button:hover, .st-key-drw_edit button:hover { border-color: var(--teal) !important; }
 """
 
 
@@ -80,7 +83,7 @@ def _section_header(text: str) -> None:
     (distinct from Streamlit's plain st.caption, which isn't uppercase and
     has no letter-spacing)."""
     st.markdown(f'<div style="margin-top:20px;font-size:11px;letter-spacing:0.06em;'
-               f'text-transform:uppercase;color:var(--faint);margin-bottom:8px;">{text}</div>',
+               f'text-transform:uppercase;color:var(--muted);margin-bottom:8px;">{text}</div>',
                unsafe_allow_html=True)
 
 
@@ -204,26 +207,20 @@ def open_drawer(row: "pd.Series") -> None:
     # columns; a visible border on top of the background tint so they read
     # unambiguously as cards). ───────────────────────────────────────────────
     _mos = row.get("MoS %")
-    _mos_color = ("var(--up-txt)" if pd.notna(_mos) and _mos >= 0 else "var(--down-txt)") if pd.notna(_mos) else "inherit"
-    _ter = row.get("Implied Return % (est.)")
-    _ter_color = ("var(--up-txt)" if pd.notna(_ter) and _ter >= 0 else "var(--down-txt)") if pd.notna(_ter) else "inherit"
+    _mos_color = mos_text_color(_mos)
     # Tighter side padding/gap/letter-spacing than a first pass at this (13px
     # 14px padding, 12px gap, 0.06em spacing) — "Margin of safety" wrapped to
     # 2 lines at 452px drawer width with those values, throwing off vertical
     # alignment between the tiles' values. Confirmed via live DOM
     # measurement (scrollWidth vs clientWidth) that this combination is the
-    # minimum squeeze needed to keep all labels on one line. A 4th tile (TER,
-    # next to MoS) reuses this same squeeze rather than widening the row —
-    # "Total return" still fits at this padding/font-size.
-    _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;padding:13px 10px;'
-    _label = 'font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
+    # minimum squeeze needed to keep all labels on one line. Three tiles
+    # (G24: no "Implied return" tile).
+    _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:13px 10px;'
+    _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
-        # Neutral: a fair value far below the price isn't good news; only the
-        # margin of safety beside it carries the colour.
-        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--text)"),
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--up-txt)"),
         (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
-        (_("Implied return (est.)"), _fv(row, "Implied Return % (est.)", lambda v: fmt_pct(v, signed=True)), _ter_color),
     ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
@@ -235,7 +232,7 @@ def open_drawer(row: "pd.Series") -> None:
 
     if is_hard_veto(row.get("veto")):
         st.markdown(
-            f'<div style="margin-top:14px;background:var(--navy);border-radius:10px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
+            f'<div style="margin-top:14px;background:var(--navy);border-radius:8px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
             f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
@@ -283,7 +280,7 @@ def open_drawer(row: "pd.Series") -> None:
     _veto = is_hard_veto(row.get("veto"))
     _score = row.get("Value Score")
     _score_str = _("excluded") if _veto else _fv(row, "Value Score", lambda v: _("{score} / 100", score=fmt_num(v, 0)))
-    _score_color = "var(--down-txt)" if _veto else ("var(--mint)" if pd.notna(_score) else "inherit")
+    _score_color = "var(--down-txt)" if _veto else ("var(--up-txt)" if pd.notna(_score) else "inherit")
     _pe = row.get("trailingPE")
     _pe_str = f"{fmt_num(_pe, 1)}× · {fmt_num(15.0, 1)}×" if pd.notna(_pe) else "—"
     _dy_str = _fv(row, "dividendYield", lambda v: fmt_pct(v, fraction=True))
@@ -331,14 +328,15 @@ def open_drawer(row: "pd.Series") -> None:
     # their broker; nothing is executed, and no order or broker link sits
     # next to the signal.
     from uvalu.compliance.disclosures import RECORDS_NOTE
-    st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                f'color:var(--faint);margin:18px 0 8px;">{_html.escape(tr(RECORDS_NOTE))}</div>',
-                unsafe_allow_html=True)
+    # The analysis first, full width; the record buttons under a divider and
+    # their label, so they read as bookkeeping, not as the next step.
+    if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
+        _go_analysis(ticker)
+    st.markdown(f'<div style="border-top:0.5px solid var(--line-2);margin:14px 0 0;padding-top:14px;'
+                f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
+                f'{_html.escape(tr(RECORDS_NOTE))}</div>', unsafe_allow_html=True)
     if _held:
-        _act1, _act2, _act3 = st.columns([1.6, 1.2, 1.2])
-        with _act1:
-            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
-                _go_analysis(ticker)
+        _act2, _act3 = st.columns(2)
         with _act2:
             if st.button(_("Edit position"), key="drw_edit", width="stretch", disabled=_is_viewer, help=_vhelp):
                 _go_portfolio_edit(ticker)
@@ -354,10 +352,7 @@ def open_drawer(row: "pd.Series") -> None:
                                                    "price": _safe_float(_market_price)}
                 st.rerun()
     else:
-        _act1, _act2 = st.columns([1.6, 1.2])
-        with _act1:
-            if st.button(_("View full analysis"), key="drw_analysis", width="stretch", type="primary"):
-                _go_analysis(ticker)
+        _act2, _act_pad = st.columns(2)
         with _act2:
             if st.button(_("Record purchase"), key="drw_buy", width="stretch", disabled=_is_viewer, help=_vhelp):
                 st.session_state["_drw_action"] = {"kind": "buy", "ticker": ticker,

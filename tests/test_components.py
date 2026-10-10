@@ -5,7 +5,10 @@ Pure mapping functions are asserted directly; the render_* functions (which
 call st.markdown/st.caption) are exercised through AppTest so a broken f-string
 or missing import fails loudly instead of only showing up visually.
 """
+import re
+
 import pandas as pd
+import pytest
 from streamlit.testing.v1 import AppTest
 
 import numpy as np
@@ -64,6 +67,67 @@ def _run(fn) -> AppTest:
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     return at
+
+
+def test_page_header_renders_title_subtitle_and_actions():
+    def _script():
+        import streamlit as st
+        from uvalu.components import page_header
+        with page_header("Value screener", "**12** of 40 <stocks> pass",
+                         provenance='<div class="uv-provenance">model M1</div>'):
+            st.button("Reset filters")
+
+    at = _run(_script)
+    head = at.markdown[0].value
+    assert '<div class="uv-page-title" role="heading" aria-level="1">Value screener</div>' in head
+    # Bold kept, the rest escaped.
+    assert '<div class="uv-page-sub"><b>12</b> of 40 &lt;stocks&gt; pass</div>' in head
+    assert head.index("uv-page-sub") < head.index("uv-provenance")
+    assert [b.label for b in at.button] == ["Reset filters"]
+
+
+def test_card_header_html_data_and_support_padding():
+    from uvalu.components import card_header_html
+    data = card_header_html("Holdings <all>", '<a href="#">Full analysis →</a>')
+    assert "padding:16px 20px 14px" in data and "border-bottom:0.5px solid var(--line-2)" in data
+    assert "font-size:15px;font-weight:500" in data and "Holdings &lt;all&gt;" in data
+    assert "Full analysis →" in data
+    assert "padding:14px 20px;" in card_header_html("Display", support=True)
+
+
+def test_table_header_html_right_aligns_number_columns():
+    from uvalu.components import table_header_html
+    html = table_header_html(["Company", "Value"], "1fr 80px", right={1})
+    assert "grid-template-columns:1fr 80px" in html and "padding:10px 20px" in html
+    assert html.count("text-align:right") == 1
+    assert html.split("<div title=")[2].startswith("\"Value\"") and "text-align:right" in html.split("<div title=")[2]
+
+
+def test_kpi_card_value_is_26px_by_default():
+    def _script():
+        from uvalu.components import kpi_card
+        kpi_card("Cash", "€ 1")
+
+    html = _run(_script).markdown[0].value
+    assert "font-size:26px" in html and "margin-top:10px" in html
+
+
+def test_kpi_card_md_value_is_23px():
+    def _script():
+        from uvalu.components import kpi_card
+        kpi_card("Cash", "€ 1", size="md")
+
+    html = _run(_script).markdown[0].value
+    assert "font-size:23px" in html and "margin-top:9px" in html
+
+
+def test_back_link_is_keyed_for_the_shared_style():
+    def _script():
+        from uvalu.components import back_link
+        back_link("← Back to Portfolio", key="back_x")
+
+    at = _run(_script)
+    assert at.button(key="back_x").label == "← Back to Portfolio"
 
 
 def test_render_signal_tips_renders_ok_and_warn_badges():
@@ -285,9 +349,10 @@ def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
         fair_value_bar_compact(price=100.0, fair_value=101.5, mos_pct=1.5)
 
     at = _run(_script)
-    assert "var(--uv-mint)" in at.markdown[0].value
-    assert "var(--amber-fill, #C98A3A)" in at.markdown[1].value   # amber: red is veto-only
-    assert "var(--teal" in at.markdown[2].value  # within the near-fair band
+    # Brand §8 ladder fills: --up-txt / --axis / --amber-fill (red is veto-only).
+    assert "background:var(--up-txt)" in at.markdown[0].value
+    assert "background:var(--amber-fill)" in at.markdown[1].value
+    assert "background:var(--axis)" in at.markdown[2].value  # within the near-fair band
     # Shows the absolute price/fair-value figures instead of a below/above label
     assert "€100.00" in at.markdown[0].value and "fv €120.00" in at.markdown[0].value
 
@@ -315,7 +380,9 @@ def test_score_color_bands():
     # Green only for "Low" (<=25), amber for "Moderate"/"Elevated" (<=70),
     # red for "High"/"Critical" — cut-offs come from risk.RISK_BANDS.
     assert score_color(20) == ("#1DD6A4", "#0F6E56")
-    assert score_color(55) == ("#C98A3A", "#C98A3A")
+    # Amber text is the caution text token (#854F0B light), not the fill.
+    assert score_color(55) == ("#C98A3A", "#854F0B")
+    assert score_color(55, dark=True) == ("#C98A3A", "#E0B94D")
     assert score_color(85) == ("#A32D2D", "#A32D2D")
     # dark=True swaps only the text hex (mirrors runtime.theme_colors()).
     assert score_color(20, dark=True) == ("#1DD6A4", "#1DD6A4")
@@ -346,7 +413,7 @@ def test_band_tone_color_maps_quant_words():
     assert band_tone_color(risk.band_tone("High")) == "#A32D2D"
     assert band_tone_color(risk.band_tone("Low")) == "#0F6E56"
     assert band_tone_color(risk.band_tone("Aggressive")) == "#A32D2D"
-    assert band_tone_color(risk.band_tone("N/A")) == "var(--faint)"
+    assert band_tone_color(risk.band_tone("N/A")) == "var(--muted)"
 
 
 def test_risk_score_meter_html_gradient_and_marker():
@@ -468,9 +535,9 @@ class TestVetoReasonStr:
 
 class TestFairValueBarHtml:
     def test_missing_data_returns_dash(self):
-        assert _fair_value_bar_html(None, 100.0, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
-        assert _fair_value_bar_html(100.0, None, 10.0) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
-        assert _fair_value_bar_html(100.0, 120.0, None) == '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+        assert _fair_value_bar_html(None, 100.0, 10.0) == '<span style="color:var(--muted);">—</span>'
+        assert _fair_value_bar_html(100.0, None, 10.0) == '<span style="color:var(--muted);">—</span>'
+        assert _fair_value_bar_html(100.0, 120.0, None) == '<span style="color:var(--muted);">—</span>'
 
     def test_valid_data_renders_bar(self):
         html = _fair_value_bar_html(100.0, 120.0, 16.7)
@@ -498,17 +565,24 @@ class TestHoldingsRowHtml:
 
     def test_missing_mos_pct_shows_dash(self):
         html = self._row(mos_pct=None)
-        assert "<span style='color:var(--faint);'>—</span>" in html
+        assert "<span style='color:var(--muted);'>—</span>" in html
 
     def test_missing_total_gain_shows_dash(self):
         html = self._row(total_gain=None)
-        assert html.count("<span style='color:var(--faint);'>—</span>") == 1  # only P&L dash
+        assert html.count("<span style='color:var(--muted);'>—</span>") == 1  # only P&L dash
 
-    def test_total_gain_colors_and_formats_by_sign(self):
-        assert "+€125.00" in self._row(total_gain=125.0)
-        assert "-€125.00" in self._row(total_gain=-125.0)
-        assert "var(--up-txt)" in self._row(total_gain=125.0)
-        assert "var(--down-txt)" in self._row(total_gain=-125.0)
+    def test_total_gain_is_a_percent_chip_against_cost(self):
+        # value 2500, gain 125 -> cost 2375 -> +5.3%; the € amount is in the tooltip.
+        up = self._row(total_gain=125.0)
+        assert ">+5.3%</span>" in up and "background:var(--up-bg)" in up
+        assert "Unrealised result against your average cost · +€125.00" in up
+        down = self._row(total_gain=-125.0)
+        assert ">-4.8%</span>" in down and "background:var(--down-bg)" in down
+
+    def test_mos_colour_tiers(self):
+        assert "color:var(--up-txt);'>+16.7%" in self._row(mos_pct=16.7)
+        assert "color:var(--text);'>+5.0%" in self._row(mos_pct=5.0)
+        assert "color:var(--amber-txt);'>-5.0%" in self._row(mos_pct=-5.0)
 
     def test_no_sector_omits_sector_pill(self):
         html = self._row(sector=None)
@@ -539,29 +613,64 @@ class TestScoreBarCellHtml:
     def test_missing_score_returns_dash(self):
         assert _score_bar_cell_html(None) == "—"
 
-    def test_present_score_renders_bar(self):
+    def test_present_score_renders_bar(self, isolated_data):
         html = _score_bar_cell_html(80.0)
         assert "80" in html
-        assert "var(--uv-mint)" in html
+        assert "background:var(--mint)" in html and "color:var(--up-txt)" in html
+
+    @pytest.mark.parametrize("score,bar,text", [(70, "var(--mint)", "var(--up-txt)"),
+                                                (69, "var(--teal)", "var(--text)"),
+                                                (40, "var(--teal)", "var(--text)"),
+                                                (39, "var(--amber-fill)", "var(--text)")])
+    def test_bands_follow_70_and_40(self, isolated_data, score, bar, text):
+        html = _score_bar_cell_html(float(score))
+        assert f"background:{bar}" in html and f"color:{text}" in html
+
+    def test_upper_band_moves_with_the_undervalued_threshold(self, isolated_data):
+        import settings
+        settings.save_shared_settings({**settings.load_shared_settings(), "buy_threshold": 80.0})
+        assert "background:var(--teal)" in _score_bar_cell_html(75.0)
 
 
 class TestQualityScoreColor:
-    def test_high_is_mint(self):
-        assert quality_score_color(80) == ("var(--uv-mint)", "var(--uv-mint)")
+    def test_high_is_mint(self, isolated_data):
+        assert quality_score_color(80) == ("var(--mint)", "var(--up-txt)")
 
-    def test_mid_is_teal(self):
-        assert quality_score_color(50) == ("var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)")
+    def test_mid_is_teal_with_plain_text(self, isolated_data):
+        # G34: plain text for the middle band, not the mockup's link colour.
+        assert quality_score_color(50) == ("var(--teal)", "var(--text)")
 
-    def test_low_is_amber(self):
-        assert quality_score_color(20) == ("#C98A3A", "#C98A3A")
+    def test_low_is_amber(self, isolated_data):
+        assert quality_score_color(20) == ("var(--amber-fill)", "var(--amber-txt)")
+
+
+class TestScoreBandLabel:
+    @pytest.mark.parametrize("score,label", [(85, "Upper band · 70–100"), (55, "Middle band · 40–69"),
+                                             (12, "Lower band · 0–39")])
+    def test_bands(self, isolated_data, score, label):
+        from uvalu.components import score_band_label
+        assert score_band_label(score) == label
+
+    def test_excluded_and_no_signal(self, isolated_data):
+        from uvalu.components import score_band_label
+        assert score_band_label(0, excluded=True) == "Excluded · fails quality screen"
+        assert score_band_label(None) == "No signal · no peer reference"
+
+
+class TestMosTextColor:
+    @pytest.mark.parametrize("mos,color", [(15, "var(--up-txt)"), (14.9, "var(--text)"), (0, "var(--text)"),
+                                           (-0.1, "var(--amber-txt)"), (None, "var(--muted)")])
+    def test_three_tiers_never_red(self, mos, color):
+        from uvalu.components import mos_text_color
+        assert mos_text_color(mos) == color
 
 
 class TestGainColor:
-    def test_none_is_faint(self):
-        assert _gain_color(None) == "var(--faint)"
+    def test_none_is_muted(self):
+        assert _gain_color(None) == "var(--muted)"
 
-    def test_nan_is_faint(self):
-        assert _gain_color(float("nan")) == "var(--faint)"
+    def test_nan_is_muted(self):
+        assert _gain_color(float("nan")) == "var(--muted)"
 
     def test_positive_is_up(self):
         assert _gain_color(5.0) == "var(--up-txt)"
@@ -601,7 +710,9 @@ def test_list_provenance_flags_prices_older_than_72_hours():
     stale = list_provenance_html(_signals_frame([1, 24 * 21]))
     assert "oldest" not in fresh
     assert "oldest 3 weeks" in stale
-    assert "1 price is more than 72 hours old." in stale
+    assert "Some prices are more than 72 hours old." in stale
+    # Brand v1.3: the Material `warning` symbol, not the ⚠ character.
+    assert ">warning</span>" in stale and "⚠" not in stale
 
 
 def test_provenance_is_a_quiet_caption_without_fill_or_border():
@@ -666,3 +777,37 @@ def test_signal_provenance_for_one_row():
     html = signal_provenance_html(row)
     assert "Signal computed" in html and "price as of" in html and "delayed" in html
     assert "M1" in html and "/legal?doc=methodology" in html
+
+
+class TestDashboardBottomRow:
+    def test_donut_has_a_slice_and_legend_row_per_sector(self):
+        from uvalu.components import donut_html
+        html = donut_html(pd.Series({"Technology": 700.0, "Healthcare": 300.0, "n/a": 50.0}))
+        assert html.count("<circle") == 2 and "Technology" in html and "Healthcare" in html
+        assert "n/a" not in html and ">Total</span>" in html
+        assert "70.0%" in html and "30.0%" in html
+
+    def test_donut_folds_the_tail_into_other(self):
+        from uvalu.components import DONUT_MAX_SLICES, donut_html
+        html = donut_html(pd.Series({f"S{i}": float(100 - i) for i in range(15)}))
+        assert html.count("<circle") == DONUT_MAX_SLICES and "Other" in html
+
+    def test_donut_empty_series_is_empty(self):
+        from uvalu.components import donut_html
+        assert donut_html(pd.Series(dtype=float)) == ""
+
+    def test_dividend_row_shows_payment_date_only_on_or_after_the_ex_date(self):
+        from uvalu.components import dividend_row_html
+        with_pay = dividend_row_html(name="Alpha", ex_date="2026-11-03", pay_date="2026-11-20", net=12.0, gross=17.0)
+        assert re.search(r"ex-date · pays (Nov 20|20 Nov)<", with_pay) and ">3</div>" in with_pay and ">Nov<" in with_pay
+        stale = dividend_row_html(name="Alpha", ex_date="2026-11-03", pay_date="2026-05-20", net=12.0, gross=17.0)
+        assert "pays" not in stale and ">ex-date<" in stale
+        assert "€17 gross" in stale
+
+    def test_mover_bar_diverges_from_the_centre(self):
+        from uvalu.components import mover_row_html
+        up = mover_row_html(ticker="AAA.BR", name="Alpha", change_pct=2.0, max_abs=4.0)
+        down = mover_row_html(ticker="BBB.BR", name="Beta", change_pct=-4.0, max_abs=4.0)
+        assert '<rect x="26.0" y="7" width="12.5"' in up and "fill:var(--up-txt)" in up
+        assert '<rect x="1.0" y="7" width="25.0"' in down and "fill:var(--down-txt)" in down
+        assert ">AAA.BR</span>" in up and "+2.00%" in up

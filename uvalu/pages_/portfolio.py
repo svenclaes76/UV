@@ -24,7 +24,7 @@ from screener import get_fetch_progress, PORTFOLIO_FETCH
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_prices
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
                            edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
-from uvalu.components import (fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
+from uvalu.components import (back_link, page_header, fit_widths, header_cell_html, kpi_card as _kpi_card, portfolio_open_row,
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
@@ -258,22 +258,18 @@ def render() -> None:
 
     # ── Overview — heading + 5-card KPI strip + open/closed/dividends previews ──
     if _section == "overview":
-        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Portfolio")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Cost basis, market value and realised results across open and closed positions."))
-            with st.container(horizontal=True, gap="small", width="content"):
-                _ov_frame = pd.DataFrame({
-                    "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
-                    "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
-                    "Invested": pf["purchase_value"], "Current value": pf["current_value"],
-                    "Price gain": pf["price_gain"],
-                })
-                export_menu(_("Export"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
-                if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
-                             disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
-                    add_position_dialog()
+        with page_header(_("Portfolio"),
+                         _("Cost basis, market value and realised results across open and closed positions.")):
+            _ov_frame = pd.DataFrame({
+                "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
+                "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
+                "Invested": pf["purchase_value"], "Current value": pf["current_value"],
+                "Price gain": pf["price_gain"],
+            })
+            export_menu(_("Export CSV"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
+            if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
+                add_position_dialog()
 
         # Realised P&L and a real trailing-12m dividend figure — matches
         # Uvalu.dc.html's 5-card set (Invested/Market value/Unrealised P&L/
@@ -290,10 +286,11 @@ def render() -> None:
             # Net of foreign withholding and the Belgian 30% roerende
             # voorheffing (WP-DIV3) — the "real" income figure, not gross.
             _div_12m = _div_summary["net_eur"].sum()
+            _div_12m_gross = _div_summary["gross_eur"].sum()
         else:
             # No dividend-history file uploaded — fall back to dividends already
             # recorded against current holdings rather than showing zero.
-            _div_12m = total_dividends
+            _div_12m, _div_12m_gross = total_dividends, None
 
         if _pf_fetch_running:
             # A genuinely cold PORTFOLIO_FETCH lane (fresh session / newly-
@@ -311,24 +308,26 @@ def render() -> None:
             else:
                 with _o1:
                     _kpi_card(h_("Invested"), fmt_total(total_invested),
-                              sub=ngettext("{count} open position", "{count} open positions", len(pf)), icon="wallet")
+                              sub=ngettext("{count} open position", "{count} open positions", len(pf)), icon="wallet", size="md")
                 with _o2:
                     _kpi_card(h_("Market value"), fmt_total(total_current), fmt_pct(price_gain_pct, signed=True),
-                              price_gain >= 0, h_("current holdings"), icon="wallet")
+                              price_gain >= 0, h_("current holdings"), icon="wallet", size="md")
                 with _o3:
                     _kpi_card(h_("Unrealised P&L"), fmt_total(price_gain), fmt_pct(price_gain_pct, signed=True),
-                              price_gain >= 0, h_("open positions"), icon="trend")
+                              price_gain >= 0, h_("open positions"), icon="trend", size="md")
                 with _o4:
                     _kpi_card(h_("Realised P&L"), fmt_total(_realised_pl),
-                              sub=ngettext("{count} closed trade", "{count} closed trades", _realised_count), icon="trend")
+                              sub=ngettext("{count} closed trade", "{count} closed trades", _realised_count), icon="trend", size="md")
                 with _o5:
-                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m), sub=h_("income received"), icon="coin")
+                    _kpi_card(h_("Dividends (12m)"), fmt_total(_div_12m),
+                              sub=h_("net · {amount} gross", amount=fmt_total(_div_12m_gross))
+                              if _div_12m_gross is not None else h_("net"), icon="coin", size="md")
 
         # ── Cash strip (Cash Management v1) ───────────────────────────────────
         _cash_ui.render_strip(invested_value=total_current, is_viewer=_is_viewer,
                               on_open=lambda: _goto("cash"))
 
-        # ── Open positions preview (top 5 by market value) ────────────────────
+        # ── Open positions (every open position, largest first) ──────────────
         with st.container(key="pf_card_open_ov", border=True):
             with st.container(key="pf_panel_title_open_ov", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
@@ -339,11 +338,11 @@ def render() -> None:
             with st.container(key="pf_col_header_open_ov"):
                 _col_header(_ov_open_w, _ov_open_l, _ov_open_r)
             if _pf_fetch_running:
-                skeleton_rows(_ov_open_w, n=min(len(pf), 5),
+                skeleton_rows(_ov_open_w, n=min(len(pf), 8),
                              key_prefix="uv_skel_row_pf_open")
             else:
                 _ov_view_target = None
-                _ov_open = pf.sort_values("current_value", ascending=False).head(5)
+                _ov_open = pf.sort_values("current_value", ascending=False)
                 for _idx, _prow in _ov_open.iterrows():
                     _dr = _div_row_for(_prow["ticker"])
                     _cost_val = _prow["purchase_value"] if pd.notna(_prow["purchase_value"]) and _prow["purchase_value"] else None
@@ -366,12 +365,6 @@ def render() -> None:
                     _r = _all_scr_df[_all_scr_df["Ticker"] == _ov_view_target]
                     if not _r.empty:
                         _pf_dlg_pending.append((_r.iloc[0],))
-                # The ↗ icon alone hid that only the top 5 are listed.
-                if len(pf) > 5:
-                    with st.container(key="pf_open_ov_all"):
-                        if st.button(ngettext("Show all {count} position", "Show all {count} positions", len(pf)),
-                                     key="ov_open_show_all", type="tertiary"):
-                            _goto("open")
 
         # ── Closed positions + Dividends previews (two columns) ───────────────
         # 1.55:1 ratio matches Uvalu.dc.html's own `grid-template-columns:
@@ -382,7 +375,7 @@ def render() -> None:
             with st.container(key="pf_card_closed_ov", border=True):
                 with st.container(key="pf_panel_title_closed_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
-                    st.markdown(f'{h_("Closed positions")} <span style="color:var(--faint);font-weight:400;">{h_("· realised")}</span>',
+                    st.markdown(f'{h_("Closed positions")} <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                                unsafe_allow_html=True)
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("closed")
@@ -425,8 +418,8 @@ def render() -> None:
                         _goto("dividends")
                 # ~61px per weight unit in this half-width card; the amount
                 # column widens for longer labels ("NETTODIVIDENDE").
-                _div_l = [_("Position"), _("Net dividend")]
-                _div_w = fit_widths([6, 1.3], _div_l, px_per_unit=61)
+                _div_l = [_("Position · paid"), _("Net / gross")]
+                _div_w = fit_widths([5.2, 1.9], _div_l, px_per_unit=61)
                 if _pf_fetch_running:
                     with st.container(key="pf_col_header_div_ov"):
                         _col_header(_div_w, _div_l, [False, True])
@@ -451,6 +444,7 @@ def render() -> None:
                                 key=f"pf_div_row_ov_{_didx}", name=_drow.get("name", "—"),
                                 ticker=_drow.get("ticker", ""), date=_drow["date"],
                                 amount=_drow.get("net_after_be_amount_eur"), show_edit=False,
+                                gross=_drow.get("amount_eur"), div_type=_drow.get("div_type"),
                                 widths=_div_w,
                             )
                     else:
@@ -458,14 +452,9 @@ def render() -> None:
 
     # ── Full page: Open positions ──────────────────────────────────────────────
     if _section == "open":
-        if st.button(_("← Back to Positions"), key="back_open", type="tertiary"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_open"):
             _goto("overview")
-        with st.container(key="pf_page_title_open", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Open positions")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Every holding at cost and at today's price. Click a row for its detail; the pencil edits or sells it."))
+        with page_header(_("Open positions"), key="pf_page_title_open"):
             if st.button(_("Add position"), key="btn_add_pos", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_position_dialog()
@@ -521,15 +510,11 @@ def render() -> None:
 
     # ── Full page: Closed positions ───────────────────────────────────────────
     if _section == "closed":
-        if st.button(_("← Back to Positions"), key="back_closed", type="tertiary"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_closed"):
             _goto("overview")
-        with st.container(key="pf_page_title_closed", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Closed positions")} '
-                           f'<span style="color:var(--faint);font-weight:400;">{h_("· realised")}</span></div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Realised results of sold positions. To sell a holding, use Sell shares in its Edit dialog on Open positions."))
+        with page_header(_("Closed positions"),
+                         title_suffix=f' <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
+                         key="pf_page_title_closed"):
             # Records a trade opened and closed outside this app (no cash
             # posting) — it used to be labelled "Close", which read like
             # selling one of the holdings; the dialog is "Add trade".
@@ -554,7 +539,7 @@ def render() -> None:
             ).sort_values("_sort_date", ascending=False)
 
             with st.container(key="pf_card_closed_full", border=True):
-                _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, name_w=400, edit=True)
+                _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, edit=True)
                 with st.container(key="pf_col_header_closed_full"):
                     _col_header(_closed_w, _closed_l, _closed_r)
                 _edit_target = None
@@ -573,7 +558,7 @@ def render() -> None:
 
     # ── Full page: Dividends ───────────────────────────────────────────────────
     if _section == "dividends":
-        if st.button(_("← Back to Positions"), key="back_div", type="tertiary"):
+        if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_div"):
             _goto("overview")
         # Auto-import from market data — once per session per user, never for
         # the read-only Viewer role (it writes the ledger). The import itself
@@ -617,18 +602,14 @@ def render() -> None:
                 "net_after_be_amount": "Net (native)", "source": "Source", "reinvested": "DRIP",
             })
 
-        with st.container(key="pf_page_title_dividends", horizontal=True, vertical_alignment="center",
-                          horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Dividend log")}</div>',
-                           unsafe_allow_html=True)
-                st.caption(_("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."))
-            with st.container(horizontal=True, gap="small", width="content"):
-                export_menu(_("Export"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
-                            key="div_export", disabled=not _has_divs)
-                if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
-                             disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
-                    add_dividend_dialog(pf)
+        with page_header(_("Dividend log"),
+                         _("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."),
+                         key="pf_page_title_dividends"):
+            export_menu(_("Export log"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
+                        key="div_export", disabled=not _has_divs)
+            if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
+                         disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
+                add_dividend_dialog(pf)
         if not _has_divs:
             st.info(_("No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."))
         else:
@@ -648,19 +629,19 @@ def render() -> None:
                 with _t1:
                     _kpi_card(h_("Gross income · 12m"), fmt_total(_tile_gross),
                              sub=(ngettext("{count} event", "{count} events", _tile_n_events) + " · "
-                                  + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin")
+                                  + ngettext("{count} holding", "{count} holdings", _tile_n_holdings)), icon="coin", size="md")
                 with _t2:
                     _kpi_card(h_("Withholding · 12m"), fmt_total(-(_tile_fwh + _tile_be)),
                              sub=h_("{foreign} foreign · {belgian} BE 30%",
-                                    foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin")
+                                    foreign=fmt_total(_tile_fwh), belgian=fmt_total(_tile_be)), icon="coin", size="md")
                 with _t3:
-                    _kpi_card(h_("Net income · 12m"), fmt_total(_tile_net), sub=h_("after all withholding"), icon="coin")
+                    _kpi_card(h_("Net income · 12m"), fmt_total(_tile_net), sub=h_("after all withholding"), icon="coin", size="md")
                 with _t4:
                     _kpi_card(h_("Net yield"), fmt_pct(_safe_pct(_tile_net, total_current), 2),
-                              sub=h_("on market value"), icon="trend")
+                              sub=h_("on market value"), icon="trend", size="md")
                 with _t5:
                     _kpi_card(h_("Net yield-on-cost"), fmt_pct(_safe_pct(_tile_net, total_invested), 2),
-                             sub=h_("weighted, remaining cost basis"), icon="trend")
+                             sub=h_("weighted, remaining cost basis"), icon="trend", size="md")
 
             with st.container(key="pf_card_div_full", border=True):
                 with st.container(key="pf_col_header_div_full"):
@@ -710,12 +691,8 @@ def render() -> None:
                 # comes from fmt_money, like every other negative amount.
                 return fmt_money(-v, "EUR") if pd.notna(v) and round(float(v), 2) != 0 else "—"
 
-            # Design width: the summary takes the left of a 1.6 : 1 split; the
-            # right-hand column is intentionally empty, reserved for future cards.
-            _yc1, _yc2 = st.columns([1.6, 1], gap="large")
-            with _yc2:
-                _tax_estimate_box()
-            with _yc1:
+            # The summary full width, the tax-estimate box under it (mockup).
+            with st.container(key="pf_tax_section"):
                 with st.container(key="pf_card_tax_years", border=True):
                     with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
                                       horizontal_alignment="distribute"):
@@ -723,7 +700,7 @@ def render() -> None:
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
                                    f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")
-                        export_menu(_("Export"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
+                        export_menu(_("Export summary"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
                                     key="div_summary_export", disabled=_year_summary.empty)
                     if _year_summary.empty:
                         st.caption(_("No dividend history to summarise yet."))
@@ -739,7 +716,7 @@ def render() -> None:
                             f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
                             f'padding:10px 20px;border-top:0.5px solid var(--line-2);'
                             f'border-bottom:0.5px solid var(--line-2);font-size:10px;letter-spacing:0.06em;'
-                            f'text-transform:uppercase;color:var(--faint);">'
+                            f'text-transform:uppercase;color:var(--muted);">'
                             f'<div>{h_("Year")}</div><div></div><div style="text-align:right;">{h_("Gross")}</div>'
                             f'<div style="text-align:right;">{h_("Foreign WH")}</div><div style="text-align:right;">{h_("BE 30%")}</div>'
                             f'<div style="text-align:right;">{h_("Net")}</div></div>'
@@ -750,16 +727,17 @@ def render() -> None:
                                 f'<div style="display:grid;grid-template-columns:{_grid};gap:14px;align-items:center;'
                                 f'padding:14px 20px;border-bottom:0.5px solid var(--line-2);">'
                                 f'<div style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{int(_year)}</div>'
-                                f'<div style="font-size:11.5px;color:var(--faint);white-space:nowrap;'
+                                f'<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;'
                                 f'overflow:hidden;text-overflow:ellipsis;">'
                                 f'{ngettext("{count} event", "{count} events", int(_yrow["events"]))} · {_partial}</div>'
                                 f'<div style="{_num}font-size:12.5px;">{fmt_money(_yrow["gross"], "EUR")}</div>'
                                 f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["fwh"])}</div>'
                                 f'<div style="{_num}font-size:12.5px;color:var(--muted);">{_neg_eur(_yrow["be"])}</div>'
-                                f'<div style="{_num}font-size:13px;font-weight:500;color:var(--uv-mint,#1DD6A4);">'
+                                f'<div style="{_num}font-size:13px;font-weight:500;color:var(--up-txt);">'
                                 f'{fmt_money(_yrow["net"], "EUR")}</div></div>'
                             )
                         st.markdown(_rows_html, unsafe_allow_html=True)
+                _tax_estimate_box()
 
     # ── Full page: Cash activity (Cash Management v1) ─────────────────────────
     if _section == "cash":

@@ -125,6 +125,15 @@ class TestCashPage:
                    (b.key or "").startswith("pf_cash_row_"))
         # Export menu: machine + spreadsheet CSV (i18n spec F-11)
         assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
+        html = "".join(m.value for m in at.markdown)
+        assert "Viewer · read-only" in html                    # PF-12
+        assert "ECB reference rate" not in "".join(c.value for c in at.caption)   # PF-13: no footnote
+
+    def test_editor_sees_no_viewer_chip(self, isolated_data, monkeypatch):
+        portfolio.save_portfolio(make_portfolio_df())
+        self._seed()
+        at = _run_portfolio(monkeypatch, section="cash")
+        assert "Viewer · read-only" not in "".join(m.value for m in at.markdown)
 
     def test_empty_ledger_message(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())

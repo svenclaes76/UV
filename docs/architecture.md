@@ -286,7 +286,7 @@ Builds the stock universe per exchange: scrapes ticker lists, with hardcoded ind
 
 - `load_shared_settings()` / `save_shared_settings()` — admin-controlled settings shared by all users: `enabled_exchanges`, the veto/scoring thresholds (`max_debt_equity`, `max_payout`, `min_mos`, `buy_threshold`), `benchmark_stoxx`, `us_listed_enabled`.
 - `get_veto_thresholds()` — reads the shared veto fields and returns them as a `(max_debt_equity, max_payout, min_mos, buy_threshold)` tuple, passed to `screener.py`'s scoring functions and used as an `@st.cache_data` key in `uvalu/data.py`.
-- `load_settings(email)` / `save_settings(s, email)` — per-user preferences: `density`, `refresh_interval_s`, and the four `alert_*` notification toggles (stored as preferences only — no delivery channel exists yet).
+- `load_settings(email)` / `save_settings(s, email)` — per-user preferences: `density`, dividend withholding rates and the other per-user Settings. Prices refresh on a fixed cadence (`uvalu.ui.PRICE_REFRESH_S`); there are no alert settings.
 - Exchange constants: `ALL_EXCHANGES`, `EXCHANGE_LABELS`.
 
 ---

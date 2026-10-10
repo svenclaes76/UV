@@ -83,6 +83,29 @@ def _migrate_data() -> "int | None":
         sys.exit(2)
 
 
+def _check_passwordless_accounts() -> None:
+    """T1: warn when an account can't sign in because it has no password and
+    the beta offers password sign-in only. Never stops the app."""
+    try:
+        from uvalu import oauth
+        if oauth.providers_enabled():
+            return
+        from auth import passwordless_accounts
+        found = passwordless_accounts()
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Password-account check skipped: {exc}")
+        return
+    if found:
+        print()
+        print(f"WARNING: {len(found)} account(s) have no password and can't sign in "
+              "(the beta offers password sign-in only):")
+        for email, _status, _providers in found:
+            print(f"  {email}")
+        print("Fix: Admin portal → Users → ⋯ → Send password reset → Generate reset link, "
+              "and send each person the link.")
+        print()
+
+
 def _stamp_build(schema_version: "int | None") -> None:
     """Write build_info.json + static/version.json for this checkout. A failure
     here must never stop the app from starting — uvalu.buildinfo falls back to
@@ -98,7 +121,9 @@ def _stamp_build(schema_version: "int | None") -> None:
 
 if __name__ == "__main__":
     _ensure_cert()
-    _stamp_build(_migrate_data())
+    _schema = _migrate_data()
+    _check_passwordless_accounts()
+    _stamp_build(_schema)
     port = os.environ.get("PORT", "8501")
     subprocess.run(
     [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port],

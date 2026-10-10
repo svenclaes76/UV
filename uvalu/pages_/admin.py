@@ -33,7 +33,7 @@ import pandas as pd
 import streamlit as st
 
 from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
-                  has_password, invite_user, list_linked_identities, list_users,
+                  has_password, invite_user, list_linked_identities, list_users, passwordless_accounts,
                   revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
@@ -47,22 +47,24 @@ from uvalu.shell import _initials, _display_name, apply_theme_script, _close_str
 # Role is wide enough for "Analyst" (it was cut to "Ad" at 1024px).
 _USER_COLS = [2.2, 1.35, 1, 1.2, 0.8, 1.5, 1.2]
 
+# Order of the design reference (G25): Users, Data feeds, System, Backups,
+# Security.
 _NAV_ITEMS = (
     ("users",    "Users",       ":material/group:"),
-    ("security", "Security",    ":material/shield:"),
     ("feeds",    "Data feeds",  ":material/dns:"),
-    ("backups",  "Backups",     ":material/backup:"),
     ("system",   "System",      ":material/info:"),
+    ("backups",  "Backups",     ":material/backup:"),
+    ("security", "Security",    ":material/shield:"),
 )
 _SECTION_TITLES = {"users": "User management", "security": "Security", "feeds": "Data feeds",
-                   "backups": "Backups & restore", "system": "System & versions"}
+                   "backups": "Backups & restore", "system": "System"}
 
 _2FA_STYLE = {
     "ON":       ("var(--up-bg)",    "var(--up-txt)"),
     "REQUIRED": ("var(--down-bg)",  "var(--down-txt)"),
-    "OFF":      ("var(--line-2)",   "var(--faint)"),
-    "PROVIDER": ("var(--line-2)",   "var(--faint)"),
-    "—":        ("var(--line-2)",   "var(--faint)"),
+    "OFF":      ("var(--line-2)",   "var(--muted)"),
+    "PROVIDER": ("var(--line-2)",   "var(--muted)"),
+    "—":        ("var(--line-2)",   "var(--muted)"),
 }
 
 _STATUS_STYLE = {
@@ -83,16 +85,16 @@ _EXCHANGE_SUFFIX = {
 def _status_badge(status: str) -> str:
     bg, txt = _STATUS_STYLE.get(status, ("var(--line-2)", "var(--muted)"))
     return (f'<span style="display:inline-block;background:{bg};color:{txt};padding:3px 9px;'
-           f'border-radius:5px;font-size:11px;font-weight:500;">{status}</span>')
+           f'border-radius:6px;font-size:11px;font-weight:500;">{status}</span>')
 
 
 _2FA_LABELS = {"ON": "ON", "OFF": "OFF", "PROVIDER": "Provider", "REQUIRED": "Required", "—": "—"}
 
 
 def _2fa_badge(status: str) -> str:
-    bg, txt = _2FA_STYLE.get(status, ("var(--line-2)", "var(--faint)"))
+    bg, txt = _2FA_STYLE.get(status, ("var(--line-2)", "var(--muted)"))
     return (f'<span style="display:inline-block;background:{bg};color:{txt};padding:3px 9px;'
-           f'border-radius:5px;font-size:11px;font-weight:500;">{_2FA_LABELS.get(status, status)}</span>')
+           f'border-radius:6px;font-size:11px;font-weight:500;">{_2FA_LABELS.get(status, status)}</span>')
 
 
 def _signin_methods_label(email: str) -> str:
@@ -104,7 +106,7 @@ def _signin_methods_label(email: str) -> str:
 def _stat_tile(label: str, value) -> str:
     return (f'<div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;'
            f'padding:16px 18px;">'
-           f'<div style="font-size:11px;color:var(--faint);letter-spacing:0.04em;text-transform:uppercase;'
+           f'<div style="font-size:11px;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;'
            f'line-height:1.3;">{label}</div>'
            f'<div style="font-size:22px;font-weight:500;margin-top:6px;font-family:var(--uv-mono);'
            f'color:var(--text);line-height:1.2;">{value}</div></div>')
@@ -164,7 +166,7 @@ def _dlg_restore(backup_id: str, created: str, email: str):
     st.markdown(f'<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
                f'padding:12px 14px;margin-top:10px;">'
                f'<div style="font-size:13px;font-weight:500;color:var(--text);">Manual snapshot</div>'
-               f'<div style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);margin-top:2px;">'
+               f'<div style="font-size:11.5px;color:var(--muted);font-family:var(--uv-mono);margin-top:2px;">'
                f'{created}</div></div>', unsafe_allow_html=True)
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -236,6 +238,19 @@ def _render_users() -> None:
         with _col:
             st.markdown(_stat_tile(_label, _value), unsafe_allow_html=True)
 
+    # T1: provider-only accounts are locked out while the beta offers password
+    # sign-in only; the reset link lets them set a password.
+    _locked = [] if oauth.providers_enabled() else passwordless_accounts()
+    if _locked:
+        st.markdown(
+            '<div style="margin-top:10px;background:var(--amber-bg);color:var(--amber-txt);'
+            'border-radius:8px;padding:10px 14px;font-size:12.5px;line-height:1.55;">'
+            f'{len(_locked)} account(s) have no password and can’t sign in, because the beta offers '
+            'password sign-in only: '
+            + ", ".join(html.escape(e) for e, _s, _p in _locked)
+            + '. Send each a password reset (⋯ → Send password reset): the link lets them set one.</div>',
+            unsafe_allow_html=True)
+
     st.container(height=6, border=False)
 
     _t1, _t2 = st.columns([3, 1], vertical_alignment="bottom")
@@ -256,13 +271,13 @@ def _render_users() -> None:
             for _col, _label in zip((_h1, _h2, _h3, _h4, _h5, _h6, _h7),
                                     ("User", "Role", "Status", "Sign-in", "2FA", "Last active", "")):
                 with _col:
-                    st.markdown(f'<div style="font-size:10.5px;color:var(--faint);font-weight:500;'
+                    st.markdown(f'<div style="font-size:10.5px;color:var(--muted);font-weight:500;'
                                f'letter-spacing:0.05em;text-transform:uppercase;line-height:1.3;">'
                                f'{_label}</div>', unsafe_allow_html=True)
 
         if not _filtered:
             _msg = f'No users match "{_search}".' if _search else "No users found."
-            st.markdown(f'<div style="text-align:center;padding:30px 0;color:var(--faint);font-size:13px;">'
+            st.markdown(f'<div style="text-align:center;padding:30px 0;color:var(--muted);font-size:13px;">'
                        f'{_msg}</div>', unsafe_allow_html=True)
 
         for u in _filtered:
@@ -271,7 +286,7 @@ def _render_users() -> None:
                 with _c1:
                     st.markdown(f'<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                f'{_display_name(u["email"])}</div>'
-                               f'<div style="font-size:11px;color:var(--faint);font-family:var(--uv-mono);'
+                               f'<div style="font-size:11px;color:var(--muted);font-family:var(--uv-mono);'
                                f'margin-top:2px;line-height:1.3;">{u["email"]}</div>', unsafe_allow_html=True)
                 with _c2:
                     _new_role = st.selectbox("Role", options=list(ROLES), index=list(ROLES).index(u["role"]),
@@ -297,11 +312,11 @@ def _render_users() -> None:
                     # In the user's date format and time zone, not raw ISO.
                     _last = u["last_active"]
                     _last_txt = fmt_datetime(pd.to_datetime(_last, errors="coerce")) if _last else "Never"
-                    st.markdown(f'<div style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);">'
+                    st.markdown(f'<div style="font-size:11.5px;color:var(--muted);font-family:var(--uv-mono);">'
                                f'{_last_txt}</div>', unsafe_allow_html=True)
                 with _c7:
                     if u["email"] == _current_email:
-                        st.markdown('<div style="font-size:12px;color:var(--faint);text-align:right;">You</div>',
+                        st.markdown('<div style="font-size:12px;color:var(--muted);text-align:right;">You</div>',
                                    unsafe_allow_html=True)
                     else:
                         # Suspend + delete side by side (not stacked) so this
@@ -351,7 +366,7 @@ def _sec_row_header(label: str) -> None:
     # side.
     st.markdown(f'<div style="padding:11px 20px;min-height:34px;box-sizing:border-box;'
                f'border-bottom:0.5px solid var(--line-2);font-size:13px;'
-               f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--faint);'
+               f'font-weight:600;letter-spacing:0.03em;text-transform:uppercase;color:var(--muted);'
                f'line-height:1.3;display:flex;align-items:center;">{label}</div>', unsafe_allow_html=True)
 
 
@@ -481,40 +496,43 @@ def _render_security() -> None:
         # ── Identity providers ──────────────────────────────────────────────────
         with st.container(key="admin_sec_card_providers", border=True):
             _sec_row_header("Identity providers")
+            # During the beta no provider is offered at sign-in
+            # (oauth.providers_enabled), whatever secrets.toml holds.
+            _offered = oauth.providers_enabled()
             for _p in oauth.configured_providers():
+                _live = _offered and _p["configured"]
                 with st.container(key=f"admin_sec_row_provider_{_p['id']}"):
                     _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                     with _c1:
-                        _sec_row_title(_p["label"], "Available for this workspace." if _p["configured"]
+                        _sec_row_title(_p["label"], "Available for this workspace." if _live
+                                      else "Not in the beta — password sign-in only." if not _offered
                                       else "Not configured — add credentials to secrets.toml.")
                     with _c2:
-                        _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _p["configured"] \
-                            else ("var(--line-2)", "var(--faint)")
+                        _bg, _txt = ("var(--up-bg)", "var(--up-txt)") if _live else ("var(--line-2)", "var(--muted)")
+                        _chip = ("Configured" if _live else
+                                 "Not configured · Not in the beta" if not _offered else "Not configured")
                         st.markdown(f'<span style="display:inline-block;background:{_bg};color:{_txt};'
-                                   f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
-                                   f'{"Configured" if _p["configured"] else "Not configured"}</span>',
-                                   unsafe_allow_html=True)
+                                   f'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'
+                                   f'{_chip}</span>', unsafe_allow_html=True)
 
-            with st.container(key="admin_sec_row_autoprov"):
+            with st.container(key="admin_sec_row_account_creation"):
                 _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                 with _c1:
-                    _sec_row_title("Auto-provision new accounts", "Create an account automatically for any "
-                                  "sign-in from an allowed domain below, instead of requiring an invite first.")
+                    _sec_row_title("Account creation", "Invitation only. Accounts are never created automatically.")
                 with _c2:
-                    _auto_prov = st.toggle("Auto-provision new accounts",
-                                           value=bool(_shared.get("auto_provision_oauth", False)),
-                                           key="admin_sec_auto_prov", label_visibility="collapsed")
+                    st.markdown('<span style="display:inline-block;background:var(--line-2);color:var(--muted);'
+                                'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'
+                                'Invite only · fixed</span>', unsafe_allow_html=True)
 
             with st.container(key="admin_sec_row_domains"):
-                _sec_row_title("Allowed email domains", "Comma-separated. Only used when auto-provision is on.")
+                _sec_row_title("Allowed email domains", "Comma-separated. Which addresses a provider "
+                              "sign-in may use, once providers are offered.")
                 _domains_txt = st.text_input(
                     "Allowed email domains", key="admin_sec_domains", label_visibility="collapsed",
                     value=", ".join(_shared.get("allowed_email_domains", [])), placeholder="company.com, other.org")
 
             _new_domains = [d.strip().lower() for d in _domains_txt.split(",") if d.strip()]
-            if (bool(_auto_prov) != bool(_shared.get("auto_provision_oauth", False))
-                    or _new_domains != _shared.get("allowed_email_domains", [])):
-                _shared["auto_provision_oauth"] = bool(_auto_prov)
+            if _new_domains != _shared.get("allowed_email_domains", []):
                 _shared["allowed_email_domains"] = _new_domains
                 save_shared_settings(_shared)
                 st.rerun()
@@ -565,14 +583,14 @@ def _render_feeds() -> None:
                 with _c2:
                     st.markdown(f'<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                f'{_label}</div>'
-                               f'<div style="font-size:11.5px;color:var(--faint);margin-top:2px;line-height:1.3;">'
+                               f'<div style="font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3;">'
                                f'Equities feed — {_EXCHANGE_SUFFIX.get(_key, "")} tickers</div>',
                                unsafe_allow_html=True)
                 with _c3:
                     _badge_bg, _badge_txt = ("var(--up-bg)", "var(--up-txt)") if _was_on \
-                        else ("var(--panel-2)", "var(--faint)")
+                        else ("var(--panel-2)", "var(--muted)")
                     st.markdown(f'<span style="display:inline-block;background:{_badge_bg};color:{_badge_txt};'
-                               f'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">'
+                               f'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'
                                f'{"Enabled" if _was_on else "Disabled"}</span>', unsafe_allow_html=True)
                 with _c4:
                     _on = st.toggle(_label, value=_was_on, key=f"admin_feed_{_key}",
@@ -611,7 +629,7 @@ SYSTEM_PACKAGES = ("streamlit", "pandas", "numpy", "yfinance", "requests", "cryp
 
 
 def _kv_card(key: str, title: str, rows: "list[tuple[str, str]]", note: str = "") -> None:
-    grid = "".join(f'<div style="color:var(--faint);">{html.escape(k)}</div>'
+    grid = "".join(f'<div style="color:var(--muted);">{html.escape(k)}</div>'
                    f'<div style="font-family:var(--uv-mono);color:var(--text);overflow-wrap:anywhere;">'
                    f'{html.escape(v)}</div>' for k, v in rows)
     with st.container(key=key, border=True):
@@ -619,7 +637,7 @@ def _kv_card(key: str, title: str, rows: "list[tuple[str, str]]", note: str = ""
                     f'{html.escape(title)}</div>'
                     f'<div style="display:grid;grid-template-columns:max-content 1fr;gap:6px 24px;'
                     f'font-size:12.5px;">{grid}</div>'
-                    + (f'<div style="font-size:11.5px;color:var(--faint);margin-top:10px;">{html.escape(note)}</div>'
+                    + (f'<div style="font-size:11.5px;color:var(--muted);margin-top:10px;">{html.escape(note)}</div>'
                        if note else ""), unsafe_allow_html=True)
 
 
@@ -722,12 +740,12 @@ def _render_backups(email: str) -> None:
                 with _c1:
                     st.markdown('<div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3;">'
                                'Manual snapshot</div>'
-                               f'<div style="font-size:11.5px;color:var(--faint);margin-top:2px;'
+                               f'<div style="font-size:11.5px;color:var(--muted);margin-top:2px;'
                                f'font-family:var(--uv-mono);line-height:1.3;">{_created} · {_size_mb:.1f} MB · '
                                f'{e["email"]}</div>', unsafe_allow_html=True)
                 with _c2:
                     st.markdown('<span style="display:inline-block;background:var(--soft);color:var(--up-txt);'
-                               'padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;">Manual</span>',
+                               'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">Manual</span>',
                                unsafe_allow_html=True)
                 with _c3:
                     # A callable, not the bytes directly — get_backup_bytes()
@@ -1395,7 +1413,7 @@ div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) in
 }}
 div[data-testid="stTextInput"]:has(input[aria-label="Search users…"]) input::placeholder,
 div[data-testid="stTextInput"]:has(input[aria-label="Allowed email domains"]) input::placeholder {{
-  color: var(--faint) !important; opacity: 1 !important;
+  color: var(--muted) !important; opacity: 1 !important;
 }}
 
 /* ── Suspend/Reactivate outline pill + Restore/Download buttons — match the
@@ -1551,9 +1569,9 @@ def render() -> None:
                         '<div style="display:flex;align-items:center;gap:9px;padding-left:8px;">'
                         '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;'
                         'line-height:1;color:var(--text);">'
-                        'uval<span style="color:var(--teal)">u</span></span>'
+                        'uval<span style="color:var(--link)">u</span></span>'
                         '<span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;'
-                        'line-height:1;color:var(--faint);">admin</span></div>',
+                        'line-height:1;color:var(--muted);">admin</span></div>',
                         unsafe_allow_html=True,
                     )
                 for _key, _label, _icon in _NAV_ITEMS:
@@ -1573,7 +1591,7 @@ def render() -> None:
                 with _t2:
                     st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:flex-end;gap:16px;">
-  <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--faint);font-family:var(--uv-mono);white-space:nowrap;">
+  <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);font-family:var(--uv-mono);white-space:nowrap;">
     <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(29,214,164,0.18);"></span>
     All systems operational</div>
   <div style="width:30px;height:30px;border-radius:8px;background:var(--navy);border:0.5px solid var(--line);

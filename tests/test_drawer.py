@@ -190,6 +190,18 @@ class TestOpenDrawer:
         assert "Not held" in html
         assert any(b.label == "Record purchase" for b in at.button)
 
+    def test_three_tiles_and_analysis_before_the_record_buttons(self):
+        """G24 / DR-05: no "Implied return" tile; the analysis button first,
+        then the records label and the record buttons."""
+        at = AppTest.from_string(_open_drawer_script(), default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        html = "".join(m.value for m in at.markdown)
+        assert "Implied return" not in html
+        assert "font-weight:500;margin-top:5px;color:var(--up-txt);" in html     # fair value tile
+        labels = [b.label for b in at.button]
+        assert labels.index("View full analysis") < labels.index("Record purchase")
+
     def test_renders_veto_banner(self):
         at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
         at.run()

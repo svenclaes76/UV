@@ -89,7 +89,7 @@ def _copy_button(text: str) -> None:
     """"Copy for support": copies the one-line summary. An iframe button,
     because markdown can't carry an onclick (same as Legal's print button)."""
     import json
-    from uvalu.runtime import theme_colors
+    from uvalu.runtime import SIGNAL_TEAL, theme_colors
     tc = theme_colors()
     # Translators: About › button that copies the one-line build details for a support e-mail.
     label = _("Copy for support")
@@ -101,7 +101,7 @@ html,body{{margin:0;background:transparent;text-align:right;}}
 button{{font:500 12px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:{tc.text};
 background:transparent;border:0.5px solid {tc.axis};border-radius:8px;padding:5px 10px;cursor:pointer;
 white-space:nowrap;}}
-button:hover{{border-color:#1A8C6E;}}
+button:hover{{border-color:{SIGNAL_TEAL};}}
 </style></head><body><button id="b">{html.escape(label)}</button><script>
 const text = {json.dumps(text)}, label = {json.dumps(label)}, done = {json.dumps(done)};
 document.getElementById("b").onclick = async (e) => {{

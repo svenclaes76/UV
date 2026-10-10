@@ -9,16 +9,17 @@ import math
 import pandas as pd
 import streamlit as st
 
-from portfolio import (load_manual_tickers, load_watchlist,
+from portfolio import (load_manual_tickers, load_portfolio, load_watchlist,
                        save_watchlist, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
 from screener import get_fetch_progress, signal_distribution
 from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
 from uvalu.drawer import open_drawer
-from uvalu.components import (fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
+from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
+from uvalu.formatting import exchange_code
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
@@ -31,15 +32,19 @@ _EXCHANGE_LABELS = {
 }
 _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
-# Filter chips: model signal codes, shown with their translated label (BDG-1).
-_SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen"]
+# Filter chips: model signal codes, shown with their translated label (BDG-1,
+# G20: the full "Fails quality screen"). None selected by default = every
+# signal, No signal ("pending") included, as in the design reference.
+_SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen", "pending"]
+_MIN_MOS_DEFAULT = -20
 _PAGE_ROWS = 25   # results shown per "page" (visual review SC3)
 
 # Matches stock_row's own column widths exactly (star=0.5, name=3.0,
 # signal=1.0, score=1.5, mos=1.0, price=0.9, pe=0.8, dy=0.9) — shared between
 # the real column header, the real rows (stock_row), and the loading
 # skeleton's column-header/rows so all three always stay pixel-aligned.
-_HH_WIDTHS = [0.5, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fails quality screen" (BDG-1)
+# star, "#" rank, company, signal, score, margin, price, P/E, yield.
+_HH_WIDTHS = [0.5, 0.32, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fails quality screen" (BDG-1)
 
 # Sortable columns, matching Uvalu.dc.html's colDefs/keyf exactly — key is
 # what's stored in session state, column is the DataFrame column it sorts by.
@@ -47,7 +52,7 @@ _HH_WIDTHS = [0.5, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fa
 # signal_badge_for), so it's computed into _signal_label just before
 # sorting rather than kept on every row all the time.
 _SORT_COLUMNS = [
-    ("name",   N_("Position"),         "Name"),
+    ("name",   N_("Company"),          "Name"),
     ("signal", N_("Signal"),           "_signal_label"),
     ("score",  N_("Composite score"),  "Value Score"),
     ("mos",    N_("Margin of safety"), "MoS %"),
@@ -65,7 +70,7 @@ _PX_PER_UNIT = 110
 def _fitted_widths() -> list:
     """_HH_WIDTHS with each column widened to fit its translated header
     (sort arrow included), shared by header, rows and skeleton."""
-    labels = ["", *(tr(label) + " ↓" for _k, label, _c in _SORT_COLUMNS)]
+    labels = ["", "#", *(tr(label) + " ↓" for _k, label, _c in _SORT_COLUMNS)]
     return fit_widths(_HH_WIDTHS, labels, px_per_unit=_PX_PER_UNIT)
 
 
@@ -95,7 +100,7 @@ def _scr_header_css(active_key: str) -> str:
 [class*="st-key-scr_sort_"] button {{
   background: transparent !important; border: none !important; padding: 0 !important;
   min-height: unset !important; font-size: 10px !important; letter-spacing: 0.06em !important;
-  text-transform: uppercase !important; color: var(--faint) !important; font-weight: 400 !important;
+  text-transform: uppercase !important; color: var(--muted) !important; font-weight: 400 !important;
   width: 100% !important;
   /* Streamlit centers a button's label by default — now that the button
      fills the full (wide) column width above, that centered the "Position"/
@@ -205,13 +210,10 @@ def render() -> None:
 
     if _valued_df.empty:
         with _header_slot.container():
-            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Value screener")}</div>',
-                       unsafe_allow_html=True)
-            if _prog["running"] and _prog["total"] > 0:
-                st.caption(_("Loading the screening universe… {done}/{total} companies scored — results appear here as they land.",
-                             done=_prog['done'], total=_prog['total']))
-            else:
-                st.caption(_("Loading the screening universe — results appear as soon as the background fetch returns."))
+            page_header(_("Value screener"),
+                        _("Loading the screening universe… {done}/{total} companies scored — results appear here as they land.",
+                          done=_prog['done'], total=_prog['total']) if _prog["running"] and _prog["total"] > 0 else
+                        _("Loading the screening universe — results appear as soon as the background fetch returns."))
         # Filter-bar and column-header shapes, matching the loaded page's own
         # containers/widths (scr_filter_panel, scr_table_card, the same
         # _hh_widths stock_row's real header uses) so there's zero layout
@@ -224,24 +226,25 @@ def render() -> None:
             with st.container(key="scr_col_header"):
                 for _hh, _label in zip(
                     st.columns(_widths, vertical_alignment="center"),
-                    ("", *(label for _k, label, _c in _SORT_COLUMNS)),
+                    ("", "#", *(label for _k, label, _c in _SORT_COLUMNS)),
                 ):
                     with _hh:
-                        st.markdown(header_cell_html(tr(_label)), unsafe_allow_html=True)
-            skeleton_rows(_widths, n=6, name_col=1, key_prefix="uv_skel_row_scr")
+                        st.markdown(header_cell_html(tr(_label) if _label != "#" else "#", right=_label == "#"),
+                                    unsafe_allow_html=True)
+            skeleton_rows(_widths, n=6, name_col=2, key_prefix="uv_skel_row_scr")
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
         return
 
     # ── Filter bar — one bordered/shadowed panel holding every control in a
     # single row (styles.py's scr_filter_panel), matching Uvalu.dc.html
     # instead of native widgets sitting bare on the page background.
-    _sector_vals = sorted((v for v in _valued_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
+    _sector_vals = sorted((v for v in _all_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
                           key=lambda v: sort_key(tr(v)))
     _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
 
     def _filter_label(text: str) -> None:
         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-                   f'color:var(--faint);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
+                   f'color:var(--muted);margin-bottom:7px;">{text}</div>', unsafe_allow_html=True)
 
     # Sector/Market selects are fixed-width (styles.py, 140px); widen each to
     # its translated "All …" label (~7.2px per 13.5px glyph + padding and
@@ -278,7 +281,7 @@ def render() -> None:
                                   gap="small"):
                     _signal = st.pills(_("Signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
                                        format_func=lambda c: signal_share_label(c, _signal_shares.get(c)),
-                                       default=["undervalued"], key="scr_signal", label_visibility="collapsed",
+                                       default=[], key="scr_signal", label_visibility="collapsed",
                                        width="content")
                     # Translators: Screener › note after the signal filter pills: each percentage is the share of all covered stocks with that signal (not a count of filter results). Lower case, a caption.
                     _pill_note = h_("share of covered stocks")
@@ -301,21 +304,32 @@ def render() -> None:
                     # reflects this rerun's value instead of lagging a step
                     # behind the slider.
                     st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
-                               f'<span>{h_("Min score")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">'
+                               f'<span>{h_("Min score")}</span><span style="font-family:var(--uv-mono);color:var(--up-txt);">'
                                f'{st.session_state.get("scr_min_score", 0)}</span></div>', unsafe_allow_html=True)
                     _min_score = st.slider(_("Min score"), 0, 90, 0, step=5, key="scr_min_score",
                                            label_visibility="collapsed")
                 with st.container(key="scr_mos_slider"):
                     st.markdown(f'<div style="display:flex;justify-content:space-between;gap:8px;font-size:10px;'
-                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px;">'
-                               f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--mint);">'
-                               f'{fmt_pct(st.session_state.get("scr_min_mos", -20), 0)}</span></div>', unsafe_allow_html=True)
-                    _min_mos = st.slider(_("Min margin of safety"), -20, 50, -20, step=5, key="scr_min_mos",
+                               f'letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">'
+                               f'<span>{h_("Min margin of safety")}</span><span style="font-family:var(--uv-mono);color:var(--up-txt);">'
+                               f'{fmt_pct(st.session_state.get("scr_min_mos", _MIN_MOS_DEFAULT), 0)}</span></div>', unsafe_allow_html=True)
+                    _min_mos = st.slider(_("Min margin of safety"), _MIN_MOS_DEFAULT, 50, _MIN_MOS_DEFAULT, step=5,
+                                         key="scr_min_mos",
                                          label_visibility="collapsed")
 
+            # The last filter: a toggle chip (dot + label) that leaves out the
+            # stocks already in the portfolio.
+            with st.container(key="scr_hide_owned"):
+                _filter_label("&nbsp;")
+                _hide_owned = st.pills(_("Hide positions I own"), options=["owned"], selection_mode="single",
+                                       format_func=frozen(lambda _o: _("Hide positions I own")),
+                                       key="scr_hide_owned_pill", label_visibility="collapsed") == "owned"
+
     # ── Apply filters ──────────────────────────────────────────────────────────
-    _filtered = _valued_df.copy()
+    # Every scored row, valued or not: a No signal stock has no fair value
+    # but still belongs in the list at the default filters (design reference).
+    _filtered = _all_df.copy()
     if _search:
         # Accent-, case- and punctuation-insensitive (spec F-14): "societe"
         # finds "Société Générale", "loreal" finds "L'Oréal".
@@ -325,12 +339,19 @@ def render() -> None:
         _filtered = _filtered[_filtered.apply(
             lambda r: ("fails_screen" if is_hard_veto(r.get("veto")) else r.get("signal_code")) in _signal,
             axis=1)]
+    if _hide_owned:
+        _held = load_portfolio()
+        _held_tickers = set(_held["ticker"]) if _held is not None and "ticker" in _held.columns else set()
+        _filtered = _filtered[~_filtered["Ticker"].isin(_held_tickers)]
     if _sector_sel and _sector_sel != _ALL_SECTORS:
         _filtered = _filtered[_filtered.get("sector") == _sector_sel]
     if _market_sel and _market_sel != _ALL_MARKETS:
         _filtered = _filtered[_filtered["Exchange"] == _market_sel]
     _filtered = _filtered[pd.to_numeric(_filtered["Value Score"], errors="coerce").fillna(0) >= _min_score]
-    _filtered = _filtered[pd.to_numeric(_filtered["MoS %"], errors="coerce").fillna(-999) >= _min_mos]
+    # A missing margin of safety (No signal) passes only while the filter is
+    # at its lowest setting; raising it means "at least this margin".
+    _mos_num = pd.to_numeric(_filtered["MoS %"], errors="coerce")
+    _filtered = _filtered[(_mos_num >= _min_mos) | (_mos_num.isna() & (_min_mos <= _MIN_MOS_DEFAULT))]
 
     _sort_key = st.session_state.get("scr_sort_key", "score")
     _sort_dir = st.session_state.get("scr_sort_dir", "desc")
@@ -346,30 +367,20 @@ def render() -> None:
         key=(lambda s: s.map(sort_key)) if _text_sort else None).reset_index(drop=True)
 
     with _header_slot.container():
-        with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-            with st.container(width="content"):
-                st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Value screener")}</div>',
-                           unsafe_allow_html=True)
-                _scr_caption = _("**{shown}** of {total} European stocks pass your filters · ranked by composite signal score.",
-                                 shown=len(_filtered), total=len(_valued_df))
-                if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
-                    _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
-                                            count=len(_all_df))
-                st.caption(_scr_caption)
-                # REC-4 / REC-5: the third line of the page header.
-                st.markdown(list_provenance_html(_all_df), unsafe_allow_html=True)
-            # Only when something differs from the default filters.
-            _filters_dirty = (bool(_search) or set(_signal or []) != {"undervalued"}
-                              or _sector_sel != _ALL_SECTORS or _market_sel != _ALL_MARKETS
-                              or _min_score != 0 or _min_mos != -20)
-            with st.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
-                with st.container(key="scr_reset_btn"):
-                    if _filters_dirty and st.button(_("Reset filters"), key="scr_reset",
-                                                    icon=":material/refresh:", type="tertiary"):
-                        for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
-                                  "scr_min_score", "scr_min_mos"):
-                            st.session_state.pop(_k, None)
-                        st.rerun()
+        _scr_caption = _("{shown} of {total} European stocks pass your filters · ranked by composite signal score.",
+                         shown=len(_filtered), total=len(_all_df))
+        if bool(_all_df.get("small_universe", pd.Series([False])).iloc[0]):
+            _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
+                                    count=len(_all_df))
+        # REC-4 / REC-5: the provenance is the third line of the page header.
+        _scr_actions = page_header(_("Value screener"), _scr_caption, provenance=list_provenance_html(_all_df))
+        with _scr_actions.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
+            with st.container(key="scr_reset_btn"):
+                if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):
+                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                              "scr_min_score", "scr_min_mos", "scr_hide_owned_pill"):
+                        st.session_state.pop(_k, None)
+                    st.rerun()
 
     if _filtered.empty:
         with st.container(border=True):
@@ -393,16 +404,19 @@ def render() -> None:
     with st.container(key="uv_hidden_util_scr_header_css"):
         st.markdown(f"<style>{_scr_header_css(_sort_key)}</style>", unsafe_allow_html=True)
     _sortable = {k: (label, col) for k, label, col in _SORT_COLUMNS}
-    # No "#" rank column (added no real value) and no trailing arrow column
-    # (the whole ticker/name cell is the click target now, see stock_row).
-    _hh_slots = ("", "name", "signal", "score", "mos", "price", "pe", "dy")
+    # "#" is the row's place in the current sort; no trailing arrow column
+    # (the whole row is the click target, see stock_row).
+    _hh_slots = ("", "#", "name", "signal", "score", "mos", "price", "pe", "dy")
 
     _widths = _fitted_widths()
     with st.container(key="scr_table_card", border=True):
         with st.container(key="scr_col_header"):
             _hh_cols = st.columns(_widths, vertical_alignment="center")
             for _hh, _slot in zip(_hh_cols, _hh_slots):
-                if _slot in _sortable:
+                if _slot == "#":
+                    with _hh:
+                        st.markdown(header_cell_html("#", right=True), unsafe_allow_html=True)
+                elif _slot in _sortable:
                     _label = _sortable[_slot][0]
                     _arrow = (" ↓" if _sort_dir == "desc" else " ↑") if _sort_key == _slot else ""
                     with _hh:
@@ -412,20 +426,20 @@ def render() -> None:
         # 25 rows at a time (the full list was ~125 rows, a 9 000px page);
         # back to the first page whenever the filters or the sort change.
         _page_sig = repr((_search, sorted(_signal or []), _sector_sel, _market_sel, _min_score, _min_mos,
-                          _sort_key, _sort_dir))
+                          _hide_owned, _sort_key, _sort_dir))
         if st.session_state.get("scr_page_sig") != _page_sig:
             st.session_state["scr_page_sig"] = _page_sig
             st.session_state["scr_page_rows"] = _PAGE_ROWS
         _shown = int(st.session_state.get("scr_page_rows", _PAGE_ROWS))
 
         _drawer_target = None
-        for _ridx, _row in _filtered.head(_shown).iterrows():
+        for _rank, (_ridx, _row) in enumerate(_filtered.head(_shown).iterrows(), start=1):
             _ticker = _row["Ticker"]
             _in_wl = _ticker in _watchlist
             _result = stock_row(
                 key=f"scr_row_{_ridx}_{_ticker}",
-                ticker=_ticker, name=_row.get("Name", ""),
-                exchange=tr(_row.get("Exchange")) if pd.notna(_row.get("Exchange")) else None,
+                ticker=_ticker, name=_row.get("Name", ""), rank=_rank,
+                exchange=exchange_code(_ticker),
                 signal_code=str(_row.get("signal_code", "")), veto=_row.get("veto"),
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),

@@ -17,7 +17,7 @@ from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
-                        ngettext, pgettext, tr)
+                        pgettext, tr)
 
 # ── Signal badge ─────────────────────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ def methodology_link_html(quiet: bool = False) -> str:
     if quiet:
         return (f'<a class="uv-quiet-link" href="{METHODOLOGY_HREF}" target="_self">'
                 f'{_html_mod.escape(_("Methodology →"))}</a>')
-    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--teal);'
+    return (f'<a href="{METHODOLOGY_HREF}" target="_self" style="color:var(--link);'
             f'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;">'
             f'{_html_mod.escape(_("Methodology →"))}</a>')
 
@@ -161,9 +161,17 @@ def _full_timestamp(ts) -> str:
     return f"{fmt_datetime(ts, style='iso')} ({current().time_zone})"
 
 
+def material_icon_html(name: str, size: int = 16) -> str:
+    """An inline Material Symbols icon (brand §6), in the font Streamlit
+    already bundles for its own `:material/…:` icons — no extra font load."""
+    return (f'<span aria-hidden="true" style="font-family:\'Material Symbols Rounded\';font-size:{size}px;'
+            f'line-height:1;font-weight:400;font-style:normal;flex:none;display:inline-block;'
+            f'font-feature-settings:\'liga\';-webkit-font-smoothing:antialiased;">{name}</span>')
+
+
 def _stale_chip_html(prices) -> str:
     """Amber chip when the oldest price behind a list is past STALE_PRICE_HOURS:
-    "⚠ oldest 3 weeks", with the count of stale prices in the tooltip."""
+    the `warning` symbol and "oldest 3 weeks" (brand §8 provenance line)."""
     if prices is None or prices.empty:
         return ""
     ages = pd.Timestamp.now(tz="UTC") - prices
@@ -171,13 +179,13 @@ def _stale_chip_html(prices) -> str:
     if not stale:
         return ""
     from babel.dates import format_timedelta
-    from uvalu.i18n import names_locale, ngettext
+    from uvalu.i18n import names_locale
     age = format_timedelta(ages.max().to_pytimedelta(), threshold=1, locale=names_locale())
-    tip = ngettext("{count} price is more than 72 hours old.",
-                   "{count} prices are more than 72 hours old.", stale)
-    return (f'<span title="{_html_attr(tip)}" style="white-space:nowrap;font-size:10.5px;font-weight:500;'
-            f'color:var(--amber-txt);background:var(--amber-bg);border-radius:6px;padding:1px 7px;">'
-            f'⚠ {h_("oldest {age}", age=age)}</span>')
+    tip = _("Some prices are more than 72 hours old. Signals for those stocks use the last known price.")
+    return (f'<span title="{_html_attr(tip)}" style="display:inline-flex;align-items:center;gap:4px;'
+            f'white-space:nowrap;font-size:11px;font-weight:500;color:var(--amber-txt);'
+            f'background:var(--amber-bg);border-radius:6px;padding:1px 8px;">'
+            f'{material_icon_html("warning", 14)}{h_("oldest {age}", age=age)}</span>')
 
 
 def provenance_bar_html(items: list[str], *, link: bool = True, margin: str = "8px 0 0") -> str:
@@ -250,13 +258,16 @@ def list_provenance_html(df) -> str:
 
 
 def founder_notice_html(row) -> str:
-    """REC-8: the founder-position disclosure, when the founder holds the stock."""
+    """REC-8: the founder-position disclosure, when the founder holds the
+    stock, followed by the link to the Conflicts of interest policy."""
     if not bool(row.get("founder_holds")) or pd.isna(row.get("founder_holds")):
         return ""
     import html as _html_mod
     from screener import FOUNDER_HOLDS_NOTICE
     return ('<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;">'
-            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE)) + "</div>")
+            + _html_mod.escape(tr(FOUNDER_HOLDS_NOTICE))
+            + ' <a href="/legal?doc=conflicts" target="_self" style="color:var(--link);text-decoration:none;'
+            + f'white-space:nowrap;">{h_("Conflicts of interest policy →")}</a></div>')
 
 
 def signal_badge_html(kind: str, label: str, tooltip: "str | None" = None) -> str:
@@ -365,7 +376,29 @@ def header_cell_html(label: str, *, right: bool = False) -> str:
     t = _html_mod.escape(label or "")
     align = "text-align:right;" if right else ""
     return (f'<div title="{t}" style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--faint);{align}">{t}</div>')
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);{align}">{t}</div>')
+
+
+def card_header_html(title: str, right_html: str = "", *, support: bool = False) -> str:
+    """Title row of a card: 15px/500 title, optional ready-made HTML on the
+    right, a --line-2 hairline below. Data cards are padded 16px 20px 14px,
+    supporting-page cards 14px 20px."""
+    import html as _html_mod
+    pad = "14px 20px" if support else "16px 20px 14px"
+    right = f'<div style="flex:none;display:flex;align-items:center;gap:10px;">{right_html}</div>' if right_html else ""
+    return (f'<div class="uv-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;'
+            f'padding:{pad};border-bottom:0.5px solid var(--line-2);">'
+            f'<div style="font-size:15px;font-weight:500;color:var(--text);min-width:0;">{_html_mod.escape(title)}</div>'
+            f'{right}</div>')
+
+
+def table_header_html(labels: "list[str]", grid_cols: str, *, right: "set[int] | frozenset[int]" = frozenset(),
+                      gap: int = 14) -> str:
+    """A table's column-label row: 10px uppercase labels on ``grid_cols``,
+    padding 10px 20px, the columns in ``right`` (numbers) right-aligned."""
+    cells = "".join(header_cell_html(label, right=i in right) for i, label in enumerate(labels))
+    return (f'<div class="uv-table-head" style="display:grid;grid-template-columns:{grid_cols};gap:{gap}px;'
+            f'align-items:center;padding:10px 20px;border-bottom:0.5px solid var(--line-2);">{cells}</div>')
 
 
 # ── Delta chip ───────────────────────────────────────────────────────────────
@@ -380,7 +413,108 @@ def chip_html(text: str, positive: bool = True) -> str:
     color = "var(--up-txt)" if positive else "var(--down-txt)"
     return (f'<span style="display:inline-flex;align-items:center;gap:2px;'
            f'font-family:var(--uv-mono);font-size:11.5px;font-weight:500;'
-           f'padding:2px 7px;border-radius:5px;background:{bg};color:{color};">{text}</span>')
+           f'padding:2px 7px;border-radius:4px;background:{bg};color:{color};">{text}</span>')
+
+
+# ── Dashboard bottom row: sector donut, upcoming dividends, top movers ──────
+
+DONUT_MAX_SLICES = 12   # above this, the 11 largest plus "Other"
+
+
+def short_total(value_eur: float) -> str:
+    """A total in the display currency, compact from 10,000 ("€ 23.7k")."""
+    from uvalu.i18n import fmt_compact, fmt_total, to_display
+    v, ccy, converted = to_display(value_eur)
+    return (("≈ " if converted else "") + fmt_compact(v, currency=ccy)) if value_eur >= 10_000 else fmt_total(value_eur)
+
+
+def donut_html(series: "pd.Series") -> str:
+    """Sector (or any) breakdown as a 132px SVG donut with a legend on the
+    right (brand §8 Charts): slices in the categorical palette with 2px gaps
+    in the card colour, "TOTAL" and the short total in the middle, each
+    legend row's amount in its tooltip. Empty string without positive values."""
+    import html as _html_mod
+    from uvalu.ui import _DONUT_PALETTE
+    bad = {"", "nan", "none", "undefined", "<na>", "n/a"}
+    s = series[[pd.notna(k) and str(k).strip().lower() not in bad for k in series.index]]
+    s = s[s > 0].sort_values(ascending=False)
+    if s.empty:
+        return ""
+    if len(s) > DONUT_MAX_SLICES:
+        top = s.iloc[:DONUT_MAX_SLICES - 1]
+        s = pd.concat([top, pd.Series({N_("Other"): float(s.iloc[DONUT_MAX_SLICES - 1:].sum())})])
+    total = float(s.sum())
+    r, width, size = 52.0, 17, 132
+    circ = 2 * math.pi * r
+    gap = 2.0 if len(s) > 1 else 0.0
+    arcs, rows, start = [], [], 0.0
+    for i, (label, value) in enumerate(s.items()):
+        color = _DONUT_PALETTE[i % len(_DONUT_PALETTE)]
+        length = float(value) / total * circ
+        dash = max(length - gap, 0.6)
+        arcs.append(f'<circle cx="66" cy="66" r="{r}" fill="none" stroke="{color}" stroke-width="{width}" '
+                    f'stroke-dasharray="{dash:.2f} {circ:.2f}" stroke-dashoffset="{-start:.2f}"/>')
+        start += length
+        name = tr(str(label))
+        tip = _html_attr(f"{name} · {fmt_money(float(value), 'EUR', 0)}")
+        rows.append(f'<div title="{tip}" style="display:flex;align-items:center;gap:8px;min-width:0;">'
+                    f'<span style="width:8px;height:8px;border-radius:4px;background:{color};flex:none;"></span>'
+                    f'<span style="flex:1;min-width:0;font-size:11.5px;color:var(--muted);white-space:nowrap;'
+                    f'overflow:hidden;text-overflow:ellipsis;">{_html_mod.escape(name)}</span>'
+                    f'<span style="font-family:var(--uv-mono);font-size:11.5px;color:var(--text);flex:none;">'
+                    f'{fmt_pct(float(value) / total * 100)}</span></div>')
+    svg = (f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" style="display:block;'
+           f'transform:rotate(-90deg);" aria-hidden="true">{"".join(arcs)}</svg>')
+    centre = (f'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;'
+              f'justify-content:center;"><span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
+              f'color:var(--muted);">{h_("Total")}</span><span style="font-family:var(--uv-mono);font-size:14px;'
+              f'font-weight:500;margin-top:2px;">{_html_mod.escape(short_total(total))}</span></div>')
+    return (f'<div style="display:flex;align-items:center;gap:18px;margin-top:6px;">'
+            f'<div style="position:relative;width:{size}px;height:{size}px;flex:none;">{svg}{centre}</div>'
+            f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">{"".join(rows)}</div></div>')
+
+
+def dividend_row_html(*, name: str, ex_date, pay_date, net: float, gross: float) -> str:
+    """One upcoming dividend: a 38px date block (day, month), the company,
+    "ex-date · pays {date}" (or just "ex-date" when the payment date isn't
+    known yet), and the estimated net with the gross under it."""
+    import html as _html_mod
+    ex = pd.Timestamp(ex_date)
+    month = fmt_date(ex, skeleton="MMM")
+    sub = (h_("ex-date · pays {date}", date=fmt_date(pd.Timestamp(pay_date), skeleton="MMMd"))
+           if pay_date is not None and pd.notna(pay_date) and pd.Timestamp(pay_date) >= ex else h_("ex-date"))
+    return (f'<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:0.5px solid var(--line-2);">'
+            f'<div style="width:38px;flex:none;text-align:center;line-height:1.1;">'
+            f'<div style="font-family:var(--uv-mono);font-size:15px;font-weight:500;">{ex.day}</div>'
+            f'<div style="font-size:9px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
+            f'{_html_mod.escape(month)}</div></div>'
+            f'<div style="flex:1;min-width:0;"><div style="font-size:12.5px;white-space:nowrap;overflow:hidden;'
+            f'text-overflow:ellipsis;">{_html_mod.escape(name)}</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:10.5px;color:var(--muted);margin-top:2px;">{sub}</div></div>'
+            f'<div style="text-align:right;flex:none;">'
+            f'<div style="font-family:var(--uv-mono);font-size:12.5px;color:var(--up-txt);">{fmt_money(net, "EUR", 0)}</div>'
+            f'<div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);">'
+            f'{h_("{amount} gross", amount=fmt_money(gross, "EUR", 0))}</div></div></div>')
+
+
+def mover_row_html(*, ticker: str, name: str, change_pct: float, max_abs: float) -> str:
+    """One Top movers row: ticker, name, a 52x22 diverging bar (up to the
+    right of the centre line, down to the left) and the day's change chip."""
+    import html as _html_mod
+    up = change_pct >= 0
+    half = min(1.0, abs(change_pct) / (max_abs or 1.0)) * 25
+    color = "var(--up-txt)" if up else "var(--down-txt)"
+    bar_left = 26 if up else 26 - half
+    bar = (f'<svg width="52" height="22" viewBox="0 0 52 22" style="flex:none;display:block;" aria-hidden="true">'
+           f'<rect x="{bar_left:.1f}" y="7" width="{max(half, 0.8):.1f}" height="8" rx="2" style="fill:{color};"/>'
+           f'<line x1="26" y1="2" x2="26" y2="20" style="stroke:var(--axis);" stroke-width="1"/></svg>')
+    return (f'<div style="display:flex;align-items:center;gap:10px;">'
+            f'<span style="width:64px;flex:none;font-family:var(--uv-mono);font-size:12px;font-weight:500;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_html_mod.escape(ticker)}</span>'
+            f'<span style="flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;'
+            f'text-overflow:ellipsis;">{_html_mod.escape(name)}</span>{bar}'
+            f'<span style="width:64px;text-align:right;flex:none;">'
+            f'{chip_html(fmt_pct(change_pct, 2, signed=True), up)}</span></div>')
 
 
 # ── KPI card ─────────────────────────────────────────────────────────────────
@@ -399,13 +533,18 @@ KPI_ICONS = {
 }
 
 
+KPI_VALUE_SIZES = {"lg": (26, 10), "md": (23, 9)}
+
+
 def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True,
             sub: str = "", icon: str = "wallet", value_color: str = "var(--text)",
-            delta_style: str | None = None) -> None:
+            delta_style: str | None = None, size: str = "lg") -> None:
     """One headline-number card: icon+label, a large mono value, and an
     optional colored delta + grey sub-caption — matches Uvalu.dc.html's KPI
     tile exactly. `delta_text`/`sub` may be left empty for a plain value-only
-    card (e.g. a count with nothing to compare it against)."""
+    card (e.g. a count with nothing to compare it against). ``size``: "lg"
+    (26px value, Dashboard) or "md" (23px, Portfolio, Cash and Dividends)."""
+    _value_px, _value_gap = KPI_VALUE_SIZES[size]
     _icon_svg = (f'<svg width="13" height="13" style="flex:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                 f'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{KPI_ICONS.get(icon, "")}'
                 f'</svg>')
@@ -422,7 +561,7 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     # tile keeps the same shape whatever the language's text length.
     _sub_title = re.sub(r"<[^>]+>", "", sub).replace('"', "&quot;")
     _delta_row = (f'<span style="flex:none;display:inline-flex;">{_delta_html}</span>' if _delta_html else "") + (
-        f'<span title="{_sub_title}" style="font-size:11px;color:var(--faint);min-width:0;white-space:nowrap;'
+        f'<span title="{_sub_title}" style="font-size:11px;color:var(--muted);min-width:0;white-space:nowrap;'
         f'overflow:hidden;text-overflow:ellipsis;">{sub}</span>')
     # min-height on the delta row — the chip (padding:2px 7px around 11.5px
     # text, ~22px tall) is taller than the plain sub-caption span alone, so
@@ -431,9 +570,9 @@ def kpi_card(label: str, value: str, delta_text: str = "", positive: bool = True
     # st.columns() row, since each card's height is purely content-driven.
     st.markdown(f"""
 <div style="background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);">
-  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);font-weight:500;">
+  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);font-weight:500;">
     {_icon_svg}<span title="{re.sub(r"<[^>]+>", "", label).replace('"', "&quot;")}" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{label}</span></div>
-  <div style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;margin-top:10px;line-height:1;color:{value_color};">{value}</div>
+  <div style="font-family:var(--uv-mono);font-size:{_value_px}px;font-weight:500;letter-spacing:-0.02em;margin-top:{_value_gap}px;line-height:1;color:{value_color};">{value}</div>
   <div style="margin-top:9px;min-height:22px;display:flex;align-items:center;gap:8px;">{_delta_row}</div>
 </div>""", unsafe_allow_html=True)
 
@@ -450,12 +589,64 @@ def _ladder_bar_color(delta_pct: float) -> str:
     """3-tier band matching fair_value_bar_compact's Undervalued/Near
     fair/Overvalued legend — kept in sync so a model bar and a table's
     compact bar never disagree about what counts as "near fair"."""
+    # Brand §8: three clearly different hues (two greens side by side can't
+    # be told apart); amber, not red — red is reserved for a failed quality
+    # screen (brand §4).
     if delta_pct > _NEAR_FAIR_BAND:
-        return "var(--uv-mint)"
+        return "var(--up-txt)"
     if delta_pct >= -_NEAR_FAIR_BAND:
-        return "var(--teal, #1A8C6E)"
-    # Amber, not red: red is reserved for a failed quality screen (brand §4).
-    return "var(--amber-fill, #C98A3A)"
+        return "var(--axis)"
+    return "var(--amber-fill)"
+
+
+# ── Score bands and margin-of-safety colour ──────────────────────────────────
+# One scale for every 0-100 model score (composite and sub-scores): the upper
+# band starts at the shared Undervalued threshold (Settings › Model settings,
+# default 70), the middle band at the Low score floor (screener.SCORE_AVOID).
+# Never red: red means a failed quality screen.
+
+def _upper_threshold() -> float:
+    from settings import get_veto_thresholds
+    return float(get_veto_thresholds()[3])
+
+
+def score_band(score: float, upper: "float | None" = None) -> str:
+    """"upper", "middle" or "lower" for a 0-100 model score."""
+    from screener import SCORE_AVOID
+    upper = _upper_threshold() if upper is None else upper
+    return "upper" if score >= upper else "middle" if score >= SCORE_AVOID else "lower"
+
+
+def score_band_label(score: "float | None", *, excluded: bool = False, upper: "float | None" = None) -> str:
+    """Where a score sits on the model scale, no verdict words (PER-4):
+    "Upper band · 70–100", "Middle band · 40–69", "Lower band · 0–39";
+    "Excluded · fails quality screen" for a failed screen and "No signal · no
+    peer reference" without a score."""
+    from screener import SCORE_AVOID
+    if excluded:
+        return h_("Excluded · fails quality screen")
+    if score is None or pd.isna(score):
+        return h_("No signal · no peer reference")
+    upper = _upper_threshold() if upper is None else upper
+    hi, lo = fmt_num(upper, 0), fmt_num(SCORE_AVOID, 0)
+    band = score_band(float(score), upper)
+    if band == "upper":
+        return h_("Upper band · {low}–{high}", low=hi, high=fmt_num(100, 0))
+    if band == "middle":
+        return h_("Middle band · {low}–{high}", low=lo, high=fmt_num(upper - 1, 0))
+    return h_("Lower band · {low}–{high}", low=fmt_num(0, 0), high=fmt_num(SCORE_AVOID - 1, 0))
+
+
+_BAND_BAR = {"upper": "var(--mint)", "middle": "var(--teal)", "lower": "var(--amber-fill)"}
+
+
+def mos_text_color(mos_pct: "float | None") -> str:
+    """Margin-of-safety text: --up-txt from 15%, plain text from 0%, amber
+    below — never red (a price above a model estimate is not a failure)."""
+    if mos_pct is None or pd.isna(mos_pct):
+        return "var(--muted)"
+    mos_pct = float(mos_pct)
+    return "var(--up-txt)" if mos_pct >= 15 else "var(--text)" if mos_pct >= 0 else "var(--amber-txt)"
 
 
 def _is_live(v) -> bool:
@@ -605,23 +796,23 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
             # FV-6: a dark row shows *why* in the (otherwise meaningless) bar
             # slot, with the full phrase on hover, instead of a bare empty track.
             why = (reasons or {}).get(label)
-            slot = (f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);"></div>'
+            slot = (f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:4px;background:var(--uv-track,#EEF1F5);"></div>'
                     if not why else
                     f'<span style="width:{bar_width}px;flex:none;font-size:9.5px;line-height:1.15;'
-                    f'color:var(--faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{why}</span>')
+                    f'color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{why}</span>')
             _t = f' title="{why}"' if why else ''
             return (f'<div{_t} style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
                    f'<span style="flex:1;font-size:12.5px;color:var(--muted);">{tr(label)}</span>'
                    f'{slot}'
-                   f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;color:var(--faint);">–</span>'
-                   f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:var(--faint);">–</span></div>')
+                   f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;color:var(--muted);">–</span>'
+                   f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:var(--muted);">–</span></div>')
         value = float(value)
         delta_pct = (value - price) / value * 100
         color = _ladder_bar_color(delta_pct)
         return (f'<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--line-2);">'
                f'<span style="flex:1;font-size:12.5px;color:var(--muted);">{tr(label)}</span>'
-               f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:3px;background:var(--uv-track,#EEF1F5);position:relative;">'
-               f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
+               f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:4px;background:var(--uv-track,#EEF1F5);position:relative;">'
+               f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:4px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
                f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{fmt_money(value, ccy, 0)}</span>'
                f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{color};">{fmt_pct(delta_pct, signed=True)}</span></div>')
 
@@ -641,13 +832,13 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
         # column at 2dp), so it can show full 2-decimal precision safely.
         composite_html = (f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">'
                           f'<span style="flex:1;font-size:12.5px;font-weight:600;">{tr(composite_label)}</span>'
-                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--mint);">{fmt_money(composite, ccy)}</span></div>')
+                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
 
     # FV-6: "basis" line — how many sub-models actually back the composite, and a
     # muted flag when that's a weakly-corroborated one (fv_basis_thin).
     basis_html = ""
     if basis_count is not None and not pd.isna(basis_count):
-        _c = "var(--uv-neg-txt)" if basis_thin else "var(--faint)"
+        _c = "var(--amber-txt)" if basis_thin else "var(--muted)"
         _tail = h_("· lightly corroborated") if basis_thin else ""
         _sep = " " if _tail else ""
         basis_html = (f'<div style="padding:2px 0 0;font-size:10.5px;color:{_c};">'
@@ -670,9 +861,9 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
         if data_thin:
             _tip = _html_attr(_("Fair value pending: this holding's fundamentals record came back incomplete and is being refetched"))
             return (f'<span title="{_tip}" style="font:500 10px var(--uv-mono);'
-                    'color:var(--uv-muted,var(--muted));border:0.5px solid var(--line);'
-                    f'border-radius:5px;padding:1px 7px;white-space:nowrap;">{h_("fv pending")}</span>')
-        return '<span style="color:var(--uv-faint,var(--faint));">—</span>'
+                    'color:var(--muted);border:0.5px solid var(--line);'
+                    f'border-radius:6px;padding:1px 7px;white-space:nowrap;">{h_("fv pending")}</span>')
+        return '<span style="color:var(--muted);">—</span>'
     price, fair_value, mos_pct = float(price), float(fair_value), float(mos_pct)
     ccy = ccy_code(currency)
     color = _ladder_bar_color(mos_pct)
@@ -680,8 +871,8 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
     price_pct = min(100.0, price / scale * 100)
     fair_pct = min(100.0, fair_value / scale * 100)
     # Single-line — see the matching note in holdings_row_html().
-    return (f'<div style="display:flex;justify-content:space-between;font:500 10.5px var(--uv-mono);margin-bottom:5px">'
-           f'<span>{fmt_money(price, ccy)}</span><span style="color:var(--uv-muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
+    return (f'<div style="display:flex;justify-content:space-between;font:400 10.5px var(--uv-mono);margin-bottom:5px">'
+           f'<span style="color:var(--text)">{fmt_money(price, ccy)}</span><span style="color:var(--muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
            f'<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">'
            f'<div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>'
            f'<div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);'
@@ -714,7 +905,7 @@ def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: floa
 # align-items:center handles vertical centering natively. The one thing this
 # can't do is a native onClick, so the caller renders this in a wide column
 # next to a normal narrow st.button("→", ...) column for the drawer link.
-HOLDINGS_GRID_COLS = "210px 140px 1fr 82px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
+HOLDINGS_GRID_COLS = "210px 140px 1fr 106px 66px 108px 96px"   # signal column 140px: descriptive labels (BDG-1)
 
 
 def holdings_row_html(*, ticker: str, sector: str | None, name: str,
@@ -741,27 +932,29 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
     name = _name_html(name)
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
-                   f"border-radius:5px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
+                   f"border-radius:6px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
                    if sector and pd.notna(sector) else "")
     badge_html = model_signal_badge_html(signal_code, veto=veto)
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
-        _mos_color = "var(--up-txt)" if mos_pct >= 0 else "var(--down-txt)"
         mos_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                    f"color:{_mos_color};'>{fmt_pct(mos_pct, signed=True)}</span>")
+                    f"color:{mos_text_color(mos_pct)};'>{fmt_pct(mos_pct, signed=True)}</span>")
     elif data_thin:
         mos_html = (f"<span title='{_html_attr(_('Margin of safety pending, no fair value yet'))}' "
                     f"style='color:var(--muted);font-family:var(--uv-mono);font-size:11px;'>{h_('pending')}</span>")
     else:
-        mos_html = "<span style='color:var(--faint);'>—</span>"
-    if total_gain is not None and pd.notna(total_gain):
-        total_gain = float(total_gain)
-        _gain_color = "var(--up-txt)" if total_gain >= 0 else "var(--down-txt)"
-        gain_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                    f"color:{_gain_color};'>{fmt_money(total_gain, 'EUR', signed=True)}</span>")
+        mos_html = "<span style='color:var(--muted);'>—</span>"
+    _cost = (float(value) - float(total_gain)) if total_gain is not None and pd.notna(total_gain) else None
+    if _cost and _cost > 0:
+        # A % chip against the average cost (mockup), the € amount in the tooltip.
+        _gain_pct = float(total_gain) / _cost * 100
+        _tip = _html_attr(_("Unrealised result against your average cost")
+                          + f" · {fmt_money(float(total_gain), 'EUR', signed=True)}")
+        gain_html = (f"<span title='{_tip}'>"
+                     f"{chip_html(fmt_pct(_gain_pct, 1, signed=True), _gain_pct >= 0)}</span>")
     else:
-        gain_html = "<span style='color:var(--faint);'>—</span>"
+        gain_html = "<span style='color:var(--muted);'>—</span>"
     if price_stale:
         gain_html = (f"<span title='{_html_attr(_('Delayed quote — not a live intraday price'))}' "
                     f"style='opacity:0.45;'>{gain_html}</span>")
@@ -777,7 +970,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     # wrong. Collapsing to one line fixed it outright.
     return (f'<div style="display:grid;grid-template-columns:{grid_cols or HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
-           f'<span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;">{ticker}</span>{sector_html}</div>'
+           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
            f'<div>{badge_html}</div>'
@@ -790,22 +983,22 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
 
 def _score_bar_cell_html(score: float | None) -> str:
     """Compact progress bar + number for a stock-list row's Score cell.
-    Matches Uvalu.dc.html's scoreFill/scoreColor exactly: the bar is a 3-tier
-    mint/teal/amber scale (>=75/>=55/below — never red, this is a composite
-    Value Score where higher is always better, not a risk scale) while the
-    number itself is only ever mint (>=75) or the default text color."""
+    Matches Uvalu.dc.html's scoreFill/scoreColor: the bar follows the score
+    bands (score_band: mint / teal / amber, never red) while the number is
+    --up-txt in the upper band and plain text otherwise."""
     if score is None or pd.isna(score):
         return "—"
     # Banded on the shown (rounded) number: 74.6 printed "75" in plain text
     # next to a real 75 in mint.
     score = float(round(float(score)))
-    bar_color = "var(--uv-mint)" if score >= 75 else "var(--teal, #1A8C6E)" if score >= 55 else "#C98A3A"
-    text_color = "var(--uv-mint)" if score >= 75 else "var(--text, inherit)"
+    band = score_band(score)
+    bar_color = _BAND_BAR[band]
+    text_color = "var(--up-txt)" if band == "upper" else "var(--text)"
     pct = max(0.0, min(100.0, score))
     return f"""
 <div style="display:flex;align-items:center;gap:7px;">
-  <div style="flex:1;height:5px;border-radius:3px;background:var(--uv-track);position:relative;">
-    <div style="position:absolute;left:0;top:0;height:5px;border-radius:3px;background:{bar_color};width:{pct:.0f}%;"></div>
+  <div style="flex:1;height:5px;border-radius:4px;background:var(--uv-track);position:relative;">
+    <div style="position:absolute;left:0;top:0;height:5px;border-radius:4px;background:{bar_color};width:{pct:.0f}%;"></div>
   </div>
   <span style="font-family:var(--uv-mono);font-size:13px;font-weight:500;color:{text_color};flex:none;">{fmt_num(score, 0)}</span>
 </div>"""
@@ -815,7 +1008,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
              veto: bool, score: float | None, mos_pct: float | None, price: float | None,
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
-             action_disabled: bool = False, widths: list | None = None) -> dict:
+             action_disabled: bool = False, widths: list | None = None,
+             rank: "int | None" = None, show_remove: bool = False, remove_help: str = "") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -845,9 +1039,14 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     so it needs the same Viewer-role gate every other write action in the
     app already has (portfolio.py's Add/Edit/Sell, drawer.py's Edit/Sell/Add).
 
-    Returns {"view": bool, "action": bool}: `view` fires on clicking
-    anywhere on the row (caller opens the drawer); `action` fires on the
-    star (Screener: toggle watchlist membership; Watchlist: remove).
+    `rank` adds a "#" column after the star (Screener: the row's place in
+    the current sort); `show_remove` adds a trailing "×" column (Watchlist,
+    which shows no star). `exchange` is the venue's short code (PAR, XET …,
+    formatting.exchange_code).
+
+    Returns {"view": bool, "action": bool, "remove": bool}: `view` fires on
+    clicking anywhere on the row (caller opens the drawer); `action` on the
+    star (Screener: toggle watchlist membership); `remove` on the "×".
     """
     name = _name_html(name)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
@@ -858,7 +1057,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     _css_key = key.replace(".", "-")
     with st.container(key=key):
         if show_action:
-            _action_color = "var(--uv-mint)" if action_active else "var(--uv-muted, #5F5E5A)"
+            _action_color = "var(--up-txt)" if action_active else "var(--muted)"
             # A per-row <style>-only markdown block is otherwise an unmarked
             # "invisible utility element" — it still counts as a sibling in
             # this row's own vertical block and eats a full ~16px flex gap
@@ -868,7 +1067,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             with st.container(key=f"uv_hidden_util_{_css_key}_action"):
                 st.markdown(f"<style>.st-key-{_css_key}_action button {{ color: {_action_color} !important; }}</style>",
                            unsafe_allow_html=True)
-        _widths = widths or [0.5, 3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9]
+        _widths = widths or ([0.5] * show_action + [0.32] * (rank is not None)
+                             + [3.0, 1.0, 1.5, 1.0, 0.9, 0.8, 0.9] + [0.32] * show_remove)
         _cols = st.columns(_widths, vertical_alignment="center")
         _i = 0
         if show_action:
@@ -876,19 +1076,23 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
                 _action_clicked = st.button("★", key=f"{key}_action", type="tertiary",
                                             help=(_("Viewer role is read-only") if action_disabled else action_help),
                                             disabled=action_disabled)
+            _i += 1
         else:
             _action_clicked = False
-        _i += 1
+        if rank is not None:
+            with _cols[_i]:
+                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12px;"
+                            f"color:var(--muted);'>{fmt_int(rank)}</div>", unsafe_allow_html=True)
+            _i += 1
         with _cols[_i], st.container(key=f"{_css_key}_name_cell"):
-            # Plain small mono text (Uvalu.dc.html's r.exch: 9px, var(--faint),
-            # no border/background) — not a bordered pill; that was this
-            # component's own embellishment, not part of the design spec.
+            # Plain small mono text (Uvalu.dc.html's r.exch: the venue code,
+            # 9px, --muted, no border/background) — not a bordered pill.
             # pd.notna(), not a bare truthiness check — a manually-added
             # watchlist ticker's Exchange comes back as an actual NaN float
             # (not "" or None) when it doesn't match one of the tracked
             # exchanges, and NaN is truthy in Python, so `if exchange` let
             # the literal string "nan" through (confirmed live: "BDC nan").
-            _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);"
+            _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);"
                          f"margin-left:8px;'>{exchange}</span>" if exchange and pd.notna(exchange) else "")
             # Two explicit block divs (matching holdings_row_html's proven
             # compact ticker/name layout), not a <br>-separated pair of
@@ -911,10 +1115,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
         _i += 1
         with _cols[_i]:
             if mos_pct is not None and pd.notna(mos_pct):
-                # 3-tier upCol scale from Uvalu.dc.html: mint >=15% upside, plain
-                # text 0-14% (priced near/at fair value), red only when negative.
-                _mos_color = ("var(--uv-mint)" if mos_pct >= 15
-                             else "var(--text, inherit)" if mos_pct >= 0 else "var(--down-txt)")
+                # 3-tier upCol scale from Uvalu.dc.html (mos_text_color).
+                _mos_color = mos_text_color(mos_pct)
                 # Matches Uvalu.dc.html's r.mos exactly: 13px, weight 500
                 # (not the plain 400-weight the other numeric cells use —
                 # upside is the one figure this table wants to read as
@@ -952,8 +1154,15 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
         # to just the ticker/name cell). The leading star stays independently
         # clickable via a higher z-index (styles.py), so this can't swallow
         # its clicks despite sitting on top of the whole row.
+        _remove_clicked = False
+        if show_remove:
+            _i += 1
+            with _cols[_i]:
+                _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary",
+                                            help=(_("Viewer role is read-only") if action_disabled else remove_help),
+                                            disabled=action_disabled)
         _view_clicked = st.button(_("View"), key=f"{key}_view", type="tertiary")
-    return {"view": _view_clicked, "action": _action_clicked}
+    return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
 
 
 def empty_results_html(message: str) -> str:
@@ -962,7 +1171,7 @@ def empty_results_html(message: str) -> str:
     Streamlit's default st.info() alert banner. Wrap the caller's table in
     st.container(border=True) so this renders as one bordered panel like the
     header/rows it replaces would have."""
-    return f'<div style="padding:48px 20px;text-align:center;color:var(--faint);font-size:13px;">{message}</div>'
+    return f'<div style="padding:48px 20px;text-align:center;color:var(--muted);font-size:13px;">{message}</div>'
 
 
 def loading_skeleton_html(message: str, *, n_rows: int = 6) -> str:
@@ -978,7 +1187,7 @@ def loading_skeleton_html(message: str, *, n_rows: int = 6) -> str:
     )
     return (
         f'<div style="padding:22px 20px 8px;">'
-        f'<div style="font-size:13px;color:var(--faint);margin-bottom:6px;">{message}</div>'
+        f'<div style="font-size:13px;color:var(--muted);margin-bottom:6px;">{message}</div>'
         f'{_bars}</div>'
     )
 
@@ -1010,7 +1219,7 @@ def skeleton_holdings_row_html(grid_cols: str | None = None) -> str:
         '<div><div class="uv-skel-bar" style="width:76px;height:11px;margin:0;"></div>'
         '<div class="uv-skel-bar" style="width:130px;height:9px;margin:8px 0 0;"></div></div>'
         '<div class="uv-skel-bar" style="width:48px;height:18px;margin:0;border-radius:6px;"></div>'
-        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:4px;"></div>'
         '<div class="uv-skel-bar" style="width:42px;height:11px;margin:0 0 0 auto;"></div>'
         '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
         '<div class="uv-skel-bar" style="width:56px;height:11px;margin:0 0 0 auto;"></div>'
@@ -1153,7 +1362,7 @@ def skeleton_risk_holding_row_html(grid_cols: str | None = None) -> str:
         '<div class="uv-skel-bar" style="width:36px;height:11px;margin:0 0 0 auto;"></div>'
         '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
         '<div class="uv-skel-bar" style="width:28px;height:11px;margin:0 0 0 auto;"></div>'
-        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:3px;"></div>'
+        '<div class="uv-skel-bar" style="width:100%;height:6px;margin:0;border-radius:4px;"></div>'
         '<div class="uv-skel-bar" style="width:50px;height:11px;margin:0;"></div>'
         '</div>'
     )
@@ -1223,13 +1432,13 @@ def fair_value_legend_html() -> str:
         return (f'<span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">'
                 f'{swatch}{label}</span>')
     def _box(color: str) -> str:
-        return (f'<span style="width:8px;height:8px;border-radius:2px;background:{color};'
+        return (f'<span style="width:8px;height:8px;border-radius:4px;background:{color};'
                 f'display:inline-block;"></span>')
     return ('<span class="uv-fv-legend" style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 14px;'
             'font-size:11.5px;color:var(--muted);">'
-            + _item(_box("var(--mint)"), h_("Below model fair value"))
-            + _item(_box("var(--teal)"), h_("Near model fair value"))
-            + _item(_box("var(--amber-fill, #C98A3A)"), h_("Above model fair value"))
+            + _item(_box("var(--up-txt)"), h_("Below model fair value"))
+            + _item(_box("var(--axis)"), h_("Near model fair value"))
+            + _item(_box("var(--amber-fill)"), h_("Above model fair value"))
             + _item('<span style="width:12px;height:0;border-top:1.5px dashed var(--axis);display:inline-block;"></span>',
                     h_("Model fair value"))
             + '</span>')
@@ -1251,7 +1460,7 @@ def signals_feed(items: list[tuple[str, str, str]]) -> None:
     rows_html = "".join(f"""
 <div style="display:flex;gap:9px;align-items:flex-start;margin-top:11px">
   <span style="margin-top:5px;width:7px;height:7px;border-radius:50%;background:{color};flex:none"></span>
-  <div style="font:400 12px/1.45 -apple-system,sans-serif;color:var(--uv-muted)">
+  <div style="font:400 12px/1.45 -apple-system,sans-serif;color:var(--muted)">
     <b style="color:var(--uv-navy)">{entity}</b> {message}
   </div>
 </div>""" for color, entity, message in items)
@@ -1272,8 +1481,8 @@ def signals_feed(items: list[tuple[str, str, str]]) -> None:
 # risk.SCORE_ELEVATED (70).
 _RISK_TONE_COLORS = {
     "low":      ("#1DD6A4", "#0F6E56", "#1DD6A4"),
-    "moderate": ("#C98A3A", "#C98A3A", "#C98A3A"),
-    "elevated": ("#C98A3A", "#C98A3A", "#C98A3A"),
+    "moderate": ("#C98A3A", "#854F0B", "#E0B94D"),
+    "elevated": ("#C98A3A", "#854F0B", "#E0B94D"),
     "high":     ("#A32D2D", "#A32D2D", "#F0A6A6"),
     "critical": ("#A32D2D", "#A32D2D", "#F0A6A6"),
 }
@@ -1304,7 +1513,7 @@ def band_tone_color(tone: str, dark: bool = False) -> str:
     same scale as the composite gauge instead of flat grey."""
     entry = _RISK_TONE_COLORS.get(tone)
     if entry is None:
-        return "var(--faint)"
+        return "var(--muted)"
     return entry[2] if dark else entry[1]
 
 
@@ -1331,8 +1540,8 @@ def risk_score_meter_html(score: float, label: str, *, dark: bool = False,
         f'#1DD6A4 0%,#1DD6A4 {SCORE_LOW}%,#C98A3A {SCORE_LOW}%,#C98A3A {SCORE_ELEVATED}%,'
         f'#A32D2D {SCORE_ELEVATED}%,#A32D2D 100%);position:relative;opacity:0.85;">'
         f'<div style="position:absolute;left:{marker:.1f}%;top:-3px;width:3px;height:13px;'
-        f'border-radius:2px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div></div>'
-        f'<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);'
+        f'border-radius:4px;background:var(--text);box-shadow:0 0 0 2px var(--panel);"></div></div>'
+        f'<div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);'
         f'margin-top:5px;font-family:var(--uv-mono);"><span>{h_("LOW")}</span><span>{h_("MODERATE")}</span><span>{h_("HIGH")}</span></div>'
     )
 
@@ -1365,22 +1574,22 @@ def quality_score_color(value: float) -> tuple[str, str]:
     Analysis screen's Value/Quality/Momentum/Financial health/Dividend safety
     breakdown, where a high number is always good. The opposite sense of
     score_color's risk scale (there, low is good); mixing the two up made a
-    strong 85/100 quality score render red. Matches Uvalu.dc.html's subScores
-    coloring exactly: mint >=70, teal >=45, amber below — never red, since
-    these are components of a score that's already risk-adjusted elsewhere.
+    strong 85/100 quality score render red. (bar, text) on the score bands:
+    mint / teal / amber bars, --up-txt / plain text / --amber-txt numbers
+    (G34: plain text, not the mockup's link colour, for the middle band) —
+    never red, since these are components of a score that's already
+    risk-adjusted elsewhere.
     """
-    if value >= 70:
-        return "var(--uv-mint)", "var(--uv-mint)"
-    if value >= 45:
-        return "var(--teal, #1A8C6E)", "var(--teal, #1A8C6E)"
-    return "#C98A3A", "#C98A3A"
+    band = score_band(value)
+    return _BAND_BAR[band], {"upper": "var(--up-txt)", "middle": "var(--text)", "lower": "var(--amber-txt)"}[band]
 
 
-def sub_score_bar_html(label: str, value: float, color: str | None = None) -> str:
+def sub_score_bar_html(label: str, value: float, color: "str | tuple[str, str] | None" = None) -> str:
     """One label/value/bar row for a sub-score list — matches the Analysis
     screen's Signal sub-scores spec (baseline-aligned 12.5px label/value,
     7px bar), its only caller today."""
-    bar_color, text_color = score_color(value) if color is None else (color, color)
+    bar_color, text_color = (score_color(value) if color is None else
+                             color if isinstance(color, tuple) else (color, color))
     return f"""
 <div style="margin-bottom:14px;">
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
@@ -1436,7 +1645,7 @@ def _gain_color(v: float | None) -> str:
     bare color instead of a full pill (these cells aren't pills in the spec,
     just colored mono text)."""
     if v is None or pd.isna(v):
-        return "var(--faint)"
+        return "var(--muted)"
     return "var(--up-txt)" if float(v) >= 0 else "var(--down-txt)"
 
 
@@ -1474,7 +1683,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
-                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--muted) !important; }}"
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
@@ -1519,7 +1728,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                 _inc_gross_str = (h_("{amount} gr", amount=fmt_num(income_12m_gross, 0)) if income_12m_gross is not None
                                   and pd.notna(income_12m_gross) else "")
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>"
-                           f"{_inc_str}<div style='font-size:10px;color:var(--faint);'>{_inc_gross_str}</div></div>",
+                           f"{_inc_str}<div style='font-size:10px;color:var(--muted);'>{_inc_gross_str}</div></div>",
                            unsafe_allow_html=True)
             with _cols[8]:
                 _yld_str = fmt_pct(ttm_yield_pct)
@@ -1527,7 +1736,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f"color:var(--muted);'>{_yld_str}</div>", unsafe_allow_html=True)
             with _cols[9]:
                 _yoc_str = fmt_pct(yoc_pct)
-                _yoc_color = "var(--uv-mint)" if yoc_pct is not None and pd.notna(yoc_pct) and yoc_pct >= 4 else "inherit"
+                _yoc_color = "var(--up-txt)" if yoc_pct is not None and pd.notna(yoc_pct) and yoc_pct >= 4 else "inherit"
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
                            f"font-weight:500;color:{_yoc_color};'>{_yoc_str}</div>", unsafe_allow_html=True)
             _next = 10
@@ -1535,8 +1744,8 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
             _w = max(0.0, min(100.0, float(weight_pct) * 3.2)) if weight_pct is not None and pd.notna(weight_pct) else 0.0
             _weight_str = fmt_pct(weight_pct)
             st.markdown(f"<div style='display:flex;align-items:center;gap:8px;'>"
-                       f"<div style='flex:1;height:6px;border-radius:3px;background:var(--uv-track,#EEF1F5);'>"
-                       f"<div style='height:6px;border-radius:3px;width:{_w:.1f}%;background:var(--uv-mint);'></div></div>"
+                       f"<div style='flex:1;height:6px;border-radius:4px;background:var(--uv-track,#EEF1F5);'>"
+                       f"<div style='height:6px;border-radius:4px;width:{_w:.1f}%;background:var(--teal);'></div></div>"
                        f"<span style='font-family:var(--uv-mono);font-size:11px;color:var(--muted);width:34px;"
                        f"text-align:right;'>{_weight_str}</span></div>", unsafe_allow_html=True)
         if show_edit:
@@ -1563,7 +1772,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
-                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--muted) !important; }}"
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
@@ -1572,7 +1781,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
                        f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
-                       f"<div style='font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap;"
+                       f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
                        f"overflow:hidden;text-overflow:ellipsis;'>{h_('{name} · closed {date}', name=name, date=fmt_date(closed_date, skeleton='yMMM'))}</div></div>",
                        unsafe_allow_html=True)
         with _cols[1]:
@@ -1607,7 +1816,8 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            show_edit: bool = False, edit_disabled: bool = False,
                            show_breakdown: bool = False, tax: float | None = None,
                            net: float | None = None, reinvested: bool = False,
-                           widths: list | None = None) -> dict:
+                           widths: list | None = None, gross: float | None = None,
+                           div_type: str | None = None) -> dict:
     """One dividend-payment row — flat list item, never opens the drawer;
     `show_edit` adds a trailing edit-pencil button (the full Dividends
     received page only, not the Overview preview). `show_breakdown` swaps
@@ -1630,16 +1840,16 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
     with st.container(key=key):
         if show_edit:
             with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
-                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+                st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--muted) !important; }}"
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
         if show_breakdown:
             with _cols[0]:
-                _drip = f' <span style="color:var(--faint);">{h_("· DRIP")}</span>' if reinvested else ""
+                _drip = f' <span style="color:var(--muted);">{h_("· DRIP")}</span>' if reinvested else ""
                 st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
                            f"overflow:hidden;text-overflow:ellipsis;'>{name}{_drip}</div><div style='font-size:10.5px;"
-                           f"color:var(--faint);font-family:var(--uv-mono);'>{ticker}</div></div>",
+                           f"color:var(--muted);font-family:var(--uv-mono);'>{ticker}</div></div>",
                            unsafe_allow_html=True)
             with _cols[1]:
                 st.markdown(f"<div style='font-size:12px;color:var(--muted);'>{fmt_date(date)}</div>",
@@ -1652,17 +1862,30 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                            f"color:var(--down-txt);'>{_money(-tax) if tax else '—'}</div>", unsafe_allow_html=True)
             with _cols[4]:
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:var(--mint);'>{_money(net)}</div>", unsafe_allow_html=True)
+                           f"font-weight:500;color:var(--up-txt);'>{_money(net)}</div>", unsafe_allow_html=True)
             _edit_col = 5
         else:
+            # Overview preview: name + type chip, "{TICKER} · paid {date}";
+            # net with the gross under it.
+            _chip = ""
+            if div_type and isinstance(div_type, str):
+                _chip_style = ("background:var(--amber-bg);color:var(--amber-txt);" if div_type == "Special" else
+                               "color:var(--muted);border:0.5px solid var(--line);")
+                _chip = (f" <span style='font-size:9.5px;font-family:var(--uv-mono);padding:1px 6px;border-radius:6px;"
+                         f"white-space:nowrap;{_chip_style}'>{_html_attr(tr(div_type))}</span>")
             with _cols[0]:
                 st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
-                           f"overflow:hidden;text-overflow:ellipsis;'>{name}</div><div style='font-size:10.5px;"
-                           f"color:var(--faint);font-family:var(--uv-mono);'>{ticker} · {fmt_date(date)}</div></div>",
+                           f"overflow:hidden;text-overflow:ellipsis;'>{name}{_chip}</div><div style='font-size:10.5px;"
+                           f"color:var(--muted);font-family:var(--uv-mono);'>"
+                           f"{h_('{ticker} · paid {date}', ticker=ticker, date=fmt_date(date))}</div></div>",
                            unsafe_allow_html=True)
             with _cols[1]:
-                st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:var(--mint);'>{_money(amount)}</div>", unsafe_allow_html=True)
+                _gross_html = (f"<div style='font-size:10.5px;color:var(--muted);font-family:var(--uv-mono);white-space:nowrap;'>"
+                               f"{h_('{amount} gross', amount=_money(gross))}</div>"
+                               if gross is not None and pd.notna(gross) else "")
+                st.markdown(f"<div style='text-align:right;'><div style='font-family:var(--uv-mono);font-size:13px;"
+                           f"font-weight:500;color:var(--up-txt);'>{_money(amount)}</div>{_gross_html}</div>",
+                           unsafe_allow_html=True)
             _edit_col = 2
 
         if show_edit:
@@ -1696,7 +1919,7 @@ def dividend_log_header_html() -> str:
         f'<div style="white-space:nowrap;{"text-align:right;" if _r else ""}">{_l}</div>' for _l, _r in _labels)
     return (f'<div style="display:grid;grid-template-columns:{DIVIDEND_LOG_GRID_COLS};gap:14px;'
             f'align-items:center;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
-            f'color:var(--faint);">{_cells}</div>')
+            f'color:var(--muted);">{_cells}</div>')
 
 
 def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
@@ -1721,27 +1944,27 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         return fmt_money(v, "EUR")
 
     _num = "text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);"
-    _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:5px;white-space:nowrap;"
+    _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:6px;white-space:nowrap;"
     _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
     # "· confirm" text, which overflowed the Pay date track onto Type.
-    _pay_attr = ("style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;color:#C98A3A;' "
+    _pay_attr = ("style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;color:var(--amber-txt);' "
                  f"title='{_html_attr(_('Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date.'))}'"
                  if needs_confirm else
                  "style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'")
-    _type_style = ("background:#FDF0E8;color:#854F0B;" if div_type == "Special" else
+    _type_style = ("background:var(--amber-bg);color:var(--amber-txt);" if div_type == "Special" else
                   "color:var(--muted);border:0.5px solid var(--line);")
     _ps_str = fmt_money(per_share, "EUR")
     _sh_str = fmt_int(int(shares)) if shares is not None and pd.notna(shares) else "—"
     _fwh_str = _money(-foreign_wh) if foreign_wh else "—"
     _be_str = _money(-be_wh) if be_wh else "—"
-    _src_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
+    _src_style = ("background:var(--soft);color:var(--up-txt);"
                  if source == "auto" else "border:0.5px solid var(--line);color:var(--muted);")
     _src_label = h_("Auto") if source == "auto" else h_("Manual")
-    _drip_style = ("background:var(--uv-soft,rgba(29,214,164,0.08));color:var(--uv-mint,#1DD6A4);"
-                  if drip else "color:var(--faint);")
+    _drip_style = ("background:var(--soft);color:var(--up-txt);"
+                  if drip else "color:var(--muted);")
     _html = (
         f'<div style="display:grid;grid-template-columns:{DIVIDEND_LOG_GRID_COLS};gap:14px;align-items:center;">'
         f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:7px;'>"
@@ -1755,17 +1978,17 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         f"<div style='{_num}'>{_sh_str}</div>"
         f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>{_money(gross)}</div>"
         f"<div><div style='{_num}'>{_fwh_str}</div><div style='text-align:right;font-size:9.5px;"
-        f"color:var(--faint);white-space:nowrap;'>{wh_note or ''}</div></div>"
+        f"color:var(--muted);white-space:nowrap;'>{wh_note or ''}</div></div>"
         f"<div style='{_num}'>{_be_str}</div>"
         f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-        f"font-weight:500;color:var(--uv-mint,#1DD6A4);'>{_money(net)}</div>"
+        f"font-weight:500;color:var(--up-txt);'>{_money(net)}</div>"
         f"<div><span style='{_pill}{_src_style}'>{_src_label}</span></div>"
         f"<div><span style='{_pill}{_drip_style}'>{'DRIP' if drip else h_('Cash')}</span></div>"
         f"</div>"
     )
     with st.container(key=key):
         with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
-            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--muted) !important; }}"
                        f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                        unsafe_allow_html=True)
         _cols = st.columns(DIVIDEND_LOG_COL_SPLIT, vertical_alignment="center", gap="small")
@@ -1806,8 +2029,8 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;">{_beta_str}</div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{_vol_str}</div>'
            f'<div style="display:flex;align-items:center;gap:11px;">'
-           f'<div style="flex:1;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;">'
-           f'<div style="height:6px;border-radius:3px;width:{_bar_pct:.1f}%;background:{flag_color if flag else "var(--teal)"};"></div></div>'
+           f'<div style="flex:1;height:6px;border-radius:4px;background:var(--panel-2);overflow:hidden;">'
+           f'<div style="height:6px;border-radius:4px;width:{_bar_pct:.1f}%;background:{flag_color if flag else "var(--teal)"};"></div></div>'
            f'<span style="font-family:var(--uv-mono);font-size:12px;width:44px;text-align:right;">{fmt_pct(contrib_pct)}</span></div>'
            f'<div style="font-size:11px;font-weight:500;color:{flag_color};">{tr(flag) if flag else ""}</div></div>')
 
@@ -1818,17 +2041,17 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
 # mockup's hex chips onto theme tokens (--amber-* for Fee / manual FX).
 
 MINT_CHIP_STYLE = ("display:inline-flex;font-family:var(--uv-mono);font-size:11.5px;font-weight:500;"
-                   "padding:2px 7px;border-radius:5px;background:var(--soft);color:var(--mint);")
+                   "padding:2px 7px;border-radius:4px;background:var(--soft);color:var(--up-txt);")
 
 _CASH_CHIP = ("display:inline-flex;align-items:center;font-size:9.5px;font-family:var(--uv-mono);"
-              "padding:2px 7px;border-radius:5px;white-space:nowrap;")
+              "padding:2px 7px;border-radius:6px;white-space:nowrap;")
 _CASH_TYPE_STYLE = {
     "Deposit":    "background:var(--up-bg);color:var(--up-txt);",
     "Withdrawal": "background:var(--down-bg);color:var(--down-txt);",
     "Buy":        "color:var(--muted);border:0.5px solid var(--line);",
     "Sell":       "color:var(--text);border:0.5px solid var(--teal);",
-    "Dividend":   "background:var(--soft);color:var(--mint);",
-    "Interest":   "background:var(--soft);color:var(--mint);",
+    "Dividend":   "background:var(--soft);color:var(--up-txt);",
+    "Interest":   "background:var(--soft);color:var(--up-txt);",
     "Fee":        "background:var(--amber-bg);color:var(--amber-txt);",
     "Adjustment": "color:var(--muted);border:0.5px dashed var(--faint);",
 }
@@ -1847,7 +2070,7 @@ def cash_type_chip_html(type_: str) -> str:
 def cash_balance_block_html(balance_text: str, last_text: str) -> str:
     return (f'<div style="font-family:var(--uv-mono);font-size:23px;font-weight:500;letter-spacing:-0.02em;'
             f'line-height:1;">{balance_text}</div>'
-            f'<div style="font-size:11px;color:var(--faint);margin-top:8px;">{last_text}</div>')
+            f'<div style="font-size:11px;color:var(--muted);margin-top:8px;">{last_text}</div>')
 
 
 def cash_alloc_html(invested_pct: float, cash_pct: float, total_text: str) -> str:
@@ -1857,15 +2080,15 @@ def cash_alloc_html(invested_pct: float, cash_pct: float, total_text: str) -> st
         '<div style="min-width:0;">'
         '<div style="display:flex;justify-content:space-between;gap:12px;font-size:11.5px;margin-bottom:8px;">'
         '<span style="display:flex;align-items:center;gap:7px;color:var(--muted);"><span style="width:8px;height:8px;'
-        f'border-radius:2px;background:var(--teal);"></span>{h_("Invested")} <span style="font-family:var(--uv-mono);'
+        f'border-radius:4px;background:var(--teal);"></span>{h_("Invested")} <span style="font-family:var(--uv-mono);'
         f'color:var(--text);">{fmt_pct(invested_pct)}</span></span>'
         '<span style="display:flex;align-items:center;gap:7px;color:var(--muted);"><span style="width:8px;height:8px;'
-        f'border-radius:2px;background:var(--mint);"></span>{h_("Cash")} <span style="font-family:var(--uv-mono);'
+        f'border-radius:4px;background:var(--mint);"></span>{h_("Cash")} <span style="font-family:var(--uv-mono);'
         f'color:var(--text);">{fmt_pct(cash_pct)}</span></span></div>'
         '<div style="height:8px;border-radius:4px;background:var(--panel-2);display:flex;overflow:hidden;gap:2px;">'
         f'<div style="height:100%;background:var(--teal);width:{inv:.2f}%;"></div>'
         '<div style="height:100%;background:var(--mint);flex:1;"></div></div>'
-        f'<div style="font-size:11px;color:var(--faint);margin-top:8px;">'
+        f'<div style="font-size:11px;color:var(--muted);margin-top:8px;">'
         f'{h_("Total portfolio value {amount} · risk metrics use the invested portion only", amount=total_text)}</div></div>')
 
 
@@ -1883,22 +2106,22 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
     src = r.get("fx_source") or "base"
     if (r.get("currency") or base) == base or is_adj:
         # Translators: Cash activity › FX rate column note for an entry already in the base currency (no conversion).
-        fx_val, fx_note, fx_color = "—", h_("base"), "var(--faint)"
+        fx_val, fx_note, fx_color = "—", h_("base"), "var(--muted)"
     else:
         fx_val = fmt_num(float(r.get('fx_rate') or 0), 4)
         fx_note = h_("manual") if src == "manual" else h_("ECB")
-        fx_color = "var(--amber-txt)" if src == "manual" else "var(--faint)"
+        fx_color = "var(--amber-txt)" if src == "manual" else "var(--muted)"
     ref = r.get("ref_label") or ""
     if r.get("topup"):
         ref = (ref + " · " + _("top-up")) if ref else _("top-up")
-    ref_html = (f'<div style="font-size:10.5px;color:var(--faint);font-family:var(--uv-mono);margin-top:2px;'
+    ref_html = (f'<div style="font-size:10.5px;color:var(--muted);font-family:var(--uv-mono);margin-top:2px;'
                 f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_html.escape(ref)}</div>'
                 if ref else "")
     base_amt = float(r["base"])
     base_color = "var(--up-txt)" if base_amt >= 0 else "var(--text)"
     base_txt = ("+" if base_amt >= 0 else "−") + _cash.money(abs(base_amt), base)
     auto = bool(r.get("auto"))
-    src_style = ("background:var(--soft);color:var(--mint);" if auto
+    src_style = ("background:var(--soft);color:var(--up-txt);" if auto
                  else "color:var(--muted);border:0.5px solid var(--line);")
     note = _html.escape(_cash.note_text(r) or "—")
     return (
@@ -1922,7 +2145,7 @@ def _cash_ledger_row_html(r: dict, base: str) -> str:
 def cash_ledger_header_html(base: str = "EUR") -> str:
     """Column labels for the Cash activity ledger, on CASH_LEDGER_GRID."""
     return (f'<div style="display:grid;grid-template-columns:{CASH_LEDGER_GRID};gap:12px;align-items:center;'
-            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);white-space:nowrap;">'
+            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;">'
             f'<div>{h_("Date")}</div><div>{h_("Type")}</div><div>{h_("Description")}</div><div style="text-align:right;">{h_("Original")}</div>'
             f'<div style="text-align:right;">{h_("FX rate")}</div><div style="text-align:right;">{h_("Amount · {currency}", currency=base)}</div>'
             f'<div style="text-align:right;">{h_("Balance")}</div><div>{h_("Source")}</div></div>')
@@ -1937,7 +2160,7 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
     _css_key = key.replace(".", "-")
     with st.container(key=key):
         with st.container(key=f"uv_hidden_util_{_css_key}_edit"):
-            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--faint) !important; }}"
+            st.markdown(f"<style>.st-key-{_css_key}_edit button {{ color: var(--muted) !important; }}"
                         f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                         unsafe_allow_html=True)
         _cols = st.columns(CASH_LEDGER_COL_SPLIT, vertical_alignment="center", gap="small")
@@ -1948,13 +2171,13 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
                              help=_("Edit entry") if editable else _("View linked entry"))
 
 
-# ── Supporting-page frame (Settings, Methodology & help, Legal, About) ──────
+# ── Supporting-page frame (Settings, Methodology, Legal, About) ──────
 # One frame for the four pages that aren't data screens (supporting-screens
 # proposal 1d/1e): back link above a 24px title, then a 200px sticky rail
 # beside a content column with a 760px measure. styles.py keys its layout and
 # long-form typography on the uv_support* containers.
 
-def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
+def _rail_item(label: str, href: str, *, active: bool, index: int, plain: bool = False) -> None:
     """One rail entry: an in-page anchor (``#id``) as a plain link, an app page
     (``/legal?doc=terms``) as st.page_link so the session — and with it the
     back-link history — survives the jump."""
@@ -1962,7 +2185,7 @@ def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
     from urllib.parse import parse_qsl, urlsplit
     from uvalu import nav as nav_registry
     cls = "uv-rail-item uv-rail-active" if active else "uv-rail-item"
-    if href.startswith("#"):
+    if href.startswith("#") or plain:
         st.markdown(f'<a class="{cls}" href="{_html_attr(href)}" target="_self">'
                     f'{_html_mod.escape(label)}</a>', unsafe_allow_html=True)
         return
@@ -1974,9 +2197,43 @@ def _rail_item(label: str, href: str, *, active: bool, index: int) -> None:
         st.page_link(page, label=label, query_params=dict(parse_qsl(parts.query)) or None, width="stretch")
 
 
+def page_heading_html(title: str, subtitle: str = "", provenance: str = "", *, title_suffix: str = "") -> str:
+    """The left side of a data page's header: 24px title, 13px subtitle 2px
+    below it, then the provenance line (``provenance_bar_html``, 8px below).
+    ``subtitle`` is plain text; ``**bold**`` in it is kept as bold.
+    ``title_suffix`` is ready-made HTML after the title (e.g. "· realised")."""
+    import html as _html_mod
+    sub = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html_mod.escape(subtitle))
+    return (f'<div class="uv-page-head"><div class="uv-page-title" role="heading" aria-level="1">'
+            f'{_html_mod.escape(title)}{title_suffix}</div>'
+            + (f'<div class="uv-page-sub">{sub}</div>' if subtitle else "")
+            + provenance + "</div>")
+
+
+def page_header(title: str, subtitle: str = "", *, provenance: str = "", title_suffix: str = "",
+                key: "str | None" = None):
+    """Data-page header row: title, subtitle and provenance left, actions
+    right (they wrap under the title on a narrow window). Returns the
+    actions container."""
+    with st.container(key=key, horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+        with st.container(width="content"):
+            st.markdown(page_heading_html(title, subtitle, provenance, title_suffix=title_suffix),
+                        unsafe_allow_html=True)
+        actions = st.container(horizontal=True, gap="small", width="content", vertical_alignment="center")
+    return actions
+
+
+def back_link(label: str, *, key: str) -> bool:
+    """A "← Back to …" link above a page title (``label`` translated by the
+    caller): 12px muted, hover --text. True when clicked."""
+    with st.container(key=f"uv_back_{key}"):
+        return st.button(label, key=key, type="tertiary")
+
+
 def support_page(title: str, *, subtitle: str = "", back_key: str,
                  rail: "list[tuple[str, str]] | None" = None, active: "str | None" = None,
-                 toc: "list[tuple[str, str]] | None" = None):
+                 toc: "list[tuple[str, str]] | None" = None, links_html: str = "",
+                 rail_note: str = "", public: bool = False):
     """Back link, H1, optional subtitle, then a [200px rail | content] row.
     Returns the content container.
 
@@ -1990,26 +2247,30 @@ def support_page(title: str, *, subtitle: str = "", back_key: str,
     from uvalu import nav as nav_registry
     root = st.container(key="uv_support")
     with root:
-        back, _key = nav_registry.back_target(back_key)
-        if back is not None:
-            with st.container(key="uv_support_back"):
-                if st.button(_("← Back to {page}", page=back.title), key=f"{back_key}_back", type="tertiary"):
-                    st.switch_page(back)
+        # Before sign-in (``public``) there is no app navigation: no back
+        # link here (the caller adds "Back to sign in") and plain rail links.
+        back, _key = (None, None) if public else nav_registry.back_target(back_key)
+        if back is not None and back_link(_("← Back to {page}", page=back.title), key=f"{back_key}_back"):
+            st.switch_page(back)
         st.markdown(f'<div class="uv-support-head"><div class="uv-support-title" role="heading" aria-level="1">'
                     f'{_html_mod.escape(title)}</div>'
-                    + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "") + "</div>",
+                    + (f'<div class="uv-support-subtitle">{subtitle}</div>' if subtitle else "")
+                    + (f'<div class="uv-support-links">{links_html}</div>' if links_html else "") + "</div>",
                     unsafe_allow_html=True)
         grid = st.container(key="uv_support_grid", horizontal=True, gap=None)
         with grid:
             if rail or toc:
                 with st.container(key="uv_support_rail", width=200):
                     for i, (label, href) in enumerate(rail or []):
-                        _rail_item(label, href, active=href == active, index=i)
+                        _rail_item(label, href, active=href == active, index=i, plain=public)
                     if toc:
                         links = "".join(f'<a href="#{_html_attr(a)}" target="_self">{_html_mod.escape(t)}</a>'
                                         for a, t in toc)
                         with st.container(key="uv_support_toc"):
                             st.markdown(f'<div class="uv-toc-label">{h_("On this page")}</div>'
                                         f'<nav class="uv-toc">{links}</nav>', unsafe_allow_html=True)
+                    if rail_note:
+                        st.markdown(f'<div class="uv-rail-note">{_html_mod.escape(rail_note)}</div>',
+                                    unsafe_allow_html=True)
             content = st.container(key="uv_support_content")
     return content

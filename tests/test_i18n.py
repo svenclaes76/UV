@@ -499,7 +499,7 @@ def _table_widths():
         "watchlist": watchlist._fitted_widths(),
         "risk": risk._rh_grid(),
         "holdings": fit_grid_cols(HOLDINGS_GRID_COLS, [i18n._(label) for label in
-                                  ("Position", "Signal", "", "MoS %", "Weight", "Value", "P&L")]),
+                                  ("Position", "Signal", "", "Margin of safety", "Weight", "Value", "P&L")]),
     }
 
 

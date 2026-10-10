@@ -159,7 +159,7 @@ Screener and portfolio analysis; you can't disable the last remaining one.
 ## Workspace-wide security policy
 
 Password length/breach-check, 2FA requirement, lockout thresholds, session
-lifetime, and OAuth auto-provisioning all live in Admin portal → **Security**
+lifetime, and allowed email domains (accounts are invitation only) all live in Admin portal → **Security**
 and apply to every account, not just yours. Field-by-field reference is in
 [configuration.md](configuration.md); this manual only covers the
 per-user actions above.

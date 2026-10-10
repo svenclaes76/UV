@@ -306,6 +306,23 @@ def test_upcoming_dividend_row_renders_for_future_ex_date(isolated_data, monkeyp
     assert "Alpha Corp" in html
 
 
+def test_upcoming_dividends_have_no_alert_badges(isolated_data, monkeypatch):
+    """Settings › Data & alerts is gone; old stored alert keys are ignored."""
+    import settings
+    from tests.conftest import TEST_EMAIL, make_scored_row
+    settings.save_settings({**settings.load_settings(TEST_EMAIL), "alert_dividend_ex_date": True,
+                            "alert_dividend_cut": True, "alert_dividend_increase": True}, TEST_EMAIL)
+    portfolio.save_portfolio(make_portfolio_df())
+    soon = (pd.Timestamp.today().normalize() + pd.Timedelta(days=3)).strftime("%d-%m-%Y")
+    row = make_scored_row(exDividendDate=soon, dividendRate=3.2, dividendYield=0.03,
+                          dividend_last_cut_year=2025, dividend_last_increase_year=2024)
+    at = _run(monkeypatch, scored=make_scored_df([row]))
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "Alpha Corp" in html
+    assert "· soon" not in html and "· cut" not in html and "· raised" not in html
+
+
 def test_upcoming_dividends_no_cached_dates_shows_caption(isolated_data, monkeypatch):
     from tests.conftest import make_scored_row
     portfolio.save_portfolio(make_portfolio_df())
@@ -321,3 +338,29 @@ def test_top_movers_no_price_data_shows_caption(isolated_data, monkeypatch):
                                               "day_change_pct": None, "volume": 1000}})
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "No daily price data available" in "".join(c.value for c in at.caption)
+
+
+def test_avg_margin_of_safety_is_value_weighted(isolated_data, monkeypatch):
+    """G13: 1,100 at +50% and 9,900 at +10% average to +14.0%, not +30.0%."""
+    portfolio.save_portfolio(make_portfolio_df([
+        dict(ticker="AAA.BR", name="Alpha Corp", google_ticker="EBR:AAA", shares=10, purchase_value=1000.0,
+             purchase_price=100.0, target_price=130.0, dividends=0.0, date_in="2023-01-01", date_out=""),
+        dict(ticker="BBB.BR", name="Beta NV", google_ticker="EBR:BBB", shares=90, purchase_value=9000.0,
+             purchase_price=100.0, target_price=130.0, dividends=0.0, date_in="2023-01-01", date_out=""),
+    ]))
+    scored = make_scored_df([make_scored_row(Ticker="AAA.BR", Name="Alpha Corp", **{"MoS %": 50.0}),
+                             make_scored_row(Ticker="BBB.BR", Name="Beta NV", **{"MoS %": 10.0})])
+    at = _run(monkeypatch, scored=scored)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "+14.0%" in html and "weighted MoS" in html and ">model</span>" in html
+
+
+def test_header_has_refresh_and_add_position(isolated_data, monkeypatch):
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    keys = {b.key: b for b in at.button}
+    assert "db_refresh" in keys and keys["db_add_position"].label == "Add position"
+    html = "".join(m.value for m in at.markdown)
+    assert "valued against a model fair-value estimate." in html

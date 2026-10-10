@@ -41,6 +41,11 @@ GLOBAL_CSS = """
     --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D; --amber-fill:#C98A3A;
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
+    /* Brand v1.3: link text (Signal Teal is 4.2:1 on white, too low for
+       small text), the wordmark's final "u", and the badge fills that have
+       no semantic token of their own. */
+    --link:#3FBF98; --logo-accent:#1DD6A4;
+    --veto-bg:#1E2D4A; --veto-line:rgba(245,247,250,0.18); --nosig-bg:rgba(245,247,250,0.07);
   }
   [data-theme="light"] {
     --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
@@ -51,6 +56,17 @@ GLOBAL_CSS = """
     --amber-bg:#FDF0E8; --amber-txt:#854F0B; --amber-fill:#C98A3A;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
+    --link:#167A60; --logo-accent:#1A8C6E;
+    --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
+  }
+
+  /* Keyboard focus (brand §7): 2px ring, teal on light, mint on dark. Only
+     :focus-visible, so a mouse click doesn't draw it. */
+  :focus-visible { outline: 2px solid var(--mint) !important; outline-offset: 2px !important; }
+  [data-theme="light"] :focus-visible { outline-color: var(--teal) !important; }
+  /* No motion for people who ask for none (brand §7 Loading). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
@@ -67,7 +83,7 @@ GLOBAL_CSS = """
      Matches the "Loading Patterns" design concept. ────────────────────────── */
   @keyframes uvShimmer { 0% { background-position: -420px 0; } 100% { background-position: 420px 0; } }
   .uv-skel-bar {
-    height: 13px; border-radius: 5px;
+    height: 13px; border-radius: 6px;
     background: var(--line-2);
     background-image: linear-gradient(90deg, var(--line-2) 0px, var(--line) 60px, var(--line-2) 120px);
     background-size: 420px 100%;
@@ -80,6 +96,10 @@ GLOBAL_CSS = """
      drives the topbar's price-freshness dot (uvalu/shell.py) when the feed
      is genuinely live, not delayed/stale/closed. */
   @keyframes uvSpin { to { transform: rotate(360deg); } }
+  @keyframes uvFadeOutLate { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  .uv-saved-note { animation: uvFadeOutLate 2.5s ease forwards; }
+  .st-key-set_i18n_currency_default button { min-height: 0 !important; padding: 0 !important; }
+  .st-key-set_i18n_currency_default button p { font-size: 11px !important; color: var(--link) !important; }
   @keyframes uvRing { 0% { box-shadow: 0 0 0 0 rgba(29,214,164,0.45); } 100% { box-shadow: 0 0 0 8px rgba(29,214,164,0); } }
   @keyframes uvBar { 0% { left: -30%; } 100% { left: 110%; } }
   /* components.skeleton_rows()'s hairline row divider — a native st.columns()
@@ -104,6 +124,8 @@ GLOBAL_CSS = """
     padding-top: 0 !important; padding-bottom: 0.5rem !important; max-width: 100% !important;
     padding-left: 1.5rem !important; padding-right: 1.5rem !important;
   }
+  /* Brand §7: 18px between a page's sections (Streamlit's default is 16px). */
+  .block-container > [data-testid="stVerticalBlock"] { gap: var(--uv-section-gap) !important; }
 
   /* ── Invisible helper elements (localStorage-sync iframes, theme/density
      scripts) render nothing but still occupy a full row-gap in Streamlit's
@@ -276,21 +298,44 @@ GLOBAL_CSS = """
     gap: 16px !important;
   }
   [class*="st-key-db_card_"] { width: 100% !important; }
-  /* Only the chart+conviction row stretches to a shared row height (the
-     conviction card's beta/volatility footer relies on that via the
-     margin-top:auto rule below). The bottom row (sector allocation/upcoming
-     dividends/top movers) intentionally does NOT get this treatment — each
-     of those three cards should size to its own content instead of
-     stretching to match its tallest sibling, which previously left large
-     empty gaps under the shorter dividends/movers cards. */
-  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_chart"]) {
+  /* Both card rows stretch to a shared row height (the conviction card's
+     beta/volatility footer relies on that via the margin-top:auto rule
+     below). The bottom row (sector allocation/upcoming dividends/top
+     movers) used to size each card to its content because the old
+     dividends/movers lists were much shorter than the donut; with the
+     design reference v1.3 rows (five dividends, six movers, a 132px donut)
+     the three are close in height and the mockup stretches them. */
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_chart"]),
+  [data-testid="stHorizontalBlock"]:has([class*="st-key-db_card_sector"]) {
     align-items: stretch !important;
   }
   [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_chart"]),
-  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_conviction"]) {
+  [data-testid="stLayoutWrapper"]:has(> [class*="st-key-db_card_conviction"]),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_sector),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_dividends),
+  [data-testid="stLayoutWrapper"]:has(> .st-key-db_card_movers) {
     flex: 1 1 auto !important;
   }
-  .st-key-db_card_chart, .st-key-db_card_conviction { flex: 1 1 auto !important; }
+  .st-key-db_card_chart, .st-key-db_card_conviction,
+  .st-key-db_card_sector, .st-key-db_card_dividends, .st-key-db_card_movers { flex: 1 1 auto !important; }
+  /* Top movers rows: 8px rows with --line-2 dividers; the whole row opens
+     the drawer through an invisible button laid over it (as db_hold_). */
+  [class*="st-key-db_mover_"] {
+    position: relative !important; padding: 8px 0 !important; margin-top: -16px !important;
+    border-bottom: 0.5px solid var(--line-2) !important; min-height: 39px !important;
+    display: flex !important; flex-direction: column !important; justify-content: center !important;
+  }
+  .st-key-db_mover_0 { margin-top: 0 !important; }
+  [class*="st-key-db_mover_"]:last-child { border-bottom: none !important; }
+  [class*="st-key-db_mover_"]:hover { background: var(--soft) !important; }
+  [class*="st-key-db_mover_"] [data-testid="stMarkdownContainer"] { margin: 0 !important; }
+  [class*="st-key-db_mover_"] [data-testid="stElementContainer"]:has(button) {
+    position: absolute !important; inset: 0 !important; margin: 0 !important; z-index: 1;
+  }
+  [class*="st-key-db_mover_"] [data-testid="stElementContainer"]:has(button) button {
+    width: 100% !important; height: 100% !important; opacity: 0 !important;
+    border: none !important; background: transparent !important; padding: 0 !important; cursor: pointer;
+  }
 
   /* ── Dashboard "Conviction & risk" card — "Full analysis →" as a plain
      teal text link, matching Uvalu.dc.html's `<div style="color:var(--teal);
@@ -298,11 +343,11 @@ GLOBAL_CSS = """
      boxed tertiary button. */
   .st-key-db_conv_full_analysis button {
     background: transparent !important; border: none !important; box-shadow: none !important;
-    color: var(--teal) !important; font-size: 11px !important; padding: 0 !important;
+    color: var(--link) !important; font-size: 11px !important; padding: 0 !important;
     min-height: unset !important; height: auto !important; text-decoration: none !important;
     justify-content: flex-end !important;
   }
-  .st-key-db_conv_full_analysis button:hover { color: var(--mint) !important; }
+  .st-key-db_conv_full_analysis button:hover { color: var(--text) !important; }
   /* One line in every language ("Vollständige Analyse →"): the link's
      column sizes to the link, the title takes the rest. */
   [data-testid="stColumn"]:has(> [data-testid="stVerticalBlock"] > .st-key-db_conv_full_analysis) {
@@ -365,13 +410,13 @@ GLOBAL_CSS = """
     display: flex !important; gap: 3px !important;
     background: var(--panel-2) !important; border-radius: 8px !important; padding: 3px !important;
   }
-  .st-key-db_range [data-testid^="stBaseButton-segmented_control"] {
+  .st-key-db_range button[data-variant="segmented_control"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
     font-family: var(--uv-mono) !important; font-size: 11.5px !important; font-weight: 500 !important;
     padding: 5px 11px !important; min-height: unset !important;
   }
-  .st-key-db_range [data-testid="stBaseButton-segmented_controlActive"] {
+  .st-key-db_range button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
 
@@ -381,11 +426,11 @@ GLOBAL_CSS = """
      Uvalu.dc.html's benchChip spec (uvalu_dc.html ~line 2140): a 6px
      rounded chip, 11px text, transparent/muted when off and a teal
      border + var(--soft) tint + full-text color when on. */
-  .st-key-db_bench_pills [data-testid^="stBaseButton-pills"] {
+  .st-key-db_bench_pills button[data-variant="pills"] {
     border-radius: 6px !important; padding: 4px 9px !important; font-size: 11px !important;
     background: transparent !important; border: 0.5px solid var(--line) !important; color: var(--muted) !important;
   }
-  .st-key-db_bench_pills [data-testid="stBaseButton-pillsActive"] {
+  .st-key-db_bench_pills button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
     background: var(--soft) !important; border-color: var(--teal) !important; color: var(--text) !important;
   }
 
@@ -394,7 +439,14 @@ GLOBAL_CSS = """
      Dashboard's holdings rows) — native st.dataframe tables render to a
      canvas (glide-data-grid) whose row height is set in Python per call and
      can't be restyled from CSS, so this intentionally doesn't touch them. */
-  [data-density="compact"] [class*="st-key-db_hold_"] { padding: 4px 8px !important; }
+  /* Compact rows (Settings › Display › Table density, G15): Dashboard
+     holdings, Screener, Watchlist and Portfolio open positions. */
+  [data-density="compact"] [class*="st-key-db_hold_"],
+  [data-density="compact"] [class*="st-key-scr_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]),
+  [data-density="compact"] [class*="st-key-wl_row_"]:not([class*="_name_cell"]):not([class*="_action"]):not([class*="_remove"]):not([class*="_view"]),
+  [data-density="compact"] [class*="st-key-pf_open_row_"]:not([class*="_edit"]):not([class*="_view"]):not([class*="uv_hidden_util"]) {
+    padding-top: 6px !important; padding-bottom: 6px !important; min-height: 55px !important;
+  }
 
   /* ── Analysis page cards (chart, sub-scores, six-model, financials,
      hard-veto checks, value thesis) — same `background:var(--panel);
@@ -461,7 +513,7 @@ GLOBAL_CSS = """
      by default (same gotcha as the header buttons row) — pinning each
      child's own generated wrapper to `flex:none;width:auto` is what
      actually lets it shrink to content instead of stretching. */
-  .st-key-scr_filter_row { gap: 32px !important; }
+  .st-key-scr_filter_row { gap: 22px !important; }
   .st-key-scr_filter_row > [data-testid="stLayoutWrapper"] {
     flex: none !important; width: auto !important;
   }
@@ -488,17 +540,13 @@ GLOBAL_CSS = """
      Dashboard's benchmark chips (db_bench_pills above), but grouped inside
      a shared track (`background:var(--panel-2);border-radius:8px;
      padding:3px`) matching Uvalu.dc.html's scr.signalChips spec exactly.
-     [data-testid="stButtonGroup"] is NOT the buttons' direct parent —
-     confirmed live via outerHTML: it wraps a hidden <label> (the
-     collapsed "Signal" widget label) *and* a separate nested
-     [data-baseweb="button-group"] div, and the actual 4 <button>s live
-     inside that inner div. Styling display/gap/flex-wrap on the outer
-     stButtonGroup wrapper was a no-op for actual layout — its own
-     computed `display` stayed `block` regardless — so VETO (the 4th pill)
-     kept wrapping like ordinary text once it no longer fit on the line.
-     The chip-track look (track background/radius/padding) and the actual
-     flex/wrap behavior both belong on this inner div instead. */
-  .st-key-scr_signal_pills [data-baseweb="button-group"] {
+     Streamlit 1.60 renders st.pills as button[data-variant="pills"] inside
+     a role="toolbar" (multi-select) or role="radiogroup" (single) div,
+     the selected ones marked aria-pressed / aria-checked="true" (the old
+     stBaseButton-pills test ids and BaseWeb button-group are gone, so the
+     rules here had silently stopped matching). The chip-track look and the
+     flex/no-wrap behaviour belong on that inner group div. */
+  .st-key-scr_signal_pills :is([role="toolbar"], [role="radiogroup"]) {
     display: flex !important; align-items: center !important;
     background: var(--panel-2) !important; border-radius: 8px !important;
     padding: 3px !important; gap: 3px !important; flex-wrap: nowrap !important;
@@ -510,14 +558,29 @@ GLOBAL_CSS = """
        at its own top. */
     min-height: 40px !important;
   }
-  .st-key-scr_signal_pills [data-testid^="stBaseButton-pills"] {
+  .st-key-scr_signal_pills button[data-variant="pills"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
-    font-size: 9px !important; font-weight: 400 !important;
+    font-size: 10.5px !important; font-weight: 500 !important;
     padding: 6px 8px !important; min-height: unset !important;
     white-space: nowrap !important;
   }
-  .st-key-scr_signal_pills [data-testid="stBaseButton-pillsActive"] {
+  .st-key-scr_signal_pills button[data-variant="pills"] p { font-size: 10.5px !important; font-weight: 500 !important; }
+  /* "Hide positions I own": one toggle chip, a dot before the label; on =
+     --teal border on --soft. */
+  .st-key-scr_hide_owned button[data-variant="pills"] {
+    border: 0.5px solid var(--line) !important; border-radius: 8px !important; background: transparent !important;
+    color: var(--muted) !important; min-height: 40px !important; padding: 0 12px !important; box-shadow: none !important;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"] p { font-size: 12px !important; }
+  .st-key-scr_hide_owned button[data-variant="pills"]::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line); margin-right: 8px; flex: none;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
+    border-color: var(--teal) !important; background: var(--soft) !important; color: var(--text) !important;
+  }
+  .st-key-scr_hide_owned button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"])::before { background: var(--teal); }
+  .st-key-scr_signal_pills button[data-variant="pills"]:is([aria-pressed="true"], [aria-checked="true"]) {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
     font-weight: 500 !important;
   }
@@ -596,10 +659,13 @@ GLOBAL_CSS = """
      These are the row's 4th-through-8th columns (star=1st, name=2nd,
      signal=3rd) in both callers, so :nth-child(n+4) reaches exactly this
      group without needing five separate keyed containers. */
-  [class*="st-key-scr_row_"] [data-testid="stColumn"]:nth-child(n+4),
-  [class*="st-key-wl_row_"] [data-testid="stColumn"]:nth-child(n+4) {
+  [class*="st-key-scr_row_"] [data-testid="stColumn"]:not(:has([class*="_name_cell"])),
+  [class*="st-key-wl_row_"] [data-testid="stColumn"]:not(:has([class*="_name_cell"])) {
     min-height: 21px !important;
   }
+  /* Watchlist "×": --muted, --down-txt on hover. */
+  [class*="st-key-wl_row_"] [class*="_remove"] button p { color: var(--muted) !important; font-size: 16px !important; }
+  [class*="st-key-wl_row_"] [class*="_remove"] button:hover p { color: var(--down-txt) !important; }
 
   /* ── Screener/Watchlist results table — one seamless panel (column-header
      row, then flat hairline-divided rows), matching Uvalu.dc.html's results
@@ -868,6 +934,9 @@ GLOBAL_CSS = """
   [class*="st-key-pf_page_title_"] {
     margin-bottom: 12px !important;
   }
+  /* Closed positions: five narrow columns, so the title row and the card
+     stop at 760px (mockup) instead of stretching a sparse table. */
+  .st-key-pf_page_title_closed, .st-key-pf_card_closed_full { max-width: 760px !important; }
 
   /* ── Portfolio page — card panels + row lists ────────────────────────────
      Same `background:var(--panel);border:0.5px solid var(--line);
@@ -966,10 +1035,10 @@ GLOBAL_CSS = """
      exactly (faint, teal on hover), same small-square treatment as the row
      edit-pencil buttons elsewhere on this page for visual consistency. */
   [class*="st-key-pf_panel_title_"] button {
-    background: transparent !important; border: none !important; color: var(--faint) !important;
+    background: transparent !important; border: none !important; color: var(--muted) !important;
     padding: 0 !important; min-height: 22px !important; height: 22px !important; width: 22px !important;
   }
-  [class*="st-key-pf_panel_title_"] button:hover { color: var(--teal) !important; }
+  [class*="st-key-pf_panel_title_"] button:hover { color: var(--link) !important; }
   /* No margin-top cancellation here, unlike scr_table_card — confirmed live
      (getBoundingClientRect) that every pf_card_ panel already sits a clean
      natural 16px below whatever precedes it (heading row, another card, or
@@ -986,11 +1055,11 @@ GLOBAL_CSS = """
      (the Open positions panel) flowed 16px too high and visually overlapped
      the true bottom of the cards instead of leaving the normal 16px gap.
      Wrap the row in this key and float its wrapper's height to match. */
-  .st-key-pf_kpi_row { min-height: 116px !important; }
+  .st-key-pf_kpi_row { min-height: 112px !important; }
   /* Same bug on the Dividend log's summary tiles: wrapper 99px vs 115px
      real cards, so the log table sat flush against them (0px gap vs the
      overview's 16px — both live-measured). */
-  .st-key-pf_div_tiles { min-height: 116px !important; }
+  .st-key-pf_div_tiles { min-height: 112px !important; }
   /* Cash Management v1 — cash strip + Cash activity page (Uvalu Cash
      Management.dc.html). pf_card_ panels are padding:0, so the strip body,
      the ledger filter bar and the empty-state caption carry the mockup's
@@ -998,7 +1067,7 @@ GLOBAL_CSS = """
      ledger header (-16px cancels Streamlit's sibling gap), and the ledger's
      single st.markdown drops the -1rem margin that would clip its last row
      under overflow:hidden. */
-  .st-key-pf_cash_tiles { min-height: 116px !important; }
+  .st-key-pf_cash_tiles { min-height: 112px !important; }
   .st-key-pf_cash_strip_body { padding: 16px 20px !important; }
   .st-key-pf_cash_filter_row {
     padding: 12px 20px !important; border-bottom: 0.5px solid var(--line-2) !important;
@@ -1009,11 +1078,11 @@ GLOBAL_CSS = """
   .st-key-pf_cash_btns { flex-wrap: nowrap !important; }
   .st-key-pf_cash_btns button { min-width: 96px !important; justify-content: center !important; }
   .st-key-pf_open_ov_all { padding: 4px 20px 10px !important; }
-  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--teal) !important; }
+  .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--link) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
   .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
-  .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 10px !important; }
-  .st-key-risk_cash_banner button p { color: var(--teal) !important; font-size: 12px !important;
+  .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 8px !important; }
+  .st-key-risk_cash_banner button p { color: var(--link) !important; font-size: 12px !important;
     white-space: nowrap !important; }
 
   /* Row lists — hairline-divided flat rows, no per-row border/shadow (the
@@ -1056,6 +1125,11 @@ GLOBAL_CSS = """
   /* Same -1rem margin on the summary card: it under-reported the year table's
      height so overflow:hidden clipped the last year row by 15px, and pulled
      the title block off the Export button's centre line (both live-measured). */
+  /* Tax-estimate box under the annual summary: a plain 8px box, not a card. */
+  .st-key-pf_card_tax_note {
+    padding: 14px 16px !important; border-radius: 8px !important; background: var(--panel) !important;
+    box-shadow: none !important; border-color: var(--line) !important;
+  }
   .st-key-pf_card_tax_years [data-testid="stMarkdownContainer"] {
     margin-bottom: 0 !important;
   }
@@ -1098,7 +1172,7 @@ GLOBAL_CSS = """
   [class*="st-key-pf_div_row_"] [class*="_edit"] button,
   [class*="st-key-pf_cash_row_"] [class*="_edit"] button {
     min-height: 26px !important; width: 26px !important; padding: 0 !important;
-    border-radius: 7px !important; background: transparent !important; border: none !important;
+    border-radius: 8px !important; background: transparent !important; border: none !important;
     text-decoration: none !important;
   }
   [class*="st-key-pf_open_row_"] [class*="_edit"] button:hover,
@@ -1176,23 +1250,37 @@ GLOBAL_CSS = """
     cursor: pointer;
   }
 
+  /* ── Data-page header (components.page_header): brand §7 — 24px title,
+     13px subtitle 2px below, provenance 8px below (provenance_bar_html). */
+  :root { --uv-page-pad: 22px 28px 60px; --uv-section-gap: 18px; }
+  .uv-page-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
+  .uv-page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+  .uv-page-sub b { color: var(--text); font-weight: 500; }
+  /* Streamlit's -1rem markdown margin would let the next block ride up
+     over the provenance line. */
+  [data-testid="stMarkdownContainer"]:has(> .uv-page-head) { margin-bottom: 0 !important; }
+
   /* ── Supporting-page frame (components.support_page): Settings,
-     Methodology & help, Legal, About. Left-aligned on the same gutter as
+     Methodology, Legal, About. Left-aligned on the same gutter as
      every other page, 1180px cap; back link, 24px title (brand H1), then a
      200px sticky rail beside a 760px content column. ───────────────────── */
   .st-key-uv_support { max-width: 1180px !important; margin: 0 !important; padding: 0 !important; gap: 0 !important; }
-  .st-key-uv_support_back button {
+  /* components.back_link — every "← Back to …" above a page title. */
+  [class*="st-key-uv_back_"] button {
     min-height: 0 !important; padding: 0 !important; margin-bottom: 6px !important;
     border: none !important; background: none !important;
   }
-  .st-key-uv_support_back button p { font-size: 12px !important; color: var(--muted) !important; }
-  .st-key-uv_support_back button:hover p { color: var(--text) !important; }
+  [class*="st-key-uv_back_"] button p { font-size: 12px !important; color: var(--muted) !important; }
+  [class*="st-key-uv_back_"] button:hover p { color: var(--text) !important; }
   .uv-support-head { padding-bottom: 20px; }
   /* Streamlit pulls every markdown block up by 16px (margin-bottom:-1rem),
      which would swallow the gap above the rail. */
   [data-testid="stMarkdownContainer"]:has(> .uv-support-head) { margin-bottom: 0 !important; }
   .uv-support-title { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
   .uv-support-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .uv-support-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; font-size: 12px; }
+  .uv-support-links a { color: var(--link) !important; text-decoration: none; }
+  .uv-support-links a:hover { color: var(--text) !important; }
   .st-key-uv_support_grid {
     gap: 32px !important; align-items: flex-start !important;
     flex-wrap: nowrap !important;
@@ -1249,12 +1337,11 @@ GLOBAL_CSS = """
      widget labels. */
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
-    font-size: 14px; line-height: 1.65; color: #3E3D3A; max-width: 72ch;
+    font-size: 14px; line-height: 1.65; color: var(--muted); max-width: 72ch;
   }
-  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] p,
-  html:not([data-theme="light"]) .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
-    color: rgba(245,247,250,0.85);
-  }
+  /* Bullets in the link colour (LG-04). */
+  .st-key-uv_support_content [data-testid="stMarkdown"] li::marker { color: var(--link); }
+  .uv-rail-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 16px 0 0 12px; max-width: 188px; }
   .st-key-uv_support_content [data-testid="stMarkdown"] li { margin-bottom: 6px; }
   .st-key-uv_support_content [data-testid="stMarkdown"] h2 {
     font-size: 17px !important; font-weight: 500 !important; margin: 28px 0 8px !important; padding: 0 !important;
@@ -1310,7 +1397,25 @@ GLOBAL_CSS = """
      has no preceding sibling row to cancel against; a negative margin there
      would instead pull it up into the header). */
   [class*="st-key-set_row_"] { margin-top: -16px !important; }
-  .st-key-set_row_theme, .st-key-set_row_refresh, .st-key-set_row_password {
+  /* Backup codes and trusted devices sit under two-factor, indented on
+     --panel-2; "Sign out everywhere else" is a 12px link. */
+  .st-key-set_row_backup_codes, .st-key-set_row_trusted_devices {
+    margin-left: 34px !important; background: var(--panel-2) !important; border-radius: 8px !important;
+  }
+  .st-key-set_sessions_revoke_wrap button { min-height: 0 !important; padding: 0 !important; }
+  .st-key-set_sessions_revoke_wrap button p { font-size: 12px !important; color: var(--link) !important; }
+  .st-key-set_sessions_revoke_wrap button:hover p { color: var(--text) !important; }
+  /* Target allocation and Import & export: label left, control right. */
+  .st-key-set_targets_body textarea { max-width: 280px !important; }
+  .st-key-set_targets_hhi :is([data-testid="stNumberInput"], [data-testid="stTextInput"]) {
+    max-width: 110px !important; margin-left: auto;
+  }
+  .st-key-set_targets_save { align-items: flex-end !important; }
+  /* The uploader as a compact, button-sized dropzone (it is a framework
+     widget; this is the closest stable option). */
+  .st-key-set_import_row [data-testid="stFileUploaderDropzone"] { padding: 6px 10px !important; }
+  .st-key-set_import_row [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+  .st-key-set_row_theme, .st-key-set_row_password {
     margin-top: 0 !important;
   }
   /* …and every card's first row, whatever its key: the row right after the
@@ -1407,8 +1512,7 @@ GLOBAL_CSS = """
   }
   /* Stacked rows (4-option controls under a long description): the control
      on its own line, as wide as its segments, not a full-width track. */
-  .st-key-set_row_screen_style [data-testid="stButtonGroup"],
-  .st-key-set_row_refresh [data-testid="stButtonGroup"] {
+  .st-key-set_row_screen_style [data-testid="stButtonGroup"] {
     width: fit-content !important; margin-top: 6px !important;
   }
   /* The slider's own thumb value repeated the value already shown, larger,
@@ -1433,13 +1537,13 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] [data-testid="stButtonGroup"] > div {
     flex-wrap: nowrap !important;
   }
-  [class*="st-key-set_row_"] [data-testid^="stBaseButton-segmented_control"] {
+  [class*="st-key-set_row_"] button[data-variant="segmented_control"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
     font-size: 12px !important; font-weight: 500 !important;
     padding: 6px 13px !important; min-height: unset !important;
   }
-  [class*="st-key-set_row_"] [data-testid="stBaseButton-segmented_controlActive"] {
+  [class*="st-key-set_row_"] button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px
@@ -1546,8 +1650,8 @@ GLOBAL_CSS = """
     padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
   }
   .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--teal) !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--link) !important; }
+  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
   .st-key-set_card_legal { padding-bottom: 14px !important; }
   /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
      row with the avatar and name — st.columns' per-column centring was off
@@ -1650,11 +1754,11 @@ GLOBAL_CSS = """
   [data-testid="stMetricDelta"] svg { display: none; }
   [data-testid="stMetricDelta"] { border-radius: 4px; padding: 1px 6px; font-size: 0.8rem !important; }
   [data-testid="stMetricDelta"][data-direction="increase"] {
-    color: #1DD6A4 !important; background: rgba(29,214,164,0.12);
+    color: var(--up-txt) !important; background: var(--up-bg);
   }
   [data-testid="stMetricDelta"][data-direction="increase"]::before { content: "↑ "; }
   [data-testid="stMetricDelta"][data-direction="decrease"] {
-    color: #F5B5B5 !important; background: rgba(163,45,45,0.20);
+    color: var(--down-txt) !important; background: var(--down-bg);
   }
   [data-testid="stMetricDelta"][data-direction="decrease"]::before { content: "↓ "; }
 
@@ -1687,7 +1791,10 @@ GLOBAL_CSS = """
     display: flex !important; flex-direction: column !important; justify-content: center !important;
     padding: 48px 56px !important; overflow-y: auto !important; box-sizing: border-box !important;
   }
-  .uv-login-heading { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+  a.uv-public-back { display: inline-block; font-size: 12px; color: var(--muted) !important;
+    text-decoration: none; margin: 16px 0 6px; }
+  a.uv-public-back:hover { color: var(--text) !important; }
+  .uv-login-heading { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
   .uv-login-subhead { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 8px; }
   .uv-login-headline {
     font-size: 30px; font-weight: 500; letter-spacing: -0.02em; color: #F5F7FA;
@@ -1699,7 +1806,7 @@ GLOBAL_CSS = """
   .uv-login-stats { display: flex; gap: 28px; margin-top: 32px; }
   .uv-login-stat-val { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--mint); }
   .uv-login-stat-lbl { font-size: 11px; color: rgba(245,247,250,0.5); margin-top: 3px; }
-  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.35); position: relative; z-index: 2; }
+  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.6); position: relative; z-index: 2; }
   .uv-login-ring {
     position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
   }
@@ -1713,11 +1820,11 @@ GLOBAL_CSS = """
   [class*="_provider_list"] { gap: 10px !important; }
   .st-key-uv_login_right div[data-testid="stTextInput"] label p {
     font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--faint) !important; font-weight: 400 !important;
+    color: var(--muted) !important; font-weight: 400 !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] > div {
     background: var(--panel-2) !important; border: 0.5px solid var(--line) !important;
-    border-radius: 9px !important;
+    border-radius: 8px !important;
   }
   .st-key-uv_login_right div[data-testid="stTextInput"] input { font-size: 14px !important; }
   /* A tinted, bordered alert box — matches Uvalu Auth.dc.html frames 02/09b
@@ -1736,13 +1843,13 @@ GLOBAL_CSS = """
   }
   .uv-lock-card {
     display: flex; align-items: center; gap: 14px; background: var(--panel-2);
-    border: 0.5px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 18px;
+    border: 0.5px solid var(--line); border-radius: 8px; padding: 16px 18px; margin-top: 18px;
   }
   .uv-lock-icon { color: var(--amber-txt); flex: none; }
   .uv-lock-timer { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--amber-txt); }
-  .uv-lock-caption { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .uv-lock-caption { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .uv-login-btn-disabled {
-    text-align: center; padding: 12px; border-radius: 9px; background: var(--faint);
+    text-align: center; padding: 12px; border-radius: 8px; background: var(--faint);
     color: rgba(13,31,60,0.5); font-size: 13.5px; font-weight: 500; margin-top: 18px;
   }
 
@@ -1773,7 +1880,7 @@ GLOBAL_CSS = """
     background: transparent; transition: border-color 0.12s, opacity 0.12s;
     white-space: nowrap; flex-shrink: 0;
   }
-  .uv-logout:hover { border-color: rgba(29,214,164,0.5); color: #1DD6A4 !important; }
+  .uv-logout:hover { border-color: var(--teal); color: var(--text) !important; }
 
   /* ── Dialogs ─────────────────────────────────────────────────────────────── */
   [data-testid="stDialog"] [role="dialog"],
@@ -1863,33 +1970,24 @@ GLOBAL_CSS = """
   /* ── Placeholders read as hints, not filled-in values (visual review G16) ── */
   input::placeholder, textarea::placeholder { color: var(--faint) !important; opacity: 1 !important; }
 
-  /* ── Signal badges — brand spec (uv-badge-*) ────────────────────────────── */
+  /* ── Signal badges — brand v1.3 §8: one rule set on the token pairs for
+     both themes (the tokens carry the light/dark difference). Fails quality
+     screen is navy in light theme and slate with a hairline in dark theme, so
+     the pill doesn't vanish into a navy card; No signal / No data are a grey
+     wash with muted text. ─────────────────────────────────────────────── */
   .uv-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 64px; height: 22px; padding: 0 9px; border-radius: 6px;
-    font-size: 10.5px; font-weight: 500;   /* mixed case: descriptive labels (BDG-1) */
-    letter-spacing: 0.03em; white-space: nowrap; line-height: 1;
+    height: 22px; padding: 0 9px; border-radius: 6px;
+    font-size: 10.5px; font-weight: 500;   /* sentence case: descriptive labels (BDG-1) */
+    white-space: nowrap; line-height: 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   }
-  .uv-badge-buy,     .uv-badge-ok      { background: var(--uv-pos-bg); color: var(--uv-pos-txt); }
-  .uv-badge-monitor, .uv-badge-caution { background: var(--uv-cau-bg); color: var(--uv-cau-txt); }
-  .uv-badge-avoid,   .uv-badge-warn    { background: var(--uv-neg-bg); color: var(--uv-neg-txt); }
-  .uv-badge-veto                       { background: #0D1F3C; color: #FFFFFF; }
-  .uv-badge-neutral                    { background: rgba(128,128,128,0.15); color: var(--uv-muted); }
-  /* Dark theme: the brand tints above are light-surface colours — on the
-     navy cards they read as glaring near-white pills, and the navy veto pill
-     vanished into the card (only its text showed). Tinted fills + light
-     semantic text instead; the veto badge keeps its "dark, white text" look
-     with a slate fill and a hairline border so the pill stays visible. */
-  html:not([data-theme="light"]) .uv-badge-buy,
-  html:not([data-theme="light"]) .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
-  html:not([data-theme="light"]) .uv-badge-monitor,
-  html:not([data-theme="light"]) .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
-  html:not([data-theme="light"]) .uv-badge-avoid,
-  html:not([data-theme="light"]) .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
-  html:not([data-theme="light"]) .uv-badge-veto    { background: #1E2D4A; color: #FFFFFF;
-                                                     box-shadow: inset 0 0 0 0.5px rgba(245,247,250,0.28); }
-  html:not([data-theme="light"]) .uv-badge-neutral { background: rgba(245,247,250,0.07); color: var(--muted); }
+  .uv-badge-buy,     .uv-badge-ok      { background: var(--up-bg);    color: var(--up-txt); }
+  .uv-badge-monitor, .uv-badge-caution { background: var(--amber-bg); color: var(--amber-txt); }
+  .uv-badge-avoid,   .uv-badge-warn    { background: var(--down-bg);  color: var(--down-txt); }
+  .uv-badge-veto                       { background: var(--veto-bg);  color: #FFFFFF;
+                                         box-shadow: inset 0 0 0 0.5px var(--veto-line); }
+  .uv-badge-neutral                    { background: var(--nosig-bg); color: var(--muted); }
 
   /* ── Numeric table cells never wrap mid-value ───────────────────────────────
      The st.columns tables (Portfolio open/closed/dividends, …) size columns by
@@ -1930,6 +2028,15 @@ GLOBAL_CSS = """
     background: none !important; padding: 0 0 0 4px !important; border: none !important;
   }
   .st-key-scr_signal_pills .uv-pill-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  /* "Show N more": an outline button centred under the rows. */
+  .st-key-scr_more { padding: 14px 20px !important; }
+  .st-key-scr_more button {
+    padding: 8px 14px !important; border: 0.5px solid var(--line) !important; border-radius: 8px !important;
+    background: transparent !important; min-height: 0 !important;
+  }
+  .st-key-scr_more button p { font-size: 12.5px !important; color: var(--muted) !important; }
+  .st-key-scr_more button:hover { border-color: var(--teal) !important; }
+  .st-key-scr_more button:hover p { color: var(--text) !important; }
 
   /* ── Tooltips — one brand style for all three kinds: the app's own
      title= tooltips (uvalu/tooltips.py draws them as .uv-tip), Streamlit's

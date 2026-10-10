@@ -117,6 +117,11 @@ class TestLegalPages:
         assert "Mollie" not in terms and "withdraw" not in terms.lower()
         privacy = public("privacy-notice.md")
         assert "Mollie" not in privacy and "Brevo" not in privacy
+        # Password sign-in only while providers are off (design reference v1.3).
+        from uvalu import oauth
+        if not oauth.providers_enabled():
+            assert "Google" not in privacy and "_streamlit_user" not in privacy
+        assert "Have I Been Pwned" in privacy                     # G36
         data = public("data-sources.md")
         assert "Yahoo Finance" in data and "EODHD" not in data
 
@@ -135,7 +140,7 @@ class TestLegalPages:
         assert "<!--" not in md    # the drafting comment is not public
         # Header chips from the "**Version:** … · **Effective from:** …" line,
         # a section list, and the reference-language note only outside English.
-        assert "beta 1.0" in md and "Effective from" in md
+        assert "beta 1.2" in md and "Effective from" in md
         assert 'href="#sec-1"' in md and 'id="sec-1"' in md
         assert "Reference language" not in md
 
@@ -156,8 +161,10 @@ class TestLegalPages:
         md = "".join(m.value for m in at.markdown)
         assert "Terms of use — free beta" in md
         assert "Reference language" not in md and "Referentietaal" not in md
-        # …while the not-yet-translated notice is there (rendered in Dutch)
-        assert "ⓘ" in md
+        # …while the English-only note sits in the rail (rendered in Dutch,
+        # LG-03) instead of a notice in the document card.
+        assert 'class="uv-rail-note"' in md and "alleen in het Engels" in md
+        assert "ⓘ" not in md
 
     def test_split_document_reads_title_meta_and_body(self):
         md = ("# Terms of use — free beta\n\n"

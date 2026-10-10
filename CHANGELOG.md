@@ -17,6 +17,66 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+The app now follows brand guidelines v1.3 and the updated design reference:
+clearer colours and spacing on every screen, and a sign-in that is password
+only during the free beta. The model, its scores and its signals are
+unchanged; nothing to do besides restarting.
+
+### Added
+
+- **Screener**: a rank column, short exchange codes (PAR, XET, …), a *Hide
+  positions I own* filter, and *No signal* stocks listed at the default
+  filters (with their own filter).
+- **Dashboard**: *Add position* next to *Refresh*; the sector allocation as
+  a compact ring with its legend; upcoming dividends with their payment
+  date; top movers open the stock panel.
+- **Settings**: *Table density* (compact or comfortable rows) is back; the
+  model settings in force are listed for everyone; the Language & region
+  card explains each setting, previews it and lets you try reading a
+  number in your region's format.
+- **Methodology**: today's share of stocks per signal, and the badge
+  definitions with the thresholds in force.
+- The legal pages can be read before signing in, from the sign-in screen.
+
+### Changed
+
+- **Colours**: margin of safety is green from 15%, plain up to 0% and amber
+  below 0% — never red. Red now only marks a stock that fails a quality
+  screen (and the Low score badge). Links have their own, more readable
+  colour, and small grey text is darker.
+- **Scores** are described by band ("Upper band · 70–100"); the Dashboard
+  average margin of safety is weighted by position value; holdings show
+  their result as a percentage of cost.
+- **Page titles and headers** are the same size on every page, with the
+  signal details as the third line under the title.
+- **Portfolio**: every open position is listed on the overview; dividends
+  show net and gross; the closed-positions page is narrower; exports say
+  what they export.
+- **Stock panel and Analysis**: the analysis button comes first, the model
+  summary is the last card on Analysis, and the sensitivity table shows
+  four settings without badges.
+- **Settings**: one *Account security* card with your sessions in it; your
+  account details at the bottom.
+- **Sign-in**: password only during the free beta, with the full
+  disclaimer and the legal links on the sign-in panel. Accounts are created
+  by invitation only.
+- **Privacy notice** (beta 1.2): no longer describes Google sign-in,
+  passkeys or data the beta doesn't collect; mentions the breached-password
+  check; account deletion is by request to privacy@uvalu.app.
+- **Analysis**: the model summary now ends "It is general information, not
+  personal advice"; fair values are described as estimates of value, not
+  forecasts of where the price will go.
+- Notices sit in a fixed order under the top bar; the footer is
+  left-aligned.
+
+### Removed
+
+- **Settings › Data & alerts**: prices refresh every minute in market hours
+  (every 15 minutes outside them), and the Dashboard no longer shows
+  ex-dividend, cut or raise badges.
+- The *Implied return* tile in the stock panel and *Legal & policies* in the
+  user menu (the footer and Settings lead there).
+
 ## [2026.10.2] — 2026-10-07
 
 A calmer, more consistent look: signal details sit in one quiet line under the
@@ -36,7 +96,7 @@ restarting with `run_app.py`.
 - **Dashboard**: the fair-value legend sits on the Holdings title row. A price
   above the model fair value is now amber instead of red, on every
   fair-value bar; red is kept for a failed quality screen.
-- **Settings, Methodology & help, Legal and About share one layout**: a back
+- **Settings, Methodology, Legal and About share one layout**: a back
   link, the same title size, a section list on the left (a document picker on
   a phone) and a comfortable reading width. Long texts are a little smaller
   and easier to read; card headings are no longer in capitals.
@@ -49,7 +109,7 @@ restarting with `run_app.py`.
 ### Fixed
 
 - The *Print or save as PDF* button on the legal pages was not visible.
-- The last line of some cards on the Methodology & help and Settings pages
+- The last line of some cards on the Methodology and Settings pages
   was cut off.
 
 ## [2026.10.1] — 2026-10-05

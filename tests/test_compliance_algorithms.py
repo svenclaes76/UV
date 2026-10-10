@@ -593,3 +593,82 @@ class TestRiskEquivalenceAndRules:
         _patch_history(monkeypatch, pf["ticker"].tolist() + [risk.BENCHMARK_TICKER])
         rep = risk.assess_portfolio(pf, cache)
         assert {p.valuation_flag for p in rep.position_profiles} == {"Above model fair value"}
+
+
+# ── Score bands and signal colours (design reference v1.3, S08) ──────────────
+
+_VERDICT_WORDS = re.compile(r"\b(strong|weak|good|bad|excellent|poor|attractive|cheap|expensive|buy|sell|avoid)\b",
+                            re.I)
+
+
+def test_band_labels_carry_no_verdict_words(isolated_data):
+    """PER-4: a band label says where a score sits on the scale, nothing more."""
+    from uvalu.components import score_band_label
+    labels = [score_band_label(s) for s in (95, 70, 69, 40, 39, 0)]
+    labels += [score_band_label(None), score_band_label(0, excluded=True)]
+    for label in labels:
+        assert not _VERDICT_WORDS.search(label), label
+        assert not _ADVICE_WORDS.search(label), label
+
+
+@pytest.mark.parametrize("mos", [-80.0, -15.0, -0.1, 0.0, 7.5, 15.0, 60.0])
+def test_mos_colour_is_never_red(mos):
+    from uvalu.components import _ladder_bar_color, mos_text_color
+    assert "down" not in mos_text_color(mos) and "#A32D2D" not in mos_text_color(mos)
+    assert "down" not in _ladder_bar_color(mos)
+
+
+def test_only_a_failed_screen_is_red(isolated_data):
+    """Score bars, sub-scores and the fair-value legend never use the red
+    tokens: on the scale, red means a failed quality screen. (The Low score
+    badge keeps its own red tint, brand §8 signal badges.)"""
+    from uvalu.components import (_score_bar_cell_html, fair_value_legend_html, model_signal_badge_html,
+                                  quality_score_color)
+    red = re.compile(r"--down-|#A32D2D|--veto-")
+    for score in (0.0, 20.0, 39.0, 40.0, 69.0, 70.0, 100.0):
+        assert not red.search(_score_bar_cell_html(score))
+        assert not red.search(" ".join(quality_score_color(score)))
+    assert not red.search(fair_value_legend_html())
+    for code in ("undervalued", "neutral", "no_signal"):
+        assert not red.search(model_signal_badge_html(code, veto=False)), code
+    assert "uv-badge-veto" in model_signal_badge_html("undervalued", veto=True)
+
+
+def test_founder_notice_links_the_policy():
+    """REC-8: the founder disclosure points to the Conflicts of interest policy."""
+    from uvalu.components import founder_notice_html
+    html = founder_notice_html({"founder_holds": True})
+    assert 'href="/legal?doc=conflicts"' in html and "Conflicts of interest policy →" in html
+    assert founder_notice_html({"founder_holds": False}) == ""
+
+
+def test_model_summary_carries_the_no_advice_sentence():
+    """PER-4: the generated summary says it is the same for everyone and no advice."""
+    import inspect
+    from uvalu.pages_ import analysis
+    src = inspect.getsource(analysis._render_model_summary)
+    assert "the same text is shown to every user" in src
+    assert "It is general information, not personal advice" in src
+
+
+def test_producer_line_has_name_address_number_contact():
+    """REC-1 / BIZ-3: who, trading name, where, registration and contact (G05)."""
+    from uvalu.compliance import disclosures as d
+    from uvalu.shell import producer_line
+    line = producer_line()
+    assert line.startswith(f"{d.PRODUCER_NAME}, trading as {d.PRODUCER_TRADING_AS} · ")
+    assert d.PRODUCER_ADDRESS in line and d.PRODUCER_CONTACT in line
+    assert (d.PRODUCER_ENTERPRISE_NUMBER or "registration pending") in line
+
+
+def test_disclosure_texts_are_clean():
+    """The producer and conflicts sentences make no advice or verdict claims."""
+    from uvalu.pages_ import analysis, help as help_page
+    import inspect
+    src = inspect.getsource(analysis._render_sources_and_producer) + inspect.getsource(help_page._render_cards)
+    for text in ("No payment from the issuer, brokers or data providers. Uvalu has no income during the free beta.",
+                 "updated within 2 business days of each trade",
+                 "until 2 trading days after it is live"):
+        assert text in src
+    for word in ("recommend", "should buy", "guarantee"):
+        assert word not in src.lower()

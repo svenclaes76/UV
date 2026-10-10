@@ -677,7 +677,7 @@ def _fresh_backup_codes() -> tuple[list[str], list[str]]:
     """(plaintext_codes, bcrypt_hashes) — 10 single-use "xxxx-xxxx" codes.
     Plaintext is returned only so the caller can show it once; only the
     hashes are ever persisted, same as a password."""
-    plain = [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(10)]
+    plain = [f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(BACKUP_CODE_COUNT)]
     hashed = [bcrypt.hashpw(c.encode(), bcrypt.gensalt()).decode() for c in plain]
     return plain, hashed
 
@@ -864,6 +864,21 @@ def trusted_device_count(email: str) -> int:
               if datetime.fromisoformat(d["expires_at"]) > now)
 
 
+def trusted_devices_until(email: str) -> "str | None":
+    """ISO time the last still-trusted device stops skipping the code, or None."""
+    users = _load_users()
+    user = users.get(email.strip().lower())
+    if not user:
+        return None
+    now = datetime.now(timezone.utc)
+    live = [d["expires_at"] for d in user.get("trusted_devices", [])
+            if datetime.fromisoformat(d["expires_at"]) > now]
+    return max(live) if live else None
+
+
+BACKUP_CODE_COUNT = 10
+
+
 def revoke_trusted_devices(email: str) -> tuple[bool, str]:
     email = email.strip().lower()
     users = _load_users()
@@ -1013,10 +1028,11 @@ def set_password(email: str, new_password: str) -> tuple[bool, str]:
 def oauth_login(issuer: str, subject: str, email: str, user_agent: str = "") -> tuple[bool, str]:
     """Resolve a completed OIDC sign-in (Streamlit's st.login()/st.user, via
     uvalu/oauth.py) against the user store. Returns (True, jwt) on success;
-    (False, "not_invited") if this identity has no Uvalu account and
-    workspace policy doesn't auto-provision one — the caller (authgate.py)
-    renders the refusal screen using the email it already has, rather than
-    this needing to round-trip it back."""
+    (False, "not_invited") if this identity has no Uvalu account — accounts
+    are created by invitation only, never automatically (every member must
+    accept the terms first). The caller (authgate.py) renders the refusal
+    screen using the email it already has, rather than this needing to
+    round-trip it back."""
     email = email.strip().lower()
     users = _load_users()
     owner = _find_identity_owner(users, issuer, subject)
@@ -1033,25 +1049,6 @@ def oauth_login(issuer: str, subject: str, email: str, user_agent: str = "") -> 
         token = _issue_session(users, owner, user, user_agent)
         logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(owner),
                           role=user.get("role", "Analyst"), was_invited=was_invited, method="oauth")
-        return True, token
-
-    shared = load_shared_settings()
-    domain = email.rsplit("@", 1)[-1] if "@" in email else ""
-    if shared.get("auto_provision_oauth", False) and domain in shared.get("allowed_email_domains", []):
-        now = datetime.now(timezone.utc)
-        new_user = {
-            "password_hash": None, "role": "Analyst", "status": "Active",
-            "created_at": now.isoformat(), "last_active": now.isoformat(),
-            "password_changed_at": "", "linked_identities": [
-                {"issuer": issuer, "subject": subject, "email_at_link": email, "linked_at": now.isoformat()}],
-            "invite_token": None, "invite_token_expires": None, "invited_by": "",
-        }
-        users[email] = new_user
-        token = _issue_session(users, email, new_user, user_agent)
-        logkit.data_mutation(actor="system", action="user.auto_provision", entity_type="user",
-                             entity_id=logkit.user_hash(email), role="Analyst")
-        logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
-                          role="Analyst", method="oauth", auto_provisioned=True)
         return True, token
 
     logkit.auth_event("login.failed", outcome="failed", reason="not_invited",
@@ -1119,6 +1116,25 @@ def _other_active_admins(users: dict, exclude_email: str) -> int:
         if email != exclude_email and u.get("role") == "Admin"
         and u.get("status") != "Suspended"
     )
+
+
+def passwordless_accounts(users: dict | None = None) -> list[tuple[str, str, list[str]]]:
+    """(email, status, linked providers) for every account that can't sign in
+    with a password because it has none: provider-only accounts. While the
+    beta offers password sign-in only (oauth.providers_enabled() is False),
+    these are locked out until an admin sends a password reset, whose link
+    sets a password even when the account never had one. Invited accounts
+    are skipped: they choose a password when they accept (T1)."""
+    if users is None:
+        users = _load_users()
+    out = []
+    for email, user in sorted(users.items()):
+        if user.get("status") == "Invited" or user.get("password_hash"):
+            continue
+        providers = [str(i.get("issuer") or i.get("provider") or "?")
+                     for i in (user.get("linked_identities") or []) if isinstance(i, dict)]
+        out.append((email, str(user.get("status", "")), providers))
+    return out
 
 
 def list_users() -> list[dict]:

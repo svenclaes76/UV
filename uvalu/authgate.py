@@ -164,7 +164,7 @@ def _render_backup_code_challenge(pending: dict) -> None:
     )
     if backup_codes_remaining(pending["email"]) == 0:
         st.markdown(
-            '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+            '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
             'padding:14px 16px;margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
             f'{h_("No backup codes left on this account. Ask an admin to reset your two-factor authentication so you can re-enroll.")}</div>',
             unsafe_allow_html=True,
@@ -226,16 +226,23 @@ def _render_brand_panel() -> None:
     # Graham, P/E, EPV and the two dividend models (plus two fallbacks).
     from uvalu.compliance import disclosures as _disc
     from uvalu.shell import producer_line
+    # The legal links are readable before sign-in (auth_wall renders /legal
+    # publicly). #3FBF98: the dark-theme --link, on this always-navy panel.
+    _links = "".join(
+        f'<a href="/legal?doc={key}" target="_self" style="color:#3FBF98;text-decoration:none;">'
+        f'{html.escape(tr(_disc.FOOTER_LINK_LABELS.get(key, title)))}</a>'
+        for key, title, _file in _disc.LEGAL_DOCS)
     _foot = (html.escape(tr(_disc.SHORT_DISCLAIMER))
-             + '<div style="margin-top:8px;color:rgba(245,247,250,0.45);">'
-             + html.escape(producer_line()) + " · " + html.escape(tr(_disc.NOT_SUPERVISED)) + "</div>")
+             + '<div style="margin-top:8px;">'
+             + html.escape(producer_line()) + " · " + html.escape(tr(_disc.NOT_SUPERVISED)) + "</div>"
+             + f'<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;">{_links}</div>')
     st.markdown(f"""
     <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
       <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
       <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">{h_("value engine")}</span>
     </div>
     <div style="position:relative;z-index:2;">
-      <div class="uv-login-headline">{h_("Calculate fair value with five models.")}</div>
+      <div class="uv-login-headline">{h_("Find value before the market does.")}</div>
       <div class="uv-login-copy">{h_("Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user.")}</div>
       <div class="uv-login-stats">
         <div><div class="uv-login-stat-val">5</div><div class="uv-login-stat-lbl">{h_("valuation models")}</div></div>
@@ -277,10 +284,10 @@ def _render_provider_buttons(key_prefix: str) -> None:
             else:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
-                    f'width:100%;box-sizing:border-box;padding:11px;border-radius:9px;font-size:13px;'
-                    f'border:0.5px dashed var(--line);color:var(--faint);">{h_("Continue with {provider}", provider=_p["label"])}'
+                    f'width:100%;box-sizing:border-box;padding:11px;border-radius:8px;font-size:13px;'
+                    f'border:0.5px dashed var(--line);color:var(--muted);">{h_("Continue with {provider}", provider=_p["label"])}'
                     f'<span style="font-size:9.5px;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;'
-                    f'background:var(--line-2);color:var(--faint);">{h_("NOT CONFIGURED")}</span></div>',
+                    f'background:var(--line-2);color:var(--muted);">{h_("NOT CONFIGURED")}</span></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -298,7 +305,7 @@ def _render_oauth_refused(info: dict) -> None:
     st.markdown(
         f'<div class="uv-login-heading">{_heading}</div>'
         f'<div class="uv-login-subhead">{_body}</div>'
-        '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:10px;'
+        '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
         'padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
         f'{h_("If you were invited on a different address, sign in with that one — or ask an admin to invite this address.")}</div>',
         unsafe_allow_html=True,
@@ -337,13 +344,13 @@ def _render_invite_acceptance(token: str) -> None:
             st.markdown(
                 '<div style="margin-top:22px;">'
                 '<div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                f'color:var(--faint);margin-bottom:8px;">{h_("Email")}</div>'
-                '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:9px;'
+                f'color:var(--muted);margin-bottom:8px;">{h_("Email")}</div>'
+                '<div style="background:var(--panel-2);border:0.5px solid var(--line-2);border-radius:8px;'
                 'padding:11px 13px;font-size:14px;color:var(--muted);display:flex;align-items:center;'
                 'justify-content:space-between;">'
                 f'<span style="font-family:var(--uv-mono);font-size:13px;">{invite["email"]}</span>'
                 '<span style="font-size:10px;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;'
-                f'background:var(--line-2);color:var(--faint);">{h_("FIXED BY INVITE")}</span></div></div>',
+                f'background:var(--line-2);color:var(--muted);">{h_("FIXED BY INVITE")}</span></div></div>',
                 unsafe_allow_html=True,
             )
             _min_len = int(load_shared_settings().get("min_password_length", 12))
@@ -362,13 +369,14 @@ def _render_invite_acceptance(token: str) -> None:
                     st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
                     _render_strength_caption(password)
 
-            st.markdown(
-                '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
-                '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
-                '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
-                unsafe_allow_html=True,
-            )
+            if oauth.providers_enabled():
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                    f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                    unsafe_allow_html=True,
+                )
             # Deliberately just starts st.login() — doesn't try to complete
             # accept_invite_with_oauth() here even if oauth.current_identity()
             # already has one, because st.login()'s redirect lands back on the
@@ -376,7 +384,8 @@ def _render_invite_acceptance(token: str) -> None:
             # URL. auth_wall()'s own post-redirect handling (find_pending_
             # invite_by_email) finishes the acceptance once the user is back
             # there instead — see that function's docstring.
-            _render_provider_buttons("invite_accept_provider")
+            if oauth.providers_enabled():
+                _render_provider_buttons("invite_accept_provider")
 
 
 def _render_first_admin_setup() -> None:
@@ -437,7 +446,7 @@ def _render_forgot_password() -> None:
             locale_ui.render_login_switcher()
             st.markdown(
                 f'<div class="uv-login-heading">{h_("Forgot your password?")}</div>'
-                f'<div class="uv-login-subhead">{h_("Uvalu has no automated password reset — ask an admin to send you a one-time reset link from the Admin portal.")}</div>',
+                f'<div class="uv-login-subhead">{h_("During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 24 hours.")}</div>',
                 unsafe_allow_html=True,
             )
             if st.button(_("Back to sign in"), key="forgot_back", width="stretch"):
@@ -490,6 +499,15 @@ def _render_password_reset(token: str) -> None:
                     else:
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
                         _render_strength_caption(password)
+
+
+def _is_legal_path() -> bool:
+    """Whether this request is for /legal (st.context.url carries the path)."""
+    from urllib.parse import urlsplit
+    try:
+        return urlsplit(st.context.url or "").path.rstrip("/").endswith("/legal")
+    except Exception:
+        return False
 
 
 def auth_wall() -> None:
@@ -588,6 +606,16 @@ def auth_wall() -> None:
     # actual light/dark preference (unlike every authenticated page).
     shell.apply_theme_script(theme_colors().effective_light)
 
+    # The legal pages are public: the sign-in panel links to them (AU-02), and
+    # the terms must be readable before anyone accepts them. Static policy
+    # text only — no account data.
+    if _is_legal_path():
+        from uvalu.pages_ import legal as _legal_page
+        st.markdown(f'<a href="/" target="_self" class="uv-public-back">{h_("← Back to sign in")}</a>',
+                    unsafe_allow_html=True)
+        _legal_page.render(public=True)
+        st.stop()
+
     with st.container(key="uv_login", horizontal=True, gap=None):
         with st.container(key="uv_login_left"):
             _render_brand_panel()
@@ -628,17 +656,18 @@ def auth_wall() -> None:
                     f'<div class="uv-login-btn-disabled">{h_("Sign in")}</div>',
                     unsafe_allow_html=True,
                 )
+                if oauth.providers_enabled():
+                    st.markdown(
+                        '<div style="display:flex;align-items:center;gap:12px;margin:18px 0;">'
+                        '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                        f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
+                        '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    _render_provider_buttons("login_locked_provider")
                 st.markdown(
-                    '<div style="display:flex;align-items:center;gap:12px;margin:18px 0;">'
-                    '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                    f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
-                    '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
-                    unsafe_allow_html=True,
-                )
-                _render_provider_buttons("login_locked_provider")
-                st.markdown(
-                    '<div style="font-size:11.5px;color:var(--faint);margin-top:12px;text-align:center;'
-                    f'line-height:1.5;">{h_("The lock applies to password sign-in only. Providers are unaffected.")}</div>',
+                    '<div style="font-size:11.5px;color:var(--muted);margin-top:12px;text-align:center;'
+                    f'line-height:1.5;">{h_("The lock applies to password sign-in only.")}</div>',
                     unsafe_allow_html=True,
                 )
                 if st.button(_("Not you? Use a different account"), key="login_switch_account",
@@ -665,8 +694,8 @@ def auth_wall() -> None:
                     '<div style="display:flex;align-items:baseline;justify-content:space-between;'
                     'margin-top:4px;">'
                     '<span style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;'
-                    f'color:var(--faint);">{h_("Password")}</span>'
-                    '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--teal);'
+                    f'color:var(--muted);">{h_("Password")}</span>'
+                    '<a href="?forgot=1" target="_self" style="font-size:11.5px;color:var(--link);'
                     f'text-decoration:none;">{h_("Forgot?")}</a></div>',
                     unsafe_allow_html=True,
                 )
@@ -717,20 +746,21 @@ def auth_wall() -> None:
                             unsafe_allow_html=True,
                         )
 
-            st.markdown(
-                '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
-                '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
-                f'<span style="font-size:11px;color:var(--faint);">{h_("or")}</span>'
-                '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
-                unsafe_allow_html=True,
-            )
-            _render_provider_buttons("login_provider")
+            if oauth.providers_enabled():
+                st.markdown(
+                    '<div style="display:flex;align-items:center;gap:12px;margin:22px 0;">'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div>'
+                    f'<span style="font-size:11px;color:var(--muted);">{h_("or")}</span>'
+                    '<div style="flex:1;height:0.5px;background:var(--line);"></div></div>',
+                    unsafe_allow_html=True,
+                )
+                _render_provider_buttons("login_provider")
             # No self-service request-access flow exists (accounts are created
-            # via the Admin portal's Invite flow), so this is styled text, not
-            # a dead link.
+            # via the Admin portal's Invite flow), so this is plain text, not
+            # a dead link (G29).
             st.markdown(
                 '<div style="font-size:12.5px;color:var(--muted);margin-top:26px;text-align:center;">'
-                f'{h_("New to Uvalu?")} <span style="color:var(--teal);">{h_("Ask your admin for an invite")}</span></div>',
+                f'{h_("New to Uvalu?")} <span style="color:var(--text);">{h_("Ask for an invite")}</span></div>',
                 unsafe_allow_html=True,
             )
 

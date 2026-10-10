@@ -50,6 +50,14 @@ def is_configured(provider_id: str) -> bool:
                and section.get("client_secret") and section.get("server_metadata_url"))
 
 
+def providers_enabled() -> bool:
+    """Whether sign-in with an identity provider is offered at all. Off during
+    the free beta (password sign-in only, design reference v1.3); the
+    provider screens stay in the code for later."""
+    from uvalu.compliance import disclosures
+    return not disclosures.BETA
+
+
 def configured_providers() -> list[dict]:
     """Every entry in PROVIDERS with its live configured state — the list
     the sign-in screen's provider buttons render from (Uvalu Auth.dc.html

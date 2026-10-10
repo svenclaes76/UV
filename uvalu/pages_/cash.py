@@ -15,7 +15,7 @@ import streamlit as st
 
 import cash
 from portfolio import base_currency
-from uvalu.components import (kpi_card, cash_balance_block_html, cash_alloc_html,
+from uvalu.components import (back_link, page_header, kpi_card, cash_balance_block_html, cash_alloc_html,
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
@@ -91,40 +91,41 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
     entries = cash.load_ledger()
     s = cash.summary(entries, invested_value)
 
-    if st.button(_("← Back to Positions"), key="back_cash", type="tertiary"):
+    if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_cash"):
         on_back()
-    with st.container(key="pf_page_title_cash", horizontal=True, vertical_alignment="center",
-                      horizontal_alignment="distribute"):
-        with st.container(width="content"):
-            st.markdown(f'<div style="font-size:22px;font-weight:500;letter-spacing:-0.02em;">{h_("Cash activity")}</div>',
-                        unsafe_allow_html=True)
-            st.caption(_("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
-                         currency=base))
-        with st.container(horizontal=True, gap="small", width="content", vertical_alignment="center"):
-            export_menu(_("Export"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
-                        file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
-            if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
-                         disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
-                cash_transaction_dialog("Deposit")
+    with page_header(_("Cash activity"),
+                     _("Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger.",
+                       currency=base),
+                     key="pf_page_title_cash"):
+        if is_viewer:
+            # Says why the buttons beside it are greyed out.
+            st.markdown(f'<span style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);'
+                        f'border:0.5px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap;">'
+                        f'{h_("Viewer · read-only")}</span>', unsafe_allow_html=True, width="content")
+        export_menu(_("Export CSV"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
+                    file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
+        if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
+                     disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
+            cash_transaction_dialog("Deposit")
 
     with st.container(key="pf_cash_tiles"):
         _t = st.columns(5)
         with _t[0]:
             kpi_card(h_("Cash balance"), cash.money(s["balance"], base, 0),
                      sub=h_("{pct}% of total portfolio value", pct=fmt_num(s['cash_pct'], 1)),
-                     icon="cash")
+                     icon="cash", size="md")
         with _t[1]:
-            kpi_card(h_("Net deposits"), _signed0(s["net_deposits"], base), sub=h_("deposits − withdrawals"), icon="wallet")
+            kpi_card(h_("Net deposits"), _signed0(s["net_deposits"], base), sub=h_("deposits − withdrawals"), icon="wallet", size="md")
         with _t[2]:
-            kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend")
+            kpi_card(h_("Trade flow"), _signed0(s["trade_flow"], base), sub=h_("sells − buys, incl. fees"), icon="trend", size="md")
         with _t[3]:
             kpi_card(h_("Income"), _signed0(s["income"], base), sub=h_("net dividends + interest"), icon="coin",
-                     value_color="var(--mint)")
+                     value_color="var(--up-txt)", size="md")
         with _t[4]:
             kpi_card(h_("Fees & corrections"), _signed0(s["fees_corrections"], base),
                      sub=ngettext("excl. opening balance · {count} correction",
                                   "excl. opening balance · {count} corrections", s['corrections']),
-                     icon="target")
+                     icon="target", size="md")
 
     if s["negative"]:
         st.warning(_("The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."),
@@ -141,7 +142,7 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                                  format_func=frozen(tr), selection_mode="single", key="cash_filter",
                                  label_visibility="collapsed") or "All"
                 rows = cash.filter_rows(rows_all, group)
-                st.markdown(f'<span style="font-size:11.5px;color:var(--faint);font-family:var(--uv-mono);'
+                st.markdown(f'<span style="font-size:11.5px;color:var(--muted);font-family:var(--uv-mono);'
                             f'white-space:nowrap;">{h_("{shown} of {total} entries", shown=len(rows), total=len(rows_all))}</span>',
                             unsafe_allow_html=True, width="content")
             if not rows:
@@ -167,8 +168,6 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
                 if _target is not None:
                     edit_cash_dialog(_target["id"])
 
-    st.caption(_("Entries can be made in any currency and are converted to {currency} at the ECB reference rate for the transaction date (frankfurter.dev), stored with the entry. When no rate is available the rate is entered manually and flagged. Buy/sell trades and received dividend payments post automatically; a buy the balance can't cover adds a linked top-up deposit so the balance never goes below zero.",
-                 currency=base))
 
 
 def dashboard_cash_tile_values(invested_value: float) -> dict:

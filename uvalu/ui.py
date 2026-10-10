@@ -11,7 +11,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import set_user
-from settings import load_settings
 from uvalu import logkit
 from uvalu.i18n import _, fmt_compact, fmt_pct, fmt_total, h_, localize_fig, to_display, tr
 from uvalu.market_hours import is_market_hours
@@ -246,22 +245,26 @@ def poll_while_fetching(key: str, lane: str = "screener", *, seconds: float = 5.
     return prog
 
 
+# Delayed quotes refresh every minute in market hours, every 15 minutes
+# outside them (no user setting since design reference v1.3).
+PRICE_REFRESH_S = 60
+PRICE_REFRESH_OFF_HOURS_S = 900
+
+
 def price_autorefresh(key: str) -> None:
     """Timed refresh for the live-price pages (dashboard / portfolio / risk).
 
-    Cadence is the user's ``refresh_interval_s`` during market hours, stretched
-    to at least 15 minutes outside them so idle overnight tabs don't keep
-    hammering the quote feed. One implementation shared by all three pages.
+    Every ``PRICE_REFRESH_S`` during market hours, ``PRICE_REFRESH_OFF_HOURS_S``
+    outside them so idle overnight tabs don't keep hammering the quote feed.
+    One implementation shared by all three pages.
 
     A tick only forces a full rerun when something the page actually shows has
     moved — a new price bucket, the portfolio fetch lane advancing/stopping, or
-    its scored-frame token (WP-6) — so a short user-set interval (or a weekend
-    tab) stops re-rendering into identical output.
+    its scored-frame token (WP-6) — so a weekend tab stops re-rendering into
+    identical output.
     """
     from uvalu.data import _price_refresh_signature
-    interval = load_settings(current_user().email).get("refresh_interval_s", 60)
-    if not is_market_hours():
-        interval = max(interval, 900)
+    interval = PRICE_REFRESH_S if is_market_hours() else PRICE_REFRESH_OFF_HOURS_S
     _auto_rerun(interval, key, version_fn=_price_refresh_signature)
 
 

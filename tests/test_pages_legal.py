@@ -61,3 +61,14 @@ def test_phone_document_select_opens_the_picked_document():
     assert not at.exception
     assert at.query_params["doc"] == ["privacy"]
     assert "Privacy notice — free beta" in "".join(m.value for m in at.markdown)
+
+
+def test_eyebrow_row_print_button_and_english_only_rail_note():
+    """LG-01 / LG-03 / LG-05: "Uvalu · Legal" with the print button on one
+    row, the title under it; the English-only note in the rail."""
+    at = _run()
+    md = "".join(m.value for m in at.markdown)
+    assert "Uvalu · Legal" in md
+    assert "During the free beta these pages are available in English only." in md
+    assert md.index("Uvalu · Legal") < md.index("Terms of use")
+    assert "padding: 30px 44px 40px" in md

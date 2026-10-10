@@ -90,7 +90,7 @@ def test_language_and_region_settings_persist_and_apply(isolated_data, monkeypat
     assert saved["display_currency"] is None            # still following the region
     ctx = at.session_state["_uv_i18n"]
     assert (ctx.lang, ctx.region, ctx.currency, ctx.date_format) == ("fr", "de-CH", "CHF", "iso")
-    assert at.selectbox(key="set_i18n_currency").value == "CHF"   # the widget follows the region too
+    assert at.segmented_control(key="set_i18n_currency").value == "CHF"   # the widget follows the region too
 
 
 def test_reset_to_defaults_asks_first(isolated_data, monkeypatch):
@@ -183,3 +183,32 @@ def test_number_field_is_the_native_widget_in_dot_decimal_regions(isolated_data)
     assert at.number_input(key="amt") is not None
     at.number_input(key="amt").set_value(12.5).run()
     assert "value=12.5" in at.markdown[-1].value
+
+
+# ── Language & region card, design reference v1.3 (S21) ─────────────────────
+
+@pytest.mark.parametrize("region,text,expected", [
+    ("de-DE", "1.234,5", "1234.5"), ("fr-CH", "1 234.5", None), ("en-GB", "1,234.5", "1234.5"),
+    ("de-DE", "abc", None)])
+def test_try_a_number_reads_the_region_format(region, text, expected):
+    from babel import Locale
+    from uvalu.locale_ui import parse_number
+    got = parse_number(text, Locale.parse(region, sep="-"))
+    if region == "fr-CH" and got is not None:
+        # Swiss French groups with a narrow no-break space or an apostrophe;
+        # whatever CLDR says, a plain-space group must not read as a number.
+        assert got == "1234.5"
+    else:
+        assert got == expected
+
+
+def test_card_shows_descriptions_status_lines_and_saved_note(isolated_data, monkeypatch):
+    at = _settings_app(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Numbers, dates and amounts." in html
+    assert "Follows region · " in html and "From region · " in html
+    assert "✓ Saved to your profile" not in html
+    at.segmented_control(key="set_i18n_date_format").set_value("iso").run()
+    html = "".join(m.value for m in at.markdown)
+    assert "✓ Saved to your profile" in html
+    assert "2026-09-27" in html                       # the example under the control

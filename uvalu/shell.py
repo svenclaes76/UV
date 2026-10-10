@@ -12,7 +12,7 @@ import streamlit as st
 
 from settings import load_settings
 from uvalu import nav as nav_registry
-from uvalu.i18n import N_, _, fmt_time, pgettext, tr
+from uvalu.i18n import N_, _, fmt_time, h_, pgettext, tr
 from uvalu.market_hours import is_market_hours, market_now
 from uvalu.runtime import current_user, theme_colors
 
@@ -53,11 +53,11 @@ _NAV_ITEMS = (
 
 
 # Top-bar column widths (px at the design width). The nav column is sized to
-# its translated links — 12.5px text + icon + padding per link — so longer
+# its translated links — 13px/500 text + icon + padding per link — so longer
 # labels ("Portefeuille", "Beobachtungsliste") take room from the gap on the
 # right instead of running into the status pill.
 _LOGO_PX, _RIGHT_PX = 190, 330
-_NAV_CHAR_PX, _NAV_LINK_PX = 7.0, 52
+_NAV_CHAR_PX, _NAV_LINK_PX = 7.4, 54
 
 
 def _topbar_widths(labels: list[str]) -> list[float]:
@@ -218,7 +218,7 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar {{
   position: sticky; top: 0; z-index: 999;
   background: var(--panel); border-bottom: 0.5px solid var(--line);
-  padding: 10px 24px; margin: 0 -1.5rem 0.75rem;
+  padding: 10px 24px; margin: 0 -1.5rem 0;
   width: calc(100% + 3rem) !important; max-width: calc(100% + 3rem) !important;
   flex: none !important; min-height: 61px !important; box-sizing: border-box !important;
 }}
@@ -231,9 +231,11 @@ def _topbar_css(active_path: str) -> str:
 .st-key-uv_topbar [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
 .st-key-uv_topbar_nav {{ flex-wrap: nowrap !important; }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{
-  border-radius: 8px !important; padding: 7px 12px !important;
-  font-size: 12.5px !important; color: var(--muted) !important;
-  white-space: nowrap !important;
+  border-radius: 8px !important; padding: 7px 13px !important;
+  color: var(--muted) !important; white-space: nowrap !important;
+}}
+.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] p {{
+  font-size: 13px !important; font-weight: 500 !important; color: inherit !important;
 }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
   font-size: 16px !important;
@@ -242,31 +244,32 @@ def _topbar_css(active_path: str) -> str:
   background: var(--line-2) !important; color: var(--text) !important;
 }}
 .st-key-uv_topbar_nav a[href="{active_path}"] {{
-  background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;
+  background: var(--soft) !important; color: var(--text) !important;
 }}
 div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !important; }}
 /* Below ~1200px the nav links and the market-status text no longer fit side
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
 .uv-pi-short {{ display: none; }}
+/* The logo column is too narrow for the tagline beside the 22px logo. */
+@media (max-width: 1100px) {{ .uv-logo-tag {{ display: none !important; }} }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
   .uv-pi-short {{ display: inline !important; }}
-  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{ display: none !important; }}
+  /* The icon's own wrapper span, not just the glyph: a hidden glyph still
+     left a 16px box plus the 8px gap in every link. */
+  .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {{ display: none !important; }}
   .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] {{ padding: 7px 9px !important; }}
 }}
+/* A plain outline control in both themes (the avatar chip stays the one
+   navy + mint brand badge). */
 .st-key-uv_theme_toggle button {{
-  border-radius: 8px !important; background: var(--navy) !important;
-  color: var(--mint) !important; border: 0.5px solid var(--line) !important;
-  padding: 6px !important; min-height: 32px !important; min-width: 32px !important;
+  border-radius: 8px !important; background: transparent !important;
+  color: var(--muted) !important; border: 0.5px solid var(--line) !important;
+  padding: 0 !important; width: 34px !important; height: 34px !important;
+  min-height: 34px !important; min-width: 34px !important;
 }}
-/* Unlike the avatar chip (always navy+mint — a fixed brand badge), the
-   theme toggle is a plain UI control and should read as "off"/neutral in
-   light mode instead of standing out as a dark tile among light ones. */
-[data-theme="light"] .st-key-uv_theme_toggle button {{
-  background: var(--panel-2) !important; color: var(--text) !important;
-  border: 0.5px solid var(--line) !important;
-}}
+.st-key-uv_theme_toggle button:hover {{ border-color: var(--teal) !important; color: var(--text) !important; }}
 div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !important; }}
 /* The avatar control is two visually distinct zones — a navy initials pill
    plus a separate chevron — not one solid-color button. Streamlit renders
@@ -290,9 +293,43 @@ div:has(> .st-key-uv_avatar_pop) {{ flex: none !important; width: auto !importan
 }}
 .st-key-uv_avatar_pop button [aria-hidden="true"] {{ color: var(--muted) !important; }}
 .st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] {{
-  border-radius: 8px !important; padding: 8px 10px !important; font-size: 12.5px !important;
+  border-radius: 8px !important; padding: 8px 10px !important; gap: 10px !important;
+}}
+.st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] p {{ font-size: 13px !important; color: var(--text) !important; }}
+.st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
+  font-size: 16px !important; color: var(--muted) !important;
 }}
 .st-key-uv_avatar_menu a[data-testid="stPageLink-NavLink"]:hover {{ background: var(--line-2) !important; }}
+a.uv-menu-signout {{
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+  color: var(--down-txt) !important; font-size: 13px; text-decoration: none;
+}}
+a.uv-menu-signout:hover {{ background: var(--down-bg); }}
+/* Notice strips (update notice, reload prompt): full width under the top bar,
+   --panel with a --line-2 rule, flush with the bar and with each other (the
+   negative top margin cancels the page's 18px section gap). */
+.st-key-uv_whats_new_notice, .st-key-uv_reload_prompt {{
+  margin: -18px -1.5rem 0 !important; width: calc(100% + 3rem) !important; max-width: none !important;
+  padding: 8px 24px !important; background: var(--panel); border-bottom: 0.5px solid var(--line-2);
+  gap: 8px 16px !important; flex-wrap: wrap !important; box-sizing: border-box;
+}}
+.st-key-uv_whats_new_notice [data-testid="stMarkdownContainer"],
+.st-key-uv_reload_prompt [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] {{
+  padding: 0 !important; min-height: 0 !important; background: none !important;
+}}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {{ display: none !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"] p {{ font-size: 12.5px !important; color: var(--link) !important; }}
+.st-key-uv_whats_new_notice a[data-testid="stPageLink-NavLink"]:hover p {{ color: var(--text) !important; }}
+.st-key-uv_whats_new_notice button {{ min-height: 0 !important; padding: 0 !important; }}
+.st-key-uv_whats_new_notice button p {{ font-size: 12.5px !important; color: var(--muted) !important; }}
+.st-key-uv_whats_new_notice button:hover p {{ color: var(--text) !important; }}
+/* Beta box and peer strip: Streamlit's -1rem markdown margin would eat the
+   gap below them (title 6px under the box instead of 22px). */
+[data-testid="stMarkdownContainer"]:has(> .uv-beta-box),
+[data-testid="stMarkdownContainer"]:has(> .uv-peer-strip) {{ margin-bottom: 0 !important; }}
+.uv-reload-link {{ font-size: 12.5px; color: var(--link) !important; text-decoration: none; white-space: nowrap; }}
+.uv-reload-link:hover {{ color: var(--text) !important; }}
 """
 
 
@@ -321,10 +358,10 @@ def render_topbar(nav) -> None:
         with col_logo:
             st.markdown(
                 '<div style="display:flex;align-items:baseline;gap:9px;">'
-                '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;">'
-                'uval<span style="color:var(--teal)">u</span></span>'
-                '<span style="font-size:9px;letter-spacing:0.14em;text-transform:uppercase;'
-                f'color:var(--faint);">{_("value engine")}</span></div>',
+                '<span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">'
+                'uval<span style="color:var(--logo-accent)">u</span></span>'
+                '<span class="uv-logo-tag" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;'
+                f'white-space:nowrap;color:var(--muted);">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -355,7 +392,7 @@ def render_topbar(nav) -> None:
                              "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
                 st.markdown(
                     f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
-                    f'font-size:11px;color:var(--faint);font-family:var(--uv-mono);min-width:0;">'
+                    f'font-size:11px;color:var(--muted);font-family:var(--uv-mono);min-width:0;">'
                     f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
                     f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
                     f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
@@ -372,69 +409,102 @@ def render_topbar(nav) -> None:
                 with st.container(key="uv_avatar_pop"):
                     with st.popover(_initials(user.email)):
                         # Name, then the email as plain text (st.caption auto-linked it
-                        # as a mailto link) and the role as a chip.
+                        # as a mailto link) and the plan as a chip (G27: "Free beta";
+                        # the role is shown in the Admin portal).
                         st.markdown(
-                            f'<div><div style="font-size:14px;font-weight:600;">{html.escape(_display_name(user.email))}</div>'
-                            f'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
+                            f'<div><div style="font-size:13px;font-weight:500;">{html.escape(_display_name(user.email))}</div>'
+                            f'<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
                             f'{html.escape(user.email).replace("@", "&#64;")}</div>'
-                            f'<span style="display:inline-block;margin-top:8px;font-size:10.5px;font-weight:500;'
-                            f'color:var(--muted);border:0.5px solid var(--line);border-radius:6px;padding:1px 8px;">'
-                            f'{html.escape(tr(user.role.capitalize()))}</span></div>',
+                            f'<span style="display:inline-block;margin-top:8px;font-size:10px;font-weight:500;'
+                            f'color:var(--up-txt);background:var(--soft);border-radius:6px;padding:2px 8px;">'
+                            f'{html.escape(_("Free beta"))}</span></div>',
                             unsafe_allow_html=True)
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
                             _settings_page = nav_registry.pages.get("settings")
                             _help_page = nav_registry.pages.get("help")
                             _admin_page = nav_registry.pages.get("admin")
+                            # Legal texts are reached from the footer and Settings › Legal.
                             if _settings_page is not None:
-                                st.page_link(_settings_page, label=_("Settings"))
+                                st.page_link(_settings_page, label=_("Settings"), icon=":material/settings:")
                             if _help_page is not None:
-                                st.page_link(_help_page, label=_("Methodology & help"))
-                            _legal_page = nav_registry.pages.get("legal")
-                            if _legal_page is not None:
-                                st.page_link(_legal_page, label=_("Legal & policies"), query_params={"doc": "terms"})
+                                st.page_link(_help_page, label=_("Methodology"), icon=":material/info:")
                             _about_page = nav_registry.pages.get("about")
                             if _about_page is not None:
-                                st.page_link(_about_page, label=_("About Uvalu"))
+                                st.page_link(_about_page, label=_("About Uvalu"), icon=":material/layers:")
                             if user.is_admin and _admin_page is not None:
-                                st.page_link(_admin_page, label=_("Admin portal"))
+                                st.page_link(_admin_page, label=_("Admin portal"), icon=":material/shield:")
                         st.divider()
                         # A menu item like the links above (icon + label), not a small
                         # underlined link.
+                        from uvalu.components import material_icon_html
                         st.markdown(
-                            '<a href="/?logout=1" target="_self" style="display:flex;align-items:center;gap:10px;'
-                            'color:var(--text);font-size:14px;text-decoration:none;padding:2px 0;">'
-                            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                            'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-                            '<path d="M14 8v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/>'
-                            '<path d="M9 12h12l-3-3M18 15l3-3"/></svg>'
-                            f'{html.escape(_("Sign out"))}</a>',
+                            f'<a href="/?logout=1" target="_self" class="uv-menu-signout">'
+                            f'{material_icon_html("logout", 16)}{html.escape(_("Sign out"))}</a>',
                             unsafe_allow_html=True,
                         )
 
 
 # ── Beta banner (decision B7) and legal footer (DIS-1, REC-1, BIZ-3) ──────────
 
-def producer_line() -> str:
-    """Producer identity for the footer, the stock page and the methodology
-    page (REC-1, BIZ-3): name, trading name, address, enterprise number (or
-    "registration pending", decision B6) and contact."""
+def producer_name() -> str:
+    """"Sven Claes, trading as Uvalu" — who produces the output (REC-1)."""
     from uvalu.compliance import disclosures as d
-    number = (d.PRODUCER_ENTERPRISE_NUMBER if d.PRODUCER_ENTERPRISE_NUMBER
-              else tr(d.ENTERPRISE_NUMBER_PENDING))
-    return (f"{d.PRODUCER_TRADING_AS} · {d.PRODUCER_NAME}, {d.PRODUCER_ADDRESS} · "
-            f"{number} · {d.PRODUCER_CONTACT}")
+    return _("{name}, trading as {trading_as}", name=d.PRODUCER_NAME, trading_as=d.PRODUCER_TRADING_AS)
+
+
+def enterprise_number() -> str:
+    """The enterprise number, or "enterprise number: registration pending"
+    (decision B6)."""
+    from uvalu.compliance import disclosures as d
+    return d.PRODUCER_ENTERPRISE_NUMBER or tr(d.ENTERPRISE_NUMBER_PENDING)
+
+
+def producer_line() -> str:
+    """Producer identity for the footer, the sign-in panel and the
+    Methodology page (REC-1, BIZ-3): name and trading name, address,
+    enterprise number (or "registration pending") and contact."""
+    from uvalu.compliance import disclosures as d
+    return f"{producer_name()} · {d.PRODUCER_ADDRESS} · {enterprise_number()} · {d.PRODUCER_CONTACT}"
 
 
 def render_beta_banner() -> None:
+    """The beta notice: a rounded box inside the page gutter (brand §8, G01),
+    with the Terms of use one click away."""
     from uvalu.compliance import disclosures as d
     if not d.BETA:
         return
     st.markdown(
-        '<div style="font-size:11.5px;color:var(--muted);background:var(--soft);'
-        'border:0.5px solid var(--line);border-radius:8px;padding:6px 12px;margin:-4px 0 10px;">'
-        f'<span style="font-weight:600;color:var(--mint);margin-right:6px;">{html.escape(_("Beta"))}</span>'
-        f'{html.escape(tr(d.BETA_BANNER))}</div>',
+        '<div class="uv-beta-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;'
+        'color:var(--muted);background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
+        'padding:6px 12px;margin:-6px 0 4px;">'
+        f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Beta"))}</span>'
+        f'<span style="min-width:0;">{html.escape(tr(d.BETA_BANNER))}</span>'
+        f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'
+        f'text-decoration:none;">{html.escape(_("Terms →"))}</a></div>',
+        unsafe_allow_html=True)
+
+
+def render_peer_rebuild_strip() -> None:
+    """While the universe's peer reference is rebuilt after a restart, say why
+    the signals read "No signal" (G10; the pages keep their skeletons)."""
+    from uvalu.data import peer_reference_pending
+    try:
+        pending = peer_reference_pending()
+    except Exception:
+        pending = False
+    if not pending:
+        return
+    # Translators: Strip under the beta notice while the app rebuilds its peer reference after a restart. “No signal” is the badge label.
+    text = _("Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, "
+             "usually within a few minutes.")
+    st.markdown(
+        '<div role="status" class="uv-peer-strip" style="display:flex;align-items:center;gap:10px;padding:8px 12px;'
+        'background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;font-size:12.5px;'
+        'color:var(--muted);margin:-6px 0 4px;">'
+        '<span style="width:12px;height:12px;flex:none;border-radius:50%;border:1.5px solid var(--line);'
+        'border-top-color:var(--teal);animation:uvSpin 0.9s linear infinite;"></span>'
+        f'<span>{html.escape(text)}</span></div>',
         unsafe_allow_html=True)
 
 
@@ -481,9 +551,18 @@ def error_reference() -> str:
 
 
 def render_error_reference() -> None:
+    """The error box shown when a page fails to render (G11): a neutral
+    message — the handler can't tell what failed — and the reference to quote
+    to support, the same ids the log line carries (VD-08)."""
     try:
-        # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
-        st.caption(_("Something went wrong. Reference for support: {ref}", ref=error_reference()))
+        ref = f'<span style="font-family:var(--uv-mono);">{html.escape(error_reference())}</span>'
+        st.markdown(
+            '<div style="padding:12px 16px;border-radius:8px;background:var(--down-bg);color:var(--down-txt);'
+            f'font-size:13px;line-height:1.5;">{h_("Couldn’t load this page. Try again in a moment.")}</div>'
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px;">'
+            # Translators: Shown under an error message; {ref} is a technical reference (id, version, commit) to quote to support.
+            f'{h_("Something went wrong. Reference for support: {ref}", ref=ref)}</div>',
+            unsafe_allow_html=True)
     except Exception:
         pass
 
@@ -503,7 +582,7 @@ def render_maintenance() -> None:
         'border-radius:12px;background:var(--panel);">'
         f'<div style="font-size:20px;font-weight:600;margin-bottom:8px;">{html.escape(title)}</div>'
         f'<div style="font-size:14px;color:var(--muted);line-height:1.6;">{html.escape(body)}</div>'
-        f'<div style="font-size:11.5px;color:var(--faint);margin-top:16px;">'
+        f'<div style="font-size:11.5px;color:var(--muted);margin-top:16px;font-family:var(--uv-mono);">'
         f'v{html.escape(info.display_version)} · {html.escape(info.commit)}</div></div>',
         unsafe_allow_html=True)
 
@@ -518,22 +597,19 @@ _FOOTER_CSS = """
 [data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
 [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
 [data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
-/* Legal links: one centred row, "·" between them, no icons (st.page_link
+/* Legal links: one left-aligned row, no separators, no icons (st.page_link
    inherits the Legal page's gavel icon, which repeated six times). */
-.st-key-uv_footer_links { justify-content: center !important; gap: 2px 0 !important; flex-wrap: wrap !important; margin-top: 4px; }
-.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; }
-.st-key-uv_footer_links > [data-testid="stElementContainer"]:not(:last-child)::after {
-  content: "·"; color: var(--faint); font-size: 11px; margin: 0 10px;
-}
+.st-key-uv_footer_links { justify-content: flex-start !important; gap: 6px 16px !important; flex-wrap: wrap !important; margin-top: 4px; }
+.st-key-uv_footer_links > [data-testid="stElementContainer"] { display: flex; align-items: center; width: auto !important; }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] {
   padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
 }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] p,
 .st-key-uv_footer_links a[data-testid="stPageLink-NavLink"] span {
-  font-size: 11px !important; color: var(--teal) !important;
+  font-size: 11px !important; color: var(--link) !important;
 }
-.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--mint) !important; }
+.st-key-uv_footer_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
 /* Version marker (VD-01): quieter than the legal links, monospace. */
 .st-key-uv_footer_version { margin-top: 2px; }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] {
@@ -541,9 +617,9 @@ _FOOTER_CSS = """
 }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
 .st-key-uv_footer_version a[data-testid="stPageLink-NavLink"] p {
-  font-size: 10.5px !important; color: var(--faint) !important; font-family: var(--uv-mono) !important;
+  font-size: 10.5px !important; color: var(--muted) !important; font-family: var(--uv-mono) !important;
 }
-.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--teal) !important; }
+.st-key-uv_footer_version a[data-testid="stPageLink-NavLink"]:hover p { color: var(--link) !important; }
 """
 
 
@@ -555,10 +631,11 @@ def render_footer() -> None:
     from uvalu.compliance import disclosures as d
     with st.container(key="uv_footer"):
         st.markdown(f"<style>{_FOOTER_CSS}</style>"
-                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;max-width:980px;">'
                     f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
-                    f'<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px;">'
-                    f'{html.escape(producer_line())} · {html.escape(tr(d.NOT_SUPERVISED))}</div>',
+                    f'<div style="display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11px;color:var(--muted);'
+                    f'line-height:1.6;margin-top:6px;"><span>{html.escape(producer_line())}</span>'
+                    f'<span>{html.escape(tr(d.NOT_SUPERVISED))}</span></div>',
                     unsafe_allow_html=True)
         legal_page = nav_registry.pages.get("legal")
         with st.container(key="uv_footer_links", horizontal=True, vertical_alignment="center"):
@@ -576,10 +653,10 @@ def render_version_marker() -> None:
     from uvalu import buildinfo
     info = buildinfo.current()
     about = nav_registry.pages.get("about")
-    with st.container(key="uv_footer_version", horizontal=True, horizontal_alignment="center"):
+    with st.container(key="uv_footer_version", horizontal=True, horizontal_alignment="left"):
         label = f"v{info.display_version}"
         if about is not None:
             st.page_link(about, label=label, help=_("About this version and what's new"))
         else:
-            st.markdown(f'<span style="font-size:11px;color:var(--faint);">{html.escape(label)}</span>',
+            st.markdown(f'<span style="font-size:11px;color:var(--muted);">{html.escape(label)}</span>',
                         unsafe_allow_html=True)
