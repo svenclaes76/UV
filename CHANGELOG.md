@@ -17,10 +17,14 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.3] — 2026-10-10
+
 The app now follows brand guidelines v1.3 and the updated design reference:
 clearer colours and spacing on every screen, and a sign-in that is password
 only during the free beta. The model, its scores and its signals are
-unchanged; nothing to do besides restarting.
+unchanged. Admins: an account that only ever signed in with Google can't
+sign in now; the start-up output and Admin portal › Users list these
+accounts, and a password reset lets them set a password.
 
 ### Added
 
