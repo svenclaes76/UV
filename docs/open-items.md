@@ -29,12 +29,6 @@ wording.
 Facts the review still needs: how many production accounts exist besides the
 founder's and in which countries.
 
-## Before merging `feature/design-reference-v1-3`
-
-| # | Item |
-| --- | --- |
-| T2 | Open the PR to `master` and release. |
-
 ## Design and code
 
 | # | Item |
