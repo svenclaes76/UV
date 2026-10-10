@@ -33,7 +33,7 @@ founder's and in which countries; whether any have no password (see T1).
 
 | # | Item |
 | --- | --- |
-| T1 | S26 removed OAuth auto-provisioning: check production for Google-only accounts (no password); they would be locked out. The local store has one account, with a password. |
+| T1 | S26 removed OAuth auto-provisioning and the beta hides provider sign-in, so Google-only accounts (no password) are locked out. **Before deploying this branch, run `python tools/check_password_accounts.py` on the server** (read-only; exit 1 lists the accounts). Fix each with Admin portal → Users → Send password reset → Generate reset link. Local store checked 10 Oct 2026: 1 account, has a password. |
 | T2 | Open the PR to `master` and release. |
 | T3 | Forgot-password text says reset links last 24 hours (`auth._RESET_TTL_HOURS`); the design reference says 30 minutes. Decide which is right. |
 
