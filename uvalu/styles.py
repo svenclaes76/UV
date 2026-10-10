@@ -410,13 +410,13 @@ GLOBAL_CSS = """
     display: flex !important; gap: 3px !important;
     background: var(--panel-2) !important; border-radius: 8px !important; padding: 3px !important;
   }
-  .st-key-db_range [data-testid^="stBaseButton-segmented_control"] {
+  .st-key-db_range button[data-variant="segmented_control"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
     font-family: var(--uv-mono) !important; font-size: 11.5px !important; font-weight: 500 !important;
     padding: 5px 11px !important; min-height: unset !important;
   }
-  .st-key-db_range [data-testid="stBaseButton-segmented_controlActive"] {
+  .st-key-db_range button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
 
@@ -1537,13 +1537,13 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] [data-testid="stButtonGroup"] > div {
     flex-wrap: nowrap !important;
   }
-  [class*="st-key-set_row_"] [data-testid^="stBaseButton-segmented_control"] {
+  [class*="st-key-set_row_"] button[data-variant="segmented_control"] {
     border: none !important; border-radius: 6px !important; box-shadow: none !important;
     background: transparent !important; color: var(--muted) !important;
     font-size: 12px !important; font-weight: 500 !important;
     padding: 6px 13px !important; min-height: unset !important;
   }
-  [class*="st-key-set_row_"] [data-testid="stBaseButton-segmented_controlActive"] {
+  [class*="st-key-set_row_"] button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px

@@ -109,3 +109,13 @@ def test_only_brand_radii():
                 if m.group(1) not in {"0", "4", "6", "8", "12"}:
                     hits.append(f"{path.name}:{n} {m.group(0)}")
     assert not hits, hits
+
+
+def test_no_selectors_for_retired_streamlit_test_ids():
+    """Streamlit 1.60 renders pills and segmented controls as
+    button[data-variant=…] with aria-pressed/aria-checked; rules on the old
+    stBaseButton-pills / -segmented_control test ids silently match nothing."""
+    css = re.sub(r"/\*.*?\*/", "", GLOBAL_CSS, flags=re.S)
+    assert "stBaseButton-pills" not in css
+    assert "stBaseButton-segmented_control" not in css
+    assert 'button[data-variant="segmented_control"][aria-checked="true"]' in css
