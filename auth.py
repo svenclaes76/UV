@@ -1118,6 +1118,25 @@ def _other_active_admins(users: dict, exclude_email: str) -> int:
     )
 
 
+def passwordless_accounts(users: dict | None = None) -> list[tuple[str, str, list[str]]]:
+    """(email, status, linked providers) for every account that can't sign in
+    with a password because it has none: provider-only accounts. While the
+    beta offers password sign-in only (oauth.providers_enabled() is False),
+    these are locked out until an admin sends a password reset, whose link
+    sets a password even when the account never had one. Invited accounts
+    are skipped: they choose a password when they accept (T1)."""
+    if users is None:
+        users = _load_users()
+    out = []
+    for email, user in sorted(users.items()):
+        if user.get("status") == "Invited" or user.get("password_hash"):
+            continue
+        providers = [str(i.get("issuer") or i.get("provider") or "?")
+                     for i in (user.get("linked_identities") or []) if isinstance(i, dict)]
+        out.append((email, str(user.get("status", "")), providers))
+    return out
+
+
 def list_users() -> list[dict]:
     """Return all users (without password hashes) sorted by creation date."""
     users = _load_users()

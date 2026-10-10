@@ -33,7 +33,7 @@ import pandas as pd
 import streamlit as st
 
 from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
-                  has_password, invite_user, list_linked_identities, list_users,
+                  has_password, invite_user, list_linked_identities, list_users, passwordless_accounts,
                   revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
@@ -237,6 +237,19 @@ def _render_users() -> None:
     for _col, (_label, _value) in zip((_c1, _c2, _c3, _c4), _stats):
         with _col:
             st.markdown(_stat_tile(_label, _value), unsafe_allow_html=True)
+
+    # T1: provider-only accounts are locked out while the beta offers password
+    # sign-in only; the reset link lets them set a password.
+    _locked = [] if oauth.providers_enabled() else passwordless_accounts()
+    if _locked:
+        st.markdown(
+            '<div style="margin-top:10px;background:var(--amber-bg);color:var(--amber-txt);'
+            'border-radius:8px;padding:10px 14px;font-size:12.5px;line-height:1.55;">'
+            f'{len(_locked)} account(s) have no password and can’t sign in, because the beta offers '
+            'password sign-in only: '
+            + ", ".join(html.escape(e) for e, _s, _p in _locked)
+            + '. Send each a password reset (⋯ → Send password reset): the link lets them set one.</div>',
+            unsafe_allow_html=True)
 
     st.container(height=6, border=False)
 

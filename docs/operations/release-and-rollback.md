@@ -28,6 +28,20 @@ A tag that fails the check gets no Release: fix it before anyone pulls it.
 
 ## 2. Deploy
 
+**Before deploying**, while the beta offers password sign-in only, check for
+accounts that have no password (created through Google sign-in): they can't
+sign in.
+
+```bash
+python tools/check_password_accounts.py   # read-only; exit 1 lists them
+```
+
+For each account it lists: Admin portal → Users → ⋯ → **Send password
+reset** → **Generate reset link**, and send the person the link; it lets them
+set a password even if they never had one. `run_app.py` repeats this check on
+every start (a warning, never a stop) and the Users page lists the same
+accounts, so a missed step still shows up.
+
 ```bash
 git pull
 python run_app.py          # or run_app.bat, which pulls first
@@ -38,9 +52,10 @@ On every start `run_app.py`:
 1. brings the stored data up to the schema this version expects
    (`python -m uvalu.migrations upgrade`), after a snapshot ZIP in
    `data/migration-snapshots/` — only when there is something to migrate;
-2. stamps the build metadata (`build_info.json`, `static/version.json`):
+2. warns about accounts without a password while sign-in is password-only;
+3. stamps the build metadata (`build_info.json`, `static/version.json`):
    version, commit, UTC build time, environment;
-3. starts Streamlit.
+4. starts Streamlit.
 
 If the data can't be migrated, it stops with the reason and the snapshot to
 restore. Starting Streamlit directly (`streamlit run app.py`) skips step 1: the

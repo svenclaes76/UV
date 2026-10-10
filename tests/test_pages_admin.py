@@ -65,6 +65,27 @@ def test_admin_stat_tiles_reflect_user_counts(isolated_data, monkeypatch):
     assert "Total users" in html
 
 
+def test_admin_lists_accounts_locked_out_without_a_password(isolated_data, monkeypatch):
+    """T1: a provider-only account can't sign in during the password-only beta;
+    the Users page names it and points to the password reset."""
+    auth.register("test@example.com", "password123")
+    users = auth._load_users()
+    users["google@example.com"] = {"password_hash": None, "role": "Analyst", "status": "Active",
+                                   "created_at": "2026-10-01T00:00:00+00:00", "last_active": "",
+                                   "linked_identities": []}
+    auth._save_users(users)
+    at = _run(monkeypatch, role="Admin")
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "1 account(s) have no password" in html and "google@example.com" in html
+
+
+def test_admin_shows_no_lockout_notice_when_every_account_has_a_password(isolated_data, monkeypatch):
+    auth.register("test@example.com", "password123")
+    at = _run(monkeypatch, role="Admin")
+    assert "have no password" not in "".join(m.value for m in at.markdown)
+
+
 def test_feeds_section_shows_all_exchanges(isolated_data, monkeypatch):
     at = _run(monkeypatch, role="Admin", section="feeds")
     assert not at.exception, [str(e.value) for e in at.exception]

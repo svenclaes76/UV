@@ -27,13 +27,12 @@ wording.
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
 
 Facts the review still needs: how many production accounts exist besides the
-founder's and in which countries; whether any have no password (see T1).
+founder's and in which countries.
 
 ## Before merging `feature/design-reference-v1-3`
 
 | # | Item |
 | --- | --- |
-| T1 | S26 removed OAuth auto-provisioning and the beta hides provider sign-in, so Google-only accounts (no password) are locked out. **Before deploying this branch, run `python tools/check_password_accounts.py` on the server** (read-only; exit 1 lists the accounts). Fix each with Admin portal → Users → Send password reset → Generate reset link. Local store checked 10 Oct 2026: 1 account, has a password. |
 | T2 | Open the PR to `master` and release. |
 | T3 | Forgot-password text says reset links last 24 hours (`auth._RESET_TTL_HOURS`); the design reference says 30 minutes. Decide which is right. |
 

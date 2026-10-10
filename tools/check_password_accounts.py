@@ -12,6 +12,8 @@ single-use link sets a password even when the account never had one. Invited acc
 a password when they accept the invite.
 
 Exit code 0 when every active account has a password, 1 otherwise.
+``run_app.py`` runs the same check on every start (warning only), and the
+Admin portal → Users page lists these accounts.
 """
 from __future__ import annotations
 
@@ -23,21 +25,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def passwordless_accounts(users: dict) -> list[tuple[str, str, list[str]]]:
-    """(email, status, linked providers) for every non-invited account
-    without a password hash."""
-    out = []
-    for email, user in sorted(users.items()):
-        if user.get("status") == "Invited" or user.get("password_hash"):
-            continue
-        providers = [str(i.get("provider", "?")) for i in (user.get("linked_identities") or [])
-                     if isinstance(i, dict)]
-        out.append((email, str(user.get("status", "")), providers))
-    return out
-
-
 def main() -> int:
-    from auth import _load_users
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+    from auth import _load_users, passwordless_accounts
     users = _load_users()
     found = passwordless_accounts(users)
     print(f"{len(users)} account(s) in the user store.")
