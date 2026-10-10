@@ -505,9 +505,7 @@ def _render_security() -> None:
             with st.container(key="admin_sec_row_account_creation"):
                 _c1, _c2 = st.columns([2.3, 1.3], vertical_alignment="center")
                 with _c1:
-                    _sec_row_title("Account creation", "Invitation only. Accounts are never created "
-                                  "automatically, because every member must accept the terms and "
-                                  "acknowledgements and give an EEA country first.")
+                    _sec_row_title("Account creation", "Invitation only. Accounts are never created automatically.")
                 with _c2:
                     st.markdown('<span style="display:inline-block;background:var(--line-2);color:var(--muted);'
                                 'padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;">'

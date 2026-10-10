@@ -60,8 +60,12 @@ unchanged; nothing to do besides restarting.
 - **Sign-in**: password only during the free beta, with the full
   disclaimer and the legal links on the sign-in panel. Accounts are created
   by invitation only.
-- **Privacy notice** (beta 1.1): no longer describes Google sign-in, and
-  mentions the breached-password check.
+- **Privacy notice** (beta 1.2): no longer describes Google sign-in,
+  passkeys or data the beta doesn't collect; mentions the breached-password
+  check; account deletion is by request to privacy@uvalu.app.
+- **Analysis**: the model summary now ends "It is general information, not
+  personal advice"; fair values are described as estimates of value, not
+  forecasts of where the price will go.
 - Notices sit in a fixed order under the top bar; the footer is
   left-aligned.
 

@@ -288,7 +288,9 @@ def _render_cards() -> None:
             + '<div style="padding:14px 20px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;'
               'color:var(--muted);line-height:1.6;">'
             + f'<div>{h_("The founder’s position in a covered stock, of any size, is shown on that stock’s page and updated within 2 business days of each trade.")}</div>'
-            + f'<div>{h_("Uvalu receives no payment from issuers, brokers or data providers, has no affiliate or broker links and no income during the free beta.")}</div>'
+            + (f'<div>{h_("Uvalu receives no payment from issuers, brokers or data providers, has no affiliate or broker links and no income during the free beta.")}</div>'
+               if disclosures.BETA else
+               f'<div>{h_("Uvalu receives no payment from issuers, brokers or data providers and has no affiliate or broker links.")}</div>')
             + f'<div>{h_("The founder does not trade affected shares from the moment a model change is decided until 2 trading days after it is live.")}</div>'
             + "</div>", unsafe_allow_html=True)
 

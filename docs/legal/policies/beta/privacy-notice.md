@@ -9,13 +9,17 @@ storage and the admin-access wording.
 9 October 2026 (beta 1.1): password sign-in only in the beta (design reference v1.3) — the Google sign-in
 data row, controller paragraph, transfer sentence and `_streamlit_user` cookies removed; the breached-password
 check by hash prefix added to section 6 (G36). Passkey wording unchanged (passkeys deferred, not yet live).
+10 October 2026 (beta 1.2, legal review): only what the beta really does — passkeys, country of residence and
+the acceptance-record row removed (they return with invitation consent, AU-09/G30); account deletion on
+request (no self-service control yet); change notices by personal email; the breached-password check
+sends no personal data. Effective at once: the changes only correct or remove processing (section 11).
 Implementation needed before the beta opens: invite records deleted 30 days after expiry; admin-access record.
 Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Launch".
 -->
 
 # Privacy notice — free beta
 
-**Version:** beta 1.1 · **Effective from:** 9 October 2026
+**Version:** beta 1.2 · **Effective from:** 10 October 2026
 
 This notice explains which personal data Uvalu collects, why, how long we keep it and what your rights are.
 
@@ -32,11 +36,10 @@ We have not appointed a data protection officer, because the law does not requir
 | Data | Purpose | Legal basis (GDPR art. 6) | Kept for |
 | --- | --- | --- | --- |
 | Your email address and, if given, your name, entered by the founder to invite you | Sending you an invitation to the beta | Legitimate interest (inviting people we know to test Uvalu) | Until you accept; if you do not, deleted 30 days after the invitation expires |
-| Email address, password (stored only as a hash), language, country of residence | Creating and securing your account | Contract | Until you delete your account, plus 30 days |
-| Two-step verification data: authenticator secret, backup codes, passkey public keys, trusted devices | Securing your account | Contract | Until you remove them or delete your account |
+| Email address, password (stored only as a hash), language | Creating and securing your account | Contract | Until you delete your account, plus 30 days |
+| Two-step verification data: authenticator secret, backup codes, trusted devices | Securing your account | Contract | Until you remove them or delete your account |
 | Portfolio data you enter: holdings, transactions, dividends, cash entries, watchlists, notes | Providing portfolio and risk features | Contract | Until you delete it or your account, plus 30 days |
 | Settings and preferences | Providing the service as you configured it | Contract | Until you delete your account, plus 30 days |
-| Records of your acceptance of the terms and of the no-advice acknowledgement (text version, date, time) | Proof of agreement | Legitimate interest; legal obligation | Duration of the account plus 10 years |
 | Security logs: login time, device and browser type, failed logins, administrator access to accounts, and the IP address where our web server records it | Security, fraud prevention, troubleshooting | Legitimate interest | 31 days |
 | Support messages and complaints | Answering your questions and complaints | Contract; legitimate interest | 2 years after the case is closed |
 
@@ -73,8 +76,8 @@ All data processed by us and our service providers listed above stays within the
 ## 6. How we protect your data
 
 - Encryption in transit and at rest, including backups
-- Passwords stored only as salted hashes (bcrypt); two-step verification with an authenticator app and passkeys available
-- New passwords checked against a public list of breached passwords (Have I Been Pwned): only the first five characters of the password's hash are sent, never the password itself
+- Passwords stored only as salted hashes (bcrypt); two-step verification with an authenticator app available
+- New passwords checked against a public list of breached passwords (Have I Been Pwned): only the first five characters of the password's hash are sent, never the password itself, your email address or anything else that identifies you
 - Access by role: the founder, as the only administrator, accesses a user's data only when needed for support, security or a legal obligation, and records each such access
 - A documented procedure for security incidents
 
@@ -97,7 +100,7 @@ You have the right to:
 
 - **access** your data and receive a copy;
 - **correct** data that is wrong;
-- **delete** your data. You can delete your account yourself in the settings; live data is removed at once and backups within 30 days. The record of your acceptance of the terms is kept as section 2 states;
+- **delete** your data. Write to privacy@uvalu.app and we delete your account within 7 days; backups follow within 30 days;
 - **export** your portfolio data in a machine-readable format from the settings;
 - **object** to processing based on our legitimate interest;
 - **restrict** processing in the cases the law provides;
@@ -115,4 +118,4 @@ Uvalu is for adults. We do not knowingly collect data from anyone under 18.
 
 ## 11. Changes to this notice
 
-We may update this notice. For material changes we tell you in the app, and by email to your account address, at least 14 days before they take effect. The version number and date are shown at the top.
+We may update this notice. For material changes we tell you in the app and write to you personally at your account address at least 14 days before they take effect, unless the change only corrects this notice, removes processing or is required by law. The version number and date are shown at the top.

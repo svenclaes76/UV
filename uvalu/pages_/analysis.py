@@ -143,7 +143,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
                 for x in _sens), unsafe_allow_html=True)
         else:
             st.caption(_("The sensitivity table appears once the full stock universe has been scored."))
-        st.caption(_("Fair values are model estimates, not forecasts or price targets. With 2% growth, raising the "
+        st.caption(_("Fair values are model estimates of value, not forecasts of where the price will go. With 2% growth, raising the "
                      "discount rate from 8% to 9% lowers a dividend-model fair value by about 14%.") + " "
                    + _("The settings are shared model settings, the same for every user; this table changes no "
                        "score or signal."))
@@ -172,15 +172,22 @@ def _render_sources_and_producer(row, ticker: str) -> None:
 
     with _p_col, st.container(key="an_card_producer", border=True):
         st.markdown(_PANEL_TITLE.format(title=h_("Producer & conflicts")), unsafe_allow_html=True)
-        _founder = (tr(FOUNDER_HOLDS_NOTICE) if bool(row.get("founder_holds"))
+        # The negative statement only when the flag is known; an unknown flag
+        # (older cache) states nothing rather than "does not hold".
+        _holds = row.get("founder_holds")
+        _known = _holds is not None and not pd.isna(_holds)
+        _founder = (tr(FOUNDER_HOLDS_NOTICE) if _known and bool(_holds)
                     else _("The founder does not hold {ticker}. A holding of any size would be shown here.",
-                           ticker=ticker))
+                           ticker=ticker) if _known else None)
         _lines = [
             _("Produced automatically by {producer} ({number}).", producer=producer_name(),
               number=enterprise_number()) + " " + tr(d.NOT_SUPERVISED),
             _founder,
-            _("No payment from the issuer, brokers or data providers. Uvalu has no income during the free beta."),
+            # "No income" only while the beta is free (it must not outlive the paywall).
+            (_("No payment from the issuer, brokers or data providers. Uvalu has no income during the free beta.")
+             if d.BETA else _("No payment from the issuer, brokers or data providers.")),
         ]
+        _lines = [x for x in _lines if x]
         st.markdown('<div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--muted);'
                     'line-height:1.55;">' + "".join(f"<div>{html.escape(x)}</div>" for x in _lines)
                     + f'<a href="/legal?doc=conflicts" target="_self" style="color:var(--link);text-decoration:none;">'
@@ -210,7 +217,7 @@ def _render_model_summary(row, ticker: str) -> None:
                              best=lowercase_noun(tr(_best)), best_score=fmt_num(_valid_subs[_best], 0),
                              worst=lowercase_noun(tr(_worst)), worst_score=fmt_num(_valid_subs[_worst], 0)))
     _thesis.append(_("Generated from the model outputs above; the same text is shown to every user. "
-                     "It is not a recommendation to buy, hold or sell."))
+                     "It is general information, not personal advice: it does not take your situation or objectives into account."))
     _thesis_card.markdown(f'<div style="font-size:13.5px;color:var(--muted);line-height:1.65;">'
                           f'{html.escape(" ".join(_thesis))}</div>', unsafe_allow_html=True)
 

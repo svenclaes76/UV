@@ -642,13 +642,13 @@ def test_founder_notice_links_the_policy():
     assert founder_notice_html({"founder_holds": False}) == ""
 
 
-def test_model_summary_carries_the_no_recommendation_sentence():
+def test_model_summary_carries_the_no_advice_sentence():
     """PER-4: the generated summary says it is the same for everyone and no advice."""
     import inspect
     from uvalu.pages_ import analysis
     src = inspect.getsource(analysis._render_model_summary)
     assert "the same text is shown to every user" in src
-    assert "It is not a recommendation to buy, hold or sell." in src
+    assert "It is general information, not personal advice" in src
 
 
 def test_producer_line_has_name_address_number_contact():
