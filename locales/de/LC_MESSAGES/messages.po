@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-10 08:01+0000\n"
+"POT-Creation-Date: 2026-10-10 11:00+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: de <LL@li.org>\n"
@@ -154,7 +154,7 @@ msgstr[1] "E-Mail oder Passwort ungültig. Noch {count} Versuche, bevor dieses K
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
 #: auth.py:617 auth.py:637 auth.py:713 auth.py:886 auth.py:968 auth.py:991
-#: auth.py:1017 auth.py:1186
+#: auth.py:1017 auth.py:1205
 msgid "User not found."
 msgstr "Benutzer nicht gefunden."
 
@@ -252,12 +252,12 @@ msgid "Password set."
 msgstr "Passwort festgelegt."
 
 #. Context: Settings › Change password › error
-#: auth.py:1191
+#: auth.py:1210
 msgid "Current password is incorrect."
 msgstr "Das aktuelle Passwort ist falsch."
 
 #. Context: Settings › confirmation
-#: auth.py:1197
+#: auth.py:1216
 msgid "Password changed."
 msgstr "Passwort geändert."
 
@@ -1349,8 +1349,8 @@ msgstr "Passwort vergessen?"
 #: uvalu/authgate.py:449
 msgid ""
 "During the beta Uvalu doesn’t send emails. Ask your admin to reset your "
-"password. They give you a single-use link, valid for 24 hours."
-msgstr "Während der Beta verschickt Uvalu keine E-Mails. Bitte deinen Admin, dein Passwort zurückzusetzen. Du bekommst einen einmaligen Link, der 24 Stunden gültig ist."
+"password. They give you a single-use link, valid for 30 minutes."
+msgstr "Während der Beta verschickt Uvalu keine E-Mails. Bitte deinen Admin, dein Passwort zurückzusetzen. Du bekommst einen einmaligen Link, der 30 Minuten gültig ist."
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired

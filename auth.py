@@ -330,7 +330,7 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
     return True, token_jwt
 
 
-_RESET_TTL_HOURS = 24
+_RESET_TTL_MINUTES = 30   # design reference v1.3; the admin hands the link over directly
 
 
 def admin_request_password_reset(email: str, requested_by: str = "") -> tuple[bool, str, str | None]:
@@ -351,7 +351,7 @@ def admin_request_password_reset(email: str, requested_by: str = "") -> tuple[bo
     token = secrets.token_urlsafe(24)
     now = datetime.now(timezone.utc)
     users[email]["reset_token"]         = token
-    users[email]["reset_token_expires"] = (now + timedelta(hours=_RESET_TTL_HOURS)).isoformat()
+    users[email]["reset_token_expires"] = (now + timedelta(minutes=_RESET_TTL_MINUTES)).isoformat()
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.request_password_reset",
                          entity_type="user", entity_id=logkit.user_hash(email), requested_by=requested_by)

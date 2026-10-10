@@ -87,8 +87,8 @@ sooner.
 
 **Forgot their password:** there's no self-service reset (no outbound email
 exists in this app). Admin portal → Users → row's **⋮** menu → **Send
-password reset** → **Generate reset link**. Copy the one-time link (valid 24
-hours) and send it to them yourself. Their other sessions stay signed in
+password reset** → **Generate reset link**. Copy the one-time link (valid 30
+minutes) and send it to them right away. Their other sessions stay signed in
 until they actually use the link.
 
 **Lost their authenticator device (2FA):** Admin portal → Users → row's **⋮**

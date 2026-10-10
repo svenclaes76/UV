@@ -215,7 +215,7 @@ def _dlg_reset_password(email: str):
         if ok:
             st.success(msg)
             st.code(f"{st.context.url}?reset={token}", language=None)
-            st.caption("Reset link — shown once. Copy it now. Valid for 24 hours.")
+            st.caption("Reset link — shown once. Copy it now. Valid for 30 minutes.")
         else:
             st.error(msg)
 

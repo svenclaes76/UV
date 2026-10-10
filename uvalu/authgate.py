@@ -446,7 +446,7 @@ def _render_forgot_password() -> None:
             locale_ui.render_login_switcher()
             st.markdown(
                 f'<div class="uv-login-heading">{h_("Forgot your password?")}</div>'
-                f'<div class="uv-login-subhead">{h_("During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 24 hours.")}</div>',
+                f'<div class="uv-login-subhead">{h_("During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 30 minutes.")}</div>',
                 unsafe_allow_html=True,
             )
             if st.button(_("Back to sign in"), key="forgot_back", width="stretch"):

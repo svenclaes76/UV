@@ -450,6 +450,14 @@ class TestAdminPasswordReset:
         auth._save_users(users)
         assert auth.get_pending_reset(token) is None
 
+    def test_reset_link_is_valid_for_30_minutes(self):
+        from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")
+        before = datetime.now(timezone.utc)
+        auth.admin_request_password_reset("first@example.com")
+        expires = datetime.fromisoformat(auth._load_users()["first@example.com"]["reset_token_expires"])
+        assert timedelta(minutes=29) < expires - before <= timedelta(minutes=30, seconds=5)
+
     def test_complete_reset_sets_new_password_and_logs_in(self):
         auth.register("first@example.com", "password123")
         _, _, token = auth.admin_request_password_reset("first@example.com")

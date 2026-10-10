@@ -541,7 +541,7 @@ class TestForgotPasswordScreen:
         html = "".join(m.value for m in at.markdown)
         assert "Forgot your password" in html
         assert "Ask your admin to reset your password." in html
-        assert "valid for 24 hours" in html                 # matches auth._RESET_TTL_HOURS
+        assert "valid for 30 minutes" in html              # matches auth._RESET_TTL_MINUTES
 
     def test_back_to_sign_in_clears_query_param(self):
         at = _run_auth_wall(query_params={"forgot": "1"})

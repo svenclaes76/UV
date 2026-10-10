@@ -59,7 +59,8 @@ unchanged; nothing to do besides restarting.
   account details at the bottom.
 - **Sign-in**: password only during the free beta, with the full
   disclaimer and the legal links on the sign-in panel. Accounts are created
-  by invitation only.
+  by invitation only. Password reset links are valid for 30 minutes (was
+  24 hours).
 - **Privacy notice** (beta 1.2): no longer describes Google sign-in,
   passkeys or data the beta doesn't collect; mentions the breached-password
   check; account deletion is by request to privacy@uvalu.app.

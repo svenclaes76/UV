@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-10 08:01+0000\n"
+"POT-Creation-Date: 2026-10-10 11:00+0000\n"
 "PO-Revision-Date: 2026-10-04 22:20+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -154,7 +154,7 @@ msgstr[1] "Ongeldig e-mailadres of wachtwoord. Nog {count} pogingen voordat dit 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
 #: auth.py:617 auth.py:637 auth.py:713 auth.py:886 auth.py:968 auth.py:991
-#: auth.py:1017 auth.py:1186
+#: auth.py:1017 auth.py:1205
 msgid "User not found."
 msgstr "Gebruiker niet gevonden."
 
@@ -252,12 +252,12 @@ msgid "Password set."
 msgstr "Wachtwoord ingesteld."
 
 #. Context: Settings › Change password › error
-#: auth.py:1191
+#: auth.py:1210
 msgid "Current password is incorrect."
 msgstr "Het huidige wachtwoord is onjuist."
 
 #. Context: Settings › confirmation
-#: auth.py:1197
+#: auth.py:1216
 msgid "Password changed."
 msgstr "Wachtwoord gewijzigd."
 
@@ -1349,8 +1349,8 @@ msgstr "Wachtwoord vergeten?"
 #: uvalu/authgate.py:449
 msgid ""
 "During the beta Uvalu doesn’t send emails. Ask your admin to reset your "
-"password. They give you a single-use link, valid for 24 hours."
-msgstr "Tijdens de bèta verstuurt Uvalu geen e-mails. Vraag je beheerder om je wachtwoord te herstellen. Je krijgt een eenmalige link die 24 uur geldig is."
+"password. They give you a single-use link, valid for 30 minutes."
+msgstr "Tijdens de bèta verstuurt Uvalu geen e-mails. Vraag je beheerder om je wachtwoord te herstellen. Je krijgt een eenmalige link die 30 minuten geldig is."
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired

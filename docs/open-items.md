@@ -34,7 +34,6 @@ founder's and in which countries.
 | # | Item |
 | --- | --- |
 | T2 | Open the PR to `master` and release. |
-| T3 | Forgot-password text says reset links last 24 hours (`auth._RESET_TTL_HOURS`); the design reference says 30 minutes. Decide which is right. |
 
 ## Design and code
 
