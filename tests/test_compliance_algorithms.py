@@ -672,3 +672,18 @@ def test_disclosure_texts_are_clean():
         assert text in src
     for word in ("recommend", "should buy", "guarantee"):
         assert word not in src.lower()
+
+
+def test_methodology_page_model_names_match_the_legal_methodology():
+    """G06: the Methodology page names each fair-value model exactly as the
+    legal Methodology document (§ 3 table) does, so every name a user reads
+    traces to the published text."""
+    import re
+    from pathlib import Path
+    from uvalu.pages_ import help as help_page
+    doc = (Path(__file__).resolve().parent.parent
+           / "docs/legal/policies/beta/methodology.md").read_text(encoding="utf-8")
+    legal_names = {m.group(1).strip() for m in re.finditer(r"^\| ([^|]+?) \|", doc, re.M)}
+    page_names = [name for name, _desc in help_page._MODELS]
+    assert page_names and all(name in legal_names for name in page_names), \
+        sorted(set(page_names) - legal_names)

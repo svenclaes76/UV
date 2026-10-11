@@ -656,10 +656,11 @@ def _is_live(v) -> bool:
 def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
     """The ordered (label, value) list for the drawer / Analysis "Six-model fair
     value" ladder. Always six rows in a fixed order (Graham, P/E, EPV, DDM
-    single, DDM 2-stage, Analyst). FV-3: when a book-value or FCF *fallback*
+    single stage, dividend multi-stage, Analyst). FV-3: when a book-value or FCF *fallback*
     produced a value (they only do so for a loss-maker where none of
     Graham / P·E / EPV could be computed), it is slotted into the first
-    still-dark of those three rows and relabelled "Book value" / "FCF value" —
+    still-dark of those three rows and relabelled "Book value (fallback)" /
+    "FCF value (fallback)" —
     so the ladder stays six rows rather than sprouting a seventh/eighth that is
     dark for every healthy stock. Callers show the explanatory caption when
     `row` carries a live `pb_fair_value` / `fcf_fair_value`.
@@ -668,16 +669,18 @@ def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
         [N_("Graham Number"),     row.get("graham_number")],
         [N_("P/E fair value"),    row.get("pe_fair_value")],
         ["EPV",                   row.get("epv")],
-        [N_("Dividend discount"), row.get("ddm")],
-        [N_("DDM 2-stage"),       row.get("ddm_multistage")],
+        # Names as in the design reference's model list; the Methodology page
+        # uses the legal Methodology document's long names (G06).
+        [N_("Dividend, single stage"), row.get("ddm")],
+        [N_("Dividend, multi-stage"),  row.get("ddm_multistage")],
     ]
     # DATA-6: the analyst target is licensed separately; it is only a model
     # (and only shown) while screener.ANALYST_INPUTS_ENABLED is on.
     from screener import ANALYST_INPUTS_ENABLED
     if ANALYST_INPUTS_ENABLED:
         rows.append([N_("Analyst Target"), row.get("targetMeanPrice")])
-    fallbacks = [(N_("Book value"), row.get("pb_fair_value")),
-                 (N_("FCF value"),  row.get("fcf_fair_value"))]
+    fallbacks = [(N_("Book value (fallback)"), row.get("pb_fair_value")),
+                 (N_("FCF value (fallback)"),  row.get("fcf_fair_value"))]
     for label, value in fallbacks:
         if not _is_live(value):
             continue
@@ -725,8 +728,8 @@ def six_model_ladder_reasons(row) -> dict:
         if not text:
             continue
         if key == "ddm":
-            out["Dividend discount"] = text
-            out["DDM 2-stage"] = text
+            out["Dividend, single stage"] = text
+            out["Dividend, multi-stage"] = text
         elif key in _REASON_LABELS:
             out[_REASON_LABELS[key]] = text
     return out
@@ -739,13 +742,14 @@ def six_model_ladder_caption(row) -> "str | None":
     parts = []
     # Name only the fallbacks the ladder actually shows (a live value that
     # found no dark Graham/P/E/EPV slot isn't on screen to explain).
-    shown = {lbl for lbl, _v in six_model_ladder_rows(row)} & {"Book value", "FCF value"}
-    if shown == {"Book value", "FCF value"}:
-        parts.append(_("“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t be computed."))
-    elif shown == {"Book value"}:
-        parts.append(_("“Book value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
-    elif shown == {"FCF value"}:
-        parts.append(_("“FCF value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    _book, _fcf = "Book value (fallback)", "FCF value (fallback)"
+    shown = {lbl for lbl, _v in six_model_ladder_rows(row)} & {_book, _fcf}
+    if shown == {_book, _fcf}:
+        parts.append(_("The book value and FCF fallbacks stand in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {_book}:
+        parts.append(_("The book value fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {_fcf}:
+        parts.append(_("The FCF fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
     if _is_live(row.get("targetMeanPrice")):
         parts.append(_("The composite applies a −10% optimism haircut to the Analyst Target shown."))
     return " ".join(parts) if parts else None

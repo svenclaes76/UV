@@ -247,9 +247,8 @@ def open_drawer(row: "pd.Series") -> None:
     if pd.notna(_price):
         fair_value_ladder(
             price=float(_price),
-            # Six fixed rows (Uvalu.dc.html's model list). "Dividend discount" is
-            # this app's single-stage DDM; the design's 5th slot is "DCF", which
-            # this app doesn't compute, so it keeps the 2-stage DDM instead.
+            # Six fixed rows, named as in Uvalu.dc.html's model list
+            # ("Dividend, single stage" / "Dividend, multi-stage").
             # FV-3: a book-value / FCF fallback substitutes into a dark
             # Graham / P/E / EPV slot for loss-makers (see six_model_ladder_rows).
             models=six_model_ladder_rows(row),
