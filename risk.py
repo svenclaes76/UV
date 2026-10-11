@@ -161,7 +161,9 @@ WEIGHTINGS = ("standard", "income_weighted")
 _QUANT_LABEL_TONE = {
     "Low": "low", "Moderate": "moderate", "High": "high",
     "Defensive": "low", "Market-like": "moderate", "Aggressive": "high",
-    "Strong": "low", "Acceptable": "moderate", "Suboptimal": "high",
+    # A weak risk-adjusted return is a caution, not a failure: amber, so red
+    # stays for a failed quality screen (design reference, G04).
+    "Strong": "low", "Acceptable": "moderate", "Suboptimal": "moderate",
 }
 
 

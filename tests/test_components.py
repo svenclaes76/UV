@@ -414,6 +414,8 @@ def test_band_tone_color_maps_quant_words():
     assert band_tone_color(risk.band_tone("Low")) == "#0F6E56"
     assert band_tone_color(risk.band_tone("Aggressive")) == "#A32D2D"
     assert band_tone_color(risk.band_tone("N/A")) == "var(--muted)"
+    # G04: a weak Sharpe/Sortino is amber; red stays for a failed quality screen.
+    assert risk.band_tone("Suboptimal") == risk.band_tone("Moderate")
 
 
 def test_risk_score_meter_html_gradient_and_marker():

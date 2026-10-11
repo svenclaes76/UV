@@ -364,3 +364,17 @@ def test_header_has_refresh_and_add_position(isolated_data, monkeypatch):
     assert "db_refresh" in keys and keys["db_add_position"].label == "Add position"
     html = "".join(m.value for m in at.markdown)
     assert "valued against a model fair-value estimate." in html
+
+
+def test_chart_opens_on_the_past_year_when_there_is_a_year_of_history(isolated_data, monkeypatch):
+    """G03: the value chart opens on 1Y ("Past year · incl. deposits"); a
+    shorter history opens on All."""
+    portfolio.save_portfolio(make_portfolio_df())
+    dates = pd.date_range("2025-01-01", periods=400, freq="D")
+    portfolio.save_value_history(pd.DataFrame({
+        "date": dates.strftime("%Y-%m-%d"), "invested": [1000.0] * 400,
+        "value": [1000.0 + i for i in range(400)],
+    }))
+    at = _run(monkeypatch)
+    assert at.segmented_control(key="db_range").value == "1Y"
+    assert any("Past year · incl. deposits" in m.value for m in at.markdown)

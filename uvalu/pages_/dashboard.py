@@ -248,8 +248,12 @@ def render() -> None:
             _db_vh = _db_vh.dropna(subset=["date", "value"]).sort_values("date")
 
             _title_col, _range_col = st.columns([2, 2], vertical_alignment="top")
+            # Opens on the past year (design reference, G03); a portfolio with
+            # less than a year of history opens on All, which is the same span.
+            _span_days = (_db_vh["date"].max() - _db_vh["date"].min()).days
+            _range_default = "1Y" if _span_days >= _RANGES["1Y"] else "All"
             with _range_col, st.container(horizontal_alignment="right"):
-                _range_sel = st.segmented_control(_("Range"), options=list(_RANGES.keys()), default="All",
+                _range_sel = st.segmented_control(_("Range"), options=list(_RANGES.keys()), default=_range_default,
                                                   format_func=frozen(lambda k: {"1M": pgettext("chart_range", "1M"),
                                                                   "3M": pgettext("chart_range", "3M"),
                                                                   "1Y": pgettext("chart_range", "1Y"),
@@ -266,8 +270,16 @@ def render() -> None:
             _db_range_pct  = _safe_pct(_db_last_val - _db_first_val, _db_first_val)
             # The change in value over the range, deposits included — not a
             # return (that's the Total return tile); say so next to the chip.
-            _range_txt = _("{range} · incl. deposits",
-                           range=_("All") if (_range_sel or "All") == "All" else _range_sel)
+            _range_txt = {
+                # Translators: Dashboard chart subtitle: the change shown is over the past month and includes deposits (not a return).
+                "1M": _("Past month · incl. deposits"),
+                # Translators: Dashboard chart subtitle: the change shown is over the past 3 months and includes deposits (not a return).
+                "3M": _("Past 3 months · incl. deposits"),
+                # Translators: Dashboard chart subtitle: the change shown is over the past year and includes deposits (not a return).
+                "1Y": _("Past year · incl. deposits"),
+            }.get(_range_sel or "All",
+                  # Translators: Dashboard chart subtitle: the change shown is over the whole history and includes deposits (not a return).
+                  _("All time · incl. deposits"))
             with _title_col:
                 st.markdown(f"""
 <div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
