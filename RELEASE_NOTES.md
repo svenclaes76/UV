@@ -24,6 +24,18 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 - **What's new is written for you**: each update now says what it brings
   you, in plain words.
+- **Calmer buttons and navigation**: smaller, quieter buttons, new menu
+  icons, and the page you're on is the only one highlighted.
+- **Model names you can look up**: the valuation models carry the same names
+  as in the Methodology, so you can find how each one works.
+- **Exchange codes everywhere**: Portfolio and Risk show BRU, XET or PAR under
+  the ticker, like the Screener.
+- **Dashboard chart opens on the past year**, so the change you see covers a
+  full year.
+- **Clearer Risk colours**: a weak risk-adjusted return shows in amber; red is
+  kept for a failed quality screen.
+- **Easier to read**: the legal pages' tables, the region preview in Settings
+  and the sensitivity table on Analysis match the rest of the app.
 
 ### Fixed
 

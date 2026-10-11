@@ -2,6 +2,8 @@
 
 Version 3.1, 11 October 2026 (gaps G01–G09 decided as recommended). Replaces version 2.1 of 9 October, whose steps S01–S29 shipped in v2026.10.3; that version is in git history (`59af1c0`, `654d8e7`).
 
+**Status (11 October 2026).** Implemented on `feature/design-reference-round-3`: S01–S10 and S12, one commit per step (S01–S03 in one commit), full test suite green, each step checked live at 1280px in the dark theme. Not done: **S11 (logo)**, waiting for the logo assets from prompt 1 of `logo-implementation-prompt.md` (open-items D1). Findings while building: S01 also covers outline-button text colour (`--muted`, `--text` on hover) and the popover buttons ("Export CSV"); DR-01 (drawer title) was a measuring error, the title was already hidden; G09 was already met (the commit links only for admins). New strings are drafted in all five translations and unreviewed (fuzzy), like D4.
+
 **Baseline.** The code on `feature/public-release-notes` at `28006ba` (`master` at `85b08bc` plus two commits that change only the footer, the legal text width and release notes). The reference files are the working-tree copies in `docs/design/` from the latest design-project export (not yet committed): `Design reference.md`, `Uvalu.dc.html`, `Uvalu Admin.dc.html`, `Uvalu Auth.dc.html`, `README.md`, plus the new, untracked `logo-consensus-spec.md` and `logo-implementation-prompt.md`. Brand: `docs/uvalu-brand-guidelines.md` v1.3 (already updated in S29; the copy in `docs/design/uvalu-brand-guidelines.md` is older and is not used).
 
 **What changed in the reference since version 2.1.** Compared with the committed copies:

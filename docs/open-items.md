@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 10 October 2026.
+Last updated: 11 October 2026.
 
 ## Legal and compliance
 
@@ -33,7 +33,8 @@ founder's and in which countries.
 
 | # | Item |
 | --- | --- |
-| D1 | Claude Design project: draw the beta bar as a rounded box (G01) and 16px navigation icons (G04). |
+| D1 | **Logo (plan v3.1 S11).** Run prompt 1 of `docs/design/logo-implementation-prompt.md` (logo assets with an outlined wordmark; downloads Inter into `tools/fonts/`), then place the lockup in the top bar, Admin sidebar and sign-in panel and swap the favicon. Two decisions in `logo-consensus-spec.md` are still open (wordmark typeface, light lockup). |
+| D5 | Claude Design project still contradicts decided rules (11 October 2026): model differences below price in `--down-txt` (decided: `--amber-txt`), the Risk "Size" flag in `--faint`, the "Fails screen" chip label, "hard veto" texts, the 30px legal title, lowercase "dark/light" in Settings, a red "Dividend cut detected" box (app: amber). Fix there so the next assessment doesn't re-flag them. |
 | D2 | `uvalu.ui._donut_chart` is no longer used by the app (tests still cover it); remove or reuse. |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
 | D4 | Review the drafted translations of the What's new headings *New* and *Improved* (12 entries, all languages; 11 October 2026). Until then they show in English. Do it before the next release is tagged; the strict i18n gate blocks it otherwise. |
