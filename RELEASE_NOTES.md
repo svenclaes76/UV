@@ -20,13 +20,43 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.5] — 2026-10-11
+
+Bring your portfolio in and take all your data out: restore or bulk-add from a
+file, download everything Uvalu holds about you, and delete your account
+yourself. Your scores and signals don't change.
+
+### New
+
+- **Restore or add to your portfolio from a file**: in Settings › Import &
+  export, upload an Uvalu export — or the export with rows you added — and see
+  what it holds before anything changes. Then add the new rows or replace
+  your portfolio with the file.
+- **Download all your data**: Settings › Privacy › Export my data gives you
+  your account details, settings and portfolio in one Excel workbook.
+- **Delete your account yourself**: Settings › Privacy › Delete account
+  removes your account and data at once, and from backups within 30 days.
+- **Privacy, plan and legal documents in Settings**: your privacy contact,
+  your free-beta plan, and the terms and privacy notice with their version.
+
 ### Improved
 
-- Your Excel export now names its sheets in your language.
+- **A cleaner Excel export**: only what you entered — positions, sales,
+  dividends, cash and watchlist — with real dates and a short note on every
+  column, so you can fill it in and import it again.
+- **Links look the same everywhere**: Methodology → now has the link colour.
 
 ### Fixed
 
-- The cash activity and dividend log lists line up neatly with their card again.
+- **Swiss dividends** without a currency are now counted in Swiss francs, not
+  euros.
+- The cash activity and dividend log lists line up neatly with their card
+  again.
+
+### Removed
+
+- **CSV export buttons** on Portfolio, Cash activity and the dividend pages:
+  the Excel export in Settings › Import & export has the same data.
 
 ## [2026.10.4] — 2026-10-11
 
