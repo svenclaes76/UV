@@ -33,7 +33,7 @@ founder's and in which countries.
 
 | # | Item |
 | --- | --- |
-| D1 | **Logo (plan v3.1 S11).** Run prompt 1 of `docs/design/logo-implementation-prompt.md` (logo assets with an outlined wordmark; downloads Inter into `tools/fonts/`), then place the lockup in the top bar, Admin sidebar and sign-in panel and swap the favicon. Two decisions in `logo-consensus-spec.md` are still open (wordmark typeface, light lockup). |
+| D1 | **Logo (plan v3.1 S11).** Assets are done (`assets/logo/`, `tools/build_logo.py`, 11 October 2026). Next: prompt 2 of `docs/design/logo-implementation-prompt.md` (plan), then place the lockup in the top bar (light lockup in the light theme, dark in the dark theme; decided 11 October 2026), the Admin sidebar and the sign-in panel (dark), and swap the favicon. Wordmark stays outlined Inter 500 (decided). Still to check: the favicon on a real browser tab. |
 | D5 | Claude Design project still contradicts decided rules (11 October 2026): model differences below price in `--down-txt` (decided: `--amber-txt`), the Risk "Size" flag in `--faint`, the "Fails screen" chip label, "hard veto" texts, the 30px legal title, lowercase "dark/light" in Settings, a red "Dividend cut detected" box (app: amber). Fix there so the next assessment doesn't re-flag them. |
 | D2 | `uvalu.ui._donut_chart` is no longer used by the app (tests still cover it); remove or reuse. |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |

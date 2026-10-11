@@ -172,6 +172,6 @@ Yes, update the Uvalu design system before the app. Everything built from it rea
 
 ## Open decisions
 
-- [ ] **Wordmark typeface:** outline Inter 500 into the logo files (recommended), or switch the wordmark to the system font stack the rest of the UI uses.
-- [ ] **Light theme in the app:** whether the sidebar lockup should switch to the light variant, or stay dark on a fixed navy panel.
-- [ ] **Final exports:** produce the SVG and PNG files listed above from the specs in this doc, then check the favicon on a real browser tab.
+- [x] **Wordmark typeface:** outline Inter 500 into the logo files. *Decided 11 Oct 2026 (Sven Claes).* Done in `assets/logo/` by `tools/build_logo.py`.
+- [x] **Light theme in the app:** the top-bar lockup switches to the light variant in the light theme (dark variant in the dark theme). *Decided 11 Oct 2026 (Sven Claes).* The Admin portal and the sign-in panel are dark only and keep the dark lockup.
+- [ ] **Final exports:** the SVG, PNG and ICO files are produced (`assets/logo/`, 11 Oct 2026); still to do: check the favicon on a real browser tab in light and dark browser themes.
