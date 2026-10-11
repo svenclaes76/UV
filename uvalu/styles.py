@@ -1581,6 +1581,14 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
+  /* Language & region preview: one --panel-2 band with the sample values and
+     the "Try a number" field inside it (design reference). */
+  .st-key-set_i18n_preview_band {
+    margin: 6px 20px 0 !important; padding: 12px 16px !important; width: auto !important;
+    background: var(--panel-2); border-radius: 8px; gap: 12px !important;
+  }
+  .st-key-set_i18n_preview_band [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  .st-key-set_i18n_try input { background: var(--panel) !important; font-size: 12.5px !important; }
   /* Currency codes in monospace (EUR / USD / GBP / CHF). */
   .st-key-set_row_i18n_currency button[data-variant="segmented_control"] { font-family: var(--uv-mono) !important; }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px

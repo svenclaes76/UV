@@ -113,36 +113,40 @@ def _preview(ctx: i18n.Ctx) -> None:
         (_("Last updated"), fmt_datetime(_dt.datetime(2026, 9, 27, 17, 35), style="medium"), ""),
         (_("Signal"), signal_badge_html(*signal_badge_for(SIGNAL_UNDERVALUED)), ""),
     ]
+    # Sentence-case 11px labels, values 13.5px mono (design reference).
     inner = "".join(
-        f'<div><div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;'
-        f'color:var(--muted);line-height:1.3;">{html.escape(label)}</div>'
-        f'<div style="font-family:var(--uv-mono);font-size:13.5px;margin-top:4px;line-height:1.3;">{value}</div>'
+        f'<div><div style="font-size:11px;color:var(--muted);line-height:1.3;">{html.escape(label)}</div>'
+        f'<div style="font-family:var(--uv-mono);font-size:13.5px;margin-top:3px;line-height:1.3;">{value}</div>'
         + (f'<div style="font-size:11px;color:var(--muted);margin-top:2px;">{html.escape(sub)}</div>' if sub else "")
         + '</div>'
         for label, value, sub in cells)
     tag = html.escape(f"{_region_short(ctx.region)} · {ctx.currency}")
-    st.markdown(
-        f'<div class="uv-i18n-preview" style="margin:6px 20px 0;padding:12px 16px;background:var(--panel-2);'
-        f'border-radius:8px;">'
-        f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">'
-        f'<span style="font-size:12px;color:var(--muted);">{html.escape(_("Preview"))}</span>'
-        f'<span style="font-family:var(--uv-mono);font-size:10.5px;color:var(--muted);border:0.5px solid var(--line);'
-        f'border-radius:6px;padding:1px 7px;">{tag}</span></div>'
-        f'<div style="display:flex;flex-wrap:wrap;gap:16px 32px;">{inner}</div></div>',
-        unsafe_allow_html=True)
-    with st.container(key="set_row_i18n_try"):
-        with _row(_("Try a number")):
-            text = st.text_input(_("Try a number"), key="set_i18n_try", label_visibility="collapsed",
-                                 placeholder=fmt_num(1234.5, 1))
+    # One --panel-2 band holding the header, the sample values and the
+    # "Try a number" field (CSS: .st-key-set_i18n_preview_band in styles.py).
+    with st.container(key="set_i18n_preview_band"):
+        st.markdown(
+            f'<div class="uv-i18n-preview">'
+            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">'
+            f'<span style="font-size:12px;font-weight:500;color:var(--text);">{html.escape(_("Preview"))}</span>'
+            f'<span style="font-family:var(--uv-mono);font-size:10.5px;color:var(--up-txt);background:var(--soft);'
+            f'border-radius:6px;padding:1px 7px;">{tag}</span></div>'
+            f'<div style="display:flex;flex-wrap:wrap;gap:16px 32px;">{inner}</div></div>',
+            unsafe_allow_html=True)
+        with st.container(key="set_i18n_try", horizontal=True, vertical_alignment="center", gap="small"):
+            st.markdown(f'<span style="font-size:11px;color:var(--muted);">{html.escape(_("Try a number"))}</span>',
+                        unsafe_allow_html=True, width="content")
+            text = st.text_input(_("Try a number"), key="set_i18n_try_input", label_visibility="collapsed",
+                                 placeholder=fmt_num(1234.5, 1), width=150)
             if text:
                 value = parse_number(text, ctx.locale)
                 if value is None:
                     st.markdown(f'<div style="font-size:11px;color:var(--amber-txt);">'
                                 f'{html.escape(_("Can’t read this number in {region} format.", region=_region_short(ctx.region)))}'
-                                f'</div>', unsafe_allow_html=True)
+                                f'</div>', unsafe_allow_html=True, width="content")
                 else:
                     st.markdown(f'<div style="font-size:11px;color:var(--muted);">'
-                                f'{html.escape(_("Saved as {value}", value=value))}</div>', unsafe_allow_html=True)
+                                f'{html.escape(_("Saved as {value}", value=value))}</div>', unsafe_allow_html=True,
+                                width="content")
 
 
 def _reset(email: str) -> None:
