@@ -17,4 +17,5 @@
 
 - [ ] Tests pass locally (`python -m pytest`)
 - [ ] `python tools/i18n_update.py --check` and `python tools/i18n_compile.py` pass
-- [ ] `CHANGELOG.md` updated under `[Unreleased]` (user-visible changes); version impact: MAJOR / MINOR / PATCH
+- [ ] `CHANGELOG.md` updated under `[Unreleased]` (full detail); version impact: MAJOR / MINOR / PATCH
+- [ ] `RELEASE_NOTES.md` updated under `[Unreleased]` (what subscribers notice, benefit first), or nothing subscribers would notice

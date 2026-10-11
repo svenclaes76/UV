@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-10 11:00+0000\n"
+"POT-Creation-Date: 2026-10-11 06:39+0000\n"
 "PO-Revision-Date: 2026-10-04 22:21+0200\n"
 "Last-Translator: \n"
 "Language-Team: fr <LL@li.org>\n"
@@ -66,7 +66,7 @@ msgstr "Méthodologie"
 msgid "Legal"
 msgstr "Juridique"
 
-#: app.py:122 uvalu/pages_/about.py:197 uvalu/pages_/help.py:160
+#: app.py:122 uvalu/pages_/about.py:200 uvalu/pages_/help.py:160
 #: uvalu/pages_/help.py:300 uvalu/shell.py:434
 msgid "About Uvalu"
 msgstr "À propos d'Uvalu"
@@ -3858,55 +3858,55 @@ msgstr ""
 "Cette page n'est pas encore disponible dans ta langue ; la version de référence en "
 "anglais est affichée."
 
-#. About › What's new › heading of a group of release notes (things added / changed /
-#. fixed / removed in a release).
-#. About › What's new › heading of a group of release notes (things added / changed /
-#. fixed / removed in a release).
-#: uvalu/pages_/about.py:29
-msgid "Added"
-msgstr "Ajouté"
-
-#: uvalu/pages_/about.py:29
-msgid "Changed"
-msgstr "Modifié"
+#. About › What's new › heading of a group of release notes: new features,
+#. improvements to existing ones, fixed problems, and things taken out in a release.
+#: uvalu/pages_/about.py:30
+#, fuzzy
+msgid "New"
+msgstr "Nouveau"
 
 #: uvalu/pages_/about.py:30
+#, fuzzy
+msgid "Improved"
+msgstr "Amélioré"
+
+#: uvalu/pages_/about.py:31
 msgid "Fixed"
 msgstr "Corrigé"
 
-#: uvalu/pages_/about.py:30
+#: uvalu/pages_/about.py:31
 msgid "Removed"
 msgstr "Supprimé"
 
 #. About › button that copies the one-line build details for a support e-mail;
 #. "Copied" is its confirmation after a click.
 #. About › button that copies the one-line build details for a support e-mail.
-#: uvalu/pages_/about.py:95
+#: uvalu/pages_/about.py:98
 msgid "Copy for support"
 msgstr "Copier pour le support"
 
 #. About › the "Copy for support" button's label for a moment after a click.
-#: uvalu/pages_/about.py:97
+#: uvalu/pages_/about.py:100
 msgid "Copied"
 msgstr "Copié"
 
-#: uvalu/pages_/about.py:127
+#: uvalu/pages_/about.py:130
 msgid "App version"
 msgstr "Version de l’app"
 
-#: uvalu/pages_/about.py:128
+#: uvalu/pages_/about.py:131
 msgid "Commit"
 msgstr "Commit"
 
-#: uvalu/pages_/about.py:129
+#: uvalu/pages_/about.py:132
 msgid "Built"
 msgstr "Compilée le"
 
-#: uvalu/pages_/about.py:130
+#: uvalu/pages_/about.py:133
 msgid "Environment"
 msgstr "Environnement"
 
-#: uvalu/pages_/about.py:131
+#: uvalu/pages_/about.py:134
 msgid "Scoring model"
 msgstr "Modèle de notation"
 
@@ -3914,11 +3914,11 @@ msgstr "Modèle de notation"
 #. the build-details card and an entry in the page's section list.
 #. About › What's new › badge on the release the user is running; also the heading of
 #. the build-details card and an entry in the page's section list.
-#: uvalu/pages_/about.py:136 uvalu/pages_/about.py:164 uvalu/pages_/about.py:198
+#: uvalu/pages_/about.py:139 uvalu/pages_/about.py:167 uvalu/pages_/about.py:201
 msgid "This version"
 msgstr "Cette version"
 
-#: uvalu/pages_/about.py:140
+#: uvalu/pages_/about.py:143
 msgid "Copy these details when you contact support:"
 msgstr "Copie ces informations quand tu contactes le support :"
 
@@ -3926,23 +3926,23 @@ msgstr "Copie ces informations quand tu contactes le support :"
 #. builds only).
 #. About › What's new › title of the notes for changes not yet in a release (test
 #. builds only).
-#: uvalu/pages_/about.py:160
+#: uvalu/pages_/about.py:163
 msgid "Not released yet"
 msgstr "Pas encore publié"
 
-#: uvalu/pages_/about.py:175 uvalu/pages_/about.py:199
+#: uvalu/pages_/about.py:178 uvalu/pages_/about.py:202
 msgid "What’s new"
 msgstr "Nouveautés"
 
-#: uvalu/pages_/about.py:178
+#: uvalu/pages_/about.py:181
 msgid "Release notes are written in English."
 msgstr "Les notes de version sont rédigées en anglais."
 
-#: uvalu/pages_/about.py:178
+#: uvalu/pages_/about.py:181
 msgid "No release notes yet."
 msgstr "Pas encore de notes de version."
 
-#: uvalu/pages_/about.py:200 uvalu/pages_/legal.py:179 uvalu/pages_/legal.py:197
+#: uvalu/pages_/about.py:203 uvalu/pages_/legal.py:179 uvalu/pages_/legal.py:197
 msgid "Legal & policies"
 msgstr "Informations juridiques et politiques"
 
@@ -7509,3 +7509,9 @@ msgstr[1] ""
 
 #~ msgid "The founder holds no position in {ticker}."
 #~ msgstr "Le fondateur ne détient aucune position sur {ticker}."
+
+#~ msgid "Added"
+#~ msgstr "Ajouté"
+
+#~ msgid "Changed"
+#~ msgstr "Modifié"

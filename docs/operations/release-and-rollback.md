@@ -16,7 +16,7 @@ Follow the checklist in CONTRIBUTING.md. In short:
 
 ```bash
 python tools/i18n_update.py --check && python tools/i18n_compile.py --strict
-python tools/release.py prepare            # next YYYY.MM.N, pyproject + CHANGELOG
+python tools/release.py prepare            # next YYYY.MM.N, pyproject + CHANGELOG + RELEASE_NOTES
 git commit -am "chore(release): 2026.10.1"
 git checkout master && git merge --no-ff <branch>
 git tag -a v2026.10.1 -m "v2026.10.1 — <one-line summary>"

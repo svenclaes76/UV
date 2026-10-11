@@ -133,9 +133,9 @@ def test_visible_releases_calver_only_plus_unreleased_outside_production():
 
 
 def _run_about(monkeypatch, tmp_path, query=None, role="Viewer"):
-    p = tmp_path / "CHANGELOG.md"
+    p = tmp_path / "RELEASE_NOTES.md"
     p.write_text(NOTES, encoding="utf-8")
-    monkeypatch.setattr(changelog, "CHANGELOG", p)
+    monkeypatch.setattr(changelog, "RELEASE_NOTES", p)
     monkeypatch.setattr(changelog, "_cache", None)
 
     def _script():

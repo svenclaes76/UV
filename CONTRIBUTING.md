@@ -115,6 +115,24 @@ tags stay as they are.
 - **Environment**: `UVALU_ENV` = `development` / `test` / `production`.
   Everything other than `production` shows an environment badge in the app.
 
+### Two sets of release notes
+
+Every change goes into **both** files under `## [Unreleased]`:
+
+- **`CHANGELOG.md` — the internal record.** Everything that changed, for the
+  team, operators and admins: admin tools, backups, data migrations, required
+  `.env` keys, sign-in policy. It is the GitHub Release text.
+- **`RELEASE_NOTES.md` — the public notes.** What a subscriber notices, shown
+  in the app under *What's new*. Lead each entry with what it does for them
+  (*"Find new ideas faster in the Screener: …"*), then where to find it. Groups
+  are `### New`, `### Improved`, `### Fixed`, `### Removed`. Leave out what
+  subscribers never see: admin and operator tools, hosting, backups, test
+  builds, restarts, data versions, internal names. A release with nothing to
+  notice still gets a section — one line is enough.
+
+`check-changelog` fails when a CalVer release is in one file but not the
+other, or the dates differ.
+
 ### What the changelog must call out
 
 The number no longer signals impact, so the release section's first paragraph
@@ -127,10 +145,13 @@ does. Say it plainly when a release:
   moves scores or flips BUY/AVOID, even when it's "a fix";
 - **migrates stored data** — add `Data schema: N` (see `uvalu/migrations/`).
 
-Group entries under `### Added`, `### Changed`, `### Fixed`, `### Removed` only,
-in words a user understands — no file paths or work-package ids (those belong in
-commits). `python tools/release.py check-changelog` checks the rules; the test
-suite runs the same check.
+In `CHANGELOG.md`, group entries under `### Added`, `### Changed`, `### Fixed`,
+`### Removed` only, in plain words — name a file, command or setting when an
+operator needs it, but no function names or work-package ids (those belong in
+commits). The public notes say the same things in a subscriber's terms: an
+action they must take, and whether their scores or signals change.
+`python tools/release.py check-changelog` checks both files; the test suite runs
+the same check.
 
 Never retag or renumber a release that's already tagged and pushed.
 
@@ -147,14 +168,16 @@ already carries the right version:
 2. `python tools/release.py prepare` — picks the next number for the current
    month from the existing tags (`release.py next` only prints it), sets
    `pyproject.toml`, turns `## [Unreleased]` into `## [YYYY.MM.N] — YYYY-MM-DD`
-   with a fresh `## [Unreleased]` above it, and checks the changelog. Use
+   with a fresh `## [Unreleased]` above it in both `CHANGELOG.md` and
+   `RELEASE_NOTES.md`, and checks both. Use
    `--version`/`--date` if the merge happens on another day or month.
 3. Commit: `chore(release): YYYY.MM.N`.
 4. `git checkout master && git merge --no-ff <branch>`.
 5. `git tag -a vYYYY.MM.N <merge-commit> -m "vYYYY.MM.N — <one-line summary>"`;
    push `master` and the tag; delete the branch (local + remote).
 6. The `release` workflow verifies the tag (annotated, CalVer, equals
-   `pyproject.toml` at that commit, on `master`, has a changelog section) and
+   `pyproject.toml` at that commit, on `master`, has a changelog section and
+   public notes) and
    publishes the GitHub Release with the changelog section as its body. If the
    guard fails, no Release is published — fix it before anyone pulls the tag.
 

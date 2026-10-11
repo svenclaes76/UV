@@ -389,7 +389,8 @@ Plan: `docs/version-management-plan.md`; operations: `docs/operations/release-an
   and falls back to computing the same from git once per process; a stamp for
   another commit is ignored.
 - **Where it shows** — footer marker → `/about` (`uvalu/pages_/about.py`: build
-  details + What's new from `CHANGELOG.md` via `uvalu/changelog.py`); an
+  details + What's new from the public `RELEASE_NOTES.md` via `uvalu/changelog.py`;
+  `CHANGELOG.md` is the internal record and GitHub Release text); an
   environment marker outside production (`shell.render_env_marker`); Admin →
   System; `/app/static/version.json`; `build_version` + `commit` on every log
   line; a support reference under a render error. `uvalu/update_notice.py`

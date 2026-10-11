@@ -1,7 +1,10 @@
 # Changelog
 
-All notable changes to Uvalu are documented here. The app shows these notes
-under *What's new*, so they are written for the people who use it.
+All notable changes to Uvalu are documented here, in full: this is the
+internal record for the team, operators and admins, and the text of each
+GitHub Release. Subscribers see the shorter, benefit-first
+[RELEASE_NOTES.md](RELEASE_NOTES.md) in the app under *What's new*; every
+release here has a section there too.
 
 From October 2026 versions are calendar versions, `YYYY.MM.N` (the N-th release
 of that month); earlier releases used SemVer. Rules in
@@ -11,11 +14,41 @@ of that month); earlier releases used SemVer. Rules in
   you need to do besides restarting. Say it when scores or signals change, and
   add `Data schema: N` when stored data is migrated.
 - Group entries under **Added**, **Changed**, **Fixed** and **Removed** only.
-- Plain language — no file paths, function names or work-package ids.
+- Plain language; name a file, command or setting when an operator needs it,
+  but no function names or work-package ids (those belong in commits).
 
 ---
 
 ## [Unreleased]
+
+### Added
+
+- **Two sets of release notes.** This file stays the complete record and the
+  GitHub Release text; the new `RELEASE_NOTES.md` holds the subscriber-facing
+  notes that *What's new* shows, grouped New / Improved / Fixed / Removed and
+  without admin or operator items. `tools/release.py prepare` cuts both;
+  `check-changelog` and the release tag guard check that every CalVer release
+  has public notes with the same date; `notes --public` prints them.
+
+### Changed
+
+- **About › What's new** and the one-time update notice read the public notes
+  instead of this file.
+
+### Fixed
+
+- **About › What's new**: the notes now fill the card width (the supporting
+  pages' 72-character reading measure no longer applies there), and the card
+  heading no longer overlaps the first release row.
+- **Footer**: the disclaimer line uses the full width (the 980px cap is gone).
+- **Footer while a page loads**: it no longer jumps under the top bar. The
+  rules that keep it at the bottom of the screen lived in the footer's own
+  `<style>`, which Streamlit removes with the old footer mid-load, so the page
+  collapsed; they are now in the global stylesheet.
+- **Sign-in screen**: the disclaimer, producer line and legal links sit at the
+  bottom of the navy panel across its full width (the 520px cap is gone). The
+  brand text was one markdown block, so the panel's space-between never
+  reached it; it now fills the panel and pushes the legal text down.
 
 ## [2026.10.3] — 2026-10-10
 

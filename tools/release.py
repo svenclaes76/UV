@@ -5,15 +5,19 @@ Usage:
         The next version: N = highest v<YYYY.MM>.N tag of that month + 1 (or 1).
     python tools/release.py prepare [--version 2026.10.1] [--date 2026-10-12] [--no-fetch]
         Set pyproject.toml's version, turn "## [Unreleased]" into the release
-        section, add a fresh "## [Unreleased]", check the changelog. Commits and
-        tags nothing — prints the remaining checklist steps.
+        section in CHANGELOG.md and RELEASE_NOTES.md, add a fresh
+        "## [Unreleased]" to each, check both. Commits and tags nothing —
+        prints the remaining checklist steps.
     python tools/release.py check-changelog
-        VM-07 rules (uvalu/changelog.py). Exit 1 on any problem. Runs in CI.
+        VM-07 rules (uvalu/changelog.py) for CHANGELOG.md and the public
+        RELEASE_NOTES.md. Exit 1 on any problem. Runs in CI.
     python tools/release.py verify-tag v2026.10.1 [--main-ref origin/master]
         The tag guard release CI runs: annotated, CalVer, equals the pyproject
-        version at that commit, on the main branch, has a changelog section.
-    python tools/release.py notes 2026.10.1
-        Print the changelog section body (the GitHub Release text).
+        version at that commit, on the main branch, has a changelog section and
+        public notes.
+    python tools/release.py notes 2026.10.1 [--public]
+        Print the changelog section body (the GitHub Release text), or with
+        --public the notes the app shows.
     python tools/release.py schema-of v2026.10.1
         The data schema that release expects (highest uvalu/migrations/m####_*.py
         at the tag; 1 for releases from before versioned migrations). Used by
@@ -37,6 +41,7 @@ from uvalu import buildinfo, changelog  # noqa: E402
 
 PYPROJECT = ROOT / "pyproject.toml"
 CHANGELOG = ROOT / "CHANGELOG.md"
+RELEASE_NOTES = ROOT / "RELEASE_NOTES.md"
 _PYPROJECT_VERSION_RE = re.compile(r'^(version\s*=\s*)"[^"]*"', re.MULTILINE)
 
 
@@ -79,15 +84,15 @@ def set_pyproject_version(text: str, version: str) -> str:
     return new
 
 
-def cut_changelog(text: str, version: str, date: str) -> str:
+def cut_changelog(text: str, version: str, date: str, name: str = "CHANGELOG.md") -> str:
     releases = changelog.parse(text)
     if not releases or not releases[0].is_unreleased:
-        raise ReleaseError("CHANGELOG.md has no '## [Unreleased]' section at the top")
+        raise ReleaseError(f"{name} has no '## [Unreleased]' section at the top")
     if changelog.find(releases, version):
-        raise ReleaseError(f"CHANGELOG.md already has a [{version}] section")
+        raise ReleaseError(f"{name} already has a [{version}] section")
     unrel = releases[0]
     if not unrel.groups or not any(body.strip() for _, body in unrel.groups):
-        raise ReleaseError("[Unreleased] is empty — nothing to release")
+        raise ReleaseError(f"{name}: [Unreleased] is empty — nothing to release")
     heading = re.compile(r"^## \[Unreleased\][ \t]*$", re.MULTILINE)   # not \s*: keep the blank line
     return heading.sub(f"## [Unreleased]\n\n## [{version}] — {date}", text, count=1)
 
@@ -100,15 +105,23 @@ def prepare(version: "str | None", date: _dt.date, *, fetch: bool = True, root: 
         raise ReleaseError(f"{version} does not match the release date {date.isoformat()}")
     if f"v{version}" in _tags(root, False):
         raise ReleaseError(f"tag v{version} already exists")
-    pyproject, log = root / "pyproject.toml", root / "CHANGELOG.md"
+    pyproject, log, notes = root / "pyproject.toml", root / "CHANGELOG.md", root / "RELEASE_NOTES.md"
     new_log = cut_changelog(log.read_text(encoding="utf-8"), version, date.isoformat())
-    problems = changelog.check(new_log)
+    new_notes = cut_changelog(notes.read_text(encoding="utf-8"), version, date.isoformat(), "RELEASE_NOTES.md")
+    problems = check_all(new_log, new_notes)
     if problems:
         raise ReleaseError("changelog problems:\n  " + "\n  ".join(problems))
     pyproject.write_text(set_pyproject_version(pyproject.read_text(encoding="utf-8"), version),
                          encoding="utf-8")
     log.write_text(new_log, encoding="utf-8")
+    notes.write_text(new_notes, encoding="utf-8")
     return version
+
+
+def check_all(log_text: str, notes_text: str) -> "list[str]":
+    """Both files' rules, each problem prefixed with its file."""
+    return ([f"CHANGELOG.md: {p}" for p in changelog.check(log_text)]
+            + [f"RELEASE_NOTES.md: {p}" for p in changelog.check_public(notes_text, log_text)])
 
 
 # ── tag guard ────────────────────────────────────────────────────────────────
@@ -138,7 +151,11 @@ def verify_tag(tag: str, *, main_ref: str = "origin/master", root: Path = ROOT) 
         rel = changelog.find(changelog.parse(text), version)
         if rel is None:
             problems.append(f"{tag}: CHANGELOG.md has no [{version}] section")
-        problems += [f"{tag}: {p}" for p in changelog.check(text)]
+        try:
+            notes = _git("show", f"{tag}:RELEASE_NOTES.md", root=root)
+            problems += [f"{tag}: {p}" for p in check_all(text, notes)]
+        except ReleaseError as exc:
+            problems.append(f"{tag}: cannot read RELEASE_NOTES.md at the tag ({exc})")
     except ReleaseError as exc:
         problems.append(f"{tag}: cannot read CHANGELOG.md at the tag ({exc})")
     return problems
@@ -181,6 +198,7 @@ def main(argv: "list[str] | None" = None) -> int:
     p.add_argument("--main-ref", default="origin/master")
     p = sub.add_parser("notes")
     p.add_argument("version")
+    p.add_argument("--public", action="store_true")
     p = sub.add_parser("schema-of")
     p.add_argument("ref")
     args = ap.parse_args(argv)
@@ -190,16 +208,17 @@ def main(argv: "list[str] | None" = None) -> int:
             print(next_version(_tags(ROOT, not args.no_fetch), _date(args.date)))
         elif args.cmd == "prepare":
             v = prepare(args.version, _date(args.date), fetch=not args.no_fetch)
-            print(f"Prepared {v}: pyproject.toml + CHANGELOG.md updated. Next:\n"
+            print(f"Prepared {v}: pyproject.toml, CHANGELOG.md + RELEASE_NOTES.md updated. Next:\n"
                   f"  python tools/i18n_update.py --check && python tools/i18n_compile.py --strict\n"
                   f"  git commit -am \"chore(release): {v}\"\n"
                   f"  git checkout master && git merge --no-ff <branch>\n"
                   f"  git tag -a v{v} -m \"v{v} — <one-line summary>\"\n"
                   f"  git push origin master v{v}   # release CI verifies the tag and publishes the Release")
         elif args.cmd == "check-changelog":
-            problems = changelog.check(CHANGELOG.read_text(encoding="utf-8"))
+            problems = check_all(CHANGELOG.read_text(encoding="utf-8"),
+                                 RELEASE_NOTES.read_text(encoding="utf-8"))
             for pr in problems:
-                print(f"CHANGELOG.md: {pr}", file=sys.stderr)
+                print(pr, file=sys.stderr)
             return 1 if problems else 0
         elif args.cmd == "verify-tag":
             problems = verify_tag(args.tag, main_ref=args.main_ref)
@@ -211,9 +230,10 @@ def main(argv: "list[str] | None" = None) -> int:
         elif args.cmd == "schema-of":
             print(schema_of(args.ref))
         elif args.cmd == "notes":
-            rel = changelog.find(changelog.parse(CHANGELOG.read_text(encoding="utf-8")), args.version)
+            src = RELEASE_NOTES if args.public else CHANGELOG
+            rel = changelog.find(changelog.parse(src.read_text(encoding="utf-8")), args.version)
             if rel is None:
-                raise ReleaseError(f"no [{args.version}] section in CHANGELOG.md")
+                raise ReleaseError(f"no [{args.version}] section in {src.name}")
             if hasattr(sys.stdout, "reconfigure"):
                 sys.stdout.reconfigure(encoding="utf-8")
             sys.stdout.write(rel.body_markdown())
