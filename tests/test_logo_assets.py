@@ -81,3 +81,19 @@ def test_svgs_are_up_to_date_with_the_builder():
 def test_favicon_has_three_sizes():
     from PIL import Image
     assert Image.open(LOGO / "favicon.ico").info["sizes"] == {(16, 16), (32, 32), (48, 48)}
+
+
+@pytest.mark.parametrize("name", SVGS)
+def test_screen_readers_hear_the_name_as_written(name):
+    """aria-label "Uvalu": the name as in running text (brand §3, §9)."""
+    assert 'role="img" aria-label="Uvalu"' in (LOGO / name).read_text(encoding="utf-8")
+
+
+def test_tab_icon_is_the_small_mark():
+    """Logo plan L1: the browser tab uses the 32px small mark; the old
+    V-stroke favicon.svg is gone."""
+    src = (ROOT / "app.py").read_text(encoding="utf-8")
+    m = re.search(r'page_icon="([^"]+)"', src)
+    assert m and m.group(1) == "assets/logo/uvalu-mark-small-32.png"
+    assert (ROOT / m.group(1)).is_file()
+    assert not (ROOT / "favicon.svg").exists()

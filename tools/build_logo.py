@@ -65,7 +65,7 @@ def mark_elements(geom: dict, rings: str, lens: str) -> str:
     return f'<path d="{geom["lens"]}" fill="{lens}"/>{circles}'
 
 
-def _svg(view_w: float, view_h: float, body: str, label: str = "uvalu") -> str:
+def _svg(view_w: float, view_h: float, body: str, label: str = "Uvalu") -> str:
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_num(view_w)} {_num(view_h)}" '
             f'role="img" aria-label="{label}">{body}</svg>\n')
 

@@ -35,7 +35,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
     page_title="uvalu",
-    page_icon="favicon.svg",
+    page_icon="assets/logo/uvalu-mark-small-32.png",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
