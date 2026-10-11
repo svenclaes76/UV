@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 16:03+0000\n"
+"POT-Creation-Date: 2026-10-11 20:41+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2223,7 +2223,7 @@ msgstr ""
 
 #. Context: Button to open a stock row (Risk page, tables)
 #: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1112
+#: uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr ""
 
@@ -3778,7 +3778,7 @@ msgstr ""
 msgid "Switch to light theme"
 msgstr ""
 
-#: uvalu/pages_/settings.py:1128 uvalu/shell.py:424
+#: uvalu/pages_/settings.py:1133 uvalu/shell.py:424
 msgid "Free beta"
 msgstr ""
 
@@ -3790,7 +3790,7 @@ msgstr ""
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:751 uvalu/pages_/settings.py:1129 uvalu/shell.py:447
+#: uvalu/pages_/settings.py:751 uvalu/pages_/settings.py:1134 uvalu/shell.py:447
 msgid "Sign out"
 msgstr ""
 
@@ -6902,28 +6902,33 @@ msgid "Legal documents"
 msgstr ""
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1101
+#: uvalu/pages_/settings.py:1103
 msgid "No-personal-advice acknowledgement"
 msgstr ""
 
-#. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1102
-msgid "Terms of use, section 4."
+#. Context: Settings › Legal documents › the no-personal-advice row: acceptance isn't recorded yet
+#: uvalu/pages_/settings.py:1104
+msgid "Terms of use, section 4. Your acceptance isn't recorded yet."
 msgstr ""
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1104
+#: uvalu/pages_/settings.py:1106
 #, python-brace-format
 msgid "{document} · {version}"
 msgstr ""
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1105
+#: uvalu/pages_/settings.py:1107
 #, python-brace-format
 msgid "Effective from {date}."
 msgstr ""
 
+#. Context: Settings › Legal documents › the no-personal-advice row: acceptance isn't recorded yet
 #: uvalu/pages_/settings.py:1114
+msgid "Not available"
+msgstr ""
+
+#: uvalu/pages_/settings.py:1119
 msgid "During the beta these documents are available in English only."
 msgstr ""
 

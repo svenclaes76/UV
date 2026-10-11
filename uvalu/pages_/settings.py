@@ -1098,9 +1098,11 @@ def render() -> None:
                 for _lkey, _ltitle, _ldesc, _ldoc in (
                         ("terms", tr(_docs["terms"]), None, "terms"),
                         ("privacy", tr(_docs["privacy"]), None, "privacy"),
+                        # Acceptance isn't recorded yet (L1): no link, marked as
+                        # not available until it is.
                         ("advice", _("No-personal-advice acknowledgement"),
-                         h_("Terms of use, section 4."), "terms")):
-                    _ver, _eff = _legal_doc_version(_ldoc)
+                         h_("Terms of use, section 4. Your acceptance isn't recorded yet."), None)):
+                    _ver, _eff = _legal_doc_version(_ldoc) if _ldoc else ("", "")
                     _title = h_("{document} · {version}", document=_ltitle, version=_ver) if _ver and _lkey != "advice" else html.escape(_ltitle)
                     _desc = _ldesc or (h_("Effective from {date}.", date=_eff) if _eff else "")
                     with st.container(key=f"set_row_legal_{_lkey}"):
@@ -1108,7 +1110,10 @@ def render() -> None:
                         with _c1:
                             _row_title(_title, _desc)
                         with _c2:
-                            if _legal_page is not None:
+                            if _ldoc is None:
+                                st.markdown(f'<span class="uv-set-chip-na">{h_("Not available")}</span>',
+                                            unsafe_allow_html=True)
+                            elif _legal_page is not None:
                                 st.page_link(_legal_page, label=_("View"), query_params={"doc": _ldoc})
                 st.markdown(f'<div class="uv-set-legal-note">'
                             f'{h_("During the beta these documents are available in English only.")}</div>',

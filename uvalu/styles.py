@@ -1714,6 +1714,10 @@ GLOBAL_CSS = """
   .uv-set-privacy-mail a {
     font-family: var(--uv-mono); font-size: 12px; color: var(--link) !important; text-decoration: none;
   }
+  .uv-set-chip-na {
+    display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    background: var(--panel-2); color: var(--muted); white-space: nowrap;
+  }
   .uv-set-chip-active {
     display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
     background: var(--up-bg); color: var(--up-txt); white-space: nowrap;
@@ -1726,6 +1730,10 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {
     display: none !important;
   }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"],
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] p {
+    line-height: 1.3 !important;   /* inherited 32px made the button 42px tall (design ~33px) */
+  }
   [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] p {
     font-size: 12.5px !important; color: var(--muted) !important; white-space: nowrap;
   }
@@ -1734,6 +1742,8 @@ GLOBAL_CSS = """
   .st-key-set_card_legal { padding-bottom: 13px !important; }
   /* The footnote sits right under the last row's hairline (design: 13px). */
   [data-testid="stElementContainer"]:has(.uv-set-legal-note) { margin-top: -16px !important; }
+  /* …and Streamlit's -1rem markdown margin let it run out of the card. */
+  [data-testid="stMarkdownContainer"]:has(> .uv-set-legal-note) { margin-bottom: 0 !important; }
   .uv-set-legal-note { padding: 13px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
   /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
      row with the avatar and name — st.columns' per-column centring was off

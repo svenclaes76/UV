@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 16:03+0000\n"
-"PO-Revision-Date: 2026-10-11 17:39+0200\n"
+"POT-Creation-Date: 2026-10-11 20:41+0000\n"
+"PO-Revision-Date: 2026-10-11 22:24+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -1130,20 +1130,23 @@ msgctxt "sheet_name"
 msgid "Withholding"
 msgstr "Ritenuta"
 
+#. Context: Settings › Export workbook › comment on a column header of a read-only
+#. sheet
 #: workbook.py:86
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Account"
 msgstr "Account"
 
+#. Context: Settings › Export workbook › comment on a column header of a read-only
+#. sheet
 #: workbook.py:87
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Settings"
 msgstr "Impostazioni"
 
+#. Context: Settings › Export workbook › comment on a column header of a read-only
+#. sheet
 #: workbook.py:88
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Automatic cash"
 msgstr "Liquidità automatica"
@@ -1312,30 +1315,32 @@ msgstr "brussels, amsterdam, paris, milan, frankfurt o swiss. Obbligatorio."
 msgid "Withholding tax in %. Required."
 msgstr "Ritenuta alla fonte in %. Obbligatorio."
 
+#. Context: Settings › Export workbook
 #: workbook.py:118
-#, fuzzy
 msgid "Account detail. For your information: not imported."
 msgstr "Dato dell'account. Solo informativo: non viene importato."
 
+#. Context: Settings › Export workbook
 #: workbook.py:119
-#, fuzzy
 msgid "Setting. For your information: not imported."
 msgstr "Impostazione. Solo informativo: non viene importata."
 
+#. Context: Settings › Export workbook
 #: workbook.py:120
-#, fuzzy
 msgid "Value. For your information: not imported."
 msgstr "Valore. Solo informativo: non viene importato."
 
+#. Context: Settings › Export workbook
 #: workbook.py:121
-#, fuzzy
 msgid "Amount in euro."
 msgstr "Importo in euro."
 
+#. Context: Settings › Export workbook
 #: workbook.py:122
-#, fuzzy
 msgid "The trade or dividend this entry belongs to. Rebuilt on import, not imported."
-msgstr "L'operazione o il dividendo a cui appartiene questa registrazione. Ricostruita all'importazione, non importata."
+msgstr ""
+"L'operazione o il dividendo a cui appartiene questa registrazione. Ricostruita "
+"all'importazione, non importata."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
@@ -1507,12 +1512,7 @@ msgid "Use a backup code"
 msgstr "Usa un codice di backup"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304
-#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:199
-#: uvalu/pages_/settings.py:241 uvalu/pages_/settings.py:419
-#: uvalu/pages_/settings.py:451 uvalu/pages_/settings.py:498
-#: uvalu/pages_/settings.py:541
+#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:199 uvalu/pages_/settings.py:241 uvalu/pages_/settings.py:419 uvalu/pages_/settings.py:451 uvalu/pages_/settings.py:498 uvalu/pages_/settings.py:541
 msgid "Cancel"
 msgstr "Annulla"
 
@@ -1673,15 +1673,12 @@ msgstr "FISSATO DALL'INVITO"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702
-#: uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:602
-#: uvalu/pages_/settings.py:606
+#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702 uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:602 uvalu/pages_/settings.py:606
 msgid "Password"
 msgstr "Password"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489
-#: uvalu/pages_/settings.py:413 uvalu/pages_/settings.py:445
+#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489 uvalu/pages_/settings.py:413 uvalu/pages_/settings.py:445
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Almeno {min_len} caratteri."
@@ -2181,7 +2178,7 @@ msgstr "Il ruolo Lettore è di sola lettura"
 
 #. Context: Button to open a stock row (Risk page, tables)
 #: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1112
+#: uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr "Vedi"
 
@@ -3688,7 +3685,7 @@ msgstr "Passa al tema scuro"
 msgid "Switch to light theme"
 msgstr "Passa al tema chiaro"
 
-#: uvalu/pages_/settings.py:1128 uvalu/shell.py:424
+#: uvalu/pages_/settings.py:1133 uvalu/shell.py:424
 msgid "Free beta"
 msgstr "Beta gratuita"
 
@@ -3700,7 +3697,7 @@ msgstr "Portale di amministrazione"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:751 uvalu/pages_/settings.py:1129 uvalu/shell.py:447
+#: uvalu/pages_/settings.py:751 uvalu/pages_/settings.py:1134 uvalu/shell.py:447
 msgid "Sign out"
 msgstr "Esci"
 
@@ -5859,13 +5856,13 @@ msgstr "Importazione ed esportazione"
 msgid "Model settings"
 msgstr "Impostazioni del modello"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:1044
-#, fuzzy
 msgid "Privacy"
 msgstr "Privacy"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:107 uvalu/pages_/settings.py:1078
-#, fuzzy
 msgid "Plan"
 msgstr "Piano"
 
@@ -5899,9 +5896,7 @@ msgstr "Modalità di importazione"
 #. Context: Settings › Import & export card › import mode choice
 #: uvalu/pages_/settings.py:166
 msgid "Add to my data — new rows are added; to change existing rows, use Replace"
-msgstr ""
-"Aggiungi ai miei dati — le nuove righe vengono aggiunte; per modificare righe "
-"esistenti, usa Sostituisci"
+msgstr "Aggiungi ai miei dati — le nuove righe vengono aggiunte; per modificare righe esistenti, usa Sostituisci"
 
 #. Context: Settings › Import & export card
 #: uvalu/pages_/settings.py:168
@@ -5955,39 +5950,44 @@ msgstr "L'importazione non è riuscita: {error}"
 msgid "Imported {positions} positions, {sold} sold positions and {dividends} dividends."
 msgstr "Importate {positions} posizioni, {sold} posizioni vendute e {dividends} dividendi."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:220
-#, fuzzy
 msgid "Delete your account?"
 msgstr "Eliminare il tuo account?"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:230
-#, fuzzy
 msgid ""
 "Your portfolio, transactions, watchlist and settings are removed from live "
 "systems now and from backups within 30 days. This can't be undone. Export your "
 "data first if you want a copy."
-msgstr "Il tuo portafoglio, le operazioni, la watchlist e le impostazioni vengono rimossi subito dai sistemi attivi e dai backup entro 30 giorni. L'operazione è irreversibile. Esporta prima i tuoi dati se vuoi conservarne una copia."
+msgstr ""
+"Il tuo portafoglio, le operazioni, la watchlist e le impostazioni vengono "
+"rimossi subito dai sistemi attivi e dai backup entro 30 giorni. L'operazione è "
+"irreversibile. Esporta prima i tuoi dati se vuoi conservarne una copia."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:235
-#, fuzzy
 msgid ""
 "You're the only active Admin. Make another user Admin before you delete your "
 "account."
-msgstr "Sei l'unico Admin attivo. Rendi Admin un altro utente prima di eliminare il tuo account."
+msgstr ""
+"Sei l'unico Admin attivo. Rendi Admin un altro utente prima di eliminare il tuo "
+"account."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:237
-#, fuzzy
 msgid "Type your email address to confirm"
 msgstr "Digita il tuo indirizzo email per confermare"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058
 #: uvalu/pages_/settings.py:1062
-#, fuzzy
 msgid "Delete account"
 msgstr "Elimina account"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:247
-#, fuzzy
 msgid "The email address doesn't match this account."
 msgstr "L'indirizzo email non corrisponde a questo account."
 
@@ -6579,57 +6579,67 @@ msgstr "Includi titoli quotati negli USA"
 msgid "Not available: the beta covers European exchanges only."
 msgstr "Non disponibile: la beta copre solo le borse europee."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1048
-#, fuzzy
 msgid "Export my data"
 msgstr "Esporta i miei dati"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1049
-#, fuzzy
 msgid ""
 "Your positions, sales, dividends, cash, watchlist, settings and account details "
 "as an Excel workbook (.xlsx)."
-msgstr "Posizioni, vendite, dividendi, liquidità, watchlist, impostazioni e dati dell'account in una cartella di lavoro Excel (.xlsx)."
+msgstr ""
+"Posizioni, vendite, dividendi, liquidità, watchlist, impostazioni e dati "
+"dell'account in una cartella di lavoro Excel (.xlsx)."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1053
-#, fuzzy
 msgid "Export"
 msgstr "Esporta"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1059
-#, fuzzy
 msgid ""
 "Removes your account and data from live systems at once and from backups within "
 "30 days."
-msgstr "Rimuove subito il tuo account e i tuoi dati dai sistemi attivi, e dai backup entro 30 giorni."
+msgstr ""
+"Rimuove subito il tuo account e i tuoi dati dai sistemi attivi, e dai backup "
+"entro 30 giorni."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1067
-#, fuzzy
 msgid "Privacy contact"
 msgstr "Contatto privacy"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1068
-#, fuzzy
 msgid ""
 "Questions about your data, or a complaint to the Belgian Data Protection "
 "Authority (GBA / APD)."
-msgstr "Domande sui tuoi dati, o un reclamo all'Autorità belga per la protezione dei dati (GBA / APD)."
+msgstr ""
+"Domande sui tuoi dati, o un reclamo all'Autorità belga per la protezione dei "
+"dati (GBA / APD)."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1083
-#, fuzzy
 msgid "Free beta · by invitation"
 msgstr "Beta gratuita · su invito"
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1084
-#, fuzzy
 msgid ""
 "No paid plans during the beta and you pay nothing. We tell you at least 14 days "
 "before the beta ends where we can, so you can export your data. Your account "
 "never turns into a paid plan without your express agreement."
-msgstr "Nessun piano a pagamento durante la beta e non paghi nulla. Ove possibile, ti avvisiamo almeno 14 giorni prima della fine della beta, così puoi esportare i tuoi dati. Il tuo account non diventa mai un piano a pagamento senza il tuo consenso espresso."
+msgstr ""
+"Nessun piano a pagamento durante la beta e non paghi nulla. Ove possibile, ti "
+"avvisiamo almeno 14 giorni prima della fine della beta, così puoi esportare i "
+"tuoi dati. Il tuo account non diventa mai un piano a pagamento senza il tuo "
+"consenso espresso."
 
+#. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1088
-#, fuzzy
 msgid "Active"
 msgstr "Attivo"
 
@@ -6637,27 +6647,34 @@ msgstr "Attivo"
 msgid "Legal documents"
 msgstr "Documenti legali"
 
-#: uvalu/pages_/settings.py:1101
-#, fuzzy
+#. Context: Settings › Privacy, Plan and Legal documents cards
+#: uvalu/pages_/settings.py:1103
 msgid "No-personal-advice acknowledgement"
 msgstr "Presa d'atto: nessuna consulenza personalizzata"
 
-#: uvalu/pages_/settings.py:1102
-#, fuzzy
-msgid "Terms of use, section 4."
-msgstr "Termini d'uso, sezione 4."
-
 #: uvalu/pages_/settings.py:1104
-#, fuzzy, python-brace-format
+#, fuzzy
+msgid "Terms of use, section 4. Your acceptance isn't recorded yet."
+msgstr "Termini d'uso, sezione 4. La tua accettazione non è ancora registrata."
+
+#. Context: Settings › Privacy, Plan and Legal documents cards
+#: uvalu/pages_/settings.py:1106
+#, python-brace-format
 msgid "{document} · {version}"
 msgstr "{document} · {version}"
 
-#: uvalu/pages_/settings.py:1105
-#, fuzzy, python-brace-format
+#. Context: Settings › Privacy, Plan and Legal documents cards
+#: uvalu/pages_/settings.py:1107
+#, python-brace-format
 msgid "Effective from {date}."
 msgstr "In vigore dal {date}."
 
 #: uvalu/pages_/settings.py:1114
+#, fuzzy
+msgid "Not available"
+msgstr "Non disponibile"
+
+#: uvalu/pages_/settings.py:1119
 msgid "During the beta these documents are available in English only."
 msgstr "Durante la beta questi documenti sono disponibili solo in inglese."
 
@@ -7358,3 +7375,6 @@ msgstr[1] "Nessun dato dello screener per i tuoi ticker in watchlist: compariran
 
 #~ msgid "To get a copy of your data or have it deleted, write to {email}."
 #~ msgstr "Per avere una copia dei tuoi dati o farli cancellare, scrivi a {email}."
+
+#~ msgid "Terms of use, section 4."
+#~ msgstr "Termini d'uso, sezione 4."
