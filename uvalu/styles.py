@@ -42,9 +42,10 @@ GLOBAL_CSS = """
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
     /* Brand v1.3: link text (Signal Teal is 4.2:1 on white, too low for
-       small text), the wordmark's final "u", and the badge fills that have
-       no semantic token of their own. */
-    --link:#3FBF98; --logo-accent:#1DD6A4;
+       small text), the badge fills that have no semantic token of their own,
+       and the top-bar lockup's two inks (uvalu/logo.py): --logo-ring for the
+       rings and wordmark, --logo-accent for the lens and the final "u". */
+    --link:#3FBF98; --logo-accent:#1DD6A4; --logo-ring:#FFFFFF;
     --veto-bg:#1E2D4A; --veto-line:rgba(245,247,250,0.18); --nosig-bg:rgba(245,247,250,0.07);
   }
   [data-theme="light"] {
@@ -56,7 +57,7 @@ GLOBAL_CSS = """
     --amber-bg:#FDF0E8; --amber-txt:#854F0B; --amber-fill:#C98A3A;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
-    --link:#167A60; --logo-accent:#1A8C6E;
+    --link:#167A60; --logo-accent:#1A8C6E; --logo-ring:#0D1F3C;
     --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
   }
 

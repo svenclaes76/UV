@@ -9,7 +9,7 @@ import pytest
 from uvalu.styles import GLOBAL_CSS
 
 V13_TOKENS = ("--bg", "--panel", "--panel-2", "--text", "--muted", "--faint", "--line", "--line-2",
-              "--teal", "--mint", "--link", "--logo-accent", "--soft", "--up-txt", "--up-bg",
+              "--teal", "--mint", "--link", "--logo-accent", "--logo-ring", "--soft", "--up-txt", "--up-bg",
               "--down-txt", "--down-bg", "--amber-txt", "--amber-bg", "--amber-fill", "--grid",
               "--axis", "--tile", "--shadow", "--veto-bg", "--veto-line", "--nosig-bg")
 # Tokens that only exist once because they're the same in both themes.

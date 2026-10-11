@@ -254,7 +254,7 @@ div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !import
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
 .uv-pi-short {{ display: none; }}
-/* The logo column is too narrow for the tagline beside the 22px logo. */
+/* The logo column is too narrow for the tagline beside the lockup. */
 @media (max-width: 1100px) {{ .uv-logo-tag {{ display: none !important; }} }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
@@ -359,12 +359,13 @@ def render_topbar(nav) -> None:
         col_logo, col_nav, col_right = st.columns(_topbar_widths(_nav_labels), vertical_alignment="center")
 
         with col_logo:
+            # The Consensus lockup, 26px mark height, colours from the theme
+            # (light lockup in the light theme, dark in the dark theme).
+            from uvalu.logo import lockup_svg
             st.markdown(
-                '<div style="display:flex;align-items:baseline;gap:9px;">'
-                '<span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">'
-                'uval<span style="color:var(--logo-accent)">u</span></span>'
+                f'<div style="display:flex;align-items:center;gap:13px;">{lockup_svg(26, theme_tokens=True)}'
                 '<span class="uv-logo-tag" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;'
-                f'white-space:nowrap;color:var(--muted);">{_("value engine")}</span></div>',
+                f'white-space:nowrap;color:var(--muted);line-height:1;">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 

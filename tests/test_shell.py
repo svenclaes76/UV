@@ -192,3 +192,16 @@ class TestNotices:
         assert "Couldn’t load this page. Try again in a moment." in html
         assert "background:var(--down-bg)" in html and "Reference for support:" in html
         assert 'font-family:var(--uv-mono);' in html
+
+
+def test_top_bar_shows_the_consensus_lockup():
+    """Logo plan L2: the outlined lockup at a 26px mark height, colours from
+    the theme tokens; no live-text wordmark."""
+    at = AppTest.from_string(
+        "from uvalu import shell, nav\n"
+        "class _N: url_path = 'screener'\n"
+        "shell.render_topbar(_N())\n", default_timeout=60)
+    at.run()
+    html = "".join(m.value for m in at.markdown)
+    assert 'aria-label="Uvalu"' in html and 'height="26"' in html
+    assert "var(--logo-ring)" in html and "uval<span" not in html
