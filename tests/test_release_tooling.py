@@ -51,6 +51,30 @@ PATCH — legal texts.
 """
 
 
+PUBLIC = """# Release notes
+
+---
+
+## [Unreleased]
+
+### New
+
+- Something you'll like.
+
+## [2026.10.1] — 2026-10-12
+
+See which version you're on.
+
+### New
+
+- The version at the bottom of every page.
+
+### Fixed
+
+- The thing that was wrong.
+"""
+
+
 # ── changelog parser + rules ─────────────────────────────────────────────────
 
 def test_parse_sections_groups_and_intro():
@@ -92,10 +116,29 @@ def test_release_without_groups_is_reported():
     assert any("no Added" in p for p in changelog.check(text))
 
 
-def test_load_caches_until_file_changes(tmp_path, monkeypatch):
-    p = tmp_path / "CHANGELOG.md"
+def test_real_release_notes_pass():
+    assert changelog.check_public((ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8"),
+                                  (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")) == []
+
+
+def test_public_notes_pair_with_changelog():
+    assert changelog.check_public(PUBLIC, GOOD) == []
+    missing = PUBLIC.split("## [2026.10.1]")[0]
+    assert any("has no public notes" in p for p in changelog.check_public(missing, GOOD))
+    redated = PUBLIC.replace("2026-10-12", "2026-10-13")
+    assert any("differs from CHANGELOG.md" in p for p in changelog.check_public(redated, GOOD))
+    extra = PUBLIC.replace("## [2026.10.1] — 2026-10-12", "## [2026.10.2] — 2026-10-12")
+    assert any("doesn't have" in p for p in changelog.check_public(extra, GOOD))
+
+
+def test_public_notes_use_their_own_groups():
+    assert any("use only New" in p for p in changelog.check_public(GOOD, GOOD))
+
+
+def test_load_reads_the_public_notes_and_caches_until_file_changes(tmp_path, monkeypatch):
+    p = tmp_path / "RELEASE_NOTES.md"
     p.write_text(GOOD, encoding="utf-8")
-    monkeypatch.setattr(changelog, "CHANGELOG", p)
+    monkeypatch.setattr(changelog, "RELEASE_NOTES", p)
     monkeypatch.setattr(changelog, "_cache", None)
     first = changelog.load()
     assert changelog.load() is first
@@ -166,6 +209,7 @@ def repo(tmp_path):
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "uv"\nversion = "2.1.1"\n')
     (tmp_path / "CHANGELOG.md").write_text(GOOD.replace("## [2026.10.1] — 2026-10-12", "## [2.2.0] — 2026-10-06"),
                                            encoding="utf-8")
+    (tmp_path / "RELEASE_NOTES.md").write_text(PUBLIC.split("## [2026.10.1]")[0], encoding="utf-8")
     _git(tmp_path, "add", ".")
     _git(tmp_path, "commit", "-q", "-m", "init")
     return tmp_path
@@ -175,8 +219,16 @@ def test_prepare_bumps_and_cuts(repo):
     v = release.prepare(None, dt.date(2026, 10, 20), fetch=False, root=repo)
     assert v == "2026.10.1"
     assert 'version = "2026.10.1"' in (repo / "pyproject.toml").read_text()
-    rels = changelog.parse((repo / "CHANGELOG.md").read_text(encoding="utf-8"))
-    assert rels[1].version == "2026.10.1" and rels[1].date == "2026-10-20"
+    for name in ("CHANGELOG.md", "RELEASE_NOTES.md"):
+        rels = changelog.parse((repo / name).read_text(encoding="utf-8"))
+        assert rels[0].is_unreleased and rels[1].version == "2026.10.1" and rels[1].date == "2026-10-20"
+
+
+def test_prepare_refuses_empty_public_notes(repo):
+    (repo / "RELEASE_NOTES.md").write_text("## [Unreleased]\n", encoding="utf-8")
+    with pytest.raises(release.ReleaseError, match=r"RELEASE_NOTES.md: \[Unreleased\] is empty"):
+        release.prepare(None, dt.date(2026, 10, 20), fetch=False, root=repo)
+    assert 'version = "2.1.1"' in (repo / "pyproject.toml").read_text()
 
 
 def test_prepare_rejects_version_outside_date_month(repo):
@@ -232,3 +284,11 @@ def test_notes_cli_prints_section(capsys, monkeypatch, tmp_path):
     out = capsys.readouterr().out
     assert out.startswith("You only need to restart.") and "### Fixed" in out
     assert release.main(["notes", "2099.01.1"]) == 1
+
+
+def test_notes_cli_public(capsys, monkeypatch, tmp_path):
+    p = tmp_path / "RELEASE_NOTES.md"
+    p.write_text(PUBLIC, encoding="utf-8")
+    monkeypatch.setattr(release, "RELEASE_NOTES", p)
+    assert release.main(["notes", "2026.10.1", "--public"]) == 0
+    assert capsys.readouterr().out.startswith("See which version you're on.")

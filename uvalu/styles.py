@@ -1684,6 +1684,15 @@ GLOBAL_CSS = """
   [class*="st-key-help_card_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 
   section[data-testid="stMain"] { width: 100% !important; }
+  /* Legal footer always at the bottom of the screen — on short pages and
+     while a page is loading, when Streamlit has cleared the old page but not
+     yet sent the new one. The block container fills the scrolling stMain,
+     the page's block grows into it, and the footer's wrapper takes the slack
+     above it. Global, not in the footer's own <style>, which disappears with
+     the footer mid-load and let the skeleton collapse onto it. */
+  [data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
+  [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
+  [data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
   section[data-testid="stSidebar"][aria-expanded="true"]  ~ section[data-testid="stMain"] .block-container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   section[data-testid="stSidebar"][aria-expanded="false"] ~ section[data-testid="stMain"] .block-container { padding-left: 64px !important; padding-right: 1.5rem !important; padding-top: 1rem !important; }
 
@@ -1806,7 +1815,18 @@ GLOBAL_CSS = """
   .uv-login-stats { display: flex; gap: 28px; margin-top: 32px; }
   .uv-login-stat-val { font-family: var(--uv-mono); font-size: 22px; font-weight: 500; color: var(--mint); }
   .uv-login-stat-lbl { font-size: 11px; color: rgba(245,247,250,0.5); margin-top: 3px; }
-  .uv-login-foot { font-size: 11px; color: rgba(245,247,250,0.6); position: relative; z-index: 2; }
+  /* The brand text fills the navy panel; the legal text sits at its bottom,
+     across the panel's full width, with the stats above it. */
+  .st-key-uv_login_left > [data-testid="stElementContainer"]:has(.uv-login-brand),
+  .st-key-uv_login_left [data-testid="stMarkdown"]:has(.uv-login-brand),
+  .st-key-uv_login_left [data-testid="stMarkdown"]:has(.uv-login-brand) > div,
+  .st-key-uv_login_left [data-testid="stMarkdownContainer"]:has(.uv-login-brand) {
+    flex: 1 1 auto !important; height: 100% !important; display: flex !important; flex-direction: column !important;
+    margin-bottom: 0 !important;
+  }
+  .uv-login-brand { flex: 1 1 auto; display: flex; flex-direction: column; gap: 32px; min-height: 100%; }
+  .uv-login-foot { font-size: 11px; line-height: 1.6; color: rgba(245,247,250,0.6); position: relative; z-index: 2;
+    margin-top: auto; }
   .uv-login-ring {
     position: absolute; border-radius: 50%; border: 1px solid rgba(29,214,164,0.12); z-index: 1;
   }

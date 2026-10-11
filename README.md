@@ -108,5 +108,6 @@ All user data is stored locally and never sent to a third party:
 | [docs/portfolio_risk_assessment_algorithm.md](docs/portfolio_risk_assessment_algorithm.md) | 8-stage risk assessment methodology |
 | [docs/uvalu-brand-guidelines.md](docs/uvalu-brand-guidelines.md) | Visual identity — colours, typography, logo usage |
 | [docs/archive/](docs/archive/README.md) | Completed implementation plans, kept for historical rationale — not living docs |
-| [CHANGELOG.md](CHANGELOG.md) | Version history and notable changes |
+| [CHANGELOG.md](CHANGELOG.md) | Version history: every change in full (internal; GitHub Release text) |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | Public release notes, shown in the app under *What's new* |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup, conventions, and PR process |

@@ -10,8 +10,9 @@ menu. The shared supporting-page frame (components.support_page, proposal
   app version, so labelled differently). A copyable one-line summary for
   support e-mails. All values come from ``uvalu.buildinfo`` — never hard-coded
   (VD-10).
-- **What's new**: the CalVer sections of CHANGELOG.md, newest first. Release
-  notes are English only (plan decision D6); the chrome around them is
+- **What's new**: the CalVer sections of the public RELEASE_NOTES.md (what a
+  subscriber notices; the full detail stays in CHANGELOG.md), newest first.
+  Release notes are English only (plan decision D6); the chrome around them is
   translated. ``?v=<version>`` opens one release. Non-production builds also
   show the ``[Unreleased]`` notes.
 """
@@ -25,8 +26,8 @@ from uvalu.components import support_page
 from uvalu.i18n import N_, _, current, fmt_datetime, h_, tr
 from uvalu.runtime import current_user
 
-# Translators: About › What's new › heading of a group of release notes (things added / changed / fixed / removed in a release).
-GROUP_LABELS = {"Added": N_("Added"), "Changed": N_("Changed"),
+# Translators: About › What's new › heading of a group of release notes: new features, improvements to existing ones, fixed problems, and things taken out in a release.
+GROUP_LABELS = {"New": N_("New"), "Improved": N_("Improved"),
                 "Fixed": N_("Fixed"), "Removed": N_("Removed")}
 SHOWN_EXPANDED = 1
 
@@ -38,6 +39,8 @@ _CSS = """
 /* Streamlit pulls markdown blocks up by 16px; here that slid the footer over
    the last data row. */
 .st-key-about_build [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+/* Same pull-up slid the first release row under the "What's new" heading. */
+.st-key-about_notes > [data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 .uv-about-rows { display: grid; grid-template-columns: 140px minmax(0, 1fr); margin: 0; }
 .uv-about-rows > * { padding: 10px 20px; font-size: 13px; border-bottom: 0.5px solid var(--line-2); margin: 0; }
 .uv-about-rows > dt { color: var(--muted); }
@@ -56,7 +59,7 @@ _CSS = """
 .st-key-about_notes [data-testid="stExpander"] summary p { font-size: 14px !important; font-weight: 500 !important; }
 .st-key-about_notes [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
 .st-key-about_notes [data-testid="stExpander"] [data-testid="stMarkdownContainer"] li {
-  font-size: 13.5px !important; line-height: 1.6 !important;
+  font-size: 13.5px !important; line-height: 1.6 !important; max-width: none !important;
 }
 .uv-notes-group { font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 8px; }
 .st-key-about_notes_caption { padding: 8px 20px 0; }

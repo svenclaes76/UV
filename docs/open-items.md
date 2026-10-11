@@ -36,6 +36,7 @@ founder's and in which countries.
 | D1 | Claude Design project: draw the beta bar as a rounded box (G01) and 16px navigation icons (G04). |
 | D2 | `uvalu.ui._donut_chart` is no longer used by the app (tests still cover it); remove or reuse. |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
+| D4 | Review the drafted translations of the What's new headings *New* and *Improved* (12 entries, all languages; 11 October 2026). Until then they show in English. Do it before the next release is tagged; the strict i18n gate blocks it otherwise. |
 
 ## Product backlog
 

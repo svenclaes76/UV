@@ -1,5 +1,14 @@
-"""CHANGELOG.md parser + rules (VM-07), shared by the release tooling
+"""Release-notes parser + rules (VM-07), shared by the release tooling
 (``tools/release.py``) and the in-app What's new view (VD-04).
+
+Two files, one format:
+
+- ``CHANGELOG.md`` — the internal record: every change in full, including
+  operator and admin detail. It is the GitHub Release body.
+- ``RELEASE_NOTES.md`` — the public notes the app shows under *What's new*:
+  only what a subscriber notices, written as the value it brings them.
+  Every CalVer release in the changelog has a section here with the same
+  version and date.
 
 Format (Keep a Changelog)::
 
@@ -15,8 +24,9 @@ Format (Keep a Changelog)::
 Rules enforced for CalVer releases (older SemVer sections are history and are
 only checked for order and duplicates):
 
-- groups are only ``Added`` / ``Changed`` / ``Fixed`` / ``Removed``, each used
-  at most once and never empty, at least one group per release;
+- groups are only ``Added`` / ``Changed`` / ``Fixed`` / ``Removed`` (public
+  notes: ``New`` / ``Improved`` / ``Fixed`` / ``Removed``), each used at most
+  once and never empty, at least one group per release;
 - a release date is present and falls in the version's year and month;
 - ``## [Unreleased]`` exists and comes first; versions descend; no duplicates.
 """
@@ -30,7 +40,9 @@ from pathlib import Path
 from uvalu.buildinfo import ROOT, is_calver
 
 CHANGELOG = ROOT / "CHANGELOG.md"
+RELEASE_NOTES = ROOT / "RELEASE_NOTES.md"
 GROUPS = ("Added", "Changed", "Fixed", "Removed")
+PUBLIC_GROUPS = ("New", "Improved", "Fixed", "Removed")
 UNRELEASED = "Unreleased"
 
 _RELEASE_RE = re.compile(r"^## \[(?P<version>[^\]]+)\](?:\s*[—–-]\s*(?P<date>\S+))?\s*$")
@@ -105,7 +117,7 @@ def _version_key(v: str) -> tuple:
         return ()
 
 
-def check(text: str) -> "list[str]":
+def check(text: str, groups: "tuple[str, ...]" = GROUPS) -> "list[str]":
     problems: list[str] = []
     releases = parse(text)
     if not releases or not releases[0].is_unreleased:
@@ -137,15 +149,31 @@ def check(text: str) -> "list[str]":
                 problems.append(f"{where}: date {r.date} is not in {y}-{m}")
         names = [g for g, _ in r.groups]
         if not names:
-            problems.append(f"{where}: no Added/Changed/Fixed/Removed group")
+            problems.append(f"{where}: no {'/'.join(groups)} group")
         for g in names:
-            if g not in GROUPS:
-                problems.append(f"{where}: group '### {g}' — use only {', '.join(GROUPS)}")
+            if g not in groups:
+                problems.append(f"{where}: group '### {g}' — use only {', '.join(groups)}")
         for g in {g for g in names if names.count(g) > 1}:
             problems.append(f"{where}: group '### {g}' used twice")
         for g, body in r.groups:
             if not body.strip():
                 problems.append(f"{where}: group '### {g}' is empty")
+    return problems
+
+
+def check_public(public_text: str, changelog_text: str) -> "list[str]":
+    """The public notes' own rules, plus: the same CalVer releases (version and
+    date) as the changelog — no release missing from What's new, none invented."""
+    problems = check(public_text, PUBLIC_GROUPS)
+    public = {r.version: r.date for r in parse(public_text) if r.is_calver}
+    internal = {r.version: r.date for r in parse(changelog_text) if r.is_calver}
+    for v, date in internal.items():
+        if v not in public:
+            problems.append(f"[{v}]: in CHANGELOG.md but has no public notes")
+        elif public[v] != date:
+            problems.append(f"[{v}]: date {public[v]} differs from CHANGELOG.md ({date})")
+    for v in public.keys() - internal.keys():
+        problems.append(f"[{v}]: public notes for a release CHANGELOG.md doesn't have")
     return problems
 
 
@@ -161,9 +189,9 @@ _cache: "tuple[float, list[Release]] | None" = None
 
 
 def load(path: "Path | None" = None) -> "list[Release]":
-    """Parsed CHANGELOG.md, re-read only when the file changes."""
+    """Parsed public notes (RELEASE_NOTES.md), re-read only when the file changes."""
     global _cache
-    p = path or CHANGELOG
+    p = path or RELEASE_NOTES
     try:
         mtime = p.stat().st_mtime
     except OSError:

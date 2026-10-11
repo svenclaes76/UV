@@ -51,9 +51,9 @@ def test_pending_notice_needs_a_changelog_section():
 
 @pytest.fixture
 def notice_env(isolated_data, monkeypatch, tmp_path):
-    p = tmp_path / "CHANGELOG.md"
+    p = tmp_path / "RELEASE_NOTES.md"
     p.write_text(NOTES, encoding="utf-8")
-    monkeypatch.setattr(changelog, "CHANGELOG", p)
+    monkeypatch.setattr(changelog, "RELEASE_NOTES", p)
     monkeypatch.setattr(changelog, "_cache", None)
     monkeypatch.setattr(buildinfo, "_current", _info())
     yield
