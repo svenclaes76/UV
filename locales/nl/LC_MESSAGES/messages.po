@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 12:13+0000\n"
+"POT-Creation-Date: 2026-10-11 12:40+0000\n"
 "PO-Revision-Date: 2026-10-11 13:40+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -265,6 +265,28 @@ msgstr "Wachtwoord gewijzigd."
 #: backup.py:161
 msgid "No portfolio data found to export."
 msgstr "Geen portefeuillegegevens gevonden om te exporteren."
+
+#. Settings › Excel export: worksheet tab names in the downloaded
+#. workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]
+#: backup.py:167
+msgctxt "sheet_name"
+msgid "Positions"
+msgstr "Posities"
+
+#: backup.py:168
+msgctxt "sheet_name"
+msgid "Sold"
+msgstr "Verkocht"
+
+#: backup.py:169
+msgctxt "sheet_name"
+msgid "Dividends"
+msgstr "Dividenden"
+
+#: backup.py:170
+msgctxt "sheet_name"
+msgid "Watchlist"
+msgstr "Volglijst"
 
 #. Context: Cash transaction type 'Deposit' (noun): dialog titles, type
 #. dropdown, ledger rows

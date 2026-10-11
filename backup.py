@@ -160,17 +160,26 @@ def export_excel() -> bytes:
         from uvalu.i18n import _
         raise ValueError(_("No portfolio data found to export."))
 
+    from uvalu.i18n import pgettext
+    # Translators: Settings › Excel export: worksheet tab names in the downloaded
+    # workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]
+    sheet = {
+        "pf":   pgettext("sheet_name", "Positions"),
+        "sold": pgettext("sheet_name", "Sold"),
+        "div":  pgettext("sheet_name", "Dividends"),
+        "wl":   pgettext("sheet_name", "Watchlist"),
+    }
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         if pf is not None and not pf.empty:
-            pf.to_excel(writer, sheet_name="Positions", index=False)
+            pf.to_excel(writer, sheet_name=sheet["pf"], index=False)
         if sold is not None and not sold.empty:
-            sold.to_excel(writer, sheet_name="Sold", index=False)
+            sold.to_excel(writer, sheet_name=sheet["sold"], index=False)
         if div is not None and not div.empty:
-            div.to_excel(writer, sheet_name="Dividends", index=False)
+            div.to_excel(writer, sheet_name=sheet["div"], index=False)
         if wl:
             pd.DataFrame(sorted(wl), columns=["Ticker"]).to_excel(
-                writer, sheet_name="Watchlist", index=False
+                writer, sheet_name=sheet["wl"], index=False
             )
     return buf.getvalue()
 

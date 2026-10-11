@@ -46,10 +46,6 @@ since, so verify before starting.
 | P2 | Tablet layout (about 640–900px) and phone layout (under 640px): a design project of its own (see `docs/design/visual-review-2026-10-04.md` G13). |
 | P3 | First-run tour; texts parked in `uvalu/i18n_planned.py`. |
 | P4 | Rebalancing and stress-test texts are translated but not shown anywhere (see L9). |
-| P5 | Excel backup sheet names are still English. |
-| P6 | Cash ledger rows overflow by 6px in every language. |
 | P7 | Settings: structured target-allocation editor instead of the text areas; a "View change log" link (needs a change-log page). |
-| P8 | Footer: optional version marker ("v2026.x · beta"). |
 | P9 | Watchlist: empty bordered box while loading (not reproduced; re-check after a cold start). |
-| P10 | Data check: Care Property Invest shows a 16.47% yield under Upcoming dividends. |
 | P11 | Paywall / payments (Q4 2026 roadmap); none exists yet. |
