@@ -2100,12 +2100,12 @@ GLOBAL_CSS = """
   /* ── Signal provenance caption (components.provenance_bar_html) — the
      third line of the page header on Dashboard/Screener/Watchlist and under
      the ticker line in the drawer/Analysis. No fill or border; separators
-     and the "Methodology" link stay quiet. ──────────────────────────────── */
+     stay quiet. "Methodology →" uses the link colour like every other link
+     (--link, set per theme; Sven, 11 Oct 2026 — was grey underlined). ───── */
   .uv-prov-sep { color: var(--faint); }
   [data-theme="light"] .uv-prov-sep { color: rgba(13,31,60,0.3); }
   a.uv-quiet-link, a.uv-quiet-link:visited {
-    color: var(--muted) !important; text-decoration: underline !important;
-    text-decoration-color: var(--line) !important; text-underline-offset: 3px; white-space: nowrap;
+    color: var(--link) !important; text-decoration: none !important; white-space: nowrap;
   }
   a.uv-quiet-link:hover { color: var(--text) !important; }
   /* REC-10: the share of covered stocks in each Screener signal pill
