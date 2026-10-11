@@ -236,7 +236,10 @@ def _render_brand_panel() -> None:
              + '<div style="margin-top:8px;">'
              + html.escape(producer_line()) + " · " + html.escape(tr(_disc.NOT_SUPERVISED)) + "</div>"
              + f'<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;">{_links}</div>')
+    # One markdown block, so the panel's own space-between can't reach these
+    # divs: .uv-login-brand fills the panel and pushes the legal text down.
     st.markdown(f"""
+    <div class="uv-login-brand">
     <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
       <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
       <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">{h_("value engine")}</span>
@@ -250,7 +253,8 @@ def _render_brand_panel() -> None:
         <div><div class="uv-login-stat-val">24 h</div><div class="uv-login-stat-lbl">{h_("model update cycle")}</div></div>
       </div>
     </div>
-    <div class="uv-login-foot" style="line-height:1.6;max-width:520px;">{_foot}</div>
+    <div class="uv-login-foot">{_foot}</div>
+    </div>
     <div class="uv-login-ring" style="right:-120px;bottom:-120px;width:420px;height:420px;"></div>
     <div class="uv-login-ring" style="right:-40px;bottom:-40px;width:260px;height:260px;"></div>
     """, unsafe_allow_html=True)

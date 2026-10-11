@@ -590,13 +590,8 @@ def render_maintenance() -> None:
 _FOOTER_CSS = """
 .st-key-uv_footer { border-top: 0.5px solid var(--line); margin-top: 28px; padding: 16px 0 16px; gap: 8px !important; }
 .st-key-uv_footer [data-testid="stMarkdownContainer"] { margin: 0 !important; }
-/* Short pages (empty Analysis, a loading Watchlist): keep the footer at the
-   bottom of the screen instead of floating mid-page. The block container
-   fills the scrolling stMain, the page's block grows into it, and the
-   footer's wrapper takes the slack above it. */
-[data-testid="stMainBlockContainer"] { display: flex; flex-direction: column; flex: 1 0 auto; }
-[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] { flex: 1 0 auto; }
-[data-testid="stLayoutWrapper"]:has(> .st-key-uv_footer) { margin-top: auto; }
+/* Keeping the footer at the bottom of the screen is in the global stylesheet
+   (uvalu/styles.py): this <style> leaves with the footer while a page loads. */
 /* Legal links: one left-aligned row, no separators, no icons (st.page_link
    inherits the Legal page's gavel icon, which repeated six times). */
 .st-key-uv_footer_links { justify-content: flex-start !important; gap: 6px 16px !important; flex-wrap: wrap !important; margin-top: 4px; }
@@ -631,7 +626,7 @@ def render_footer() -> None:
     from uvalu.compliance import disclosures as d
     with st.container(key="uv_footer"):
         st.markdown(f"<style>{_FOOTER_CSS}</style>"
-                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;max-width:980px;">'
+                    f'<div style="font-size:11.5px;color:var(--muted);line-height:1.6;text-wrap:pretty;">'
                     f'{html.escape(tr(d.SHORT_DISCLAIMER))}</div>'
                     f'<div style="display:flex;flex-wrap:wrap;gap:2px 12px;font-size:11px;color:var(--muted);'
                     f'line-height:1.6;margin-top:6px;"><span>{html.escape(producer_line())}</span>'
