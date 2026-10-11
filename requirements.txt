@@ -19,3 +19,5 @@ yfinance==1.4.1
 
 # ── Dev/test ──────────────────────────────────────────────────────────────────
 pyflakes==3.4.0  # static undefined-name guard (tests/test_static_analysis.py)
+fonttools==4.66.1  # outlines the logo wordmark (tools/build_logo.py, tests/test_logo_assets.py)
+resvg-py==0.5.0  # renders the logo PNG/ICO exports (tools/build_logo.py)
