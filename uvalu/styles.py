@@ -1662,6 +1662,11 @@ GLOBAL_CSS = """
      then removed on request; a plain `gap="large"` column gap is enough
      separation. */
   .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 18px !important; }
+  /* The export row is its own keyed block and had no rule: it sat flush on
+     the card edge, 20px left of "Import portfolio" with its button off the
+     Upload button's column. Same 20px side inset; the native flex gap after
+     the import row already separates the two. */
+  .st-key-set_export_row { padding: 0 20px 18px !important; }
   /* Importing replaces all portfolio data: the confirmation reads as a
      danger zone, with a red-outline confirm button. */
   .st-key-set_import_confirm {
@@ -1700,9 +1705,14 @@ GLOBAL_CSS = """
      Streamlit's own default is align-items:flex-start, which top-aligns
      them instead of centering, reading as the caption sitting a few px
      above the button's own vertical center. align-items belongs on this
-     flex container itself, not on one of its children. */
+     flex container itself, not on one of its children.
+     Newer Streamlit lays the dropzone out as flex-direction:column, where
+     center became horizontal centering: the Upload button floated ~90px
+     right of the column edge, off the Download button's line. The caption
+     is hidden (above), so the button is the only visible child — flex-start
+     pins it to the column's left edge in either direction. */
   .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
-    align-items: center !important;
+    align-items: flex-start !important;
   }
   /* set_import_body/set_export_body's wrapper under-reports its real
      two-line title+caption content the same way the row columns above do
