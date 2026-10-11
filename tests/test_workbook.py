@@ -101,7 +101,7 @@ class TestExport:
         table (every account has one)."""
         wb = _book(workbook.export_workbook(EMAIL))
         for key, title in zip(workbook.SHEET_ORDER, wb.sheetnames):
-            if key != "withholding":
+            if key not in ("withholding", *workbook.INFO_SHEETS):
                 assert _sheet_rows(wb, title) == [workbook.COLUMNS[key]]
         assert len(_sheet_rows(wb, "Withholding")) == 7
 
@@ -109,7 +109,7 @@ class TestExport:
         _sample_data()
         wb = _book(workbook.export_workbook(EMAIL))
         assert wb.sheetnames == ["Positions", "Sold", "Dividends", "Cash", "Watchlist", "Custom tickers",
-                                 "Targets", "Withholding", "_meta"]
+                                 "Targets", "Withholding", "Account", "Settings", "Automatic cash", "_meta"]
         assert wb["_meta"].sheet_state == "hidden"
         for key, title in zip(workbook.SHEET_ORDER, wb.sheetnames):
             assert _sheet_rows(wb, title)[0] == workbook.COLUMNS[key]
@@ -130,6 +130,42 @@ class TestExport:
         assert _sheet_rows(wb, "Custom tickers")[1:] == [("BDC", "Belden Inc")]
         assert ("hhi_max", None, 20) in _sheet_rows(wb, "Targets")
         assert ("swiss", 35) in _sheet_rows(wb, "Withholding")
+
+    def test_account_sheet_holds_no_secrets(self, monkeypatch):
+        import auth
+        monkeypatch.setattr(auth, "_load_users", lambda: {EMAIL: {
+            "role": "Analyst", "status": "Active", "created_at": "2026-07-07T12:02:00",
+            "password_hash": "$2b$secret", "totp_secret": "TOTPSECRET", "totp_enabled": True,
+            "backup_codes": ["code1"], "reset_token": "tok", "invite_token": "tok2",
+            "sessions": [{"sid": "s1", "created_at": "2026-10-01", "user_agent": "Firefox", "revoked": False}]}})
+        portfolio.save_watchlist({"A.BR"})
+        wb = _book(workbook.export_workbook(EMAIL))
+        rows = dict(r for r in _sheet_rows(wb, "Account")[1:] if r[0] != "session")
+        assert rows["email"] == EMAIL and rows["two_step_verification"] == "yes"
+        text = repr(_sheet_rows(wb, "Account"))
+        for secret in ("$2b$secret", "TOTPSECRET", "code1", "tok", "s1"):
+            assert secret not in text
+        assert any(r[0] == "session" and "Firefox" in r[1] for r in _sheet_rows(wb, "Account"))
+
+    def test_settings_and_automatic_cash_sheets(self, ecb):
+        _sample_data()
+        portfolio.set_dividend_meta("ABI.BR", frequency="Semi-annual")
+        wb = _book(workbook.export_workbook(EMAIL))
+        settings_rows = dict(_sheet_rows(wb, "Settings")[1:])
+        assert settings_rows["base_currency"] == "EUR"
+        assert settings_rows["dividend_frequency · ABI.BR"] == "Semi-annual"
+        assert "dividend_withholding" not in settings_rows
+        auto = _sheet_rows(wb, "Automatic cash")[1:]
+        assert {r[1] for r in auto} == {"Buy", "Sell", "Dividend"}
+        assert all(r[6] for r in auto)            # linked_to
+        assert ("Deposit" not in {r[1] for r in auto})   # the typed deposit is on the Cash sheet
+
+    def test_read_only_sheets_are_not_imported(self, ecb):
+        _sample_data()
+        parsed = workbook.parse_workbook(workbook.export_workbook(EMAIL))
+        assert parsed.issues == []
+        assert not set(parsed.sheets) & set(workbook.INFO_SHEETS)
+        assert len(parsed.cash) == 1
 
     def test_dividend_without_currency_exports_exchange_currency(self):
         portfolio.save_div_hist(pd.DataFrame([{"ticker": "ROG.SW", "shares": 8, "amount": 76.8,

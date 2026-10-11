@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 15:27+0000\n"
+"POT-Creation-Date: 2026-10-11 16:03+0000\n"
 "PO-Revision-Date: 2026-10-11 17:39+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -51,7 +51,7 @@ msgid "Analysis"
 msgstr "Analyse"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:522 uvalu/shell.py:433
+#: app.py:118 uvalu/pages_/settings.py:581 uvalu/shell.py:433
 msgid "Settings"
 msgstr "Instellingen"
 
@@ -59,7 +59,7 @@ msgstr "Instellingen"
 msgid "Methodology"
 msgstr "Methodologie"
 
-#: app.py:120 uvalu/pages_/settings.py:106
+#: app.py:120 uvalu/pages_/settings.py:108
 msgid "Legal"
 msgstr "Juridisch"
 
@@ -1082,135 +1082,153 @@ msgstr "Er waren minder dan 20 aandelen beschikbaar om mee te vergelijken."
 
 #. Settings › Export: worksheet tab names in the downloaded
 #. workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]
-#: workbook.py:69
+#: workbook.py:78
 msgctxt "sheet_name"
 msgid "Positions"
 msgstr "Posities"
 
-#: workbook.py:70
+#: workbook.py:79
 msgctxt "sheet_name"
 msgid "Sold"
 msgstr "Verkocht"
 
-#: workbook.py:71
+#: workbook.py:80
 msgctxt "sheet_name"
 msgid "Dividends"
 msgstr "Dividenden"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:72
+#: workbook.py:81
 msgctxt "sheet_name"
 msgid "Cash"
 msgstr "Cash"
 
-#: workbook.py:73
+#: workbook.py:82
 msgctxt "sheet_name"
 msgid "Watchlist"
 msgstr "Volglijst"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:74
+#: workbook.py:83
 msgctxt "sheet_name"
 msgid "Custom tickers"
 msgstr "Eigen tickers"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:75
+#: workbook.py:84
 msgctxt "sheet_name"
 msgid "Targets"
 msgstr "Doelen"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:76
+#: workbook.py:85
 msgctxt "sheet_name"
 msgid "Withholding"
 msgstr "Bronheffing"
 
+#: workbook.py:86
+#, fuzzy
+msgctxt "sheet_name"
+msgid "Account"
+msgstr "Account"
+
+#: workbook.py:87
+#, fuzzy
+msgctxt "sheet_name"
+msgid "Settings"
+msgstr "Instellingen"
+
+#: workbook.py:88
+#, fuzzy
+msgctxt "sheet_name"
+msgid "Automatic cash"
+msgstr "Automatische cash"
+
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:83
+#: workbook.py:95
 msgid "Company name. Optional: the ticker is shown when empty."
 msgstr "Bedrijfsnaam. Optioneel: leeg toont de ticker."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:84
+#: workbook.py:96
 msgid "Yahoo Finance ticker, e.g. ABI.BR, ASML.AS, ROG.SW. Required."
 msgstr "Yahoo Finance-ticker, bv. ABI.BR, ASML.AS, ROG.SW. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:85
+#: workbook.py:97
 msgid "Number of shares. Required."
 msgstr "Aantal aandelen. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:86
+#: workbook.py:98
 msgid "Total cost in euro, without fees. Required."
 msgstr "Totale kostprijs in euro, zonder kosten. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:87
+#: workbook.py:99
 msgid "Total proceeds in euro, without fees. Required."
 msgstr "Totale opbrengst in euro, zonder kosten. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:88
+#: workbook.py:100
 msgid "Broker fee in euro. Optional."
 msgstr "Makelaarskosten in euro. Optioneel."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:89
+#: workbook.py:101
 msgid "Sector. Optional."
 msgstr "Sector. Optioneel."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:90
+#: workbook.py:102
 msgid "Buy date. Required."
 msgstr "Aankoopdatum. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:91
+#: workbook.py:103
 msgid "Sale date. Required."
 msgstr "Verkoopdatum. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:92
+#: workbook.py:104
 msgid "Gross dividend for all shares, in the dividend currency. Required."
 msgstr "Brutodividend voor alle aandelen, in de munt van het dividend. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:93
+#: workbook.py:105
 msgid "Three-letter currency code, e.g. EUR or CHF. Empty: the exchange's currency."
 msgstr "Muntcode van drie letters, bv. EUR of CHF. Leeg: de munt van de beurs."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:94
+#: workbook.py:106
 #, no-python-format
 msgid "Foreign withholding tax in %. Optional; Belgian withholding is added automatically."
 msgstr "Buitenlandse bronheffing in %. Optioneel; de Belgische roerende voorheffing wordt automatisch toegevoegd."
@@ -1218,63 +1236,63 @@ msgstr "Buitenlandse bronheffing in %. Optioneel; de Belgische roerende voorheff
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:95
+#: workbook.py:107
 msgid "Cash, Stock or Special. Empty: Cash."
 msgstr "Cash, Stock of Special (in het Engels). Leeg: Cash."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:96
+#: workbook.py:108
 msgid "Ex-dividend date. Empty: the payment date."
 msgstr "Ex-dividenddatum. Leeg: de betaaldatum."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:97
+#: workbook.py:109
 msgid "Date. Required (for a dividend: the payment date)."
 msgstr "Datum. Verplicht (bij een dividend: de betaaldatum)."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:98
+#: workbook.py:110
 msgid "Deposit, Withdrawal, Fee, Interest or Adjustment. Required."
 msgstr "Deposit, Withdrawal, Fee, Interest of Adjustment (in het Engels). Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:99
+#: workbook.py:111
 msgid "Rate to euro for another currency. Empty: the ECB rate of that day."
 msgstr "Wisselkoers naar euro voor een andere munt. Leeg: de ECB-koers van die dag."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:100
+#: workbook.py:112
 msgid "Description. Optional."
 msgstr "Omschrijving. Optioneel."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:101
+#: workbook.py:113
 msgid "sector, ticker or hhi_max. Required."
 msgstr "sector, ticker of hhi_max. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:102
+#: workbook.py:114
 msgid "The sector name or ticker. Empty for hhi_max."
 msgstr "De sectornaam of ticker. Leeg bij hhi_max."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:103
+#: workbook.py:115
 #, no-python-format
 msgid "Target weight in %. Required."
 msgstr "Doelgewicht in %. Verplicht."
@@ -1282,139 +1300,165 @@ msgstr "Doelgewicht in %. Verplicht."
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:104
+#: workbook.py:116
 msgid "brussels, amsterdam, paris, milan, frankfurt or swiss. Required."
 msgstr "brussels, amsterdam, paris, milan, frankfurt of swiss. Verplicht."
 
 #. Context: Settings › Export workbook › comment on a column header. Column names and
 #. values in English (Cash, Deposit, sector, brussels…) must stay English: the import
 #. reads them.
-#: workbook.py:105
+#: workbook.py:117
 #, no-python-format
 msgid "Withholding tax in %. Required."
 msgstr "Bronheffing in %. Verplicht."
 
+#: workbook.py:118
+#, fuzzy
+msgid "Account detail. For your information: not imported."
+msgstr "Accountgegeven. Ter informatie: wordt niet geïmporteerd."
+
+#: workbook.py:119
+#, fuzzy
+msgid "Setting. For your information: not imported."
+msgstr "Instelling. Ter informatie: wordt niet geïmporteerd."
+
+#: workbook.py:120
+#, fuzzy
+msgid "Value. For your information: not imported."
+msgstr "Waarde. Ter informatie: wordt niet geïmporteerd."
+
+#: workbook.py:121
+#, fuzzy
+msgid "Amount in euro."
+msgstr "Bedrag in euro."
+
+#: workbook.py:122
+#, fuzzy
+msgid "The trade or dividend this entry belongs to. Rebuilt on import, not imported."
+msgstr "De transactie of het dividend waar deze boeking bij hoort. Wordt bij import opnieuw opgebouwd, niet geïmporteerd."
+
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:373 workbook.py:392 workbook.py:413 workbook.py:420 workbook.py:466
+#: workbook.py:455 workbook.py:474 workbook.py:495 workbook.py:502 workbook.py:548
 #, python-brace-format
 msgid "{column} is empty."
 msgstr "{column} is leeg."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:379
+#: workbook.py:461
 #, python-brace-format
 msgid "{value} is not a ticker."
 msgstr "{value} is geen ticker."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:388 workbook.py:395
+#: workbook.py:470 workbook.py:477
 #, python-brace-format
 msgid "{column}: {value} is not a number."
 msgstr "{column}: {value} is geen getal."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:398 workbook.py:490
+#: workbook.py:480 workbook.py:572
 #, python-brace-format
 msgid "{column} must be greater than zero."
 msgstr "{column} moet groter zijn dan nul."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:400
+#: workbook.py:482
 #, python-brace-format
 msgid "{column} must be at least {minimum}."
 msgstr "{column} moet minstens {minimum} zijn."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:402
+#: workbook.py:484
 #, python-brace-format
 msgid "{column} must be at most {maximum}."
 msgstr "{column} mag hoogstens {maximum} zijn."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:410
+#: workbook.py:492
 #, python-brace-format
 msgid "{column}: {value} is not a date."
 msgstr "{column}: {value} is geen datum."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:424 workbook.py:527
+#: workbook.py:506 workbook.py:609
 #, python-brace-format
 msgid "{column}: {value} is not one of {options}."
 msgstr "{column}: {value} is niet een van {options}."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:449 workbook.py:457 workbook.py:500
+#: workbook.py:531 workbook.py:539 workbook.py:582
 #, python-brace-format
 msgid "{column} is in the future."
 msgstr "{column} ligt in de toekomst."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:455
+#: workbook.py:537
 msgid "date_out is before date_in."
 msgstr "date_out ligt vóór date_in."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:469
+#: workbook.py:551
 msgid "shares is needed to compute the amount from amount_per_share."
 msgstr "shares is nodig om het bedrag uit amount_per_share te berekenen."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:474 workbook.py:493
+#: workbook.py:556 workbook.py:575
 #, python-brace-format
 msgid "{column}: {value} is not a currency code."
 msgstr "{column}: {value} is geen muntcode."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:478
+#: workbook.py:560
 msgid "ex_date is after the payment date."
 msgstr "ex_date ligt na de betaaldatum."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:498
+#: workbook.py:580
 #, python-brace-format
 msgid "An Adjustment is always in {currency}."
 msgstr "Een Adjustment is altijd in {currency}."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:543
+#: workbook.py:625
 msgid "This is not an Excel workbook (.xlsx)."
 msgstr "Dit is geen Excel-werkmap (.xlsx)."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:570
+#: workbook.py:652
 msgid "This file was made by a newer version of Uvalu. Update the app first."
 msgstr "Dit bestand is gemaakt door een nieuwere versie van Uvalu. Werk de app eerst bij."
 
-#: workbook.py:574
+#. Context: Settings › Import › a problem with an uploaded workbook
+#: workbook.py:656
 msgid "No Uvalu sheets found. Start from an Uvalu export."
 msgstr "Geen Uvalu-tabbladen gevonden. Vertrek van een Uvalu-export."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:680
+#: workbook.py:762
 #, python-brace-format
 msgid "No exchange rate for {currency} on {date}. Add it in the fx_rate column."
 msgstr "Geen wisselkoers voor {currency} op {date}. Vul hem in de kolom fx_rate in."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:733
+#: workbook.py:815
 msgid "Fix the problems in the file first."
 msgstr "Los eerst de problemen in het bestand op."
 
@@ -1425,7 +1469,7 @@ msgstr "Er bestaan nog geen accounts. Dit account krijgt volledige beheerdersrec
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
-#: uvalu/authgate.py:32 uvalu/pages_/settings.py:367 uvalu/pages_/settings.py:399
+#: uvalu/authgate.py:32 uvalu/pages_/settings.py:426 uvalu/pages_/settings.py:458
 msgid "New password and confirmation don't match."
 msgstr "Het nieuwe wachtwoord en de bevestiging komen niet overeen."
 
@@ -1441,7 +1485,7 @@ msgstr "Open je authenticator-app en voer de 6-cijferige code voor Uvalu in."
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
-#: uvalu/authgate.py:133 uvalu/pages_/settings.py:435
+#: uvalu/authgate.py:133 uvalu/pages_/settings.py:494
 msgid "Code"
 msgstr "Code"
 
@@ -1463,7 +1507,12 @@ msgid "Use a backup code"
 msgstr "Een back-upcode gebruiken"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:154 uvalu/pages_/settings.py:159 uvalu/pages_/settings.py:197 uvalu/pages_/settings.py:360 uvalu/pages_/settings.py:392 uvalu/pages_/settings.py:439 uvalu/pages_/settings.py:482
+#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304
+#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
+#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:199
+#: uvalu/pages_/settings.py:241 uvalu/pages_/settings.py:419
+#: uvalu/pages_/settings.py:451 uvalu/pages_/settings.py:498
+#: uvalu/pages_/settings.py:541
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -1495,7 +1544,7 @@ msgstr "Terug naar de authenticatorcode"
 
 #. Context: Sign-up, reset and change-password forms › live meter under the
 #. password field. {strength} is Weak, Fair or Strong (translated separately).
-#: uvalu/authgate.py:210 uvalu/pages_/settings.py:339
+#: uvalu/authgate.py:210 uvalu/pages_/settings.py:398
 #, python-brace-format
 msgid "Password strength: {strength}"
 msgstr "Wachtwoordsterkte: {strength}"
@@ -1624,12 +1673,15 @@ msgstr "VAST DOOR UITNODIGING"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702 uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:543 uvalu/pages_/settings.py:547
+#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702
+#: uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:602
+#: uvalu/pages_/settings.py:606
 msgid "Password"
 msgstr "Wachtwoord"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489 uvalu/pages_/settings.py:354 uvalu/pages_/settings.py:386
+#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489
+#: uvalu/pages_/settings.py:413 uvalu/pages_/settings.py:445
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Minstens {min_len} tekens."
@@ -1694,12 +1746,12 @@ msgid "Choose a new password"
 msgstr "Kies een nieuw wachtwoord"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:487 uvalu/pages_/settings.py:353 uvalu/pages_/settings.py:385
+#: uvalu/authgate.py:487 uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 msgid "New password"
 msgstr "Nieuw wachtwoord"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:490 uvalu/pages_/settings.py:356 uvalu/pages_/settings.py:388
+#: uvalu/authgate.py:490 uvalu/pages_/settings.py:415 uvalu/pages_/settings.py:447
 msgid "Confirm new password"
 msgstr "Bevestig nieuw wachtwoord"
 
@@ -1835,7 +1887,7 @@ msgstr "geen bevestigd handelsvolume"
 msgid "a quality-screen rule"
 msgstr "een regel van de kwaliteitstoets"
 
-#: uvalu/components.py:139 uvalu/components.py:142 uvalu/pages_/settings.py:902
+#: uvalu/components.py:139 uvalu/components.py:142 uvalu/pages_/settings.py:963
 msgid "Methodology →"
 msgstr "Methodologie →"
 
@@ -2129,6 +2181,7 @@ msgstr "De rol Lezer is alleen-lezen"
 
 #. Context: Button to open a stock row (Risk page, tables)
 #: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462
+#: uvalu/pages_/settings.py:1112
 msgid "View"
 msgstr "Bekijken"
 
@@ -3635,7 +3688,7 @@ msgstr "Overschakelen naar donker thema"
 msgid "Switch to light theme"
 msgstr "Overschakelen naar licht thema"
 
-#: uvalu/pages_/settings.py:1004 uvalu/shell.py:424
+#: uvalu/pages_/settings.py:1128 uvalu/shell.py:424
 msgid "Free beta"
 msgstr "Gratis bèta"
 
@@ -3647,7 +3700,7 @@ msgstr "Beheerportaal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:692 uvalu/pages_/settings.py:1005 uvalu/shell.py:447
+#: uvalu/pages_/settings.py:751 uvalu/pages_/settings.py:1129 uvalu/shell.py:447
 msgid "Sign out"
 msgstr "Afmelden"
 
@@ -4576,7 +4629,7 @@ msgstr "Screener openen"
 
 #. Context: Dashboard › empty state link; also the Settings › Import & export
 #. row title
-#: uvalu/pages_/dashboard.py:52 uvalu/pages_/settings.py:813
+#: uvalu/pages_/dashboard.py:52 uvalu/pages_/settings.py:873
 msgid "Import portfolio"
 msgstr "Portefeuille importeren"
 
@@ -5778,27 +5831,27 @@ msgstr "Aan volglijst toevoegen"
 msgid "Show {count} more · {shown} of {total} shown"
 msgstr "Nog {count} tonen · {shown} van {total} getoond"
 
-#: uvalu/pages_/settings.py:100 uvalu/pages_/settings.py:537
+#: uvalu/pages_/settings.py:100 uvalu/pages_/settings.py:596
 msgid "Account security"
 msgstr "Accountbeveiliging"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:101 uvalu/pages_/settings.py:700
+#: uvalu/pages_/settings.py:101 uvalu/pages_/settings.py:759
 msgid "Display"
 msgstr "Weergave"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:102 uvalu/pages_/settings.py:723
+#: uvalu/pages_/settings.py:102 uvalu/pages_/settings.py:782
 msgid "Target allocation"
 msgstr "Doelverdeling"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:103 uvalu/pages_/settings.py:778
+#: uvalu/pages_/settings.py:103 uvalu/pages_/settings.py:837
 msgid "Dividend withholding"
 msgstr "Bronheffing op dividenden"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:104 uvalu/pages_/settings.py:806
+#: uvalu/pages_/settings.py:104 uvalu/pages_/settings.py:866
 msgid "Import & export"
 msgstr "Importeren en exporteren"
 
@@ -5806,448 +5859,497 @@ msgstr "Importeren en exporteren"
 msgid "Model settings"
 msgstr "Modelinstellingen"
 
+#: uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:1044
+#, fuzzy
+msgid "Privacy"
+msgstr "Privacy"
+
+#: uvalu/pages_/settings.py:107 uvalu/pages_/settings.py:1078
+#, fuzzy
+msgid "Plan"
+msgstr "Abonnement"
+
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:148
+#: uvalu/pages_/settings.py:150
 #, python-brace-format
 msgid "{sheet}, row {row}"
 msgstr "{sheet}, rij {row}"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:151
+#: uvalu/pages_/settings.py:153
 #, python-brace-format
 msgid "and {count} more"
 msgstr "en nog {count}"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:152
+#: uvalu/pages_/settings.py:154
 msgid "This file can't be imported. Fix these rows and upload it again:"
 msgstr "Dit bestand kan niet worden geïmporteerd. Corrigeer deze rijen en laad het opnieuw op:"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:158
+#: uvalu/pages_/settings.py:160
 msgid "This file has no rows to import."
 msgstr "Dit bestand bevat geen rijen om te importeren."
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:163
+#: uvalu/pages_/settings.py:165
 msgid "How to import"
 msgstr "Hoe importeren"
 
-#: uvalu/pages_/settings.py:164
+#. Context: Settings › Import & export card › import mode choice
+#: uvalu/pages_/settings.py:166
 msgid "Add to my data — new rows are added; to change existing rows, use Replace"
-msgstr "Toevoegen aan mijn gegevens — nieuwe rijen worden toegevoegd; gebruik Vervangen om bestaande rijen te wijzigen"
+msgstr ""
+"Toevoegen aan mijn gegevens — nieuwe rijen worden toegevoegd; gebruik Vervangen "
+"om bestaande rijen te wijzigen"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:166
+#: uvalu/pages_/settings.py:168
 msgid "Replace all my data — restore this file"
 msgstr "Al mijn gegevens vervangen — dit bestand terugzetten"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:174
+#: uvalu/pages_/settings.py:176
 #, python-brace-format
 msgid "{new} new, {skipped} already there"
 msgstr "{new} nieuw, {skipped} al aanwezig"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:178
+#: uvalu/pages_/settings.py:180
 msgid "This file holds:"
 msgstr "Dit bestand bevat:"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:185
+#: uvalu/pages_/settings.py:187
 msgid "All your portfolio data is deleted first: positions, sales, dividends, cash, watchlist, custom tickers, targets and withholding rates. A backup is saved before anything changes."
 msgstr "Al je portefeuillegegevens worden eerst gewist: posities, verkopen, dividenden, cash, volglijst, eigen tickers, doelen en bronheffingen. Voor er iets verandert, wordt een back-up bewaard."
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:191
+#: uvalu/pages_/settings.py:193
 msgid "Every imported buy and sale posts its cash, like a trade you enter by hand: if the balance would go below zero, an automatic top-up is added."
 msgstr "Elke geïmporteerde aankoop en verkoop boekt zijn cash, zoals een transactie die je zelf invoert: als het saldo onder nul zou gaan, komt er een automatische aanvulling bij."
 
-#: uvalu/pages_/settings.py:195
+#: uvalu/pages_/settings.py:197
 msgid "Replace my portfolio data"
 msgstr "Mijn portefeuillegegevens vervangen"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:195
+#: uvalu/pages_/settings.py:197
 msgid "Import"
 msgstr "Importeren"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:200
+#: uvalu/pages_/settings.py:202
 msgid "Importing…"
 msgstr "Importeren…"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:208
+#: uvalu/pages_/settings.py:210
 #, python-brace-format
 msgid "The import failed: {error}"
 msgstr "De import is mislukt: {error}"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:210
+#: uvalu/pages_/settings.py:212
 #, python-brace-format
 msgid "Imported {positions} positions, {sold} sold positions and {dividends} dividends."
 msgstr "{positions} posities, {sold} verkochte posities en {dividends} dividenden geïmporteerd."
 
+#: uvalu/pages_/settings.py:220
+#, fuzzy
+msgid "Delete your account?"
+msgstr "Je account verwijderen?"
+
+#: uvalu/pages_/settings.py:230
+#, fuzzy
+msgid ""
+"Your portfolio, transactions, watchlist and settings are removed from live "
+"systems now and from backups within 30 days. This can't be undone. Export your "
+"data first if you want a copy."
+msgstr "Je portefeuille, transacties, volglijst en instellingen worden nu uit de live systemen verwijderd en binnen 30 dagen uit de back-ups. Dit kan niet ongedaan worden gemaakt. Exporteer eerst je gegevens als je een kopie wilt."
+
+#: uvalu/pages_/settings.py:235
+#, fuzzy
+msgid ""
+"You're the only active Admin. Make another user Admin before you delete your "
+"account."
+msgstr "Je bent de enige actieve Admin. Maak eerst een andere gebruiker Admin voor je je account verwijdert."
+
+#: uvalu/pages_/settings.py:237
+#, fuzzy
+msgid "Type your email address to confirm"
+msgstr "Typ je e-mailadres om te bevestigen"
+
+#: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058
+#: uvalu/pages_/settings.py:1062
+#, fuzzy
+msgid "Delete account"
+msgstr "Account verwijderen"
+
+#: uvalu/pages_/settings.py:247
+#, fuzzy
+msgid "The email address doesn't match this account."
+msgstr "Het e-mailadres komt niet overeen met dit account."
+
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:282
+#: uvalu/pages_/settings.py:341
 msgctxt "style"
 msgid "Balanced"
 msgstr "Gebalanceerd"
 
 #. Context: Settings › Screening style option (message context 'style') (value
 #. investing). Also the Dashboard holdings column 'Value' (market value).
-#: uvalu/pages_/settings.py:282
+#: uvalu/pages_/settings.py:341
 msgctxt "style"
 msgid "Value"
 msgstr "Waarde"
 
 #. Context: Settings › Screening style option (message context 'style')
-#: uvalu/pages_/settings.py:283
+#: uvalu/pages_/settings.py:342
 msgctxt "style"
 msgid "Growth"
 msgstr "Groei"
 
 #. Context: Settings › Screening style option (message context 'style'); also
 #. the Cash activity 'Income' card
-#: uvalu/pages_/settings.py:283
+#: uvalu/pages_/settings.py:342
 msgctxt "style"
 msgid "Income"
 msgstr "Inkomen"
 
 #. Context: Settings › fallback when a date is missing
-#: uvalu/pages_/settings.py:288 uvalu/pages_/settings.py:292
+#: uvalu/pages_/settings.py:347 uvalu/pages_/settings.py:351
 msgid "unknown date"
 msgstr "onbekende datum"
 
 #. Context: Settings › Active sessions › fallback device name
-#: uvalu/pages_/settings.py:314
+#: uvalu/pages_/settings.py:373
 msgid "Unknown device"
 msgstr "Onbekend apparaat"
 
 #. Context: Settings › Active sessions › fallback browser name in '{browser} on
 #. {os}'
-#: uvalu/pages_/settings.py:327
+#: uvalu/pages_/settings.py:386
 msgid "a browser"
 msgstr "een browser"
 
 #. Context: Settings › Active sessions › device name, e.g. 'Firefox on macOS'
-#: uvalu/pages_/settings.py:328
+#: uvalu/pages_/settings.py:387
 #, python-brace-format
 msgid "{browser} on {os}"
 msgstr "{browser} op {os}"
 
 #. Context: Settings › dialog title and save button
-#: uvalu/pages_/settings.py:348 uvalu/pages_/settings.py:363
+#: uvalu/pages_/settings.py:407 uvalu/pages_/settings.py:422
 msgid "Change password"
 msgstr "Wachtwoord wijzigen"
 
 #. Context: Settings › Change password › field label
-#: uvalu/pages_/settings.py:352
+#: uvalu/pages_/settings.py:411
 msgid "Current password"
 msgstr "Huidig wachtwoord"
 
 #. Context: Settings › Change password dialog › caption. The quoted button name
 #. must match its translation.
-#: uvalu/pages_/settings.py:372
+#: uvalu/pages_/settings.py:431
 msgid "Other devices stay signed in — use “Sign out everywhere else” below if you want to end those sessions too."
 msgstr "Andere apparaten blijven aangemeld. Gebruik hieronder ‘Overal elders afmelden’ als je ook die sessies wilt beëindigen."
 
 #. Context: Settings › dialog title (account without a password)
-#: uvalu/pages_/settings.py:377 uvalu/pages_/settings.py:556
+#: uvalu/pages_/settings.py:436 uvalu/pages_/settings.py:615
 msgid "Set a password"
 msgstr "Een wachtwoord instellen"
 
 #. Context: Settings › Set a password dialog › caption
-#: uvalu/pages_/settings.py:383
+#: uvalu/pages_/settings.py:442
 msgid "Add a password so you can sign in when your provider is unavailable."
 msgstr "Voeg een wachtwoord toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
 
 #. Context: Settings › Set a password dialog › save button
-#: uvalu/pages_/settings.py:395
+#: uvalu/pages_/settings.py:454
 msgid "Set password"
 msgstr "Wachtwoord instellen"
 
 #. Context: Settings › 2FA setup dialog title
-#: uvalu/pages_/settings.py:415
+#: uvalu/pages_/settings.py:474
 msgid "Set up two-factor authentication"
 msgstr "Tweestapsverificatie instellen"
 
 #. Context: Settings › 2FA setup › error
-#: uvalu/pages_/settings.py:425
+#: uvalu/pages_/settings.py:484
 msgid "Could not start enrollment. Try again."
 msgstr "Kon de instelling niet starten. Probeer opnieuw."
 
 #. Context: Settings › 2FA setup › step 1 instruction
-#: uvalu/pages_/settings.py:429
+#: uvalu/pages_/settings.py:488
 msgid "Step 1 of 2 — scan this QR code with your authenticator app (Google Authenticator, 1Password, Authy, etc.)."
 msgstr "Stap 1 van 2: scan deze QR-code met je authenticator-app (Google Authenticator, 1Password, Authy enz.)."
 
 #. Context: Settings › 2FA setup › shown above the secret key
-#: uvalu/pages_/settings.py:431
+#: uvalu/pages_/settings.py:490
 msgid "Can't scan it? Enter this key manually:"
 msgstr "Lukt scannen niet? Voer deze sleutel handmatig in:"
 
 #. Context: Settings › 2FA setup › step 2 instruction
-#: uvalu/pages_/settings.py:434
+#: uvalu/pages_/settings.py:493
 msgid "Step 2 of 2 — enter the 6-digit code your app is showing."
 msgstr "Stap 2 van 2: voer de 6-cijferige code in die je app toont."
 
 #. Context: Settings › 2FA setup › save button
-#: uvalu/pages_/settings.py:444
+#: uvalu/pages_/settings.py:503
 msgid "Confirm and enable"
 msgstr "Bevestigen en inschakelen"
 
 #. Context: Settings › dialog title after enabling 2FA
-#: uvalu/pages_/settings.py:458
+#: uvalu/pages_/settings.py:517
 msgid "Save your backup codes"
 msgstr "Bewaar je back-upcodes"
 
 #. Context: Settings › backup codes dialog › warning
-#: uvalu/pages_/settings.py:464
+#: uvalu/pages_/settings.py:523
 msgid "Save these somewhere safe. Each code can be used once if you lose access to your authenticator app. They won't be shown again."
 msgstr "Bewaar deze op een veilige plek. Elke code kan één keer worden gebruikt als je geen toegang meer hebt tot je authenticator-app. Ze worden niet opnieuw getoond."
 
 #. Context: Settings › backup codes dialog › confirmation checkbox
-#: uvalu/pages_/settings.py:467
+#: uvalu/pages_/settings.py:526
 msgid "I have saved these codes."
 msgstr "Ik heb deze codes bewaard."
 
 #. Context: Settings › backup codes dialog › close button
-#: uvalu/pages_/settings.py:468
+#: uvalu/pages_/settings.py:527
 msgid "Done"
 msgstr "Klaar"
 
 #. Context: Settings › dialog title
-#: uvalu/pages_/settings.py:475
+#: uvalu/pages_/settings.py:534
 msgid "Regenerate backup codes"
 msgstr "Back-upcodes opnieuw genereren"
 
 #. Context: Settings › Regenerate backup codes dialog › warning
-#: uvalu/pages_/settings.py:478
+#: uvalu/pages_/settings.py:537
 msgid "This invalidates every existing backup code — only the new ones will work."
 msgstr "Hierdoor worden alle bestaande back-upcodes ongeldig; alleen de nieuwe werken nog."
 
 #. Context: Settings › button to create new backup codes
-#: uvalu/pages_/settings.py:485 uvalu/pages_/settings.py:633
+#: uvalu/pages_/settings.py:544 uvalu/pages_/settings.py:692
 msgid "Regenerate"
 msgstr "Opnieuw genereren"
 
-#: uvalu/pages_/settings.py:523
+#: uvalu/pages_/settings.py:582
 msgid "Language, account security, display, portfolio targets, dividend withholding, import and export, model settings."
 msgstr "Taal, accountbeveiliging, weergave, portefeuilledoelen, bronheffing op dividenden, import en export, modelinstellingen."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:543
+#: uvalu/pages_/settings.py:602
 #, python-brace-format
 msgid "Last changed {date}."
 msgstr "Laatst gewijzigd op {date}."
 
 #. Context: Settings › Security › Password row description
-#: uvalu/pages_/settings.py:544
+#: uvalu/pages_/settings.py:603
 msgid "No password change on record."
 msgstr "Geen wachtwoordwijziging geregistreerd."
 
 #. Context: Settings › Security › badge when the account has no password (SSO
 #. only)
-#: uvalu/pages_/settings.py:549
+#: uvalu/pages_/settings.py:608
 msgid "NOT SET"
 msgstr "NIET INGESTELD"
 
 #. Context: Settings › Security › Password row description when no password is
 #. set
-#: uvalu/pages_/settings.py:550
+#: uvalu/pages_/settings.py:609
 msgid "Add one so you can sign in when your provider is unavailable."
 msgstr "Voeg er een toe, zodat je je kunt aanmelden als je provider niet beschikbaar is."
 
 #. Context: Settings › Security › button to change the password (verb). Context
 #. 'button' separates it from the noun 'Change'.
-#: uvalu/pages_/settings.py:553
+#: uvalu/pages_/settings.py:612
 msgctxt "button"
 msgid "Change"
 msgstr "Wijzigen"
 
-#: uvalu/pages_/settings.py:571
+#: uvalu/pages_/settings.py:630
 #, python-brace-format
 msgid "Linked account · {provider}"
 msgstr "Gekoppeld account · {provider}"
 
 #. Context: Settings › Linked accounts › small uppercase badge on a linked
 #. provider
-#: uvalu/pages_/settings.py:576
+#: uvalu/pages_/settings.py:635
 msgid "CONNECTED"
 msgstr "GEKOPPELD"
 
 #. Context: Settings › Linked accounts › provider row detail
-#: uvalu/pages_/settings.py:577
+#: uvalu/pages_/settings.py:636
 #, python-brace-format
 msgid "{email} · linked {date}"
 msgstr "{email} · gekoppeld op {date}"
 
-#: uvalu/pages_/settings.py:580
+#: uvalu/pages_/settings.py:639
 #, python-brace-format
 msgid "Sign in with {provider} as well as your password."
 msgstr "Meld je naast je wachtwoord ook aan met {provider}."
 
-#: uvalu/pages_/settings.py:583
+#: uvalu/pages_/settings.py:642
 msgid "Sign-in with Google is not available in the beta."
 msgstr "Aanmelden met Google is niet beschikbaar in de bèta."
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:586
+#: uvalu/pages_/settings.py:645
 msgid "Disconnect"
 msgstr "Ontkoppelen"
 
 #. Context: Settings › Linked accounts › button
-#: uvalu/pages_/settings.py:592
+#: uvalu/pages_/settings.py:651
 msgid "Connect"
 msgstr "Koppelen"
 
-#: uvalu/pages_/settings.py:596
+#: uvalu/pages_/settings.py:655
 msgid "Not in the beta"
 msgstr "Niet in de bèta"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:608 uvalu/pages_/settings.py:616
+#: uvalu/pages_/settings.py:667 uvalu/pages_/settings.py:675
 msgid "Two-factor authentication"
 msgstr "Tweestapsverificatie"
 
 #. Context: Settings › Security › 2FA row description
-#: uvalu/pages_/settings.py:609
+#: uvalu/pages_/settings.py:668
 msgid "Require a code from an authenticator app in addition to your password."
 msgstr "Vraag naast je wachtwoord een code uit een authenticator-app."
 
 #. Context: Settings › Security › 2FA row description for SSO-only accounts
-#: uvalu/pages_/settings.py:610
+#: uvalu/pages_/settings.py:669
 msgid "Managed by your identity provider."
 msgstr "Beheerd door je identiteitsprovider."
 
 #. Context: Settings › Security › 2FA status for SSO-only accounts
-#: uvalu/pages_/settings.py:614
+#: uvalu/pages_/settings.py:673
 msgid "Not applicable"
 msgstr "Niet van toepassing"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:629
+#: uvalu/pages_/settings.py:688
 msgid "Backup codes"
 msgstr "Back-upcodes"
 
-#: uvalu/pages_/settings.py:630
+#: uvalu/pages_/settings.py:689
 #, python-brace-format
 msgid "{count} of {total} unused. Regenerating replaces the old set."
 msgstr "{count} van {total} ongebruikt. Opnieuw aanmaken vervangt de oude set."
 
 #. Context: Settings › Security › row title: devices that skip the 2FA code
-#: uvalu/pages_/settings.py:641
+#: uvalu/pages_/settings.py:700
 msgid "Trusted devices"
 msgstr "Vertrouwde apparaten"
 
-#: uvalu/pages_/settings.py:642
+#: uvalu/pages_/settings.py:701
 #, python-brace-format
 msgid "{count} device skips the code until {date}."
 msgid_plural "{count} devices skip the code until {date}."
 msgstr[0] "{count} apparaat slaat de code over tot {date}."
 msgstr[1] "{count} apparaten slaan de code over tot {date}."
 
-#: uvalu/pages_/settings.py:645
+#: uvalu/pages_/settings.py:704
 msgid "No device skips the code."
 msgstr "Geen enkel apparaat slaat de code over."
 
 #. Context: Settings › Security › Trusted devices button
-#: uvalu/pages_/settings.py:647
+#: uvalu/pages_/settings.py:706
 msgid "Revoke all"
 msgstr "Alles intrekken"
 
 #. Context: Settings › Security › row title
-#: uvalu/pages_/settings.py:660
+#: uvalu/pages_/settings.py:719
 msgid "Passkeys"
 msgstr "Passkeys"
 
 #. Context: Settings › Security › Passkeys row description
-#: uvalu/pages_/settings.py:660
+#: uvalu/pages_/settings.py:719
 msgid "Sign in with Face ID, Touch ID or a security key."
 msgstr "Meld je aan met Face ID, Touch ID of een beveiligingssleutel."
 
-#: uvalu/pages_/settings.py:661 uvalu/pages_/settings.py:664
+#: uvalu/pages_/settings.py:720 uvalu/pages_/settings.py:723
 msgid "Not available in the beta."
 msgstr "Niet beschikbaar in de bèta."
 
 #. Context: Settings › Security › Passkeys button
-#: uvalu/pages_/settings.py:663
+#: uvalu/pages_/settings.py:722
 msgid "Manage"
 msgstr "Beheren"
 
 #. Context: Settings › section heading
-#: uvalu/pages_/settings.py:672
+#: uvalu/pages_/settings.py:731
 msgid "Active sessions"
 msgstr "Actieve sessies"
 
 #. Context: Settings › Active sessions › button to end all other sessions
-#: uvalu/pages_/settings.py:676
+#: uvalu/pages_/settings.py:735
 msgid "Sign out everywhere else"
 msgstr "Overal elders afmelden"
 
-#: uvalu/pages_/settings.py:687
+#: uvalu/pages_/settings.py:746
 #, python-brace-format
 msgid "Signed in {time}"
 msgstr "Aangemeld op {time}"
 
-#: uvalu/pages_/settings.py:691
+#: uvalu/pages_/settings.py:750
 msgid "This session"
 msgstr "Deze sessie"
 
 #. Context: Settings › Display › row title
-#: uvalu/pages_/settings.py:704
+#: uvalu/pages_/settings.py:763
 msgid "Theme"
 msgstr "Thema"
 
 #. Context: Settings › Display › Theme row description
-#: uvalu/pages_/settings.py:705
+#: uvalu/pages_/settings.py:764
 msgid "Deep-navy dark or surface-white light."
 msgstr "Donker marineblauw of helder wit."
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:705
+#: uvalu/pages_/settings.py:764
 msgid "Dark"
 msgstr "Donker"
 
 #. Context: Theme name: in the Settings › Display › Theme switch and the
 #. top-bar theme toggle
-#: uvalu/pages_/settings.py:705
+#: uvalu/pages_/settings.py:764
 msgid "Light"
 msgstr "Licht"
 
-#: uvalu/pages_/settings.py:711
+#: uvalu/pages_/settings.py:770
 msgid "Table density"
 msgstr "Tabeldichtheid"
 
-#: uvalu/pages_/settings.py:712
+#: uvalu/pages_/settings.py:771
 msgid "Row height for holdings and screener."
 msgstr "Rijhoogte voor posities en screener."
 
-#: uvalu/pages_/settings.py:714
+#: uvalu/pages_/settings.py:773
 msgid "Compact"
 msgstr "Compact"
 
-#: uvalu/pages_/settings.py:714
+#: uvalu/pages_/settings.py:773
 msgid "Comfortable"
 msgstr "Ruim"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:728 uvalu/pages_/settings.py:732
+#: uvalu/pages_/settings.py:787 uvalu/pages_/settings.py:791
 msgid "Sector targets"
 msgstr "Sectordoelen"
 
 #. Context: Settings › Sector targets description
-#: uvalu/pages_/settings.py:729
+#: uvalu/pages_/settings.py:788
 #, no-python-format
 msgid "Blank = no sector targets; the 30% guideline applies instead."
 msgstr "Leeg = geen sectordoelen; dan geldt de richtlijn van 30%."
 
 #. Context: Settings › Sector targets › example text inside the empty box.
 #. Sector names in the example should be the translated ones.
-#: uvalu/pages_/settings.py:734
+#: uvalu/pages_/settings.py:793
 #, no-python-format
 msgid ""
 "One per line — sector and target %:\n"
@@ -6259,19 +6361,19 @@ msgstr ""
 "Gezondheidszorg 15"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:739 uvalu/pages_/settings.py:743
+#: uvalu/pages_/settings.py:798 uvalu/pages_/settings.py:802
 msgid "Per-name targets"
 msgstr "Doelen per aandeel"
 
 #. Context: Settings › Per-name targets description
-#: uvalu/pages_/settings.py:740
+#: uvalu/pages_/settings.py:799
 #, no-python-format
 msgid "Blank = no per-name targets; only the 20% hard cap applies."
 msgstr "Leeg = geen doelen per aandeel; alleen het harde maximum van 20% geldt."
 
 #. Context: Settings › Per-name targets › example text inside the empty box.
 #. Use the local decimal separator in 7.5.
-#: uvalu/pages_/settings.py:745
+#: uvalu/pages_/settings.py:804
 #, no-python-format
 msgid ""
 "One per line — ticker and target %:\n"
@@ -6283,210 +6385,279 @@ msgstr ""
 "BBB.PA 7,5"
 
 #. Context: Settings › Target allocation › row title and field label
-#: uvalu/pages_/settings.py:752 uvalu/pages_/settings.py:756
+#: uvalu/pages_/settings.py:811 uvalu/pages_/settings.py:815
 msgid "Concentration ceiling (HHI)"
 msgstr "Concentratieplafond (HHI)"
 
-#: uvalu/pages_/settings.py:753
+#: uvalu/pages_/settings.py:812
 msgid "Flag when the portfolio's HHI exceeds this. Leave empty for the default bands."
 msgstr "Markeren wanneer de HHI van de portefeuille hoger is. Laat leeg voor de standaardbanden."
 
 #. Context: Settings › Target allocation › save button
-#: uvalu/pages_/settings.py:761
+#: uvalu/pages_/settings.py:820
 msgid "Save target allocation"
 msgstr "Doelverdeling opslaan"
 
 #. Context: Settings › toast after saving
-#: uvalu/pages_/settings.py:773
+#: uvalu/pages_/settings.py:832
 msgid "Target allocation saved."
 msgstr "Doelverdeling opgeslagen."
 
 #. Context: Settings › Dividend withholding description
-#: uvalu/pages_/settings.py:779
+#: uvalu/pages_/settings.py:838
 #, no-python-format
 msgid "Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."
 msgstr "Standaardpercentage bronheffing dat wordt toegepast wanneer je een dividend per beurs registreert; per record altijd aan te passen. Het hangt af van je eigen fiscale woonplaats en belastingverdrag, die de app niet kan kennen, dus elk tarief begint op 0% tot je het instelt."
 
-#: uvalu/pages_/settings.py:795
+#: uvalu/pages_/settings.py:854
 msgid "Save withholding rates"
 msgstr "Bronheffingen opslaan"
 
-#: uvalu/pages_/settings.py:798
+#: uvalu/pages_/settings.py:857
 msgid "Withholding rates saved."
 msgstr "Bronheffingen opgeslagen."
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:814
+#: uvalu/pages_/settings.py:874
 msgid "Restore or add to your positions, trades, dividends and cash from an Uvalu .xlsx file. You confirm before anything changes."
 msgstr "Zet je posities, transacties, dividenden en cash terug of vul ze aan vanuit een Uvalu-.xlsx-bestand. Je bevestigt voor er iets verandert."
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:822
+#: uvalu/pages_/settings.py:882
 msgid "Choose a Uvalu workbook (.xlsx)"
 msgstr "Kies een Uvalu-werkmap (.xlsx)"
 
-#: uvalu/pages_/settings.py:831
+#: uvalu/pages_/settings.py:891
 msgid "Excel export"
 msgstr "Excel-export"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:831
+#: uvalu/pages_/settings.py:891
 msgid "Your portfolio in the same format, ready to re-import."
 msgstr "Je portefeuille in hetzelfde formaat, klaar om opnieuw te importeren."
 
-#: uvalu/pages_/settings.py:837
+#: uvalu/pages_/settings.py:898
 msgid "Download backup.xlsx"
 msgstr "backup.xlsx downloaden"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:843
+#: uvalu/pages_/settings.py:904
 #, python-brace-format
 msgid "Could not create the workbook: {error}"
 msgstr "Kon de werkmap niet maken: {error}"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:849
+#: uvalu/pages_/settings.py:910
 msgid "Choose .xlsx file"
 msgstr "Kies .xlsx-bestand"
 
-#: uvalu/pages_/settings.py:867
+#: uvalu/pages_/settings.py:928
 msgid "Model settings in force"
 msgstr "Geldende modelinstellingen"
 
-#: uvalu/pages_/settings.py:869
+#: uvalu/pages_/settings.py:930
 #, python-brace-format
 msgid "Same for every user · model {version}"
 msgstr "Voor iedereen gelijk · model {version}"
 
-#: uvalu/pages_/settings.py:873
+#: uvalu/pages_/settings.py:934
 msgid "Undervalued: composite score"
 msgstr "Ondergewaardeerd: totaalscore"
 
-#: uvalu/pages_/settings.py:873
+#: uvalu/pages_/settings.py:934
 msgid "And fair value from at least two independent models."
 msgstr "En een intrinsieke waarde uit minstens twee onafhankelijke modellen."
 
-#: uvalu/pages_/settings.py:875
+#: uvalu/pages_/settings.py:936
 msgid "Undervalued: margin of safety"
 msgstr "Ondergewaardeerd: veiligheidsmarge"
 
-#: uvalu/pages_/settings.py:875
+#: uvalu/pages_/settings.py:936
 msgid "Discount of price to model fair value."
 msgstr "Korting van de koers op de intrinsieke modelwaarde."
 
-#: uvalu/pages_/settings.py:877
+#: uvalu/pages_/settings.py:938
 msgid "Cost of equity"
 msgstr "Kost van eigen vermogen"
 
-#: uvalu/pages_/settings.py:877
+#: uvalu/pages_/settings.py:938
 msgid "Risk-free rate plus beta times equity risk premium."
 msgstr "Risicovrije rente plus bèta maal de aandelenrisicopremie."
 
-#: uvalu/pages_/settings.py:879
+#: uvalu/pages_/settings.py:940
 msgid "Terminal dividend growth"
 msgstr "Eindgroei dividend"
 
-#: uvalu/pages_/settings.py:879
+#: uvalu/pages_/settings.py:940
 msgid "Multi-stage dividend model, after year 5."
 msgstr "Meerfasig dividendmodel, na jaar 5."
 
-#: uvalu/pages_/settings.py:881
+#: uvalu/pages_/settings.py:942
 msgid "Quality screen: debt / equity"
 msgstr "Kwaliteitstoets: schuld / eigen vermogen"
 
-#: uvalu/pages_/settings.py:881
+#: uvalu/pages_/settings.py:942
 msgid "Not applied to financials, real estate and utilities."
 msgstr "Niet toegepast op financiële waarden, vastgoed en nutsbedrijven."
 
-#: uvalu/pages_/settings.py:883
+#: uvalu/pages_/settings.py:944
 msgid "Score weighting"
 msgstr "Weging van de score"
 
-#: uvalu/pages_/settings.py:884
+#: uvalu/pages_/settings.py:945
 #, python-brace-format
 msgid "Margin of safety {a} · Risk {b} · Quality {c} · Momentum {d} · Dividend {e}."
 msgstr "Veiligheidsmarge {a} · Risico {b} · Kwaliteit {c} · Momentum {d} · Dividend {e}."
 
-#: uvalu/pages_/settings.py:901
+#: uvalu/pages_/settings.py:962
 msgid "Thresholds and weights are set centrally by Uvalu, so every user sees the same signals. Changes are logged."
 msgstr "Drempels en gewichten worden centraal door Uvalu ingesteld, zodat iedereen dezelfde signalen ziet. Wijzigingen worden vastgelegd."
 
 #. Context: Settings › slider label: maximum debt-to-equity before a hard veto
-#: uvalu/pages_/settings.py:913
+#: uvalu/pages_/settings.py:974
 msgid "Max debt / equity"
 msgstr "Max. schuld / eigen vermogen"
 
-#: uvalu/pages_/settings.py:915
+#: uvalu/pages_/settings.py:976
 msgid "Fails the quality screen above this leverage (Financials, Real Estate, Utilities exempt)."
 msgstr "Voldoet niet aan de kwaliteitstoets boven deze schuldgraad (financiële sector, vastgoed en nutsbedrijven uitgezonderd)."
 
 #. Context: Settings › slider label
-#: uvalu/pages_/settings.py:919
+#: uvalu/pages_/settings.py:980
 msgid "Max dividend payout"
 msgstr "Max. uitkeringsratio"
 
 #. Context: Settings › slider description
-#: uvalu/pages_/settings.py:921
+#: uvalu/pages_/settings.py:982
 msgid "Flag dividends above this payout."
 msgstr "Markeer dividenden boven deze uitkeringsratio."
 
-#: uvalu/pages_/settings.py:926
+#: uvalu/pages_/settings.py:987
 msgid "Minimum margin of safety"
 msgstr "Minimale veiligheidsmarge"
 
-#: uvalu/pages_/settings.py:928
+#: uvalu/pages_/settings.py:989
 #, no-python-format
 msgid "Margin of safety needed for the Undervalued signal; never below 10%."
 msgstr "Veiligheidsmarge die nodig is voor het signaal Ondergewaardeerd; nooit minder dan 10%."
 
-#: uvalu/pages_/settings.py:931
+#: uvalu/pages_/settings.py:992
 msgid "Undervalued score threshold"
 msgstr "Scoredrempel Ondergewaardeerd"
 
-#: uvalu/pages_/settings.py:933
+#: uvalu/pages_/settings.py:994
 msgid "Minimum composite score for the Undervalued signal."
 msgstr "Minimale totaalscore voor het signaal Ondergewaardeerd."
 
 #. Context: Settings › row title
-#: uvalu/pages_/settings.py:938
+#: uvalu/pages_/settings.py:999
 msgid "Screening style"
 msgstr "Screeningstijl"
 
 #. Context: Settings › Screening style description. Style names must match the
 #. options below.
-#: uvalu/pages_/settings.py:939
+#: uvalu/pages_/settings.py:1000
 msgid "Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."
 msgstr "Welke signalen de totaalscore sturen: Waarde legt de nadruk op veiligheidsmarge en kwaliteit, Groei op momentum, Inkomen op dividenden."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:943
+#: uvalu/pages_/settings.py:1004
 msgid "Benchmark — Euro Stoxx 50"
 msgstr "Benchmark: Euro Stoxx 50"
 
 #. Context: Settings › benchmark toggle description
-#: uvalu/pages_/settings.py:944
+#: uvalu/pages_/settings.py:1005
 msgid "Overlay on the portfolio value chart."
 msgstr "Toon over de grafiek met de waarde van de portefeuille."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:946
+#: uvalu/pages_/settings.py:1007
 msgid "Include US-listed names"
 msgstr "Amerikaanse aandelen opnemen"
 
-#: uvalu/pages_/settings.py:947
+#: uvalu/pages_/settings.py:1008
 msgid "Not available: the beta covers European exchanges only."
 msgstr "Niet beschikbaar: de bèta dekt alleen Europese beurzen."
 
-#: uvalu/pages_/settings.py:983
+#: uvalu/pages_/settings.py:1048
+#, fuzzy
+msgid "Export my data"
+msgstr "Mijn gegevens exporteren"
+
+#: uvalu/pages_/settings.py:1049
+#, fuzzy
+msgid ""
+"Your positions, sales, dividends, cash, watchlist, settings and account details "
+"as an Excel workbook (.xlsx)."
+msgstr "Je posities, verkopen, dividenden, cash, volglijst, instellingen en accountgegevens als Excel-werkmap (.xlsx)."
+
+#: uvalu/pages_/settings.py:1053
+#, fuzzy
+msgid "Export"
+msgstr "Exporteren"
+
+#: uvalu/pages_/settings.py:1059
+#, fuzzy
+msgid ""
+"Removes your account and data from live systems at once and from backups within "
+"30 days."
+msgstr "Verwijdert je account en gegevens meteen uit de live systemen en binnen 30 dagen uit de back-ups."
+
+#: uvalu/pages_/settings.py:1067
+#, fuzzy
+msgid "Privacy contact"
+msgstr "Privacycontact"
+
+#: uvalu/pages_/settings.py:1068
+#, fuzzy
+msgid ""
+"Questions about your data, or a complaint to the Belgian Data Protection "
+"Authority (GBA / APD)."
+msgstr "Vragen over je gegevens, of een klacht bij de Belgische Gegevensbeschermingsautoriteit (GBA / APD)."
+
+#: uvalu/pages_/settings.py:1083
+#, fuzzy
+msgid "Free beta · by invitation"
+msgstr "Gratis bèta · op uitnodiging"
+
+#: uvalu/pages_/settings.py:1084
+#, fuzzy
+msgid ""
+"No paid plans during the beta and you pay nothing. We tell you at least 14 days "
+"before the beta ends where we can, so you can export your data. Your account "
+"never turns into a paid plan without your express agreement."
+msgstr "Geen betaalde abonnementen tijdens de bèta en je betaalt niets. Waar we kunnen, laten we het je minstens 14 dagen voor het einde van de bèta weten, zodat je je gegevens kunt exporteren. Je account wordt nooit een betaald abonnement zonder je uitdrukkelijke toestemming."
+
+#: uvalu/pages_/settings.py:1088
+#, fuzzy
+msgid "Active"
+msgstr "Actief"
+
+#: uvalu/pages_/settings.py:1095
 msgid "Legal documents"
 msgstr "Juridische documenten"
 
-#: uvalu/pages_/settings.py:989
-#, python-brace-format
-msgid "To get a copy of your data or have it deleted, write to {email}."
-msgstr "Voor een kopie van je gegevens of om ze te laten verwijderen, schrijf naar {email}."
+#: uvalu/pages_/settings.py:1101
+#, fuzzy
+msgid "No-personal-advice acknowledgement"
+msgstr "Bevestiging geen persoonlijk advies"
 
-#: uvalu/pages_/settings.py:991
+#: uvalu/pages_/settings.py:1102
+#, fuzzy
+msgid "Terms of use, section 4."
+msgstr "Gebruiksvoorwaarden, artikel 4."
+
+#: uvalu/pages_/settings.py:1104
+#, fuzzy, python-brace-format
+msgid "{document} · {version}"
+msgstr "{document} · {version}"
+
+#: uvalu/pages_/settings.py:1105
+#, fuzzy, python-brace-format
+msgid "Effective from {date}."
+msgstr "Van kracht sinds {date}."
+
+#: uvalu/pages_/settings.py:1114
 msgid "During the beta these documents are available in English only."
 msgstr "Tijdens de bèta zijn deze documenten alleen in het Engels beschikbaar."
 
@@ -7185,3 +7356,9 @@ msgstr[1] "Nog geen screenergegevens voor je tickers op de volglijst; ze verschi
 
 #~ msgid "Blank template"
 #~ msgstr "Leeg sjabloon"
+
+#~ msgid "To get a copy of your data or have it deleted, write to {email}."
+#~ msgstr ""
+#~ "Voor een kopie van je gegevens of "
+#~ "om ze te laten verwijderen, schrijf naar"
+#~ " {email}."

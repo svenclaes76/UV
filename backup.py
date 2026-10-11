@@ -260,6 +260,26 @@ def create_backup(email: str) -> dict:
     return entry
 
 
+def delete_backups_for(email: str) -> int:
+    """Remove every backup-history entry of one account, files included —
+    account deletion (the privacy notice: backups follow within 30 days; these
+    go at once). Returns the number removed."""
+    key = (email or "").strip().lower()
+    if not key:
+        return 0
+    entries = _load_backup_manifest()
+    keep, gone = [], []
+    for e in entries:
+        (gone if str(e.get("email") or "").strip().lower() == key else keep).append(e)
+    for e in gone:
+        (_BACKUPS_DIR / str(e.get("filename") or "")).unlink(missing_ok=True)
+    if gone:
+        _save_backup_manifest(keep)
+        logkit.data_mutation(actor=logkit.user_id(), action="backup.delete_for_account",
+                             entity_type="backup", removed=len(gone), subject=logkit.user_hash(email))
+    return len(gone)
+
+
 def get_backup_bytes(backup_id: str, requester_email: str | None = None) -> bytes:
     """
     Raw ZIP bytes for a backup-history entry, for st.download_button.

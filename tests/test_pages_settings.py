@@ -100,13 +100,13 @@ def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch
 def test_export_is_offered_when_portfolio_empty(isolated_data, monkeypatch):
     # An empty account's export is the template for a bulk import.
     at = _run(monkeypatch)
-    assert [b.label for b in at.download_button] == ["Download backup.xlsx"]
+    assert [b.label for b in at.download_button] == ["Download backup.xlsx", "Export"]
 
 
 def test_export_shows_download_button_when_portfolio_has_data(isolated_data, monkeypatch):
     portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "shares": 10}]))
     at = _run(monkeypatch)
-    assert [b.label for b in at.download_button] == ["Download backup.xlsx"]
+    assert [b.label for b in at.download_button] == ["Download backup.xlsx", "Export"]
 
 
 def _build_test_workbook() -> bytes:
@@ -249,10 +249,11 @@ def test_section_nav_links_every_card_anchor(isolated_data, monkeypatch):
 
 def test_settings_order_matches_reference():
     """Rail order of the design reference: … Target allocation, Dividend
-    withholding, Import & export …; no Data & alerts."""
+    withholding, Import & export …, Privacy, Plan, Legal; no Data & alerts."""
     from uvalu.pages_.settings import _SECTIONS
     assert [a for a, *_ in _SECTIONS] == ["set-language", "set-account", "set-display", "set-portfolio",
-                                         "set-withholding", "set-import", "set-model", "set-legal"]
+                                         "set-withholding", "set-import", "set-model", "set-privacy",
+                                         "set-plan", "set-legal"]
 
 
 def test_parse_targets_text_drops_malformed_and_out_of_range():
@@ -856,3 +857,65 @@ def test_language_preview_band_holds_the_try_a_number_field(isolated_data, monke
     field = at.text_input(key="set_i18n_try_input")
     field.set_value("1234").run()
     assert any("Saved as" in m.value for m in at.markdown)
+
+
+# ── Privacy, Plan and Legal documents ────────────────────────────────────────
+
+def test_privacy_plan_and_legal_cards(isolated_data, monkeypatch):
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    for text in ("Export my data", "Delete account", "Privacy contact", "privacy&#64;uvalu.app",
+                 "Free beta · by invitation", "Active", "Terms of use · beta", "Privacy notice · beta",
+                 "No-personal-advice acknowledgement", "available in English only"):
+        assert text in html, text
+    assert "Export" in [b.label for b in at.download_button]
+
+
+def _two_users():
+    import auth
+    auth.register("admin@example.com", "password123-long")
+    auth.register("test@example.com", "password123-long")
+
+
+def _run_delete_dialog():
+    # A dialog opened by a button doesn't survive a second AppTest run (the
+    # button is false then), so the dialog is called directly, every run.
+    at = AppTest.from_string(USER_SETUP_SRC + """
+from uvalu.pages_ import settings as settings_page
+settings_page._dlg_delete_account("test@example.com")
+""", default_timeout=60)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    return at
+
+
+def test_delete_account_needs_the_typed_email(isolated_data):
+    import auth
+    _two_users()
+    portfolio.save_watchlist({"AAA.BR"})
+    at = _run_delete_dialog()
+    at.text_input(key="set_delete_email").set_value("someone@else.com").run()
+    at.button(key="set_delete_confirm").click().run()
+    assert "doesn't match" in "".join(e.value for e in at.error)
+    assert "test@example.com" in auth._load_users()
+
+
+def test_delete_account_removes_the_account_and_signs_out(isolated_data):
+    import auth
+    _two_users()
+    portfolio.save_watchlist({"AAA.BR"})
+    at = _run_delete_dialog()
+    at.text_input(key="set_delete_email").set_value("Test@Example.com").run()
+    at.button(key="set_delete_confirm").click().run()
+    assert "test@example.com" not in auth._load_users()
+    assert portfolio.load_watchlist() == set()
+    assert at.query_params.get("logout") == ["1"]
+
+
+def test_last_admin_cannot_delete(isolated_data, monkeypatch):
+    import auth
+    auth.register("test@example.com", "password123-long")      # first account: Admin
+    at = _run(monkeypatch, role="Admin")
+    at.button(key="privacy_delete").click().run()
+    assert "only active Admin" in "".join(e.value for e in at.error)
+    assert not [b for b in at.button if b.key == "set_delete_confirm"]

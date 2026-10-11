@@ -1697,18 +1697,44 @@ GLOBAL_CSS = """
   .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]:hover::after { color: var(--text); }
   .st-key-set_upload_label,
   [data-testid="stLayoutWrapper"]:has(> .st-key-set_upload_label) { display: none !important; }
-  /* Legal card: the six documents as one wrapping row of teal links. */
-  .st-key-set_legal_links {
-    flex-direction: row !important; flex-wrap: wrap !important; gap: 4px 18px !important;
-    padding: 12px 20px 0 !important;
+  /* Privacy, Plan and Legal documents (Uvalu.dc.html): set_row_ rows at the
+     design's 15px 20px, a hairline under every row but a card's last. */
+  :is([class*="st-key-set_row_privacy_"], .st-key-set_row_plan_beta, [class*="st-key-set_row_legal_"]) {
+    padding: 15px 20px !important;
   }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] {
-    padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+  :is(.st-key-set_row_privacy_export, .st-key-set_row_privacy_delete,
+      .st-key-set_row_legal_terms, .st-key-set_row_legal_privacy, .st-key-set_row_legal_advice) {
+    border-bottom: 0.5px solid var(--line-2) !important;
   }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--link) !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
-  .st-key-set_card_legal { padding-bottom: 14px !important; }
+  /* Delete account: the design's red-text outline button. */
+  .st-key-set_row_privacy_delete button { color: var(--down-txt) !important; }
+  .st-key-set_row_privacy_delete button:hover { border-color: var(--down-txt) !important; }
+  .st-key-set_row_privacy_delete button * { color: inherit !important; }
+  .uv-set-privacy-mail { text-align: right; white-space: nowrap; }
+  .uv-set-privacy-mail a {
+    font-family: var(--uv-mono); font-size: 12px; color: var(--link) !important; text-decoration: none;
+  }
+  .uv-set-chip-active {
+    display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    background: var(--up-bg); color: var(--up-txt); white-space: nowrap;
+  }
+  /* Legal rows: "View" as the design's outline button (it is a page link). */
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] {
+    padding: 8px 14px !important; min-height: 0 !important; border-radius: 8px !important;
+    border: 0.5px solid var(--line) !important; background: transparent !important; gap: 0 !important;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {
+    display: none !important;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] p {
+    font-size: 12.5px !important; color: var(--muted) !important; white-space: nowrap;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"]:hover { border-color: var(--teal) !important; }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
+  .st-key-set_card_legal { padding-bottom: 13px !important; }
+  /* The footnote sits right under the last row's hairline (design: 13px). */
+  [data-testid="stElementContainer"]:has(.uv-set-legal-note) { margin-top: -16px !important; }
+  .uv-set-legal-note { padding: 13px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
   /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
      row with the avatar and name — st.columns' per-column centring was off
      by 8px for these mismatched heights. */

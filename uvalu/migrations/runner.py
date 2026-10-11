@@ -21,6 +21,7 @@ number after **each** step, so a crash mid-chain leaves an accurate number.
 """
 from __future__ import annotations
 
+import calendar
 import importlib
 import io
 import json
@@ -42,6 +43,10 @@ STATE_NAME = "schema_version.json"
 SNAPSHOT_DIRNAME = "migration-snapshots"
 LOCK_NAME = ".migrate.lock"
 KEEP_SNAPSHOTS = 10
+# Snapshots hold every user's data, so a deleted account must leave them too:
+# the privacy notice promises removal from backups within 30 days.
+SNAPSHOT_MAX_AGE_DAYS = 30
+_PRUNE_EVERY_S = 3600
 _LOCK_STALE_S = 15 * 60
 _NAME_RE = re.compile(r"^m(\d{4})_\w+$")
 
@@ -243,6 +248,14 @@ def snapshot(ctx: MigrationContext, label: str) -> str:
     return sid
 
 
+def _snapshot_time(path: Path) -> float:
+    """When a snapshot was taken: from its id (20261011T144538Z-…), else the file time."""
+    try:
+        return calendar.timegm(time.strptime(path.name[:16], "%Y%m%dT%H%M%SZ"))
+    except ValueError:
+        return path.stat().st_mtime
+
+
 def _prune_snapshots(ctx: MigrationContext) -> None:
     snaps = sorted(ctx.snapshot_dir.glob("*.zip"))
     for old in snaps[:-KEEP_SNAPSHOTS]:
@@ -250,6 +263,35 @@ def _prune_snapshots(ctx: MigrationContext) -> None:
             old.unlink()
         except OSError:
             pass
+    prune_expired_snapshots(ctx)
+
+
+_last_age_prune = 0.0
+
+
+def prune_expired_snapshots(ctx: "MigrationContext | None" = None, *, force: bool = True) -> int:
+    """Delete snapshots older than SNAPSHOT_MAX_AGE_DAYS. Returns how many.
+    ``force=False`` runs at most once an hour (the start-up check calls it on
+    every rerun)."""
+    global _last_age_prune
+    now = time.time()
+    if not force and now - _last_age_prune < _PRUNE_EVERY_S:
+        return 0
+    _last_age_prune = now
+    ctx = ctx or default_context()
+    cutoff = now - SNAPSHOT_MAX_AGE_DAYS * 86400
+    removed = 0
+    for snap in ctx.snapshot_dir.glob("*.zip") if ctx.snapshot_dir.is_dir() else ():
+        try:
+            if _snapshot_time(snap) < cutoff:
+                snap.unlink()
+                removed += 1
+        except OSError:
+            pass
+    if removed:
+        _log.info("expired migration snapshots removed", extra={
+            "event": "migration.snapshots_pruned", "removed": removed})
+    return removed
 
 
 def list_snapshots(ctx: "MigrationContext | None" = None) -> "list[str]":
@@ -404,6 +446,7 @@ def ensure_compatible(ctx: "MigrationContext | None" = None) -> int:
     is re-checked every time, so fixing the data needs no restart."""
     global _compatible
     ctx = ctx or default_context()
+    prune_expired_snapshots(ctx, force=False)
     if _compatible is not None and _compatible[0] == ctx:
         return _compatible[1]
     expected = expected_version()

@@ -1,5 +1,6 @@
 """
-Portfolio workbook — the user-facing export and import.
+Portfolio workbook — the user-facing export and import (also Settings ›
+Privacy › Export my data: the same file is the user's copy of their data).
 
 One .xlsx holds only what the user entered (docs/import-export-plan.md,
 decisions IE1–IE5): positions, sold positions, dividends, typed cash entries,
@@ -10,7 +11,9 @@ and internal ids are left out and rebuilt on import.
 Column headers are fixed English keys, so a file exported in one language
 imports in another; sheet names are translated, so import recognises a sheet
 by its headers, never by its name. A hidden ``_meta`` sheet records the file
-format version.
+format version. Three read-only sheets complete the copy of the user's data —
+Account (the account record, never a secret), Settings and Automatic cash
+(the cash entries Uvalu posted for trades and dividends); import skips them.
 
 Import has two modes (IE2):
   - ``replace``: restore. A backup is saved, all portfolio data of the account
@@ -54,11 +57,17 @@ COLUMNS: dict[str, tuple[str, ...]] = {
     "custom":      ("ticker", "name"),
     "targets":     ("kind", "key", "weight_pct"),
     "withholding": ("exchange", "rate_pct"),
+    # Read-only copies for the user (privacy: a complete copy of their data);
+    # import recognises and skips them.
+    "account":     ("field", "value"),
+    "settings":    ("setting", "value"),
+    "ledger":      ("date", "type", "amount", "currency", "fx_rate", "amount_eur", "linked_to", "note"),
 }
 SHEET_ORDER = tuple(COLUMNS)
+INFO_SHEETS = ("account", "settings", "ledger")
 
 _DATE_COLS = {"date_in", "date_out", "ex_date", "date"}
-_MONEY_COLS = {"purchase_value", "sale_value", "fee", "amount"}
+_MONEY_COLS = {"purchase_value", "sale_value", "fee", "amount", "amount_eur"}
 
 
 def sheet_names() -> dict[str, str]:
@@ -74,6 +83,9 @@ def sheet_names() -> dict[str, str]:
         "custom":      pgettext("sheet_name", "Custom tickers"),
         "targets":     pgettext("sheet_name", "Targets"),
         "withholding": pgettext("sheet_name", "Withholding"),
+        "account":     pgettext("sheet_name", "Account"),
+        "settings":    pgettext("sheet_name", "Settings"),
+        "ledger":      pgettext("sheet_name", "Automatic cash"),
     }
 
 
@@ -103,6 +115,11 @@ def column_notes() -> dict[str, str]:
         "weight_pct":     _("Target weight in %. Required."),
         "exchange":       _("brussels, amsterdam, paris, milan, frankfurt or swiss. Required."),
         "rate_pct":       _("Withholding tax in %. Required."),
+        "field":          _("Account detail. For your information: not imported."),
+        "setting":        _("Setting. For your information: not imported."),
+        "value":          _("Value. For your information: not imported."),
+        "amount_eur":     _("Amount in euro."),
+        "linked_to":      _("The trade or dividend this entry belongs to. Rebuilt on import, not imported."),
     }
 
 
@@ -192,10 +209,69 @@ def collect(email: str) -> dict[str, list[dict]]:
     if targets.get("hhi_max"):
         out["targets"].append({"kind": "hhi_max", "key": None,
                                "weight_pct": round(float(targets["hhi_max"]) * 100, 2)})
-    rates = load_settings(email).get("dividend_withholding") or {}
+    user_settings = load_settings(email)
+    rates = user_settings.get("dividend_withholding") or {}
     out["withholding"] = [{"exchange": ex, "rate_pct": _xl_num(rates.get(ex, 0.0)) or 0}
                           for ex in ALL_EXCHANGES]
+    out["account"] = _account_rows(email)
+    out["settings"] = _settings_rows(user_settings)
+    for e in cash.load_ledger():
+        if not (e.get("ref_kind") or e.get("auto")):
+            continue
+        out["ledger"].append({
+            "date": _xl_date(e.get("date")), "type": e.get("type"), "amount": _xl_num(e.get("amount")),
+            "currency": e.get("currency"), "fx_rate": _xl_num(e.get("fx_rate")),
+            "amount_eur": _xl_num(e.get("amount_base")), "linked_to": e.get("ref_label"),
+            "note": cash.note_text(e),
+        })
     return out
+
+
+def _text_value(v) -> str:
+    if v is None or v == "":
+        return "—"
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, (list, tuple, set)):
+        return ", ".join(str(x) for x in v) or "—"
+    if isinstance(v, dict):
+        return ", ".join(f"{k}: {x}" for k, x in v.items()) or "—"
+    return str(v)
+
+
+def _account_rows(email: str) -> list[dict]:
+    """What the account record holds about the user — never a secret (no
+    password hash, codes, tokens or authenticator key)."""
+    import auth
+
+    user = auth._load_users().get((email or "").strip().lower()) or {}
+    rows = [("email", email), ("role", user.get("role")), ("status", user.get("status")),
+            ("created_at", user.get("created_at")), ("invited_by", user.get("invited_by")),
+            ("last_active", user.get("last_active")), ("password_changed_at", user.get("password_changed_at")),
+            ("two_step_verification", bool(user.get("totp_enabled"))),
+            ("trusted_devices", len(user.get("trusted_devices") or [])),
+            ("linked_sign_in", [i.get("provider") for i in (user.get("linked_identities") or [])
+                                if isinstance(i, dict)])]
+    for sess in user.get("sessions") or []:
+        if isinstance(sess, dict):
+            parts = (sess.get("created_at"), sess.get("user_agent"), "revoked" if sess.get("revoked") else "active")
+            rows.append(("session", " · ".join(str(x) for x in parts if x)))
+    return [{"field": k, "value": _text_value(v)} for k, v in rows]
+
+
+def _settings_rows(user_settings: dict) -> list[dict]:
+    rows = [{"setting": k, "value": _text_value(v)} for k, v in sorted(user_settings.items())
+            if k != "dividend_withholding"]
+    rows.append({"setting": "base_currency", "value": portfolio.base_currency()})
+    for ticker, meta in sorted(portfolio.load_dividend_meta().items()):
+        if not isinstance(meta, dict):
+            continue
+        if meta.get("frequency"):
+            rows.append({"setting": f"dividend_frequency · {ticker}", "value": str(meta["frequency"])})
+        if meta.get("dismissed_auto_ex"):
+            rows.append({"setting": f"dismissed_auto_dividends · {ticker}",
+                         "value": _text_value(meta["dismissed_auto_ex"])})
+    return rows
 
 
 def _write(rows: dict[str, list[dict]]) -> bytes:
@@ -298,6 +374,12 @@ def _norm_header(h) -> str:
 def _identify(headers: set[str]) -> str | None:
     """Sheet key from its headers. Also reads exports made before format 1
     (extra columns are ignored, the old watchlist header was "Ticker")."""
+    if headers == {"field", "value"}:
+        return "account"
+    if headers == {"setting", "value"}:
+        return "settings"
+    if "linked_to" in headers:
+        return "ledger"
     if "ticker" in headers and "sale_value" in headers:
         return "sold"
     if "ticker" in headers and "purchase_value" in headers:
@@ -552,7 +634,7 @@ def parse_workbook(data: bytes) -> ParsedWorkbook:
                 continue
             headers = [_norm_header(h) for h in raw[0]]
             key = _identify({h for h in headers if h})
-            if key is None or key in wb.sheets:
+            if key is None or key in wb.sheets or key in INFO_SHEETS:
                 continue
             wb.sheets.append(key)
             rows = []

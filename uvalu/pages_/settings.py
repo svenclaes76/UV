@@ -103,6 +103,8 @@ _SECTIONS = (
     ("set-withholding", N_("Dividend withholding")),
     ("set-import", N_("Import & export")),
     ("set-model", N_("Model settings")),
+    ("set-privacy", N_("Privacy")),
+    ("set-plan", N_("Plan")),
     ("set-legal", N_("Legal")),
 )
 
@@ -213,6 +215,63 @@ def _import_review(data: bytes, n: int, email: str) -> None:
             _import_done(n)
         if _no:
             _import_done(n)
+
+
+@_dialog(N_("Delete your account?"), width="large")
+def _dlg_delete_account(email: str):
+    """Settings › Privacy › Delete account: the design's confirmation, beta
+    text (no invoices in the beta), confirmed by typing the account email."""
+    from account import can_delete, delete_account
+
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
+    st.markdown(
+        '<div style="padding:10px 12px;border-radius:8px;background:var(--down-bg);color:var(--down-txt);'
+        'font-size:12.5px;line-height:1.5;">'
+        + h_("Your portfolio, transactions, watchlist and settings are removed from live systems now and "
+             "from backups within 30 days. This can't be undone. Export your data first if you want a copy.")
+        + "</div>", unsafe_allow_html=True)
+    _allowed, _reason = can_delete(email)
+    if not _allowed:
+        st.error(_("You're the only active Admin. Make another user Admin before you delete your account."))
+        return
+    _typed = st.text_input(_("Type your email address to confirm"), key="set_delete_email",
+                           placeholder=email)
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button(_("Cancel"), key="set_delete_cancel", width="stretch"):
+            st.rerun()
+    with _b2, st.container(key="uv_danger_btn_set_delete"):
+        _go = st.button(_("Delete account"), key="set_delete_confirm", type="primary", width="stretch")
+    if _go:
+        if (_typed or "").strip().lower() != email.strip().lower():
+            st.error(_("The email address doesn't match this account."))
+            return
+        ok, msg = delete_account(email)
+        if not ok:
+            st.error(msg)
+            return
+        # Signed out like "Sign out": app.py's handle_logout clears the
+        # session and the stored token.
+        st.query_params["logout"] = "1"
+        st.rerun()
+
+
+def _legal_doc_version(doc: str) -> tuple[str, str]:
+    """(version, effective date) from a legal document's own header line."""
+    from uvalu.pages_ import legal as _legal
+
+    _file = next((f for k, _t, f in disclosures.LEGAL_DOCS if k == doc), None)
+    if not _file:
+        return "", ""
+    path, _translated = _legal.resolve_doc_path(_file, "en")
+    if path is None:
+        return "", ""
+    try:
+        _title, meta, _body = _legal.split_document(_legal._strip_header(path.read_text(encoding="utf-8")))
+    except OSError:
+        return "", ""
+    meta = dict(meta)
+    return meta.get("Version", ""), meta.get("Effective from", "") or meta.get("Last updated", "")
 
 
 def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1),
@@ -802,6 +861,7 @@ def render() -> None:
             # One workbook format both ways (docs/import-export-plan.md): export
             # holds what the user entered; import restores it (replace) or adds
             # rows added to an export (add) — the export is also the template.
+            _export_bytes = None
             with st.container(key="set_card_import", border=True):
                 _row_header(h_("Import & export"), anchor="set-import")
 
@@ -833,9 +893,10 @@ def render() -> None:
                         with st.container(horizontal=True, gap="small", horizontal_alignment="right",
                                           key="set_export_buttons"):
                             try:
+                                _export_bytes = export_workbook(_email)
                                 st.download_button(
                                     _("Download backup.xlsx"),
-                                    data=export_workbook(_email),
+                                    data=_export_bytes,
                                     file_name=backup_filename("xlsx"),
                                     mime=_XLSX_MIME,
                                 )
@@ -978,17 +1039,80 @@ def render() -> None:
                         st.rerun()
 
 
-            # ── Legal (L13) ─────────────────────────────────────────────────────────────
+            # ── Privacy (Uvalu.dc.html "Privacy" card) ─────────────────────────────────
+            with st.container(key="set_card_privacy", border=True):
+                _row_header(h_("Privacy"), anchor="set-privacy")
+                with st.container(key="set_row_privacy_export"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Export my data"),
+                                   h_("Your positions, sales, dividends, cash, watchlist, settings and account "
+                                      "details as an Excel workbook (.xlsx)."))
+                    with _c2:
+                        if _export_bytes is not None:
+                            st.download_button(_("Export"), data=_export_bytes, file_name=backup_filename("xlsx"),
+                                               mime=_XLSX_MIME, key="privacy_export")
+                with st.container(key="set_row_privacy_delete"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Delete account"),
+                                   h_("Removes your account and data from live systems at once and from backups "
+                                      "within 30 days."))
+                    with _c2:
+                        if st.button(_("Delete account"), key="privacy_delete"):
+                            _dlg_delete_account(_email)
+                with st.container(key="set_row_privacy_contact"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Privacy contact"),
+                                   h_("Questions about your data, or a complaint to the Belgian Data Protection "
+                                      "Authority (GBA / APD)."))
+                    with _c2:
+                        _pc = html.escape(disclosures.PRODUCER_PRIVACY_CONTACT)
+                        st.markdown(f'<div class="uv-set-privacy-mail"><a href="mailto:{_pc}">'
+                                    f'{_pc.replace("@", "&#64;")}</a></div>', unsafe_allow_html=True)
+
+            # ── Plan (free beta) ─────────────────────────────────────────────────────
+            if disclosures.BETA:
+                with st.container(key="set_card_plan", border=True):
+                    _row_header(h_("Plan"), anchor="set-plan")
+                    with st.container(key="set_row_plan_beta"):
+                        _c1, _c2 = st.columns([5, 1], vertical_alignment="center")
+                        with _c1:
+                            # Same promises as the beta terms, section 2.
+                            _row_title(h_("Free beta · by invitation"),
+                                       h_("No paid plans during the beta and you pay nothing. We tell you at least "
+                                          "14 days before the beta ends where we can, so you can export your data. "
+                                          "Your account never turns into a paid plan without your express agreement."))
+                        with _c2:
+                            st.markdown(f'<span class="uv-set-chip-active">{h_("Active")}</span>',
+                                        unsafe_allow_html=True)
+
+            # ── Legal documents (L13) ────────────────────────────────────────────────
+            # Version and effective date from the documents themselves. No
+            # acceptance date: acceptance isn't recorded yet (open item L1).
             with st.container(key="set_card_legal", border=True):
                 _row_header(h_("Legal documents"), anchor="set-legal")
                 _legal_page = nav_registry.pages.get("legal")
-                with st.container(key="set_legal_links"):
-                    if _legal_page is not None:
-                        for _lkey, _ltitle, _lfile in disclosures.LEGAL_DOCS:
-                            st.page_link(_legal_page, label=tr(_ltitle), query_params={"doc": _lkey})
-                _row_desc(h_("To get a copy of your data or have it deleted, write to {email}.",
-                             email=disclosures.PRODUCER_PRIVACY_CONTACT))
-                _row_desc(h_("During the beta these documents are available in English only."))
+                _docs = {key: title for key, title, _f in disclosures.LEGAL_DOCS}
+                for _lkey, _ltitle, _ldesc, _ldoc in (
+                        ("terms", tr(_docs["terms"]), None, "terms"),
+                        ("privacy", tr(_docs["privacy"]), None, "privacy"),
+                        ("advice", _("No-personal-advice acknowledgement"),
+                         h_("Terms of use, section 4."), "terms")):
+                    _ver, _eff = _legal_doc_version(_ldoc)
+                    _title = h_("{document} · {version}", document=_ltitle, version=_ver) if _ver and _lkey != "advice" else html.escape(_ltitle)
+                    _desc = _ldesc or (h_("Effective from {date}.", date=_eff) if _eff else "")
+                    with st.container(key=f"set_row_legal_{_lkey}"):
+                        _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                        with _c1:
+                            _row_title(_title, _desc)
+                        with _c2:
+                            if _legal_page is not None:
+                                st.page_link(_legal_page, label=_("View"), query_params={"doc": _ldoc})
+                st.markdown(f'<div class="uv-set-legal-note">'
+                            f'{h_("During the beta these documents are available in English only.")}</div>',
+                            unsafe_allow_html=True)
 
             # ── Account footer: who is signed in (G27: "Free beta", not the role) ──
             st.markdown(
