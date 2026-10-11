@@ -632,3 +632,11 @@ def test_section_order_follows_the_reference():
     from uvalu.pages_ import admin as admin_page
     assert [k for k, *_ in admin_page._NAV_ITEMS] == ["users", "feeds", "system", "backups", "security"]
     assert admin_page._SECTION_TITLES["system"] == "System"
+
+
+def test_admin_sidebar_shows_the_dark_lockup(isolated_data, monkeypatch):
+    """Logo plan L3: 24px dark lockup, 12px from the "admin" tag."""
+    at = _run(monkeypatch, role="Admin")
+    html = "".join(m.value for m in at.markdown)
+    assert 'aria-label="Uvalu"' in html and 'height="24"' in html and "gap:12px" in html
+    assert "uval<span" not in html

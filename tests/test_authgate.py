@@ -856,3 +856,12 @@ def test_providers_are_off_during_the_beta(monkeypatch):
     assert oauth.providers_enabled() is False
     monkeypatch.setattr(disclosures, "BETA", False)
     assert oauth.providers_enabled() is True
+
+
+def test_sign_in_panel_shows_the_dark_lockup():
+    """Logo plan L3: the navy brand panel carries the outlined dark lockup at a
+    48px mark height, 23px from the "value engine" tag; no live-text wordmark."""
+    at = _run_auth_wall()
+    html = "".join(m.value for m in at.markdown)
+    assert 'aria-label="Uvalu"' in html and 'height="48"' in html and "gap:23px" in html
+    assert "var(--logo-ring)" not in html and "uval<span" not in html
