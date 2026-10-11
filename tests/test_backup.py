@@ -130,6 +130,19 @@ class TestExportExcel:
         wb = openpyxl.load_workbook(io.BytesIO(backup.export_excel()))
         assert wb.sheetnames == ["Positions"]
 
+    def test_sheet_names_follow_the_user_language(self, monkeypatch):
+        import uvalu.i18n
+        names = {"Positions": "Posities", "Sold": "Verkocht",
+                 "Dividends": "Dividenden", "Watchlist": "Volglijst"}
+        monkeypatch.setattr(uvalu.i18n, "pgettext",
+                            lambda ctx, msgid, **kw: names[msgid] if ctx == "sheet_name" else msgid)
+        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
+        portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR"}]))
+        portfolio.save_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 5.0}]))
+        portfolio.save_watchlist({"CCC.BR"})
+        wb = openpyxl.load_workbook(io.BytesIO(backup.export_excel()))
+        assert wb.sheetnames == ["Posities", "Verkocht", "Dividenden", "Volglijst"]
+
 
 # ── import_zip ────────────────────────────────────────────────────────────
 

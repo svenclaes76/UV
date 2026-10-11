@@ -20,6 +20,14 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Improved
+
+- Your Excel export now names its sheets in your language.
+
+### Fixed
+
+- The cash activity and dividend log lists line up neatly with their card again.
+
 ## [2026.10.4] — 2026-10-11
 
 A new logo and a calmer, clearer Uvalu: quieter buttons, model names you can

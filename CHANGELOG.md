@@ -21,6 +21,19 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Changed
+
+- The Excel export names its sheets (Positions, Sold, Dividends, Watchlist) in
+  your language. The translations are drafts until reviewed, so they show in
+  English until then.
+
+### Fixed
+
+- Cash activity: each ledger row's edit pencil stuck out 8px past the card
+  edge, in every language.
+- Dividend log and cash ledger rows picked up the tax-note box's padding,
+  background and border from a broken style rule (since 2026.10.3).
+
 ## [2026.10.4] — 2026-10-11
 
 Uvalu has a new logo, the What's new notes are written for subscribers, and

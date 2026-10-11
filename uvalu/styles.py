@@ -1116,7 +1116,9 @@ GLOBAL_CSS = """
   .st-key-pf_open_ov_all { padding: 4px 20px 10px !important; }
   .st-key-pf_open_ov_all button p { font-size: 12.5px !important; color: var(--link) !important; }
   .st-key-pf_card_cash_full [data-testid="stCaptionContainer"] { padding: 28px 20px 12px !important; }
-  .st-key-pf_card_cash_full .stButton { padding: 0 20px 12px !important; }
+  /* "Show more" only: a card-wide .stButton rule also padded every row's
+     edit pencil to 40px in its 24px column, 8px past the card edge. */
+  .st-key-pf_card_cash_full .st-key-cash_show_more .stButton { padding: 0 20px 12px !important; }
   .st-key-risk_cash_banner { padding: 11px 16px !important; border-radius: 8px !important; }
   .st-key-risk_cash_banner button p { color: var(--link) !important; font-size: 12px !important;
     white-space: nowrap !important; }
@@ -1161,13 +1163,15 @@ GLOBAL_CSS = """
   /* Same -1rem margin on the summary card: it under-reported the year table's
      height so overflow:hidden clipped the last year row by 15px, and pulled
      the title block off the Export button's centre line (both live-measured). */
-  /* Tax-estimate box under the annual summary: a plain 8px box, not a card. */
+  .st-key-pf_card_tax_years [data-testid="stMarkdownContainer"] {
+    margin-bottom: 0 !important;
+  }
+  /* Tax-estimate box under the annual summary: a plain 8px box, not a card.
+     Keep it outside the selector list above, or every row's markdown gets
+     its padding (the ledger pencil then overflowed the card). */
   .st-key-pf_card_tax_note {
     padding: 14px 16px !important; border-radius: 8px !important; background: var(--panel) !important;
     box-shadow: none !important; border-color: var(--line) !important;
-  }
-  .st-key-pf_card_tax_years [data-testid="stMarkdownContainer"] {
-    margin-bottom: 0 !important;
   }
   /* Annual dividend income summary — the card itself is padding:0 (pf_card_
      rule above), so its title bar carries the mockup's 18px/20px inset; the
