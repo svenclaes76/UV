@@ -34,7 +34,6 @@ founder's and in which countries.
 | # | Item |
 | --- | --- |
 | D5 | Claude Design project still contradicts decided rules (11 October 2026): model differences below price in `--down-txt` (decided: `--amber-txt`), the Risk "Size" flag in `--faint`, the "Fails screen" chip label, "hard veto" texts, the 30px legal title, lowercase "dark/light" in Settings, a red "Dividend cut detected" box (app: amber). Fix there so the next assessment doesn't re-flag them. |
-| D2 | `uvalu.ui._donut_chart` is no longer used by the app (tests still cover it); remove or reuse. |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
 
 ## Product backlog

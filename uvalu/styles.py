@@ -1946,24 +1946,6 @@ GLOBAL_CSS = """
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Sidebar footer ──────────────────────────────────────────────────────── */
-  .uv-bottom    {
-    position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
-    background: transparent;
-    border-top: 0.5px solid rgba(128,128,128,0.20); box-sizing: border-box;
-  }
-  .uv-bottom-email { font-size: 0.7rem; opacity: 0.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-  .uv-logout {
-    display: inline-flex; align-items: center;
-    padding: 0 12px; height: 30px; line-height: 30px;
-    font-size: 0.78rem; font-weight: 400;
-    color: inherit !important; text-decoration: none !important;
-    border: 0.5px solid rgba(128,128,128,0.35); border-radius: 6px;
-    background: transparent; transition: border-color 0.12s, opacity 0.12s;
-    white-space: nowrap; flex-shrink: 0;
-  }
-  .uv-logout:hover { border-color: var(--teal); color: var(--text) !important; }
-
   /* ── Dialogs ─────────────────────────────────────────────────────────────── */
   [data-testid="stDialog"] [role="dialog"],
   [data-testid="stModal"] > div,

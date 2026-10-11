@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 08:58+0000\n"
+"POT-Creation-Date: 2026-10-11 12:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3538,17 +3538,6 @@ msgstr ""
 msgid "About this version and what's new"
 msgstr ""
 
-#. Context: Dashboard › empty state of the allocation chart
-#: uvalu/pages_/dashboard.py:622 uvalu/ui.py:317
-msgid "No data available for this breakdown."
-msgstr ""
-
-#. Context: Sector allocation donut › uppercase label above the total in the
-#. centre
-#: uvalu/ui.py:362
-msgid "TOTAL"
-msgstr ""
-
 #: uvalu/update_notice.py:89
 #, python-brace-format
 msgid "Uvalu was updated to version {version}."
@@ -4765,6 +4754,11 @@ msgstr ""
 #. Context: Dashboard › card heading for the sector pie chart
 #: uvalu/pages_/dashboard.py:599
 msgid "Sector allocation"
+msgstr ""
+
+#. Context: Dashboard › empty state of the allocation chart
+#: uvalu/pages_/dashboard.py:622
+msgid "No data available for this breakdown."
 msgstr ""
 
 #. Context: Dashboard › card heading

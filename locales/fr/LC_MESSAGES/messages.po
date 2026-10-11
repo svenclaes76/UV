@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-11 08:58+0000\n"
+"POT-Creation-Date: 2026-10-11 12:13+0000\n"
 "PO-Revision-Date: 2026-10-11 13:42+0200\n"
 "Last-Translator: \n"
 "Language-Team: fr <LL@li.org>\n"
@@ -3410,17 +3410,6 @@ msgstr "L’app attend la fin d’une mise à jour des données. Réessaie dans 
 msgid "About this version and what's new"
 msgstr "À propos de cette version et nouveautés"
 
-#. Context: Dashboard › empty state of the allocation chart
-#: uvalu/pages_/dashboard.py:622 uvalu/ui.py:317
-msgid "No data available for this breakdown."
-msgstr "Aucune donnée disponible pour cette répartition."
-
-#. Context: Sector allocation donut › uppercase label above the total in the
-#. centre
-#: uvalu/ui.py:362
-msgid "TOTAL"
-msgstr "TOTAL"
-
 #: uvalu/update_notice.py:89
 #, python-brace-format
 msgid "Uvalu was updated to version {version}."
@@ -4571,6 +4560,11 @@ msgstr "Aucune donnée du screener disponible pour tes positions."
 #: uvalu/pages_/dashboard.py:599
 msgid "Sector allocation"
 msgstr "Répartition sectorielle"
+
+#. Context: Dashboard › empty state of the allocation chart
+#: uvalu/pages_/dashboard.py:622
+msgid "No data available for this breakdown."
+msgstr "Aucune donnée disponible pour cette répartition."
 
 #. Context: Dashboard › card heading
 #: uvalu/pages_/dashboard.py:627
@@ -7016,3 +7010,6 @@ msgstr[1] "Pas encore de données du screener pour tes tickers suivis : elles ap
 
 #~ msgid "Discount rate {rate}"
 #~ msgstr "Taux d'actualisation {rate}"
+
+#~ msgid "TOTAL"
+#~ msgstr "TOTAL"

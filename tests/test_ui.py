@@ -79,37 +79,6 @@ class TestStaticBar:
         assert len(at.get("plotly_chart")) == 0
 
 
-# ── _donut_chart ───────────────────────────────────────────────────────────
-
-class TestDonutChart:
-    def test_shows_info_when_empty(self):
-        def _script():
-            import pandas as pd
-            from uvalu.ui import _donut_chart
-            _donut_chart(pd.Series(dtype=float))
-
-        at = _run(_script)
-        assert "No data available" in "".join(i.value for i in at.info)
-
-    def test_shows_info_when_only_bad_or_nonpositive_values(self):
-        def _script():
-            import pandas as pd
-            from uvalu.ui import _donut_chart
-            _donut_chart(pd.Series({"Unknown": 0.0, "n/a": 5.0, "": 3.0}))
-
-        at = _run(_script)
-        assert "No data available" in "".join(i.value for i in at.info)
-
-    def test_renders_chart_for_valid_series(self):
-        def _script():
-            import pandas as pd
-            from uvalu.ui import _donut_chart
-            _donut_chart(pd.Series({"Technology": 700.0, "Healthcare": 300.0}))
-
-        at = _run(_script)
-        assert len(at.get("plotly_chart")) == 1
-
-
 # ── _row_select_table ──────────────────────────────────────────────────────
 
 class TestRowSelectTable:

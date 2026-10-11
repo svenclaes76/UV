@@ -1,4 +1,4 @@
-"""Reusable rendering helpers: static charts, donut, treemap color, and the
+"""Reusable rendering helpers: static charts, the chart palette, treemap color, and the
 click-to-select dataframe / timed auto-refresh widgets.
 
 Theme-dependent helpers resolve the active palette via ``theme_colors()`` so
@@ -12,13 +12,14 @@ import streamlit as st
 
 from portfolio import set_user
 from uvalu import logkit
-from uvalu.i18n import _, fmt_compact, fmt_pct, fmt_total, h_, localize_fig, to_display, tr
+from uvalu.i18n import localize_fig, tr
 from uvalu.market_hours import is_market_hours
 from uvalu.runtime import brand_hoverlabel, current_user, theme_colors
 
 _CHART_CONFIG = {"staticPlot": True, "displayModeBar": False}
 
-# Brand-aligned categorical palette for donut / pie charts.
+# Brand-aligned categorical palette for donut / pie charts (components.py's
+# sector donut).
 # Stays in the teal-blue-sage family; red/orange reserved for danger signals only.
 _DONUT_PALETTE = [
     "#1DD6A4",  # Mint Pulse      — primary slot
@@ -300,72 +301,6 @@ def _static_bar(series: "pd.Series", title: str = "", color: str | None = None) 
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(size=12, color=_ax_color),
-        hoverlabel=brand_hoverlabel(),
-    )
-    localize_fig(fig, date_axis=None)
-    st.plotly_chart(fig, width="stretch", config=_CHART_CONFIG)
-
-
-def _donut_chart(series: "pd.Series", title: str = "") -> None:
-    """Render a static donut chart showing proportional breakdown of a value series."""
-    _C = theme_colors()
-    _c_surface, _c_text = _C.surface, _C.text
-    _bad = {"", "nan", "none", "undefined", "<na>", "n/a"}
-    _clean = series[series.index.map(lambda k: pd.notna(k) and str(k).strip().lower() not in _bad)]
-    _clean = _clean[_clean > 0]
-    if _clean.empty:
-        st.info(_("No data available for this breakdown."))
-        return
-    _vals   = _clean.values.tolist()
-    _total  = sum(_vals)
-    _pcts   = [v / _total * 100 for v in _vals]
-    # The share is in the legend ("Real Estate 32,2 %"), not printed on the
-    # slices: in a third-width card the slice labels overlapped each other
-    # and the pie was ~70px wide (visual review D4). Pie full width on top,
-    # legend underneath.
-    _labels = [f"{tr(str(k))}  {fmt_pct(p)}" for k, p in zip(_clean.index, _pcts)]
-    _n      = len(_labels)
-    _colors = [_DONUT_PALETTE[i % len(_DONUT_PALETTE)] for i in range(_n)]
-    _pie_h, _row_h = 190, 19
-    fig = go.Figure(go.Pie(
-        labels=_labels,
-        values=_vals,
-        hole=0.6,
-        sort=False,
-        textinfo="none",
-        customdata=[fmt_total(v) for v in _vals],
-        hovertemplate="%{label}: %{customdata}<extra></extra>",
-        marker=dict(
-            colors=_colors,
-            line=dict(color=_c_surface, width=2),
-        ),
-    ))
-    _tv, _tccy, _tconv = to_display(_total)
-    _total_short = (("≈ " if _tconv else "") + fmt_compact(_tv, currency=_tccy)
-                    if _total >= 10_000 else fmt_total(_total))
-    fig.update_layout(
-        margin=dict(l=4, r=4, t=36 if title else 4, b=_row_h * _n + 8),
-        title=dict(text=title or ""),
-        height=_pie_h + _row_h * _n + 12 + (32 if title else 0),
-        showlegend=True,
-        legend=dict(
-            orientation="v",
-            x=0, xanchor="left",
-            y=-0.04, yanchor="top",
-            font=dict(size=11.5, color=_c_text),
-            itemclick=False, itemdoubleclick=False,
-            tracegroupgap=0,
-        ),
-        # "TOTAL / <value>" in the donut hole, matching Uvalu.dc.html's
-        # compact donut.
-        annotations=[
-            dict(text=f"{h_('TOTAL')}<br><b>{_total_short}</b>", x=0.5, y=0.5, showarrow=False,
-                xanchor="center", yanchor="middle",
-                font=dict(size=12, color=_c_text), align="center"),
-        ],
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12, color=_c_text),
         hoverlabel=brand_hoverlabel(),
     )
     localize_fig(fig, date_axis=None)
