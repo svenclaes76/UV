@@ -155,6 +155,13 @@ class TestNotices:
         html = at.markdown[0].value
         assert 'href="/legal?doc=terms"' in html and "Terms →" in html
         assert "border-radius:8px" in html          # stays a rounded box (G01)
+        assert "justify-content:center" in html     # text centred (design reference)
+
+    def test_inactive_nav_links_reach_the_label(self):
+        """Streamlit 1.60 gives the link label its own <span> colour; the nav
+        CSS has to override it, or every link reads as active (GL-03)."""
+        css = shell._topbar_css("screener")
+        assert '.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] * { color: inherit !important; }' in css
 
     def test_peer_rebuild_strip_shown_only_while_pending(self, monkeypatch):
         from uvalu import data

@@ -909,6 +909,9 @@ def _admin_shell_css(active: str) -> str:
    `display:flex;justify-content:center`, which is what was actually
    centering the icon+label despite the outer rule above. */
 .st-key-admin_sidebar button > div {{ justify-content: flex-start !important; }}
+/* Streamlit 1.60 colours the button's inner wrapper itself, so --muted /
+   --mint on the button never reached the label or the icon. */
+.st-key-admin_sidebar button * {{ color: inherit !important; }}
 .st-key-admin_sidebar button:hover {{ background: var(--line-2) !important; color: var(--text) !important; }}
 .st-key-admin_navbtn_{active} button {{
   background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;

@@ -119,3 +119,22 @@ def test_no_selectors_for_retired_streamlit_test_ids():
     assert "stBaseButton-pills" not in css
     assert "stBaseButton-segmented_control" not in css
     assert 'button[data-variant="segmented_control"][aria-checked="true"]' in css
+
+
+def test_button_labels_inherit_from_their_button():
+    """Streamlit 1.60 renders a button label in its own <p> at 14px; the
+    shared rule makes it inherit size, weight, colour and font from the
+    button (S01), at :where() specificity so keyed overrides still win."""
+    css = re.sub(r"/\*.*?\*/", "", GLOBAL_CSS, flags=re.S)
+    assert ':where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"]) { font-size: 12.5px !important; }' in css
+    assert '[data-testid="stMarkdownContainer"] p) {' in css
+    assert "font-size: inherit !important; font-weight: inherit !important; color: inherit !important;" in css
+
+
+def test_top_nav_icons():
+    """Top navigation uses the reference's Material Symbols (GL-04)."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "app.py").read_text(encoding="utf-8")
+    for page, icon in [("Dashboard", "home"), ("Screener", "monitoring"), ("Watchlist", "star"),
+                       ("Portfolio", "work"), ("Risk", "shield")]:
+        assert re.search(rf'title=_\("{page}"\),\s*icon=":material/{icon}:"', src), page

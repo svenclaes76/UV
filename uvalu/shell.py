@@ -235,8 +235,11 @@ def _topbar_css(active_path: str) -> str:
   color: var(--muted) !important; white-space: nowrap !important;
 }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] p {{
-  font-size: 13px !important; font-weight: 500 !important; color: inherit !important;
+  font-size: 13px !important; font-weight: 500 !important;
 }}
+/* Streamlit 1.60 wraps the label in a <span> with its own text colour, so
+   the link's --muted / --text never reached the label or the icon. */
+.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] * {{ color: inherit !important; }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
   font-size: 16px !important;
 }}
@@ -470,14 +473,15 @@ def producer_line() -> str:
 
 def render_beta_banner() -> None:
     """The beta notice: a rounded box inside the page gutter (brand §8, G01),
-    with the Terms of use one click away."""
+    text centred as in the design reference, with the Terms of use one click
+    away."""
     from uvalu.compliance import disclosures as d
     if not d.BETA:
         return
     st.markdown(
-        '<div class="uv-beta-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;'
-        'color:var(--muted);background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
-        'padding:6px 12px;margin:-6px 0 4px;">'
+        '<div class="uv-beta-box" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;'
+        'gap:4px 10px;font-size:11.5px;color:var(--muted);background:var(--soft);border:0.5px solid var(--line);'
+        'border-radius:8px;padding:7px 14px;margin:-6px 0 4px;text-align:center;">'
         f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Beta"))}</span>'
         f'<span style="min-width:0;">{html.escape(tr(d.BETA_BANNER))}</span>'
         f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'

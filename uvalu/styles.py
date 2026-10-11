@@ -69,6 +69,41 @@ GLOBAL_CSS = """
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 
+  /* ── Buttons and segmented controls: one label size (design reference,
+     buttons 12.5px, primary 500, 16px icon with a 7px gap). Streamlit 1.60
+     puts the label in its own <p> with a 14px size and its own colour, so a
+     size or colour set on a button never reached the text. The label now
+     inherits from its button; :where() keeps these rules at the lowest
+     specificity, so every keyed override below (and its own `button p`
+     rules) still wins. */
+  :where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"]) { font-size: 12.5px !important; }
+  :where(button[data-testid="stBaseButton-primary"],
+         button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stPopoverButton"],
+         button[data-testid="stBaseButton-primaryFormSubmit"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"]) {
+    min-height: 34px !important; padding: 6px 13px !important; gap: 7px !important;
+  }
+  :where(button[data-testid="stBaseButton-tertiary"]) { min-height: 34px !important; }
+  :where(button[data-testid="stBaseButton-primary"],
+         button[data-testid="stBaseButton-primaryFormSubmit"]) { font-weight: 500 !important; }
+  :where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"], button[data-variant]) :where([data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p) {
+    font-size: inherit !important; font-weight: inherit !important; color: inherit !important;
+    font-family: inherit !important;
+  }
+  :where(button[data-testid^="stBaseButton-"]) :where([data-testid="stIconMaterial"]) { font-size: 16px !important; }
+  /* Outline buttons read --muted and turn --text on hover (the mockups'
+     Export CSV, Deposit, Save … buttons). Streamlit colours the button's
+     inner wrapper itself, so its descendants inherit explicitly. */
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]) { color: var(--muted) !important; }
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]):where(:hover:not(:disabled)) {
+    color: var(--text) !important; border-color: var(--teal) !important;
+  }
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]) :where(*) { color: inherit !important; }
+
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
   [data-testid="stHeadingWithActionElements"] { margin-top: 0.5rem !important; margin-bottom: 0.15rem !important; padding: 0 !important; }
   [data-testid="stHeadingWithActionElements"] h3 { margin: 0 !important; padding: 0 !important; font-size: 1.1rem !important; line-height: 1.3 !important; }
@@ -1546,6 +1581,8 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
+  /* Currency codes in monospace (EUR / USD / GBP / CHF). */
+  .st-key-set_row_i18n_currency button[data-variant="segmented_control"] { font-family: var(--uv-mono) !important; }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px
      20px 16px` grid instead of a bare st.columns pair. Unlike the set_row_
      rows above (a seamless list of touching rows, where the native 16px
