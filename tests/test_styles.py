@@ -138,3 +138,19 @@ def test_top_nav_icons():
     for page, icon in [("Dashboard", "home"), ("Screener", "monitoring"), ("Watchlist", "star"),
                        ("Portfolio", "work"), ("Risk", "shield")]:
         assert re.search(rf'title=_\("{page}"\),\s*icon=":material/{icon}:"', src), page
+
+
+def test_long_form_tables_and_lead_ins():
+    """LG-01/LG-02: document tables use the reference's header and cell
+    styles; bold lead-ins read --text."""
+    css = re.sub(r"/\*.*?\*/", "", GLOBAL_CSS, flags=re.S)
+    assert '.st-key-uv_support_content [data-testid="stMarkdownContainer"] th {' in css
+    assert "text-transform: uppercase; color: var(--muted) !important;" in css
+    assert '[data-testid="stMarkdownContainer"] strong { color: var(--text); font-weight: 600; }' in css
+
+
+def test_legal_meta_chips_have_no_colon():
+    """LG-03: "Version beta 1.0", not "Version: beta 1.0"."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "uvalu/pages_/legal.py").read_text(encoding="utf-8")
+    assert 'f"{html.escape(label)} <b' in src and 'f"{html.escape(label)}: <b' not in src

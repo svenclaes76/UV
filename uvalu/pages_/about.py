@@ -41,6 +41,9 @@ _CSS = """
 .st-key-about_build [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
 /* Same pull-up slid the first release row under the "What's new" heading. */
 .st-key-about_notes > [data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+/* What's new lead-ins ("Find new ideas faster …"): 500 in --text (design
+   reference); the long-form rule in styles.py gives legal lead-ins 600. */
+.st-key-about_notes [data-testid="stMarkdownContainer"] strong { font-weight: 500 !important; color: var(--text) !important; }
 .uv-about-rows { display: grid; grid-template-columns: 140px minmax(0, 1fr); margin: 0; }
 .uv-about-rows > * { padding: 10px 20px; font-size: 13px; border-bottom: 0.5px solid var(--line-2); margin: 0; }
 .uv-about-rows > dt { color: var(--muted); }

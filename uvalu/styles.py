@@ -1374,6 +1374,29 @@ GLOBAL_CSS = """
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
     font-size: 14px; line-height: 1.65; color: var(--muted); max-width: 72ch;
   }
+  /* Bold lead-ins ("Same for everyone.") in --text, like the mockup's
+     legal renderer. */
+  .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] strong { color: var(--text); font-weight: 600; }
+  /* Tables in long-form documents (LG-01): a hairline box, a --panel-2
+     header row in 10.5px uppercase, 12.5px muted cells. */
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] table {
+    border-collapse: separate !important; border-spacing: 0; width: 100%;
+    border: 0.5px solid var(--line) !important; border-radius: 8px; overflow: hidden; margin: 14px 0 0;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] th,
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] td {
+    border: none !important; padding: 11px 16px !important; text-align: left; vertical-align: top;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] th {
+    background: var(--panel-2); border-bottom: 0.5px solid var(--line) !important;
+    font-size: 10.5px !important; font-weight: 500 !important; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--muted) !important;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] td {
+    font-size: 12.5px !important; line-height: 1.55; color: var(--muted) !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] tr:last-child td { border-bottom: none !important; }
   /* Bullets in the link colour (LG-04). */
   .st-key-uv_support_content [data-testid="stMarkdown"] li::marker { color: var(--link); }
   .uv-rail-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 16px 0 0 12px; max-width: 188px; }

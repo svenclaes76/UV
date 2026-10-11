@@ -207,7 +207,8 @@ def _document(doc: str, path, translated: bool, title: str, meta, body: str) -> 
                         unsafe_allow_html=True, width="content")
             _print_button()
         with st.container(key="legal_doc_head"):
-            chips = "".join(_chip(f"{html.escape(label)}: <b style='font-weight:500;color:var(--text);'>"
+            # "Version beta 1.0" without the colon, as in the design reference.
+            chips = "".join(_chip(f"{html.escape(label)} <b style='font-weight:500;color:var(--text);'>"
                                   f"{html.escape(value)}</b>") for label, value in meta)
             ref_note = (f'<div style="font-size:12px;color:var(--muted);margin-top:10px;">'
                         f'{html.escape(tr(d.REFERENCE_LANGUAGE_NOTE))}</div>'
