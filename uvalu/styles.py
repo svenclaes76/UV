@@ -42,9 +42,10 @@ GLOBAL_CSS = """
     --grid:rgba(255,255,255,0.06); --axis:rgba(245,247,250,0.5);
     --tile:#0B1D3D; --shadow:0 1px 2px rgba(0,0,0,0.4);
     /* Brand v1.3: link text (Signal Teal is 4.2:1 on white, too low for
-       small text), the wordmark's final "u", and the badge fills that have
-       no semantic token of their own. */
-    --link:#3FBF98; --logo-accent:#1DD6A4;
+       small text), the badge fills that have no semantic token of their own,
+       and the top-bar lockup's two inks (uvalu/logo.py): --logo-ring for the
+       rings and wordmark, --logo-accent for the lens and the final "u". */
+    --link:#3FBF98; --logo-accent:#1DD6A4; --logo-ring:#FFFFFF;
     --veto-bg:#1E2D4A; --veto-line:rgba(245,247,250,0.18); --nosig-bg:rgba(245,247,250,0.07);
   }
   [data-theme="light"] {
@@ -56,7 +57,7 @@ GLOBAL_CSS = """
     --amber-bg:#FDF0E8; --amber-txt:#854F0B; --amber-fill:#C98A3A;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
     --tile:#F5F7FA; --shadow:0 1px 3px rgba(13,31,60,0.08);
-    --link:#167A60; --logo-accent:#1A8C6E;
+    --link:#167A60; --logo-accent:#1A8C6E; --logo-ring:#0D1F3C;
     --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
   }
 
@@ -68,6 +69,41 @@ GLOBAL_CSS = """
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+
+  /* ── Buttons and segmented controls: one label size (design reference,
+     buttons 12.5px, primary 500, 16px icon with a 7px gap). Streamlit 1.60
+     puts the label in its own <p> with a 14px size and its own colour, so a
+     size or colour set on a button never reached the text. The label now
+     inherits from its button; :where() keeps these rules at the lowest
+     specificity, so every keyed override below (and its own `button p`
+     rules) still wins. */
+  :where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"]) { font-size: 12.5px !important; }
+  :where(button[data-testid="stBaseButton-primary"],
+         button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stPopoverButton"],
+         button[data-testid="stBaseButton-primaryFormSubmit"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"]) {
+    min-height: 34px !important; padding: 6px 13px !important; gap: 7px !important;
+  }
+  :where(button[data-testid="stBaseButton-tertiary"]) { min-height: 34px !important; }
+  :where(button[data-testid="stBaseButton-primary"],
+         button[data-testid="stBaseButton-primaryFormSubmit"]) { font-weight: 500 !important; }
+  :where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"], button[data-variant]) :where([data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p) {
+    font-size: inherit !important; font-weight: inherit !important; color: inherit !important;
+    font-family: inherit !important;
+  }
+  :where(button[data-testid^="stBaseButton-"]) :where([data-testid="stIconMaterial"]) { font-size: 16px !important; }
+  /* Outline buttons read --muted and turn --text on hover (the mockups'
+     Export CSV, Deposit, Save … buttons). Streamlit colours the button's
+     inner wrapper itself, so its descendants inherit explicitly. */
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]) { color: var(--muted) !important; }
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]):where(:hover:not(:disabled)) {
+    color: var(--text) !important; border-color: var(--teal) !important;
+  }
+  :where(button[data-testid="stBaseButton-secondary"],
+         button[data-testid="stBaseButton-secondaryFormSubmit"], button[data-testid="stPopoverButton"]) :where(*) { color: inherit !important; }
 
   /* ── Subheader spacing ───────────────────────────────────────────────────── */
   [data-testid="stHeadingWithActionElements"] { margin-top: 0.5rem !important; margin-bottom: 0.15rem !important; padding: 0 !important; }
@@ -1339,6 +1375,29 @@ GLOBAL_CSS = """
   .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] li {
     font-size: 14px; line-height: 1.65; color: var(--muted); max-width: 72ch;
   }
+  /* Bold lead-ins ("Same for everyone.") in --text, like the mockup's
+     legal renderer. */
+  .st-key-uv_support_content [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] strong { color: var(--text); font-weight: 600; }
+  /* Tables in long-form documents (LG-01): a hairline box, a --panel-2
+     header row in 10.5px uppercase, 12.5px muted cells. */
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] table {
+    border-collapse: separate !important; border-spacing: 0; width: 100%;
+    border: 0.5px solid var(--line) !important; border-radius: 8px; overflow: hidden; margin: 14px 0 0;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] th,
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] td {
+    border: none !important; padding: 11px 16px !important; text-align: left; vertical-align: top;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] th {
+    background: var(--panel-2); border-bottom: 0.5px solid var(--line) !important;
+    font-size: 10.5px !important; font-weight: 500 !important; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--muted) !important;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] td {
+    font-size: 12.5px !important; line-height: 1.55; color: var(--muted) !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  .st-key-uv_support_content [data-testid="stMarkdownContainer"] tr:last-child td { border-bottom: none !important; }
   /* Bullets in the link colour (LG-04). */
   .st-key-uv_support_content [data-testid="stMarkdown"] li::marker { color: var(--link); }
   .uv-rail-note { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 16px 0 0 12px; max-width: 188px; }
@@ -1546,6 +1605,16 @@ GLOBAL_CSS = """
   [class*="st-key-set_row_"] button[data-variant="segmented_control"][aria-checked="true"] {
     background: var(--panel) !important; color: var(--text) !important; box-shadow: var(--shadow) !important;
   }
+  /* Language & region preview: one --panel-2 band with the sample values and
+     the "Try a number" field inside it (design reference). */
+  .st-key-set_i18n_preview_band {
+    margin: 6px 20px 0 !important; padding: 12px 16px !important; width: auto !important;
+    background: var(--panel-2); border-radius: 8px; gap: 12px !important;
+  }
+  .st-key-set_i18n_preview_band [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  .st-key-set_i18n_try input { background: var(--panel) !important; font-size: 12.5px !important; }
+  /* Currency codes in monospace (EUR / USD / GBP / CHF). */
+  .st-key-set_row_i18n_currency button[data-variant="segmented_control"] { font-family: var(--uv-mono) !important; }
   /* Screening rules — 2x2 slider grid, matching the mockup's `padding:6px
      20px 16px` grid instead of a bare st.columns pair. Unlike the set_row_
      rows above (a seamless list of touching rows, where the native 16px
@@ -1877,14 +1946,7 @@ GLOBAL_CSS = """
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Sidebar logo + footer ───────────────────────────────────────────────── */
-  .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
-  .uv-logo-wordmark {
-    font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
-    line-height: 1;
-  }
-  .uv-logo-accent { color: #1A8C6E; }
-  .uv-logo-sub  { font-size: 0.65rem; opacity: 0.3; margin-top: 3px; }
+  /* ── Sidebar footer ──────────────────────────────────────────────────────── */
   .uv-bottom    {
     position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
     background: transparent;

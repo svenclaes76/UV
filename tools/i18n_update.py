@@ -306,6 +306,19 @@ def _read_previous(path: Path) -> dict:
     return out
 
 
+def drop_revived_obsolete(catalog: Catalog) -> int:
+    """Remove obsolete (``#~``) entries whose msgid is active again.
+
+    Babel keeps an obsolete entry it read from the file even when the same
+    text is back in the code, so the file defines the message twice; msgfmt
+    and Poedit then reject it ("duplicate message definition"). The active
+    entry keeps the translation and its review state."""
+    revived = [key for key, m in catalog.obsolete.items() if catalog.get(m.id, context=m.context) is not None]
+    for key in revived:
+        del catalog.obsolete[key]
+    return len(revived)
+
+
 def _write(path: Path, catalog: Catalog) -> None:
     _normalize_format_flags(catalog)
     for m in catalog:   # Babel's reader files "#| msgid" lines under translator comments
@@ -355,6 +368,7 @@ def main(check: bool) -> int:
         lang = po_path.parts[-3]
         cat = _read(po_path, locale=lang)
         cat.update(new, no_fuzzy_matching=False, update_header_comment=False, keep_user_comments=True)
+        drop_revived_obsolete(cat)
         _write(po_path, cat)
         print(f"updated {po_path.relative_to(ROOT)}")
     return 0

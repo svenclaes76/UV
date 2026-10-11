@@ -599,6 +599,17 @@ def _ladder_bar_color(delta_pct: float) -> str:
     return "var(--amber-fill)"
 
 
+def _ladder_text_color(delta_pct: float) -> str:
+    """Text colour for a model's difference to the price, next to its bar:
+    the same three bands as `_ladder_bar_color`, but in text tokens — brand
+    v1.3 keeps --amber-fill for bars and swatches, --amber-txt for text."""
+    if delta_pct > _NEAR_FAIR_BAND:
+        return "var(--up-txt)"
+    if delta_pct >= -_NEAR_FAIR_BAND:
+        return "var(--muted)"
+    return "var(--amber-txt)"
+
+
 # ── Score bands and margin-of-safety colour ──────────────────────────────────
 # One scale for every 0-100 model score (composite and sub-scores): the upper
 # band starts at the shared Undervalued threshold (Settings › Model settings,
@@ -656,10 +667,11 @@ def _is_live(v) -> bool:
 def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
     """The ordered (label, value) list for the drawer / Analysis "Six-model fair
     value" ladder. Always six rows in a fixed order (Graham, P/E, EPV, DDM
-    single, DDM 2-stage, Analyst). FV-3: when a book-value or FCF *fallback*
+    single stage, dividend multi-stage, Analyst). FV-3: when a book-value or FCF *fallback*
     produced a value (they only do so for a loss-maker where none of
     Graham / P·E / EPV could be computed), it is slotted into the first
-    still-dark of those three rows and relabelled "Book value" / "FCF value" —
+    still-dark of those three rows and relabelled "Book value (fallback)" /
+    "FCF value (fallback)" —
     so the ladder stays six rows rather than sprouting a seventh/eighth that is
     dark for every healthy stock. Callers show the explanatory caption when
     `row` carries a live `pb_fair_value` / `fcf_fair_value`.
@@ -668,16 +680,18 @@ def six_model_ladder_rows(row) -> list[tuple[str, "float | None"]]:
         [N_("Graham Number"),     row.get("graham_number")],
         [N_("P/E fair value"),    row.get("pe_fair_value")],
         ["EPV",                   row.get("epv")],
-        [N_("Dividend discount"), row.get("ddm")],
-        [N_("DDM 2-stage"),       row.get("ddm_multistage")],
+        # Names as in the design reference's model list; the Methodology page
+        # uses the legal Methodology document's long names (G06).
+        [N_("Dividend, single stage"), row.get("ddm")],
+        [N_("Dividend, multi-stage"),  row.get("ddm_multistage")],
     ]
     # DATA-6: the analyst target is licensed separately; it is only a model
     # (and only shown) while screener.ANALYST_INPUTS_ENABLED is on.
     from screener import ANALYST_INPUTS_ENABLED
     if ANALYST_INPUTS_ENABLED:
         rows.append([N_("Analyst Target"), row.get("targetMeanPrice")])
-    fallbacks = [(N_("Book value"), row.get("pb_fair_value")),
-                 (N_("FCF value"),  row.get("fcf_fair_value"))]
+    fallbacks = [(N_("Book value (fallback)"), row.get("pb_fair_value")),
+                 (N_("FCF value (fallback)"),  row.get("fcf_fair_value"))]
     for label, value in fallbacks:
         if not _is_live(value):
             continue
@@ -725,8 +739,8 @@ def six_model_ladder_reasons(row) -> dict:
         if not text:
             continue
         if key == "ddm":
-            out["Dividend discount"] = text
-            out["DDM 2-stage"] = text
+            out["Dividend, single stage"] = text
+            out["Dividend, multi-stage"] = text
         elif key in _REASON_LABELS:
             out[_REASON_LABELS[key]] = text
     return out
@@ -739,13 +753,14 @@ def six_model_ladder_caption(row) -> "str | None":
     parts = []
     # Name only the fallbacks the ladder actually shows (a live value that
     # found no dark Graham/P/E/EPV slot isn't on screen to explain).
-    shown = {lbl for lbl, _v in six_model_ladder_rows(row)} & {"Book value", "FCF value"}
-    if shown == {"Book value", "FCF value"}:
-        parts.append(_("“Book value” / “FCF value” stand in where a core model (Graham, P/E, EPV) couldn’t be computed."))
-    elif shown == {"Book value"}:
-        parts.append(_("“Book value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
-    elif shown == {"FCF value"}:
-        parts.append(_("“FCF value” stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    _book, _fcf = "Book value (fallback)", "FCF value (fallback)"
+    shown = {lbl for lbl, _v in six_model_ladder_rows(row)} & {_book, _fcf}
+    if shown == {_book, _fcf}:
+        parts.append(_("The book value and FCF fallbacks stand in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {_book}:
+        parts.append(_("The book value fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
+    elif shown == {_fcf}:
+        parts.append(_("The FCF fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."))
     if _is_live(row.get("targetMeanPrice")):
         parts.append(_("The composite applies a −10% optimism haircut to the Analyst Target shown."))
     return " ".join(parts) if parts else None
@@ -814,7 +829,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
                f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:4px;background:var(--uv-track,#EEF1F5);position:relative;">'
                f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:4px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
                f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{fmt_money(value, ccy, 0)}</span>'
-               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{color};">{fmt_pct(delta_pct, signed=True)}</span></div>')
+               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{_ladder_text_color(delta_pct)};">{fmt_pct(delta_pct, signed=True)}</span></div>')
 
     rows_html = "".join(_row(lbl, v) for lbl, v in models)
 
@@ -831,8 +846,8 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
         # design's smaller demo figures, and would overflow its fixed 64px
         # column at 2dp), so it can show full 2-decimal precision safely.
         composite_html = (f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">'
-                          f'<span style="flex:1;font-size:12.5px;font-weight:600;">{tr(composite_label)}</span>'
-                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
+                          f'<span style="flex:1;font-size:12.5px;font-weight:500;">{tr(composite_label)}</span>'
+                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:500;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
 
     # FV-6: "basis" line — how many sub-models actually back the composite, and a
     # muted flag when that's a weakly-corroborated one (fv_basis_thin).
@@ -1687,7 +1702,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1776,7 +1791,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1945,7 +1960,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
 
     _num = "text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);"
     _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:6px;white-space:nowrap;"
-    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
@@ -2015,7 +2030,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
     templated header for aligned column labels."""
     name = _name_html(name)
-    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     _beta_str = fmt_num(beta, 2)
     _vol_str = fmt_pct(vol_pct, 0)

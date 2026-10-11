@@ -225,6 +225,7 @@ def _render_brand_panel() -> None:
     # footer only renders behind the wall). Model count per decision D3:
     # Graham, P/E, EPV and the two dividend models (plus two fallbacks).
     from uvalu.compliance import disclosures as _disc
+    from uvalu.logo import lockup_svg      # dark lockup, 48px: the panel is always navy
     from uvalu.shell import producer_line
     # The legal links are readable before sign-in (auth_wall renders /legal
     # publicly). #3FBF98: the dark-theme --link, on this always-navy panel.
@@ -240,8 +241,8 @@ def _render_brand_panel() -> None:
     # divs: .uv-login-brand fills the panel and pushes the legal text down.
     st.markdown(f"""
     <div class="uv-login-brand">
-    <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
-      <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
+    <div style="display:flex;align-items:center;gap:23px;position:relative;z-index:2;">
+      {lockup_svg(48, theme_tokens=False)}
       <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">{h_("value engine")}</span>
     </div>
     <div style="position:relative;z-index:2;">

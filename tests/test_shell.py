@@ -155,6 +155,13 @@ class TestNotices:
         html = at.markdown[0].value
         assert 'href="/legal?doc=terms"' in html and "Terms →" in html
         assert "border-radius:8px" in html          # stays a rounded box (G01)
+        assert "justify-content:center" in html     # text centred (design reference)
+
+    def test_inactive_nav_links_reach_the_label(self):
+        """Streamlit 1.60 gives the link label its own <span> colour; the nav
+        CSS has to override it, or every link reads as active (GL-03)."""
+        css = shell._topbar_css("screener")
+        assert '.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] * { color: inherit !important; }' in css
 
     def test_peer_rebuild_strip_shown_only_while_pending(self, monkeypatch):
         from uvalu import data
@@ -185,3 +192,16 @@ class TestNotices:
         assert "Couldn’t load this page. Try again in a moment." in html
         assert "background:var(--down-bg)" in html and "Reference for support:" in html
         assert 'font-family:var(--uv-mono);' in html
+
+
+def test_top_bar_shows_the_consensus_lockup():
+    """Logo plan L2: the outlined lockup at a 26px mark height, colours from
+    the theme tokens; no live-text wordmark."""
+    at = AppTest.from_string(
+        "from uvalu import shell, nav\n"
+        "class _N: url_path = 'screener'\n"
+        "shell.render_topbar(_N())\n", default_timeout=60)
+    at.run()
+    html = "".join(m.value for m in at.markdown)
+    assert 'aria-label="Uvalu"' in html and 'height="26"' in html
+    assert "var(--logo-ring)" in html and "uval<span" not in html

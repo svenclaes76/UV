@@ -592,3 +592,33 @@ def test_negative_money_puts_the_minus_in_front_like_the_plus(region):
 
 def test_negative_money_with_the_symbol_after_is_unchanged():
     assert i18n.fmt_money(-86.01, "EUR", locale="fr-BE").startswith("-86,01")
+
+
+def test_no_message_is_defined_twice():
+    """An obsolete (#~) entry for a msgid that is active again makes msgfmt
+    and Poedit reject the file ("duplicate message definition"); the update
+    tool drops them (tools/i18n_update.py, drop_revived_obsolete)."""
+    from pathlib import Path
+    from babel.messages.pofile import read_po
+    root = Path(__file__).resolve().parent.parent / "locales"
+    for po in sorted(root.glob("*/LC_MESSAGES/messages.po")):
+        with po.open("rb") as fh:
+            cat = read_po(fh)
+        dupes = [m.id for m in cat.obsolete.values() if cat.get(m.id, context=m.context) is not None]
+        assert not dupes, f"{po.parts[-3]}: {dupes[:5]}"
+
+
+def test_update_tool_drops_revived_obsolete_entries():
+    import importlib.util
+    from pathlib import Path
+    from babel.messages.catalog import Catalog
+    spec = importlib.util.spec_from_file_location(
+        "i18n_update", Path(__file__).resolve().parent.parent / "tools" / "i18n_update.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    cat = Catalog(locale="nl")
+    cat.add("Add closed trade", "Gesloten transactie toevoegen")
+    cat.obsolete["Add closed trade"] = cat["Add closed trade"]
+    cat.obsolete["Gone"] = Catalog().add("Gone", "Weg")
+    assert mod.drop_revived_obsolete(cat) == 1
+    assert list(cat.obsolete) == ["Gone"] and cat.get("Add closed trade").string == "Gesloten transactie toevoegen"

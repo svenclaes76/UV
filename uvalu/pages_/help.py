@@ -9,11 +9,10 @@ dance documented for Settings/Analysis entirely, since nothing on this page
 needs an individual widget key.
 
 The fair-value models list below stays the app's real model set (Graham
-Number/PE Fair Value/EPV/DDM 1-stage/DDM 2-stage plus the book-value and FCF
-fallbacks, see screener.py's `_fair_value_models()`; the analyst target is
-off while unlicensed, DATA-6) rather than the mockup's generic
-"Dividend discount"/"DCF" pair — this app has no DCF model at all, so
-documenting one would describe a feature that doesn't exist. Same reasoning
+Number, price/earnings value, EPV, the single- and multi-stage dividend
+models plus the book-value and FCF fallbacks, see screener.py's
+`_fair_value_models()`; the analyst target is off while unlicensed, DATA-6),
+named exactly as in the legal Methodology document (G06). Same reasoning
 for the hard-veto rules: grounded in the real `_hard_veto` formula in
 screener.py's compute_scores(), not the mockup's own demo bullets — the
 mockup includes a "Going-concern or audit red flags" item this app has no
@@ -103,16 +102,18 @@ def _coverage_line() -> str:
 _MODELS = [
     (N_("Graham Number"), N_("√(22.5 × EPS × book value per share) — Benjamin Graham's classic value "
                              "formula. Needs positive trailing earnings and book value per share.")),
-    (N_("PE Fair Value"), N_("Trailing EPS × a sector-typical fair P/E multiple.")),
-    (N_("EPV (Earnings Power Value)"), N_("Normalised earnings capitalised at the cost of capital, "
+    # Model names exactly as in the legal Methodology document, § 3 (G06).
+    (N_("Price/earnings value"), N_("Trailing EPS × a sector-typical fair P/E multiple.")),
+    (N_("Earnings power value (EPV)"), N_("Normalised earnings capitalised at the cost of capital, "
                                           "deliberately ignoring speculative growth.")),
-    (N_("DDM — 1-stage"), N_("Gordon growth model: next year's expected dividend discounted at "
-                             "(cost of equity − perpetual growth rate). Only applies to dividend payers.")),
-    (N_("DDM — 2-stage"), N_("A higher-growth phase followed by a stable terminal-growth phase, each "
-                             "discounted back separately. Also dividend-payer only.")),
-    (N_("Book value and FCF fallbacks"), N_("Used only when Graham, P/E and EPV all fail (typically a "
-                                            "loss-maker): book value × a sector P/B multiple, and free cash "
-                                            "flow × a fixed multiple.")),
+    (N_("Dividend model, single stage"), N_("Gordon growth model: next year's expected dividend discounted at "
+                                            "(cost of equity − perpetual growth rate). Only applies to dividend payers.")),
+    (N_("Dividend model, multi-stage"), N_("A higher-growth phase followed by a stable terminal-growth phase, each "
+                                           "discounted back separately. Also dividend-payer only.")),
+    (N_("Book value (fallback)"), N_("Book value per share × the sector's median price/book ratio. Used only when "
+                                     "Graham, P/E and EPV all fail, typically for a loss-maker.")),
+    (N_("Free cash flow value (fallback)"), N_("Free cash flow × a fixed multiple, minus net debt, per share. "
+                                               "Used only when Graham, P/E and EPV all fail.")),
 ]
 
 # The quality-screen rules come from screener.VETO_RULE_LABELS (see render()).

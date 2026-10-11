@@ -252,9 +252,9 @@ def test_six_model_ladder_rows_relabels_dark_slots_with_fv3_fallbacks():
            "pb_fair_value": 8.5, "fcf_fair_value": 10.2}
     rows = six_model_ladder_rows(row)
     assert [lbl for lbl, _ in rows] == [
-        "Book value", "FCF value", "EPV", "Dividend discount", "DDM 2-stage"]
-    assert rows[0] == ("Book value", 8.5)
-    assert rows[1] == ("FCF value", 10.2)
+        "Book value (fallback)", "FCF value (fallback)", "EPV", "Dividend, single stage", "Dividend, multi-stage"]
+    assert rows[0] == ("Book value (fallback)", 8.5)
+    assert rows[1] == ("FCF value (fallback)", 10.2)
     assert rows[2] == ("EPV", 30.0)
 
 
@@ -265,7 +265,7 @@ def test_six_model_ladder_rows_leaves_labels_untouched_for_a_healthy_row():
            "pb_fair_value": None, "fcf_fair_value": None}
     rows = six_model_ladder_rows(row)
     assert [lbl for lbl, _ in rows] == [
-        "Graham Number", "P/E fair value", "EPV", "Dividend discount", "DDM 2-stage"]
+        "Graham Number", "P/E fair value", "EPV", "Dividend, single stage", "Dividend, multi-stage"]
 
 
 def test_six_model_ladder_rows_show_the_analyst_target_only_when_licensed(monkeypatch):
@@ -287,15 +287,15 @@ def test_six_model_ladder_reasons_formats_the_dark_codes():
     assert r["Graham Number"] == "no positive EPS"
     assert r["P/E fair value"] == "no positive EPS"
     assert r["EPV"] == "net debt > earnings"
-    assert r["Dividend discount"] == "not a dividend payer"
-    assert r["DDM 2-stage"] == "not a dividend payer"
+    assert r["Dividend, single stage"] == "not a dividend payer"
+    assert r["Dividend, multi-stage"] == "not a dividend payer"
     assert r["Analyst Target"] == "no analyst coverage"
     # every EPV / DDM failure mode has distinct text
     for code, text in [("no_ev", "no enterprise value"), ("no_ebit", "no multi-year EBIT"),
                        ("low_ebit", "through-cycle EBIT ≤ 0"), ("sector", "n/a for this sector")]:
         assert six_model_ladder_reasons({"fv_dark_reasons": {"epv": code}})["EPV"] == text
     assert six_model_ladder_reasons(
-        {"fv_dark_reasons": {"ddm": "spread"}})["Dividend discount"] == "discount rate ≈ dividend growth"
+        {"fv_dark_reasons": {"ddm": "spread"}})["Dividend, single stage"] == "discount rate ≈ dividend growth"
     # no field / a live model → no entry
     assert six_model_ladder_reasons({}) == {}
     assert "Graham Number" not in six_model_ladder_reasons({"fv_dark_reasons": {"epv": "sector"}})
@@ -306,18 +306,18 @@ def test_six_model_ladder_caption_flags_fallback_and_haircut():
     assert six_model_ladder_caption({"pb_fair_value": None, "fcf_fair_value": None,
                                      "targetMeanPrice": None}) is None
     cap = six_model_ladder_caption({"pb_fair_value": 8.0, "targetMeanPrice": 12.0})
-    assert "Book value" in cap and "haircut" in cap
+    assert "book value fallback" in cap and "haircut" in cap
 
 
 def test_six_model_ladder_caption_names_only_the_fallbacks_shown():
     from uvalu.components import six_model_ladder_caption
     # Book value only (the CPINV.BR case): no mention of an FCF value row.
     cap = six_model_ladder_caption({"pb_fair_value": 8.0})
-    assert cap.startswith("“Book value” stands in") and "FCF" not in cap
+    assert cap.startswith("The book value fallback stands in") and "FCF" not in cap
     cap = six_model_ladder_caption({"fcf_fair_value": 9.0})
-    assert cap.startswith("“FCF value” stands in") and "Book value" not in cap
+    assert cap.startswith("The FCF fallback stands in") and "book value" not in cap
     assert six_model_ladder_caption({"pb_fair_value": 8.0, "fcf_fair_value": 9.0}).startswith(
-        "“Book value” / “FCF value” stand in")
+        "The book value and FCF fallbacks stand in")
     # A live fallback with no dark Graham/P/E/EPV slot isn't on the ladder: no note.
     assert six_model_ladder_caption({"pb_fair_value": 8.0, "graham_number": 10.0,
                                      "pe_fair_value": 11.0, "epv": 12.0}) is None
@@ -414,6 +414,8 @@ def test_band_tone_color_maps_quant_words():
     assert band_tone_color(risk.band_tone("Low")) == "#0F6E56"
     assert band_tone_color(risk.band_tone("Aggressive")) == "#A32D2D"
     assert band_tone_color(risk.band_tone("N/A")) == "var(--muted)"
+    # G04: a weak Sharpe/Sortino is amber; red stays for a failed quality screen.
+    assert risk.band_tone("Suboptimal") == risk.band_tone("Moderate")
 
 
 def test_risk_score_meter_html_gradient_and_marker():
@@ -811,3 +813,13 @@ class TestDashboardBottomRow:
         assert '<rect x="26.0" y="7" width="12.5"' in up and "fill:var(--up-txt)" in up
         assert '<rect x="1.0" y="7" width="25.0"' in down and "fill:var(--down-txt)" in down
         assert ">AAA.BR</span>" in up and "+2.00%" in up
+
+
+def test_ladder_difference_text_uses_text_tokens():
+    """Brand v1.3: --amber-fill is for bars; the difference text next to a
+    model's bar uses --amber-txt (and --muted near fair value)."""
+    from uvalu.components import _ladder_bar_color, _ladder_text_color
+    assert _ladder_bar_color(-20) == "var(--amber-fill)"
+    assert _ladder_text_color(-20) == "var(--amber-txt)"
+    assert _ladder_text_color(1) == "var(--muted)"
+    assert _ladder_text_color(20) == "var(--up-txt)"

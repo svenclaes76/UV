@@ -35,7 +35,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
     page_title="uvalu",
-    page_icon="favicon.svg",
+    page_icon="assets/logo/uvalu-mark-small-32.png",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -109,10 +109,10 @@ with st.container(key="uv_hidden_util_jwt"):
 """, height=1)
 
 # ── Navigation ────────────────────────────────────────────────────────────────
-_pg_dashboard = st.Page(_page_dashboard.render, title=_("Dashboard"), icon=":material/dashboard:", default=True)
-_pg_portfolio = st.Page(_page_portfolio.render, title=_("Portfolio"), icon=":material/business_center:", url_path="portfolio")
-_pg_risk      = st.Page(_page_risk.render,      title=_("Risk"),      icon=":material/monitoring:",      url_path="risk")
-_pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":material/search:",          url_path="screener")
+_pg_dashboard = st.Page(_page_dashboard.render, title=_("Dashboard"), icon=":material/home:", default=True)
+_pg_portfolio = st.Page(_page_portfolio.render, title=_("Portfolio"), icon=":material/work:", url_path="portfolio")
+_pg_risk      = st.Page(_page_risk.render,      title=_("Risk"),      icon=":material/shield:",      url_path="risk")
+_pg_screener  = st.Page(_page_screener.render,  title=_("Screener"),  icon=":material/monitoring:",          url_path="screener")
 _pg_watchlist = st.Page(_page_watchlist.render, title=_("Watchlist"), icon=":material/star:",             url_path="watchlist")
 _pg_analysis  = st.Page(_page_analysis.render,  title=_("Analysis"),  icon=":material/query_stats:",     url_path="analysis")
 _pg_settings  = st.Page(_page_settings.render,  title=_("Settings"),  icon=":material/settings:",        url_path="settings")

@@ -235,8 +235,11 @@ def _topbar_css(active_path: str) -> str:
   color: var(--muted) !important; white-space: nowrap !important;
 }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] p {{
-  font-size: 13px !important; font-weight: 500 !important; color: inherit !important;
+  font-size: 13px !important; font-weight: 500 !important;
 }}
+/* Streamlit 1.60 wraps the label in a <span> with its own text colour, so
+   the link's --muted / --text never reached the label or the icon. */
+.st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] * {{ color: inherit !important; }}
 .st-key-uv_topbar_nav a[data-testid="stPageLink-NavLink"] [data-testid="stIconMaterial"] {{
   font-size: 16px !important;
 }}
@@ -251,7 +254,7 @@ div:has(> .st-key-uv_theme_toggle) {{ flex: none !important; width: auto !import
    by side (they overlapped at 1024px): drop the status text (the dot keeps
    it as a tooltip) and the nav icons, tighten the link padding. */
 .uv-pi-short {{ display: none; }}
-/* The logo column is too narrow for the tagline beside the 22px logo. */
+/* The logo column is too narrow for the tagline beside the lockup. */
 @media (max-width: 1100px) {{ .uv-logo-tag {{ display: none !important; }} }}
 @media (max-width: 1200px) {{
   .uv-pi-text {{ display: none !important; }}
@@ -356,12 +359,13 @@ def render_topbar(nav) -> None:
         col_logo, col_nav, col_right = st.columns(_topbar_widths(_nav_labels), vertical_alignment="center")
 
         with col_logo:
+            # The Consensus lockup, 26px mark height, colours from the theme
+            # (light lockup in the light theme, dark in the dark theme).
+            from uvalu.logo import lockup_svg
             st.markdown(
-                '<div style="display:flex;align-items:baseline;gap:9px;">'
-                '<span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">'
-                'uval<span style="color:var(--logo-accent)">u</span></span>'
+                f'<div style="display:flex;align-items:center;gap:13px;">{lockup_svg(26, theme_tokens=True)}'
                 '<span class="uv-logo-tag" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;'
-                f'white-space:nowrap;color:var(--muted);">{_("value engine")}</span></div>',
+                f'white-space:nowrap;color:var(--muted);line-height:1;">{_("value engine")}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -470,14 +474,15 @@ def producer_line() -> str:
 
 def render_beta_banner() -> None:
     """The beta notice: a rounded box inside the page gutter (brand §8, G01),
-    with the Terms of use one click away."""
+    text centred as in the design reference, with the Terms of use one click
+    away."""
     from uvalu.compliance import disclosures as d
     if not d.BETA:
         return
     st.markdown(
-        '<div class="uv-beta-box" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;'
-        'color:var(--muted);background:var(--soft);border:0.5px solid var(--line);border-radius:8px;'
-        'padding:6px 12px;margin:-6px 0 4px;">'
+        '<div class="uv-beta-box" style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;'
+        'gap:4px 10px;font-size:11.5px;color:var(--muted);background:var(--soft);border:0.5px solid var(--line);'
+        'border-radius:8px;padding:7px 14px;margin:-6px 0 4px;text-align:center;">'
         f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Beta"))}</span>'
         f'<span style="min-width:0;">{html.escape(tr(d.BETA_BANNER))}</span>'
         f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'

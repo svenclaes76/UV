@@ -845,3 +845,15 @@ def test_legal_card_is_legal_documents_with_english_only_note(isolated_data, mon
     html = "".join(m.value for m in at.markdown)
     assert "Legal documents" in html
     assert "During the beta these documents are available in English only." in html
+
+
+def test_language_preview_band_holds_the_try_a_number_field(isolated_data, monkeypatch):
+    """S09: "Preview" header (12px/500, --text), sentence-case labels, and the
+    "Try a number" field inside the same --panel-2 band."""
+    at = _run(monkeypatch)
+    preview = next(m.value for m in at.markdown if "uv-i18n-preview" in m.value)
+    assert "font-weight:500;color:var(--text);" in preview
+    assert "text-transform:uppercase" not in preview
+    field = at.text_input(key="set_i18n_try_input")
+    field.set_value("1234").run()
+    assert any("Saved as" in m.value for m in at.markdown)

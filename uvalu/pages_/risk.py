@@ -13,7 +13,7 @@ from uvalu.components import (score_color, band_tone_color, radial_gauge_svg, pa
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
                               skeleton_factor_rows_html, skeleton_risk_holdings_html)
-from uvalu.formatting import exchange_label
+from uvalu.formatting import exchange_code
 from uvalu.i18n import N_, _, fmt_date, fmt_num, fmt_pct, fmt_total, h_, tr
 from uvalu.runtime import theme_colors
 from uvalu.ui import price_autorefresh, consumed_tick, _auto_rerun
@@ -428,7 +428,7 @@ def render() -> None:
         _contribs, _contrib_method = _risk_contributions(r.position_profiles, r.quant.corr_matrix)
         _contrib_rows = []
         for p, _raw in zip(r.position_profiles, _contribs):
-            _exch = exchange_label(p.ticker)
+            _exch = exchange_code(p.ticker)
             _contrib_rows.append({"p": p, "exch": _exch, "raw": float(_raw)})
         _total_raw = sum(row["raw"] for row in _contrib_rows) or 1.0
         _max_pct = max((row["raw"] / _total_raw * 100 for row in _contrib_rows), default=1.0) or 1.0

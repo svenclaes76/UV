@@ -26,26 +26,74 @@ Uvalu is not a trading app. It is a thinking tool — a rigorous, systematic lay
 
 ## 3. Logo
 
+The logo is the **Consensus** mark plus the wordmark (decided 11 Oct 2026; specification: `docs/design/logo-consensus-spec.md`). Never redraw or recolour a mark by hand: use the files in `assets/logo/`, which `tools/build_logo.py` generates from the specification. The app shows the lockup through `uvalu/logo.py`.
+
+### Logo mark
+
+Two overlapping rings with a filled lens where they meet. Each ring is an independent valuation model; the lens is where the models agree, and that zone of agreement is where Uvalu finds value. The mark shows Uvalu's method, not a general idea of value.
+
+- **Rings, outlined:** the models are tools, kept open and visible, never black boxes.
+- **Lens, filled with mint or teal:** the only filled shape. It is the result, the part that matters.
+- **Plain geometry:** symmetric, precise and calm; no arrows, charts or growth clichés.
+
+Two weights, both on a 64 × 64 grid. The lens is drawn first, the rings are stroked on top.
+
+| Property | Main mark | Small mark |
+|---|---|---|
+| Use at | larger than 32px | 32px and below |
+| Ring radius | 17 | 18 |
+| Ring centres (x, y) | (22, 32) and (42, 32) | (24, 32) and (40, 32) |
+| Ring stroke | 4.5 | 5.5 |
+| Visible lens width | about 9.5 | about 14.5 |
+
 ### Wordmark
 
 ```
 uvalu
 ```
 
-- All lowercase, no capitalisation — **in the wordmark only**. In running text the name is written *Uvalu* (see §9).
-- Tight letter-spacing: `−0.03em`
-- Final **u** rendered in Signal Teal (`#1A8C6E`) — a subtle nod to the "U" in undervalued and the moment a signal surfaces
-- Font weight: 500 (medium)
-- The wordmark is artwork, not live text. Use the outlined SVG master everywhere outside the app. System fonts render it differently per OS (Segoe UI vs SF Pro). Until the master exists, the app sets it in the primary type stack with the values above.
+- All lowercase, no capitalisation — **in the wordmark only**. In running text the name is written *Uvalu* (see §9); screen readers get "Uvalu" (`aria-label`).
+- Inter, weight 500, letter-spacing `−0.03em`, final **u** in the accent colour.
+- The wordmark is artwork, not live text: the files and the app use outlined Inter (no font is loaded), so it renders the same on every system.
 
-### Logo mark (icon)
+### Lockup
 
-A downward V-shape converging on a teal circle — representing a stock price finding its floor before a reversal. Clean, minimal, scalable to 16×16px.
+Mark plus wordmark, every dimension derived from the mark height H:
 
-- Icon background: Deep Navy `#0D1F3C`, corner radius ≈ 22% of the icon width (14px at 64px; see §10)
-- V-stroke: White `#FFFFFF`, 1.8px
-- Circle at base: Mint Pulse `#1DD6A4`
-- Enclosing ring: Mint Pulse `#1DD6A4`, 1.5px stroke
+| Element | Spec | At H = 64px |
+|---|---|---|
+| Font size | 0.875 × H | 56px |
+| Gap, mark to wordmark | 0.1875 × H | 12px |
+| Vertical alignment | x-height centred on the mark's centre line | baseline at about 47px |
+| Clear space | the height of the lowercase u on all sides | about 31px |
+
+The minimum size is 16px for the mark alone and a 24px mark height for the lockup.
+
+### Colour variants
+
+Each variant uses exactly two inks on its ground. Dark is the primary variant.
+
+| Variant | Ground | Rings and wordmark | Lens and final u |
+|---|---|---|---|
+| Dark (primary) | Deep Navy `#0D1F3C` | White `#FFFFFF` | Mint Pulse `#1DD6A4` |
+| Light | White `#FFFFFF` or Surface `#F5F7FA` | Deep Navy `#0D1F3C` | Signal Teal `#1A8C6E` |
+| Monochrome | White or transparent | Black `#000000` | Black `#000000` |
+
+Mint is never used for the lens on a light ground (below 2:1). For one-colour reversed use, make every ink white.
+
+### Usage by size
+
+Rendered at 32px or smaller, use the small mark; larger, the main mark.
+
+| Context | Mark | Variant | Rendered size |
+|---|---|---|---|
+| Browser tab icon | Small, on a tile | Dark | 16 and 32px |
+| App top bar | Main, in the lockup | Follows the theme: light lockup in the light theme, dark in the dark theme (`--logo-ring`, `--logo-accent`) | mark height 26px, 13px to the "value engine" tag |
+| Admin portal sidebar | Main, in the lockup | Dark (the portal is dark only) | mark height 24px, 12px to the "admin" tag |
+| Sign-in and onboarding | Main, in the lockup | Dark (navy panel) | mark height 48px, 23px to the tag |
+| App and PWA icons | Main, on a tile | Dark | 180, 192 and 512px |
+| Social and Open Graph image | Main, in the lockup | Dark on navy | mark height about 120px on 1200 × 630 |
+| Print, embossing, one colour | Main or small, by size | Monochrome | — |
 
 ### Tagline
 
@@ -53,25 +101,14 @@ A downward V-shape converging on a teal circle — representing a stock price fi
 
 Use the tagline in onboarding, the sign-in screen, marketing, and the app's empty states. Never in dense UI contexts, and never next to a specific stock, signal or number — it describes the approach, not a result.
 
-### Clear space
-
-Maintain a minimum clear space of `1×` the height of the lowercase **u** on all sides of the logo.
-
-### Variants
-
-| Variant | Background | Wordmark colour | Accent colour |
-|---|---|---|---|
-| Dark (primary) | Deep Navy `#0D1F3C` | White `#FFFFFF` | Mint Pulse `#1DD6A4` |
-| Light | Surface `#F5F7FA` | Deep Navy `#0D1F3C` | Signal Teal `#1A8C6E` |
-| Monochrome | White | Deep Navy `#0D1F3C` | Deep Navy `#0D1F3C` |
-
 ### Don'ts
 
-- Do not set the wordmark in all-caps or title case: ~~UVALU~~ ~~Uvalu~~ (as a logo)
-- Do not stretch, rotate, or skew the logo
-- Do not place the logo on busy photographic backgrounds
-- Do not change the accent colour of the final **u**
-- Do not add drop shadows or gradients
+- Do not recolour the rings and lens separately, add gradients or shadows, or outline the lens.
+- Do not change the overlap, stroke weights or proportions, or mix main-mark rings with the small-mark lens.
+- Do not use mint on a light ground, or put the dark variant straight onto white.
+- Do not stretch, rotate or skew the mark, or move the accent away from the final u.
+- Do not set the wordmark in all-caps or title case: ~~UVALU~~ ~~Uvalu~~ (as a logo), or as live text.
+- Do not place the logo on busy photographic backgrounds.
 
 ---
 
@@ -126,6 +163,8 @@ The app has a full dark variant. Use these values (CSS tokens in `uvalu/styles.p
 | `--teal` | `#1A8C6E` | `#1A8C6E` | Accent fills, borders, selected states |
 | `--mint` | `#1DD6A4` | `#1DD6A4` | Accent in dark theme, logo |
 | `--link` | `#3FBF98` | `#167A60` | Link text (6.9:1 on dark panel, 5.3:1 on white) |
+| `--logo-ring` | `#FFFFFF` | `#0D1F3C` | Top-bar logo: rings and wordmark (§3) |
+| `--logo-accent` | `#1DD6A4` | `#1A8C6E` | Top-bar logo: lens and final u (§3) |
 | `--soft` | `rgba(29,214,164,0.05)` | `rgba(29,214,164,0.055)` | Hover and selected rows, system notices (beta banner) |
 | `--up-txt` | `#1DD6A4` | `#0F6E56` | Gains, Undervalued |
 | `--up-bg` | `rgba(29,214,164,0.14)` | `rgba(15,110,86,0.11)` | Undervalued badge, positive metric background |
@@ -458,21 +497,20 @@ Every number and date goes through the formatters in `uvalu/i18n.py` (`fmt_num`,
 
 ### Specifications
 
-| Platform | Size | Format | Radius |
+| Use | Size | Format | File in `assets/logo/` |
 |---|---|---|---|
-| iOS | 1024×1024px | PNG | Applied by OS |
-| Android | 512×512px | PNG | 22.37% of canvas |
-| Logo mark in UI | any | SVG | ≈ 22% of width (14px at 64px) |
-| Favicon | 32×32px | ICO / SVG | — |
-| Web manifest | 192×192px, 512×512px | PNG | — |
+| Browser tab (app) | 32×32px | PNG | `uvalu-mark-small-32.png` (Streamlit `page_icon`) |
+| Browser tab (web pages) | 16, 32, 48px | ICO | `favicon.ico` |
+| Apple touch icon | 180×180px | PNG | `apple-touch-icon.png` |
+| Web manifest | 192×192px, 512×512px | PNG | `icon-192.png`, `icon-512.png` |
+| Mark without a tile | 512×512px | PNG | `uvalu-mark-512.png` |
+| Social image | 1200×630px | PNG | `og-image.png` |
 
 ### Construction
 
-- Background: Deep Navy `#0D1F3C`, full bleed
-- Icon mark centred, occupying ~55% of canvas width
-- V-stroke: White, line cap round
-- Base circle: Mint Pulse `#1DD6A4`
-- No text in the app icon
+- Tile: Deep Navy `#0D1F3C` (light variant: Surface `#F5F7FA`; monochrome: white), corner radius 22% of the tile (14px at 64px).
+- Main mark at 75% of the tile; small mark at 84% (94% at 16px, where every pixel counts). Centred.
+- Inks per the colour variants in §3; no text in the app icon.
 
 ---
 
@@ -490,6 +528,13 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 ---
 
 ## Changes
+
+**v1.4 — 11 Oct 2026**
+
+- Logo: the Consensus mark (two rings for independent valuation models, a filled lens where they agree) replaces the V-stroke mark. Two weights (main above 32px, small at 32px and below), lockup rules, colour variants, usage by size and don'ts from `docs/design/logo-consensus-spec.md`.
+- Wordmark: outlined Inter 500 everywhere, the app included (decided 11 Oct 2026); the v1.3 follow-up "outlined wordmark SVG" is done.
+- The app's top bar follows the theme (light lockup in the light theme, decided 11 Oct 2026); Admin portal and sign-in stay dark. New token `--logo-ring`.
+- App icon: files and sizes from `assets/logo/` (generated by `tools/build_logo.py`); tab icon is the small mark.
 
 **v1.3 — 9 Oct 2026**
 
@@ -512,4 +557,4 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 - Typography: long-form body 14px, 17px section headings, 12px captions; the uppercase small-label exception made explicit.
 - Fixed: wordmark-vs-name rule, "we" in legal texts, logo ring colour, icon set (Material Symbols), no DCF in the model list.
 
-*Document version 1.3 — Uvalu Brand Guidelines*
+*Document version 1.4 — Uvalu Brand Guidelines*

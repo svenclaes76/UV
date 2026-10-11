@@ -110,7 +110,14 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
         st.caption(_("Full log with inputs and model version is kept for every badge change."))
 
     with _s_col, st.container(key="an_card_sensitivity", border=True):
-        st.markdown(_PANEL_TITLE.format(title=h_("Assumptions & sensitivity")), unsafe_allow_html=True)
+        from screener import MODEL_VERSION
+        # Title with the shared-settings note on the same row (design reference).
+        st.markdown(
+            '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;">'
+            f'<span style="font-size:15px;font-weight:500;">{h_("Assumptions & sensitivity")}</span>'
+            # Translators: Analysis › Assumptions & sensitivity, note beside the card title: the settings are the same for every user; {model} is the model version, e.g. "M1".
+            f'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">{h_("Shared settings · model {model}", model=MODEL_VERSION)}</span></div>',
+            unsafe_allow_html=True)
         _thr = get_veto_thresholds()
         _ref_key = (tuple(enabled), tuple(manual.keys()), tuple(manual.values()),
                     tuple(_thr), tuple(get_score_weights()))
@@ -127,6 +134,12 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
                           (h_("MoS setting"), fmt_pct(effective_min_mos(_thr[2]), 0, fraction=True)),
                           (h_("Score setting"), fmt_num(_thr[3], 0))))
             + "</div>", unsafe_allow_html=True)
+        def _sens_label(x) -> str:
+            # Translators: Analysis › sensitivity row label: fair value at this discount rate, e.g. "Discount 8.0%".
+            _lbl = _("Discount {rate}", rate=fmt_pct(x["discount_rate"], 1, fraction=True))
+            # Translators: Analysis › sensitivity row: marks the discount rate in force, e.g. "Discount 8.0% · current".
+            return _("{label} · current", label=_lbl) if x["shift"] == 0.0 else _lbl
+
         if _sens:
             # Label · fair value · margin of safety. No badge per scenario
             # (G17, D2): a shifted fair value never changes a signal.
@@ -135,7 +148,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
             st.markdown("".join(
                 f'<div style="{_sg}padding:8px 0;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
                 f'<span style="color:var(--muted);">'
-                f'{html.escape(_("Discount rate {rate}", rate=fmt_pct(x["discount_rate"], 1, fraction=True)))}</span>'
+                f'{html.escape(_sens_label(x))}</span>'
                 f'<span style="{_num}">{_fmt_eur(x["fair_value"]) if x["fair_value"] is not None else "—"}</span>'
                 f'<span style="{_num}color:{mos_text_color(x["margin_of_safety"] * 100 if x["margin_of_safety"] is not None else None)};">'
                 f'{fmt_pct(x["margin_of_safety"], 0, fraction=True, signed=True) if x["margin_of_safety"] is not None else "—"}'
@@ -669,7 +682,7 @@ def render() -> None:
                         st.markdown(
                             f'<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;'
                             f'border-bottom:0.5px solid var(--line-2);"><span style="font-size:12.5px;color:var(--muted);">'
-                            f'{_glabel}</span><span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;'
+                            f'{_glabel}</span><span style="font-family:var(--uv-mono);font-size:12.5px;'
                             f'color:{_gcolor};">{_gval}</span></div>', unsafe_allow_html=True)
 
                 _cut_year = row.get("dividend_last_cut_year")

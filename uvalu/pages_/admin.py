@@ -909,6 +909,9 @@ def _admin_shell_css(active: str) -> str:
    `display:flex;justify-content:center`, which is what was actually
    centering the icon+label despite the outer rule above. */
 .st-key-admin_sidebar button > div {{ justify-content: flex-start !important; }}
+/* Streamlit 1.60 colours the button's inner wrapper itself, so --muted /
+   --mint on the button never reached the label or the icon. */
+.st-key-admin_sidebar button * {{ color: inherit !important; }}
 .st-key-admin_sidebar button:hover {{ background: var(--line-2) !important; color: var(--text) !important; }}
 .st-key-admin_navbtn_{active} button {{
   background: var(--soft) !important; color: var(--mint) !important; font-weight: 500 !important;
@@ -1565,11 +1568,12 @@ def render() -> None:
                     # removes font-metric ascender/descender slack that would
                     # otherwise still skew the optical center even under
                     # align-items:center.
+                    # The Consensus lockup, dark (the portal is dark only),
+                    # 24px mark height, 12px to the tag (Uvalu Admin.dc.html).
+                    from uvalu.logo import lockup_svg
                     st.markdown(
-                        '<div style="display:flex;align-items:center;gap:9px;padding-left:8px;">'
-                        '<span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;'
-                        'line-height:1;color:var(--text);">'
-                        'uval<span style="color:var(--link)">u</span></span>'
+                        f'<div style="display:flex;align-items:center;gap:12px;padding-left:8px;">'
+                        f'{lockup_svg(24, theme_tokens=False)}'
                         '<span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;'
                         'line-height:1;color:var(--muted);">admin</span></div>',
                         unsafe_allow_html=True,

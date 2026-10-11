@@ -30,7 +30,7 @@ These were decided after user review. Don't "fix" them back to an older mockup. 
 
 **Dividends** (Sep 2026):
 - No "Import from market data" button; the import runs automatically once per session.
-- The log download sits next to Add dividend as "Export log" (a CSV menu, G26).
+- The log download sits next to Add dividend as "Export log" (a CSV menu).
 - No declaration/record-date sub-lines or "· frequency" suffix in log rows.
 - An unconfirmed (auto-imported) pay date is shown in amber with a tooltip instead of "· confirm".
 - The annual summary card is full width with the tax-estimate box under it; its button is labelled "Export summary".
