@@ -49,3 +49,12 @@ def test_dark_only_surfaces_keep_the_dark_lockup_colours():
     svg = lockup_svg(48, theme_tokens=False)
     assert "var(--" not in svg
     assert _fills(svg) == _fills((LOGO / "uvalu-lockup-dark.svg").read_text(encoding="utf-8"))
+
+
+def test_no_old_wordmark_left_in_the_app():
+    """Logo plan L5: no live-text wordmark and no old sidebar-logo styles."""
+    root = Path(__file__).resolve().parent.parent
+    sources = list((root / "uvalu").rglob("*.py")) + [root / "app.py"]
+    assert not [p.name for p in sources if "uval<span" in p.read_text(encoding="utf-8")]
+    for cls in (".uv-logo-wordmark", ".uv-logo-accent", ".uv-logo-sub", ".uv-logo "):
+        assert cls not in GLOBAL_CSS, cls

@@ -24,6 +24,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 - **What's new is written for you**: each update now says what it brings
   you, in plain words.
+- **A new Uvalu logo**: two rings for independent valuation models, and the
+  lens where they agree — the idea behind every fair value you see.
 - **Calmer buttons and navigation**: smaller, quieter buttons, new menu
   icons, and the page you're on is the only one highlighted.
 - **Model names you can look up**: the valuation models carry the same names

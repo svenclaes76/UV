@@ -1946,14 +1946,7 @@ GLOBAL_CSS = """
   div[data-testid="stMultiSelect"] { margin-bottom: 0.25rem !important; }
   .stCaption { margin-bottom: 0 !important; }
 
-  /* ── Sidebar logo + footer ───────────────────────────────────────────────── */
-  .uv-logo      { display: flex; align-items: center; gap: 10px; padding: 0 4px 20px; margin-top: -1.8rem; }
-  .uv-logo-wordmark {
-    font-size: 1.4rem; font-weight: 500; letter-spacing: -0.03em;
-    line-height: 1;
-  }
-  .uv-logo-accent { color: #1A8C6E; }
-  .uv-logo-sub  { font-size: 0.65rem; opacity: 0.3; margin-top: 3px; }
+  /* ── Sidebar footer ──────────────────────────────────────────────────────── */
   .uv-bottom    {
     position: fixed; bottom: 0; left: 0; width: 220px; padding: 10px 16px 15px;
     background: transparent;
