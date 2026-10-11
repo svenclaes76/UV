@@ -34,7 +34,7 @@ founder's and in which countries.
 | # | Item |
 | --- | --- |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
-| D7 | Import & export rework (decided and implemented on `feature/import-export` 11 October 2026; translations approved, pushed `ee90457`, PR not opened yet): user-entered data only, import of the export format (Replace + Add), stored-data cleanup + dividend currency fix, ZIP backup misses targets/custom tickers. Plan and decisions IE1–IE6: `docs/import-export-plan.md`. |
+| D7 | Import & export rework (decided and implemented on `feature/import-export` 11 October 2026; merged to master `6f60d30` 11 October 2026, not released yet): user-entered data only, import of the export format (Replace + Add), stored-data cleanup + dividend currency fix, ZIP backup misses targets/custom tickers. Plan and decisions IE1–IE6: `docs/import-export-plan.md`. |
 
 ## Product backlog
 
