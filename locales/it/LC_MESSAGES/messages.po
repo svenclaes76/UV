@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-11 20:41+0000\n"
-"PO-Revision-Date: 2026-10-11 22:24+0200\n"
+"PO-Revision-Date: 2026-10-11 22:43+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -1338,9 +1338,7 @@ msgstr "Importo in euro."
 #. Context: Settings › Export workbook
 #: workbook.py:122
 msgid "The trade or dividend this entry belongs to. Rebuilt on import, not imported."
-msgstr ""
-"L'operazione o il dividendo a cui appartiene questa registrazione. Ricostruita "
-"all'importazione, non importata."
+msgstr "L'operazione o il dividendo a cui appartiene questa registrazione. Ricostruita all'importazione, non importata."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
@@ -2177,8 +2175,7 @@ msgid "Viewer role is read-only"
 msgstr "Il ruolo Lettore è di sola lettura"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1117
+#: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462 uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr "Vedi"
 
@@ -5957,23 +5954,13 @@ msgstr "Eliminare il tuo account?"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:230
-msgid ""
-"Your portfolio, transactions, watchlist and settings are removed from live "
-"systems now and from backups within 30 days. This can't be undone. Export your "
-"data first if you want a copy."
-msgstr ""
-"Il tuo portafoglio, le operazioni, la watchlist e le impostazioni vengono "
-"rimossi subito dai sistemi attivi e dai backup entro 30 giorni. L'operazione è "
-"irreversibile. Esporta prima i tuoi dati se vuoi conservarne una copia."
+msgid "Your portfolio, transactions, watchlist and settings are removed from live systems now and from backups within 30 days. This can't be undone. Export your data first if you want a copy."
+msgstr "Il tuo portafoglio, le operazioni, la watchlist e le impostazioni vengono rimossi subito dai sistemi attivi e dai backup entro 30 giorni. L'operazione è irreversibile. Esporta prima i tuoi dati se vuoi conservarne una copia."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:235
-msgid ""
-"You're the only active Admin. Make another user Admin before you delete your "
-"account."
-msgstr ""
-"Sei l'unico Admin attivo. Rendi Admin un altro utente prima di eliminare il tuo "
-"account."
+msgid "You're the only active Admin. Make another user Admin before you delete your account."
+msgstr "Sei l'unico Admin attivo. Rendi Admin un altro utente prima di eliminare il tuo account."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:237
@@ -5981,8 +5968,7 @@ msgid "Type your email address to confirm"
 msgstr "Digita il tuo indirizzo email per confermare"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058
-#: uvalu/pages_/settings.py:1062
+#: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058 uvalu/pages_/settings.py:1062
 msgid "Delete account"
 msgstr "Elimina account"
 
@@ -6586,12 +6572,8 @@ msgstr "Esporta i miei dati"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1049
-msgid ""
-"Your positions, sales, dividends, cash, watchlist, settings and account details "
-"as an Excel workbook (.xlsx)."
-msgstr ""
-"Posizioni, vendite, dividendi, liquidità, watchlist, impostazioni e dati "
-"dell'account in una cartella di lavoro Excel (.xlsx)."
+msgid "Your positions, sales, dividends, cash, watchlist, settings and account details as an Excel workbook (.xlsx)."
+msgstr "Posizioni, vendite, dividendi, liquidità, watchlist, impostazioni e dati dell'account in una cartella di lavoro Excel (.xlsx)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1053
@@ -6600,12 +6582,8 @@ msgstr "Esporta"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1059
-msgid ""
-"Removes your account and data from live systems at once and from backups within "
-"30 days."
-msgstr ""
-"Rimuove subito il tuo account e i tuoi dati dai sistemi attivi, e dai backup "
-"entro 30 giorni."
+msgid "Removes your account and data from live systems at once and from backups within 30 days."
+msgstr "Rimuove subito il tuo account e i tuoi dati dai sistemi attivi, e dai backup entro 30 giorni."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1067
@@ -6614,12 +6592,8 @@ msgstr "Contatto privacy"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1068
-msgid ""
-"Questions about your data, or a complaint to the Belgian Data Protection "
-"Authority (GBA / APD)."
-msgstr ""
-"Domande sui tuoi dati, o un reclamo all'Autorità belga per la protezione dei "
-"dati (GBA / APD)."
+msgid "Questions about your data, or a complaint to the Belgian Data Protection Authority (GBA / APD)."
+msgstr "Domande sui tuoi dati, o un reclamo all'Autorità belga per la protezione dei dati (GBA / APD)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1083
@@ -6628,15 +6602,8 @@ msgstr "Beta gratuita · su invito"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1084
-msgid ""
-"No paid plans during the beta and you pay nothing. We tell you at least 14 days "
-"before the beta ends where we can, so you can export your data. Your account "
-"never turns into a paid plan without your express agreement."
-msgstr ""
-"Nessun piano a pagamento durante la beta e non paghi nulla. Ove possibile, ti "
-"avvisiamo almeno 14 giorni prima della fine della beta, così puoi esportare i "
-"tuoi dati. Il tuo account non diventa mai un piano a pagamento senza il tuo "
-"consenso espresso."
+msgid "No paid plans during the beta and you pay nothing. We tell you at least 14 days before the beta ends where we can, so you can export your data. Your account never turns into a paid plan without your express agreement."
+msgstr "Nessun piano a pagamento durante la beta e non paghi nulla. Ove possibile, ti avvisiamo almeno 14 giorni prima della fine della beta, così puoi esportare i tuoi dati. Il tuo account non diventa mai un piano a pagamento senza il tuo consenso espresso."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1088
@@ -6653,7 +6620,6 @@ msgid "No-personal-advice acknowledgement"
 msgstr "Presa d'atto: nessuna consulenza personalizzata"
 
 #: uvalu/pages_/settings.py:1104
-#, fuzzy
 msgid "Terms of use, section 4. Your acceptance isn't recorded yet."
 msgstr "Termini d'uso, sezione 4. La tua accettazione non è ancora registrata."
 
@@ -6670,7 +6636,6 @@ msgid "Effective from {date}."
 msgstr "In vigore dal {date}."
 
 #: uvalu/pages_/settings.py:1114
-#, fuzzy
 msgid "Not available"
 msgstr "Non disponibile"
 

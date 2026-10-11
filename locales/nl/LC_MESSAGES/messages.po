@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-11 20:41+0000\n"
-"PO-Revision-Date: 2026-10-11 22:25+0200\n"
+"PO-Revision-Date: 2026-10-11 22:43+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
 "Language: nl\n"
@@ -1338,9 +1338,7 @@ msgstr "Bedrag in euro."
 #. Context: Settings › Export workbook
 #: workbook.py:122
 msgid "The trade or dividend this entry belongs to. Rebuilt on import, not imported."
-msgstr ""
-"De transactie of het dividend waar deze boeking bij hoort. Wordt bij import "
-"opnieuw opgebouwd, niet geïmporteerd."
+msgstr "De transactie of het dividend waar deze boeking bij hoort. Wordt bij import opnieuw opgebouwd, niet geïmporteerd."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
@@ -2177,8 +2175,7 @@ msgid "Viewer role is read-only"
 msgstr "De rol Lezer is alleen-lezen"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1117
+#: uvalu/components.py:1179 uvalu/components.py:1772 uvalu/pages_/risk.py:462 uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr "Bekijken"
 
@@ -5957,23 +5954,13 @@ msgstr "Je account verwijderen?"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:230
-msgid ""
-"Your portfolio, transactions, watchlist and settings are removed from live "
-"systems now and from backups within 30 days. This can't be undone. Export your "
-"data first if you want a copy."
-msgstr ""
-"Je portefeuille, transacties, volglijst en instellingen worden nu uit de live "
-"systemen verwijderd en binnen 30 dagen uit de back-ups. Dit kan niet ongedaan "
-"worden gemaakt. Exporteer eerst je gegevens als je een kopie wilt."
+msgid "Your portfolio, transactions, watchlist and settings are removed from live systems now and from backups within 30 days. This can't be undone. Export your data first if you want a copy."
+msgstr "Je portefeuille, transacties, volglijst en instellingen worden nu uit de live systemen verwijderd en binnen 30 dagen uit de back-ups. Dit kan niet ongedaan worden gemaakt. Exporteer eerst je gegevens als je een kopie wilt."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:235
-msgid ""
-"You're the only active Admin. Make another user Admin before you delete your "
-"account."
-msgstr ""
-"Je bent de enige actieve Admin. Maak eerst een andere gebruiker Admin voor je je"
-" account verwijdert."
+msgid "You're the only active Admin. Make another user Admin before you delete your account."
+msgstr "Je bent de enige actieve Admin. Maak eerst een andere gebruiker Admin voor je je account verwijdert."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:237
@@ -5981,8 +5968,7 @@ msgid "Type your email address to confirm"
 msgstr "Typ je e-mailadres om te bevestigen"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058
-#: uvalu/pages_/settings.py:1062
+#: uvalu/pages_/settings.py:244 uvalu/pages_/settings.py:1058 uvalu/pages_/settings.py:1062
 msgid "Delete account"
 msgstr "Account verwijderen"
 
@@ -6586,12 +6572,8 @@ msgstr "Mijn gegevens exporteren"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1049
-msgid ""
-"Your positions, sales, dividends, cash, watchlist, settings and account details "
-"as an Excel workbook (.xlsx)."
-msgstr ""
-"Je posities, verkopen, dividenden, cash, volglijst, instellingen en "
-"accountgegevens als Excel-werkmap (.xlsx)."
+msgid "Your positions, sales, dividends, cash, watchlist, settings and account details as an Excel workbook (.xlsx)."
+msgstr "Je posities, verkopen, dividenden, cash, volglijst, instellingen en accountgegevens als Excel-werkmap (.xlsx)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1053
@@ -6600,12 +6582,8 @@ msgstr "Exporteren"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1059
-msgid ""
-"Removes your account and data from live systems at once and from backups within "
-"30 days."
-msgstr ""
-"Verwijdert je account en gegevens meteen uit de live systemen en binnen 30 dagen"
-" uit de back-ups."
+msgid "Removes your account and data from live systems at once and from backups within 30 days."
+msgstr "Verwijdert je account en gegevens meteen uit de live systemen en binnen 30 dagen uit de back-ups."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1067
@@ -6614,12 +6592,8 @@ msgstr "Privacycontact"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1068
-msgid ""
-"Questions about your data, or a complaint to the Belgian Data Protection "
-"Authority (GBA / APD)."
-msgstr ""
-"Vragen over je gegevens, of een klacht bij de Belgische "
-"Gegevensbeschermingsautoriteit (GBA / APD)."
+msgid "Questions about your data, or a complaint to the Belgian Data Protection Authority (GBA / APD)."
+msgstr "Vragen over je gegevens, of een klacht bij de Belgische Gegevensbeschermingsautoriteit (GBA / APD)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1083
@@ -6628,15 +6602,8 @@ msgstr "Gratis bèta · op uitnodiging"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1084
-msgid ""
-"No paid plans during the beta and you pay nothing. We tell you at least 14 days "
-"before the beta ends where we can, so you can export your data. Your account "
-"never turns into a paid plan without your express agreement."
-msgstr ""
-"Geen betaalde abonnementen tijdens de bèta en je betaalt niets. Waar we kunnen, "
-"laten we het je minstens 14 dagen voor het einde van de bèta weten, zodat je je "
-"gegevens kunt exporteren. Je account wordt nooit een betaald abonnement zonder "
-"je uitdrukkelijke toestemming."
+msgid "No paid plans during the beta and you pay nothing. We tell you at least 14 days before the beta ends where we can, so you can export your data. Your account never turns into a paid plan without your express agreement."
+msgstr "Geen betaalde abonnementen tijdens de bèta en je betaalt niets. Waar we kunnen, laten we het je minstens 14 dagen voor het einde van de bèta weten, zodat je je gegevens kunt exporteren. Je account wordt nooit een betaald abonnement zonder je uitdrukkelijke toestemming."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
 #: uvalu/pages_/settings.py:1088
@@ -6653,7 +6620,6 @@ msgid "No-personal-advice acknowledgement"
 msgstr "Bevestiging geen persoonlijk advies"
 
 #: uvalu/pages_/settings.py:1104
-#, fuzzy
 msgid "Terms of use, section 4. Your acceptance isn't recorded yet."
 msgstr "Gebruiksvoorwaarden, artikel 4. Je aanvaarding wordt nog niet geregistreerd."
 
@@ -6670,7 +6636,6 @@ msgid "Effective from {date}."
 msgstr "Van kracht sinds {date}."
 
 #: uvalu/pages_/settings.py:1114
-#, fuzzy
 msgid "Not available"
 msgstr "Niet beschikbaar"
 
