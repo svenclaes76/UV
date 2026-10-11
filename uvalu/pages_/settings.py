@@ -26,7 +26,6 @@ borrows its visual chrome:
   mockup's fabricated "Marek Kowalski · Pro plan"."""
 import html
 import io
-import traceback
 from datetime import datetime
 
 import qrcode
@@ -38,9 +37,8 @@ from auth import (backup_codes_remaining, begin_totp_enrollment, change_password
                   trusted_devices_until, BACKUP_CODE_COUNT,
                   regenerate_backup_codes, revoke_other_sessions, revoke_session,
                   revoke_trusted_devices, set_password, trusted_device_count, unlink_identity)
-from backup import export_excel, backup_filename
-from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
-                       save_div_hist, load_targets, save_targets)
+from backup import backup_filename
+from portfolio import load_targets, save_targets
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       get_score_weights, _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
@@ -51,6 +49,8 @@ from uvalu.i18n import N_, _, fmt_date, fmt_int, frozen, fmt_num, fmt_pct, h_, n
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
+from workbook import (ImportError_, apply_import, export_workbook, parse_workbook, plan_import,
+                      sheet_names)
 from uvalu.shell import _display_name, _initials, _password_strength, set_theme_script
 
 
@@ -121,6 +121,98 @@ def _row_title(title: str, desc: str) -> None:
     st.markdown(f'<div><div style="font-size:13.5px;font-weight:500;line-height:1.3;">{title}</div>'
                f'<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5;">{desc}</div></div>',
                unsafe_allow_html=True)
+
+
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_IMPORT_ISSUES_SHOWN = 15
+
+
+def _import_done(n: int) -> None:
+    st.session_state["imp_portfolio_n"] = n + 1
+    st.rerun()
+
+
+def _import_review(data: bytes, n: int, email: str) -> None:
+    """What an uploaded workbook holds, the Add / Replace choice and the
+    confirmation. Nothing is written until the user confirms."""
+    from uvalu import logkit
+
+    parsed = parse_workbook(data)
+    labels = sheet_names()
+    with st.container(key="set_import_review"):
+        if parsed.issues:
+            lines = []
+            for i in parsed.issues[:_IMPORT_ISSUES_SHOWN]:
+                where = labels.get(i.sheet, "")
+                if i.row:
+                    where = _("{sheet}, row {row}", sheet=where, row=i.row)
+                lines.append(f"- {where + ': ' if where else ''}{i.message}")
+            if len(parsed.issues) > _IMPORT_ISSUES_SHOWN:
+                lines.append("- " + _("and {count} more", count=len(parsed.issues) - _IMPORT_ISSUES_SHOWN))
+            st.error(_("This file can't be imported. Fix these rows and upload it again:") + "\n\n"
+                     + "\n".join(lines))
+            if st.button(_("Cancel"), key="imp_cancel", type="tertiary"):
+                _import_done(n)
+            return
+        if parsed.empty:
+            st.warning(_("This file has no rows to import."))
+            if st.button(_("Cancel"), key="imp_cancel", type="tertiary"):
+                _import_done(n)
+            return
+
+        mode = st.radio(_("How to import"), options=["add", "replace"], key=f"imp_mode_{n}",
+                        format_func=lambda m: (_("Add to my data — new rows are added; to change existing rows, use Replace")
+                                               if m == "add" else
+                                               _("Replace all my data — restore this file")))
+        plan = plan_import(parsed, mode)
+        counts = parsed.counts()
+        rows = []
+        for key, total in counts.items():
+            if not total:
+                continue
+            if mode == "add" and plan.skipped.get(key):
+                rows.append(f"- {labels[key]}: " + _("{new} new, {skipped} already there",
+                                                      new=fmt_int(plan.new[key]), skipped=fmt_int(plan.skipped[key])))
+            else:
+                rows.append(f"- {labels[key]}: {fmt_int(total)}")
+        st.markdown(_("This file holds:") + "\n\n" + "\n".join(rows))
+
+        box_key = "set_import_confirm" if mode == "replace" else "set_import_add"
+        with st.container(key=box_key):
+            if mode == "replace":
+                st.markdown(
+                    '<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
+                    + h_("All your portfolio data is deleted first: positions, sales, dividends, cash, "
+                         "watchlist, custom tickers, targets and withholding rates. A backup is saved "
+                         "before anything changes.")
+                    + "</div>", unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:12px;line-height:1.5;color:var(--muted);">'
+                + h_("Every imported buy and sale posts its cash, like a trade you enter by hand: "
+                     "if the balance would go below zero, an automatic top-up is added.")
+                + "</div>", unsafe_allow_html=True)
+            with st.container(horizontal=True, gap="small"):
+                _go = st.button(_("Replace my portfolio data") if mode == "replace" else _("Import"),
+                                key="imp_confirm" if mode == "replace" else "imp_add")
+                _no = st.button(_("Cancel"), key="imp_cancel", type="tertiary")
+        if _go:
+            try:
+                with st.spinner(_("Importing…")):
+                    done = apply_import(parsed, mode, email)
+            except ImportError_ as exc:
+                st.error(str(exc))
+                return
+            except Exception as exc:
+                logkit.get_logger("uvalu.workbook").error(
+                    "workbook import failed", exc_info=True, extra={"event": "workbook.import_failed"})
+                st.error(_("The import failed: {error}", error=exc))
+                return
+            st.toast(_("Imported {positions} positions, {sold} sold positions and {dividends} dividends.",
+                       positions=fmt_int(done.new["positions"]), sold=fmt_int(done.new["sold"]),
+                       dividends=fmt_int(done.new["dividends"])))
+            _import_done(n)
+        if _no:
+            _import_done(n)
 
 
 def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1),
@@ -707,80 +799,55 @@ def render() -> None:
                         st.rerun()
 
             # ── Import / Export (per-user, not admin-scoped) ─────────────────────────────
+            # One workbook format both ways (docs/import-export-plan.md): export
+            # holds what the user entered; import restores it (replace) or adds
+            # rows added to an export (add) — the export is also the template.
             with st.container(key="set_card_import", border=True):
                 _row_header(h_("Import & export"), anchor="set-import")
 
-                with st.container(key="set_import_row"):
+                # Uvalu.dc.html's two rows, on the page's own set_row_ grammar
+                # (padding, right-aligned control, sibling-gap cancel).
+                with st.container(key="set_row_import"):
                     _imp_l, _imp_col = st.columns([3, 2], vertical_alignment="center")
                     with _imp_l:
-                        with st.container(key="set_import_body"):
-                            _row_title(h_("Import portfolio"),
-                                      h_("Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."))
+                        _row_title(h_("Import portfolio"),
+                                   h_("Restore or add to your positions, trades, dividends and cash from an "
+                                      "Uvalu .xlsx file. You confirm before anything changes."))
                     with _imp_col:
                         # A new key after an import or cancel empties the uploader —
                         # the old one kept its file, so the page re-imported it on
                         # every rerun after a successful import.
                         _imp_n = st.session_state.get("imp_portfolio_n", 0)
                         _imp_key = "imp_portfolio" if not _imp_n else f"imp_portfolio_{_imp_n}"
-                        _imp_file = st.file_uploader(_("Choose your portfolio .xlsx file"), type=["xlsx"], key=_imp_key,
-                                                     label_visibility="collapsed")
-                        if _imp_file:
-                            try:
-                                with st.spinner(_("Parsing Excel…")):
-                                    _imp_pf, _imp_sold, _imp_div = parse_excel(_imp_file)
-                            except Exception as e:
-                                st.error(_("Could not parse file: {error}", error=e))
-                                st.code(traceback.format_exc())
-                            else:
-                                if _imp_pf.empty:
-                                    st.error(_("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format."))
-                                else:
-                                    # Destructive: say what the file holds and that the
-                                    # current data goes, and wait for an explicit yes.
-                                    with st.container(key="set_import_confirm"):
-                                        st.markdown(
-                                            f'<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
-                                            + h_("Replace all portfolio data with this file? It holds {open} open positions, "
-                                                 "{sold} sold positions and {dividends} dividend records. Your current "
-                                                 "positions, sales and dividends are deleted.",
-                                                 open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div))
-                                            + "</div>", unsafe_allow_html=True)
-                                        with st.container(horizontal=True, gap="small"):
-                                            _imp_yes = st.button(_("Replace my portfolio data"), key="imp_confirm")
-                                            _imp_no = st.button(_("Cancel"), key="imp_cancel", type="tertiary")
-                                    if _imp_yes:
-                                        _udir = user_data_dir(_email)
-                                        (_udir / "portfolio.json").unlink(missing_ok=True)
-                                        (_udir / "sold.json").unlink(missing_ok=True)
-                                        (_udir / "dividends_history.json").unlink(missing_ok=True)
-                                        save_portfolio(_imp_pf)
-                                        save_sold(_imp_sold)
-                                        save_div_hist(_imp_div)
-                                        st.toast(_("Imported {open} open, {sold} sold, {dividends} dividend records.",
-                                                   open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div)))
-                                    if _imp_yes or _imp_no:
-                                        st.session_state["imp_portfolio_n"] = _imp_n + 1
-                                        st.rerun()
+                        _imp_file = st.file_uploader(_("Choose a Uvalu workbook (.xlsx)"), type=["xlsx"],
+                                                     key=_imp_key, label_visibility="collapsed",
+                                                     disabled=_u.is_viewer)
+                if _imp_file:
+                    _import_review(_imp_file.getvalue(), _imp_n, _email)
 
-                with st.container(key="set_export_row"):
+                with st.container(key="set_row_export"):
                     _exp_l, _exp_col = st.columns([3, 2], vertical_alignment="center")
                     with _exp_l:
-                        with st.container(key="set_export_body"):
-                            _row_title(h_("Excel export"),
-                                      h_("Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."))
+                        _row_title(h_("Excel export"), h_("Your portfolio in the same format, ready to re-import."))
                     with _exp_col:
-                        try:
-                            xls_bytes = export_excel()
-                            st.download_button(
-                                _("Download backup.xlsx"),
-                                data=xls_bytes,
-                                file_name=backup_filename("xlsx"),
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            )
-                        except ValueError:
-                            st.info(_("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export."))
-                        except Exception as e:
-                            st.error(_("Could not create Excel: {error}", error=e))
+                        with st.container(horizontal=True, gap="small", horizontal_alignment="right",
+                                          key="set_export_buttons"):
+                            try:
+                                st.download_button(
+                                    _("Download backup.xlsx"),
+                                    data=export_workbook(_email),
+                                    file_name=backup_filename("xlsx"),
+                                    mime=_XLSX_MIME,
+                                )
+                            except Exception as e:
+                                st.error(_("Could not create the workbook: {error}", error=e))
+                # The uploader's own button text ("Upload") is framework chrome;
+                # the design's label goes in through CSS. Its own hidden
+                # container, so it takes no flex gap in either row.
+                with st.container(key="set_upload_label"):
+                    st.markdown('<style>.st-key-set_row_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]'
+                                '{--uv-upload-label:"' + h_("Choose .xlsx file").replace('"', "") + '";}</style>',
+                                unsafe_allow_html=True)
 
             # ── Screening & veto rules ───────────────────────────────────────────────────
             # Admin-only: these are shared, all-user settings (settings.py's own

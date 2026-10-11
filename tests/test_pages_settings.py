@@ -97,40 +97,32 @@ def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch
     assert settings.load_shared_settings()["screen_style"] == "income"
 
 
-def test_export_shows_info_when_portfolio_empty(isolated_data, monkeypatch):
+def test_export_is_offered_when_portfolio_empty(isolated_data, monkeypatch):
+    # An empty account's export is the template for a bulk import.
     at = _run(monkeypatch)
-    assert "Your portfolio is empty" in "".join(i.value for i in at.info)
-    assert len(at.download_button) == 0
+    assert [b.label for b in at.download_button] == ["Download backup.xlsx"]
 
 
 def test_export_shows_download_button_when_portfolio_has_data(isolated_data, monkeypatch):
     portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR", "shares": 10}]))
     at = _run(monkeypatch)
-    assert len(at.download_button) == 1
-    assert at.download_button[0].label == "Download backup.xlsx"
+    assert [b.label for b in at.download_button] == ["Download backup.xlsx"]
 
 
 def _build_test_workbook() -> bytes:
-    # Excel's "used range" (what read_excel sees back) is trimmed to the
-    # last populated row/column — a sold-position row with a real date_out
-    # value (col 17) is what keeps all 18 columns and 110 rows intact when
-    # read back, matching tests/test_portfolio.py's TestParseExcel builder.
-    n_cols = 18
-    rows = [[None] * n_cols for _ in range(110)]
-    rows[1][0] = "Test Corp"
-    rows[1][1] = "EBR:TESTX"
-    rows[1][2] = 10
-    rows[1][6] = 1000.0
-    rows[1][16] = "2024-01-01"
-    rows[94][0] = "Sold Corp"
-    rows[94][1] = "EBR:SOLDX"
-    rows[94][2] = 5
-    rows[94][6] = 500.0
-    rows[94][7] = 600.0
-    rows[94][16] = "2023-01-01"
-    rows[94][17] = "2023-06-01"
+    """Rows added to an empty export: one position, one sold position."""
+    import openpyxl
+    import workbook
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    ws = wb.create_sheet("Positions")
+    ws.append(list(workbook.COLUMNS["positions"]))
+    ws.append(["Test Corp", "TESTX.BR", 10, 1000.0, None, "2024-01-01"])
+    ws = wb.create_sheet("Sold")
+    ws.append(list(workbook.COLUMNS["sold"]))
+    ws.append(["Sold Corp", "SOLDX.BR", 5, 500.0, 600.0, None, None, "2023-01-01", "2023-06-01"])
     buf = io.BytesIO()
-    pd.DataFrame(rows).to_excel(buf, sheet_name="beleggingen", header=False, index=False)
+    wb.save(buf)
     return buf.getvalue()
 
 
@@ -147,23 +139,35 @@ def _upload_workbook(at, data):
     at.run()
 
 
-def test_import_valid_excel_saves_portfolio_after_confirmation(isolated_data, monkeypatch):
-    # Importing replaces everything, so it waits for an explicit "Replace my
-    # portfolio data". The uploader gets a new key afterwards — the old one
-    # kept its file and re-imported it on every rerun (this test used to
-    # stub st.rerun to dodge that loop).
+def test_import_adds_after_confirmation(isolated_data, monkeypatch):
+    # Nothing is written until "Import". The uploader gets a new key
+    # afterwards — the old one kept its file and re-imported it on every
+    # rerun.
     at = _run(monkeypatch)
     _upload_workbook(at, _build_test_workbook())
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert _no_portfolio()                                      # nothing replaced yet
-    assert "Replace all portfolio data" in "".join(m.value for m in at.markdown)
-    at.button(key="imp_confirm").click().run()
+    assert _no_portfolio()                                      # nothing written yet
+    assert "This file holds" in "".join(m.value for m in at.markdown)
+    at.button(key="imp_add").click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert portfolio.load_portfolio().iloc[0]["ticker"] == "TESTX.BR"
+    assert portfolio.load_sold().iloc[0]["ticker"] == "SOLDX.BR"
     # A fresh, empty uploader replaced the one holding the file: no re-import
     # loop. (AppTest keeps the pre-rerun buttons in its tree, so assert on
     # the uploader rather than the confirm button's absence.)
     assert [(u.key, bool(u.value)) for u in at.file_uploader] == [("imp_portfolio_1", False)]
+
+
+def test_import_replace_asks_for_the_red_confirmation(isolated_data, monkeypatch):
+    portfolio.save_portfolio(pd.DataFrame([{"ticker": "OLD.BR", "shares": 1, "purchase_value": 10.0,
+                                            "date_in": "2020-01-01T00:00:00"}]))
+    at = _run(monkeypatch)
+    _upload_workbook(at, _build_test_workbook())
+    at.radio(key="imp_mode_0").set_value("replace").run()
+    assert "All your portfolio data is deleted first" in "".join(m.value for m in at.markdown)
+    at.button(key="imp_confirm").click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert list(portfolio.load_portfolio()["ticker"]) == ["TESTX.BR"]
 
 
 def test_import_cancel_keeps_the_current_portfolio(isolated_data, monkeypatch):
@@ -175,25 +179,20 @@ def test_import_cancel_keeps_the_current_portfolio(isolated_data, monkeypatch):
     assert [(u.key, bool(u.value)) for u in at.file_uploader] == [("imp_portfolio_1", False)]
 
 
-def test_import_excel_with_no_valid_positions_shows_error(isolated_data, monkeypatch):
+def test_import_lists_row_problems(isolated_data, monkeypatch):
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["ticker", "shares", "purchase_value", "date_in"])
+    ws.append(["TESTX.BR", "ten", 1000, "2024-01-01"])
+    buf = io.BytesIO()
+    wb.save(buf)
     at = _run(monkeypatch)
-    # No row matches a valid EBR:/AMS:/etc. prefix, but a dummy value in the
-    # last row/column keeps Excel's used-range at the full 110x18 shape
-    # instead of collapsing to a near-empty sheet (see _build_test_workbook).
-    rows = [[None] * 18 for _ in range(110)]
-    rows[1][1] = "XYZ:NOTVALID"
-    rows[109][17] = "placeholder"
-    empty_wb = io.BytesIO()
-    pd.DataFrame(rows).to_excel(empty_wb, sheet_name="beleggingen", header=False, index=False)
-
-    uploader = at.file_uploader(key="imp_portfolio")
-    uploader.upload(
-        "portfolio.xlsx", empty_wb.getvalue(),
-        mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-    at.run()
+    _upload_workbook(at, buf.getvalue())
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert "No open" in "".join(e.value for e in at.error)
+    err = "".join(e.value for e in at.error)
+    assert "row 2" in err and "not a number" in err
+    assert not [b for b in at.button if b.key in ("imp_add", "imp_confirm")]
 
 
 def test_targets_section_renders(isolated_data, monkeypatch):

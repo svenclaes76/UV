@@ -115,9 +115,6 @@ def render() -> None:
     # ── Migrate: ensure new fields exist ──────────────────────────────────────
     if not pf.empty:
         _dirty = False
-        if "account" not in pf.columns:
-            pf["account"] = ""
-            _dirty = True
         if "purchase_price" not in pf.columns:
             pf["purchase_price"] = (
                 pd.to_numeric(pf["purchase_value"], errors="coerce") /

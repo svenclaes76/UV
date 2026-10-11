@@ -392,16 +392,10 @@ def preview_trade(kind: str, gross: float, fee: float = 0.0, on=None,
     return {"amount": amt, "topup": topup, "after": after}
 
 
-def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: float,
-               fee: float = 0.0, on=None) -> list[dict]:
-    """Auto-post a Buy/Sell (base currency — trades are entered in EUR).
-    Never raises for an insufficient balance: the shortfall is covered by an
-    automatic top-up Deposit, linked to the same trade and ordered right
-    before it, so the balance never goes below zero (D3). Returns the posted
-    entries (top-up first when there is one)."""
-    if kind not in ("Buy", "Sell"):
-        raise CashError(f"Unsupported trade kind: {kind}")
-    d = _to_date(on)
+def _trade_postings(entries: list[dict], kind: str, *, trade_id: str, ticker: str, shares: float,
+                    gross: float, fee: float, d: date) -> list[dict]:
+    """The entries one Buy/Sell posts against ``entries`` (not saved): a
+    top-up Deposit first when the trade would take the balance below zero."""
     base = portfolio.base_currency()
     amt = trade_amount(kind, gross, fee)
     price = gross / shares if shares else gross
@@ -412,25 +406,93 @@ def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: f
         parts.append((N_("· fee {amount}"), {"amount": ("money", float(fee), {"currency": base})}))
     note, note_i18n = auto_note(parts)
     label = f"{trade_id} · {ticker}"
+    probe = {"id": "probe", "seq": 10 ** 12, "date": d.isoformat(), "type": kind,
+             "amount": amt, "amount_base": amt, "fx_rate": 1.0}
+    topup = round(max(0.0, -min_balance_after(entries, probe)), 2)
+    posted: list[dict] = []
+    if topup > 0:
+        _tnote, _tnote_i18n = auto_note([(N_("Auto top-up to fund {label}"), {"label": label})])
+        posted.append(_new_entry("Deposit", d, topup, base, 1.0, "base", None, _tnote,
+                                 ref_kind="trade", ref_id=trade_id, ref_label=label,
+                                 auto=True, topup=True, note_i18n=_tnote_i18n))
+    posted.append(_new_entry(kind, d, amt, base, 1.0, "base", None, note,
+                             ref_kind="trade", ref_id=trade_id, ref_label=label, auto=True,
+                             note_i18n=note_i18n))
+    return posted
+
+
+def post_trade(kind: str, *, trade_id: str, ticker: str, shares: float, gross: float,
+               fee: float = 0.0, on=None) -> list[dict]:
+    """Auto-post a Buy/Sell (base currency — trades are entered in EUR).
+    Never raises for an insufficient balance: the shortfall is covered by an
+    automatic top-up Deposit, linked to the same trade and ordered right
+    before it, so the balance never goes below zero (D3). Returns the posted
+    entries (top-up first when there is one)."""
+    if kind not in ("Buy", "Sell"):
+        raise CashError(f"Unsupported trade kind: {kind}")
+    d = _to_date(on)
     with _lock:
         entries = load_ledger()
-        probe = {"id": "probe", "seq": 10 ** 12, "date": d.isoformat(), "type": kind,
-                 "amount": amt, "amount_base": amt, "fx_rate": 1.0}
-        topup = round(max(0.0, -min_balance_after(entries, probe)), 2)
-        posted: list[dict] = []
-        if topup > 0:
-            _tnote, _tnote_i18n = auto_note([(N_("Auto top-up to fund {label}"), {"label": label})])
-            posted.append(_new_entry("Deposit", d, topup, base, 1.0, "base", None, _tnote,
-                                     ref_kind="trade", ref_id=trade_id, ref_label=label,
-                                     auto=True, topup=True, note_i18n=_tnote_i18n))
-        posted.append(_new_entry(kind, d, amt, base, 1.0, "base", None, note,
-                                 ref_kind="trade", ref_id=trade_id, ref_label=label, auto=True,
-                                 note_i18n=note_i18n))
+        posted = _trade_postings(entries, kind, trade_id=trade_id, ticker=ticker, shares=shares,
+                                 gross=gross, fee=float(fee or 0.0), d=d)
         entries.extend(posted)
         save_ledger(entries)
     logkit.data_mutation(actor=logkit.user_id(), action="cash.post_trade", entity_type="cash",
-                         entity_id=trade_id, type=kind, topup=bool(topup))
+                         entity_id=trade_id, type=kind, topup=any(e.get("topup") for e in posted))
     return posted
+
+
+def import_entries(manual: list[dict], trades: list[dict]) -> int:
+    """Add imported cash in one ledger write (workbook import).
+
+    ``manual``: {date, type, amount, currency, fx_rate, fx_source, fx_date,
+    note} — typed entries (Deposit/Withdrawal/Fee/Interest: positive amount;
+    Adjustment: the target balance), rates already resolved. Added as they
+    are: the balance rule is not applied to restored history.
+    ``trades``: {kind, trade_id, ticker, shares, gross, fee, date}, posted in
+    date order (a buy before a sale on the same day) with automatic top-ups,
+    like trades entered by hand. Returns the number of entries added."""
+    with _lock:
+        entries = load_ledger()
+        added: list[dict] = []
+        has_opening = any(e.get("opening") for e in entries)
+        first = min((str(e.get("date") or "") for e in entries), default=None)
+        base = portfolio.base_currency()
+        for m in sorted(manual, key=lambda m: _to_date(m["date"])):
+            d = _to_date(m["date"])
+            type_ = m["type"]
+            if type_ == "Adjustment":
+                # An Adjustment before everything else is the opening balance.
+                opening = not has_opening and not added and (first is None or d.isoformat() <= first)
+                e = _new_entry("Adjustment", d, None, base, 1.0, "base", None,
+                               m.get("note") or (N_("Opening balance") if opening else N_("Manual balance correction")),
+                               target_balance=round(float(m["amount"]), 2), opening=opening)
+            else:
+                signed = _SIGN[type_] * abs(float(m["amount"]))
+                e = _new_entry(type_, d, signed, str(m.get("currency") or base).upper(),
+                               float(m.get("fx_rate") or 1.0), m.get("fx_source") or "base",
+                               m.get("fx_date"), m.get("note") or type_)
+            added.append(e)
+        entries.extend(added)
+        for t in sorted(trades, key=lambda t: (_to_date(t["date"]), t["kind"] != "Buy")):
+            posted = _trade_postings(entries, t["kind"], trade_id=t["trade_id"], ticker=t["ticker"],
+                                     shares=float(t["shares"]), gross=float(t["gross"]),
+                                     fee=float(t.get("fee") or 0.0), d=_to_date(t["date"]))
+            entries.extend(posted)
+            added.extend(posted)
+        if added:
+            save_ledger(entries)
+    logkit.data_mutation(actor=logkit.user_id(), action="cash.import", entity_type="cash",
+                         manual=len(manual), trades=len(trades))
+    return len(added)
+
+
+def manual_entries(entries: list[dict] | None = None) -> list[dict]:
+    """Entries the user typed (not linked to a trade or dividend, not
+    automatic) — what the workbook export carries."""
+    entries = load_ledger() if entries is None else entries
+    return [e for e in sorted(entries, key=_order)
+            if not e.get("ref_kind") and not e.get("auto") and e.get("type") in MANUAL_TYPES]
 
 
 def remove_ref(ref_kind: str, ref_id: str, *, check: bool = False) -> int:

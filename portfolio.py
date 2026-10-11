@@ -83,24 +83,22 @@ def portfolio_exists() -> bool:                return (_user_dir() / "portfolio.
 
 
 # Dividend-event fields added for the fuller Dividend Management surface
-# (declaration/ex/record dates, per-share gross, special/one-off type,
-# auto-vs-manual source). Records saved before this shipped only have the
+# (ex-date, per-share gross, special/one-off type, auto-vs-manual source;
+# declaration/record dates were dropped again by migration 2). Records saved before this shipped only have the
 # original `date` (payment date), `amount` (gross total), `shares`,
 # `tax_rate`/`tax_amount` — every new field defaults so old rows never crash
 # code that reads them. `ex_date` is nominally "required" going forward (the
 # Add-dividend dialog enforces it), but a pre-existing record without one
 # falls back to its payment date rather than being left blank.
 _DIV_HIST_DEFAULTS: dict = {
-    "declaration_date": None,
     "ex_date":          None,
-    "record_date":      None,
     "amount_per_share": None,
     "div_type":         "Cash",   # "Cash" | "Stock" | "Special"
     "source":           "manual",  # "manual" | "auto" (fetched from market data, WP-DIV8)
 }
 
 
-_DIV_DATE_COLS = ("date", "declaration_date", "ex_date", "record_date")
+_DIV_DATE_COLS = ("date", "ex_date")
 
 
 def _normalize_div_dates(df: pd.DataFrame | None) -> pd.DataFrame | None:
@@ -270,7 +268,6 @@ def sell_position(ticker: str, shares: float, proceeds: float, sell_date: str, *
     first_row = lots.iloc[0]
     sold_row = {
         "name":              first_row.get("name", ""),
-        "google_ticker":     first_row.get("google_ticker", ""),
         "ticker":            ticker,
         "shares":            shares if full_close and held <= 0 else (
                                  int(sold_shares) if float(sold_shares).is_integer() else round(sold_shares, 6)),
@@ -669,6 +666,17 @@ def exchange_key_for_ticker(ticker: str) -> str | None:
 BE_WITHHOLDING_RATE = 0.30
 
 
+def dividend_tax_breakdown(gross: float, foreign_wh_pct: float, div_type: str) -> tuple[float, float, float]:
+    """(foreign_wh_amount, be_amount, net) for a gross dividend — mirrors
+    dividends_in_eur()'s per-row math exactly (foreign % first, then
+    Belgium's fixed 30% roerende voorheffing on the remainder), so the
+    dividend dialogs' live preview and the workbook import store what gets
+    read back. Stock (scrip) dividends carry no cash withholding."""
+    fwh = round(gross * (foreign_wh_pct or 0) / 100, 2)
+    be = 0.0 if div_type == "Stock" else round(max(0.0, gross - fwh) * BE_WITHHOLDING_RATE, 2)
+    return fwh, be, round(gross - fwh - be, 2)
+
+
 def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     """div_hist rows with `amount_eur`/`tax_amount_eur`/`net_amount_eur`
     (foreign-withholding-only net, kept for backward compat) plus
@@ -695,7 +703,11 @@ def dividends_in_eur(div_df: "pd.DataFrame") -> "pd.DataFrame":
     out["amount"]     = pd.to_numeric(out["amount"], errors="coerce").fillna(0)
     out["tax_amount"] = pd.to_numeric(out["tax_amount"], errors="coerce").fillna(0)
     out["tax_rate"]   = pd.to_numeric(out["tax_rate"], errors="coerce").fillna(0)
-    out["currency"]   = out["currency"].fillna("EUR").astype(str).str.upper()
+    # A record without a currency is in its exchange's currency (.SW → CHF),
+    # the same fallback cash.reconcile_dividend_postings uses.
+    _no_ccy = out["currency"].isna() | out["currency"].astype(str).str.strip().isin(["", "None", "nan"])
+    out.loc[_no_ccy, "currency"] = out.loc[_no_ccy, "ticker"].map(currency_for_ticker) if "ticker" in out.columns else "EUR"
+    out["currency"]   = out["currency"].astype(str).str.upper()
     out["div_type"]   = out["div_type"].fillna("Cash").replace("", "Cash")
     out["net_amount"] = out["amount"] - out["tax_amount"]
     _be_eligible = out["div_type"] != "Stock"
@@ -805,7 +817,7 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
             continue
         d_in = pd.to_datetime(prow.get("date_in"), errors="coerce")
         lots.setdefault(ticker, []).append((d_in.normalize() if pd.notna(d_in) else None, float(shares)))
-        names.setdefault(ticker, (prow.get("name", ticker), prow.get("google_ticker", "")))
+        names.setdefault(ticker, prow.get("name", ticker))
 
     new_rows: list[dict] = []
     for ticker, t_lots in lots.items():
@@ -819,7 +831,7 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
         known = _existing.setdefault(ticker, [])
         tax_rate = get_dividend_withholding(exchange_key_for_ticker(ticker), email)
         currency = currency_for_ticker(ticker)
-        name, google_ticker = names[ticker]
+        name = names[ticker]
         for ex_ts, ps in divs.items():
             ex_norm = pd.Timestamp(ex_ts).normalize()
             if ex_norm.date().isoformat() in dismissed:
@@ -832,14 +844,11 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
                 continue
             gross = round(ps * shares, 2)
             new_rows.append({
-                "name": name, "google_ticker": google_ticker,
-                "ticker": ticker, "shares": int(shares), "amount": gross,
+                "name": name, "ticker": ticker, "shares": int(shares), "amount": gross,
                 "amount_per_share": round(ps, 4), "currency": currency,
                 "tax_rate": round(tax_rate, 2), "tax_amount": round(gross * tax_rate / 100, 2),
                 "div_type": "Cash", "source": "auto",
-                "declaration_date": None, "ex_date": pd.Timestamp(ex_ts).isoformat(),
-                "record_date": None, "date": pd.Timestamp(ex_ts).isoformat(),
-                "reinvested": False, "reinvested_shares": None,
+                "ex_date": pd.Timestamp(ex_ts).isoformat(), "date": pd.Timestamp(ex_ts).isoformat(),
             })
             known.append(ex_norm)
 
@@ -1340,78 +1349,3 @@ def save_risk_snapshot(snapshot: dict) -> None:
 def load_risk_snapshot() -> dict:
     s = _load_user_json("risk_snapshot.json", {})
     return s if isinstance(s, dict) else {}
-
-
-# ── Excel parsing ─────────────────────────────────────────────────────────────
-
-_COL_NAMES = {
-    0:  "name",
-    1:  "google_ticker",
-    2:  "shares",
-    4:  "target_price",
-    6:  "purchase_value",
-    7:  "sale_value",
-    10: "dividends",
-    16: "date_in",
-    17: "date_out",
-}
-
-_SUFFIX_MAP = {"EBR": ".BR", "AMS": ".AS", "EPA": ".PA", "BIT": ".MI", "ETR": ".DE", "SWX": ".SW"}
-
-# Fixed row ranges (1-indexed as in Excel, converted to 0-indexed iloc below)
-# Row 1 = header, rows 2-19 = positions, rows 20-91 = dividends, rows 95-110 = sold
-_ROWS_POSITIONS = slice(1, 19)    # Excel rows 2–19
-_ROWS_DIVIDENDS = slice(19, 91)   # Excel rows 20–91
-_ROWS_SOLD      = slice(94, 110)  # Excel rows 95–110
-
-
-def _prep_section(raw: "pd.DataFrame", rows: slice) -> "pd.DataFrame":
-    """Slice raw sheet, rename columns, add ticker, drop rows without a valid ticker."""
-    section = raw.iloc[rows].copy()
-    section.columns = range(len(section.columns))
-    section = section.rename(columns=_COL_NAMES)
-    mask = section["google_ticker"].astype(str).str.startswith(tuple(f"{k}:" for k in _SUFFIX_MAP))
-    section = section[mask].copy()
-    section["ticker"] = section["google_ticker"].apply(
-        lambda v: v.split(":")[1] + _SUFFIX_MAP.get(v.split(":")[0], ".BR")
-        if isinstance(v, str) and ":" in v else None
-    )
-    return section
-
-
-def parse_excel(file) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Parse the portfolio Excel file using fixed row ranges.
-    Returns (open_positions, sold_positions, dividend_history).
-    """
-    raw = pd.read_excel(file, sheet_name="beleggingen", header=None)
-
-    open_df = _prep_section(raw, _ROWS_POSITIONS)
-    div_raw = _prep_section(raw, _ROWS_DIVIDENDS)
-    sold_df = _prep_section(raw, _ROWS_SOLD)
-
-    # Clean numeric/date columns
-    for df in [open_df, sold_df]:
-        for col in ["shares", "purchase_value", "sale_value", "dividends", "target_price"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        df["date_in"]  = pd.to_datetime(df["date_in"],  errors="coerce")
-        df["date_out"] = pd.to_datetime(df["date_out"], errors="coerce")
-
-    for col in ["shares", "purchase_value"]:
-        div_raw[col] = pd.to_numeric(div_raw[col], errors="coerce")
-    div_raw["date_in"] = pd.to_datetime(div_raw["date_in"], errors="coerce")
-
-    div_df = div_raw[div_raw["date_in"].notna()].copy()
-    div_df = div_df.rename(columns={"purchase_value": "amount", "date_in": "date"})
-
-    open_cols = ["name", "google_ticker", "ticker", "shares",
-                 "purchase_value", "target_price", "dividends", "date_in"]
-    sold_cols = ["name", "google_ticker", "ticker", "shares",
-                 "purchase_value", "sale_value", "dividends", "date_in", "date_out"]
-    div_cols  = ["name", "google_ticker", "ticker", "shares", "amount", "date"]
-
-    return (
-        open_df[open_cols].reset_index(drop=True),
-        sold_df[sold_cols].reset_index(drop=True),
-        div_df[div_cols].reset_index(drop=True),
-    )

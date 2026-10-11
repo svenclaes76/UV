@@ -10,7 +10,7 @@ Export options:
                      separate, deliberate action (export_env_key()) — only
                      needed once, to migrate onto a brand-new machine; never
                      bundled into the routine backup history
-  - Excel workbook : human-readable export of positions, dividends, sold history
+  - The user-facing workbook export/import lives in workbook.py.
 
 Import:
   - Encrypted ZIP  : extracts files back into the current user's data dir.
@@ -27,10 +27,9 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pandas as pd
 
 from crypto import read_encrypted, write_encrypted
-from portfolio import user_data_dir, load_portfolio, load_sold, load_div_hist, load_watchlist
+from portfolio import user_data_dir
 from settings import _settings_file, _SHARED_FILE
 from uvalu import logkit
 
@@ -46,9 +45,11 @@ _LEGACY_SCHEMA = 1
 # cash.json (Cash Management v1 ledger — retained indefinitely), its
 # portfolio_meta.json (fixed base currency + never-reused id counters) and
 # dividend_meta.json (dismissed auto-imports / frequency overrides) are user
-# data like the rest and must survive a backup/restore cycle.
+# data like the rest and must survive a backup/restore cycle — as are the
+# target allocation and the hand-added watchlist tickers.
 _PORTFOLIO_FILENAMES = ("portfolio.json", "sold.json", "dividends_history.json", "watchlist.json",
-                        "cash.json", "portfolio_meta.json", "dividend_meta.json")
+                        "cash.json", "portfolio_meta.json", "dividend_meta.json",
+                        "targets.json", "manual_tickers.json")
 
 # ── Backup history (Admin portal) ─────────────────────────────────────────────
 # A real, growing history of on-demand backups — every entry is a genuine
@@ -138,50 +139,6 @@ def export_env_key() -> bytes | None:
         extra={"event": "secret.export", "actor": logkit.user_id()},
     )
     return _ENV_FILE.read_bytes()
-
-
-def export_excel() -> bytes:
-    """
-    Export all user data as a human-readable Excel workbook.
-    Returns raw bytes suitable for st.download_button.
-    """
-    pf   = load_portfolio()
-    sold = load_sold()
-    div  = load_div_hist()
-    wl   = load_watchlist()
-
-    has_data = (
-        (pf   is not None and not pf.empty) or
-        (sold  is not None and not sold.empty) or
-        (div   is not None and not div.empty) or
-        bool(wl)
-    )
-    if not has_data:
-        from uvalu.i18n import _
-        raise ValueError(_("No portfolio data found to export."))
-
-    from uvalu.i18n import pgettext
-    # Translators: Settings › Excel export: worksheet tab names in the downloaded
-    # workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]
-    sheet = {
-        "pf":   pgettext("sheet_name", "Positions"),
-        "sold": pgettext("sheet_name", "Sold"),
-        "div":  pgettext("sheet_name", "Dividends"),
-        "wl":   pgettext("sheet_name", "Watchlist"),
-    }
-    buf = io.BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        if pf is not None and not pf.empty:
-            pf.to_excel(writer, sheet_name=sheet["pf"], index=False)
-        if sold is not None and not sold.empty:
-            sold.to_excel(writer, sheet_name=sheet["sold"], index=False)
-        if div is not None and not div.empty:
-            div.to_excel(writer, sheet_name=sheet["div"], index=False)
-        if wl:
-            pd.DataFrame(sorted(wl), columns=["Ticker"]).to_excel(
-                writer, sheet_name=sheet["wl"], index=False
-            )
-    return buf.getvalue()
 
 
 # ── Import ────────────────────────────────────────────────────────────────────

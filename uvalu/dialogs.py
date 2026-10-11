@@ -63,16 +63,9 @@ def _nz(v, default=0):
 
 
 def _dividend_tax_breakdown(gross: float, foreign_wh_pct: float, div_type: str) -> tuple[float, float, float]:
-    """(foreign_wh_amount, be_amount, net) for a gross dividend — mirrors
-    portfolio.dividends_in_eur()'s per-row math exactly (foreign % first,
-    then Belgium's fixed 30% roerende voorheffing on the remainder), so the
-    dialog's live preview always matches what gets stored/read back. Stock
-    (scrip) dividends carry no cash withholding."""
-    from portfolio import BE_WITHHOLDING_RATE
-
-    fwh = round(gross * (foreign_wh_pct or 0) / 100, 2)
-    be = 0.0 if div_type == "Stock" else round(max(0.0, gross - fwh) * BE_WITHHOLDING_RATE, 2)
-    return fwh, be, round(gross - fwh - be, 2)
+    """(foreign_wh_amount, be_amount, net) — see portfolio.dividend_tax_breakdown."""
+    from portfolio import dividend_tax_breakdown
+    return dividend_tax_breakdown(gross, foreign_wh_pct, div_type)
 
 
 # ── Calculated box ───────────────────────────────────────────────────────────
@@ -442,15 +435,12 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
         return
     record_buy({
         "name":           name_raw or _yf_name,
-        "google_ticker":  "",
         "ticker":         ticker_raw,
         "shares":         shares,
         "purchase_price": round(_total / shares, 4),
         "purchase_value": round(_total, 2),
-        "target_price":   None,
         "dividends":      0.0,
         "date_in":        pd.Timestamp(pur_date).isoformat(),
-        "account":        "",
     }, fee=fee)
     st.rerun()
 
@@ -692,10 +682,8 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
     if _err:
         st.error(_err)
         return
-    _google_ticker = _match.iloc[0].get("google_ticker", "") if not _match.empty else ""
     add_dividend({
         "name":              name_raw or (_default_name or ticker_raw),
-        "google_ticker":     _google_ticker,
         "ticker":            ticker_raw,
         "shares":            int(shares),
         "amount":            gross,
@@ -705,15 +693,8 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         "tax_amount":        fwh,
         "div_type":          div_type,
         "source":            "manual",
-        "declaration_date":  None,
         "ex_date":           pd.Timestamp(ex_date).isoformat(),
-        "record_date":       None,
         "date":              pd.Timestamp(pay_date).isoformat(),
-        # The DRIP checkbox was removed from this dialog (user review, Sep
-        # 2026): new records are always cash. Existing DRIP records keep
-        # their flag.
-        "reinvested":        False,
-        "reinvested_shares": None,
     })
     st.rerun()
 
@@ -740,8 +721,7 @@ def edit_dividend_dialog(div_id: str) -> None:
     _row_pay = _to_date(row.get("date"))
     _max_date = max(_dt.date.today(), _row_pay) if _row_pay else _dt.date.today()
 
-    # Same fields/order as add_dividend_dialog. Saving leaves any
-    # declaration/record date a record already carries untouched.
+    # Same fields/order as add_dividend_dialog.
     _l1 = [_("Ex-dividend date *"), _("Payment date *")]
     _c1, _c2 = field_cols(2, _l1, key="dlg_ed_dates")
     with _c1:
@@ -880,7 +860,6 @@ def add_closed_trade_dialog() -> None:
     _closed_iso = pd.Timestamp(closed_date).isoformat()
     add_closed_trade({
         "name":              name_raw or _looked_up[0],
-        "google_ticker":     "",
         "ticker":            ticker_raw,
         "shares":            shares,
         "purchase_value":    round(buy_price * shares, 2),

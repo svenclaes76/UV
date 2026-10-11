@@ -1,5 +1,5 @@
 """
-Unit tests for backup.py — encrypted ZIP export/import, Excel export, and
+Unit tests for backup.py — encrypted ZIP export/import and
 the on-disk backup history used by the Admin portal.
 
 backup.py imports several path constants and functions by value from
@@ -11,7 +11,6 @@ _BACKUPS_MANIFEST) in addition to portfolio._BASE_DIR / settings._DATA_DIR.
 import io
 import zipfile
 
-import openpyxl
 import pandas as pd
 import pytest
 
@@ -107,41 +106,6 @@ class TestExportEnvKey:
         backup._ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
         backup._ENV_FILE.write_bytes(b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n")
         assert backup.export_env_key() == b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n"
-
-
-# ── export_excel ──────────────────────────────────────────────────────────
-
-class TestExportExcel:
-    def test_raises_when_no_data(self):
-        with pytest.raises(ValueError):
-            backup.export_excel()
-
-    def test_produces_expected_sheets(self):
-        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
-        portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR"}]))
-        portfolio.save_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 5.0}]))
-        portfolio.save_watchlist({"CCC.BR"})
-
-        wb = openpyxl.load_workbook(io.BytesIO(backup.export_excel()))
-        assert set(wb.sheetnames) == {"Positions", "Sold", "Dividends", "Watchlist"}
-
-    def test_omits_sheets_for_empty_sections(self):
-        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
-        wb = openpyxl.load_workbook(io.BytesIO(backup.export_excel()))
-        assert wb.sheetnames == ["Positions"]
-
-    def test_sheet_names_follow_the_user_language(self, monkeypatch):
-        import uvalu.i18n
-        names = {"Positions": "Posities", "Sold": "Verkocht",
-                 "Dividends": "Dividenden", "Watchlist": "Volglijst"}
-        monkeypatch.setattr(uvalu.i18n, "pgettext",
-                            lambda ctx, msgid, **kw: names[msgid] if ctx == "sheet_name" else msgid)
-        portfolio.save_portfolio(pd.DataFrame([{"ticker": "AAA.BR"}]))
-        portfolio.save_sold(pd.DataFrame([{"ticker": "BBB.BR"}]))
-        portfolio.save_div_hist(pd.DataFrame([{"ticker": "AAA.BR", "amount": 5.0}]))
-        portfolio.save_watchlist({"CCC.BR"})
-        wb = openpyxl.load_workbook(io.BytesIO(backup.export_excel()))
-        assert wb.sheetnames == ["Posities", "Verkocht", "Dividenden", "Volglijst"]
 
 
 # ── import_zip ────────────────────────────────────────────────────────────

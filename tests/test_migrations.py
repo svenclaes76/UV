@@ -363,3 +363,30 @@ def test_app_shows_maintenance_screen_on_mismatch():
     text = " ".join(m.value for m in at.markdown)
     assert "Uvalu is being updated" in text
     assert not at.text_input                                # the sign-in form never rendered
+
+
+# ── m0002: drop unused fields, fill dividend currency ────────────────────────
+
+def test_m0002_drops_unused_fields_and_fills_currency(ctx, monkeypatch):
+    from uvalu.migrations import m0002_drop_unused_fields as m2
+    monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
+    udir = ctx.data_dir / "portfolio" / "abc123"
+    udir.mkdir(parents=True)
+    ctx.write_json(udir / "portfolio.json", [{"ticker": "AED.BR", "google_ticker": "EBR:AED",
+                                              "target_price": 100, "account": "", "shares": 30}])
+    ctx.write_json(udir / "sold.json", [{"ticker": "KIN.BR", "google_ticker": "EBR:KIN", "shares": 60}])
+    ctx.write_json(udir / "dividends_history.json", [
+        {"ticker": "ROG.SW", "google_ticker": "SWX:ROG", "amount": 76.8, "currency": None, "declaration_date": None,
+         "record_date": None, "reinvested": False, "reinvested_shares": None},
+        {"ticker": "ABI.BR", "amount": 32.8},
+        {"ticker": "NESN.SW", "amount": 10, "currency": "EUR"},
+    ])
+    m2.up(ctx)
+    m2.up(ctx)   # idempotent
+    assert ctx.read_json(udir / "portfolio.json") == [{"ticker": "AED.BR", "shares": 30}]
+    assert ctx.read_json(udir / "sold.json") == [{"ticker": "KIN.BR", "shares": 60}]
+    assert ctx.read_json(udir / "dividends_history.json") == [
+        {"ticker": "ROG.SW", "amount": 76.8, "currency": "CHF"},
+        {"ticker": "ABI.BR", "amount": 32.8, "currency": "EUR"},
+        {"ticker": "NESN.SW", "amount": 10, "currency": "EUR"},
+    ]

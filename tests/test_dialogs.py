@@ -332,7 +332,8 @@ add_dividend_dialog(pf)
         at.number_input(key="dlg_dv_ps").set_value(1.5)
         at.number_input(key="dlg_dv_shares").set_value(10)
         [b for b in at.button if b.label == "Save"][0].click().run()
-        assert not bool(portfolio.load_div_hist().iloc[0]["reinvested"])
+        row = portfolio.load_div_hist().iloc[0]
+        assert row["div_type"] == "Cash" and "reinvested" not in row.index
 
     def test_only_ex_and_payment_dates_no_frequency(self):
         at = self._run()
