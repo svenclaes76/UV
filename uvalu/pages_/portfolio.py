@@ -376,7 +376,7 @@ def render() -> None:
             with st.container(key="pf_card_closed_ov", border=True):
                 with st.container(key="pf_panel_title_closed_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
-                    st.markdown(f'{h_("Closed positions")} <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
+                    st.markdown(f'{h_("Closed positions")} <span style="font-size:12px;color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                                unsafe_allow_html=True)
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("closed")
@@ -514,7 +514,7 @@ def render() -> None:
         if back_link(_("← Back to {page}", page=_("Portfolio")), key="back_closed"):
             _goto("overview")
         with page_header(_("Closed positions"),
-                         title_suffix=f' <span style="color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
+                         title_suffix=f' <span style="font-size:14px;color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                          key="pf_page_title_closed"):
             # Records a trade opened and closed outside this app (no cash
             # posting) — it used to be labelled "Close", which read like
