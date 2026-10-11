@@ -28,7 +28,7 @@ from uvalu.components import (back_link, page_header, fit_widths, header_cell_ht
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
-from uvalu.formatting import exchange_label, safe_pct as _safe_pct
+from uvalu.formatting import exchange_code, safe_pct as _safe_pct
 from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
 from uvalu.locale_ui import export_menu
 from uvalu.runtime import current_user
@@ -42,9 +42,10 @@ _SECTIONS = ("overview", "open", "closed", "dividends", "cash")
 _VIEWER_HELP = N_("Viewer role is read-only")
 
 
-def _exchange_label(ticker: str) -> str:
-    """Exchange chip next to the ticker (shared map, uvalu/formatting.py)."""
-    return exchange_label(ticker)
+def _exchange_label(ticker: str) -> "str | None":
+    """Exchange code next to the ticker ("BRU", "XET"), as in the Screener
+    (design reference; shared map, uvalu/formatting.py)."""
+    return exchange_code(ticker)
 
 
 # Table columns: (label, design width in px, right-aligned). The design widths

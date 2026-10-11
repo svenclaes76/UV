@@ -86,7 +86,8 @@ def display_name(name) -> str:
 
 # Exchange short codes shown next to a ticker (Screener, Watchlist): the
 # venue's own abbreviation, never translated (glossary: exchange names stay).
-EXCHANGE_CODES = {"BR": "BRU", "PA": "PAR", "AS": "AMS", "MI": "MIL", "DE": "XET", "SW": "SWX"}
+EXCHANGE_CODES = {"BR": "BRU", "PA": "PAR", "AS": "AMS", "MI": "MIL", "DE": "XET", "SW": "SWX",
+                  "L": "LON", "MC": "MAD", "HE": "HEL", "ST": "STO"}
 
 
 def exchange_code(ticker) -> "str | None":

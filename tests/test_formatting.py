@@ -58,3 +58,11 @@ def test_display_name(raw, shown):
 def test_exchange_label(ticker, exchange, shown):
     from uvalu.formatting import exchange_label
     assert exchange_label(ticker, exchange) == shown
+
+
+def test_exchange_codes_match_the_design_reference():
+    """Venue codes as in Uvalu.dc.html's _exch (Portfolio, Risk, Screener rows)."""
+    from uvalu.formatting import exchange_code
+    assert [exchange_code(t) for t in ("ULVR.L", "TEF.MC", "NDA-FI.HE", "VOLV-B.ST", "AED.BR")] == \
+        ["LON", "MAD", "HEL", "STO", "BRU"]
+    assert exchange_code("AAPL") is None

@@ -1687,7 +1687,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1776,7 +1776,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                            f".st-key-{_css_key}_edit button:hover {{ color: var(--text) !important; }}</style>",
                            unsafe_allow_html=True)
         _cols = st.columns(_widths, vertical_alignment="center")
-        _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+        _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
@@ -1945,7 +1945,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
 
     _num = "text-align:right;font-family:var(--uv-mono);font-size:12px;color:var(--muted);"
     _pill = "font-size:9.5px;font-family:var(--uv-mono);padding:2px 6px;border-radius:6px;white-space:nowrap;"
-    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     # Unconfirmed pay date (auto-imported: market data has no payment date,
     # so it defaults to the ex-date) — amber + tooltip rather than extra
@@ -2015,7 +2015,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     same convention as holdings_row_html(); pair with a RISK_HOLDINGS_GRID_COLS-
     templated header for aligned column labels."""
     name = _name_html(name)
-    _exch_html = (f"<span style='font-size:10.5px;color:var(--muted);'>{exchange}</span>"
+    _exch_html = (f"<span style='font-family:var(--uv-mono);font-size:9px;color:var(--muted);'>{exchange}</span>"
                  if exchange and pd.notna(exchange) else "")
     _beta_str = fmt_num(beta, 2)
     _vol_str = fmt_pct(vol_pct, 0)
