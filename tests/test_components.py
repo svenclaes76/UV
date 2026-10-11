@@ -811,3 +811,13 @@ class TestDashboardBottomRow:
         assert '<rect x="26.0" y="7" width="12.5"' in up and "fill:var(--up-txt)" in up
         assert '<rect x="1.0" y="7" width="25.0"' in down and "fill:var(--down-txt)" in down
         assert ">AAA.BR</span>" in up and "+2.00%" in up
+
+
+def test_ladder_difference_text_uses_text_tokens():
+    """Brand v1.3: --amber-fill is for bars; the difference text next to a
+    model's bar uses --amber-txt (and --muted near fair value)."""
+    from uvalu.components import _ladder_bar_color, _ladder_text_color
+    assert _ladder_bar_color(-20) == "var(--amber-fill)"
+    assert _ladder_text_color(-20) == "var(--amber-txt)"
+    assert _ladder_text_color(1) == "var(--muted)"
+    assert _ladder_text_color(20) == "var(--up-txt)"

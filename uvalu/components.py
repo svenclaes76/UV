@@ -599,6 +599,17 @@ def _ladder_bar_color(delta_pct: float) -> str:
     return "var(--amber-fill)"
 
 
+def _ladder_text_color(delta_pct: float) -> str:
+    """Text colour for a model's difference to the price, next to its bar:
+    the same three bands as `_ladder_bar_color`, but in text tokens — brand
+    v1.3 keeps --amber-fill for bars and swatches, --amber-txt for text."""
+    if delta_pct > _NEAR_FAIR_BAND:
+        return "var(--up-txt)"
+    if delta_pct >= -_NEAR_FAIR_BAND:
+        return "var(--muted)"
+    return "var(--amber-txt)"
+
+
 # ── Score bands and margin-of-safety colour ──────────────────────────────────
 # One scale for every 0-100 model score (composite and sub-scores): the upper
 # band starts at the shared Undervalued threshold (Settings › Model settings,
@@ -818,7 +829,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
                f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:4px;background:var(--uv-track,#EEF1F5);position:relative;">'
                f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:4px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
                f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{fmt_money(value, ccy, 0)}</span>'
-               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{color};">{fmt_pct(delta_pct, signed=True)}</span></div>')
+               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{_ladder_text_color(delta_pct)};">{fmt_pct(delta_pct, signed=True)}</span></div>')
 
     rows_html = "".join(_row(lbl, v) for lbl, v in models)
 
@@ -835,8 +846,8 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
         # design's smaller demo figures, and would overflow its fixed 64px
         # column at 2dp), so it can show full 2-decimal precision safely.
         composite_html = (f'<div style="display:flex;align-items:center;gap:12px;padding:11px 0 2px;">'
-                          f'<span style="flex:1;font-size:12.5px;font-weight:600;">{tr(composite_label)}</span>'
-                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:600;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
+                          f'<span style="flex:1;font-size:12.5px;font-weight:500;">{tr(composite_label)}</span>'
+                          f'<span style="font-family:var(--uv-mono);font-size:14px;font-weight:500;color:var(--up-txt);">{fmt_money(composite, ccy)}</span></div>')
 
     # FV-6: "basis" line — how many sub-models actually back the composite, and a
     # muted flag when that's a weakly-corroborated one (fv_basis_thin).
