@@ -21,17 +21,81 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.5] — 2026-10-11
+
+Import & export now works for every user: a portfolio workbook you can restore
+from or bulk-add to, a full copy of your data under Settings › Privacy, and
+self-service account deletion. Scores and signals don't change. Data schema: 2
+— on first start stored data is cleaned (a migration snapshot is taken first;
+the step can't be undone). Before publishing privacy notice beta 1.3, confirm
+the offsite Storage Box backups rotate within 30 days.
+
+### Added
+
+- **Portfolio import from the export format.** Settings › Import & export
+  reads the same workbook it exports: upload it, see what it holds and any
+  row problems (sheet and row number) before anything is written, then
+  **Add** (append, rows you already have are skipped) or **Replace** (a backup
+  is saved, positions, sales, dividends, cash and watchlist are deleted, then
+  the file is loaded; settings stay). Sheets are recognised by their headers,
+  so a file exported in one language imports in another; older exports still
+  import. Every imported buy and sale posts its cash with automatic top-ups,
+  like a trade entered by hand; sold positions' dividends are recomputed from
+  the dividend rows. Accounts whose trades predate cash management get
+  Buy/Sell and top-up entries on a Replace restore, so their balance changes —
+  one Adjustment corrects it.
+- **Export my data** (Settings › Privacy): everything Uvalu holds about the
+  user in one workbook — Account (never a password, code or token), Settings
+  (one sheet, every setting as section · setting · value), the portfolio
+  sheets and Automatic cash (the entries Uvalu posted for trades and
+  dividends).
+- **Delete account** (Settings › Privacy): confirmed by typing the account
+  email. The login record, portfolio folder, settings file and the account's
+  backups in the Admin backup history are removed at once; the last active
+  Admin is refused. The Admin portal's Delete user now does the same (it used
+  to leave the user's data on disk). Migration snapshots older than 30 days
+  are deleted automatically, so "removed from backups within 30 days" holds.
+- **Privacy, Plan and Legal documents cards** in Settings, as in the design
+  reference: privacy contact, the free-beta plan, and the terms of use and
+  privacy notice with their version, effective date and a View button. The
+  no-personal-advice acknowledgement is marked "Not available" until
+  acceptance is recorded (open item L1).
+
 ### Changed
 
-- The Excel export names its sheets (Positions, Sold, Dividends, Watchlist) in
-  your language.
+- **The Excel export holds only what you entered**: Positions, Sold,
+  Dividends, Cash (typed entries) and Watchlist, with real date and number
+  cells, a note on every column header and fixed English column names. It
+  doubles as the template for a bulk import — an empty account downloads the
+  headers only.
+- The provenance line's **Methodology →** link uses the link colour, like
+  every other link (it was grey and underlined). Brand guidelines updated.
+- Privacy notice (beta) → beta 1.3: account deletion is self-service in the
+  settings; the export also carries account details and settings.
+- The encrypted backup now includes the target allocation and hand-added
+  watchlist tickers.
+- Settings › Import & export laid out as the design reference.
 
 ### Fixed
 
+- **Swiss dividends recorded without a currency were counted as euros**; they
+  now use the exchange's currency (CHF). Migration 2 fills the missing
+  currency in stored data.
 - Cash activity: each ledger row's edit pencil stuck out 8px past the card
   edge, in every language.
 - Dividend log and cash ledger rows picked up the tax-note box's padding,
   background and border from a broken style rule (since 2026.10.3).
+
+### Removed
+
+- The old import of a fixed-layout personal spreadsheet (sheet
+  `beleggingen`).
+- The CSV export buttons on Portfolio, Cash activity, the Dividend log and
+  the annual dividend summary; the workbook in Settings replaces them.
+- Stored fields nothing used (migration 2): `google_ticker`, `target_price`
+  and `account` on positions and sales; `google_ticker`,
+  `declaration_date`, `record_date`, `reinvested` and `reinvested_shares` on
+  dividends.
 
 ## [2026.10.4] — 2026-10-11
 
