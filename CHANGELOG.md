@@ -24,8 +24,7 @@ of that month); earlier releases used SemVer. Rules in
 ### Changed
 
 - The Excel export names its sheets (Positions, Sold, Dividends, Watchlist) in
-  your language. The translations are drafts until reviewed, so they show in
-  English until then.
+  your language.
 
 ### Fixed
 

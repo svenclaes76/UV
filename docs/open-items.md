@@ -34,7 +34,6 @@ founder's and in which countries.
 | # | Item |
 | --- | --- |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
-| D6 | Review the four new Excel sheet-name drafts (`msgctxt "sheet_name"`, all languages) in Poedit — added 11 October 2026; release CI fails `--strict` until they're approved. |
 
 ## Product backlog
 

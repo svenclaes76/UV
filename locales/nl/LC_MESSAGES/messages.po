@@ -269,25 +269,21 @@ msgstr "Geen portefeuillegegevens gevonden om te exporteren."
 #. Settings › Excel export: worksheet tab names in the downloaded
 #. workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]
 #: backup.py:167
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Positions"
 msgstr "Posities"
 
 #: backup.py:168
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Sold"
 msgstr "Verkocht"
 
 #: backup.py:169
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Dividends"
 msgstr "Dividenden"
 
 #: backup.py:170
-#, fuzzy
 msgctxt "sheet_name"
 msgid "Watchlist"
 msgstr "Volglijst"
