@@ -14,7 +14,7 @@
     --bg:#0A1730; --panel:#0E2143; --panel-2:#0B1D3D; --soft:rgba(29,214,164,0.05);
     --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
     --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
-    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C; --link:#3FBF98; --logo-accent:#1DD6A4;
+    --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C; --link:#3FBF98; --logo-accent:#1DD6A4; --logo-ring:#FFFFFF;
     --amber-txt:#E0B94D; --amber-bg:rgba(214,158,29,0.16); --amber-fill:#C98A3A; --uv-track:rgba(245,247,250,0.10); --veto-bg:#1E2D4A; --veto-line:rgba(245,247,250,0.18); --nosig-bg:rgba(245,247,250,0.07);
     --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
     --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
@@ -27,7 +27,7 @@
     --bg:#EAEEF3; --panel:#FFFFFF; --panel-2:#F5F7FA; --soft:rgba(29,214,164,0.055);
     --line:rgba(13,31,60,0.10); --line-2:rgba(13,31,60,0.06);
     --text:#0D1F3C; --muted:#5F5E5A; --faint:rgba(13,31,60,0.38);
-    --link:#167A60; --logo-accent:#1A8C6E; --amber-txt:#854F0B; --amber-bg:#FDF0E8; --uv-track:#EEF1F5; --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
+    --link:#167A60; --logo-accent:#1A8C6E; --logo-ring:#0D1F3C; --amber-txt:#854F0B; --amber-bg:#FDF0E8; --uv-track:#EEF1F5; --veto-bg:#0D1F3C; --veto-line:transparent; --nosig-bg:rgba(128,128,128,0.15);
     --up-bg:rgba(15,110,86,0.11); --up-txt:#0F6E56;
     --down-bg:rgba(163,45,45,0.11); --down-txt:#A32D2D;
     --grid:rgba(13,31,60,0.08); --axis:#5F5E5A;
@@ -48,6 +48,7 @@
 </style>
 <script src="legal-docs.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap">
 </helmet>
 <div data-theme="{{ theme }}" data-screen-label="Dashboard" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--sans);">
 
@@ -380,8 +381,8 @@
 
   <!-- ══ Top bar ══ -->
   <div style="height:58px;border-bottom:0.5px solid var(--line);display:flex;align-items:center;gap:28px;padding:0 28px;background:var(--panel);position:sticky;top:0;z-index:55;">
-    <div style="display:flex;align-items:baseline;gap:9px;">
-      <span style="font-size:22px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--logo-accent)">u</span></span>
+    <div style="display:flex;align-items:center;gap:13px;">
+      <svg role="img" aria-label="uvalu" height="26" width="86" viewBox="0 0 212 64" style="display:block;flex:none;overflow:visible;"><path d="M32 18.25 A17 17 0 0 1 32 45.75 A17 17 0 0 1 32 18.25 Z" style="fill:var(--logo-accent);"></path><circle cx="22" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:var(--logo-ring);"></circle><circle cx="42" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:var(--logo-ring);"></circle><text x="76" y="47" style="font-family:Inter,sans-serif;font-weight:500;font-size:56px;letter-spacing:-1.68px;fill:var(--logo-ring);">uval<tspan style="fill:var(--logo-accent);">u</tspan></text></svg>
       <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);">value engine</span>
     </div>
     <div style="display:flex;align-items:center;gap:2px;margin-left:8px;">
@@ -425,7 +426,7 @@
   </div>
   <sc-if value="{{ ver.showUpdate }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;padding:8px 28px;background:var(--panel);border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="flex:1 1 280px;min-width:0;"><span style="font-weight:600;color:var(--up-txt);margin-right:6px;">●</span>Uvalu was updated to version {{ ver.version }}.</span><span onClick="{{ ver.seeNew }}" style="white-space:nowrap;color:var(--link);cursor:pointer;" style-hover="color:var(--text)">See what’s new</span><span onClick="{{ ver.dismiss }}" style="white-space:nowrap;color:var(--muted);cursor:pointer;" style-hover="color:var(--text)">Dismiss</span></div></sc-if>
   <sc-if value="{{ ver.showReload }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;padding:8px 28px;background:var(--panel);border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="flex:1 1 280px;min-width:0;">A new version of Uvalu is available. Reload the page to use it.</span><span onClick="{{ ver.reload }}" style="color:var(--link);cursor:pointer;" style-hover="color:var(--text)">Reload</span></div></sc-if>
-  <sc-if value="{{ betaOn }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;padding:6px 28px;background:var(--soft);border-bottom:0.5px solid var(--line-2);font-size:11.5px;color:var(--muted);"><span style="font-weight:600;color:var(--up-txt);">Beta</span><span style="flex:0 1 auto;min-width:0;">Free beta: a test version. Features and data can change, and the beta can end at any time.</span><span onClick="{{ legalLinks.terms }}" style="white-space:nowrap;color:var(--link);cursor:pointer;" style-hover="color:var(--text)">Terms →</span></div></sc-if>
+  <sc-if value="{{ betaOn }}" hint-placeholder-val="{{ true }}"><div style="padding:8px 28px 0;"><div style="display:flex;align-items:center;justify-content:center;gap:4px 10px;padding:7px 14px;background:var(--soft);border:0.5px solid var(--line);border-radius:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;"><span style="font-weight:600;color:var(--up-txt);">Beta</span><span style="flex:0 1 auto;min-width:0;">Free beta: a test version. Features and data can change, and the beta can end at any time.</span><span onClick="{{ legalLinks.terms }}" style="white-space:nowrap;color:var(--link);cursor:pointer;" style-hover="color:var(--text)">Terms →</span></div></div></sc-if>
 
   
   <sc-if value="{{ dataRebuilding }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;align-items:center;gap:10px;padding:8px 28px;background:var(--panel-2);border-bottom:0.5px solid var(--line-2);font-size:12.5px;color:var(--muted);"><span style="width:12px;height:12px;flex:none;border-radius:50%;border:1.5px solid var(--line);border-top-color:var(--teal);animation:uvSpin 0.9s linear infinite;"></span><span>Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, usually within a few minutes.</span></div></sc-if>
@@ -2070,8 +2071,8 @@
   <div style="min-height:100vh;display:flex;align-items:stretch;">
     <!-- left brand panel -->
     <div style="flex:1;background:var(--navy);display:flex;flex-direction:column;justify-content:space-between;padding:48px 52px;position:relative;overflow:hidden;">
-      <div style="display:flex;align-items:baseline;gap:9px;position:relative;z-index:2;">
-        <span style="font-size:24px;font-weight:500;letter-spacing:-0.03em;color:#F5F7FA;">uval<span style="color:var(--mint)">u</span></span>
+      <div style="display:flex;align-items:center;gap:23px;position:relative;z-index:2;">
+        <svg role="img" aria-label="uvalu" height="48" width="159" viewBox="0 0 212 64" style="display:block;flex:none;overflow:visible;"><path d="M32 18.25 A17 17 0 0 1 32 45.75 A17 17 0 0 1 32 18.25 Z" style="fill:#1DD6A4;"></path><circle cx="22" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:#FFFFFF;"></circle><circle cx="42" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:#FFFFFF;"></circle><text x="76" y="47" style="font-family:Inter,sans-serif;font-weight:500;font-size:56px;letter-spacing:-1.68px;fill:#FFFFFF;">uval<tspan style="fill:#1DD6A4;">u</tspan></text></svg>
         <span style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,247,250,0.4);">value engine</span>
       </div>
       <div style="position:relative;z-index:2;">
@@ -3014,13 +3015,13 @@ class Component extends DCLogic {
     const chart=this._chart();
 
     // ── nav ──
-    const svg=(paths)=>React.createElement('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round',style:{display:'block'}}, (Array.isArray(paths)?paths:[paths]).map((d,i)=>React.createElement('path',{key:i,d})));
+    const svg=(name)=>React.createElement('span',{'aria-hidden':'true',style:{fontFamily:"'Material Symbols Outlined'",fontSize:16,lineHeight:1,fontWeight:400,display:'block',width:16,height:16,overflow:'hidden'}}, name);
     const navDefs=[
-      ['dashboard','Dashboard',["M5 12l-2 0l9-9l9 9l-2 0","M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"],true],
-      ['screener','Screener',["M3 12h4l3 8l4 -16l3 8h4"],true],
-      ['watchlist','Watchlist',["M12 4l2.47 5.77L20.5 10.4l-4.5 4l1.24 6.1L12 17.5L6.76 20.5L8 14.4l-4.5 -4l6.03 -0.63z"],true],
-      ['portfolio','Portfolio',["M3 7m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z","M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2"],true],
-      ['risk','Risk',["M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"],true],
+      ['dashboard','Dashboard','home',true],
+      ['screener','Screener','monitoring',true],
+      ['watchlist','Watchlist','star',true],
+      ['portfolio','Portfolio','work',true],
+      ['risk','Risk','shield',true],
     ];
     const nav=navDefs.map(([id,label,paths,live])=>({label, icon:svg(paths),
       onClick: live?(()=>this.go(id)):(()=>{}),

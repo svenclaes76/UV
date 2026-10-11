@@ -33,14 +33,15 @@
   table{border-collapse:collapse}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap">
 </helmet>
 
 <div data-screen-label="Admin portal" style="min-height:100vh;display:flex;background:var(--bg);color:var(--text);">
 
   <!-- ══ Sidebar ══ -->
   <div style="width:220px;flex:none;border-right:0.5px solid var(--line);background:var(--panel);display:flex;flex-direction:column;padding:20px 14px;">
-    <div style="display:flex;align-items:baseline;gap:9px;padding:0 8px 22px;">
-      <span style="font-size:20px;font-weight:500;letter-spacing:-0.03em;line-height:1;">uval<span style="color:var(--link)">u</span></span>
+    <div style="display:flex;align-items:center;gap:12px;padding:0 8px 22px;">
+      <svg role="img" aria-label="uvalu" height="24" width="80" viewBox="0 0 212 64" style="display:block;flex:none;overflow:visible;"><path d="M32 18.25 A17 17 0 0 1 32 45.75 A17 17 0 0 1 32 18.25 Z" style="fill:#1DD6A4;"></path><circle cx="22" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:#FFFFFF;"></circle><circle cx="42" cy="32" r="17" fill="none" stroke-width="4.5" style="stroke:#FFFFFF;"></circle><text x="76" y="47" style="font-family:Inter,sans-serif;font-weight:500;font-size:56px;letter-spacing:-1.68px;fill:#FFFFFF;">uval<tspan style="fill:#1DD6A4;">u</tspan></text></svg>
       <span style="font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);">admin</span>
     </div>
     <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
@@ -379,7 +380,7 @@ class Component extends DCLogic {
     return {
       nav: this.navDefs.map(n=>({
         label:n.label,
-        iconHtml:{__html:'<span aria-hidden="true" style="font-family:\'Material Symbols Outlined\';font-size:20px;line-height:1;font-weight:400;margin-right:10px;vertical-align:-5px;">'+n.icon+'</span>'},
+        iconHtml:{__html:'<span aria-hidden="true" style="font-family:\'Material Symbols Outlined\';font-size:16px;line-height:1;font-weight:400;margin-right:10px;vertical-align:-3px;">'+n.icon+'</span>'},
         onClick:()=>this.goSection(n.key),
         style:'display:flex;align-items:center;padding:9px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;margin-bottom:2px;'+(this.state.section===n.key?'background:var(--soft);color:var(--mint);':'color:var(--muted);'),
       })),

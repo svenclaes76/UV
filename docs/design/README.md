@@ -30,10 +30,10 @@ These were decided after user review. Don't "fix" them back to an older mockup. 
 
 **Dividends** (Sep 2026):
 - No "Import from market data" button; the import runs automatically once per session.
-- The log download sits next to Add dividend as "Export log" (a CSV menu, G26).
+- The log download sits next to Add dividend as "Export".
 - No declaration/record-date sub-lines or "· frequency" suffix in log rows.
 - An unconfirmed (auto-imported) pay date is shown in amber with a tooltip instead of "· confirm".
-- The annual summary card is full width with the tax-estimate box under it; its button is labelled "Export summary".
+- The annual summary card keeps the mockup's left-hand width; its button is labelled "Export".
 - No "Withholding by domicile" card.
 - The Add/Edit dividend dialogs and CSV export have no declaration date, record date or frequency: the dialogs ask only ex-date and payment date, then shares / per share / foreign WH, then type.
 
