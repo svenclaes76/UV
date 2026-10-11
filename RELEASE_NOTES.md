@@ -20,6 +20,11 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.4] — 2026-10-11
+
+A new logo and a calmer, clearer Uvalu: quieter buttons, model names you can
+look up, and exchange codes everywhere. Your scores and signals don't change.
+
 ### Improved
 
 - **What's new is written for you**: each update now says what it brings

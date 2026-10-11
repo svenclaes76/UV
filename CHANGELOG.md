@@ -21,6 +21,13 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.4] — 2026-10-11
+
+Uvalu has a new logo, the What's new notes are written for subscribers, and
+buttons, navigation and labels now match the design reference. Scores and
+signals don't change. Nothing to do besides restarting; the new logo build
+tools (fontTools, resvg-py) are only needed to regenerate `assets/logo/`.
+
 ### Added
 
 - **Two sets of release notes.** This file stays the complete record and the
