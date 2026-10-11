@@ -32,7 +32,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from auth import (ROLES, admin_request_password_reset, admin_reset_totp, delete_user,
+from account import delete_account
+from auth import (ROLES, admin_request_password_reset, admin_reset_totp,
                   has_password, invite_user, list_linked_identities, list_users, passwordless_accounts,
                   revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup, export_env_key
@@ -351,7 +352,8 @@ def _render_users() -> None:
                                     st.rerun()
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
-                                    _ok, _msg = delete_user(u["email"])
+                                    # All of the account's data, not just its login record.
+                                    _ok, _msg = delete_account(u["email"])
                                     if not _ok:
                                         st.toast(_msg, icon=":material/warning:")
                                     st.rerun()

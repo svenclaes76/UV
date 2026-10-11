@@ -130,9 +130,8 @@ METHODOLOGY_HREF = "/legal?doc=methodology"
 def methodology_link_html(quiet: bool = False) -> str:
     """REC-5: "Methodology →" link, shown with every signal (the badge's own
     tooltip can't hold a link). A plain link to the in-app legal page.
-    ``quiet``: the provenance caption's variant, "Methodology →" in grey
-    underlined text (styles.py .uv-quiet-link) instead of a teal call to
-    action; the arrow marks it as a link, like every other link."""
+    ``quiet``: the provenance caption's variant (styles.py .uv-quiet-link):
+    the caption's font and size, in the link colour like every other link."""
     import html as _html_mod
     if quiet:
         return (f'<a class="uv-quiet-link" href="{METHODOLOGY_HREF}" target="_self">'

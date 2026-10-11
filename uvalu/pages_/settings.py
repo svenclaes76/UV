@@ -26,7 +26,6 @@ borrows its visual chrome:
   mockup's fabricated "Marek Kowalski · Pro plan"."""
 import html
 import io
-import traceback
 from datetime import datetime
 
 import qrcode
@@ -38,9 +37,8 @@ from auth import (backup_codes_remaining, begin_totp_enrollment, change_password
                   trusted_devices_until, BACKUP_CODE_COUNT,
                   regenerate_backup_codes, revoke_other_sessions, revoke_session,
                   revoke_trusted_devices, set_password, trusted_device_count, unlink_identity)
-from backup import export_excel, backup_filename
-from portfolio import (parse_excel, user_data_dir, save_portfolio, save_sold,
-                       save_div_hist, load_targets, save_targets)
+from backup import backup_filename
+from portfolio import load_targets, save_targets
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       get_score_weights, _SCORE_STYLES, ALL_EXCHANGES, EXCHANGE_LABELS)
 from uvalu import locale_ui, nav as nav_registry, oauth
@@ -51,6 +49,8 @@ from uvalu.i18n import N_, _, fmt_date, fmt_int, frozen, fmt_num, fmt_pct, h_, n
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
+from workbook import (ImportError_, apply_import, export_all, export_workbook, parse_workbook, plan_import,
+                      sheet_names)
 from uvalu.shell import _display_name, _initials, _password_strength, set_theme_script
 
 
@@ -103,6 +103,8 @@ _SECTIONS = (
     ("set-withholding", N_("Dividend withholding")),
     ("set-import", N_("Import & export")),
     ("set-model", N_("Model settings")),
+    ("set-privacy", N_("Privacy")),
+    ("set-plan", N_("Plan")),
     ("set-legal", N_("Legal")),
 )
 
@@ -121,6 +123,154 @@ def _row_title(title: str, desc: str) -> None:
     st.markdown(f'<div><div style="font-size:13.5px;font-weight:500;line-height:1.3;">{title}</div>'
                f'<div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5;">{desc}</div></div>',
                unsafe_allow_html=True)
+
+
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_IMPORT_ISSUES_SHOWN = 15
+
+
+def _import_done(n: int) -> None:
+    st.session_state["imp_portfolio_n"] = n + 1
+    st.rerun()
+
+
+def _import_review(data: bytes, n: int, email: str) -> None:
+    """What an uploaded workbook holds, the Add / Replace choice and the
+    confirmation. Nothing is written until the user confirms."""
+    from uvalu import logkit
+
+    parsed = parse_workbook(data)
+    labels = sheet_names()
+    with st.container(key="set_import_review"):
+        if parsed.issues:
+            lines = []
+            for i in parsed.issues[:_IMPORT_ISSUES_SHOWN]:
+                where = labels.get(i.sheet, "")
+                if i.row:
+                    where = _("{sheet}, row {row}", sheet=where, row=i.row)
+                lines.append(f"- {where + ': ' if where else ''}{i.message}")
+            if len(parsed.issues) > _IMPORT_ISSUES_SHOWN:
+                lines.append("- " + _("and {count} more", count=len(parsed.issues) - _IMPORT_ISSUES_SHOWN))
+            st.error(_("This file can't be imported. Fix these rows and upload it again:") + "\n\n"
+                     + "\n".join(lines))
+            if st.button(_("Cancel"), key="imp_cancel", type="tertiary"):
+                _import_done(n)
+            return
+        if parsed.empty:
+            st.warning(_("This file has no rows to import."))
+            if st.button(_("Cancel"), key="imp_cancel", type="tertiary"):
+                _import_done(n)
+            return
+
+        mode = st.radio(_("How to import"), options=["add", "replace"], key=f"imp_mode_{n}",
+                        format_func=lambda m: (_("Add to my data — new rows are added; to change existing rows, use Replace")
+                                               if m == "add" else
+                                               _("Replace all my data — restore this file")))
+        plan = plan_import(parsed, mode)
+        counts = parsed.counts()
+        rows = []
+        for key, total in counts.items():
+            if not total:
+                continue
+            if mode == "add" and plan.skipped.get(key):
+                rows.append(f"- {labels[key]}: " + _("{new} new, {skipped} already there",
+                                                      new=fmt_int(plan.new[key]), skipped=fmt_int(plan.skipped[key])))
+            else:
+                rows.append(f"- {labels[key]}: {fmt_int(total)}")
+        st.markdown(_("This file holds:") + "\n\n" + "\n".join(rows))
+
+        box_key = "set_import_confirm" if mode == "replace" else "set_import_add"
+        with st.container(key=box_key):
+            if mode == "replace":
+                st.markdown(
+                    '<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
+                    + h_("Your portfolio data is deleted first: positions, sales, dividends, cash and "
+                         "watchlist. Your settings stay. A backup is saved before anything changes.")
+                    + "</div>", unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:12px;line-height:1.5;color:var(--muted);">'
+                + h_("Every imported buy and sale posts its cash, like a trade you enter by hand: "
+                     "if the balance would go below zero, an automatic top-up is added.")
+                + "</div>", unsafe_allow_html=True)
+            with st.container(horizontal=True, gap="small"):
+                _go = st.button(_("Replace my portfolio data") if mode == "replace" else _("Import"),
+                                key="imp_confirm" if mode == "replace" else "imp_add")
+                _no = st.button(_("Cancel"), key="imp_cancel", type="tertiary")
+        if _go:
+            try:
+                with st.spinner(_("Importing…")):
+                    done = apply_import(parsed, mode, email)
+            except ImportError_ as exc:
+                st.error(str(exc))
+                return
+            except Exception as exc:
+                logkit.get_logger("uvalu.workbook").error(
+                    "workbook import failed", exc_info=True, extra={"event": "workbook.import_failed"})
+                st.error(_("The import failed: {error}", error=exc))
+                return
+            st.toast(_("Imported {positions} positions, {sold} sold positions and {dividends} dividends.",
+                       positions=fmt_int(done.new["positions"]), sold=fmt_int(done.new["sold"]),
+                       dividends=fmt_int(done.new["dividends"])))
+            _import_done(n)
+        if _no:
+            _import_done(n)
+
+
+@_dialog(N_("Delete your account?"), width="large")
+def _dlg_delete_account(email: str):
+    """Settings › Privacy › Delete account: the design's confirmation, beta
+    text (no invoices in the beta), confirmed by typing the account email."""
+    from account import can_delete, delete_account
+
+    _dialog_width_css(_SETTINGS_DIALOG_WIDTH)
+    st.markdown(
+        '<div style="padding:10px 12px;border-radius:8px;background:var(--down-bg);color:var(--down-txt);'
+        'font-size:12.5px;line-height:1.5;">'
+        + h_("Your portfolio, transactions, watchlist and settings are removed from live systems now and "
+             "from backups within 30 days. This can't be undone. Export your data first if you want a copy.")
+        + "</div>", unsafe_allow_html=True)
+    _allowed, _reason = can_delete(email)
+    if not _allowed:
+        st.error(_("You're the only active Admin. Make another user Admin before you delete your account."))
+        return
+    _typed = st.text_input(_("Type your email address to confirm"), key="set_delete_email",
+                           placeholder=email)
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button(_("Cancel"), key="set_delete_cancel", width="stretch"):
+            st.rerun()
+    with _b2, st.container(key="uv_danger_btn_set_delete"):
+        _go = st.button(_("Delete account"), key="set_delete_confirm", type="primary", width="stretch")
+    if _go:
+        if (_typed or "").strip().lower() != email.strip().lower():
+            st.error(_("The email address doesn't match this account."))
+            return
+        ok, msg = delete_account(email)
+        if not ok:
+            st.error(msg)
+            return
+        # Signed out like "Sign out": app.py's handle_logout clears the
+        # session and the stored token.
+        st.query_params["logout"] = "1"
+        st.rerun()
+
+
+def _legal_doc_version(doc: str) -> tuple[str, str]:
+    """(version, effective date) from a legal document's own header line."""
+    from uvalu.pages_ import legal as _legal
+
+    _file = next((f for k, _t, f in disclosures.LEGAL_DOCS if k == doc), None)
+    if not _file:
+        return "", ""
+    path, _translated = _legal.resolve_doc_path(_file, "en")
+    if path is None:
+        return "", ""
+    try:
+        _title, meta, _body = _legal.split_document(_legal._strip_header(path.read_text(encoding="utf-8")))
+    except OSError:
+        return "", ""
+    meta = dict(meta)
+    return meta.get("Version", ""), meta.get("Effective from", "") or meta.get("Last updated", "")
 
 
 def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1),
@@ -707,80 +857,55 @@ def render() -> None:
                         st.rerun()
 
             # ── Import / Export (per-user, not admin-scoped) ─────────────────────────────
+            # One workbook format both ways (docs/import-export-plan.md): export
+            # holds what the user entered; import restores it (replace) or adds
+            # rows added to an export (add) — the export is also the template.
             with st.container(key="set_card_import", border=True):
                 _row_header(h_("Import & export"), anchor="set-import")
 
-                with st.container(key="set_import_row"):
+                # Uvalu.dc.html's two rows, on the page's own set_row_ grammar
+                # (padding, right-aligned control, sibling-gap cancel).
+                with st.container(key="set_row_import"):
                     _imp_l, _imp_col = st.columns([3, 2], vertical_alignment="center")
                     with _imp_l:
-                        with st.container(key="set_import_body"):
-                            _row_title(h_("Import portfolio"),
-                                      h_("Upload an Excel file to import positions, sold history and dividends. This replaces all existing portfolio data for this account."))
+                        _row_title(h_("Import portfolio"),
+                                   h_("Restore or add to your positions, trades, dividends and cash from an "
+                                      "Uvalu .xlsx file. You confirm before anything changes."))
                     with _imp_col:
                         # A new key after an import or cancel empties the uploader —
                         # the old one kept its file, so the page re-imported it on
                         # every rerun after a successful import.
                         _imp_n = st.session_state.get("imp_portfolio_n", 0)
                         _imp_key = "imp_portfolio" if not _imp_n else f"imp_portfolio_{_imp_n}"
-                        _imp_file = st.file_uploader(_("Choose your portfolio .xlsx file"), type=["xlsx"], key=_imp_key,
-                                                     label_visibility="collapsed")
-                        if _imp_file:
-                            try:
-                                with st.spinner(_("Parsing Excel…")):
-                                    _imp_pf, _imp_sold, _imp_div = parse_excel(_imp_file)
-                            except Exception as e:
-                                st.error(_("Could not parse file: {error}", error=e))
-                                st.code(traceback.format_exc())
-                            else:
-                                if _imp_pf.empty:
-                                    st.error(_("No open EBR:/AMS:/EPA:/BIT:/ETR:/SWX: positions found. Check that your file matches the expected format."))
-                                else:
-                                    # Destructive: say what the file holds and that the
-                                    # current data goes, and wait for an explicit yes.
-                                    with st.container(key="set_import_confirm"):
-                                        st.markdown(
-                                            f'<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
-                                            + h_("Replace all portfolio data with this file? It holds {open} open positions, "
-                                                 "{sold} sold positions and {dividends} dividend records. Your current "
-                                                 "positions, sales and dividends are deleted.",
-                                                 open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div))
-                                            + "</div>", unsafe_allow_html=True)
-                                        with st.container(horizontal=True, gap="small"):
-                                            _imp_yes = st.button(_("Replace my portfolio data"), key="imp_confirm")
-                                            _imp_no = st.button(_("Cancel"), key="imp_cancel", type="tertiary")
-                                    if _imp_yes:
-                                        _udir = user_data_dir(_email)
-                                        (_udir / "portfolio.json").unlink(missing_ok=True)
-                                        (_udir / "sold.json").unlink(missing_ok=True)
-                                        (_udir / "dividends_history.json").unlink(missing_ok=True)
-                                        save_portfolio(_imp_pf)
-                                        save_sold(_imp_sold)
-                                        save_div_hist(_imp_div)
-                                        st.toast(_("Imported {open} open, {sold} sold, {dividends} dividend records.",
-                                                   open=len(_imp_pf), sold=len(_imp_sold), dividends=len(_imp_div)))
-                                    if _imp_yes or _imp_no:
-                                        st.session_state["imp_portfolio_n"] = _imp_n + 1
-                                        st.rerun()
+                        _imp_file = st.file_uploader(_("Choose a Uvalu workbook (.xlsx)"), type=["xlsx"],
+                                                     key=_imp_key, label_visibility="collapsed",
+                                                     disabled=_u.is_viewer)
+                if _imp_file:
+                    _import_review(_imp_file.getvalue(), _imp_n, _email)
 
-                with st.container(key="set_export_row"):
+                with st.container(key="set_row_export"):
                     _exp_l, _exp_col = st.columns([3, 2], vertical_alignment="center")
                     with _exp_l:
-                        with st.container(key="set_export_body"):
-                            _row_title(h_("Excel export"),
-                                      h_("Human-readable workbook with positions, dividends, sold history and watchlist. Useful for inspection or migration."))
+                        _row_title(h_("Excel export"), h_("Your portfolio in the same format, ready to re-import."))
                     with _exp_col:
-                        try:
-                            xls_bytes = export_excel()
-                            st.download_button(
-                                _("Download backup.xlsx"),
-                                data=xls_bytes,
-                                file_name=backup_filename("xlsx"),
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            )
-                        except ValueError:
-                            st.info(_("Your portfolio is empty. Add positions in the Portfolio section first, then come back to export."))
-                        except Exception as e:
-                            st.error(_("Could not create Excel: {error}", error=e))
+                        with st.container(horizontal=True, gap="small", horizontal_alignment="right",
+                                          key="set_export_buttons"):
+                            try:
+                                st.download_button(
+                                    _("Download backup.xlsx"),
+                                    data=export_workbook(_email),
+                                    file_name=backup_filename("xlsx"),
+                                    mime=_XLSX_MIME,
+                                )
+                            except Exception as e:
+                                st.error(_("Could not create the workbook: {error}", error=e))
+                # The uploader's own button text ("Upload") is framework chrome;
+                # the design's label goes in through CSS. Its own hidden
+                # container, so it takes no flex gap in either row.
+                with st.container(key="set_upload_label"):
+                    st.markdown('<style>.st-key-set_row_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]'
+                                '{--uv-upload-label:"' + h_("Choose .xlsx file").replace('"', "") + '";}</style>',
+                                unsafe_allow_html=True)
 
             # ── Screening & veto rules ───────────────────────────────────────────────────
             # Admin-only: these are shared, all-user settings (settings.py's own
@@ -911,17 +1036,88 @@ def render() -> None:
                         st.rerun()
 
 
-            # ── Legal (L13) ─────────────────────────────────────────────────────────────
+            # ── Privacy (Uvalu.dc.html "Privacy" card) ─────────────────────────────────
+            with st.container(key="set_card_privacy", border=True):
+                _row_header(h_("Privacy"), anchor="set-privacy")
+                with st.container(key="set_row_privacy_export"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Export my data"),
+                                   h_("Everything Uvalu holds about you: account details, settings, watchlist "
+                                      "and all portfolio data, as an Excel workbook (.xlsx)."))
+                    with _c2:
+                        try:
+                            st.download_button(_("Export"), data=export_all(_email),
+                                               file_name=f"uvalu_my_data_{datetime.now():%Y%m%d_%H%M}.xlsx",
+                                               mime=_XLSX_MIME, key="privacy_export")
+                        except Exception as e:
+                            st.error(_("Could not create the workbook: {error}", error=e))
+                with st.container(key="set_row_privacy_delete"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Delete account"),
+                                   h_("Removes your account and data from live systems at once and from backups "
+                                      "within 30 days."))
+                    with _c2:
+                        if st.button(_("Delete account"), key="privacy_delete"):
+                            _dlg_delete_account(_email)
+                with st.container(key="set_row_privacy_contact"):
+                    _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                    with _c1:
+                        _row_title(h_("Privacy contact"),
+                                   h_("Questions about your data, or a complaint to the Belgian Data Protection "
+                                      "Authority (GBA / APD)."))
+                    with _c2:
+                        _pc = html.escape(disclosures.PRODUCER_PRIVACY_CONTACT)
+                        st.markdown(f'<div class="uv-set-privacy-mail"><a href="mailto:{_pc}">'
+                                    f'{_pc.replace("@", "&#64;")}</a></div>', unsafe_allow_html=True)
+
+            # ── Plan (free beta) ─────────────────────────────────────────────────────
+            if disclosures.BETA:
+                with st.container(key="set_card_plan", border=True):
+                    _row_header(h_("Plan"), anchor="set-plan")
+                    with st.container(key="set_row_plan_beta"):
+                        _c1, _c2 = st.columns([5, 1], vertical_alignment="center")
+                        with _c1:
+                            # Same promises as the beta terms, section 2.
+                            _row_title(h_("Free beta · by invitation"),
+                                       h_("No paid plans during the beta and you pay nothing. We tell you at least "
+                                          "14 days before the beta ends where we can, so you can export your data. "
+                                          "Your account never turns into a paid plan without your express agreement."))
+                        with _c2:
+                            st.markdown(f'<span class="uv-set-chip-active">{h_("Active")}</span>',
+                                        unsafe_allow_html=True)
+
+            # ── Legal documents (L13) ────────────────────────────────────────────────
+            # Version and effective date from the documents themselves. No
+            # acceptance date: acceptance isn't recorded yet (open item L1).
             with st.container(key="set_card_legal", border=True):
                 _row_header(h_("Legal documents"), anchor="set-legal")
                 _legal_page = nav_registry.pages.get("legal")
-                with st.container(key="set_legal_links"):
-                    if _legal_page is not None:
-                        for _lkey, _ltitle, _lfile in disclosures.LEGAL_DOCS:
-                            st.page_link(_legal_page, label=tr(_ltitle), query_params={"doc": _lkey})
-                _row_desc(h_("To get a copy of your data or have it deleted, write to {email}.",
-                             email=disclosures.PRODUCER_PRIVACY_CONTACT))
-                _row_desc(h_("During the beta these documents are available in English only."))
+                _docs = {key: title for key, title, _f in disclosures.LEGAL_DOCS}
+                for _lkey, _ltitle, _ldesc, _ldoc in (
+                        ("terms", tr(_docs["terms"]), None, "terms"),
+                        ("privacy", tr(_docs["privacy"]), None, "privacy"),
+                        # Acceptance isn't recorded yet (L1): no link, marked as
+                        # not available until it is.
+                        ("advice", _("No-personal-advice acknowledgement"),
+                         h_("Terms of use, section 4. Your acceptance isn't recorded yet."), None)):
+                    _ver, _eff = _legal_doc_version(_ldoc) if _ldoc else ("", "")
+                    _title = h_("{document} · {version}", document=_ltitle, version=_ver) if _ver and _lkey != "advice" else html.escape(_ltitle)
+                    _desc = _ldesc or (h_("Effective from {date}.", date=_eff) if _eff else "")
+                    with st.container(key=f"set_row_legal_{_lkey}"):
+                        _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
+                        with _c1:
+                            _row_title(_title, _desc)
+                        with _c2:
+                            if _ldoc is None:
+                                st.markdown(f'<span class="uv-set-chip-na">{h_("Not available")}</span>',
+                                            unsafe_allow_html=True)
+                            elif _legal_page is not None:
+                                st.page_link(_legal_page, label=_("View"), query_params={"doc": _ldoc})
+                st.markdown(f'<div class="uv-set-legal-note">'
+                            f'{h_("During the beta these documents are available in English only.")}</div>',
+                            unsafe_allow_html=True)
 
             # ── Account footer: who is signed in (G27: "Free beta", not the role) ──
             st.markdown(

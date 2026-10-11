@@ -100,8 +100,7 @@ class TestCashPage:
         assert html.index("TRD-0001 · AAA.BR") < html.index("To savings")
         assert "top-up" in html and "manual" in html and "set to €1,000.00" in html
         assert "5 of 5 entries" in html
-        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
-        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
+        assert not at.get("download_button")                 # no CSV export (Settings has the workbook)
         assert any(b.key == "btn_add_cash" and not b.disabled for b in at.button)
         # one pencil per row: manual entries edit, automatic ones open the linked view
         pencils = {b.key: b.help for b in at.button if b.key and b.key.startswith("pf_cash_row_")}
@@ -117,14 +116,12 @@ class TestCashPage:
         html = _html(at)
         assert "1 of 5 entries" in html and "To savings" not in html
 
-    def test_viewer_is_read_only_but_can_export(self, isolated_data, monkeypatch):
+    def test_viewer_is_read_only(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
         self._seed()
         at = _run_portfolio(monkeypatch, section="cash", role="Viewer")
         assert all(b.disabled for b in at.button if b.key == "btn_add_cash" or
                    (b.key or "").startswith("pf_cash_row_"))
-        # Export menu: machine + spreadsheet CSV (i18n spec F-11)
-        assert {"cash_export", "cash_export_xl"} <= {b.key for b in at.get("download_button")}
         html = "".join(m.value for m in at.markdown)
         assert "Viewer · read-only" in html                    # PF-12
         assert "ECB reference rate" not in "".join(c.value for c in at.caption)   # PF-13: no footnote

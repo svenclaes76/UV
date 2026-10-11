@@ -6,7 +6,7 @@ UV (uvalu) is a single-process Streamlit application. All logic runs server-side
 
 The codebase is split into two layers:
 
-- **Root modules** (`auth.py`, `portfolio.py`, `marketdata.py`, `screener.py`, `scoring.py`, `prices.py`, `risk.py`, `portfolio_enrichment.py`, `settings.py`, `crypto.py`, `backup.py`, `fetch_tickers.py`) — UI-agnostic business logic and persistence. These have no Streamlit page code and can be imported and tested in isolation.
+- **Root modules** (`auth.py`, `portfolio.py`, `marketdata.py`, `screener.py`, `scoring.py`, `prices.py`, `risk.py`, `portfolio_enrichment.py`, `settings.py`, `crypto.py`, `backup.py`, `workbook.py`, `fetch_tickers.py`) — UI-agnostic business logic and persistence. These have no Streamlit page code and can be imported and tested in isolation.
 - **The `uvalu/` package** — the Streamlit app shell (`app.py` entry point plus `uvalu/`): page bodies, navigation, the auth gate, the cache-backed data layer, and shared rendering helpers.
 
 `app.py` is a thin shell: it wires up page config, global styles, the auth gate and `st.navigation`, then delegates each page to a `render()` function in `uvalu/pages_/`.
@@ -33,7 +33,8 @@ UV/
 ├── portfolio_enrichment.py     # Build the enriched frame risk.assess_portfolio expects (price + scored fields)
 ├── settings.py                 # User and shared settings I/O; exchange constants; veto-threshold helper
 ├── crypto.py                   # Symmetric encryption (Fernet)
-├── backup.py                   # Export/import (encrypted ZIP, Excel workbook) + on-demand backup history
+├── backup.py                   # Encrypted ZIP export/import + on-demand backup history
+├── workbook.py                 # User-facing .xlsx export and import (restore / bulk add)
 ├── fetch_tickers.py            # Stock-universe loader (6 exchanges, scrape + hardcoded fallback)
 │
 │   # ── uvalu package (Streamlit app shell) ──
@@ -220,7 +221,7 @@ Encrypted JSON persistence for all per-user portfolio data.
 - `base_currency()`, `next_id()` — `portfolio_meta.json`: the fixed EUR base currency and never-reused `TRD-`/`DIV-`/`C-` reference counters; `ensure_div_ids()` backfills dividend ids.
 - `add_dividend()`, `update_div_hist()`, `load_div_hist()` — dividend records.
 - `load_value_history()`, `record_value_snapshot()`, `backfill_value_history()` — daily value snapshots for the time-series chart (backfill uses yfinance price history + benchmark rebasing).
-- `parse_excel()`, `load_watchlist()`, `save_watchlist()`, `load_manual_tickers()`, `save_manual_tickers()`.
+- `load_watchlist()`, `save_watchlist()`, `load_manual_tickers()`, `save_manual_tickers()`.
 
 All files are read/written through `crypto.py`.
 
@@ -278,9 +279,17 @@ Builds the stock universe per exchange: scrapes ticker lists, with hardcoded ind
 #### `backup.py`
 
 - `export_zip(email)` — bundle all user data plus the encryption key into an encrypted ZIP for offsite backup / migration.
-- `export_excel()` — human-readable workbook (Positions, Sold, Dividends, Watchlist).
 - `import_zip()` — restore data from a previously exported ZIP.
 - `create_backup(email)` — on-demand export into `data/backups/`, appending a timestamped entry (type `Manual` — there is no scheduler) to an encrypted manifest; `list_backups()`, `get_backup_bytes(backup_id)`, `restore_backup(backup_id, email)` back the Admin portal's Backups tab (download / restore-from-history).
+
+#### `workbook.py`
+
+Two exports in one format (`docs/import-export-plan.md`, IE1–IE7): fixed English column keys, translated sheet names, a hidden `_meta` sheet with the format version.
+
+- `export_workbook(email)` — the portfolio workbook (Settings › Import & export): Positions, Sold, Dividends, Cash, Watchlist — only what the user entered; also the template for a bulk import (an empty account gets headers only).
+- `export_all(email)` — everything held about the user (Settings › Privacy › Export my data): Account (never a secret), Settings (one row per setting: section · setting · value), the portfolio sheets and Automatic cash.
+- `parse_workbook(bytes)` — reads the portfolio sheets (recognised by their headers, not their names) and skips the rest; problems come back as row-level `issues`.
+- `plan_import(parsed, mode)` / `apply_import(parsed, mode, email)` — `replace` saves a backup, deletes the account's portfolio data and watchlist (settings stay) and loads the file; `add` appends rows that don't match existing ones and merges the watchlist. Imported trades post their cash through `cash.import_entries()` (automatic top-ups); sold dividends are recomputed from the dividend rows.
 
 #### `settings.py`
 

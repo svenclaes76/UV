@@ -13,13 +13,18 @@ check by hash prefix added to section 6 (G36). Passkey wording unchanged (passke
 the acceptance-record row removed (they return with invitation consent, AU-09/G30); account deletion on
 request (no self-service control yet); change notices by personal email; the breached-password check
 sends no personal data. Effective at once: the changes only correct or remove processing (section 11).
+11 October 2026 (beta 1.3): self-service account deletion in Settings › Privacy (open item L8) — live data
+removed at once, the account's backups at once, migration snapshots after 30 days; section 8 updated. The
+export in Settings now also carries account details and settings. Effective at once: the change only adds a
+way to use a right (section 11). Before publishing, confirm the offsite Storage Box backups rotate within
+30 days.
 Implementation needed before the beta opens: invite records deleted 30 days after expiry; admin-access record.
 Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Launch".
 -->
 
 # Privacy notice — free beta
 
-**Version:** beta 1.2 · **Effective from:** 10 October 2026
+**Version:** beta 1.3 · **Effective from:** 11 October 2026
 
 This notice explains which personal data Uvalu collects, why, how long we keep it and what your rights are.
 
@@ -100,8 +105,8 @@ You have the right to:
 
 - **access** your data and receive a copy;
 - **correct** data that is wrong;
-- **delete** your data. Write to privacy@uvalu.app and we delete your account within 7 days; backups follow within 30 days;
-- **export** your portfolio data in a machine-readable format from the settings;
+- **delete** your data. You can delete your account yourself in the settings: your account and data are removed from live systems at once and from backups within 30 days. You can also write to privacy@uvalu.app;
+- **export** your portfolio data, account details and settings in a machine-readable format (an Excel workbook) from the settings;
 - **object** to processing based on our legitimate interest;
 - **restrict** processing in the cases the law provides;
 - **withdraw consent** at any time, without affecting earlier processing, where processing is based on consent.

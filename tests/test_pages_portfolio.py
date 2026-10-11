@@ -137,9 +137,7 @@ def test_dividend_log_layout_matches_design(isolated_data, monkeypatch):
     at = _run(monkeypatch, section="dividends")
     labels = [b.label for b in at.button]
     assert "Import from market data" not in labels
-    # Each Export menu offers a machine and a spreadsheet CSV (i18n spec F-11).
-    keys = {b.key for b in at.get("download_button")}
-    assert {"div_export", "div_export_xl", "div_summary_export", "div_summary_export_xl"} <= keys
+    assert not at.get("download_button")      # no CSV exports (Settings has the workbook)
     html = "".join(m.value for m in at.markdown)
     assert "decl " not in html and "rec " not in html
     assert "Alpha Corp · Annual" not in html
@@ -157,17 +155,17 @@ def test_dividends_page_auto_imports_once_per_session(isolated_data, monkeypatch
     assert calls == []  # already ran on the first render of this session
 
 
-def test_migrates_legacy_portfolio_missing_account_and_purchase_price(isolated_data, monkeypatch):
-    # Old portfolio.json files predate the "account"/"purchase_price"
-    # columns — render() should backfill both and persist the migration.
+def test_migrates_legacy_portfolio_missing_purchase_price(isolated_data, monkeypatch):
+    # Old portfolio.json files predate the "purchase_price" column — render()
+    # should backfill it and persist the migration.
     portfolio.save_portfolio(pd.DataFrame([{
         "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
         "purchase_value": 1000.0, "dividends": 0.0, "date_in": "2023-01-01",
     }]))
     _run(monkeypatch)
     migrated = portfolio.load_portfolio().iloc[0]
-    assert migrated["account"] == ""
     assert migrated["purchase_price"] == 100.0
+    assert "account" not in migrated.index
 
 
 def test_drops_rows_with_blank_ticker(isolated_data, monkeypatch):

@@ -1476,8 +1476,6 @@ GLOBAL_CSS = """
   .st-key-set_targets_save { align-items: flex-end !important; }
   /* The uploader as a compact, button-sized dropzone (it is a framework
      widget; this is the closest stable option). */
-  .st-key-set_import_row [data-testid="stFileUploaderDropzone"] { padding: 6px 10px !important; }
-  .st-key-set_import_row [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
   .st-key-set_row_theme, .st-key-set_row_password {
     margin-top: 0 !important;
   }
@@ -1645,23 +1643,26 @@ GLOBAL_CSS = """
      input ran past the card border. */
   .st-key-set_dividend_wh_grid { padding: 8px 20px 4px !important; box-sizing: border-box; }
   .st-key-set_wh_save { padding: 0 20px 18px !important; }
-  /* Import & Export — the whole two-column content block had NO horizontal
-     padding at all (confirmed live: "Import portfolio" sat 1px from the
-     card's own left edge, vs. every other row on this page having a 20px
-     inset) since it was just `st.columns()` dropped directly into the
-     padding:0 card with no keyed wrapper of its own. Side padding matches
-     every other row's 20px inset. Top uses the same sibling-gap-cancel +
-     explicit-padding combo as the set_row_ rows (margin-top:-16 cancels the
-     native gap after the header, then padding-top adds a deliberate amount
-     back — 28px, more than the row rhythm elsewhere on this page, on
-     request for clearer separation from the header line). Bottom padding
-     removed entirely on request (was 20px symmetric with the top, but the
-     card's own bottom edge sitting right after the buttons reads better
-     than an extra gap) — the buttons' own height is what closes the card
-     now. No vertical divider between the columns — tried one on request,
-     then removed on request; a plain `gap="large"` column gap is enough
-     separation. */
-  .st-key-set_import_row { margin-top: -16px !important; padding: 28px 20px 18px !important; }
+  /* Import & export: Uvalu.dc.html's two rows (15px 20px, hairline between
+     them, button flush right). They use the set_row_ grammar above; only the
+     padding and the divider are specific. */
+  .st-key-set_row_import, .st-key-set_row_export { padding: 15px 20px !important; }
+  .st-key-set_row_import { border-bottom: 0.5px solid var(--line-2) !important; }
+  /* Import review (what the file holds, Add/Replace, confirm): full card
+     width under the import row, closed by its own hairline. */
+  .st-key-set_import_review {
+    margin-top: -16px !important; padding: 15px 20px !important; gap: 10px !important;
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  .st-key-set_import_add { gap: 10px !important; }
+  /* Streamlit's -1rem markdown margin let the Import button ride up over
+     the two-line cash note (confirmed live: 36px of text in a 20px box). */
+  .st-key-set_import_review [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }
+  /* The review reads at the card's 13px, not Streamlit's 16px body size. */
+  .st-key-set_import_review [data-testid="stMarkdownContainer"] :is(p, li),
+  .st-key-set_import_review [data-testid="stRadio"] :is(p, label) { font-size: 13px !important; }
+  .st-key-set_import_review [data-testid="stMarkdownContainer"] li { margin: 0 !important; padding: 0 !important; }
+  .st-key-set_import_review [data-testid="stMarkdownContainer"] ul { margin: 0 !important; padding-left: 18px !important; }
   /* Importing replaces all portfolio data: the confirmation reads as a
      danger zone, with a red-outline confirm button. */
   .st-key-set_import_confirm {
@@ -1671,61 +1672,79 @@ GLOBAL_CSS = """
   .st-key-imp_confirm button {
     border-color: var(--down-txt) !important; color: var(--down-txt) !important; background: transparent !important;
   }
-  /* Streamlit's "200MB per file • XLSX" line — the description says .xlsx. */
+  /* The file uploader as the design's plain "Choose .xlsx file" button,
+     flush right like Download backup.xlsx. The dropzone is framework chrome
+     (its own padding, 68px minimum height, dashed border, lighter native
+     background, a "200MB per file" caption and, in newer Streamlit, a
+     column layout that centred the button horizontally) — all of it goes;
+     the button keeps only its click target. Its "Upload" text and icon are
+     hidden and the translated label comes in through --uv-upload-label,
+     set by the settings page. */
   .st-key-set_card_import [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
-  /* The file_uploader's dropzone has its own unconditional 12px padding on
-     all sides (confirmed live via computed style) — pushing the actual
-     "Upload" button 12px below AND 12px right of the row's own top-left
-     edge, while the plain st.download_button on the other side has no such
-     wrapper. That put the two buttons on different lines (12px vertical
-     offset) and the Upload button out of alignment with "Import portfolio"
-     above it (12px horizontal offset). Zero out top+left only — right/
-     bottom still give the "200MB per file" caption and the dropzone's own
-     box some breathing room, neither was reported as wrong. */
-  /* The dropzone also carries its own default native-theme background
-     (confirmed live: a lighter, mismatched box, not this app's var(--panel)/
-     var(--panel-2)) — same "native chrome leaks through" class of bug fixed
-     elsewhere in this app (e.g. the login screen's provider buttons,
-     uvalu/authgate.py). transparent lets the card's own panel show through
-     instead of painting a second, wrong-toned surface on top of it. */
   .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
-    padding-top: 0 !important; padding-left: 0 !important;
-    background: transparent !important; border-color: var(--line) !important;
+    min-height: 0 !important; height: auto !important; padding: 0 !important; border: 0 !important;
+    background: transparent !important; align-items: flex-end !important;
   }
-  /* The dropzone section itself is the flex row holding the "Upload" button
-     and the "200MB per file · XLSX" caption as its two direct children (a
-     hidden <input>, a <span> wrapping the button, and a
-     stFileUploaderDropzoneInstructions <div> for the caption — confirmed
-     live via the actual DOM, not a <div> wrapper as first assumed) —
-     Streamlit's own default is align-items:flex-start, which top-aligns
-     them instead of centering, reading as the caption sitting a few px
-     above the button's own vertical center. align-items belongs on this
-     flex container itself, not on one of its children. */
-  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] {
-    align-items: center !important;
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
+    min-height: 0 !important; padding: 8px 14px !important; border-radius: 8px !important;
+    border: 0.5px solid var(--line) !important; background: transparent !important; line-height: 1.2 !important;
   }
-  /* set_import_body/set_export_body's wrapper under-reports its real
-     two-line title+caption content the same way the row columns above do
-     (same root cause: no explicit line-height, same fix — both now use
-     _row_title(), which sets one). Without this floor the real text spills
-     past its own wrapper's bottom edge, consuming the flex gap to the next
-     element (the file_uploader's label / the download button) so the
-     caption and the next control look like they have zero space between
-     them. 56px matches the real measured height with the 1.3/1.5
-     line-height in place — re-measure if that ever changes. */
-  .st-key-set_import_body, .st-key-set_export_body { min-height: 56px !important; }
-  /* Legal card: the six documents as one wrapping row of teal links. */
-  .st-key-set_legal_links {
-    flex-direction: row !important; flex-wrap: wrap !important; gap: 4px 18px !important;
-    padding: 12px 20px 0 !important;
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] > * { display: none !important; }
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
+    content: var(--uv-upload-label, "Choose .xlsx file"); font-size: 12.5px; color: var(--muted); white-space: nowrap;
   }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] {
-    padding: 0 !important; min-height: 0 !important; background: none !important; gap: 0 !important;
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]:hover { border-color: var(--teal) !important; }
+  .st-key-set_card_import [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]:hover::after { color: var(--text); }
+  .st-key-set_upload_label,
+  [data-testid="stLayoutWrapper"]:has(> .st-key-set_upload_label) { display: none !important; }
+  /* Privacy, Plan and Legal documents (Uvalu.dc.html): set_row_ rows at the
+     design's 15px 20px, a hairline under every row but a card's last. */
+  :is([class*="st-key-set_row_privacy_"], .st-key-set_row_plan_beta, [class*="st-key-set_row_legal_"]) {
+    padding: 15px 20px !important;
   }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) { display: none !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"] p { font-size: 13px !important; color: var(--link) !important; }
-  .st-key-set_legal_links a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
-  .st-key-set_card_legal { padding-bottom: 14px !important; }
+  :is(.st-key-set_row_privacy_export, .st-key-set_row_privacy_delete,
+      .st-key-set_row_legal_terms, .st-key-set_row_legal_privacy, .st-key-set_row_legal_advice) {
+    border-bottom: 0.5px solid var(--line-2) !important;
+  }
+  /* Delete account: the design's red-text outline button. */
+  .st-key-set_row_privacy_delete button { color: var(--down-txt) !important; }
+  .st-key-set_row_privacy_delete button:hover { border-color: var(--down-txt) !important; }
+  .st-key-set_row_privacy_delete button * { color: inherit !important; }
+  .uv-set-privacy-mail { text-align: right; white-space: nowrap; }
+  .uv-set-privacy-mail a {
+    font-family: var(--uv-mono); font-size: 12px; color: var(--link) !important; text-decoration: none;
+  }
+  .uv-set-chip-na {
+    display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    background: var(--panel-2); color: var(--muted); white-space: nowrap;
+  }
+  .uv-set-chip-active {
+    display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    background: var(--up-bg); color: var(--up-txt); white-space: nowrap;
+  }
+  /* Legal rows: "View" as the design's outline button (it is a page link). */
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] {
+    padding: 8px 14px !important; min-height: 0 !important; border-radius: 8px !important;
+    border: 0.5px solid var(--line) !important; background: transparent !important; gap: 0 !important;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] > span:has([data-testid="stIconMaterial"]) {
+    display: none !important;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"],
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] p {
+    line-height: 1.3 !important;   /* inherited 32px made the button 42px tall (design ~33px) */
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"] p {
+    font-size: 12.5px !important; color: var(--muted) !important; white-space: nowrap;
+  }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"]:hover { border-color: var(--teal) !important; }
+  [class*="st-key-set_row_legal_"] a[data-testid="stPageLink-NavLink"]:hover p { color: var(--text) !important; }
+  .st-key-set_card_legal { padding-bottom: 13px !important; }
+  /* The footnote sits right under the last row's hairline (design: 13px). */
+  [data-testid="stElementContainer"]:has(.uv-set-legal-note) { margin-top: -16px !important; }
+  /* …and Streamlit's -1rem markdown margin let it run out of the card. */
+  [data-testid="stMarkdownContainer"]:has(> .uv-set-legal-note) { margin-bottom: 0 !important; }
+  .uv-set-legal-note { padding: 13px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.55; }
   /* Profile card's "Sign out" (top of the Account section): one raw-HTML flex
      row with the avatar and name — st.columns' per-column centring was off
      by 8px for these mismatched heights. */
@@ -2081,12 +2100,12 @@ GLOBAL_CSS = """
   /* ── Signal provenance caption (components.provenance_bar_html) — the
      third line of the page header on Dashboard/Screener/Watchlist and under
      the ticker line in the drawer/Analysis. No fill or border; separators
-     and the "Methodology" link stay quiet. ──────────────────────────────── */
+     stay quiet. "Methodology →" uses the link colour like every other link
+     (--link, set per theme; Sven, 11 Oct 2026 — was grey underlined). ───── */
   .uv-prov-sep { color: var(--faint); }
   [data-theme="light"] .uv-prov-sep { color: rgba(13,31,60,0.3); }
   a.uv-quiet-link, a.uv-quiet-link:visited {
-    color: var(--muted) !important; text-decoration: underline !important;
-    text-decoration-color: var(--line) !important; text-underline-offset: 3px; white-space: nowrap;
+    color: var(--link) !important; text-decoration: none !important; white-space: nowrap;
   }
   a.uv-quiet-link:hover { color: var(--text) !important; }
   /* REC-10: the share of covered stocks in each Screener signal pill

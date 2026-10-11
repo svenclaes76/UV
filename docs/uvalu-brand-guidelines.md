@@ -353,17 +353,16 @@ Wherever signals are listed (Dashboard holdings, Screener, Watchlist) or shown f
 - Each fact wraps as a whole, never mid-phrase.
 - Prices are always labelled **delayed**.
 - An amber chip (`warning` symbol + "oldest 3 weeks") appears when any price is more than 72 hours old.
-- Ends with the quiet **Methodology →** link.
+- Ends with the **Methodology →** link, in the link colour (`--link`).
 - On the Screener, the share of covered stocks per signal is shown in the signal filter pills (`Undervalued 3%`), with the note "share of covered stocks".
 
 ### Links
 
 | Kind | Style | Example |
 |---|---|---|
-| Call to action | `--link`, no underline, ends with "→" | Full analysis → |
-| Quiet link | Muted text, underlined in the line colour (offset 3px), text colour on hover, ends with "→" | Methodology → |
+| Call to action | `--link`, no underline, text colour on hover, ends with "→" | Full analysis →, Methodology →, Terms → |
 
-A link always ends with "→", so it reads as a link even in grey. Back links start with "←".
+Every link uses `--link` (its own value in dark and light mode) and ends with "→". Back links start with "←". (Until 11 Oct 2026 the provenance line's Methodology link was a grey "quiet link"; changed so links look the same everywhere.)
 
 ### Tooltips
 

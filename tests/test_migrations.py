@@ -234,10 +234,12 @@ def test_snapshot_skips_backups_and_snapshots(ctx):
 def test_snapshots_are_pruned(ctx, monkeypatch):
     monkeypatch.setattr(runner, "KEEP_SNAPSHOTS", 2)
     ctx.snapshot_dir.mkdir(parents=True)
-    for i in range(4):
-        (ctx.snapshot_dir / f"2026010{i}T000000Z-x.zip").write_bytes(b"z")
+    # Recent ids: snapshots older than 30 days are pruned by age as well.
+    ids = [time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(time.time() - h * 3600)) + "-x" for h in range(4)]
+    for sid in ids:
+        (ctx.snapshot_dir / f"{sid}.zip").write_bytes(b"z")
     runner._prune_snapshots(ctx)
-    assert runner.list_snapshots(ctx) == ["20260103T000000Z-x", "20260102T000000Z-x"]
+    assert runner.list_snapshots(ctx) == ids[:2]
 
 
 def test_restore_snapshot_puts_data_and_schema_back(ctx, fake_chain):
@@ -363,3 +365,53 @@ def test_app_shows_maintenance_screen_on_mismatch():
     text = " ".join(m.value for m in at.markdown)
     assert "Uvalu is being updated" in text
     assert not at.text_input                                # the sign-in form never rendered
+
+
+# ── m0002: drop unused fields, fill dividend currency ────────────────────────
+
+def test_m0002_drops_unused_fields_and_fills_currency(ctx, monkeypatch):
+    from uvalu.migrations import m0002_drop_unused_fields as m2
+    monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
+    udir = ctx.data_dir / "portfolio" / "abc123"
+    udir.mkdir(parents=True)
+    ctx.write_json(udir / "portfolio.json", [{"ticker": "AED.BR", "google_ticker": "EBR:AED",
+                                              "target_price": 100, "account": "", "shares": 30}])
+    ctx.write_json(udir / "sold.json", [{"ticker": "KIN.BR", "google_ticker": "EBR:KIN", "shares": 60}])
+    ctx.write_json(udir / "dividends_history.json", [
+        {"ticker": "ROG.SW", "google_ticker": "SWX:ROG", "amount": 76.8, "currency": None, "declaration_date": None,
+         "record_date": None, "reinvested": False, "reinvested_shares": None},
+        {"ticker": "ABI.BR", "amount": 32.8},
+        {"ticker": "NESN.SW", "amount": 10, "currency": "EUR"},
+    ])
+    m2.up(ctx)
+    m2.up(ctx)   # idempotent
+    assert ctx.read_json(udir / "portfolio.json") == [{"ticker": "AED.BR", "shares": 30}]
+    assert ctx.read_json(udir / "sold.json") == [{"ticker": "KIN.BR", "shares": 60}]
+    assert ctx.read_json(udir / "dividends_history.json") == [
+        {"ticker": "ROG.SW", "amount": 76.8, "currency": "CHF"},
+        {"ticker": "ABI.BR", "amount": 32.8, "currency": "EUR"},
+        {"ticker": "NESN.SW", "amount": 10, "currency": "EUR"},
+    ]
+
+
+# ── snapshot age limit (account deletion: backups within 30 days) ────────────
+
+def test_snapshots_older_than_30_days_are_pruned(ctx):
+    ctx.snapshot_dir.mkdir(parents=True)
+    old = ctx.snapshot_dir / "20200101T000000Z-before-up-1-to-2.zip"
+    new = ctx.snapshot_dir / (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-before-up-2-to-3.zip")
+    for p in (old, new):
+        p.write_bytes(b"zip")
+    assert runner.prune_expired_snapshots(ctx) == 1
+    assert not old.exists() and new.exists()
+
+
+def test_start_up_check_prunes_at_most_hourly(ctx, monkeypatch):
+    monkeypatch.setattr(runner, "_last_age_prune", 0.0)
+    ctx.snapshot_dir.mkdir(parents=True)
+    old = ctx.snapshot_dir / "20200101T000000Z-x.zip"
+    old.write_bytes(b"zip")
+    assert runner.prune_expired_snapshots(ctx, force=False) == 1
+    old.write_bytes(b"zip")
+    assert runner.prune_expired_snapshots(ctx, force=False) == 0      # within the hour: skipped
+    assert runner.prune_expired_snapshots(ctx) == 1                   # forced (account deletion)
