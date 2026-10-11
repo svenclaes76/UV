@@ -284,11 +284,12 @@ Builds the stock universe per exchange: scrapes ticker lists, with hardcoded ind
 
 #### `workbook.py`
 
-The Settings › Import & export workbook (`docs/import-export-plan.md`). Only data the user entered, one sheet per kind (positions, sold, dividends, typed cash entries, watchlist, custom tickers, targets, withholding), fixed English column keys, translated sheet names, a hidden `_meta` sheet with the format version.
+Two exports in one format (`docs/import-export-plan.md`, IE1–IE7): fixed English column keys, translated sheet names, a hidden `_meta` sheet with the format version.
 
-- `export_workbook(email)` — the export; also the template for a bulk import (an empty account gets headers only).
-- `parse_workbook(bytes)` — reads a workbook (sheets are recognised by their headers, not their names); problems come back as row-level `issues`.
-- `plan_import(parsed, mode)` / `apply_import(parsed, mode, email)` — `replace` saves a backup, wipes the account's portfolio data and loads the file; `add` appends rows that don't match existing ones. Imported trades post their cash through `cash.import_entries()` (automatic top-ups); sold dividends are recomputed from the dividend rows.
+- `export_workbook(email)` — the portfolio workbook (Settings › Import & export): Positions, Sold, Dividends, Cash, Watchlist — only what the user entered; also the template for a bulk import (an empty account gets headers only).
+- `export_all(email)` — everything held about the user (Settings › Privacy › Export my data): Account (never a secret), Settings (one row per setting: section · setting · value), the portfolio sheets and Automatic cash.
+- `parse_workbook(bytes)` — reads the portfolio sheets (recognised by their headers, not their names) and skips the rest; problems come back as row-level `issues`.
+- `plan_import(parsed, mode)` / `apply_import(parsed, mode, email)` — `replace` saves a backup, deletes the account's portfolio data and watchlist (settings stay) and loads the file; `add` appends rows that don't match existing ones and merges the watchlist. Imported trades post their cash through `cash.import_entries()` (automatic top-ups); sold dividends are recomputed from the dividend rows.
 
 #### `settings.py`
 

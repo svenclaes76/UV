@@ -36,8 +36,6 @@ tests/test_cash.py.
 """
 from __future__ import annotations
 
-import csv
-import io
 import json
 import math
 import threading
@@ -840,41 +838,3 @@ def summary(entries: list[dict], invested_value: float) -> dict:
 def filter_rows(rows: list[dict], group: str) -> list[dict]:
     types = FILTER_GROUPS.get(group)
     return rows if not types else [r for r in rows if r["type"] in types]
-
-
-def export_frame(entries: list[dict] | None = None) -> pd.DataFrame:
-    """The export_csv() rows as typed columns (dates as datetimes, amounts as
-    floats) for the region-formatted spreadsheet export (i18n spec F-11)."""
-    entries = load_ledger() if entries is None else entries
-    base = portfolio.base_currency().lower()
-    rows = []
-    for r in replay(entries):
-        amt = None if r["type"] == "Adjustment" or r.get("amount") is None else round(float(r["amount"]), 2)
-        rows.append({"date": pd.to_datetime(r["date"], errors="coerce"), "type": r["type"], "amount": amt,
-                     "currency": r.get("currency") or "", "fx_rate": float(r.get("fx_rate") or 1.0),
-                     f"amount_{base}": round(float(r["base"]), 2), "note": r.get("note") or "",
-                     "reference": r.get("ref_label") or "",
-                     f"running_balance_{base}": round(float(r["bal"]), 2), "fx_source": r.get("fx_source") or ""})
-    return pd.DataFrame(rows, columns=["date", "type", "amount", "currency", "fx_rate", f"amount_{base}",
-                                       "note", "reference", f"running_balance_{base}", "fx_source"])
-
-
-def export_csv(entries: list[dict] | None = None) -> bytes:
-    """Full ledger history, oldest first, in base currency (spec §Export):
-    date, type, amount, currency (original), FX rate applied, amount (base),
-    note, linked trade/dividend reference, running balance — plus fx_source
-    so a manually-entered rate stays flagged in the export too. An
-    Adjustment's `amount` is blank; its base amount is the correction."""
-    entries = load_ledger() if entries is None else entries
-    base = portfolio.base_currency().lower()
-    buf = io.StringIO()
-    w = csv.writer(buf, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
-    w.writerow(["date", "type", "amount", "currency", "fx_rate", f"amount_{base}",
-                "note", "reference", f"running_balance_{base}", "fx_source"])
-    for r in replay(entries):
-        amt = "" if r["type"] == "Adjustment" or r.get("amount") is None else f"{float(r['amount']):.2f}"
-        w.writerow([r["date"], r["type"], amt, r.get("currency") or "",
-                    f"{float(r.get('fx_rate') or 1.0):.6f}".rstrip("0").rstrip("."),
-                    f"{r['base']:.2f}", r.get("note") or "", r.get("ref_label") or "",
-                    f"{r['bal']:.2f}", r.get("fx_source") or ""])
-    return buf.getvalue().encode("utf-8")

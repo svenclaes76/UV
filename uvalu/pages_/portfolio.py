@@ -30,7 +30,6 @@ from uvalu.components import (back_link, page_header, fit_widths, header_cell_ht
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
 from uvalu.formatting import exchange_code, safe_pct as _safe_pct
 from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
-from uvalu.locale_ui import export_menu
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
 from uvalu.ui import price_autorefresh, consumed_tick, poll_while_fetching
@@ -258,13 +257,6 @@ def render() -> None:
     if _section == "overview":
         with page_header(_("Portfolio"),
                          _("Cost basis, market value and realised results across open and closed positions.")):
-            _ov_frame = pd.DataFrame({
-                "Company": pf["name"], "Ticker": pf["ticker"], "Shares": pf["shares"],
-                "Buy price": pf["purchase_price"], "Live price": pf["live_price"],
-                "Invested": pf["purchase_value"], "Current value": pf["current_value"],
-                "Price gain": pf["price_gain"],
-            })
-            export_menu(_("Export CSV"), frame=_ov_frame, file_name="uvalu_portfolio.csv", key="ov_export")
             if st.button(_("Add position"), key="ov_buy", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_position_dialog()
@@ -577,7 +569,6 @@ def render() -> None:
         if _div_ids_added:
             save_div_hist(div_hist)
         _has_divs = div_hist is not None and not div_hist.empty
-        _div_frame = pd.DataFrame()
         if _has_divs:
             div_hist = div_hist.copy().reset_index(drop=True)
             div_hist["amount"] = pd.to_numeric(div_hist["amount"], errors="coerce")
@@ -590,21 +581,10 @@ def render() -> None:
             div_eur = dividends_in_eur(div_hist)
             div_eur["_ex_dt"] = pd.to_datetime(div_eur["ex_date"], errors="coerce")
             div_sorted = div_eur.sort_values("date", ascending=False)
-            _div_frame = div_sorted[["name", "ticker", "_ex_dt", "date", "div_type", "currency",
-                                     "amount", "tax_amount", "be_tax_amount", "net_after_be_amount",
-                                     "source", "reinvested"]].rename(columns={
-                "name": "Company", "ticker": "Ticker",
-                "_ex_dt": "Ex-dividend date", "date": "Payment date",
-                "div_type": "Type", "currency": "Currency", "amount": "Gross (native)",
-                "tax_amount": "Foreign WH (native)", "be_tax_amount": "Belgian RV 30% (native)",
-                "net_after_be_amount": "Net (native)", "source": "Source", "reinvested": "DRIP",
-            })
 
         with page_header(_("Dividend log"),
                          _("Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."),
                          key="pf_page_title_dividends"):
-            export_menu(_("Export log"), frame=_div_frame, file_name="uvalu_dividend_log.csv",
-                        key="div_export", disabled=not _has_divs)
             if st.button(_("Add dividend"), key="btn_add_div", type="primary", icon=":material/add:",
                          disabled=_is_viewer, help=_(_VIEWER_HELP) if _is_viewer else None):
                 add_dividend_dialog(pf)
@@ -678,10 +658,6 @@ def render() -> None:
                 events=("ticker", "count"), gross=("amount_eur", "sum"),
                 fwh=("tax_amount_eur", "sum"), be=("be_tax_amount_eur", "sum"),
                 net=("net_after_be_amount_eur", "sum")).sort_index(ascending=False)
-            _summary_frame = _year_summary.reset_index().rename(columns={
-                "_year": "Year", "events": "Events", "gross": "Gross (EUR)",
-                "fwh": "Foreign WH (EUR)", "be": "Belgian RV 30% (EUR)", "net": "Net (EUR)",
-            })
 
             def _neg_eur(v: float) -> str:
                 # "—" for no withholding, same as the log's Foreign WH / BE 30%
@@ -698,8 +674,6 @@ def render() -> None:
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
                                    f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")
-                        export_menu(_("Export summary"), frame=_summary_frame, file_name="uvalu_dividend_tax_summary.csv",
-                                    key="div_summary_export", disabled=_year_summary.empty)
                     if _year_summary.empty:
                         st.caption(_("No dividend history to summarise yet."))
                     else:

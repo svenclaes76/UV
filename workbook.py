@@ -1,23 +1,26 @@
 """
-Portfolio workbook — the user-facing export and import (also Settings ›
-Privacy › Export my data: the same file is the user's copy of their data).
+Workbooks — the portfolio export/import and the full copy of a user's data.
 
-One .xlsx holds only what the user entered (docs/import-export-plan.md,
-decisions IE1–IE5): positions, sold positions, dividends, typed cash entries,
-watchlist, hand-added tickers, target allocation and withholding rates.
-Derived values (purchase price, dividend totals, annual return, tax amounts)
-and internal ids are left out and rebuilt on import.
+Two exports share one format:
+  - **Portfolio workbook** (Settings › Import & export): Positions, Sold,
+    Dividends, Cash and Watchlist — only what the user entered, ready to re-import
+    (docs/import-export-plan.md). Derived values (purchase price, dividend
+    totals, annual return, tax amounts) and internal ids are left out and
+    rebuilt on import.
+  - **All my data** (Settings › Privacy › Export my data): the same four
+    sheets plus Account (the account record, never a secret), Settings (every
+    setting, one row each: section · setting · value) and Automatic cash (the
+    cash entries Uvalu posted for trades and dividends).
 
 Column headers are fixed English keys, so a file exported in one language
 imports in another; sheet names are translated, so import recognises a sheet
 by its headers, never by its name. A hidden ``_meta`` sheet records the file
-format version. Three read-only sheets complete the copy of the user's data —
-Account (the account record, never a secret), Settings and Automatic cash
-(the cash entries Uvalu posted for trades and dividends); import skips them.
+format version. Import reads the portfolio sheets and skips the rest.
 
 Import has two modes (IE2):
-  - ``replace``: restore. A backup is saved, all portfolio data of the account
-    is deleted, then the file is loaded.
+  - ``replace``: restore. A backup is saved, the account's portfolio data
+    (positions, sales, dividends, cash, watchlist) is deleted, then the file
+    is loaded. Settings are left as they are.
   - ``add``: bulk import. Rows are appended; rows that match an existing one
     are skipped.
 Every imported trade posts its cash (Buy/Sell with automatic top-ups), like a
@@ -43,7 +46,6 @@ FORMAT_VERSION = 1
 META_SHEET = "_meta"
 
 DIV_TYPES = ("Cash", "Stock", "Special")
-TARGET_KINDS = ("sector", "ticker", "hhi_max")
 
 # Sheet key → columns, in export order. Required columns are checked on import.
 COLUMNS: dict[str, tuple[str, ...]] = {
@@ -53,18 +55,16 @@ COLUMNS: dict[str, tuple[str, ...]] = {
     "dividends":   ("name", "ticker", "shares", "amount", "currency", "tax_rate", "div_type",
                     "ex_date", "date"),
     "cash":        ("date", "type", "amount", "currency", "fx_rate", "note"),
-    "watchlist":   ("ticker",),
-    "custom":      ("ticker", "name"),
-    "targets":     ("kind", "key", "weight_pct"),
-    "withholding": ("exchange", "rate_pct"),
-    # Read-only copies for the user (privacy: a complete copy of their data);
-    # import recognises and skips them.
+    "watchlist":   ("ticker", "name"),
+    # Only in "All my data" (privacy copy); import recognises and skips them.
     "account":     ("field", "value"),
-    "settings":    ("setting", "value"),
+    "settings":    ("section", "setting", "value"),
     "ledger":      ("date", "type", "amount", "currency", "fx_rate", "amount_eur", "linked_to", "note"),
 }
-SHEET_ORDER = tuple(COLUMNS)
+PORTFOLIO_SHEETS = ("positions", "sold", "dividends", "cash", "watchlist")
+ALL_SHEETS = ("account", "settings", "positions", "sold", "dividends", "cash", "watchlist", "ledger")
 INFO_SHEETS = ("account", "settings", "ledger")
+SHEET_ORDER = PORTFOLIO_SHEETS
 
 _DATE_COLS = {"date_in", "date_out", "ex_date", "date"}
 _MONEY_COLS = {"purchase_value", "sale_value", "fee", "amount", "amount_eur"}
@@ -80,9 +80,6 @@ def sheet_names() -> dict[str, str]:
         "dividends":   pgettext("sheet_name", "Dividends"),
         "cash":        pgettext("sheet_name", "Cash"),
         "watchlist":   pgettext("sheet_name", "Watchlist"),
-        "custom":      pgettext("sheet_name", "Custom tickers"),
-        "targets":     pgettext("sheet_name", "Targets"),
-        "withholding": pgettext("sheet_name", "Withholding"),
         "account":     pgettext("sheet_name", "Account"),
         "settings":    pgettext("sheet_name", "Settings"),
         "ledger":      pgettext("sheet_name", "Automatic cash"),
@@ -110,12 +107,8 @@ def column_notes() -> dict[str, str]:
         "type":           _("Deposit, Withdrawal, Fee, Interest or Adjustment. Required."),
         "fx_rate":        _("Rate to euro for another currency. Empty: the ECB rate of that day."),
         "note":           _("Description. Optional."),
-        "kind":           _("sector, ticker or hhi_max. Required."),
-        "key":            _("The sector name or ticker. Empty for hhi_max."),
-        "weight_pct":     _("Target weight in %. Required."),
-        "exchange":       _("brussels, amsterdam, paris, milan, frankfurt or swiss. Required."),
-        "rate_pct":       _("Withholding tax in %. Required."),
         "field":          _("Account detail. For your information: not imported."),
+        "section":        _("Settings section. For your information: not imported."),
         "setting":        _("Setting. For your information: not imported."),
         "value":          _("Value. For your information: not imported."),
         "amount_eur":     _("Amount in euro."),
@@ -158,12 +151,13 @@ def _records(df: "pd.DataFrame | None") -> list[dict]:
     return [] if df is None or df.empty else df.to_dict("records")
 
 
-def collect(email: str) -> dict[str, list[dict]]:
-    """The account's user-entered data as export rows, per sheet key."""
+def collect(email: str, *, full: bool = False) -> dict[str, list[dict]]:
+    """Export rows per sheet key: the portfolio sheets, and with ``full`` the
+    rest of the user's data too."""
     import cash
-    from settings import ALL_EXCHANGES, load_settings
+    from settings import load_settings
 
-    out: dict[str, list[dict]] = {k: [] for k in SHEET_ORDER}
+    out: dict[str, list[dict]] = {k: [] for k in ALL_SHEETS}
     for r in _records(portfolio.load_portfolio()):
         out["positions"].append({
             "name": _cell(r.get("name")), "ticker": _cell(r.get("ticker")),
@@ -200,21 +194,12 @@ def collect(email: str) -> dict[str, list[dict]]:
             "fx_rate": None if adj or ccy == base else _xl_num(e.get("fx_rate")),
             "note": None if note in _default_notes else note,
         })
-    out["watchlist"] = [{"ticker": t} for t in sorted(portfolio.load_watchlist())]
-    out["custom"] = [{"ticker": t, "name": n} for t, n in sorted(portfolio.load_manual_tickers().items())]
-    targets = portfolio.load_targets()
-    for kind, plural in (("sector", "sectors"), ("ticker", "tickers")):
-        for key, w in sorted((targets.get(plural) or {}).items()):
-            out["targets"].append({"kind": kind, "key": key, "weight_pct": round(float(w) * 100, 2)})
-    if targets.get("hhi_max"):
-        out["targets"].append({"kind": "hhi_max", "key": None,
-                               "weight_pct": round(float(targets["hhi_max"]) * 100, 2)})
-    user_settings = load_settings(email)
-    rates = user_settings.get("dividend_withholding") or {}
-    out["withholding"] = [{"exchange": ex, "rate_pct": _xl_num(rates.get(ex, 0.0)) or 0}
-                          for ex in ALL_EXCHANGES]
+    custom = portfolio.load_manual_tickers()
+    out["watchlist"] = [{"ticker": t, "name": custom.get(t)} for t in sorted(portfolio.load_watchlist())]
+    if not full:
+        return out
     out["account"] = _account_rows(email)
-    out["settings"] = _settings_rows(user_settings)
+    out["settings"] = _settings_rows(load_settings(email))
     for e in cash.load_ledger():
         if not (e.get("ref_kind") or e.get("auto")):
             continue
@@ -259,22 +244,56 @@ def _account_rows(email: str) -> list[dict]:
     return [{"field": k, "value": _text_value(v)} for k, v in rows]
 
 
+def _pct(v) -> str:
+    try:
+        return f"{float(v) * 100:g}%"
+    except (TypeError, ValueError):
+        return _text_value(v)
+
+
 def _settings_rows(user_settings: dict) -> list[dict]:
-    rows = [{"setting": k, "value": _text_value(v)} for k, v in sorted(user_settings.items())
-            if k != "dividend_withholding"]
-    rows.append({"setting": "base_currency", "value": portfolio.base_currency()})
+    """Every setting of the user, one row each, grouped by the Settings
+    section it lives in: section · setting · value."""
+    from settings import ALL_EXCHANGES, EXCHANGE_LABELS
+
+    not_set = _("Not set (default)")
+
+    def val(v):
+        return not_set if v is None or v == "" else _text_value(v)
+
+    rows: list[tuple[str, str, str]] = []
+    lr = _("Language & region")
+    for key, label in (("language", _("Language")), ("region", _("Region format")),
+                       ("display_currency", _("Display currency")), ("date_format", _("Date format")),
+                       ("time_zone", _("Time zone")), ("week_start", _("First day of week"))):
+        rows.append((lr, label, val(user_settings.get(key))))
+    rows.append((_("Display"), _("Table density"), val(user_settings.get("density"))))
+    wh = user_settings.get("dividend_withholding") or {}
+    for ex in ALL_EXCHANGES:
+        rows.append((_("Dividend withholding"), EXCHANGE_LABELS.get(ex, ex), f"{float(wh.get(ex, 0.0) or 0):g}%"))
+    targets = portfolio.load_targets()
+    ta = _("Target allocation")
+    for name, w in sorted((targets.get("sectors") or {}).items()):
+        rows.append((ta, _("Sector · {name}", name=name), _pct(w)))
+    for ticker, w in sorted((targets.get("tickers") or {}).items()):
+        rows.append((ta, _("Ticker · {ticker}", ticker=ticker), _pct(w)))
+    rows.append((ta, _("Concentration ceiling (HHI)"),
+                 _pct(targets["hhi_max"]) if targets.get("hhi_max") else not_set))
+    dv = _("Dividends")
     for ticker, meta in sorted(portfolio.load_dividend_meta().items()):
         if not isinstance(meta, dict):
             continue
         if meta.get("frequency"):
-            rows.append({"setting": f"dividend_frequency · {ticker}", "value": str(meta["frequency"])})
+            rows.append((dv, _("Payment frequency · {ticker}", ticker=ticker), str(meta["frequency"])))
         if meta.get("dismissed_auto_ex"):
-            rows.append({"setting": f"dismissed_auto_dividends · {ticker}",
-                         "value": _text_value(meta["dismissed_auto_ex"])})
-    return rows
+            rows.append((dv, _("Dismissed automatic dividends · {ticker}", ticker=ticker),
+                         _text_value(meta["dismissed_auto_ex"])))
+    rows.append((_("Portfolio"), _("Base currency"), portfolio.base_currency()))
+    rows.append((_("Notices"), _("Last “What’s new” seen"), val(user_settings.get("last_seen_version"))))
+    return [{"section": a, "setting": b, "value": c} for a, b, c in rows]
 
 
-def _write(rows: dict[str, list[dict]]) -> bytes:
+def _write(rows: dict[str, list[dict]], keys: tuple[str, ...]) -> bytes:
     from openpyxl import Workbook
     from openpyxl.comments import Comment
     from openpyxl.styles import Font
@@ -286,7 +305,7 @@ def _write(rows: dict[str, list[dict]]) -> bytes:
     notes = column_notes()
     wb = Workbook()
     wb.remove(wb.active)
-    for key in SHEET_ORDER:
+    for key in keys:
         ws = wb.create_sheet(names[key])
         cols = COLUMNS[key]
         ws.append(list(cols))
@@ -323,11 +342,18 @@ def _write(rows: dict[str, list[dict]]) -> bytes:
 
 
 def export_workbook(email: str) -> bytes:
-    """The account's workbook. It doubles as the template for a bulk import:
-    an empty account gets the headers (and the withholding table) only, and
-    rows added to a full export import in Add mode without the existing ones
-    being duplicated."""
-    return _write(collect(email))
+    """The portfolio workbook (Positions, Sold, Dividends, Cash). It doubles
+    as the template for a bulk import: an empty account gets the headers
+    only, and rows added to a full export import in Add mode without the
+    existing ones being duplicated."""
+    return _write(collect(email), PORTFOLIO_SHEETS)
+
+
+def export_all(email: str) -> bytes:
+    """Everything Uvalu holds about the user (Settings › Privacy › Export my
+    data): account, settings, the portfolio sheets, automatic cash entries
+    and the watchlist."""
+    return _write(collect(email, full=True), ALL_SHEETS)
 
 
 # ── Import: parsing and validation ────────────────────────────────────────────
@@ -345,22 +371,14 @@ class ParsedWorkbook:
     sold: list[dict] = field(default_factory=list)
     dividends: list[dict] = field(default_factory=list)
     cash: list[dict] = field(default_factory=list)
-    watchlist: list[str] = field(default_factory=list)
-    custom: dict[str, str] = field(default_factory=dict)
-    targets: "dict | None" = None          # None: no Targets sheet in the file
-    withholding: "dict[str, float] | None" = None
+    watchlist: dict[str, str] = field(default_factory=dict)   # ticker → name ("" = none given)
     sheets: list[str] = field(default_factory=list)   # sheet keys found, in file order
     issues: list[Issue] = field(default_factory=list)
     meta: dict = field(default_factory=dict)
 
     def counts(self) -> dict[str, int]:
         return {"positions": len(self.positions), "sold": len(self.sold),
-                "dividends": len(self.dividends), "cash": len(self.cash),
-                "watchlist": len(self.watchlist), "custom": len(self.custom),
-                "targets": 0 if self.targets is None else (len(self.targets.get("sectors", {}))
-                                                           + len(self.targets.get("tickers", {}))
-                                                           + (1 if "hhi_max" in self.targets else 0)),
-                "withholding": len(self.withholding or {})}
+                "dividends": len(self.dividends), "cash": len(self.cash), "watchlist": len(self.watchlist)}
 
     @property
     def empty(self) -> bool:
@@ -376,7 +394,7 @@ def _identify(headers: set[str]) -> str | None:
     (extra columns are ignored, the old watchlist header was "Ticker")."""
     if headers == {"field", "value"}:
         return "account"
-    if headers == {"setting", "value"}:
+    if {"setting", "value"} <= headers:
         return "settings"
     if "linked_to" in headers:
         return "ledger"
@@ -388,13 +406,7 @@ def _identify(headers: set[str]) -> str | None:
         return "dividends"
     if "type" in headers and "amount" in headers:
         return "cash"
-    if "weight_pct" in headers:
-        return "targets"
-    if "rate_pct" in headers and "exchange" in headers:
-        return "withholding"
-    if headers == {"ticker", "name"}:
-        return "custom"
-    if headers == {"ticker"}:
+    if "ticker" in headers and headers <= {"ticker", "name"}:
         return "watchlist"
     return None
 
@@ -516,7 +528,6 @@ def _shares(n: float | None):
 
 def _parse_rows(key: str, rows: list[tuple[int, dict]], wb: ParsedWorkbook) -> None:
     import cash
-    from settings import ALL_EXCHANGES, EXCHANGE_LABELS
 
     today = date.today()
     for rownum, values in rows:
@@ -584,33 +595,8 @@ def _parse_rows(key: str, rows: list[tuple[int, dict]], wb: ParsedWorkbook) -> N
                 wb.cash.append(rec)
         elif key == "watchlist":
             t = r.ticker()
-            if r.ok and t not in wb.watchlist:
-                wb.watchlist.append(t)
-        elif key == "custom":
-            t = r.ticker()
             if r.ok:
-                wb.custom[t] = r.text("name") or t
-        elif key == "targets":
-            kind = r.choice("kind", TARGET_KINDS)
-            k = r.text("key", required=kind in ("sector", "ticker"))
-            w = r.number("weight_pct", required=True, positive=True, max_value=100)
-            if r.ok:
-                t = wb.targets if wb.targets is not None else {}
-                if kind == "hhi_max":
-                    t["hhi_max"] = round(w / 100, 4)
-                else:
-                    t.setdefault(kind + "s", {})[k.upper() if kind == "ticker" else k] = round(w / 100, 4)
-                wb.targets = t
-        elif key == "withholding":
-            raw = r.text("exchange", required=True)
-            labels = {v.lower(): k for k, v in EXCHANGE_LABELS.items()}
-            ex = raw.lower() if raw.lower() in ALL_EXCHANGES else labels.get(raw.lower())
-            if raw and ex is None:
-                r._issue(_("{column}: {value} is not one of {options}.", column="exchange", value=raw,
-                           options=", ".join(ALL_EXCHANGES)))
-            rate = r.number("rate_pct", required=True, min_value=0, max_value=100)
-            if r.ok:
-                wb.withholding = {**(wb.withholding or {}), ex: float(rate)}
+                wb.watchlist[t] = r.text("name") or wb.watchlist.get(t, "")
 
 
 def parse_workbook(data: bytes) -> ParsedWorkbook:
@@ -634,7 +620,7 @@ def parse_workbook(data: bytes) -> ParsedWorkbook:
                 continue
             headers = [_norm_header(h) for h in raw[0]]
             key = _identify({h for h in headers if h})
-            if key is None or key in wb.sheets or key in INFO_SHEETS:
+            if key not in PORTFOLIO_SHEETS or key in wb.sheets:
                 continue
             wb.sheets.append(key)
             rows = []
@@ -688,6 +674,7 @@ class ImportPlan:
     sold: list[dict] = field(default_factory=list)
     dividends: list[dict] = field(default_factory=list)
     cash: list[dict] = field(default_factory=list)
+    watchlist: dict[str, str] = field(default_factory=dict)
 
 
 def plan_import(wb: ParsedWorkbook, mode: str) -> ImportPlan:
@@ -700,6 +687,7 @@ def plan_import(wb: ParsedWorkbook, mode: str) -> ImportPlan:
     if mode not in ("replace", "add"):
         raise ValueError(mode)
     pos, sold, divs, cash_rows = list(wb.positions), list(wb.sold), list(wb.dividends), list(wb.cash)
+    watch = dict(wb.watchlist)
     if mode == "add":
         have_pos = {_trade_key(r.get("ticker"), r.get("date_in"), r.get("shares"))
                     for r in _records(portfolio.load_portfolio())}
@@ -725,14 +713,15 @@ def plan_import(wb: ParsedWorkbook, mode: str) -> ImportPlan:
         cash_rows = [r for r in cash_rows
                      if not any(d == r["date"] and t == r["type"] and _close(a, r["amount"])
                                 and c == (r["currency"] or base) for d, t, a, c in have_cash)]
-    new = wb.counts()
-    new.update(positions=len(pos), sold=len(sold), dividends=len(divs), cash=len(cash_rows))
-    full = wb.counts()
-    skipped = {k: full[k] - new[k] for k in ("positions", "sold", "dividends", "cash")}
     if mode == "add":
-        new["watchlist"] = len(set(wb.watchlist) - portfolio.load_watchlist())
-        new["custom"] = len(set(wb.custom) - set(portfolio.load_manual_tickers()))
-    return ImportPlan(mode, new, skipped, pos, sold, divs, cash_rows)
+        have_watch = portfolio.load_watchlist()
+        watch = {t: n for t, n in watch.items() if t not in have_watch}
+    new = wb.counts()
+    new.update(positions=len(pos), sold=len(sold), dividends=len(divs), cash=len(cash_rows),
+               watchlist=len(watch))
+    full = wb.counts()
+    skipped = {k: full[k] - new[k] for k in PORTFOLIO_SHEETS}
+    return ImportPlan(mode, new, skipped, pos, sold, divs, cash_rows, watch)
 
 
 class ImportError_(ValueError):
@@ -800,15 +789,15 @@ def _sold_dividends(sold: list[dict], lots: list[dict], div_df: "pd.DataFrame | 
     return [round(t, 2) for t in totals]
 
 
-_REPLACED_FILES = ("portfolio.json", "sold.json", "dividends_history.json", "cash.json",
-                   "watchlist.json", "manual_tickers.json", "targets.json", "dividend_meta.json")
+# Replace restores the portfolio and watchlist; settings stay. The watchlist
+# (and its hand-added tickers' names) is rewritten from the file below.
+_REPLACED_FILES = ("portfolio.json", "sold.json", "dividends_history.json", "cash.json")
 
 
 def apply_import(wb: ParsedWorkbook, mode: str, email: str) -> ImportPlan:
     """Write an import to the active user's data. Returns the plan it
     applied. Raises ImportError_ before writing anything when it can't run."""
     import cash
-    from settings import ALL_EXCHANGES, load_settings, save_settings
     from uvalu import logkit
 
     if wb.issues:
@@ -911,28 +900,15 @@ def apply_import(wb: ParsedWorkbook, mode: str, email: str) -> ImportPlan:
     if cash_rows or trades:
         cash.import_entries(cash_rows, trades)
 
+    # Watchlist: a name in the file marks a hand-added ticker (manual_tickers).
+    named = {t: n for t, n in plan.watchlist.items() if n}
     if mode == "replace":
         portfolio.save_watchlist(set(wb.watchlist))
-        portfolio.save_manual_tickers(dict(wb.custom))
-        portfolio.save_targets(wb.targets or {})
-    else:
-        if wb.watchlist:
-            portfolio.save_watchlist(portfolio.load_watchlist() | set(wb.watchlist))
-        if wb.custom:
-            portfolio.save_manual_tickers({**portfolio.load_manual_tickers(), **wb.custom})
-        if wb.targets:
-            t = portfolio.load_targets()
-            merged = {"sectors": {**(t.get("sectors") or {}), **(wb.targets.get("sectors") or {})},
-                      "tickers": {**(t.get("tickers") or {}), **(wb.targets.get("tickers") or {})}}
-            hhi = wb.targets.get("hhi_max", t.get("hhi_max"))
-            if hhi:
-                merged["hhi_max"] = hhi
-            portfolio.save_targets(merged)
-    if wb.withholding is not None or mode == "replace":
-        s = load_settings(email)
-        current = {ex: 0.0 for ex in ALL_EXCHANGES} if mode == "replace" else dict(s.get("dividend_withholding") or {})
-        s["dividend_withholding"] = {**current, **(wb.withholding or {})}
-        save_settings(s, email)
+        portfolio.save_manual_tickers({t: n for t, n in wb.watchlist.items() if n})
+    elif plan.watchlist:
+        portfolio.save_watchlist(portfolio.load_watchlist() | set(plan.watchlist))
+        if named:
+            portfolio.save_manual_tickers({**portfolio.load_manual_tickers(), **named})
 
     logkit.data_mutation(actor=logkit.user_id(), action="workbook.import", entity_type="portfolio",
                          mode=mode, **{k: v for k, v in plan.new.items()})

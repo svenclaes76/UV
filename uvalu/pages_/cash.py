@@ -20,7 +20,6 @@ from uvalu.components import (back_link, page_header, kpi_card, cash_balance_blo
                               MINT_CHIP_STYLE)
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
 from uvalu.i18n import N_, _, fmt_num, frozen, h_, lowercase_noun, ngettext, pgettext, tr
-from uvalu.locale_ui import export_menu
 
 _PAGE_ROWS = 50   # rows per "Show more" step — each row is a widget row with its own pencil
 _VIEWER_HELP = N_("Viewer role is read-only")
@@ -102,8 +101,6 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:11px;color:var(--muted);'
                         f'border:0.5px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap;">'
                         f'{h_("Viewer · read-only")}</span>', unsafe_allow_html=True, width="content")
-        export_menu(_("Export CSV"), frame=cash.export_frame(entries), machine_csv=cash.export_csv(entries),
-                    file_name=f"uvalu-cash-activity-{base}.csv", key="cash_export", disabled=not entries)
         if st.button(_("Add transaction"), key="btn_add_cash", type="primary", icon=":material/add:",
                      disabled=is_viewer, help=_(_VIEWER_HELP) if is_viewer else None):
             cash_transaction_dialog("Deposit")

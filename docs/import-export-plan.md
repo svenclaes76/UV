@@ -23,6 +23,7 @@ The Settings › Import & export card serves every user, not just the founder:
 | IE4 | **Extra sheets:** Cash (manual entries only: deposits, withdrawals, opening balance; trade/dividend cash entries are rebuilt from the trades on import), Targets, Withholding rates, Custom tickers (watchlist tickers added by hand, with their name). |
 | IE5 | **Stored-data cleanup** in one versioned migration (automatic backup first): delete `google_ticker`, `target_price`, `account` (positions/sold), `google_ticker`, `declaration_date`, `record_date`, `reinvested`, `reinvested_shares` (dividends); fill empty dividend `currency` from the exchange suffix (.SW → CHF, else EUR). The last one fixes Roche (ROG.SW) CHF dividends being counted as EUR. Code that still writes these keys (dialogs, sell_position, auto-dividend import) stops writing them. |
 | IE6 | **Every imported trade posts its cash** (decided 11 October 2026, during implementation): positions post a Buy, sold rows a Buy and a Sell, in date order with automatic top-ups, after the dividend cash — like trades entered by hand. Accounts whose trades predate cash management (the founder's) get Buy/Sell and top-up entries on a Replace restore, so their balance changes; one Adjustment fixes it. |
+| IE7 | **Two exports** (decided 11 October 2026): the portfolio workbook (Settings › Import & export) holds Positions, Sold, Dividends, Cash and Watchlist (ticker, name — a name marks a hand-added ticker). Settings › Privacy › Export my data holds everything: Account, Settings (one sheet, every setting as section · setting · value — withholding rates, targets, dividend frequencies and dismissals included), the portfolio sheets and Automatic cash. Import reads only the portfolio sheets; Replace deletes and restores the portfolio data and watchlist — settings stay; Add merges the watchlist. Supersedes the watchlist/custom-tickers/targets/withholding sheets of IE4. |
 
 ## Export columns
 
@@ -36,10 +37,15 @@ recognises a sheet by its headers, never by its name.
 | Sold | name, ticker, shares, purchase_value, sale_value, fee, sector, date_in, date_out |
 | Dividends | name, ticker, shares, amount, currency, tax_rate, div_type, ex_date, date |
 | Cash | date, type, amount, currency, fx_rate, note |
-| Watchlist | ticker |
-| Custom tickers | ticker, name |
-| Targets | kind (sector / ticker / hhi_max), key, weight_pct |
-| Withholding | exchange, rate_pct |
+| Watchlist | ticker, name (name only for hand-added tickers) |
+
+Only in "Export my data" (not imported):
+
+| Sheet | Columns |
+| --- | --- |
+| Account | field, value (never a secret) |
+| Settings | section, setting, value |
+| Automatic cash | date, type, amount, currency, fx_rate, amount_eur, linked_to, note |
 
 `amount` (the gross total) is exported rather than amount_per_share because it
 is the stored value — a restore is exact; import also accepts an

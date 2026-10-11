@@ -49,7 +49,7 @@ from uvalu.i18n import N_, _, fmt_date, fmt_int, frozen, fmt_num, fmt_pct, h_, n
 from uvalu.locale_ui import number_field
 from uvalu.data import _load_all_screener_data
 from uvalu.runtime import current_user, theme_colors
-from workbook import (ImportError_, apply_import, export_workbook, parse_workbook, plan_import,
+from workbook import (ImportError_, apply_import, export_all, export_workbook, parse_workbook, plan_import,
                       sheet_names)
 from uvalu.shell import _display_name, _initials, _password_strength, set_theme_script
 
@@ -184,9 +184,8 @@ def _import_review(data: bytes, n: int, email: str) -> None:
             if mode == "replace":
                 st.markdown(
                     '<div style="font-size:12.5px;line-height:1.5;color:var(--text);">'
-                    + h_("All your portfolio data is deleted first: positions, sales, dividends, cash, "
-                         "watchlist, custom tickers, targets and withholding rates. A backup is saved "
-                         "before anything changes.")
+                    + h_("Your portfolio data is deleted first: positions, sales, dividends, cash and "
+                         "watchlist. Your settings stay. A backup is saved before anything changes.")
                     + "</div>", unsafe_allow_html=True)
             st.markdown(
                 '<div style="font-size:12px;line-height:1.5;color:var(--muted);">'
@@ -861,7 +860,6 @@ def render() -> None:
             # One workbook format both ways (docs/import-export-plan.md): export
             # holds what the user entered; import restores it (replace) or adds
             # rows added to an export (add) — the export is also the template.
-            _export_bytes = None
             with st.container(key="set_card_import", border=True):
                 _row_header(h_("Import & export"), anchor="set-import")
 
@@ -893,10 +891,9 @@ def render() -> None:
                         with st.container(horizontal=True, gap="small", horizontal_alignment="right",
                                           key="set_export_buttons"):
                             try:
-                                _export_bytes = export_workbook(_email)
                                 st.download_button(
                                     _("Download backup.xlsx"),
-                                    data=_export_bytes,
+                                    data=export_workbook(_email),
                                     file_name=backup_filename("xlsx"),
                                     mime=_XLSX_MIME,
                                 )
@@ -1046,12 +1043,15 @@ def render() -> None:
                     _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
                     with _c1:
                         _row_title(h_("Export my data"),
-                                   h_("Your positions, sales, dividends, cash, watchlist, settings and account "
-                                      "details as an Excel workbook (.xlsx)."))
+                                   h_("Everything Uvalu holds about you: account details, settings, watchlist "
+                                      "and all portfolio data, as an Excel workbook (.xlsx)."))
                     with _c2:
-                        if _export_bytes is not None:
-                            st.download_button(_("Export"), data=_export_bytes, file_name=backup_filename("xlsx"),
+                        try:
+                            st.download_button(_("Export"), data=export_all(_email),
+                                               file_name=f"uvalu_my_data_{datetime.now():%Y%m%d_%H%M}.xlsx",
                                                mime=_XLSX_MIME, key="privacy_export")
+                        except Exception as e:
+                            st.error(_("Could not create the workbook: {error}", error=e))
                 with st.container(key="set_row_privacy_delete"):
                     _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
                     with _c1:

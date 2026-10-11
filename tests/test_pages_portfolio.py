@@ -137,9 +137,7 @@ def test_dividend_log_layout_matches_design(isolated_data, monkeypatch):
     at = _run(monkeypatch, section="dividends")
     labels = [b.label for b in at.button]
     assert "Import from market data" not in labels
-    # Each Export menu offers a machine and a spreadsheet CSV (i18n spec F-11).
-    keys = {b.key for b in at.get("download_button")}
-    assert {"div_export", "div_export_xl", "div_summary_export", "div_summary_export_xl"} <= keys
+    assert not at.get("download_button")      # no CSV exports (Settings has the workbook)
     html = "".join(m.value for m in at.markdown)
     assert "decl " not in html and "rec " not in html
     assert "Alpha Corp · Annual" not in html

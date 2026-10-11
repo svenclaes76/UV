@@ -164,7 +164,7 @@ def test_import_replace_asks_for_the_red_confirmation(isolated_data, monkeypatch
     at = _run(monkeypatch)
     _upload_workbook(at, _build_test_workbook())
     at.radio(key="imp_mode_0").set_value("replace").run()
-    assert "All your portfolio data is deleted first" in "".join(m.value for m in at.markdown)
+    assert "Your portfolio data is deleted first" in "".join(m.value for m in at.markdown)
     at.button(key="imp_confirm").click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert list(portfolio.load_portfolio()["ticker"]) == ["TESTX.BR"]

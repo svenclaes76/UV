@@ -4,8 +4,6 @@ cash-posting trade wrappers in portfolio.py (record_buy / record_sell).
 Persistence goes to tmp_path (same isolation as tests/test_portfolio.py);
 FX is stubbed per test (conftest's autouse _fx_isolated makes the real API an
 outage)."""
-import csv
-import io
 from datetime import date, timedelta
 
 import pandas as pd
@@ -383,18 +381,6 @@ class TestSummaryAndExport:
         rows = cash.replay(cash.load_ledger())
         assert {r["type"] for r in cash.filter_rows(rows, "Trades")} == {"Buy"}
         assert len(cash.filter_rows(rows, "All")) == len(rows)
-
-    def test_export_columns_order_and_running_balance(self):
-        self._seed()
-        text = cash.export_csv().decode("utf-8")
-        rows = list(csv.reader(io.StringIO(text)))
-        assert rows[0] == ["date", "type", "amount", "currency", "fx_rate", "amount_eur",
-                           "note", "reference", "running_balance_eur", "fx_source"]
-        body = rows[1:]
-        assert body[0][1] == "Adjustment" and body[0][2] == "" and body[0][5] == "1000.00"
-        assert body[1][6] == 'Salary, "March"'           # quoted correctly
-        assert [r[8] for r in body] == [f"{r['bal']:.2f}" for r in cash.replay(cash.load_ledger())]
-        assert body[3][7] == "TRD-0001 · X"
 
     def test_money_format(self):
         assert cash.money(-12.4) == "−€12.40"

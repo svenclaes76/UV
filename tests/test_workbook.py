@@ -97,22 +97,26 @@ def _xlsx(sheets: dict[str, list[list]]) -> bytes:
 
 class TestExport:
     def test_empty_account_gets_headers_only(self):
-        """The empty export is the template: headers, plus the withholding
-        table (every account has one)."""
+        """The empty portfolio export is the template: headers only."""
         wb = _book(workbook.export_workbook(EMAIL))
-        for key, title in zip(workbook.SHEET_ORDER, wb.sheetnames):
-            if key not in ("withholding", *workbook.INFO_SHEETS):
-                assert _sheet_rows(wb, title) == [workbook.COLUMNS[key]]
-        assert len(_sheet_rows(wb, "Withholding")) == 7
+        assert wb.sheetnames == ["Positions", "Sold", "Dividends", "Cash", "Watchlist", "_meta"]
+        for key, title in zip(workbook.PORTFOLIO_SHEETS, wb.sheetnames):
+            assert _sheet_rows(wb, title) == [workbook.COLUMNS[key]]
 
-    def test_sheets_columns_and_hidden_meta(self, ecb):
+    def test_portfolio_export_holds_only_portfolio_sheets(self, ecb):
         _sample_data()
         wb = _book(workbook.export_workbook(EMAIL))
-        assert wb.sheetnames == ["Positions", "Sold", "Dividends", "Cash", "Watchlist", "Custom tickers",
-                                 "Targets", "Withholding", "Account", "Settings", "Automatic cash", "_meta"]
+        assert wb.sheetnames == ["Positions", "Sold", "Dividends", "Cash", "Watchlist", "_meta"]
         assert wb["_meta"].sheet_state == "hidden"
-        for key, title in zip(workbook.SHEET_ORDER, wb.sheetnames):
+        for key, title in zip(workbook.PORTFOLIO_SHEETS, wb.sheetnames):
             assert _sheet_rows(wb, title)[0] == workbook.COLUMNS[key]
+
+    def test_full_export_holds_everything(self, ecb):
+        _sample_data()
+        wb = _book(workbook.export_all(EMAIL))
+        assert wb.sheetnames == ["Account", "Settings", "Positions", "Sold", "Dividends", "Cash",
+                                 "Watchlist", "Automatic cash", "_meta"]
+        assert _sheet_rows(wb, "Watchlist")[1:] == [("ASML.AS", None), ("BDC", "Belden Inc")]
 
     def test_only_user_entered_values(self, ecb):
         _sample_data()
@@ -126,10 +130,7 @@ class TestExport:
         assert sold[1][1:6] == ("ABI.BR", 10, 500.0, 600.0, 3.0)
         cash_rows = _sheet_rows(wb, "Cash")
         assert cash_rows[1:] == [(datetime(2024, 1, 2), "Deposit", 10000, "EUR", None, "Opening transfer")]
-        assert _sheet_rows(wb, "Watchlist")[1:] == [("ASML.AS",), ("BDC",)]
-        assert _sheet_rows(wb, "Custom tickers")[1:] == [("BDC", "Belden Inc")]
-        assert ("hhi_max", None, 20) in _sheet_rows(wb, "Targets")
-        assert ("swiss", 35) in _sheet_rows(wb, "Withholding")
+        assert _sheet_rows(wb, "Watchlist")[1:] == [("ASML.AS", None), ("BDC", "Belden Inc")]
 
     def test_account_sheet_holds_no_secrets(self, monkeypatch):
         import auth
@@ -138,8 +139,7 @@ class TestExport:
             "password_hash": "$2b$secret", "totp_secret": "TOTPSECRET", "totp_enabled": True,
             "backup_codes": ["code1"], "reset_token": "tok", "invite_token": "tok2",
             "sessions": [{"sid": "s1", "created_at": "2026-10-01", "user_agent": "Firefox", "revoked": False}]}})
-        portfolio.save_watchlist({"A.BR"})
-        wb = _book(workbook.export_workbook(EMAIL))
+        wb = _book(workbook.export_all(EMAIL))
         rows = dict(r for r in _sheet_rows(wb, "Account")[1:] if r[0] != "session")
         assert rows["email"] == EMAIL and rows["two_step_verification"] == "yes"
         text = repr(_sheet_rows(wb, "Account"))
@@ -147,24 +147,36 @@ class TestExport:
             assert secret not in text
         assert any(r[0] == "session" and "Firefox" in r[1] for r in _sheet_rows(wb, "Account"))
 
-    def test_settings_and_automatic_cash_sheets(self, ecb):
+    def test_settings_sheet_lists_every_setting_by_section(self, ecb):
         _sample_data()
         portfolio.set_dividend_meta("ABI.BR", frequency="Semi-annual")
-        wb = _book(workbook.export_workbook(EMAIL))
-        settings_rows = dict(_sheet_rows(wb, "Settings")[1:])
-        assert settings_rows["base_currency"] == "EUR"
-        assert settings_rows["dividend_frequency · ABI.BR"] == "Semi-annual"
-        assert "dividend_withholding" not in settings_rows
-        auto = _sheet_rows(wb, "Automatic cash")[1:]
-        assert {r[1] for r in auto} == {"Buy", "Sell", "Dividend"}
-        assert all(r[6] for r in auto)            # linked_to
-        assert ("Deposit" not in {r[1] for r in auto})   # the typed deposit is on the Cash sheet
+        rows = _sheet_rows(_book(workbook.export_all(EMAIL)), "Settings")
+        assert rows[0] == ("section", "setting", "value")
+        by = {(a, b): c for a, b, c in rows[1:]}
+        assert by[("Language & region", "Language")] == "Not set (default)"
+        assert by[("Display", "Table density")] == "comfortable"
+        assert by[("Dividend withholding", "SIX Swiss Exchange")] == "35%"
+        assert by[("Dividend withholding", "Euronext Brussels")] == "0%"
+        assert by[("Target allocation", "Sector · Technology")] == "30%"
+        assert by[("Target allocation", "Ticker · ABI.BR")] == "10%"
+        assert by[("Target allocation", "Concentration ceiling (HHI)")] == "20%"
+        assert by[("Dividends", "Payment frequency · ABI.BR")] == "Semi-annual"
+        assert by[("Portfolio", "Base currency")] == "EUR"
+        sections = [a for a, _b, _c in rows[1:]]
+        assert sections == sorted(sections, key=sections.index)     # each section in one block
 
-    def test_read_only_sheets_are_not_imported(self, ecb):
+    def test_automatic_cash_sheet(self, ecb):
         _sample_data()
-        parsed = workbook.parse_workbook(workbook.export_workbook(EMAIL))
+        auto = _sheet_rows(_book(workbook.export_all(EMAIL)), "Automatic cash")[1:]
+        assert {r[1] for r in auto} == {"Buy", "Sell", "Dividend"}
+        assert all(r[6] for r in auto)                   # linked_to
+        assert "Deposit" not in {r[1] for r in auto}      # the typed deposit is on the Cash sheet
+
+    def test_full_export_imports_only_the_portfolio(self, ecb):
+        _sample_data()
+        parsed = workbook.parse_workbook(workbook.export_all(EMAIL))
         assert parsed.issues == []
-        assert not set(parsed.sheets) & set(workbook.INFO_SHEETS)
+        assert parsed.sheets == ["positions", "sold", "dividends", "cash", "watchlist"]
         assert len(parsed.cash) == 1
 
     def test_dividend_without_currency_exports_exchange_currency(self):
@@ -201,7 +213,7 @@ class TestParse:
         }))
         assert p.issues == []
         assert p.positions[0]["ticker"] == "ABI.BR" and p.positions[0]["date_in"] == date(2024, 1, 10)
-        assert p.watchlist == ["ASML.AS"]
+        assert p.sheets == ["positions", "watchlist"] and p.watchlist == {"ASML.AS": ""}
 
     def test_text_numbers_and_dates(self):
         p = workbook.parse_workbook(_xlsx({"x": [
@@ -262,7 +274,7 @@ class TestParse:
         assert p.issues == [] and p.dividends[0]["amount"] == 32.8
 
     def test_newer_format_is_refused(self):
-        p = workbook.parse_workbook(_xlsx({"Watchlist": [["ticker"], ["A.BR"]],
+        p = workbook.parse_workbook(_xlsx({"Positions": [["ticker", "shares", "purchase_value", "date_in"]],
                                            "_meta": [["format_version", 99]]}))
         assert p.issues
 
@@ -293,15 +305,33 @@ class TestImport:
         _sample_data()
         before = _state()
         data = workbook.export_workbook(EMAIL)
-        # Change everything, then restore.
+        # Change the portfolio, then restore.
         portfolio.record_buy({"name": "X", "ticker": "X.BR", "shares": 1, "purchase_value": 10.0,
                               "dividends": 0.0, "date_in": "2025-01-01T00:00:00"})
-        portfolio.save_watchlist({"OTHER.PA"})
         parsed = workbook.parse_workbook(data)
         assert parsed.issues == []
         workbook.apply_import(parsed, "replace", EMAIL)
         assert _state() == before
         assert len(backup.list_backups()) == 1
+
+    def test_replace_restores_watchlist_and_keeps_settings(self, ecb):
+        _sample_data()
+        data = workbook.export_workbook(EMAIL)
+        portfolio.save_watchlist({"OTHER.PA"})
+        portfolio.save_manual_tickers({"OTHER.PA": "Other"})
+        workbook.apply_import(workbook.parse_workbook(data), "replace", EMAIL)
+        assert portfolio.load_watchlist() == {"ASML.AS", "BDC"}
+        assert portfolio.load_manual_tickers() == {"BDC": "Belden Inc"}
+        assert portfolio.load_targets()["hhi_max"] == 0.2
+        assert settings.load_settings(EMAIL)["dividend_withholding"]["swiss"] == 35.0
+
+    def test_add_merges_the_watchlist(self):
+        portfolio.save_watchlist({"A.BR"})
+        data = _xlsx({"w": [["ticker", "name"], ["A.BR", None], ["XYZ", "Xyz Corp"], ["b.as", None]]})
+        plan = workbook.apply_import(workbook.parse_workbook(data), "add", EMAIL)
+        assert (plan.new["watchlist"], plan.skipped["watchlist"]) == (2, 1)
+        assert portfolio.load_watchlist() == {"A.BR", "XYZ", "B.AS"}
+        assert portfolio.load_manual_tickers() == {"XYZ": "Xyz Corp"}
 
     def test_replace_links_cash_to_new_trade_ids(self, ecb):
         _sample_data()
@@ -315,8 +345,8 @@ class TestImport:
         before = _state()
         parsed = workbook.parse_workbook(workbook.export_workbook(EMAIL))
         plan = workbook.plan_import(parsed, "add")
-        assert plan.skipped == {"positions": 2, "sold": 1, "dividends": 1, "cash": 1}
-        assert (plan.new["positions"], plan.new["watchlist"]) == (0, 0)
+        assert plan.skipped == {"positions": 2, "sold": 1, "dividends": 1, "cash": 1, "watchlist": 2}
+        assert plan.new == {"positions": 0, "sold": 0, "dividends": 0, "cash": 0, "watchlist": 0}
         workbook.apply_import(parsed, "add", EMAIL)
         assert _state() == before
 
