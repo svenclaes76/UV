@@ -28,12 +28,12 @@ These are prompts that ask Claude to act as an expert. They are not profiles for
 On 12 Oct 2026 the profiles and the persona were checked against the repo and corrected:
 
 - **Models:** Graham Number, sector-median P/E, EPV, and single- and multi-stage dividend discount models, with book-value and FCF fallbacks. The analyst-target model stays off until it is licensed. There is no DCF, and EV/EBITDA is shown but not used in the valuation (`docs/stock_valuation_algorithm.md`).
-- **Signals:** Undervalued / Neutral / Low score / Fails quality screen / No signal. These replaced BUY / MONITOR / AVOID / VETO.
+- **Signals:** Undervalued / Mid score / Low score / Fails quality screen / No signal. These replaced BUY / MONITOR / AVOID / VETO.
 - **Risk:** HHI, VaR, CVaR, maximum drawdown, Sharpe/Sortino, Fama-French factors and stress scenarios. There is no Monte Carlo. The bands are Low / Moderate / Elevated / High / Critical (`docs/portfolio_risk_assessment_algorithm.md`).
 - **Data:** Yahoo Finance today, which allows personal use only (open item L2). A move to EODHD is planned.
 - **Billing:** Mollie, monthly only, with a 30-day free trial. A free beta runs first.
 - **Roles:** Admin / Analyst / Viewer.
 - **Languages:** English (source) plus Dutch, French, German, Spanish and Italian.
-- **Brand:** guidelines v1.4 (`docs/uvalu-brand-guidelines.md`).
+- **Brand:** guidelines v1.5 (`docs/uvalu-brand-guidelines.md`).
 
 If any of these change, update the profiles before you send one out.

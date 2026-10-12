@@ -183,12 +183,12 @@ The composite score is summarised in a **descriptive model signal** (BDG-1). It 
 | Fails the quality screen (any hard-veto rule below) | `fails_screen` | **Fails quality screen** |
 | No public peer basis (user-selected set without a reference, Stage 5) | `pending` | **No signal** |
 | Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 10%, never below `MIN_MOS_FLOOR` = 10%, decision D1) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
-| Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Neutral** |
+| Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Mid score** |
 | Score < 40 | `low_score` | **Low score** |
 
-These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Neutral** on score.
+These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Mid score** on score.
 
-**Why not "Near fair value" / "Overvalued" for the lower bands.** The requirements' BDG-1 suggests MONITOR → "Near fair value" and AVOID → "Overvalued". Those labels would often be false: the bands come from the composite score (margin of safety + risk + quality + momentum + dividend), not from valuation alone, and a stock 30% below its model fair value with weak quality can sit in the lowest band. A label must describe what the model measured (REC-2; WER VI.97). Hence "Neutral" and "Low score". **[Counsel]** to confirm.
+**Why not "Near fair value" / "Overvalued" for the lower bands.** The requirements' BDG-1 suggests MONITOR → "Near fair value" and AVOID → "Overvalued". Those labels would often be false: the bands come from the composite score (margin of safety + risk + quality + momentum + dividend), not from valuation alone, and a stock 30% below its model fair value with weak quality can sit in the lowest band. A label must describe what the model measured (REC-2; WER VI.97). Hence "Mid score" and "Low score". The middle band was first called "Neutral"; on 12 Oct 2026 it became "Mid score", because "Neutral" reads like a sell-side rating ([signal label review](legal/signal-label-review.md), L12). The `signal_code` stays `neutral`, so the signal history keeps one key per band. **[Counsel]** to confirm.
 
 ### What every signal is shown with (BDG-2, BDG-3, REC-3, REC-4, REC-6)
 A signal is never shown on its own. The badge, or the row it sits in, carries:
@@ -211,7 +211,7 @@ A signal is never shown on its own. The badge, or the row it sits in, carries:
 - **Daily snapshot.** `signal_history.write_daily_snapshot()` stores every public signal with its inputs once a day. A past screen can then be reproduced even on days when no badge changed.
 - **Settings audit.** `settings_audit` logs each planned signal-moving change, each shared-settings change (who, old → new) and each new model version. This is the evidence for the founder's trading blackout (REC-9).
 - **Reproducibility.** Every row and log record carries `model_version` (`MODEL_VERSION`, bumped on any change that can move a fair value, score or signal) and `model_settings_id` (a hash of the shared thresholds, weights and the analyst switch), next to the inputs and model fair values. This makes any past signal reproducible on request.
-- **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Neutral), shown on the methodology page (REC-10).
+- **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Mid score), shown on the methodology page (REC-10).
 
 ### Hard Veto Rules (quality screen)
 `compute_scores`'s `_hard_veto` is true when **any** of the following holds; the stock's signal is then **Fails quality screen**. The
@@ -254,7 +254,7 @@ Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w
     ↓
 Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → Fails quality screen (score 0)
     ↓
-Model signal: Undervalued (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Neutral | Low score | Fails quality screen | No signal (no public peer basis)
+Model signal: Undervalued (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Mid score | Low score | Fails quality screen | No signal (no public peer basis)
     ↓
 Shown with: tooltip + methodology link, model fair value, MoS, signal_computed_at, price_as_of, data_flags, data_source; changes logged to signal_history (12 months); model_version + model_settings_id per row
 ```
@@ -278,7 +278,7 @@ These constrain any future change to this algorithm. Review them before each rel
 | Analyst inputs | Analyst target model (weight 0.13) + recommendation mean in momentum | Off until licensed; the blend re-normalises | DATA-6 |
 | Peer universe | Enabled exchanges + holdings on disabled exchanges (+ in code: each user's manual tickers); holdings ranked among themselves before the first build | Public universe only (`peer_mask`); user rows scored against it; no ranked signal without a public reference | PER-1, PER-2 |
 | Stage 3 | "Total Expected Return" | "Implied Return % (est.)", explicitly not an expected return | REC-2, DIS-5 |
-| Stage 6 | Decision: Strong Buy / Monitor / Avoid, veto → Avoid | Model signal: Undervalued / Neutral / Low score / Fails quality screen / No signal | BDG-1, BDG-3 |
+| Stage 6 | Decision: Strong Buy / Monitor / Avoid, veto → Avoid | Model signal: Undervalued / Mid score / Low score / Fails quality screen / No signal | BDG-1, BDG-3 |
 | Presentation | — | Tooltip, methodology link, fair value + MoS, timestamps, data flags and source with every signal | BDG-2/3, REC-3/4 |
 | Methodology | Thresholds only in this spec | `methodology()` generates the public page from the live constants: horizon, risk warning, sensitivity | REC-5, REC-6 |
 | History | — | Signal-change log, 12 months, visible per stock; distribution of signals | REC-7, REC-10 |

@@ -78,7 +78,7 @@ for every user and are not personal advice:
 - **Undervalued** — composite score ≥ the upper threshold (default 70),
   margin of safety ≥ the configured minimum (never below 10%), and a fair
   value backed by two or more independent models.
-- **Neutral** — composite score ≥ 40 without all of the above.
+- **Mid score** — composite score ≥ 40 without all of the above.
 - **Low score** — composite score < 40.
 - **Fails quality screen** — one of the rules below applies.
 - **No signal** — not enough peer data to rank the stock yet.

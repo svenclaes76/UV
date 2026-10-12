@@ -7,7 +7,7 @@ Stage 2  — Fair value: Graham Number · PE Fair Value · EPV · DDM (single + 
 Stage 3  — Margin of Safety + model-implied return (estimate) + Dividend Sustainability Flag
 Stage 4  — Risk scoring: financial health · earnings quality · market risk · dividend risk · liquidity
 Stage 5  — Composite Score = α×MoS + β×(100−Risk) + γ×Quality + δ×Momentum + ε×DividendScore
-Stage 6  — Model signal (descriptive): Undervalued | Neutral | Low score |
+Stage 6  — Model signal (descriptive): Undervalued | Mid score | Low score |
            Fails quality screen | No signal
 
 Caching: fundamentals stored in .cache/fundamentals.json, re-fetched after CACHE_TTL_HOURS.
@@ -311,7 +311,10 @@ PRICE_STALE_HOURS = 72
 # dividend), not from valuation alone — a stock 30% below fair value with weak
 # quality sits in the lowest band. Labels must describe what the model measured
 # (REC-2; WER VI.97 misleading practices), so the lower bands are named after
-# the score.
+# the score. The middle band was "Neutral" until 12 Oct 2026: that reads like a
+# sell-side rating (Overweight / Neutral / Underweight), so it became "Mid score"
+# (L12, docs/legal/signal-label-review.md). The code stays "neutral" so the
+# signal history keeps one key per band.
 SIGNAL_UNDERVALUED = "undervalued"
 SIGNAL_NEUTRAL     = "neutral"
 SIGNAL_LOW_SCORE   = "low_score"
@@ -320,7 +323,8 @@ SIGNAL_PENDING     = "pending"
 
 SIGNAL_LABELS = {
     SIGNAL_UNDERVALUED: N_("Undervalued"),
-    SIGNAL_NEUTRAL:     N_("Neutral"),
+    # Translators: model signal badge for the middle band of the composite score (40 to below 70). Describes the score, not the stock; pairs with "Low score". Avoid words that read like an analyst rating (Neutral, Hold).
+    SIGNAL_NEUTRAL:     N_("Mid score"),
     SIGNAL_LOW_SCORE:   N_("Low score"),
     SIGNAL_FAILS:       N_("Fails quality screen"),
     SIGNAL_PENDING:     N_("No signal"),
@@ -1854,7 +1858,8 @@ def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
         gates.append(_("margin of safety {mos} is below the {min_mos} minimum", mos=_pct(mos), min_mos=_pct(min_mos)))
     if thin:
         gates.append(_("the fair value rests on fewer than two independent models"))
-    return (_("Neutral: {reasons}.", reasons="; ".join(gates)) if gates
+    # Translators: signal explanation for a "Mid score" badge; {reasons} is a list of lowercase reasons joined by "; ".
+    return (_("Mid score: {reasons}.", reasons="; ".join(gates)) if gates
             else _("Model score is between the lower and upper thresholds."))
 
 

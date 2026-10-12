@@ -23,7 +23,7 @@ from uvalu.components import (signal_badge_for, signal_badge_html, model_signal_
 
 def test_signal_badge_for_maps_every_signal_code():
     assert signal_badge_for("undervalued") == ("buy", "Undervalued")
-    assert signal_badge_for("neutral") == ("monitor", "Neutral")
+    assert signal_badge_for("neutral") == ("monitor", "Mid score")
     assert signal_badge_for("low_score") == ("avoid", "Low score")
     assert signal_badge_for("fails_screen") == ("veto", "Fails quality screen")
     assert signal_badge_for("pending") == ("neutral", "No signal")
@@ -762,7 +762,7 @@ def test_signal_pill_shares_sum_to_about_100():
 
 def test_signal_pill_without_share_is_the_bare_label():
     from uvalu.components import signal_share_label
-    assert signal_share_label("neutral", None) == "Neutral"
+    assert signal_share_label("neutral", None) == "Mid score"
 
 
 def test_fair_value_legend_above_is_amber_not_red():

@@ -570,7 +570,7 @@ def _stage1_position_profiles(pf: pd.DataFrame, cache: dict,
             # Named after the comparison it makes (REC-2). "Undervalued"
             # here (MoS ≥ 10%) would clash with the screener's model signal of
             # the same name, which also needs a high composite score — the same
-            # stock could read "Undervalued" on one screen and "Neutral" on the
+            # stock could read "Undervalued" on one screen and "Mid score" on the
             # other (REC-2).
             val_flag = (N_("Above model fair value") if mos < -0.05 else
                         N_("Near model fair value") if mos < 0.10 else N_("Below model fair value"))
