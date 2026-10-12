@@ -7,7 +7,7 @@ docs/stock_valuation_algorithm.md, docs/portfolio_risk_assessment_algorithm.md.
 The in-app page must be rendered from methodology() so the numbers cannot drift; this file is the reference text.
 Update it in the same release as any model or threshold change.
 Counsel points: signal labels "Mid score"/"Low score" deviate from BDG-1 on purpose (see algorithm-compliance-review.md §2;
-"Mid score" replaced "Neutral" on 12 Oct 2026, signal-label-review.md L12);
+"Mid score" replaced "Neutral" and "Screened out" replaced "Fails quality screen" on 12 Oct 2026, signal-label-review.md L12);
 whether "Undervalued" still counts as Uvalu's own "opinion" under MAR.
 The 10% minimum margin of safety for Undervalued is enforced in code (screener.MIN_MOS_FLOOR, decision D1).
 Other IDs: REC-2..7, REC-10, DIS-3, DIS-4.
@@ -97,7 +97,7 @@ A model signal summarises the result in one label. It describes where the stock 
 | **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10%, and fair value based on at least two independent models |
 | **Mid score** | Middle of the model's scale, or a high score without a confirmed margin of safety | Composite score from 40 to below 70; or ≥ 70 without the other conditions for Undervalued |
 | **Low score** | Low on the model's scale | Composite score below 40. This does not by itself mean the price is above fair value. |
-| **Fails quality screen** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
+| **Screened out** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
 | **No signal** | Not enough comparison data to rank the stock yet | — |
 
 For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.

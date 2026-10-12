@@ -22,7 +22,7 @@ Uvalu has been redesigned across its main screens (Dashboard, Screener, Watchlis
 
 1. **Participant profile:** 6–10 retail investors per round, mix of experience levels and portfolio sizes, all managing their own investments
 2. **Core tasks:** find undervalued stocks in the Screener, interpret the Analysis (stock detail) page, add holdings, read the Risk screen
-3. **Comprehension:** what users think fair value, margin of safety, Undervalued / Mid score / Low score / Fails quality screen and the risk bands mean; how much they trust the numbers
+3. **Comprehension:** what users think fair value, margin of safety, Undervalued / Mid score / Low score / Screened out and the risk bands mean; how much they trust the numbers
 4. **Risk of misinterpretation:** whether signals are read as personal advice (input for the financial-regulation lawyer)
 5. **Methodology page:** do users find and understand it?
 6. **Onboarding and pricing:** willingness to pay, which features justify a subscription

@@ -2,7 +2,7 @@
 
 *Drafted 12 Oct 2026.* A full profile for each expert is in [experts/](experts/README.md).
 
-Uvalu is a paid stock screener for European retail investors. It shows fair values and descriptive model signals (Undervalued / Mid score / Low score / Fails quality screen), has a portfolio manager with risk scores, and runs on Hetzner, Brevo and Mollie. Market data comes from Yahoo Finance today, with a move to EODHD planned. The experts below are ranked by how badly a problem in their area could hurt Uvalu.
+Uvalu is a paid stock screener for European retail investors. It shows fair values and descriptive model signals (Undervalued / Mid score / Low score / Screened out), has a portfolio manager with risk scores, and runs on Hetzner, Brevo and Mollie. Market data comes from Yahoo Finance today, with a move to EODHD planned. The experts below are ranked by how badly a problem in their area could hurt Uvalu.
 
 ## Must have before the paywall goes live
 

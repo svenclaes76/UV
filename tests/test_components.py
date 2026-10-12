@@ -25,12 +25,12 @@ def test_signal_badge_for_maps_every_signal_code():
     assert signal_badge_for("undervalued") == ("buy", "Undervalued")
     assert signal_badge_for("neutral") == ("monitor", "Mid score")
     assert signal_badge_for("low_score") == ("avoid", "Low score")
-    assert signal_badge_for("fails_screen") == ("veto", "Fails quality screen")
+    assert signal_badge_for("fails_screen") == ("veto", "Screened out")
     assert signal_badge_for("pending") == ("neutral", "No signal")
 
 
 def test_signal_badge_for_veto_overrides_the_code():
-    assert signal_badge_for("undervalued", veto=True) == ("veto", "Fails quality screen")
+    assert signal_badge_for("undervalued", veto=True) == ("veto", "Screened out")
 
 
 def test_signal_badge_for_missing_code_is_nodata_not_low_score():
@@ -755,7 +755,7 @@ def test_signal_pill_shares_sum_to_about_100():
     shares = signal_distribution(df)
     labels = [signal_share_label(code, shares.get(code)) for code in
               ("undervalued", "neutral", "low_score", "fails_screen")]
-    assert labels[0].startswith("Undervalued `") and labels[3].startswith("Fails quality screen `")
+    assert labels[0].startswith("Undervalued `") and labels[3].startswith("Screened out `")
     pcts = [int(re.search(r"`(\d+)\s*%`", label).group(1)) for label in labels]
     assert 98 <= sum(pcts) <= 102
 

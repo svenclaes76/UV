@@ -33,7 +33,7 @@ _EXCHANGE_LABELS = {
 _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
 # Filter chips: model signal codes, shown with their translated label (BDG-1,
-# G20: the full "Fails quality screen"). None selected by default = every
+# G20: the full "Screened out"). None selected by default = every
 # signal, No signal ("pending") included, as in the design reference.
 _SIGNAL_CHIPS = ["undervalued", "neutral", "low_score", "fails_screen", "pending"]
 _MIN_MOS_DEFAULT = -20
@@ -44,7 +44,7 @@ _PAGE_ROWS = 25   # results shown per "page" (visual review SC3)
 # the real column header, the real rows (stock_row), and the loading
 # skeleton's column-header/rows so all three always stay pixel-aligned.
 # star, "#" rank, company, signal, score, margin, price, P/E, yield.
-_HH_WIDTHS = [0.5, 0.32, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits "Fails quality screen" (BDG-1)
+_HH_WIDTHS = [0.5, 0.32, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fits the longest badge (BDG-1)
 
 # Sortable columns, matching Uvalu.dc.html's colDefs/keyf exactly — key is
 # what's stored in session state, column is the DataFrame column it sorts by.
@@ -53,7 +53,7 @@ _HH_WIDTHS = [0.5, 0.32, 3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9]   # signal column fi
 # sorting rather than kept on every row all the time.
 _SORT_COLUMNS = [
     ("name",   N_("Company"),          "Name"),
-    ("signal", N_("Signal"),           "_signal_label"),
+    ("signal", N_("Model signal"),     "_signal_label"),
     ("score",  N_("Composite score"),  "Value Score"),
     ("mos",    N_("Margin of safety"), "MoS %"),
     ("price",  N_("Price"),            "Price"),
@@ -272,14 +272,14 @@ def render() -> None:
                                         key="scr_search", label_visibility="collapsed")
                 _search_width_css(_placeholder)
             with st.container(key="scr_signal_pills"):
-                _filter_label(h_("Signal"))
+                _filter_label(h_("Model signal"))
                 # REC-10: each pill carries the share of covered stocks with
                 # that signal, over the whole universe (not the filtered rows),
                 # so the coverage reads off the filter itself.
                 _signal_shares = signal_distribution(_all_df)
                 with st.container(key="scr_signal_row", horizontal=True, vertical_alignment="center",
                                   gap="small"):
-                    _signal = st.pills(_("Signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
+                    _signal = st.pills(_("Model signal"), options=_SIGNAL_CHIPS, selection_mode="multi",
                                        format_func=lambda c: signal_share_label(c, _signal_shares.get(c)),
                                        default=[], key="scr_signal", label_visibility="collapsed",
                                        width="content")

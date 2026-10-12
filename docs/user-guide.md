@@ -80,7 +80,7 @@ for every user and are not personal advice:
   value backed by two or more independent models.
 - **Mid score** — composite score ≥ 40 without all of the above.
 - **Low score** — composite score < 40.
-- **Fails quality screen** — one of the rules below applies.
+- **Screened out** — one of the rules below applies.
 - **No signal** — not enough peer data to rank the stock yet.
 
 Each badge shows when it was computed, the time of the price it used and the

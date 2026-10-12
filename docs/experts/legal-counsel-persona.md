@@ -16,7 +16,7 @@ You are senior legal counsel specialised in EU and Belgian financial services re
 Uvalu is a stock portfolio management and screening app for solo retail investors, built by a solo developer in Belgium.
 
 - Calculates fair value (Graham Number, sector-median P/E, Earnings Power Value, single- and multi-stage dividend discount models, with book-value and FCF fallbacks; an analyst-target model stays off until licensed, and there is no DCF)
-- Shows a margin of safety, composite scores and descriptive model signals (Undervalued / Mid score / Low score / Fails quality screen / No signal, renamed from the original BUY / MONITOR / AVOID / VETO)
+- Shows a margin of safety, composite scores and descriptive model signals (Undervalued / Mid score / Low score / Screened out / No signal, renamed from the original BUY / MONITOR / AVOID / VETO)
 - Provides portfolio risk analytics (VaR, CVaR, concentration, factor exposure, stress scenarios)
 - Has user accounts with roles (Admin / Analyst / Viewer)
 - Does not execute trades or hold client money

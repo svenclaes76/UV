@@ -206,7 +206,7 @@ class TestOpenDrawer:
         at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert "Fails quality screen" in "".join(m.value for m in at.markdown)
+        assert "Screened out" in "".join(m.value for m in at.markdown)
 
     def test_renders_held_state_with_position_metrics(self):
         portfolio.save_portfolio(pd.DataFrame([{

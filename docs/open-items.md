@@ -25,15 +25,15 @@ wording.
 | L9 | **Rebalancing UI** needs its own MiFID II review before it is built: nothing may combine a signal with the user's position into an action ("reduce", "rebalance"). | Medium if built wrongly | Building it | Review |
 | L10 | **Privacy notice §6**: one line that the admin can hand out a reset link (and so could take over an account). | Low | Next notice update | Founder |
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
-| L14 | **Test that "Undervalued" never appears without the "model signal" qualifier** (12 October 2026, signal label review), in every language and in exports, emails and share cards. | Low–medium | Paid launch | Dev |
 
 Facts the review still needs: how many production accounts exist besides the
 founder's and in which countries.
 
 The signal label review also makes L4 more urgent: without a registered
 producer identity the MAR disclosures are incomplete. Its L12 ("Neutral" →
-"Mid score") and L13 (Dashboard "Model signal" column) are done on
-`feature/signal-labels`; the new translations still need review in Poedit.
+"Mid score", "Fails quality screen" → "Screened out"), L13 (Dashboard "Model
+signal" column) and L14 (`tests/test_signal_qualifier.py`) are done on
+`feature/signal-labels`; the newest translations still need review in Poedit.
 Facts the review still needs: target markets (Belgium only or other EU
 countries), whether signals will appear in marketing, social media or
 emails, and whether any part of Uvalu will be free and public.

@@ -444,7 +444,7 @@ def render() -> None:
             # rating, which is only surfaced here for High/Critical — Low/
             # Medium render blank, matching the mockup's mostly-empty column.
             if bool(_veto_lookup.get(p.ticker, False)):
-                _flag, _flag_color = N_("Fails quality screen"), "var(--down-txt)"
+                _flag, _flag_color = N_("Screened out"), "var(--down-txt)"
             elif p.rating == "Critical":
                 _flag, _flag_color = N_("Critical"), "var(--down-txt)"
             elif p.rating == "High":

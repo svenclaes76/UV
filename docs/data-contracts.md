@@ -269,7 +269,7 @@ between screens at some point (see the `dq/*` history); the tests in
 
 - `components.signal_badge_for(signal_code, veto)` maps a row to a badge:
   - real quality-screen failure (`components.is_hard_veto`, NaN-safe) →
-    **Fails quality screen**;
+    **Screened out**;
   - a scored `undervalued` / `neutral` / `low_score` / `pending` → its label
     from `screener.SIGNAL_LABELS` (Undervalued / Mid score / Low score /
     No signal);

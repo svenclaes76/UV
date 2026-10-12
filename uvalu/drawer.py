@@ -187,7 +187,7 @@ def open_drawer(row: "pd.Series") -> None:
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
                        f'{ticker}</span>', unsafe_allow_html=True)
-            st.markdown(model_signal_badge_html(row.get("signal_code"), veto=row.get("veto")),
+            st.markdown(model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"), qualified=True),
                         unsafe_allow_html=True)
         if st.button("✕", key="drw_close", type="tertiary", help=_("Close")):
             # @st.dialog bodies rerun as their own fragment — a plain widget
@@ -235,7 +235,7 @@ def open_drawer(row: "pd.Series") -> None:
             f'<div style="margin-top:14px;background:var(--navy);border-radius:8px;padding:13px 15px;display:flex;gap:11px;align-items:flex-start;">'
             f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
+            f'<div><div style="font-size:12.5px;font-weight:500;color:#fff;">{h_("Screened out")}</div>'
             f'<div style="font-size:12px;color:rgba(245,247,250,0.7);margin-top:3px;line-height:1.5;">{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True)
     else:

@@ -59,13 +59,15 @@ def test_renders_full_analysis_for_matched_ticker(isolated_data, monkeypatch):
     assert "Signal sub-scores" in html
     assert "Financials" in html
     assert "Quality screen checks" in html
+    # L14: the header badge stands alone, so it carries the visible qualifier.
+    assert "Model signal" in html
 
 
 def test_shows_veto_banner_when_row_is_vetoed(isolated_data, monkeypatch):
     df = make_scored_df([make_scored_row(veto=True)])
     at = _run(monkeypatch, ticker="AAA.BR", screener_tuple=make_screener_data_tuple(exchange_df=df))
     html = "".join(m.value for m in at.markdown)
-    assert "Fails quality screen" in html
+    assert "Screened out" in html
 
 
 def test_leverage_exempt_sector_debt_check_passes_despite_high_de(isolated_data, monkeypatch):
@@ -90,7 +92,7 @@ def test_single_bad_fcf_year_passes_the_positive_fcf_check(isolated_data, monkey
     html = "".join(m.value for m in at.markdown)
     assert "Positive free cash flow" in html
     # Same row must not show the veto banner (it isn't actually vetoed).
-    assert "Fails quality screen" not in html
+    assert "Screened out" not in html
 
 
 def test_dividend_flag_alone_warns_but_does_not_fail_the_veto_check(isolated_data, monkeypatch):

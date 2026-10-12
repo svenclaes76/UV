@@ -7,7 +7,7 @@
 
 ## Why Uvalu needs this expert
 
-Uvalu shows fair-value estimates, margin-of-safety figures, composite scores and model signals (Undervalued / Mid score / Low score / Fails quality screen / No signal, renamed from the original BUY / MONITOR / AVOID / VETO) for individual stocks. Depending on how these are presented and to whom, they could be classified as *investment advice* or *investment recommendations* under EU law. That classification decides whether Uvalu needs a licence, what disclaimers and disclosures are mandatory, and whether the current signal wording is acceptable.
+Uvalu shows fair-value estimates, margin-of-safety figures, composite scores and model signals (Undervalued / Mid score / Low score / Screened out / No signal, renamed from the original BUY / MONITOR / AVOID / VETO) for individual stocks. Depending on how these are presented and to whom, they could be classified as *investment advice* or *investment recommendations* under EU law. That classification decides whether Uvalu needs a licence, what disclaimers and disclosures are mandatory, and whether the current signal wording is acceptable.
 
 ## Required expertise
 
@@ -23,7 +23,7 @@ Uvalu shows fair-value estimates, margin-of-safety figures, composite scores and
 2. **Investment recommendations under MAR:** Do the model signals and fair values qualify as "recommendations"? If so, which presentation and disclosure duties apply (identity of producer, methodology, date, conflicts)?
 3. **Licensing:** Is any FSMA licence or registration needed (investment firm, investment advisor, independent financial planner)? Are there exemptions for publishers / generic tools?
 4. **Conflicts of interest:** What must be disclosed if Sven personally holds stocks Uvalu scores? Policy for trading around signal changes.
-5. **Wording and UX:** Are the renamed labels (Undervalued / Mid score / Low score / Fails quality screen) defensible, or should they be more neutral still? `docs/stock_valuation_algorithm.md` marks this **[Counsel] to confirm**. Placement and wording of disclaimers.
+5. **Wording and UX:** Are the renamed labels (Undervalued / Mid score / Low score / Screened out) defensible, or should they be more neutral still? `docs/stock_valuation_algorithm.md` marks this **[Counsel] to confirm**. Placement and wording of disclaimers.
 6. **Marketing:** Rules on performance claims, backtest results and testimonials in advertising.
 
 ## Expected deliverables

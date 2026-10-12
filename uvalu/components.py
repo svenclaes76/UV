@@ -58,7 +58,7 @@ def signal_badge_for(signal_code: object, veto: object = False) -> tuple[str, st
     """Map a screener ``signal_code`` (+ veto flag) to a (kind, label) badge
     pair, the label translated.
 
-    A real quality-screen failure → "Fails quality screen"; a scored state →
+    A real quality-screen failure → "Screened out"; a scored state →
     its label; anything else (no signal_code — the row has no scored screener
     data at all) → a neutral "No data" badge, so a fundamentals gap never
     masquerades as a low score or, via ``bool(nan)``, a failed screen."""
@@ -77,10 +77,22 @@ def signal_tooltip() -> str:
     return tr(SIGNAL_TOOLTIP) + " " + _("See Methodology for thresholds.")
 
 
-def model_signal_badge_html(signal_code: object, veto: object = False) -> str:
-    """A model-signal badge with its BDG-2 tooltip — use for every signal badge."""
+def model_signal_badge_html(signal_code: object, veto: object = False, *, qualified: bool = False) -> str:
+    """A model-signal badge with its BDG-2 tooltip — use for every signal badge.
+
+    `qualified=True` puts a visible "Model signal" label in front of the badge,
+    for places without a "Model signal" column header or section title (the
+    drawer and Analysis headers). A badge must never be shown without one of
+    the two (L14, tests/test_signal_qualifier.py)."""
     kind, label = signal_badge_for(signal_code, veto=veto)
-    return signal_badge_html(kind, label, tooltip=signal_tooltip())
+    badge = signal_badge_html(kind, label, tooltip=signal_tooltip())
+    if not qualified:
+        return badge
+    # Translators: small uppercase label in front of a signal badge (stock drawer and Analysis header). Same wording as the "Model signal" column header.
+    qualifier = h_("Model signal")
+    return (f'<span style="display:inline-flex;align-items:center;gap:6px;">'
+            f'<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);'
+            f'white-space:nowrap;">{qualifier}</span>{badge}</span>')
 
 
 def veto_reason_str(row: "pd.Series") -> str:

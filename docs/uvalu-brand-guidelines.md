@@ -334,13 +334,13 @@ The model's signal for a stock. Badges describe the model output; they never tel
 | Undervalued | `--up-bg` | `--up-txt` | Undervalued |
 | Mid score | `--amber-bg` | `--amber-txt` | Mid score |
 | Low score | `--down-bg` | `--down-txt` | Low score |
-| Fails quality screen | `#0D1F3C` | `#FFFFFF` | Fails quality screen |
+| Screened out | `#0D1F3C` | `#FFFFFF` | Screened out |
 | No signal | `rgba(128,128,128,0.15)` light, `rgba(245,247,250,0.07)` dark | `--muted` | No signal (the peer group needed to rank the stock isn't available yet) |
 | No data | same as No signal | `--muted` | No data (no scored data for the row at all) |
 
 - Sentence case, 10.5–11px, `font-weight: 500`, horizontal padding 8–9px, border-radius 6px.
 - Every signal badge carries the methodology tooltip: *"Model output based on public data and the settings shown. Not a recommendation tailored to you. See Methodology for thresholds."*
-- In dark theme Fails quality screen is `#1E2D4A` with a light hairline; the other badges follow their tokens.
+- In dark theme Screened out is `#1E2D4A` with a light hairline; the other badges follow their tokens.
 
 ### Signal provenance line
 
@@ -451,7 +451,7 @@ These texts are required and keep their wording; translations must keep their me
 |---|---|---|
 | Empty state | "No stocks match your screening criteria." | "Looks like nothing's here yet! 🙁" |
 | Model signal | "Model signal: Undervalued. Composite score 82/100, margin of safety 34%." | "Uvalu assigns a BUY signal." / "This stock looks great — might be worth a look!" |
-| Quality screen | "Fails quality screen: debt/equity of 240% exceeds the 200% limit. Composite score set to 0." | "Hard veto triggered. Stock excluded." / "We had to remove this one from the results." |
+| Quality screen | "Screened out: debt/equity of 240% exceeds the 200% limit. Composite score set to 0." | "Hard veto triggered. Stock excluded." / "We had to remove this one from the results." |
 | Onboarding | "Uvalu values each stock with several models and shows how far the price is from the model fair value." | "Welcome! Let's get started on your investment journey 🚀" |
 | Risk | "Model outputs can be wrong. Share prices can stay below or above fair value for years." | "Beat the market with Uvalu." |
 
@@ -459,7 +459,7 @@ These texts are required and keep their wording; translations must keep their me
 
 | Use | Avoid |
 |---|---|
-| Undervalued, Mid score, Low score, Fails quality screen | Buy, Monitor, Avoid, Veto, Neutral, Hold (as signal names) |
+| Undervalued, Mid score, Low score, Screened out | Buy, Monitor, Avoid, Veto, Neutral, Hold (as signal names) |
 | quality screen, quality rule | hard veto |
 | model fair value, model estimate | true value, target price |
 | signal, model output | recommendation, advice, pick, tip |
@@ -532,6 +532,8 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 
 - Signal badge "Neutral" renamed "Mid score": "Neutral" reads like an analyst rating (signal label review, L12). "Neutral" and "Hold" added to the words never used as signal names.
 - Dashboard Holdings: the signal column header is "Model signal", with a tooltip and a subtitle sentence saying it's the same for every user (L13).
+- Signal badge "Fails quality screen" renamed "Screened out" ("quality" is an evaluative word). The rules are still called the quality screen.
+- A signal badge always has a visible "Model signal" qualifier: a column header or section title, or, where the badge stands alone (drawer, Analysis header), a small uppercase "Model signal" label in front of it (L14).
 
 **v1.4 — 11 Oct 2026**
 

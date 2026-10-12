@@ -37,7 +37,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 | Marketing | Individual shares may be mentioned, always with a statement of whether the founder holds them |
 | Signal performance | Not published (draft option A) |
 | Minimum margin of safety for "Undervalued" | **10%** (code default is still 0%, see §4) |
-| Signal labels | Undervalued / Mid score / Low score / Fails quality screen / No signal (from `screener.py`; not BDG-1's "Near fair value"/"Overvalued") |
+| Signal labels | Undervalued / Mid score / Low score / Screened out / No signal (from `screener.py`; not BDG-1's "Near fair value"/"Overvalued") |
 | Market data | EODHD, **end-of-day prices only**, contract not yet signed |
 | Analyst data | Not used (`ANALYST_INPUTS_ENABLED = False`) |
 | Hosting / backups | Hetzner, Germany / Hetzner Storage Box, Germany |
