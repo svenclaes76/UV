@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 11 October 2026.
+Last updated: 12 October 2026.
 
 ## Legal and compliance
 
@@ -25,9 +25,18 @@ wording.
 | L9 | **Rebalancing UI** needs its own MiFID II review before it is built: nothing may combine a signal with the user's position into an action ("reduce", "rebalance"). | Medium if built wrongly | Building it | Review |
 | L10 | **Privacy notice §6**: one line that the admin can hand out a reset link (and so could take over an account). | Low | Next notice update | Founder |
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
+| L12 | **Rename the "Neutral" signal to "Mid score"** (12 October 2026, [signal label review](legal/signal-label-review.md)): "Neutral" reads like a sell-side rating. Update `screener.py`, the five `.po` files, the methodology page and `docs/stock_valuation_algorithm.md`; optionally "Fails quality screen" → "Screened out". Confirm with the L3 lawyer. | Low–medium | Paid launch, or the L3 opinion if sooner | Dev + lawyer |
+| L13 | **Dashboard Holdings Signal column** (12 October 2026, signal label review): the signal sits next to the user's own position, weight and P&L. Retitle the column "Model signal (same for every user)" with the standard tooltip, or drop it and link to the stock page. Review together with L9. | Medium | Paid launch | Dev + lawyer |
+| L14 | **Test that "Undervalued" never appears without the "model signal" qualifier** (12 October 2026, signal label review), in every language and in exports, emails and share cards. | Low–medium | Paid launch | Dev |
 
 Facts the review still needs: how many production accounts exist besides the
 founder's and in which countries.
+
+The signal label review (L12–L14) also makes L4 more urgent: without a
+registered producer identity the MAR disclosures are incomplete. Facts it
+still needs: target markets (Belgium only or other EU countries), whether
+signals will appear in marketing, social media or emails, and whether any
+part of Uvalu will be free and public.
 
 ## Design and code
 
