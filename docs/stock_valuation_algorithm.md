@@ -182,7 +182,7 @@ The composite score is summarised in a **descriptive model signal** (BDG-1). It 
 |---|---|---|
 | Fails the quality screen (any hard-veto rule below) | `fails_screen` | **Fails quality screen** |
 | No public peer basis (user-selected set without a reference, Stage 5) | `pending` | **No signal** |
-| Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 0%) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
+| Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 10%, never below `MIN_MOS_FLOOR` = 10%, decision D1) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
 | Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Neutral** |
 | Score < 40 | `low_score` | **Low score** |
 

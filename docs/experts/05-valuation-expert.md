@@ -25,7 +25,7 @@ Uvalu's core is a multi-model fair-value engine (Graham Number, sector-median P/
 3. **Aggregation:** weighting of models into one fair value, treatment of model disagreement (the "Consensus" idea — where models agree)
 4. **Vetoes:** which red flags should override a positive valuation (leverage, dilution, negative FCF, accounting quality, going-concern risk)
 5. **Peer-group scoring:** peer selection, sample size, outlier handling, ranking method
-6. **Margin of safety and signal thresholds:** reasonableness of the signal cut-offs (Undervalued needs score ≥ 70 and margin of safety ≥ 0%; both configurable)
+6. **Margin of safety and signal thresholds:** reasonableness of the signal cut-offs (Undervalued needs score ≥ 70 and margin of safety ≥ 10%; both configurable, the margin never below 10%)
 7. **Sanity checks:** review of a sample of 20–30 real companies across sectors against professional estimates
 8. **Methodology page:** clarity, honesty about limitations, no overstated precision
 
