@@ -24,7 +24,7 @@ wording.
 | L5 | **Email-hosting provider** in privacy notice §4 is still `[TBD]`. | Medium | Beta opens to others | Founder |
 | L6 | **Translations of the UI disclaimers** (nl/fr/de/it/es) were drafted, not legally reviewed (INT-1 / INT-4). | Low–medium | Anyone relies on a non-English disclaimer | Fluent legal reviewer |
 | L7 | **Terms: "English version prevails" clause** — check it is there; translate the Terms into at least Dutch and French. | Low (beta) | Paid launch | Founder / lawyer |
-| L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. Still to confirm: the offsite Storage Box backups rotate within 30 days (the notice promises it). | Low | Publishing beta 1.3 | Founder |
+| L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. The 30 days now hold by design: `deploy/offsite-backup.sh` prunes offsite archives after 29 days, and the incident procedure and breach register are written (`docs/incident-procedure.md`, 13 October 2026). Still to do: set up the Storage Box with its automatic snapshots off (`docs/deployment.md` step 7). | Low | Server set-up | Founder |
 | L9 | **Rebalancing UI** needs its own MiFID II review before it is built: nothing may combine a signal with the user's position into an action ("reduce", "rebalance"). | Medium if built wrongly | Building it | Review |
 | L10 | **Privacy notice §6**: one line that the admin can hand out a reset link (and so could take over an account). | Low | Next notice update | Founder |
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
@@ -44,9 +44,8 @@ emails, and whether any part of Uvalu will be free and public.
 From the privacy and consumer-law review (13 October 2026,
 [`legal/privacy-consumer-review.md`](legal/privacy-consumer-review.md)). It
 also adds to L5 (sign the mailbox provider's DPA and the Hetzner DPA; a US
-provider changes privacy notice §5) and L8 (`policies/README.md` §4 says 35
-days, the notices say 30; also write the incident procedure and breach
-register that privacy notice §6 promises).
+provider changes privacy notice §5) and L8 (the 35/30-day mismatch and the
+incident procedure, both done 13 October 2026).
 
 | # | Item | Risk | Do it before | Who |
 | --- | --- | --- | --- | --- |
@@ -119,9 +118,9 @@ penetration test. SR1, SR3 and SR5 were fixed on 13 October 2026
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| SR2 | **Production deployment baseline:** reverse proxy with a public certificate, HSTS, CSP, frame-ancestors, firewall (443 + SSH keys), unprivileged user, `.env` permissions, per-IP rate limit; written down. | Inviting anyone you don't know personally |
+| SR2 | **Production deployment baseline:** written and in the repo (13 October 2026): `deploy/` (Caddyfile with HTTPS and headers, systemd service, offsite backup job), `docs/deployment.md` (firewall, SSH, unprivileged user, `.env` permissions), per-IP sign-in limit in the app. Still to do: create the server and apply it step by step, then switch the CSP from report-only to enforcing. | Inviting anyone you don't know personally |
 | SR4 | **Session token, rest:** cookie flags (`SameSite=Strict`, `Secure` on HTTPS) and the escaping test are done (13 October 2026). Still open: a CSP at the reverse proxy (with SR2) and a spike on dropping the localStorage copy of the token. | Inviting anyone you don't know personally |
-| SR6 | **Keys and restores:** offline copy of `.env`, written rotation procedures for both secrets, one dated restore test of an offsite backup. | Paid launch |
+| SR6 | **Keys and restores:** offline copy of `.env` and the borg passphrase; written rotation procedures for both secrets; the restore test (procedure and log in `docs/deployment.md` §9) done once and dated. | Restore test: with the server set-up; rotation: paid launch |
 | SR7 | **Small fixes:** hash reset/invite tokens in the store, write Excel text starting with `= + - @` as text, `pip-audit` in CI and pinned production versions. | Paid launch |
 
 ## Usability
