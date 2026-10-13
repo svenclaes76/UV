@@ -633,6 +633,63 @@ def _is_fresh(entry: dict) -> bool:
         return False
 
 
+# Q1 (model M2): a partial or failed fetch must not change a signal. The
+# statement histories behind the trend vetoes are sometimes missing from one
+# fetch and back in the next, which toggled vetoes within minutes
+# (docs/quant-review.md Q1); a failed fetch replaced a good row with an empty
+# stub, dropping the stock until the next success.
+_CARRY_FORWARD_FIELDS = ("fcfHistory", "revenueHistory", "ebitHistory", "netIncomeHistory",
+                         "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory",
+                         "dividend_last_cut_year", "financialCurrency", "country", "sector")
+_CARRY_FORWARD_MAX_DAYS = 90   # annual statement data; older than this isn't trusted
+_KEEP_ON_FAILURE_DAYS = 7      # a failed fetch keeps the last good row this long
+
+
+def _carry_forward(row: dict, previous: "dict | None") -> dict:
+    """`row` with what a partial or failed fetch lost taken from `previous`,
+    the ticker's last cached row.
+
+    - A failed fetch (no ``fetched_at``) keeps the previous good row if it's
+      at most _KEEP_ON_FAILURE_DAYS old, with a short retry.
+    - A successful fetch missing a field in _CARRY_FORWARD_FIELDS takes the
+      previous value if that row is at most _CARRY_FORWARD_MAX_DAYS old.
+      The fields taken are listed in ``carried_forward``."""
+    if not previous or not previous.get("fetched_at"):
+        return row
+    prev_at = _row_fetch_time(previous)
+    if prev_at is None:
+        return row
+    if prev_at.tzinfo is None:
+        prev_at = prev_at.replace(tzinfo=timezone.utc)
+    if not row.get("fetched_at"):
+        if datetime.now(timezone.utc) - prev_at <= timedelta(days=_KEEP_ON_FAILURE_DAYS):
+            return {**previous, "next_fetch_at": _next_fetch_at(short=True)}
+        return row
+    # Each carried value remembers when it was last really fetched, so a
+    # chain of partial fetches can't keep it alive past the limit.
+    prev_since = previous.get("carried_since") or {}
+    now = datetime.now(timezone.utc)
+    carried, since = [], {}
+    for f in _CARRY_FORWARD_FIELDS:
+        if row.get(f) not in (None, [], "") or previous.get(f) in (None, [], ""):
+            continue
+        origin = prev_since.get(f) or previous["fetched_at"]
+        try:
+            origin_dt = datetime.fromisoformat(str(origin))
+        except (TypeError, ValueError):
+            continue
+        if origin_dt.tzinfo is None:
+            origin_dt = origin_dt.replace(tzinfo=timezone.utc)
+        if now - origin_dt > timedelta(days=_CARRY_FORWARD_MAX_DAYS):
+            continue
+        carried.append(f)
+        since[f] = origin_dt.isoformat()
+    if not carried:
+        return row
+    return {**row, **{f: previous[f] for f in carried},
+            "carried_forward": carried, "carried_since": since}
+
+
 def _next_fetch_at(short: bool = False) -> str:
     """Random refresh time: base TTL ± jitter, so fetches spread across the day.
 
@@ -1123,6 +1180,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
         if row is None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
+        row = _carry_forward(row, cache.get(ticker))
         time.sleep(REQUEST_DELAY)
         # Narrow critical section: only dict write + counter; save check happens outside
         with f.row_lock:
@@ -2225,7 +2283,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    peer_mask: "pd.Series | None" = None,
                    user_selected: bool = False,
                    founder_holdings: "set | frozenset | None" = None,
-                   computed_at: "datetime | None" = None) -> pd.DataFrame:
+                   computed_at: "datetime | None" = None,
+                   previous_signals: "dict | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
     # scored universe's). ``reference_out``: a dict that receives this pass's
@@ -2467,6 +2526,9 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
         default=SIGNAL_LOW_SCORE,
     )
+    if previous_signals:
+        df["signal_code"] = _apply_signal_hysteresis(
+            df, previous_signals, buy_threshold=buy_threshold, min_mos=min_mos)
     if _no_peer_basis:
         # PER-1: the vetoes are absolute rules on the stock's own data, so a
         # failed screen still shows; everything rank-based is withheld.
@@ -2540,16 +2602,19 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          reference_out: "dict | None" = None,
                          peer_mask: "pd.Series | None" = None,
                          user_selected: bool = False,
-                         founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
+                         founder_holdings: "set | frozenset | None" = None,
+                         previous_signals: "dict | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
     ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
-    ``founder_holdings``: see compute_scores."""
+    ``founder_holdings`` / ``previous_signals``: see compute_scores and
+    _apply_signal_hysteresis."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
                             reference=reference, reference_out=reference_out,
                             peer_mask=peer_mask, user_selected=user_selected,
-                            founder_holdings=founder_holdings)
+                            founder_holdings=founder_holdings,
+                            previous_signals=previous_signals)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2560,7 +2625,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      reference_out: "dict | None" = None,
                      peer_mask: "pd.Series | None" = None,
                      user_selected: bool = False,
-                     founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
+                     founder_holdings: "set | frozenset | None" = None,
+                     previous_signals: "dict | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -2581,7 +2647,47 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           min_mos=min_mos, buy_threshold=buy_threshold, weights=weights,
                           reference=reference, reference_out=reference_out,
                           peer_mask=peer_mask, user_selected=user_selected,
-                          founder_holdings=founder_holdings)
+                          founder_holdings=founder_holdings,
+                          previous_signals=previous_signals)
+
+
+# ── Signal hysteresis (Q1, model M2) ─────────────────────────────────────────
+# Signals are recomputed whenever data arrives, and every refresh moves the
+# percentile ranks of every other stock a little, so a stock near a band edge
+# flipped on noise (SRAIL.SW 21 times in 9 days at 39.9 / 40.0;
+# docs/quant-review.md Q1). A stock now keeps its band until its composite
+# score falls SIGNAL_HYSTERESIS points past the edge it would leave by. Entry
+# into a higher band is unchanged. The score only: the margin-of-safety floor
+# for Undervalued stays strict (decision D1), and vetoes are absolute rules.
+# Every user gets the same previous signal (the shared history), so this
+# keeps PER-1. Published on the methodology page.
+SIGNAL_HYSTERESIS = 2.0
+
+
+def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
+                             buy_threshold: float, min_mos: float) -> pd.Series:
+    """`df["signal_code"]` with each downgrade that only a small score dip
+    caused undone. `previous`: {ticker: signal_code} from the signal history."""
+    codes = df["signal_code"].copy()
+    if "Ticker" not in df.columns:
+        return codes
+    prev = df["Ticker"].map(previous)
+    score = pd.to_numeric(df["Value Score"], errors="coerce")
+    # Undervalued → Mid score on score alone: everything else Undervalued
+    # needs still holds (np.select put it in Mid score only for the score).
+    keep_u = ((prev == SIGNAL_UNDERVALUED) & (codes == SIGNAL_NEUTRAL)
+              & (score < buy_threshold) & (score >= buy_threshold - SIGNAL_HYSTERESIS))
+    if keep_u.any():
+        mos = pd.to_numeric(df["margin_of_safety"], errors="coerce")
+        thin = df["fv_basis_thin"].fillna(False).astype(bool)
+        ccy = (df["currency_unverified"].fillna(False).astype(bool)
+               if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
+        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy
+    keep_n = ((prev == SIGNAL_NEUTRAL) & (codes == SIGNAL_LOW_SCORE)
+              & (score >= SCORE_AVOID - SIGNAL_HYSTERESIS))
+    codes[keep_u] = SIGNAL_UNDERVALUED
+    codes[keep_n] = SIGNAL_NEUTRAL
+    return codes
 
 
 # ── Reporting currency (V1, model M2) ────────────────────────────────────────

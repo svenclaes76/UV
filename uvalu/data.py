@@ -44,6 +44,20 @@ def _bust_cache() -> None:
     st.rerun()
 
 
+def _previous_signals() -> dict:
+    """{ticker: signal_code} last logged in the shared signal history, for
+    the score hysteresis at band edges (Q1, screener._apply_signal_hysteresis).
+    The same for every user and screen. Empty when the history can't be read:
+    signals then follow the plain thresholds."""
+    try:
+        from uvalu.compliance import signal_history
+        return signal_history.last_signals()
+    except Exception:
+        logkit.get_logger("uvalu.data").warning("signal history unreadable; no hysteresis",
+                                                exc_info=True, extra={"event": "signal.history_unreadable"})
+        return {}
+
+
 def _founder_holdings() -> frozenset:
     """REC-8: tickers the founder holds, for the `founder_holds` disclosure.
     An unreadable file is logged as an error and treated as empty rather than
@@ -259,7 +273,8 @@ def _build_all_screener_data(enabled: tuple,
                                   min_mos=_min_mos, buy_threshold=_buy_threshold,
                                   weights=score_weights, reference_out=_ref_out,
                                   peer_mask=peer_mask_for(_universe_fund, _exchange_ticker_set),
-                                  founder_holdings=_founder_holdings())
+                                  founder_holdings=_founder_holdings(),
+                                  previous_signals=_previous_signals())
     if _ref_out.get("ref") is not None:
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
@@ -398,7 +413,8 @@ def _load_portfolio_screener_data(pf_cache_version: str, tickers: tuple, names: 
                                 min_mos=_min_mos, buy_threshold=_buy_threshold,
                                 weights=score_weights,
                                 reference=universe_reference_for(ref_key) if ref_key else None,
-                                user_selected=True, founder_holdings=_founder_holdings())
+                                user_selected=True, founder_holdings=_founder_holdings(),
+                                previous_signals=_previous_signals())
 
 
 def _universe_ref_args() -> tuple:
