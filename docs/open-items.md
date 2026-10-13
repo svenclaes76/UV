@@ -65,6 +65,18 @@ Yahoo (same trigger as L1).
 | L22 | **French Data Library:** ask permission to use the factor data in a paid service; file the reply (DATA-6). | Low | Paid launch | Founder |
 | L23 | **Direct Yahoo call:** the Analysis 1-year price chart calls `yf.Ticker().history` itself; route it through the provider module with C7/S3. | Low | M2 | Dev |
 
+From the tax and business set-up review (13 October 2026,
+[`legal/tax-business-review.md`](legal/tax-business-review.md)). Figures in it
+must be confirmed by an ITAA accountant.
+
+| # | Item | Risk | Do it before | Who |
+| --- | --- | --- | --- | --- |
+| L24 | **Employment contract and receipts:** check exclusivity, non-compete and IP clauses (BIZ-10); start keeping business receipts. | Medium | Now | Founder |
+| L25 | **Registration and liability shield:** KBO registration in bijberoep (with L4), notarial declaration that the family home can't be seized, quote for professional liability + cyber insurance (BIZ-8). | Medium–high | Inviting anyone you don't know personally | Founder + accountant / notary / broker |
+| L26 | **VAT and billing set-up:** Mollie + OSS or a merchant of record; small-business exemption or normal VAT; prices incl. VAT per country; country evidence in the checkout. Consumer-only, or Peppol-ready for business subscribers. | Medium | Building the checkout (L18) | Founder + accountant |
+| L27 | **Sole trader vs BV break-even** with the real salary and expected profit; the trigger may come before v3's revenue gate. | Medium | Paid launch | Accountant |
+| L28 | **Yearly tax-rate review:** check the dividend withholding rules in the app every January and bump `TAX_RULES_REVIEWED`. | Low | Every January | Founder |
+
 ## Design and code
 
 | # | Item |
