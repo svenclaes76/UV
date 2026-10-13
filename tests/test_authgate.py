@@ -903,3 +903,35 @@ def test_sign_in_panel_shows_the_dark_lockup():
     html = "".join(m.value for m in at.markdown)
     assert 'aria-label="Uvalu"' in html and 'height="48"' in html and "gap:23px" in html
     assert "var(--logo-ring)" not in html and "uval<span" not in html
+
+
+# ── cookie attributes (SR4) ──────────────────────────────────────────────
+
+class TestCookieAttributes:
+    """uv_jwt and uv_td are set from JavaScript, so they can't be HttpOnly;
+    SameSite=Strict and Secure-on-HTTPS are what's left (SR4,
+    docs/security-review.md #3). One builder sets the attributes everywhere."""
+
+    def test_session_cookie_is_samesite_strict_and_secure_on_https(self):
+        from uvalu import authgate
+        js = authgate.session_cookie_js("abc.def")
+        assert "SameSite=Strict" in js
+        assert "protocol==='https:'?'; Secure'" in js
+        assert "max-age=86400" in js
+
+    def test_trusted_device_cookie_uses_the_same_attributes(self):
+        from uvalu import authgate
+        js = authgate.trusted_device_cookie_js("device-1")
+        assert "SameSite=Strict" in js and "'; Secure'" in js
+        assert f"max-age={30 * 86400}" in js
+
+    def test_no_cookie_is_written_outside_authgate(self):
+        # Every document.cookie write lives in uvalu/authgate.py, next to
+        # _COOKIE_ATTRS_JS, so a new copy elsewhere can't silently drop the
+        # attributes again (app.py used to have its own).
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        writers = {p.relative_to(root).as_posix()
+                   for p in [root / "app.py", *(root / "uvalu").rglob("*.py")]
+                   if "document.cookie" in p.read_text(encoding="utf-8")}
+        assert writers == {"uvalu/authgate.py"}

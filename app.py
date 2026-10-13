@@ -96,17 +96,8 @@ if not st.session_state.get("_pf_prefetched"):
 # cookie is what recover_session_from_cookie() (uvalu/authgate.py) actually
 # reads server-side to survive a reload (e.g. the top bar's theme toggle).
 with st.container(key="uv_hidden_util_jwt"):
-    st.iframe(f"""
-<script>
-(function(){{
-  var tok = {repr(st.session_state.get('jwt_token', ''))};
-  if (tok) {{
-    localStorage.setItem('uv_jwt', tok);
-    document.cookie = 'uv_jwt=' + encodeURIComponent(tok) + '; path=/; max-age=86400';
-  }}
-}})();
-</script>
-""", height=1)
+    _tok = st.session_state.get('jwt_token', '')
+    st.iframe(f"<script>{authgate.session_cookie_js(_tok) if _tok else ''}</script>", height=1)
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 _pg_dashboard = st.Page(_page_dashboard.render, title=_("Dashboard"), icon=":material/home:", default=True)

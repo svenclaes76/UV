@@ -42,6 +42,12 @@ of that month); earlier releases used SemVer. Rules in
   account is locked. The "attempts remaining" count is gone. The account
   lock still applies; the countdown card now appears after the set number of
   failed attempts in the same browser session, whatever emails were typed.
+- The sign-in cookies are now `SameSite=Strict`, and `Secure` when the app is
+  served over HTTPS, so other sites can't make the browser send them.
+- Tickers, sectors and country names from the data provider or added by
+  users are now escaped wherever the app shows them in its own layout
+  (holdings, portfolio, dividends, risk and stock pages), so text that looks
+  like markup is shown as text instead of being run.
 
 ## [2026.10.5] — 2026-10-11
 

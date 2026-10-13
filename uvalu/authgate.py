@@ -81,13 +81,13 @@ def handle_logout() -> None:
 <script>
 (function(){
   try {
-    document.cookie = 'uv_jwt=; path=/; max-age=0';
+    document.cookie = 'uv_jwt=; max-age=0' + __COOKIE_ATTRS__;
     localStorage.removeItem('uv_jwt');
   } catch(e) {}
   window.parent.location.reload();
 })();
 </script>
-""", height=1)
+""".replace("__COOKIE_ATTRS__", _COOKIE_ATTRS_JS), height=1)
         st.stop()
 
 
@@ -95,16 +95,35 @@ def _user_agent() -> str:
     return st.context.headers.get("User-Agent", "") if st.context.headers else ""
 
 
+# Attributes for the uv_jwt and uv_td cookies, as a JavaScript expression
+# (SR4, docs/security-review.md #3). SameSite=Strict keeps them off requests
+# started by other sites. Secure only when the page itself is HTTPS: a
+# browser refuses a Secure cookie set from a plain-HTTP page, which would
+# break sign-in on the localhost dev launcher. The scripts run in a srcdoc
+# iframe, so the parent page's protocol decides.
+_COOKIE_ATTRS_JS = ("'; path=/; SameSite=Strict' + (function(){try{return "
+                    "window.parent.location.protocol==='https:'?'; Secure':''}catch(e){"
+                    "return location.protocol==='https:'?'; Secure':''}})()")
+
+
+def session_cookie_js(token: str) -> str:
+    """JavaScript that stores the session token in localStorage and the
+    uv_jwt cookie. Shared by every sign-in path and app.py's per-render
+    refresh, so the cookie attributes live in one place."""
+    return (f"localStorage.setItem('uv_jwt',{repr(token)});"
+            f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})"
+            f"+'; max-age=86400'+{_COOKIE_ATTRS_JS};")
+
+
+def trusted_device_cookie_js(device_id: str) -> str:
+    return (f"document.cookie='uv_td='+encodeURIComponent({repr(device_id)})"
+            f"+'; max-age={30 * 86400}'+{_COOKIE_ATTRS_JS};")
+
+
 def _sync_cookie_script(token: str) -> None:
     """Same localStorage+cookie sync every successful sign-in path needs
-    (password, invite acceptance, OAuth) — see app.py's own copy of this for
-    every already-authenticated render."""
-    st.iframe(
-        f"<script>localStorage.setItem('uv_jwt',{repr(token)});"
-        f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})+"
-        f"'; path=/; max-age=86400';</script>",
-        height=1,
-    )
+    (password, invite acceptance, OAuth)."""
+    st.iframe(f"<script>{session_cookie_js(token)}</script>", height=1)
 
 
 def _device_id_from_cookie() -> str | None:
@@ -116,11 +135,7 @@ def _sync_trusted_device_cookie(device_id: str) -> None:
     longer-lived cookie from the session cookie (uv_jwt) so it survives a
     sign-out and is available the next time this browser hits the TOTP
     challenge."""
-    st.iframe(
-        f"<script>document.cookie='uv_td='+encodeURIComponent({repr(device_id)})+"
-        f"'; path=/; max-age={30 * 86400}';</script>",
-        height=1,
-    )
+    st.iframe(f"<script>{trusted_device_cookie_js(device_id)}</script>", height=1)
 
 
 # Per-browser-session failed sign-in count and countdown (SR3). The account
