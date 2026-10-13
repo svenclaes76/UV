@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-13 18:37+0000\n"
-"PO-Revision-Date: 2026-10-12 22:32+0200\n"
+"PO-Revision-Date: 2026-10-13 20:55+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
 "Language: en_GB\n"
@@ -127,8 +127,7 @@ msgstr "The user store could not be read (wrong encryption key or a corrupted fi
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091
-#: auth.py:1117 auth.py:1305
+#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091 auth.py:1117 auth.py:1305
 msgid "User not found."
 msgstr "User not found."
 
@@ -179,13 +178,9 @@ msgstr[0] "This account is temporarily locked. Try again in {count} minute."
 msgstr[1] "This account is temporarily locked. Try again in {count} minutes."
 
 #: auth.py:820
-#, fuzzy, python-brace-format
-msgid ""
-"That code didn't match. Too many failed attempts — this account is now locked "
-"for {minutes} minutes."
-msgstr ""
-"That code didn't match. Too many failed attempts — this account is now locked "
-"for {minutes} minutes."
+#, python-brace-format
+msgid "That code didn't match. Too many failed attempts — this account is now locked for {minutes} minutes."
+msgstr "That code didn't match. Too many failed attempts — this account is now locked for {minutes} minutes."
 
 #. Context: Settings / sign-in › error
 #: auth.py:856 auth.py:882
@@ -849,8 +844,7 @@ msgstr "Low score"
 #. model signal badge for a stock excluded by one of the quality-screen rules (debt,
 #. cash flow, dividend cover, multi-year decline, no trading). Neutral, factual
 #. wording.
-#: screener.py:331 uvalu/drawer.py:238 uvalu/pages_/analysis.py:361
-#: uvalu/pages_/risk.py:447
+#: screener.py:331 uvalu/drawer.py:238 uvalu/pages_/analysis.py:361 uvalu/pages_/risk.py:447
 msgid "Screened out"
 msgstr "Screened out"
 
@@ -1588,12 +1582,7 @@ msgid "Use a backup code"
 msgstr "Use a backup code"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304
-#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
-#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
-#: uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497
-#: uvalu/pages_/settings.py:540
+#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418 uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497 uvalu/pages_/settings.py:540
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -1754,15 +1743,12 @@ msgstr "FIXED BY INVITE"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751
-#: uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601
-#: uvalu/pages_/settings.py:605
+#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751 uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601 uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr "Password"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539
-#: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
+#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539 uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "At least {min_len} characters."
@@ -1867,13 +1853,8 @@ msgid "Sign in temporarily locked"
 msgstr "Sign in temporarily locked"
 
 #: uvalu/authgate.py:701
-#, fuzzy
-msgid ""
-"Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
-" expires."
-msgstr ""
-"Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
-" expires."
+msgid "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires."
+msgstr "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
@@ -1945,10 +1926,7 @@ msgstr "See Methodology for thresholds."
 #. header). Same wording as the "Model signal" column header.
 #. small uppercase label in front of a signal badge (stock drawer and Analysis
 #. header). Same wording as the "Model signal" column header.
-#: uvalu/components.py:92 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:56
-#: uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/components.py:92 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:56 uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282 uvalu/pages_/watchlist.py:32
 msgid "Model signal"
 msgstr "Model signal"
 
@@ -2273,15 +2251,12 @@ msgid "Delayed quote — not a live intraday price"
 msgstr "Delayed quote — not a live intraday price"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1103 uvalu/components.py:1188 uvalu/drawer.py:325
-#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41
-#: uvalu/pages_/watchlist.py:121
+#: uvalu/components.py:1103 uvalu/components.py:1188 uvalu/drawer.py:325 uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41 uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr "Viewer role is read-only"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1190 uvalu/components.py:1783 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1117
+#: uvalu/components.py:1190 uvalu/components.py:1783 uvalu/pages_/risk.py:462 uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr "View"
 
@@ -2361,9 +2336,7 @@ msgstr "Edit dividend"
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:1941 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55
-#: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
+#: uvalu/components.py:1941 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
 msgid "Position"
 msgstr "Position"
 
@@ -2379,8 +2352,7 @@ msgstr "Pay date"
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:1941 uvalu/components.py:2175 uvalu/dialogs.py:665
-#: uvalu/dialogs.py:750 uvalu/dialogs.py:1074
+#: uvalu/components.py:1941 uvalu/components.py:2175 uvalu/dialogs.py:665 uvalu/dialogs.py:750 uvalu/dialogs.py:1074
 msgid "Type"
 msgstr "Type"
 
@@ -2439,8 +2411,7 @@ msgstr "Manual"
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:2012 uvalu/components.py:2112 uvalu/dialogs.py:45
-#: uvalu/pages_/dashboard.py:213
+#: uvalu/components.py:2012 uvalu/components.py:2112 uvalu/dialogs.py:45 uvalu/pages_/dashboard.py:213
 msgid "Cash"
 msgstr "Cash"
 
@@ -2531,9 +2502,7 @@ msgstr "Edit entry"
 msgid "View linked entry"
 msgstr "View linked entry"
 
-#: uvalu/components.py:2279 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551
+#: uvalu/components.py:2279 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503 uvalu/pages_/portfolio.py:551
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Back to {page}"
@@ -7444,28 +7413,10 @@ msgstr[1] "No screener data yet for your watchlisted tickers — they'll appear 
 #~ msgid "Signal"
 #~ msgstr "Signal"
 
-#~ msgid ""
-#~ "Invalid email or password. Too many "
-#~ "failed attempts — this account is now "
-#~ "locked for {minutes} minutes."
-#~ msgstr ""
-#~ "Invalid email or password. Too many "
-#~ "failed attempts — this account is now "
-#~ "locked for {minutes} minutes."
+#~ msgid "Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes."
+#~ msgstr "Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes."
 
-#~ msgid ""
-#~ "Invalid email or password. {count} attempt "
-#~ "remains before this account is locked for"
-#~ " {minutes} minutes."
-#~ msgid_plural ""
-#~ "Invalid email or password. {count} attempts "
-#~ "remain before this account is locked for"
-#~ " {minutes} minutes."
-#~ msgstr[0] ""
-#~ "Invalid email or password. {count} attempt "
-#~ "remains before this account is locked for"
-#~ " {minutes} minutes."
-#~ msgstr[1] ""
-#~ "Invalid email or password. {count} attempts "
-#~ "remain before this account is locked for"
-#~ " {minutes} minutes."
+#~ msgid "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes."
+#~ msgid_plural "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes."
+#~ msgstr[0] "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes."
+#~ msgstr[1] "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes."
