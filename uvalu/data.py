@@ -22,7 +22,7 @@ from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_ca
                       cancel_background_fetch, clear_live_cache, get_fetch_progress,
                       peer_mask_for, load_founder_holdings)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
-from uvalu import logkit
+from uvalu import logkit, universe
 from uvalu.store import get_scored_universe, clear_scored_universe
 
 
@@ -196,30 +196,52 @@ def _build_all_screener_data(enabled: tuple,
     enabled_set = set(enabled)
     empty = pd.DataFrame(columns=["Ticker"])
 
+    # V2 (model M2): the public universe is home listings only
+    # (uvalu/universe.py). Listings whose cached country already marks them
+    # as foreign aren't fetched at all; the rest are fetched, then filtered
+    # once their country is known.
+    _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
-    all_stocks: list[dict] = []
     for key, (fetch_fn, _) in _fetch_map.items():
         if key in enabled_set:
-            stocks = fetch_fn()
-            stock_lists[key] = stocks
-            all_stocks.extend(stocks)
+            stock_lists[key] = [s for s in fetch_fn()
+                                if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]
+    _listed = [s for stocks in stock_lists.values() for s in stocks]
+    _listed_tickers = {s["ticker"] for s in _listed}
+    _fetch_extra = [
+        {"ticker": t, "name": n, "isin": ""}
+        for t, n in zip(extra_tickers, extra_names)
+        if t not in _listed_tickers
+    ]
 
-    # Add extra (portfolio) tickers not already covered by enabled exchanges
+    logkit.get_logger("uvalu.data").debug(
+        "building scored universe for %d stocks", len(_listed) + len(_fetch_extra),
+        extra={"event": "universe.build", "stocks": len(_listed) + len(_fetch_extra)})
+    all_fund = fetch_fundamentals_nowait(_listed + _fetch_extra)
+
+    if all_fund.empty:
+        return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
+
+    _country = (dict(zip(all_fund["Ticker"], all_fund["country"]))
+                if "country" in all_fund.columns else {})
+    _volume = (dict(zip(all_fund["Ticker"], all_fund["averageVolume"]))
+               if "averageVolume" in all_fund.columns else {})
+    stock_lists = {key: universe.home_listings(stocks, _country, _volume)
+                   for key, stocks in stock_lists.items()}
+    all_stocks: list[dict] = [s for stocks in stock_lists.values() for s in stocks]
     _exchange_ticker_set = {s["ticker"] for s in all_stocks}
+    # A user's holding that isn't a home listing is scored as an extra ticker,
+    # against the public peers, never part of them (PER-2).
     _extra_stocks = [
         {"ticker": t, "name": n, "isin": ""}
         for t, n in zip(extra_tickers, extra_names)
         if t not in _exchange_ticker_set
     ]
     all_stocks.extend(_extra_stocks)
-
-    logkit.get_logger("uvalu.data").debug(
-        "building scored universe for %d stocks", len(all_stocks),
-        extra={"event": "universe.build", "stocks": len(all_stocks)})
-    all_fund = fetch_fundamentals_nowait(all_stocks)
-
-    if all_fund.empty:
-        return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
+    logkit.get_logger("uvalu.data").info(
+        "public universe: %d home listings", len(_exchange_ticker_set),
+        extra={"event": "universe.home_listings", "stocks": len(_exchange_ticker_set),
+               "listed": len(_listed), "extra": len(_extra_stocks)})
 
     # One scoring pass over every enabled exchange plus the extra portfolio
     # tickers: the sector medians and percentile ranks are taken across the
