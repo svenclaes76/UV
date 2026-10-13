@@ -1,0 +1,11 @@
+# Offsite backup run (docs/deployment.md step 7). Started by uvalu-backup.timer.
+[Unit]
+Description=Uvalu offsite backup to the Storage Box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=uvalu
+Group=uvalu
+ExecStart=/opt/uvalu/deploy/offsite-backup.sh

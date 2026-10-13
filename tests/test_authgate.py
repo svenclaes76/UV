@@ -935,3 +935,27 @@ class TestCookieAttributes:
                    for p in [root / "app.py", *(root / "uvalu").rglob("*.py")]
                    if "document.cookie" in p.read_text(encoding="utf-8")}
         assert writers == {"uvalu/authgate.py"}
+
+
+# ── client address for the per-IP limit (SR2) ───────────────────────────
+
+class TestClientIp:
+    def _ctx(self, monkeypatch, peer, headers):
+        monkeypatch.setattr(st_context.ContextProxy, "ip_address", property(lambda self: peer))
+        monkeypatch.setattr(st_context.ContextProxy, "headers", property(lambda self: headers))
+
+    def test_behind_the_proxy_uses_the_last_forwarded_address(self, monkeypatch):
+        from uvalu import authgate
+        # A client-supplied entry first, then the one Caddy appends.
+        self._ctx(monkeypatch, "127.0.0.1", {"X-Forwarded-For": "10.9.9.9, 203.0.113.7"})
+        assert authgate._client_ip() == "203.0.113.7"
+
+    def test_forwarded_header_is_ignored_on_a_direct_connection(self, monkeypatch):
+        from uvalu import authgate
+        self._ctx(monkeypatch, "198.51.100.4", {"X-Forwarded-For": "203.0.113.7"})
+        assert authgate._client_ip() == "198.51.100.4"
+
+    def test_without_a_proxy_uses_the_peer(self, monkeypatch):
+        from uvalu import authgate
+        self._ctx(monkeypatch, "127.0.0.1", {})
+        assert authgate._client_ip() == "127.0.0.1"

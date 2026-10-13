@@ -91,6 +91,20 @@ def handle_logout() -> None:
         st.stop()
 
 
+def _client_ip() -> str | None:
+    """The browser's IP address, for the per-IP sign-in limit (SR2).
+    Behind the reverse proxy (deploy/Caddyfile) Streamlit sees the proxy on
+    localhost; the real address is then the last X-Forwarded-For entry, the
+    one Caddy itself appends. The header is trusted only on a localhost
+    connection, so a client can't spoof it when reaching Streamlit directly."""
+    peer = getattr(st.context, "ip_address", None)
+    headers = st.context.headers or {}
+    forwarded = headers.get("X-Forwarded-For")
+    if forwarded and peer in (None, "127.0.0.1", "::1"):
+        return forwarded.split(",")[-1].strip() or peer
+    return peer
+
+
 def _user_agent() -> str:
     return st.context.headers.get("User-Agent", "") if st.context.headers else ""
 
@@ -777,7 +791,8 @@ def auth_wall() -> None:
                                unsafe_allow_html=True)
                 else:
                     ok, result = login(email, password, user_agent=_user_agent(),
-                                       device_id=_device_id_from_cookie())
+                                       device_id=_device_id_from_cookie(),
+                                       client_ip=_client_ip())
                     if ok and result == TOTP_REQUIRED:
                         st.session_state.pop(_SESSION_LOCK_KEY, None)
                         st.session_state["uv_totp_pending"] = {

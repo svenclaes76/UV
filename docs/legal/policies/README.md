@@ -87,7 +87,7 @@ These pages promise behaviour. Each item below must be true in the app before th
 - Mollie monthly subscription with a 30-day trial. Trial reminder email at least 7 days before the end. Cancel in settings without contacting support, effective end of the month.
 - A "Withdraw from contract" function in account settings, with a full refund within 14 days of the first paid day.
 - Price-change and terms-change emails 30 days in advance.
-- Self-service account deletion: live data removed at once, removed from backups within 35 days (backup rotation must guarantee this), invoices kept 10 years. Data export of the portfolio in a machine-readable format (`backup.export_zip` / Excel export are candidates).
+- Self-service account deletion: live data removed at once, removed from backups within 30 days, as the privacy notices say (`deploy/offsite-backup.sh` prunes offsite archives after 29 days; local migration snapshots after 30), invoices kept 10 years. Data export of the portfolio in a machine-readable format (`backup.export_zip` / Excel export are candidates).
 
 **Security and privacy**
 - Log every administrator access to a user's portfolio (Privacy §6).

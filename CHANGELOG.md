@@ -21,6 +21,20 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Added
+
+- A limit per network address on failed sign-ins: 20 failed attempts from
+  one address within 15 minutes block that address for the rest of the
+  window, whatever accounts were tried. Like the account lock, it shows the
+  usual "Invalid email or password." message.
+- Production set-up for the first server, in `deploy/` with the steps in
+  `docs/deployment.md`: Caddy in front with automatic HTTPS and security
+  headers, the app as a systemd service on localhost only, and daily
+  encrypted offsite backups to a Hetzner Storage Box, kept 29 days. Start
+  the app with `UVALU_BEHIND_PROXY=1` behind the proxy.
+- `docs/incident-procedure.md`: what to do after a security incident or
+  data breach, including the 72-hour notification and the breach register.
+
 ### Removed
 
 - Admin › Backups no longer offers "Export key". The deployment's master
