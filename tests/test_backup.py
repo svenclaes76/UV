@@ -94,18 +94,11 @@ class TestExportZip:
         assert "data/settings.json" not in names
 
 
-# ── export_env_key ────────────────────────────────────────────────────────
+# ── .env never leaves the server through the app (SR5) ─────────────────
 
-class TestExportEnvKey:
-    def test_returns_none_when_no_env_file(self):
-        assert backup.export_env_key() is None
-
-    def test_returns_raw_env_bytes_when_present(self):
-        # write_bytes, not write_text -- write_text translates \n to \r\n on
-        # Windows, which would make this assert platform-dependent.
-        backup._ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-        backup._ENV_FILE.write_bytes(b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n")
-        assert backup.export_env_key() == b"AUTH_SECRET=abc\nENCRYPTION_KEY=def\n"
+class TestNoEnvExport:
+    def test_backup_module_has_no_env_export(self):
+        assert not hasattr(backup, "export_env_key")
 
 
 # ── import_zip ────────────────────────────────────────────────────────────
@@ -314,11 +307,3 @@ class TestBackupLogging:
         backup.restore_backup(entry["id"], EMAIL)
         restores = [r for r in _events(caplog, "mutation") if r.action == "backup.restore"]
         assert len(restores) == 1 and restores[0].entity_id == entry["id"]
-
-    def test_export_env_key_logs_critical_secret_export(self, caplog):
-        caplog.set_level(_logging.DEBUG, logger="uvalu")
-        backup._ENV_FILE.write_text("AUTH_SECRET=x\nENCRYPTION_KEY=y\n")
-        backup.export_env_key()
-        (rec,) = _events(caplog, "secret.export")
-        assert rec.levelname == "CRITICAL"
-        assert "AUTH_SECRET=x" not in caplog.text

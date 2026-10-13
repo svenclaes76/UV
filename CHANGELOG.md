@@ -21,6 +21,13 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Removed
+
+- Admin › Backups no longer offers "Export key". The deployment's master
+  secrets (`AUTH_SECRET`, `ENCRYPTION_KEY` in `.env`) never go to a browser
+  any more. When moving to a new server, copy `.env` over SSH and keep one
+  offline copy; see `docs/deployment.md`.
+
 ### Fixed
 
 - Two-step sign-in: wrong authenticator or backup codes now count towards

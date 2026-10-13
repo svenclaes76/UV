@@ -370,7 +370,6 @@ whatever is already computed and refreshes itself as background work lands.
 | `authz.denied` — admin/viewer gates, backup-download, last-admin locks | `auth.py`, `uvalu/pages_/admin.py`, `backup.py` | WARN |
 | `mutation` — every portfolio / watchlist / user / backup CRUD (no money amounts) | `portfolio.py`, `auth.py`, `backup.py` | INFO |
 | `config.change` — per changed key, `old`→`new` | `settings.py` | INFO |
-| `secret.export` — `AUTH_SECRET` / `ENCRYPTION_KEY` handed out | `backup.export_env_key` | CRITICAL |
 | `external_call.*` — every yfinance / stockanalysis batch: endpoint, `latency_ms`, `status`, `retries` | `prices.py`, `marketdata.py`, `screener.py`, `fetch_tickers.py`, `portfolio.py` | INFO / WARN / ERROR |
 | `job.start` / `job.ok` / `job.failed` — the 4 background workers | `screener._run_fetch`, `uvalu/store._recompute`, `uvalu/data.load_portfolio_risk`, `portfolio.ensure_value_history_fresh` | INFO / ERROR |
 | `storage.read_failed` — a data file existed but couldn't be decrypted/parsed | `portfolio._load`, `settings.load_*`, `backup._load_backup_manifest` | WARN |

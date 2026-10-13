@@ -6,10 +6,9 @@ Export options:
                      Fernet-encrypted at rest individually) — no .env, so a
                      routine backup carries no secret that could decrypt
                      other users' data or forge a session
-  - .env key export: this deployment's AUTH_SECRET/ENCRYPTION_KEY, a
-                     separate, deliberate action (export_env_key()) — only
-                     needed once, to migrate onto a brand-new machine; never
-                     bundled into the routine backup history
+  - .env (AUTH_SECRET/ENCRYPTION_KEY) is never exported through the app.
+                     Moving to a new machine copies it over SSH; see
+                     docs/deployment.md (SR5, docs/security-review.md #5)
   - The user-facing workbook export/import lives in workbook.py.
 
 Import:
@@ -75,9 +74,8 @@ def export_zip(email: str = "") -> bytes:
     .env used to be bundled here so a backup was "fully restorable on any
     machine," but that meant every backup in the Admin portal's shared,
     freely-downloadable history also carried the one secret that decrypts
-    every user's data and can forge a session as anyone. See
-    export_env_key() for the separate, deliberate way to move that secret
-    between machines now.
+    every user's data and can forge a session as anyone. That secret now
+    moves between machines only over SSH (docs/deployment.md).
     """
     buf = io.BytesIO()
     udir = user_data_dir(email)
@@ -115,30 +113,6 @@ def _zip_schema(zf: zipfile.ZipFile) -> int:
         return _LEGACY_SCHEMA
     except (ValueError, TypeError):
         raise ValueError("Backup metadata is unreadable.")
-
-
-def export_env_key() -> bytes | None:
-    """
-    Raw bytes of this deployment's .env file (AUTH_SECRET, ENCRYPTION_KEY) —
-    its master secrets. Returns None if no .env exists.
-
-    Deliberately separate from export_zip()/create_backup(): anyone holding
-    this can decrypt every user's data and sign in as anyone, on any
-    account, so it shouldn't be something that accumulates in the same
-    shared, any-admin-downloadable backup history as routine data snapshots.
-    Only needed once, when standing up a new deployment that must read an
-    existing one's encrypted data — the caller should treat the result as
-    sensitive as the secrets it contains and not persist it anywhere.
-    """
-    if not _ENV_FILE.exists():
-        return None
-    # Master secrets (AUTH_SECRET / ENCRYPTION_KEY) are about to be handed to a
-    # browser — the single most sensitive action in the app.
-    logkit.get_logger("uvalu.backup").critical(
-        "environment key material exported",
-        extra={"event": "secret.export", "actor": logkit.user_id()},
-    )
-    return _ENV_FILE.read_bytes()
 
 
 # ── Import ────────────────────────────────────────────────────────────────────
@@ -186,8 +160,8 @@ def import_zip(zip_bytes: bytes, email: str = "") -> list[str]:
                     # bundling .env) may still have one -- skip it rather
                     # than overwrite this server's live encryption/signing
                     # keys as a side effect of restoring a data snapshot.
-                    # export_env_key() is the deliberate, separate way to
-                    # move keys between machines now.
+                    # Keys move between machines only over SSH now
+                    # (docs/deployment.md).
                     continue
     except zipfile.BadZipFile:
         raise ValueError("File is not a valid ZIP archive.")
