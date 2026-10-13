@@ -390,6 +390,45 @@ class TestSecondFactorLimits:
         assert auth.backup_codes_remaining("first@example.com") == 10  # not consumed
 
 
+
+class TestPerIpLimit:
+    """SR2: one address can't spray passwords across many accounts. Silent
+    like the account lock: same message, and every account stays usable
+    from other addresses."""
+
+    @pytest.fixture(autouse=True)
+    def _clear(self, monkeypatch):
+        monkeypatch.setattr(auth, "_ip_failures", {})
+        monkeypatch.setattr(auth, "IP_MAX_FAILURES", 3)
+
+    def test_blocks_an_address_after_failures_across_different_emails(self):
+        auth.register("first@example.com", "password123")
+        for email in ("a@example.com", "b@example.com", "first@example.com"):
+            auth.login(email, "wrong-password", client_ip="203.0.113.7")
+        assert auth.ip_blocked("203.0.113.7")
+        ok, msg = auth.login("first@example.com", "password123", client_ip="203.0.113.7")
+        assert not ok and msg == "Invalid email or password."
+
+    def test_other_addresses_and_the_account_are_unaffected(self):
+        auth.register("first@example.com", "password123")
+        for _ in range(3):
+            auth.login("nobody@example.com", "wrong-password", client_ip="203.0.113.7")
+        ok, _ = auth.login("first@example.com", "password123", client_ip="198.51.100.4")
+        assert ok
+        assert auth._load_users()["first@example.com"]["failed_attempts"] == 0
+
+    def test_failures_expire_after_the_window(self):
+        from datetime import datetime, timedelta, timezone
+        old = datetime.now(timezone.utc) - timedelta(minutes=auth.IP_WINDOW_MINUTES + 1)
+        auth._ip_failures["203.0.113.7"] = [old, old, old]
+        assert not auth.ip_blocked("203.0.113.7")
+
+    def test_no_address_means_no_limit(self):
+        for _ in range(5):
+            auth.login("nobody@example.com", "wrong-password")
+        assert auth._ip_failures == {}
+
+
 class TestVerifyToken:
     def test_garbage_token_returns_none_none_none(self):
         email, role, sid = auth.verify_token("not-a-real-jwt")

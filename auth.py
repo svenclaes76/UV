@@ -22,6 +22,7 @@ import hmac
 import json
 import os
 import secrets
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -479,7 +480,48 @@ def lock_policy() -> tuple[int, int]:
     return _rate_limit_settings()
 
 
-def login(email: str, password: str, user_agent: str = "", device_id: str | None = None) -> tuple[bool, str]:
+# Per-IP limit on failed password sign-ins (SR2, docs/security-review.md #6).
+# The per-account lock can't stop one password tried against many accounts,
+# and a reverse proxy can't count sign-ins because they happen inside
+# Streamlit's websocket, so the app counts them itself. In memory, per
+# process: a restart clears it, which is acceptable for a single-process
+# deployment. The block is silent like the account lock (same message,
+# same timing; SR3).
+IP_MAX_FAILURES   = 20
+IP_WINDOW_MINUTES = 15
+_ip_failures: dict[str, list[datetime]] = {}
+_ip_lock = threading.Lock()
+
+
+def _ip_recent(ip: str, now: datetime) -> list[datetime]:
+    cutoff = now - timedelta(minutes=IP_WINDOW_MINUTES)
+    recent = [t for t in _ip_failures.get(ip, []) if t > cutoff]
+    if recent:
+        _ip_failures[ip] = recent
+    else:
+        _ip_failures.pop(ip, None)
+    return recent
+
+
+def ip_blocked(ip: str | None) -> bool:
+    """True when `ip` has had IP_MAX_FAILURES failed sign-ins within the
+    last IP_WINDOW_MINUTES."""
+    if not ip:
+        return False
+    with _ip_lock:
+        return len(_ip_recent(ip, datetime.now(timezone.utc))) >= IP_MAX_FAILURES
+
+
+def _record_ip_failure(ip: str | None) -> None:
+    if not ip:
+        return
+    now = datetime.now(timezone.utc)
+    with _ip_lock:
+        _ip_failures[ip] = _ip_recent(ip, now) + [now]
+
+
+def login(email: str, password: str, user_agent: str = "", device_id: str | None = None,
+          client_ip: str | None = None) -> tuple[bool, str]:
     """Verify credentials. Returns (success, jwt_token_or_error_message).
 
     Failed attempts on a *known* account count towards a per-account lockout
@@ -498,9 +540,15 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
         logkit.get_logger("uvalu.auth").critical(
             "user store unreadable", extra={"event": "auth.store.unreadable", "op": "login"})
         return False, _("The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator.")
+    if ip_blocked(client_ip):
+        _dummy_password_check(password)
+        logkit.auth_event("login.failed", outcome="failed", reason="ip_limited",
+                          user_id=logkit.user_hash(email))
+        return False, _LOGIN_FAILED()
     user = users.get(email)
     if not user:
         _dummy_password_check(password)
+        _record_ip_failure(client_ip)
         logkit.auth_event("login.failed", outcome="failed", reason="unknown_user",
                           user_id=logkit.user_hash(email))
         return False, _LOGIN_FAILED()
@@ -516,6 +564,7 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
             # the lock can't be reset by retrying. The dummy check keeps the
             # response time the same as for any other failure.
             _dummy_password_check(password)
+            _record_ip_failure(client_ip)
             logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
                               user_id=logkit.user_hash(email))
             return False, _LOGIN_FAILED()
@@ -539,6 +588,7 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
             outcome = "locked"
         users[email] = user
         _save_users(users)
+        _record_ip_failure(client_ip)
         logkit.auth_event("login.failed", outcome=outcome, reason="bad_password",
                           user_id=logkit.user_hash(email))
         return False, _LOGIN_FAILED()
