@@ -6,6 +6,9 @@ right heading with a date and a trigger: *when* it has to be done.
 
 Last updated: 13 October 2026.
 
+The items whose trigger is "inviting anyone you don't know personally" are put in order in
+[before-strangers-plan.md](before-strangers-plan.md).
+
 ## Legal and compliance
 
 From the legal review of `feature/design-reference-v1-3` (10 October 2026).
