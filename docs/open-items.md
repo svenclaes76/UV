@@ -137,6 +137,19 @@ users is in the same file.
 | UX4 | **Risk page wording:** factor codes before plain names, "Low · +0,75" labels, "30% above 30%" rounding, "two consecutive reports" on one day, mixed decimal separators. | User test |
 | UX5 | **Run the user study** (6–8 Belgian/Dutch self-directed investors, plan and screener in the doc) after V1, V2 and Q1, on a warmed staging server. | Paid launch |
 
+## Translations
+
+From the financial terminology review (13 October 2026,
+[`translation-review.md`](translation-review.md)). Label changes are legal-text
+changes: run them through the fuzzy-review loop; L6 stays open.
+
+| # | Item | Do it before |
+| --- | --- | --- |
+| TR1 | **Label fixes:** fr uses "Risque élevé" for both Elevated and High risk (it/es near-synonyms too); "Screened out" reads as "removed by the filter" in all five (clashes with "your filters"); "Yield" reads as "return" in all five. | Anyone uses a non-English language |
+| TR2 | **Decisions:** one fair-value concept across languages (nl says intrinsic value, fr/es/it use the IFRS accounting term), with lawyer #1; *vous* instead of *tu* for French legal texts (exception to G-04). | Anyone uses French, Spanish or Italian |
+| TR3 | **Glossary:** drop BUY/MONITOR/AVOID/VETO and "Hard veto", add the signal labels, Model signal, risk bands, model fair value; "Mid score" as "intermédiaire / intermedia / intermedio". | Sending the glossary to translators |
+| TR4 | **In-context review** by native financial translators, per language, in the running app. | Paid launch |
+
 ## Design and code
 
 | # | Item |
