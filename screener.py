@@ -909,6 +909,10 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "ISIN":       stock["isin"],
         "Price":      _safe_float(price),
         "Currency":   info.get("currency", "EUR"),
+        # V1 (model M2): the currency the fundamentals are reported in, which
+        # can differ from the quote currency (a Swiss company reporting in
+        # USD). _convert_reporting_currency() reconciles the two.
+        "financialCurrency": info.get("financialCurrency") or None,
         "Market Cap": _safe_float(mcap),
         "sector":              info.get("sector") or None,
         "country":             info.get("country") or None,
@@ -2450,11 +2454,14 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _dec_score = pd.to_numeric(df["Value Score"], errors="coerce")
     _dec_mos   = pd.to_numeric(df["margin_of_safety"], errors="coerce")
     _dec_thin  = df["fv_basis_thin"].fillna(False).astype(bool)
+    # V1: a fair value whose currency couldn't be reconciled isn't confirmed.
+    _dec_ccy   = (df["currency_unverified"].fillna(False).astype(bool)
+                  if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
     df["signal_code"] = np.select(
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
-                & (_dec_mos >= min_mos) & ~_dec_thin,
+                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
@@ -2510,6 +2517,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "fair_value_clamped": df["fair_value_clamped"].fillna(False).astype(bool).tolist(),
         "eps_derived_from_pe": df["trailingEps_derived"].fillna(False).astype(bool).tolist(),
         "small_peer_group": df["small_universe"].astype(bool).tolist(),
+        "currency_unverified": _dec_ccy.tolist(),
     }
     df["data_flags"] = [
         [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
@@ -2566,6 +2574,7 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    extra={"event": "score.clean", "dropped": dropped})
     if df.empty:
         return df
+    df, peer_mask = _convert_reporting_currency(df, peer_mask)
     _log.debug("computing valuation scores for %d rows", len(df),
                extra={"event": "score.compute", "rows": len(df)})
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
@@ -2573,6 +2582,88 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           reference=reference, reference_out=reference_out,
                           peer_mask=peer_mask, user_selected=user_selected,
                           founder_holdings=founder_holdings)
+
+
+# ── Reporting currency (V1, model M2) ────────────────────────────────────────
+# Yahoo gives the price in the listing's quote currency but per-share and
+# statement figures in the company's reporting currency. Where they differ,
+# a fair value came out in the wrong currency (Investor AB in Milan: book
+# value in SEK against a EUR price, docs/valuation-model-review.md V1).
+# These figures are converted to the quote currency before scoring.
+_REPORTING_CCY_FIELDS = ("trailingEps", "bookValue", "ebit", "totalDebt", "totalCash",
+                         "freeCashflow", "netIncome")
+_REPORTING_CCY_HISTORIES = ("fcfHistory", "revenueHistory", "ebitHistory", "netIncomeHistory",
+                            "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory")
+
+
+def _fx_rate(reporting: str, quote: str) -> float:
+    """Units of `quote` per 1 `reporting`, from the ECB reference rates."""
+    import fx
+    return float(fx.get_rate(reporting, base=quote).rate)
+
+
+def _convert_reporting_currency(df: pd.DataFrame, peer_mask: "pd.Series | None" = None,
+                                rate_fn=None) -> "tuple[pd.DataFrame, pd.Series | None]":
+    """Convert the reporting-currency figures of every row whose
+    financialCurrency differs from its quote Currency, and flag the rows that
+    can't be converted (no rate). Returns (df, peer_mask).
+
+    On a converted row the provider's enterpriseValue is dropped (its currency
+    is unclear; the EV is rebuilt from market cap, debt and cash, FV-4), and
+    trailingPE / priceToBook are recomputed from the converted figures, since
+    they feed the sector medians. A `currency_unverified` row stays out of the
+    peer group (sector medians and ranks) and out of Undervalued. A row with
+    no financialCurrency yet (fetched before M2) is taken as reporting in its
+    quote currency."""
+    df = df.copy()
+    df["currency_unverified"] = False
+    if "financialCurrency" not in df.columns or "Currency" not in df.columns:
+        return df, peer_mask
+    rate_fn = rate_fn or _fx_rate
+    rates: dict = {}
+    converted = 0
+    for i in df.index:
+        rep_ccy, quote = df.at[i, "financialCurrency"], df.at[i, "Currency"]
+        if not (isinstance(rep_ccy, str) and rep_ccy.strip() and isinstance(quote, str) and quote.strip()):
+            continue
+        rep_ccy, quote = rep_ccy.strip().upper(), quote.strip().upper()
+        if rep_ccy == quote:
+            continue
+        if (rep_ccy, quote) not in rates:
+            try:
+                rates[(rep_ccy, quote)] = rate_fn(rep_ccy, quote)
+            except Exception:
+                rates[(rep_ccy, quote)] = None
+        rate = rates[(rep_ccy, quote)]
+        if not rate:
+            df.at[i, "currency_unverified"] = True
+            continue
+        for col in _REPORTING_CCY_FIELDS:
+            if col in df.columns:
+                v = _safe_float(df.at[i, col])
+                df.at[i, col] = v * rate if v is not None else df.at[i, col]
+        for col in _REPORTING_CCY_HISTORIES:
+            if col in df.columns and isinstance(df.at[i, col], (list, tuple)):
+                df.at[i, col] = [x * rate if isinstance(x, (int, float)) and not isinstance(x, bool)
+                                 and math.isfinite(x) else x for x in df.at[i, col]]
+        if "enterpriseValue" in df.columns:
+            df.at[i, "enterpriseValue"] = np.nan
+        price = _safe_float(df.at[i, "Price"]) if "Price" in df.columns else None
+        eps = _safe_float(df.at[i, "trailingEps"]) if "trailingEps" in df.columns else None
+        bvps = _safe_float(df.at[i, "bookValue"]) if "bookValue" in df.columns else None
+        if "trailingPE" in df.columns:
+            df.at[i, "trailingPE"] = price / eps if price and eps and eps > 0 else np.nan
+        if "priceToBook" in df.columns:
+            df.at[i, "priceToBook"] = price / bvps if price and bvps and bvps > 0 else np.nan
+        converted += 1
+    unverified = df["currency_unverified"].astype(bool)
+    if peer_mask is not None and unverified.any():
+        peer_mask = peer_mask & ~unverified
+    if converted or unverified.any():
+        _log.info("reporting currency: %d rows converted, %d unverified", converted, int(unverified.sum()),
+                  extra={"event": "score.currency", "converted": converted,
+                         "unverified": int(unverified.sum())})
+    return df, peer_mask
 
 
 # ── Legal-compliance helpers ──────────────────────────────────────────────────
@@ -2732,6 +2823,8 @@ DATA_FLAG_LABELS = {
     "fair_value_clamped": N_("The fair value was capped at the models' median."),
     "eps_derived_from_pe": N_("Earnings per share were derived from the P/E ratio."),
     "small_peer_group": N_("Fewer than 20 stocks were available for comparison."),
+    "currency_unverified": N_("The company reports in another currency than its share price, "
+                              "and no exchange rate was available to convert its figures."),
 }
 
 
