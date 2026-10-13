@@ -113,7 +113,18 @@ sudo cp /opt/uvalu/deploy/uvalu-backup.service /opt/uvalu/deploy/uvalu-backup.ti
 sudo systemctl daemon-reload && sudo systemctl enable --now uvalu-backup.timer
 ```
 
-Put the borg passphrase (`/etc/uvalu/borg.pass`) in the same offline place as `.env`. Without it the offsite backups can't be read.
+Then save the two things that unlock the backups, both in the same offline place as `.env`:
+
+1. **The passphrase:** show it once with `sudo cat /etc/uvalu/borg.pass`, and copy it.
+2. **The repository key:** in repokey mode borg keeps the key inside the repository on the Storage Box, protected by the passphrase. If that copy is ever damaged, the passphrase alone can't open the backups. Export it once:
+
+   ```bash
+   sudo -u uvalu sh -c '. /etc/uvalu/backup.env; export BORG_REPO BORG_PASSCOMMAND="cat /etc/uvalu/borg.pass" BORG_RSH="ssh -i /etc/uvalu/storagebox_ed25519"; borg key export --paper'
+   ```
+
+   This prints the key as short lines with checksums, made to be typed back in. Copy the whole block into the password manager entry, or print it. The key is useless without the passphrase, but keep both offline anyway.
+
+The key doesn't change, so one export is enough unless you recreate the repository.
 
 **What's backed up:**
 
@@ -140,7 +151,7 @@ Do this once after setup, and again after any change to the backup set-up. Use a
 
 1. Install the app as in steps 2–3.
 2. Put `.env` and `borg.pass` there from the **offline copies**, not from the production server.
-3. `borg extract` the latest archive into `/opt/uvalu`.
+3. `borg extract` the latest archive into `/opt/uvalu`. If borg reports the repository key missing or damaged, restore it from the offline paper key with `borg key import --paper`, and type it back in.
 4. Start the app and sign in with your own account. Check your portfolio is there.
 5. Delete the throwaway server, and record the date below.
 
@@ -176,7 +187,7 @@ sudo systemctl restart uvalu
 
 ### Keep an offline copy
 
-Keep one copy of `.env` and the borg passphrase outside the server, in a password manager entry or printed and stored safely. Don't keep them next to the backups. If the server is lost, these copies are the only way to read the offsite backups (SR6).
+Keep one copy of `.env`, the borg passphrase and the exported borg key (step 7) outside the server, in a password manager entry or printed and stored safely. Don't keep them next to the backups. If the server is lost, these copies are the only way to read the offsite backups (SR6).
 
 Update the copy whenever either secret changes.
 
