@@ -114,15 +114,13 @@ From the quant and data review (13 October 2026,
 
 From the security review (13 October 2026,
 [`security-review.md`](security-review.md)). A code review, not a
-penetration test.
+penetration test. SR1, SR3 and SR5 were fixed on 13 October 2026
+(`feature/security-quick-wins`); git history keeps their rows.
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| SR1 | **Two-factor attempt limit:** `complete_totp_login` / `complete_backup_code_login` never count failures; a stolen password allows unlimited code guesses (re-enter the password every 5 min). Lock after ~5 bad codes, don't reset on password while a challenge is pending, reject reuse of an accepted time step. | Inviting anyone you don't know personally |
 | SR2 | **Production deployment baseline:** reverse proxy with a public certificate, HSTS, CSP, frame-ancestors, firewall (443 + SSH keys), unprivileged user, `.env` permissions, per-IP rate limit; written down. | Inviting anyone you don't know personally |
-| SR3 | **Uniform login failures:** unknown vs known email differ in message ("attempts remain", "locked") and timing (no bcrypt for unknown). Same message, dummy bcrypt. | Inviting anyone you don't know personally |
-| SR4 | **Session token:** `uv_jwt`/`uv_td` set from JS without `Secure`/`SameSite`, plus a localStorage copy. Add the flags, an XSS regression test over the main components, a CSP; spike on dropping localStorage. | Inviting anyone you don't know personally |
-| SR5 | **`.env` export in Admin** sends AUTH_SECRET/ENCRYPTION_KEY to the browser with no re-authentication. Remove it (use SSH) or require password + code. | Inviting anyone you don't know personally |
+| SR4 | **Session token, rest:** cookie flags (`SameSite=Strict`, `Secure` on HTTPS) and the escaping test are done (13 October 2026). Still open: a CSP at the reverse proxy (with SR2) and a spike on dropping the localStorage copy of the token. | Inviting anyone you don't know personally |
 | SR6 | **Keys and restores:** offline copy of `.env`, written rotation procedures for both secrets, one dated restore test of an offsite backup. | Paid launch |
 | SR7 | **Small fixes:** hash reset/invite tokens in the store, write Excel text starting with `= + - @` as text, `pip-audit` in CI and pinned production versions. | Paid launch |
 
