@@ -28,8 +28,8 @@ _EXCHANGE_LABELS = {
 # shared data columns, then the "×" remove column) — shared by the real
 # column header, the real rows (stock_row), and the loading skeleton's
 # column-header/rows so all three always stay pixel-aligned.
-_HH_WIDTHS = [3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9, 0.32]   # signal column fits "Fails quality screen" (BDG-1)
-_HH_LABELS = (N_("Company"), N_("Signal"), N_("Composite score"), N_("Margin of safety"), N_("Price"),
+_HH_WIDTHS = [3.0, 1.8, 1.5, 1.0, 0.9, 0.8, 0.9, 0.32]   # signal column fits the longest badge (BDG-1)
+_HH_LABELS = (N_("Company"), N_("Model signal"), N_("Composite score"), N_("Margin of safety"), N_("Price"),
               "P/E", N_("Yield"), "")
 # Upside/Price/P-E/Yield are right-aligned (matching their own right-aligned
 # data cells in stock_row); Position/Signal/Composite score stay left-aligned

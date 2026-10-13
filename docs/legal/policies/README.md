@@ -37,7 +37,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 | Marketing | Individual shares may be mentioned, always with a statement of whether the founder holds them |
 | Signal performance | Not published (draft option A) |
 | Minimum margin of safety for "Undervalued" | **10%** (code default is still 0%, see §4) |
-| Signal labels | Undervalued / Neutral / Low score / Fails quality screen / No signal (from `screener.py`; not BDG-1's "Near fair value"/"Overvalued") |
+| Signal labels | Undervalued / Mid score / Low score / Screened out / No signal (from `screener.py`; not BDG-1's "Near fair value"/"Overvalued") |
 | Market data | EODHD, **end-of-day prices only**, contract not yet signed |
 | Analyst data | Not used (`ANALYST_INPUTS_ENABLED = False`) |
 | Hosting / backups | Hetzner, Germany / Hetzner Storage Box, Germany |
@@ -54,7 +54,7 @@ Each file starts with an HTML comment holding its status and its counsel points.
 ## 2. Counsel review points
 
 1. Withdrawal period counted from the first paid day after a trial that converts automatically. This is more generous than the minimum; confirm the wording.
-2. Signal labels "Neutral" and "Low score" deviate from BDG-1 on purpose (`../algorithm-compliance-review.md` §2). Also: does "Undervalued" still count as Uvalu's own "opinion" under MAR?
+2. Signal labels "Mid score" (until 12 Oct 2026 "Neutral", see `../signal-label-review.md`) and "Low score" deviate from BDG-1 on purpose (`../algorithm-compliance-review.md` §2). Also: does "Undervalued" still count as Uvalu's own "opinion" under MAR?
 3. Position risk ratings (High/Critical) computed from the user's own weights: still descriptive under PER-4?
 4. Licensing: EODHD terms for commercial display and derived data (DATA-1/2); a STOXX licence for EURO STOXX 50 index data; Fama-French Data Library terms for a paid service (DATA-6).
 5. Consumer Mediation Service contact details: verify on consumentenombudsdienst.be.

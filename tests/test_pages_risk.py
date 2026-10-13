@@ -195,7 +195,7 @@ def test_vetoed_holding_shows_veto_flag(isolated_data, monkeypatch):
     html = "".join(m.value for m in at.markdown)
     # PER-5: the quality-screen result stays on the holding's own flag and
     # is not raised as a portfolio alert.
-    assert "Fails quality screen" in html
+    assert "Screened out" in html
     assert "hard veto" not in html
 
 
@@ -206,7 +206,7 @@ def test_two_vetoed_holdings_each_carry_their_own_flag(isolated_data, monkeypatc
     at = _run(monkeypatch, portfolio_scored=make_scored_df([
         make_scored_row(veto=True), make_scored_row(Ticker="BBB.BR", Name="Beta NV", veto=True)]))
     html = "".join(m.value for m in at.markdown)
-    assert html.count("Fails quality screen") == 2
+    assert html.count("Screened out") == 2
     assert "hard veto" not in html
 
 

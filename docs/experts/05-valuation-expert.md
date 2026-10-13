@@ -7,7 +7,7 @@
 
 ## Why Uvalu needs this expert
 
-Uvalu's core is a multi-model fair-value engine (Graham Number, sector-median P/E, Earnings Power Value, single- and multi-stage dividend discount models, with book-value and FCF fallbacks; an analyst-target model stays off until licensed, and there is no DCF). It feeds a composite score with margin of safety, a quality screen (hard vetoes) and a descriptive model signal (Undervalued / Neutral / Low score / Fails quality screen / No signal). EV/EBITDA is shown but not used in the valuation. Users will trust and act on these numbers. An experienced valuation professional should check that the models are correctly specified, applied to the right companies, combined sensibly, and explained honestly.
+Uvalu's core is a multi-model fair-value engine (Graham Number, sector-median P/E, Earnings Power Value, single- and multi-stage dividend discount models, with book-value and FCF fallbacks; an analyst-target model stays off until licensed, and there is no DCF). It feeds a composite score with margin of safety, a quality screen (hard vetoes) and a descriptive model signal (Undervalued / Mid score / Low score / Screened out / No signal). EV/EBITDA is shown but not used in the valuation. Users will trust and act on these numbers. An experienced valuation professional should check that the models are correctly specified, applied to the right companies, combined sensibly, and explained honestly.
 
 ## Required expertise
 

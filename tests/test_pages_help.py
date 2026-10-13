@@ -107,6 +107,6 @@ def test_card_order_links_in_header_and_coverage_line():
     head = html.split('class="uv-support-head"', 1)[1].split("uv-support-grid", 1)[0]
     assert "Full methodology →" in head
     assert "Coverage today" in html and "Sensitivity." in html
-    assert "25% Undervalued · 50% Neutral · 25% Low score · 0% Fails quality screen" in html
+    assert "25% Undervalued · 50% Mid score · 25% Low score · 0% Screened out" in html
     assert "Badges · meaning and thresholds" in html
     assert "Composite model score of 70 or more" in html and "below 40." in html

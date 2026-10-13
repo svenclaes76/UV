@@ -130,7 +130,7 @@ Use the tagline in onboarding, the sign-in screen, marketing, and the app's empt
 | Surface White | `#F5F7FA` | Inset panels, card footers, inputs |
 | Panel | `#FFFFFF` | Cards |
 | Positive Tint | `#E8F5F0` | Undervalued signal, positive metric backgrounds |
-| Caution Tint | `#FDF0E8` | Neutral signal, caution metric backgrounds |
+| Caution Tint | `#FDF0E8` | Mid score signal, caution metric backgrounds |
 | Danger Tint | `#FCEAEA` | Low-score signal, negative metric backgrounds |
 
 In the app the Positive and Danger tints are the translucent tokens `--up-bg` and `--down-bg` (see Dark theme), which read as these tints on a white panel. Use the hex values only where transparency isn't available, e.g. in email or print.
@@ -140,7 +140,7 @@ In the app the Positive and Danger tints are the translucent tokens `--up-bg` an
 | Semantic | Hex | Use case |
 |---|---|---|
 | Positive text | `#0F6E56` | Positive percentage, gain, Undervalued label |
-| Caution text | `#854F0B` | Margin-of-safety warning, Neutral label |
+| Caution text | `#854F0B` | Margin-of-safety warning, Mid score label |
 | Caution fill | `#C98A3A` | Bars and swatches for caution states, e.g. a price above the model fair value |
 | Danger text | `#A32D2D` | Negative values, Low-score label, failed quality screen |
 | Muted text | `#5F5E5A` | Secondary labels, metadata |
@@ -171,7 +171,7 @@ The app has a full dark variant. Use these values (CSS tokens in `uvalu/styles.p
 | `--down-txt` | `#F0A6A6` | `#A32D2D` | Losses, Low score |
 | `--down-bg` | `rgba(163,45,45,0.26)` | `rgba(163,45,45,0.11)` | Low-score badge, negative metric background |
 | `--amber-txt` | `#E0B94D` | `#854F0B` | Caution text |
-| `--amber-bg` | `rgba(214,158,29,0.16)` | `#FDF0E8` | Neutral badge, caution background |
+| `--amber-bg` | `rgba(214,158,29,0.16)` | `#FDF0E8` | Mid score badge, caution background |
 | `--amber-fill` | `#C98A3A` | `#C98A3A` | Caution bars and swatches |
 | `--uv-track` | `rgba(245,247,250,0.10)` | `#EEF1F5` | Empty part of bars and meters |
 | `--grid` | `rgba(255,255,255,0.06)` | `rgba(13,31,60,0.08)` | Chart gridlines |
@@ -332,15 +332,15 @@ The model's signal for a stock. Badges describe the model output; they never tel
 | Signal | Background | Text | Label |
 |---|---|---|---|
 | Undervalued | `--up-bg` | `--up-txt` | Undervalued |
-| Neutral | `--amber-bg` | `--amber-txt` | Neutral |
+| Mid score | `--amber-bg` | `--amber-txt` | Mid score |
 | Low score | `--down-bg` | `--down-txt` | Low score |
-| Fails quality screen | `#0D1F3C` | `#FFFFFF` | Fails quality screen |
+| Screened out | `#0D1F3C` | `#FFFFFF` | Screened out |
 | No signal | `rgba(128,128,128,0.15)` light, `rgba(245,247,250,0.07)` dark | `--muted` | No signal (the peer group needed to rank the stock isn't available yet) |
 | No data | same as No signal | `--muted` | No data (no scored data for the row at all) |
 
 - Sentence case, 10.5–11px, `font-weight: 500`, horizontal padding 8–9px, border-radius 6px.
 - Every signal badge carries the methodology tooltip: *"Model output based on public data and the settings shown. Not a recommendation tailored to you. See Methodology for thresholds."*
-- In dark theme Fails quality screen is `#1E2D4A` with a light hairline; the other badges follow their tokens.
+- In dark theme Screened out is `#1E2D4A` with a light hairline; the other badges follow their tokens.
 
 ### Signal provenance line
 
@@ -451,7 +451,7 @@ These texts are required and keep their wording; translations must keep their me
 |---|---|---|
 | Empty state | "No stocks match your screening criteria." | "Looks like nothing's here yet! 🙁" |
 | Model signal | "Model signal: Undervalued. Composite score 82/100, margin of safety 34%." | "Uvalu assigns a BUY signal." / "This stock looks great — might be worth a look!" |
-| Quality screen | "Fails quality screen: debt/equity of 240% exceeds the 200% limit. Composite score set to 0." | "Hard veto triggered. Stock excluded." / "We had to remove this one from the results." |
+| Quality screen | "Screened out: debt/equity of 240% exceeds the 200% limit. Composite score set to 0." | "Hard veto triggered. Stock excluded." / "We had to remove this one from the results." |
 | Onboarding | "Uvalu values each stock with several models and shows how far the price is from the model fair value." | "Welcome! Let's get started on your investment journey 🚀" |
 | Risk | "Model outputs can be wrong. Share prices can stay below or above fair value for years." | "Beat the market with Uvalu." |
 
@@ -459,7 +459,7 @@ These texts are required and keep their wording; translations must keep their me
 
 | Use | Avoid |
 |---|---|
-| Undervalued, Neutral, Low score, Fails quality screen | Buy, Monitor, Avoid, Veto (as signal names) |
+| Undervalued, Mid score, Low score, Screened out | Buy, Monitor, Avoid, Veto, Neutral, Hold (as signal names) |
 | quality screen, quality rule | hard veto |
 | model fair value, model estimate | true value, target price |
 | signal, model output | recommendation, advice, pick, tip |
@@ -528,6 +528,13 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 
 ## Changes
 
+**v1.5 — 12 Oct 2026**
+
+- Signal badge "Neutral" renamed "Mid score": "Neutral" reads like an analyst rating (signal label review, L12). "Neutral" and "Hold" added to the words never used as signal names.
+- Dashboard Holdings: the signal column header is "Model signal", with a tooltip and a subtitle sentence saying it's the same for every user (L13).
+- Signal badge "Fails quality screen" renamed "Screened out" ("quality" is an evaluative word). The rules are still called the quality screen.
+- A signal badge always has a visible "Model signal" qualifier: a column header or section title, or, where the badge stands alone (drawer, Analysis header), a small uppercase "Model signal" label in front of it (L14).
+
 **v1.4 — 11 Oct 2026**
 
 - Logo: the Consensus mark (two rings for independent valuation models, a filled lens where they agree) replaces the V-stroke mark. Two weights (main above 32px, small at 32px and below), lockup rules, colour variants, usage by size and don'ts from `docs/design/logo-consensus-spec.md`.
@@ -556,4 +563,4 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 - Typography: long-form body 14px, 17px section headings, 12px captions; the uppercase small-label exception made explicit.
 - Fixed: wordmark-vs-name rule, "we" in legal texts, logo ring colour, icon set (Material Symbols), no DCF in the model list.
 
-*Document version 1.4 — Uvalu Brand Guidelines*
+*Document version 1.5 — Uvalu Brand Guidelines*

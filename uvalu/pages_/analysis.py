@@ -78,7 +78,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
 
     _h_col, _s_col = st.columns(2)
     with _h_col, st.container(key="an_card_history", border=True):
-        st.markdown(_PANEL_TITLE.format(title=h_("Badge history · 12 months")), unsafe_allow_html=True)
+        st.markdown(_PANEL_TITLE.format(title=h_("Model signal history · 12 months")), unsafe_allow_html=True)
         try:
             _hist = signal_history.history_for(ticker)
         except Exception:
@@ -295,7 +295,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">'
             f'<div style="display:flex;align-items:center;gap:12px;">'
             f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
-            f'{model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"))}</div>'
+            f'{model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"), qualified=True)}</div>'
             f'<div style="text-align:right;">'
             f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">{h_("Composite score")}</div>'
             f'<div style="font-family:var(--uv-mono);font-size:30px;font-weight:500;line-height:1;margin-top:6px;">'
@@ -358,7 +358,7 @@ def render() -> None:
             f'stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px;">'
             f'<path d="M12 9v4M12 17h.01M10.24 3.957l-8.422 14.06a1.9 1.9 0 0 0 1.636 2.983h16.844a1.9 1.9 0 0 0 '
             f'1.636 -2.983l-8.422 -14.06a1.9 1.9 0 0 0 -3.276 0z"/></svg>'
-            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">{h_("Fails quality screen")}</div>'
+            f'<div><div style="font-size:13px;font-weight:500;color:#fff;">{h_("Screened out")}</div>'
             f'<div style="font-size:12.5px;color:rgba(245,247,250,0.72);margin-top:3px;line-height:1.5;">'
             f'{veto_reason_str(row)}.</div></div></div>',
             unsafe_allow_html=True,

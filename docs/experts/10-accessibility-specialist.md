@@ -42,7 +42,7 @@ The **European Accessibility Act** (Directive 2019/882, applicable since 28 June
 ## Material to prepare
 
 - Staging environment with test accounts
-- Brand guidelines v1.4 (`docs/uvalu-brand-guidelines.md`) and design tokens (light/dark)
+- Brand guidelines v1.5 (`docs/uvalu-brand-guidelines.md`) and design tokens (light/dark)
 - Redesign screens and the "Consensus" logo usage
 - Company size and turnover expectations (for exemption analysis)
 

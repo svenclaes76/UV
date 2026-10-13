@@ -2,6 +2,8 @@
 KPI strip, value chart + conviction/risk card, holdings fair-value ladder,
 sector allocation, upcoming dividends, top movers."""
 
+import html
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -23,7 +25,7 @@ from uvalu.components import (fair_value_legend_html, list_provenance_html, page
                               donut_html, dividend_row_html, mover_row_html, radial_gauge_svg, risk_score_meter_html,
                               kpi_card as _kpi_card, chip_html as _chip_html,
                               holdings_row_html as _holdings_row_html, HOLDINGS_GRID_COLS as _HOLD_GRID, fit_grid_cols,
-                              skeleton_kpi_card_html, skeleton_holdings_table_html,
+                              signal_tooltip, skeleton_kpi_card_html, skeleton_holdings_table_html,
                               skeleton_chart_html, skeleton_gauge_card_html,
                               skeleton_metrics_grid_html, skeleton_text_html,
                               refresh_top_bar_html)
@@ -494,7 +496,7 @@ def render() -> None:
             st.markdown(f"""
 <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;">
 <div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>{fair_value_legend_html()}</div>
-<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")}</div>""",
+<div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")} {h_("Model signals are the same for every user and don't take your holdings into account.")}</div>""",
                         unsafe_allow_html=True)
         # Column header renders for the real table AND the fetch-in-progress
         # skeleton below (never just the header floating over a blank body,
@@ -502,15 +504,22 @@ def render() -> None:
         # (fetch finished, still no data) drops it entirely.
         # Fixed-px tracks widened to the translated labels (the ladder's 1fr
         # track gives up the room); header, rows and skeleton share it.
-        _hold_grid = fit_grid_cols(_HOLD_GRID, [_("Position"), _("Signal"), "", _("Margin of safety"), _("Weight"),
+        _hold_grid = fit_grid_cols(_HOLD_GRID, [_("Position"), _("Model signal"), "", _("Margin of safety"), _("Weight"),
                                                 _("Value"), _("P&L")])
         if not _db_scr.empty or _db_fetch_running:
             with st.container(key="db_holdings_colheader"):
                 _hh_align = ("left", "left", "left", "right", "right", "right", "right")
-                _hh_labels = (h_("Position"), h_("Signal"), h_("Fair-value ladder"), h_("Margin of safety"), h_("Weight"),
+                # L13 (docs/legal/signal-label-review.md): the signal sits next to
+                # the user's own position, so the header says it's the shared
+                # model signal and its tooltip says it ignores the user's holdings.
+                _hh_labels = (h_("Position"), h_("Model signal"), h_("Fair-value ladder"), h_("Margin of safety"), h_("Weight"),
                               h_("Value"), h_("P&L"))
+                _hh_titles = list(_hh_labels)
+                # Translators: Dashboard › Holdings table › tooltip on the "Model signal" column header; the standard signal tooltip follows it.
+                _hh_titles[1] = html.escape(_("Same for every user; it doesn't take your holdings into account.")
+                                             + " " + signal_tooltip(), quote=True)
                 _hh_cells = "".join(
-                    f'<div title="{_l}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _a in zip(_hh_labels, _hh_align))
+                    f'<div title="{_t}" style="text-align:{_a};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_l}</div>' for _l, _t, _a in zip(_hh_labels, _hh_titles, _hh_align))
                 st.markdown(f'<div style="display:grid;grid-template-columns:{_hold_grid};gap:14px;'
                            f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
                            f'color:var(--muted);">{_hh_cells}</div>', unsafe_allow_html=True)

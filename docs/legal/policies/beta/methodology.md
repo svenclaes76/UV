@@ -10,7 +10,7 @@ Beta-readiness review 5 October 2026: history wording made true from day one (re
 
 # Methodology — free beta
 
-**Version:** beta 1.0 · **Last updated:** 5 October 2026 · **Model version:** M1
+**Version:** beta 1.1 · **Last updated:** 12 October 2026 · **Model version:** M1
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -90,9 +90,9 @@ A model signal summarises the result in one label. It describes where the stock 
 | Signal | Meaning | Rule |
 | --- | --- | --- |
 | **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10%, and fair value based on at least two independent models |
-| **Neutral** | Middle of the model's scale, or a high score without a confirmed margin of safety | Composite score from 40 to below 70; or ≥ 70 without the other conditions for Undervalued |
+| **Mid score** | Middle of the model's scale, or a high score without a confirmed margin of safety | Composite score from 40 to below 70; or ≥ 70 without the other conditions for Undervalued |
 | **Low score** | Low on the model's scale | Composite score below 40. This does not by itself mean the price is above fair value. |
-| **Fails quality screen** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
+| **Screened out** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
 | **No signal** | Not enough comparison data to rank the stock yet | — |
 
 For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.
@@ -170,3 +170,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | Date | Model version | Change |
 | --- | --- | --- |
 | 5 October 2026 | M1 | First published version |
+| 12 October 2026 | M1 | Signals renamed: "Neutral" is now "Mid score" and "Fails quality screen" is now "Screened out". Scores, thresholds and fair values are unchanged. |

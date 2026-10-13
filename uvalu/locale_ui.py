@@ -111,7 +111,7 @@ def _preview(ctx: i18n.Ctx) -> None:
         (_("Change"), f'<span style="color:var(--up-txt);">{fmt_pct(3.2, signed=True)}</span> '
                       f'<span style="color:var(--down-txt);">{fmt_pct(-1.4, signed=True)}</span>', ""),
         (_("Last updated"), fmt_datetime(_dt.datetime(2026, 9, 27, 17, 35), style="medium"), ""),
-        (_("Signal"), signal_badge_html(*signal_badge_for(SIGNAL_UNDERVALUED)), ""),
+        (_("Model signal"), signal_badge_html(*signal_badge_for(SIGNAL_UNDERVALUED)), ""),
     ]
     # Sentence-case 11px labels, values 13.5px mono (design reference).
     inner = "".join(

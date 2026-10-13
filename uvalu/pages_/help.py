@@ -95,7 +95,7 @@ def _coverage_line() -> str:
     if not dist:
         return "—"
     pct = lambda code: fmt_pct(dist.get(code, 0.0) * 100, 0)
-    return h_("{a} Undervalued · {b} Neutral · {c} Low score · {d} Fails quality screen",
+    return h_("{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out",
               a=pct(SIGNAL_UNDERVALUED), b=pct(SIGNAL_NEUTRAL), c=pct(SIGNAL_LOW_SCORE), d=pct(SIGNAL_FAILS))
 
 
@@ -131,7 +131,7 @@ _FAQ = [
      N_("During the free beta prices are delayed quotes from Yahoo Finance; each signal shows the time "
         "of the price it used. Fundamentals are refreshed about every 24 hours. Real-time prices are "
         "not offered.")),
-    (N_("Why does a stock show “Fails quality screen”?"),
+    (N_("Why does a stock show “Screened out”?"),
      N_("It breaks one of the quality rules listed on this page; the explanation next to the badge "
         "names which. Its composite score is set to 0. It still appears in your portfolio and "
         "valuations.")),
@@ -148,7 +148,7 @@ _HEADER_HTML = '<div><span id="{anchor}" class="uv-anchor"></span><div class="uv
 def _rail() -> list[tuple[str, str]]:
     """The page's sections for the support_page rail."""
     return [
-        # Translators: Methodology › left-hand section list › the signal badges (Undervalued, Neutral, …).
+        # Translators: Methodology › left-hand section list › the signal badges (Undervalued, Mid score, …).
         (_("Badges"), "#help-badges"),
         # Translators: Methodology › left-hand section list › the fair-value models (Graham Number, EPV, …).
         (_("Models"), "#help-models"),

@@ -180,19 +180,19 @@ The composite score is summarised in a **descriptive model signal** (BDG-1). It 
 
 | Rule (first match wins) | `signal_code` | Label |
 |---|---|---|
-| Fails the quality screen (any hard-veto rule below) | `fails_screen` | **Fails quality screen** |
+| Fails the quality screen (any hard-veto rule below) | `fails_screen` | **Screened out** |
 | No public peer basis (user-selected set without a reference, Stage 5) | `pending` | **No signal** |
 | Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 10%, never below `MIN_MOS_FLOOR` = 10%, decision D1) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
-| Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Neutral** |
+| Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Mid score** |
 | Score < 40 | `low_score` | **Low score** |
 
-These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Neutral** on score.
+These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Mid score** on score.
 
-**Why not "Near fair value" / "Overvalued" for the lower bands.** The requirements' BDG-1 suggests MONITOR → "Near fair value" and AVOID → "Overvalued". Those labels would often be false: the bands come from the composite score (margin of safety + risk + quality + momentum + dividend), not from valuation alone, and a stock 30% below its model fair value with weak quality can sit in the lowest band. A label must describe what the model measured (REC-2; WER VI.97). Hence "Neutral" and "Low score". **[Counsel]** to confirm.
+**Why not "Near fair value" / "Overvalued" for the lower bands.** The requirements' BDG-1 suggests MONITOR → "Near fair value" and AVOID → "Overvalued". Those labels would often be false: the bands come from the composite score (margin of safety + risk + quality + momentum + dividend), not from valuation alone, and a stock 30% below its model fair value with weak quality can sit in the lowest band. A label must describe what the model measured (REC-2; WER VI.97). Hence "Mid score" and "Low score". The middle band was first called "Neutral"; on 12 Oct 2026 it became "Mid score", because "Neutral" reads like a sell-side rating ([signal label review](legal/signal-label-review.md), L12). For the same reason "Fails quality screen" became "Screened out" ("quality" is an evaluative word). The `signal_code`s stay `neutral` and `fails_screen`, so the signal history keeps one key per band. **[Counsel]** to confirm.
 
 ### What every signal is shown with (BDG-2, BDG-3, REC-3, REC-4, REC-6)
 A signal is never shown on its own. The badge, or the row it sits in, carries:
-- a visible **"Model signal"** header, or the qualifier "model signal" wherever the badge appears without that context (exports, emails, share cards, screenshots);
+- a visible **"Model signal"** column header or section title (Screener, Watchlist, Dashboard Holdings, the Analysis "Model signal history" card), or, where a badge stands on its own (drawer and Analysis headers), the visible "Model signal" label from `components.model_signal_badge_html(..., qualified=True)`. Exports carry no signal at all, and there are no emails or share cards with signals. `tests/test_signal_qualifier.py` enforces this (L14): any new code path that turns a signal into a label fails the test until it shows the qualifier and is added to its reviewed list;
 - the tooltip `SIGNAL_TOOLTIP`, *"Model output based on public data and the settings shown. Not a recommendation tailored to you."*, plus a link to the methodology page;
 - the **model fair value**, the **margin of safety**, and the models behind it (`fv_model_count`);
 - **`signal_computed_at`** (UTC) and **`price_as_of`** (when the price used was fetched);
@@ -200,7 +200,7 @@ A signal is never shown on its own. The badge, or the row it sits in, carries:
 - **`data_source`**, plus any attribution the data licence requires;
 - when `founder_holds` is True, the disclosure `FOUNDER_HOLDS_NOTICE` (REC-8). Any position counts, whatever its size. The flag comes from `load_founder_holdings()` and never moves a score or signal.
 
-`signal_reason(row)` gives a one-line statement of the rule and figures behind the signal, e.g. *"Model score 74 is at or above 70, and the price is 18% below the model fair value (minimum 0%)."* It uses descriptive terms only: no "buy", "avoid", "advice" or second-person phrasing (DIS-6). For **Fails quality screen** it names the rules that failed, from `veto_rules` (stable codes such as `debt_to_equity`, `negative_fcf`, `revenue_decline`; labels in `VETO_RULE_LABELS`).
+`signal_reason(row)` gives a one-line statement of the rule and figures behind the signal, e.g. *"Model score 74 is at or above 70, and the price is 18% below the model fair value (minimum 10%)."* It uses descriptive terms only: no "buy", "avoid", "advice" or second-person phrasing (DIS-6). For **Screened out** it names the rules that failed, from `veto_rules` (stable codes such as `debt_to_equity`, `negative_fcf`, `revenue_decline`; labels in `VETO_RULE_LABELS`).
 
 ### Methodology, horizon and risk warning (REC-5, REC-6)
 `methodology(**settings)` returns everything the public methodology page must show, read from the live constants and the active shared settings: every model and its base weight, the composite weights, the rank blend, the exact signal thresholds, every quality-screen rule, the signal definitions (`SIGNAL_DEFINITIONS`), the assumed horizon (`SIGNAL_HORIZON`: a multi-year view on current fundamentals, nothing about short-term price moves), the risk warning (`SIGNAL_RISK_WARNING`), the sensitivity note and the stale-price limit. Every badge links to that page.
@@ -211,10 +211,10 @@ A signal is never shown on its own. The badge, or the row it sits in, carries:
 - **Daily snapshot.** `signal_history.write_daily_snapshot()` stores every public signal with its inputs once a day. A past screen can then be reproduced even on days when no badge changed.
 - **Settings audit.** `settings_audit` logs each planned signal-moving change, each shared-settings change (who, old → new) and each new model version. This is the evidence for the founder's trading blackout (REC-9).
 - **Reproducibility.** Every row and log record carries `model_version` (`MODEL_VERSION`, bumped on any change that can move a fair value, score or signal) and `model_settings_id` (a hash of the shared thresholds, weights and the analyst switch), next to the inputs and model fair values. This makes any past signal reproducible on request.
-- **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Neutral), shown on the methodology page (REC-10).
+- **Distribution.** `signal_distribution(df)` gives the share of covered stocks per signal (e.g. 12% Undervalued, 55% Mid score), shown on the methodology page (REC-10).
 
 ### Hard Veto Rules (quality screen)
-`compute_scores`'s `_hard_veto` is true when **any** of the following holds; the stock's signal is then **Fails quality screen**. The
+`compute_scores`'s `_hard_veto` is true when **any** of the following holds; the stock's signal is then **Screened out**. The
 static, point-in-time checks:
 - Debt/equity ratio > **500%** i.e. 5.0× **(configurable, `max_debt_equity`)** — **skipped for Financial Services, Real Estate, and Utilities** (`screener.LEVERAGE_EXEMPT_SECTORS`), since high leverage is a structural feature of those business models (deposits/float, debt-financed property, capex-heavy regulated assets), not a distress signal. Other sectors are unaffected.
 - Free cash flow negative for the **3 most recent consecutive fiscal years** (`fcfHistory`, from the cash flow statement's "Free Cash Flow" row, newest first — `screener._fcf_history`). Falls back to the **single most recent reported period** (`freeCashflow`) when fewer than 3 years of history are available (recent IPOs, or tickers where the statement fetch failed/doesn't expose the row) — a single bad year no longer vetoes an otherwise-sound stock on its own once 3-year history exists.
@@ -252,9 +252,9 @@ Each sub-score (0–100) = BLEND_PCT×(percentile rank within the PUBLIC peer un
     ↓
 Composite Score = w_mos×MoS_sub + w_risk×Risk_sub + w_quality×Quality_sub + w_momentum×Momentum_sub + w_dividend×Dividend_sub  (Risk_sub already oriented safer = higher; weights from the Settings screening style, default balanced 0.24/0.22/0.24/0.15/0.15)
     ↓
-Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → Fails quality screen (score 0)
+Hard veto check — static: D/E [sector-exempt for Financials/Real Estate/Utilities], FCF negative 3+ consecutive years [or single period if <3yr history], at-risk dividend + coverage < 1.0×, confirmed zero average volume [== 0, not unreported]; trend (_trend_veto, needs 3+yr history): 3+yr revenue decline, EBIT negative 3yr, retained-earnings erosion, recent dividend cut + cover < 1.5× → Screened out (score 0)
     ↓
-Model signal: Undervalued (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Neutral | Low score | Fails quality screen | No signal (no public peer basis)
+Model signal: Undervalued (score ≥ threshold AND MoS ≥ min_mos AND fair value not fv_basis_thin) | Mid score | Low score | Screened out | No signal (no public peer basis)
     ↓
 Shown with: tooltip + methodology link, model fair value, MoS, signal_computed_at, price_as_of, data_flags, data_source; changes logged to signal_history (12 months); model_version + model_settings_id per row
 ```
@@ -278,7 +278,7 @@ These constrain any future change to this algorithm. Review them before each rel
 | Analyst inputs | Analyst target model (weight 0.13) + recommendation mean in momentum | Off until licensed; the blend re-normalises | DATA-6 |
 | Peer universe | Enabled exchanges + holdings on disabled exchanges (+ in code: each user's manual tickers); holdings ranked among themselves before the first build | Public universe only (`peer_mask`); user rows scored against it; no ranked signal without a public reference | PER-1, PER-2 |
 | Stage 3 | "Total Expected Return" | "Implied Return % (est.)", explicitly not an expected return | REC-2, DIS-5 |
-| Stage 6 | Decision: Strong Buy / Monitor / Avoid, veto → Avoid | Model signal: Undervalued / Neutral / Low score / Fails quality screen / No signal | BDG-1, BDG-3 |
+| Stage 6 | Decision: Strong Buy / Monitor / Avoid, veto → Avoid | Model signal: Undervalued / Mid score / Low score / Screened out / No signal | BDG-1, BDG-3 |
 | Presentation | — | Tooltip, methodology link, fair value + MoS, timestamps, data flags and source with every signal | BDG-2/3, REC-3/4 |
 | Methodology | Thresholds only in this spec | `methodology()` generates the public page from the live constants: horizon, risk warning, sensitivity | REC-5, REC-6 |
 | History | — | Signal-change log, 12 months, visible per stock; distribution of signals | REC-7, REC-10 |

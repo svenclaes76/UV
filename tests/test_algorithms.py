@@ -892,7 +892,7 @@ class TestSignalReason:
         r = pd.Series({"signal_code": "neutral", "Value Score": 46.0,
                        "margin_of_safety": -0.22, "veto": False})
         msg = screener.signal_reason(r, buy_threshold=70, min_mos=0.0)
-        assert msg.startswith("Neutral:")
+        assert msg.startswith("Mid score:")
         assert "below the upper threshold of 70" in msg
         assert "-22% is below the +10% minimum" in msg
 

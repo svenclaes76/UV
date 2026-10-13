@@ -102,7 +102,7 @@ between screens at some point (see the `dq/*` history); the tests in
   `backfill_thin_rows_from_screener_lane` swaps in the screener lane's row when
   that one has *more* live models. `fv_basis_thin` also gates Stage 6: a thin
   row cannot reach `signal_code == "undervalued"` (it falls through to
-  Neutral on score instead) — a weakly-corroborated composite alone isn't a
+  Mid score on score instead) — a weakly-corroborated composite alone isn't a
   quality-screen failure, just not enough to confirm the valuation label. This was the FV-5 "Composite-score
   asterisk" deferred at ship time; the NAITR.AS incident (a lone book-value
   fallback off a corrupted price producing a spurious Strong Buy) is what
@@ -269,9 +269,9 @@ between screens at some point (see the `dq/*` history); the tests in
 
 - `components.signal_badge_for(signal_code, veto)` maps a row to a badge:
   - real quality-screen failure (`components.is_hard_veto`, NaN-safe) →
-    **Fails quality screen**;
+    **Screened out**;
   - a scored `undervalued` / `neutral` / `low_score` / `pending` → its label
-    from `screener.SIGNAL_LABELS` (Undervalued / Neutral / Low score /
+    from `screener.SIGNAL_LABELS` (Undervalued / Mid score / Low score /
     No signal);
   - anything else (no `signal_code` — the holding has no scored screener row)
     → neutral **No data**.
