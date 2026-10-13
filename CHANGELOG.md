@@ -21,6 +21,15 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Fixed
+
+- Two-step sign-in: wrong authenticator or backup codes now count towards
+  the account lock, with the same limit and lock time as wrong passwords
+  (Admin › Security). Entering the correct password again no longer resets
+  that count, a locked account refuses even a correct code, and a code that
+  was already used to sign in can't be used again. Before, someone who knew
+  a password could keep guessing codes.
+
 ## [2026.10.5] — 2026-10-11
 
 Import & export now works for every user: a portfolio workbook you can restore

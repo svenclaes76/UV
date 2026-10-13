@@ -653,6 +653,20 @@ class TestTotpChallengeFlow:
         assert "didn't match" in "".join(m.value for m in at.markdown)
         assert "jwt_token" not in at.session_state
 
+    def test_lockout_from_wrong_codes_drops_back_to_login_form(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        for _ in range(2):
+            at.text_input[0].set_value("000000")
+            [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "now locked" in "".join(m.value for m in at.markdown)
+        assert "uv_totp_pending" not in at.session_state
+        assert "jwt_token" not in at.session_state
+
     def test_expired_pending_drops_back_to_login_form(self):
         auth.register("first@example.com", "password123")
         _enroll_totp("first@example.com")

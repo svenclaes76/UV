@@ -18,6 +18,7 @@ restarts).
 """
 
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -85,6 +86,8 @@ def _normalize_user(data: dict) -> dict:
         "reset_token_expires":  data.get("reset_token_expires"),
         "totp_secret":      data.get("totp_secret"),
         "totp_enabled":     data.get("totp_enabled", False),
+        "totp_failed_attempts": data.get("totp_failed_attempts", 0),
+        "totp_last_step":   data.get("totp_last_step"),
         "backup_codes":     data.get("backup_codes", []),
         "trusted_devices":  data.get("trusted_devices", []),
     }
@@ -758,18 +761,88 @@ def regenerate_backup_codes(email: str) -> list[str] | None:
     return plain_codes
 
 
+def _second_factor_locked(user: dict) -> str | None:
+    """The lock message if the account is locked, else None. Checked before
+    any code is verified, so a correct code during the lock window can't be
+    told apart from a wrong one (same rule as login())."""
+    locked_until = user.get("locked_until")
+    if not locked_until:
+        return None
+    locked_dt = datetime.fromisoformat(locked_until)
+    now = datetime.now(timezone.utc)
+    if now >= locked_dt:
+        return None
+    remaining_min = max(1, -(-int((locked_dt - now).total_seconds()) // 60))  # ceil
+    return ngettext("This account is temporarily locked. Try again in {count} minute.",
+                    "This account is temporarily locked. Try again in {count} minutes.", remaining_min)
+
+
+def _second_factor_failed(users: dict, email: str, user: dict, reason: str) -> str:
+    """Count a wrong authenticator or backup code. The counter is separate
+    from the password one and survives a correct password (login() resets
+    only failed_attempts), so re-entering the password every few minutes
+    can't buy unlimited code guesses. At the limit the account takes the
+    same lock as too many wrong passwords — login() then refuses even the
+    correct password until it expires, so the password step has to be
+    passed again afterwards. Returns the message to show."""
+    max_attempts, lock_minutes = _rate_limit_settings()
+    user["totp_failed_attempts"] = user.get("totp_failed_attempts", 0) + 1
+    if user["totp_failed_attempts"] >= max_attempts:
+        user["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=lock_minutes)).isoformat()
+        user["totp_failed_attempts"] = 0
+        users[email] = user
+        _save_users(users)
+        logkit.auth_event("login.failed", outcome="locked", reason=reason,
+                          user_id=logkit.user_hash(email))
+        return _("That code didn't match. Too many failed attempts — this account is now locked for {minutes} minutes.",
+                 minutes=lock_minutes)
+    users[email] = user
+    _save_users(users)
+    logkit.auth_event("login.failed", outcome="failed", reason=reason,
+                      user_id=logkit.user_hash(email))
+    return _("That code didn't match. Try again.")
+
+
+def _matching_totp_step(secret: str, code: str) -> int | None:
+    """The time step (30 s counter) whose code equals `code`, checking the
+    current step and one either side — the same window as
+    TOTP.verify(valid_window=1) — or None. Knowing the step lets
+    complete_totp_login() refuse a code that was already accepted."""
+    code = (code or "").replace(" ", "").strip()
+    if not code.isdigit():
+        return None
+    totp = pyotp.TOTP(secret)
+    now_step = totp.timecode(datetime.now(timezone.utc))
+    for step in (now_step - 1, now_step, now_step + 1):
+        if hmac.compare_digest(totp.generate_otp(step), code):
+            return step
+    return None
+
+
 def complete_totp_login(email: str, code: str, user_agent: str = "") -> tuple[bool, str]:
     """Second step of a TOTP-gated login() — verifies the 6-digit code and,
-    on success, mints the session login() withheld."""
+    on success, mints the session login() withheld.
+
+    Wrong codes count towards a lockout (_second_factor_failed), and a code
+    whose time step was already accepted is refused, so a code seen once
+    can't be replayed within its 90-second window."""
     email = email.strip().lower()
     users = _load_users()
     user = users.get(email)
     if not user or not user.get("totp_enabled"):
         return False, _("Two-factor authentication isn't enabled for this account.")
-    if not pyotp.totp.TOTP(user["totp_secret"]).verify(code, valid_window=1):
-        logkit.auth_event("login.failed", outcome="failed", reason="bad_totp_code",
+    locked = _second_factor_locked(user)
+    if locked:
+        logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
                           user_id=logkit.user_hash(email))
-        return False, _("That code didn't match. Try again.")
+        return False, locked
+    step = _matching_totp_step(user["totp_secret"], code)
+    last_step = user.get("totp_last_step")
+    if step is None or (last_step is not None and step <= last_step):
+        reason = "bad_totp_code" if step is None else "reused_totp_code"
+        return False, _second_factor_failed(users, email, user, reason)
+    user["totp_last_step"] = step
+    user["totp_failed_attempts"] = 0
     token = _issue_session(users, email, user, user_agent)
     logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                       role=user.get("role", "Analyst"), method="totp")
@@ -784,17 +857,21 @@ def complete_backup_code_login(email: str, code: str, user_agent: str = "") -> t
     user = users.get(email)
     if not user or not user.get("totp_enabled"):
         return False, _("Two-factor authentication isn't enabled for this account.")
+    locked = _second_factor_locked(user)
+    if locked:
+        logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
+                          user_id=logkit.user_hash(email))
+        return False, locked
     code = code.strip().lower()
     for i, hashed in enumerate(user.get("backup_codes", [])):
         if bcrypt.checkpw(code.encode(), hashed.encode()):
             user["backup_codes"].pop(i)
+            user["totp_failed_attempts"] = 0
             token = _issue_session(users, email, user, user_agent)
             logkit.auth_event("login.ok", outcome="ok", user_id=logkit.user_hash(email),
                               role=user.get("role", "Analyst"), method="backup_code")
             return True, token
-    logkit.auth_event("login.failed", outcome="failed", reason="bad_backup_code",
-                      user_id=logkit.user_hash(email))
-    return False, _("That code didn't match. Try again.")
+    return False, _second_factor_failed(users, email, user, "bad_backup_code")
 
 
 def two_factor_status(email: str) -> str:

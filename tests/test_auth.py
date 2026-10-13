@@ -267,6 +267,110 @@ class TestLoginRateLimiting:
         assert after != ""
 
 
+
+def _enroll_totp(email: str) -> str:
+    import pyotp
+    secret, _ = auth.begin_totp_enrollment(email)
+    auth.confirm_totp_enrollment(email, pyotp.TOTP(secret).now())
+    return secret
+
+
+def _set_attempts(n: int, minutes: int = 10) -> None:
+    settings.save_shared_settings({**settings.load_shared_settings(),
+                                   "login_attempts_before_lock": n, "lock_minutes": minutes})
+
+
+class TestSecondFactorLimits:
+    """SR1 (docs/security-review.md #1): wrong authenticator or backup codes
+    count towards the lockout, a correct password doesn't reset that count,
+    and an accepted code can't be replayed."""
+
+    def _password_step(self):
+        ok, result = auth.login("first@example.com", "password123")
+        assert ok and result == auth.TOTP_REQUIRED
+
+    def test_wrong_codes_lock_the_account(self):
+        _set_attempts(3)
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        self._password_step()
+        for _ in range(2):
+            ok, msg = auth.complete_totp_login("first@example.com", "000000")
+            assert not ok and "Try again" in msg
+        ok, msg = auth.complete_totp_login("first@example.com", "000000")
+        assert not ok and "now locked for 10 minutes" in msg
+        assert auth.get_lockout("first@example.com") is not None
+
+    def test_locked_account_refuses_even_the_correct_code_and_password(self):
+        import pyotp
+        _set_attempts(1)
+        auth.register("first@example.com", "password123")
+        secret = _enroll_totp("first@example.com")
+        self._password_step()
+        auth.complete_totp_login("first@example.com", "000000")  # trips the lock
+        ok, msg = auth.complete_totp_login("first@example.com", pyotp.TOTP(secret).now())
+        assert not ok and "temporarily locked" in msg
+        ok, msg = auth.login("first@example.com", "password123")
+        assert not ok and "temporarily locked" in msg
+
+    def test_correct_password_does_not_reset_the_code_counter(self):
+        _set_attempts(3)
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        self._password_step()
+        auth.complete_totp_login("first@example.com", "000000")
+        auth.complete_totp_login("first@example.com", "000000")
+        self._password_step()  # re-entering the password must not buy new guesses
+        ok, msg = auth.complete_totp_login("first@example.com", "000000")
+        assert not ok and "now locked" in msg
+
+    def test_correct_code_resets_the_counter(self):
+        import pyotp
+        _set_attempts(3)
+        auth.register("first@example.com", "password123")
+        secret = _enroll_totp("first@example.com")
+        self._password_step()
+        auth.complete_totp_login("first@example.com", "000000")
+        auth.complete_totp_login("first@example.com", "000000")
+        ok, _ = auth.complete_totp_login("first@example.com", pyotp.TOTP(secret).now())
+        assert ok
+        assert auth._load_users()["first@example.com"]["totp_failed_attempts"] == 0
+
+    def test_accepted_code_cannot_be_reused(self):
+        import pyotp
+        auth.register("first@example.com", "password123")
+        secret = _enroll_totp("first@example.com")
+        code = pyotp.TOTP(secret).now()
+        self._password_step()
+        ok, _ = auth.complete_totp_login("first@example.com", code)
+        assert ok
+        self._password_step()
+        ok, msg = auth.complete_totp_login("first@example.com", code)
+        assert not ok and "didn't match" in msg
+
+    def test_wrong_backup_codes_count_towards_the_same_lock(self):
+        _set_attempts(2)
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        auth.regenerate_backup_codes("first@example.com")
+        self._password_step()
+        auth.complete_totp_login("first@example.com", "000000")
+        ok, msg = auth.complete_backup_code_login("first@example.com", "nope-nope")
+        assert not ok and "now locked" in msg
+        assert auth.get_lockout("first@example.com") is not None
+
+    def test_locked_account_refuses_a_valid_backup_code(self):
+        _set_attempts(1)
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        code = auth.regenerate_backup_codes("first@example.com")[0]
+        self._password_step()
+        auth.complete_backup_code_login("first@example.com", "nope-nope")  # trips the lock
+        ok, msg = auth.complete_backup_code_login("first@example.com", code)
+        assert not ok and "temporarily locked" in msg
+        assert auth.backup_codes_remaining("first@example.com") == 10  # not consumed
+
+
 class TestVerifyToken:
     def test_garbage_token_returns_none_none_none(self):
         email, role, sid = auth.verify_token("not-a-real-jwt")

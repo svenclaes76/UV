@@ -123,6 +123,16 @@ def _sync_trusted_device_cookie(device_id: str) -> None:
     )
 
 
+def _second_factor_failed(pending: dict, message: str) -> None:
+    """Show a failed authenticator/backup-code attempt. When that attempt
+    locked the account (SR1), drop the pending challenge too: the lock
+    applies to the password step as well, so the user starts again from the
+    password screen once it expires instead of guessing on here."""
+    st.markdown(f'<div class="uv-login-err">{message}</div>', unsafe_allow_html=True)
+    if get_lockout(pending["email"]) is not None:
+        st.session_state.pop("uv_totp_pending", None)
+
+
 def _render_totp_challenge(pending: dict) -> None:
     st.markdown(
         f'<div class="uv-login-heading">{h_("Enter your authenticator code")}</div>'
@@ -143,7 +153,7 @@ def _render_totp_challenge(pending: dict) -> None:
                 _sync_trusted_device_cookie(device_id)
             st.rerun()
         else:
-            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+            _second_factor_failed(pending, result)
 
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -184,7 +194,7 @@ def _render_backup_code_challenge(pending: dict) -> None:
             _start_session(result)
             st.rerun()
         else:
-            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+            _second_factor_failed(pending, result)
 
     if st.button(_("Back to the authenticator code"), key="backup_back_to_totp", width="stretch"):
         st.session_state["uv_totp_pending"]["mode"] = "totp"
