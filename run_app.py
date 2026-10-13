@@ -119,13 +119,27 @@ def _stamp_build(schema_version: "int | None") -> None:
         print(f"Build stamp skipped: {exc}")
 
 
+def _streamlit_args(port: str, behind_proxy: bool) -> list[str]:
+    """Streamlit command line. Behind the reverse proxy (UVALU_BEHIND_PROXY=1,
+    docs/deployment.md) the app listens on localhost only, over plain HTTP:
+    Caddy terminates TLS with a real certificate, so the self-signed cert in
+    .streamlit/config.toml is switched off."""
+    args = [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port]
+    if behind_proxy:
+        args += ["--server.address", "127.0.0.1",
+                 "--server.sslCertFile", "", "--server.sslKeyFile", "",
+                 "--server.headless", "true",
+                 "--server.enableXsrfProtection", "true",
+                 "--browser.gatherUsageStats", "false"]
+    return args
+
+
 if __name__ == "__main__":
-    _ensure_cert()
+    _behind_proxy = os.environ.get("UVALU_BEHIND_PROXY") == "1"
+    if not _behind_proxy:
+        _ensure_cert()
     _schema = _migrate_data()
     _check_passwordless_accounts()
     _stamp_build(_schema)
     port = os.environ.get("PORT", "8501")
-    subprocess.run(
-    [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port],
-    check=True,
-)
+    subprocess.run(_streamlit_args(port, _behind_proxy), check=True)
