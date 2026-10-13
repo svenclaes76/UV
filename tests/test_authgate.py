@@ -385,6 +385,7 @@ class TestAuthWallLockout:
         # account, so it can't reveal whether an email has an account.
         settings.save_shared_settings({**settings.load_shared_settings(),
                                        "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
         at = _run_auth_wall()
         for _ in range(2):
             at.text_input[0].set_value("nobody@example.com")
@@ -407,6 +408,7 @@ class TestAuthWallLockout:
 
     def test_reload_while_locked_shows_card_without_resubmitting(self):
         from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
         until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
         at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
         assert not at.exception, [str(e.value) for e in at.exception]
@@ -421,10 +423,13 @@ class TestAuthWallLockout:
         at = _submit_login(_run_auth_wall(), "first@example.com", "password123")  # fresh session
         assert not at.exception, [str(e.value) for e in at.exception]
         assert "jwt_token" not in at.session_state
-        assert "Invalid email or password." in "".join(m.value for m in at.markdown)
+        # With a limit of 1 this attempt also starts the session countdown.
+        html = "".join(m.value for m in at.markdown)
+        assert "Invalid email or password." in html or "Sign in temporarily locked" in html
 
     def test_switch_account_button_reveals_form_again(self):
         from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
         until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
         at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
         switch = [b for b in at.button if b.label == "Not you? Use a different account"][0]
