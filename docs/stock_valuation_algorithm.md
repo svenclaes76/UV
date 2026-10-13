@@ -120,7 +120,7 @@ summed over whichever models produced a value for that stock; the weighted avera
 ```
 MoS = (Fair Value − Price) / Fair Value
 ```
-There is no fixed 20–30% band on MoS itself. Instead, the **Undervalued** signal additionally requires MoS to clear a configurable minimum (`min_mos`, default **0%**); see Stage 6. *Recommendation:* at the 0% default, a price 0.5% below the model fair value can be labelled "Undervalued". Raise the shared default to about 10% before launch so that the label stays meaningful.
+There is no fixed 20–30% band on MoS itself. Instead, the **Undervalued** signal additionally requires MoS to clear a configurable minimum (`min_mos`, default **10%**, never below `MIN_MOS_FLOOR` = 10%, decision D1); see Stage 6.
 
 ### Model-Implied Return (estimate)
 ```

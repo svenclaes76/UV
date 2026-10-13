@@ -77,6 +77,22 @@ must be confirmed by an ITAA accountant.
 | L27 | **Sole trader vs BV break-even** with the real salary and expected profit; the trigger may come before v3's revenue gate. | Medium | Paid launch | Accountant |
 | L28 | **Yearly tax-rate review:** check the dividend withholding rules in the app every January and bump `TAX_RULES_REVIEWED`. | Low | Every January | Founder |
 
+## Valuation model
+
+From the valuation model review (13 October 2026,
+[`valuation-model-review.md`](valuation-model-review.md)), on the 13 October
+signal snapshot. These move signals: bump `MODEL_VERSION` and respect the
+founder's trading blackout.
+
+| # | Item | Do it before |
+| --- | --- | --- |
+| V1 | **Currency mismatch:** ~40% of rows quote in another currency than they report in (Investor AB on Milan: book value in SEK, price in EUR; 28 of 128 Undervalued). Store the reporting currency, convert per-share fundamentals with `fx.py`; until then flag the rows and keep them out of medians and Undervalued. | Inviting anyone you don't know personally |
+| V2 | **Universe:** ~1,000 US secondary listings on Milan/Frankfurt, 179 dormant cross-listings vetoed for zero volume; 43% Screened out. One line per company, no dormant lines, decide on non-European companies. | With V1 |
+| V3 | **Normalised EPS** for P/E fair value and Graham; growth tilt from history; flag trailing P/E < 4 (11 Undervalued have P/E < 5). | Paid launch |
+| V4 | **Model dispersion:** median max/min 3.3×, 328 stocks > 10×. Range instead of a point and no Undervalued above ~3×; plausibility flag for MoS > 50%. | Paid launch |
+| V5 | **Veto calibration** after V1–V2: revenue decline threshold, retained-earnings rule on a sample. | Paid launch |
+| V6 | **Methodology page:** the models' conservative level (median MoS −33%), euro rate for non-euro stocks, the universe definition. | With V1–V4 |
+
 ## Design and code
 
 | # | Item |
