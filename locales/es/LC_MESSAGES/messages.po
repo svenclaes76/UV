@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-13 18:37+0000\n"
-"PO-Revision-Date: 2026-10-13 20:36+0200\n"
+"PO-Revision-Date: 2026-10-13 20:42+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
 "Language: es\n"
@@ -127,8 +127,7 @@ msgstr "No se ha podido leer el almacén de usuarios (clave de cifrado incorrect
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091
-#: auth.py:1117 auth.py:1305
+#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091 auth.py:1117 auth.py:1305
 msgid "User not found."
 msgstr "No se ha encontrado el usuario."
 
@@ -1583,12 +1582,7 @@ msgid "Use a backup code"
 msgstr "Usar un código de respaldo"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304
-#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
-#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
-#: uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497
-#: uvalu/pages_/settings.py:540
+#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418 uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497 uvalu/pages_/settings.py:540
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1749,15 +1743,12 @@ msgstr "FIJADO POR LA INVITACIÓN"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751
-#: uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601
-#: uvalu/pages_/settings.py:605
+#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751 uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601 uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr "Contraseña"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539
-#: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
+#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539 uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Al menos {min_len} caracteres."
@@ -1862,10 +1853,7 @@ msgid "Sign in temporarily locked"
 msgstr "Inicio de sesión bloqueado temporalmente"
 
 #: uvalu/authgate.py:701
-#, fuzzy
-msgid ""
-"Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
-" expires."
+msgid "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires."
 msgstr "Demasiados intentos de inicio de sesión fallidos. Uvalu aceptará un nuevo intento cuando termine el temporizador."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
@@ -7425,28 +7413,10 @@ msgstr[1] "Todavía no hay datos del screener para tus tickers en seguimiento: a
 #~ msgid "Signal"
 #~ msgstr "Señal"
 
-#~ msgid ""
-#~ "Invalid email or password. Too many "
-#~ "failed attempts — this account is now "
-#~ "locked for {minutes} minutes."
-#~ msgstr ""
-#~ "Correo o contraseña incorrectos. Demasiados "
-#~ "intentos fallidos: esta cuenta queda bloqueada"
-#~ " durante {minutes} minutos."
+#~ msgid "Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes."
+#~ msgstr "Correo o contraseña incorrectos. Demasiados intentos fallidos: esta cuenta queda bloqueada durante {minutes} minutos."
 
-#~ msgid ""
-#~ "Invalid email or password. {count} attempt "
-#~ "remains before this account is locked for"
-#~ " {minutes} minutes."
-#~ msgid_plural ""
-#~ "Invalid email or password. {count} attempts "
-#~ "remain before this account is locked for"
-#~ " {minutes} minutes."
-#~ msgstr[0] ""
-#~ "Correo o contraseña incorrectos. Queda {count}"
-#~ " intento antes de que la cuenta se "
-#~ "bloquee durante {minutes} minutos."
-#~ msgstr[1] ""
-#~ "Correo o contraseña incorrectos. Quedan {count}"
-#~ " intentos antes de que la cuenta se"
-#~ " bloquee durante {minutes} minutos."
+#~ msgid "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes."
+#~ msgid_plural "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes."
+#~ msgstr[0] "Correo o contraseña incorrectos. Queda {count} intento antes de que la cuenta se bloquee durante {minutes} minutos."
+#~ msgstr[1] "Correo o contraseña incorrectos. Quedan {count} intentos antes de que la cuenta se bloquee durante {minutes} minutos."
