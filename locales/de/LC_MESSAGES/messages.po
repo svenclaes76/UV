@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-12 20:43+0000\n"
-"PO-Revision-Date: 2026-10-12 22:32+0200\n"
+"PO-Revision-Date: 2026-10-13 19:19+0200\n"
 "Last-Translator: \n"
 "Language-Team: de <LL@li.org>\n"
 "Language: de\n"
@@ -25,7 +25,9 @@ msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:113 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258 uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503 uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
+#: app.py:113 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
+#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
+#: uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
 msgid "Portfolio"
 msgstr "Portfolio"
 
@@ -55,7 +57,8 @@ msgstr "Analyse"
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197 uvalu/shell.py:435
+#: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197
+#: uvalu/shell.py:435
 msgid "Methodology"
 msgstr "Methodik"
 
@@ -63,7 +66,8 @@ msgstr "Methodik"
 msgid "Legal"
 msgstr "Rechtliches"
 
-#: app.py:122 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161 uvalu/pages_/help.py:301 uvalu/shell.py:438
+#: app.py:122 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
+#: uvalu/pages_/help.py:301 uvalu/shell.py:438
 msgid "About Uvalu"
 msgstr "Über Uvalu"
 
@@ -149,7 +153,8 @@ msgstr[1] "E-Mail oder Passwort ungültig. Noch {count} Versuche, bevor dieses K
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:617 auth.py:637 auth.py:713 auth.py:886 auth.py:968 auth.py:991 auth.py:1017 auth.py:1205
+#: auth.py:617 auth.py:637 auth.py:713 auth.py:886 auth.py:968 auth.py:991
+#: auth.py:1017 auth.py:1205
 msgid "User not found."
 msgstr "Benutzer nicht gefunden."
 
@@ -555,7 +560,8 @@ msgid "Below model fair value"
 msgstr "Unter dem fairen Wert laut Modell"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:286 uvalu/pages_/risk.py:288 uvalu/pages_/risk.py:290 uvalu/pages_/risk.py:291
+#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:286
+#: uvalu/pages_/risk.py:288 uvalu/pages_/risk.py:290 uvalu/pages_/risk.py:291
 msgid "N/A"
 msgstr "k. A."
 
@@ -855,7 +861,6 @@ msgstr "Niedriger Score"
 #. wording.
 #: screener.py:331 uvalu/drawer.py:238 uvalu/pages_/analysis.py:361
 #: uvalu/pages_/risk.py:447
-#, fuzzy
 msgid "Screened out"
 msgstr "Ausgefiltert"
 
@@ -1318,7 +1323,8 @@ msgid "Language & region"
 msgstr "Sprache und Region"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:188 uvalu/locale_ui.py:191 uvalu/locale_ui.py:295 workbook.py:266
+#: uvalu/locale_ui.py:188 uvalu/locale_ui.py:191 uvalu/locale_ui.py:295
+#: workbook.py:266
 msgid "Language"
 msgstr "Sprache"
 
@@ -1425,7 +1431,8 @@ msgstr "Zuletzt gesehenes „Was ist neu“"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:467 workbook.py:486 workbook.py:507 workbook.py:514 workbook.py:559
+#: workbook.py:467 workbook.py:486 workbook.py:507 workbook.py:514
+#: workbook.py:559
 #, python-brace-format
 msgid "{column} is empty."
 msgstr "{column} ist leer."
@@ -1555,7 +1562,8 @@ msgstr "Es gibt noch keine Konten. Dieses Konto erhält vollen Admin-Zugriff –
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
-#: uvalu/authgate.py:32 uvalu/pages_/settings.py:425 uvalu/pages_/settings.py:457
+#: uvalu/authgate.py:32 uvalu/pages_/settings.py:425
+#: uvalu/pages_/settings.py:457
 msgid "New password and confirmation don't match."
 msgstr "Neues Passwort und Bestätigung stimmen nicht überein."
 
@@ -1593,7 +1601,12 @@ msgid "Use a backup code"
 msgstr "Backup-Code verwenden"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418 uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497 uvalu/pages_/settings.py:540
+#: uvalu/authgate.py:154 uvalu/authgate.py:172 uvalu/dialogs.py:304
+#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
+#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
+#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
+#: uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497
+#: uvalu/pages_/settings.py:540
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -1754,12 +1767,15 @@ msgstr "DURCH EINLADUNG FESTGELEGT"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702 uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:601 uvalu/pages_/settings.py:605
+#: uvalu/authgate.py:363 uvalu/authgate.py:420 uvalu/authgate.py:702
+#: uvalu/authgate.py:707 uvalu/authgate.py:749 uvalu/pages_/settings.py:601
+#: uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr "Passwort"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489 uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
+#: uvalu/authgate.py:365 uvalu/authgate.py:422 uvalu/authgate.py:489
+#: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Mindestens {min_len} Zeichen."
@@ -1824,12 +1840,14 @@ msgid "Choose a new password"
 msgstr "Wähle ein neues Passwort"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:487 uvalu/pages_/settings.py:411 uvalu/pages_/settings.py:443
+#: uvalu/authgate.py:487 uvalu/pages_/settings.py:411
+#: uvalu/pages_/settings.py:443
 msgid "New password"
 msgstr "Neues Passwort"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:490 uvalu/pages_/settings.py:414 uvalu/pages_/settings.py:446
+#: uvalu/authgate.py:490 uvalu/pages_/settings.py:414
+#: uvalu/pages_/settings.py:446
 msgid "Confirm new password"
 msgstr "Neues Passwort bestätigen"
 
@@ -2267,8 +2285,8 @@ msgstr "Verzögerter Kurs — kein Live-Intraday-Kurs"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
 #: uvalu/components.py:1103 uvalu/components.py:1188 uvalu/drawer.py:325
-#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41
-#: uvalu/pages_/watchlist.py:121
+#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188
+#: uvalu/pages_/portfolio.py:41 uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr "Die Rolle Betrachter ist schreibgeschützt"
 
@@ -2383,7 +2401,8 @@ msgid "Per share"
 msgstr "Je Aktie"
 
 #. Context: Table column header: number of shares
-#: uvalu/components.py:1942 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
+#: uvalu/components.py:1942 uvalu/pages_/portfolio.py:55
+#: uvalu/pages_/portfolio.py:61
 msgid "Shares"
 msgstr "Stück"
 
@@ -2524,9 +2543,9 @@ msgstr "Buchung bearbeiten"
 msgid "View linked entry"
 msgstr "Verknüpfte Buchung ansehen"
 
-#: uvalu/components.py:2279 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551
+#: uvalu/components.py:2279 uvalu/pages_/analysis.py:244
+#: uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:445
+#: uvalu/pages_/portfolio.py:503 uvalu/pages_/portfolio.py:551
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Zurück zu {page}"
@@ -2615,7 +2634,8 @@ msgid "Viewer role is read-only."
 msgstr "Die Rolle Betrachter ist schreibgeschützt."
 
 #. Context: Field label and column header: stock ticker symbol (e.g. ABI.BR)
-#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:110 uvalu/pages_/watchlist.py:111
+#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:110
+#: uvalu/pages_/watchlist.py:111
 msgid "Ticker"
 msgstr "Ticker"
 
@@ -2668,7 +2688,8 @@ msgstr "Löschen"
 
 #. Context: Trade and cash dialogs › preview row: cash balance before this
 #. action
-#: uvalu/dialogs.py:374 uvalu/dialogs.py:456 uvalu/dialogs.py:461 uvalu/dialogs.py:1199 uvalu/dialogs.py:1203
+#: uvalu/dialogs.py:374 uvalu/dialogs.py:456 uvalu/dialogs.py:461
+#: uvalu/dialogs.py:1199 uvalu/dialogs.py:1203
 msgid "Current balance"
 msgstr "Aktueller Saldo"
 
@@ -2702,7 +2723,9 @@ msgstr "Barmittel nach dem Trade"
 
 #. Context: Portfolio › button to record a new holding; also the title of the
 #. Add position dialog
-#: uvalu/dialogs.py:387 uvalu/pages_/dashboard.py:187 uvalu/pages_/portfolio.py:200 uvalu/pages_/portfolio.py:260 uvalu/pages_/portfolio.py:448
+#: uvalu/dialogs.py:387 uvalu/pages_/dashboard.py:187
+#: uvalu/pages_/portfolio.py:200 uvalu/pages_/portfolio.py:260
+#: uvalu/pages_/portfolio.py:448
 msgid "Add position"
 msgstr "Position hinzufügen"
 
@@ -2753,7 +2776,8 @@ msgid "Enter shares and either a total cost or a price per share."
 msgstr "Gib die Stückzahl und entweder Gesamtkosten oder einen Preis je Aktie ein."
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
-#: uvalu/dialogs.py:457 uvalu/dialogs.py:461 uvalu/dialogs.py:1200 uvalu/locale_ui.py:111
+#: uvalu/dialogs.py:457 uvalu/dialogs.py:461 uvalu/dialogs.py:1200
+#: uvalu/locale_ui.py:111
 msgid "Change"
 msgstr "Änderung"
 
@@ -2764,7 +2788,8 @@ msgid "no cash change"
 msgstr "keine Barmittel-Änderung"
 
 #. Context: Cash dialog › preview total: balance after this entry
-#: uvalu/dialogs.py:458 uvalu/dialogs.py:464 uvalu/dialogs.py:1165 uvalu/dialogs.py:1211
+#: uvalu/dialogs.py:458 uvalu/dialogs.py:464 uvalu/dialogs.py:1165
+#: uvalu/dialogs.py:1211
 msgid "Balance after"
 msgstr "Saldo danach"
 
@@ -2980,12 +3005,14 @@ msgstr "Verkaufserlös"
 
 #. Context: Portfolio › KPI card label and closed-positions column: realised
 #. profit and loss
-#: uvalu/dialogs.py:808 uvalu/pages_/portfolio.py:62 uvalu/pages_/portfolio.py:309
+#: uvalu/dialogs.py:808 uvalu/pages_/portfolio.py:62
+#: uvalu/pages_/portfolio.py:309
 msgid "Realised P&L"
 msgstr "Realisierter G/V"
 
 #. Context: Closed trade dialogs › field label; Screener › filter label
-#: uvalu/dialogs.py:814 uvalu/pages_/screener.py:291 uvalu/pages_/screener.py:292
+#: uvalu/dialogs.py:814 uvalu/pages_/screener.py:291
+#: uvalu/pages_/screener.py:292
 msgid "Sector"
 msgstr "Sektor"
 
@@ -3271,7 +3298,8 @@ msgstr "Geschlossene Positionen öffnen"
 
 #. Context: Portfolio › card and full-page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/dialogs.py:1275 uvalu/pages_/portfolio.py:324 uvalu/pages_/portfolio.py:447
+#: uvalu/dialogs.py:1275 uvalu/pages_/portfolio.py:324
+#: uvalu/pages_/portfolio.py:447
 msgid "Open positions"
 msgstr "Offene Positionen"
 
@@ -3303,7 +3331,9 @@ msgstr "Schließen"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:221 uvalu/pages_/analysis.py:381 uvalu/pages_/analysis.py:397 uvalu/pages_/portfolio.py:56 uvalu/pages_/screener.py:59 uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:221 uvalu/pages_/analysis.py:381
+#: uvalu/pages_/analysis.py:397 uvalu/pages_/portfolio.py:56
+#: uvalu/pages_/screener.py:59 uvalu/pages_/watchlist.py:32
 msgid "Price"
 msgstr "Kurs"
 
@@ -3315,7 +3345,10 @@ msgstr "Fairer Wert"
 
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
-#: uvalu/drawer.py:223 uvalu/pages_/analysis.py:217 uvalu/pages_/analysis.py:347 uvalu/pages_/analysis.py:427 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:58 uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:223 uvalu/pages_/analysis.py:217
+#: uvalu/pages_/analysis.py:347 uvalu/pages_/analysis.py:427
+#: uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515
+#: uvalu/pages_/screener.py:58 uvalu/pages_/watchlist.py:32
 msgid "Margin of safety"
 msgstr "Sicherheitsmarge"
 
@@ -3347,7 +3380,8 @@ msgstr "{score} / 100"
 
 #. Context: Composite score label (glossary term): stock preview row, Analysis
 #. header, Watchlist column
-#: uvalu/drawer.py:288 uvalu/pages_/analysis.py:300 uvalu/pages_/screener.py:57 uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:288 uvalu/pages_/analysis.py:300 uvalu/pages_/screener.py:57
+#: uvalu/pages_/watchlist.py:32
 msgid "Composite score"
 msgstr "Gesamtscore"
 
@@ -3381,7 +3415,8 @@ msgstr "Positionswert"
 
 #. Context: Unrealised profit & loss label (stock preview row, Portfolio KPI
 #. card). Short form.
-#: uvalu/drawer.py:309 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:306
+#: uvalu/drawer.py:309 uvalu/pages_/portfolio.py:57
+#: uvalu/pages_/portfolio.py:306
 msgid "Unrealised P&L"
 msgstr "Unrealisierter G/V"
 
@@ -3412,32 +3447,38 @@ msgstr "Kauf erfassen"
 
 #. Context: Market label for Euronext Brussels (Screener market filter,
 #. Portfolio, Watchlist, Analysis)
-#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33 uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
+#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33
+#: uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
 msgid "Brussels"
 msgstr "Brüssel"
 
 #. Context: Market label for Euronext Amsterdam
-#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33 uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
+#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33
+#: uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
 msgid "Amsterdam"
 msgstr "Amsterdam"
 
 #. Context: Market label for Euronext Paris
-#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33 uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
+#: uvalu/formatting.py:20 uvalu/pages_/analysis.py:33
+#: uvalu/pages_/screener.py:30 uvalu/pages_/watchlist.py:23
 msgid "Paris"
 msgstr "Paris"
 
 #. Context: Market label for Borsa Italiana (Milan)
-#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34 uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
+#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34
+#: uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
 msgid "Milan"
 msgstr "Mailand"
 
 #. Context: Market label for Deutsche Börse / XETRA (Frankfurt)
-#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34 uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
+#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34
+#: uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
 msgid "Frankfurt"
 msgstr "Frankfurt"
 
 #. Context: Market label for SIX Swiss Exchange
-#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34 uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
+#: uvalu/formatting.py:21 uvalu/pages_/analysis.py:34
+#: uvalu/pages_/screener.py:31 uvalu/pages_/watchlist.py:24
 msgid "Swiss"
 msgstr "Schweiz"
 
@@ -3748,7 +3789,8 @@ msgstr "Admin-Portal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:750 uvalu/pages_/settings.py:1134 uvalu/shell.py:447
+#: uvalu/pages_/settings.py:750 uvalu/pages_/settings.py:1134
+#: uvalu/shell.py:447
 msgid "Sign out"
 msgstr "Abmelden"
 
@@ -3759,7 +3801,8 @@ msgstr "{name}, handelnd unter dem Namen {trading_as}"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:479 uvalu/pages_/risk.py:31 uvalu/pages_/risk.py:285 uvalu/shell.py:486
+#: uvalu/pages_/dashboard.py:479 uvalu/pages_/risk.py:31
+#: uvalu/pages_/risk.py:285 uvalu/shell.py:486
 msgid "Beta"
 msgstr "Beta"
 
@@ -3908,7 +3951,8 @@ msgstr "Für deine Steuererklärung bleibst du selbst verantwortlich. Prüfe die
 msgid "Privacy notice"
 msgstr "Datenschutzerklärung"
 
-#: uvalu/compliance/disclosures.py:85 uvalu/pages_/analysis.py:174 uvalu/pages_/help.py:158 uvalu/pages_/help.py:278
+#: uvalu/compliance/disclosures.py:85 uvalu/pages_/analysis.py:174
+#: uvalu/pages_/help.py:158 uvalu/pages_/help.py:278
 msgid "Data sources"
 msgstr "Datenquellen"
 
@@ -3988,7 +4032,8 @@ msgstr "Bewertungsmodell"
 #. the build-details card and an entry in the page's section list.
 #. About › What's new › badge on the release the user is running; also the heading of
 #. the build-details card and an entry in the page's section list.
-#: uvalu/pages_/about.py:142 uvalu/pages_/about.py:170 uvalu/pages_/about.py:204
+#: uvalu/pages_/about.py:142 uvalu/pages_/about.py:170
+#: uvalu/pages_/about.py:204
 msgid "This version"
 msgstr "Diese Version"
 
@@ -4016,12 +4061,12 @@ msgstr "Die Versionshinweise sind auf Englisch."
 msgid "No release notes yet."
 msgstr "Noch keine Versionshinweise."
 
-#: uvalu/pages_/about.py:206 uvalu/pages_/legal.py:179 uvalu/pages_/legal.py:197
+#: uvalu/pages_/about.py:206 uvalu/pages_/legal.py:179
+#: uvalu/pages_/legal.py:197
 msgid "Legal & policies"
 msgstr "Rechtliches & Richtlinien"
 
 #: uvalu/pages_/analysis.py:81
-#, fuzzy
 msgid "Model signal history · 12 months"
 msgstr "Verlauf des Modellsignals · 12 Monate"
 
@@ -4542,7 +4587,8 @@ msgid "{currency} base"
 msgstr "Basis {currency}"
 
 #. Context: Portfolio › tooltip on the expand icon of a card
-#: uvalu/pages_/cash.py:61 uvalu/pages_/portfolio.py:325 uvalu/pages_/portfolio.py:370 uvalu/pages_/portfolio.py:407
+#: uvalu/pages_/cash.py:61 uvalu/pages_/portfolio.py:325
+#: uvalu/pages_/portfolio.py:370 uvalu/pages_/portfolio.py:407
 msgid "Open full page"
 msgstr "Ganze Seite öffnen"
 
@@ -4823,7 +4869,8 @@ msgid "All time · incl. deposits"
 msgstr "Gesamter Zeitraum · inkl. Einzahlungen"
 
 #. Context: Dashboard › chart card heading
-#: uvalu/pages_/dashboard.py:287 uvalu/pages_/dashboard.py:361 uvalu/pages_/dashboard.py:366
+#: uvalu/pages_/dashboard.py:287 uvalu/pages_/dashboard.py:361
+#: uvalu/pages_/dashboard.py:366
 msgid "Portfolio value over time"
 msgstr "Portfoliowert im Zeitverlauf"
 
@@ -4916,7 +4963,8 @@ msgstr "Modellsignale sind für alle Nutzer gleich und berücksichtigen deine Po
 
 #. Context: Table column header: position weight in the portfolio (Dashboard,
 #. Portfolio, Risk)
-#: uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:58 uvalu/pages_/risk.py:31
+#: uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515
+#: uvalu/pages_/portfolio.py:58 uvalu/pages_/risk.py:31
 msgid "Weight"
 msgstr "Gewichtung"
 
@@ -5019,7 +5067,7 @@ msgid "Composite model score below {low}."
 msgstr "Gesamtscore des Modells unter {low}."
 
 #: uvalu/pages_/help.py:98
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out"
 msgstr "{a} Unterbewertet · {b} Mittlerer Score · {c} Niedriger Score · {d} Ausgefiltert"
 
@@ -5117,7 +5165,6 @@ msgid "During the free beta prices are delayed quotes from Yahoo Finance; each s
 msgstr "Während der kostenlosen Beta sind die Kurse verzögerte Notierungen von Yahoo Finance; jedes Signal zeigt die Zeit des verwendeten Kurses. Fundamentaldaten werden etwa alle 24 Stunden aktualisiert. Echtzeitkurse werden nicht angeboten."
 
 #: uvalu/pages_/help.py:134
-#, fuzzy
 msgid "Why does a stock show “Screened out”?"
 msgstr "Warum zeigt eine Aktie „Ausgefiltert“?"
 
@@ -5306,7 +5353,8 @@ msgid "Income 12m"
 msgstr "Erträge 12 M."
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:61 uvalu/pages_/watchlist.py:33
+#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:61
+#: uvalu/pages_/watchlist.py:33
 msgid "Yield"
 msgstr "Rendite"
 
@@ -6011,7 +6059,8 @@ msgid "Type your email address to confirm"
 msgstr "Gib zur Bestätigung deine E-Mail-Adresse ein"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1058 uvalu/pages_/settings.py:1062
+#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1058
+#: uvalu/pages_/settings.py:1062
 msgid "Delete account"
 msgstr "Konto löschen"
 
