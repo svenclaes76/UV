@@ -6,7 +6,7 @@
 |---|------|----------------------|--------------------------------|
 | 01 | [Financial-regulation lawyer](01-financial-regulation-brief.md) | L3, L4, L6, L9, L12–L14 | [signal-label-review.md](../../legal/signal-label-review.md) |
 | 02 | [Privacy and consumer-law lawyer](02-privacy-consumer-brief.md) | L1, L5, L7, L8, L10, L15–L19 | [privacy-consumer-review.md](../../legal/privacy-consumer-review.md) |
-| 03 | [Data-licensing specialist](03-data-licensing-brief.md) | L2 | none |
+| 03 | [Data-licensing specialist](03-data-licensing-brief.md) | L2, L20–L23 | [data-licensing-review.md](../../legal/data-licensing-review.md) |
 
 #1 and #2 are often the same firm. In that case send both packs together and ask for one fixed fee.
 

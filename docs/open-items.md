@@ -53,6 +53,18 @@ register that privacy notice §6 promises).
 | L18 | **Paid checkout:** order-button wording with the price after the trial, conversion date and price shown at sign-up, the art. 11a withdrawal function with confirmation and email acknowledgement, a confirmation email with terms and withdrawal form, Brevo open/click tracking off. | Medium | Paid launch | Dev + lawyer |
 | L19 | **Paid-launch text edits:** Terms §12 liability (not for our own errors; restore the "reasonable care" qualifier), Terms §15 closed list of reasons for changes, privacy notice §7/§8/§11 aligned with the beta notice, accountant as controller or processor. | Low–medium | Paid launch | Founder / lawyer |
 
+From the data-licensing review (13 October 2026,
+[`legal/data-licensing-review.md`](legal/data-licensing-review.md)). It also
+sets L2's trigger: no one beyond personal contacts while prices come from
+Yahoo (same trigger as L1).
+
+| # | Item | Risk | Do it before | Who |
+| --- | --- | --- | --- | --- |
+| L20 | **EODHD in writing:** send the question list (review appendix): display to paying users, derived data, price charts, exchange fees, retention incl. the 12-month signal history, exports, attribution, price per user tier. Then the contract. | Medium–high | Choosing a plan; M2 | Founder |
+| L21 | **Benchmark licence:** confirm whether computing beta on EURO STOXX 50 needs a STOXX licence, or switch to an ETF benchmark (methodology update). | Medium | Paid launch | Founder |
+| L22 | **French Data Library:** ask permission to use the factor data in a paid service; file the reply (DATA-6). | Low | Paid launch | Founder |
+| L23 | **Direct Yahoo call:** the Analysis 1-year price chart calls `yf.Ticker().history` itself; route it through the provider module with C7/S3. | Low | M2 | Dev |
+
 ## Design and code
 
 | # | Item |
