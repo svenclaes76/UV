@@ -31,7 +31,7 @@ On 12 Oct 2026 the profiles and the persona were checked against the repo and co
 
 - **Models:** Graham Number, sector-median P/E, EPV, and single- and multi-stage dividend discount models, with book-value and FCF fallbacks. The analyst-target model stays off until it is licensed. There is no DCF, and EV/EBITDA is shown but not used in the valuation (`docs/stock_valuation_algorithm.md`).
 - **Signals:** Undervalued / Mid score / Low score / Screened out / No signal. These replaced BUY / MONITOR / AVOID / VETO.
-- **Risk:** HHI, VaR, CVaR, maximum drawdown, Sharpe/Sortino, Fama-French factors and stress scenarios. There is no Monte Carlo. The bands are Low / Moderate / Elevated / High / Critical (`docs/portfolio_risk_assessment_algorithm.md`).
+- **Risk:** HHI, VaR, CVaR, maximum drawdown, Sharpe/Sortino, Fama-French factors and stress scenarios. A Monte Carlo simulation (10,000 block-bootstrap paths with a CAPM drift) runs too; this list wrongly said there was none until 13 Oct 2026. The bands are Low / Moderate / Elevated / High / Critical (`docs/portfolio_risk_assessment_algorithm.md`).
 - **Data:** Yahoo Finance today, which allows personal use only (open item L2). A move to EODHD is planned.
 - **Billing:** Mollie, monthly only, with a 30-day free trial. A free beta runs first.
 - **Roles:** Admin / Analyst / Viewer.

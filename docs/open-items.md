@@ -93,6 +93,20 @@ founder's trading blackout.
 | V5 | **Veto calibration** after V1–V2: revenue decline threshold, retained-earnings rule on a sample. | Paid launch |
 | V6 | **Methodology page:** the models' conservative level (median MoS −33%), euro rate for non-euro stocks, the universe definition. | With V1–V4 |
 
+## Signal stability, data and risk
+
+From the quant and data review (13 October 2026,
+[`quant-review.md`](quant-review.md)), on the signal history of 4–13 October.
+
+| # | Item | Do it before |
+| --- | --- | --- |
+| Q1 | **Signal flicker:** 805 changes on 242 stocks in 9 days (SRAIL.SW 21× at score 39.9/40.0; vetoes toggling within minutes). Daily build from one snapshot (bring S4 forward), hysteresis at band edges, carry the last known value for missing veto inputs, log which input changed. | Inviting anyone you don't know personally |
+| Q2 | **Data-quality monitoring** per build: missing rates per field, rows changed, vetoes added/dropped, alerts on thresholds. | With Q1 |
+| Q3 | **Stress scenarios** use S&P 500 drawdowns and dates; use the EURO STOXX 50's own (dot-com and 2008 are never replayed with 10 years of history). | Paid launch |
+| Q4 | **Risk-band calibration:** run ~8 reference portfolios, adjust sub-score mappings, publish the reference points. | Paid launch |
+| Q5 | **Small-cap betas:** weekly or Dimson-adjusted returns for illiquid holdings. | Paid launch |
+| Q6 | **Methodology wording:** VaR window limits, dividend-adjusted prices, the stability rule, no backtests on restated data. | With Q1–Q4 |
+
 ## Design and code
 
 | # | Item |
