@@ -29,6 +29,12 @@ of that month); earlier releases used SemVer. Rules in
   that count, a locked account refuses even a correct code, and a code that
   was already used to sign in can't be used again. Before, someone who knew
   a password could keep guessing codes.
+- Sign-in no longer reveals which email addresses have an account. Every
+  failed sign-in shows the same "Invalid email or password." and takes the
+  same time, whether the email is unknown, the password is wrong or the
+  account is locked. The "attempts remaining" count is gone. The account
+  lock still applies; the countdown card now appears after the set number of
+  failed attempts in the same browser session, whatever emails were typed.
 
 ## [2026.10.5] — 2026-10-11
 

@@ -380,39 +380,58 @@ class TestAuthWallLockout:
         assert "Sign in temporarily locked" in html
         assert len(at.text_input) == 0  # form is hidden, not just an inline error
 
-    def test_reload_while_locked_shows_card_without_resubmitting(self):
+    def test_card_also_appears_for_an_unknown_email(self):
+        # SR3: the countdown follows this session's failures, not the
+        # account, so it can't reveal whether an email has an account.
         settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
-        auth.login("first@example.com", "wrong-password")  # trip the lock directly
-        at2 = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
-        assert not at2.exception, [str(e.value) for e in at2.exception]
-        html = "".join(m.value for m in at2.markdown)
-        assert "Sign in temporarily locked" in html
-        assert len(at2.text_input) == 0
-
-    def test_correct_password_still_blocked_while_locked(self):
-        settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        auth.login("first@example.com", "wrong-password")  # trip the lock
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        at = _run_auth_wall()
+        for _ in range(2):
+            at.text_input[0].set_value("nobody@example.com")
+            at.text_input[1].set_value("wrong-password")
+            [b for b in at.button if b.label == "Sign in"][0].click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
+        assert "Sign in temporarily locked" in "".join(m.value for m in at.markdown)
+
+    def test_first_failure_shows_the_plain_message_for_any_email(self):
+        auth.register("first@example.com", "password123")
+        messages = []
+        for email in ("first@example.com", "nobody@example.com"):
+            at = _run_auth_wall()
+            at.text_input[0].set_value(email)
+            at.text_input[1].set_value("wrong-password")
+            [b for b in at.button if b.label == "Sign in"][0].click().run()
+            assert not at.exception, [str(e.value) for e in at.exception]
+            messages.append([m.value for m in at.markdown if "uv-login-err" in m.value])
+        assert messages[0] == messages[1]
+
+    def test_reload_while_locked_shows_card_without_resubmitting(self):
+        from datetime import datetime, timedelta, timezone
+        until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "Sign in temporarily locked" in "".join(m.value for m in at.markdown)
         assert len(at.text_input) == 0
+
+    def test_correct_password_still_blocked_while_account_locked(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trip the account lock
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")  # fresh session
+        assert not at.exception, [str(e.value) for e in at.exception]
         assert "jwt_token" not in at.session_state
+        assert "Invalid email or password." in "".join(m.value for m in at.markdown)
 
     def test_switch_account_button_reveals_form_again(self):
-        settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        auth.login("first@example.com", "wrong-password")  # trip the lock
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        from datetime import datetime, timedelta, timezone
+        until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
         switch = [b for b in at.button if b.label == "Not you? Use a different account"][0]
         switch.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert len(at.text_input) == 2  # form is back, even though the account is still locked
-        assert "uv_login_attempted_email" not in at.session_state
+        assert len(at.text_input) == 2
+        assert "uv_login_lock" not in at.session_state
 
 
 # ── logging (logkit Phase 1) ─────────────────────────────────────────────

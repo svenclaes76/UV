@@ -454,15 +454,44 @@ def _issue_session(users: dict, email: str, user: dict, user_agent: str = "") ->
     )
 
 
+def _LOGIN_FAILED() -> str:
+    """The one message every failed password sign-in returns (SR3)."""
+    return _("Invalid email or password.")
+
+
+_DUMMY_HASH: bytes | None = None
+
+
+def _dummy_password_check(password: str) -> None:
+    """One bcrypt check against a throwaway hash, for failure paths that have
+    no real hash to check (unknown email, password-less or locked account),
+    so they take as long as a wrong password. The hash is made once, lazily,
+    with the same cost factor as real ones."""
+    global _DUMMY_HASH
+    if _DUMMY_HASH is None:
+        _DUMMY_HASH = bcrypt.hashpw(secrets.token_bytes(16), bcrypt.gensalt())
+    bcrypt.checkpw(password.encode(), _DUMMY_HASH)
+
+
+def lock_policy() -> tuple[int, int]:
+    """(attempts_before_lock, lock_minutes) — public for the sign-in screen's
+    per-session countdown (uvalu/authgate.py)."""
+    return _rate_limit_settings()
+
+
 def login(email: str, password: str, user_agent: str = "", device_id: str | None = None) -> tuple[bool, str]:
     """Verify credentials. Returns (success, jwt_token_or_error_message).
 
     Failed attempts on a *known* account count towards a per-account lockout
     (fields on the user record: failed_attempts, locked_until) so repeated
     guessing eventually has to wait out a timer rather than retry forever.
-    Unknown emails never lock or reveal a count — there's no account to lock,
-    and doing so would let an attacker use the "attempts remaining" copy to
-    tell real accounts from made-up ones."""
+
+    Every failure — unknown email, wrong password, an account without a
+    password, a locked account — returns the same message and costs one
+    bcrypt check, so neither the text nor the response time tells an
+    attacker whether an email has an account (SR3, docs/security-review.md
+    #2). The lock still applies; it is just silent here. The sign-in screen
+    shows its own per-session countdown instead (uvalu/authgate.py)."""
     email = email.strip().lower()
     users = _load_users()
     if _store_broken(users):
@@ -471,9 +500,10 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
         return False, _("The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator.")
     user = users.get(email)
     if not user:
+        _dummy_password_check(password)
         logkit.auth_event("login.failed", outcome="failed", reason="unknown_user",
                           user_id=logkit.user_hash(email))
-        return False, _("Invalid email or password.")
+        return False, _LOGIN_FAILED()
 
     max_attempts, lock_minutes = _rate_limit_settings()
     now = datetime.now(timezone.utc)
@@ -481,15 +511,14 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
     if locked_until:
         locked_dt = datetime.fromisoformat(locked_until)
         if now < locked_dt:
-            # Checked before touching the password at all — a locked account
-            # doesn't verify credentials, so a correct guess during the lock
-            # window can't be distinguished from an incorrect one by timing
-            # or response shape, and the lock can't be reset by retrying.
-            remaining_min = max(1, -(-int((locked_dt - now).total_seconds()) // 60))  # ceil
+            # A locked account doesn't verify credentials, so a correct guess
+            # during the lock window can't be told apart from a wrong one and
+            # the lock can't be reset by retrying. The dummy check keeps the
+            # response time the same as for any other failure.
+            _dummy_password_check(password)
             logkit.auth_event("login.failed", outcome="failed", reason="locked_out",
                               user_id=logkit.user_hash(email))
-            return False, ngettext("This account is temporarily locked. Try again in {count} minute.",
-                                   "This account is temporarily locked. Try again in {count} minutes.", remaining_min)
+            return False, _LOGIN_FAILED()
         # Lock has expired — clear it before evaluating this attempt.
         user["locked_until"] = None
         user["failed_attempts"] = 0
@@ -499,26 +528,20 @@ def login(email: str, password: str, user_agent: str = "", device_id: str | None
     # like a wrong password rather than its own branch, so this can't be
     # used to detect which accounts are password-less from the outside.
     _hash = user.get("password_hash")
+    if not _hash:
+        _dummy_password_check(password)
     if not _hash or not bcrypt.checkpw(password.encode(), _hash.encode()):
         user["failed_attempts"] = user.get("failed_attempts", 0) + 1
-        remaining_attempts = max_attempts - user["failed_attempts"]
-        if remaining_attempts <= 0:
+        outcome = "failed"
+        if user["failed_attempts"] >= max_attempts:
             user["locked_until"] = (now + timedelta(minutes=lock_minutes)).isoformat()
             user["failed_attempts"] = 0
-            users[email] = user
-            _save_users(users)
-            logkit.auth_event("login.failed", outcome="locked", reason="bad_password",
-                              user_id=logkit.user_hash(email))
-            return False, _("Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes.",
-                            minutes=lock_minutes)
+            outcome = "locked"
         users[email] = user
         _save_users(users)
-        logkit.auth_event("login.failed", outcome="failed", reason="bad_password",
+        logkit.auth_event("login.failed", outcome=outcome, reason="bad_password",
                           user_id=logkit.user_hash(email))
-        return False, ngettext(
-            "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes.",
-            "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes.",
-            remaining_attempts, minutes=lock_minutes)
+        return False, _LOGIN_FAILED()
     if user.get("status") == "Suspended":
         logkit.auth_event("login.failed", outcome="failed", reason="suspended",
                           user_id=logkit.user_hash(email))

@@ -197,11 +197,13 @@ class TestLogin:
 # ── login rate limiting / lockout ────────────────────────────────────────
 
 class TestLoginRateLimiting:
-    def test_wrong_password_reports_attempts_remaining(self):
+    def test_wrong_password_gives_the_same_message_as_an_unknown_email(self):
+        # SR3: no "attempts remain" count, which only known accounts had.
         auth.register("first@example.com", "password123")
         ok, msg = auth.login("first@example.com", "wrong-password")
+        _, unknown_msg = auth.login("nobody@example.com", "wrong-password")
         assert not ok
-        assert "4 attempts remain" in msg  # default threshold is 5
+        assert msg == unknown_msg == "Invalid email or password."
 
     def test_unknown_email_never_reports_attempts_or_locks(self):
         # No account to attach a counter to, and revealing a count would let
@@ -217,11 +219,9 @@ class TestLoginRateLimiting:
                                        "login_attempts_before_lock": 2, "lock_minutes": 10})
         auth.register("first@example.com", "password123")
         ok1, msg1 = auth.login("first@example.com", "wrong-password")
-        assert not ok1
-        assert "1 attempt remain" in msg1
+        assert not ok1 and msg1 == "Invalid email or password."
         ok2, msg2 = auth.login("first@example.com", "wrong-password")
-        assert not ok2
-        assert "now locked for 10 minutes" in msg2
+        assert not ok2 and msg2 == "Invalid email or password."  # the lock is silent
         assert auth.get_lockout("first@example.com") is not None
 
     def test_locked_account_rejects_even_the_correct_password(self):
@@ -231,7 +231,26 @@ class TestLoginRateLimiting:
         auth.login("first@example.com", "wrong-password")  # trips the lock
         ok, msg = auth.login("first@example.com", "password123")
         assert not ok
-        assert "temporarily locked" in msg
+        assert msg == "Invalid email or password."  # same as any failure (SR3)
+
+    def test_every_failure_path_costs_one_bcrypt_check(self, monkeypatch):
+        # SR3: unknown, password-less and locked accounts take as long as a
+        # wrong password, so response time can't reveal which emails exist.
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.invite_user("invited@example.com")  # no password yet
+        auth.register("locked@example.com", "password123")
+        auth.login("locked@example.com", "wrong-password")  # trips the lock
+        calls = []
+        real = auth.bcrypt.checkpw
+        monkeypatch.setattr(auth.bcrypt, "checkpw", lambda *a: calls.append(1) or real(*a))
+        for email in ("nobody@example.com", "invited@example.com",
+                      "locked@example.com", "first@example.com"):
+            calls.clear()
+            ok, msg = auth.login(email, "wrong-password")
+            assert not ok and msg == "Invalid email or password."
+            assert len(calls) == 1, email
 
     def test_successful_login_clears_failed_attempts(self):
         auth.register("first@example.com", "password123")
@@ -311,7 +330,7 @@ class TestSecondFactorLimits:
         ok, msg = auth.complete_totp_login("first@example.com", pyotp.TOTP(secret).now())
         assert not ok and "temporarily locked" in msg
         ok, msg = auth.login("first@example.com", "password123")
-        assert not ok and "temporarily locked" in msg
+        assert not ok and msg == "Invalid email or password."
 
     def test_correct_password_does_not_reset_the_code_counter(self):
         _set_attempts(3)

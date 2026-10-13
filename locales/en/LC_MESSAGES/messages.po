@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 18:29+0000\n"
+"POT-Creation-Date: 2026-10-13 18:37+0000\n"
 "PO-Revision-Date: 2026-10-12 22:32+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
@@ -88,7 +88,7 @@ msgid "Enter a valid email address."
 msgstr "Enter a valid email address."
 
 #. Context: Password forms › validation error
-#: auth.py:133 auth.py:1010
+#: auth.py:133 auth.py:1033
 #, python-brace-format
 msgid "Password must be at least {min_len} characters."
 msgstr "Password must be at least {min_len} characters."
@@ -116,56 +116,34 @@ msgid "This invite was sent to {email}. Sign in with a matching account, or ask 
 msgstr "This invite was sent to {email}. Sign in with a matching account, or ask your admin to invite {provider_email}."
 
 #. Context: Sign-in › error
-#: auth.py:471
-msgid "The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator."
-msgstr "The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator."
-
-#. Context: Sign-in › error
-#: auth.py:476
+#: auth.py:459
 msgid "Invalid email or password."
 msgstr "Invalid email or password."
 
-#. Context: Sign-in › error while the account is locked
-#: auth.py:491 auth.py:776
-#, python-brace-format
-msgid "This account is temporarily locked. Try again in {count} minute."
-msgid_plural "This account is temporarily locked. Try again in {count} minutes."
-msgstr[0] "This account is temporarily locked. Try again in {count} minute."
-msgstr[1] "This account is temporarily locked. Try again in {count} minutes."
-
-#. Context: Sign-in › error when the account gets locked
-#: auth.py:512
-#, python-brace-format
-msgid "Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes."
-msgstr "Invalid email or password. Too many failed attempts — this account is now locked for {minutes} minutes."
-
-#. Context: Sign-in › error with remaining attempts
-#: auth.py:519
-#, python-brace-format
-msgid "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes."
-msgid_plural "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes."
-msgstr[0] "Invalid email or password. {count} attempt remains before this account is locked for {minutes} minutes."
-msgstr[1] "Invalid email or password. {count} attempts remain before this account is locked for {minutes} minutes."
+#. Context: Sign-in › error
+#: auth.py:500
+msgid "The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator."
+msgstr "The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator."
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:620 auth.py:640 auth.py:716 auth.py:963 auth.py:1045 auth.py:1068
-#: auth.py:1094 auth.py:1282
+#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091
+#: auth.py:1117 auth.py:1305
 msgid "User not found."
 msgstr "User not found."
 
 #. Context: Settings › Active sessions › error
-#: auth.py:627
+#: auth.py:650
 msgid "Session not found."
 msgstr "Session not found."
 
 #. Context: Settings › Active sessions › confirmation
-#: auth.py:631
+#: auth.py:654
 msgid "Signed out of that session."
 msgstr "Signed out of that session."
 
 #. Context: Settings › confirmation after 'Sign out everywhere else'
-#: auth.py:649
+#: auth.py:672
 #, python-brace-format
 msgid "Signed out of {count} other session."
 msgid_plural "Signed out of {count} other sessions."
@@ -173,99 +151,104 @@ msgstr[0] "Signed out of {count} other session."
 msgstr[1] "Signed out of {count} other sessions."
 
 #. Context: Settings › 2FA setup › error
-#: auth.py:698
+#: auth.py:721
 msgid "Start enrollment again — no pending setup found."
 msgstr "Start enrollment again — no pending setup found."
 
 #. Context: 2FA sign-in and setup › error
-#: auth.py:700 auth.py:803
+#: auth.py:723 auth.py:826
 msgid "That code didn't match. Try again."
 msgstr "That code didn't match. Try again."
 
 #. Context: Settings › confirmation
-#: auth.py:707
+#: auth.py:730
 msgid "Two-factor authentication enabled."
 msgstr "Two-factor authentication enabled."
 
 #. Context: Settings › confirmation
-#: auth.py:724
+#: auth.py:747
 msgid "Two-factor authentication turned off."
 msgstr "Two-factor authentication turned off."
 
-#: auth.py:797
+#. Context: Sign-in › error while the account is locked
+#: auth.py:799
+#, python-brace-format
+msgid "This account is temporarily locked. Try again in {count} minute."
+msgid_plural "This account is temporarily locked. Try again in {count} minutes."
+msgstr[0] "This account is temporarily locked. Try again in {count} minute."
+msgstr[1] "This account is temporarily locked. Try again in {count} minutes."
+
+#: auth.py:820
 #, fuzzy, python-brace-format
-#| msgid ""
-#| "Invalid email or password. Too many failed attempts — this account is now locked"
-#| " for {minutes} minutes."
 msgid ""
 "That code didn't match. Too many failed attempts — this account is now locked "
 "for {minutes} minutes."
 msgstr ""
-"Invalid email or password. Too many failed attempts — this account is now locked"
-" for {minutes} minutes."
+"That code didn't match. Too many failed attempts — this account is now locked "
+"for {minutes} minutes."
 
 #. Context: Settings / sign-in › error
-#: auth.py:833 auth.py:859
+#: auth.py:856 auth.py:882
 msgid "Two-factor authentication isn't enabled for this account."
 msgstr "Two-factor authentication isn't enabled for this account."
 
 #. Context: Settings › confirmation after 'Revoke all'
-#: auth.py:968
+#: auth.py:991
 msgid "All trusted devices revoked."
 msgstr "All trusted devices revoked."
 
 #. Context: Password forms › error
-#: auth.py:1014
+#: auth.py:1037
 msgid "This password has appeared in known data breaches. Choose a different one."
 msgstr "This password has appeared in known data breaches. Choose a different one."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1048
+#: auth.py:1071
 msgid "This identity is already linked to a different account."
 msgstr "This identity is already linked to a different account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1051
+#: auth.py:1074
 msgid "This provider is already linked to your account."
 msgstr "This provider is already linked to your account."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1058
+#: auth.py:1081
 msgid "Provider connected."
 msgstr "Provider connected."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1073
+#: auth.py:1096
 msgid "That provider isn't linked to your account."
 msgstr "That provider isn't linked to your account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1075
+#: auth.py:1098
 msgid "Can't disconnect your only sign-in method — set a password first."
 msgstr "Can't disconnect your only sign-in method — set a password first."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1080
+#: auth.py:1103
 msgid "Provider disconnected."
 msgstr "Provider disconnected."
 
 #. Context: Settings › Set a password › error. 'Change' must match the button.
-#: auth.py:1096
+#: auth.py:1119
 msgid "This account already has a password — use Change instead."
 msgstr "This account already has a password — use Change instead."
 
 #. Context: Settings › confirmation
-#: auth.py:1102
+#: auth.py:1125
 msgid "Password set."
 msgstr "Password set."
 
 #. Context: Settings › Change password › error
-#: auth.py:1287
+#: auth.py:1310
 msgid "Current password is incorrect."
 msgstr "Current password is incorrect."
 
 #. Context: Settings › confirmation
-#: auth.py:1293
+#: auth.py:1316
 msgid "Password changed."
 msgstr "Password changed."
 
@@ -1572,40 +1555,40 @@ msgid "New password and confirmation don't match."
 msgstr "New password and confirmation don't match."
 
 #. Context: Two-factor sign-in step › heading
-#: uvalu/authgate.py:138
+#: uvalu/authgate.py:178
 msgid "Enter your authenticator code"
 msgstr "Enter your authenticator code"
 
 #. Context: Two-factor sign-in step › text under the heading
-#: uvalu/authgate.py:139
+#: uvalu/authgate.py:179
 msgid "Open your authenticator app and enter the 6-digit code for Uvalu."
 msgstr "Open your authenticator app and enter the 6-digit code for Uvalu."
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
-#: uvalu/authgate.py:143 uvalu/pages_/settings.py:493
+#: uvalu/authgate.py:183 uvalu/pages_/settings.py:493
 msgid "Code"
 msgstr "Code"
 
 #. Context: Two-factor sign-in step › toggle: skip the 2FA code on this device
 #. for 30 days
-#: uvalu/authgate.py:144
+#: uvalu/authgate.py:184
 msgid "Remember this device for 30 days"
 msgstr "Remember this device for 30 days"
 
 #. Context: Two-factor sign-in step › submit button for the code or backup code
-#: uvalu/authgate.py:145 uvalu/authgate.py:189
+#: uvalu/authgate.py:185 uvalu/authgate.py:229
 msgid "Verify"
 msgstr "Verify"
 
 #. Context: Two-factor sign-in step › link-button to switch to a one-time
 #. backup code
-#: uvalu/authgate.py:160
+#: uvalu/authgate.py:200
 msgid "Use a backup code"
 msgstr "Use a backup code"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:164 uvalu/authgate.py:182 uvalu/dialogs.py:304
+#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304
 #: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
 #: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
 #: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
@@ -1615,97 +1598,97 @@ msgid "Cancel"
 msgstr "Cancel"
 
 #. Context: Two-factor sign-in step › heading of the backup-code form
-#: uvalu/authgate.py:171
+#: uvalu/authgate.py:211
 msgid "Enter a backup code"
 msgstr "Enter a backup code"
 
 #. Context: Two-factor sign-in step › text under 'Enter a backup code'
-#: uvalu/authgate.py:172
+#: uvalu/authgate.py:212
 msgid "Use one of the one-time backup codes you saved when you set up two-factor authentication."
 msgstr "Use one of the one-time backup codes you saved when you set up two-factor authentication."
 
 #. Context: Two-factor sign-in step › warning when all backup codes are used up
-#: uvalu/authgate.py:179
+#: uvalu/authgate.py:219
 msgid "No backup codes left on this account. Ask an admin to reset your two-factor authentication so you can re-enroll."
 msgstr "No backup codes left on this account. Ask an admin to reset your two-factor authentication so you can re-enroll."
 
 #. Context: Two-factor sign-in step › label of the backup-code field
-#: uvalu/authgate.py:188
+#: uvalu/authgate.py:228
 msgid "Backup code"
 msgstr "Backup code"
 
 #. Context: Two-factor sign-in step › button to return from backup code to the
 #. app code
-#: uvalu/authgate.py:199
+#: uvalu/authgate.py:239
 msgid "Back to the authenticator code"
 msgstr "Back to the authenticator code"
 
 #. Context: Sign-up, reset and change-password forms › live meter under the
 #. password field. {strength} is Weak, Fair or Strong (translated separately).
-#: uvalu/authgate.py:220 uvalu/pages_/settings.py:397
+#: uvalu/authgate.py:260 uvalu/pages_/settings.py:397
 #, python-brace-format
 msgid "Password strength: {strength}"
 msgstr "Password strength: {strength}"
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:256 uvalu/shell.py:368
+#: uvalu/authgate.py:296 uvalu/shell.py:368
 msgid "value engine"
 msgstr "value engine"
 
-#: uvalu/authgate.py:259
+#: uvalu/authgate.py:299
 msgid "Find value before the market does."
 msgstr "Find value before the market does."
 
-#: uvalu/authgate.py:260
+#: uvalu/authgate.py:300
 msgid "Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user."
 msgstr "Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user."
 
 #. Context: Sign-in screen › stat label under the big number '6' (six valuation
 #. models). Lowercase.
-#: uvalu/authgate.py:262
+#: uvalu/authgate.py:302
 msgid "valuation models"
 msgstr "valuation models"
 
 #. Context: Sign-in screen › stat label under the big number '6' (six European
 #. stock exchanges)
-#: uvalu/authgate.py:263
+#: uvalu/authgate.py:303
 msgid "EU exchanges"
 msgstr "EU exchanges"
 
-#: uvalu/authgate.py:264
+#: uvalu/authgate.py:304
 msgid "model update cycle"
 msgstr "model update cycle"
 
 #. Context: Sign-in screen › single sign-on button. {provider} is 'Google' or
 #. 'Microsoft Entra ID'.
-#: uvalu/authgate.py:297 uvalu/authgate.py:303
+#: uvalu/authgate.py:337 uvalu/authgate.py:343
 #, python-brace-format
 msgid "Continue with {provider}"
 msgstr "Continue with {provider}"
 
 #. Context: Sign-in screen › small uppercase badge on a sign-on button whose
 #. provider is not set up by the admin
-#: uvalu/authgate.py:305
+#: uvalu/authgate.py:345
 msgid "NOT CONFIGURED"
 msgstr "NOT CONFIGURED"
 
 #. Context: Sign-in screen › heading after a single sign-on for a suspended
 #. account
-#: uvalu/authgate.py:312
+#: uvalu/authgate.py:352
 msgid "This account has been suspended"
 msgstr "This account has been suspended"
 
 #. Context: Sign-in screen › text under 'This account has been suspended'.
 #. {provider} = Google / Microsoft Entra ID.
-#: uvalu/authgate.py:313
+#: uvalu/authgate.py:353
 #, python-brace-format
 msgid "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
 msgstr "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
 
 #. Context: Sign-in screen › heading when a single sign-on email has no Uvalu
 #. account
-#: uvalu/authgate.py:316
+#: uvalu/authgate.py:356
 #, python-brace-format
 msgid "No Uvalu account for this {provider} identity"
 msgstr "No Uvalu account for this {provider} identity"
@@ -1713,234 +1696,238 @@ msgstr "No Uvalu account for this {provider} identity"
 #. Context: Sign-in screen › text under 'No Uvalu account…'. {email} is shown
 #. in bold. (Code currently builds this from two pieces; merge them into one
 #. string.)
-#: uvalu/authgate.py:317
+#: uvalu/authgate.py:357
 #, python-brace-format
 msgid "Uvalu is invite-only. {email} is not a member of this workspace, so no account was created."
 msgstr "Uvalu is invite-only. {email} is not a member of this workspace, so no account was created."
 
 #. Context: Sign-in screen › follow-up hint under the 'no account' message
-#: uvalu/authgate.py:325
+#: uvalu/authgate.py:365
 msgid "If you were invited on a different address, sign in with that one — or ask an admin to invite this address."
 msgstr "If you were invited on a different address, sign in with that one — or ask an admin to invite this address."
 
 #. Context: Sign-in screens › button that returns to the normal sign-in form
-#: uvalu/authgate.py:328 uvalu/authgate.py:467
+#: uvalu/authgate.py:368 uvalu/authgate.py:507
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
 #. Context: Invite acceptance screen › heading when the invite link is wrong or
 #. expired
-#: uvalu/authgate.py:345
+#: uvalu/authgate.py:385
 msgid "Invite link invalid"
 msgstr "Invite link invalid"
 
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
-#: uvalu/authgate.py:346
+#: uvalu/authgate.py:386
 msgid "This invite link is invalid or has expired. Ask your admin to send a new one."
 msgstr "This invite link is invalid or has expired. Ask your admin to send a new one."
 
 #. Context: Fills {inviter} in 'Invited by {inviter} as …' when the inviter is
 #. unknown
-#: uvalu/authgate.py:351
+#: uvalu/authgate.py:391
 msgid "an admin"
 msgstr "an admin"
 
 #. Context: Invite acceptance screen › text under 'Create your account'.
 #. {inviter} = inviter's email or 'an admin'; {role} = Viewer / Analyst / Admin
 #. (bold). (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:352
+#: uvalu/authgate.py:392
 #, python-brace-format
 msgid "Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can add another method later."
 msgstr "Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can add another method later."
 
 #. Context: Invite acceptance screen › heading
-#: uvalu/authgate.py:355
+#: uvalu/authgate.py:395
 msgid "Create your account"
 msgstr "Create your account"
 
 #. Context: Sign-in, sign-up and invite screens › label of the email field
-#: uvalu/authgate.py:362 uvalu/authgate.py:429 uvalu/authgate.py:702
+#: uvalu/authgate.py:402 uvalu/authgate.py:469 uvalu/authgate.py:741
 msgid "Email"
 msgstr "Email"
 
 #. Context: Invite acceptance screen › small uppercase badge next to the email:
 #. the email can't be changed
-#: uvalu/authgate.py:368
+#: uvalu/authgate.py:408
 msgid "FIXED BY INVITE"
 msgstr "FIXED BY INVITE"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:373 uvalu/authgate.py:430 uvalu/authgate.py:712
-#: uvalu/authgate.py:717 uvalu/authgate.py:759 uvalu/pages_/settings.py:601
+#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751
+#: uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601
 #: uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr "Password"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:375 uvalu/authgate.py:432 uvalu/authgate.py:499
+#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539
 #: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "At least {min_len} characters."
 
 #. Context: Invite acceptance screen › submit button
-#: uvalu/authgate.py:376
+#: uvalu/authgate.py:416
 msgid "Create account"
 msgstr "Create account"
 
 #. Context: Sign-in screen › divider between the password form and the
 #. 'Continue with Google/Microsoft' buttons
-#: uvalu/authgate.py:391 uvalu/authgate.py:678 uvalu/authgate.py:768
+#: uvalu/authgate.py:431 uvalu/authgate.py:717 uvalu/authgate.py:805
 msgid "or"
 msgstr "or"
 
 #. Context: First-run screen (no users yet) › heading
-#: uvalu/authgate.py:423
+#: uvalu/authgate.py:463
 msgid "Create the first admin account"
 msgstr "Create the first admin account"
 
 #. Context: Sign-in and first-admin screens › example text inside the empty
 #. email field
-#: uvalu/authgate.py:429 uvalu/authgate.py:702
+#: uvalu/authgate.py:469 uvalu/authgate.py:741
 msgid "you@company.com"
 msgstr "you@company.com"
 
 #. Context: First-run screen › submit button
-#: uvalu/authgate.py:433
+#: uvalu/authgate.py:473
 msgid "Create admin account"
 msgstr "Create admin account"
 
 #. Context: Sign-in screen › heading of the info box opened by 'Forgot?'
-#: uvalu/authgate.py:463
+#: uvalu/authgate.py:503
 msgid "Forgot your password?"
 msgstr "Forgot your password?"
 
-#: uvalu/authgate.py:464
+#: uvalu/authgate.py:504
 msgid "During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 30 minutes."
 msgstr "During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 30 minutes."
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired
-#: uvalu/authgate.py:482
+#: uvalu/authgate.py:522
 msgid "Reset link invalid"
 msgstr "Reset link invalid"
 
 #. Context: Password reset screen › text under 'Reset link invalid'
-#: uvalu/authgate.py:483
+#: uvalu/authgate.py:523
 msgid "This reset link is invalid or has expired. Ask your admin to send a new one."
 msgstr "This reset link is invalid or has expired. Ask your admin to send a new one."
 
 #. Context: Password reset screen › text under the heading; {email} shown in
 #. bold. (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:488
+#: uvalu/authgate.py:528
 #, python-brace-format
 msgid "Resetting the password for {email}"
 msgstr "Resetting the password for {email}"
 
 #. Context: Password reset screen › heading
-#: uvalu/authgate.py:491
+#: uvalu/authgate.py:531
 msgid "Choose a new password"
 msgstr "Choose a new password"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:497 uvalu/pages_/settings.py:411 uvalu/pages_/settings.py:443
+#: uvalu/authgate.py:537 uvalu/pages_/settings.py:411 uvalu/pages_/settings.py:443
 msgid "New password"
 msgstr "New password"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:500 uvalu/pages_/settings.py:414 uvalu/pages_/settings.py:446
+#: uvalu/authgate.py:540 uvalu/pages_/settings.py:414 uvalu/pages_/settings.py:446
 msgid "Confirm new password"
 msgstr "Confirm new password"
 
 #. Context: Password reset screen › submit button
-#: uvalu/authgate.py:502
+#: uvalu/authgate.py:542
 msgid "Reset password"
 msgstr "Reset password"
 
 #. Context: Sign-in screen › notice after this session was ended from another
 #. device
-#: uvalu/authgate.py:568
+#: uvalu/authgate.py:608
 msgid "You were signed out of this session."
 msgstr "You were signed out of this session."
 
 #. Context: Sign-in screen › notice when the signed-in account was deleted
-#: uvalu/authgate.py:574
+#: uvalu/authgate.py:614
 msgid "Your account no longer exists. Please contact your admin."
 msgstr "Your account no longer exists. Please contact your admin."
 
 #. Context: Sign-in screen › notice when the signed-in account was suspended
-#: uvalu/authgate.py:578
+#: uvalu/authgate.py:618
 msgid "This account has been suspended."
 msgstr "This account has been suspended."
 
-#: uvalu/authgate.py:629
+#: uvalu/authgate.py:669
 msgid "← Back to sign in"
 msgstr "← Back to sign in"
 
 #. Context: Sign-in screen › heading after too many failed password attempts
-#: uvalu/authgate.py:661
+#: uvalu/authgate.py:700
 msgid "Sign in temporarily locked"
 msgstr "Sign in temporarily locked"
 
-#. Context: Sign-in screen › text under the lockout heading
-#: uvalu/authgate.py:662
-msgid "Too many failed attempts on this account. Uvalu will accept a new attempt when the timer expires."
-msgstr "Too many failed attempts on this account. Uvalu will accept a new attempt when the timer expires."
+#: uvalu/authgate.py:701
+#, fuzzy
+msgid ""
+"Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
+" expires."
+msgstr ""
+"Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
+" expires."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:668
+#: uvalu/authgate.py:707
 #, python-brace-format
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
 #. Context: Sign-in lockout card › caption under the countdown ('12 min / until
 #. the next attempt')
-#: uvalu/authgate.py:669
+#: uvalu/authgate.py:708
 msgid "until the next attempt"
 msgstr "until the next attempt"
 
 #. Context: Sign-in screen › heading of the form, and the (disabled) sign-in
 #. button when the account is locked
-#: uvalu/authgate.py:671 uvalu/authgate.py:695 uvalu/authgate.py:719
+#: uvalu/authgate.py:710 uvalu/authgate.py:734 uvalu/authgate.py:758
 msgid "Sign in"
 msgstr "Sign in"
 
-#: uvalu/authgate.py:685
+#: uvalu/authgate.py:724
 msgid "The lock applies to password sign-in only."
 msgstr "The lock applies to password sign-in only."
 
 #. Context: Sign-in lockout screen › button to try another email address
-#: uvalu/authgate.py:688
+#: uvalu/authgate.py:727
 msgid "Not you? Use a different account"
 msgstr "Not you? Use a different account"
 
 #. Context: Sign-in screen › subheading under 'Sign in'
-#: uvalu/authgate.py:696
+#: uvalu/authgate.py:735
 msgid "Welcome back. Enter your credentials to continue."
 msgstr "Welcome back. Enter your credentials to continue."
 
 #. Context: Sign-in screen › small link next to the password label, opens the
 #. 'Forgot your password?' note
-#: uvalu/authgate.py:714
+#: uvalu/authgate.py:753
 msgid "Forgot?"
 msgstr "Forgot?"
 
 #. Context: Sign-in screen › error when the form is submitted with an empty
 #. field
-#: uvalu/authgate.py:722
+#: uvalu/authgate.py:761
 msgid "Enter your email and password to continue."
 msgstr "Enter your email and password to continue."
 
 #. Context: Sign-in screen › footer line, followed by 'Ask your admin for an
 #. invite'
-#: uvalu/authgate.py:778
+#: uvalu/authgate.py:815
 msgid "New to Uvalu?"
 msgstr "New to Uvalu?"
 
-#: uvalu/authgate.py:778
+#: uvalu/authgate.py:815
 msgid "Ask for an invite"
 msgstr "Ask for an invite"
 
@@ -7456,3 +7443,29 @@ msgstr[1] "No screener data yet for your watchlisted tickers — they'll appear 
 
 #~ msgid "Signal"
 #~ msgstr "Signal"
+
+#~ msgid ""
+#~ "Invalid email or password. Too many "
+#~ "failed attempts — this account is now "
+#~ "locked for {minutes} minutes."
+#~ msgstr ""
+#~ "Invalid email or password. Too many "
+#~ "failed attempts — this account is now "
+#~ "locked for {minutes} minutes."
+
+#~ msgid ""
+#~ "Invalid email or password. {count} attempt "
+#~ "remains before this account is locked for"
+#~ " {minutes} minutes."
+#~ msgid_plural ""
+#~ "Invalid email or password. {count} attempts "
+#~ "remain before this account is locked for"
+#~ " {minutes} minutes."
+#~ msgstr[0] ""
+#~ "Invalid email or password. {count} attempt "
+#~ "remains before this account is locked for"
+#~ " {minutes} minutes."
+#~ msgstr[1] ""
+#~ "Invalid email or password. {count} attempts "
+#~ "remain before this account is locked for"
+#~ " {minutes} minutes."
