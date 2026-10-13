@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 12 October 2026.
+Last updated: 13 October 2026.
 
 ## Legal and compliance
 
@@ -37,6 +37,21 @@ signal" column) and L14 (`tests/test_signal_qualifier.py`) are done on
 Facts the review still needs: target markets (Belgium only or other EU
 countries), whether signals will appear in marketing, social media or
 emails, and whether any part of Uvalu will be free and public.
+
+From the privacy and consumer-law review (13 October 2026,
+[`legal/privacy-consumer-review.md`](legal/privacy-consumer-review.md)). It
+also adds to L5 (sign the mailbox provider's DPA and the Hetzner DPA; a US
+provider changes privacy notice §5) and L8 (`policies/README.md` §4 says 35
+days, the notices say 30; also write the incident procedure and breach
+register that privacy notice §6 promises).
+
+| # | Item | Risk | Do it before | Who |
+| --- | --- | --- | --- | --- |
+| L15 | **GDPR paperwork:** record of processing (art. 30), a short legitimate-interest note per row that relies on it, and a written DPIA screening against the APD list. | Low–medium | Inviting anyone you don't know personally | Founder |
+| L16 | **Admin access record:** privacy notice §6 promises each admin access to a user's data is recorded; nothing does that (events only, 31-day retention). Add an access record kept longer, or reword §6. | Medium | Beta opens to others | Dev / founder |
+| L17 | **Invite purge:** privacy notice §2 promises invitation data is deleted 30 days after expiry; expired invites stay in the user store. | Low–medium | Next beta notice update | Dev |
+| L18 | **Paid checkout:** order-button wording with the price after the trial, conversion date and price shown at sign-up, the art. 11a withdrawal function with confirmation and email acknowledgement, a confirmation email with terms and withdrawal form, Brevo open/click tracking off. | Medium | Paid launch | Dev + lawyer |
+| L19 | **Paid-launch text edits:** Terms §12 liability (not for our own errors; restore the "reasonable care" qualifier), Terms §15 closed list of reasons for changes, privacy notice §7/§8/§11 aligned with the beta notice, accountant as controller or processor. | Low–medium | Paid launch | Founder / lawyer |
 
 ## Design and code
 

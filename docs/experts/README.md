@@ -15,6 +15,8 @@ One profile per outside expert Uvalu needs: why, required expertise, scope, deli
 | 09 | [Financial translators](09-financial-translators.md) | Native-speaker financial terminology in all six languages | Medium–High |
 | 10 | [Accessibility specialist](10-accessibility-specialist.md) | WCAG 2.2 AA, EN 301 549, European Accessibility Act | Medium–High |
 
+Briefing packs to send with an engagement: [briefings/](briefings/README.md) (#1–#3 so far).
+
 ## AI expert personas
 
 These are prompts that ask Claude to act as an expert. They are not profiles for hiring someone, and their answers don't replace a licensed professional.

@@ -68,4 +68,4 @@ Ideally a CFA or a working equity analyst.
 
 ## Next step
 
-Prepare a briefing pack for each expert: scope, the documents to hand over, and the open questions taken from `docs/open-items.md`. That saves paid hours spent explaining context. Start with the legal pack.
+Briefing packs for #1–#3 are in [experts/briefings/](experts/briefings/README.md) (13 Oct 2026). Fill in the [Sven] placeholders before sending. Packs for #4–#10 follow when those reviews come up.
