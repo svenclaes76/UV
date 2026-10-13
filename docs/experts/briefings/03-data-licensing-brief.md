@@ -24,7 +24,7 @@ An analysis of whether we may show market data, and values derived from it, to o
 | Currency rates | ECB reference rates via Frankfurter | Conversion to EUR | Indirectly |
 | Factor returns | Kenneth R. French Data Library | Factor exposure in risk figures | Only derived exposures |
 
-**Coverage:** about 1,500 shares on Euronext Brussels, Amsterdam and Paris, Borsa Italiana, Deutsche Börse and SIX Swiss Exchange.
+**Coverage:** about 3,900 listings on Euronext Brussels, Amsterdam and Paris, Borsa Italiana, Deutsche Börse and SIX Swiss Exchange. About a third are secondary listings of non-European, mostly US, companies. Narrowing this to one primary line per company is planned (open item V2), which would shrink what the licence must cover.
 
 **Derived outputs** shown to every user are fair values, margins of safety, composite scores, model signals and risk figures. Uvalu keeps a **12-month history of signals** and their inputs. Market-abuse rules (MAR) may require that history, so it has to survive a change of vendor.
 

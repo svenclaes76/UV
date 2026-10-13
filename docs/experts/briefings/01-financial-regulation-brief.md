@@ -10,7 +10,7 @@ A **written opinion** on whether Uvalu's outputs are investment recommendations 
 
 - An online tool for **private investors** in the EEA. It values listed shares and lets users record and analyse their own portfolio. It doesn't execute orders, hold money or securities, link to brokers, or take commissions, referral fees or advertising.
 - **Operator:** Sven Claes, a natural person in Belgium (Herentals), trading as Uvalu. **Not yet registered** with the Crossroads Bank for Enterprises (KBO/BCE). Planned as a sole trader (eenmanszaak).
-- **Universe:** about 1,500 shares on Euronext Brussels, Amsterdam and Paris, Borsa Italiana, Deutsche Börse and SIX Swiss Exchange.
+- **Universe:** about 3,900 listings on Euronext Brussels, Amsterdam and Paris, Borsa Italiana, Deutsche Börse and SIX Swiss Exchange. About a third are secondary listings of non-European, mostly US, companies; narrowing the universe is planned (open item V2).
 - **Status today:** a **free, invitation-only beta** for people the founder knows, resident in the EEA, 18+. **Planned:** a paid monthly subscription (Mollie, 30-day free trial), with a 1 January 2027 target for the paid legal texts.
 - **Languages:** English (reference) plus Dutch, French, German, Spanish and Italian.
 

@@ -90,7 +90,7 @@ Already in place:
 
 ## Appendix: questions for EODHD, in writing
 
-1. Which plan allows displaying end-of-day prices, fundamentals, dividends and splits to **paying non-professional subscribers** in the EEA, inside a web app, about 1,500 shares on Euronext (BR, AMS, PAR), Borsa Italiana, Xetra and SIX?
+1. Which plan allows displaying end-of-day prices, fundamentals, dividends and splits to **paying non-professional subscribers** in the EEA, inside a web app, about 3,900 listings today (fewer after open item V2) on Euronext (BR, AMS, PAR), Borsa Italiana, Xetra and SIX?
 2. Are **derived values** (fair values, scores, model signals, risk figures) free to display without restriction? Is attribution required for them?
 3. May we show **price charts** of 1 year of daily closes?
 4. Are **exchange fees** for that display included? Must we report users, or sign anything with the exchanges?

@@ -123,6 +123,20 @@ penetration test.
 | SR6 | **Keys and restores:** offline copy of `.env`, written rotation procedures for both secrets, one dated restore test of an offsite backup. | Paid launch |
 | SR7 | **Small fixes:** hash reset/invite tokens in the store, write Excel text starting with `= + - @` as text, `pip-audit` in CI and pinned production versions. | Paid launch |
 
+## Usability
+
+From the UX walkthrough and research plan (13 October 2026,
+[`ux-research-plan.md`](ux-research-plan.md)). The plan for testing with real
+users is in the same file.
+
+| # | Item | Do it before |
+| --- | --- | --- |
+| UX1 | **Signal next to the user's own position:** the stock drawer shows "Screened out" with shares held and P&L; the Risk page "Flag" column mixes signals with position risk ratings. Review with lawyer #1 (with L9, L13); separate "Your position" from the signal, rename or clean the Flag column. | Inviting anyone you don't know personally |
+| UX2 | **Dashboard totals:** €26,550 / €25.5K / €23,662 and −23.5% / −14.8% / +7.5% on one screen, unreconciled. One headline value and return, the rest labelled as views. | User test |
+| UX3 | **Negative margin of safety:** "−125,3%" and per-model "−216,7%", fair value in green. Say "price is N× / N% above the model fair value", neutral colour, cap per-model values. | User test |
+| UX4 | **Risk page wording:** factor codes before plain names, "Low · +0,75" labels, "30% above 30%" rounding, "two consecutive reports" on one day, mixed decimal separators. | User test |
+| UX5 | **Run the user study** (6–8 Belgian/Dutch self-directed investors, plan and screener in the doc) after V1, V2 and Q1, on a warmed staging server. | Paid launch |
+
 ## Design and code
 
 | # | Item |
