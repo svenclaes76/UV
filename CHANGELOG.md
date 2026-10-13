@@ -21,6 +21,34 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Removed
+
+- Admin › Backups no longer offers "Export key". The deployment's master
+  secrets (`AUTH_SECRET`, `ENCRYPTION_KEY` in `.env`) never go to a browser
+  any more. When moving to a new server, copy `.env` over SSH and keep one
+  offline copy; see `docs/deployment.md`.
+
+### Fixed
+
+- Two-step sign-in: wrong authenticator or backup codes now count towards
+  the account lock, with the same limit and lock time as wrong passwords
+  (Admin › Security). Entering the correct password again no longer resets
+  that count, a locked account refuses even a correct code, and a code that
+  was already used to sign in can't be used again. Before, someone who knew
+  a password could keep guessing codes.
+- Sign-in no longer reveals which email addresses have an account. Every
+  failed sign-in shows the same "Invalid email or password." and takes the
+  same time, whether the email is unknown, the password is wrong or the
+  account is locked. The "attempts remaining" count is gone. The account
+  lock still applies; the countdown card now appears after the set number of
+  failed attempts in the same browser session, whatever emails were typed.
+- The sign-in cookies are now `SameSite=Strict`, and `Secure` when the app is
+  served over HTTPS, so other sites can't make the browser send them.
+- Tickers, sectors and country names from the data provider or added by
+  users are now escaped wherever the app shows them in its own layout
+  (holdings, portfolio, dividends, risk and stock pages), so text that looks
+  like markup is shown as text instead of being run.
+
 ## [2026.10.5] — 2026-10-11
 
 Import & export now works for every user: a portfolio workbook you can restore

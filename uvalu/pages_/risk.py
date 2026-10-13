@@ -8,7 +8,7 @@ from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
-from uvalu.components import (score_color, band_tone_color, radial_gauge_svg, page_header, material_icon_html,
+from uvalu.components import (_esc, score_color, band_tone_color, radial_gauge_svg, page_header, material_icon_html,
                               risk_holding_row_html,
                               RISK_HOLDINGS_GRID_COLS, fit_grid_cols, refresh_top_bar_html,
                               skeleton_gauge_card_html, skeleton_metrics_grid_html,
@@ -356,7 +356,7 @@ def render() -> None:
         # collapses missing/NaN sector metadata to "Unknown" upstream, WP-DQ3);
         # pd.notna() stays as belt-and-braces for the empty-portfolio None.
         _has_sector = pd.notna(c.largest_sector)
-        _sector_label = (h_("Largest sector — {sector}", sector=tr(c.largest_sector)) if _has_sector
+        _sector_label = (h_("Largest sector — {sector}", sector=_esc(tr(c.largest_sector))) if _has_sector
                          else h_("Largest sector"))
         for _label, _val, _limit in [
             (h_("Top 3 positions"), c.top3_weight, 0.35),
@@ -381,12 +381,12 @@ def render() -> None:
         _flags = []
         if c.top1_flag:
             _flags.append(h_("{ticker} at {weight} is above the model's 15% single-name reference level",
-                             ticker=c.top1_ticker, weight=fmt_pct(c.top1_weight, 0, fraction=True)))
+                             ticker=_esc(c.top1_ticker), weight=fmt_pct(c.top1_weight, 0, fraction=True)))
         if c.sector_flag and _has_sector:
-            _flags.append(h_("{sector} at {weight} is above the model's 30% sector reference level", sector=tr(c.largest_sector),
+            _flags.append(h_("{sector} at {weight} is above the model's 30% sector reference level", sector=_esc(tr(c.largest_sector)),
                              weight=fmt_pct(c.sector_weights.get(c.largest_sector, 0), 0, fraction=True)))
         if c.geo_flag and c.largest_geo:
-            _flags.append(h_("{country} at {weight} is above the model's 60% country reference level", country=tr(c.largest_geo),
+            _flags.append(h_("{country} at {weight} is above the model's 60% country reference level", country=_esc(tr(c.largest_geo)),
                              weight=fmt_pct(c.geo_weights.get(c.largest_geo, 0), 0, fraction=True)))
         # PER-5: a held stock's quality-screen result stays on its own badge
         # (the Flag column below); it isn't turned into a portfolio alert.

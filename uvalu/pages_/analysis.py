@@ -18,7 +18,7 @@ from settings import (load_shared_settings, get_veto_thresholds, get_score_weigh
                       ALL_EXCHANGES, get_dividend_withholding)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import (back_link, model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, back_link, model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
@@ -294,7 +294,7 @@ def render() -> None:
             # composite score label/value (right).
             f'<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">'
             f'<div style="display:flex;align-items:center;gap:12px;">'
-            f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{ticker}</span>'
+            f'<span style="font-family:var(--uv-mono);font-size:26px;font-weight:500;letter-spacing:-0.02em;">{_esc(ticker)}</span>'
             f'{model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"), qualified=True)}</div>'
             f'<div style="text-align:right;">'
             f'<div style="font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">{h_("Composite score")}</div>'

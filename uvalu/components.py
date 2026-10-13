@@ -34,6 +34,15 @@ _SIGNAL_KIND = {
 _TIP_LABELS = {"warn": "HIGH", "caution": "NOTE", "ok": "OK", "neutral": "INFO"}
 
 
+def _esc(value) -> str:
+    """Provider or user text (ticker, sector, note) made safe to embed in
+    HTML element content. Keep the raw value for keys and lookups: tickers
+    can contain "&" (M&G.L). tests/test_xss_escaping.py covers the
+    builders that use it (SR4)."""
+    import html as _html_mod
+    return _html_mod.escape(str(value), quote=False)
+
+
 def _name_html(name) -> str:
     """A company name for row markup: tidied for display (display_name,
     visual review G5) and HTML-escaped (names come from the data provider)."""
@@ -958,7 +967,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     HOLDINGS_GRID_COLS-templated header for aligned column labels."""
     name = _name_html(name)
     sector_html = (f"<span style='font-size:9.5px;color:var(--muted);border:0.5px solid var(--line);"
-                   f"border-radius:6px;padding:1px 6px;white-space:nowrap;'>{tr(sector)}</span>"
+                   f"border-radius:6px;padding:1px 6px;white-space:nowrap;'>{_esc(tr(sector))}</span>"
                    if sector and pd.notna(sector) else "")
     badge_html = model_signal_badge_html(signal_code, veto=veto)
     ladder_html = _fair_value_bar_html(price, fair_value, mos_pct, currency, data_thin=data_thin)
@@ -996,7 +1005,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     # wrong. Collapsing to one line fixed it outright.
     return (f'<div style="display:grid;grid-template-columns:{grid_cols or HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
-           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{sector_html}</div>'
+           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{_esc(ticker)}</span>{sector_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
            f'<div>{badge_html}</div>'
@@ -1129,7 +1138,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             # line-height set the row height for every other cell too).
             st.markdown(f"<div style='min-width:0;'>"
                        f"<div style='display:flex;align-items:center;gap:0;'>"
-                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{_esc(ticker)}</span>{_exch_html}</div>"
                        f"<div style='font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;"
                        f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
         _i += 1
@@ -1717,7 +1726,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
-                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13.5px;font-weight:500;'>{_esc(ticker)}</span>{_exch_html}</div>"
                        f"<div style='font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;"
                        f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>", unsafe_allow_html=True)
         with _cols[1]:
@@ -1806,7 +1815,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                      if exchange and pd.notna(exchange) else "")
         with _cols[0]:
             st.markdown(f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:8px;'>"
-                       f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+                       f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{_esc(ticker)}</span>{_exch_html}</div>"
                        f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
                        f"overflow:hidden;text-overflow:ellipsis;'>{h_('{name} · closed {date}', name=name, date=fmt_date(closed_date, skeleton='yMMM'))}</div></div>",
                        unsafe_allow_html=True)
@@ -1875,7 +1884,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                 _drip = f' <span style="color:var(--muted);">{h_("· DRIP")}</span>' if reinvested else ""
                 st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
                            f"overflow:hidden;text-overflow:ellipsis;'>{name}{_drip}</div><div style='font-size:10.5px;"
-                           f"color:var(--muted);font-family:var(--uv-mono);'>{ticker}</div></div>",
+                           f"color:var(--muted);font-family:var(--uv-mono);'>{_esc(ticker)}</div></div>",
                            unsafe_allow_html=True)
             with _cols[1]:
                 st.markdown(f"<div style='font-size:12px;color:var(--muted);'>{fmt_date(date)}</div>",
@@ -1903,7 +1912,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
                 st.markdown(f"<div style='min-width:0;'><div style='font-size:12.5px;white-space:nowrap;"
                            f"overflow:hidden;text-overflow:ellipsis;'>{name}{_chip}</div><div style='font-size:10.5px;"
                            f"color:var(--muted);font-family:var(--uv-mono);'>"
-                           f"{h_('{ticker} · paid {date}', ticker=ticker, date=fmt_date(date))}</div></div>",
+                           f"{h_('{ticker} · paid {date}', ticker=_esc(ticker), date=fmt_date(date))}</div></div>",
                            unsafe_allow_html=True)
             with _cols[1]:
                 _gross_html = (f"<div style='font-size:10.5px;color:var(--muted);font-family:var(--uv-mono);white-space:nowrap;'>"
@@ -1994,7 +2003,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
     _html = (
         f'<div style="display:grid;grid-template-columns:{DIVIDEND_LOG_GRID_COLS};gap:14px;align-items:center;">'
         f"<div style='min-width:0;'><div style='display:flex;align-items:center;gap:7px;'>"
-        f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{ticker}</span>{_exch_html}</div>"
+        f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;'>{_esc(ticker)}</span>{_exch_html}</div>"
         f"<div style='font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;"
         f"overflow:hidden;text-overflow:ellipsis;'>{name}</div></div>"
         f"<div style='font-size:11.5px;font-family:var(--uv-mono);white-space:nowrap;'>{fmt_date(ex_date)}</div>"
@@ -2048,7 +2057,7 @@ def risk_holding_row_html(*, ticker: str, exchange: str | None, name: str,
     _bar_pct = max(0.0, min(100.0, contrib_bar_pct))
     return (f'<div style="display:grid;grid-template-columns:{grid_cols or RISK_HOLDINGS_GRID_COLS};gap:14px;align-items:center;">'
            f'<div style="min-width:0;"><div style="display:flex;align-items:center;gap:8px;">'
-           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{ticker}</span>{_exch_html}</div>'
+           f'<span style="font-family:var(--uv-mono);font-size:13.5px;font-weight:500;">{_esc(ticker)}</span>{_exch_html}</div>'
            f'<div style="font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;'
            f'text-overflow:ellipsis;">{name}</div></div>'
            f'<div style="text-align:right;font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);">{fmt_pct(weight_pct)}</div>'

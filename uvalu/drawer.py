@@ -23,7 +23,7 @@ from portfolio import load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -186,7 +186,7 @@ def open_drawer(row: "pd.Series") -> None:
     with st.container(horizontal=True, vertical_alignment="top", horizontal_alignment="distribute"):
         with st.container(horizontal=True, vertical_alignment="center", gap="small"):
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:18px;font-weight:500;">'
-                       f'{ticker}</span>', unsafe_allow_html=True)
+                       f'{_esc(ticker)}</span>', unsafe_allow_html=True)
             st.markdown(model_signal_badge_html(row.get("signal_code"), veto=row.get("veto"), qualified=True),
                         unsafe_allow_html=True)
         if st.button("✕", key="drw_close", type="tertiary", help=_("Close")):

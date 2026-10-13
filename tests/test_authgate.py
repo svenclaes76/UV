@@ -380,39 +380,63 @@ class TestAuthWallLockout:
         assert "Sign in temporarily locked" in html
         assert len(at.text_input) == 0  # form is hidden, not just an inline error
 
-    def test_reload_while_locked_shows_card_without_resubmitting(self):
+    def test_card_also_appears_for_an_unknown_email(self):
+        # SR3: the countdown follows this session's failures, not the
+        # account, so it can't reveal whether an email has an account.
         settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
-        auth.login("first@example.com", "wrong-password")  # trip the lock directly
-        at2 = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
-        assert not at2.exception, [str(e.value) for e in at2.exception]
-        html = "".join(m.value for m in at2.markdown)
-        assert "Sign in temporarily locked" in html
-        assert len(at2.text_input) == 0
-
-    def test_correct_password_still_blocked_while_locked(self):
-        settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        auth.login("first@example.com", "wrong-password")  # trip the lock
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
+        at = _run_auth_wall()
+        for _ in range(2):
+            at.text_input[0].set_value("nobody@example.com")
+            at.text_input[1].set_value("wrong-password")
+            [b for b in at.button if b.label == "Sign in"][0].click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
+        assert "Sign in temporarily locked" in "".join(m.value for m in at.markdown)
+
+    def test_first_failure_shows_the_plain_message_for_any_email(self):
+        auth.register("first@example.com", "password123")
+        messages = []
+        for email in ("first@example.com", "nobody@example.com"):
+            at = _run_auth_wall()
+            at.text_input[0].set_value(email)
+            at.text_input[1].set_value("wrong-password")
+            [b for b in at.button if b.label == "Sign in"][0].click().run()
+            assert not at.exception, [str(e.value) for e in at.exception]
+            messages.append([m.value for m in at.markdown if "uv-login-err" in m.value])
+        assert messages[0] == messages[1]
+
+    def test_reload_while_locked_shows_card_without_resubmitting(self):
+        from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
+        until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "Sign in temporarily locked" in "".join(m.value for m in at.markdown)
         assert len(at.text_input) == 0
+
+    def test_correct_password_still_blocked_while_account_locked(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 1})
+        auth.register("first@example.com", "password123")
+        auth.login("first@example.com", "wrong-password")  # trip the account lock
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")  # fresh session
+        assert not at.exception, [str(e.value) for e in at.exception]
         assert "jwt_token" not in at.session_state
+        # With a limit of 1 this attempt also starts the session countdown.
+        html = "".join(m.value for m in at.markdown)
+        assert "Invalid email or password." in html or "Sign in temporarily locked" in html
 
     def test_switch_account_button_reveals_form_again(self):
-        settings.save_shared_settings({**settings.load_shared_settings(),
-                                       "login_attempts_before_lock": 1})
-        auth.register("first@example.com", "password123")
-        auth.login("first@example.com", "wrong-password")  # trip the lock
-        at = _run_auth_wall({"uv_login_attempted_email": "first@example.com"})
+        from datetime import datetime, timedelta, timezone
+        auth.register("first@example.com", "password123")  # past the first-admin setup screen
+        until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        at = _run_auth_wall({"uv_login_lock": {"failures": 0, "until": until}})
         switch = [b for b in at.button if b.label == "Not you? Use a different account"][0]
         switch.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert len(at.text_input) == 2  # form is back, even though the account is still locked
-        assert "uv_login_attempted_email" not in at.session_state
+        assert len(at.text_input) == 2
+        assert "uv_login_lock" not in at.session_state
 
 
 # ── logging (logkit Phase 1) ─────────────────────────────────────────────
@@ -653,6 +677,20 @@ class TestTotpChallengeFlow:
         assert "didn't match" in "".join(m.value for m in at.markdown)
         assert "jwt_token" not in at.session_state
 
+    def test_lockout_from_wrong_codes_drops_back_to_login_form(self):
+        settings.save_shared_settings({**settings.load_shared_settings(),
+                                       "login_attempts_before_lock": 2, "lock_minutes": 10})
+        auth.register("first@example.com", "password123")
+        _enroll_totp("first@example.com")
+        at = _submit_login(_run_auth_wall(), "first@example.com", "password123")
+        for _ in range(2):
+            at.text_input[0].set_value("000000")
+            [b for b in at.button if b.label == "Verify"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "now locked" in "".join(m.value for m in at.markdown)
+        assert "uv_totp_pending" not in at.session_state
+        assert "jwt_token" not in at.session_state
+
     def test_expired_pending_drops_back_to_login_form(self):
         auth.register("first@example.com", "password123")
         _enroll_totp("first@example.com")
@@ -865,3 +903,35 @@ def test_sign_in_panel_shows_the_dark_lockup():
     html = "".join(m.value for m in at.markdown)
     assert 'aria-label="Uvalu"' in html and 'height="48"' in html and "gap:23px" in html
     assert "var(--logo-ring)" not in html and "uval<span" not in html
+
+
+# ── cookie attributes (SR4) ──────────────────────────────────────────────
+
+class TestCookieAttributes:
+    """uv_jwt and uv_td are set from JavaScript, so they can't be HttpOnly;
+    SameSite=Strict and Secure-on-HTTPS are what's left (SR4,
+    docs/security-review.md #3). One builder sets the attributes everywhere."""
+
+    def test_session_cookie_is_samesite_strict_and_secure_on_https(self):
+        from uvalu import authgate
+        js = authgate.session_cookie_js("abc.def")
+        assert "SameSite=Strict" in js
+        assert "protocol==='https:'?'; Secure'" in js
+        assert "max-age=86400" in js
+
+    def test_trusted_device_cookie_uses_the_same_attributes(self):
+        from uvalu import authgate
+        js = authgate.trusted_device_cookie_js("device-1")
+        assert "SameSite=Strict" in js and "'; Secure'" in js
+        assert f"max-age={30 * 86400}" in js
+
+    def test_no_cookie_is_written_outside_authgate(self):
+        # Every document.cookie write lives in uvalu/authgate.py, next to
+        # _COOKIE_ATTRS_JS, so a new copy elsewhere can't silently drop the
+        # attributes again (app.py used to have its own).
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[1]
+        writers = {p.relative_to(root).as_posix()
+                   for p in [root / "app.py", *(root / "uvalu").rglob("*.py")]
+                   if "document.cookie" in p.read_text(encoding="utf-8")}
+        assert writers == {"uvalu/authgate.py"}

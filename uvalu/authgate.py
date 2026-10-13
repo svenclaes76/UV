@@ -11,7 +11,7 @@ import streamlit as st
 from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_password,
                   backup_codes_remaining, complete_backup_code_login, complete_password_reset,
                   complete_totp_login, find_pending_invite_by_email, get_lockout,
-                  get_pending_invite, get_pending_reset, get_user_status,
+                  get_pending_invite, get_pending_reset, get_user_status, lock_policy,
                   is_session_active, login, no_users_exist, oauth_login, register,
                   trust_this_device, verify_token)
 from settings import load_shared_settings
@@ -81,13 +81,13 @@ def handle_logout() -> None:
 <script>
 (function(){
   try {
-    document.cookie = 'uv_jwt=; path=/; max-age=0';
+    document.cookie = 'uv_jwt=; max-age=0' + __COOKIE_ATTRS__;
     localStorage.removeItem('uv_jwt');
   } catch(e) {}
   window.parent.location.reload();
 })();
 </script>
-""", height=1)
+""".replace("__COOKIE_ATTRS__", _COOKIE_ATTRS_JS), height=1)
         st.stop()
 
 
@@ -95,16 +95,35 @@ def _user_agent() -> str:
     return st.context.headers.get("User-Agent", "") if st.context.headers else ""
 
 
+# Attributes for the uv_jwt and uv_td cookies, as a JavaScript expression
+# (SR4, docs/security-review.md #3). SameSite=Strict keeps them off requests
+# started by other sites. Secure only when the page itself is HTTPS: a
+# browser refuses a Secure cookie set from a plain-HTTP page, which would
+# break sign-in on the localhost dev launcher. The scripts run in a srcdoc
+# iframe, so the parent page's protocol decides.
+_COOKIE_ATTRS_JS = ("'; path=/; SameSite=Strict' + (function(){try{return "
+                    "window.parent.location.protocol==='https:'?'; Secure':''}catch(e){"
+                    "return location.protocol==='https:'?'; Secure':''}})()")
+
+
+def session_cookie_js(token: str) -> str:
+    """JavaScript that stores the session token in localStorage and the
+    uv_jwt cookie. Shared by every sign-in path and app.py's per-render
+    refresh, so the cookie attributes live in one place."""
+    return (f"localStorage.setItem('uv_jwt',{repr(token)});"
+            f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})"
+            f"+'; max-age=86400'+{_COOKIE_ATTRS_JS};")
+
+
+def trusted_device_cookie_js(device_id: str) -> str:
+    return (f"document.cookie='uv_td='+encodeURIComponent({repr(device_id)})"
+            f"+'; max-age={30 * 86400}'+{_COOKIE_ATTRS_JS};")
+
+
 def _sync_cookie_script(token: str) -> None:
     """Same localStorage+cookie sync every successful sign-in path needs
-    (password, invite acceptance, OAuth) — see app.py's own copy of this for
-    every already-authenticated render."""
-    st.iframe(
-        f"<script>localStorage.setItem('uv_jwt',{repr(token)});"
-        f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})+"
-        f"'; path=/; max-age=86400';</script>",
-        height=1,
-    )
+    (password, invite acceptance, OAuth)."""
+    st.iframe(f"<script>{session_cookie_js(token)}</script>", height=1)
 
 
 def _device_id_from_cookie() -> str | None:
@@ -116,11 +135,57 @@ def _sync_trusted_device_cookie(device_id: str) -> None:
     longer-lived cookie from the session cookie (uv_jwt) so it survives a
     sign-out and is available the next time this browser hits the TOTP
     challenge."""
-    st.iframe(
-        f"<script>document.cookie='uv_td='+encodeURIComponent({repr(device_id)})+"
-        f"'; path=/; max-age={30 * 86400}';</script>",
-        height=1,
-    )
+    st.iframe(f"<script>{trusted_device_cookie_js(device_id)}</script>", height=1)
+
+
+# Per-browser-session failed sign-in count and countdown (SR3). The account
+# lock in auth.login() is silent — every failure returns the same message so
+# the screen can't reveal whether an email has an account — so the countdown
+# card is driven by this session's own failures instead: it appears after the
+# configured number of failed attempts, whatever emails were typed.
+_SESSION_LOCK_KEY = "uv_login_lock"
+
+
+def _session_lock_expiry() -> datetime | None:
+    lock = st.session_state.get(_SESSION_LOCK_KEY) or {}
+    until = lock.get("until")
+    if not until:
+        return None
+    until_dt = datetime.fromisoformat(until)
+    if datetime.now(timezone.utc) >= until_dt:
+        st.session_state.pop(_SESSION_LOCK_KEY, None)
+        return None
+    return until_dt
+
+
+def _record_session_failure() -> bool:
+    """Count a failed password sign-in in this session; True when it reaches
+    the limit and starts the countdown (same limit and minutes as the
+    account lock, Admin › Security)."""
+    max_attempts, lock_minutes = lock_policy()
+    lock = dict(st.session_state.get(_SESSION_LOCK_KEY) or {})
+    lock["failures"] = lock.get("failures", 0) + 1
+    if lock["failures"] >= max_attempts:
+        lock = {"failures": 0, "until": (datetime.now(timezone.utc)
+                                         + timedelta(minutes=lock_minutes)).isoformat()}
+        st.session_state[_SESSION_LOCK_KEY] = lock
+        return True
+    st.session_state[_SESSION_LOCK_KEY] = lock
+    return False
+
+
+def _second_factor_failed(pending: dict, message: str) -> None:
+    """Show a failed authenticator/backup-code attempt. When that attempt
+    locked the account (SR1), drop the pending challenge too: the lock
+    applies to the password step as well, so the user starts again from the
+    password screen once it expires instead of guessing on here."""
+    st.markdown(f'<div class="uv-login-err">{message}</div>', unsafe_allow_html=True)
+    locked_until = get_lockout(pending["email"])
+    if locked_until is not None:
+        st.session_state.pop("uv_totp_pending", None)
+        # This user already passed the password step, so showing the
+        # countdown reveals nothing (unlike a plain password failure, SR3).
+        st.session_state[_SESSION_LOCK_KEY] = {"failures": 0, "until": locked_until.isoformat()}
 
 
 def _render_totp_challenge(pending: dict) -> None:
@@ -143,7 +208,7 @@ def _render_totp_challenge(pending: dict) -> None:
                 _sync_trusted_device_cookie(device_id)
             st.rerun()
         else:
-            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+            _second_factor_failed(pending, result)
 
     _b1, _b2 = st.columns(2)
     with _b1:
@@ -184,7 +249,7 @@ def _render_backup_code_challenge(pending: dict) -> None:
             _start_session(result)
             st.rerun()
         else:
-            st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
+            _second_factor_failed(pending, result)
 
     if st.button(_("Back to the authenticator code"), key="backup_back_to_totp", width="stretch"):
         st.session_state["uv_totp_pending"]["mode"] = "totp"
@@ -642,14 +707,13 @@ def auth_wall() -> None:
                     _render_totp_challenge(_pending_totp)
                     st.stop()
 
-            _attempted_email = st.session_state.get("uv_login_attempted_email")
-            _lock_expiry = get_lockout(_attempted_email) if _attempted_email else None
+            _lock_expiry = _session_lock_expiry()
 
             if _lock_expiry:
                 _mins_left = max(1, -(-int((_lock_expiry - datetime.now(timezone.utc)).total_seconds()) // 60))
                 st.markdown(
                     f'<div class="uv-login-heading">{h_("Sign in temporarily locked")}</div>'
-                    f'<div class="uv-login-subhead">{h_("Too many failed attempts on this account. Uvalu will accept a new attempt when the timer expires.")}</div>'
+                    f'<div class="uv-login-subhead">{h_("Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires.")}</div>'
                     '<div class="uv-lock-card">'
                       '<div class="uv-lock-icon">'
                         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -677,7 +741,7 @@ def auth_wall() -> None:
                 )
                 if st.button(_("Not you? Use a different account"), key="login_switch_account",
                              width="stretch"):
-                    st.session_state.pop("uv_login_attempted_email", None)
+                    st.session_state.pop(_SESSION_LOCK_KEY, None)
                     st.rerun()
                 st.stop()
 
@@ -715,7 +779,7 @@ def auth_wall() -> None:
                     ok, result = login(email, password, user_agent=_user_agent(),
                                        device_id=_device_id_from_cookie())
                     if ok and result == TOTP_REQUIRED:
-                        st.session_state.pop("uv_login_attempted_email", None)
+                        st.session_state.pop(_SESSION_LOCK_KEY, None)
                         st.session_state["uv_totp_pending"] = {
                             "email": email.strip().lower(), "mode": "totp",
                             "expires": (datetime.now(timezone.utc)
@@ -723,16 +787,14 @@ def auth_wall() -> None:
                         }
                         st.rerun()
                     elif ok:
-                        st.session_state.pop("uv_login_attempted_email", None)
+                        st.session_state.pop(_SESSION_LOCK_KEY, None)
                         _start_session(result)
                         st.rerun()
                     else:
-                        st.session_state["uv_login_attempted_email"] = email.strip().lower()
-                        if get_lockout(email):
-                            # This attempt is the one that tripped the lock (or the
-                            # account was already locked) — rerun so the top of this
-                            # function renders the dedicated locked-out card above
-                            # instead of the plain inline error.
+                        if _record_session_failure():
+                            # This attempt reached the limit — rerun so the top of
+                            # this function renders the locked-out card instead of
+                            # the plain inline error.
                             st.rerun()
                         st.markdown(f'<div class="uv-login-err">{result}</div>', unsafe_allow_html=True)
                         # Highlights the password field itself alongside the error above,
