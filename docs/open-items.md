@@ -17,7 +17,7 @@ wording.
 
 | # | Item | Risk | Do it before | Who |
 | --- | --- | --- | --- | --- |
-| L1 | **Record terms acceptance and EEA country** (AU-09 / G30: country, three unticked boxes, text version + timestamp). Until then, keep a manual record per invite: country + an email confirming the invitee read the terms and the no-advice notice. When built, put the country and acceptance rows back in the privacy notice §2 and the admin "Account creation" text. Then show the acceptance dates in Settings › Legal documents (terms, privacy notice) and give the no-personal-advice row its View link back — it is marked "Not available" until then (11 October 2026). | Medium–high | Inviting anyone you don't know personally | Dev |
+| L1 | **Terms acceptance and EEA country — built** (14 October 2026, `feature/phase5-records`): the invitation starts with a consent step (country of residence, three unticked statements), stored with text versions and times; Settings › Legal documents shows them. Still to do: review the 13 new strings (legal texts) in Poedit, and have the privacy lawyer check the wording. | Medium–high | Inviting anyone you don't know personally | Founder |
 | L2 | **Market-data licence.** Prices come from Yahoo Finance, whose terms allow personal, non-commercial use only; showing them to other users is redistribution. Move to the licensed provider (EODHD, display licence) or get written permission. | Medium–high | A wider beta | Founder + provider |
 | L3 | **Formal opinion on MAR classification** of the signals (art. 3(1)(35) MAR, "expert" status and Delegated Regulation 2016/958 art. 4). Then, optionally, an informal approach to the FSMA through its fintech contact point. | Medium | Paid launch | Belgian financial-regulation lawyer |
 | L4 | **KBO / BCE registration** (CEL art. III.49) and a business or domiciliation address instead of the home address on every page. Then set `PRODUCER_ENTERPRISE_NUMBER` in `uvalu/compliance/disclosures.py`. | Medium | First income or public launch; ideally before inviting strangers | Founder + accountant |
@@ -26,7 +26,6 @@ wording.
 | L7 | **Terms: "English version prevails" clause** — check it is there; translate the Terms into at least Dutch and French. | Low (beta) | Paid launch | Founder / lawyer |
 | L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. The 30 days now hold by design: `deploy/offsite-backup.sh` prunes offsite archives after 29 days, and the incident procedure and breach register are written (`docs/incident-procedure.md`, 13 October 2026). Still to do: set up the Storage Box with its automatic snapshots off (`docs/deployment.md` step 7). | Low | Server set-up | Founder |
 | L9 | **Rebalancing UI** needs its own MiFID II review before it is built: nothing may combine a signal with the user's position into an action ("reduce", "rebalance"). | Medium if built wrongly | Building it | Review |
-| L10 | **Privacy notice §6**: one line that the admin can hand out a reset link (and so could take over an account). | Low | Next notice update | Founder |
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
 
 Facts the review still needs: how many production accounts exist besides the
@@ -47,11 +46,10 @@ also adds to L5 (sign the mailbox provider's DPA and the Hetzner DPA; a US
 provider changes privacy notice §5) and L8 (the 35/30-day mismatch and the
 incident procedure, both done 13 October 2026).
 
+Phase 5 (14 October 2026, `feature/phase5-records`): L15 drafts in `docs/legal/gdpr/` (record of processing, legitimate-interest notes, DPIA screening: no DPIA needed for the beta), L16 admin action record (`uvalu/compliance/admin_access.py`, 24 months), L17 invitation clean-up, L10 (reset-link line) and beta privacy notice 1.4 (effective 28 October 2026) are done; git history keeps their rows. The lawyer still reviews the GDPR drafts.
+
 | # | Item | Risk | Do it before | Who |
 | --- | --- | --- | --- | --- |
-| L15 | **GDPR paperwork:** record of processing (art. 30), a short legitimate-interest note per row that relies on it, and a written DPIA screening against the APD list. | Low–medium | Inviting anyone you don't know personally | Founder |
-| L16 | **Admin access record:** privacy notice §6 promises each admin access to a user's data is recorded; nothing does that (events only, 31-day retention). Add an access record kept longer, or reword §6. | Medium | Beta opens to others | Dev / founder |
-| L17 | **Invite purge:** privacy notice §2 promises invitation data is deleted 30 days after expiry; expired invites stay in the user store. | Low–medium | Next beta notice update | Dev |
 | L18 | **Paid checkout:** order-button wording with the price after the trial, conversion date and price shown at sign-up, the art. 11a withdrawal function with confirmation and email acknowledgement, a confirmation email with terms and withdrawal form, Brevo open/click tracking off. | Medium | Paid launch | Dev + lawyer |
 | L19 | **Paid-launch text edits:** Terms §12 liability (not for our own errors; restore the "reasonable care" qualifier), Terms §15 closed list of reasons for changes, privacy notice §7/§8/§11 aligned with the beta notice, accountant as controller or processor. | Low–medium | Paid launch | Founder / lawyer |
 
