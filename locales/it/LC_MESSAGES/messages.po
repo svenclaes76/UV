@@ -453,8 +453,9 @@ msgstr "Punteggio di rischio composito 25–50: sotto il punto medio della scala
 
 #. Context: Risk page › overall risk band name
 #: risk.py:123
+#, fuzzy
 msgid "Elevated risk"
-msgstr "Rischio elevato"
+msgstr "Rischio sopra la media"
 
 #: risk.py:124
 msgid "Composite risk score 50–70: above the scale's midpoint."
@@ -857,8 +858,9 @@ msgstr "Punteggio basso"
 #. cash flow, dividend cover, multi-year decline, no trading). Neutral, factual
 #. wording.
 #: screener.py:331 uvalu/drawer.py:248 uvalu/pages_/analysis.py:361
+#, fuzzy
 msgid "Screened out"
-msgstr "Escluso dal filtro"
+msgstr "Escluso"
 
 #: screener.py:332
 msgid "No signal"
@@ -4462,14 +4464,16 @@ msgstr "Dati di mercato"
 
 #. Context: Analysis page › dividend stat: trailing-twelve-month yield
 #: uvalu/pages_/analysis.py:654
+#, fuzzy
 msgid "Yield · TTM"
-msgstr "Rendimento · 12m"
+msgstr "Rendimento da dividendo · 12m"
 
 #. Context: Analysis page › dividend stat: expected yield for the next 12
 #. months
 #: uvalu/pages_/analysis.py:655
+#, fuzzy
 msgid "Yield · forward"
-msgstr "Rendimento · atteso"
+msgstr "Rendimento da dividendo · atteso"
 
 #. Context: Analysis page › dividend stat: net dividend relative to your
 #. purchase price
@@ -5086,9 +5090,9 @@ msgid "Composite model score below {low}."
 msgstr "Punteggio composito del modello sotto {low}."
 
 #: uvalu/pages_/help.py:98
-#, python-brace-format
+#, fuzzy, python-brace-format
 msgid "{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out"
-msgstr "{a} Sottovalutato · {b} Punteggio medio · {c} Punteggio basso · {d} Escluso dal filtro"
+msgstr "{a} Sottovalutato · {b} Punteggio medio · {c} Punteggio basso · {d} Escluso"
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
@@ -5184,8 +5188,9 @@ msgid "During the free beta prices are delayed quotes from Yahoo Finance; each s
 msgstr "Durante la beta gratuita i prezzi sono quotazioni ritardate di Yahoo Finance; ogni segnale mostra l'ora del prezzo usato. I dati fondamentali vengono aggiornati circa ogni 24 ore. I prezzi in tempo reale non sono offerti."
 
 #: uvalu/pages_/help.py:134
+#, fuzzy
 msgid "Why does a stock show “Screened out”?"
-msgstr "Perché un titolo mostra «Escluso dal filtro»?"
+msgstr "Perché un titolo mostra «Escluso»?"
 
 #: uvalu/pages_/help.py:135
 msgid "It breaks one of the quality rules listed on this page; the explanation next to the badge names which. Its composite score is set to 0. It still appears in your portfolio and valuations."
@@ -5373,8 +5378,9 @@ msgstr "Reddito 12m"
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
 #: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:61 uvalu/pages_/watchlist.py:33
+#, fuzzy
 msgid "Yield"
-msgstr "Rendimento"
+msgstr "Rend. div."
 
 #. Context: Portfolio › column header: net yield on cost (dividend relative to
 #. purchase price)

@@ -857,8 +857,9 @@ msgstr "Niedriger Score"
 #. cash flow, dividend cover, multi-year decline, no trading). Neutral, factual
 #. wording.
 #: screener.py:331 uvalu/drawer.py:248 uvalu/pages_/analysis.py:361
+#, fuzzy
 msgid "Screened out"
-msgstr "Ausgefiltert"
+msgstr "Ausgeschlossen"
 
 #: screener.py:332
 msgid "No signal"
@@ -4462,14 +4463,16 @@ msgstr "Marktdaten"
 
 #. Context: Analysis page › dividend stat: trailing-twelve-month yield
 #: uvalu/pages_/analysis.py:654
+#, fuzzy
 msgid "Yield · TTM"
-msgstr "Rendite · 12 M."
+msgstr "Dividendenrendite · 12 M."
 
 #. Context: Analysis page › dividend stat: expected yield for the next 12
 #. months
 #: uvalu/pages_/analysis.py:655
+#, fuzzy
 msgid "Yield · forward"
-msgstr "Rendite · erwartet"
+msgstr "Dividendenrendite · erwartet"
 
 #. Context: Analysis page › dividend stat: net dividend relative to your
 #. purchase price
@@ -5086,9 +5089,9 @@ msgid "Composite model score below {low}."
 msgstr "Gesamtscore des Modells unter {low}."
 
 #: uvalu/pages_/help.py:98
-#, python-brace-format
+#, fuzzy, python-brace-format
 msgid "{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out"
-msgstr "{a} Unterbewertet · {b} Mittlerer Score · {c} Niedriger Score · {d} Ausgefiltert"
+msgstr "{a} Unterbewertet · {b} Mittlerer Score · {c} Niedriger Score · {d} Ausgeschlossen"
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
@@ -5184,8 +5187,9 @@ msgid "During the free beta prices are delayed quotes from Yahoo Finance; each s
 msgstr "Während der kostenlosen Beta sind die Kurse verzögerte Notierungen von Yahoo Finance; jedes Signal zeigt die Zeit des verwendeten Kurses. Fundamentaldaten werden etwa alle 24 Stunden aktualisiert. Echtzeitkurse werden nicht angeboten."
 
 #: uvalu/pages_/help.py:134
+#, fuzzy
 msgid "Why does a stock show “Screened out”?"
-msgstr "Warum zeigt eine Aktie „Ausgefiltert“?"
+msgstr "Warum zeigt eine Aktie „Ausgeschlossen“?"
 
 #: uvalu/pages_/help.py:135
 msgid "It breaks one of the quality rules listed on this page; the explanation next to the badge names which. Its composite score is set to 0. It still appears in your portfolio and valuations."
@@ -5373,8 +5377,9 @@ msgstr "Erträge 12 M."
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
 #: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:61 uvalu/pages_/watchlist.py:33
+#, fuzzy
 msgid "Yield"
-msgstr "Rendite"
+msgstr "Div.-Rend."
 
 #. Context: Portfolio › column header: net yield on cost (dividend relative to
 #. purchase price)

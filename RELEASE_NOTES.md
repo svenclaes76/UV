@@ -20,6 +20,13 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Fixed
+
+- **Clearer labels in Dutch, French, German, Italian and Spanish**: the two
+  highest risk bands have distinct names in French, Italian and Spanish,
+  "Screened out" no longer sounds like your own Screener filter, and the
+  dividend yield column says dividend yield.
+
 ## [2026.10.7] — 2026-10-14
 
 **Signals change.** Fair values no longer jump on a single exceptional year,
