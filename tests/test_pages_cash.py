@@ -388,7 +388,7 @@ def test_dashboard_cash_tile_and_current_value(isolated_data, monkeypatch):
     cash.post_manual("Deposit", D, 900)
     html = _html(run_dashboard(monkeypatch))
     assert "of total value · not in risk" in html
-    assert "incl. €900 cash" in html and "€2,000" in html
+    assert "holdings €1,100 + cash €900" in html and "€2,000" in html
 
 
 def test_risk_banner_only_with_cash(isolated_data, monkeypatch):
