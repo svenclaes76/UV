@@ -2386,12 +2386,12 @@ msgid "Viewer role is read-only"
 msgstr "El rol Lector es de solo lectura"
 
 #: uvalu/components.py:1136
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "On the watchlist: {stock}"
 msgstr "En la lista de seguimiento: {stock}"
 
 #: uvalu/components.py:1223
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Remove {stock} from the watchlist"
 msgstr "Quitar {stock} de la lista de seguimiento"
 
@@ -2403,7 +2403,7 @@ msgstr "Ver"
 
 #: uvalu/components.py:1225 uvalu/components.py:1820 uvalu/pages_/dashboard.py:596
 #: uvalu/pages_/dashboard.py:740 uvalu/pages_/risk.py:466
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "View {stock}"
 msgstr "Ver {stock}"
 
@@ -2444,7 +2444,7 @@ msgid "{amount} gr"
 msgstr "{amount} bruto"
 
 #: uvalu/components.py:1814
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Edit position: {stock}"
 msgstr "Editar posición: {stock}"
 
@@ -2463,7 +2463,7 @@ msgid "{name} · closed {date}"
 msgstr "{name} · cerrada en {date}"
 
 #: uvalu/components.py:1871
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Edit trade: {stock}, {date}"
 msgstr "Editar operación: {stock}, {date}"
 
@@ -2484,7 +2484,7 @@ msgid "{ticker} · paid {date}"
 msgstr "{ticker} · pagado el {date}"
 
 #: uvalu/components.py:1958 uvalu/components.py:2065
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Edit dividend: {stock}, {date}"
 msgstr "Editar dividendo: {stock}, {date}"
 
@@ -2658,12 +2658,12 @@ msgid "Balance"
 msgstr "Saldo"
 
 #: uvalu/components.py:2241
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Edit cash entry of {date}"
 msgstr "Editar el movimiento de efectivo del {date}"
 
 #: uvalu/components.py:2242
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "View the entry linked to the cash entry of {date}"
 msgstr "Ver el movimiento vinculado al movimiento de efectivo del {date}"
 
@@ -3918,7 +3918,7 @@ msgid "Switch to light theme"
 msgstr "Cambiar al tema claro"
 
 #: uvalu/shell.py:418
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Account menu for {name}"
 msgstr "Menú de la cuenta de {name}"
 
@@ -4727,7 +4727,7 @@ msgstr "base {currency}"
 
 #: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:326 uvalu/pages_/portfolio.py:372
 #: uvalu/pages_/portfolio.py:410
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Open full page: {section}"
 msgstr "Abrir la página completa: {section}"
 
