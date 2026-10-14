@@ -22,7 +22,7 @@ import streamlit as st
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
 
-from uvalu import authgate, i18n, nav, shell, styles, tooltips, update_notice
+from uvalu import a11y, authgate, i18n, nav, shell, styles, tooltips, update_notice
 from uvalu.i18n import _
 from uvalu.drawer import dispatch_pending_drawer_action
 from uvalu.runtime import current_user
@@ -143,6 +143,9 @@ nav.record_visit(next((k for k, p in nav.pages.items() if p.url_path == _nav.url
 # matching Uvalu Admin.dc.html's separate shell — skip the main app's
 # horizontal top-bar nav for it instead of stacking both.
 # Order under the top bar: update notice, reload prompt, beta box, peer strip.
+# Button names for screen readers, collected from here (the top bar on) to
+# the end of the run (uvalu/a11y.py).
+a11y.begin_run()
 if _nav.url_path != "admin":
     shell.render_topbar(_nav)
     update_notice.render_whats_new_notice(_email)
@@ -163,15 +166,16 @@ st.set_page_config(page_title=f"{_nav.title} · Uvalu")
 _nav_started = time.perf_counter()
 _render_ok = True
 try:
-    # The page body, marked role="main" by shell.render_landmarks().
+    # The page body, marked role="main" by a11y.render().
+    a11y.render(_nav.url_path or "dashboard", names=False)
     with st.container(key="uv_main"):
         _nav.run()
     # Legal footer on every screen (DIS-1, REC-1); Admin has its own shell.
     if _nav.url_path != "admin":
         shell.render_footer()
-    # AC1: navigation / main / contentinfo landmarks and the skip link, after
-    # the footer so every element it marks is already on the page.
-    shell.render_landmarks(_nav.url_path or "dashboard")
+    # AC1–AC3: landmarks, skip link, hidden icon names and the button names
+    # the page registered (uvalu/a11y.py), after the footer.
+    a11y.render(_nav.url_path or "dashboard")
 except Exception:
     _render_ok = False
     logkit.get_logger("uvalu.render").exception(

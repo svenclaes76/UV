@@ -32,7 +32,7 @@ of that month); earlier releases used SemVer. Rules in
 - Accessibility (AC1, docs/accessibility-review.md): section and card titles
   are level-2 headings (`role="heading" aria-level="2"`, kept as styled
   `div`s so Streamlit's own heading styles and anchors stay out), sign-in
-  and Admin titles level 1. `shell.render_landmarks()` marks the top bar as
+  and Admin titles level 1. `uvalu/a11y.py` marks the top bar as
   navigation, the page body (new `uv_main` container in `app.py`) as main
   and the footer as contentinfo, and adds a "Skip to content" link that
   moves focus to the page's level-1 heading. `tests/test_accessibility.py`
@@ -40,6 +40,19 @@ of that month); earlier releases used SemVer. Rules in
 - Page titles (AC4): each browser tab says which page it is ("Risk ·
   Uvalu"), in the interface language. `<html lang>` already followed the
   language (`i18n.inject_lang_attr`).
+- Screen-reader names for row and icon buttons (AC2, AC3): row code calls
+  `a11y.label(key, text, pressed=…)`, and a script installed once in the
+  page applies the names, `aria-pressed` and `aria-hidden` on Material icon
+  ligatures, re-applying them through a MutationObserver when Streamlit
+  redraws. The Screener's stars read "On the watchlist: Investor AB
+  (INVE-B.ST)" with their on/off state, "View" / "View details" read
+  "View <stock>", pencils name the position, trade, dividend or cash entry,
+  and icon-only buttons (theme, account menu, "Open full page", Admin's
+  row menu) have names instead of "dark_mode" or "SC expand_more".
+  `a11y.render()` runs twice per run: before the page (landmarks and icons,
+  also while a page is still loading) and after the footer (the names).
+  A test fails when a new "★", "×", "✎", "View" or icon-only button
+  has no name.
 
 ### Changed
 

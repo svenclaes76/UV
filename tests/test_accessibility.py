@@ -1,4 +1,4 @@
-"""AC1 / AC4 (docs/accessibility-review.md): headings, landmarks, skip link,
+"""AC1–AC4 (docs/accessibility-review.md): headings, landmarks, skip link,
 page titles. The script itself runs in the browser; these tests pin what the
 Python side emits and stop new section titles from losing their heading role."""
 from __future__ import annotations
@@ -38,11 +38,13 @@ def test_sign_in_headings_are_level_one():
         'class="uv-login-heading" role="heading" aria-level="1"') > 0
 
 
-def test_landmark_script_marks_nav_main_footer_and_adds_skip_link(monkeypatch):
-    from uvalu import shell
+def test_page_script_marks_landmarks_icons_and_names(monkeypatch):
+    from uvalu import a11y
     seen = []
-    monkeypatch.setattr(shell.st, "iframe", lambda body, **kw: seen.append(body))
-    shell.render_landmarks("risk")
+    monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
+    a11y.begin_run()
+    a11y.label("scr_row_ASML.AS_action", "On the watchlist: ASML (ASML.AS)", pressed=True)
+    a11y.render("risk")
     (body,) = seen
     assert "/* page: risk */" in body   # differs per page, so it runs again on navigation
     for sel, role in ((".st-key-uv_topbar_nav", "navigation"), (".st-key-uv_main", "main"),
@@ -50,10 +52,51 @@ def test_landmark_script_marks_nav_main_footer_and_adds_skip_link(monkeypatch):
         assert f"mark('{sel}', '{role}'" in body
     assert '"skip": "Skip to content"' in body and '"nav": "Main"' in body
     assert "d.body.insertBefore(a, d.body.firstChild)" in body
+    assert "stIconMaterial" in body and "MutationObserver" in body
+    # Streamlit's class for a key with "." uses "-" instead.
+    assert '"scr_row_ASML-AS_action": ["On the watchlist: ASML (ASML.AS)", true]' in body
+
+
+def test_early_render_keeps_the_previous_names(monkeypatch):
+    from uvalu import a11y
+    seen = []
+    monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
+    a11y.render("risk", names=False)
+    assert "var aria = null;" in seen[0]
+
+
+def test_names_cannot_close_the_script():
+    from uvalu import a11y
+    assert "</script>" not in a11y._js({"x": "</script><b>"})
+
+
+def test_stock_name():
+    from uvalu import a11y
+    assert a11y.stock_name("INVE-B.ST", "Investor AB") == "Investor AB (INVE-B.ST)"
+    assert a11y.stock_name("ASML.AS", "") == "ASML.AS"
+    assert a11y.stock_name("ASML.AS", "ASML.AS") == "ASML.AS"
+
+
+_BARE = re.compile(r'st\.(?:button|popover)\((?:"(?:★|×|✎|)"|_\("View(?: details)?"\))')
+
+
+def test_every_unnamed_row_or_icon_button_registers_a_name():
+    """AC2/AC3: a button whose visible text is "★", "×", "✎", "View" or only
+    an icon calls a11y.label() for its key within a few lines."""
+    missing = []
+    for path in sorted((ROOT / "uvalu").rglob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if not _BARE.search(line):
+                continue
+            window = "\n".join(lines[max(0, i - 4):i + 4])
+            if "a11y.label(" not in window:
+                missing.append(f"{path.relative_to(ROOT)}:{i + 1}")
+    assert not missing, "buttons without a screen-reader name: " + ", ".join(missing)
 
 
 def test_app_wraps_the_page_body_and_titles_each_page():
     src = (ROOT / "app.py").read_text(encoding="utf-8")
     assert 'with st.container(key="uv_main"):\n        _nav.run()' in src.replace("\r\n", "\n")
     assert 'st.set_page_config(page_title=f"{_nav.title} · Uvalu")' in src
-    assert "shell.render_landmarks(" in src
+    assert "a11y.render(" in src and "a11y.begin_run()" in src

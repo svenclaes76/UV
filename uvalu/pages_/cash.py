@@ -18,6 +18,7 @@ from portfolio import base_currency
 from uvalu.components import (back_link, page_header, kpi_card, cash_balance_block_html, cash_alloc_html,
                               cash_ledger_header_html, cash_ledger_row, CASH_LEDGER_COL_SPLIT,
                               MINT_CHIP_STYLE)
+from uvalu import a11y
 from uvalu.dialogs import cash_transaction_dialog, edit_cash_dialog
 from uvalu.i18n import N_, _, fmt_num, frozen, h_, lowercase_noun, ngettext, pgettext, tr
 
@@ -58,6 +59,7 @@ def render_strip(*, invested_value: float, is_viewer: bool, on_open) -> None:
             st.markdown(f'{h_("Cash balance")} <span style="font-family:var(--uv-mono);font-size:9.5px;font-weight:400;'
                         'padding:1px 6px;border-radius:4px;border:0.5px solid var(--line);color:var(--muted);'
                         f'margin-left:6px;">{h_("{currency} base", currency=base)}</span>', unsafe_allow_html=True)
+            a11y.label("ov_cash_expand", _("Open full page: {section}", section=_("Cash balance")))
             if st.button("", key="ov_cash_expand", icon=":material/open_in_full:", help=_("Open full page")):
                 on_open()
         with st.container(key="pf_cash_strip_body"):

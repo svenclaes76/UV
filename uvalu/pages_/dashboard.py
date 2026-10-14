@@ -14,6 +14,7 @@ from portfolio import (portfolio_exists, load_portfolio, load_value_history, loa
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings, get_dividend_withholding
+from uvalu import a11y
 from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_prices_cached,
                         load_portfolio_risk, apply_live_prices)
 from uvalu.dialogs import add_position_dialog
@@ -592,6 +593,8 @@ def render() -> None:
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):
+                        a11y.label(f"db_holdbtn_{_hidx}", _("View {stock}", stock=a11y.stock_name(
+                            str(_hr.get("ticker", "")), display_name(_hr.get("name", "")))))
                         if st.button(_("View details"), key=f"db_holdbtn_{_hidx}"):
                             _drawer_target = _hidx
 
@@ -734,6 +737,8 @@ def render() -> None:
                                                change_pct=float(_mr["day_change_pct"]), max_abs=_mv_max),
                                 unsafe_allow_html=True)
                     if _mr["ticker"] in _mv_scored.index:
+                        a11y.label(f"db_moverbtn_{_mv_i}", _("View {stock}", stock=a11y.stock_name(
+                            str(_mr["ticker"]), display_name(_mr["name"]))))
                         if st.button(_("View details"), key=f"db_moverbtn_{_mv_i}"):
                             _mv_target = _mr
             if _mv_target is not None:

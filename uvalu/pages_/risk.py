@@ -6,6 +6,7 @@ import streamlit as st
 
 from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
+from uvalu import a11y
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import (_esc, score_color, band_tone_color, radial_gauge_svg, page_header, material_icon_html,
@@ -461,6 +462,8 @@ def render() -> None:
                     contrib_pct=_contrib_pct, contrib_bar_pct=_contrib_pct / _max_pct * 100,
                     flag=_flag, flag_color=_flag_color, grid_cols=_rh_grid(),
                 ), unsafe_allow_html=True)
+                a11y.label(f"risk_hold_{_idx}_{p.ticker}_view",
+                           _("View {stock}", stock=a11y.stock_name(p.ticker, p.name)))
                 if st.button(_("View"), key=f"risk_hold_{_idx}_{p.ticker}_view"):
                     _sel_row = _risk_scr_df[_risk_scr_df["Ticker"] == p.ticker]
                     if not _sel_row.empty:
