@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-14 10:49+0000\n"
+"POT-Creation-Date: 2026-10-14 11:16+0000\n"
 "PO-Revision-Date: 2026-10-14 12:58+0200\n"
 "Last-Translator: \n"
 "Language-Team: fr <LL@li.org>\n"
@@ -988,50 +988,50 @@ msgstr "Semestriel"
 msgid "Annual"
 msgstr "Annuel"
 
-#: screener.py:1893
+#: screener.py:1963
 msgid "No signal: the peer group needed to rank this stock is not available yet."
 msgstr "Aucun signal : le groupe de comparaison nécessaire pour classer cette action n'est pas encore disponible."
 
-#: screener.py:1900
+#: screener.py:1970
 #, python-brace-format
 msgid "Fails the model's quality screen ({rules}), so its composite score is set to 0."
 msgstr "Ne passe pas le filtre de qualité du modèle ({rules}) ; son score composite est donc ramené à 0."
 
-#: screener.py:1902
+#: screener.py:1972
 msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr "Ne passe pas le filtre de qualité du modèle ; son score composite est donc ramené à 0."
 
-#: screener.py:1906
+#: screener.py:1976
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}, and the price is {mos} below the model fair value (minimum {min_mos})."
 msgstr "Le score du modèle de {score} est égal ou supérieur à {threshold}, et le cours est inférieur de {mos} à la juste valeur du modèle (minimum {min_mos})."
 
-#: screener.py:1909
+#: screener.py:1979
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
 msgstr "Le score du modèle de {score} est égal ou supérieur à {threshold}."
 
-#: screener.py:1912
+#: screener.py:1982
 #, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
 msgstr "Le score du modèle de {score} est inférieur au seuil bas de {floor}."
 
-#: screener.py:1917
+#: screener.py:1987
 #, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
 msgstr "le score du modèle de {score} est inférieur au seuil haut de {threshold}"
 
-#: screener.py:1920
+#: screener.py:1990
 msgid "no model fair value could be computed"
 msgstr "aucune juste valeur n'a pu être calculée par le modèle"
 
 #. Context: Signal explanation reason (lowercase)
-#: screener.py:1922
+#: screener.py:1992
 #, python-brace-format
 msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr "la marge de sécurité {mos} est sous le minimum de {min_mos}"
 
-#: screener.py:1924
+#: screener.py:1994
 msgid "the fair value rests on fewer than two independent models"
 msgstr "la juste valeur repose sur moins de deux modèles indépendants"
 
@@ -1039,69 +1039,76 @@ msgstr "la juste valeur repose sur moins de deux modèles indépendants"
 #. reasons joined by "; ".
 #. signal explanation for a "Mid score" badge; {reasons} is a list of lowercase
 #. reasons joined by "; ".
-#: screener.py:1926
+#: screener.py:1996
 #, python-brace-format
 msgid "Mid score: {reasons}."
 msgstr "Score moyen : {reasons}."
 
-#: screener.py:1927
+#: screener.py:1997
 msgid "Model score is between the lower and upper thresholds."
 msgstr "Le score du modèle se situe entre le seuil bas et le seuil haut."
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2241
+#: screener.py:2311
 #, python-brace-format
 msgid "revenue fell {years} straight years"
 msgstr "chiffre d'affaires en baisse {years} années de suite"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2246
+#: screener.py:2316
 #, python-brace-format
 msgid "operating income negative {years} years running"
 msgstr "résultat d'exploitation négatif {years} années de suite"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2251
+#: screener.py:2321
 msgid "retained earnings negative and still eroding"
 msgstr "réserves négatives et toujours en baisse"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2259
+#: screener.py:2329
 #, python-brace-format
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividende réduit en {year} avec une couverture de seulement {coverage}×"
 
-#: screener.py:2925
+#: screener.py:3010
 msgid "The price is more than 72 hours old."
 msgstr "Le cours date de plus de 72 heures."
 
-#: screener.py:2926
+#: screener.py:3011
 msgid "The time of the price is unknown."
 msgstr "L'heure du cours est inconnue."
 
-#: screener.py:2927
+#: screener.py:3012
 msgid "No model could compute a fair value."
 msgstr "Aucun modèle n'a pu calculer de juste valeur."
 
-#: screener.py:2928
+#: screener.py:3013
 msgid "The fair value rests on fewer than two independent models."
 msgstr "La juste valeur repose sur moins de deux modèles indépendants."
 
-#: screener.py:2929
+#: screener.py:3014
 msgid "The fair value was capped at the models' median."
 msgstr "La juste valeur a été plafonnée à la médiane des modèles."
 
-#: screener.py:2930
+#: screener.py:3015
 msgid "Earnings per share were derived from the P/E ratio."
 msgstr "Le bénéfice par action a été déduit du PER."
 
-#: screener.py:2931
+#: screener.py:3016
 msgid "Fewer than 20 stocks were available for comparison."
 msgstr "Moins de 20 actions étaient disponibles pour la comparaison."
 
-#: screener.py:2932
+#: screener.py:3017
 msgid "The company reports in another currency than its share price, and no exchange rate was available to convert its figures."
 msgstr "L'entreprise publie ses comptes dans une autre devise que celle de son cours, et aucun taux de change n'était disponible pour convertir ses chiffres."
+
+#: screener.py:3019
+#, fuzzy
+msgid ""
+"Earnings per share come from the latest year only, and the price is under 4 "
+"times those earnings: they may include a one-off gain."
+msgstr "Le bénéfice par action ne vient que de la dernière année, et le cours est inférieur à 4 fois ce bénéfice : il peut inclure un gain exceptionnel."
 
 #. Settings › Export: worksheet tab names in the downloaded
 #. workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]

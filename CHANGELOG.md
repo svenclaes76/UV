@@ -21,6 +21,27 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+**Signals change** with model M3: the Graham and P/E models use normalised
+earnings, so a one-off gain no longer inflates fair values.
+
+### Changed
+
+- Model M3. The Graham Number and the P/E fair value use normalised earnings
+  per share: the median (3 years) or trimmed mean (4+ years) of net income,
+  divided by the shares, instead of the latest year. The P/E growth
+  adjustment uses the yearly growth of net income over 3–4 years; without
+  that history, the latest growth only counts between −50% and +50%. On
+  today's data this cuts Undervalued from 78 to 58 stocks: one-off gains
+  (WE.CONNECT, Newprinces, Deutsche Rohstoff) no longer drive the top of the
+  list.
+- Where the provider's share count covers one share class only (price ×
+  shares far from the market cap), the count from market cap ÷ price is used.
+- A stock valued on the latest year only, with a price under 4 times those
+  earnings, is flagged ("may include a one-off gain") and can't be
+  Undervalued.
+- Methodology (beta 1.3 and the paid version): normalised earnings, the
+  growth adjustment and the M3 change-log row.
+
 ## [2026.10.6] — 2026-10-14
 
 **Signals change** with model M2: the coverage is now home listings only,
