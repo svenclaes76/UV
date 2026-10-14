@@ -20,7 +20,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
-**Signals change.** Fair values no longer jump on a single exceptional year.
+**Signals change.** Fair values no longer jump on a single exceptional year,
+and Undervalued now needs the models to agree.
 
 ### Improved
 
@@ -28,6 +29,10 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   use a company's earnings over the last 3–4 years instead of the latest
   year alone, so a sale or a revaluation no longer makes a share look
   cheap. The Methodology page explains how.
+- **Undervalued means more**: a share is only marked Undervalued when the
+  valuation models roughly agree and the gap to the fair value isn't so
+  large that it points to a data error. When the models disagree, the
+  explanation shows their range.
 
 ## [2026.10.6] — 2026-10-14
 

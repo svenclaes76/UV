@@ -271,7 +271,7 @@ MIN_UNIVERSE_SIZE = 20
 
 # REC-11: bump on any change that can move a fair value, score or signal, so a
 # logged signal can be reproduced against the code that produced it.
-MODEL_VERSION = "M3"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION = "M4"   # D12: independent of the app version; shown in the UI and the methodology change log
 
 # D1: "Undervalued" needs at least this margin of safety, whatever the shared
 # `min_mos` setting says. At 0% a price 0.5% below the model fair value would
@@ -1497,6 +1497,14 @@ _EPS_MIN_YEARS = 3
 _TRAILING_GROWTH_MAX = 0.50        # without history, a bigger trailing jump is ignored
 EPS_ONE_OFF_PE = 4.0               # a trailing P/E below this on trailing EPS is suspect
 
+# V4 (model M4): a weighted average of model values far apart isn't an
+# estimate of anything, and a margin of safety above 50% on a listed share is
+# more often a data error than a bargain (docs/valuation-model-review.md V4:
+# median highest/lowest model 3.3×, 328 stocks above 10×; TPG0.DE at 95% on
+# a broken price). Both keep a stock out of Undervalued and are flagged.
+FV_DISPERSION_MAX = 3.0            # highest / lowest model value
+MOS_PLAUSIBLE_MAX = 0.50           # margin of safety above this: check the data
+
 
 def _robust_central(values: list) -> "float | None":
     """Median of 3, trimmed mean (one extreme dropped per end) of 4+, else None."""
@@ -1804,6 +1812,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
                 "ddm_contributed": False, "fair_value_clamped": False,
                 "payout_source": payout_source, "epv_negative": epv_negative,
                 "ev_source": ev_source, "fv_model_count": 0, "eps_basis": eps_basis,
+                "fv_low": None, "fv_high": None, "fv_dispersion": None,
                 "pb_fair_value": pb_fv, "fcf_fair_value": fcf_fv,
                 "fv_dark_reasons": _fv_dark_reasons(
                     gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
@@ -1826,6 +1835,10 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
 
     total_w = sum(w for _, w in avail)
     iv      = sum(v * w / total_w for v, w in avail)
+    # V4: the spread of the models behind the composite.
+    _vals = [v for v, _ in avail]
+    fv_low, fv_high = min(_vals), max(_vals)
+    fv_dispersion = fv_high / fv_low if fv_low > 0 else None
 
     # ── Sanity guard (WP-DQ9) ────────────────────────────────────────────────
     # If the blend implies a fair value more than FV_SANITY_MULT× the price but
@@ -1874,6 +1887,9 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
         "epv_negative":   epv_negative,
         "ev_source":      ev_source,
         "eps_basis":      eps_basis,
+        "fv_low":         round(fv_low, 2),
+        "fv_high":        round(fv_high, 2),
+        "fv_dispersion":  round(fv_dispersion, 3) if fv_dispersion else None,
         "fv_dark_reasons": _fv_dark_reasons(
             gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
             eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
@@ -1972,6 +1988,13 @@ def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
         return _("Fails the model's quality screen, so its composite score is set to 0.")
 
     if code == SIGNAL_UNDERVALUED:
+        if score is not None and score < buy_threshold and mos is not None:
+            # Q1: kept by the stability rule, within SIGNAL_HYSTERESIS of the edge.
+            return _("Model score {score} is within {band} points of {threshold}, so the stock keeps its "
+                     "signal (stability rule), and the price is {mos} below the model fair value "
+                     "(minimum {min_mos}).",
+                     score=_score_txt, band=fmt_num(SIGNAL_HYSTERESIS, 0), threshold=_thr,
+                     mos=_pct(mos), min_mos=_pct(min_mos))
         if mos is not None:
             return _("Model score {score} is at or above {threshold}, and the price is {mos} below the "
                      "model fair value (minimum {min_mos}).",
@@ -1992,6 +2015,20 @@ def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
         gates.append(_("margin of safety {mos} is below the {min_mos} minimum", mos=_pct(mos), min_mos=_pct(min_mos)))
     if thin:
         gates.append(_("the fair value rests on fewer than two independent models"))
+    if bool(row.get("currency_unverified")):
+        gates.append(_("the company's figures couldn't be converted to the share's currency"))
+    if bool(row.get("eps_one_off_suspect")):
+        gates.append(_("the earnings may include a one-off gain"))
+    if bool(row.get("fv_models_disagree")):
+        _lo, _hi = row.get("fv_low"), row.get("fv_high")
+        if _lo is not None and _hi is not None and pd.notna(_lo) and pd.notna(_hi):
+            gates.append(_("the models disagree: their values range from {low} to {high}",
+                           low=fmt_num(float(_lo), 2), high=fmt_num(float(_hi), 2)))
+        else:
+            gates.append(_("the models disagree"))
+    if bool(row.get("mos_implausible")):
+        gates.append(_("a margin of safety above {limit} is more often a data error than a real discount",
+                       limit=fmt_pct(MOS_PLAUSIBLE_MAX, 0, fraction=True)))
     # Translators: signal explanation for a "Mid score" badge; {reasons} is a list of lowercase reasons joined by "; ".
     return (_("Mid score: {reasons}.", reasons="; ".join(gates)) if gates
             else _("Model score is between the lower and upper thresholds."))
@@ -2590,11 +2627,14 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # most likely rests on a one-off gain; it isn't confirmed either.
     df["eps_one_off_suspect"] = _eps_one_off_suspect(df)
     _dec_oneoff = df["eps_one_off_suspect"]
+    # V4: models far apart, or a margin too large to trust without a check.
+    df["fv_models_disagree"], df["mos_implausible"] = _fair_value_doubts(df)
+    _dec_doubt = df["fv_models_disagree"] | df["mos_implausible"]
     df["signal_code"] = np.select(
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
-                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy & ~_dec_oneoff,
+                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy & ~_dec_oneoff & ~_dec_doubt,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
@@ -2655,6 +2695,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "small_peer_group": df["small_universe"].astype(bool).tolist(),
         "currency_unverified": _dec_ccy.tolist(),
         "eps_one_off_suspect": _dec_oneoff.tolist(),
+        "fair_value_models_disagree": df["fv_models_disagree"].tolist(),
+        "margin_implausible": df["mos_implausible"].tolist(),
     }
     df["data_flags"] = [
         [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
@@ -2726,6 +2768,16 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           previous_signals=previous_signals)
 
 
+def _fair_value_doubts(df: pd.DataFrame) -> "tuple[pd.Series, pd.Series]":
+    """V4: (models disagree, margin implausible) per row. Disagree: the
+    highest model value is more than FV_DISPERSION_MAX times the lowest.
+    Implausible: the margin of safety is above MOS_PLAUSIBLE_MAX."""
+    disp = pd.to_numeric(df["fv_dispersion"], errors="coerce") if "fv_dispersion" in df.columns         else pd.Series(np.nan, index=df.index)
+    mos = pd.to_numeric(df["margin_of_safety"], errors="coerce") if "margin_of_safety" in df.columns         else pd.Series(np.nan, index=df.index)
+    return ((disp > FV_DISPERSION_MAX).fillna(False).astype(bool),
+            (mos > MOS_PLAUSIBLE_MAX).fillna(False).astype(bool))
+
+
 def _eps_one_off_suspect(df: pd.DataFrame) -> pd.Series:
     """V3: True where the earnings models ran on trailing EPS (no multi-year
     history) and the trailing P/E is positive but under EPS_ONE_OFF_PE."""
@@ -2767,7 +2819,11 @@ def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
                if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
         oneoff = (df["eps_one_off_suspect"].fillna(False).astype(bool)
                   if "eps_one_off_suspect" in df.columns else pd.Series(False, index=df.index))
-        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy & ~oneoff
+        doubt = pd.Series(False, index=df.index)
+        for _col in ("fv_models_disagree", "mos_implausible"):
+            if _col in df.columns:
+                doubt |= df[_col].fillna(False).astype(bool)
+        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy & ~oneoff & ~doubt
     keep_n = ((prev == SIGNAL_NEUTRAL) & (codes == SIGNAL_LOW_SCORE)
               & (score >= SCORE_AVOID - SIGNAL_HYSTERESIS))
     codes[keep_u] = SIGNAL_UNDERVALUED
@@ -3018,6 +3074,10 @@ DATA_FLAG_LABELS = {
                               "and no exchange rate was available to convert its figures."),
     "eps_one_off_suspect": N_("Earnings per share come from the latest year only, and the price is "
                               "under 4 times those earnings: they may include a one-off gain."),
+    "fair_value_models_disagree": N_("The models disagree: the highest value is more than 3 times the "
+                                     "lowest, so the fair value is shown as a range."),
+    "margin_implausible": N_("The price is more than 50% below the model fair value. A gap this "
+                             "large is more often a data error than a real discount: check the figures."),
 }
 
 
