@@ -52,7 +52,8 @@ def test_model_settings_in_force_list_for_every_user(isolated_data, monkeypatch)
     """G14: a read-only list of the settings in force, the same for everyone."""
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    assert "Model settings in force" in html and "Same for every user · model M1" in html
+    from screener import MODEL_VERSION
+    assert "Model settings in force" in html and f"Same for every user · model {MODEL_VERSION}" in html
     assert "&gt; 500%" in html          # quality screen: debt / equity
     assert "≥ 70" in html and "≥ 10%" in html
     assert "3% + β × 5%" in html and "Terminal dividend growth" in html
