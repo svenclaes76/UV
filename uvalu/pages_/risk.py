@@ -28,7 +28,10 @@ _FACTOR_NOTES = {
     "WML":    N_("Momentum tilt"),
 }
 
-_RH_LABELS = (N_("Position"), N_("Weight"), N_("Beta"), N_("Vol"), N_("Contribution to risk"), N_("Flag"))
+# UX1: the last column is the position's own risk rating, never a model
+# signal — a "Flag" beside the user's own holding read as "act on this".
+_RH_LABELS = (N_("Position"), N_("Weight"), N_("Beta"), N_("Vol"), N_("Contribution to risk"),
+              N_("Position risk"))
 
 
 def _rh_grid() -> str:
@@ -237,7 +240,6 @@ def render() -> None:
         return
 
     _risk_scr_df = _bundle.scored
-    _veto_lookup = _bundle.veto_lookup
     pf           = _bundle.pf
     r            = _bundle.report
 
@@ -438,14 +440,12 @@ def render() -> None:
         for _idx, _crow in enumerate(_contrib_rows):
             p = _crow["p"]
             _contrib_pct = _crow["raw"] / _total_raw * 100
-            # Flag mirrors the mockup's Leverage-veto/High-volatility/Size
-            # semantics but stays on real fields: a real hard veto (from the
-            # screener's own `veto` column) beats the aggregated position
-            # rating, which is only surfaced here for High/Critical — Low/
-            # Medium render blank, matching the mockup's mostly-empty column.
-            if bool(_veto_lookup.get(p.ticker, False)):
-                _flag, _flag_color = N_("Screened out"), "var(--down-txt)"
-            elif p.rating == "Critical":
+            # The position's own risk rating, surfaced for High/Critical only
+            # (Low/Medium render blank). UX1 (docs/ux-research-plan.md): the
+            # model signal ("Screened out") is not shown here. Beside the
+            # user's own holding it read as an instruction (PER-5); the
+            # signal stays on the stock's own page.
+            if p.rating == "Critical":
                 _flag, _flag_color = N_("Critical"), "var(--down-txt)"
             elif p.rating == "High":
                 _flag, _flag_color = N_("High risk"), "var(--amber-txt)"

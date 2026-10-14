@@ -47,6 +47,13 @@ full 24-hour data refresh before every stock carries its reporting currency.
   incomplete data for many stocks or a build moves many signals.
 - Methodology pages: coverage, currency conversion, stability rule and the
   M2 change-log row.
+- The model signal no longer appears next to your own position. On the
+  Risk page, the last column of "Risk contribution by holding" is now
+  "Position risk" and shows only the position's own risk rating (High or
+  Critical), not "Screened out". In the stock preview, the stock's metrics
+  stay with the signal, and your shares, value and P&L move to a separate
+  "Your position" section below the record buttons' divider, with a note
+  that the signal doesn't take them into account.
 
 ### Added
 

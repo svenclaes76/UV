@@ -222,6 +222,24 @@ class TestOpenDrawer:
         assert any(b.label == "Edit position" for b in at.button)
         assert any(b.label == "Record sale" for b in at.button)
 
+    def test_the_position_sits_apart_from_the_signal(self):
+        # UX1 / PER-5: the stock's metrics stay with the signal; the user's
+        # shares and P&L come later, under "Your position", with the note
+        # that the signal doesn't take them into account.
+        portfolio.save_portfolio(pd.DataFrame([{
+            "ticker": "AAA.BR", "name": "Alpha Corp", "shares": 10,
+            "purchase_value": 900.0, "purchase_price": 90.0,
+        }]))
+        at = AppTest.from_string(_open_drawer_script(veto=True), default_timeout=60)
+        at.run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        blocks = [m.value for m in at.markdown]
+        first = lambda text: next(i for i, b in enumerate(blocks) if text in b)
+        assert first("Screened out") < first("Stock metrics") < first("Composite score")
+        assert first("Composite score") < first("Your position") < first("Shares held")
+        assert "Shares held" not in blocks[first("Composite score")]
+        assert "take your position into account" in "".join(blocks)
+
     def test_scored_price_beside_the_signal_live_price_for_the_position(self):
         # B3: the hero Price tile shows the price the signal was computed
         # from (with its time in the provenance line), so price, fair value
