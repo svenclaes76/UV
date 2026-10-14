@@ -196,14 +196,24 @@ class TestSectorRelativePE:
         assert screener._sector_pe_medians(pd.DataFrame([{"Ticker": "X", "Price": 1.0}])) == {}
 
     def test_peg_tilt_is_bounded(self):
+        # V3 (M3): without history, a trailing growth beyond ±50% is ignored
+        # (it's usually a one-off); the multi-year growth is clamped as before.
         base = {"Price": 100.0, "trailingEps": 5.0}
         f = screener.PE_MULTIPLE_FALLBACK
-        hot  = _fair_value_models(pd.Series({**base, "earningsGrowth": 2.0}))    # clamp 1.5
-        cold = _fair_value_models(pd.Series({**base, "earningsGrowth": -0.9}))   # clamp 0.7
+        hot  = _fair_value_models(pd.Series({**base, "earningsGrowth": 2.0}))    # ignored → 1.0
+        cold = _fair_value_models(pd.Series({**base, "earningsGrowth": -0.9}))   # ignored → 1.0
         mild = _fair_value_models(pd.Series({**base, "earningsGrowth": 0.10}))   # 1.10
-        assert hot["pe_fair_value"]  == pytest.approx(5.0 * f * 1.5)
-        assert cold["pe_fair_value"] == pytest.approx(5.0 * f * 0.7)
+        assert hot["pe_fair_value"]  == pytest.approx(5.0 * f)
+        assert cold["pe_fair_value"] == pytest.approx(5.0 * f)
         assert mild["pe_fair_value"] == pytest.approx(5.0 * f * 1.10)
+        shares = {"sharesOutstanding": 1.0}
+        # Net income 5 → 10 → 40 → 80 (newest first: 80, 40, 10, 5): normalised
+        # EPS = trimmed mean of the middle two = 25; growth ≈ 152% → clamp 1.5.
+        grow = _fair_value_models(pd.Series({**base, **shares, "trailingEps": 80.0,
+                                             "netIncomeHistory": [80.0, 40.0, 10.0, 5.0]}))
+        assert grow["pe_fair_value"] == pytest.approx(25.0 * f * 1.5)
+        fall = _fair_value_models(pd.Series({**base, **shares, "netIncomeHistory": [5.0, 10.0, 40.0, 80.0]}))
+        assert fall["pe_fair_value"] == pytest.approx(25.0 * f * 0.7)
 
     def test_compute_scores_applies_sector_median_end_to_end(self):
         # 5 "Energy" peers at P/E 8 → sector multiple 8; the scored row's

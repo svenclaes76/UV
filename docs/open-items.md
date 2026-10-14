@@ -85,11 +85,12 @@ signal snapshot. These move signals: bump `MODEL_VERSION` and respect the
 founder's trading blackout.
 
 V1 and V2 shipped in model M2 (14 October 2026, `feature/model-m2`); git
-history keeps their rows.
+history keeps their rows. V3 shipped in model M3 (14 October 2026,
+`feature/model-m3`). Next in line: V4 (plausibility of margins above 50%:
+TPG0.DE has a broken price, €0.88 against a book value of €8.47).
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| V3 | **Normalised EPS** for P/E fair value and Graham; growth tilt from history; flag trailing P/E < 4 (11 Undervalued have P/E < 5). | Paid launch |
 | V4 | **Model dispersion:** median max/min 3.3×, 328 stocks > 10×. Range instead of a point and no Undervalued above ~3×; plausibility flag for MoS > 50%. | Paid launch |
 | V5 | **Veto calibration** after V1–V2: revenue decline threshold, retained-earnings rule on a sample. | Paid launch |
 | V6 | **Methodology page:** the models' conservative level (median MoS −33%), euro rate for non-euro stocks, the universe definition. | With V1–V4 |

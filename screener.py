@@ -271,7 +271,7 @@ MIN_UNIVERSE_SIZE = 20
 
 # REC-11: bump on any change that can move a fair value, score or signal, so a
 # logged signal can be reproduced against the code that produced it.
-MODEL_VERSION = "M2"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION = "M3"   # D12: independent of the app version; shown in the UI and the methodology change log
 
 # D1: "Undervalued" needs at least this margin of safety, whatever the shared
 # `min_mos` setting says. At 0% a price 0.5% below the model fair value would
@@ -1487,6 +1487,75 @@ def _normalised_ebit(row: pd.Series):
     return sum(trimmed) / len(trimmed)
 
 
+# V3 (model M3): the P/E fair value and the Graham Number used trailing EPS,
+# so a one-off gain (a disposal, a revaluation) inflated both, and the PEG
+# tilt on the trailing earningsGrowth counted the same gain a second time
+# (docs/valuation-model-review.md V3: 11 Undervalued stocks had a trailing P/E
+# under 5). Both now use normalised EPS, the same robust central value EPV
+# uses for EBIT, and the tilt uses the multi-year growth.
+_EPS_MIN_YEARS = 3
+_TRAILING_GROWTH_MAX = 0.50        # without history, a bigger trailing jump is ignored
+EPS_ONE_OFF_PE = 4.0               # a trailing P/E below this on trailing EPS is suspect
+
+
+def _robust_central(values: list) -> "float | None":
+    """Median of 3, trimmed mean (one extreme dropped per end) of 4+, else None."""
+    vals = sorted(f for f in (_finite(v) for v in values) if f is not None)
+    if len(vals) < _EPS_MIN_YEARS:
+        return None
+    if len(vals) == 3:
+        return vals[1]
+    trimmed = vals[1:-1]
+    return sum(trimmed) / len(trimmed)
+
+
+def _normalised_eps(row: "dict | pd.Series") -> "tuple[float | None, str]":
+    """(EPS, basis) for the P/E and Graham models. With at least
+    _EPS_MIN_YEARS finite years of `netIncomeHistory` and a share count, the
+    robust central net income divided by today's shares (basis
+    "normalised"); otherwise trailing EPS (basis "trailing"). Today's share
+    count is an approximation where buybacks or new shares changed it."""
+    hist = row.get("netIncomeHistory")
+    central = _robust_central(hist) if isinstance(hist, list) else None
+    shares = _eps_share_count(row)
+    if central is not None and shares and shares > 0:
+        return central / shares, "normalised"
+    return _get_num(row, "trailingEps"), "trailing"
+
+
+def _eps_share_count(row: "dict | pd.Series") -> "float | None":
+    """The share count to divide company net income by. The provider's
+    `sharesOutstanding` can cover one share class only (Robertet's investment
+    certificates, CBE.PA: 122,792 shares, €76M at the price, against a €1.3bn
+    market cap for the whole company). When price × shares and the market cap
+    differ by more than a factor 2, the count implied by market cap ÷ price is
+    used. (Not the count implied by net income ÷ trailing EPS: that differs
+    exactly when trailing EPS holds a one-off, the case V3 is about.)"""
+    shares = _finite(row.get("sharesOutstanding"))
+    mcap = _finite(row.get("marketCap")) or _finite(row.get("Market Cap"))
+    price = _finite(row.get("Price"))
+    if mcap and mcap > 0 and price and price > 0:
+        implied = mcap / price
+        if not shares or shares <= 0 or not (0.5 <= implied / shares <= 2.0):
+            return implied
+    return shares
+
+
+def _tilt_growth(row: "dict | pd.Series") -> "float | None":
+    """Earnings growth for the P/E model's PEG tilt: the compound growth of
+    `netIncomeHistory` (oldest to newest, at least _EPS_MIN_YEARS finite
+    positive years); without that, the trailing `earningsGrowth` only when
+    its size is at most _TRAILING_GROWTH_MAX; else None (no tilt)."""
+    hist = row.get("netIncomeHistory")
+    vals = [f for f in ((_finite(v) for v in hist) if isinstance(hist, list) else ()) if f is not None]
+    if len(vals) >= _EPS_MIN_YEARS and vals[0] > 0 and vals[-1] > 0:
+        return (vals[0] / vals[-1]) ** (1.0 / (len(vals) - 1)) - 1.0   # newest first
+    eg = _get_num(row, "earningsGrowth")
+    if eg is not None and abs(eg) <= _TRAILING_GROWTH_MAX:
+        return eg
+    return None
+
+
 def _enterprise_value(row: "dict | pd.Series") -> "tuple[float | None, str]":
     """Enterprise value for the EPV model. FV-4: yfinance drops `enterpriseValue`
     on a partial payload while usually still carrying the balance-sheet pieces,
@@ -1579,7 +1648,7 @@ def _row_is_scorable(row: "dict | pd.Series") -> bool:
 def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
                        sector_pb: "dict | None" = None, *, discount_shift: float = 0.0) -> dict:
     price    = row.get("Price")
-    eps      = row.get("trailingEps")
+    eps, eps_basis = _normalised_eps(row)   # V3: multi-year EPS, else trailing
     bvps     = row.get("bookValue")
     div_rate = row.get("trailingAnnualDividendRate") or row.get("dividendRate")
     payout, payout_source = _payout_signal(row)   # FV-1: reported / cash / 1-over-coverage
@@ -1587,7 +1656,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     ebit     = _normalised_ebit(row)   # robust mean of ebitHistory (≥3yr) else point-in-time
     ev, ev_source = _enterprise_value(row)   # FV-4: provider EV, else reconstructed from mcap+debt−cash
     beta     = row.get("beta")
-    eg       = row.get("earningsGrowth")            # PEG tilt on the PE model
+    eg       = _tilt_growth(row)                    # V3: PEG tilt on multi-year growth
     ddm_g    = _dgr_estimate(row)                   # FV-7: true DPS CAGR, else earningsGrowth
     country  = row.get("country")
     # FV-8 keys off the *resolved* sector (SECTOR_OVERRIDES fills provider gaps for
@@ -1627,7 +1696,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     # with a bounded PEG tilt on earningsGrowth; PE_MULTIPLE_FALLBACK when the
     # sector has too few priced peers or no sector P/E data was supplied.
     pe_multiple = (sector_pe or {}).get(sector, PE_MULTIPLE_FALLBACK)
-    if pd.notna(eg):
+    if eg is not None and pd.notna(eg):
         pe_multiple *= float(np.clip(1.0 + eg, *PEG_TILT_BAND))
     pe_fv = (eps * pe_multiple) if (eps and eps > 0 and not _skip_pe and not _ptb_implausible) else None
 
@@ -1734,7 +1803,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
                 "ddm": ddm1, "ddm_multistage": ddm2, "fair_value": None,
                 "ddm_contributed": False, "fair_value_clamped": False,
                 "payout_source": payout_source, "epv_negative": epv_negative,
-                "ev_source": ev_source, "fv_model_count": 0,
+                "ev_source": ev_source, "fv_model_count": 0, "eps_basis": eps_basis,
                 "pb_fair_value": pb_fv, "fcf_fair_value": fcf_fv,
                 "fv_dark_reasons": _fv_dark_reasons(
                     gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
@@ -1750,7 +1819,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     fv_model_count = len(avail)
     if ddm1 is not None and ddm1 > 0 and ddm2 is not None and ddm2 > 0:
         fv_model_count -= 1
-    if (bool(row.get("trailingEps_derived"))
+    if (eps_basis == "trailing" and bool(row.get("trailingEps_derived"))
             and gn is not None and gn > 0 and pe_fv is not None and pe_fv > 0):
         fv_model_count -= 1
     fv_model_count = max(fv_model_count, 1)
@@ -1804,6 +1873,7 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
         "payout_source":  payout_source,
         "epv_negative":   epv_negative,
         "ev_source":      ev_source,
+        "eps_basis":      eps_basis,
         "fv_dark_reasons": _fv_dark_reasons(
             gn, pe_fv, epv, ddm1, ddm2, analyst_fv,
             eps=eps, ev=ev, ebit=ebit, div_rate=div_rate, payout=payout,
@@ -2516,11 +2586,15 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # V1: a fair value whose currency couldn't be reconciled isn't confirmed.
     _dec_ccy   = (df["currency_unverified"].fillna(False).astype(bool)
                   if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
+    # V3: a fair value on trailing EPS with a trailing P/E under EPS_ONE_OFF_PE
+    # most likely rests on a one-off gain; it isn't confirmed either.
+    df["eps_one_off_suspect"] = _eps_one_off_suspect(df)
+    _dec_oneoff = df["eps_one_off_suspect"]
     df["signal_code"] = np.select(
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
-                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy,
+                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy & ~_dec_oneoff,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
@@ -2580,6 +2654,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "eps_derived_from_pe": df["trailingEps_derived"].fillna(False).astype(bool).tolist(),
         "small_peer_group": df["small_universe"].astype(bool).tolist(),
         "currency_unverified": _dec_ccy.tolist(),
+        "eps_one_off_suspect": _dec_oneoff.tolist(),
     }
     df["data_flags"] = [
         [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
@@ -2651,6 +2726,14 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           previous_signals=previous_signals)
 
 
+def _eps_one_off_suspect(df: pd.DataFrame) -> pd.Series:
+    """V3: True where the earnings models ran on trailing EPS (no multi-year
+    history) and the trailing P/E is positive but under EPS_ONE_OFF_PE."""
+    basis = df["eps_basis"] if "eps_basis" in df.columns else pd.Series("trailing", index=df.index)
+    pe = pd.to_numeric(df["trailingPE"], errors="coerce") if "trailingPE" in df.columns         else pd.Series(np.nan, index=df.index)
+    return ((basis == "trailing") & (pe > 0) & (pe < EPS_ONE_OFF_PE)).fillna(False).astype(bool)
+
+
 # ── Signal hysteresis (Q1, model M2) ─────────────────────────────────────────
 # Signals are recomputed whenever data arrives, and every refresh moves the
 # percentile ranks of every other stock a little, so a stock near a band edge
@@ -2682,7 +2765,9 @@ def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
         thin = df["fv_basis_thin"].fillna(False).astype(bool)
         ccy = (df["currency_unverified"].fillna(False).astype(bool)
                if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
-        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy
+        oneoff = (df["eps_one_off_suspect"].fillna(False).astype(bool)
+                  if "eps_one_off_suspect" in df.columns else pd.Series(False, index=df.index))
+        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy & ~oneoff
     keep_n = ((prev == SIGNAL_NEUTRAL) & (codes == SIGNAL_LOW_SCORE)
               & (score >= SCORE_AVOID - SIGNAL_HYSTERESIS))
     codes[keep_u] = SIGNAL_UNDERVALUED
@@ -2931,6 +3016,8 @@ DATA_FLAG_LABELS = {
     "small_peer_group": N_("Fewer than 20 stocks were available for comparison."),
     "currency_unverified": N_("The company reports in another currency than its share price, "
                               "and no exchange rate was available to convert its figures."),
+    "eps_one_off_suspect": N_("Earnings per share come from the latest year only, and the price is "
+                              "under 4 times those earnings: they may include a one-off gain."),
 }
 
 

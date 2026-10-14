@@ -11,7 +11,7 @@ Beta-readiness review 5 October 2026: history wording made true from day one (re
 
 # Methodology — free beta
 
-**Version:** beta 1.2 · **Last updated:** 14 October 2026 · **Model version:** M2
+**Version:** beta 1.3 · **Last updated:** 14 October 2026 · **Model version:** M3
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -42,12 +42,14 @@ Each model produces a fair value per share. A model is skipped when its required
 | Model | What it does | Main inputs | Default assumptions | Not used when |
 | --- | --- | --- | --- | --- |
 | Graham Number | Conservative value from earnings and book value: square root of 22.5 × earnings per share × book value per share | Earnings per share, book value per share | Multiplier 22.5 | Earnings or book value zero or negative; real estate and financial companies |
-| Price/earnings value | Earnings per share × the median price/earnings ratio of the company's sector, adjusted for earnings growth | Earnings per share, sector P/E, earnings growth | Sector multiple limited to 6–30×; 15× when the sector has fewer than 5 priced peers; growth adjustment limited to 0.7–1.5× | Earnings zero or negative; real estate companies |
+| Price/earnings value | Earnings per share × the median price/earnings ratio of the company's sector, adjusted for earnings growth | Earnings per share, sector P/E, earnings growth | Sector multiple limited to 6–30×; 15× when the sector has fewer than 5 priced peers; growth adjustment limited to 0.7–1.5×, using the yearly growth of net income over the last 3–4 years (without that history, the latest growth figure is used only when it is between −50% and +50%) | Earnings zero or negative; real estate companies |
 | Earnings power value (EPV) | Values current normalised operating earnings with no growth: earnings after tax divided by the cost of capital, minus net debt | Operating earnings (EBIT) of the last 3–4 years, tax rate, cost of capital, net debt, shares outstanding | Normalised EBIT = median (3 years) or trimmed mean (4 or more years); statutory tax rate of the company's country, 25% if unknown | Normalised value negative; real estate and financial companies |
 | Dividend model, single stage | Present value of dividends growing at a constant rate | Dividend per share, dividend growth, cost of equity | Growth = historical dividend growth, limited to 0–5% and to at least 3 points below the discount rate | No dividend; payout ratio at or below 5% or at or above 95% |
 | Dividend model, multi-stage | Five years of higher dividend growth, then a constant terminal growth | Dividend per share, dividend growth, cost of equity | Growth in years 1–5 limited to 15%; terminal growth 2% | As above |
 | Book value (fallback) | Book value per share × the median price/book ratio of the sector | Book value per share, sector P/B | Sector multiple limited to 0.5–4×; 1.5× when the sector has fewer than 5 peers | Only used when none of Graham, P/E and EPV could be calculated; main anchor for banks, insurers and real estate |
 | Free cash flow value (fallback) | Free cash flow × 15, minus net debt, per share | Free cash flow, net debt, shares outstanding | Multiple 15× (about a 6.7% free-cash-flow yield) | Only used when none of Graham, P/E and EPV could be calculated; free cash flow negative |
+
+**Earnings per share** in the Graham and P/E models is normalised: the median (3 years) or trimmed mean (4 or more years) of net income, divided by the number of shares. Only when fewer than 3 years are available is the latest year's figure used; if the price is then under 4 times that figure, the stock gets no Undervalued signal, because the earnings may include a one-off gain.
 
 Graham, P/E and book value models are also skipped when the price is below 2% of book value per share, which indicates that the per-share data is unreliable.
 
@@ -177,3 +179,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | 5 October 2026 | M1 | First published version |
 | 12 October 2026 | M1 | Signals renamed: "Neutral" is now "Mid score" and "Fails quality screen" is now "Screened out". Scores, thresholds and fair values are unchanged. |
 | 14 October 2026 | M2 | Coverage limited to home listings that trade. Reported figures in another currency are converted before valuation. Stability rule at the signal edges (2 points). Incomplete data updates keep the last complete figures. Signals of some stocks change. |
+| 14 October 2026 | M3 | Graham and P/E models use normalised earnings per share (3–4 years of net income) instead of the latest year; the P/E growth adjustment uses multi-year growth. A one-off gain no longer inflates fair values. Signals of some stocks change. |

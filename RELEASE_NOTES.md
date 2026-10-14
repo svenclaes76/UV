@@ -20,6 +20,15 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+**Signals change.** Fair values no longer jump on a single exceptional year.
+
+### Improved
+
+- **Fair values look past one-off gains**: the earnings-based models now
+  use a company's earnings over the last 3–4 years instead of the latest
+  year alone, so a sale or a revaluation no longer makes a share look
+  cheap. The Methodology page explains how.
+
 ## [2026.10.6] — 2026-10-14
 
 **Signals change.** Uvalu now covers companies on their own home exchange
