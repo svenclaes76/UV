@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-13 19:48+0000\n"
-"PO-Revision-Date: 2026-10-13 20:55+0200\n"
+"PO-Revision-Date: 2026-10-14 08:33+0200\n"
 "Last-Translator: \n"
 "Language-Team: de <LL@li.org>\n"
 "Language: de\n"
@@ -25,9 +25,7 @@ msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:104 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
+#: app.py:104 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258 uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503 uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
 msgid "Portfolio"
 msgstr "Portfolio"
 
@@ -57,8 +55,7 @@ msgstr "Analyse"
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: app.py:110 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197
-#: uvalu/shell.py:435
+#: app.py:110 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197 uvalu/shell.py:435
 msgid "Methodology"
 msgstr "Methodik"
 
@@ -66,8 +63,7 @@ msgstr "Methodik"
 msgid "Legal"
 msgstr "Rechtliches"
 
-#: app.py:113 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
-#: uvalu/pages_/help.py:301 uvalu/shell.py:438
+#: app.py:113 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161 uvalu/pages_/help.py:301 uvalu/shell.py:438
 msgid "About Uvalu"
 msgstr "Über Uvalu"
 
@@ -131,8 +127,7 @@ msgstr "Die Benutzerdaten konnten nicht gelesen werden (falscher Schlüssel oder
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:693 auth.py:713 auth.py:789 auth.py:1036 auth.py:1118 auth.py:1141
-#: auth.py:1167 auth.py:1355
+#: auth.py:693 auth.py:713 auth.py:789 auth.py:1036 auth.py:1118 auth.py:1141 auth.py:1167 auth.py:1355
 msgid "User not found."
 msgstr "Benutzer nicht gefunden."
 
@@ -1093,10 +1088,7 @@ msgid "Fewer than 20 stocks were available for comparison."
 msgstr "Für den Vergleich standen weniger als 20 Aktien zur Verfügung."
 
 #: screener.py:2826
-#, fuzzy
-msgid ""
-"The company reports in another currency than its share price, and no exchange "
-"rate was available to convert its figures."
+msgid "The company reports in another currency than its share price, and no exchange rate was available to convert its figures."
 msgstr "Das Unternehmen berichtet in einer anderen Währung als sein Aktienkurs, und es war kein Wechselkurs verfügbar, um seine Zahlen umzurechnen."
 
 #. Settings › Export: worksheet tab names in the downloaded
@@ -1594,12 +1586,7 @@ msgid "Use a backup code"
 msgstr "Backup-Code verwenden"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:233 uvalu/authgate.py:251 uvalu/dialogs.py:304
-#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
-#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
-#: uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497
-#: uvalu/pages_/settings.py:540
+#: uvalu/authgate.py:233 uvalu/authgate.py:251 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418 uvalu/pages_/settings.py:450 uvalu/pages_/settings.py:497 uvalu/pages_/settings.py:540
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -1760,15 +1747,12 @@ msgstr "DURCH EINLADUNG FESTGELEGT"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:442 uvalu/authgate.py:499 uvalu/authgate.py:780
-#: uvalu/authgate.py:785 uvalu/authgate.py:826 uvalu/pages_/settings.py:601
-#: uvalu/pages_/settings.py:605
+#: uvalu/authgate.py:442 uvalu/authgate.py:499 uvalu/authgate.py:780 uvalu/authgate.py:785 uvalu/authgate.py:826 uvalu/pages_/settings.py:601 uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr "Passwort"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:444 uvalu/authgate.py:501 uvalu/authgate.py:568
-#: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
+#: uvalu/authgate.py:444 uvalu/authgate.py:501 uvalu/authgate.py:568 uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Mindestens {min_len} Zeichen."
@@ -1946,10 +1930,7 @@ msgstr "Schwellenwerte siehe Methodik."
 #. header). Same wording as the "Model signal" column header.
 #. small uppercase label in front of a signal badge (stock drawer and Analysis
 #. header). Same wording as the "Model signal" column header.
-#: uvalu/components.py:101 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:56
-#: uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/components.py:101 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:56 uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282 uvalu/pages_/watchlist.py:32
 msgid "Model signal"
 msgstr "Modellsignal"
 
@@ -2274,15 +2255,12 @@ msgid "Delayed quote — not a live intraday price"
 msgstr "Verzögerter Kurs — kein Live-Intraday-Kurs"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1112 uvalu/components.py:1197 uvalu/drawer.py:325
-#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41
-#: uvalu/pages_/watchlist.py:121
+#: uvalu/components.py:1112 uvalu/components.py:1197 uvalu/drawer.py:325 uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41 uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr "Die Rolle Betrachter ist schreibgeschützt"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1199 uvalu/components.py:1792 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1117
+#: uvalu/components.py:1199 uvalu/components.py:1792 uvalu/pages_/risk.py:462 uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr "Ansehen"
 
@@ -2362,9 +2340,7 @@ msgstr "Dividende bearbeiten"
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:1950 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55
-#: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
+#: uvalu/components.py:1950 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
 msgid "Position"
 msgstr "Position"
 
@@ -2380,8 +2356,7 @@ msgstr "Zahltag"
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:1950 uvalu/components.py:2184 uvalu/dialogs.py:665
-#: uvalu/dialogs.py:750 uvalu/dialogs.py:1074
+#: uvalu/components.py:1950 uvalu/components.py:2184 uvalu/dialogs.py:665 uvalu/dialogs.py:750 uvalu/dialogs.py:1074
 msgid "Type"
 msgstr "Art"
 
@@ -2440,8 +2415,7 @@ msgstr "Manuell"
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:2021 uvalu/components.py:2121 uvalu/dialogs.py:45
-#: uvalu/pages_/dashboard.py:213
+#: uvalu/components.py:2021 uvalu/components.py:2121 uvalu/dialogs.py:45 uvalu/pages_/dashboard.py:213
 msgid "Cash"
 msgstr "Barmittel"
 
@@ -2532,9 +2506,7 @@ msgstr "Buchung bearbeiten"
 msgid "View linked entry"
 msgstr "Verknüpfte Buchung ansehen"
 
-#: uvalu/components.py:2288 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551
+#: uvalu/components.py:2288 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503 uvalu/pages_/portfolio.py:551
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Zurück zu {page}"
