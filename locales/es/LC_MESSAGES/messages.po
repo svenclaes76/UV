@@ -2027,7 +2027,7 @@ msgstr "Pide una invitación"
 #: uvalu/components.py:62
 #, fuzzy, python-brace-format
 msgid "price {ratio}× fair value"
-msgstr "precio {ratio}× el valor razonable"
+msgstr "precio a {ratio}× el valor razonable"
 
 #: uvalu/components.py:99
 msgid "No data"
@@ -4860,7 +4860,7 @@ msgstr "Rentabilidad total"
 #: uvalu/pages_/dashboard.py:221
 #, fuzzy
 msgid "open positions: unrealised + dividends"
-msgstr "posiciones abiertas: no realizado + dividendos"
+msgstr "posiciones abiertas: G/P no realizada + dividendos"
 
 #. Context: Dashboard › KPI card label: expected dividend income for the next
 #. year

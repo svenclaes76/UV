@@ -2027,7 +2027,7 @@ msgstr "Chiedi un invito"
 #: uvalu/components.py:62
 #, fuzzy, python-brace-format
 msgid "price {ratio}× fair value"
-msgstr "prezzo {ratio}× il valore equo"
+msgstr "prezzo pari a {ratio}× il valore equo"
 
 #: uvalu/components.py:99
 msgid "No data"
@@ -4860,7 +4860,7 @@ msgstr "Rendimento totale"
 #: uvalu/pages_/dashboard.py:221
 #, fuzzy
 msgid "open positions: unrealised + dividends"
-msgstr "posizioni aperte: non realizzato + dividendi"
+msgstr "posizioni aperte: P/L non realizzato + dividendi"
 
 #. Context: Dashboard › KPI card label: expected dividend income for the next
 #. year
@@ -5829,7 +5829,7 @@ msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "
 "hardly does."
-msgstr "Esposizioni ai fattori Fama-French{details}. Un’esposizione sopra {high} o sotto {low} indica che il portafoglio dipende molto da quel fattore; sotto {small} in entrambe le direzioni ne dipende appena."
+msgstr "Esposizioni ai fattori Fama-French{details}. Un’esposizione sopra {high} o sotto {low} indica che il portafoglio dipende molto da quel fattore; sotto {small}, in un senso o nell’altro, ne dipende appena."
 
 #. Context: Risk page › shown instead of the factor bars
 #: uvalu/pages_/risk.py:348

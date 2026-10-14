@@ -4860,7 +4860,7 @@ msgstr "Totaalrendement"
 #: uvalu/pages_/dashboard.py:221
 #, fuzzy
 msgid "open positions: unrealised + dividends"
-msgstr "open posities: niet-gerealiseerd + dividenden"
+msgstr "open posities: niet-gerealiseerde W/V + dividenden"
 
 #. Context: Dashboard › KPI card label: expected dividend income for the next
 #. year

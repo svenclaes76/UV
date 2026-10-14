@@ -2027,7 +2027,7 @@ msgstr "Bitte um eine Einladung"
 #: uvalu/components.py:62
 #, fuzzy, python-brace-format
 msgid "price {ratio}× fair value"
-msgstr "Kurs {ratio}× fairer Wert"
+msgstr "Kurs: {ratio}× fairer Wert"
 
 #: uvalu/components.py:99
 msgid "No data"
@@ -4860,7 +4860,7 @@ msgstr "Gesamtrendite"
 #: uvalu/pages_/dashboard.py:221
 #, fuzzy
 msgid "open positions: unrealised + dividends"
-msgstr "offene Positionen: unrealisiert + Dividenden"
+msgstr "offene Positionen: unrealisierter G/V + Dividenden"
 
 #. Context: Dashboard › KPI card label: expected dividend income for the next
 #. year
@@ -5829,7 +5829,7 @@ msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "
 "hardly does."
-msgstr "Fama-French-Faktorladungen{details}. Eine Ladung über {high} oder unter {low} bedeutet, dass das Portfolio stark von diesem Faktor abhängt; unter {small} in beide Richtungen hängt es kaum davon ab."
+msgstr "Fama-French-Faktorladungen{details}. Eine Ladung über {high} oder unter {low} bedeutet, dass das Portfolio stark von diesem Faktor abhängt; liegt sie in beiden Richtungen unter {small}, hängt es kaum davon ab."
 
 #. Context: Risk page › shown instead of the factor bars
 #: uvalu/pages_/risk.py:348
