@@ -20,6 +20,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.7] — 2026-10-14
+
 **Signals change.** Fair values no longer jump on a single exceptional year,
 and Undervalued now needs the models to agree.
 

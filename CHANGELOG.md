@@ -21,6 +21,8 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.7] — 2026-10-14
+
 **Signals change** with models M3 and M4: the Graham and P/E models use
 normalised earnings, so a one-off gain no longer inflates fair values, and a
 fair value the models don't agree on, or a margin above 50%, is no longer
