@@ -279,7 +279,8 @@ def _build_all_screener_data(enabled: tuple,
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
 
-    _record_signals(scored)
+    _changes = _record_signals(scored)
+    _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes)
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -295,17 +296,36 @@ def _build_all_screener_data(enabled: tuple,
     return exchange_dfs + (_extra_df,)
 
 
-def _record_signals(scored: pd.DataFrame) -> None:
+def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int) -> None:
+    """Q2: log the build's data-quality summary, and a warning per threshold
+    crossed (uvalu/data_quality.py). Never fails a build."""
+    _log = logkit.get_logger("uvalu.data")
+    try:
+        from uvalu import data_quality
+        pub_fund = fund[fund["Ticker"].isin(public)] if "Ticker" in fund.columns else fund
+        pub_scored = scored[scored["Ticker"].isin(public)] if "Ticker" in scored.columns else scored
+        summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes)
+        _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
+                  extra={"event": "data_quality.summary", **summary})
+        for text in data_quality.alerts(summary):
+            _log.warning("data quality alert: %s", text, extra={"event": "data_quality.alert", "alert": text})
+    except Exception:
+        _log.error("data-quality summary failed", exc_info=True, extra={"event": "data_quality.failed"})
+
+
+def _record_signals(scored: pd.DataFrame) -> int:
     """REC-7 / REC-11: log signal changes and the day's snapshot of every
-    public signal, and the model version the build used. Never fails a build:
-    an error is logged and the screens carry on."""
+    public signal, and the model version the build used. Returns the number
+    of changes logged. Never fails a build: an error is logged and the
+    screens carry on."""
     if scored is None or scored.empty:
-        return
+        return 0
+    changes = 0
     try:
         from screener import MODEL_VERSION, signal_records
         from uvalu.compliance import settings_audit, signal_history
         recs = signal_records(scored)
-        signal_history.record_changes(recs)
+        changes = signal_history.record_changes(recs)
         signal_history.write_daily_snapshot(recs)
         _ids = scored["model_settings_id"].dropna().unique() if "model_settings_id" in scored.columns else []
         if len(_ids):
@@ -313,6 +333,7 @@ def _record_signals(scored: pd.DataFrame) -> None:
     except Exception:
         logkit.get_logger("uvalu.data").error("signal log write failed", exc_info=True,
                                               extra={"event": "compliance.signal_log_failed"})
+    return changes
 
 
 # ScoreReference of the last scored universe per get_scored_universe key
