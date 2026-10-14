@@ -43,6 +43,10 @@ of that month); earlier releases used SemVer. Rules in
 
 - Excel export: text starting with `= + - @` (a note, a watchlist name) is
   written as text, not a formula, so opening an export can't run it (SR7).
+- Dependencies with published advisories, found by the first pip-audit run:
+  Authlib 1.6.5 → 1.6.12 (OAuth state CSRF, JWS header injection, open
+  redirect), cryptography 48.0.1 → 50.0.0, PyJWT 2.13.0 → 2.15.0 (token
+  parsing and algorithm-confusion fixes). Restart the app after `pip install`.
 
 - Translations (TR1, docs/translation-review.md): French showed "Risque
   élevé" for both Elevated and High risk; Elevated is now "Risque accru",
