@@ -16,6 +16,15 @@ from uvalu.i18n import N_
 
 # ── Free beta (decision B7) ─────────────────────────────────────────────────
 BETA = True
+# L1: who may join (Terms of use §5: residents of the European Economic Area,
+# 18 or older). ISO 3166-1 alpha-2 codes; names come from CLDR in the user's
+# language (uvalu.i18n.country_name).
+EEA_COUNTRIES = (
+    "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE",
+    "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+    "IS", "LI", "NO",
+)
+
 BETA_BANNER = N_("Free beta: a test version. Features and data can change, "
                  "and the beta can end at any time.")
 

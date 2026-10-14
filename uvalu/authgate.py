@@ -12,7 +12,8 @@ from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_pa
                   backup_codes_remaining, complete_backup_code_login, complete_password_reset,
                   complete_totp_login, find_pending_invite_by_email, get_lockout,
                   get_pending_invite, get_pending_reset, get_user_status, lock_policy,
-                  is_session_active, login, no_users_exist, oauth_login, register,
+                  is_session_active, login, no_users_exist, oauth_login, record_invite_consent,
+                  register,
                   trust_this_device, verify_token)
 from settings import load_shared_settings
 from uvalu import locale_ui, logkit, oauth, shell
@@ -401,6 +402,45 @@ def _render_oauth_refused(info: dict) -> None:
         st.rerun()
 
 
+def _render_invite_consent(token: str) -> None:
+    """L1, step 1 of accepting an invitation: country of residence (EEA only)
+    and three statements, all unticked. Stored with the text versions and the
+    time (auth.record_invite_consent); the password or provider step only
+    appears after it."""
+    from uvalu.compliance.disclosures import EEA_COUNTRIES
+    from uvalu.i18n import country_name
+    from uvalu.pages_ import legal as _legal
+    _terms_v = _legal.doc_version("terms")[0]
+    _privacy_v = _legal.doc_version("privacy")[0]
+    st.markdown(f'<div class="uv-login-subhead" style="margin-top:18px;">'
+                f'{h_("Before you create your account, confirm the following.")}</div>',
+                unsafe_allow_html=True)
+    _codes = sorted(EEA_COUNTRIES, key=lambda c: country_name(c).casefold())
+    with st.form("invite_consent_form", border=False):
+        country = st.selectbox(_("Country of residence"), options=_codes, index=None, key="invite_country",
+                               format_func=country_name, placeholder=_("Choose your country"),
+                               help=_("Uvalu is open to residents of the European Economic Area only."))
+        adult = st.checkbox(_("I am 18 or older."), value=False)
+        read = st.checkbox(_("I have read the [Terms of use](/legal?doc=terms) ({terms_version}) and the "
+                             "[Privacy notice](/legal?doc=privacy) ({privacy_version}).",
+                             terms_version=_terms_v, privacy_version=_privacy_v), value=False)
+        advice = st.checkbox(_("I understand that Uvalu gives no personal investment advice: scores and "
+                               "signals are the same for every user and don't take my situation into "
+                               "account (Terms of use, section 4)."), value=False)
+        submitted = st.form_submit_button(_("Continue"), width="stretch", type="primary")
+    if submitted:
+        if not country or not (adult and read and advice):
+            st.markdown(f'<div class="uv-login-err">'
+                        f'{h_("Choose your country and confirm all three statements to continue.")}</div>',
+                        unsafe_allow_html=True)
+            return
+        ok, msg = record_invite_consent(token, country=country, versions={
+            "age_18": "", "terms": _terms_v, "privacy": _privacy_v, "no_advice": _terms_v})
+        if ok:
+            st.rerun()
+        st.markdown(f'<div class="uv-login-err">{html.escape(msg)}</div>', unsafe_allow_html=True)
+
+
 def _render_invite_acceptance(token: str) -> None:
     invite = get_pending_invite(token)
     shell.apply_theme_script(theme_colors().effective_light)
@@ -437,6 +477,9 @@ def _render_invite_acceptance(token: str) -> None:
                 f'background:var(--line-2);color:var(--muted);">{h_("FIXED BY INVITE")}</span></div></div>',
                 unsafe_allow_html=True,
             )
+            if not invite.get("consented"):
+                _render_invite_consent(token)
+                return
             _min_len = int(load_shared_settings().get("min_password_length", 12))
             with st.form("invite_accept_form", border=False):
                 password = st.text_input(_("Password"), type="password", placeholder="••••••••",

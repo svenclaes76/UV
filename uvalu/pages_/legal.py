@@ -71,6 +71,24 @@ def split_document(md: str) -> tuple[str, list[tuple[str, str]], str]:
     return title, meta, "\n".join(lines[i:]).strip()
 
 
+def doc_version(doc: str) -> tuple[str, str]:
+    """(version, effective date) of a legal document from its own header
+    line, in the English reference version ("", "" when not found). Used by
+    Settings › Legal documents and the invitation consent step (L1)."""
+    file = next((f for k, _t, f in d.LEGAL_DOCS if k == doc), None)
+    if not file:
+        return "", ""
+    path, _translated = resolve_doc_path(file, "en")
+    if path is None:
+        return "", ""
+    try:
+        _title, meta, _body = split_document(_strip_header(path.read_text(encoding="utf-8")))
+    except OSError:
+        return "", ""
+    meta = dict(meta)
+    return meta.get("Version", ""), meta.get("Effective from", "") or meta.get("Last updated", "")
+
+
 def anchor_sections(body: str) -> tuple[str, list[tuple[str, str]]]:
     """The body with an anchor before every ``## `` heading, and the
     [(anchor id, heading text)] list for the "On this page" navigation."""

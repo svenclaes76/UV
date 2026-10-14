@@ -31,7 +31,7 @@ from datetime import datetime
 import qrcode
 import streamlit as st
 
-from auth import (backup_codes_remaining, begin_totp_enrollment, change_password,
+from auth import (backup_codes_remaining, begin_totp_enrollment, change_password, consent_record,
                   confirm_totp_enrollment, disable_totp, has_password, is_totp_enabled,
                   link_identity, list_linked_identities, list_sessions, password_last_changed,
                   trusted_devices_until, BACKUP_CODE_COUNT,
@@ -258,19 +258,7 @@ def _dlg_delete_account(email: str):
 def _legal_doc_version(doc: str) -> tuple[str, str]:
     """(version, effective date) from a legal document's own header line."""
     from uvalu.pages_ import legal as _legal
-
-    _file = next((f for k, _t, f in disclosures.LEGAL_DOCS if k == doc), None)
-    if not _file:
-        return "", ""
-    path, _translated = _legal.resolve_doc_path(_file, "en")
-    if path is None:
-        return "", ""
-    try:
-        _title, meta, _body = _legal.split_document(_legal._strip_header(path.read_text(encoding="utf-8")))
-    except OSError:
-        return "", ""
-    meta = dict(meta)
-    return meta.get("Version", ""), meta.get("Effective from", "") or meta.get("Last updated", "")
+    return _legal.doc_version(doc)
 
 
 def _seg_row(row_key, widget_key, title, desc, options, current, disabled=False, ratio=(3, 1),
@@ -1088,23 +1076,32 @@ def render() -> None:
                             st.markdown(f'<span class="uv-set-chip-active">{h_("Active")}</span>',
                                         unsafe_allow_html=True)
 
-            # ── Legal documents (L13) ────────────────────────────────────────────────
-            # Version and effective date from the documents themselves. No
-            # acceptance date: acceptance isn't recorded yet (open item L1).
+            # ── Legal documents (L13, L1) ────────────────────────────────────────────
+            # Version and effective date from the documents themselves, and
+            # what this account accepted when it joined (auth.consent_record,
+            # stored since L1). Accounts created before L1 have no record.
             with st.container(key="set_card_legal", border=True):
                 _row_header(h_("Legal documents"), anchor="set-legal")
                 _legal_page = nav_registry.pages.get("legal")
                 _docs = {key: title for key, title, _f in disclosures.LEGAL_DOCS}
+                _consent = consent_record(_email)
+                _advice = _consent.get("no_advice")
                 for _lkey, _ltitle, _ldesc, _ldoc in (
                         ("terms", tr(_docs["terms"]), None, "terms"),
                         ("privacy", tr(_docs["privacy"]), None, "privacy"),
-                        # Acceptance isn't recorded yet (L1): no link, marked as
-                        # not available until it is.
                         ("advice", _("No-personal-advice acknowledgement"),
-                         h_("Terms of use, section 4. Your acceptance isn't recorded yet."), None)):
+                         (h_("Terms of use, section 4. You confirmed it on {date}.",
+                             date=_fmt_date(_advice["at"])) if _advice
+                          else h_("Terms of use, section 4. Your acceptance isn't recorded yet.")),
+                         "terms" if _advice else None)):
                     _ver, _eff = _legal_doc_version(_ldoc) if _ldoc else ("", "")
                     _title = h_("{document} · {version}", document=_ltitle, version=_ver) if _ver and _lkey != "advice" else html.escape(_ltitle)
                     _desc = _ldesc or (h_("Effective from {date}.", date=_eff) if _eff else "")
+                    _acc = _consent.get(_lkey) if _lkey != "advice" else None
+                    if _acc:
+                        _desc = (_desc + " " if _desc else "") + h_(
+                            "You accepted version {version} on {date}.",
+                            version=_acc["version"] or "—", date=_fmt_date(_acc["at"]))
                     with st.container(key=f"set_row_legal_{_lkey}"):
                         _c1, _c2 = st.columns([3, 1], vertical_alignment="center")
                         with _c1:

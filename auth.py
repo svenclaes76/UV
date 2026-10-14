@@ -91,6 +91,8 @@ def _normalize_user(data: dict) -> dict:
         "totp_last_step":   data.get("totp_last_step"),
         "backup_codes":     data.get("backup_codes", []),
         "trusted_devices":  data.get("trusted_devices", []),
+        "country":          data.get("country"),
+        "consents":         data.get("consents", []),
     }
 
 
@@ -280,6 +282,49 @@ def purge_expired_invites(now: "datetime | None" = None) -> list[str]:
     return gone
 
 
+# L1: what an invitee confirms before the account is created (Terms of use
+# §4–§5, Privacy notice). Stored on the account with the text version and the
+# time, as proof of agreement (privacy notice §2).
+CONSENT_ITEMS = ("age_18", "terms", "privacy", "no_advice")
+
+
+def has_consent(user: dict) -> bool:
+    """True when every CONSENT_ITEMS entry is recorded and a country is set."""
+    done = {c.get("item") for c in user.get("consents") or []}
+    return bool(user.get("country")) and set(CONSENT_ITEMS) <= done
+
+
+def record_invite_consent(token: str, *, country: str, versions: dict) -> tuple[bool, str]:
+    """Store an invitee's country of residence and their confirmation of every
+    CONSENT_ITEMS entry, each with the version of the text it refers to
+    (`versions`: {item: version}) and the time. Refused for a country outside
+    the EEA or an invalid invitation."""
+    from uvalu.compliance.disclosures import EEA_COUNTRIES
+    if country not in EEA_COUNTRIES:
+        return False, _("Uvalu is open to residents of the European Economic Area only.")
+    invite = get_pending_invite(token)
+    if not invite:
+        return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    users = _load_users()
+    user = users[invite["email"]]
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    user["country"] = country
+    user["consents"] = [{"item": item, "version": str(versions.get(item, "")), "at": stamp}
+                        for item in CONSENT_ITEMS]
+    _save_users(users)
+    logkit.data_mutation(actor="invitee", action="user.consent", entity_type="user",
+                         entity_id=logkit.user_hash(invite["email"]), country=country)
+    return True, ""
+
+
+def consent_record(email: str) -> dict:
+    """{item: {"version", "at"}} of what `email` confirmed, for Settings ›
+    Legal documents. Empty for an account created before L1."""
+    user = _load_users().get(email.strip().lower()) or {}
+    return {c["item"]: {"version": c.get("version", ""), "at": c.get("at", "")}
+            for c in user.get("consents") or [] if c.get("item")}
+
+
 def get_pending_invite(token: str) -> dict | None:
     """{email, role, invited_by} for a not-yet-expired invite token, for the
     invite-acceptance screen — or None if the token is unknown or expired."""
@@ -294,7 +339,7 @@ def get_pending_invite(token: str) -> dict | None:
         if not expires or datetime.fromisoformat(expires) < now:
             return None
         return {"email": email, "role": user.get("role", "Analyst"),
-                "invited_by": user.get("invited_by", "")}
+                "invited_by": user.get("invited_by", ""), "consented": has_consent(user)}
     return None
 
 
@@ -327,6 +372,8 @@ def accept_invite_with_password(token: str, password: str, user_agent: str = "")
     invite = get_pending_invite(token)
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    if not invite.get("consented"):
+        return False, _("Confirm the statements above before creating your account.")
     _ok, _err = validate_new_password(password)
     if not _ok:
         return False, _err
@@ -355,6 +402,8 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
     email = invite["email"]
+    if not invite.get("consented"):
+        return False, _("Confirm the statements on the invitation page before creating your account.")
     if oauth_email.strip().lower() != email:
         return False, _("This invite was sent to {email}. Sign in with a matching account, or ask your admin to invite {provider_email}.",
                         email=email, provider_email=oauth_email)

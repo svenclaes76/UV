@@ -547,6 +547,7 @@ class TestLinkedAccounts:
         # by auth.unlink_identity(), surfaced here as a toast rather than
         # silently vanishing.
         _, _, token = auth.invite_user(TEST_EMAIL)
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", TEST_EMAIL)
         at = _run(monkeypatch)
         disconnect_btn = [b for b in at.button if b.label == "Disconnect"][0]
@@ -871,6 +872,22 @@ def test_privacy_plan_and_legal_cards(isolated_data, monkeypatch):
                  "available in English only"):
         assert text in html, text
     assert "Export" in [b.label for b in at.download_button]
+
+
+def test_legal_card_shows_the_recorded_acceptance(isolated_data, monkeypatch):
+    # L1: an account that joined through the consent step sees what it
+    # accepted and when, and the acknowledgement gets its View link back.
+    import auth
+    auth.register("admin@example.com", "password123-long")
+    _, _, token = auth.invite_user("test@example.com")
+    auth.record_invite_consent(token, country="BE",
+                               versions={"terms": "beta 1.0", "privacy": "beta 1.3", "no_advice": "beta 1.0"})
+    auth.accept_invite_with_password(token, "a-real-password")
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "You accepted version beta 1.0 on" in html
+    assert "You accepted version beta 1.3 on" in html
+    assert "You confirmed it on" in html and "isn't recorded yet" not in html
 
 
 def _two_users():

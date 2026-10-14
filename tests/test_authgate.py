@@ -517,6 +517,7 @@ class TestInviteAcceptanceScreen:
 
     def test_valid_invite_shows_create_account_form(self):
         _, _, token = auth.invite_user("new@example.com", role="Viewer", invited_by="admin@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         at = _run_auth_wall(query_params={"invite": token})
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
@@ -527,6 +528,7 @@ class TestInviteAcceptanceScreen:
 
     def test_accepting_with_a_valid_password_signs_in(self):
         _, _, token = auth.invite_user("new@example.com", role="Analyst")
+        auth.record_invite_consent(token, country="BE", versions={})
         at = _run_auth_wall(query_params={"invite": token})
         at.text_input[0].set_value("a-real-password")
         submit = [b for b in at.button if b.label == "Create account"][0]
@@ -538,6 +540,7 @@ class TestInviteAcceptanceScreen:
 
     def test_accepting_with_a_short_password_shows_error(self):
         _, _, token = auth.invite_user("new@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         at = _run_auth_wall(query_params={"invite": token})
         at.text_input[0].set_value("short")
         submit = [b for b in at.button if b.label == "Create account"][0]
@@ -553,9 +556,48 @@ class TestInviteAcceptanceScreen:
         from uvalu import oauth
         monkeypatch.setattr(oauth, "providers_enabled", lambda: True)
         _, _, token = auth.invite_user("new@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         at = _run_auth_wall(query_params={"invite": token})
         html = "".join(m.value for m in at.markdown)
         assert "Continue with Google" in html
+
+
+class TestInviteConsentStep:
+    """L1: country of residence and three unticked statements come first,
+    stored with the text versions and the time."""
+
+    def test_consent_step_comes_before_the_password(self):
+        _, _, token = auth.invite_user("new@example.com", role="Viewer")
+        at = _run_auth_wall(query_params={"invite": token})
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert at.selectbox(key="invite_country").value is None and len(at.checkbox) == 3
+        assert not any(c.value for c in at.checkbox)            # all unticked
+        assert len(at.text_input) == 0                          # no password yet
+
+    def test_all_three_and_a_country_are_required(self):
+        _, _, token = auth.invite_user("new@example.com")
+        at = _run_auth_wall(query_params={"invite": token})
+        at.selectbox(key="invite_country").set_value("BE")
+        at.checkbox[0].check()
+        at.checkbox[1].check()                                  # the third stays unticked
+        [b for b in at.button if b.label == "Continue"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert "confirm all three" in "".join(m.value for m in at.markdown)
+        assert auth.consent_record("new@example.com") == {}
+
+    def test_confirming_stores_the_record_and_shows_the_password_step(self):
+        _, _, token = auth.invite_user("new@example.com")
+        at = _run_auth_wall(query_params={"invite": token})
+        at.selectbox(key="invite_country").set_value("BE")
+        for c in at.checkbox:
+            c.check()
+        [b for b in at.button if b.label == "Continue"][0].click().run()
+        assert not at.exception, [str(e.value) for e in at.exception]
+        rec = auth.consent_record("new@example.com")
+        assert set(rec) == {"age_18", "terms", "privacy", "no_advice"}
+        assert rec["terms"]["version"]                          # the version text was stored
+        assert auth._load_users()["new@example.com"]["country"] == "BE"
+        assert len(at.text_input) == 1                          # now the password
 
 
 class TestForgotPasswordScreen:
@@ -791,6 +833,7 @@ class TestOAuthResolution:
     def test_existing_linked_identity_signs_in(self, monkeypatch):
         auth.register("admin@example.com", "password123")
         _, _, token = auth.invite_user("new@example.com", role="Analyst")
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", "new@example.com")
         monkeypatch.setattr(st, "user", FakeUser(
             True, iss="https://accounts.google.com", sub="sub-123", email="new@example.com"))
@@ -812,7 +855,8 @@ class TestOAuthResolution:
         assert "jwt_token" not in at.session_state
 
     def test_pending_invite_by_email_completes_via_oauth(self, monkeypatch):
-        auth.invite_user("new@example.com", role="Viewer")
+        _, _, token = auth.invite_user("new@example.com", role="Viewer")
+        auth.record_invite_consent(token, country="BE", versions={})   # L1, from the invitation page
         monkeypatch.setattr(st, "user", FakeUser(
             True, iss="https://accounts.google.com", sub="sub-123", email="new@example.com"))
         at = _run_auth_wall()
@@ -825,6 +869,7 @@ class TestOAuthResolution:
 
     def test_suspended_linked_account_shows_refusal(self, monkeypatch):
         _, _, token = auth.invite_user("new@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", "new@example.com")
         auth.set_status("new@example.com", "Suspended")
         monkeypatch.setattr(st, "user", FakeUser(
