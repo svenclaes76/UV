@@ -206,16 +206,31 @@ def test_date_range_filter_narrows_chart_view(isolated_data, monkeypatch):
 
 def test_benchmark_columns_add_chart_traces_and_legend_pills(isolated_data, monkeypatch):
     portfolio.save_portfolio(make_portfolio_df())
+    # Recent dates: the Dashboard now records today's point itself (UX2), and
+    # the default one-year view must still hold the benchmark rows.
+    import datetime as _dt
+    _d1 = (_dt.date.today() - _dt.timedelta(days=2)).isoformat()
+    _d2 = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
     portfolio.save_value_history(pd.DataFrame([
-        {"date": "2024-01-01", "invested": 1000.0, "value": 1000.0,
+        {"date": _d1, "invested": 1000.0, "value": 1000.0,
          "benchmark_spx": 1000.0, "benchmark_stoxx": 1000.0},
-        {"date": "2024-01-02", "invested": 1000.0, "value": 1050.0,
+        {"date": _d2, "invested": 1000.0, "value": 1050.0,
          "benchmark_spx": 1010.0, "benchmark_stoxx": 1005.0},
     ]))
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.pills) == 1
     assert set(at.pills[0].options) == {"S&P 500", "Euro Stoxx 50"}
+
+
+def test_dashboard_records_todays_value_point(isolated_data, monkeypatch):
+    # UX2: the value chart ends today, at the holdings value the tiles show.
+    import datetime as _dt
+    portfolio.save_portfolio(make_portfolio_df())
+    at = _run(monkeypatch)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    hist = portfolio.load_value_history()
+    assert hist is not None and _dt.date.today().isoformat() in set(hist["date"].astype(str))
 
 
 def test_full_analysis_button_navigates_to_risk_page(isolated_data, monkeypatch):

@@ -225,8 +225,10 @@ def test_view_button_opens_drawer(isolated_data, monkeypatch):
 
 
 class TestLoadingTier:
-    def test_low_at_boundary(self):
-        assert risk_page._loading_tier(0.75) == ("Low", "var(--up-txt)")
+    def test_low_below_0_3_and_a_clear_tilt_is_moderate(self):
+        # UX4: 0.75 is a clear tilt, not "Low".
+        assert risk_page._loading_tier(0.29) == ("Low", "var(--up-txt)")
+        assert risk_page._loading_tier(0.75) == ("Moderate", "var(--amber-txt)")
 
     def test_moderate(self):
         assert risk_page._loading_tier(1.0) == ("Moderate", "var(--amber-txt)")

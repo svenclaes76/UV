@@ -26,6 +26,13 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   highest risk bands have distinct names in French, Italian and Spanish,
   "Screened out" no longer sounds like your own Screener filter, and the
   dividend yield column says dividend yield.
+- **Dashboard figures that add up**: the value and return cards say what
+  they include, and the value chart ends on today's value.
+- **Clearer margin of safety**: when the price is far above the model fair
+  value, you see "price 2.3× fair value" instead of a large negative
+  percentage.
+- **Clearer Risk page**: factor ratings, concentration warnings and the
+  Sharpe reference read correctly in your number format.
 
 ## [2026.10.7] — 2026-10-14
 
