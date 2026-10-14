@@ -4,7 +4,7 @@
 
 ## How to read these profiles
 
-Each profile describes the expert you want in the seat: the mission, experience, core skills, stack, first-90-day outputs, success metrics, interview signals and red flags. Stack examples assume a Python-first SaaS (FastAPI or Django, Postgres, React/Next.js, EU-hosted AWS or GCP). That is a natural next step from the current Streamlit codebase. Swap tools where your stack differs.
+Each profile describes the expert you want in the seat: the mission, experience, core skills, stack, first-90-day outputs, success metrics, interview signals and red flags. Stack examples assume a Python-first SaaS (FastAPI or Django, Postgres, React/Next.js, Hetzner Cloud in the EU, Mollie for billing). That is a natural next step from the current Streamlit codebase. Swap tools where your stack differs.
 
 | Role | Stage | Seniority to hire | Experience |
 | --- | --- | --- | --- |
@@ -44,7 +44,7 @@ Mission: design a system the team can ship fast on today and still scale in two 
 | --- | --- |
 | Background | 8+ years building production web systems, 2+ as tech lead on a multi-tenant SaaS. Has taken a product from prototype to paying customers. |
 | Core expertise | Multi-tenant architecture and data isolation. API design (REST, OpenAPI). Postgres data modelling. Auth (OAuth2/OIDC). Billing integration. Caching and background jobs. Pragmatic modular monolith over premature microservices. |
-| Tools | Python (FastAPI/Django), Postgres, Redis, Celery or Temporal, Docker, Terraform, GitHub Actions, Stripe, Auth0/Clerk/Keycloak. |
+| Tools | Python (FastAPI/Django), Postgres, Redis, Celery or Temporal, Docker, Terraform, GitHub Actions, Mollie, Auth0/Clerk/Keycloak. |
 | First 90 days | Architecture decision records for the core choices. Migration plan from Streamlit prototype to SaaS. CI pipeline, coding standards, and a working auth + billing skeleton. |
 | Success metrics | Lead time for changes, deployment frequency, change failure rate, p95 latency, unplanned rework. |
 | Interview signals | Draws the system and names its weakest point unprompted. Explains a decision they reversed. Still ships code weekly. |
@@ -59,7 +59,7 @@ Mission: turn product requirements into reliable, tested APIs and business logic
 | Background | 3–7 years in backend or full-stack development, at least one SaaS product in production. |
 | Core expertise | Python (typing, async, packaging). SQL and query optimization. REST API design. Background jobs and scheduling. Third-party integrations (payments, market data APIs, email). Unit and integration testing. |
 | Tools | FastAPI or Django, SQLAlchemy, Alembic, Postgres, Redis, pytest, Docker, Sentry, basic React for full-stack profiles. |
-| First 90 days | Ships a customer-facing feature end to end. Adds tests to an untested area. Owns one integration (e.g. a market data provider or Stripe). |
+| First 90 days | Ships a customer-facing feature end to end. Adds tests to an untested area. Owns one integration (e.g. a market data provider or Mollie). |
 | Success metrics | Cycle time per story, escaped defects, test coverage on owned modules, on-call incident count. |
 | Interview signals | Writes readable code with tests in a pairing exercise. Asks about edge cases and failure modes. Explains a production bug they debugged. |
 | Red flags | No testing habit. Cannot reason about N+1 queries or indexes. Blames others for past outages. |
@@ -100,7 +100,7 @@ Mission: make shipping safe and boring, keep the service up, and keep the cloud 
 | --- | --- |
 | Background | 5+ years in DevOps, SRE or platform engineering on customer-facing SaaS with on-call duty. |
 | Core expertise | Infrastructure as code. CI/CD with automated rollback. Containers and orchestration. Observability (metrics, logs, traces). SLOs and error budgets. Incident management. FinOps. Backup and disaster recovery. |
-| Tools | Terraform or Pulumi, AWS or GCP (EU regions), Docker, ECS or Kubernetes, GitHub Actions, Grafana/Prometheus or Datadog, OpenTelemetry, PagerDuty, Vault or cloud secrets manager. |
+| Tools | Terraform or Pulumi, Hetzner Cloud (EU), Docker, Caddy, systemd or Kubernetes, GitHub Actions, Grafana/Prometheus or Datadog, OpenTelemetry, PagerDuty, Vault or cloud secrets manager. |
 | First 90 days | All infra in code. Staging and production environments. One-click deploys. Dashboards and alerts for core SLOs. A tested restore from backup. |
 | Success metrics | Availability vs SLO (e.g. 99.9%), mean time to recovery, deployment frequency, cloud cost per active customer. |
 | Interview signals | Walks through a real incident and its blameless postmortem. Talks about cost as readily as uptime. Automates themselves out of toil. |
