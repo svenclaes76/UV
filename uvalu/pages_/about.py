@@ -139,7 +139,7 @@ def _build_card(info: "buildinfo.BuildInfo") -> None:
     grid = "".join(f"<dt>{html.escape(k)}</dt><dd>{v}</dd>" for k, v in rows)
     line = details_line(info)
     with st.container(key="about_build", border=True):
-        st.markdown(f'<div><span id="version" class="uv-anchor"></span><div class="uv-card-head">{h_("This version")}</div>'
+        st.markdown(f'<div><span id="version" class="uv-anchor"></span><div class="uv-card-head" role="heading" aria-level="2">{h_("This version")}</div>'
                     f'<dl class="uv-about-rows">{grid}</dl></div>', unsafe_allow_html=True)
         with st.container(key="about_support", horizontal=True, horizontal_alignment="distribute",
                           vertical_alignment="center", gap="small"):
@@ -178,7 +178,7 @@ def _notes_card(info: "buildinfo.BuildInfo") -> None:
     running = any(r.version == info.version for r in releases)
     with st.container(key="about_notes", border=True):
         st.markdown(f'<div><span id="whats-new" class="uv-anchor"></span>'
-                    f'<div class="uv-card-head">{h_("What’s new")}</div></div>', unsafe_allow_html=True)
+                    f'<div class="uv-card-head" role="heading" aria-level="2">{h_("What’s new")}</div></div>', unsafe_allow_html=True)
         if current().lang != "en" or not releases:
             with st.container(key="about_notes_caption"):
                 st.caption(_("Release notes are written in English.") if releases else _("No release notes yet."))

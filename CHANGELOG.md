@@ -29,6 +29,17 @@ of that month); earlier releases used SemVer. Rules in
   CI). The server installs from it (docs/deployment.md §3 and Updating).
 - Dependency audit: `.github/workflows/audit.yml` runs `pip-audit` on the
   lock when the requirements change and every Monday.
+- Accessibility (AC1, docs/accessibility-review.md): section and card titles
+  are level-2 headings (`role="heading" aria-level="2"`, kept as styled
+  `div`s so Streamlit's own heading styles and anchors stay out), sign-in
+  and Admin titles level 1. `shell.render_landmarks()` marks the top bar as
+  navigation, the page body (new `uv_main` container in `app.py`) as main
+  and the footer as contentinfo, and adds a "Skip to content" link that
+  moves focus to the page's level-1 heading. `tests/test_accessibility.py`
+  fails when a new section title has no heading role.
+- Page titles (AC4): each browser tab says which page it is ("Risk ·
+  Uvalu"), in the interface language. `<html lang>` already followed the
+  language (`i18n.inject_lang_attr`).
 
 ### Changed
 

@@ -298,7 +298,7 @@ def render() -> None:
                   _("All time · incl. deposits"))
             with _title_col:
                 st.markdown(f"""
-<div style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
+<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Portfolio value over time")}</div>
 <div style="display:flex;align-items:center;gap:10px;margin-top:7px;">
   <span style="font-family:var(--uv-mono);font-size:24px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
   {_chip_html(fmt_pct(_db_range_pct, signed=True), _db_range_pct >= 0)}
@@ -373,19 +373,19 @@ def render() -> None:
             # Backfill is running in the background (kicked off from here or
             # from Portfolio, whichever the user visited first) — paint the
             # chart's shape immediately and poll until it fills in on its own.
-            st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
                        unsafe_allow_html=True)
             st.markdown(skeleton_chart_html(), unsafe_allow_html=True)
             _auto_rerun(5, "dashboard_value_history_backfill")
         else:
-            st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Portfolio value over time")}</div>',
                        unsafe_allow_html=True)
             st.caption(_("No history yet — it will appear after your first portfolio snapshot."))
 
     with _conv_col, st.container(key="db_card_conviction", border=True):
         _cvh_col, _cvh_link_col = st.columns([2, 1], vertical_alignment="top")
         with _cvh_col:
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Score & risk")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Score & risk")}</div>',
                        unsafe_allow_html=True)
         with _cvh_link_col:
             if st.button(_("Full analysis →"), key="db_conv_full_analysis", type="tertiary", width="stretch"):
@@ -510,7 +510,7 @@ def render() -> None:
             # (it explains the bars below); wraps under the title when narrow.
             st.markdown(f"""
 <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;">
-<div style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>{fair_value_legend_html()}</div>
+<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Holdings · price vs fair value")}</div>{fair_value_legend_html()}</div>
 <div style="font-size:12px;color:var(--muted);margin-top:2px;">{h_("Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates.")} {h_("Model signals are the same for every user and don't take your holdings into account.")}</div>""",
                         unsafe_allow_html=True)
         # Column header renders for the real table AND the fetch-in-progress
@@ -620,7 +620,7 @@ def render() -> None:
     _al_col, _div_col, _mv_col = st.columns(3, gap="large")
 
     with _al_col, st.container(key="db_card_sector", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Sector allocation")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Sector allocation")}</div>',
                    unsafe_allow_html=True)
         if _db_fetch_running:
             # Without real sector data yet, every holding would fall back to
@@ -648,7 +648,7 @@ def render() -> None:
     with _div_col, st.container(key="db_card_dividends", border=True):
         _dh_title_col, _dh_total_col = st.columns([2, 1.4], vertical_alignment="center")
         with _dh_title_col:
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Upcoming dividends")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Upcoming dividends")}</div>',
                        unsafe_allow_html=True)
         with _dh_total_col:
             if _db_fwd_income is not None:
@@ -714,7 +714,7 @@ def render() -> None:
             st.caption(_("No screener data available for your holdings."))
 
     with _mv_col, st.container(key="db_card_movers", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Top movers today")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:8px;">{h_("Top movers today")}</div>',
                    unsafe_allow_html=True)
         _db_mv = _db_pf.dropna(subset=["name", "day_change_pct"]).copy()
         _db_mv["day_change_pct"] = pd.to_numeric(_db_mv["day_change_pct"], errors="coerce")

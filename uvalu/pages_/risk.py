@@ -119,11 +119,11 @@ def _render_skeleton() -> None:
 
     _factor_col, _conc_col = st.columns([1.35, 1])
     with _factor_col, st.container(key="risk_card_factors", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
                    unsafe_allow_html=True)
         st.markdown(skeleton_factor_rows_html(6), unsafe_allow_html=True)
     with _conc_col, st.container(key="risk_card_conc", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
                    unsafe_allow_html=True)
         st.markdown(skeleton_factor_rows_html(3), unsafe_allow_html=True)
 
@@ -314,7 +314,7 @@ def render() -> None:
     _factor_col, _conc_col = st.columns([1.35, 1])
 
     with _factor_col, st.container(key="risk_card_factors", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Risk factor breakdown")}</div>',
                    unsafe_allow_html=True)
         if r.factor.available and r.factor.loadings:
             for _fname, _fval in r.factor.loadings.items():
@@ -348,7 +348,7 @@ def render() -> None:
             st.caption(_("Factor analysis unavailable.") + " " + (tr(r.factor.flags[0]) if r.factor.flags else ""))
 
     with _conc_col, st.container(key="risk_card_conc", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Concentration")}</div>',
                    unsafe_allow_html=True)
         c = r.concentration
         # Matches Uvalu.dc.html's 3-row set (Top 3 positions/Largest sector/
@@ -418,7 +418,7 @@ def render() -> None:
     with st.container(key="risk_card_holdings", border=True):
         # The table had no title; every other card on the page has one.
         with st.container(key="risk_holdings_title"):
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Risk contribution by holding")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Risk contribution by holding")}</div>',
                         unsafe_allow_html=True)
         with st.container(key="risk_col_header"):
             _rh_labels = tuple(h_(label) for label in _RH_LABELS)
@@ -474,7 +474,7 @@ def render() -> None:
 
     # ── Risk observations (Stage 8, PER-4) and disclosures (DIS-3) ─────────
     with st.container(key="risk_card_observations", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:4px;">{h_("Risk observations")}</div>'
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:4px;">{h_("Risk observations")}</div>'
                     f'<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">'
                     f'{h_("Figures compared with the model reference levels, or with targets you set yourself. They describe the portfolio; they are not recommendations.")}</div>',
                     unsafe_allow_html=True)

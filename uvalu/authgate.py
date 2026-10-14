@@ -205,7 +205,7 @@ def _second_factor_failed(pending: dict, message: str) -> None:
 
 def _render_totp_challenge(pending: dict) -> None:
     st.markdown(
-        f'<div class="uv-login-heading">{h_("Enter your authenticator code")}</div>'
+        f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Enter your authenticator code")}</div>'
         f'<div class="uv-login-subhead">{h_("Open your authenticator app and enter the 6-digit code for Uvalu.")}</div>',
         unsafe_allow_html=True,
     )
@@ -238,7 +238,7 @@ def _render_totp_challenge(pending: dict) -> None:
 
 def _render_backup_code_challenge(pending: dict) -> None:
     st.markdown(
-        f'<div class="uv-login-heading">{h_("Enter a backup code")}</div>'
+        f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Enter a backup code")}</div>'
         f'<div class="uv-login-subhead">{h_("Use one of the one-time backup codes you saved when you set up two-factor authentication.")}</div>',
         unsafe_allow_html=True,
     )
@@ -388,7 +388,7 @@ def _render_oauth_refused(info: dict) -> None:
                    email=f"<span style=\"font-family:var(--uv-mono);font-size:12.5px;"
                          f"color:var(--text);\">{info['email']}</span>")
     st.markdown(
-        f'<div class="uv-login-heading">{_heading}</div>'
+        f'<div class="uv-login-heading" role="heading" aria-level="1">{_heading}</div>'
         f'<div class="uv-login-subhead">{_body}</div>'
         '<div style="background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;'
         'padding:14px 16px;margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;">'
@@ -451,7 +451,7 @@ def _render_invite_acceptance(token: str) -> None:
             locale_ui.render_login_switcher()
             if not invite:
                 st.markdown(
-                    f'<div class="uv-login-heading">{h_("Invite link invalid")}</div>'
+                    f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Invite link invalid")}</div>'
                     f'<div class="uv-login-subhead">{h_("This invite link is invalid or has expired. Ask your admin to send a new one.")}</div>',
                     unsafe_allow_html=True,
                 )
@@ -461,7 +461,7 @@ def _render_invite_acceptance(token: str) -> None:
             _invited = h_("Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can add another method later.",
                           inviter=_inviter, role=f'<span style="color:var(--text);">{tr(invite["role"])}</span>')
             st.markdown(
-                f'<div class="uv-login-heading">{h_("Create your account")}</div>'
+                f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Create your account")}</div>'
                 f'<div class="uv-login-subhead">{_invited}</div>',
                 unsafe_allow_html=True,
             )
@@ -532,7 +532,7 @@ def _render_first_admin_setup() -> None:
         with st.container(key="uv_login_right"):
             locale_ui.render_login_switcher()
             st.markdown(
-                f'<div class="uv-login-heading">{h_("Create the first admin account")}</div>'
+                f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Create the first admin account")}</div>'
                 f'<div class="uv-login-subhead">{h_(_FIRST_ADMIN_TEXT)}</div>',
                 unsafe_allow_html=True,
             )
@@ -572,7 +572,7 @@ def _render_forgot_password() -> None:
         with st.container(key="uv_login_right"):
             locale_ui.render_login_switcher()
             st.markdown(
-                f'<div class="uv-login-heading">{h_("Forgot your password?")}</div>'
+                f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Forgot your password?")}</div>'
                 f'<div class="uv-login-subhead">{h_("During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 30 minutes.")}</div>',
                 unsafe_allow_html=True,
             )
@@ -591,7 +591,7 @@ def _render_password_reset(token: str) -> None:
             locale_ui.render_login_switcher()
             if not pending:
                 st.markdown(
-                    f'<div class="uv-login-heading">{h_("Reset link invalid")}</div>'
+                    f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Reset link invalid")}</div>'
                     f'<div class="uv-login-subhead">{h_("This reset link is invalid or has expired. Ask your admin to send a new one.")}</div>',
                     unsafe_allow_html=True,
                 )
@@ -600,7 +600,7 @@ def _render_password_reset(token: str) -> None:
             _resetting = h_("Resetting the password for {email}",
                             email=f'<span style="color:var(--text);">{pending["email"]}</span>')
             st.markdown(
-                f'<div class="uv-login-heading">{h_("Choose a new password")}</div>'
+                f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Choose a new password")}</div>'
                 f'<div class="uv-login-subhead">{_resetting}.</div>',
                 unsafe_allow_html=True,
             )
@@ -768,7 +768,7 @@ def auth_wall() -> None:
             if _lock_expiry:
                 _mins_left = max(1, -(-int((_lock_expiry - datetime.now(timezone.utc)).total_seconds()) // 60))
                 st.markdown(
-                    f'<div class="uv-login-heading">{h_("Sign in temporarily locked")}</div>'
+                    f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Sign in temporarily locked")}</div>'
                     f'<div class="uv-login-subhead">{h_("Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires.")}</div>'
                     '<div class="uv-lock-card">'
                       '<div class="uv-lock-icon">'
@@ -802,7 +802,7 @@ def auth_wall() -> None:
                 st.stop()
 
             st.markdown(
-                f'<div class="uv-login-heading">{h_("Sign in")}</div>'
+                f'<div class="uv-login-heading" role="heading" aria-level="1">{h_("Sign in")}</div>'
                 f'<div class="uv-login-subhead">{h_("Welcome back. Enter your credentials to continue.")}</div>',
                 unsafe_allow_html=True,
             )

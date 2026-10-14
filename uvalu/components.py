@@ -427,7 +427,7 @@ def card_header_html(title: str, right_html: str = "", *, support: bool = False)
     right = f'<div style="flex:none;display:flex;align-items:center;gap:10px;">{right_html}</div>' if right_html else ""
     return (f'<div class="uv-card-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;'
             f'padding:{pad};border-bottom:0.5px solid var(--line-2);">'
-            f'<div style="font-size:15px;font-weight:500;color:var(--text);min-width:0;">{_html_mod.escape(title)}</div>'
+            f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;color:var(--text);min-width:0;">{_html_mod.escape(title)}</div>'
             f'{right}</div>')
 
 

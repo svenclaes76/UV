@@ -142,7 +142,7 @@ _FAQ = [
 # Card header: sentence case, 15px/500 (styles.py .uv-card-head, brand §5),
 # with the anchor the rail links to. One outer <div> so Markdown keeps it a
 # raw HTML block (a leading <span> would make it a paragraph).
-_HEADER_HTML = '<div><span id="{anchor}" class="uv-anchor"></span><div class="uv-card-head">{label}</div></div>'
+_HEADER_HTML = '<div><span id="{anchor}" class="uv-anchor"></span><div class="uv-card-head" role="heading" aria-level="2">{label}</div></div>'
 
 
 def _rail() -> list[tuple[str, str]]:
