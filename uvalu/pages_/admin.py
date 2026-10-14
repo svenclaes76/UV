@@ -1217,7 +1217,7 @@ def _admin_shell_css(active: str) -> str:
    specificity than the bare `*` above, so this wins regardless of rule
    order even with matching !important on both sides. */
 [data-testid="stPopoverBody"] button[kind="primary"] {{
-  background-color: var(--teal) !important;
+  background-color: var(--primary-fill) !important;
 }}
 
 /* ── st.selectbox dropdown list (Role select's options panel) — a SEPARATE

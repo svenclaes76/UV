@@ -26,7 +26,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   and landmarks, a "Skip to content" link comes first when you press Tab,
   and each browser tab shows the page name. Buttons say what they do and to
   which stock ("View Investor AB", "On the watchlist: …"), instead of
-  "star" or an icon's code name.
+  "star" or an icon's code name. Main buttons have a slightly darker green,
+  so their text is easier to read.
 
 ### Fixed
 

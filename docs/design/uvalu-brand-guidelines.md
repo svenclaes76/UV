@@ -82,7 +82,7 @@ Maintain a minimum clear space of `1×` the height of the lowercase **u** on all
 | Name | Hex | Usage |
 |---|---|---|
 | Deep Navy | `#0D1F3C` | Primary backgrounds, logo, headings, strong UI anchors |
-| Signal Teal | `#1A8C6E` | Brand accent, fills, borders, selected states, focus ring in light theme. Not for small text: it is 4.2:1 on white, so links use `--link` |
+| Signal Teal | `#1A8C6E` | Brand accent, fills, borders, selected states, focus ring in light theme. Not for small text: it is 4.2:1 on white, so links use `--link` and primary buttons `--primary-fill` |
 | Mint Pulse | `#1DD6A4` | Active states, positive indicators and data in dark theme, icon accents. Never text on a light background (1.7:1) |
 
 ### Surface colours (light theme)
@@ -126,6 +126,7 @@ The app has a full dark variant. Use these values (CSS tokens in `uvalu/styles.p
 | `--teal` | `#1A8C6E` | `#1A8C6E` | Accent fills, borders, selected states |
 | `--mint` | `#1DD6A4` | `#1DD6A4` | Accent in dark theme, logo |
 | `--link` | `#3FBF98` | `#167A60` | Link text (6.9:1 on dark panel, 5.3:1 on white) |
+| `--primary-fill` | `#167A60` | `#167A60` | Fill of primary (white-text) buttons: 5.3:1 with white; hover `--primary-fill-hover` `#12664F` |
 | `--soft` | `rgba(29,214,164,0.05)` | `rgba(29,214,164,0.055)` | Hover and selected rows, system notices (beta banner) |
 | `--up-txt` | `#1DD6A4` | `#0F6E56` | Gains, Undervalued |
 | `--up-bg` | `rgba(29,214,164,0.14)` | `rgba(15,110,86,0.11)` | Undervalued badge, positive metric background |

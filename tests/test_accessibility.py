@@ -100,3 +100,23 @@ def test_app_wraps_the_page_body_and_titles_each_page():
     assert 'with st.container(key="uv_main"):\n        _nav.run()' in src.replace("\r\n", "\n")
     assert 'st.set_page_config(page_title=f"{_nav.title} · Uvalu")' in src
     assert "a11y.render(" in src and "a11y.begin_run()" in src
+
+
+def _luminance(hex_colour: str) -> float:
+    h = hex_colour.lstrip("#")
+    c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def test_primary_button_fill_has_4_5_to_1_with_white():
+    """AC5: white 12.5px text on the primary fill (and its hover) is at
+    least 4.5:1, and primary buttons use that fill."""
+    from uvalu import styles
+    css = styles.__dict__.get("_CSS") or (ROOT / "uvalu" / "styles.py").read_text(encoding="utf-8")
+    for token in ("--primary-fill", "--primary-fill-hover"):
+        m = re.search(token + r":(#[0-9A-Fa-f]{6});", css)
+        assert m, token
+        assert 1.05 / (_luminance(m.group(1)) + 0.05) >= 4.5, (token, m.group(1))
+    assert re.search(r'button\[data-testid="stBaseButton-primary"\],\s*button\[data-testid='
+                     r'"stBaseButton-primaryFormSubmit"\] \{\s*background-color: var\(--primary-fill\)', css)

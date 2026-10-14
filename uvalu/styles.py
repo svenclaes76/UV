@@ -36,6 +36,9 @@ GLOBAL_CSS = """
     --line:rgba(255,255,255,0.08); --line-2:rgba(255,255,255,0.05);
     --text:#F5F7FA; --muted:rgba(245,247,250,0.55); --faint:rgba(245,247,250,0.30);
     --teal:#1A8C6E; --mint:#1DD6A4; --navy:#0D1F3C;
+    /* AC5: fill behind white button text. Signal Teal is 4.2:1 with white;
+       this is the light --link teal, 5.3:1, and 3:1+ against both themes' backgrounds. */
+    --primary-fill:#167A60; --primary-fill-hover:#12664F;
     --up-bg:rgba(29,214,164,0.14); --up-txt:#1DD6A4;
     --down-bg:rgba(163,45,45,0.26); --down-txt:#F0A6A6;
     --amber-bg:rgba(214,158,29,0.16); --amber-txt:#E0B94D; --amber-fill:#C98A3A;
@@ -88,6 +91,18 @@ GLOBAL_CSS = """
   :where(button[data-testid="stBaseButton-tertiary"]) { min-height: 34px !important; }
   :where(button[data-testid="stBaseButton-primary"],
          button[data-testid="stBaseButton-primaryFormSubmit"]) { font-weight: 500 !important; }
+  /* AC5 (docs/accessibility-review.md): primary buttons are filled with
+     --primary-fill so the white label reaches 4.5:1. Keyed overrides (the
+     red danger button) are more specific and still win. */
+  button[data-testid="stBaseButton-primary"],
+  button[data-testid="stBaseButton-primaryFormSubmit"] {
+    background-color: var(--primary-fill) !important; border-color: var(--primary-fill) !important;
+    color: #fff !important;
+  }
+  button[data-testid="stBaseButton-primary"]:hover:not(:disabled),
+  button[data-testid="stBaseButton-primaryFormSubmit"]:hover:not(:disabled) {
+    background-color: var(--primary-fill-hover) !important; border-color: var(--primary-fill-hover) !important;
+  }
   :where(button[data-testid^="stBaseButton-"], button[data-testid="stPopoverButton"], button[data-variant]) :where([data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p) {
     font-size: inherit !important; font-weight: inherit !important; color: inherit !important;
     font-family: inherit !important;
@@ -799,7 +814,7 @@ GLOBAL_CSS = """
      share of the row, rendered much larger/wider than every other button
      in the app). */
   .st-key-wl_add_form_wrap [data-testid="stFormSubmitButton"] button[kind="primaryFormSubmit"] {
-    background: var(--teal) !important; border: none !important; color: #fff !important;
+    background: var(--primary-fill) !important; border: none !important; color: #fff !important;
     border-radius: 8px !important; padding: 8px 13px !important; font-size: 12.5px !important;
     height: auto !important; min-height: unset !important; width: auto !important;
   }
