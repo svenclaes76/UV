@@ -581,10 +581,31 @@ class TestInviteUser:
         assert token is None
 
     def test_records_who_invited(self):
-        auth.invite_user("new@example.com", invited_by="admin@example.com")
-        invite = auth.get_pending_invite(
-            auth._load_users()["new@example.com"]["invite_token"])
+        _, _, token = auth.invite_user("new@example.com", invited_by="admin@example.com")
+        invite = auth.get_pending_invite(token)
         assert invite["invited_by"] == "admin@example.com"
+
+    def test_tokens_are_stored_hashed(self):
+        """SR7: a copy of the user store doesn't give working invite or reset links."""
+        _, _, token = auth.invite_user("new@example.com")
+        stored = auth._load_users()["new@example.com"]["invite_token"]
+        assert stored != token and len(stored) == 64
+        assert auth.get_pending_invite(stored) is None
+        auth.register("first@example.com", "password123")
+        _, _, reset = auth.admin_request_password_reset("first@example.com")
+        stored = auth._load_users()["first@example.com"]["reset_token"]
+        assert stored != reset and auth.get_pending_reset(stored) is None
+        assert auth.get_pending_reset(reset) == {"email": "first@example.com"}
+
+    def test_oauth_accept_by_email(self):
+        """The st.login() round trip loses ?invite=<token>; the invite is
+        found by the provider identity's email instead."""
+        _, _, token = auth.invite_user("new@example.com")
+        assert auth.find_pending_invite_by_email("New@example.com")["email"] == "new@example.com"
+        auth.record_invite_consent(token, country="BE", versions={})
+        ok, _jwt = auth.accept_invite_with_oauth_by_email("https://accounts.google.com", "s", "new@example.com")
+        assert ok
+        assert auth.find_pending_invite_by_email("new@example.com") is None
 
 
 class TestAcceptInvite:

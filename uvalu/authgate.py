@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
-from auth import (TOTP_REQUIRED, accept_invite_with_oauth, accept_invite_with_password,
+from auth import (TOTP_REQUIRED, accept_invite_with_oauth_by_email, accept_invite_with_password,
                   backup_codes_remaining, complete_backup_code_login, complete_password_reset,
                   complete_totp_login, find_pending_invite_by_email, get_lockout,
                   get_pending_invite, get_pending_reset, get_user_status, lock_policy,
@@ -715,10 +715,9 @@ def auth_wall() -> None:
                 # redirect (it always lands back on the app's home page, not
                 # wherever ?invite=<token> was) — fall back to looking one up
                 # by the identity's own email instead.
-                _pending = find_pending_invite_by_email(_identity["email"])
-                if _pending:
-                    _ok, _result = accept_invite_with_oauth(
-                        _pending["token"], _identity["issuer"], _identity["subject"],
+                if find_pending_invite_by_email(_identity["email"]):
+                    _ok, _result = accept_invite_with_oauth_by_email(
+                        _identity["issuer"], _identity["subject"],
                         _identity["email"], user_agent=_user_agent())
             if _ok:
                 _start_session(_result)

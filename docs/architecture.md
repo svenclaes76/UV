@@ -64,6 +64,7 @@ UV/
 │       └── help.py             # Help page render() (app guide + column glossary)
 │
 ├── requirements.txt
+├── requirements-lock.txt      # Production pins incl. transitive (tools/lock_requirements.py)
 ├── .env                        # Secrets — never committed
 ├── .streamlit/config.toml      # TLS cert paths
 ├── .ssl/                       # Auto-generated self-signed certs

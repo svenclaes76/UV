@@ -22,6 +22,9 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ### Fixed
 
+- **Safer Excel exports**: a note that starts with "=" is exported as text,
+  never as a formula Excel would run.
+
 - **Clearer labels in Dutch, French, German, Italian and Spanish**: the two
   highest risk bands have distinct names in French, Italian and Spanish,
   "Screened out" no longer sounds like your own Screener filter, and the

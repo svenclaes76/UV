@@ -46,8 +46,12 @@ ufw default deny incoming && ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 
 sudo adduser --system --group --home /opt/uvalu uvalu
 sudo -u uvalu git clone git@github.com:svenclaes76/UV.git /opt/uvalu
 cd /opt/uvalu && sudo -u uvalu python3.12 -m venv .venv
-sudo -u uvalu .venv/bin/pip install -r requirements.txt
+sudo -u uvalu .venv/bin/pip install -r requirements-lock.txt
 ```
+
+`requirements-lock.txt` pins every package, including the ones the app's own
+dependencies pull in, so the server runs the versions CI tested and audited
+(SR7). Don't install from `requirements.txt` here: it also holds the test tools.
 
 The repository is private. Give the server a **read-only deploy key** in GitHub (repo › Settings › Deploy keys), not your own key.
 
@@ -163,7 +167,7 @@ Do this once after setup, and again after any change to the backup set-up. Use a
 
 ```bash
 cd /opt/uvalu && sudo -u uvalu git pull
-sudo -u uvalu .venv/bin/pip install -r requirements.txt
+sudo -u uvalu .venv/bin/pip install -r requirements-lock.txt
 sudo systemctl restart uvalu
 ```
 

@@ -293,6 +293,9 @@ def _settings_rows(user_settings: dict) -> list[dict]:
     return [{"section": a, "setting": b, "value": c} for a, b, c in rows]
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
 def _write(rows: dict[str, list[dict]], keys: tuple[str, ...]) -> bytes:
     from openpyxl import Workbook
     from openpyxl.comments import Comment
@@ -315,6 +318,13 @@ def _write(rows: dict[str, list[dict]], keys: tuple[str, ...]) -> bytes:
             c.comment = Comment(notes[col], "Uvalu", width=260, height=90)
         for r in rows.get(key, []):
             ws.append([r.get(c) for c in cols])
+            # SR7: openpyxl stores a string starting with "=" as a formula.
+            # Text starting with a formula character (a note, a ticker typed
+            # as "=HYPERLINK(...)") is written as plain text, so opening the
+            # export can't run it; the value itself is unchanged for re-import.
+            for cell in ws[ws.max_row]:
+                if isinstance(cell.value, str) and cell.value[:1] in _FORMULA_START:
+                    cell.data_type = "s"
         ws.freeze_panes = "A2"
         for i, col in enumerate(cols, start=1):
             letter = get_column_letter(i)
