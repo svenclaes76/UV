@@ -188,26 +188,15 @@ def test_factor_analysis_unavailable_with_short_history(isolated_data, monkeypat
     assert "Factor analysis unavailable" in "".join(c.value for c in at.caption)
 
 
-def test_vetoed_holding_shows_veto_flag(isolated_data, monkeypatch):
+def test_vetoed_holding_shows_no_signal_beside_the_position(isolated_data, monkeypatch):
+    # UX1 / PER-5: a model signal ("Screened out") beside the user's own
+    # holding reads as advice; the column is the position's own risk rating.
     portfolio.save_portfolio(make_portfolio_df())
-    # Held ticker → its scored row comes from the portfolio lane now.
     at = _run(monkeypatch, portfolio_scored=make_scored_df([make_scored_row(veto=True)]))
     html = "".join(m.value for m in at.markdown)
-    # PER-5: the quality-screen result stays on the holding's own flag and
-    # is not raised as a portfolio alert.
-    assert "Screened out" in html
+    assert "Screened out" not in html
     assert "hard veto" not in html
-
-
-def test_two_vetoed_holdings_each_carry_their_own_flag(isolated_data, monkeypatch):
-    base = make_portfolio_df().iloc[0].to_dict()
-    portfolio.save_portfolio(make_portfolio_df([base, {**base, "ticker": "BBB.BR", "name": "Beta NV",
-                                                       "google_ticker": "EBR:BBB"}]))
-    at = _run(monkeypatch, portfolio_scored=make_scored_df([
-        make_scored_row(veto=True), make_scored_row(Ticker="BBB.BR", Name="Beta NV", veto=True)]))
-    html = "".join(m.value for m in at.markdown)
-    assert html.count("Screened out") == 2
-    assert "hard veto" not in html
+    assert "Position risk" in html and ">Flag<" not in html
 
 
 def test_critical_risk_position_shows_flag(isolated_data, monkeypatch):

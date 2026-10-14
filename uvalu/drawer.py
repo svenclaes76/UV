@@ -10,8 +10,9 @@ while every existing row-click-to-dialog call site keeps working unchanged
 Matches Uvalu.dc.html's "Detail drawer" section exactly: header with an X
 close button (no watchlist star — this drawer is a pure quick-preview, not a
 watchlist management surface), price/fair-value/MoS hero tiles, a veto
-banner, the six-model fair-value ladder, a Position & metrics list that
-varies by held/not-held state, and a primary "View full analysis" action.
+banner, the six-model fair-value ladder, the stock's metrics, a primary
+"View full analysis" action, and — below the records divider, apart from
+the signal (UX1) — the user's own position or a "not held" status.
 """
 import html as _html
 import math
@@ -168,6 +169,15 @@ def _go_portfolio_edit(ticker: str) -> None:
         st.switch_page(_page)
 
 
+def _metric_rows_html(rows: list) -> str:
+    """Label / value rows in the drawer's list style."""
+    return "".join(
+        f'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--line-2);">'
+        f'<span style="font-size:12.5px;color:var(--muted);">{_label}</span>'
+        f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;color:{_color};">{_value}</span></div>'
+        for _label, _value, _color in rows)
+
+
 @_dialog(N_("Stock preview"))
 def open_drawer(row: "pd.Series") -> None:
     enter_dialog()
@@ -264,10 +274,11 @@ def open_drawer(row: "pd.Series") -> None:
         if bool(row.get("fair_value_clamped")):
             st.caption(_("⚑ Composite capped at the models' median — one model ran far above the rest."))
 
-    # ── Position & metrics — matches Uvalu.dc.html's rowsD builder exactly:
-    # 4 always-shown fields, then either 3 held-position fields or a single
-    # "not held" status row. ─────────────────────────────────────────────────
-    _section_header(h_("Position & metrics"))
+    # ── Stock metrics (the same for every user), then — below the records
+    # divider, apart from the signal — the user's own position. UX1
+    # (docs/ux-research-plan.md): "Screened out" in the same panel as shares
+    # held and P&L read as advice on the user's holding (PER-5). ───────────
+    _section_header(h_("Stock metrics"))
     _pf = load_portfolio()
     _held_row = None
     if _pf is not None and not _pf.empty and "ticker" in _pf.columns:
@@ -284,7 +295,7 @@ def open_drawer(row: "pd.Series") -> None:
     _pe_str = f"{fmt_num(_pe, 1)}× · {fmt_num(15.0, 1)}×" if pd.notna(_pe) else "—"
     _dy_str = _fv(row, "dividendYield", lambda v: fmt_pct(v, fraction=True))
 
-    _rows = [
+    _stock_rows = [
         (h_("Composite score"), _score_str, _score_color),
         (h_("P/E · fair P/E"), _pe_str, "inherit"),
         (h_("Dividend yield"), _dy_str, "inherit"),
@@ -303,7 +314,7 @@ def open_drawer(row: "pd.Series") -> None:
         _position_value = (_shares * float(_market_price)) if pd.notna(_market_price) else _purchase_value
         _pnl = _position_value - _purchase_value
         _pnl_pct = (_pnl / _purchase_value * 100) if _purchase_value else 0.0
-        _rows += [
+        _position_rows = [
             (h_("Shares held"), fmt_int(_shares), "inherit"),
             (h_("Position value"), fmt_money(_position_value, "EUR", 0), "inherit"),
             (h_("Unrealised P&L"), f"{fmt_money(_pnl, 'EUR', 0, signed=True)} ({fmt_pct(_pnl_pct, signed=True)})",
@@ -311,14 +322,9 @@ def open_drawer(row: "pd.Series") -> None:
         ]
     else:
         _status = h_("Not held · watchlist") if ticker in load_watchlist() else h_("Not held")
-        _rows.append((h_("Portfolio status"), _status, "var(--muted)"))
+        _position_rows = [(h_("Portfolio status"), _status, "var(--muted)")]
 
-    st.markdown("".join(
-        f'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--line-2);">'
-        f'<span style="font-size:12.5px;color:var(--muted);">{_label}</span>'
-        f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;color:{_color};">{_value}</span></div>'
-        for _label, _value, _color in _rows
-    ), unsafe_allow_html=True)
+    st.markdown(_metric_rows_html(_stock_rows), unsafe_allow_html=True)
     st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     _is_viewer = current_user().is_viewer
@@ -334,6 +340,11 @@ def open_drawer(row: "pd.Series") -> None:
     st.markdown(f'<div style="border-top:0.5px solid var(--line-2);margin:14px 0 0;padding-top:14px;'
                 f'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);">'
                 f'{_html.escape(tr(RECORDS_NOTE))}</div>', unsafe_allow_html=True)
+    _section_header(h_("Your position"))
+    st.markdown(_metric_rows_html(_position_rows), unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5;">'
+                f'{h_("Your own records. The model signal above is the same for every user and doesn't take your position into account.")}'
+                f'</div>', unsafe_allow_html=True)
     if _held:
         _act2, _act3 = st.columns(2)
         with _act2:
