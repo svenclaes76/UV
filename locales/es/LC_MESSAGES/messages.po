@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 06:42+0000\n"
-"PO-Revision-Date: 2026-10-14 08:33+0200\n"
+"PO-Revision-Date: 2026-10-14 08:51+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
 "Language: es\n"
@@ -546,8 +546,7 @@ msgid "Below model fair value"
 msgstr "Por debajo del valor razonable del modelo"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:288
-#: uvalu/pages_/risk.py:290 uvalu/pages_/risk.py:292 uvalu/pages_/risk.py:293
+#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:288 uvalu/pages_/risk.py:290 uvalu/pages_/risk.py:292 uvalu/pages_/risk.py:293
 msgid "N/A"
 msgstr "N/D"
 
@@ -2256,9 +2255,7 @@ msgid "Delayed quote — not a live intraday price"
 msgstr "Cotización diferida — no es un precio intradía en tiempo real"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1112 uvalu/components.py:1197 uvalu/drawer.py:331
-#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41
-#: uvalu/pages_/watchlist.py:121
+#: uvalu/components.py:1112 uvalu/components.py:1197 uvalu/drawer.py:331 uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41 uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr "El rol Lector es de solo lectura"
 
@@ -2343,9 +2340,7 @@ msgstr "Editar dividendo"
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:1950 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55
-#: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:33
+#: uvalu/components.py:1950 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:33
 msgid "Position"
 msgstr "Posición"
 
@@ -3288,9 +3283,7 @@ msgstr "Cerrar"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:231 uvalu/pages_/analysis.py:381 uvalu/pages_/analysis.py:397
-#: uvalu/pages_/portfolio.py:56 uvalu/pages_/screener.py:59
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:231 uvalu/pages_/analysis.py:381 uvalu/pages_/analysis.py:397 uvalu/pages_/portfolio.py:56 uvalu/pages_/screener.py:59 uvalu/pages_/watchlist.py:32
 msgid "Price"
 msgstr "Precio"
 
@@ -3302,10 +3295,7 @@ msgstr "Valor razonable"
 
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
-#: uvalu/drawer.py:233 uvalu/pages_/analysis.py:217 uvalu/pages_/analysis.py:347
-#: uvalu/pages_/analysis.py:427 uvalu/pages_/dashboard.py:507
-#: uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:58
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:233 uvalu/pages_/analysis.py:217 uvalu/pages_/analysis.py:347 uvalu/pages_/analysis.py:427 uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:58 uvalu/pages_/watchlist.py:32
 msgid "Margin of safety"
 msgstr "Margen de seguridad"
 
@@ -3319,7 +3309,6 @@ msgid "⚑ Composite capped at the models' median — one model ran far above th
 msgstr "⚑ Valor compuesto limitado a la mediana de los modelos: uno de ellos quedó muy por encima del resto."
 
 #: uvalu/drawer.py:281
-#, fuzzy
 msgid "Stock metrics"
 msgstr "Indicadores de la acción"
 
@@ -3337,8 +3326,7 @@ msgstr "{score} / 100"
 
 #. Context: Composite score label (glossary term): stock preview row, Analysis
 #. header, Watchlist column
-#: uvalu/drawer.py:299 uvalu/pages_/analysis.py:300 uvalu/pages_/screener.py:57
-#: uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:299 uvalu/pages_/analysis.py:300 uvalu/pages_/screener.py:57 uvalu/pages_/watchlist.py:32
 msgid "Composite score"
 msgstr "Puntuación compuesta"
 
@@ -3403,10 +3391,7 @@ msgid "Your position"
 msgstr "Tu posición"
 
 #: uvalu/drawer.py:346
-#, fuzzy
-msgid ""
-"Your own records. The model signal above is the same for every user and doesn't "
-"take your position into account."
+msgid "Your own records. The model signal above is the same for every user and doesn't take your position into account."
 msgstr "Tus propios registros. La señal del modelo de arriba es la misma para todos los usuarios y no tiene en cuenta tu posición."
 
 #: uvalu/drawer.py:367
@@ -3762,8 +3747,7 @@ msgstr "{name}, que opera con el nombre {trading_as}"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:479 uvalu/pages_/risk.py:33 uvalu/pages_/risk.py:287
-#: uvalu/shell.py:486
+#: uvalu/pages_/dashboard.py:479 uvalu/pages_/risk.py:33 uvalu/pages_/risk.py:287 uvalu/shell.py:486
 msgid "Beta"
 msgstr "Beta"
 
@@ -4914,8 +4898,7 @@ msgstr "Las señales del modelo son las mismas para todos los usuarios y no tien
 
 #. Context: Table column header: position weight in the portfolio (Dashboard,
 #. Portfolio, Risk)
-#: uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515
-#: uvalu/pages_/portfolio.py:58 uvalu/pages_/risk.py:33
+#: uvalu/pages_/dashboard.py:507 uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:58 uvalu/pages_/risk.py:33
 msgid "Weight"
 msgstr "Peso"
 
@@ -5576,7 +5559,6 @@ msgid "Contribution to risk"
 msgstr "Contribución al riesgo"
 
 #: uvalu/pages_/risk.py:34
-#, fuzzy
 msgid "Position risk"
 msgstr "Riesgo de la posición"
 
