@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 11:16+0000\n"
-"PO-Revision-Date: 2026-10-14 12:59+0200\n"
+"PO-Revision-Date: 2026-10-14 19:53+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -1104,10 +1104,7 @@ msgid "The company reports in another currency than its share price, and no exch
 msgstr "La società pubblica i conti in una valuta diversa da quella del prezzo dell'azione e non era disponibile alcun tasso di cambio per convertirne i dati."
 
 #: screener.py:3019
-#, fuzzy
-msgid ""
-"Earnings per share come from the latest year only, and the price is under 4 "
-"times those earnings: they may include a one-off gain."
+msgid "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 msgstr "L'utile per azione viene solo dall'ultimo anno e il prezzo è inferiore a 4 volte quell'utile: può includere un utile straordinario."
 
 #. Settings › Export: worksheet tab names in the downloaded

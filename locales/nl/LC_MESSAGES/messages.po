@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 11:16+0000\n"
-"PO-Revision-Date: 2026-10-14 12:58+0200\n"
+"PO-Revision-Date: 2026-10-14 19:53+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
 "Language: nl\n"
@@ -1104,10 +1104,7 @@ msgid "The company reports in another currency than its share price, and no exch
 msgstr "Het bedrijf rapporteert in een andere munt dan zijn aandelenkoers, en er was geen wisselkoers beschikbaar om zijn cijfers om te rekenen."
 
 #: screener.py:3019
-#, fuzzy
-msgid ""
-"Earnings per share come from the latest year only, and the price is under 4 "
-"times those earnings: they may include a one-off gain."
+msgid "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 msgstr "De winst per aandeel komt alleen uit het laatste jaar, en de koers is lager dan 4 keer die winst: er kan een eenmalige winst in zitten."
 
 #. Settings › Export: worksheet tab names in the downloaded

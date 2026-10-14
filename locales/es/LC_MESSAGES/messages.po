@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 11:16+0000\n"
-"PO-Revision-Date: 2026-10-14 12:59+0200\n"
+"PO-Revision-Date: 2026-10-14 19:53+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
 "Language: es\n"
@@ -1104,10 +1104,7 @@ msgid "The company reports in another currency than its share price, and no exch
 msgstr "La empresa informa en una divisa distinta de la de su cotización y no había ningún tipo de cambio disponible para convertir sus cifras."
 
 #: screener.py:3019
-#, fuzzy
-msgid ""
-"Earnings per share come from the latest year only, and the price is under 4 "
-"times those earnings: they may include a one-off gain."
+msgid "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 msgstr "El beneficio por acción procede solo del último año y el precio es inferior a 4 veces ese beneficio: puede incluir una ganancia extraordinaria."
 
 #. Settings › Export: worksheet tab names in the downloaded
