@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 18:21+0000\n"
-"PO-Revision-Date: 2026-10-14 19:53+0200\n"
+"PO-Revision-Date: 2026-10-14 20:22+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
 "Language: es\n"
@@ -1002,11 +1002,8 @@ msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr "No supera el filtro de calidad del modelo, por lo que su puntuación compuesta se fija en 0."
 
 #: screener.py:1993
-#, fuzzy, python-brace-format
-msgid ""
-"Model score {score} is within {band} points of {threshold}, so the stock keeps "
-"its signal (stability rule), and the price is {mos} below the model fair value "
-"(minimum {min_mos})."
+#, python-brace-format
+msgid "Model score {score} is within {band} points of {threshold}, so the stock keeps its signal (stability rule), and the price is {mos} below the model fair value (minimum {min_mos})."
 msgstr "La puntuación del modelo {score} está a menos de {band} puntos de {threshold}, así que la acción mantiene su señal (regla de estabilidad), y el precio está un {mos} por debajo del valor razonable del modelo (mínimo {min_mos})."
 
 #: screener.py:1999
@@ -1044,27 +1041,24 @@ msgid "the fair value rests on fewer than two independent models"
 msgstr "el valor razonable se basa en menos de dos modelos independientes"
 
 #: screener.py:2019
-#, fuzzy
 msgid "the company's figures couldn't be converted to the share's currency"
 msgstr "las cifras de la empresa no se pudieron convertir a la divisa de la acción"
 
 #: screener.py:2021
-#, fuzzy
 msgid "the earnings may include a one-off gain"
 msgstr "el beneficio puede incluir una ganancia extraordinaria"
 
 #: screener.py:2025
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "the models disagree: their values range from {low} to {high}"
 msgstr "los modelos no coinciden: sus valores van de {low} a {high}"
 
 #: screener.py:2028
-#, fuzzy
 msgid "the models disagree"
 msgstr "los modelos no coinciden"
 
 #: screener.py:2030
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "a margin of safety above {limit} is more often a data error than a real discount"
 msgstr "un margen de seguridad superior a {limit} suele ser un error de datos más que un descuento real"
 
@@ -1141,17 +1135,12 @@ msgid "Earnings per share come from the latest year only, and the price is under
 msgstr "El beneficio por acción procede solo del último año y el precio es inferior a 4 veces ese beneficio: puede incluir una ganancia extraordinaria."
 
 #: screener.py:3077
-#, fuzzy
-msgid ""
-"The models disagree: the highest value is more than 3 times the lowest, so the "
-"fair value is shown as a range."
+msgid "The models disagree: the highest value is more than 3 times the lowest, so the fair value is shown as a range."
 msgstr "Los modelos no coinciden: el valor más alto es más de 3 veces el más bajo, así que el valor razonable se muestra como un rango."
 
 #: screener.py:3079
-#, fuzzy, no-python-format
-msgid ""
-"The price is more than 50% below the model fair value. A gap this large is more "
-"often a data error than a real discount: check the figures."
+#, no-python-format
+msgid "The price is more than 50% below the model fair value. A gap this large is more often a data error than a real discount: check the figures."
 msgstr "El precio está más de un 50 % por debajo del valor razonable del modelo. Una diferencia tan grande suele ser un error de datos más que un descuento real: revisa las cifras."
 
 #. Settings › Export: worksheet tab names in the downloaded
