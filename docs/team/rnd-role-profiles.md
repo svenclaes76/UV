@@ -19,7 +19,7 @@ Each profile describes the expert you want in the seat: the mission, experience,
 | Data Scientist / Analyst | Growth | Mid to Senior | 3–6 yrs |
 | Security Engineer | Growth | Senior | 6+ yrs |
 | Engineering Manager | Growth (8+ engineers) | Senior | 7+ yrs, 2+ managing |
-| Mobile, ML, Solutions, Tech Writer, Release Mgr, CTO | Scale | Varies | See below |
+| Mobile, ML, Tech Writer, Release Mgr, CTO | Scale | Varies | See below |
 | Quant / Financial Analyst, Compliance Advisor | MVP for uvalu | Senior | 5+ yrs domain |
 
 ## Product Manager / Product Owner
@@ -178,13 +178,12 @@ Mission: build a team that ships predictably and keeps its best people, so the t
 
 ## Scale-stage roles
 
-These six roles come after the core team is working well. They are shown in one table because each is hired later and needs a shorter profile.
+These five roles come after the core team is working well. They are shown in one table because each is hired later and needs a shorter profile.
 
 | Role | Background | Core expertise and tools | Success metrics | Key interview signal | Red flag |
 | --- | --- | --- | --- | --- | --- |
 | Mobile Engineer | 4+ yrs shipping iOS/Android apps with real users | React Native or Flutter (or Swift/Kotlin), offline sync, push notifications, app store releases | Crash-free sessions > 99.5%, store rating, mobile retention | Has shipped and maintained an app through several OS releases | Web-only experience labelled as mobile |
 | ML Engineer | 4+ yrs putting ML models into production | Python, PyTorch or scikit-learn, feature stores, model serving, MLflow, monitoring for drift; LLM integration | Model latency, drift alerts handled, uplift vs baseline | Talks about monitoring and rollback, not only accuracy | Notebook-only work, no production story |
-| Solutions / Integration Engineer | 4+ yrs in customer-facing technical roles in B2B SaaS | APIs, SSO/SAML, data exports, scripting, technical demos, scoping | Time-to-integration, deal win rate with SE involvement, CSAT | Explains a complex integration to a non-technical buyer | Promises custom work the product cannot support |
 | Technical Writer | 3+ yrs writing developer and end-user docs | Docs-as-code (Markdown, Docusaurus or Mintlify), OpenAPI, information architecture | Support tickets deflected, doc search success, API onboarding time | Writing sample that is short, accurate and task-oriented | Marketing tone in technical docs |
 | Release Manager | 5+ yrs coordinating releases across several teams | Release trains, feature flags (LaunchDarkly/Unleash), change management, release notes | On-time releases, rollback rate, change failure rate | Reduces process overhead while increasing safety | Adds approval gates that slow every team |
 | CTO / Head of Engineering | 12+ yrs, 5+ leading engineering orgs of 20–100 | Technical strategy, org design, budgeting, board communication, vendor and build-vs-buy decisions | Delivery against company goals, engineering cost as % of revenue, retention of senior engineers | Has scaled an org through at least one doubling | Wants to rewrite everything on arrival |
