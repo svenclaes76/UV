@@ -157,7 +157,8 @@ def test_about_shows_build_details(isolated_data, monkeypatch, tmp_path, fake_bu
     fake_build()
     at = _run_about(monkeypatch, tmp_path)
     html = "".join(m.value for m in at.markdown)
-    for text in ("2031.07.4-dev+fedcba9", "fedcba9", "2031-07-09 08:07:06 UTC", "test (TEST)", "M1"):
+    from screener import MODEL_VERSION
+    for text in ("2031.07.4-dev+fedcba9", "fedcba9", "2031-07-09 08:07:06 UTC", "test (TEST)", MODEL_VERSION):
         assert text in html
     assert "/commit/" not in html                     # commit link is for admins only
     # The support line sits in the card footer with a "Copy for support" button.

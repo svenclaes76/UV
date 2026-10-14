@@ -310,6 +310,7 @@ _FUND_ROW = {
     "operatingMargins": 0.25, "freeCashflow": 1e9, "netIncome": 8e8,
     "debtToEquity": 50.0, "currentRatio": 2.0, "averageVolume": 1e6,
     "earningsGrowth": 0.08, "revenueGrowth": 0.06, "recommendationMean": 2.0,
+    "country": "Belgium",   # a home listing on Brussels (V2, uvalu/universe.py)
 }
 
 
@@ -322,6 +323,55 @@ class TestLoadAllScreenerData:
         monkeypatch.setattr(data_module, "fetch_frankfurt_tickers", lambda: [])
         monkeypatch.setattr(data_module, "fetch_swiss_tickers", lambda: [])
         monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", lambda stocks, **kw: fund_df)
+        monkeypatch.setattr(data_module, "_load_cache", lambda *a, **k: {})
+
+    def test_only_home_listings_join_the_public_universe(self, monkeypatch):
+        # V2: a US company cross-listed in Brussels, and a listing whose
+        # country isn't known yet, stay out of the peers and the lists.
+        foreign = dict(_FUND_ROW, Name="Apple", Ticker="AAPL.BR", country="United States")
+        unknown = dict(_FUND_ROW, Name="Mystery", Ticker="MYS.BR", country=None)
+        self._patch_fetchers(
+            monkeypatch,
+            [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"},
+             {"name": "Apple", "isin": "", "ticker": "AAPL.BR", "mic": "XBRU"},
+             {"name": "Mystery", "isin": "", "ticker": "MYS.BR", "mic": "XBRU"}],
+            pd.DataFrame([_FUND_ROW, foreign, unknown]),
+        )
+        seen = []
+        real = data_module.run_screener_from_df
+        monkeypatch.setattr(data_module, "run_screener_from_df",
+                            lambda df, **kw: seen.append(sorted(df.loc[kw["peer_mask"], "Ticker"])) or real(df, **kw))
+        brussels, *_, extra = data_module._build_all_screener_data(("brussels",))
+        assert seen == [["AAA.BR"]]
+        assert list(brussels["Ticker"]) == ["AAA.BR"]
+        assert extra.empty
+
+    def test_a_known_foreign_listing_is_not_even_fetched(self, monkeypatch):
+        self._patch_fetchers(
+            monkeypatch,
+            [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"},
+             {"name": "Apple", "isin": "", "ticker": "AAPL.BR", "mic": "XBRU"}],
+            pd.DataFrame([_FUND_ROW]),
+        )
+        monkeypatch.setattr(data_module, "_load_cache", lambda *a, **k: {"AAPL.BR": {"country": "United States"}})
+        fetched = []
+        monkeypatch.setattr(data_module, "fetch_fundamentals_nowait",
+                            lambda stocks, **kw: fetched.extend(s["ticker"] for s in stocks) or pd.DataFrame([_FUND_ROW]))
+        data_module._build_all_screener_data(("brussels",))
+        assert fetched == ["AAA.BR"]
+
+    def test_a_users_foreign_holding_is_scored_as_an_extra(self, monkeypatch):
+        # PER-2: scored against the public peers, never one of them.
+        foreign = dict(_FUND_ROW, Name="Apple", Ticker="AAPL.BR", country="United States")
+        self._patch_fetchers(
+            monkeypatch,
+            [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"},
+             {"name": "Apple", "isin": "", "ticker": "AAPL.BR", "mic": "XBRU"}],
+            pd.DataFrame([_FUND_ROW, foreign]),
+        )
+        brussels, *_, extra = data_module._build_all_screener_data(("brussels",), ("AAPL.BR",), ("Apple",))
+        assert list(brussels["Ticker"]) == ["AAA.BR"]
+        assert list(extra["Ticker"]) == ["AAPL.BR"]
 
     def test_returns_all_empty_when_no_fundamentals(self, monkeypatch):
         self._patch_fetchers(monkeypatch, [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"}],

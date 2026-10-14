@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-13 18:37+0000\n"
+"POT-Creation-Date: 2026-10-13 19:48+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,103 +18,103 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #. Context: Main navigation › page name in the top bar and browser tab
-#: app.py:112 uvalu/shell.py:47
+#: app.py:103 uvalu/shell.py:47
 msgid "Dashboard"
 msgstr ""
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:113 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
+#: app.py:104 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
 #: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
 #: uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
 msgid "Portfolio"
 msgstr ""
 
 #. Context: Main navigation › page name for the risk assessment page
-#: app.py:114 uvalu/pages_/analysis.py:217 uvalu/shell.py:51
+#: app.py:105 uvalu/pages_/analysis.py:217 uvalu/shell.py:51
 msgid "Risk"
 msgstr ""
 
 #. Context: Main navigation › page name. Kept in English in all languages
 #. (glossary).
-#: app.py:115 uvalu/shell.py:48
+#: app.py:106 uvalu/shell.py:48
 msgid "Screener"
 msgstr ""
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:116 uvalu/pages_/watchlist.py:71 uvalu/shell.py:49
+#: app.py:107 uvalu/pages_/watchlist.py:71 uvalu/shell.py:49
 msgid "Watchlist"
 msgstr ""
 
 #. Context: Page name of the single-stock analysis page (browser tab title)
-#: app.py:117
+#: app.py:108
 msgid "Analysis"
 msgstr ""
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:118 uvalu/pages_/settings.py:580 uvalu/shell.py:433
+#: app.py:109 uvalu/pages_/settings.py:580 uvalu/shell.py:433
 msgid "Settings"
 msgstr ""
 
-#: app.py:119 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197
+#: app.py:110 uvalu/compliance/disclosures.py:84 uvalu/pages_/help.py:197
 #: uvalu/shell.py:435
 msgid "Methodology"
 msgstr ""
 
-#: app.py:120 uvalu/pages_/settings.py:108
+#: app.py:111 uvalu/pages_/settings.py:108
 msgid "Legal"
 msgstr ""
 
-#: app.py:122 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
+#: app.py:113 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
 #: uvalu/pages_/help.py:301 uvalu/shell.py:438
 msgid "About Uvalu"
 msgstr ""
 
 #. Context: User role name (shown after your email in Settings and in invites)
-#: auth.py:58
+#: auth.py:59
 msgid "Admin"
 msgstr ""
 
 #. Context: User role name: can edit their own portfolio
-#: auth.py:58
+#: auth.py:59
 msgid "Analyst"
 msgstr ""
 
 #. Context: User role name: read-only
-#: auth.py:58
+#: auth.py:59
 msgid "Viewer"
 msgstr ""
 
 #. Context: Sign-up/invite › validation error
-#: auth.py:131
+#: auth.py:132
 msgid "Enter a valid email address."
 msgstr ""
 
 #. Context: Password forms › validation error
-#: auth.py:133 auth.py:1033
+#: auth.py:134 auth.py:1083
 #, python-brace-format
 msgid "Password must be at least {min_len} characters."
 msgstr ""
 
 #. Context: First-run/sign-up › error
-#: auth.py:141
+#: auth.py:142
 msgid ""
 "The user store could not be read (wrong encryption key or a corrupted "
 "file). Registration is disabled until this is fixed."
 msgstr ""
 
 #. Context: Sign-up › error
-#: auth.py:143
+#: auth.py:144
 msgid "An account with this email already exists."
 msgstr ""
 
 #. Context: Sign-up › success message
-#: auth.py:163
+#: auth.py:164
 msgid "Account created. You can now log in."
 msgstr ""
 
 #. Context: Invite acceptance › error when signing in with a different SSO
 #. account
-#: auth.py:320
+#: auth.py:321
 #, python-brace-format
 msgid ""
 "This invite was sent to {email}. Sign in with a matching account, or ask "
@@ -122,12 +122,12 @@ msgid ""
 msgstr ""
 
 #. Context: Sign-in › error
-#: auth.py:459
+#: auth.py:460
 msgid "Invalid email or password."
 msgstr ""
 
 #. Context: Sign-in › error
-#: auth.py:500
+#: auth.py:542
 msgid ""
 "The user store could not be read (wrong encryption key or a corrupted "
 "file). Contact your administrator."
@@ -135,23 +135,23 @@ msgstr ""
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:643 auth.py:663 auth.py:739 auth.py:986 auth.py:1068 auth.py:1091
-#: auth.py:1117 auth.py:1305
+#: auth.py:693 auth.py:713 auth.py:789 auth.py:1036 auth.py:1118 auth.py:1141
+#: auth.py:1167 auth.py:1355
 msgid "User not found."
 msgstr ""
 
 #. Context: Settings › Active sessions › error
-#: auth.py:650
+#: auth.py:700
 msgid "Session not found."
 msgstr ""
 
 #. Context: Settings › Active sessions › confirmation
-#: auth.py:654
+#: auth.py:704
 msgid "Signed out of that session."
 msgstr ""
 
 #. Context: Settings › confirmation after 'Sign out everywhere else'
-#: auth.py:672
+#: auth.py:722
 #, python-brace-format
 msgid "Signed out of {count} other session."
 msgid_plural "Signed out of {count} other sessions."
@@ -159,34 +159,34 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. Context: Settings › 2FA setup › error
-#: auth.py:721
+#: auth.py:771
 msgid "Start enrollment again — no pending setup found."
 msgstr ""
 
 #. Context: 2FA sign-in and setup › error
-#: auth.py:723 auth.py:826
+#: auth.py:773 auth.py:876
 msgid "That code didn't match. Try again."
 msgstr ""
 
 #. Context: Settings › confirmation
-#: auth.py:730
+#: auth.py:780
 msgid "Two-factor authentication enabled."
 msgstr ""
 
 #. Context: Settings › confirmation
-#: auth.py:747
+#: auth.py:797
 msgid "Two-factor authentication turned off."
 msgstr ""
 
 #. Context: Sign-in › error while the account is locked
-#: auth.py:799
+#: auth.py:849
 #, python-brace-format
 msgid "This account is temporarily locked. Try again in {count} minute."
 msgid_plural "This account is temporarily locked. Try again in {count} minutes."
 msgstr[0] ""
 msgstr[1] ""
 
-#: auth.py:820
+#: auth.py:870
 #, python-brace-format
 msgid ""
 "That code didn't match. Too many failed attempts — this account is now locked "
@@ -194,67 +194,67 @@ msgid ""
 msgstr ""
 
 #. Context: Settings / sign-in › error
-#: auth.py:856 auth.py:882
+#: auth.py:906 auth.py:932
 msgid "Two-factor authentication isn't enabled for this account."
 msgstr ""
 
 #. Context: Settings › confirmation after 'Revoke all'
-#: auth.py:991
+#: auth.py:1041
 msgid "All trusted devices revoked."
 msgstr ""
 
 #. Context: Password forms › error
-#: auth.py:1037
+#: auth.py:1087
 msgid "This password has appeared in known data breaches. Choose a different one."
 msgstr ""
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1071
+#: auth.py:1121
 msgid "This identity is already linked to a different account."
 msgstr ""
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1074
+#: auth.py:1124
 msgid "This provider is already linked to your account."
 msgstr ""
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1081
+#: auth.py:1131
 msgid "Provider connected."
 msgstr ""
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1096
+#: auth.py:1146
 msgid "That provider isn't linked to your account."
 msgstr ""
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1098
+#: auth.py:1148
 msgid "Can't disconnect your only sign-in method — set a password first."
 msgstr ""
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1103
+#: auth.py:1153
 msgid "Provider disconnected."
 msgstr ""
 
 #. Context: Settings › Set a password › error. 'Change' must match the button.
-#: auth.py:1119
+#: auth.py:1169
 msgid "This account already has a password — use Change instead."
 msgstr ""
 
 #. Context: Settings › confirmation
-#: auth.py:1125
+#: auth.py:1175
 msgid "Password set."
 msgstr ""
 
 #. Context: Settings › Change password › error
-#: auth.py:1310
+#: auth.py:1360
 msgid "Current password is incorrect."
 msgstr ""
 
 #. Context: Settings › confirmation
-#: auth.py:1316
+#: auth.py:1366
 msgid "Password changed."
 msgstr ""
 
@@ -553,15 +553,15 @@ msgstr ""
 msgid "Low"
 msgstr ""
 
-#: risk.py:575 uvalu/components.py:1467
+#: risk.py:575 uvalu/components.py:1476
 msgid "Above model fair value"
 msgstr ""
 
-#: risk.py:576 uvalu/components.py:1466
+#: risk.py:576 uvalu/components.py:1475
 msgid "Near model fair value"
 msgstr ""
 
-#: risk.py:576 uvalu/components.py:1465
+#: risk.py:576 uvalu/components.py:1474
 msgid "Below model fair value"
 msgstr ""
 
@@ -1041,52 +1041,52 @@ msgstr ""
 msgid "Annual"
 msgstr ""
 
-#: screener.py:1831
+#: screener.py:1835
 msgid "No signal: the peer group needed to rank this stock is not available yet."
 msgstr ""
 
-#: screener.py:1838
+#: screener.py:1842
 #, python-brace-format
 msgid "Fails the model's quality screen ({rules}), so its composite score is set to 0."
 msgstr ""
 
-#: screener.py:1840
+#: screener.py:1844
 msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr ""
 
-#: screener.py:1844
+#: screener.py:1848
 #, python-brace-format
 msgid ""
 "Model score {score} is at or above {threshold}, and the price is {mos} below the"
 " model fair value (minimum {min_mos})."
 msgstr ""
 
-#: screener.py:1847
+#: screener.py:1851
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
 msgstr ""
 
-#: screener.py:1850
+#: screener.py:1854
 #, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
 msgstr ""
 
-#: screener.py:1855
+#: screener.py:1859
 #, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
 msgstr ""
 
-#: screener.py:1858
+#: screener.py:1862
 msgid "no model fair value could be computed"
 msgstr ""
 
 #. Context: Signal explanation reason (lowercase)
-#: screener.py:1860
+#: screener.py:1864
 #, python-brace-format
 msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr ""
 
-#: screener.py:1862
+#: screener.py:1866
 msgid "the fair value rests on fewer than two independent models"
 msgstr ""
 
@@ -1094,64 +1094,70 @@ msgstr ""
 #. reasons joined by "; ".
 #. signal explanation for a "Mid score" badge; {reasons} is a list of lowercase
 #. reasons joined by "; ".
-#: screener.py:1864
+#: screener.py:1868
 #, python-brace-format
 msgid "Mid score: {reasons}."
 msgstr ""
 
-#: screener.py:1865
+#: screener.py:1869
 msgid "Model score is between the lower and upper thresholds."
 msgstr ""
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2179
+#: screener.py:2183
 #, python-brace-format
 msgid "revenue fell {years} straight years"
 msgstr ""
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2184
+#: screener.py:2188
 #, python-brace-format
 msgid "operating income negative {years} years running"
 msgstr ""
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2189
+#: screener.py:2193
 msgid "retained earnings negative and still eroding"
 msgstr ""
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2197
+#: screener.py:2201
 #, python-brace-format
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr ""
 
-#: screener.py:2728
+#: screener.py:2819
 msgid "The price is more than 72 hours old."
 msgstr ""
 
-#: screener.py:2729
+#: screener.py:2820
 msgid "The time of the price is unknown."
 msgstr ""
 
-#: screener.py:2730
+#: screener.py:2821
 msgid "No model could compute a fair value."
 msgstr ""
 
-#: screener.py:2731
+#: screener.py:2822
 msgid "The fair value rests on fewer than two independent models."
 msgstr ""
 
-#: screener.py:2732
+#: screener.py:2823
 msgid "The fair value was capped at the models' median."
 msgstr ""
 
-#: screener.py:2733
+#: screener.py:2824
 msgid "Earnings per share were derived from the P/E ratio."
 msgstr ""
 
-#: screener.py:2734
+#: screener.py:2825
 msgid "Fewer than 20 stocks were available for comparison."
+msgstr ""
+
+#: screener.py:2826
+msgid ""
+"The company reports in another currency than its share price, and no exchange "
+"rate was available to convert its figures."
 msgstr ""
 
 #. Settings › Export: worksheet tab names in the downloaded
@@ -1554,40 +1560,40 @@ msgid "New password and confirmation don't match."
 msgstr ""
 
 #. Context: Two-factor sign-in step › heading
-#: uvalu/authgate.py:178
+#: uvalu/authgate.py:207
 msgid "Enter your authenticator code"
 msgstr ""
 
 #. Context: Two-factor sign-in step › text under the heading
-#: uvalu/authgate.py:179
+#: uvalu/authgate.py:208
 msgid "Open your authenticator app and enter the 6-digit code for Uvalu."
 msgstr ""
 
 #. Context: Two-factor sign-in and Settings › 2FA setup › label of the 6-digit
 #. code field
-#: uvalu/authgate.py:183 uvalu/pages_/settings.py:493
+#: uvalu/authgate.py:212 uvalu/pages_/settings.py:493
 msgid "Code"
 msgstr ""
 
 #. Context: Two-factor sign-in step › toggle: skip the 2FA code on this device
 #. for 30 days
-#: uvalu/authgate.py:184
+#: uvalu/authgate.py:213
 msgid "Remember this device for 30 days"
 msgstr ""
 
 #. Context: Two-factor sign-in step › submit button for the code or backup code
-#: uvalu/authgate.py:185 uvalu/authgate.py:229
+#: uvalu/authgate.py:214 uvalu/authgate.py:258
 msgid "Verify"
 msgstr ""
 
 #. Context: Two-factor sign-in step › link-button to switch to a one-time
 #. backup code
-#: uvalu/authgate.py:200
+#: uvalu/authgate.py:229
 msgid "Use a backup code"
 msgstr ""
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:204 uvalu/authgate.py:222 uvalu/dialogs.py:304
+#: uvalu/authgate.py:233 uvalu/authgate.py:251 uvalu/dialogs.py:304
 #: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
 #: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
 #: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:418
@@ -1597,53 +1603,53 @@ msgid "Cancel"
 msgstr ""
 
 #. Context: Two-factor sign-in step › heading of the backup-code form
-#: uvalu/authgate.py:211
+#: uvalu/authgate.py:240
 msgid "Enter a backup code"
 msgstr ""
 
 #. Context: Two-factor sign-in step › text under 'Enter a backup code'
-#: uvalu/authgate.py:212
+#: uvalu/authgate.py:241
 msgid ""
 "Use one of the one-time backup codes you saved when you set up two-factor"
 " authentication."
 msgstr ""
 
 #. Context: Two-factor sign-in step › warning when all backup codes are used up
-#: uvalu/authgate.py:219
+#: uvalu/authgate.py:248
 msgid ""
 "No backup codes left on this account. Ask an admin to reset your two-"
 "factor authentication so you can re-enroll."
 msgstr ""
 
 #. Context: Two-factor sign-in step › label of the backup-code field
-#: uvalu/authgate.py:228
+#: uvalu/authgate.py:257
 msgid "Backup code"
 msgstr ""
 
 #. Context: Two-factor sign-in step › button to return from backup code to the
 #. app code
-#: uvalu/authgate.py:239
+#: uvalu/authgate.py:268
 msgid "Back to the authenticator code"
 msgstr ""
 
 #. Context: Sign-up, reset and change-password forms › live meter under the
 #. password field. {strength} is Weak, Fair or Strong (translated separately).
-#: uvalu/authgate.py:260 uvalu/pages_/settings.py:397
+#: uvalu/authgate.py:289 uvalu/pages_/settings.py:397
 #, python-brace-format
 msgid "Password strength: {strength}"
 msgstr ""
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:296 uvalu/shell.py:368
+#: uvalu/authgate.py:325 uvalu/shell.py:368
 msgid "value engine"
 msgstr ""
 
-#: uvalu/authgate.py:299
+#: uvalu/authgate.py:328
 msgid "Find value before the market does."
 msgstr ""
 
-#: uvalu/authgate.py:300
+#: uvalu/authgate.py:329
 msgid ""
 "Five valuation models across 6 European exchanges: margin of safety, composite "
 "scores and quality screens in one workspace. Model outputs are the same for "
@@ -1652,42 +1658,42 @@ msgstr ""
 
 #. Context: Sign-in screen › stat label under the big number '6' (six valuation
 #. models). Lowercase.
-#: uvalu/authgate.py:302
+#: uvalu/authgate.py:331
 msgid "valuation models"
 msgstr ""
 
 #. Context: Sign-in screen › stat label under the big number '6' (six European
 #. stock exchanges)
-#: uvalu/authgate.py:303
+#: uvalu/authgate.py:332
 msgid "EU exchanges"
 msgstr ""
 
-#: uvalu/authgate.py:304
+#: uvalu/authgate.py:333
 msgid "model update cycle"
 msgstr ""
 
 #. Context: Sign-in screen › single sign-on button. {provider} is 'Google' or
 #. 'Microsoft Entra ID'.
-#: uvalu/authgate.py:337 uvalu/authgate.py:343
+#: uvalu/authgate.py:366 uvalu/authgate.py:372
 #, python-brace-format
 msgid "Continue with {provider}"
 msgstr ""
 
 #. Context: Sign-in screen › small uppercase badge on a sign-on button whose
 #. provider is not set up by the admin
-#: uvalu/authgate.py:345
+#: uvalu/authgate.py:374
 msgid "NOT CONFIGURED"
 msgstr ""
 
 #. Context: Sign-in screen › heading after a single sign-on for a suspended
 #. account
-#: uvalu/authgate.py:352
+#: uvalu/authgate.py:381
 msgid "This account has been suspended"
 msgstr ""
 
 #. Context: Sign-in screen › text under 'This account has been suspended'.
 #. {provider} = Google / Microsoft Entra ID.
-#: uvalu/authgate.py:353
+#: uvalu/authgate.py:382
 #, python-brace-format
 msgid ""
 "Sign-in via {provider} succeeded, but the Uvalu account for it is "
@@ -1696,7 +1702,7 @@ msgstr ""
 
 #. Context: Sign-in screen › heading when a single sign-on email has no Uvalu
 #. account
-#: uvalu/authgate.py:356
+#: uvalu/authgate.py:385
 #, python-brace-format
 msgid "No Uvalu account for this {provider} identity"
 msgstr ""
@@ -1704,7 +1710,7 @@ msgstr ""
 #. Context: Sign-in screen › text under 'No Uvalu account…'. {email} is shown
 #. in bold. (Code currently builds this from two pieces; merge them into one
 #. string.)
-#: uvalu/authgate.py:357
+#: uvalu/authgate.py:386
 #, python-brace-format
 msgid ""
 "Uvalu is invite-only. {email} is not a member of this workspace, so no "
@@ -1712,25 +1718,25 @@ msgid ""
 msgstr ""
 
 #. Context: Sign-in screen › follow-up hint under the 'no account' message
-#: uvalu/authgate.py:365
+#: uvalu/authgate.py:394
 msgid ""
 "If you were invited on a different address, sign in with that one — or "
 "ask an admin to invite this address."
 msgstr ""
 
 #. Context: Sign-in screens › button that returns to the normal sign-in form
-#: uvalu/authgate.py:368 uvalu/authgate.py:507
+#: uvalu/authgate.py:397 uvalu/authgate.py:536
 msgid "Back to sign in"
 msgstr ""
 
 #. Context: Invite acceptance screen › heading when the invite link is wrong or
 #. expired
-#: uvalu/authgate.py:385
+#: uvalu/authgate.py:414
 msgid "Invite link invalid"
 msgstr ""
 
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
-#: uvalu/authgate.py:386
+#: uvalu/authgate.py:415
 msgid ""
 "This invite link is invalid or has expired. Ask your admin to send a new "
 "one."
@@ -1738,14 +1744,14 @@ msgstr ""
 
 #. Context: Fills {inviter} in 'Invited by {inviter} as …' when the inviter is
 #. unknown
-#: uvalu/authgate.py:391
+#: uvalu/authgate.py:420
 msgid "an admin"
 msgstr ""
 
 #. Context: Invite acceptance screen › text under 'Create your account'.
 #. {inviter} = inviter's email or 'an admin'; {role} = Viewer / Analyst / Admin
 #. (bold). (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:392
+#: uvalu/authgate.py:421
 #, python-brace-format
 msgid ""
 "Invited by {inviter} as {role}. Pick a password, or use a connected "
@@ -1753,69 +1759,69 @@ msgid ""
 msgstr ""
 
 #. Context: Invite acceptance screen › heading
-#: uvalu/authgate.py:395
+#: uvalu/authgate.py:424
 msgid "Create your account"
 msgstr ""
 
 #. Context: Sign-in, sign-up and invite screens › label of the email field
-#: uvalu/authgate.py:402 uvalu/authgate.py:469 uvalu/authgate.py:741
+#: uvalu/authgate.py:431 uvalu/authgate.py:498 uvalu/authgate.py:770
 msgid "Email"
 msgstr ""
 
 #. Context: Invite acceptance screen › small uppercase badge next to the email:
 #. the email can't be changed
-#: uvalu/authgate.py:408
+#: uvalu/authgate.py:437
 msgid "FIXED BY INVITE"
 msgstr ""
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:413 uvalu/authgate.py:470 uvalu/authgate.py:751
-#: uvalu/authgate.py:756 uvalu/authgate.py:796 uvalu/pages_/settings.py:601
+#: uvalu/authgate.py:442 uvalu/authgate.py:499 uvalu/authgate.py:780
+#: uvalu/authgate.py:785 uvalu/authgate.py:826 uvalu/pages_/settings.py:601
 #: uvalu/pages_/settings.py:605
 msgid "Password"
 msgstr ""
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:415 uvalu/authgate.py:472 uvalu/authgate.py:539
+#: uvalu/authgate.py:444 uvalu/authgate.py:501 uvalu/authgate.py:568
 #: uvalu/pages_/settings.py:412 uvalu/pages_/settings.py:444
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr ""
 
 #. Context: Invite acceptance screen › submit button
-#: uvalu/authgate.py:416
+#: uvalu/authgate.py:445
 msgid "Create account"
 msgstr ""
 
 #. Context: Sign-in screen › divider between the password form and the
 #. 'Continue with Google/Microsoft' buttons
-#: uvalu/authgate.py:431 uvalu/authgate.py:717 uvalu/authgate.py:805
+#: uvalu/authgate.py:460 uvalu/authgate.py:746 uvalu/authgate.py:835
 msgid "or"
 msgstr ""
 
 #. Context: First-run screen (no users yet) › heading
-#: uvalu/authgate.py:463
+#: uvalu/authgate.py:492
 msgid "Create the first admin account"
 msgstr ""
 
 #. Context: Sign-in and first-admin screens › example text inside the empty
 #. email field
-#: uvalu/authgate.py:469 uvalu/authgate.py:741
+#: uvalu/authgate.py:498 uvalu/authgate.py:770
 msgid "you@company.com"
 msgstr ""
 
 #. Context: First-run screen › submit button
-#: uvalu/authgate.py:473
+#: uvalu/authgate.py:502
 msgid "Create admin account"
 msgstr ""
 
 #. Context: Sign-in screen › heading of the info box opened by 'Forgot?'
-#: uvalu/authgate.py:503
+#: uvalu/authgate.py:532
 msgid "Forgot your password?"
 msgstr ""
 
-#: uvalu/authgate.py:504
+#: uvalu/authgate.py:533
 msgid ""
 "During the beta Uvalu doesn’t send emails. Ask your admin to reset your "
 "password. They give you a single-use link, valid for 30 minutes."
@@ -1823,12 +1829,12 @@ msgstr ""
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired
-#: uvalu/authgate.py:522
+#: uvalu/authgate.py:551
 msgid "Reset link invalid"
 msgstr ""
 
 #. Context: Password reset screen › text under 'Reset link invalid'
-#: uvalu/authgate.py:523
+#: uvalu/authgate.py:552
 msgid ""
 "This reset link is invalid or has expired. Ask your admin to send a new "
 "one."
@@ -1836,57 +1842,57 @@ msgstr ""
 
 #. Context: Password reset screen › text under the heading; {email} shown in
 #. bold. (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:528
+#: uvalu/authgate.py:557
 #, python-brace-format
 msgid "Resetting the password for {email}"
 msgstr ""
 
 #. Context: Password reset screen › heading
-#: uvalu/authgate.py:531
+#: uvalu/authgate.py:560
 msgid "Choose a new password"
 msgstr ""
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:537 uvalu/pages_/settings.py:411 uvalu/pages_/settings.py:443
+#: uvalu/authgate.py:566 uvalu/pages_/settings.py:411 uvalu/pages_/settings.py:443
 msgid "New password"
 msgstr ""
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:540 uvalu/pages_/settings.py:414 uvalu/pages_/settings.py:446
+#: uvalu/authgate.py:569 uvalu/pages_/settings.py:414 uvalu/pages_/settings.py:446
 msgid "Confirm new password"
 msgstr ""
 
 #. Context: Password reset screen › submit button
-#: uvalu/authgate.py:542
+#: uvalu/authgate.py:571
 msgid "Reset password"
 msgstr ""
 
 #. Context: Sign-in screen › notice after this session was ended from another
 #. device
-#: uvalu/authgate.py:608
+#: uvalu/authgate.py:637
 msgid "You were signed out of this session."
 msgstr ""
 
 #. Context: Sign-in screen › notice when the signed-in account was deleted
-#: uvalu/authgate.py:614
+#: uvalu/authgate.py:643
 msgid "Your account no longer exists. Please contact your admin."
 msgstr ""
 
 #. Context: Sign-in screen › notice when the signed-in account was suspended
-#: uvalu/authgate.py:618
+#: uvalu/authgate.py:647
 msgid "This account has been suspended."
 msgstr ""
 
-#: uvalu/authgate.py:669
+#: uvalu/authgate.py:698
 msgid "← Back to sign in"
 msgstr ""
 
 #. Context: Sign-in screen › heading after too many failed password attempts
-#: uvalu/authgate.py:700
+#: uvalu/authgate.py:729
 msgid "Sign in temporarily locked"
 msgstr ""
 
-#: uvalu/authgate.py:701
+#: uvalu/authgate.py:730
 msgid ""
 "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer"
 " expires."
@@ -1895,64 +1901,64 @@ msgstr ""
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:707
+#: uvalu/authgate.py:736
 #, python-brace-format
 msgid "{minutes} min"
 msgstr ""
 
 #. Context: Sign-in lockout card › caption under the countdown ('12 min / until
 #. the next attempt')
-#: uvalu/authgate.py:708
+#: uvalu/authgate.py:737
 msgid "until the next attempt"
 msgstr ""
 
 #. Context: Sign-in screen › heading of the form, and the (disabled) sign-in
 #. button when the account is locked
-#: uvalu/authgate.py:710 uvalu/authgate.py:734 uvalu/authgate.py:758
+#: uvalu/authgate.py:739 uvalu/authgate.py:763 uvalu/authgate.py:787
 msgid "Sign in"
 msgstr ""
 
-#: uvalu/authgate.py:724
+#: uvalu/authgate.py:753
 msgid "The lock applies to password sign-in only."
 msgstr ""
 
 #. Context: Sign-in lockout screen › button to try another email address
-#: uvalu/authgate.py:727
+#: uvalu/authgate.py:756
 msgid "Not you? Use a different account"
 msgstr ""
 
 #. Context: Sign-in screen › subheading under 'Sign in'
-#: uvalu/authgate.py:735
+#: uvalu/authgate.py:764
 msgid "Welcome back. Enter your credentials to continue."
 msgstr ""
 
 #. Context: Sign-in screen › small link next to the password label, opens the
 #. 'Forgot your password?' note
-#: uvalu/authgate.py:753
+#: uvalu/authgate.py:782
 msgid "Forgot?"
 msgstr ""
 
 #. Context: Sign-in screen › error when the form is submitted with an empty
 #. field
-#: uvalu/authgate.py:761
+#: uvalu/authgate.py:790
 msgid "Enter your email and password to continue."
 msgstr ""
 
 #. Context: Sign-in screen › footer line, followed by 'Ask your admin for an
 #. invite'
-#: uvalu/authgate.py:815
+#: uvalu/authgate.py:845
 msgid "New to Uvalu?"
 msgstr ""
 
-#: uvalu/authgate.py:815
+#: uvalu/authgate.py:845
 msgid "Ask for an invite"
 msgstr ""
 
-#: uvalu/components.py:71
+#: uvalu/components.py:80
 msgid "No data"
 msgstr ""
 
-#: uvalu/components.py:77
+#: uvalu/components.py:86
 msgid "See Methodology for thresholds."
 msgstr ""
 
@@ -1962,7 +1968,7 @@ msgstr ""
 #. header). Same wording as the "Model signal" column header.
 #. small uppercase label in front of a signal badge (stock drawer and Analysis
 #. header). Same wording as the "Model signal" column header.
-#: uvalu/components.py:92 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507
+#: uvalu/components.py:101 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:507
 #: uvalu/pages_/dashboard.py:515 uvalu/pages_/screener.py:56
 #: uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282
 #: uvalu/pages_/watchlist.py:32
@@ -1971,250 +1977,250 @@ msgstr ""
 
 #. Context: Veto reason shown after 'Hard veto triggered/active'. Lowercase,
 #. joined with other reasons.
-#: uvalu/components.py:123
+#: uvalu/components.py:132
 #, no-python-format, python-brace-format
 msgid "debt/equity of {ratio}% exceeds the {limit}% limit"
 msgstr ""
 
 #. Context: Veto reason (lowercase, joined with other reasons)
-#: uvalu/components.py:128
+#: uvalu/components.py:137
 msgid "free cash flow negative for 3 consecutive years"
 msgstr ""
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:130
+#: uvalu/components.py:139
 #, python-brace-format
 msgid "negative free cash flow ({amount})"
 msgstr ""
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:133
+#: uvalu/components.py:142
 #, python-brace-format
 msgid "dividend flagged at risk with {coverage}× coverage"
 msgstr ""
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:135
+#: uvalu/components.py:144
 msgid "no confirmed trading volume"
 msgstr ""
 
-#: uvalu/components.py:136
+#: uvalu/components.py:145
 msgid "a quality-screen rule"
 msgstr ""
 
-#: uvalu/components.py:150 uvalu/components.py:153 uvalu/pages_/settings.py:960
+#: uvalu/components.py:159 uvalu/components.py:162 uvalu/pages_/settings.py:960
 msgid "Methodology →"
 msgstr ""
 
-#: uvalu/components.py:195
+#: uvalu/components.py:204
 msgid ""
 "Some prices are more than 72 hours old. Signals for those stocks use the last "
 "known price."
 msgstr ""
 
-#: uvalu/components.py:199
+#: uvalu/components.py:208
 #, python-brace-format
 msgid "oldest {age}"
 msgstr ""
 
-#: uvalu/components.py:223
+#: uvalu/components.py:232
 #, python-brace-format
 msgid "Signal computed {when}"
 msgstr ""
 
-#: uvalu/components.py:224
+#: uvalu/components.py:233
 #, python-brace-format
 msgid "price as of {when}, delayed"
 msgstr ""
 
-#: uvalu/components.py:225 uvalu/components.py:265
+#: uvalu/components.py:234 uvalu/components.py:274
 #, python-brace-format
 msgid "model {version}"
 msgstr ""
 
-#: uvalu/components.py:251
+#: uvalu/components.py:260
 #, python-brace-format
 msgid "Signals computed {when}"
 msgstr ""
 
-#: uvalu/components.py:256
+#: uvalu/components.py:265
 #, python-brace-format
 msgid "prices delayed, as of {when}"
 msgstr ""
 
-#: uvalu/components.py:259
+#: uvalu/components.py:268
 #, python-brace-format
 msgid "prices delayed, fetched {oldest} to {newest}"
 msgstr ""
 
-#: uvalu/components.py:281 uvalu/pages_/analysis.py:207
+#: uvalu/components.py:290 uvalu/pages_/analysis.py:207
 msgid "Conflicts of interest policy →"
 msgstr ""
 
 #. Context: Dashboard › small caption above the recent-signals list
-#: uvalu/components.py:295
+#: uvalu/components.py:304
 msgid "Signals"
 msgstr ""
 
-#: uvalu/components.py:456
+#: uvalu/components.py:465
 msgid "Other"
 msgstr ""
 
-#: uvalu/components.py:481
+#: uvalu/components.py:490
 msgid "Total"
 msgstr ""
 
-#: uvalu/components.py:495
+#: uvalu/components.py:504
 #, python-brace-format
 msgid "ex-date · pays {date}"
 msgstr ""
 
-#: uvalu/components.py:496
+#: uvalu/components.py:505
 msgid "ex-date"
 msgstr ""
 
 #. Context: Dashboard › upcoming dividend row: expected gross amount, e.g.
 #. '€84.00 gross'
-#: uvalu/components.py:508 uvalu/components.py:1910
+#: uvalu/components.py:517 uvalu/components.py:1919
 #, python-brace-format
 msgid "{amount} gross"
 msgstr ""
 
-#: uvalu/components.py:649
+#: uvalu/components.py:658
 msgid "Excluded · fails quality screen"
 msgstr ""
 
-#: uvalu/components.py:651
+#: uvalu/components.py:660
 msgid "No signal · no peer reference"
 msgstr ""
 
-#: uvalu/components.py:656
+#: uvalu/components.py:665
 #, python-brace-format
 msgid "Upper band · {low}–{high}"
 msgstr ""
 
-#: uvalu/components.py:658
+#: uvalu/components.py:667
 #, python-brace-format
 msgid "Middle band · {low}–{high}"
 msgstr ""
 
-#: uvalu/components.py:659
+#: uvalu/components.py:668
 #, python-brace-format
 msgid "Lower band · {low}–{high}"
 msgstr ""
 
 #. Context: Valuation model name (kept untranslated, L-08): Help page and
 #. fair-value bars
-#: uvalu/components.py:691 uvalu/pages_/help.py:103
+#: uvalu/components.py:700 uvalu/pages_/help.py:103
 msgid "Graham Number"
 msgstr ""
 
 #. Context: Fair-value bars › model name: fair value from a fair P/E multiple
-#: uvalu/components.py:692
+#: uvalu/components.py:701
 msgid "P/E fair value"
 msgstr ""
 
 #. Context: Stock panel and Analysis › fair-value model name: single-stage
 #. dividend discount model (design reference name; short form of the
 #. Methodology document's “Dividend model, single stage”)
-#: uvalu/components.py:696
+#: uvalu/components.py:705
 msgid "Dividend, single stage"
 msgstr ""
 
 #. Context: Stock panel and Analysis › fair-value model name: multi-stage
 #. dividend discount model (short form of “Dividend model, multi-stage”)
-#: uvalu/components.py:697
+#: uvalu/components.py:706
 msgid "Dividend, multi-stage"
 msgstr ""
 
 #. Context: Fair-value bars › model name: analysts' price target
-#: uvalu/components.py:703
+#: uvalu/components.py:712
 msgid "Analyst Target"
 msgstr ""
 
 #. Context: Fair-value model name: book value per share × the sector's
 #. price/book ratio, used only when the core models fail. Same name in the
 #. legal Methodology document
-#: uvalu/components.py:704 uvalu/pages_/help.py:113
+#: uvalu/components.py:713 uvalu/pages_/help.py:113
 msgid "Book value (fallback)"
 msgstr ""
 
 #. Context: Stock panel and Analysis › fair-value model name: free-cash-flow
 #. value, used only when the core models fail (short form of “Free cash flow
 #. value (fallback)”)
-#: uvalu/components.py:705
+#: uvalu/components.py:714
 msgid "FCF value (fallback)"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:720
+#: uvalu/components.py:729
 msgid "n/a for this sector"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:721
+#: uvalu/components.py:730
 msgid "no positive EPS"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:722
+#: uvalu/components.py:731
 msgid "no book value"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:723
+#: uvalu/components.py:732
 msgid "price too far below book value to trust"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:724
+#: uvalu/components.py:733
 msgid "net debt > earnings"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:725
+#: uvalu/components.py:734
 msgid "no enterprise value"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:726
+#: uvalu/components.py:735
 msgid "no multi-year EBIT"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value: average EBIT over the
 #. cycle is zero or negative
-#: uvalu/components.py:727
+#: uvalu/components.py:736
 msgid "through-cycle EBIT ≤ 0"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:728
+#: uvalu/components.py:737
 msgid "not a dividend payer"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:729
+#: uvalu/components.py:738
 msgid "no usable payout ratio"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:730
+#: uvalu/components.py:739
 msgid "payout outside DDM range"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:731
+#: uvalu/components.py:740
 msgid "discount rate ≈ dividend growth"
 msgstr ""
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:732
+#: uvalu/components.py:741
 msgid "no analyst coverage"
 msgstr ""
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. both fallback models replace a core model
-#: uvalu/components.py:770
+#: uvalu/components.py:779
 msgid ""
 "The book value and FCF fallbacks stand in where a core model (Graham, P/E, EPV) "
 "couldn’t be computed."
@@ -2222,7 +2228,7 @@ msgstr ""
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. the book value fallback replaces a core model
-#: uvalu/components.py:772
+#: uvalu/components.py:781
 msgid ""
 "The book value fallback stands in where a core model (Graham, P/E, EPV) couldn’t"
 " be computed."
@@ -2230,38 +2236,38 @@ msgstr ""
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. the free-cash-flow fallback replaces a core model
-#: uvalu/components.py:774
+#: uvalu/components.py:783
 msgid ""
 "The FCF fallback stands in where a core model (Graham, P/E, EPV) couldn’t be "
 "computed."
 msgstr ""
 
 #. Context: Fair-value bars › footnote
-#: uvalu/components.py:776
+#: uvalu/components.py:785
 #, no-python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr ""
 
 #. Context: Fair-value bars › empty state
-#: uvalu/components.py:809 uvalu/components.py:816
+#: uvalu/components.py:818 uvalu/components.py:825
 msgid "Not enough model data for a fair-value ladder."
 msgstr ""
 
 #. Context: Fair-value bars › warning suffix: only few models support the
 #. composite
-#: uvalu/components.py:868
+#: uvalu/components.py:877
 msgid "· lightly corroborated"
 msgstr ""
 
 #. Context: Fair-value bars › line under the composite: how many models back
 #. it. May be followed by '· lightly corroborated'.
-#: uvalu/components.py:871
+#: uvalu/components.py:880
 #, python-brace-format
 msgid "basis · {count} of 6 models"
 msgstr ""
 
 #. Context: Holdings row › tooltip on the 'fv pending' chip
-#: uvalu/components.py:888
+#: uvalu/components.py:897
 msgid ""
 "Fair value pending: this holding's fundamentals record came back "
 "incomplete and is being refetched"
@@ -2269,118 +2275,118 @@ msgstr ""
 
 #. Context: Stock rows › shown when the fair value is still being calculated
 #. ('fv' = fair value)
-#: uvalu/components.py:891
+#: uvalu/components.py:900
 msgid "fv pending"
 msgstr ""
 
 #. Context: Stock rows › short fair value, e.g. 'fv €42.10' ('fv' = fair value)
-#: uvalu/components.py:901
+#: uvalu/components.py:910
 #, python-brace-format
 msgid "fv {amount}"
 msgstr ""
 
 #. Context: Holdings row › tooltip on 'pending' in the MoS column
-#: uvalu/components.py:970
+#: uvalu/components.py:979
 msgid "Margin of safety pending, no fair value yet"
 msgstr ""
 
 #. Context: Holdings row › MoS cell while the fair value is still being fetched
 #. (short)
-#: uvalu/components.py:971
+#: uvalu/components.py:980
 msgid "pending"
 msgstr ""
 
-#: uvalu/components.py:978
+#: uvalu/components.py:987
 msgid "Unrealised result against your average cost"
 msgstr ""
 
 #. Context: Holdings row › tooltip on a P&L figure based on a delayed quote
-#: uvalu/components.py:985
+#: uvalu/components.py:994
 msgid "Delayed quote — not a live intraday price"
 msgstr ""
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1103 uvalu/components.py:1188 uvalu/drawer.py:325
+#: uvalu/components.py:1112 uvalu/components.py:1197 uvalu/drawer.py:325
 #: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:41
 #: uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr ""
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1190 uvalu/components.py:1783 uvalu/pages_/risk.py:462
+#: uvalu/components.py:1199 uvalu/components.py:1792 uvalu/pages_/risk.py:462
 #: uvalu/pages_/settings.py:1117
 msgid "View"
 msgstr ""
 
-#: uvalu/components.py:1469
+#: uvalu/components.py:1478
 msgid "Model fair value"
 msgstr ""
 
 #. Context: Dashboard › empty state of the recent-signals list
-#: uvalu/components.py:1484
+#: uvalu/components.py:1493
 msgid "No recent signals."
 msgstr ""
 
 #. Context: Dashboard › heading of the horizontal risk meter
-#: uvalu/components.py:1547
+#: uvalu/components.py:1556
 msgid "Portfolio risk score"
 msgstr ""
 
 #. Context: Risk meter legend (uppercase, short): low end of the scale
-#: uvalu/components.py:1571
+#: uvalu/components.py:1580
 msgid "LOW"
 msgstr ""
 
 #. Context: Risk meter legend (uppercase, short): middle of the scale
-#: uvalu/components.py:1571
+#: uvalu/components.py:1580
 msgid "MODERATE"
 msgstr ""
 
 #. Context: Risk meter legend (uppercase, short): high end of the scale
-#: uvalu/components.py:1571
+#: uvalu/components.py:1580
 msgid "HIGH"
 msgstr ""
 
 #. Context: Portfolio › open positions row: dividend income over 12 months,
 #. gross (compact 'gr' = gross)
-#: uvalu/components.py:1754
+#: uvalu/components.py:1763
 #, python-brace-format
 msgid "{amount} gr"
 msgstr ""
 
 #. Context: Portfolio › tooltip on the pencil icon of an open position; also
 #. the dialog title
-#: uvalu/components.py:1779 uvalu/dialogs.py:467 uvalu/drawer.py:340
+#: uvalu/components.py:1788 uvalu/dialogs.py:467 uvalu/drawer.py:340
 msgid "Edit position"
 msgstr ""
 
 #. Context: Portfolio › closed position row subtitle. {date} is a month and year
 #. only (e.g. 'Aug 2026'), so use the wording for a month, not a day ('in', not
 #. 'on').
-#: uvalu/components.py:1811
+#: uvalu/components.py:1820
 #, python-brace-format
 msgid "{name} · closed {date}"
 msgstr ""
 
 #. Context: Portfolio › tooltip on the pencil of a closed trade; also the
 #. dialog title
-#: uvalu/components.py:1834
+#: uvalu/components.py:1843
 msgid "Edit trade"
 msgstr ""
 
 #. Context: Portfolio › Dividend log badge: dividend was reinvested (DRIP)
-#: uvalu/components.py:1875
+#: uvalu/components.py:1884
 msgid "· DRIP"
 msgstr ""
 
-#: uvalu/components.py:1906
+#: uvalu/components.py:1915
 #, python-brace-format
 msgid "{ticker} · paid {date}"
 msgstr ""
 
 #. Context: Portfolio › tooltip on the pencil of a dividend row; also the
 #. dialog title
-#: uvalu/components.py:1919 uvalu/components.py:2024 uvalu/dialogs.py:702
+#: uvalu/components.py:1928 uvalu/components.py:2033 uvalu/dialogs.py:702
 msgid "Edit dividend"
 msgstr ""
 
@@ -2388,99 +2394,99 @@ msgstr ""
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:1941 uvalu/pages_/dashboard.py:507
+#: uvalu/components.py:1950 uvalu/pages_/dashboard.py:507
 #: uvalu/pages_/dashboard.py:515 uvalu/pages_/portfolio.py:55
 #: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:31
 msgid "Position"
 msgstr ""
 
 #. Context: Dividend log column header: ex-dividend date
-#: uvalu/components.py:1941
+#: uvalu/components.py:1950
 msgid "Ex-date"
 msgstr ""
 
 #. Context: Dividend log column header: payment date
-#: uvalu/components.py:1941
+#: uvalu/components.py:1950
 msgid "Pay date"
 msgstr ""
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:1941 uvalu/components.py:2175 uvalu/dialogs.py:665
+#: uvalu/components.py:1950 uvalu/components.py:2184 uvalu/dialogs.py:665
 #: uvalu/dialogs.py:750 uvalu/dialogs.py:1074
 msgid "Type"
 msgstr ""
 
 #. Context: Dividend log column header: gross dividend per share
-#: uvalu/components.py:1942
+#: uvalu/components.py:1951
 msgid "Per share"
 msgstr ""
 
 #. Context: Table column header: number of shares
-#: uvalu/components.py:1942 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
+#: uvalu/components.py:1951 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
 msgid "Shares"
 msgstr ""
 
 #. Context: Column header / label: gross dividend amount (annual summary,
 #. dividend log, dividend dialog preview)
-#: uvalu/components.py:1942 uvalu/dialogs.py:98 uvalu/pages_/portfolio.py:692
+#: uvalu/components.py:1951 uvalu/dialogs.py:98 uvalu/pages_/portfolio.py:692
 msgid "Gross"
 msgstr ""
 
 #. Context: Column header: foreign withholding tax (short)
-#: uvalu/components.py:1942 uvalu/pages_/portfolio.py:693
+#: uvalu/components.py:1951 uvalu/pages_/portfolio.py:693
 msgid "Foreign WH"
 msgstr ""
 
 #. Context: Column header: 30% Belgian withholding tax on dividends (roerende
 #. voorheffing / précompte mobilier)
-#: uvalu/components.py:1943 uvalu/pages_/portfolio.py:693
+#: uvalu/components.py:1952 uvalu/pages_/portfolio.py:693
 #, no-python-format
 msgid "BE 30%"
 msgstr ""
 
 #. Context: Column header: net dividend after withholding
-#: uvalu/components.py:1943 uvalu/pages_/portfolio.py:694
+#: uvalu/components.py:1952 uvalu/pages_/portfolio.py:694
 msgid "Net"
 msgstr ""
 
 #. Context: Column header: where the entry came from (Auto / Manual)
-#: uvalu/components.py:1943 uvalu/components.py:2177
+#: uvalu/components.py:1952 uvalu/components.py:2186
 msgid "Source"
 msgstr ""
 
 #. Context: Dividend log › tooltip on an amber (unconfirmed) payment date
-#: uvalu/components.py:1980
+#: uvalu/components.py:1989
 msgid ""
 "Payment date not confirmed. Defaulted to the ex-date; edit to set the "
 "actual date."
 msgstr ""
 
 #. Context: Dividend log › source value: fetched automatically
-#: uvalu/components.py:1991 uvalu/components.py:2168
+#: uvalu/components.py:2000 uvalu/components.py:2177
 msgid "Auto"
 msgstr ""
 
 #. Context: Dividend log › source value: entered by hand
-#: uvalu/components.py:1991 uvalu/components.py:2168
+#: uvalu/components.py:2000 uvalu/components.py:2177
 msgid "Manual"
 msgstr ""
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:2012 uvalu/components.py:2112 uvalu/dialogs.py:45
+#: uvalu/components.py:2021 uvalu/components.py:2121 uvalu/dialogs.py:45
 #: uvalu/pages_/dashboard.py:213
 msgid "Cash"
 msgstr ""
 
 #. Context: Portfolio KPI card label and Risk allocation bar: money invested in
 #. open positions
-#: uvalu/components.py:2109 uvalu/pages_/portfolio.py:300
+#: uvalu/components.py:2118 uvalu/pages_/portfolio.py:300
 msgid "Invested"
 msgstr ""
 
 #. Context: Risk page › text under the invested/cash allocation bar
-#: uvalu/components.py:2118
+#: uvalu/components.py:2127
 #, python-brace-format
 msgid ""
 "Total portfolio value {amount} · risk metrics use the invested portion "
@@ -2489,7 +2495,7 @@ msgstr ""
 
 #. Context: Cash ledger › Original column for an Adjustment: balance set to
 #. this amount
-#: uvalu/components.py:2128
+#: uvalu/components.py:2137
 #, python-brace-format
 msgid "set to {amount}"
 msgstr ""
@@ -2498,78 +2504,78 @@ msgstr ""
 #. currency (no conversion).
 #. Cash activity › FX rate column note for an entry already in the base
 #. currency (no conversion).
-#: uvalu/components.py:2135
+#: uvalu/components.py:2144
 msgid "base"
 msgstr ""
 
 #. Context: Cash entry dialog › FX rate source: typed by hand
-#: uvalu/components.py:2138
+#: uvalu/components.py:2147
 msgid "manual"
 msgstr ""
 
 #. Context: FX rate source: European Central Bank
-#: uvalu/components.py:2138
+#: uvalu/components.py:2147
 msgid "ECB"
 msgstr ""
 
 #. Context: Cash ledger › marks an automatic top-up deposit (shown as '·
 #. top-up' after a reference)
-#: uvalu/components.py:2142 uvalu/dialogs.py:1073
+#: uvalu/components.py:2151 uvalu/dialogs.py:1073
 msgid "top-up"
 msgstr ""
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:2175 uvalu/dialogs.py:1097 uvalu/dialogs.py:1099
+#: uvalu/components.py:2184 uvalu/dialogs.py:1097 uvalu/dialogs.py:1099
 msgid "Date"
 msgstr ""
 
 #. Context: Cash ledger column header
-#: uvalu/components.py:2175
+#: uvalu/components.py:2184
 msgid "Description"
 msgstr ""
 
 #. Context: Cash ledger column header: amount in the original currency
-#: uvalu/components.py:2175
+#: uvalu/components.py:2184
 msgid "Original"
 msgstr ""
 
 #. Context: Cash ledger column header and Cash entry dialog label: exchange
 #. rate
-#: uvalu/components.py:2176
+#: uvalu/components.py:2185
 msgid "FX rate"
 msgstr ""
 
 #. Context: Cash ledger column header: amount in the base currency, e.g.
 #. 'Amount · EUR'
-#: uvalu/components.py:2176
+#: uvalu/components.py:2185
 #, python-brace-format
 msgid "Amount · {currency}"
 msgstr ""
 
 #. Context: Cash ledger column header: running balance
-#: uvalu/components.py:2177
+#: uvalu/components.py:2186
 msgid "Balance"
 msgstr ""
 
 #. Context: Cash ledger › tooltip on the pencil icon
-#: uvalu/components.py:2197
+#: uvalu/components.py:2206
 msgid "Edit entry"
 msgstr ""
 
 #. Context: Cash ledger › tooltip on automatic entries (they are edited at
 #. their source)
-#: uvalu/components.py:2197
+#: uvalu/components.py:2206
 msgid "View linked entry"
 msgstr ""
 
-#: uvalu/components.py:2279 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
+#: uvalu/components.py:2288 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
 #: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
 #: uvalu/pages_/portfolio.py:551
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr ""
 
-#: uvalu/components.py:2296
+#: uvalu/components.py:2305
 msgid "On this page"
 msgstr ""
 

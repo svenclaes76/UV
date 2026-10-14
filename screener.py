@@ -271,7 +271,7 @@ MIN_UNIVERSE_SIZE = 20
 
 # REC-11: bump on any change that can move a fair value, score or signal, so a
 # logged signal can be reproduced against the code that produced it.
-MODEL_VERSION = "M1"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION = "M2"   # D12: independent of the app version; shown in the UI and the methodology change log
 
 # D1: "Undervalued" needs at least this margin of safety, whatever the shared
 # `min_mos` setting says. At 0% a price 0.5% below the model fair value would
@@ -633,6 +633,63 @@ def _is_fresh(entry: dict) -> bool:
         return False
 
 
+# Q1 (model M2): a partial or failed fetch must not change a signal. The
+# statement histories behind the trend vetoes are sometimes missing from one
+# fetch and back in the next, which toggled vetoes within minutes
+# (docs/quant-review.md Q1); a failed fetch replaced a good row with an empty
+# stub, dropping the stock until the next success.
+_CARRY_FORWARD_FIELDS = ("fcfHistory", "revenueHistory", "ebitHistory", "netIncomeHistory",
+                         "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory",
+                         "dividend_last_cut_year", "financialCurrency", "country", "sector")
+_CARRY_FORWARD_MAX_DAYS = 90   # annual statement data; older than this isn't trusted
+_KEEP_ON_FAILURE_DAYS = 7      # a failed fetch keeps the last good row this long
+
+
+def _carry_forward(row: dict, previous: "dict | None") -> dict:
+    """`row` with what a partial or failed fetch lost taken from `previous`,
+    the ticker's last cached row.
+
+    - A failed fetch (no ``fetched_at``) keeps the previous good row if it's
+      at most _KEEP_ON_FAILURE_DAYS old, with a short retry.
+    - A successful fetch missing a field in _CARRY_FORWARD_FIELDS takes the
+      previous value if that row is at most _CARRY_FORWARD_MAX_DAYS old.
+      The fields taken are listed in ``carried_forward``."""
+    if not previous or not previous.get("fetched_at"):
+        return row
+    prev_at = _row_fetch_time(previous)
+    if prev_at is None:
+        return row
+    if prev_at.tzinfo is None:
+        prev_at = prev_at.replace(tzinfo=timezone.utc)
+    if not row.get("fetched_at"):
+        if datetime.now(timezone.utc) - prev_at <= timedelta(days=_KEEP_ON_FAILURE_DAYS):
+            return {**previous, "next_fetch_at": _next_fetch_at(short=True)}
+        return row
+    # Each carried value remembers when it was last really fetched, so a
+    # chain of partial fetches can't keep it alive past the limit.
+    prev_since = previous.get("carried_since") or {}
+    now = datetime.now(timezone.utc)
+    carried, since = [], {}
+    for f in _CARRY_FORWARD_FIELDS:
+        if row.get(f) not in (None, [], "") or previous.get(f) in (None, [], ""):
+            continue
+        origin = prev_since.get(f) or previous["fetched_at"]
+        try:
+            origin_dt = datetime.fromisoformat(str(origin))
+        except (TypeError, ValueError):
+            continue
+        if origin_dt.tzinfo is None:
+            origin_dt = origin_dt.replace(tzinfo=timezone.utc)
+        if now - origin_dt > timedelta(days=_CARRY_FORWARD_MAX_DAYS):
+            continue
+        carried.append(f)
+        since[f] = origin_dt.isoformat()
+    if not carried:
+        return row
+    return {**row, **{f: previous[f] for f in carried},
+            "carried_forward": carried, "carried_since": since}
+
+
 def _next_fetch_at(short: bool = False) -> str:
     """Random refresh time: base TTL ± jitter, so fetches spread across the day.
 
@@ -909,6 +966,10 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "ISIN":       stock["isin"],
         "Price":      _safe_float(price),
         "Currency":   info.get("currency", "EUR"),
+        # V1 (model M2): the currency the fundamentals are reported in, which
+        # can differ from the quote currency (a Swiss company reporting in
+        # USD). _convert_reporting_currency() reconciles the two.
+        "financialCurrency": info.get("financialCurrency") or None,
         "Market Cap": _safe_float(mcap),
         "sector":              info.get("sector") or None,
         "country":             info.get("country") or None,
@@ -1119,6 +1180,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
         if row is None:
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
+        row = _carry_forward(row, cache.get(ticker))
         time.sleep(REQUEST_DELAY)
         # Narrow critical section: only dict write + counter; save check happens outside
         with f.row_lock:
@@ -2221,7 +2283,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    peer_mask: "pd.Series | None" = None,
                    user_selected: bool = False,
                    founder_holdings: "set | frozenset | None" = None,
-                   computed_at: "datetime | None" = None) -> pd.DataFrame:
+                   computed_at: "datetime | None" = None,
+                   previous_signals: "dict | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
     # scored universe's). ``reference_out``: a dict that receives this pass's
@@ -2450,16 +2513,22 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _dec_score = pd.to_numeric(df["Value Score"], errors="coerce")
     _dec_mos   = pd.to_numeric(df["margin_of_safety"], errors="coerce")
     _dec_thin  = df["fv_basis_thin"].fillna(False).astype(bool)
+    # V1: a fair value whose currency couldn't be reconciled isn't confirmed.
+    _dec_ccy   = (df["currency_unverified"].fillna(False).astype(bool)
+                  if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
     df["signal_code"] = np.select(
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
-                & (_dec_mos >= min_mos) & ~_dec_thin,
+                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
         default=SIGNAL_LOW_SCORE,
     )
+    if previous_signals:
+        df["signal_code"] = _apply_signal_hysteresis(
+            df, previous_signals, buy_threshold=buy_threshold, min_mos=min_mos)
     if _no_peer_basis:
         # PER-1: the vetoes are absolute rules on the stock's own data, so a
         # failed screen still shows; everything rank-based is withheld.
@@ -2510,6 +2579,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "fair_value_clamped": df["fair_value_clamped"].fillna(False).astype(bool).tolist(),
         "eps_derived_from_pe": df["trailingEps_derived"].fillna(False).astype(bool).tolist(),
         "small_peer_group": df["small_universe"].astype(bool).tolist(),
+        "currency_unverified": _dec_ccy.tolist(),
     }
     df["data_flags"] = [
         [name for name, vals in _flag_cols.items() if vals[i]] for i in range(len(df))
@@ -2532,16 +2602,19 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          reference_out: "dict | None" = None,
                          peer_mask: "pd.Series | None" = None,
                          user_selected: bool = False,
-                         founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
+                         founder_holdings: "set | frozenset | None" = None,
+                         previous_signals: "dict | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
     ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
-    ``founder_holdings``: see compute_scores."""
+    ``founder_holdings`` / ``previous_signals``: see compute_scores and
+    _apply_signal_hysteresis."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
                             reference=reference, reference_out=reference_out,
                             peer_mask=peer_mask, user_selected=user_selected,
-                            founder_holdings=founder_holdings)
+                            founder_holdings=founder_holdings,
+                            previous_signals=previous_signals)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2552,7 +2625,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      reference_out: "dict | None" = None,
                      peer_mask: "pd.Series | None" = None,
                      user_selected: bool = False,
-                     founder_holdings: "set | frozenset | None" = None) -> pd.DataFrame:
+                     founder_holdings: "set | frozenset | None" = None,
+                     previous_signals: "dict | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -2566,13 +2640,136 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    extra={"event": "score.clean", "dropped": dropped})
     if df.empty:
         return df
+    df, peer_mask = _convert_reporting_currency(df, peer_mask)
     _log.debug("computing valuation scores for %d rows", len(df),
                extra={"event": "score.compute", "rows": len(df)})
     return compute_scores(df, max_debt_equity=max_debt_equity, max_payout=max_payout,
                           min_mos=min_mos, buy_threshold=buy_threshold, weights=weights,
                           reference=reference, reference_out=reference_out,
                           peer_mask=peer_mask, user_selected=user_selected,
-                          founder_holdings=founder_holdings)
+                          founder_holdings=founder_holdings,
+                          previous_signals=previous_signals)
+
+
+# ── Signal hysteresis (Q1, model M2) ─────────────────────────────────────────
+# Signals are recomputed whenever data arrives, and every refresh moves the
+# percentile ranks of every other stock a little, so a stock near a band edge
+# flipped on noise (SRAIL.SW 21 times in 9 days at 39.9 / 40.0;
+# docs/quant-review.md Q1). A stock now keeps its band until its composite
+# score falls SIGNAL_HYSTERESIS points past the edge it would leave by. Entry
+# into a higher band is unchanged. The score only: the margin-of-safety floor
+# for Undervalued stays strict (decision D1), and vetoes are absolute rules.
+# Every user gets the same previous signal (the shared history), so this
+# keeps PER-1. Published on the methodology page.
+SIGNAL_HYSTERESIS = 2.0
+
+
+def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
+                             buy_threshold: float, min_mos: float) -> pd.Series:
+    """`df["signal_code"]` with each downgrade that only a small score dip
+    caused undone. `previous`: {ticker: signal_code} from the signal history."""
+    codes = df["signal_code"].copy()
+    if "Ticker" not in df.columns:
+        return codes
+    prev = df["Ticker"].map(previous)
+    score = pd.to_numeric(df["Value Score"], errors="coerce")
+    # Undervalued → Mid score on score alone: everything else Undervalued
+    # needs still holds (np.select put it in Mid score only for the score).
+    keep_u = ((prev == SIGNAL_UNDERVALUED) & (codes == SIGNAL_NEUTRAL)
+              & (score < buy_threshold) & (score >= buy_threshold - SIGNAL_HYSTERESIS))
+    if keep_u.any():
+        mos = pd.to_numeric(df["margin_of_safety"], errors="coerce")
+        thin = df["fv_basis_thin"].fillna(False).astype(bool)
+        ccy = (df["currency_unverified"].fillna(False).astype(bool)
+               if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
+        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy
+    keep_n = ((prev == SIGNAL_NEUTRAL) & (codes == SIGNAL_LOW_SCORE)
+              & (score >= SCORE_AVOID - SIGNAL_HYSTERESIS))
+    codes[keep_u] = SIGNAL_UNDERVALUED
+    codes[keep_n] = SIGNAL_NEUTRAL
+    return codes
+
+
+# ── Reporting currency (V1, model M2) ────────────────────────────────────────
+# Yahoo gives the price in the listing's quote currency but per-share and
+# statement figures in the company's reporting currency. Where they differ,
+# a fair value came out in the wrong currency (Investor AB in Milan: book
+# value in SEK against a EUR price, docs/valuation-model-review.md V1).
+# These figures are converted to the quote currency before scoring.
+_REPORTING_CCY_FIELDS = ("trailingEps", "bookValue", "ebit", "totalDebt", "totalCash",
+                         "freeCashflow", "netIncome")
+_REPORTING_CCY_HISTORIES = ("fcfHistory", "revenueHistory", "ebitHistory", "netIncomeHistory",
+                            "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory")
+
+
+def _fx_rate(reporting: str, quote: str) -> float:
+    """Units of `quote` per 1 `reporting`, from the ECB reference rates."""
+    import fx
+    return float(fx.get_rate(reporting, base=quote).rate)
+
+
+def _convert_reporting_currency(df: pd.DataFrame, peer_mask: "pd.Series | None" = None,
+                                rate_fn=None) -> "tuple[pd.DataFrame, pd.Series | None]":
+    """Convert the reporting-currency figures of every row whose
+    financialCurrency differs from its quote Currency, and flag the rows that
+    can't be converted (no rate). Returns (df, peer_mask).
+
+    On a converted row the provider's enterpriseValue is dropped (its currency
+    is unclear; the EV is rebuilt from market cap, debt and cash, FV-4), and
+    trailingPE / priceToBook are recomputed from the converted figures, since
+    they feed the sector medians. A `currency_unverified` row stays out of the
+    peer group (sector medians and ranks) and out of Undervalued. A row with
+    no financialCurrency yet (fetched before M2) is taken as reporting in its
+    quote currency."""
+    df = df.copy()
+    df["currency_unverified"] = False
+    if "financialCurrency" not in df.columns or "Currency" not in df.columns:
+        return df, peer_mask
+    rate_fn = rate_fn or _fx_rate
+    rates: dict = {}
+    converted = 0
+    for i in df.index:
+        rep_ccy, quote = df.at[i, "financialCurrency"], df.at[i, "Currency"]
+        if not (isinstance(rep_ccy, str) and rep_ccy.strip() and isinstance(quote, str) and quote.strip()):
+            continue
+        rep_ccy, quote = rep_ccy.strip().upper(), quote.strip().upper()
+        if rep_ccy == quote:
+            continue
+        if (rep_ccy, quote) not in rates:
+            try:
+                rates[(rep_ccy, quote)] = rate_fn(rep_ccy, quote)
+            except Exception:
+                rates[(rep_ccy, quote)] = None
+        rate = rates[(rep_ccy, quote)]
+        if not rate:
+            df.at[i, "currency_unverified"] = True
+            continue
+        for col in _REPORTING_CCY_FIELDS:
+            if col in df.columns:
+                v = _safe_float(df.at[i, col])
+                df.at[i, col] = v * rate if v is not None else df.at[i, col]
+        for col in _REPORTING_CCY_HISTORIES:
+            if col in df.columns and isinstance(df.at[i, col], (list, tuple)):
+                df.at[i, col] = [x * rate if isinstance(x, (int, float)) and not isinstance(x, bool)
+                                 and math.isfinite(x) else x for x in df.at[i, col]]
+        if "enterpriseValue" in df.columns:
+            df.at[i, "enterpriseValue"] = np.nan
+        price = _safe_float(df.at[i, "Price"]) if "Price" in df.columns else None
+        eps = _safe_float(df.at[i, "trailingEps"]) if "trailingEps" in df.columns else None
+        bvps = _safe_float(df.at[i, "bookValue"]) if "bookValue" in df.columns else None
+        if "trailingPE" in df.columns:
+            df.at[i, "trailingPE"] = price / eps if price and eps and eps > 0 else np.nan
+        if "priceToBook" in df.columns:
+            df.at[i, "priceToBook"] = price / bvps if price and bvps and bvps > 0 else np.nan
+        converted += 1
+    unverified = df["currency_unverified"].astype(bool)
+    if peer_mask is not None and unverified.any():
+        peer_mask = peer_mask & ~unverified
+    if converted or unverified.any():
+        _log.info("reporting currency: %d rows converted, %d unverified", converted, int(unverified.sum()),
+                  extra={"event": "score.currency", "converted": converted,
+                         "unverified": int(unverified.sum())})
+    return df, peer_mask
 
 
 # ── Legal-compliance helpers ──────────────────────────────────────────────────
@@ -2732,6 +2929,8 @@ DATA_FLAG_LABELS = {
     "fair_value_clamped": N_("The fair value was capped at the models' median."),
     "eps_derived_from_pe": N_("Earnings per share were derived from the P/E ratio."),
     "small_peer_group": N_("Fewer than 20 stocks were available for comparison."),
+    "currency_unverified": N_("The company reports in another currency than its share price, "
+                              "and no exchange rate was available to convert its figures."),
 }
 
 

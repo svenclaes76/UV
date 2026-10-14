@@ -89,6 +89,22 @@ def _log_reason(rec: dict, prev: "dict | None") -> "str | None":
     return None
 
 
+# Inputs compared between a ticker's last logged record and the new one, so a
+# signal change says what moved it (Q1, docs/quant-review.md).
+_WATCHED_INPUTS = ("Price", "Value Score", "margin_of_safety", "fair_value", "fv_model_count",
+                   "veto_rules", "data_flags", "Sub MoS", "Sub Risk", "Sub Quality",
+                   "Sub Momentum", "Sub Dividend", "model_version", "model_settings_id")
+
+
+def _changed_inputs(before: dict, after: dict) -> list[str]:
+    def _same(a, b):
+        if isinstance(a, float) and isinstance(b, float):
+            return a == b or (a != a and b != b) or abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
+        return a == b
+    return [k for k in _WATCHED_INPUTS if k in before or k in after
+            if not _same(before.get(k), after.get(k))]
+
+
 def record_changes(records: list[dict], path: "Path | None" = None) -> int:
     """Append each public record whose signal_code, model_version or
     model_settings_id changed since the ticker's last logged one (or that has
@@ -101,9 +117,13 @@ def record_changes(records: list[dict], path: "Path | None" = None) -> int:
         for r in records:
             if not r.get("Ticker") or r.get("signal_code") in (None, "pending") or not _is_public(r):
                 continue
-            reason = _log_reason(r, prev.get(r["Ticker"]))
+            before = prev.get(r["Ticker"])
+            reason = _log_reason(r, before)
             if reason:
-                new.append({**r, "log_reason": reason})
+                rec = {**r, "log_reason": reason}
+                if before is not None:
+                    rec["changed_inputs"] = _changed_inputs(before, r)
+                new.append(rec)
         if not new:
             return 0
         path.parent.mkdir(parents=True, exist_ok=True)

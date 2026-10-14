@@ -6,11 +6,12 @@ with screener.methodology() and the risk REF_* constants on every model or thres
 Other IDs: REC-2..7, REC-10, DIS-3, DIS-4.
 Beta-readiness review 5 October 2026: history wording made true from day one (records start with the beta),
 24-month retention (D4) stated, change-log date set. MODEL_VERSION "M1" and MIN_MOS_FLOOR 0.10 checked.
+14 October 2026 (beta 1.2): model M2 — coverage, currency conversion, stability rule, incomplete updates.
 -->
 
 # Methodology — free beta
 
-**Version:** beta 1.1 · **Last updated:** 12 October 2026 · **Model version:** M1
+**Version:** beta 1.2 · **Last updated:** 14 October 2026 · **Model version:** M2
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -20,6 +21,7 @@ This page explains how Uvalu calculates fair values, scores, model signals and r
 - **Transparent.** Each result shows the models behind it, the inputs used and when it was calculated.
 - **Shared settings.** The thresholds and weights below are set centrally by Uvalu and are the same for all users. The values in force are always shown on this page.
 - **Automated.** Results are calculated by formulas. No analyst reviews individual stocks.
+- **Coverage.** Shares of companies from Belgium, the Netherlands, France, Italy, Germany and Switzerland, each on its home exchange: Euronext Brussels, Amsterdam and Paris, Borsa Italiana, Deutsche Börse and SIX Swiss Exchange. Secondary listings of other companies on these exchanges, and listings that don't trade, are not covered. A share you add yourself is scored against this coverage, never added to it.
 
 ## 2. Facts and estimates
 
@@ -97,6 +99,8 @@ A model signal summarises the result in one label. It describes where the stock 
 
 For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.
 
+**Stability rule.** A stock keeps its signal until its composite score falls 2 points past the edge: Undervalued stays until the score is below 68, and Mid score until it is below 38. Moving up needs the full threshold. The 10% minimum margin of safety, the two-model requirement and the quality screen apply without exception. Without this rule, a stock whose score sits on an edge would change signal with every small data update.
+
 A dividend is "at risk" when the payout ratio is above 90%, the cash payout ratio is above 80%, dividend cover is below 1.2×, or the dividend was cut in the last 3 years.
 
 **Time horizon.** The models value a business on its current fundamentals and assume a holding horizon of 3 to 5 years. They say nothing about short-term price movements.
@@ -108,6 +112,7 @@ A dividend is "at risk" when the payout ratio is above 90%, the cash payout rati
 - During the beta, prices are delayed quotes from Yahoo Finance, not end-of-day closing prices; each signal shows the time of the price it used.
 - Fundamentals are refreshed about every 24 hours, at a slightly different time for each stock.
 - Signals are recalculated whenever new data arrives. Each signal shows the date and time of calculation and the date of the price used.
+- If an update comes back incomplete, the figures from the last complete update are used: for up to 7 days when the whole update failed, and for up to 90 days for a missing year of the financial statements.
 - Each stock page shows the history of signal changes for the past 12 months. Records start at the opening of the free beta, so at first the history is shorter. Records are kept for 24 months.
 - Every result carries the model version and a code for the settings used. Uvalu also keeps a daily record of every signal with the figures behind it, so a past signal can be reproduced on request.
 - Signal histories and daily records cover only the stocks in Uvalu's public coverage. Stocks that one user adds for themselves are not included.
@@ -124,7 +129,7 @@ Known limits:
 - The models suit some businesses poorly, such as banks, insurers, early-stage and cyclical companies.
 - The models ignore information outside the financial statements, such as litigation, management changes or new competitors.
 - The risk-free rate and equity risk premium are fixed assumptions and do not follow market rates.
-- Currency effects: fair values are calculated in the currency in which the share is quoted. Portfolio figures are converted to euro with European Central Bank reference rates.
+- Currency effects: fair values are calculated in the currency in which the share is quoted. When a company reports its financial figures in another currency, those figures are first converted with European Central Bank reference rates. If no rate is available, the stock gets no Undervalued signal and its page says why. Portfolio figures are converted to euro with European Central Bank reference rates.
 
 ## 9. Portfolio risk analytics
 
@@ -171,3 +176,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | --- | --- | --- |
 | 5 October 2026 | M1 | First published version |
 | 12 October 2026 | M1 | Signals renamed: "Neutral" is now "Mid score" and "Fails quality screen" is now "Screened out". Scores, thresholds and fair values are unchanged. |
+| 14 October 2026 | M2 | Coverage limited to home listings that trade. Reported figures in another currency are converted before valuation. Stability rule at the signal edges (2 points). Incomplete data updates keep the last complete figures. Signals of some stocks change. |

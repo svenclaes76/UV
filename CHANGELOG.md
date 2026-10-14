@@ -21,6 +21,33 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+**Signals change** with model M2: the coverage is now home listings only,
+reported figures in another currency are converted before valuation, and a
+stability rule stops signals flipping on small score changes. M2 needs one
+full 24-hour data refresh before every stock carries its reporting currency.
+
+### Changed
+
+- Model M2. The coverage is now companies from the six covered countries on
+  their home exchange; secondary listings of other companies (about a third
+  of the old list, mostly US) and listings that don't trade are left out. A
+  share a user added or holds is still scored against the coverage.
+- Figures a company reports in another currency than its share is quoted in
+  (for example a Swiss company reporting in dollars) are converted with ECB
+  reference rates before valuation. When no rate is available the stock is
+  flagged and gets no Undervalued signal.
+- A stock keeps its signal until its composite score falls 2 points past the
+  edge; moving up still needs the full threshold. The 10% minimum margin of
+  safety and the quality screen apply without exception.
+- An incomplete data update no longer changes a signal: the last complete
+  figures are used (up to 7 days after a failed update, up to 90 days for a
+  missing year of the financial statements).
+- The signal history records which inputs moved each signal change, and each
+  build logs a data-quality summary with warnings when the provider sends
+  incomplete data for many stocks or a build moves many signals.
+- Methodology pages: coverage, currency conversion, stability rule and the
+  M2 change-log row.
+
 ### Added
 
 - A limit per network address on failed sign-ins: 20 failed attempts from
