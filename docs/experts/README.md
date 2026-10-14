@@ -17,6 +17,8 @@ One profile per outside expert Uvalu needs: why, required expertise, scope, deli
 
 Briefing packs to send with an engagement: [briefings/](briefings/README.md) (#1–#3 so far).
 
+In-house R&D roles (engineering, product, design, data) are profiled separately in [../team/rnd-role-profiles.md](../team/rnd-role-profiles.md).
+
 ## AI expert personas
 
 These are prompts that ask Claude to act as an expert. They are not profiles for hiring someone, and their answers don't replace a licensed professional.
