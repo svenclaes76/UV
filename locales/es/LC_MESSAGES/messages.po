@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-14 19:41+0000\n"
+"POT-Creation-Date: 2026-10-14 20:09+0000\n"
 "PO-Revision-Date: 2026-10-14 20:38+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
@@ -25,9 +25,9 @@ msgid "Dashboard"
 msgstr "Panel"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:104 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551 uvalu/shell.py:51 workbook.py:291
+#: app.py:104 uvalu/pages_/cash.py:95 uvalu/pages_/portfolio.py:259
+#: uvalu/pages_/portfolio.py:449 uvalu/pages_/portfolio.py:507
+#: uvalu/pages_/portfolio.py:555 uvalu/shell.py:51 workbook.py:291
 msgid "Portfolio"
 msgstr "Cartera"
 
@@ -53,12 +53,12 @@ msgid "Analysis"
 msgstr "Análisis"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:109 uvalu/pages_/settings.py:568 uvalu/shell.py:434
+#: app.py:109 uvalu/pages_/settings.py:568 uvalu/shell.py:438
 msgid "Settings"
 msgstr "Ajustes"
 
 #: app.py:110 uvalu/compliance/disclosures.py:93 uvalu/pages_/help.py:197
-#: uvalu/shell.py:436
+#: uvalu/shell.py:440
 msgid "Methodology"
 msgstr "Metodología"
 
@@ -67,7 +67,7 @@ msgid "Legal"
 msgstr "Legal"
 
 #: app.py:113 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
-#: uvalu/pages_/help.py:301 uvalu/shell.py:439
+#: uvalu/pages_/help.py:301 uvalu/shell.py:443
 msgid "About Uvalu"
 msgstr "Acerca de Uvalu"
 
@@ -277,13 +277,13 @@ msgstr "Retirada"
 
 #. Context: Column header (buy price) on closed positions; also the 'Buy' label
 #. in the cash preview of the trade dialog
-#: cash.py:51 uvalu/pages_/portfolio.py:61
+#: cash.py:51 uvalu/pages_/portfolio.py:62
 msgid "Buy"
 msgstr "Compra"
 
 #. Context: Column header (sell price) on closed positions; also the 'Sell'
 #. label in the cash preview of the sale dialog
-#: cash.py:51 uvalu/pages_/portfolio.py:62
+#: cash.py:51 uvalu/pages_/portfolio.py:63
 msgid "Sell"
 msgstr "Venta"
 
@@ -309,7 +309,7 @@ msgid "Adjustment"
 msgstr "Ajuste"
 
 #. Context: 'All' option: Dashboard chart range and Cash activity type filter
-#: cash.py:59 uvalu/pages_/dashboard.py:276
+#: cash.py:59 uvalu/pages_/dashboard.py:277
 msgid "All"
 msgstr "Todo"
 
@@ -324,7 +324,7 @@ msgid "Trades"
 msgstr "Operaciones"
 
 #. Context: Cash activity › KPI card label
-#: cash.py:62 uvalu/pages_/cash.py:119
+#: cash.py:62 uvalu/pages_/cash.py:121
 msgid "Income"
 msgstr "Ingresos"
 
@@ -466,7 +466,7 @@ msgid "Composite risk score 50–70: above the scale's midpoint."
 msgstr "Puntuación de riesgo compuesta 50–70: por encima del punto medio de la escala."
 
 #. Context: Risk page › flag value; also the High risk band name
-#: risk.py:125 uvalu/pages_/risk.py:453
+#: risk.py:125 uvalu/pages_/risk.py:454
 msgid "High risk"
 msgstr "Riesgo alto"
 
@@ -530,7 +530,7 @@ msgid "Jan–Oct 2022"
 msgstr "ene.–oct. 2022"
 
 #. Context: Position risk rating; also the Risk table flag
-#: risk.py:514 uvalu/pages_/risk.py:451
+#: risk.py:514 uvalu/pages_/risk.py:452
 msgid "Critical"
 msgstr "Crítico"
 
@@ -546,25 +546,25 @@ msgstr "Medio"
 
 #. Context: Level label: factor loading, volatility, drawdown, position rating
 #. (Low / Moderate / High)
-#: risk.py:517 risk.py:729 risk.py:736 uvalu/pages_/risk.py:103
+#: risk.py:517 risk.py:729 risk.py:736 uvalu/pages_/risk.py:104
 msgid "Low"
 msgstr "Bajo"
 
-#: risk.py:575 uvalu/components.py:1495
+#: risk.py:575 uvalu/components.py:1502
 msgid "Above model fair value"
 msgstr "Por encima del valor razonable del modelo"
 
-#: risk.py:576 uvalu/components.py:1494
+#: risk.py:576 uvalu/components.py:1501
 msgid "Near model fair value"
 msgstr "Cerca del valor razonable del modelo"
 
-#: risk.py:576 uvalu/components.py:1493
+#: risk.py:576 uvalu/components.py:1500
 msgid "Below model fair value"
 msgstr "Por debajo del valor razonable del modelo"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:289
-#: uvalu/pages_/risk.py:291 uvalu/pages_/risk.py:293 uvalu/pages_/risk.py:294
+#: risk.py:579 risk.py:734 risk.py:741 uvalu/pages_/risk.py:290
+#: uvalu/pages_/risk.py:292 uvalu/pages_/risk.py:294 uvalu/pages_/risk.py:295
 msgid "N/A"
 msgstr "N/D"
 
@@ -585,7 +585,7 @@ msgstr "Muy concentrada"
 
 #. Context: Fallback name when a stock's sector or country is not known (sector
 #. chart, risk concentration)
-#: risk.py:631 risk.py:632 uvalu/pages_/dashboard.py:638
+#: risk.py:631 risk.py:632 uvalu/pages_/dashboard.py:641
 msgid "Unknown"
 msgstr "Desconocido"
 
@@ -606,7 +606,7 @@ msgstr "Agresiva"
 
 #. Context: Analysis page › score rating label (Strong / Moderate / Weak). Also
 #. a risk level on the Risk page.
-#: risk.py:730 risk.py:737 uvalu/pages_/risk.py:105
+#: risk.py:730 risk.py:737 uvalu/pages_/risk.py:106
 msgid "Moderate"
 msgstr "Moderado"
 
@@ -1604,6 +1604,15 @@ msgstr "No hay tipo de cambio para {currency} el {date}. Añádelo en la columna
 msgid "Fix the problems in the file first."
 msgstr "Corrige primero los problemas del archivo."
 
+#: uvalu/a11y.py:130
+msgid "Skip to content"
+msgstr "Ir al contenido"
+
+#: uvalu/a11y.py:130
+msgctxt "landmark"
+msgid "Main"
+msgstr "Principal"
+
 #. Context: First-run screen › text under the heading
 #: uvalu/authgate.py:32
 msgid "No accounts exist yet. This account gets full Admin access — you can invite everyone else once you're signed in."
@@ -2023,16 +2032,16 @@ msgstr "¿Eres nuevo en Uvalu?"
 msgid "Ask for an invite"
 msgstr "Pide una invitación"
 
-#: uvalu/components.py:62
+#: uvalu/components.py:63
 #, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "precio a {ratio}× el valor razonable"
 
-#: uvalu/components.py:99
+#: uvalu/components.py:100
 msgid "No data"
 msgstr "Sin datos"
 
-#: uvalu/components.py:105
+#: uvalu/components.py:106
 msgid "See Methodology for thresholds."
 msgstr "Consulta la Metodología para ver los umbrales."
 
@@ -2042,8 +2051,8 @@ msgstr "Consulta la Metodología para ver los umbrales."
 #. header). Same wording as the "Model signal" column header.
 #. small uppercase label in front of a signal badge (stock drawer and Analysis
 #. header). Same wording as the "Model signal" column header.
-#: uvalu/components.py:120 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:522
-#: uvalu/pages_/dashboard.py:530 uvalu/pages_/screener.py:56
+#: uvalu/components.py:121 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:523
+#: uvalu/pages_/dashboard.py:531 uvalu/pages_/screener.py:56
 #: uvalu/pages_/screener.py:275 uvalu/pages_/screener.py:282
 #: uvalu/pages_/watchlist.py:32
 msgid "Model signal"
@@ -2051,406 +2060,437 @@ msgstr "Señal del modelo"
 
 #. Context: Veto reason shown after 'Hard veto triggered/active'. Lowercase,
 #. joined with other reasons.
-#: uvalu/components.py:151
+#: uvalu/components.py:152
 #, no-python-format, python-brace-format
 msgid "debt/equity of {ratio}% exceeds the {limit}% limit"
 msgstr "una deuda/patrimonio del {ratio} % supera el límite del {limit} %"
 
 #. Context: Veto reason (lowercase, joined with other reasons)
-#: uvalu/components.py:156
+#: uvalu/components.py:157
 msgid "free cash flow negative for 3 consecutive years"
 msgstr "flujo de caja libre negativo 3 años seguidos"
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:158
+#: uvalu/components.py:159
 #, python-brace-format
 msgid "negative free cash flow ({amount})"
 msgstr "flujo de caja libre negativo ({amount})"
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:161
+#: uvalu/components.py:162
 #, python-brace-format
 msgid "dividend flagged at risk with {coverage}× coverage"
 msgstr "dividendo marcado en riesgo con una cobertura de {coverage}×"
 
 #. Context: Veto reason (lowercase)
-#: uvalu/components.py:163
+#: uvalu/components.py:164
 msgid "no confirmed trading volume"
 msgstr "sin volumen de negociación confirmado"
 
-#: uvalu/components.py:164
+#: uvalu/components.py:165
 msgid "a quality-screen rule"
 msgstr "una regla del filtro de calidad"
 
-#: uvalu/components.py:178 uvalu/components.py:181 uvalu/pages_/settings.py:948
+#: uvalu/components.py:179 uvalu/components.py:182 uvalu/pages_/settings.py:948
 msgid "Methodology →"
 msgstr "Metodología →"
 
-#: uvalu/components.py:223
+#: uvalu/components.py:224
 msgid "Some prices are more than 72 hours old. Signals for those stocks use the last known price."
 msgstr "Algunos precios tienen más de 72 horas. Las señales de esas acciones usan el último precio conocido."
 
-#: uvalu/components.py:227
+#: uvalu/components.py:228
 #, python-brace-format
 msgid "oldest {age}"
 msgstr "más antiguo: {age}"
 
-#: uvalu/components.py:251
+#: uvalu/components.py:252
 #, python-brace-format
 msgid "Signal computed {when}"
 msgstr "Señal calculada {when}"
 
-#: uvalu/components.py:252
+#: uvalu/components.py:253
 #, python-brace-format
 msgid "price as of {when}, delayed"
 msgstr "precio del {when}, diferido"
 
-#: uvalu/components.py:253 uvalu/components.py:293
+#: uvalu/components.py:254 uvalu/components.py:294
 #, python-brace-format
 msgid "model {version}"
 msgstr "modelo {version}"
 
-#: uvalu/components.py:279
+#: uvalu/components.py:280
 #, python-brace-format
 msgid "Signals computed {when}"
 msgstr "Señales calculadas {when}"
 
-#: uvalu/components.py:284
+#: uvalu/components.py:285
 #, python-brace-format
 msgid "prices delayed, as of {when}"
 msgstr "precios diferidos, a {when}"
 
-#: uvalu/components.py:287
+#: uvalu/components.py:288
 #, python-brace-format
 msgid "prices delayed, fetched {oldest} to {newest}"
 msgstr "precios diferidos, obtenidos del {oldest} al {newest}"
 
-#: uvalu/components.py:309 uvalu/pages_/analysis.py:207
+#: uvalu/components.py:310 uvalu/pages_/analysis.py:207
 msgid "Conflicts of interest policy →"
 msgstr "Política de conflictos de intereses →"
 
 #. Context: Dashboard › small caption above the recent-signals list
-#: uvalu/components.py:323
+#: uvalu/components.py:324
 msgid "Signals"
 msgstr "Señales"
 
-#: uvalu/components.py:484
+#: uvalu/components.py:485
 msgid "Other"
 msgstr "Otros"
 
-#: uvalu/components.py:509
+#: uvalu/components.py:510
 msgid "Total"
 msgstr "Total"
 
-#: uvalu/components.py:523
+#: uvalu/components.py:524
 #, python-brace-format
 msgid "ex-date · pays {date}"
 msgstr "fecha ex · se paga el {date}"
 
-#: uvalu/components.py:524
+#: uvalu/components.py:525
 msgid "ex-date"
 msgstr "fecha ex"
 
 #. Context: Dashboard › upcoming dividend row: expected gross amount, e.g.
 #. '€84.00 gross'
-#: uvalu/components.py:536 uvalu/components.py:1938
+#: uvalu/components.py:537 uvalu/components.py:1949
 #, python-brace-format
 msgid "{amount} gross"
 msgstr "{amount} brutos"
 
-#: uvalu/components.py:677
+#: uvalu/components.py:678
 msgid "Excluded · fails quality screen"
 msgstr "Excluido · no supera el filtro de calidad"
 
-#: uvalu/components.py:679
+#: uvalu/components.py:680
 msgid "No signal · no peer reference"
 msgstr "Sin señal · sin grupo de comparación"
 
-#: uvalu/components.py:684
+#: uvalu/components.py:685
 #, python-brace-format
 msgid "Upper band · {low}–{high}"
 msgstr "Franja alta · {low}–{high}"
 
-#: uvalu/components.py:686
+#: uvalu/components.py:687
 #, python-brace-format
 msgid "Middle band · {low}–{high}"
 msgstr "Franja media · {low}–{high}"
 
-#: uvalu/components.py:687
+#: uvalu/components.py:688
 #, python-brace-format
 msgid "Lower band · {low}–{high}"
 msgstr "Franja baja · {low}–{high}"
 
 #. Context: Valuation model name (kept untranslated, L-08): Help page and
 #. fair-value bars
-#: uvalu/components.py:719 uvalu/pages_/help.py:103
+#: uvalu/components.py:720 uvalu/pages_/help.py:103
 msgid "Graham Number"
 msgstr "Graham Number"
 
 #. Context: Fair-value bars › model name: fair value from a fair P/E multiple
-#: uvalu/components.py:720
+#: uvalu/components.py:721
 msgid "P/E fair value"
 msgstr "Valor razonable por PER"
 
 #. Context: Stock panel and Analysis › fair-value model name: single-stage
 #. dividend discount model (design reference name; short form of the
 #. Methodology document's “Dividend model, single stage”)
-#: uvalu/components.py:724
+#: uvalu/components.py:725
 msgid "Dividend, single stage"
 msgstr "Dividendo, una etapa"
 
 #. Context: Stock panel and Analysis › fair-value model name: multi-stage
 #. dividend discount model (short form of “Dividend model, multi-stage”)
-#: uvalu/components.py:725
+#: uvalu/components.py:726
 msgid "Dividend, multi-stage"
 msgstr "Dividendo, varias etapas"
 
 #. Context: Fair-value bars › model name: analysts' price target
-#: uvalu/components.py:731
+#: uvalu/components.py:732
 msgid "Analyst Target"
 msgstr "Precio objetivo de analistas"
 
 #. Context: Fair-value model name: book value per share × the sector's
 #. price/book ratio, used only when the core models fail. Same name in the
 #. legal Methodology document
-#: uvalu/components.py:732 uvalu/pages_/help.py:113
+#: uvalu/components.py:733 uvalu/pages_/help.py:113
 msgid "Book value (fallback)"
 msgstr "Valor contable (respaldo)"
 
 #. Context: Stock panel and Analysis › fair-value model name: free-cash-flow
 #. value, used only when the core models fail (short form of “Free cash flow
 #. value (fallback)”)
-#: uvalu/components.py:733
+#: uvalu/components.py:734
 msgid "FCF value (fallback)"
 msgstr "Valor FCL (respaldo)"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:748
+#: uvalu/components.py:749
 msgid "n/a for this sector"
 msgstr "no aplica a este sector"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:749
+#: uvalu/components.py:750
 msgid "no positive EPS"
 msgstr "sin BPA positivo"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:750
+#: uvalu/components.py:751
 msgid "no book value"
 msgstr "sin valor contable"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:751
+#: uvalu/components.py:752
 msgid "price too far below book value to trust"
 msgstr "precio demasiado por debajo del valor contable para ser fiable"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:752
+#: uvalu/components.py:753
 msgid "net debt > earnings"
 msgstr "deuda neta > beneficios"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:753
+#: uvalu/components.py:754
 msgid "no enterprise value"
 msgstr "sin valor de empresa"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:754
+#: uvalu/components.py:755
 msgid "no multi-year EBIT"
 msgstr "sin EBIT plurianual"
 
 #. Context: Fair-value bars › why a model has no value: average EBIT over the
 #. cycle is zero or negative
-#: uvalu/components.py:755
+#: uvalu/components.py:756
 msgid "through-cycle EBIT ≤ 0"
 msgstr "EBIT del ciclo ≤ 0"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:756
+#: uvalu/components.py:757
 msgid "not a dividend payer"
 msgstr "no paga dividendo"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:757
+#: uvalu/components.py:758
 msgid "no usable payout ratio"
 msgstr "sin ratio de reparto utilizable"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:758
+#: uvalu/components.py:759
 msgid "payout outside DDM range"
 msgstr "reparto fuera del rango del DDM"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:759
+#: uvalu/components.py:760
 msgid "discount rate ≈ dividend growth"
 msgstr "tasa de descuento ≈ crecimiento del dividendo"
 
 #. Context: Fair-value bars › why a model has no value
-#: uvalu/components.py:760
+#: uvalu/components.py:761
 msgid "no analyst coverage"
 msgstr "sin cobertura de analistas"
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. both fallback models replace a core model
-#: uvalu/components.py:798
+#: uvalu/components.py:799
 msgid "The book value and FCF fallbacks stand in where a core model (Graham, P/E, EPV) couldn’t be computed."
 msgstr "Los respaldos de valor contable y FCL sustituyen a un modelo principal (Graham, PER, EPV) que no se pudo calcular."
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. the book value fallback replaces a core model
-#: uvalu/components.py:800
+#: uvalu/components.py:801
 msgid "The book value fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."
 msgstr "El respaldo de valor contable sustituye a un modelo principal (Graham, PER, EPV) que no se pudo calcular."
 
 #. Context: Stock panel and Analysis › note under the fair-value models when
 #. the free-cash-flow fallback replaces a core model
-#: uvalu/components.py:802
+#: uvalu/components.py:803
 msgid "The FCF fallback stands in where a core model (Graham, P/E, EPV) couldn’t be computed."
 msgstr "El respaldo de FCL sustituye a un modelo principal (Graham, PER, EPV) que no se pudo calcular."
 
 #. Context: Fair-value bars › footnote
-#: uvalu/components.py:804
+#: uvalu/components.py:805
 #, no-python-format
 msgid "The composite applies a −10% optimism haircut to the Analyst Target shown."
 msgstr "El valor compuesto aplica un descuento por optimismo del −10 % al precio objetivo de analistas mostrado."
 
 #. Context: Fair-value bars › empty state
-#: uvalu/components.py:837 uvalu/components.py:844
+#: uvalu/components.py:838 uvalu/components.py:845
 msgid "Not enough model data for a fair-value ladder."
 msgstr "No hay suficientes datos de los modelos para una escala de valor razonable."
 
 #. Context: Fair-value bars › warning suffix: only few models support the
 #. composite
-#: uvalu/components.py:896
+#: uvalu/components.py:897
 msgid "· lightly corroborated"
 msgstr "· poco respaldado"
 
 #. Context: Fair-value bars › line under the composite: how many models back
 #. it. May be followed by '· lightly corroborated'.
-#: uvalu/components.py:899
+#: uvalu/components.py:900
 #, python-brace-format
 msgid "basis · {count} of 6 models"
 msgstr "base · {count} de 6 modelos"
 
 #. Context: Holdings row › tooltip on the 'fv pending' chip
-#: uvalu/components.py:916
+#: uvalu/components.py:917
 msgid "Fair value pending: this holding's fundamentals record came back incomplete and is being refetched"
 msgstr "Valor razonable pendiente: los datos fundamentales de esta posición llegaron incompletos y se están volviendo a obtener"
 
 #. Context: Stock rows › shown when the fair value is still being calculated
 #. ('fv' = fair value)
-#: uvalu/components.py:919
+#: uvalu/components.py:920
 msgid "fv pending"
 msgstr "VR pendiente"
 
 #. Context: Stock rows › short fair value, e.g. 'fv €42.10' ('fv' = fair value)
-#: uvalu/components.py:929
+#: uvalu/components.py:930
 #, python-brace-format
 msgid "fv {amount}"
 msgstr "VR {amount}"
 
 #. Context: Holdings row › tooltip on 'pending' in the MoS column
-#: uvalu/components.py:998
+#: uvalu/components.py:999
 msgid "Margin of safety pending, no fair value yet"
 msgstr "Margen de seguridad pendiente, aún sin valor razonable"
 
 #. Context: Holdings row › MoS cell while the fair value is still being fetched
 #. (short)
-#: uvalu/components.py:999
+#: uvalu/components.py:1000
 msgid "pending"
 msgstr "pendiente"
 
-#: uvalu/components.py:1006
+#: uvalu/components.py:1007
 msgid "Unrealised result against your average cost"
 msgstr "Resultado no realizado frente a tu coste medio"
 
 #. Context: Holdings row › tooltip on a P&L figure based on a delayed quote
-#: uvalu/components.py:1013
+#: uvalu/components.py:1014
 msgid "Delayed quote — not a live intraday price"
 msgstr "Cotización diferida — no es un precio intradía en tiempo real"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1131 uvalu/components.py:1216 uvalu/drawer.py:333
-#: uvalu/pages_/cash.py:25 uvalu/pages_/dashboard.py:189 uvalu/pages_/portfolio.py:41
+#: uvalu/components.py:1134 uvalu/components.py:1221 uvalu/drawer.py:333
+#: uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:190 uvalu/pages_/portfolio.py:42
 #: uvalu/pages_/watchlist.py:121
 msgid "Viewer role is read-only"
 msgstr "El rol Lector es de solo lectura"
 
+#: uvalu/components.py:1136
+#, fuzzy, python-brace-format
+msgid "On the watchlist: {stock}"
+msgstr "En la lista de seguimiento: {stock}"
+
+#: uvalu/components.py:1223
+#, fuzzy, python-brace-format
+msgid "Remove {stock} from the watchlist"
+msgstr "Quitar {stock} de la lista de seguimiento"
+
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1218 uvalu/components.py:1811 uvalu/pages_/risk.py:464
+#: uvalu/components.py:1224 uvalu/components.py:1819 uvalu/pages_/risk.py:467
 #: uvalu/pages_/settings.py:1114
 msgid "View"
 msgstr "Ver"
 
-#: uvalu/components.py:1497
+#: uvalu/components.py:1225 uvalu/components.py:1820 uvalu/pages_/dashboard.py:596
+#: uvalu/pages_/dashboard.py:740 uvalu/pages_/risk.py:466
+#, fuzzy, python-brace-format
+msgid "View {stock}"
+msgstr "Ver {stock}"
+
+#: uvalu/components.py:1504
 msgid "Model fair value"
 msgstr "Valor razonable del modelo"
 
 #. Context: Dashboard › empty state of the recent-signals list
-#: uvalu/components.py:1512
+#: uvalu/components.py:1519
 msgid "No recent signals."
 msgstr "No hay señales recientes."
 
 #. Context: Dashboard › heading of the horizontal risk meter
-#: uvalu/components.py:1575
+#: uvalu/components.py:1582
 msgid "Portfolio risk score"
 msgstr "Puntuación de riesgo de la cartera"
 
 #. Context: Risk meter legend (uppercase, short): low end of the scale
-#: uvalu/components.py:1599
+#: uvalu/components.py:1606
 msgid "LOW"
 msgstr "BAJO"
 
 #. Context: Risk meter legend (uppercase, short): middle of the scale
-#: uvalu/components.py:1599
+#: uvalu/components.py:1606
 msgid "MODERATE"
 msgstr "MODERADO"
 
 #. Context: Risk meter legend (uppercase, short): high end of the scale
-#: uvalu/components.py:1599
+#: uvalu/components.py:1606
 msgid "HIGH"
 msgstr "ALTO"
 
 #. Context: Portfolio › open positions row: dividend income over 12 months,
 #. gross (compact 'gr' = gross)
-#: uvalu/components.py:1782
+#: uvalu/components.py:1789
 #, python-brace-format
 msgid "{amount} gr"
 msgstr "{amount} bruto"
 
+#: uvalu/components.py:1814
+#, fuzzy, python-brace-format
+msgid "Edit position: {stock}"
+msgstr "Editar posición: {stock}"
+
 #. Context: Portfolio › tooltip on the pencil icon of an open position; also
 #. the dialog title
-#: uvalu/components.py:1807 uvalu/dialogs.py:467 uvalu/drawer.py:353
+#: uvalu/components.py:1815 uvalu/dialogs.py:467 uvalu/drawer.py:353
 msgid "Edit position"
 msgstr "Editar posición"
 
 #. Context: Portfolio › closed position row subtitle. {date} is a month and year
 #. only (e.g. 'Aug 2026'), so use the wording for a month, not a day ('in', not
 #. 'on').
-#: uvalu/components.py:1839
+#: uvalu/components.py:1848
 #, python-brace-format
 msgid "{name} · closed {date}"
 msgstr "{name} · cerrada en {date}"
 
+#: uvalu/components.py:1871
+#, fuzzy, python-brace-format
+msgid "Edit trade: {stock}, {date}"
+msgstr "Editar operación: {stock}, {date}"
+
 #. Context: Portfolio › tooltip on the pencil of a closed trade; also the
 #. dialog title
-#: uvalu/components.py:1862
+#: uvalu/components.py:1873
 msgid "Edit trade"
 msgstr "Editar operación"
 
 #. Context: Portfolio › Dividend log badge: dividend was reinvested (DRIP)
-#: uvalu/components.py:1903
+#: uvalu/components.py:1914
 msgid "· DRIP"
 msgstr "· DRIP"
 
-#: uvalu/components.py:1934
+#: uvalu/components.py:1945
 #, python-brace-format
 msgid "{ticker} · paid {date}"
 msgstr "{ticker} · pagado el {date}"
 
+#: uvalu/components.py:1958 uvalu/components.py:2065
+#, fuzzy, python-brace-format
+msgid "Edit dividend: {stock}, {date}"
+msgstr "Editar dividendo: {stock}, {date}"
+
 #. Context: Portfolio › tooltip on the pencil of a dividend row; also the
 #. dialog title
-#: uvalu/components.py:1947 uvalu/components.py:2052 uvalu/dialogs.py:702
+#: uvalu/components.py:1960 uvalu/components.py:2067 uvalu/dialogs.py:702
 msgid "Edit dividend"
 msgstr "Editar dividendo"
 
@@ -2458,104 +2498,104 @@ msgstr "Editar dividendo"
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:1969 uvalu/pages_/dashboard.py:522
-#: uvalu/pages_/dashboard.py:530 uvalu/pages_/portfolio.py:55
-#: uvalu/pages_/portfolio.py:61 uvalu/pages_/risk.py:33
+#: uvalu/components.py:1982 uvalu/pages_/dashboard.py:523
+#: uvalu/pages_/dashboard.py:531 uvalu/pages_/portfolio.py:56
+#: uvalu/pages_/portfolio.py:62 uvalu/pages_/risk.py:34
 msgid "Position"
 msgstr "Posición"
 
 #. Context: Dividend log column header: ex-dividend date
-#: uvalu/components.py:1969
+#: uvalu/components.py:1982
 msgid "Ex-date"
 msgstr "Fecha ex"
 
 #. Context: Dividend log column header: payment date
-#: uvalu/components.py:1969
+#: uvalu/components.py:1982
 msgid "Pay date"
 msgstr "Fecha de pago"
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:1969 uvalu/components.py:2203 uvalu/dialogs.py:665
+#: uvalu/components.py:1982 uvalu/components.py:2218 uvalu/dialogs.py:665
 #: uvalu/dialogs.py:750 uvalu/dialogs.py:1074
 msgid "Type"
 msgstr "Tipo"
 
 #. Context: Dividend log column header: gross dividend per share
-#: uvalu/components.py:1970
+#: uvalu/components.py:1983
 msgid "Per share"
 msgstr "Por acción"
 
 #. Context: Table column header: number of shares
-#: uvalu/components.py:1970 uvalu/pages_/portfolio.py:55 uvalu/pages_/portfolio.py:61
+#: uvalu/components.py:1983 uvalu/pages_/portfolio.py:56 uvalu/pages_/portfolio.py:62
 msgid "Shares"
 msgstr "Acciones"
 
 #. Context: Column header / label: gross dividend amount (annual summary,
 #. dividend log, dividend dialog preview)
-#: uvalu/components.py:1970 uvalu/dialogs.py:98 uvalu/pages_/portfolio.py:692
+#: uvalu/components.py:1983 uvalu/dialogs.py:98 uvalu/pages_/portfolio.py:696
 msgid "Gross"
 msgstr "Bruto"
 
 #. Context: Column header: foreign withholding tax (short)
-#: uvalu/components.py:1970 uvalu/pages_/portfolio.py:693
+#: uvalu/components.py:1983 uvalu/pages_/portfolio.py:697
 msgid "Foreign WH"
 msgstr "Ret. extranjera"
 
 #. Context: Column header: 30% Belgian withholding tax on dividends (roerende
 #. voorheffing / précompte mobilier)
-#: uvalu/components.py:1971 uvalu/pages_/portfolio.py:693
+#: uvalu/components.py:1984 uvalu/pages_/portfolio.py:697
 #, no-python-format
 msgid "BE 30%"
 msgstr "BE 30 %"
 
 #. Context: Column header: net dividend after withholding
-#: uvalu/components.py:1971 uvalu/pages_/portfolio.py:694
+#: uvalu/components.py:1984 uvalu/pages_/portfolio.py:698
 msgid "Net"
 msgstr "Neto"
 
 #. Context: Column header: where the entry came from (Auto / Manual)
-#: uvalu/components.py:1971 uvalu/components.py:2205
+#: uvalu/components.py:1984 uvalu/components.py:2220
 msgid "Source"
 msgstr "Origen"
 
 #. Context: Dividend log › tooltip on an amber (unconfirmed) payment date
-#: uvalu/components.py:2008
+#: uvalu/components.py:2021
 msgid "Payment date not confirmed. Defaulted to the ex-date; edit to set the actual date."
 msgstr "Fecha de pago sin confirmar. Por defecto es la fecha ex-dividendo; edítala para indicar la fecha real."
 
 #. Context: Dividend log › source value: fetched automatically
-#: uvalu/components.py:2019 uvalu/components.py:2196
+#: uvalu/components.py:2032 uvalu/components.py:2211
 msgid "Auto"
 msgstr "Auto"
 
 #. Context: Dividend log › source value: entered by hand
-#: uvalu/components.py:2019 uvalu/components.py:2196
+#: uvalu/components.py:2032 uvalu/components.py:2211
 msgid "Manual"
 msgstr "Manual"
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:2040 uvalu/components.py:2140 uvalu/dialogs.py:45
-#: uvalu/pages_/dashboard.py:216
+#: uvalu/components.py:2053 uvalu/components.py:2155 uvalu/dialogs.py:45
+#: uvalu/pages_/dashboard.py:217
 msgid "Cash"
 msgstr "Efectivo"
 
 #. Context: Portfolio KPI card label and Risk allocation bar: money invested in
 #. open positions
-#: uvalu/components.py:2137 uvalu/pages_/portfolio.py:300
+#: uvalu/components.py:2152 uvalu/pages_/portfolio.py:301
 msgid "Invested"
 msgstr "Invertido"
 
 #. Context: Risk page › text under the invested/cash allocation bar
-#: uvalu/components.py:2146
+#: uvalu/components.py:2161
 #, python-brace-format
 msgid "Total portfolio value {amount} · risk metrics use the invested portion only"
 msgstr "Valor total de la cartera {amount} · las métricas de riesgo solo usan la parte invertida"
 
 #. Context: Cash ledger › Original column for an Adjustment: balance set to
 #. this amount
-#: uvalu/components.py:2156
+#: uvalu/components.py:2171
 #, python-brace-format
 msgid "set to {amount}"
 msgstr "fijado en {amount}"
@@ -2564,78 +2604,88 @@ msgstr "fijado en {amount}"
 #. currency (no conversion).
 #. Cash activity › FX rate column note for an entry already in the base currency (no
 #. conversion).
-#: uvalu/components.py:2163
+#: uvalu/components.py:2178
 msgid "base"
 msgstr "base"
 
 #. Context: Cash entry dialog › FX rate source: typed by hand
-#: uvalu/components.py:2166
+#: uvalu/components.py:2181
 msgid "manual"
 msgstr "manual"
 
 #. Context: FX rate source: European Central Bank
-#: uvalu/components.py:2166
+#: uvalu/components.py:2181
 msgid "ECB"
 msgstr "BCE"
 
 #. Context: Cash ledger › marks an automatic top-up deposit (shown as '·
 #. top-up' after a reference)
-#: uvalu/components.py:2170 uvalu/dialogs.py:1073
+#: uvalu/components.py:2185 uvalu/dialogs.py:1073
 msgid "top-up"
 msgstr "recarga"
 
 #. Context: Cash ledger column header and Cash entry dialog label
-#: uvalu/components.py:2203 uvalu/dialogs.py:1097 uvalu/dialogs.py:1099
+#: uvalu/components.py:2218 uvalu/dialogs.py:1097 uvalu/dialogs.py:1099
 msgid "Date"
 msgstr "Fecha"
 
 #. Context: Cash ledger column header
-#: uvalu/components.py:2203
+#: uvalu/components.py:2218
 msgid "Description"
 msgstr "Descripción"
 
 #. Context: Cash ledger column header: amount in the original currency
-#: uvalu/components.py:2203
+#: uvalu/components.py:2218
 msgid "Original"
 msgstr "Original"
 
 #. Context: Cash ledger column header and Cash entry dialog label: exchange
 #. rate
-#: uvalu/components.py:2204
+#: uvalu/components.py:2219
 msgid "FX rate"
 msgstr "Tipo de cambio"
 
 #. Context: Cash ledger column header: amount in the base currency, e.g.
 #. 'Amount · EUR'
-#: uvalu/components.py:2204
+#: uvalu/components.py:2219
 #, python-brace-format
 msgid "Amount · {currency}"
 msgstr "Importe · {currency}"
 
 #. Context: Cash ledger column header: running balance
-#: uvalu/components.py:2205
+#: uvalu/components.py:2220
 msgid "Balance"
 msgstr "Saldo"
 
+#: uvalu/components.py:2241
+#, fuzzy, python-brace-format
+msgid "Edit cash entry of {date}"
+msgstr "Editar el movimiento de efectivo del {date}"
+
+#: uvalu/components.py:2242
+#, fuzzy, python-brace-format
+msgid "View the entry linked to the cash entry of {date}"
+msgstr "Ver el movimiento vinculado al movimiento de efectivo del {date}"
+
 #. Context: Cash ledger › tooltip on the pencil icon
-#: uvalu/components.py:2225
+#: uvalu/components.py:2244
 msgid "Edit entry"
 msgstr "Editar movimiento"
 
 #. Context: Cash ledger › tooltip on automatic entries (they are edited at
 #. their source)
-#: uvalu/components.py:2225
+#: uvalu/components.py:2244
 msgid "View linked entry"
 msgstr "Ver movimiento vinculado"
 
-#: uvalu/components.py:2307 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:93
-#: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551
+#: uvalu/components.py:2326 uvalu/pages_/analysis.py:244 uvalu/pages_/cash.py:95
+#: uvalu/pages_/portfolio.py:449 uvalu/pages_/portfolio.py:507
+#: uvalu/pages_/portfolio.py:555
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Volver a {page}"
 
-#: uvalu/components.py:2324
+#: uvalu/components.py:2343
 msgid "On this page"
 msgstr "En esta página"
 
@@ -2808,8 +2858,8 @@ msgstr "Efectivo tras la operación"
 
 #. Context: Portfolio › button to record a new holding; also the title of the
 #. Add position dialog
-#: uvalu/dialogs.py:387 uvalu/pages_/dashboard.py:188 uvalu/pages_/portfolio.py:200
-#: uvalu/pages_/portfolio.py:260 uvalu/pages_/portfolio.py:448
+#: uvalu/dialogs.py:387 uvalu/pages_/dashboard.py:189 uvalu/pages_/portfolio.py:201
+#: uvalu/pages_/portfolio.py:261 uvalu/pages_/portfolio.py:452
 msgid "Add position"
 msgstr "Añadir posición"
 
@@ -2978,7 +3028,7 @@ msgid "The ex-dividend date must be on or before the payment date."
 msgstr "La fecha ex-dividendo debe ser igual o anterior a la fecha de pago."
 
 #. Context: Portfolio › Dividend log button; also the dialog title
-#: uvalu/dialogs.py:620 uvalu/pages_/portfolio.py:588
+#: uvalu/dialogs.py:620 uvalu/pages_/portfolio.py:592
 msgid "Add dividend"
 msgstr "Añadir dividendo"
 
@@ -3077,7 +3127,7 @@ msgid "Result"
 msgstr "Resultado"
 
 #. Context: Portfolio › column header: total purchase cost
-#: uvalu/dialogs.py:807 uvalu/pages_/portfolio.py:56
+#: uvalu/dialogs.py:807 uvalu/pages_/portfolio.py:57
 msgid "Cost basis"
 msgstr "Coste de adquisición"
 
@@ -3089,8 +3139,7 @@ msgstr "Importe de la venta"
 
 #. Context: Portfolio › KPI card label and closed-positions column: realised
 #. profit and loss
-#: uvalu/dialogs.py:808 uvalu/pages_/portfolio.py:62
-#: uvalu/pages_/portfolio.py:309
+#: uvalu/dialogs.py:808 uvalu/pages_/portfolio.py:63 uvalu/pages_/portfolio.py:310
 msgid "Realised P&L"
 msgstr "G/P realizada"
 
@@ -3382,8 +3431,8 @@ msgstr "Abrir las posiciones cerradas"
 
 #. Context: Portfolio › card and full-page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/dialogs.py:1275 uvalu/pages_/portfolio.py:324
-#: uvalu/pages_/portfolio.py:447
+#: uvalu/dialogs.py:1275 uvalu/pages_/portfolio.py:325 uvalu/pages_/portfolio.py:326
+#: uvalu/pages_/portfolio.py:451
 msgid "Open positions"
 msgstr "Posiciones abiertas"
 
@@ -3415,9 +3464,9 @@ msgstr "Cerrar"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:231 uvalu/pages_/analysis.py:381
-#: uvalu/pages_/analysis.py:397 uvalu/pages_/portfolio.py:56
-#: uvalu/pages_/screener.py:59 uvalu/pages_/watchlist.py:32
+#: uvalu/drawer.py:231 uvalu/pages_/analysis.py:381 uvalu/pages_/analysis.py:397
+#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:59
+#: uvalu/pages_/watchlist.py:32
 msgid "Price"
 msgstr "Precio"
 
@@ -3430,8 +3479,8 @@ msgstr "Valor razonable"
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
 #: uvalu/drawer.py:235 uvalu/pages_/analysis.py:217 uvalu/pages_/analysis.py:347
-#: uvalu/pages_/analysis.py:427 uvalu/pages_/dashboard.py:522
-#: uvalu/pages_/dashboard.py:530 uvalu/pages_/screener.py:58
+#: uvalu/pages_/analysis.py:427 uvalu/pages_/dashboard.py:523
+#: uvalu/pages_/dashboard.py:531 uvalu/pages_/screener.py:58
 #: uvalu/pages_/watchlist.py:32
 msgid "Margin of safety"
 msgstr "Margen de seguridad"
@@ -3498,7 +3547,7 @@ msgstr "Valor de la posición"
 
 #. Context: Unrealised profit & loss label (stock preview row, Portfolio KPI
 #. card). Short form.
-#: uvalu/drawer.py:322 uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:306
+#: uvalu/drawer.py:322 uvalu/pages_/portfolio.py:58 uvalu/pages_/portfolio.py:307
 msgid "Unrealised P&L"
 msgstr "G/P no realizada"
 
@@ -3679,7 +3728,7 @@ msgstr "Total de la cartera"
 
 #. Context: Count of holdings. Used inside the Dashboard subtitle and
 #. elsewhere.
-#: uvalu/locale_ui.py:110 uvalu/pages_/dashboard.py:180
+#: uvalu/locale_ui.py:110 uvalu/pages_/dashboard.py:181
 #, python-brace-format
 msgid "{count} position"
 msgid_plural "{count} positions"
@@ -3859,44 +3908,49 @@ msgid "Delayed"
 msgstr "Con retraso"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:411
+#: uvalu/shell.py:412 uvalu/shell.py:414
 msgid "Switch to dark theme"
 msgstr "Cambiar al tema oscuro"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:411
+#: uvalu/shell.py:412 uvalu/shell.py:414
 msgid "Switch to light theme"
 msgstr "Cambiar al tema claro"
 
-#: uvalu/pages_/settings.py:1130 uvalu/shell.py:425
+#: uvalu/shell.py:418
+#, fuzzy, python-brace-format
+msgid "Account menu for {name}"
+msgstr "Menú de la cuenta de {name}"
+
+#: uvalu/pages_/settings.py:1130 uvalu/shell.py:429
 msgid "Free beta"
 msgstr "Beta gratuita"
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:441
+#: uvalu/shell.py:445
 msgid "Admin portal"
 msgstr "Portal de administración"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:738 uvalu/pages_/settings.py:1131 uvalu/shell.py:448
+#: uvalu/pages_/settings.py:738 uvalu/pages_/settings.py:1131 uvalu/shell.py:452
 msgid "Sign out"
 msgstr "Cerrar sesión"
 
-#: uvalu/shell.py:458
+#: uvalu/shell.py:462
 #, python-brace-format
 msgid "{name}, trading as {trading_as}"
 msgstr "{name}, que opera con el nombre {trading_as}"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:494 uvalu/pages_/risk.py:33 uvalu/pages_/risk.py:288
-#: uvalu/shell.py:487
+#: uvalu/pages_/dashboard.py:495 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:289
+#: uvalu/shell.py:491
 msgid "Beta"
 msgstr "Beta"
 
-#: uvalu/shell.py:490
+#: uvalu/shell.py:494
 msgid "Terms →"
 msgstr "Términos →"
 
@@ -3904,22 +3958,11 @@ msgstr "Términos →"
 #. restart. “No signal” is the badge label.
 #. Strip under the beta notice while the app rebuilds its peer reference after a
 #. restart. “No signal” is the badge label.
-#: uvalu/shell.py:505
+#: uvalu/shell.py:509
 msgid "Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, usually within a few minutes."
 msgstr "Reconstruyendo el grupo de comparación tras un reinicio. Hasta que termine, las señales muestran «Sin señal», normalmente en pocos minutos."
 
-#: uvalu/shell.py:554
-#
-msgid "Skip to content"
-msgstr "Ir al contenido"
-
-#: uvalu/shell.py:554
-#
-msgctxt "landmark"
-msgid "Main"
-msgstr "Principal"
-
-#: uvalu/shell.py:619
+#: uvalu/shell.py:571
 msgid "Couldn’t load this page. Try again in a moment."
 msgstr "No se pudo cargar esta página. Inténtalo de nuevo en un momento."
 
@@ -3927,7 +3970,7 @@ msgstr "No se pudo cargar esta página. Inténtalo de nuevo en un momento."
 #. to quote to support.
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:622
+#: uvalu/shell.py:574
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr "Algo ha salido mal. Referencia para soporte: {ref}"
@@ -3936,16 +3979,16 @@ msgstr "Algo ha salido mal. Referencia para soporte: {ref}"
 #. update.
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:635
+#: uvalu/shell.py:587
 msgid "Uvalu is being updated"
 msgstr "Uvalu se está actualizando"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:637
+#: uvalu/shell.py:589
 msgid "The app is waiting for a data update to finish. Please try again in a few minutes."
 msgstr "La app está esperando a que termine una actualización de los datos. Vuelve a intentarlo en unos minutos."
 
-#: uvalu/shell.py:712
+#: uvalu/shell.py:664
 msgid "About this version and what's new"
 msgstr "Acerca de esta versión y novedades"
 
@@ -4660,104 +4703,110 @@ msgstr "Todavía no hay dividendos registrados para esta posición."
 
 #. Context: Portfolio › Cash card › shown under the balance when the ledger is
 #. empty
-#: uvalu/pages_/cash.py:46
+#: uvalu/pages_/cash.py:47
 msgid "No entries yet · buys top up automatically"
 msgstr "Sin movimientos · las compras se recargan automáticamente"
 
 #. Context: Portfolio › Cash card › last ledger entry, e.g. 'Last entry 12 Sep
 #. 2026 · deposit'. {type} is the lowercase transaction type.
-#: uvalu/pages_/cash.py:47
+#: uvalu/pages_/cash.py:48
 #, python-brace-format
 msgid "Last entry {date} · {type}"
 msgstr "Último movimiento {date} · {type}"
 
 #. Context: Portfolio › Cash card title and Cash activity KPI card
-#: uvalu/pages_/cash.py:58 uvalu/pages_/cash.py:111
+#: uvalu/pages_/cash.py:59 uvalu/pages_/cash.py:62 uvalu/pages_/cash.py:113
 msgid "Cash balance"
 msgstr "Saldo de efectivo"
 
 #. Context: Cash card › small badge showing the base currency, e.g. 'EUR base'
-#: uvalu/pages_/cash.py:60
+#: uvalu/pages_/cash.py:61
 #, python-brace-format
 msgid "{currency} base"
 msgstr "base {currency}"
 
+#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:326 uvalu/pages_/portfolio.py:372
+#: uvalu/pages_/portfolio.py:410
+#, fuzzy, python-brace-format
+msgid "Open full page: {section}"
+msgstr "Abrir la página completa: {section}"
+
 #. Context: Portfolio › tooltip on the expand icon of a card
-#: uvalu/pages_/cash.py:61 uvalu/pages_/portfolio.py:325
-#: uvalu/pages_/portfolio.py:370 uvalu/pages_/portfolio.py:407
+#: uvalu/pages_/cash.py:63 uvalu/pages_/portfolio.py:327 uvalu/pages_/portfolio.py:373
+#: uvalu/pages_/portfolio.py:411
 msgid "Open full page"
 msgstr "Abrir la página completa"
 
 #. Context: Cash › button 'Deposit' (verb: put money in). Has message context
 #. 'button' because the noun 'Deposit' is translated separately.
-#: uvalu/pages_/cash.py:77
+#: uvalu/pages_/cash.py:79
 msgctxt "button"
 msgid "Deposit"
 msgstr "Ingresar"
 
 #. Context: Cash › button to take money out
-#: uvalu/pages_/cash.py:79
+#: uvalu/pages_/cash.py:81
 msgid "Withdraw"
 msgstr "Retirar"
 
 #. Context: Cash activity page › title
-#: uvalu/pages_/cash.py:95
+#: uvalu/pages_/cash.py:97
 msgid "Cash activity"
 msgstr "Movimientos de efectivo"
 
 #. Context: Cash activity › caption under the title
-#: uvalu/pages_/cash.py:96
+#: uvalu/pages_/cash.py:98
 #, python-brace-format
 msgid "Every movement in this portfolio's cash, converted to {currency}. The balance is the running sum of the ledger."
 msgstr "Cada movimiento del efectivo de esta cartera, convertido a {currency}. El saldo es la suma acumulada del libro de caja."
 
-#: uvalu/pages_/cash.py:103
+#: uvalu/pages_/cash.py:105
 msgid "Viewer · read-only"
 msgstr "Lector · solo lectura"
 
 #. Context: Cash activity › button to record a cash transaction
-#: uvalu/pages_/cash.py:104
+#: uvalu/pages_/cash.py:106
 msgid "Add transaction"
 msgstr "Añadir movimiento"
 
 #. Context: Cash activity › small text on the Cash balance card
-#: uvalu/pages_/cash.py:112
+#: uvalu/pages_/cash.py:114
 #, no-python-format, python-brace-format
 msgid "{pct}% of total portfolio value"
 msgstr "{pct} % del valor total"
 
 #. Context: Cash activity › KPI card label
-#: uvalu/pages_/cash.py:115
+#: uvalu/pages_/cash.py:117
 msgid "Net deposits"
 msgstr "Ingresos netos"
 
 #. Context: Cash activity › small text on the Net deposits card
-#: uvalu/pages_/cash.py:115
+#: uvalu/pages_/cash.py:117
 msgid "deposits − withdrawals"
 msgstr "ingresos − retiradas"
 
 #. Context: Cash activity › KPI card label: net cash from trading
-#: uvalu/pages_/cash.py:117
+#: uvalu/pages_/cash.py:119
 msgid "Trade flow"
 msgstr "Flujo de operaciones"
 
 #. Context: Cash activity › small text on the Trade flow card
-#: uvalu/pages_/cash.py:117
+#: uvalu/pages_/cash.py:119
 msgid "sells − buys, incl. fees"
 msgstr "ventas − compras, incl. comisiones"
 
 #. Context: Cash activity › small text on the Income card
-#: uvalu/pages_/cash.py:119
+#: uvalu/pages_/cash.py:121
 msgid "net dividends + interest"
 msgstr "dividendos netos + intereses"
 
 #. Context: Cash activity › KPI card label
-#: uvalu/pages_/cash.py:122
+#: uvalu/pages_/cash.py:124
 msgid "Fees & corrections"
 msgstr "Comisiones y correcciones"
 
 #. Context: Cash activity › small text on the Fees & corrections card
-#: uvalu/pages_/cash.py:123
+#: uvalu/pages_/cash.py:125
 #, python-brace-format
 msgid "excl. opening balance · {count} correction"
 msgid_plural "excl. opening balance · {count} corrections"
@@ -4765,68 +4814,68 @@ msgstr[0] "excl. saldo inicial · {count} corrección"
 msgstr[1] "excl. saldo inicial · {count} correcciones"
 
 #. Context: Cash activity › warning
-#: uvalu/pages_/cash.py:128
+#: uvalu/pages_/cash.py:130
 msgid "The running balance dips below zero somewhere in this ledger — usually after a dividend was edited or deleted. Record a deposit or an adjustment on that date to correct it."
 msgstr "El saldo acumulado baja de cero en algún punto de este libro, normalmente después de editar o eliminar un dividendo. Registra un ingreso o un ajuste en esa fecha para corregirlo."
 
 #. Context: Cash activity › empty state
-#: uvalu/pages_/cash.py:133
+#: uvalu/pages_/cash.py:135
 msgid "No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."
 msgstr "Todavía no hay movimientos de efectivo. Registra un ingreso o un Ajuste para fijar un saldo inicial. Las compras nunca esperan al efectivo: cualquier falta se cubre con un ingreso de recarga automático."
 
 #. Context: Cash activity › label of the transaction-type filter
-#: uvalu/pages_/cash.py:138
+#: uvalu/pages_/cash.py:140
 msgid "Filter"
 msgstr "Filtro"
 
 #. Context: Cash activity › count above the ledger
-#: uvalu/pages_/cash.py:143
+#: uvalu/pages_/cash.py:145
 #, python-brace-format
 msgid "{shown} of {total} entries"
 msgstr "{shown} de {total} movimientos"
 
 #. Context: Cash activity › empty state when the filter matches nothing
-#: uvalu/pages_/cash.py:146
+#: uvalu/pages_/cash.py:148
 msgid "No entries of this type."
 msgstr "No hay movimientos de este tipo."
 
 #. Context: Cash activity › button under the ledger to load more rows
-#: uvalu/pages_/cash.py:160
+#: uvalu/pages_/cash.py:162
 #, python-brace-format
 msgid "Show {more} more · {hidden} not shown"
 msgstr "Mostrar {more} más · {hidden} ocultos"
 
 #. Context: Dashboard › heading of the empty state for a new user
-#: uvalu/pages_/dashboard.py:51
+#: uvalu/pages_/dashboard.py:52
 msgid "No portfolio yet"
 msgstr "Todavía no tienes cartera"
 
-#: uvalu/pages_/dashboard.py:52
+#: uvalu/pages_/dashboard.py:53
 msgid "Browse the screener to explore stocks and their model valuations, or import an existing Excel portfolio in Settings."
 msgstr "Explora el screener para ver acciones y sus valoraciones según los modelos, o importa una cartera de Excel existente en Ajustes."
 
 #. Context: Dashboard › empty state link to the Screener page
-#: uvalu/pages_/dashboard.py:54
+#: uvalu/pages_/dashboard.py:55
 msgid "Open screener"
 msgstr "Abrir el screener"
 
 #. Context: Dashboard › empty state link; also the Settings › Import & export
 #. row title
-#: uvalu/pages_/dashboard.py:55 uvalu/pages_/settings.py:859
+#: uvalu/pages_/dashboard.py:56 uvalu/pages_/settings.py:859
 msgid "Import portfolio"
 msgstr "Importar cartera"
 
 #. Context: Dashboard › notice when there are no positions
-#: uvalu/pages_/dashboard.py:60
+#: uvalu/pages_/dashboard.py:61
 msgid "Your portfolio is empty."
 msgstr "Tu cartera está vacía."
 
 #. Context: Dashboard › page heading
-#: uvalu/pages_/dashboard.py:177
+#: uvalu/pages_/dashboard.py:178
 msgid "Portfolio overview"
 msgstr "Resumen de la cartera"
 
-#: uvalu/pages_/dashboard.py:178
+#: uvalu/pages_/dashboard.py:179
 #, python-brace-format
 msgid "{positions} across {count} European exchange · valued against a model fair-value estimate."
 msgid_plural "{positions} across {count} European exchanges · valued against a model fair-value estimate."
@@ -4834,96 +4883,97 @@ msgstr[0] "{positions} en {count} bolsa europea · valoradas frente a un valor r
 msgstr[1] "{positions} en {count} bolsas europeas · valoradas frente a un valor razonable estimado por el modelo."
 
 #. Context: Dashboard › button to reload prices and data
-#: uvalu/pages_/dashboard.py:184
+#: uvalu/pages_/dashboard.py:185
 msgid "Refresh"
 msgstr "Actualizar"
 
 #. Context: Dashboard › KPI card label: current market value of the portfolio
 #. incl. cash
-#: uvalu/pages_/dashboard.py:211
+#: uvalu/pages_/dashboard.py:212
 msgid "Current value"
 msgstr "Valor actual"
 
-#: uvalu/pages_/dashboard.py:212
+#: uvalu/pages_/dashboard.py:213
 #, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "posiciones {holdings} + efectivo {cash}"
 
-#: uvalu/pages_/dashboard.py:214
+#: uvalu/pages_/dashboard.py:215
 msgid "holdings, no cash recorded"
 msgstr "posiciones, sin efectivo registrado"
 
 #. Context: Dashboard › small text on the Cash card: cash share of total value,
 #. excluded from risk metrics
-#: uvalu/pages_/dashboard.py:217
+#: uvalu/pages_/dashboard.py:218
 msgid "of total value · not in risk"
 msgstr "del valor total · fuera del riesgo"
 
 #. Context: Stock preview tile and Dashboard KPI card › total return including
 #. dividends
-#: uvalu/pages_/dashboard.py:219
+#: uvalu/pages_/dashboard.py:220
 msgid "Total return"
 msgstr "Rentabilidad total"
 
-#: uvalu/pages_/dashboard.py:221
+#: uvalu/pages_/dashboard.py:222
 msgid "open positions: unrealised + dividends"
 msgstr "posiciones abiertas: G/P no realizada + dividendos"
 
 #. Context: Dashboard › KPI card label: expected dividend income for the next
 #. year
-#: uvalu/pages_/dashboard.py:225
+#: uvalu/pages_/dashboard.py:226
 msgid "Fwd income / yr"
 msgstr "Ingresos previstos / año"
 
 #. Context: Dashboard › small text on the income card: weighted yield across
 #. holdings
-#: uvalu/pages_/dashboard.py:226
+#: uvalu/pages_/dashboard.py:227
 msgid "blended yield"
 msgstr "rentabilidad media ponderada"
 
 #. Context: Dashboard KPI card label and Portfolio › Dividends received card
 #. heading
-#: uvalu/pages_/dashboard.py:228 uvalu/pages_/portfolio.py:406
+#: uvalu/pages_/dashboard.py:229 uvalu/pages_/portfolio.py:409
+#: uvalu/pages_/portfolio.py:410
 msgid "Dividends received"
 msgstr "Dividendos recibidos"
 
 #. Context: Dashboard › KPI card label: average margin of safety across
 #. holdings
-#: uvalu/pages_/dashboard.py:235
+#: uvalu/pages_/dashboard.py:236
 msgid "Avg margin of safety"
 msgstr "Margen de seguridad medio"
 
-#: uvalu/pages_/dashboard.py:236
+#: uvalu/pages_/dashboard.py:237
 msgid "model"
 msgstr "modelo"
 
-#: uvalu/pages_/dashboard.py:236
+#: uvalu/pages_/dashboard.py:237
 msgid "weighted MoS"
 msgstr "margen ponderado"
 
 #. Context: Dashboard › label of the time-range switch above the value chart
 #. (1M, 3M, 1Y, All)
-#: uvalu/pages_/dashboard.py:272
+#: uvalu/pages_/dashboard.py:273
 msgid "Range"
 msgstr "Periodo"
 
 #. Context: Dashboard › portfolio value chart range button: last month. Keep it
 #. this short (number + one-letter unit), like '1M' in English.
-#: uvalu/pages_/dashboard.py:273
+#: uvalu/pages_/dashboard.py:274
 msgctxt "chart_range"
 msgid "1M"
 msgstr "1M"
 
 #. Context: Dashboard › portfolio value chart range button: last 3 months. Same
 #. short style as '1M'.
-#: uvalu/pages_/dashboard.py:274
+#: uvalu/pages_/dashboard.py:275
 msgctxt "chart_range"
 msgid "3M"
 msgstr "3M"
 
 #. Context: Dashboard › portfolio value chart range button: last year. Use your
 #. language's one-letter abbreviation for 'year' (e.g. 1J, 1A).
-#: uvalu/pages_/dashboard.py:275
+#: uvalu/pages_/dashboard.py:276
 msgctxt "chart_range"
 msgid "1Y"
 msgstr "1A"
@@ -4932,7 +4982,7 @@ msgstr "1A"
 #. deposits (not a return).
 #. Dashboard chart subtitle: the change shown is over the past month and includes
 #. deposits (not a return).
-#: uvalu/pages_/dashboard.py:291
+#: uvalu/pages_/dashboard.py:292
 msgid "Past month · incl. deposits"
 msgstr "Último mes · ingresos incluidos"
 
@@ -4940,7 +4990,7 @@ msgstr "Último mes · ingresos incluidos"
 #. deposits (not a return).
 #. Dashboard chart subtitle: the change shown is over the past 3 months and includes
 #. deposits (not a return).
-#: uvalu/pages_/dashboard.py:293
+#: uvalu/pages_/dashboard.py:294
 msgid "Past 3 months · incl. deposits"
 msgstr "Últimos 3 meses · ingresos incluidos"
 
@@ -4948,7 +4998,7 @@ msgstr "Últimos 3 meses · ingresos incluidos"
 #. deposits (not a return).
 #. Dashboard chart subtitle: the change shown is over the past year and includes
 #. deposits (not a return).
-#: uvalu/pages_/dashboard.py:295
+#: uvalu/pages_/dashboard.py:296
 msgid "Past year · incl. deposits"
 msgstr "Último año · ingresos incluidos"
 
@@ -4956,127 +5006,127 @@ msgstr "Último año · ingresos incluidos"
 #. deposits (not a return).
 #. Dashboard chart subtitle: the change shown is over the whole history and includes
 #. deposits (not a return).
-#: uvalu/pages_/dashboard.py:298
+#: uvalu/pages_/dashboard.py:299
 msgid "All time · incl. deposits"
 msgstr "Desde el inicio · ingresos incluidos"
 
 #. Context: Dashboard › chart card heading
-#: uvalu/pages_/dashboard.py:301 uvalu/pages_/dashboard.py:376
-#: uvalu/pages_/dashboard.py:381
+#: uvalu/pages_/dashboard.py:302 uvalu/pages_/dashboard.py:377
+#: uvalu/pages_/dashboard.py:382
 msgid "Portfolio value over time"
 msgstr "Valor de la cartera en el tiempo"
 
-#: uvalu/pages_/dashboard.py:307
+#: uvalu/pages_/dashboard.py:308
 msgid "Your holdings, without cash."
 msgstr "Tus posiciones, sin efectivo."
 
 #. Context: Dashboard › chart legend: line for the portfolio's market value
-#: uvalu/pages_/dashboard.py:325 uvalu/pages_/dashboard.py:363
+#: uvalu/pages_/dashboard.py:326 uvalu/pages_/dashboard.py:364
 msgid "Portfolio value"
 msgstr "Valor de la cartera"
 
 #. Context: Dashboard › chart legend: line for cumulative money invested
-#: uvalu/pages_/dashboard.py:328 uvalu/pages_/dashboard.py:365
+#: uvalu/pages_/dashboard.py:329 uvalu/pages_/dashboard.py:366
 msgid "Amount invested"
 msgstr "Importe invertido"
 
 #. Context: Dashboard › chart legend: what the same investments would be worth
 #. in the S&P 500
-#: uvalu/pages_/dashboard.py:333
+#: uvalu/pages_/dashboard.py:334
 msgid "S&P 500 (same invested)"
 msgstr "S&P 500 (misma inversión)"
 
 #. Context: Dashboard › chart legend: what the same investments would be worth
 #. in the Euro Stoxx 50
-#: uvalu/pages_/dashboard.py:338
+#: uvalu/pages_/dashboard.py:339
 msgid "Euro Stoxx 50 (same invested)"
 msgstr "Euro Stoxx 50 (misma inversión)"
 
 #. Context: Dashboard › label of the benchmark toggles above the chart
-#: uvalu/pages_/dashboard.py:369
+#: uvalu/pages_/dashboard.py:370
 msgid "Benchmarks"
 msgstr "Índices de referencia"
 
 #. Context: Dashboard › empty state of the value chart
-#: uvalu/pages_/dashboard.py:383
+#: uvalu/pages_/dashboard.py:384
 msgid "No history yet — it will appear after your first portfolio snapshot."
 msgstr "Todavía no hay historial: aparecerá tras la primera instantánea de tu cartera."
 
-#: uvalu/pages_/dashboard.py:388
+#: uvalu/pages_/dashboard.py:389
 msgid "Score & risk"
 msgstr "Puntuación y riesgo"
 
 #. Context: Dashboard › link-button to the Risk page
-#: uvalu/pages_/dashboard.py:391
+#: uvalu/pages_/dashboard.py:392
 msgid "Full analysis →"
 msgstr "Análisis completo →"
 
-#: uvalu/pages_/dashboard.py:459
+#: uvalu/pages_/dashboard.py:460
 msgid "Value-weighted mean of model scores across scored holdings. Describes the portfolio."
 msgstr "Media ponderada por valor de las puntuaciones del modelo de las posiciones puntuadas. Describe la cartera."
 
-#: uvalu/pages_/dashboard.py:461
+#: uvalu/pages_/dashboard.py:462
 #, python-brace-format
 msgid "{count} position fails a quality screen."
 msgid_plural "{count} positions fail a quality screen."
 msgstr[0] "{count} posición no supera un filtro de calidad."
 msgstr[1] "{count} posiciones no superan un filtro de calidad."
 
-#: uvalu/pages_/dashboard.py:473
+#: uvalu/pages_/dashboard.py:474
 msgid "Weighted composite score"
 msgstr "Puntuación compuesta ponderada"
 
-#: uvalu/pages_/dashboard.py:479
+#: uvalu/pages_/dashboard.py:480
 msgid "Not enough scored holdings for a weighted composite score."
 msgstr "No hay suficientes posiciones puntuadas para una puntuación compuesta ponderada."
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:494 uvalu/pages_/risk.py:289
+#: uvalu/pages_/dashboard.py:495 uvalu/pages_/risk.py:290
 msgid "Volatility"
 msgstr "Volatilidad"
 
 #. Context: Dashboard › risk snapshot label: largest peak-to-trough fall
-#: uvalu/pages_/dashboard.py:495
+#: uvalu/pages_/dashboard.py:496
 msgid "Max drawdown"
 msgstr "Caída máxima"
 
 #. Context: Dashboard › holdings table card heading
-#: uvalu/pages_/dashboard.py:513
+#: uvalu/pages_/dashboard.py:514
 msgid "Holdings · price vs fair value"
 msgstr "Posiciones · precio vs valor razonable"
 
 # "
-#: uvalu/pages_/dashboard.py:514
+#: uvalu/pages_/dashboard.py:515
 msgid "Each track runs from zero to the model fair-value estimate. Gap to the marker is the model margin of safety. Fair values are estimates."
 msgstr "Cada barra va de cero a la estimación de valor razonable del modelo. La distancia hasta la marca es el margen de seguridad del modelo. Los valores razonables son estimaciones."
 
 #. Context: Dashboard › Holdings card subtitle, second sentence: the signal column
 #. shows the shared model signal and ignores the user's own holdings.
-#: uvalu/pages_/dashboard.py:514
+#: uvalu/pages_/dashboard.py:515
 msgid "Model signals are the same for every user and don't take your holdings into account."
 msgstr "Las señales del modelo son las mismas para todos los usuarios y no tienen en cuenta tus posiciones."
 
 #. Context: Table column header: position weight in the portfolio (Dashboard,
 #. Portfolio, Risk)
-#: uvalu/pages_/dashboard.py:522 uvalu/pages_/dashboard.py:530
-#: uvalu/pages_/portfolio.py:58 uvalu/pages_/risk.py:33
+#: uvalu/pages_/dashboard.py:523 uvalu/pages_/dashboard.py:531
+#: uvalu/pages_/portfolio.py:59 uvalu/pages_/risk.py:34
 msgid "Weight"
 msgstr "Peso"
 
 #. Context: Dashboard › holdings table column: current market value
-#: uvalu/pages_/dashboard.py:523 uvalu/pages_/dashboard.py:531
+#: uvalu/pages_/dashboard.py:524 uvalu/pages_/dashboard.py:532
 msgid "Value"
 msgstr "Valor"
 
 #. Context: Dashboard › holdings table column: profit and loss (short)
-#: uvalu/pages_/dashboard.py:523 uvalu/pages_/dashboard.py:531
+#: uvalu/pages_/dashboard.py:524 uvalu/pages_/dashboard.py:532
 msgid "P&L"
 msgstr "G/P"
 
 #. Context: Dashboard › holdings table column: bar showing price against fair
 #. value
-#: uvalu/pages_/dashboard.py:530
+#: uvalu/pages_/dashboard.py:531
 msgid "Fair-value ladder"
 msgstr "Escala de valor razonable"
 
@@ -5084,66 +5134,66 @@ msgstr "Escala de valor razonable"
 #. standard signal tooltip follows it.
 #. Dashboard › Holdings table › tooltip on the "Model signal" column header; the
 #. standard signal tooltip follows it.
-#: uvalu/pages_/dashboard.py:534
+#: uvalu/pages_/dashboard.py:535
 msgid "Same for every user; it doesn't take your holdings into account."
 msgstr "Igual para todos los usuarios; no tiene en cuenta tus posiciones."
 
 #. Context: Dashboard › button under the holdings table
-#: uvalu/pages_/dashboard.py:595 uvalu/pages_/dashboard.py:737
+#: uvalu/pages_/dashboard.py:598 uvalu/pages_/dashboard.py:742
 msgid "View details"
 msgstr "Ver detalles"
 
 #. Context: Dashboard › empty state of holdings and dividends cards
-#: uvalu/pages_/dashboard.py:615 uvalu/pages_/dashboard.py:714
+#: uvalu/pages_/dashboard.py:618 uvalu/pages_/dashboard.py:717
 msgid "No screener data available for your holdings."
 msgstr "No hay datos del screener para tus posiciones."
 
 #. Context: Dashboard › card heading for the sector pie chart
-#: uvalu/pages_/dashboard.py:623
+#: uvalu/pages_/dashboard.py:626
 msgid "Sector allocation"
 msgstr "Distribución por sectores"
 
 #. Context: Dashboard › empty state of the allocation chart
-#: uvalu/pages_/dashboard.py:646
+#: uvalu/pages_/dashboard.py:649
 msgid "No data available for this breakdown."
 msgstr "No hay datos disponibles para este desglose."
 
 #. Context: Dashboard › card heading
-#: uvalu/pages_/dashboard.py:651
+#: uvalu/pages_/dashboard.py:654
 msgid "Upcoming dividends"
 msgstr "Próximos dividendos"
 
-#: uvalu/pages_/dashboard.py:656
+#: uvalu/pages_/dashboard.py:659
 #, python-brace-format
 msgid "{amount} / yr fwd"
 msgstr "{amount} / año previstos"
 
-#: uvalu/pages_/dashboard.py:707
+#: uvalu/pages_/dashboard.py:710
 msgid "Ex-date · payment"
 msgstr "Fecha ex · pago"
 
-#: uvalu/pages_/dashboard.py:707
+#: uvalu/pages_/dashboard.py:710
 msgid "Net est."
 msgstr "Neto estimado"
 
 #. Context: Dashboard › empty state of Upcoming dividends
-#: uvalu/pages_/dashboard.py:710
+#: uvalu/pages_/dashboard.py:713
 msgid "No upcoming ex-dividend dates in the next 30 days."
 msgstr "No hay fechas ex-dividendo en los próximos 30 días."
 
 #. Context: Dashboard › note when dividend dates haven't been downloaded yet
-#: uvalu/pages_/dashboard.py:712
+#: uvalu/pages_/dashboard.py:715
 msgid "Ex-dividend dates not yet in cache — click Refresh in the screener."
 msgstr "Las fechas ex-dividendo aún no están en caché: pulsa Actualizar en el screener."
 
 #. Context: Dashboard › card heading: biggest daily price changes in your
 #. holdings
-#: uvalu/pages_/dashboard.py:717
+#: uvalu/pages_/dashboard.py:720
 msgid "Top movers today"
 msgstr "Mayores movimientos de hoy"
 
 #. Context: Dashboard › empty state of Top movers
-#: uvalu/pages_/dashboard.py:744
+#: uvalu/pages_/dashboard.py:749
 msgid "No daily price data available."
 msgstr "No hay precios diarios disponibles."
 
@@ -5434,45 +5484,45 @@ msgid "Uvalu · Legal"
 msgstr "Uvalu · Legal"
 
 #. Context: Portfolio › column header: average purchase price per share
-#: uvalu/pages_/portfolio.py:55
+#: uvalu/pages_/portfolio.py:56
 msgid "Avg cost"
 msgstr "Precio medio"
 
 #. Context: Portfolio › KPI card label and table column: value at today's price
-#: uvalu/pages_/portfolio.py:56 uvalu/pages_/portfolio.py:303
+#: uvalu/pages_/portfolio.py:57 uvalu/pages_/portfolio.py:304
 msgid "Market value"
 msgstr "Valor de mercado"
 
 #. Context: Portfolio › column header: dividend income over the last 12 months
-#: uvalu/pages_/portfolio.py:57
+#: uvalu/pages_/portfolio.py:58
 msgid "Income 12m"
 msgstr "Ingresos 12m"
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:61
+#: uvalu/pages_/portfolio.py:58 uvalu/pages_/screener.py:61
 #: uvalu/pages_/watchlist.py:33
 msgid "Yield"
 msgstr "Rent. div."
 
 #. Context: Portfolio › column header: net yield on cost (dividend relative to
 #. purchase price)
-#: uvalu/pages_/portfolio.py:58
+#: uvalu/pages_/portfolio.py:59
 msgid "YoC net"
 msgstr "YoC neto"
 
 #. Context: Portfolio › empty state. 'Add position' must match the button
 #. label.
-#: uvalu/pages_/portfolio.py:203
+#: uvalu/pages_/portfolio.py:204
 msgid "Your portfolio is empty. Click Add position to record your first position."
 msgstr "Tu cartera está vacía. Pulsa Añadir posición para registrar tu primera posición."
 
 #. Context: Portfolio › caption under the page title
-#: uvalu/pages_/portfolio.py:259
+#: uvalu/pages_/portfolio.py:260
 msgid "Cost basis, market value and realised results across open and closed positions."
 msgstr "Coste de adquisición, valor de mercado y resultados realizados de las posiciones abiertas y cerradas."
 
 #. Context: Portfolio › small text on the Invested card
-#: uvalu/pages_/portfolio.py:301
+#: uvalu/pages_/portfolio.py:302
 #, python-brace-format
 msgid "{count} open position"
 msgid_plural "{count} open positions"
@@ -5480,17 +5530,17 @@ msgstr[0] "{count} posición abierta"
 msgstr[1] "{count} posiciones abiertas"
 
 #. Context: Portfolio › small text on the Market value card
-#: uvalu/pages_/portfolio.py:304
+#: uvalu/pages_/portfolio.py:305
 msgid "current holdings"
 msgstr "posiciones actuales"
 
 #. Context: Portfolio › small text on the Unrealised P&L card
-#: uvalu/pages_/portfolio.py:307
+#: uvalu/pages_/portfolio.py:308
 msgid "open positions"
 msgstr "posiciones abiertas"
 
 #. Context: Portfolio › small text on the Realised P&L card
-#: uvalu/pages_/portfolio.py:310
+#: uvalu/pages_/portfolio.py:311
 #, python-brace-format
 msgid "{count} closed trade"
 msgid_plural "{count} closed trades"
@@ -5499,66 +5549,67 @@ msgstr[1] "{count} operaciones cerradas"
 
 #. Context: Portfolio › KPI card label: dividends received in the last 12
 #. months
-#: uvalu/pages_/portfolio.py:312
+#: uvalu/pages_/portfolio.py:313
 msgid "Dividends (12m)"
 msgstr "Dividendos (12m)"
 
-#: uvalu/pages_/portfolio.py:313
+#: uvalu/pages_/portfolio.py:314
 #, python-brace-format
 msgid "net · {amount} gross"
 msgstr "neto · {amount} brutos"
 
-#: uvalu/pages_/portfolio.py:314
+#: uvalu/pages_/portfolio.py:315
 msgid "net"
 msgstr "neto"
 
 #. Context: Portfolio › card and full-page heading
-#: uvalu/pages_/portfolio.py:368 uvalu/pages_/portfolio.py:505
+#: uvalu/pages_/portfolio.py:370 uvalu/pages_/portfolio.py:372
+#: uvalu/pages_/portfolio.py:509
 msgid "Closed positions"
 msgstr "Posiciones cerradas"
 
 #. Context: Portfolio › small suffix after the 'Closed positions' heading
-#: uvalu/pages_/portfolio.py:368 uvalu/pages_/portfolio.py:506
+#: uvalu/pages_/portfolio.py:370 uvalu/pages_/portfolio.py:510
 msgid "· realised"
 msgstr "· realizado"
 
 #. Context: Portfolio › empty state of the Closed positions card
-#: uvalu/pages_/portfolio.py:401
+#: uvalu/pages_/portfolio.py:404
 msgid "No closed positions yet."
 msgstr "Todavía no hay posiciones cerradas."
 
-#: uvalu/pages_/portfolio.py:411
+#: uvalu/pages_/portfolio.py:415
 msgid "Position · paid"
 msgstr "Posición · pagado"
 
-#: uvalu/pages_/portfolio.py:411
+#: uvalu/pages_/portfolio.py:415
 msgid "Net / gross"
 msgstr "Neto / bruto"
 
 #. Context: Portfolio › empty state of Dividends received
-#: uvalu/pages_/portfolio.py:441
+#: uvalu/pages_/portfolio.py:445
 msgid "No dividends received yet."
 msgstr "Todavía no has recibido dividendos."
 
 #. Context: Portfolio › Closed positions button and dialog title: record a
 #. trade opened and closed elsewhere
-#: uvalu/pages_/portfolio.py:511
+#: uvalu/pages_/portfolio.py:515
 msgid "Add trade"
 msgstr "Añadir operación"
 
 #. Context: Portfolio › Closed positions full page empty state. 'Add trade'
 #. must match the button label.
-#: uvalu/pages_/portfolio.py:516
+#: uvalu/pages_/portfolio.py:520
 msgid "No closed positions yet. Sell a holding, or record an earlier trade with Add trade."
 msgstr "Aún no hay posiciones cerradas. Vende una posición o registra una operación anterior con Añadir operación."
 
 #. Context: Portfolio › Dividend log › loading message
-#: uvalu/pages_/portfolio.py:561
+#: uvalu/pages_/portfolio.py:565
 msgid "Checking market data for new dividends…"
 msgstr "Buscando nuevos dividendos en los datos de mercado…"
 
 #. Context: Portfolio › toast after the automatic dividend import
-#: uvalu/pages_/portfolio.py:564
+#: uvalu/pages_/portfolio.py:568
 #, python-brace-format
 msgid "Imported {count} dividend event from market data."
 msgid_plural "Imported {count} dividend events from market data."
@@ -5567,28 +5618,28 @@ msgstr[1] "{count} dividendos importados de los datos de mercado."
 
 #. Context: Portfolio › Dividend log full page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/pages_/portfolio.py:585
+#: uvalu/pages_/portfolio.py:589
 msgid "Dividend log"
 msgstr "Registro de dividendos"
 
 #. Context: Portfolio › Dividend log caption
-#: uvalu/pages_/portfolio.py:586
+#: uvalu/pages_/portfolio.py:590
 msgid "Per-holding dividend events. Auto-fetched from the market data source where dividend history is exposed; manual entry fills the gaps."
 msgstr "Dividendos por posición. Se obtienen automáticamente de la fuente de datos de mercado cuando el historial está disponible; la entrada manual cubre los huecos."
 
 #. Context: Portfolio › Dividend log empty state
-#: uvalu/pages_/portfolio.py:592
+#: uvalu/pages_/portfolio.py:596
 msgid "No dividend events yet. Add one with Add dividend — events for your held tickers are also fetched from market data where available."
 msgstr "Todavía no hay dividendos. Añade uno con Añadir dividendo; cuando es posible, los dividendos de tus posiciones también se obtienen de los datos de mercado."
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:608
+#: uvalu/pages_/portfolio.py:612
 msgid "Gross income · 12m"
 msgstr "Ingresos brutos · 12m"
 
 #. Context: Portfolio › dividend KPI and annual summary: number of dividend
 #. payments. Combined as '{events} · {holdings}'.
-#: uvalu/pages_/portfolio.py:609 uvalu/pages_/portfolio.py:704
+#: uvalu/pages_/portfolio.py:613 uvalu/pages_/portfolio.py:708
 #, python-brace-format
 msgid "{count} event"
 msgid_plural "{count} events"
@@ -5596,7 +5647,7 @@ msgstr[0] "{count} pago"
 msgstr[1] "{count} pagos"
 
 #. Context: Portfolio › dividend KPI: number of paying holdings
-#: uvalu/pages_/portfolio.py:610
+#: uvalu/pages_/portfolio.py:614
 #, python-brace-format
 msgid "{count} holding"
 msgid_plural "{count} holdings"
@@ -5605,231 +5656,231 @@ msgstr[1] "{count} posiciones"
 
 #. Context: Portfolio › Dividend log KPI card label: total withholding tax over
 #. 12 months
-#: uvalu/pages_/portfolio.py:612
+#: uvalu/pages_/portfolio.py:616
 msgid "Withholding · 12m"
 msgstr "Retenciones · 12m"
 
 #. Context: Portfolio › small text on the Withholding card: foreign withholding
 #. and 30% Belgian withholding tax amounts
-#: uvalu/pages_/portfolio.py:613
+#: uvalu/pages_/portfolio.py:617
 #, no-python-format, python-brace-format
 msgid "{foreign} foreign · {belgian} BE 30%"
 msgstr "{foreign} extranjera · {belgian} BE 30 %"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:616
+#: uvalu/pages_/portfolio.py:620
 msgid "Net income · 12m"
 msgstr "Ingresos netos · 12m"
 
 #. Context: Portfolio › small text on the Net income card
-#: uvalu/pages_/portfolio.py:616
+#: uvalu/pages_/portfolio.py:620
 msgid "after all withholding"
 msgstr "después de todas las retenciones"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:618
+#: uvalu/pages_/portfolio.py:622
 msgid "Net yield"
 msgstr "Rentabilidad neta"
 
 #. Context: Portfolio › small text on the Net yield card
-#: uvalu/pages_/portfolio.py:619
+#: uvalu/pages_/portfolio.py:623
 msgid "on market value"
 msgstr "sobre el valor de mercado"
 
 #. Context: Portfolio › Dividend log KPI card label
-#: uvalu/pages_/portfolio.py:621
+#: uvalu/pages_/portfolio.py:625
 msgid "Net yield-on-cost"
 msgstr "Rentabilidad neta sobre coste"
 
 #. Context: Portfolio › small text on the Net yield-on-cost card
-#: uvalu/pages_/portfolio.py:622
+#: uvalu/pages_/portfolio.py:626
 msgid "weighted, remaining cost basis"
 msgstr "ponderado, coste de adquisición restante"
 
 #. Context: Portfolio › Dividend log › withholding note: no foreign withholding
 #. under a tax treaty
-#: uvalu/pages_/portfolio.py:645
+#: uvalu/pages_/portfolio.py:649
 msgid "no treaty WH"
 msgstr "sin retención por convenio"
 
 #. Context: Portfolio › card heading: per-year dividend totals
-#: uvalu/pages_/portfolio.py:673
+#: uvalu/pages_/portfolio.py:677
 msgid "Annual dividend income summary"
 msgstr "Resumen anual de dividendos"
 
-#: uvalu/pages_/portfolio.py:675
+#: uvalu/pages_/portfolio.py:679
 msgid "Estimate under Belgian rules · gross and net shown separately."
 msgstr "Estimación según las normas belgas · bruto y neto se muestran por separado."
 
 #. Context: Portfolio › annual summary empty state
-#: uvalu/pages_/portfolio.py:678
+#: uvalu/pages_/portfolio.py:682
 msgid "No dividend history to summarise yet."
 msgstr "Todavía no hay historial de dividendos que resumir."
 
 #. Context: Portfolio › annual summary column header
-#: uvalu/pages_/portfolio.py:692
+#: uvalu/pages_/portfolio.py:696
 msgid "Year"
 msgstr "Año"
 
 #. Context: Portfolio › annual summary: marks the current, unfinished year
-#: uvalu/pages_/portfolio.py:697
+#: uvalu/pages_/portfolio.py:701
 msgid "year to date"
 msgstr "en lo que va de año"
 
 #. Context: Portfolio › annual summary: marks a completed year
-#: uvalu/pages_/portfolio.py:697
+#: uvalu/pages_/portfolio.py:701
 msgid "full year"
 msgstr "año completo"
 
 #. Context: Risk page › note under the Mkt-RF factor bar
-#: uvalu/pages_/risk.py:23
+#: uvalu/pages_/risk.py:24
 msgid "Market sensitivity"
 msgstr "Sensibilidad al mercado"
 
 #. Context: Risk page › note under the SMB factor bar
-#: uvalu/pages_/risk.py:24
+#: uvalu/pages_/risk.py:25
 msgid "Small vs large cap tilt"
 msgstr "Sesgo baja vs alta capitalización"
 
 #. Context: Risk page › note under the HML factor bar
-#: uvalu/pages_/risk.py:25
+#: uvalu/pages_/risk.py:26
 msgid "Value vs growth tilt"
 msgstr "Sesgo valor vs crecimiento"
 
 #. Context: Risk page › note under the RMW factor bar
-#: uvalu/pages_/risk.py:26
+#: uvalu/pages_/risk.py:27
 msgid "Profitability tilt"
 msgstr "Sesgo rentabilidad"
 
 #. Context: Risk page › note under the CMA factor bar
-#: uvalu/pages_/risk.py:27
+#: uvalu/pages_/risk.py:28
 msgid "Investment conservatism tilt"
 msgstr "Sesgo inversión conservadora"
 
 #. Context: Risk page › note under the WML factor bar
-#: uvalu/pages_/risk.py:28
+#: uvalu/pages_/risk.py:29
 msgid "Momentum tilt"
 msgstr "Sesgo momento"
 
 #. Context: Risk page › table column header: volatility (short)
-#: uvalu/pages_/risk.py:33
+#: uvalu/pages_/risk.py:34
 msgid "Vol"
 msgstr "Vol."
 
 #. Context: Risk page › table column header
-#: uvalu/pages_/risk.py:33
+#: uvalu/pages_/risk.py:34
 msgid "Contribution to risk"
 msgstr "Contribución al riesgo"
 
-#: uvalu/pages_/risk.py:34
+#: uvalu/pages_/risk.py:35
 msgid "Position risk"
 msgstr "Riesgo de la posición"
 
 #. Context: Risk page › factor loading level above Moderate
-#: uvalu/pages_/risk.py:106
+#: uvalu/pages_/risk.py:107
 msgid "Elevated"
 msgstr "Elevado"
 
 #. Context: Risk page › card heading
-#: uvalu/pages_/risk.py:122 uvalu/pages_/risk.py:317
+#: uvalu/pages_/risk.py:123 uvalu/pages_/risk.py:318
 msgid "Risk factor breakdown"
 msgstr "Desglose de factores de riesgo"
 
 #. Context: Risk page › card heading
-#: uvalu/pages_/risk.py:126 uvalu/pages_/risk.py:351
+#: uvalu/pages_/risk.py:127 uvalu/pages_/risk.py:352
 msgid "Concentration"
 msgstr "Concentración"
 
 #. Context: Risk page › note above the metrics when you hold cash
-#: uvalu/pages_/risk.py:169
+#: uvalu/pages_/risk.py:170
 #, no-python-format, python-brace-format
 msgid "Risk metrics cover the invested portion only ({invested}). Cash of {cash}, {pct}% of total value, is excluded from HHI, VaR, CVaR, factor exposure and Monte Carlo."
 msgstr "Las métricas de riesgo solo cubren la parte invertida ({invested}). El efectivo de {cash}, un {pct} % del valor total, se excluye del HHI, VaR, CVaR, exposición a factores y Monte Carlo."
 
 #. Context: Risk page › button to open the Cash activity page
-#: uvalu/pages_/risk.py:171
+#: uvalu/pages_/risk.py:172
 msgid "View cash activity"
 msgstr "Ver movimientos de efectivo"
 
 #. Context: Risk page › shown when there are no positions
-#: uvalu/pages_/risk.py:180
+#: uvalu/pages_/risk.py:181
 msgid "No portfolio loaded. Add positions in the Portfolio tab first."
 msgstr "No hay ninguna cartera cargada. Añade primero posiciones en la pestaña Cartera."
 
 #. Context: Risk page › title
-#: uvalu/pages_/risk.py:187
+#: uvalu/pages_/risk.py:188
 msgid "Risk assessment"
 msgstr "Evaluación del riesgo"
 
 #. Context: Risk page › caption under the title
-#: uvalu/pages_/risk.py:188
+#: uvalu/pages_/risk.py:189
 msgid "Factor exposures, concentration and per-holding risk contribution across the portfolio."
 msgstr "Exposición a factores, concentración y contribución al riesgo de cada posición de la cartera."
 
-#: uvalu/pages_/risk.py:198
+#: uvalu/pages_/risk.py:199
 msgid "These figures describe the portfolio and do not suggest changes to it."
 msgstr "Estas cifras describen la cartera y no sugieren cambios en ella."
 
 #. Context: Risk page › error; {error} is technical (stays English)
-#: uvalu/pages_/risk.py:230
+#: uvalu/pages_/risk.py:231
 #, python-brace-format
 msgid "Risk assessment failed: {error}"
 msgstr "La evaluación del riesgo ha fallado: {error}"
 
 #. Context: Risk page › Beta tile subtitle when the regression beta differs,
 #. e.g. 'Market-like · regression 1.12'
-#: uvalu/pages_/risk.py:281
+#: uvalu/pages_/risk.py:282
 #, python-brace-format
 msgid "{label} · regression {value}"
 msgstr "{label} · regresión {value}"
 
 #. Context: Risk page › metric tile label (shown uppercase)
-#: uvalu/pages_/risk.py:291
+#: uvalu/pages_/risk.py:292
 msgid "Max drawdown (1Y)"
 msgstr "Caída máxima (1A)"
 
 #. Context: Risk page › metric tile label: Sharpe ratio (shown uppercase)
-#: uvalu/pages_/risk.py:293
+#: uvalu/pages_/risk.py:294
 msgid "Sharpe"
 msgstr "Sharpe"
 
 #. Context: Risk page › metric tile label: 1-day Value-at-Risk at 95% (shown
 #. uppercase)
-#: uvalu/pages_/risk.py:294
+#: uvalu/pages_/risk.py:295
 #, no-python-format
 msgid "VaR 95% (1D)"
 msgstr "VaR 95 % (1D)"
 
-#: uvalu/pages_/risk.py:295
+#: uvalu/pages_/risk.py:296
 #, no-python-format
 msgid "Estimated 1-day loss exceeded on 5% of days"
 msgstr "Pérdida estimada a 1 día superada el 5 % de los días"
 
 #. Context: Risk page › metric tile label: Herfindahl index of sector
 #. concentration (shown uppercase)
-#: uvalu/pages_/risk.py:296
+#: uvalu/pages_/risk.py:297
 msgid "Sector HHI"
 msgstr "HHI sectorial"
 
 #. Context: Risk page › factor data set name, e.g. 'Developed 5-factor +
 #. momentum set'
-#: uvalu/pages_/risk.py:338
+#: uvalu/pages_/risk.py:339
 #, python-brace-format
 msgid "{name} 5-factor + momentum set"
 msgstr "Conjunto {name} de 5 factores + momento"
 
 #. Context: Risk page › factor data date
-#: uvalu/pages_/risk.py:340
+#: uvalu/pages_/risk.py:341
 #, python-brace-format
 msgid "as of {date}"
 msgstr "a {date}"
 
 #. Context: Risk page › factor data note: using a saved copy
-#: uvalu/pages_/risk.py:342
+#: uvalu/pages_/risk.py:343
 msgid "cached — source unreachable"
 msgstr "en caché: fuente no disponible"
 
-#: uvalu/pages_/risk.py:344
+#: uvalu/pages_/risk.py:345
 #, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
@@ -5838,90 +5889,90 @@ msgid ""
 msgstr "Exposiciones a los factores Fama-French{details}. Una exposición superior a {high} o inferior a {low} indica que la cartera depende mucho de ese factor; por debajo de {small} en cualquier sentido apenas depende de él."
 
 #. Context: Risk page › shown instead of the factor bars
-#: uvalu/pages_/risk.py:348
+#: uvalu/pages_/risk.py:349
 msgid "Factor analysis unavailable."
 msgstr "Análisis de factores no disponible."
 
 #. Context: Risk page › concentration bar label with the sector name
-#: uvalu/pages_/risk.py:363
+#: uvalu/pages_/risk.py:364
 #, python-brace-format
 msgid "Largest sector — {sector}"
 msgstr "Mayor sector: {sector}"
 
 #. Context: Risk page › concentration bar label
-#: uvalu/pages_/risk.py:364
+#: uvalu/pages_/risk.py:365
 msgid "Largest sector"
 msgstr "Mayor sector"
 
 #. Context: Risk page › concentration bar label
-#: uvalu/pages_/risk.py:366
+#: uvalu/pages_/risk.py:367
 msgid "Top 3 positions"
 msgstr "3 mayores posiciones"
 
 #. Context: Risk page › concentration bar label: biggest single holding
-#: uvalu/pages_/risk.py:368
+#: uvalu/pages_/risk.py:369
 msgid "Largest single name"
 msgstr "Mayor posición individual"
 
-#: uvalu/pages_/risk.py:387
+#: uvalu/pages_/risk.py:388
 #, no-python-format, python-brace-format
 msgid "{ticker} at {weight} is above the model's 15% single-name reference level"
 msgstr "{ticker} con un {weight} está por encima del nivel de referencia del modelo del 15 % por posición individual"
 
-#: uvalu/pages_/risk.py:390
+#: uvalu/pages_/risk.py:391
 #, no-python-format, python-brace-format
 msgid "{sector} at {weight} is above the model's 30% sector reference level"
 msgstr "{sector} con un {weight} está por encima del nivel de referencia sectorial del modelo del 30 %"
 
-#: uvalu/pages_/risk.py:393
+#: uvalu/pages_/risk.py:394
 #, no-python-format, python-brace-format
 msgid "{country} at {weight} is above the model's 60% country reference level"
 msgstr "{country} con un {weight} está por encima del nivel de referencia por país del modelo del 60 %"
 
-#: uvalu/pages_/risk.py:398
+#: uvalu/pages_/risk.py:399
 #, no-python-format
 msgid "No single name is above 15% of the invested portfolio, no sector above 30% and no country above 60% (model reference levels)."
 msgstr "Ninguna posición individual supera el 15 % de la cartera invertida, ningún sector el 30 % y ningún país el 60 % (niveles de referencia del modelo)."
 
-#: uvalu/pages_/risk.py:421
+#: uvalu/pages_/risk.py:422
 msgid "Risk contribution by holding"
 msgstr "Contribución al riesgo por posición"
 
 #. Context: Risk page › caption under the contribution table
-#: uvalu/pages_/risk.py:470
+#: uvalu/pages_/risk.py:473
 msgid "Percent contribution to portfolio variance — each holding's weight × its marginal contribution, from its own volatility and its correlation to the rest of the book."
 msgstr "Contribución porcentual a la varianza de la cartera: el peso de cada posición × su contribución marginal, según su propia volatilidad y su correlación con el resto de la cartera."
 
 #. Context: Risk page › caption variant when data is short
-#: uvalu/pages_/risk.py:472
+#: uvalu/pages_/risk.py:475
 msgid "Weight × |beta| — not enough correlated return history this run for the full variance decomposition."
 msgstr "Peso × |beta|: esta vez no hay suficiente historial de rentabilidades correlacionadas para la descomposición completa de la varianza."
 
-#: uvalu/pages_/risk.py:477
+#: uvalu/pages_/risk.py:480
 msgid "Risk observations"
 msgstr "Observaciones de riesgo"
 
-#: uvalu/pages_/risk.py:479
+#: uvalu/pages_/risk.py:482
 msgid "Figures compared with the model reference levels, or with targets you set yourself. They describe the portfolio; they are not recommendations."
 msgstr "Cifras comparadas con los niveles de referencia del modelo o con objetivos que fijaste tú. Describen la cartera; no son recomendaciones."
 
-#: uvalu/pages_/risk.py:483
+#: uvalu/pages_/risk.py:486
 msgid "No figure is above a model reference level or away from a target you set."
 msgstr "Ninguna cifra supera un nivel de referencia del modelo ni se aparta de un objetivo que hayas fijado."
 
-#: uvalu/pages_/risk.py:488
+#: uvalu/pages_/risk.py:491
 msgid "Above reference"
 msgstr "Por encima de la referencia"
 
-#: uvalu/pages_/risk.py:489 uvalu/pages_/risk.py:492
+#: uvalu/pages_/risk.py:492 uvalu/pages_/risk.py:495
 msgid "Notice"
 msgstr "Aviso"
 
-#: uvalu/pages_/risk.py:493
+#: uvalu/pages_/risk.py:496
 msgid "your target"
 msgstr "tu objetivo"
 
-#: uvalu/pages_/risk.py:493
+#: uvalu/pages_/risk.py:496
 msgid "since last report"
 msgstr "desde el último informe"
 

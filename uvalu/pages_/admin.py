@@ -38,7 +38,7 @@ from auth import (ROLES, admin_request_password_reset, admin_reset_totp,
                   revoke_other_sessions, set_role, set_status, two_factor_status)
 from backup import list_backups, create_backup, get_backup_bytes, restore_backup
 from settings import load_shared_settings, save_shared_settings, ALL_EXCHANGES, EXCHANGE_LABELS
-from uvalu import logkit, nav as nav_registry, oauth
+from uvalu import a11y, logkit, nav as nav_registry, oauth
 from uvalu.data import _load_all_screener_data
 from uvalu.i18n import fmt_datetime
 from uvalu.runtime import current_user
@@ -330,7 +330,8 @@ def _render_users() -> None:
                                 if not _ok:
                                     st.toast(_msg, icon=":material/warning:")
                                 st.rerun()
-                        with _ac2:
+                        with _ac2, st.container(key=f"admin_more_{a11y.css_key(u['email'])}"):
+                            a11y.label(f"admin_more_{a11y.css_key(u['email'])}", f"More actions for {u['email']}")
                             with st.popover("", icon=":material/more_vert:", width=200):
                                 if st.button("Send password reset", key=f"admin_reset_pw_{u['email']}",
                                             width="stretch"):

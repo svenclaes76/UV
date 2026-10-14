@@ -165,8 +165,8 @@ GLOBAL_CSS = """
   /* AC1: the page body sits in app.py's uv_main container (role="main"),
      one level down; same gap between its sections. */
   .block-container .st-key-uv_main { gap: var(--uv-section-gap) !important; }
-  /* AC1: "Skip to content", the first focusable element (uvalu/shell.py
-     render_landmarks); off-screen until it has keyboard focus. */
+  /* AC1: "Skip to content", the first focusable element (uvalu/a11y.py);
+     off-screen until it has keyboard focus. */
   .uv-skip {
     position: fixed; left: 16px; top: -60px; z-index: 1000000;
     padding: 8px 14px; border-radius: 6px; border: 0.5px solid var(--line);

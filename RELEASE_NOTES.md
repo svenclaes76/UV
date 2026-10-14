@@ -24,7 +24,9 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 - **Easier with a screen reader or keyboard**: pages have proper headings
   and landmarks, a "Skip to content" link comes first when you press Tab,
-  and each browser tab shows the page name.
+  and each browser tab shows the page name. Buttons say what they do and to
+  which stock ("View Investor AB", "On the watchlist: …"), instead of
+  "star" or an icon's code name.
 
 ### Fixed
 

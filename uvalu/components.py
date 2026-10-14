@@ -15,6 +15,7 @@ import streamlit as st
 from risk import SCORE_LOW, SCORE_ELEVATED, risk_band
 from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
+from uvalu import a11y
 from uvalu.formatting import display_name, fmt_eur as _fmt_eur
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
                         pgettext, tr)
@@ -1102,6 +1103,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     clicking anywhere on the row (caller opens the drawer); `action` on the
     star (Screener: toggle watchlist membership); `remove` on the "×".
     """
+    # AC2: the star, "×" and "View" are named after the row's stock.
+    _who = a11y.stock_name(ticker, display_name(name))
     name = _name_html(name)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
@@ -1130,6 +1133,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
                 _action_clicked = st.button("★", key=f"{key}_action", type="tertiary",
                                             help=(_("Viewer role is read-only") if action_disabled else action_help),
                                             disabled=action_disabled)
+                a11y.label(f"{key}_action", _("On the watchlist: {stock}", stock=_who),
+                           pressed=bool(action_active))
             _i += 1
         else:
             _action_clicked = False
@@ -1215,7 +1220,9 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
                 _remove_clicked = st.button("×", key=f"{key}_remove", type="tertiary",
                                             help=(_("Viewer role is read-only") if action_disabled else remove_help),
                                             disabled=action_disabled)
+                a11y.label(f"{key}_remove", _("Remove {stock} from the watchlist", stock=_who))
         _view_clicked = st.button(_("View"), key=f"{key}_view", type="tertiary")
+        a11y.label(f"{key}_view", _("View {stock}", stock=_who))
     return {"view": _view_clicked, "action": _action_clicked, "remove": _remove_clicked}
 
 
@@ -1804,11 +1811,13 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                        f"text-align:right;'>{_weight_str}</span></div>", unsafe_allow_html=True)
         if show_edit:
             with _cols[_next + 1]:
+                a11y.label(f"{key}_edit", _("Edit position: {stock}", stock=a11y.stock_name(ticker, display_name(name))))
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit position"),
                                           disabled=edit_disabled)
         else:
             _edit_clicked = False
         _view_clicked = st.button(_("View"), key=f"{key}_view", type="tertiary")
+        a11y.label(f"{key}_view", _("View {stock}", stock=a11y.stock_name(ticker, display_name(name))))
     return {"view": _view_clicked, "edit": _edit_clicked}
 
 
@@ -1859,6 +1868,8 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
                        f"{_pct_str}</div></div>", unsafe_allow_html=True)
         if show_edit:
             with _cols[5]:
+                a11y.label(f"{key}_edit", _("Edit trade: {stock}, {date}",
+                                            stock=a11y.stock_name(ticker, display_name(name)), date=closed_date))
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit trade"),
                                           disabled=edit_disabled)
         else:
@@ -1944,6 +1955,8 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
 
         if show_edit:
             with _cols[_edit_col]:
+                a11y.label(f"{key}_edit", _("Edit dividend: {stock}, {date}",
+                                            stock=a11y.stock_name(ticker, display_name(name)), date=date))
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit dividend"),
                                           disabled=edit_disabled)
         else:
@@ -2049,6 +2062,8 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
         with _cols[0]:
             st.markdown(_html, unsafe_allow_html=True)
         with _cols[1]:
+            a11y.label(f"{key}_edit", _("Edit dividend: {stock}, {date}",
+                                        stock=a11y.stock_name(ticker, display_name(name)), date=pay_date))
             _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit dividend"),
                                       disabled=edit_disabled)
     return {"edit": _edit_clicked}
@@ -2221,6 +2236,10 @@ def cash_ledger_row(*, key: str, row: dict, base: str = "EUR", editable: bool,
         with _cols[0]:
             st.markdown(_cash_ledger_row_html(row, base), unsafe_allow_html=True)
         with _cols[1]:
+            import cash as _cash
+            _day = _cash.fmt_date(row["date"])
+            a11y.label(f"{key}_edit", _("Edit cash entry of {date}", date=_day) if editable
+                       else _("View the entry linked to the cash entry of {date}", date=_day))
             return st.button("✎", key=f"{key}_edit", type="tertiary", disabled=edit_disabled,
                              help=_("Edit entry") if editable else _("View linked entry"))
 

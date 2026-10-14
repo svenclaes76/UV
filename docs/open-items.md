@@ -154,13 +154,13 @@ glossary (TR3) should take over the new terms.
 From the accessibility review (13 October 2026,
 [`accessibility-review.md`](accessibility-review.md)). Uvalu is exempt from the
 EAA as a micro-enterprise; these are for real users and for later. AC1 and AC4
-done 14 October 2026 (`feature/ac1-ac4-landmarks`); git history keeps their
-rows. The Admin page's own sidebar is not yet marked as navigation.
+done 14 October 2026 (`feature/ac1-ac4-landmarks`), AC3 and the button
+half of AC2 the same day (`feature/ac2-ac3-row-buttons`); git history keeps
+their rows. The Admin page's own sidebar is not yet marked as navigation.
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| AC2 | **Row buttons and tables:** 50 "★" and 25 "View" buttons on the Screener without the stock name or state; grids have no table semantics. `aria-label`/`aria-pressed` per row, `role=table`/`aria-sort`. | Paid launch |
-| AC3 | **Icon ligatures in button names** ("light_mode", "SC expand_more"): `aria-hidden` on icons, real labels on icon buttons. | Paid launch |
+| AC2 | **Tables (rest of AC2):** the row buttons have names and states (14 October 2026); the Screener, Holdings and Risk grids still have no table semantics. `role=table`/`row`/`cell` and `aria-sort` on the sort column, which needs the row markup reworked (Streamlit columns with a full-row overlay button). | Paid launch |
 | AC5 | **Primary button contrast:** white on Signal Teal is 4.18:1 at 12.5px; use the darker `--link` teal. | Paid launch |
 | AC6 | **Charts and status:** a summary sentence per chart, `aria-live` for loading and result counts. | Paid launch |
 | AC7 | **Accessibility statement** (target, known gaps, contact), then a specialist audit with screen readers, keyboard and 200% zoom. | Paid launch |

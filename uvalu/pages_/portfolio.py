@@ -21,6 +21,7 @@ from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
                        ensure_trade_ids, ensure_div_ids, save_div_hist,
                        strip_derived_columns, DERIVED_POSITION_COLS)
 from screener import get_fetch_progress, PORTFOLIO_FETCH
+from uvalu import a11y
 from uvalu.data import _fetch_prices_cached, _load_portfolio_scored, apply_live_prices
 from uvalu.dialogs import (add_position_dialog, add_dividend_dialog, add_closed_trade_dialog,
                            edit_position_dialog, edit_closed_trade_dialog, edit_dividend_dialog)
@@ -322,6 +323,7 @@ def render() -> None:
             with st.container(key="pf_panel_title_open_ov", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
                 st.markdown(_("Open positions"))
+                a11y.label("ov_open_expand", _("Open full page: {section}", section=_("Open positions")))
                 if st.button("", key="ov_open_expand", icon=":material/open_in_full:", help=_("Open full page")):
                     _goto("open")
             _ov_open_w, _ov_open_l, _ov_open_r = _layout(_OPEN_COLUMNS)
@@ -367,6 +369,7 @@ def render() -> None:
                                   horizontal_alignment="distribute"):
                     st.markdown(f'{h_("Closed positions")} <span style="font-size:12px;color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
                                unsafe_allow_html=True)
+                    a11y.label("ov_closed_expand", _("Open full page: {section}", section=_("Closed positions")))
                     if st.button("", key="ov_closed_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("closed")
                 _ov_closed_w, _ov_closed_l, _ov_closed_r = _layout(_CLOSED_COLUMNS)
@@ -404,6 +407,7 @@ def render() -> None:
                 with st.container(key="pf_panel_title_div_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
                     st.markdown(_("Dividends received"))
+                    a11y.label("ov_div_expand", _("Open full page: {section}", section=_("Dividends received")))
                     if st.button("", key="ov_div_expand", icon=":material/open_in_full:", help=_("Open full page")):
                         _goto("dividends")
                 # ~61px per weight unit in this half-width card; the amount
