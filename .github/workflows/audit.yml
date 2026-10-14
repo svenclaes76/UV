@@ -1,0 +1,38 @@
+# Dependency audit (SR7, docs/security-review.md): pip-audit checks every
+# production package in requirements-lock.txt against the PyPI/OSV advisory
+# database, and the lock is checked against requirements.txt. Runs when either
+# file changes, and weekly, because new advisories appear without any code
+# change. A failing run names the package and the fixed version: bump it in
+# requirements.txt, run `python tools/lock_requirements.py`, commit both.
+name: audit
+
+on:
+  push:
+    branches: [master]
+    paths: ["requirements.txt", "requirements-lock.txt", "tools/lock_requirements.py", ".github/workflows/audit.yml"]
+  pull_request:
+    paths: ["requirements.txt", "requirements-lock.txt", "tools/lock_requirements.py", ".github/workflows/audit.yml"]
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lock matches requirements.txt
+        run: python tools/lock_requirements.py --check
+      - name: Install pip-audit
+        run: pip install pip-audit==2.9.0
+      - name: Audit the production pins
+        # Every package is pinned in the lock, so nothing needs resolving.
+        run: pip-audit -r requirements-lock.txt --no-deps --disable-pip --progress-spinner off

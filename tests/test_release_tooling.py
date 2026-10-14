@@ -292,3 +292,10 @@ def test_notes_cli_public(capsys, monkeypatch, tmp_path):
     monkeypatch.setattr(release, "RELEASE_NOTES", p)
     assert release.main(["notes", "2026.10.1", "--public"]) == 0
     assert capsys.readouterr().out.startswith("See which version you're on.")
+
+
+def test_production_lock_matches_requirements():
+    """SR7: every runtime pin in requirements.txt has the same version in
+    requirements-lock.txt (regenerate with tools/lock_requirements.py)."""
+    from tools import lock_requirements
+    assert lock_requirements.mismatches() == []

@@ -205,6 +205,17 @@ def bootstrap_admin_from_env() -> tuple[bool, str] | None:
 _INVITE_TTL_DAYS = 7
 
 
+def _token_digest(token: str) -> str:
+    """SR7: invite and reset tokens are stored as their SHA-256, so a copy of
+    the user store can't be turned into working links. The tokens are 192-bit
+    random values, so a fast unsalted hash is enough (nothing to brute-force)."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _token_matches(stored, token: str) -> bool:
+    return bool(stored) and hmac.compare_digest(str(stored), _token_digest(token))
+
+
 def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tuple[bool, str, str | None]:
     """
     Create a pending Invited account and a one-time invite token. No outbound
@@ -235,7 +246,7 @@ def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tupl
         "last_active":   "",
         "password_changed_at": "",
         "linked_identities": [],
-        "invite_token":        token,
+        "invite_token":        _token_digest(token),
         "invite_token_expires": (now + timedelta(days=_INVITE_TTL_DAYS)).isoformat(),
         "invited_by":          invited_by,
     }
@@ -333,7 +344,7 @@ def get_pending_invite(token: str) -> dict | None:
     users = _load_users()
     now = datetime.now(timezone.utc)
     for email, user in users.items():
-        if user.get("invite_token") != token:
+        if not _token_matches(user.get("invite_token"), token):
             continue
         expires = user.get("invite_token_expires")
         if not expires or datetime.fromisoformat(expires) < now:
@@ -344,7 +355,8 @@ def get_pending_invite(token: str) -> dict | None:
 
 
 def find_pending_invite_by_email(email: str) -> dict | None:
-    """Same as get_pending_invite(), keyed by email instead of token.
+    """{email, role, invited_by} for a not-yet-expired invite, keyed by email
+    instead of token.
 
     Needed because Streamlit's st.login() redirects back to the app's home
     page, not the page (or query params) the user started from — so a
@@ -352,7 +364,9 @@ def find_pending_invite_by_email(email: str) -> dict | None:
     ?invite=<token> in the URL by the time the identity comes back.
     auth_wall()'s post-redirect handling falls back to this once oauth_login()
     finds no existing linked identity, rather than needing the token to
-    survive the round trip at all."""
+    survive the round trip at all. The token itself is only stored hashed
+    (SR7), so this returns none: accept the invite with
+    accept_invite_with_oauth_by_email()."""
     email = email.strip().lower()
     users = _load_users()
     user = users.get(email)
@@ -361,8 +375,8 @@ def find_pending_invite_by_email(email: str) -> dict | None:
     expires = user.get("invite_token_expires")
     if not expires or datetime.fromisoformat(expires) < datetime.now(timezone.utc):
         return None
-    return {"token": user["invite_token"], "role": user.get("role", "Analyst"),
-            "invited_by": user.get("invited_by", "")}
+    return {"email": email, "role": user.get("role", "Analyst"),
+            "invited_by": user.get("invited_by", ""), "consented": has_consent(user)}
 
 
 def accept_invite_with_password(token: str, password: str, user_agent: str = "") -> tuple[bool, str]:
@@ -398,7 +412,19 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
     setting a password. The signed-in provider identity's email must match
     the address the invite was sent to — otherwise this would let anyone who
     knows (or guesses) an invite link claim it with an unrelated account."""
-    invite = get_pending_invite(token)
+    return _accept_invite_oauth(get_pending_invite(token), issuer, subject, oauth_email, user_agent)
+
+
+def accept_invite_with_oauth_by_email(issuer: str, subject: str, oauth_email: str,
+                                      user_agent: str = "") -> tuple[bool, str]:
+    """accept_invite_with_oauth() for the invite sent to the provider
+    identity's own email (see find_pending_invite_by_email())."""
+    return _accept_invite_oauth(find_pending_invite_by_email(oauth_email), issuer, subject,
+                                oauth_email, user_agent)
+
+
+def _accept_invite_oauth(invite: dict | None, issuer: str, subject: str, oauth_email: str,
+                         user_agent: str) -> tuple[bool, str]:
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
     email = invite["email"]
@@ -441,7 +467,7 @@ def admin_request_password_reset(email: str, requested_by: str = "") -> tuple[bo
 
     token = secrets.token_urlsafe(24)
     now = datetime.now(timezone.utc)
-    users[email]["reset_token"]         = token
+    users[email]["reset_token"]         = _token_digest(token)
     users[email]["reset_token_expires"] = (now + timedelta(minutes=_RESET_TTL_MINUTES)).isoformat()
     _save_users(users)
     logkit.data_mutation(actor=logkit.user_id(), action="user.request_password_reset",
@@ -457,7 +483,7 @@ def get_pending_reset(token: str) -> dict | None:
     users = _load_users()
     now = datetime.now(timezone.utc)
     for email, user in users.items():
-        if user.get("reset_token") != token:
+        if not _token_matches(user.get("reset_token"), token):
             continue
         expires = user.get("reset_token_expires")
         if not expires or datetime.fromisoformat(expires) < now:

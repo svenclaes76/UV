@@ -179,6 +179,17 @@ class TestExport:
         assert parsed.sheets == ["positions", "sold", "dividends", "cash", "watchlist"]
         assert len(parsed.cash) == 1
 
+    def test_formula_like_text_is_written_as_text(self):
+        """SR7: a note starting with = + - @ must not become a formula in Excel,
+        and must import back unchanged."""
+        note = '=HYPERLINK("http://example.com","x")'
+        cash.post_manual("Deposit", date(2024, 1, 2), 100, "EUR", note=note)
+        data = workbook.export_workbook(EMAIL)
+        cell = _book(data)["Cash"]["F2"]
+        assert cell.value == note and cell.data_type == "s"
+        parsed = workbook.parse_workbook(data)
+        assert [r["note"] for r in parsed.cash] == [note]
+
     def test_dividend_without_currency_exports_exchange_currency(self):
         portfolio.save_div_hist(pd.DataFrame([{"ticker": "ROG.SW", "shares": 8, "amount": 76.8,
                                                "date": "2024-03-20T00:00:00"}]))

@@ -21,7 +21,32 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Added
+
+- Production pins (SR7, docs/security-review.md): `requirements-lock.txt`
+  pins every runtime package, transitive ones included, for Linux and
+  Python 3.12; `tools/lock_requirements.py` regenerates it (`--check` for
+  CI). The server installs from it (docs/deployment.md §3 and Updating).
+- Dependency audit: `.github/workflows/audit.yml` runs `pip-audit` on the
+  lock when the requirements change and every Monday.
+
+### Changed
+
+- Invite and password-reset tokens are stored as their SHA-256 (SR7), so a
+  copy of the user store gives no working links. Invite links created
+  before this version stop working: send the invitation again. The
+  OAuth invite fallback now accepts by email
+  (`auth.accept_invite_with_oauth_by_email`), and
+  `find_pending_invite_by_email` no longer returns the token.
+
 ### Fixed
+
+- Excel export: text starting with `= + - @` (a note, a watchlist name) is
+  written as text, not a formula, so opening an export can't run it (SR7).
+- Dependencies with published advisories, found by the first pip-audit run:
+  Authlib 1.6.5 → 1.6.12 (OAuth state CSRF, JWS header injection, open
+  redirect), cryptography 48.0.1 → 50.0.0, PyJWT 2.13.0 → 2.15.0 (token
+  parsing and algorithm-confusion fixes). Restart the app after `pip install`.
 
 - Translations (TR1, docs/translation-review.md): French showed "Risque
   élevé" for both Elevated and High risk; Elevated is now "Risque accru",
