@@ -797,14 +797,14 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr "La croissance pondérée des dividendes de {dgr} est inférieure à la référence d'inflation du modèle de {ref}"
 
 #: risk.py:1627
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
 "{previous} at {date})"
 msgstr "Le ratio de Sharpe de {sharpe} est inférieur à {ref} dans deux rapports de risque consécutifs (il était de {previous} le {date})"
 
 #: risk.py:1633
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
 "was modest"
@@ -2025,7 +2025,7 @@ msgid "Ask for an invite"
 msgstr "Demande une invitation"
 
 #: uvalu/components.py:62
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "cours à {ratio}× la juste valeur"
 
@@ -4836,12 +4836,12 @@ msgid "Current value"
 msgstr "Valeur actuelle"
 
 #: uvalu/pages_/dashboard.py:212
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "positions {holdings} + liquidités {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#, fuzzy
+#
 msgid "holdings, no cash recorded"
 msgstr "positions, aucune liquidité enregistrée"
 
@@ -4858,7 +4858,7 @@ msgid "Total return"
 msgstr "Rendement total"
 
 #: uvalu/pages_/dashboard.py:221
-#, fuzzy
+#
 msgid "open positions: unrealised + dividends"
 msgstr "positions ouvertes : P/V latente + dividendes"
 
@@ -4960,7 +4960,7 @@ msgid "Portfolio value over time"
 msgstr "Évolution de la valeur du portefeuille"
 
 #: uvalu/pages_/dashboard.py:307
-#, fuzzy
+#
 msgid "Your holdings, without cash."
 msgstr "Tes positions, sans les liquidités."
 
@@ -5824,7 +5824,7 @@ msgid "cached — source unreachable"
 msgstr "en cache : source injoignable"
 
 #: uvalu/pages_/risk.py:344
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "

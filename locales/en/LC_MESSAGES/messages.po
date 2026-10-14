@@ -792,14 +792,14 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr "Weighted dividend growth {dgr} is below the model's {ref} inflation reference"
 
 #: risk.py:1627
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
 "{previous} at {date})"
 msgstr "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was {previous} at {date})"
 
 #: risk.py:1633
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
 "was modest"
@@ -2007,7 +2007,7 @@ msgid "Ask for an invite"
 msgstr "Ask for an invite"
 
 #: uvalu/components.py:62
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "price {ratio}× fair value"
 
@@ -4798,12 +4798,12 @@ msgid "Current value"
 msgstr "Current value"
 
 #: uvalu/pages_/dashboard.py:212
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "holdings {holdings} + cash {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#, fuzzy
+#
 msgid "holdings, no cash recorded"
 msgstr "holdings, no cash recorded"
 
@@ -4820,7 +4820,7 @@ msgid "Total return"
 msgstr "Total return"
 
 #: uvalu/pages_/dashboard.py:221
-#, fuzzy
+#
 msgid "open positions: unrealised + dividends"
 msgstr "open positions: unrealised + dividends"
 
@@ -4922,7 +4922,7 @@ msgid "Portfolio value over time"
 msgstr "Portfolio value over time"
 
 #: uvalu/pages_/dashboard.py:307
-#, fuzzy
+#
 msgid "Your holdings, without cash."
 msgstr "Your holdings, without cash."
 
@@ -5785,7 +5785,7 @@ msgid "cached — source unreachable"
 msgstr "cached — source unreachable"
 
 #: uvalu/pages_/risk.py:344
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "

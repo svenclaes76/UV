@@ -797,14 +797,14 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr "La crescita ponderata dei dividendi del {dgr} è sotto il riferimento di inflazione del modello del {ref}"
 
 #: risk.py:1627
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
 "{previous} at {date})"
 msgstr "L'indice di Sharpe di {sharpe} è sotto {ref} in due report di rischio consecutivi (era {previous} il {date})"
 
 #: risk.py:1633
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
 "was modest"
@@ -2025,7 +2025,7 @@ msgid "Ask for an invite"
 msgstr "Chiedi un invito"
 
 #: uvalu/components.py:62
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "prezzo pari a {ratio}× il valore equo"
 
@@ -4836,12 +4836,12 @@ msgid "Current value"
 msgstr "Valore attuale"
 
 #: uvalu/pages_/dashboard.py:212
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "posizioni {holdings} + liquidità {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#, fuzzy
+#
 msgid "holdings, no cash recorded"
 msgstr "posizioni, nessuna liquidità registrata"
 
@@ -4858,7 +4858,7 @@ msgid "Total return"
 msgstr "Rendimento totale"
 
 #: uvalu/pages_/dashboard.py:221
-#, fuzzy
+#
 msgid "open positions: unrealised + dividends"
 msgstr "posizioni aperte: P/L non realizzato + dividendi"
 
@@ -4960,7 +4960,7 @@ msgid "Portfolio value over time"
 msgstr "Valore del portafoglio nel tempo"
 
 #: uvalu/pages_/dashboard.py:307
-#, fuzzy
+#
 msgid "Your holdings, without cash."
 msgstr "Le tue posizioni, senza liquidità."
 
@@ -5824,7 +5824,7 @@ msgid "cached — source unreachable"
 msgstr "dalla cache: fonte non raggiungibile"
 
 #: uvalu/pages_/risk.py:344
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "

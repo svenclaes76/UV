@@ -797,14 +797,14 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr "El crecimiento ponderado del dividendo del {dgr} está por debajo de la referencia de inflación del modelo del {ref}"
 
 #: risk.py:1627
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
 "{previous} at {date})"
 msgstr "El ratio de Sharpe de {sharpe} está por debajo de {ref} en dos informes de riesgo consecutivos (era {previous} el {date})"
 
 #: risk.py:1633
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
 "was modest"
@@ -2025,7 +2025,7 @@ msgid "Ask for an invite"
 msgstr "Pide una invitación"
 
 #: uvalu/components.py:62
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "precio a {ratio}× el valor razonable"
 
@@ -4836,12 +4836,12 @@ msgid "Current value"
 msgstr "Valor actual"
 
 #: uvalu/pages_/dashboard.py:212
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "posiciones {holdings} + efectivo {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#, fuzzy
+#
 msgid "holdings, no cash recorded"
 msgstr "posiciones, sin efectivo registrado"
 
@@ -4858,7 +4858,7 @@ msgid "Total return"
 msgstr "Rentabilidad total"
 
 #: uvalu/pages_/dashboard.py:221
-#, fuzzy
+#
 msgid "open positions: unrealised + dividends"
 msgstr "posiciones abiertas: G/P no realizada + dividendos"
 
@@ -4960,7 +4960,7 @@ msgid "Portfolio value over time"
 msgstr "Valor de la cartera en el tiempo"
 
 #: uvalu/pages_/dashboard.py:307
-#, fuzzy
+#
 msgid "Your holdings, without cash."
 msgstr "Tus posiciones, sin efectivo."
 
@@ -5824,7 +5824,7 @@ msgid "cached — source unreachable"
 msgstr "en caché: fuente no disponible"
 
 #: uvalu/pages_/risk.py:344
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "

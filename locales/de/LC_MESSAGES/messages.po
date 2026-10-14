@@ -797,14 +797,14 @@ msgid "Weighted dividend growth {dgr} is below the model's {ref} inflation refer
 msgstr "Das gewichtete Dividendenwachstum von {dgr} liegt unter der Inflationsreferenz des Modells von {ref}"
 
 #: risk.py:1627
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
 "{previous} at {date})"
 msgstr "Die Sharpe Ratio von {sharpe} liegt in zwei aufeinanderfolgenden Risikoberichten unter {ref} (war {previous} am {date})"
 
 #: risk.py:1633
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
 "was modest"
@@ -2025,7 +2025,7 @@ msgid "Ask for an invite"
 msgstr "Bitte um eine Einladung"
 
 #: uvalu/components.py:62
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "price {ratio}× fair value"
 msgstr "Kurs: {ratio}× fairer Wert"
 
@@ -4836,12 +4836,12 @@ msgid "Current value"
 msgstr "Aktueller Wert"
 
 #: uvalu/pages_/dashboard.py:212
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "holdings {holdings} + cash {cash}"
 msgstr "Positionen {holdings} + Barmittel {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#, fuzzy
+#
 msgid "holdings, no cash recorded"
 msgstr "Positionen, keine Barmittel erfasst"
 
@@ -4858,7 +4858,7 @@ msgid "Total return"
 msgstr "Gesamtrendite"
 
 #: uvalu/pages_/dashboard.py:221
-#, fuzzy
+#
 msgid "open positions: unrealised + dividends"
 msgstr "offene Positionen: unrealisierter G/V + Dividenden"
 
@@ -4960,7 +4960,7 @@ msgid "Portfolio value over time"
 msgstr "Portfoliowert im Zeitverlauf"
 
 #: uvalu/pages_/dashboard.py:307
-#, fuzzy
+#
 msgid "Your holdings, without cash."
 msgstr "Deine Positionen, ohne Barmittel."
 
@@ -5824,7 +5824,7 @@ msgid "cached — source unreachable"
 msgstr "aus dem Cache – Quelle nicht erreichbar"
 
 #: uvalu/pages_/risk.py:344
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Fama-French factor loadings{details}. A loading above {high} or below {low} "
 "means the portfolio leans heavily on that factor; below {small} either way it "
