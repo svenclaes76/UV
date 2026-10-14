@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-14 10:49+0000\n"
-"PO-Revision-Date: 2026-10-14 08:51+0200\n"
+"PO-Revision-Date: 2026-10-14 12:59+0200\n"
 "Last-Translator: \n"
 "Language-Team: it <LL@li.org>\n"
 "Language: it\n"
@@ -55,8 +55,7 @@ msgstr "Analisi"
 msgid "Settings"
 msgstr "Impostazioni"
 
-#: app.py:110 uvalu/compliance/disclosures.py:93 uvalu/pages_/help.py:197
-#: uvalu/shell.py:435
+#: app.py:110 uvalu/compliance/disclosures.py:93 uvalu/pages_/help.py:197 uvalu/shell.py:435
 msgid "Methodology"
 msgstr "Metodologia"
 
@@ -110,17 +109,14 @@ msgid "Account created. You can now log in."
 msgstr "Account creato. Ora puoi accedere."
 
 #: auth.py:304 uvalu/authgate.py:422
-#, fuzzy
 msgid "Uvalu is open to residents of the European Economic Area only."
 msgstr "Uvalu è riservato ai residenti dello Spazio economico europeo."
 
 #: auth.py:376
-#, fuzzy
 msgid "Confirm the statements above before creating your account."
 msgstr "Conferma le dichiarazioni qui sopra prima di creare il tuo account."
 
 #: auth.py:406
-#, fuzzy
 msgid "Confirm the statements on the invitation page before creating your account."
 msgstr "Conferma le dichiarazioni nella pagina dell'invito prima di creare il tuo account."
 
@@ -143,8 +139,7 @@ msgstr "Impossibile leggere l'archivio utenti (chiave di cifratura errata o file
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:780 auth.py:800 auth.py:876 auth.py:1123 auth.py:1205 auth.py:1228
-#: auth.py:1254 auth.py:1443
+#: auth.py:780 auth.py:800 auth.py:876 auth.py:1123 auth.py:1205 auth.py:1228 auth.py:1254 auth.py:1443
 msgid "User not found."
 msgstr "Utente non trovato."
 
@@ -1603,12 +1598,7 @@ msgid "Use a backup code"
 msgstr "Usa un codice di backup"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:234 uvalu/authgate.py:252 uvalu/dialogs.py:304
-#: uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
-#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:406
-#: uvalu/pages_/settings.py:438 uvalu/pages_/settings.py:485
-#: uvalu/pages_/settings.py:528
+#: uvalu/authgate.py:234 uvalu/authgate.py:252 uvalu/dialogs.py:304 uvalu/dialogs.py:312 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:406 uvalu/pages_/settings.py:438 uvalu/pages_/settings.py:485 uvalu/pages_/settings.py:528
 msgid "Cancel"
 msgstr "Annulla"
 
@@ -1727,47 +1717,35 @@ msgid "Back to sign in"
 msgstr "Torna all'accesso"
 
 #: uvalu/authgate.py:416
-#, fuzzy
 msgid "Before you create your account, confirm the following."
 msgstr "Prima di creare il tuo account, conferma quanto segue."
 
 #: uvalu/authgate.py:420
-#, fuzzy
 msgid "Country of residence"
 msgstr "Paese di residenza"
 
 #: uvalu/authgate.py:421
-#, fuzzy
 msgid "Choose your country"
 msgstr "Scegli il tuo paese"
 
 #: uvalu/authgate.py:423
-#, fuzzy
 msgid "I am 18 or older."
 msgstr "Ho 18 anni o più."
 
 #: uvalu/authgate.py:424
-#, fuzzy, python-brace-format
-msgid ""
-"I have read the [Terms of use](/legal?doc=terms) ({terms_version}) and the "
-"[Privacy notice](/legal?doc=privacy) ({privacy_version})."
+#, python-brace-format
+msgid "I have read the [Terms of use](/legal?doc=terms) ({terms_version}) and the [Privacy notice](/legal?doc=privacy) ({privacy_version})."
 msgstr "Ho letto le [Condizioni d'uso](/legal?doc=terms) ({terms_version}) e l'[Informativa sulla privacy](/legal?doc=privacy) ({privacy_version})."
 
 #: uvalu/authgate.py:427
-#, fuzzy
-msgid ""
-"I understand that Uvalu gives no personal investment advice: scores and signals "
-"are the same for every user and don't take my situation into account (Terms of "
-"use, section 4)."
+msgid "I understand that Uvalu gives no personal investment advice: scores and signals are the same for every user and don't take my situation into account (Terms of use, section 4)."
 msgstr "Capisco che Uvalu non fornisce consulenza personalizzata in materia di investimenti: punteggi e segnali sono gli stessi per ogni utente e non tengono conto della mia situazione (Condizioni d'uso, sezione 4)."
 
 #: uvalu/authgate.py:430
-#, fuzzy
 msgid "Continue"
 msgstr "Continua"
 
 #: uvalu/authgate.py:434
-#, fuzzy
 msgid "Choose your country and confirm all three statements to continue."
 msgstr "Scegli il tuo paese e conferma tutte e tre le dichiarazioni per continuare."
 
@@ -1814,15 +1792,12 @@ msgstr "FISSATO DALL'INVITO"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:485 uvalu/authgate.py:542 uvalu/authgate.py:823
-#: uvalu/authgate.py:828 uvalu/authgate.py:869 uvalu/pages_/settings.py:589
-#: uvalu/pages_/settings.py:593
+#: uvalu/authgate.py:485 uvalu/authgate.py:542 uvalu/authgate.py:823 uvalu/authgate.py:828 uvalu/authgate.py:869 uvalu/pages_/settings.py:589 uvalu/pages_/settings.py:593
 msgid "Password"
 msgstr "Password"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:487 uvalu/authgate.py:544 uvalu/authgate.py:611
-#: uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
+#: uvalu/authgate.py:487 uvalu/authgate.py:544 uvalu/authgate.py:611 uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Almeno {min_len} caratteri."
@@ -2330,8 +2305,7 @@ msgid "Viewer role is read-only"
 msgstr "Il ruolo Lettore è di sola lettura"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1199 uvalu/components.py:1792 uvalu/pages_/risk.py:462
-#: uvalu/pages_/settings.py:1114
+#: uvalu/components.py:1199 uvalu/components.py:1792 uvalu/pages_/risk.py:462 uvalu/pages_/settings.py:1114
 msgid "View"
 msgstr "Vedi"
 
@@ -3967,8 +3941,7 @@ msgstr "La dichiarazione dei redditi resta sotto la tua responsabilità. Verific
 msgid "Privacy notice"
 msgstr "Informativa sulla privacy"
 
-#: uvalu/compliance/disclosures.py:94 uvalu/pages_/analysis.py:174
-#: uvalu/pages_/help.py:158 uvalu/pages_/help.py:278
+#: uvalu/compliance/disclosures.py:94 uvalu/pages_/analysis.py:174 uvalu/pages_/help.py:158 uvalu/pages_/help.py:278
 msgid "Data sources"
 msgstr "Fonti dei dati"
 
@@ -6063,8 +6036,7 @@ msgid "Type your email address to confirm"
 msgstr "Digita il tuo indirizzo email per confermare"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1046
-#: uvalu/pages_/settings.py:1050
+#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1046 uvalu/pages_/settings.py:1050
 msgid "Delete account"
 msgstr "Elimina account"
 
@@ -6707,7 +6679,7 @@ msgid "No-personal-advice acknowledgement"
 msgstr "Presa d'atto: nessuna consulenza personalizzata"
 
 #: uvalu/pages_/settings.py:1093
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Terms of use, section 4. You confirmed it on {date}."
 msgstr "Condizioni d'uso, sezione 4. L'hai confermato il {date}."
 
@@ -6730,7 +6702,7 @@ msgid "Effective from {date}."
 msgstr "In vigore dal {date}."
 
 #: uvalu/pages_/settings.py:1103
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "You accepted version {version} on {date}."
 msgstr "Hai accettato la versione {version} il {date}."
 
