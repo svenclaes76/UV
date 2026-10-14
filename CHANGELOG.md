@@ -21,6 +21,8 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.6] — 2026-10-14
+
 **Signals change** with model M2: the coverage is now home listings only,
 reported figures in another currency are converted before valuation, and a
 stability rule stops signals flipping on small score changes. M2 needs one
@@ -47,6 +49,13 @@ full 24-hour data refresh before every stock carries its reporting currency.
   incomplete data for many stocks or a build moves many signals.
 - Methodology pages: coverage, currency conversion, stability rule and the
   M2 change-log row.
+- Signal names: the middle band is now "Mid score" (was "Neutral", which
+  reads like an analyst rating) and a failed quality screen is now
+  "Screened out" (was "Fails quality screen"). The stored codes are
+  unchanged. Every signal is shown with a visible "Model signal" label, and
+  the Dashboard's holdings column is headed "Model signal" with a note that
+  signals are the same for every user. A test fails if a new screen shows a
+  signal without the label.
 - The model signal no longer appears next to your own position. On the
   Risk page, the last column of "Risk contribution by holding" is now
   "Position risk" and shows only the position's own risk rating (High or

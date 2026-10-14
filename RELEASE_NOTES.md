@@ -20,6 +20,51 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.6] — 2026-10-14
+
+**Signals change.** Uvalu now covers companies on their own home exchange
+only, values them in the right currency, and keeps signals steady when a score
+only wobbles. Signing in is safer too.
+
+### New
+
+- **A short confirmation when you join**: an invitation now starts with your
+  country of residence and three statements to confirm. Settings › Legal
+  documents shows what you accepted and when.
+
+### Improved
+
+- **A cleaner list of stocks**: the Screener covers companies from Belgium,
+  the Netherlands, France, Italy, Germany and Switzerland on their own home
+  exchange. Second listings of foreign companies and shares that don't trade
+  are gone, so each company appears once. A share you added or hold yourself
+  is still scored.
+- **Fair values in the right currency**: when a company reports in another
+  currency than its share price, for example a Swiss company reporting in
+  dollars, its figures are converted first. If no exchange rate is available,
+  the stock page says so and the stock isn't marked Undervalued.
+- **Steadier signals**: a stock keeps its signal until its score clearly
+  moves past the edge, and an incomplete data update no longer changes a
+  signal. The Methodology page explains the rule.
+- **Clearer signal names**: "Mid score" replaces "Neutral" and "Screened out"
+  replaces "Fails quality screen", and every signal is shown as a model
+  signal.
+- **Signals stay apart from your own position**: the Risk page's last column
+  is now "Position risk", your position's own rating. In the stock preview,
+  your shares, value and result are in their own "Your position" section.
+- **Privacy notice 1.4**, effective 28 October 2026: it covers the new
+  confirmation record and how account security works.
+
+### Fixed
+
+- **Safer sign-in**: two-step codes now count towards the account lock, a
+  code can't be used twice, and failed sign-ins no longer show whether an
+  email address has an account.
+- **Safer sign-in cookies**: other websites can't make your browser send
+  them.
+- **Names shown exactly as written**: company names, tickers and sectors are
+  always shown as plain text.
+
 ## [2026.10.5] — 2026-10-11
 
 Bring your portfolio in and take all your data out: restore or bulk-add from a
