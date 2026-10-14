@@ -28,6 +28,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   which stock ("View Investor AB", "On the watchlist: …"), instead of
   "star" or an icon's code name. Main buttons have a slightly darker green,
   so their text is easier to read.
+- **"Mid score" in French, Italian and Spanish** now says "intermediate"
+  instead of a word that also means "average".
 
 ### Fixed
 

@@ -1,10 +1,21 @@
 en,nl,fr,de,it,es,rule
-Fair value,Intrinsieke waarde,Juste valeur,Fairer Wert,Valore equo,Valor razonable,translate
-Composite fair value,Samengestelde intrinsieke waarde,Juste valeur composite,Kombinierter fairer Wert,Valore equo composito,Valor razonable compuesto,translate
+Fair value,Intrinsieke waarde,Juste valeur,Fairer Wert,Valore equo,Valor razonable,"translate; always with 'model' in labels. OPEN (TR2): nl says intrinsic value, fr/it/es use the IFRS accounting term; one concept for all languages to be decided with lawyer #1"
+Composite fair value,Samengestelde intrinsieke waarde,Juste valeur composite,Kombinierter fairer Wert,Valore equo composito,Valor razonable compuesto,translate; see Fair value (TR2)
 Margin of safety,Veiligheidsmarge,Marge de sécurité,Sicherheitsmarge,Margine di sicurezza,Margen de seguridad,translate
 MoS % (column),Marge %,Marge %,Marge %,Margine %,Margen %,short column header
 Composite score,Totaalscore,Score composite,Gesamtscore,Punteggio composito,Puntuación compuesta,translate
-Hard veto,Hard veto,Veto strict,Hartes Veto,Veto rigido,Veto estricto,translate
+Model signal,Modelsignaal,Signal du modèle,Modellsignal,Segnale del modello,Señal del modelo,"translate; every signal is shown as a model signal, never alone (L14)"
+Undervalued,Ondergewaardeerd,Sous-évalué,Unterbewertet,Sottovalutato,Infravalorado,translate; signal label (top band)
+Mid score,Middenscore,Score intermédiaire,Mittlerer Score,Punteggio intermedio,Puntuación intermedia,"translate; signal label (middle band). Not 'average': fr intermédiaire, it intermedio, es intermedia (T6)"
+Low score,Lage score,Score faible,Niedriger Score,Punteggio basso,Puntuación baja,translate; signal label (lowest band)
+Screened out,Uitgesloten,Exclu,Ausgeschlossen,Escluso,Excluido,"translate; signal label. Not 'filtered out', which clashes with the Screener's filters (TR1)"
+No signal,Geen signaal,Aucun signal,Kein Signal,Nessun segnale,Sin señal,translate; no score yet
+Model fair value,Intrinsieke modelwaarde,Juste valeur du modèle,Fairer Wert laut Modell,Valore equo del modello,Valor razonable del modelo,translate; label form of Fair value (TR2)
+Quality screens,Kwaliteitstoetsen,Filtres de qualité,Qualitätsprüfungen,Filtri di qualità,Filtros de calidad,translate; the exclusion rules behind Screened out. Not 'veto'
+Low risk,Laag risico,Risque faible,Geringes Risiko,Rischio basso,Riesgo bajo,translate; risk band 1 of 4
+Moderate risk,Gematigd risico,Risque modéré,Mäßiges Risiko,Rischio moderato,Riesgo moderado,translate; risk band 2 of 4
+Elevated risk,Verhoogd risico,Risque accru,Erhöhtes Risiko,Rischio sopra la media,Riesgo superior a la media,"translate; risk band 3 of 4. Must differ from High risk: fr accru, it/es above the average (TR1)"
+High risk,Hoog risico,Risque élevé,Hohes Risiko,Rischio alto,Riesgo alto,translate; risk band 4 of 4
 Portfolio,Portefeuille,Portefeuille,Portfolio,Portafoglio,Cartera,translate
 Position (holding),Positie,Position,Position,Posizione,Posición,a holding - not a place
 Shares (count),Aantal,Actions,Stück,Azioni,Acciones,column header
@@ -18,12 +29,11 @@ Dividend,Dividend,Dividende,Dividende,Dividendo,Dividendo,translate
 Ex-dividend date,Ex-dividenddatum,Date de détachement,Ex-Tag,Data di stacco,Fecha ex-dividendo,translate
 Withholding tax,Bronheffing,Retenue à la source,Quellensteuer,Ritenuta alla fonte,Retención en origen,translate
 BE 30% (Belgian withholding),RV 30%,Pr.M. 30 %,BE 30 %,BE 30%,BE 30 %,nl/fr use the Belgian term
-Yield,Rendement,Rendement,Rendite,Rendimento,Rentabilidad,translate
+Dividend yield,Dividendrendement,Rendement du dividende,Dividendenrendite,Rendimento da dividendo,Rentabilidad por dividendo,"translate; the 'Yield' column means dividend yield, never the general word for return (TR1)"
 YoC (yield on cost),YoC,YoC,YoC,YoC,YoC,keep abbreviation
 Cash (money),Cash,Liquidités,Barmittel,Liquidità,Efectivo,translate
 Deposit (noun) / Deposit (button),Storting / Storten,Dépôt / Déposer,Einzahlung / Einzahlen,Deposito / Deposita,Ingreso / Ingresar,button has msgctxt 'button'
 Withdrawal,Opname,Retrait,Auszahlung,Prelievo,Retirada,translate
 Top-up (automatic deposit),Aanvulling,Renflouement,Aufstockung,Ricarica,Recarga,translate
-BUY / MONITOR / AVOID / VETO / Strong Buy,(same),(same),(same),(same),(same),keep English (L-03)
 DCF / EPV / DDM / VaR / CVaR / HHI / Graham Number / Sharpe,(same),(same),(same),(same),(same),keep English (L-08)
-you (form of address),je,tu,du,tu,tú,informal everywhere (G-04)
+you (form of address),je,tu,du,tu,tú,"informal everywhere (G-04). OPEN (TR2): vous for French legal texts, disclaimers and the methodology; ask the translators about it/es"

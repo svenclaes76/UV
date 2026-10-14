@@ -77,7 +77,7 @@ All user-facing text is externalised and rendered in the active interface langua
 | --- | --- | --- |
 | L-01 | Every user-facing string goes through the translation function. No literal UI text appears in page code. | Must |
 | L-02 | Coverage includes navigation, page titles, labels, buttons, tooltips, help text, validation and error messages, empty states, toasts, chart titles, axis labels and legends. | Must |
-| L-03 | Signal badges (BUY / MONITOR / AVOID / VETO) stay in English in every language as a brand element. Their tooltips and explanations are translated. | Must |
+| L-03 | Signal badges are translated model-signal labels (Undervalued, Mid score, Low score, Screened out, No signal), always shown as a model signal. *Changed 13 October 2026 (L12–L14): the English BUY / MONITOR / AVOID / VETO badges read as advice.* | Must |
 | L-04 | Plurals use locale plural rules, for example "1 position" and "3 positions", rather than string concatenation. | Must |
 | L-05 | Sentences with variables use named placeholders, such as `{ticker} is {pct} below fair value`, so translators can reorder words. | Must |
 | L-06 | Changing the language re-renders the current page immediately, keeps the user on the same screen, and keeps filters and selections. | Must |
@@ -155,7 +155,7 @@ Settings gets a dedicated **Language & region** page with six user-level setting
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| S-01 | A preview panel shows a sample price, a portfolio total, a percentage change, a date and a BUY badge, rendered with the current selection. | Must |
+| S-01 | A preview panel shows a sample price, a portfolio total, a percentage change, a date and an Undervalued badge, rendered with the current selection. | Must |
 | S-02 | Changing any setting applies to the whole app immediately, without logging out or a manual refresh. | Must |
 | S-03 | Settings are saved to the user profile and follow the user across devices. | Must |
 | S-04 | Before sign-in, including on the login page, a compact language switcher is available in the header or footer. The choice is kept in the session and saved to the profile at sign-in if none is set. | Must |
@@ -201,7 +201,7 @@ A controlled glossary fixes how core financial terms are translated, so the same
 
 ### 8.1 Glossary
 
-Signal badges (BUY, MONITOR, AVOID, VETO) are not in the glossary because they stay in English (section 14).
+The signal labels, the risk bands and the quality screens are in the glossary, with notes on the wording the reviews settled (TR1, T6). Two decisions are still open (TR2): one fair-value concept for all languages, and *vous* for French legal texts.
 
 | English | Dutch | French | German | Italian | Spanish |
 | --- | --- | --- | --- | --- | --- |
@@ -212,6 +212,10 @@ Signal badges (BUY, MONITOR, AVOID, VETO) are not in the glossary because they s
 | Dividend | Dividend | Dividende | Dividende | Dividendo | Dividendo |
 | Unrealised P&L (short) | Niet-gerealiseerde W/V | P/V latente | Unrealisierter G/V | P/L non realizzato | G/P no realizada |
 | Composite score | Totaalscore | Score composite | Gesamtscore | Punteggio composito | Puntuación compuesta |
+| Model signal | Modelsignaal | Signal du modèle | Modellsignal | Segnale del modello | Señal del modelo |
+| Mid score | Middenscore | Score intermédiaire | Mittlerer Score | Punteggio intermedio | Puntuación intermedia |
+| Screened out | Uitgesloten | Exclu | Ausgeschlossen | Escluso | Excluido |
+| Elevated risk | Verhoogd risico | Risque accru | Erhöhtes Risiko | Rischio sopra la media | Riesgo superior a la media |
 | Screener | Screener | Screener | Screener | Screener | Screener |
 
 ### 8.2 Content rules
@@ -219,7 +223,7 @@ Signal badges (BUY, MONITOR, AVOID, VETO) are not in the glossary because they s
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | G-01 | The glossary is kept as a versioned file in the repo, one row per term. Translators must use it. | Must |
-| G-02 | Badge labels are the same English words in every language, so badges keep a fixed width. Their translated tooltips have no length limit. | Should |
+| G-02 | Badge labels are kept short in every language; their translated tooltips have no length limit. | Should |
 | G-03 | Disclaimers ("not investment advice", risk warnings) and legal texts are never machine-only. They are reviewed line by line against the English reference before release (W-05). | Must |
 | G-04 | Tone is professional and direct. Uvalu uses the informal form of address consistently in every language: je (nl), du (de), tu (fr), tu (it), tú (es). Informal never means chatty: no jokes or emoji, and disclaimers and risk warnings stay factual. Copy avoids direct address where a neutral label works. | Should |
 | G-05 | Anglicisms that local investors commonly use (screener, ETF, cash flow) may stay in English when the glossary says so. | Could |
@@ -326,7 +330,7 @@ All open questions were decided on 27 September 2026. There are no open items le
 
 | Topic | Decision | Affects |
 | --- | --- | --- |
-| Signal badges | Stay in English (BUY / MONITOR / AVOID / VETO / Strong Buy) in every language as a brand element. Tooltips and explanations are translated. | L-03, 8.1, G-02 |
+| Signal badges | Translated model-signal labels since 13 October 2026 (L12–L14); before that, English BUY / MONITOR / AVOID / VETO as a brand element. | L-03, 8.1, G-02 |
 | Form of address | Informal in every language: je / du / tu / tu / tú. | G-04 |
 | Italian and Spanish | Launch with full status, the same as nl, fr and de, after Sven's review. There is no beta status. | W-01, 10, 12 |
 | Swiss regions | Display currency defaults to CHF for de-CH, it-CH and fr-CH, and to EUR everywhere else. | 7.1, 7.3 |
