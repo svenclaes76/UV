@@ -3909,12 +3909,12 @@ msgid "Rebuilding the peer reference after a restart. Signals show “No signal�
 msgstr "Reconstruyendo el grupo de comparación tras un reinicio. Hasta que termine, las señales muestran «Sin señal», normalmente en pocos minutos."
 
 #: uvalu/shell.py:554
-#, fuzzy
+#
 msgid "Skip to content"
 msgstr "Ir al contenido"
 
 #: uvalu/shell.py:554
-#, fuzzy
+#
 msgctxt "landmark"
 msgid "Main"
 msgstr "Principal"

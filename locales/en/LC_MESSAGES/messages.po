@@ -3884,12 +3884,12 @@ msgid "Rebuilding the peer reference after a restart. Signals show “No signal�
 msgstr "Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, usually within a few minutes."
 
 #: uvalu/shell.py:554
-#, fuzzy
+#
 msgid "Skip to content"
 msgstr "Skip to content"
 
 #: uvalu/shell.py:554
-#, fuzzy
+#
 msgctxt "landmark"
 msgid "Main"
 msgstr "Main"
