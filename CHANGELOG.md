@@ -53,6 +53,12 @@ of that month); earlier releases used SemVer. Rules in
   also while a page is still loading) and after the footer (the names).
   A test fails when a new "★", "×", "✎", "View" or icon-only button
   has no name.
+- Primary button contrast (AC5): primary buttons are filled with the new
+  `--primary-fill` token (`#167A60`, the light `--link` teal) instead of
+  Signal Teal, so the white label is 5.3:1 instead of 4.2:1; hover
+  `#12664F`. Also the Watchlist "Add" button and Admin's popover buttons.
+  Signal Teal stays for bars, selected states and the logo (brand
+  guidelines token table updated).
 
 ### Changed
 
