@@ -429,6 +429,48 @@ class TestPerIpLimit:
         assert auth._ip_failures == {}
 
 
+
+class TestPurgeExpiredInvites:
+    """L17: unaccepted invitations go 30 days after they expire."""
+
+    def _age_invite(self, email, days_expired):
+        from datetime import datetime, timedelta, timezone
+        users = auth._load_users()
+        users[email]["invite_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(days=days_expired)).isoformat()
+        auth._save_users(users)
+
+    def test_long_expired_invitation_is_removed(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("old@example.com")
+        self._age_invite("old@example.com", 31)
+        assert auth.purge_expired_invites() == ["old@example.com"]
+        assert "old@example.com" not in auth._load_users()
+
+    def test_recently_expired_or_pending_invitations_stay(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("recent@example.com")
+        auth.invite_user("pending@example.com")
+        self._age_invite("recent@example.com", 29)
+        assert auth.purge_expired_invites() == []
+        assert {"recent@example.com", "pending@example.com"} <= set(auth._load_users())
+
+    def test_an_accepted_account_is_never_removed(self):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("joined@example.com")
+        ok, _ = auth.accept_invite_with_password(token, "a-real-password")
+        assert ok
+        self._age_invite("joined@example.com", 90)
+        assert auth.purge_expired_invites() == []
+
+    def test_a_purged_email_can_be_invited_again(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("old@example.com")
+        self._age_invite("old@example.com", 31)
+        ok, _, token = auth.invite_user("old@example.com")
+        assert ok and token
+
+
 class TestVerifyToken:
     def test_garbage_token_returns_none_none_none(self):
         email, role, sid = auth.verify_token("not-a-real-jwt")

@@ -218,6 +218,7 @@ def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tupl
         return False, "Enter a valid email address.", None
     if role not in ROLES:
         return False, f"Unknown role '{role}'.", None
+    purge_expired_invites()   # L17: a long-expired invitation can be sent again
     users = _load_users()
     if email in users:
         return False, "An account with this email already exists.", None
@@ -240,6 +241,43 @@ def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tupl
     logkit.data_mutation(actor=logkit.user_id(), action="user.invite", entity_type="user",
                          entity_id=logkit.user_hash(email), role=role, status="Invited")
     return True, f"{email} invited.", token
+
+
+# L17: privacy notice §2 promises invitation data is deleted 30 days after
+# the invitation expires when it isn't accepted.
+INVITE_KEEP_DAYS_AFTER_EXPIRY = 30
+
+
+def purge_expired_invites(now: "datetime | None" = None) -> list[str]:
+    """Delete the records of invitations that were never accepted and expired
+    more than INVITE_KEEP_DAYS_AFTER_EXPIRY days ago. Only a record that is
+    still just an invitation goes: status "Invited", no password, no linked
+    sign-in. Returns the emails removed. Called at start-up (run_app.py), and
+    whenever the Admin's user list or a new invitation reads the store."""
+    now = now or datetime.now(timezone.utc)
+    users = _load_users()
+    if _store_broken(users):
+        return []
+    cutoff = now - timedelta(days=INVITE_KEEP_DAYS_AFTER_EXPIRY)
+    gone = []
+    for email, user in list(users.items()):
+        if (user.get("status") != "Invited" or user.get("password_hash")
+                or user.get("linked_identities")):
+            continue
+        expires = user.get("invite_token_expires")
+        try:
+            expired_at = datetime.fromisoformat(expires) if expires else None
+        except ValueError:
+            continue
+        if expired_at is not None and expired_at < cutoff:
+            del users[email]
+            gone.append(email)
+    if gone:
+        _save_users(users)
+        for email in gone:
+            logkit.data_mutation(actor="system", action="user.invite_purged", entity_type="user",
+                                 entity_id=logkit.user_hash(email))
+    return gone
 
 
 def get_pending_invite(token: str) -> dict | None:
@@ -1289,6 +1327,7 @@ def passwordless_accounts(users: dict | None = None) -> list[tuple[str, str, lis
 
 def list_users() -> list[dict]:
     """Return all users (without password hashes) sorted by creation date."""
+    purge_expired_invites()
     users = _load_users()
     return [
         {

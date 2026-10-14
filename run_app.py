@@ -106,6 +106,18 @@ def _check_passwordless_accounts() -> None:
         print()
 
 
+def _purge_expired_invites() -> None:
+    """L17: delete invitations that expired more than 30 days ago unaccepted
+    (privacy notice §2). Never stops the app."""
+    try:
+        from auth import purge_expired_invites
+        gone = purge_expired_invites()
+        if gone:
+            print(f"Removed {len(gone)} expired invitation(s).")
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Invitation clean-up skipped: {exc}")
+
+
 def _stamp_build(schema_version: "int | None") -> None:
     """Write build_info.json + static/version.json for this checkout. A failure
     here must never stop the app from starting — uvalu.buildinfo falls back to
@@ -140,6 +152,7 @@ if __name__ == "__main__":
         _ensure_cert()
     _schema = _migrate_data()
     _check_passwordless_accounts()
+    _purge_expired_invites()
     _stamp_build(_schema)
     port = os.environ.get("PORT", "8501")
     subprocess.run(_streamlit_args(port, _behind_proxy), check=True)
