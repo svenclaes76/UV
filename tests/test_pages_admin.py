@@ -357,6 +357,9 @@ class TestUsersRowSecurityActions:
         reset_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert not auth.is_totp_enabled("second@example.com")
+        # L16: the action is in the 24-month admin access record.
+        from uvalu.compliance import admin_access
+        assert [r["action"] for r in admin_access.for_user("second@example.com")] == ["reset_two_factor"]
 
     def test_sign_out_all_sessions_revokes_every_session(self, isolated_data, monkeypatch):
         auth.register("admin@example.com", "password123")
