@@ -86,10 +86,11 @@ From the valuation model review (13 October 2026,
 signal snapshot. These move signals: bump `MODEL_VERSION` and respect the
 founder's trading blackout.
 
+V1 and V2 shipped in model M2 (14 October 2026, `feature/model-m2`); git
+history keeps their rows.
+
 | # | Item | Do it before |
 | --- | --- | --- |
-| V1 | **Currency mismatch:** ~40% of rows quote in another currency than they report in (Investor AB on Milan: book value in SEK, price in EUR; 28 of 128 Undervalued). Store the reporting currency, convert per-share fundamentals with `fx.py`; until then flag the rows and keep them out of medians and Undervalued. | Inviting anyone you don't know personally |
-| V2 | **Universe:** ~1,000 US secondary listings on Milan/Frankfurt, 179 dormant cross-listings vetoed for zero volume; 43% Screened out. One line per company, no dormant lines, decide on non-European companies. | With V1 |
 | V3 | **Normalised EPS** for P/E fair value and Graham; growth tilt from history; flag trailing P/E < 4 (11 Undervalued have P/E < 5). | Paid launch |
 | V4 | **Model dispersion:** median max/min 3.3×, 328 stocks > 10×. Range instead of a point and no Undervalued above ~3×; plausibility flag for MoS > 50%. | Paid launch |
 | V5 | **Veto calibration** after V1–V2: revenue decline threshold, retained-earnings rule on a sample. | Paid launch |
@@ -98,12 +99,12 @@ founder's trading blackout.
 ## Signal stability, data and risk
 
 From the quant and data review (13 October 2026,
-[`quant-review.md`](quant-review.md)), on the signal history of 4–13 October.
+[`quant-review.md`](quant-review.md)), on the signal history of 4–13 October. Q2 shipped
+in model M2 (14 October 2026).
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| Q1 | **Signal flicker:** 805 changes on 242 stocks in 9 days (SRAIL.SW 21× at score 39.9/40.0; vetoes toggling within minutes). Daily build from one snapshot (bring S4 forward), hysteresis at band edges, carry the last known value for missing veto inputs, log which input changed. | Inviting anyone you don't know personally |
-| Q2 | **Data-quality monitoring** per build: missing rates per field, rows changed, vetoes added/dropped, alerts on thresholds. | With Q1 |
+| Q1 | **Signal flicker, rest:** hysteresis (2 points), carry-forward of lost inputs and `changed_inputs` shipped in M2 (14 October 2026); replayed on 4–13 October they halve the changes (842 → 437). Still open: re-measure after a week of M2 (`data_quality.summary` in the logs) and decide whether the daily build (S4) is still needed; it comes with the EODHD switch anyway. | After a week of M2 |
 | Q3 | **Stress scenarios** use S&P 500 drawdowns and dates; use the EURO STOXX 50's own (dot-com and 2008 are never replayed with 10 years of history). | Paid launch |
 | Q4 | **Risk-band calibration:** run ~8 reference portfolios, adjust sub-score mappings, publish the reference points. | Paid launch |
 | Q5 | **Small-cap betas:** weekly or Dimson-adjusted returns for illiquid holdings. | Paid launch |

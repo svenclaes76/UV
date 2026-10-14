@@ -271,7 +271,7 @@ MIN_UNIVERSE_SIZE = 20
 
 # REC-11: bump on any change that can move a fair value, score or signal, so a
 # logged signal can be reproduced against the code that produced it.
-MODEL_VERSION = "M1"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION = "M2"   # D12: independent of the app version; shown in the UI and the methodology change log
 
 # D1: "Undervalued" needs at least this margin of safety, whatever the shared
 # `min_mos` setting says. At 0% a price 0.5% below the model fair value would

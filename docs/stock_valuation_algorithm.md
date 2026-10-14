@@ -12,6 +12,15 @@ This document describes the algorithm as implemented in [`screener.py`](../scree
 All inputs currently come from Yahoo Finance via `yfinance` (`screener.DATA_SOURCE`). That source is very likely **not licensed** for a paid, multi-user service; this is a launch blocker (requirements §9). Once a provider contract is signed, `DATA_SOURCE` must carry its name and required attribution, and every scored row repeats it in its `data_source` column. **Analyst estimates are excluded** until a licence covers them; see Stage 2.
 
 ---
+## Stage 0 — Coverage, currency and stable inputs (model M2)
+
+Added in model **M2** (14 Oct 2026) after the [valuation](valuation-model-review.md) and [quant](quant-review.md) reviews:
+
+- **Coverage (V2, `uvalu/universe.py`).** The public universe is home listings only. A listing is in when the company's `country` (from the provider) is the country of its exchange: `.BR` Belgium, `.AS` Netherlands, `.PA` France, `.MI` Italy, `.DE` Germany, `.SW` Switzerland. A listing with a confirmed zero `averageVolume` is out (it doesn't trade), and a listing whose country isn't known yet stays out until it is. Listings already known to be foreign aren't fetched. A user's holding on any listing is still scored as an extra ticker against the public peers (PER-2).
+- **Reporting currency (V1, `screener._convert_reporting_currency`).** The fetch stores `financialCurrency`. Before scoring, a row that reports in another currency than it's quoted in has `trailingEps`, `bookValue`, `ebit`, `totalDebt`, `totalCash`, `freeCashflow`, `netIncome` and the statement histories converted with the ECB rate (`fx.py`). `enterpriseValue` is dropped and rebuilt from its parts (FV-4), and `trailingPE` / `priceToBook`, which set the sector medians, are recomputed. A row without a rate gets the data flag `currency_unverified`: it leaves the peer group and can't be Undervalued.
+- **Stable inputs (Q1, `screener._carry_forward`).** A fetch that comes back without a statement history, `dividend_last_cut_year`, `financialCurrency`, `country` or `sector` keeps the last fetched value for up to 90 days, counted from the last real fetch (`carried_forward`, `carried_since`). A failed fetch keeps the last good row for up to 7 days, with a short retry.
+- **Data quality (Q2, `uvalu/data_quality.py`).** Each universe build logs a summary (`data_quality.summary`) and a warning per crossed threshold (`data_quality.alert`).
+
 ## Stage 1 — Data Collection
 A mostly point-in-time snapshot per ticker via `yfinance`, cached to `.cache/fundamentals.json` and refreshed every ~24h ± 4h jitter per ticker (`screener._fetch_one`). Several multi-year series are pulled per ticker on each refresh:
 - **Annual Free Cash Flow**, up to ~4-5 years from the cash flow statement (`fcfHistory`, `screener._fcf_history`) — feeds the hard veto and the earnings-quality consistency check below.
@@ -185,6 +194,8 @@ The composite score is summarised in a **descriptive model signal** (BDG-1). It 
 | Score ≥ 70 **(configurable, `buy_threshold`)** *and* MoS ≥ `min_mos` (default 10%, never below `MIN_MOS_FLOOR` = 10%, decision D1) *and* the fair value is not `fv_basis_thin` (FV-5) | `undervalued` | **Undervalued** |
 | Score ≥ 40 (`SCORE_AVOID`); or ≥ 70 without a confirmed margin of safety / corroborated fair value | `neutral` | **Mid score** |
 | Score < 40 | `low_score` | **Low score** |
+
+**Stability rule (Q1, model M2, `screener._apply_signal_hysteresis`).** A stock keeps Undervalued or Mid score until its composite score falls `SIGNAL_HYSTERESIS` (2) points past the edge it would leave by: Undervalued stays down to a score of 68, Mid score down to 38. Entry into a higher band is unchanged. The previous signal comes from the shared signal history (`signal_history.last_signals()`), the same for every user (PER-1). The margin-of-safety floor (`MIN_MOS_FLOOR`), the thin-basis and currency checks and the vetoes apply without exception. Each signal-change record lists `changed_inputs`.
 
 These replace the original **Strong Buy / Monitor / Avoid** decision. A vetoed stock has its own state instead of being folded into Avoid (BDG-3), and its composite score is set to 0. A `fv_basis_thin` fair value (fewer than `MIN_FV_MODELS` (2) independent sub-models behind the composite, e.g. a lone book-value fallback) is not a quality-screen failure. It only keeps the row out of **Undervalued**, so it falls through to **Mid score** on score.
 
