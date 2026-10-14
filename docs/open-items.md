@@ -86,12 +86,12 @@ founder's trading blackout.
 
 V1 and V2 shipped in model M2 (14 October 2026, `feature/model-m2`); git
 history keeps their rows. V3 shipped in model M3 (14 October 2026,
-`feature/model-m3`). Next in line: V4 (plausibility of margins above 50%:
-TPG0.DE has a broken price, €0.88 against a book value of €8.47).
+`feature/model-m3`). V4 shipped in model M4 (14 October 2026,
+`feature/model-m4`): no Undervalued above a 3× model spread or a 50% margin;
+the 3× limit flags 29% of stocks, worth checking with the valuation expert.
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| V4 | **Model dispersion:** median max/min 3.3×, 328 stocks > 10×. Range instead of a point and no Undervalued above ~3×; plausibility flag for MoS > 50%. | Paid launch |
 | V5 | **Veto calibration** after V1–V2: revenue decline threshold, retained-earnings rule on a sample. | Paid launch |
 | V6 | **Methodology page:** the models' conservative level (median MoS −33%), euro rate for non-euro stocks, the universe definition. | With V1–V4 |
 

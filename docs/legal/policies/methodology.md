@@ -97,7 +97,7 @@ A model signal summarises the result in one label. It describes where the stock 
 
 | Signal | Meaning | Rule |
 | --- | --- | --- |
-| **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10%, and fair value based on at least two independent models |
+| **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10% but at most 50%, fair value based on at least two independent models, and the models agree within a factor 3 (highest value at most 3 times the lowest) |
 | **Mid score** | Middle of the model's scale, or a high score without a confirmed margin of safety | Composite score from 40 to below 70; or ≥ 70 without the other conditions for Undervalued |
 | **Low score** | Low on the model's scale | Composite score below 40. This does not by itself mean the price is above fair value. |
 | **Screened out** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
@@ -105,7 +105,9 @@ A model signal summarises the result in one label. It describes where the stock 
 
 For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.
 
-**Stability rule.** A stock keeps its signal until its composite score falls 2 points past the edge: Undervalued stays until the score is below 68, and Mid score until it is below 38. Moving up needs the full threshold. The 10% minimum margin of safety, the two-model requirement and the quality screen apply without exception. Without this rule, a stock whose score sits on an edge would change signal with every small data update.
+**When the models disagree or the gap is very large.** If the highest model value is more than 3 times the lowest, the fair value is shown with its range and the stock gets no Undervalued signal. A margin of safety above 50% is more often a data error than a real discount, so it also keeps a stock out of Undervalued, with a note to check the figures.
+
+**Stability rule.** A stock keeps its signal until its composite score falls 2 points past the edge: Undervalued stays until the score is below 68, and Mid score until it is below 38. Moving up needs the full threshold. The 10% minimum margin of safety, the two-model requirement, the checks on model agreement and on very large margins, and the quality screen apply without exception. Without this rule, a stock whose score sits on an edge would change signal with every small data update.
 
 A dividend is "at risk" when the payout ratio is above 90%, the cash payout ratio is above 80%, dividend cover is below 1.2×, or the dividend was cut in the last 3 years.
 

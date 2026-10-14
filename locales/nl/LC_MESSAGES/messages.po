@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-14 11:16+0000\n"
+"POT-Creation-Date: 2026-10-14 18:21+0000\n"
 "PO-Revision-Date: 2026-10-14 19:53+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -988,124 +988,171 @@ msgstr "Halfjaarlijks"
 msgid "Annual"
 msgstr "Jaarlijks"
 
-#: screener.py:1963
+#: screener.py:1979
 msgid "No signal: the peer group needed to rank this stock is not available yet."
 msgstr "Geen signaal: de vergelijkingsgroep die nodig is om dit aandeel te rangschikken, is nog niet beschikbaar."
 
-#: screener.py:1970
+#: screener.py:1986
 #, python-brace-format
 msgid "Fails the model's quality screen ({rules}), so its composite score is set to 0."
 msgstr "Voldoet niet aan de kwaliteitstoets van het model ({rules}), daarom wordt de totaalscore op 0 gezet."
 
-#: screener.py:1972
+#: screener.py:1988
 msgid "Fails the model's quality screen, so its composite score is set to 0."
 msgstr "Voldoet niet aan de kwaliteitstoets van het model, daarom wordt de totaalscore op 0 gezet."
 
-#: screener.py:1976
+#: screener.py:1993
+#, fuzzy, python-brace-format
+msgid ""
+"Model score {score} is within {band} points of {threshold}, so the stock keeps "
+"its signal (stability rule), and the price is {mos} below the model fair value "
+"(minimum {min_mos})."
+msgstr "Modelscore {score} ligt binnen {band} punten van {threshold}, dus het aandeel houdt zijn signaal (stabiliteitsregel), en de koers ligt {mos} onder de intrinsieke modelwaarde (minimum {min_mos})."
+
+#: screener.py:1999
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}, and the price is {mos} below the model fair value (minimum {min_mos})."
 msgstr "Modelscore {score} ligt op of boven {threshold}, en de koers ligt {mos} onder de intrinsieke modelwaarde (minimum {min_mos})."
 
-#: screener.py:1979
+#: screener.py:2002
 #, python-brace-format
 msgid "Model score {score} is at or above {threshold}."
 msgstr "Modelscore {score} ligt op of boven {threshold}."
 
-#: screener.py:1982
+#: screener.py:2005
 #, python-brace-format
 msgid "Model score {score} is below the lower threshold of {floor}."
 msgstr "Modelscore {score} ligt onder de ondergrens van {floor}."
 
-#: screener.py:1987
+#: screener.py:2010
 #, python-brace-format
 msgid "model score {score} is below the upper threshold of {threshold}"
 msgstr "modelscore {score} ligt onder de bovengrens van {threshold}"
 
-#: screener.py:1990
+#: screener.py:2013
 msgid "no model fair value could be computed"
 msgstr "er kon geen intrinsieke modelwaarde worden berekend"
 
 #. Context: Signal explanation reason (lowercase)
-#: screener.py:1992
+#: screener.py:2015
 #, python-brace-format
 msgid "margin of safety {mos} is below the {min_mos} minimum"
 msgstr "veiligheidsmarge {mos} ligt onder het minimum van {min_mos}"
 
-#: screener.py:1994
+#: screener.py:2017
 msgid "the fair value rests on fewer than two independent models"
 msgstr "de intrinsieke waarde steunt op minder dan twee onafhankelijke modellen"
+
+#: screener.py:2019
+#, fuzzy
+msgid "the company's figures couldn't be converted to the share's currency"
+msgstr "de cijfers van het bedrijf konden niet worden omgerekend naar de munt van het aandeel"
+
+#: screener.py:2021
+#, fuzzy
+msgid "the earnings may include a one-off gain"
+msgstr "de winst kan een eenmalige winst bevatten"
+
+#: screener.py:2025
+#, fuzzy, python-brace-format
+msgid "the models disagree: their values range from {low} to {high}"
+msgstr "de modellen zijn het oneens: hun waarden lopen van {low} tot {high}"
+
+#: screener.py:2028
+#, fuzzy
+msgid "the models disagree"
+msgstr "de modellen zijn het oneens"
+
+#: screener.py:2030
+#, fuzzy, python-brace-format
+msgid "a margin of safety above {limit} is more often a data error than a real discount"
+msgstr "een veiligheidsmarge boven {limit} is vaker een gegevensfout dan een echte korting"
 
 #. signal explanation for a "Mid score" badge; {reasons} is a list of lowercase
 #. reasons joined by "; ".
 #. signal explanation for a "Mid score" badge; {reasons} is a list of lowercase
 #. reasons joined by "; ".
-#: screener.py:1996
+#: screener.py:2033
 #, python-brace-format
 msgid "Mid score: {reasons}."
 msgstr "Middenscore: {reasons}."
 
-#: screener.py:1997
+#: screener.py:2034
 msgid "Model score is between the lower and upper thresholds."
 msgstr "De modelscore ligt tussen de onder- en bovengrens."
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2311
+#: screener.py:2348
 #, python-brace-format
 msgid "revenue fell {years} straight years"
 msgstr "omzet daalde {years} jaar op rij"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2316
+#: screener.py:2353
 #, python-brace-format
 msgid "operating income negative {years} years running"
 msgstr "bedrijfsresultaat {years} jaar op rij negatief"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2321
+#: screener.py:2358
 msgid "retained earnings negative and still eroding"
 msgstr "overgedragen winst negatief en nog steeds dalend"
 
 #. Context: Veto reason (multi-year trend), lowercase
-#: screener.py:2329
+#: screener.py:2366
 #, python-brace-format
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividend verlaagd in {year} met slechts {coverage}× dekking"
 
-#: screener.py:3010
+#: screener.py:3066
 msgid "The price is more than 72 hours old."
 msgstr "De koers is meer dan 72 uur oud."
 
-#: screener.py:3011
+#: screener.py:3067
 msgid "The time of the price is unknown."
 msgstr "Het tijdstip van de koers is onbekend."
 
-#: screener.py:3012
+#: screener.py:3068
 msgid "No model could compute a fair value."
 msgstr "Geen enkel model kon een intrinsieke waarde berekenen."
 
-#: screener.py:3013
+#: screener.py:3069
 msgid "The fair value rests on fewer than two independent models."
 msgstr "De intrinsieke waarde steunt op minder dan twee onafhankelijke modellen."
 
-#: screener.py:3014
+#: screener.py:3070
 msgid "The fair value was capped at the models' median."
 msgstr "De intrinsieke waarde werd begrensd op de mediaan van de modellen."
 
-#: screener.py:3015
+#: screener.py:3071
 msgid "Earnings per share were derived from the P/E ratio."
 msgstr "De winst per aandeel werd afgeleid uit de koers-winstverhouding."
 
-#: screener.py:3016
+#: screener.py:3072
 msgid "Fewer than 20 stocks were available for comparison."
 msgstr "Er waren minder dan 20 aandelen beschikbaar om mee te vergelijken."
 
-#: screener.py:3017
+#: screener.py:3073
 msgid "The company reports in another currency than its share price, and no exchange rate was available to convert its figures."
 msgstr "Het bedrijf rapporteert in een andere munt dan zijn aandelenkoers, en er was geen wisselkoers beschikbaar om zijn cijfers om te rekenen."
 
-#: screener.py:3019
+#: screener.py:3075
 msgid "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 msgstr "De winst per aandeel komt alleen uit het laatste jaar, en de koers is lager dan 4 keer die winst: er kan een eenmalige winst in zitten."
+
+#: screener.py:3077
+#, fuzzy
+msgid ""
+"The models disagree: the highest value is more than 3 times the lowest, so the "
+"fair value is shown as a range."
+msgstr "De modellen zijn het oneens: de hoogste waarde is meer dan 3 keer de laagste, dus de intrinsieke waarde wordt als bereik getoond."
+
+#: screener.py:3079
+#, fuzzy, no-python-format
+msgid ""
+"The price is more than 50% below the model fair value. A gap this large is more "
+"often a data error than a real discount: check the figures."
+msgstr "De koers ligt meer dan 50% onder de intrinsieke modelwaarde. Zo'n groot verschil is vaker een gegevensfout dan een echte korting: controleer de cijfers."
 
 #. Settings › Export: worksheet tab names in the downloaded
 #. workbook. Excel allows at most 31 characters and none of : \ / ? * [ ]

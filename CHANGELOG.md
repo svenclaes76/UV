@@ -21,8 +21,10 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
-**Signals change** with model M3: the Graham and P/E models use normalised
-earnings, so a one-off gain no longer inflates fair values.
+**Signals change** with models M3 and M4: the Graham and P/E models use
+normalised earnings, so a one-off gain no longer inflates fair values, and a
+fair value the models don't agree on, or a margin above 50%, is no longer
+called Undervalued.
 
 ### Changed
 
@@ -41,6 +43,16 @@ earnings, so a one-off gain no longer inflates fair values.
   Undervalued.
 - Methodology (beta 1.3 and the paid version): normalised earnings, the
   growth adjustment and the M3 change-log row.
+- Model M4. When the highest model value is more than 3 times the lowest,
+  or the margin of safety is above 50%, the stock gets no Undervalued signal
+  and a data flag ("the models disagree" with their range, or "check the
+  figures"). On today's data Undervalued goes from 58 to 33 stocks; the
+  broken price of TPG0.DE no longer tops the list.
+- The signal explanation now also names the currency, one-off, disagreement
+  and large-margin reasons, and says when a signal is kept by the stability
+  rule instead of claiming the score is above the threshold.
+- Methodology beta 1.4 and the paid version: the Undervalued definition, the
+  two checks and the M4 change-log row.
 
 ## [2026.10.6] — 2026-10-14
 

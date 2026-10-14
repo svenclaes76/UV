@@ -11,7 +11,7 @@ Beta-readiness review 5 October 2026: history wording made true from day one (re
 
 # Methodology — free beta
 
-**Version:** beta 1.3 · **Last updated:** 14 October 2026 · **Model version:** M3
+**Version:** beta 1.4 · **Last updated:** 14 October 2026 · **Model version:** M4
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -93,7 +93,7 @@ A model signal summarises the result in one label. It describes where the stock 
 
 | Signal | Meaning | Rule |
 | --- | --- | --- |
-| **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10%, and fair value based on at least two independent models |
+| **Undervalued** | High model score with the price clearly below a well-supported model fair value | Composite score ≥ 70, margin of safety ≥ 10% but at most 50%, fair value based on at least two independent models, and the models agree within a factor 3 (highest value at most 3 times the lowest) |
 | **Mid score** | Middle of the model's scale, or a high score without a confirmed margin of safety | Composite score from 40 to below 70; or ≥ 70 without the other conditions for Undervalued |
 | **Low score** | Low on the model's scale | Composite score below 40. This does not by itself mean the price is above fair value. |
 | **Screened out** | One or more exclusion criteria apply, whatever the valuation; the composite score is set to 0 | Any of: debt/equity above 500% (not applied to financial, real estate and utility companies); negative free cash flow in the 3 latest years; dividend at risk with dividend cover below 1.0×; revenue falling for 3 or more years in a row; negative operating earnings in the 3 latest years; negative and further declining retained earnings for 2 or more years; a dividend cut in the last 2 years with cover below 1.5×; no trading volume |
@@ -101,7 +101,9 @@ A model signal summarises the result in one label. It describes where the stock 
 
 For a stock that fails the quality screen, the explanation next to the signal names the criteria it failed.
 
-**Stability rule.** A stock keeps its signal until its composite score falls 2 points past the edge: Undervalued stays until the score is below 68, and Mid score until it is below 38. Moving up needs the full threshold. The 10% minimum margin of safety, the two-model requirement and the quality screen apply without exception. Without this rule, a stock whose score sits on an edge would change signal with every small data update.
+**When the models disagree or the gap is very large.** If the highest model value is more than 3 times the lowest, the fair value is shown with its range and the stock gets no Undervalued signal. A margin of safety above 50% is more often a data error than a real discount, so it also keeps a stock out of Undervalued, with a note to check the figures.
+
+**Stability rule.** A stock keeps its signal until its composite score falls 2 points past the edge: Undervalued stays until the score is below 68, and Mid score until it is below 38. Moving up needs the full threshold. The 10% minimum margin of safety, the two-model requirement, the checks on model agreement and on very large margins, and the quality screen apply without exception. Without this rule, a stock whose score sits on an edge would change signal with every small data update.
 
 A dividend is "at risk" when the payout ratio is above 90%, the cash payout ratio is above 80%, dividend cover is below 1.2×, or the dividend was cut in the last 3 years.
 
@@ -180,3 +182,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | 12 October 2026 | M1 | Signals renamed: "Neutral" is now "Mid score" and "Fails quality screen" is now "Screened out". Scores, thresholds and fair values are unchanged. |
 | 14 October 2026 | M2 | Coverage limited to home listings that trade. Reported figures in another currency are converted before valuation. Stability rule at the signal edges (2 points). Incomplete data updates keep the last complete figures. Signals of some stocks change. |
 | 14 October 2026 | M3 | Graham and P/E models use normalised earnings per share (3–4 years of net income) instead of the latest year; the P/E growth adjustment uses multi-year growth. A one-off gain no longer inflates fair values. Signals of some stocks change. |
+| 14 October 2026 | M4 | No Undervalued signal when the models disagree by more than a factor 3 (the range is shown) or when the margin of safety is above 50% (a likely data error). Signals of some stocks change. |
