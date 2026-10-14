@@ -21,6 +21,18 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Fixed
+
+- Translations (TR1, docs/translation-review.md): French showed "Risque
+  élevé" for both Elevated and High risk; Elevated is now "Risque accru",
+  and Italian and Spanish use "sopra la media" / "superior a la media"
+  instead of near-synonyms of High. "Screened out" no longer reads as
+  "removed by the filter" (which clashed with the Screener's own filters):
+  Uitgesloten, Exclu, Ausgeschlossen, Escluso, Excluido, also in the signal
+  distribution line and the help question. The dividend "Yield" column and
+  the Analysis yield figures now say dividend yield instead of the general
+  word for return.
+
 ## [2026.10.7] — 2026-10-14
 
 **Signals change** with models M3 and M4: the Graham and P/E models use
