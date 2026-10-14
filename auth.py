@@ -91,6 +91,8 @@ def _normalize_user(data: dict) -> dict:
         "totp_last_step":   data.get("totp_last_step"),
         "backup_codes":     data.get("backup_codes", []),
         "trusted_devices":  data.get("trusted_devices", []),
+        "country":          data.get("country"),
+        "consents":         data.get("consents", []),
     }
 
 
@@ -218,6 +220,7 @@ def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tupl
         return False, "Enter a valid email address.", None
     if role not in ROLES:
         return False, f"Unknown role '{role}'.", None
+    purge_expired_invites()   # L17: a long-expired invitation can be sent again
     users = _load_users()
     if email in users:
         return False, "An account with this email already exists.", None
@@ -242,6 +245,86 @@ def invite_user(email: str, role: str = "Analyst", invited_by: str = "") -> tupl
     return True, f"{email} invited.", token
 
 
+# L17: privacy notice §2 promises invitation data is deleted 30 days after
+# the invitation expires when it isn't accepted.
+INVITE_KEEP_DAYS_AFTER_EXPIRY = 30
+
+
+def purge_expired_invites(now: "datetime | None" = None) -> list[str]:
+    """Delete the records of invitations that were never accepted and expired
+    more than INVITE_KEEP_DAYS_AFTER_EXPIRY days ago. Only a record that is
+    still just an invitation goes: status "Invited", no password, no linked
+    sign-in. Returns the emails removed. Called at start-up (run_app.py), and
+    whenever the Admin's user list or a new invitation reads the store."""
+    now = now or datetime.now(timezone.utc)
+    users = _load_users()
+    if _store_broken(users):
+        return []
+    cutoff = now - timedelta(days=INVITE_KEEP_DAYS_AFTER_EXPIRY)
+    gone = []
+    for email, user in list(users.items()):
+        if (user.get("status") != "Invited" or user.get("password_hash")
+                or user.get("linked_identities")):
+            continue
+        expires = user.get("invite_token_expires")
+        try:
+            expired_at = datetime.fromisoformat(expires) if expires else None
+        except ValueError:
+            continue
+        if expired_at is not None and expired_at < cutoff:
+            del users[email]
+            gone.append(email)
+    if gone:
+        _save_users(users)
+        for email in gone:
+            logkit.data_mutation(actor="system", action="user.invite_purged", entity_type="user",
+                                 entity_id=logkit.user_hash(email))
+    return gone
+
+
+# L1: what an invitee confirms before the account is created (Terms of use
+# §4–§5, Privacy notice). Stored on the account with the text version and the
+# time, as proof of agreement (privacy notice §2).
+CONSENT_ITEMS = ("age_18", "terms", "privacy", "no_advice")
+
+
+def has_consent(user: dict) -> bool:
+    """True when every CONSENT_ITEMS entry is recorded and a country is set."""
+    done = {c.get("item") for c in user.get("consents") or []}
+    return bool(user.get("country")) and set(CONSENT_ITEMS) <= done
+
+
+def record_invite_consent(token: str, *, country: str, versions: dict) -> tuple[bool, str]:
+    """Store an invitee's country of residence and their confirmation of every
+    CONSENT_ITEMS entry, each with the version of the text it refers to
+    (`versions`: {item: version}) and the time. Refused for a country outside
+    the EEA or an invalid invitation."""
+    from uvalu.compliance.disclosures import EEA_COUNTRIES
+    if country not in EEA_COUNTRIES:
+        return False, _("Uvalu is open to residents of the European Economic Area only.")
+    invite = get_pending_invite(token)
+    if not invite:
+        return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    users = _load_users()
+    user = users[invite["email"]]
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    user["country"] = country
+    user["consents"] = [{"item": item, "version": str(versions.get(item, "")), "at": stamp}
+                        for item in CONSENT_ITEMS]
+    _save_users(users)
+    logkit.data_mutation(actor="invitee", action="user.consent", entity_type="user",
+                         entity_id=logkit.user_hash(invite["email"]), country=country)
+    return True, ""
+
+
+def consent_record(email: str) -> dict:
+    """{item: {"version", "at"}} of what `email` confirmed, for Settings ›
+    Legal documents. Empty for an account created before L1."""
+    user = _load_users().get(email.strip().lower()) or {}
+    return {c["item"]: {"version": c.get("version", ""), "at": c.get("at", "")}
+            for c in user.get("consents") or [] if c.get("item")}
+
+
 def get_pending_invite(token: str) -> dict | None:
     """{email, role, invited_by} for a not-yet-expired invite token, for the
     invite-acceptance screen — or None if the token is unknown or expired."""
@@ -256,7 +339,7 @@ def get_pending_invite(token: str) -> dict | None:
         if not expires or datetime.fromisoformat(expires) < now:
             return None
         return {"email": email, "role": user.get("role", "Analyst"),
-                "invited_by": user.get("invited_by", "")}
+                "invited_by": user.get("invited_by", ""), "consented": has_consent(user)}
     return None
 
 
@@ -289,6 +372,8 @@ def accept_invite_with_password(token: str, password: str, user_agent: str = "")
     invite = get_pending_invite(token)
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
+    if not invite.get("consented"):
+        return False, _("Confirm the statements above before creating your account.")
     _ok, _err = validate_new_password(password)
     if not _ok:
         return False, _err
@@ -317,6 +402,8 @@ def accept_invite_with_oauth(token: str, issuer: str, subject: str, oauth_email:
     if not invite:
         return False, "This invite link is invalid or has expired. Ask your admin to send a new one."
     email = invite["email"]
+    if not invite.get("consented"):
+        return False, _("Confirm the statements on the invitation page before creating your account.")
     if oauth_email.strip().lower() != email:
         return False, _("This invite was sent to {email}. Sign in with a matching account, or ask your admin to invite {provider_email}.",
                         email=email, provider_email=oauth_email)
@@ -1289,6 +1376,7 @@ def passwordless_accounts(users: dict | None = None) -> list[tuple[str, str, lis
 
 def list_users() -> list[dict]:
     """Return all users (without password hashes) sorted by creation date."""
+    purge_expired_invites()
     users = _load_users()
     return [
         {

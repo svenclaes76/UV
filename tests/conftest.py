@@ -151,11 +151,12 @@ def _all_languages_enabled(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _compliance_isolated(tmp_path, monkeypatch):
     """Never write the real data/compliance/ logs (signal history, daily
-    snapshots, settings audit) and never read the real founder holdings:
+    snapshots, settings audit, admin access record) and never read the real founder holdings:
     every test gets its own empty compliance folder."""
     import screener
-    from uvalu.compliance import settings_audit, signal_history
+    from uvalu.compliance import admin_access, settings_audit, signal_history
     d = tmp_path / "compliance"
+    monkeypatch.setattr(admin_access, "ACCESS_FILE", d / "admin_access.jsonl")
     monkeypatch.setattr(signal_history, "HISTORY_FILE", d / "signal_history.jsonl")
     monkeypatch.setattr(signal_history, "SNAPSHOT_DIR", d / "signal_snapshots")
     monkeypatch.setattr(settings_audit, "AUDIT_FILE", d / "settings_audit.jsonl")

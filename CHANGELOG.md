@@ -57,6 +57,22 @@ full 24-hour data refresh before every stock carries its reporting currency.
 
 ### Added
 
+- Joining by invitation now starts with a short confirmation step: country
+  of residence (European Economic Area only) and three statements, ticked
+  by the invitee (18 or older; read the terms of use and the privacy notice;
+  the no-personal-advice acknowledgement). The answers are stored with the
+  version of each text and the time, and Settings › Legal documents shows
+  what you accepted and when.
+- A record of every administrator action on another user's account
+  (password reset link, two-step reset, role or status change, sign-out,
+  deletion, backup restore), kept 24 months under pseudonymous ids.
+- Invitations that were never accepted are deleted 30 days after they
+  expire.
+- Beta privacy notice 1.4, effective 28 October 2026: the confirmation
+  record, the administrator action record, the per-address sign-in limit
+  and what a reset link allows.
+- Drafts of the GDPR paperwork in `docs/legal/gdpr/`: record of processing,
+  legitimate-interest notes and a DPIA screening.
 - A limit per network address on failed sign-ins: 20 failed attempts from
   one address within 15 minutes block that address for the rest of the
   window, whatever accounts were tried. Like the account lock, it shows the

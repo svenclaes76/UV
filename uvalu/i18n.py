@@ -1222,6 +1222,14 @@ def language_name(lang: str, *, in_lang: str | None = None) -> str:
     return name[:1].upper() + name[1:]
 
 
+def country_name(code: str, *, in_lang: str | None = None) -> str:
+    """'BE' → 'België' in the UI language (CLDR); the code when unknown."""
+    try:
+        return _locale(in_lang or current().lang).territories.get(code, code)
+    except (UnknownLocaleError, ValueError):
+        return code
+
+
 def region_name(region: str, *, in_lang: str | None = None) -> str:
     """'nl-BE' → 'België (Nederlands) — 1.234,56', names in the UI language."""
     ui = in_lang or current().lang

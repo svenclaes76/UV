@@ -189,6 +189,7 @@ class TestLogin:
         auth.register("admin@example.com", "password123")
         ok, msg, token = auth.invite_user("new@example.com", role="Viewer")
         assert ok
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_password(token, "a-real-password")
         users = auth._load_users()
         assert users["new@example.com"]["status"] == "Active"
@@ -429,6 +430,83 @@ class TestPerIpLimit:
         assert auth._ip_failures == {}
 
 
+
+class TestPurgeExpiredInvites:
+    """L17: unaccepted invitations go 30 days after they expire."""
+
+    def _age_invite(self, email, days_expired):
+        from datetime import datetime, timedelta, timezone
+        users = auth._load_users()
+        users[email]["invite_token_expires"] = (
+            datetime.now(timezone.utc) - timedelta(days=days_expired)).isoformat()
+        auth._save_users(users)
+
+    def test_long_expired_invitation_is_removed(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("old@example.com")
+        self._age_invite("old@example.com", 31)
+        assert auth.purge_expired_invites() == ["old@example.com"]
+        assert "old@example.com" not in auth._load_users()
+
+    def test_recently_expired_or_pending_invitations_stay(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("recent@example.com")
+        auth.invite_user("pending@example.com")
+        self._age_invite("recent@example.com", 29)
+        assert auth.purge_expired_invites() == []
+        assert {"recent@example.com", "pending@example.com"} <= set(auth._load_users())
+
+    def test_an_accepted_account_is_never_removed(self):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("joined@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
+        ok, _ = auth.accept_invite_with_password(token, "a-real-password")
+        assert ok
+        self._age_invite("joined@example.com", 90)
+        assert auth.purge_expired_invites() == []
+
+    def test_a_purged_email_can_be_invited_again(self):
+        auth.register("admin@example.com", "password123")
+        auth.invite_user("old@example.com")
+        self._age_invite("old@example.com", 31)
+        ok, _, token = auth.invite_user("old@example.com")
+        assert ok and token
+
+
+
+class TestInviteConsent:
+    """L1: no account is created without the recorded statements."""
+
+    def test_acceptance_is_refused_without_consent(self):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("new@example.com")
+        ok, msg = auth.accept_invite_with_password(token, "a-real-password")
+        assert not ok and "Confirm the statements" in msg
+        ok, msg = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "s", "new@example.com")
+        assert not ok and "Confirm the statements" in msg
+
+    def test_country_outside_the_eea_is_refused(self):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("new@example.com")
+        ok, msg = auth.record_invite_consent(token, country="CH", versions={})
+        assert not ok and "European Economic Area" in msg
+        ok, msg = auth.record_invite_consent(token, country="US", versions={})
+        assert not ok
+
+    def test_consent_is_stored_with_versions_and_survives_acceptance(self):
+        auth.register("admin@example.com", "password123")
+        _, _, token = auth.invite_user("new@example.com")
+        ok, _ = auth.record_invite_consent(token, country="NL",
+                                           versions={"terms": "beta 1.0", "privacy": "beta 1.4"})
+        assert ok
+        ok, _ = auth.accept_invite_with_password(token, "a-real-password")
+        assert ok
+        rec = auth.consent_record("new@example.com")
+        assert rec["terms"]["version"] == "beta 1.0" and rec["privacy"]["version"] == "beta 1.4"
+        assert all(r["at"] for r in rec.values())
+        assert auth._load_users()["new@example.com"]["country"] == "NL"
+
+
 class TestVerifyToken:
     def test_garbage_token_returns_none_none_none(self):
         email, role, sid = auth.verify_token("not-a-real-jwt")
@@ -513,7 +591,8 @@ class TestAcceptInvite:
     def test_get_pending_invite_returns_email_and_role(self):
         _, _, token = auth.invite_user("new@example.com", role="Viewer", invited_by="admin@example.com")
         invite = auth.get_pending_invite(token)
-        assert invite == {"email": "new@example.com", "role": "Viewer", "invited_by": "admin@example.com"}
+        assert invite == {"email": "new@example.com", "role": "Viewer", "invited_by": "admin@example.com",
+                          "consented": False}
 
     def test_unknown_token_returns_none(self):
         assert auth.get_pending_invite("not-a-real-token") is None
@@ -529,6 +608,7 @@ class TestAcceptInvite:
 
     def test_accept_with_password_activates_and_logs_in(self):
         _, _, token = auth.invite_user("new@example.com", role="Viewer")
+        auth.record_invite_consent(token, country="BE", versions={})
         ok, result = auth.accept_invite_with_password(token, "a-real-password")
         assert ok
         email, role, sid = auth.verify_token(result)
@@ -541,12 +621,14 @@ class TestAcceptInvite:
 
     def test_accept_with_password_can_then_log_in_normally(self):
         _, _, token = auth.invite_user("new@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_password(token, "a-real-password")
         ok, _ = auth.login("new@example.com", "a-real-password")
         assert ok
 
     def test_accept_with_short_password_fails(self):
         _, _, token = auth.invite_user("new@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         ok, msg = auth.accept_invite_with_password(token, "short")
         assert not ok
         assert "characters" in msg
@@ -558,6 +640,7 @@ class TestAcceptInvite:
 
     def test_accept_with_oauth_links_identity_and_logs_in(self):
         _, _, token = auth.invite_user("new@example.com", role="Analyst")
+        auth.record_invite_consent(token, country="BE", versions={})
         ok, result = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
                                                    "new@example.com")
         assert ok
@@ -573,6 +656,7 @@ class TestAcceptInvite:
 
     def test_accept_with_oauth_refuses_mismatched_email(self):
         _, _, token = auth.invite_user("invited@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         ok, msg = auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123",
                                                 "someone-else@example.com")
         assert not ok

@@ -140,7 +140,7 @@ class TestLegalPages:
         assert "<!--" not in md    # the drafting comment is not public
         # Header chips from the "**Version:** … · **Effective from:** …" line,
         # a section list, and the reference-language note only outside English.
-        assert "beta 1.3" in md and "Effective from" in md
+        assert "beta 1.4" in md and "Effective from" in md
         assert 'href="#sec-1"' in md and 'id="sec-1"' in md
         assert "Reference language" not in md
 

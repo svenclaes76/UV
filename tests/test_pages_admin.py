@@ -312,6 +312,7 @@ class TestUsersTable2FAColumn:
     def test_provider_only_account_shows_provider_badge(self, isolated_data, monkeypatch):
         auth.register("admin@example.com", "password123")
         _, _, token = auth.invite_user("invited@example.com")
+        auth.record_invite_consent(token, country="BE", versions={})
         auth.accept_invite_with_oauth(token, "https://accounts.google.com", "sub-123", "invited@example.com")
         at = _run(monkeypatch, role="Admin")
         html = "".join(m.value for m in at.markdown)
@@ -357,6 +358,9 @@ class TestUsersRowSecurityActions:
         reset_btn.click().run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert not auth.is_totp_enabled("second@example.com")
+        # L16: the action is in the 24-month admin access record.
+        from uvalu.compliance import admin_access
+        assert [r["action"] for r in admin_access.for_user("second@example.com")] == ["reset_two_factor"]
 
     def test_sign_out_all_sessions_revokes_every_session(self, isolated_data, monkeypatch):
         auth.register("admin@example.com", "password123")

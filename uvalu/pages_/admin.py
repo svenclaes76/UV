@@ -180,8 +180,21 @@ def _dlg_restore(backup_id: str, created: str, email: str):
     if _do_restore:
         with st.spinner("Restoring…"):
             restore_backup(backup_id, email)
+        _record_access(email, "restore_backup", detail=backup_id)
         st.session_state["_admin_restore_done"] = {"id": backup_id, "created": created}
         st.rerun()
+
+
+def _record_access(target_email: str, action: str, detail: str = "") -> None:
+    """L16: keep a 24-month record of an admin action on another user's
+    account or data (uvalu/compliance/admin_access.py). Never blocks the
+    action: a failed write is logged."""
+    try:
+        from uvalu.compliance import admin_access
+        admin_access.record(current_user().email, target_email, action, detail=detail)
+    except Exception:
+        logkit.get_logger("uvalu.admin").error("admin access record failed", exc_info=True,
+                                               extra={"event": "compliance.admin_access_failed"})
 
 
 @st.dialog("Send password reset", width="large")
@@ -191,6 +204,7 @@ def _dlg_reset_password(email: str):
     if st.button("Generate reset link", key="admin_reset_pw_submit", type="primary", width="stretch"):
         ok, msg, token = admin_request_password_reset(email, requested_by=current_user().email)
         if ok:
+            _record_access(email, "reset_link")
             st.success(msg)
             st.code(f"{st.context.url}?reset={token}", language=None)
             st.caption("Reset link — shown once. Copy it now. Valid for 30 minutes.")
@@ -272,6 +286,8 @@ def _render_users() -> None:
                                              disabled=(u["email"] == _current_email))
                     if _new_role != u["role"]:
                         _ok, _msg = set_role(u["email"], _new_role)
+                        if _ok:
+                            _record_access(u["email"], "role_change", detail=f"{u['role']} → {_new_role}")
                         if not _ok:
                             # st.toast, not st.error — survives the rerun
                             # below (same reasoning as the feed-toggle revert
@@ -306,8 +322,11 @@ def _render_users() -> None:
                         with _ac1:
                             _label = "Reactivate" if u["status"] == "Suspended" else "Suspend"
                             if st.button(_label, key=f"admin_toggle_{u['email']}", width="stretch"):
-                                _ok, _msg = set_status(
-                                    u["email"], "Active" if u["status"] == "Suspended" else "Suspended")
+                                _new_status = "Active" if u["status"] == "Suspended" else "Suspended"
+                                _ok, _msg = set_status(u["email"], _new_status)
+                                if _ok:
+                                    _record_access(u["email"], "status_change",
+                                                   detail=f"{u['status']} → {_new_status}")
                                 if not _ok:
                                     st.toast(_msg, icon=":material/warning:")
                                 st.rerun()
@@ -320,17 +339,23 @@ def _render_users() -> None:
                                     if st.button("Reset two-factor", key=f"admin_reset_totp_{u['email']}",
                                                 width="stretch"):
                                         _ok, _msg = admin_reset_totp(u["email"])
+                                        if _ok:
+                                            _record_access(u["email"], "reset_two_factor")
                                         st.toast(_msg, icon=None if _ok else ":material/warning:")
                                         st.rerun()
                                 if st.button("Sign out all sessions", key=f"admin_signout_all_{u['email']}",
                                             width="stretch"):
                                     _ok, _msg = revoke_other_sessions(u["email"], keep_sid=None)
+                                    if _ok:
+                                        _record_access(u["email"], "sign_out_sessions")
                                     st.toast(_msg, icon=None if _ok else ":material/warning:")
                                     st.rerun()
                                 st.caption(f"Delete {u['email']}? This cannot be undone.")
                                 if st.button("Delete account", key=f"admin_delete_{u['email']}", type="primary"):
                                     # All of the account's data, not just its login record.
                                     _ok, _msg = delete_account(u["email"])
+                                    if _ok:
+                                        _record_access(u["email"], "delete_account")
                                     if not _ok:
                                         st.toast(_msg, icon=":material/warning:")
                                     st.rerun()

@@ -18,13 +18,17 @@ removed at once, the account's backups at once, migration snapshots after 30 day
 export in Settings now also carries account details and settings. Effective at once: the change only adds a
 way to use a right (section 11). Before publishing, confirm the offsite Storage Box backups rotate within
 30 days.
-Implementation needed before the beta opens: invite records deleted 30 days after expiry; admin-access record.
+14 October 2026 (beta 1.4): the consent step (country of residence and acceptance records, L1), the admin
+action record kept 24 months (L16), the per-IP sign-in limit (IP in memory 15 minutes), the reset-link line
+(L10). Invite records are now deleted 30 days after expiry (L17), as section 2 already said. Adds processing,
+so effective 14 days after notice (section 11): 28 October 2026. Still blocked from publishing to anyone new
+until the mailbox provider (section 4, open item L5) is filled in.
 Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Launch".
 -->
 
 # Privacy notice — free beta
 
-**Version:** beta 1.3 · **Effective from:** 11 October 2026
+**Version:** beta 1.4 · **Effective from:** 28 October 2026
 
 This notice explains which personal data Uvalu collects, why, how long we keep it and what your rights are.
 
@@ -42,10 +46,12 @@ We have not appointed a data protection officer, because the law does not requir
 | --- | --- | --- | --- |
 | Your email address and, if given, your name, entered by the founder to invite you | Sending you an invitation to the beta | Legitimate interest (inviting people we know to test Uvalu) | Until you accept; if you do not, deleted 30 days after the invitation expires |
 | Email address, password (stored only as a hash), language | Creating and securing your account | Contract | Until you delete your account, plus 30 days |
+| Your country of residence, and the record of what you confirmed when you joined (that you are 18 or older, that you read the terms of use and this notice, and the no-personal-advice acknowledgement), each with the version of the text and the time | Proof of agreement; checking that you may use Uvalu (residents of the European Economic Area, 18 or older) | Legitimate interest | Until you delete your account, plus 30 days |
 | Two-step verification data: authenticator secret, backup codes, trusted devices | Securing your account | Contract | Until you remove them or delete your account |
 | Portfolio data you enter: holdings, transactions, dividends, cash entries, watchlists, notes | Providing portfolio and risk features | Contract | Until you delete it or your account, plus 30 days |
 | Settings and preferences | Providing the service as you configured it | Contract | Until you delete your account, plus 30 days |
-| Security logs: login time, device and browser type, failed logins, administrator access to accounts, and the IP address where our web server records it | Security, fraud prevention, troubleshooting | Legitimate interest | 31 days |
+| Security logs: login time, device and browser type, failed logins, and the IP address where our web server records it | Security, fraud prevention, troubleshooting | Legitimate interest | 31 days. The IP address of a failed sign-in is also kept in memory for 15 minutes, to limit repeated attempts from one address |
+| A record of each administrator action on your account (for example a password reset link, a two-step verification reset, a change of role or status, a deletion or a backup restore), under a pseudonymous identifier, with the time | Accountability for how your account is handled | Legitimate interest; legal obligation | 24 months |
 | Support messages and complaints | Answering your questions and complaints | Contract; legitimate interest | 2 years after the case is closed |
 
 We do **not** ask for or store: national register numbers, bank account numbers, payment card numbers, or login details for your broker or bank.
@@ -83,7 +89,8 @@ All data processed by us and our service providers listed above stays within the
 - Encryption in transit and at rest, including backups
 - Passwords stored only as salted hashes (bcrypt); two-step verification with an authenticator app available
 - New passwords checked against a public list of breached passwords (Have I Been Pwned): only the first five characters of the password's hash are sent, never the password itself, your email address or anything else that identifies you
-- Access by role: the founder, as the only administrator, accesses a user's data only when needed for support, security or a legal obligation, and records each such access
+- Access by role: the founder, as the only administrator, accesses a user's data only when needed for support, security or a legal obligation. Each administrator action on an account is recorded and kept for 24 months (see section 2)
+- If you can't sign in, the administrator can give you a password reset link. Whoever holds such a link can set a new password, so it could be used to take over the account: a link is shown once, works for 30 minutes and is recorded
 - A documented procedure for security incidents
 
 If a data breach is likely to put you at high risk, we tell you without undue delay.
